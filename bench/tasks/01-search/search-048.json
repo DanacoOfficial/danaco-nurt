@@ -1,0 +1,41 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-048",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Show the first line of logs/app.log that contains 'WARN', with two lines of context before and after it.",
+  "fs_before": {
+    "fixture": "web-logs"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "2026-10-03T10:00:01Z INFO  server started on port 8080",
+        "2026-10-03T10:00:05Z INFO  connected to database inventory",
+        "2026-10-03T10:02:17Z WARN  slow query: 1840 ms",
+        "2026-10-03T10:03:44Z ERROR payment gateway timeout after 30 s",
+        "2026-10-03T10:04:02Z INFO  retry 1 of 3"
+      ],
+      "not_contains": [
+        "2026-10-03T10:04:09Z ERROR payment gateway timeout after 30 s",
+        "2026-10-03T10:05:30Z WARN  cache miss ratio 0.41",
+        "2026-10-03T10:07:12Z INFO  order 5512 shipped",
+        "2026-10-03T10:09:55Z ERROR disk quota exceeded on /var/spool/app",
+        "2026-10-03T10:11:00Z INFO  server stopping"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"WARN\" \"logs/app.log\" mode: literal context: 2 |> first 1 |> sort line order: desc |> first 1",
+  "reference_bash": "n=$(grep -nF -- 'WARN' logs/app.log | sed -n '1p' | cut -d: -f1); sed -n \"$((n > 2 ? n - 2 : 1)),$((n + 2))p\" logs/app.log\n",
+  "tags": [
+    "context",
+    "logs"
+  ],
+  "license": "CC-BY-4.0"
+}

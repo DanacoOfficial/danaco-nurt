@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-051",
+  "domain": 4,
+  "split": "public",
+  "platform": "windows",
+  "nl": "In web.config, set the debug attribute of compilation to \"false\". Keep the rest of the document unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "web.config",
+        "type": "file",
+        "content_utf8": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<configuration>\r\n  <appSettings>\r\n    <add key=\"Environment\" value=\"Staging\" />\r\n    <add key=\"CacheMinutes\" value=\"10\" />\r\n  </appSettings>\r\n  <system.web><compilation debug=\"true\" /></system.web>\r\n</configuration>\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "web.config": {
+        "text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<configuration>\r\n  <appSettings>\r\n    <add key=\"Environment\" value=\"Staging\" />\r\n    <add key=\"CacheMinutes\" value=\"10\" />\r\n  </appSettings>\r\n  <system.web><compilation debug=\"false\" /></system.web>\r\n</configuration>\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"debug=\\\"true\\\"\" \"debug=\\\"false\\\"\" in: [\"web.config\"] mode: literal expect: 1",
+  "reference_pwsh": "$p = Join-Path $PWD 'web.config'; $t = [IO.File]::ReadAllText($p); [IO.File]::WriteAllText($p, $t.Replace('debug=\"true\"', 'debug=\"false\"'))\n",
+  "tags": [
+    "xml"
+  ],
+  "license": "CC-BY-4.0"
+}

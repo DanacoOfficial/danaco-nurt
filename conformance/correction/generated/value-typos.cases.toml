@@ -1,0 +1,1099 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Typing errors in enumeration values.
+# Written by conformance/tools/generate_correction.py; edit the generator, not this file.
+
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = 'correction/generated/value-typos/analyze-check/fail-on-erorr'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value erorr of fail_on is within the distance threshold of error only.'
+method = "correct"
+program = 'analyze.check "/home/user/app" fail_on: erorr'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" fail_on: error'
+corrections = [{ rule = 'V01', class = 'F', from = 'erorr', to = 'error' }]
+
+[[case]]
+id = 'correction/generated/value-typos/analyze-check/min-severity-ifno'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ifno of min_severity is within the distance threshold of info only.'
+method = "correct"
+program = 'analyze.check "/home/user/app" min_severity: ifno'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" min_severity: info'
+corrections = [{ rule = 'V01', class = 'F', from = 'ifno', to = 'info' }]
+
+[[case]]
+id = 'correction/generated/value-typos/analyze-show/min-severity-ifno'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ifno of min_severity is within the distance threshold of info only.'
+method = "correct"
+program = 'analyze.show min_severity: ifno'
+
+[case.expect]
+program = 'analyze.show min_severity: info'
+corrections = [{ rule = 'V01', class = 'F', from = 'ifno', to = 'info' }]
+
+[[case]]
+id = 'correction/generated/value-typos/archive-create/format-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of format is within the distance threshold of auto only.'
+method = "correct"
+program = 'find "/home/user/app" |> archive.create "/home/user/a.zip" format: atuo'
+
+[case.expect]
+program = 'find "/home/user/app" |> archive.create "/home/user/a.zip" format: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/archive-extract/on-conflict-oevrwrite'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value oevrwrite of on_conflict is within the distance threshold of overwrite only.'
+method = "correct"
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" on_conflict: oevrwrite'
+
+[case.expect]
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" on_conflict: overwrite'
+corrections = [{ rule = 'V01', class = 'F', from = 'oevrwrite', to = 'overwrite' }]
+
+[[case]]
+id = 'correction/generated/value-typos/code-call-hierarchy/direction-btoh'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value btoh of direction is within the distance threshold of both only.'
+method = "correct"
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 direction: btoh'
+
+[case.expect]
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 direction: both'
+corrections = [{ rule = 'V01', class = 'F', from = 'btoh', to = 'both' }]
+
+[[case]]
+id = 'correction/generated/value-typos/code-diagnostics/severity-hnit'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value hnit of severity is within the distance threshold of hint only.'
+method = "correct"
+program = 'code.diagnostics "/home/user/app/src" severity: hnit'
+
+[case.expect]
+program = 'code.diagnostics "/home/user/app/src" severity: hint'
+corrections = [{ rule = 'V01', class = 'F', from = 'hnit', to = 'hint' }]
+
+[[case]]
+id = 'correction/generated/value-typos/code-diagnostics/source-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of source is within the distance threshold of auto only.'
+method = "correct"
+program = 'code.diagnostics "/home/user/app/src" source: atuo'
+
+[case.expect]
+program = 'code.diagnostics "/home/user/app/src" source: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/code-references/scope-porject'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value porject of scope is within the distance threshold of project only.'
+method = "correct"
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 scope: porject'
+
+[case.expect]
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 scope: project'
+corrections = [{ rule = 'V01', class = 'F', from = 'porject', to = 'project' }]
+
+[[case]]
+id = 'correction/generated/value-typos/code-rename/scope-porject'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value porject of scope is within the distance threshold of project only.'
+method = "correct"
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" scope: porject'
+
+[case.expect]
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" scope: project'
+corrections = [{ rule = 'V01', class = 'F', from = 'porject', to = 'project' }]
+
+[[case]]
+id = 'correction/generated/value-typos/code-rename/source-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of source is within the distance threshold of auto only.'
+method = "correct"
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" source: atuo'
+
+[case.expect]
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" source: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/code-symbols/match-fzuzy'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value fzuzy of match is within the distance threshold of fuzzy only.'
+method = "correct"
+program = 'code.symbols "parse" path: ["/home/user/app/src"] match: fzuzy'
+
+[case.expect]
+program = 'code.symbols "parse" path: ["/home/user/app/src"] match: fuzzy'
+corrections = [{ rule = 'V01', class = 'F', from = 'fzuzy', to = 'fuzzy' }]
+
+[[case]]
+id = 'correction/generated/value-typos/code-symbols/source-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of source is within the distance threshold of auto only.'
+method = "correct"
+program = 'code.symbols "parse" path: ["/home/user/app/src"] source: atuo'
+
+[case.expect]
+program = 'code.symbols "parse" path: ["/home/user/app/src"] source: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/compress/algorithm-gizp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value gizp of algorithm is within the distance threshold of gzip only.'
+method = "correct"
+program = 'compress "/home/user/app/a.log" algorithm: gizp'
+
+[case.expect]
+program = 'compress "/home/user/app/a.log" algorithm: gzip'
+corrections = [{ rule = 'V01', class = 'F', from = 'gizp', to = 'gzip' }]
+
+[[case]]
+id = 'correction/generated/value-typos/copy/on-conflict-oevrwrite'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value oevrwrite of on_conflict is within the distance threshold of overwrite only.'
+method = "correct"
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_conflict: oevrwrite'
+
+[case.expect]
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_conflict: overwrite'
+corrections = [{ rule = 'V01', class = 'F', from = 'oevrwrite', to = 'overwrite' }]
+
+[[case]]
+id = 'correction/generated/value-typos/copy/clone-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of clone is within the distance threshold of auto only.'
+method = "correct"
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" clone: atuo'
+
+[case.expect]
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" clone: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/create/on-exists-sikp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sikp of on_exists is within the distance threshold of skip only.'
+method = "correct"
+program = 'create "/home/user/app/out" type: directory on_exists: sikp'
+
+[case.expect]
+program = 'create "/home/user/app/out" type: directory on_exists: skip'
+corrections = [{ rule = 'V01', class = 'F', from = 'sikp', to = 'skip' }]
+
+[[case]]
+id = 'correction/generated/value-typos/edit/whitespace-nromalize'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value nromalize of whitespace is within the distance threshold of normalize only.'
+method = "correct"
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] whitespace: nromalize'
+
+[case.expect]
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] whitespace: normalize'
+corrections = [{ rule = 'V01', class = 'F', from = 'nromalize', to = 'normalize' }]
+
+[[case]]
+id = 'correction/generated/value-typos/edit/on-missing-sikp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sikp of on_missing is within the distance threshold of skip only.'
+method = "correct"
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] on_missing: sikp'
+
+[case.expect]
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] on_missing: skip'
+corrections = [{ rule = 'V01', class = 'F', from = 'sikp', to = 'skip' }]
+
+[[case]]
+id = 'correction/generated/value-typos/edit/validate-rjeect'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value rjeect of validate is within the distance threshold of reject only.'
+method = "correct"
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] validate: rjeect'
+
+[case.expect]
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] validate: reject'
+corrections = [{ rule = 'V01', class = 'F', from = 'rjeect', to = 'reject' }]
+
+[[case]]
+id = 'correction/generated/value-typos/environment/scope-porcess'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value porcess of scope is within the distance threshold of process only.'
+method = "correct"
+program = 'environment scope: porcess'
+
+[case.expect]
+program = 'environment scope: process'
+corrections = [{ rule = 'V01', class = 'F', from = 'porcess', to = 'process' }]
+
+[[case]]
+id = 'correction/generated/value-typos/find/type-flie'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value flie of type is within the distance threshold of file only.'
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" type: flie'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" type: file'
+corrections = [{ rule = 'V01', class = 'F', from = 'flie', to = 'file' }]
+
+[[case]]
+id = 'correction/generated/value-typos/find/sort-ptah'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ptah of sort is within the distance threshold of path only.'
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" sort: ptah'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" sort: path'
+corrections = [{ rule = 'V01', class = 'F', from = 'ptah', to = 'path' }]
+
+[[case]]
+id = 'correction/generated/value-typos/find/view-falt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value falt of view is within the distance threshold of flat only.'
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" view: falt'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" view: flat'
+corrections = [{ rule = 'V01', class = 'F', from = 'falt', to = 'flat' }]
+
+[[case]]
+id = 'correction/generated/value-typos/git-merge/action-satrt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value satrt of action is within the distance threshold of start only.'
+method = "correct"
+program = 'git.merge "/home/user/app" branch: "feature" action: satrt'
+
+[case.expect]
+program = 'git.merge "/home/user/app" branch: "feature" action: start'
+corrections = [{ rule = 'V01', class = 'F', from = 'satrt', to = 'start' }]
+
+[[case]]
+id = 'correction/generated/value-typos/git-merge/fast-forward-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of fast_forward is within the distance threshold of auto only.'
+method = "correct"
+program = 'git.merge "/home/user/app" branch: "feature" fast_forward: atuo'
+
+[case.expect]
+program = 'git.merge "/home/user/app" branch: "feature" fast_forward: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/git-rebase/action-satrt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value satrt of action is within the distance threshold of start only.'
+method = "correct"
+program = 'git.rebase "/home/user/app" onto: "main" action: satrt'
+
+[case.expect]
+program = 'git.rebase "/home/user/app" onto: "main" action: start'
+corrections = [{ rule = 'V01', class = 'F', from = 'satrt', to = 'start' }]
+
+[[case]]
+id = 'correction/generated/value-typos/git-reset/mode-mxied'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value mxied of mode is within the distance threshold of mixed only.'
+method = "correct"
+program = 'git.reset "/home/user/app" revision: "HEAD~1" mode: mxied'
+
+[case.expect]
+program = 'git.reset "/home/user/app" revision: "HEAD~1" mode: mixed'
+corrections = [{ rule = 'V01', class = 'F', from = 'mxied', to = 'mixed' }]
+
+[[case]]
+id = 'correction/generated/value-typos/git-status/untracked-nromal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value nromal of untracked is within the distance threshold of normal only.'
+method = "correct"
+program = 'git.status "/home/user/app" untracked: nromal'
+
+[case.expect]
+program = 'git.status "/home/user/app" untracked: normal'
+corrections = [{ rule = 'V01', class = 'F', from = 'nromal', to = 'normal' }]
+
+[[case]]
+id = 'correction/generated/value-typos/hash/algorithm-sah256'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sah256 of algorithm is within the distance threshold of sha256 only.'
+method = "correct"
+program = 'hash "/home/user/app/a.txt" algorithm: sah256'
+
+[case.expect]
+program = 'hash "/home/user/app/a.txt" algorithm: sha256'
+corrections = [{ rule = 'V01', class = 'F', from = 'sah256', to = 'sha256' }]
+
+[[case]]
+id = 'correction/generated/value-typos/help/kind-cmomand'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value cmomand of kind is within the distance threshold of command only.'
+method = "correct"
+program = 'help "find" kind: cmomand'
+
+[case.expect]
+program = 'help "find" kind: command'
+corrections = [{ rule = 'V01', class = 'F', from = 'cmomand', to = 'command' }]
+
+[[case]]
+id = 'correction/generated/value-typos/http-request/extract-cnotent'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value cnotent of extract is within the distance threshold of content only.'
+method = "correct"
+program = 'http.request "https://example.com/api" extract: cnotent'
+
+[case.expect]
+program = 'http.request "https://example.com/api" extract: content'
+corrections = [{ rule = 'V01', class = 'F', from = 'cnotent', to = 'content' }]
+
+[[case]]
+id = 'correction/generated/value-typos/http-request/links-ilnine'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ilnine of links is within the distance threshold of inline only.'
+method = "correct"
+program = 'http.request "https://example.com/api" links: ilnine'
+
+[case.expect]
+program = 'http.request "https://example.com/api" links: inline'
+corrections = [{ rule = 'V01', class = 'F', from = 'ilnine', to = 'inline' }]
+
+[[case]]
+id = 'correction/generated/value-typos/http-request/outline-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of outline is within the distance threshold of auto only.'
+method = "correct"
+program = 'http.request "https://example.com/api" outline: atuo'
+
+[case.expect]
+program = 'http.request "https://example.com/api" outline: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/http-request/cache-bpyass'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value bpyass of cache is within the distance threshold of bypass only.'
+method = "correct"
+program = 'http.request "https://example.com/api" cache: bpyass'
+
+[case.expect]
+program = 'http.request "https://example.com/api" cache: bypass'
+corrections = [{ rule = 'V01', class = 'F', from = 'bpyass', to = 'bypass' }]
+
+[[case]]
+id = 'correction/generated/value-typos/info/hash-nnoe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value nnoe of hash is within the distance threshold of none only.'
+method = "correct"
+program = 'info "/home/user/app/a.txt" hash: nnoe'
+
+[case.expect]
+program = 'info "/home/user/app/a.txt" hash: none'
+corrections = [{ rule = 'V01', class = 'F', from = 'nnoe', to = 'none' }]
+
+[[case]]
+id = 'correction/generated/value-typos/insert/position-atfer'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atfer of position is within the distance threshold of after only.'
+method = "correct"
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 position: atfer'
+
+[case.expect]
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 position: after'
+corrections = [{ rule = 'V01', class = 'F', from = 'atfer', to = 'after' }]
+
+[[case]]
+id = 'correction/generated/value-typos/insert/validate-rjeect'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value rjeect of validate is within the distance threshold of reject only.'
+method = "correct"
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 validate: rjeect'
+
+[case.expect]
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 validate: reject'
+corrections = [{ rule = 'V01', class = 'F', from = 'rjeect', to = 'reject' }]
+
+[[case]]
+id = 'correction/generated/value-typos/jobs/stream-btoh'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value btoh of stream is within the distance threshold of both only.'
+method = "correct"
+program = 'jobs stream: btoh'
+
+[case.expect]
+program = 'jobs stream: both'
+corrections = [{ rule = 'V01', class = 'F', from = 'btoh', to = 'both' }]
+
+[[case]]
+id = 'correction/generated/value-typos/jobs/view-sattus'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sattus of view is within the distance threshold of status only.'
+method = "correct"
+program = 'jobs view: sattus'
+
+[case.expect]
+program = 'jobs view: status'
+corrections = [{ rule = 'V01', class = 'F', from = 'sattus', to = 'status' }]
+
+[[case]]
+id = 'correction/generated/value-typos/journal-limits/scope-ssesion'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ssesion of scope is within the distance threshold of session only.'
+method = "correct"
+program = 'journal.limits scope: ssesion'
+
+[case.expect]
+program = 'journal.limits scope: session'
+corrections = [{ rule = 'V01', class = 'F', from = 'ssesion', to = 'session' }]
+
+[[case]]
+id = 'correction/generated/value-typos/list/sort-nmae'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value nmae of sort is within the distance threshold of name only.'
+method = "correct"
+program = 'list "/home/user/app" sort: nmae'
+
+[case.expect]
+program = 'list "/home/user/app" sort: name'
+corrections = [{ rule = 'V01', class = 'F', from = 'nmae', to = 'name' }]
+
+[[case]]
+id = 'correction/generated/value-typos/list/view-falt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value falt of view is within the distance threshold of flat only.'
+method = "correct"
+program = 'list "/home/user/app" view: falt'
+
+[case.expect]
+program = 'list "/home/user/app" view: flat'
+corrections = [{ rule = 'V01', class = 'F', from = 'falt', to = 'flat' }]
+
+[[case]]
+id = 'correction/generated/value-typos/logs/level-ifno'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ifno of level is within the distance threshold of info only.'
+method = "correct"
+program = 'logs level: ifno'
+
+[case.expect]
+program = 'logs level: info'
+corrections = [{ rule = 'V01', class = 'F', from = 'ifno', to = 'info' }]
+
+[[case]]
+id = 'correction/generated/value-typos/move/on-conflict-oevrwrite'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value oevrwrite of on_conflict is within the distance threshold of overwrite only.'
+method = "correct"
+program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_conflict: oevrwrite'
+
+[case.expect]
+program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_conflict: overwrite'
+corrections = [{ rule = 'V01', class = 'F', from = 'oevrwrite', to = 'overwrite' }]
+
+[[case]]
+id = 'correction/generated/value-typos/notebook-cells/outputs-nnoe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value nnoe of outputs is within the distance threshold of none only.'
+method = "correct"
+program = 'notebook.cells "/home/user/app/a.ipynb" outputs: nnoe'
+
+[case.expect]
+program = 'notebook.cells "/home/user/app/a.ipynb" outputs: none'
+corrections = [{ rule = 'V01', class = 'F', from = 'nnoe', to = 'none' }]
+
+[[case]]
+id = 'correction/generated/value-typos/notebook-cells/scope-suorce'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value suorce of scope is within the distance threshold of source only.'
+method = "correct"
+program = 'notebook.cells "/home/user/app/a.ipynb" scope: suorce'
+
+[case.expect]
+program = 'notebook.cells "/home/user/app/a.ipynb" scope: source'
+corrections = [{ rule = 'V01', class = 'F', from = 'suorce', to = 'source' }]
+
+[[case]]
+id = 'correction/generated/value-typos/notebook-cells/view-otuline'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value otuline of view is within the distance threshold of outline only.'
+method = "correct"
+program = 'notebook.cells "/home/user/app/a.ipynb" view: otuline'
+
+[case.expect]
+program = 'notebook.cells "/home/user/app/a.ipynb" view: outline'
+corrections = [{ rule = 'V01', class = 'F', from = 'otuline', to = 'outline' }]
+
+[[case]]
+id = 'correction/generated/value-typos/package-install/manager-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of manager is within the distance threshold of auto only.'
+method = "correct"
+program = 'package.install ["curl"] manager: atuo'
+
+[case.expect]
+program = 'package.install ["curl"] manager: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/package-list/manager-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of manager is within the distance threshold of auto only.'
+method = "correct"
+program = 'package.list manager: atuo'
+
+[case.expect]
+program = 'package.list manager: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/package-remove/manager-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of manager is within the distance threshold of auto only.'
+method = "correct"
+program = 'package.remove ["curl"] manager: atuo'
+
+[case.expect]
+program = 'package.remove ["curl"] manager: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/package-search/manager-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of manager is within the distance threshold of auto only.'
+method = "correct"
+program = 'package.search "curl" manager: atuo'
+
+[case.expect]
+program = 'package.search "curl" manager: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/package-upgrade/manager-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of manager is within the distance threshold of auto only.'
+method = "correct"
+program = 'package.upgrade manager: atuo'
+
+[case.expect]
+program = 'package.upgrade manager: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/patch/validate-rjeect'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value rjeect of validate is within the distance threshold of reject only.'
+method = "correct"
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" validate: rjeect'
+
+[case.expect]
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" validate: reject'
+corrections = [{ rule = 'V01', class = 'F', from = 'rjeect', to = 'reject' }]
+
+[[case]]
+id = 'correction/generated/value-typos/ports/state-lsiten'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value lsiten of state is within the distance threshold of listen only.'
+method = "correct"
+program = 'ports state: lsiten'
+
+[case.expect]
+program = 'ports state: listen'
+corrections = [{ rule = 'V01', class = 'F', from = 'lsiten', to = 'listen' }]
+
+[[case]]
+id = 'correction/generated/value-typos/read/view-flul'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value flul of view is within the distance threshold of full only.'
+method = "correct"
+program = 'read "/home/user/app/a.txt" view: flul'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" view: full'
+corrections = [{ rule = 'V01', class = 'F', from = 'flul', to = 'full' }]
+
+[[case]]
+id = 'correction/generated/value-typos/read/mode-txet'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value txet of mode is within the distance threshold of text only.'
+method = "correct"
+program = 'read "/home/user/app/a.txt" mode: txet'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" mode: text'
+corrections = [{ rule = 'V01', class = 'F', from = 'txet', to = 'text' }]
+
+[[case]]
+id = 'correction/generated/value-typos/read/decompress-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of decompress is within the distance threshold of auto only.'
+method = "correct"
+program = 'read "/home/user/app/a.txt" decompress: atuo'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" decompress: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/remove/on-missing-sikp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sikp of on_missing is within the distance threshold of skip only.'
+method = "correct"
+program = 'remove "/home/user/app/a.txt" on_missing: sikp'
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt" on_missing: skip'
+corrections = [{ rule = 'V01', class = 'F', from = 'sikp', to = 'skip' }]
+
+[[case]]
+id = 'correction/generated/value-typos/rename/on-conflict-erorr'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value erorr of on_conflict is within the distance threshold of error only.'
+method = "correct"
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" on_conflict: erorr'
+
+[case.expect]
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" on_conflict: error'
+corrections = [{ rule = 'V01', class = 'F', from = 'erorr', to = 'error' }]
+
+[[case]]
+id = 'correction/generated/value-typos/replace/mode-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of mode is within the distance threshold of auto only.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] mode: atuo'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] mode: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/replace/whitespace-nromalize'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value nromalize of whitespace is within the distance threshold of normalize only.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] whitespace: nromalize'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] whitespace: normalize'
+corrections = [{ rule = 'V01', class = 'F', from = 'nromalize', to = 'normalize' }]
+
+[[case]]
+id = 'correction/generated/value-typos/replace/on-missing-sikp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sikp of on_missing is within the distance threshold of skip only.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] on_missing: sikp'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] on_missing: skip'
+corrections = [{ rule = 'V01', class = 'F', from = 'sikp', to = 'skip' }]
+
+[[case]]
+id = 'correction/generated/value-typos/replace/validate-rjeect'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value rjeect of validate is within the distance threshold of reject only.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] validate: rjeect'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] validate: reject'
+corrections = [{ rule = 'V01', class = 'F', from = 'rjeect', to = 'reject' }]
+
+[[case]]
+id = 'correction/generated/value-typos/replace/binary-sikp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sikp of binary is within the distance threshold of skip only.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] binary: sikp'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] binary: skip'
+corrections = [{ rule = 'V01', class = 'F', from = 'sikp', to = 'skip' }]
+
+[[case]]
+id = 'correction/generated/value-typos/run/show-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of show is within the distance threshold of auto only.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" show: atuo'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" show: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/run/track-changes-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of track_changes is within the distance threshold of auto only.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" track_changes: atuo'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" track_changes: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/run/priority-nromal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value nromal of priority is within the distance threshold of normal only.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" priority: nromal'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" priority: normal'
+corrections = [{ rule = 'V01', class = 'F', from = 'nromal', to = 'normal' }]
+
+[[case]]
+id = 'correction/generated/value-typos/schedule-create/on-missed-sikp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sikp of on_missed is within the distance threshold of skip only.'
+method = "correct"
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") on_missed: sikp'
+
+[case.expect]
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") on_missed: skip'
+corrections = [{ rule = 'V01', class = 'F', from = 'sikp', to = 'skip' }]
+
+[[case]]
+id = 'correction/generated/value-typos/schedule-create/overlap-sikp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sikp of overlap is within the distance threshold of skip only.'
+method = "correct"
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") overlap: sikp'
+
+[case.expect]
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") overlap: skip'
+corrections = [{ rule = 'V01', class = 'F', from = 'sikp', to = 'skip' }]
+
+[[case]]
+id = 'correction/generated/value-typos/search/mode-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of mode is within the distance threshold of auto only.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" mode: atuo'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" mode: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/search/output-mtaches'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value mtaches of output is within the distance threshold of matches only.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" output: mtaches'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" output: matches'
+corrections = [{ rule = 'V01', class = 'F', from = 'mtaches', to = 'matches' }]
+
+[[case]]
+id = 'correction/generated/value-typos/search/binary-sikp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value sikp of binary is within the distance threshold of skip only.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" binary: sikp'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" binary: skip'
+corrections = [{ rule = 'V01', class = 'F', from = 'sikp', to = 'skip' }]
+
+[[case]]
+id = 'correction/generated/value-typos/search/whitespace-eaxct'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value eaxct of whitespace is within the distance threshold of exact only.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" whitespace: eaxct'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" whitespace: exact'
+corrections = [{ rule = 'V01', class = 'F', from = 'eaxct', to = 'exact' }]
+
+[[case]]
+id = 'correction/generated/value-typos/search/sort-ptah'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ptah of sort is within the distance threshold of path only.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" sort: ptah'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" sort: path'
+corrections = [{ rule = 'V01', class = 'F', from = 'ptah', to = 'path' }]
+
+[[case]]
+id = 'correction/generated/value-typos/services/scope-ssytem'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value ssytem of scope is within the distance threshold of system only.'
+method = "correct"
+program = 'services scope: ssytem'
+
+[case.expect]
+program = 'services scope: system'
+corrections = [{ rule = 'V01', class = 'F', from = 'ssytem', to = 'system' }]
+
+[[case]]
+id = 'correction/generated/value-typos/set/format-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of format is within the distance threshold of auto only.'
+method = "correct"
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" format: atuo'
+
+[case.expect]
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" format: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/set/validate-rjeect'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value rjeect of validate is within the distance threshold of reject only.'
+method = "correct"
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" validate: rjeect'
+
+[case.expect]
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" validate: reject'
+corrections = [{ rule = 'V01', class = 'F', from = 'rjeect', to = 'reject' }]
+
+[[case]]
+id = 'correction/generated/value-typos/stop/signal-treminate'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value treminate of signal is within the distance threshold of terminate only.'
+method = "correct"
+program = 'jobs "j1" |> stop signal: treminate'
+
+[case.expect]
+program = 'jobs "j1" |> stop signal: terminate'
+corrections = [{ rule = 'V01', class = 'F', from = 'treminate', to = 'terminate' }]
+
+[[case]]
+id = 'correction/generated/value-typos/test-run/framework-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of framework is within the distance threshold of auto only.'
+method = "correct"
+program = 'test.run "/home/user/app" framework: atuo'
+
+[case.expect]
+program = 'test.run "/home/user/app" framework: auto'
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/undo/on-conflict-rpeort'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value rpeort of on_conflict is within the distance threshold of report only.'
+method = "correct"
+program = 'undo 3 on_conflict: rpeort'
+
+[case.expect]
+program = 'undo 3 on_conflict: report'
+corrections = [{ rule = 'V01', class = 'F', from = 'rpeort', to = 'report' }]
+
+[[case]]
+id = 'correction/generated/value-typos/write/line-ending-kepe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value kepe of line_ending is within the distance threshold of keep only.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create line_ending: kepe"
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create line_ending: keep"
+corrections = [{ rule = 'V01', class = 'F', from = 'kepe', to = 'keep' }]
+
+[[case]]
+id = 'correction/generated/value-typos/write/format-atuo'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value atuo of format is within the distance threshold of auto only.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create format: atuo"
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create format: auto"
+corrections = [{ rule = 'V01', class = 'F', from = 'atuo', to = 'auto' }]
+
+[[case]]
+id = 'correction/generated/value-typos/write/validate-rjeect'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The value rjeect of validate is within the distance threshold of reject only.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create validate: rjeect"
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create validate: reject"
+corrections = [{ rule = 'V01', class = 'F', from = 'rjeect', to = 'reject' }]

@@ -1,0 +1,43 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-022",
+  "domain": 5,
+  "split": "public",
+  "platform": "cross",
+  "nl": "In billing/pricing.py, introduce a module-level constant MAX_RETRIES = 3 after the module docstring (one blank line before it, two blank lines after it) and use it in place of the number 3 in the three calculations. The string \"3.0\" in version() stays unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "billing/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "billing/pricing.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Pricing helpers.\"\"\"\n\n\ndef gross(net):\n    return net * (1 + 3)\n\n\ndef tax(net):\n    return net * 3\n\n\ndef label(net):\n    return f\"{net} plus {net * 3:.2f}\"\n\n\ndef version():\n    return \"3.0\"\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "billing/pricing.py": {
+        "text": "\"\"\"Pricing helpers.\"\"\"\n\nMAX_RETRIES = 3\n\n\ndef gross(net):\n    return net * (1 + MAX_RETRIES)\n\n\ndef tax(net):\n    return net * MAX_RETRIES\n\n\ndef label(net):\n    return f\"{net} plus {net * MAX_RETRIES:.2f}\"\n\n\ndef version():\n    return \"3.0\"\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"billing/pricing.py\" changes: [{insert: \"MAX_RETRIES = 3\\n\", line: 3, position: before}]\nsearch /\\b3\\b(?!\\.0\")/ \"billing/pricing.py\" |> replace \"MAX_RETRIES\"",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('billing/pricing.py'); t = p.read_bytes().decode()\nassert t.count('\"\"\"Pricing helpers.\"\"\"\\n\\n') == 1, 'billing/pricing.py'\np.write_bytes(t.replace('\"\"\"Pricing helpers.\"\"\"\\n\\n', '\"\"\"Pricing helpers.\"\"\"\\n\\nMAX_RETRIES = 3\\n\\n').encode())\np = pathlib.Path('billing/pricing.py'); t = p.read_bytes().decode()\nassert t.count('(1 + 3)') == 1, 'billing/pricing.py'\np.write_bytes(t.replace('(1 + 3)', '(1 + MAX_RETRIES)').encode())\np = pathlib.Path('billing/pricing.py'); t = p.read_bytes().decode()\nassert t.count('net * 3\\n') == 1, 'billing/pricing.py'\np.write_bytes(t.replace('net * 3\\n', 'net * MAX_RETRIES\\n').encode())\np = pathlib.Path('billing/pricing.py'); t = p.read_bytes().decode()\nassert t.count('{net * 3:.2f}') == 1, 'billing/pricing.py'\np.write_bytes(t.replace('{net * 3:.2f}', '{net * MAX_RETRIES:.2f}').encode())\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'billing/pricing.py'; $t = [IO.File]::ReadAllText($p)\n$o = '\"\"\"Pricing helpers.\"\"\"\n\n'; $n = '\"\"\"Pricing helpers.\"\"\"\n\nMAX_RETRIES = 3\n\n'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in billing/pricing.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'billing/pricing.py'; $t = [IO.File]::ReadAllText($p)\n$o = '(1 + 3)'; $n = '(1 + MAX_RETRIES)'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in billing/pricing.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'billing/pricing.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'net * 3\n'; $n = 'net * MAX_RETRIES\n'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in billing/pricing.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'billing/pricing.py'; $t = [IO.File]::ReadAllText($p)\n$o = '{net * 3:.2f}'; $n = '{net * MAX_RETRIES:.2f}'\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in billing/pricing.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n",
+  "tags": [
+    "extract-constant",
+    "python"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,962 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+# Sources: list, find, info, read, lines, search.
+
+[[case]]
+id = "exec/core/list/one-level"
+kind = "exec"
+summary = "list returns the entries of one directory level in name order."
+fs_before = { entries = [
+  { path = "b.txt", type = "file", content_utf8 = "b" },
+  { path = "a.txt", type = "file", content_utf8 = "a" },
+  { path = "sub/c.txt", type = "file", content_utf8 = "c" },
+] }
+program = 'list "."'
+fs_after = "unchanged"
+expect = { report = { status = "ok", kind = "list", records = { type = "entry", matched = 3, rows = [
+  { kind = "entry", fields = { name = { t = "text", v = "a.txt" } } },
+  { kind = "entry", fields = { name = { t = "text", v = "b.txt" } } },
+  { kind = "entry", fields = { name = { t = "text", v = "sub" }, type = { t = "enum", v = "directory" } } },
+] } } }
+
+[[case]]
+id = "exec/core/list/type-file"
+kind = "exec"
+summary = "list with type file returns only files."
+fs_before = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "a" },
+  { path = "sub/c.txt", type = "file", content_utf8 = "c" },
+] }
+program = 'list "." type: file'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/core/list/hidden-false"
+kind = "exec"
+summary = "list with hidden false leaves out entries whose name starts with a period."
+fs_before = { entries = [
+  { path = ".env", type = "file", content_utf8 = "X=1\n" },
+  { path = "a.txt", type = "file", content_utf8 = "a" },
+] }
+program = 'list "." hidden: false'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/core/list/page"
+kind = "exec"
+summary = "A listing longer than the limit is paged with a cursor; reading the next page returns the rest."
+fs_before = { entries = [
+  { path = "1.txt", type = "file", content_utf8 = "" },
+  { path = "2.txt", type = "file", content_utf8 = "" },
+  { path = "3.txt", type = "file", content_utf8 = "" },
+  { path = "4.txt", type = "file", content_utf8 = "" },
+  { path = "5.txt", type = "file", content_utf8 = "" },
+] }
+
+[[case.step]]
+program = 'list "."'
+options = { limit = 2 }
+expect = { report = { status = "ok", records = { matched = 5, rows = [
+  { kind = "entry", fields = { name = { t = "text", v = "1.txt" } } },
+  { kind = "entry", fields = { name = { t = "text", v = "2.txt" } } },
+] }, next_cursor = "<volatile>" } }
+
+[[case.step]]
+method = "page"
+params = { cursor = "${step1/report/next_cursor}", limit = 2 }
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "entry", fields = { name = { t = "text", v = "3.txt" } } },
+  { kind = "entry", fields = { name = { t = "text", v = "4.txt" } } },
+] } } }
+
+[[case]]
+id = "exec/core/list/fields"
+kind = "exec"
+summary = "The option fields keeps only the listed fields of each record."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "abc" }] }
+program = 'list "."'
+options = { fields = ["name", "size"] }
+expect_at = "/report/records/rows/0/fields"
+match = "exact"
+expect = { name = { t = "text", v = "a.txt" }, size = { t = "size", v = 3 } }
+
+[[case]]
+id = "exec/core/find/glob-recursive"
+kind = "exec"
+summary = "find with a recursive glob returns matching files at every depth in path order."
+fs_before = { entries = [
+  { path = "a.go", type = "file", content_utf8 = "package a\n" },
+  { path = "src/b.go", type = "file", content_utf8 = "package b\n" },
+  { path = "src/c.txt", type = "file", content_utf8 = "c\n" },
+] }
+program = 'find "." glob: "**/*.go"'
+fs_after = "unchanged"
+expect = { report = { status = "ok", kind = "find", records = { type = "entry", matched = 2, rows = [
+  { kind = "entry", fields = { path = { t = "path", v = "${base}/a.go" } } },
+  { kind = "entry", fields = { path = { t = "path", v = "${base}/src/b.go" } } },
+] } } }
+
+[[case]]
+id = "exec/core/find/filter-sort-first"
+kind = "exec"
+summary = "find with filter, sort and first returns the largest files."
+fs_before = { entries = [
+  { path = "s.log", type = "file", content_utf8 = "x" },
+  { path = "m.log", type = "file", content_utf8 = "xxxxx" },
+  { path = "l.log", type = "file", content_utf8 = "xxxxxxxxxx" },
+] }
+program = 'find "." glob: "*.log" depth: 1 |> filter size > 2b |> sort size order: desc |> first 1'
+expect = { report = { status = "ok", records = { matched = 1, rows = [
+  { kind = "entry", fields = { name = { t = "text", v = "l.log" } } },
+] } } }
+
+[[case]]
+id = "exec/core/find/missing-directory"
+kind = "exec"
+summary = "find under a missing directory fails with E_NOT_FOUND."
+fs_before = { entries = [] }
+program = 'find "absent"'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_NOT_FOUND" } } }
+
+[[case]]
+id = "exec/core/find/directories"
+kind = "exec"
+summary = "find with type directory returns directories, empty ones included."
+fs_before = { entries = [
+  { path = "a/x.txt", type = "file", content_utf8 = "x" },
+  { path = "b", type = "dir" },
+] }
+program = 'find "." type: directory'
+expect = { report = { status = "ok", records = { matched = 2 } } }
+
+[[case]]
+id = "exec/core/info/existing-file"
+kind = "exec"
+summary = "info describes an existing file with its size."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "hello\n" }] }
+program = 'info "a.txt"'
+expect = { report = { status = "ok", kind = "info", records = { matched = 1, rows = [
+  { kind = "entry", fields = { exists = { t = "bool", v = true }, size = { t = "size", v = 6 }, type = { t = "enum", v = "file" } } },
+] } } }
+
+[[case]]
+id = "exec/core/info/missing-path"
+kind = "exec"
+summary = "info describes a missing path with exists false instead of failing."
+fs_before = { entries = [] }
+program = 'info "absent.txt"'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "entry", fields = { exists = { t = "bool", v = false } } },
+] } } }
+
+[[case]]
+id = "exec/core/info/hash"
+kind = "exec"
+summary = "info with hash sha256 returns the digest of the content."
+fs_before = { entries = [{ path = "h.txt", type = "file", content_utf8 = "hello\n" }] }
+program = 'info "h.txt" hash: sha256'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "entry", fields = { hash = { t = "text", v = "sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03" } } },
+] } } }
+
+[[case]]
+id = "exec/core/info/etag"
+kind = "exec"
+summary = "info returns an entity tag that changes when the file changes."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'info "a.txt" |> select path etag'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/core/read/whole"
+kind = "exec"
+summary = "read returns the text of a file with the number of lines."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "one\ntwo\n" }] }
+program = 'read "a.txt"'
+fs_after = "unchanged"
+expect = { report = { status = "ok", kind = "read", records = { type = "content", rows = [
+  { kind = "content", fields = { text = { t = "text", v = "one\ntwo\n" }, lines = { t = "int", v = 2 } } },
+] } } }
+
+[[case]]
+id = "exec/core/read/utf-16-le-bom"
+kind = "exec"
+summary = "read decodes UTF-16 LE with a byte order mark."
+fs_before = { entries = [{ path = "u.txt", type = "file", content_base64 = "//5oAGkACgA=" }] }
+program = 'read "u.txt"'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "content", fields = { text = { t = "text", v = "hi\n" }, bom = { t = "bool", v = true } } },
+] } } }
+
+[[case]]
+id = "exec/core/read/cp1250-detected"
+kind = "exec"
+summary = "read detects Windows-1250 when the file is not valid UTF-8."
+fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "ilppbGluYQo=" }] }
+program = 'read "l.txt"'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "content", fields = { text = { t = "text", v = "Žilina\n" }, encoding = { t = "text", v = "windows-1250" } } },
+] } } }
+
+[[case]]
+id = "exec/core/read/cp852-explicit"
+kind = "exec"
+summary = "read decodes IBM 852 when the encoding is given."
+fs_before = { entries = [{ path = "d.txt", type = "file", content_base64 = "pmlsaW5hCg==" }] }
+program = 'read "d.txt" encoding: "ibm852"'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "content", fields = { text = { t = "text", v = "Žilina\n" } } },
+] } } }
+
+[[case]]
+id = "exec/core/read/crlf"
+kind = "exec"
+summary = "read reports CRLF line endings."
+fs_before = { entries = [{ path = "w.txt", type = "file", content_utf8 = "a\r\nb\r\n" }] }
+program = 'read "w.txt"'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "content", fields = { line_ending = { t = "enum", v = "crlf" } } },
+] } } }
+
+[[case]]
+id = "exec/core/read/range"
+kind = "exec"
+summary = "read with lines returns the range."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "1\n2\n3\n4\n" }] }
+program = 'read "a.txt" lines: 2..3'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "content", fields = { text = { t = "text", v = "2\n3\n" } } },
+] } } }
+
+[[case]]
+id = "exec/core/read/binary"
+kind = "exec"
+summary = "read of binary content in a text place reports the binary content without decoding it."
+fs_before = { entries = [{ path = "b.bin", type = "file", content_base64 = "AAECAwQ=" }] }
+program = 'read "b.bin" |> search "x"'
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/core/lines/records"
+kind = "exec"
+summary = "lines produces one record per line with its number."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "x\ny\n" }] }
+program = 'lines "a.txt"'
+expect = { report = { status = "ok", kind = "lines", records = { type = "line", rows = [
+  { kind = "line", fields = { no = { t = "int", v = 1 }, text = { t = "text", v = "x" } } },
+  { kind = "line", fields = { no = { t = "int", v = 2 }, text = { t = "text", v = "y" } } },
+] } } }
+
+[[case]]
+id = "exec/core/lines/range-from"
+kind = "exec"
+summary = "lines with an open range starts at the given line."
+fs_before = { entries = [{ path = "a.csv", type = "file", content_utf8 = "h\n1\n2\n" }] }
+program = 'lines "a.csv" 2..'
+expect = { report = { status = "ok", records = { matched = 2 } } }
+
+[[case]]
+id = "exec/core/lines/crlf-text"
+kind = "exec"
+summary = "lines of a CRLF file have no line ending in their text and report crlf."
+fs_before = { entries = [{ path = "w.txt", type = "file", content_utf8 = "a\r\n" }] }
+program = 'lines "w.txt"'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "line", fields = { text = { t = "text", v = "a" }, line_ending = { t = "enum", v = "crlf" } } },
+] } } }
+
+[[case]]
+id = "exec/core/search/literal"
+kind = "exec"
+summary = "search finds a text with line number and column."
+fs_before = { entries = [{ path = "a.go", type = "file", content_utf8 = "package a\nfunc oldName() {}\n" }] }
+program = 'search "oldName" "."'
+expect = { report = { status = "ok", kind = "search", records = { type = "match", rows = [
+  { kind = "match", fields = { no = { t = "int", v = 2 }, column = { t = "int", v = 6 }, text = { t = "text", v = "oldName" } } },
+] } } }
+
+[[case]]
+id = "exec/core/search/regex-case-insensitive"
+kind = "exec"
+summary = "search with a regular expression and case_sensitive false matches every spelling."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "Error\nerror\nok\n" }] }
+program = 'search /error/ "a.txt" case_sensitive: false'
+expect = { report = { status = "ok", records = { matched = 2 } } }
+
+[[case]]
+id = "exec/core/search/output-files"
+kind = "exec"
+summary = "search with output files returns each matching file once."
+fs_before = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "x\nx\n" },
+  { path = "b.txt", type = "file", content_utf8 = "y\n" },
+] }
+program = 'search "x" "." output: files'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/core/search/cp1250-file"
+kind = "exec"
+summary = "search matches the decoded text of a Windows-1250 file."
+fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "ilppbGluYQo=" }] }
+program = 'search "Žilina" "l.txt"'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+# Transforms and checks: filter, select, sort, first, last, skip, count, assert.
+
+[[case]]
+id = "exec/core/filter/size-and-extension"
+kind = "exec"
+summary = "filter keeps records that meet a combined condition."
+fs_before = { entries = [
+  { path = "a.log", type = "file", content_utf8 = "xxxxxxxxxx" },
+  { path = "b.log", type = "file", content_utf8 = "x" },
+  { path = "c.txt", type = "file", content_utf8 = "xxxxxxxxxx" },
+] }
+program = 'find "." |> filter size > 5b and extension == "log"'
+expect = { report = { status = "ok", records = { rows = [{ kind = "entry", fields = { name = { t = "text", v = "a.log" } } }] } } }
+
+[[case]]
+id = "exec/core/filter/regex-on-name"
+kind = "exec"
+summary = "filter with a match operator keeps names matching a regular expression."
+fs_before = { entries = [
+  { path = "test_a.py", type = "file", content_utf8 = "" },
+  { path = "main.py", type = "file", content_utf8 = "" },
+] }
+program = 'find "." |> filter name ~ /^test_/'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/core/filter/no-records"
+kind = "exec"
+summary = "filter that keeps nothing returns no records and succeeds."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'find "." |> filter size > 1gb'
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/core/select/fields"
+kind = "exec"
+summary = "select keeps only the named fields."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "abc" }] }
+program = 'find "." |> select name size'
+expect_at = "/report/records/rows/0/fields"
+match = "exact"
+expect = { name = { t = "text", v = "a.txt" }, size = { t = "size", v = 3 } }
+
+[[case]]
+id = "exec/core/select/computed-field"
+kind = "exec"
+summary = "select adds a computed field."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "abc" }] }
+program = 'find "." |> select name upper: upper(name)'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "entry", fields = { upper = { t = "text", v = "A.TXT" } } },
+] } } }
+
+[[case]]
+id = "exec/core/select/unknown-field"
+kind = "exec"
+summary = "select of an unknown field fails with E_UNKNOWN_FIELD and the list of fields."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "abc" }] }
+program = 'find "." |> select colour'
+expect = { report = { status = "failed", error = { code = "E_UNKNOWN_FIELD" } } }
+
+[[case]]
+id = "exec/core/sort/size-desc"
+kind = "exec"
+summary = "sort orders records by a field in descending order."
+fs_before = { entries = [
+  { path = "a", type = "file", content_utf8 = "x" },
+  { path = "b", type = "file", content_utf8 = "xxx" },
+  { path = "c", type = "file", content_utf8 = "xx" },
+] }
+program = 'find "." |> sort size order: desc'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "entry", fields = { name = { t = "text", v = "b" } } },
+  { kind = "entry", fields = { name = { t = "text", v = "c" } } },
+  { kind = "entry", fields = { name = { t = "text", v = "a" } } },
+] } } }
+
+[[case]]
+id = "exec/core/sort/name"
+kind = "exec"
+summary = "sort by name orders in byte order."
+fs_before = { entries = [
+  { path = "b", type = "file", content_utf8 = "" },
+  { path = "B", type = "file", content_utf8 = "" },
+  { path = "a", type = "file", content_utf8 = "" },
+] }
+program = 'find "." |> sort name'
+requires = ["os:linux"]
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "entry", fields = { name = { t = "text", v = "B" } } },
+  { kind = "entry", fields = { name = { t = "text", v = "a" } } },
+  { kind = "entry", fields = { name = { t = "text", v = "b" } } },
+] } } }
+
+[[case]]
+id = "exec/core/sort/lines-text"
+kind = "exec"
+summary = "sort orders lines by their text."
+fs_before = { entries = [{ path = "d.txt", type = "file", content_utf8 = "c\na\nb\n" }] }
+program = 'lines "d.txt" |> sort text'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "line", fields = { text = { t = "text", v = "a" } } },
+  { kind = "line", fields = { text = { t = "text", v = "b" } } },
+  { kind = "line", fields = { text = { t = "text", v = "c" } } },
+] } } }
+
+[[case]]
+id = "exec/core/first/two"
+kind = "exec"
+summary = "first keeps the first records."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "1\n2\n3\n" }] }
+program = 'lines "a.txt" |> first 2'
+expect = { report = { status = "ok", records = { matched = 2 } } }
+
+[[case]]
+id = "exec/core/first/more-than-available"
+kind = "exec"
+summary = "first with more than the available records keeps all of them."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "1\n" }] }
+program = 'lines "a.txt" |> first 10'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/core/first/zero"
+kind = "exec"
+summary = "first 0 keeps no records."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "1\n" }] }
+program = 'lines "a.txt" |> first 0'
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/core/last/two"
+kind = "exec"
+summary = "last keeps the last records."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "1\n2\n3\n" }] }
+program = 'lines "a.txt" |> last 2'
+expect = { report = { status = "ok", records = { rows = [
+  { kind = "line", fields = { text = { t = "text", v = "2" } } },
+  { kind = "line", fields = { text = { t = "text", v = "3" } } },
+] } } }
+
+[[case]]
+id = "exec/core/last/after-sort"
+kind = "exec"
+summary = "last after sort keeps the largest records."
+fs_before = { entries = [
+  { path = "a", type = "file", content_utf8 = "xxx" },
+  { path = "b", type = "file", content_utf8 = "x" },
+] }
+program = 'find "." |> sort size |> last 1'
+expect = { report = { status = "ok", records = { rows = [{ kind = "entry", fields = { name = { t = "text", v = "a" } } }] } } }
+
+[[case]]
+id = "exec/core/last/empty-input"
+kind = "exec"
+summary = "last on an empty stream returns nothing."
+fs_before = { entries = [{ path = "e.txt", type = "file", content_utf8 = "" }] }
+program = 'lines "e.txt" |> last 3'
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/core/skip/two"
+kind = "exec"
+summary = "skip drops the first records."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "1\n2\n3\n" }] }
+program = 'lines "a.txt" |> skip 2'
+expect = { report = { status = "ok", records = { rows = [{ kind = "line", fields = { text = { t = "text", v = "3" } } }] } } }
+
+[[case]]
+id = "exec/core/skip/all"
+kind = "exec"
+summary = "skip of more records than available returns nothing."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "1\n" }] }
+program = 'lines "a.txt" |> skip 5'
+expect = { report = { status = "ok", records = { matched = 0 } } }
+
+[[case]]
+id = "exec/core/skip/header-line"
+kind = "exec"
+summary = "skip 1 drops the header line of a CSV file."
+fs_before = { entries = [{ path = "a.csv", type = "file", content_utf8 = "h\n1\n2\n" }] }
+program = 'lines "a.csv" |> skip 1 |> count'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/count/files"
+kind = "exec"
+summary = "count returns the number of records as a value."
+fs_before = { entries = [
+  { path = "a.go", type = "file", content_utf8 = "" },
+  { path = "b.go", type = "file", content_utf8 = "" },
+] }
+program = 'find "." glob: "*.go" depth: 1 |> count'
+expect = { report = { status = "ok", kind = "find" } }
+
+[[case]]
+id = "exec/core/count/named-result"
+kind = "exec"
+summary = "count of a named result counts its records."
+fs_before = { entries = [{ path = "a.ts", type = "file", content_utf8 = "" }] }
+program = """
+let recent = find "." glob: "**/*.ts"
+@recent |> count"""
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/count/empty"
+kind = "exec"
+summary = "count of an empty stream is zero."
+fs_before = { entries = [] }
+program = 'find "." |> count'
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/assert/count-holds"
+kind = "exec"
+summary = "assert count passes the records on when the number matches."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "" }] }
+program = 'find "." |> assert count: 1'
+expect = { report = { status = "ok", records = { matched = 1 } } }
+
+[[case]]
+id = "exec/core/assert/count-fails-before-change"
+kind = "exec"
+summary = "A failed assert before a change stops the program in stage 3 and changes nothing."
+fs_before = { entries = [{ path = "a.tmp", type = "file", content_utf8 = "" }] }
+program = 'find "." glob: "*.tmp" |> assert count: 2 |> remove'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_ASSERT", stage = "3", expected = 2, actual = 1 } } }
+
+[[case]]
+id = "exec/core/assert/after-effect"
+kind = "exec"
+summary = "A failed assert after the effect keeps the effect and reports the error with status ok."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'remove "a.txt" |> assert count: 3'
+fs_after = { entries = [] }
+expect = { report = { status = "ok", error = { code = "E_ASSERT", stage = "5a", effect_applied = true } } }
+
+[[case]]
+id = "exec/core/assert/contains"
+kind = "exec"
+summary = "assert contains checks the text of the records."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "ready\n" }] }
+program = 'read "a.txt" |> assert contains: "ready"'
+expect = { report = { status = "ok" } }
+
+# Changes: write, replace, insert, edit, copy, move, remove, rename, create, attributes.
+
+[[case]]
+id = "exec/core/write/create"
+kind = "exec"
+summary = "write in mode create makes a new file and reports it."
+fs_before = { entries = [] }
+program = 'write "a.txt" "hello\n" mode: create'
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "hello\n" }] }
+expect = { report = { status = "ok", kind = "write", op = "<volatile>", summary = { files_created = 1 }, changes = [
+  { path = "${base}/a.txt", action = "create", size_after = 6 },
+] } }
+
+[[case]]
+id = "exec/core/write/append"
+kind = "exec"
+summary = "write in mode append adds to the end."
+fs_before = { entries = [{ path = ".gitignore", type = "file", content_utf8 = "node_modules/\n" }] }
+program = 'write ".gitignore" "dist/\n" mode: append'
+fs_after = { entries = [{ path = ".gitignore", type = "file", content_utf8 = "node_modules/\ndist/\n" }] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/write/preview"
+kind = "exec"
+summary = "A preview of a write reports the plan with status planned, without op, and changes nothing."
+fs_before = { entries = [] }
+program = 'write "a.txt" "x" mode: create'
+options = { preview = true }
+fs_after = "unchanged"
+expect = { report = { status = "planned", kind = "write", targets = { count = 1 } } }
+
+[[case]]
+id = "exec/core/write/crlf-kept-on-append"
+kind = "exec"
+summary = "Appending to a CRLF file writes CRLF line endings and reports them as preserved."
+fs_before = { entries = [{ path = "w.txt", type = "file", content_utf8 = "a\r\n" }] }
+program = 'write "w.txt" "b\n" mode: append'
+fs_after = { entries = [{ path = "w.txt", type = "file", content_utf8 = "a\r\nb\r\n" }] }
+expect = { report = { status = "ok", notable = [{ code = "line_ending_preserved", detail = "crlf" }] } }
+
+[[case]]
+id = "exec/core/write/utf-16-kept"
+kind = "exec"
+summary = "Overwriting a UTF-16 LE file keeps its encoding and byte order mark."
+fs_before = { entries = [{ path = "u.txt", type = "file", content_base64 = "//5oAGkACgA=" }] }
+program = 'write "u.txt" "ok\n" mode: overwrite'
+fs_after = { entries = [{ path = "u.txt", type = "file", content_base64 = "//5vAGsACgA=" }] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/write/notable-file-emptied"
+kind = "exec"
+summary = "Emptying a file is reported among the unusual effects."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "content\n" }] }
+program = 'write "a.txt" "" mode: overwrite'
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "" }] }
+expect = { report = { status = "ok", notable = [
+  { code = "file_emptied", severity = "warning" },
+  { code = "overwrote_existing", severity = "warning" },
+] } }
+
+[[case]]
+id = "exec/core/replace/in-file"
+kind = "exec"
+summary = "replace changes every occurrence in the given file and reports the count."
+fs_before = { entries = [{ path = "a.go", type = "file", content_utf8 = "oldName(1)\noldName(2)\n" }] }
+program = 'replace "oldName(" "newName(" in: ["a.go"]'
+fs_after = { entries = [{ path = "a.go", type = "file", content_utf8 = "newName(1)\nnewName(2)\n" }] }
+expect = { report = { status = "ok", kind = "replace", summary = { files_modified = 1, replacements = 2 } } }
+
+[[case]]
+id = "exec/core/replace/cp1250-kept"
+kind = "exec"
+summary = "replace keeps the Windows-1250 encoding of the file."
+fs_before = { entries = [{ path = "l.txt", type = "file", content_base64 = "QnJubwo=" }] }
+program = 'replace "Brno" "Žilina" in: ["l.txt"]'
+fs_after = { entries = [{ path = "l.txt", type = "file", content_base64 = "ilppbGluYQo=" }] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/replace/stale"
+kind = "exec"
+summary = "replace with an entity tag read before an external change fails with E_STALE and changes nothing."
+fs_before = { entries = [{ path = "c.go", type = "file", content_utf8 = "timeout = 30\n" }] }
+
+[[case.step]]
+program = 'info "c.go"'
+expect = { report = { status = "ok" } }
+
+[[case.step]]
+program = 'write "c.go" "timeout = 30 // changed\n" mode: overwrite'
+expect = { report = { status = "ok" } }
+
+[[case.step]]
+program = 'replace "timeout = 30" "timeout = 60" in: ["c.go"] if_match: "${step1/report/records/rows/0/fields/etag/v}"'
+expect = { report = { status = "failed", error = { code = "E_STALE" } } }
+fs_after = { entries = [{ path = "c.go", type = "file", content_utf8 = "timeout = 30 // changed\n" }] }
+
+[[case]]
+id = "exec/core/replace/bulk"
+kind = "exec"
+summary = "A replacement across more files than the bulk threshold carries the bulk summary."
+config = "../config/bulk-threshold.toml"
+fs_before = { entries = [
+  { path = "1.txt", type = "file", content_utf8 = "x\n" },
+  { path = "2.txt", type = "file", content_utf8 = "x\n" },
+  { path = "3.txt", type = "file", content_utf8 = "x\n" },
+  { path = "4.txt", type = "file", content_utf8 = "x\n" },
+  { path = "5.txt", type = "file", content_utf8 = "x\n" },
+  { path = "6.txt", type = "file", content_utf8 = "x\n" },
+] }
+program = 'replace "x" "y" in: ["."]'
+expect = { report = { status = "ok", targets = { count = 6 }, bulk = {} } }
+
+[[case]]
+id = "exec/core/insert/after-line"
+kind = "exec"
+summary = "insert after the filtered line adds a line."
+fs_before = { entries = [{ path = "m.go", type = "file", content_utf8 = "package main\n\nfunc main() {}\n" }] }
+program = 'lines "m.go" |> filter text == "package main" |> insert r#"import "fmt""# position: after'
+fs_after = { entries = [{ path = "m.go", type = "file", content_utf8 = "package main\nimport \"fmt\"\n\nfunc main() {}\n" }] }
+expect = { report = { status = "ok", kind = "insert" } }
+
+[[case]]
+id = "exec/core/insert/start"
+kind = "exec"
+summary = "insert at the start of a file."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "b\n" }] }
+program = 'insert "a\n" in: "a.txt" position: start'
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a\nb\n" }] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/insert/crlf"
+kind = "exec"
+summary = "An inserted line takes the CRLF line ending of the file."
+fs_before = { entries = [{ path = "w.txt", type = "file", content_utf8 = "a\r\nc\r\n" }] }
+program = 'insert "b" in: "w.txt" line: 1'
+fs_after = { entries = [{ path = "w.txt", type = "file", content_utf8 = "a\r\nb\r\nc\r\n" }] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/edit/changes"
+kind = "exec"
+summary = "edit applies a list of changes in one operation."
+fs_before = { entries = [{ path = "e.go", type = "file", content_utf8 = "l1\nl2 oldName(\nl3\n" }] }
+program = 'edit "e.go" changes: [{replace: "oldName(", with: "newName("}, {insert: "// top", line: 1, position: before}]'
+fs_after = { entries = [{ path = "e.go", type = "file", content_utf8 = "// top\nl1\nl2 newName(\nl3\n" }] }
+expect = { report = { status = "ok", kind = "edit" } }
+
+[[case]]
+id = "exec/core/edit/all-or-nothing"
+kind = "exec"
+summary = "edit fails as a whole when one change has no match and on_missing is error."
+fs_before = { entries = [{ path = "e.go", type = "file", content_utf8 = "l1\n" }] }
+program = 'edit "e.go" changes: [{replace: "l1", with: "L1"}, {replace: "absent", with: "x"}] on_missing: error'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_NO_MATCH" } } }
+
+[[case]]
+id = "exec/core/edit/expect-count"
+kind = "exec"
+summary = "edit with a wrong expected count changes nothing."
+fs_before = { entries = [{ path = "e.go", type = "file", content_utf8 = "a\na\n" }] }
+program = 'edit "e.go" changes: [{replace: "a", with: "b"}] expect: 5'
+fs_after = "unchanged"
+expect = { report = { status = "failed" } }
+
+[[case]]
+id = "exec/core/copy/file"
+kind = "exec"
+summary = "copy duplicates a file."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'copy "a.txt" to: "b.txt"'
+fs_after = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "a" },
+  { path = "b.txt", type = "file", content_utf8 = "a" },
+] }
+expect = { report = { status = "ok", kind = "copy" } }
+
+[[case]]
+id = "exec/core/copy/into-directory"
+kind = "exec"
+summary = "copy into a directory keeps the name."
+fs_before = { entries = [
+  { path = "src/app", type = "file", content_utf8 = "x" },
+  { path = "backup", type = "dir" },
+] }
+program = 'copy "src" into: "backup"'
+fs_after = { entries = [
+  { path = "src/app", type = "file", content_utf8 = "x" },
+  { path = "backup/src/app", type = "file", content_utf8 = "x" },
+] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/copy/conflict-error"
+kind = "exec"
+summary = "copy onto an existing file with on_conflict error fails."
+fs_before = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "a" },
+  { path = "b.txt", type = "file", content_utf8 = "b" },
+] }
+program = 'copy "a.txt" to: "b.txt" on_conflict: error'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_EXISTS" } } }
+
+[[case]]
+id = "exec/core/move/rename"
+kind = "exec"
+summary = "move gives a file a new path."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'move "a.txt" to: "b.txt"'
+fs_after = { entries = [{ path = "b.txt", type = "file", content_utf8 = "a" }] }
+expect = { report = { status = "ok", kind = "move", summary = { files_renamed = 1 } } }
+
+[[case]]
+id = "exec/core/move/bulk-into"
+kind = "exec"
+summary = "move of found files into a directory moves every one of them."
+fs_before = { entries = [
+  { path = "in/a.log", type = "file", content_utf8 = "a" },
+  { path = "in/b.log", type = "file", content_utf8 = "b" },
+  { path = "arch", type = "dir" },
+] }
+program = 'find "in" glob: "*.log" depth: 1 |> move into: "arch"'
+fs_after = { entries = [
+  { path = "in", type = "dir" },
+  { path = "arch/a.log", type = "file", content_utf8 = "a" },
+  { path = "arch/b.log", type = "file", content_utf8 = "b" },
+] }
+expect = { report = { status = "ok", targets = { count = 2 } } }
+
+[[case]]
+id = "exec/core/move/missing-source"
+kind = "exec"
+summary = "move of a missing path fails with E_NOT_FOUND."
+fs_before = { entries = [] }
+program = 'move "a.txt" to: "b.txt"'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_NOT_FOUND" } } }
+
+[[case]]
+id = "exec/core/remove/file"
+kind = "exec"
+summary = "remove deletes a file and reports the freed bytes."
+fs_before = { entries = [{ path = "my file.txt", type = "file", content_utf8 = "12345" }] }
+program = 'remove "my file.txt"'
+fs_after = { entries = [] }
+expect = { report = { status = "ok", kind = "remove", summary = { files_deleted = 1, bytes_freed = 5 } } }
+
+[[case]]
+id = "exec/core/remove/directory-contents"
+kind = "exec"
+summary = "remove of the found entries of one level empties the directory."
+fs_before = { entries = [
+  { path = "build/a.o", type = "file", content_utf8 = "a" },
+  { path = "build/sub/b.o", type = "file", content_utf8 = "b" },
+] }
+program = 'find "build" glob: "*" depth: 1 type: any |> remove'
+fs_after = { entries = [{ path = "build", type = "dir" }] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/remove/notable-mass-delete"
+kind = "exec"
+summary = "Removing every file of a directory reports a mass deletion by share."
+fs_before = { entries = [
+  { path = "d/1", type = "file", content_utf8 = "1" },
+  { path = "d/2", type = "file", content_utf8 = "2" },
+  { path = "d/3", type = "file", content_utf8 = "3" },
+] }
+program = 'find "d" |> remove'
+fs_after = { entries = [{ path = "d", type = "dir" }] }
+expect = { report = { status = "ok", notable = [{ code = "mass_delete" }] } }
+
+[[case]]
+id = "exec/core/remove/job-irreversible"
+kind = "exec"
+summary = "Removing a finished job deletes its output without a journal copy and says so."
+requires = ["os:unix"]
+fs_before = { entries = [] }
+
+[[case.step]]
+program = 'run ["sh", "-c", "echo done"] background: true'
+expect = { report = { status = "running" } }
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" wait: 10s'
+expect = { report = { status = "ok" } }
+
+[[case.step]]
+program = 'jobs "${step1/report/job/id}" |> remove'
+expect = { report = { status = "ok", irreversible = [{ reason = "job_output_removed" }] } }
+
+[[case]]
+id = "exec/core/rename/to-name"
+kind = "exec"
+summary = "rename gives an entry a new name in its directory."
+fs_before = { entries = [{ path = "d/a.txt", type = "file", content_utf8 = "a" }] }
+program = 'rename path: "d/a.txt" to: "b.txt"'
+fs_after = { entries = [{ path = "d/b.txt", type = "file", content_utf8 = "a" }] }
+expect = { report = { status = "ok", kind = "rename" } }
+
+[[case]]
+id = "exec/core/rename/pattern"
+kind = "exec"
+summary = "rename of found entries by pattern renames each of them."
+fs_before = { entries = [
+  { path = "a.log", type = "file", content_utf8 = "a" },
+  { path = "b.log", type = "file", content_utf8 = "b" },
+] }
+program = 'find "." glob: "*.log" depth: 1 |> rename /\.log$/ ".txt"'
+fs_after = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "a" },
+  { path = "b.txt", type = "file", content_utf8 = "b" },
+] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/rename/conflict"
+kind = "exec"
+summary = "rename onto an existing name fails by default."
+fs_before = { entries = [
+  { path = "a.txt", type = "file", content_utf8 = "a" },
+  { path = "b.txt", type = "file", content_utf8 = "b" },
+] }
+program = 'rename path: "a.txt" to: "b.txt"'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_EXISTS" } } }
+
+[[case]]
+id = "exec/core/create/directory"
+kind = "exec"
+summary = "create makes a directory with its parents."
+fs_before = { entries = [] }
+program = 'create "a/b" type: directory'
+fs_after = { entries = [{ path = "a/b", type = "dir" }] }
+expect = { report = { status = "ok", kind = "create", summary = { directories_created = 2 } } }
+
+[[case]]
+id = "exec/core/create/file-exists-skip"
+kind = "exec"
+summary = "create of an existing file with the default on_exists changes nothing."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'create "a.txt" type: file'
+fs_after = "unchanged"
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/create/symbolic-link"
+kind = "exec"
+summary = "create makes a symbolic link."
+requires = ["os:unix"]
+fs_before = { entries = [{ path = "src/a", type = "file", content_utf8 = "a" }] }
+program = 'create "link" type: link target: "src"'
+fs_after = { entries = [
+  { path = "src/a", type = "file", content_utf8 = "a" },
+  { path = "link", type = "symlink", target = "src" },
+] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/create/windows-reserved-name"
+kind = "exec"
+summary = "A name reserved on Windows is refused there."
+requires = ["os:windows"]
+fs_before = { entries = [] }
+program = 'create "aux.txt" type: file'
+fs_after = "unchanged"
+expect = { report = { status = "failed", error = { code = "E_PATH_FOREIGN" } } }
+
+[[case]]
+id = "exec/core/attributes/mode"
+kind = "exec"
+summary = "attributes sets the permission bits."
+requires = ["os:unix"]
+fs_before = { entries = [{ path = "run.sh", type = "file", content_utf8 = "#!/bin/sh\n", mode = "0644" }] }
+program = 'attributes "run.sh" mode: "0755"'
+fs_after = { entries = [{ path = "run.sh", type = "file", content_utf8 = "#!/bin/sh\n", mode = "0755" }] }
+expect = { report = { status = "ok", kind = "attributes", notable = [{ code = "attributes_changed" }] } }
+
+[[case]]
+id = "exec/core/attributes/modified-time"
+kind = "exec"
+summary = "attributes sets the modification time."
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a" }] }
+program = 'attributes "a.txt" modified: "2026-01-01T00:00:00Z"'
+fs_after = { entries = [{ path = "a.txt", type = "file", content_utf8 = "a", mtime = "2026-01-01T00:00:00Z" }] }
+expect = { report = { status = "ok" } }
+
+[[case]]
+id = "exec/core/attributes/recursive"
+kind = "exec"
+summary = "attributes with recursive changes every entry of a tree."
+requires = ["os:unix"]
+fs_before = { entries = [
+  { path = "d/a", type = "file", content_utf8 = "a", mode = "0644" },
+  { path = "d/s/b", type = "file", content_utf8 = "b", mode = "0644" },
+] }
+program = 'attributes "d" mode: "0600" recursive: true'
+fs_after = { exhaustive = false, entries = [
+  { path = "d/a", type = "file", content_utf8 = "a", mode = "0600" },
+  { path = "d/s/b", type = "file", content_utf8 = "b", mode = "0600" },
+] }
+expect = { report = { status = "ok" } }

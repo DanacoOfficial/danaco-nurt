@@ -1,0 +1,50 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-060",
+  "domain": 4,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Merge override.json into base.json and write the result to effective.json: keys of override.json replace those of base.json, nested objects are merged key by key (case 4).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "base.json",
+        "type": "file",
+        "content_utf8": "{\r\n  \"name\": \"orders\",\r\n  \"port\": 8080,\r\n  \"log\": {\r\n    \"level\": \"info\",\r\n    \"format\": \"text\"\r\n  },\r\n  \"workers\": 2\r\n}\r\n"
+      },
+      {
+        "path": "override.json",
+        "type": "file",
+        "content_utf8": "{\r\n  \"name\": \"orders-eu\",\r\n  \"port\": 8443\r\n}\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "effective.json": {
+        "json": {
+          "name": "orders-eu",
+          "port": 8443,
+          "log": {
+            "level": "info",
+            "format": "text"
+          },
+          "workers": 2
+        }
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"base.json\" |> merge (read \"override.json\") deep: true |> write \"effective.json\" format: json",
+  "reference_pwsh": "$b = Get-Content base.json -Raw | ConvertFrom-Json -AsHashtable\n$o = Get-Content override.json -Raw | ConvertFrom-Json -AsHashtable\nforeach ($k in $o.Keys) {\n  if ($o[$k] -is [Collections.IDictionary]) { foreach ($n in $o[$k].Keys) { $b[$k][$n] = $o[$k][$n] } }\n  else { $b[$k] = $o[$k] }\n}\n$b | ConvertTo-Json -Depth 10 | Set-Content effective.json\n",
+  "tags": [
+    "json",
+    "merge"
+  ],
+  "license": "CC-BY-4.0"
+}

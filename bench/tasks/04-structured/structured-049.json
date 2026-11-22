@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-049",
+  "domain": 4,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In pom.xml, set the project version to 1.9.0. Keep the rest of the document unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "pom.xml",
+        "type": "file",
+        "content_utf8": "<project>\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>com.example</groupId>\n  <artifactId>orders</artifactId>\n  <version>1.8.0</version>\n  <dependencies>\n    <dependency scope=\"compile\"><artifactId>jackson-core</artifactId><version>2.17.0</version></dependency>\n    <dependency scope=\"test\"><artifactId>junit</artifactId><version>5.10.2</version></dependency>\n  </dependencies>\n</project>\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "pom.xml": {
+        "text": "<project>\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>com.example</groupId>\n  <artifactId>orders</artifactId>\n  <version>1.9.0</version>\n  <dependencies>\n    <dependency scope=\"compile\"><artifactId>jackson-core</artifactId><version>2.17.0</version></dependency>\n    <dependency scope=\"test\"><artifactId>junit</artifactId><version>5.10.2</version></dependency>\n  </dependencies>\n</project>\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"<version>1.8.0</version>\" \"<version>1.9.0</version>\" in: [\"pom.xml\"] mode: literal expect: 1",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('pom.xml')\nt = p.read_text()\nassert t.count('<version>1.8.0</version>') == 1\np.write_text(t.replace('<version>1.8.0</version>', '<version>1.9.0</version>'))\nEOF\n",
+  "tags": [
+    "xml"
+  ],
+  "license": "CC-BY-4.0"
+}

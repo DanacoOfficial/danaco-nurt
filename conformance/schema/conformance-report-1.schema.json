@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-conformance-report-1.schema.json",
+  "title": "nurt-conformance-report/1",
+  "description": "Result of a run of the conformance suite against one implementation.",
+  "type": "object",
+  "required": ["format", "suite", "implementation", "system", "started", "duration_ms", "results", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "nurt-conformance-report/1" },
+    "suite": {
+      "type": "object",
+      "required": ["version", "digest", "cases"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "SHA-256 digest of the case files, in path order."
+        },
+        "cases": { "type": "integer", "minimum": 0 },
+        "filter": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "required": ["command"],
+      "additionalProperties": false,
+      "properties": {
+        "command": { "type": "string" },
+        "executable_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "initialize": { "type": "object", "description": "Result of initialize." },
+        "info": { "type": "object", "description": "Result of info." }
+      }
+    },
+    "system": {
+      "type": "object",
+      "required": ["os", "arch"],
+      "additionalProperties": false,
+      "properties": {
+        "os": { "type": "string" },
+        "arch": { "type": "string" }
+      }
+    },
+    "started": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "results": { "type": "array", "items": { "$ref": "#/$defs/result" } },
+    "summary": {
+      "type": "object",
+      "required": ["mandatory", "optional", "kinds", "conformant"],
+      "additionalProperties": false,
+      "properties": {
+        "mandatory": { "$ref": "#/$defs/counts" },
+        "optional": { "$ref": "#/$defs/counts" },
+        "kinds": { "type": "object", "additionalProperties": { "$ref": "#/$defs/counts" } },
+        "conformant": {
+          "type": "boolean",
+          "description": "True when every applicable mandatory case passed."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "required": ["total", "passed", "failed", "skipped"],
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": ["id", "kind", "class", "status", "duration_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "class": { "type": "string" },
+        "status": { "enum": ["pass", "fail", "skip"] },
+        "reason": { "type": "string", "description": "Why the case was skipped." },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "failures": { "type": "array", "items": { "$ref": "#/$defs/failure" } }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "required": ["message"],
+      "additionalProperties": false,
+      "properties": {
+        "step": { "type": "integer", "minimum": 1 },
+        "check": { "type": "string", "description": "Name of the check that failed." },
+        "path": { "type": "string", "description": "JSON pointer or file path of the difference." },
+        "message": { "type": "string" },
+        "expected": {},
+        "actual": {}
+      }
+    }
+  }
+}

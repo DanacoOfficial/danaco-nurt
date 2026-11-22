@@ -1,0 +1,76 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-053",
+  "domain": 2,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Update the copyright line 'Copyright 2025 Example Ltd.' to 'Copyright 2026 Example Ltd.' in all .py files under src/, including src/gen/table0.py. Other years and other numbers stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "LICENSE.txt",
+        "type": "file",
+        "content_utf8": "Copyright 2025 Example Ltd.\n"
+      },
+      {
+        "path": "src/gen/table0.py",
+        "type": "file",
+        "content_utf8": "# Copyright 2025 Example Ltd.\n# table version 2025.1\n"
+      },
+      {
+        "path": "src/main.py",
+        "type": "file",
+        "content_utf8": "# Copyright 2025 Example Ltd.\n# main module\n"
+      },
+      {
+        "path": "src/util/helpers.py",
+        "type": "file",
+        "content_utf8": "# Copyright 2025 Example Ltd.\n"
+      },
+      {
+        "path": "src/util/legacy.py",
+        "type": "file",
+        "content_utf8": "# Copyright 2019 Example Ltd.\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "src/gen/table0.py": {
+        "text": "# Copyright 2026 Example Ltd.\n# table version 2025.1\n"
+      },
+      "src/main.py": {
+        "text": "# Copyright 2026 Example Ltd.\n# main module\n"
+      },
+      "src/util/helpers.py": {
+        "text": "# Copyright 2026 Example Ltd.\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "LICENSE.txt",
+      "change": "any",
+      "reason": "the license text is not a source file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"Copyright 2025 Example Ltd.\" \"src\" glob: \"**/*.py\" mode: literal |> replace \"Copyright 2026 Example Ltd.\"",
+  "reference_bash": "grep -rlF --include='*.py' 'Copyright 2025 Example Ltd.' src | xargs -r sed -i 's/Copyright 2025 Example Ltd\\./Copyright 2026 Example Ltd./'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "find src -name '*.py' -exec sed -i 's/2025/2026/g' {} +",
+      "defect": "also changes unrelated numbers"
+    }
+  ],
+  "tags": [
+    "header",
+    "replace"
+  ],
+  "license": "CC-BY-4.0"
+}

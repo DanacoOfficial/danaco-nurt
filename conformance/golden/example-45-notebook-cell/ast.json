@@ -1,0 +1,85 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "notebook.replace",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/a.ipynb",
+                "span": [
+                  1,
+                  18,
+                  1,
+                  32
+                ]
+              },
+              "span": [
+                1,
+                18,
+                1,
+                32
+              ]
+            },
+            {
+              "name": "index",
+              "value": {
+                "t": "int",
+                "v": 3,
+                "span": [
+                  1,
+                  40,
+                  1,
+                  41
+                ]
+              },
+              "span": [
+                1,
+                33,
+                1,
+                41
+              ]
+            },
+            {
+              "name": "source",
+              "value": {
+                "t": "text",
+                "v": "print(1)",
+                "span": [
+                  1,
+                  50,
+                  1,
+                  60
+                ]
+              },
+              "span": [
+                1,
+                42,
+                1,
+                60
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            60
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          60
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "cat-1",
+  "corr_rev": "corr-1",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "undo",
+          "effect": "local",
+          "phase": "mutate",
+          "args": [
+            {
+              "name": "id",
+              "value": {
+                "t": "int",
+                "v": 18
+              }
+            },
+            {
+              "name": "to",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "file",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "since",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "paths",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "all_sessions",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "on_conflict",
+              "value": {
+                "t": "enum",
+                "v": "report"
+              },
+              "default": true
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

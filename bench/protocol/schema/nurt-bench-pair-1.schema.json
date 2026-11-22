@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-bench-pair-1.schema.json",
+  "title": "nurt-bench-pair/1",
+  "description": "One pair of the data set: a task description or a shell command and the Danaco Nurt program that performs it.",
+  "type": "object",
+  "required": ["format", "id", "source", "origin", "input_kind", "input", "program", "script", "validation", "license"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "nurt-bench-pair/1"},
+    "id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+    "source": {"enum": ["task", "translation", "docs", "habit", "run"]},
+    "origin": {"type": "string"},
+    "input_kind": {"enum": ["nl", "bash", "pwsh"]},
+    "input": {"type": "string", "minLength": 1},
+    "program": {"type": "string", "minLength": 1},
+    "script": {"type": "boolean"},
+    "validation": {
+      "type": "object",
+      "required": ["checked", "executed"],
+      "additionalProperties": false,
+      "properties": {
+        "checked": {"type": "boolean"},
+        "executed": {"type": "boolean"},
+        "status": {"type": "string"},
+        "rejected": {"type": "string"}
+      }
+    },
+    "license": {"const": "CC-BY-4.0"}
+  }
+}

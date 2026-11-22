@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-034",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Enable the setting `extension=intl` in php.ini by removing the comment marker from its line. Other commented lines stay commented.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "php.ini",
+        "type": "file",
+        "content_utf8": ";extension=gd\n;extension=intl\nmemory_limit = 128M\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "php.ini": {
+        "text": ";extension=gd\nextension=intl\nmemory_limit = 128M\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"php.ini\" |> filter text == \";extension=intl\" |> replace \";extension=intl\" \"extension=intl\" mode: literal",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('php.ini')\nt = p.read_bytes().decode('utf-8')\nold = ';extension=intl\\n'\nassert t.count(old) == 1\np.write_bytes(t.replace(old, 'extension=intl\\n').encode('utf-8'))\nEOF\n",
+  "tags": [
+    "config",
+    "uncomment"
+  ],
+  "license": "CC-BY-4.0"
+}

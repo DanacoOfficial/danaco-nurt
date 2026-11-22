@@ -1,0 +1,3 @@
+lines "/srv/app/main.go"
+|> filter text == "package main"
+|> insert r#"import "fmt""# position: after

@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-030",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "What is the memory limit of the service in config/deploy.yaml? Answer with the value.",
+  "fs_before": {
+    "fixture": "config-mixed"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\w.])512Mi(?![\\w.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"config/deploy.yaml\" key: \"resources.memory\"",
+  "reference_bash": "grep 'memory:' config/deploy.yaml\n",
+  "tags": [
+    "config",
+    "read"
+  ],
+  "license": "CC-BY-4.0"
+}

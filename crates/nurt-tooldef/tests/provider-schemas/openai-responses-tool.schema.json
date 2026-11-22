@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenAI Responses API function tool",
+  "description": "An element of `tools` in a Responses API request. Without `strict: false` the API normalizes the schema into strict mode when it can.",
+  "type": "object",
+  "required": ["type", "name", "parameters", "strict"],
+  "additionalProperties": false,
+  "properties": {
+    "type": { "const": "function" },
+    "name": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{1,64}$" },
+    "description": { "type": ["string", "null"] },
+    "parameters": { "$ref": "#/$defs/parameters" },
+    "strict": { "type": ["boolean", "null"] }
+  },
+  "$defs": {
+    "parameters": {
+      "description": "The root of the parameters is an object schema and is not a union.",
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "const": "object" } },
+      "not": {
+        "anyOf": [{ "required": ["anyOf"] }, { "required": ["oneOf"] }, { "required": ["allOf"] }]
+      }
+    }
+  }
+}

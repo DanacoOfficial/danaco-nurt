@@ -1,0 +1,62 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-059",
+  "domain": 6,
+  "split": "public",
+  "platform": "cross",
+  "nl": "tools/count.py counts the lines of data.txt in its working directory. Run it with data/2025 as working directory and save its output to data/2025/count.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "data.txt",
+        "type": "file",
+        "content_utf8": "top\n"
+      },
+      {
+        "path": "data/2025/data.txt",
+        "type": "file",
+        "content_utf8": "row 0\nrow 1\nrow 2\nrow 3\nrow 4\n"
+      },
+      {
+        "path": "data/2026/data.txt",
+        "type": "file",
+        "content_utf8": "x\n"
+      },
+      {
+        "path": "tools/count.py",
+        "type": "file",
+        "content_utf8": "import pathlib\n\nrows = pathlib.Path(\"data.txt\").read_text().splitlines()\nprint(f\"{len(rows)} rows\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "data/2025/count.txt": {
+        "lines": [
+          "5 rows"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"../../tools/count.py\"] cwd: \"data/2025\" save_to: \"data/2025/count.txt\"",
+  "reference_bash": "(cd data/2025 && python3 ../../tools/count.py > count.txt)\n",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nPush-Location data/2025; try { & $py ../../tools/count.py | Set-Content count.txt } finally { Pop-Location }\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "python3 tools/count.py > data/2025/count.txt",
+      "defect": "reads data.txt of the wrong directory"
+    }
+  ],
+  "tags": [
+    "run",
+    "working-directory"
+  ],
+  "license": "CC-BY-4.0"
+}

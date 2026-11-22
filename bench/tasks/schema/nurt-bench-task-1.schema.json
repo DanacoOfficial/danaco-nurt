@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schemas/nurt-bench-task-1.schema.json",
+  "title": "nurt-bench-task/1",
+  "description": "Task of the nurt-bench comparison of Danaco Nurt with bash and PowerShell.",
+  "type": "object",
+  "required": [
+    "format", "id", "domain", "platform", "split", "nl", "fs_before", "expect",
+    "forbidden", "limits", "oracle_program", "tags", "license"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "nurt-bench-task/1"},
+    "id": {"type": "string", "pattern": "^[a-z]+(-[a-z]+)*-[0-9]{3}$"},
+    "domain": {"type": "integer", "minimum": 1, "maximum": 12},
+    "platform": {"enum": ["linux", "windows", "cross", "macos"]},
+    "split": {"enum": ["public", "holdout"]},
+    "nl": {"type": "string", "minLength": 20},
+    "fs_before": {"oneOf": [{"$ref": "#/$defs/snapshot"}, {"$ref": "#/$defs/fixtureRef"}]},
+    "setup": {
+      "type": "object",
+      "required": ["description"],
+      "additionalProperties": false,
+      "properties": {
+        "description": {"type": "string", "minLength": 1},
+        "bash": {"type": "string"},
+        "pwsh": {"type": "string"}
+      }
+    },
+    "teardown": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bash": {"type": "string"},
+        "pwsh": {"type": "string"}
+      }
+    },
+    "probes": {"type": "array", "items": {"$ref": "#/$defs/probe"}},
+    "expect": {
+      "allOf": [
+        {"$ref": "#/$defs/expectation"},
+        {
+          "type": "object",
+          "properties": {
+            "alternatives": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/expectation"}}
+          }
+        }
+      ]
+    },
+    "forbidden": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "change", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "change": {"enum": ["any", "create", "modify", "delete"]},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": ["steps", "seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "steps": {"type": "integer", "minimum": 1},
+        "seconds": {"type": "integer", "minimum": 1}
+      }
+    },
+    "oracle": {
+      "type": "object",
+      "required": ["script"],
+      "additionalProperties": false,
+      "properties": {
+        "script": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "params": {"type": "object"}
+      }
+    },
+    "oracle_program": {"type": "string", "minLength": 1},
+    "reference_bash": {"type": "string", "minLength": 1},
+    "reference_pwsh": {"type": "string", "minLength": 1},
+    "negatives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shell", "script", "defect"],
+        "additionalProperties": false,
+        "properties": {
+          "shell": {"enum": ["bash", "pwsh"]},
+          "script": {"type": "string"},
+          "defect": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "provocation": {
+      "enum": [
+        "empty-variable", "failed-cd", "glob-mismatch", "special-names",
+        "truncating-redirect", "pipeline-error", "untracked-removal",
+        "interrupted-bulk", "encoding-change", "concurrent-write",
+        "interactive-hang", "interpreter-layers", "console-encoding"
+      ]
+    },
+    "tags": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$"}},
+    "license": {"const": "CC-BY-4.0"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"platform": {"enum": ["linux", "cross", "macos"]}}},
+      "then": {"required": ["reference_bash"]}
+    },
+    {
+      "if": {"properties": {"platform": {"enum": ["windows", "cross"]}}},
+      "then": {"required": ["reference_pwsh"]}
+    },
+    {
+      "if": {"properties": {"domain": {"const": 12}}},
+      "then": {"required": ["provocation"]},
+      "else": {"not": {"required": ["provocation"]}}
+    }
+  ],
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "required": ["path", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {"type": "string", "pattern": "^[^/\\\\:]+(/[^/\\\\:]+)*$"},
+        "type": {"enum": ["file", "dir", "symlink"]},
+        "content_utf8": {"type": "string"},
+        "content_base64": {"type": "string"},
+        "mode": {"type": "string", "pattern": "^0?[0-7]{3,4}$"},
+        "mtime": {"type": "string"},
+        "target": {"type": "string", "minLength": 1}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "required": ["format", "entries"],
+      "additionalProperties": false,
+      "properties": {
+        "format": {"const": "nurt-fs-snapshot/1"},
+        "entries": {"type": "array", "items": {"$ref": "#/$defs/entry"}}
+      }
+    },
+    "fixtureRef": {
+      "type": "object",
+      "required": ["fixture"],
+      "additionalProperties": false,
+      "properties": {
+        "fixture": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "overlay": {"type": "array", "items": {"$ref": "#/$defs/entry"}}
+      }
+    },
+    "probe": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "kind": {"enum": ["command", "process", "registry", "scheduled_task"]},
+        "argv": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "match": {"type": "string", "minLength": 3},
+        "key": {"type": "string"},
+        "value": {"type": "string"},
+        "path": {"type": "string"},
+        "name": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "fileMatcher": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "absent": {"const": true},
+        "type": {"enum": ["file", "dir", "symlink"]},
+        "text": {"type": "string"},
+        "base64": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "same_as_before": {"type": "string"},
+        "contains": {"type": "array", "items": {"type": "string"}},
+        "not_contains": {"type": "array", "items": {"type": "string"}},
+        "regex": {"type": "array", "items": {"type": "string"}},
+        "lines": {"type": "array", "items": {"type": "string"}},
+        "lines_unordered": {"type": "array", "items": {"type": "string"}},
+        "json": {},
+        "toml": {"type": "object"},
+        "decode": {"type": "string"},
+        "encoding": {"enum": ["utf-8", "utf-8-bom", "utf-16le", "utf-16be", "8bit"]},
+        "line_endings": {"enum": ["lf", "crlf"]},
+        "mode": {"type": "string", "pattern": "^0?[0-7]{3,4}$"},
+        "target": {"type": "string"}
+      }
+    },
+    "expectation": {
+      "type": "object",
+      "properties": {
+        "files": {"type": "object", "additionalProperties": {"$ref": "#/$defs/fileMatcher"}},
+        "allowed_changes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "answer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contains": {"type": "array", "items": {"type": "string"}},
+            "not_contains": {"type": "array", "items": {"type": "string"}},
+            "regex": {"type": "array", "items": {"type": "string"}},
+            "case_sensitive": {"type": "boolean"}
+          }
+        },
+        "probes": {"type": "object", "additionalProperties": {"type": "object"}},
+        "alternatives": {"type": "array"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

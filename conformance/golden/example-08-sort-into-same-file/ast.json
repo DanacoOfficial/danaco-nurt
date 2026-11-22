@@ -1,0 +1,127 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "lines",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/data/data.txt",
+                "span": [
+                  1,
+                  7,
+                  1,
+                  27
+                ]
+              },
+              "span": [
+                1,
+                7,
+                1,
+                27
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            27
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "sort",
+            "args": [
+              {
+                "value": {
+                  "t": "ident",
+                  "v": "text",
+                  "span": [
+                    1,
+                    36,
+                    1,
+                    40
+                  ]
+                },
+                "span": [
+                  1,
+                  36,
+                  1,
+                  40
+                ]
+              }
+            ],
+            "span": [
+              1,
+              31,
+              1,
+              40
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "write",
+            "args": [
+              {
+                "value": {
+                  "t": "text",
+                  "v": "/srv/data/data.txt",
+                  "span": [
+                    1,
+                    50,
+                    1,
+                    70
+                  ]
+                },
+                "span": [
+                  1,
+                  50,
+                  1,
+                  70
+                ]
+              },
+              {
+                "name": "mode",
+                "value": {
+                  "t": "ident",
+                  "v": "overwrite",
+                  "span": [
+                    1,
+                    77,
+                    1,
+                    86
+                  ]
+                },
+                "span": [
+                  1,
+                  71,
+                  1,
+                  86
+                ]
+              }
+            ],
+            "span": [
+              1,
+              44,
+              1,
+              86
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          86
+        ]
+      }
+    ]
+  }
+}

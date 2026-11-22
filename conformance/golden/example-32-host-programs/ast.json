@@ -1,0 +1,98 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "host",
+          "args": [
+            {
+              "name": "programs",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "git",
+                    "span": [
+                      1,
+                      17,
+                      1,
+                      22
+                    ]
+                  },
+                  {
+                    "t": "text",
+                    "v": "python3",
+                    "span": [
+                      1,
+                      24,
+                      1,
+                      33
+                    ]
+                  },
+                  {
+                    "t": "text",
+                    "v": "node",
+                    "span": [
+                      1,
+                      35,
+                      1,
+                      41
+                    ]
+                  }
+                ],
+                "span": [
+                  1,
+                  16,
+                  1,
+                  42
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                42
+              ]
+            },
+            {
+              "name": "versions",
+              "value": {
+                "t": "bool",
+                "v": true,
+                "span": [
+                  1,
+                  53,
+                  1,
+                  57
+                ]
+              },
+              "span": [
+                1,
+                43,
+                1,
+                57
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            57
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          57
+        ]
+      }
+    ]
+  }
+}

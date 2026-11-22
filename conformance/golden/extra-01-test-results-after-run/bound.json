@@ -1,0 +1,122 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "cat-1",
+  "corr_rev": "corr-1",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "test.run",
+          "effect": "process",
+          "phase": "run",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/srv/app"
+              }
+            },
+            {
+              "name": "framework",
+              "value": {
+                "t": "enum",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "targets",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "filter",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "bail",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "command",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "timeout",
+              "value": {
+                "t": "dur",
+                "v": 1800000
+              },
+              "default": true
+            },
+            {
+              "name": "slowest",
+              "value": {
+                "t": "int",
+                "v": 0
+              },
+              "default": true
+            },
+            {
+              "name": "failures",
+              "value": {
+                "t": "int",
+                "v": 10
+              },
+              "default": true
+            },
+            {
+              "name": "message_lines",
+              "value": {
+                "t": "int",
+                "v": 5
+              },
+              "default": true
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "effect": "read",
+            "phase": "after",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "==",
+                  "l": {
+                    "t": "field",
+                    "name": "status"
+                  },
+                  "r": {
+                    "t": "text",
+                    "v": "failed"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

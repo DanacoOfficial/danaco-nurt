@@ -1,0 +1,52 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-012",
+  "domain": 1,
+  "split": "public",
+  "platform": "windows",
+  "nl": "How many requests in the access logs logs/access-*.log returned the HTTP status 401? Answer with the number.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "logs/access-2026-10-01.log",
+        "type": "file",
+        "content_utf8": "203.0.113.10 - - [01/Oct/2026:10:01:00 +0000] \"GET /index.html HTTP/1.1\" 200 5120\r\n203.0.113.11 - - [01/Oct/2026:10:08:00 +0000] \"GET /api/items HTTP/1.1\" 200 830\r\n198.51.100.7 - - [01/Oct/2026:10:15:00 +0000] \"POST /api/login HTTP/1.1\" 401 120\r\n203.0.113.10 - - [01/Oct/2026:10:22:00 +0000] \"GET /static/app.js HTTP/1.1\" 304 0\r\n198.51.100.23 - - [01/Oct/2026:10:29:00 +0000] \"GET /api/items/17 HTTP/1.1\" 404 95\r\n203.0.113.42 - - [01/Oct/2026:10:36:00 +0000] \"DELETE /api/items/9 HTTP/1.1\" 500 210\r\n198.51.100.7 - - [01/Oct/2026:10:43:00 +0000] \"POST /api/login HTTP/1.1\" 200 640\r\n203.0.113.11 - - [01/Oct/2026:10:50:00 +0000] \"GET /api/orders HTTP/1.1\" 200 2210\r\n198.51.100.23 - - [01/Oct/2026:10:57:00 +0000] \"GET /favicon.ico HTTP/1.1\" 404 95\r\n203.0.113.42 - - [01/Oct/2026:10:04:00 +0000] \"PUT /api/items/9 HTTP/1.1\" 500 230\r\n"
+      },
+      {
+        "path": "logs/access-2026-10-02.log",
+        "type": "file",
+        "content_utf8": "203.0.113.10 - - [02/Oct/2026:10:02:00 +0000] \"GET /static/app.js HTTP/1.1\" 304 0\r\n198.51.100.23 - - [02/Oct/2026:10:09:00 +0000] \"GET /api/items/17 HTTP/1.1\" 404 95\r\n203.0.113.42 - - [02/Oct/2026:10:16:00 +0000] \"DELETE /api/items/9 HTTP/1.1\" 500 210\r\n198.51.100.7 - - [02/Oct/2026:10:23:00 +0000] \"POST /api/login HTTP/1.1\" 200 640\r\n203.0.113.11 - - [02/Oct/2026:10:30:00 +0000] \"GET /api/orders HTTP/1.1\" 200 2210\r\n198.51.100.23 - - [02/Oct/2026:10:37:00 +0000] \"GET /favicon.ico HTTP/1.1\" 404 95\r\n203.0.113.42 - - [02/Oct/2026:10:44:00 +0000] \"PUT /api/items/9 HTTP/1.1\" 500 230\r\n203.0.113.10 - - [02/Oct/2026:10:51:00 +0000] \"GET /index.html HTTP/1.1\" 200 5120\r\n203.0.113.11 - - [02/Oct/2026:10:58:00 +0000] \"GET /api/items HTTP/1.1\" 200 830\r\n198.51.100.7 - - [02/Oct/2026:10:05:00 +0000] \"POST /api/login HTTP/1.1\" 401 120\r\n"
+      },
+      {
+        "path": "logs/access-2026-10-03.log",
+        "type": "file",
+        "content_utf8": "198.51.100.7 - - [03/Oct/2026:10:03:00 +0000] \"POST /api/login HTTP/1.1\" 200 640\r\n203.0.113.11 - - [03/Oct/2026:10:10:00 +0000] \"GET /api/orders HTTP/1.1\" 200 2210\r\n198.51.100.23 - - [03/Oct/2026:10:17:00 +0000] \"GET /favicon.ico HTTP/1.1\" 404 95\r\n203.0.113.42 - - [03/Oct/2026:10:24:00 +0000] \"PUT /api/items/9 HTTP/1.1\" 500 230\r\n203.0.113.10 - - [03/Oct/2026:10:31:00 +0000] \"GET /index.html HTTP/1.1\" 200 5120\r\n203.0.113.11 - - [03/Oct/2026:10:38:00 +0000] \"GET /api/items HTTP/1.1\" 200 830\r\n198.51.100.7 - - [03/Oct/2026:10:45:00 +0000] \"POST /api/login HTTP/1.1\" 401 120\r\n203.0.113.10 - - [03/Oct/2026:10:52:00 +0000] \"GET /static/app.js HTTP/1.1\" 304 0\r\n198.51.100.23 - - [03/Oct/2026:10:59:00 +0000] \"GET /api/items/17 HTTP/1.1\" 404 95\r\n203.0.113.42 - - [03/Oct/2026:10:06:00 +0000] \"DELETE /api/items/9 HTTP/1.1\" 500 210\r\n"
+      },
+      {
+        "path": "logs/app.log",
+        "type": "file",
+        "content_utf8": "2026-10-03T10:00:01Z INFO  server started on port 8080\r\n2026-10-03T10:00:05Z INFO  connected to database inventory\r\n2026-10-03T10:02:17Z WARN  slow query: 1840 ms\r\n2026-10-03T10:03:44Z ERROR payment gateway timeout after 30 s\r\n2026-10-03T10:04:02Z INFO  retry 1 of 3\r\n2026-10-03T10:04:09Z ERROR payment gateway timeout after 30 s\r\n2026-10-03T10:05:30Z WARN  cache miss ratio 0.41\r\n2026-10-03T10:07:12Z INFO  order 5512 shipped\r\n2026-10-03T10:09:55Z ERROR disk quota exceeded on /var/spool/app\r\n2026-10-03T10:11:00Z INFO  server stopping\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])3(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"\\\" 401 \" \"logs\" glob: \"access-*.log\" mode: literal |> count",
+  "reference_pwsh": "(Get-ChildItem logs -Filter 'access-*.log' | Get-Content | Where-Object { $_ -match [regex]::Escape('\" 401 ') }).Count\n",
+  "tags": [
+    "count",
+    "logs"
+  ],
+  "license": "CC-BY-4.0"
+}

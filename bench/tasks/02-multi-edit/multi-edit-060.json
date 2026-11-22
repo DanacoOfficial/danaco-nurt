@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-060",
+  "domain": 2,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Update the copyright line 'Copyright 2025 Example Ltd.' to 'Copyright 2026 Example Ltd.' in all .cs files under src/, including src/gen/table7.cs. Other years and other numbers stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "LICENSE.txt",
+        "type": "file",
+        "content_utf8": "Copyright 2025 Example Ltd.\r\n"
+      },
+      {
+        "path": "src/gen/table7.cs",
+        "type": "file",
+        "content_utf8": "// Copyright 2025 Example Ltd.\r\n// table version 2025.1\r\n"
+      },
+      {
+        "path": "src/main.cs",
+        "type": "file",
+        "content_utf8": "// Copyright 2025 Example Ltd.\r\n// main module\r\n"
+      },
+      {
+        "path": "src/util/helpers.cs",
+        "type": "file",
+        "content_utf8": "// Copyright 2025 Example Ltd.\r\n"
+      },
+      {
+        "path": "src/util/legacy.cs",
+        "type": "file",
+        "content_utf8": "// Copyright 2019 Example Ltd.\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "src/gen/table7.cs": {
+        "text": "// Copyright 2026 Example Ltd.\r\n// table version 2025.1\r\n"
+      },
+      "src/main.cs": {
+        "text": "// Copyright 2026 Example Ltd.\r\n// main module\r\n"
+      },
+      "src/util/helpers.cs": {
+        "text": "// Copyright 2026 Example Ltd.\r\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "LICENSE.txt",
+      "change": "any",
+      "reason": "the license text is not a source file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"Copyright 2025 Example Ltd.\" \"src\" glob: \"**/*.cs\" mode: literal |> replace \"Copyright 2026 Example Ltd.\"",
+  "reference_pwsh": "Get-ChildItem src -Recurse -File -Include '*.cs' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t -creplace 'Copyright 2025 Example Ltd\\.', 'Copyright 2026 Example Ltd.'\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "tags": [
+    "header",
+    "replace"
+  ],
+  "license": "CC-BY-4.0"
+}

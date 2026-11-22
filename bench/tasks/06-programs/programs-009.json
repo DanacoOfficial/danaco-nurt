@@ -1,0 +1,94 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-009",
+  "domain": 6,
+  "split": "public",
+  "platform": "linux",
+  "nl": "The test test_mul fails. Fix the defect in calc/ops.py (not in the tests) so that the whole test suite passes.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "calc/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "calc/ops.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Arithmetic helpers.\"\"\"\n\n\ndef add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n\n\ndef mul(a, b):\n    return a ** b\n\n\ndef quotient(a, b):\n    return a / b\n\n\ndef mean(values):\n    return sum(values) / len(values)\n"
+      },
+      {
+        "path": "tests/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tests/test_ops.py",
+        "type": "file",
+        "content_utf8": "import unittest\n\nfrom calc.ops import add, mean, mul, quotient, sub\n\n\nclass OpsTests(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(add(2, 3), 5)\n\n    def test_sub(self):\n        self.assertEqual(sub(7, 3), 4)\n\n    def test_mul(self):\n        self.assertEqual(mul(2, 3), 6)\n\n    def test_quotient(self):\n        self.assertEqual(quotient(7, 2), 3.5)\n\n    def test_mean(self):\n        self.assertEqual(mean([2, 4, 6]), 4)\n\n    def test_zero_divisor(self):\n        with self.assertRaises(ZeroDivisionError):\n            quotient(1, 0)\n"
+      }
+    ]
+  },
+  "probes": [
+    {
+      "id": "tests",
+      "kind": "command",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests"
+      ]
+    }
+  ],
+  "expect": {
+    "files": {
+      "calc/ops.py": {
+        "contains": [
+          "a * b"
+        ],
+        "not_contains": [
+          "a ** b"
+        ]
+      }
+    },
+    "allowed_changes": [
+      "calc/ops.py",
+      "**/__pycache__/**"
+    ],
+    "probes": {
+      "tests": {
+        "exit": 0
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "tests/**",
+      "change": "modify",
+      "reason": "the tests define the expected behaviour"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"a ** b\" \"a * b\" in: [\"calc/ops.py\"] mode: literal expect: 1 |> verify (test.run \".\" framework: unittest |> assert empty: (filter status == \"failed\"))",
+  "reference_bash": "sed -i 's/a \\*\\* b/a * b/' calc/ops.py\npython3 -m unittest discover -s tests\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i '/def test_mul/,+1d' tests/test_ops.py",
+      "defect": "deletes the failing test"
+    }
+  ],
+  "tags": [
+    "fix",
+    "python",
+    "tests"
+  ],
+  "license": "CC-BY-4.0"
+}

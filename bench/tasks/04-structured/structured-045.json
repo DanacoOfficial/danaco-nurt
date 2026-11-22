@@ -1,0 +1,67 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-045",
+  "domain": 4,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Convert batch-2.csv to sales-2.json: a JSON array with one object per row, keys from the header, quantity as an integer, amount as a number and the other fields as strings.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "batch-2.csv",
+        "type": "file",
+        "content_utf8": "date,region,product,quantity,amount\n2026-01-04,south,nut,300,9.00\n2026-01-05,north,hinge,4,9.60\n2026-01-06,east,bolt,75,6.00\n2026-01-06,south,washer,1000,10.00\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "sales-2.json": {
+        "json": [
+          {
+            "date": "2026-01-04",
+            "region": "south",
+            "product": "nut",
+            "quantity": 300,
+            "amount": 9.0
+          },
+          {
+            "date": "2026-01-05",
+            "region": "north",
+            "product": "hinge",
+            "quantity": 4,
+            "amount": 9.6
+          },
+          {
+            "date": "2026-01-06",
+            "region": "east",
+            "product": "bolt",
+            "quantity": 75,
+            "amount": 6.0
+          },
+          {
+            "date": "2026-01-06",
+            "region": "south",
+            "product": "washer",
+            "quantity": 1000,
+            "amount": 10.0
+          }
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"batch-2.csv\" |> write \"sales-2.json\" format: json",
+  "reference_bash": "python3 - <<'EOF'\nimport csv, json\nrows = list(csv.DictReader(open('batch-2.csv', newline='')))\nfor r in rows:\n    r['quantity'] = int(r['quantity'])\n    r['amount'] = float(r['amount'])\njson.dump(rows, open('sales-2.json', 'w'), indent=2)\nEOF\n",
+  "tags": [
+    "convert",
+    "csv",
+    "json"
+  ],
+  "license": "CC-BY-4.0"
+}

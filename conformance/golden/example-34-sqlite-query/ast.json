@@ -1,0 +1,95 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "sql",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/app.db",
+                "span": [
+                  1,
+                  5,
+                  1,
+                  22
+                ]
+              },
+              "span": [
+                1,
+                5,
+                1,
+                22
+              ]
+            },
+            {
+              "value": {
+                "t": "text",
+                "v": "select id, name from users where active = ? limit 5",
+                "span": [
+                  1,
+                  23,
+                  1,
+                  76
+                ]
+              },
+              "span": [
+                1,
+                23,
+                1,
+                76
+              ]
+            },
+            {
+              "name": "params",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "int",
+                    "v": 1,
+                    "span": [
+                      1,
+                      86,
+                      1,
+                      87
+                    ]
+                  }
+                ],
+                "span": [
+                  1,
+                  85,
+                  1,
+                  88
+                ]
+              },
+              "span": [
+                1,
+                77,
+                1,
+                88
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            88
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          88
+        ]
+      }
+    ]
+  }
+}

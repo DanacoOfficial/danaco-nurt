@@ -1,0 +1,73 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-009",
+  "domain": 4,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Remove the key compilerOptions.jsxImportSource from tsconfig.json. Keep everything else.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "package.json",
+        "type": "file",
+        "content_utf8": "{\n  \"name\": \"webapp\",\n  \"version\": \"2.3.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"build\": \"tsc -p .\",\n    \"test\": \"vitest run\"\n  },\n  \"dependencies\": {\n    \"preact\": \"^10.22.0\"\n  },\n  \"devDependencies\": {\n    \"typescript\": \"^5.5.0\",\n    \"vitest\": \"^2.0.0\"\n  }\n}\n"
+      },
+      {
+        "path": "src/api.ts",
+        "type": "file",
+        "content_utf8": "const BASE_URL = \"https://api.example.com/v1\";\n\nexport async function fetchOrders(): Promise<Order[]> {\n  console.log(\"fetching orders\");\n  const response = await fetch(`${BASE_URL}/orders`);\n  return response.json();\n}\n\nexport async function fetchCustomer(id: number): Promise<Customer> {\n  const response = await fetch(`${BASE_URL}/customers/${id}`);\n  return response.json();\n}\n\nexport interface Order {\n  id: number;\n  customerId: number;\n  total: number;\n}\n\nexport interface Customer {\n  id: number;\n  name: string;\n}\n"
+      },
+      {
+        "path": "src/components/CustomerCard.tsx",
+        "type": "file",
+        "content_utf8": "import { Customer } from \"../api\";\n\nexport function CustomerCard({ customer }: { customer: Customer }) {\n  return <div class=\"card\">{customer.name}</div>;\n}\n"
+      },
+      {
+        "path": "src/components/OrderList.tsx",
+        "type": "file",
+        "content_utf8": "import { fetchOrders, Order } from \"../api\";\nimport { formatPrice } from \"../format\";\n\nexport function OrderList({ orders }: { orders: Order[] }) {\n  console.log(\"rendering\", orders.length);\n  return (\n    <ul>\n      {orders.map((order) => (\n        <li key={order.id}>{formatPrice(order.total)}</li>\n      ))}\n    </ul>\n  );\n}\n\nexport { fetchOrders };\n"
+      },
+      {
+        "path": "src/format.ts",
+        "type": "file",
+        "content_utf8": "export function formatPrice(value: number): string {\n  return value.toFixed(2) + \" EUR\";\n}\n\nexport function formatDate(value: Date): string {\n  console.log(\"formatting\", value);\n  return value.toISOString().slice(0, 10);\n}\n"
+      },
+      {
+        "path": "tsconfig.json",
+        "type": "file",
+        "content_utf8": "{\n  \"compilerOptions\": {\n    \"target\": \"ES2022\",\n    \"module\": \"ESNext\",\n    \"strict\": true,\n    \"jsx\": \"react-jsx\",\n    \"jsxImportSource\": \"preact\"\n  },\n  \"include\": [\"src\"]\n}\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "tsconfig.json": {
+        "json": {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "ESNext",
+            "strict": true,
+            "jsx": "react-jsx"
+          },
+          "include": [
+            "src"
+          ]
+        }
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"tsconfig.json\" key: \"compilerOptions.jsxImportSource\" value: null",
+  "reference_bash": "python3 - <<'EOF'\nimport json\np = 'tsconfig.json'\nd = json.load(open(p, encoding='utf-8'))\ndel d['compilerOptions']['jsxImportSource']\nopen(p, 'w', encoding='utf-8').write(json.dumps(d, indent=2) + '\\n')\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'tsconfig.json'\n$d = Get-Content $p -Raw | ConvertFrom-Json\n$d.compilerOptions.PSObject.Properties.Remove('jsxImportSource')\n$d | ConvertTo-Json -Depth 20 | Set-Content $p\n",
+  "tags": [
+    "delete-key",
+    "json"
+  ],
+  "license": "CC-BY-4.0"
+}

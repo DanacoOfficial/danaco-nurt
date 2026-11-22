@@ -1,0 +1,35 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-013",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Which files under src/ contain the text 'console.log'? List their relative paths.",
+  "fs_before": {
+    "fixture": "ts-webapp"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "src/api.ts",
+        "src/format.ts",
+        "src/components/OrderList.tsx"
+      ],
+      "not_contains": [
+        "CustomerCard.tsx"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"console.log\" \"src\" mode: literal output: paths",
+  "reference_bash": "grep -rlF -- 'console.log' src | sort\n",
+  "tags": [
+    "content-search",
+    "grep"
+  ],
+  "license": "CC-BY-4.0"
+}

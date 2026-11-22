@@ -1,0 +1,721 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "correction/names/l01-remove-transposed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A changing command name one transposition away is corrected; the target is unchanged."
+method = "correct"
+program = 'remvoe "/home/user/app/build/old.log"'
+
+[case.expect]
+program = 'remove "/home/user/app/build/old.log"'
+corrections = [{ rule = "L01", class = "F", from = "remvoe", to = "remove" }]
+
+[[case]]
+id = "correction/names/l01-find-transposed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A reading command name one transposition away is corrected."
+method = "correct"
+program = 'fnid "/home/user/app" glob: "*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+corrections = [{ rule = "L01", class = "F", from = "fnid", to = "find" }]
+
+[[case]]
+id = "correction/names/l01-search-transposed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The name serach is corrected to search."
+method = "correct"
+program = 'serach "TODO" "/home/user/app/src"'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app/src"'
+corrections = [{ rule = "L01", class = "F", from = "serach", to = "search" }]
+
+[[case]]
+id = "correction/names/l01-processes-transposed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A long reading command name with one transposition is corrected."
+method = "correct"
+program = "procesess"
+
+[case.expect]
+program = "processes"
+corrections = [{ rule = "L01", class = "F", from = "procesess", to = "processes" }]
+
+[[case]]
+id = "correction/names/l01-environment-deletion"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A missing letter in a long reading command name is corrected."
+method = "correct"
+program = "enviroment"
+
+[case.expect]
+program = "environment"
+corrections = [{ rule = "L01", class = "F", from = "enviroment", to = "environment" }]
+
+[[case]]
+id = "correction/names/l01-history-transposed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The name histroy is corrected to history; the number is unchanged."
+method = "correct"
+program = "histroy limit: 5"
+
+[case.expect]
+program = "history limit: 5"
+corrections = [{ rule = "L01", class = "F", from = "histroy", to = "history" }]
+
+[[case]]
+id = "correction/names/l01-jobs-transposed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A four-letter command name one transposition away is corrected."
+method = "correct"
+program = 'jbos "j1" tail: 20'
+
+[case.expect]
+program = 'jobs "j1" tail: 20'
+corrections = [{ rule = "L01", class = "F", from = "jbos", to = "jobs" }]
+
+[[case]]
+id = "correction/names/l01-disks-transposed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The name dsiks is corrected to disks."
+method = "correct"
+program = "dsiks"
+
+[case.expect]
+program = "disks"
+corrections = [{ rule = "L01", class = "F", from = "dsiks", to = "disks" }]
+
+[[case]]
+id = "correction/names/l01-attributes-transposed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A changing command name at distance 1 is corrected when the whole program binds."
+method = "correct"
+program = 'attirbutes "/home/user/app/run.sh" mode: "0755"'
+
+[case.expect]
+program = 'attributes "/home/user/app/run.sh" mode: "0755"'
+corrections = [{ rule = "L01", class = "F", from = "attirbutes", to = "attributes" }]
+
+[[case]]
+id = "correction/names/l01-program-search-two-edits"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A reading command name of at least eight characters is corrected at distance 2."
+method = "correct"
+program = 'progarm.serach "pdf"'
+
+[case.expect]
+program = 'program.search "pdf"'
+corrections = [{ rule = "L01", class = "F", from = "progarm.serach", to = "program.search" }]
+
+[[case]]
+id = "correction/names/l01-stop-in-pipeline"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A stage name after a pipe is corrected like a command at the start."
+method = "correct"
+program = 'jobs "j1" |> sotp'
+
+[case.expect]
+program = 'jobs "j1" |> stop'
+corrections = [{ rule = "L01", class = "F", from = "sotp", to = "stop" }]
+
+[[case]]
+id = "correction/names/l01-move-transposed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The name mvoe is one transposition from move and three edits from remove."
+method = "correct"
+program = 'mvoe "/home/user/a.txt" to: "/home/user/b.txt"'
+
+[case.expect]
+program = 'move "/home/user/a.txt" to: "/home/user/b.txt"'
+corrections = [{ rule = "L01", class = "F", from = "mvoe", to = "move" }]
+
+[[case]]
+id = "correction/names/l01-hosts-extra-letter"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An extra letter at the end of a short reading command name is corrected."
+method = "correct"
+program = "hosts"
+
+[case.expect]
+program = "host"
+corrections = [{ rule = "L01", class = "F", from = "hosts", to = "host" }]
+
+[[case]]
+id = "correction/names/l01-git-status-typo"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A typing error in the leaf of a group command name is corrected."
+method = "correct"
+program = 'git.stauts "/home/user/app"'
+
+[case.expect]
+program = 'git.status "/home/user/app"'
+corrections = [{ rule = "L01", class = "F", from = "git.stauts", to = "git.status" }]
+
+[[case]]
+id = "correction/names/l02-case-sensitive"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A missing letter in a parameter name is corrected within the signature of the command."
+method = "correct"
+program = 'search "TODO" "/home/user/app" case_sensitve: false'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" case_sensitive: false'
+corrections = [{ rule = "L02", class = "F", from = "case_sensitve", to = "case_sensitive" }]
+
+[[case]]
+id = "correction/names/l02-depth"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A transposed parameter name is corrected; the value is unchanged."
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" depht: 2'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" depth: 2'
+corrections = [{ rule = "L02", class = "F", from = "depht", to = "depth" }]
+
+[[case]]
+id = "correction/names/l02-hidden"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The parameter hiddne of list is corrected to hidden."
+method = "correct"
+program = 'list "/home/user/app" hiddne: false'
+
+[case.expect]
+program = 'list "/home/user/app" hidden: false'
+corrections = [{ rule = "L02", class = "F", from = "hiddne", to = "hidden" }]
+
+[[case]]
+id = "correction/names/l02-on-conflict-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A parameter name of a changing command is corrected; parameter names are not stage names."
+method = "correct"
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt" on_conflcit: skip'
+
+[case.expect]
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt" on_conflict: skip'
+corrections = [{ rule = "L02", class = "F", from = "on_conflcit", to = "on_conflict" }]
+
+[[case]]
+id = "correction/names/l02-occurrence"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A missing double letter in a parameter name is corrected."
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] ocurrence: 1'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] occurrence: 1'
+corrections = [{ rule = "L02", class = "F", from = "ocurrence", to = "occurrence" }]
+
+[[case]]
+id = "correction/names/l02-timeout"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The parameter timout of run is corrected to timeout; idle_timeout is not a candidate."
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" timout: 30s'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" timeout: 30s'
+corrections = [{ rule = "L02", class = "F", from = "timout", to = "timeout" }]
+
+[[case]]
+id = "correction/names/l03-find-glob"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Names are compared without letter case."
+method = "correct"
+program = 'Find "/home/user/app" Glob: "*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+
+[[case]]
+id = "correction/names/l03-upper-case-everywhere"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Command, parameter and enumeration value in upper case are corrected; literals keep their case."
+method = "correct"
+program = 'FIND "/home/user/App" GLOB: "*.GO" TYPE: FILE'
+
+[case.expect]
+program = 'find "/home/user/App" glob: "*.GO" type: file'
+
+[[case]]
+id = "correction/names/l03-remove-capital"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Letter case of a changing command is a certain equivalence and is corrected."
+method = "correct"
+program = 'Remove "/home/user/app/a.txt"'
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt"'
+corrections = [{ rule = "L03", class = "C", from = "Remove", to = "remove" }]
+
+[[case]]
+id = "correction/names/l03-path-case-kept"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The letter case of path segments is never changed."
+method = "correct"
+program = 'Search "TODO" "/home/user/App/Src"'
+
+[case.expect]
+program = 'search "TODO" "/home/user/App/Src"'
+corrections = [{ rule = "L03", class = "C", from = "Search", to = "search" }]
+
+[[case]]
+id = "correction/names/l03-pipeline-stages"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Every stage name of a pipeline is compared without letter case."
+method = "correct"
+program = 'Find "/home/user/app" |> Count'
+
+[case.expect]
+program = 'find "/home/user/app" |> count'
+
+[[case]]
+id = "correction/names/l04-camel-case-param"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A parameter name in camel case is written in snake case."
+method = "correct"
+program = 'find "/home/user/app" caseSensitive: false'
+
+[case.expect]
+program = 'find "/home/user/app" case_sensitive: false'
+corrections = [{ rule = "L04", class = "C", from = "caseSensitive", to = "case_sensitive" }]
+
+[[case]]
+id = "correction/names/l04-kebab-case-param"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A parameter name in kebab case is written in snake case."
+method = "correct"
+program = 'search "x" "/home/user/app" whole-word: true'
+
+[case.expect]
+program = 'search "x" "/home/user/app" whole_word: true'
+corrections = [{ rule = "L04", class = "C", from = "whole-word", to = "whole_word" }]
+
+[[case]]
+id = "correction/names/l04-pascal-case-param"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A parameter name in Pascal case is written in snake case."
+method = "correct"
+program = 'search "x" "/home/user/app" ExcludePreset: [vcs]'
+
+[case.expect]
+program = 'search "x" "/home/user/app" exclude_preset: [vcs]'
+corrections = [{ rule = "L04", class = "C", from = "ExcludePreset", to = "exclude_preset" }]
+
+[[case]]
+id = "correction/names/l04-kebab-case-command"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A command name in kebab case is written in snake case."
+method = "correct"
+program = 'open-files "/home/user/app/a.log"'
+
+[case.expect]
+program = 'open_files "/home/user/app/a.log"'
+corrections = [{ rule = "L04", class = "C", from = "open-files", to = "open_files" }]
+
+[[case]]
+id = "correction/names/l04-camel-case-group-command"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The leaf of a group command name in camel case is written in snake case."
+method = "correct"
+program = 'notebook.clearOutputs "/home/user/app/a.ipynb"'
+
+[case.expect]
+program = 'notebook.clear_outputs "/home/user/app/a.ipynb"'
+corrections = [{ rule = "L04", class = "C", from = "notebook.clearOutputs", to = "notebook.clear_outputs" }]
+
+[[case]]
+id = "correction/names/l05-parameter-prefix"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A unique prefix of at least three characters names the parameter."
+method = "correct"
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt" on_conf: skip'
+
+[case.expect]
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt" on_conflict: skip'
+corrections = [{ rule = "L05", class = "F", from = "on_conf", to = "on_conflict" }]
+
+[[case]]
+id = "correction/names/l05-merge-stderr"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The prefix merge names only merge_stderr among the parameters of run."
+method = "correct"
+program = 'run ["make"] cwd: "/home/user/app" merge: true'
+
+[case.expect]
+program = 'run ["make"] cwd: "/home/user/app" merge_stderr: true'
+corrections = [{ rule = "L05", class = "F", from = "merge", to = "merge_stderr" }]
+
+[[case]]
+id = "correction/names/l05-value-prefix"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A unique prefix of an enumeration value names the value."
+method = "correct"
+program = 'list "/home/user/app" sort: mod'
+
+[case.expect]
+program = 'list "/home/user/app" sort: modified'
+
+[[case]]
+id = "correction/names/l05-directory-prefix"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The value dir of type is the enumeration value directory."
+method = "correct"
+program = 'find "/home/user/app" type: dir'
+
+[case.expect]
+program = 'find "/home/user/app" type: directory'
+
+[[case]]
+id = "correction/names/l06-work-to-jobs"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The name work, used by some tool sets for background work, is the command jobs."
+method = "correct"
+program = "work"
+
+[case.expect]
+program = "jobs"
+corrections = [{ rule = "L06", class = "C", from = "work", to = "jobs" }]
+
+[[case]]
+id = "correction/names/l06-work-with-id"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "work with a job identifier is jobs with the same identifier."
+method = "correct"
+program = 'work "j3" tail: 20'
+
+[case.expect]
+program = 'jobs "j3" tail: 20'
+corrections = [{ rule = "L06", class = "C", from = "work", to = "jobs" }]
+
+[[case]]
+id = "correction/names/l06-work-with-state"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "work with parameters of jobs keeps the parameters."
+method = "correct"
+program = "work state: running"
+
+[case.expect]
+program = "jobs state: running"
+corrections = [{ rule = "L06", class = "C", from = "work", to = "jobs" }]
+
+[[case]]
+id = "correction/names/l06-work-in-pipeline"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "work at the start of a pipeline is jobs; the following stages are unchanged."
+method = "correct"
+program = "work |> filter state == \"failed\" |> count"
+
+[case.expect]
+program = "jobs |> filter state == \"failed\" |> count"
+
+[[case]]
+id = "correction/names/l06-delete"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "delete is a synonym of remove."
+method = "correct"
+program = 'delete "/home/user/app/old.log"'
+
+[case.expect]
+program = 'remove "/home/user/app/old.log"'
+corrections = [{ rule = "L06", class = "C", from = "delete", to = "remove" }]
+
+[[case]]
+id = "correction/names/l06-erase"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "erase is a synonym of remove."
+method = "correct"
+program = 'erase "/home/user/app/old.log"'
+
+[case.expect]
+program = 'remove "/home/user/app/old.log"'
+
+[[case]]
+id = "correction/names/l06-head"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "head as a stage is first; the count is unchanged."
+method = "correct"
+program = 'find "/home/user/app" |> head 5'
+
+[case.expect]
+program = 'find "/home/user/app" |> first 5'
+
+[[case]]
+id = "correction/names/l06-take"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "take is a synonym of first."
+method = "correct"
+program = 'find "/home/user/app" |> take 3'
+
+[case.expect]
+program = 'find "/home/user/app" |> first 3'
+
+[[case]]
+id = "correction/names/l06-limit"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "limit as a stage is first."
+method = "correct"
+program = 'find "/home/user/app" |> limit 10'
+
+[case.expect]
+program = 'find "/home/user/app" |> first 10'
+
+[[case]]
+id = "correction/names/l06-tail"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "tail as a stage is last."
+method = "correct"
+program = 'find "/home/user/app" |> sort modified |> tail 3'
+
+[case.expect]
+program = 'find "/home/user/app" |> sort modified |> last 3'
+
+[[case]]
+id = "correction/names/l06-uniq"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "uniq is a synonym of distinct."
+method = "correct"
+program = 'find "/home/user/app" |> uniq extension'
+
+[case.expect]
+program = 'find "/home/user/app" |> distinct extension'
+
+[[case]]
+id = "correction/names/l06-length"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "length as a stage is count."
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" |> length'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" |> count'
+
+[[case]]
+id = "correction/names/l06-len"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "len as a stage is count."
+method = "correct"
+program = 'find "/home/user/app" |> len'
+
+[case.expect]
+program = 'find "/home/user/app" |> count'
+
+[[case]]
+id = "correction/names/l06-where"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "where is a synonym of filter; the condition is unchanged."
+method = "correct"
+program = 'find "/home/user/app" |> where size > 1kb'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size > 1kb'
+
+[[case]]
+id = "correction/names/l06-stat"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "stat is a synonym of info."
+method = "correct"
+program = 'stat "/home/user/app/a.txt"'
+
+[case.expect]
+program = 'info "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/names/l06-ps"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ps is a synonym of processes."
+method = "correct"
+program = 'ps name: "nginx"'
+
+[case.expect]
+program = 'processes name: "nginx"'
+
+[[case]]
+id = "correction/names/l06-gps"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "gps is a synonym of processes."
+method = "correct"
+program = "gps"
+
+[case.expect]
+program = "processes"
+
+[[case]]
+id = "correction/names/l06-df"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "df is a synonym of disks."
+method = "correct"
+program = "df"
+
+[case.expect]
+program = "disks"
+
+[[case]]
+id = "correction/names/l06-printenv"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "printenv is a synonym of environment."
+method = "correct"
+program = "printenv"
+
+[case.expect]
+program = "environment"
+
+[[case]]
+id = "correction/names/l06-which"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "which is a synonym of program.find."
+method = "correct"
+program = 'which "git"'
+
+[case.expect]
+program = 'program.find "git"'
+
+[[case]]
+id = "correction/names/l06-kill-stage"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "kill as a stage is stop."
+method = "correct"
+program = 'processes name: "sleep" |> kill'
+
+[case.expect]
+program = 'processes name: "sleep" |> stop'
+
+[[case]]
+id = "correction/names/l06-gci"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "gci with a quoted path is list."
+method = "correct"
+program = 'gci "/home/user/app"'
+
+[case.expect]
+program = 'list "/home/user/app"'
+
+[[case]]
+id = "correction/names/l06-kind-parameter"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The parameter name kind is type."
+method = "correct"
+program = 'find "/home/user/app" kind: directory'
+
+[case.expect]
+program = 'find "/home/user/app" type: directory'

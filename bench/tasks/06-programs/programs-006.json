@@ -1,0 +1,62 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-006",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run the unit tests of the project in geometry/ (python -m unittest discover -s tests, run inside geometry/) and name the failing tests.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "geometry/calc/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "geometry/calc/ops.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Arithmetic helpers.\"\"\"\r\n\r\n\r\ndef add(a, b):\r\n    return a + b\r\n\r\n\r\ndef sub(a, b):\r\n    return a - b\r\n\r\n\r\ndef mul(a, b):\r\n    return a ** b\r\n\r\n\r\ndef quotient(a, b):\r\n    return a / b\r\n\r\n\r\ndef mean(values):\r\n    return sum(values) / len(values)\r\n"
+      },
+      {
+        "path": "geometry/tests/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "geometry/tests/test_ops.py",
+        "type": "file",
+        "content_utf8": "import unittest\r\n\r\nfrom calc.ops import add, mean, mul, quotient, sub\r\n\r\n\r\nclass OpsTests(unittest.TestCase):\r\n    def test_add(self):\r\n        self.assertEqual(add(2, 3), 5)\r\n\r\n    def test_sub(self):\r\n        self.assertEqual(sub(7, 3), 4)\r\n\r\n    def test_mul(self):\r\n        self.assertEqual(mul(2, 3), 6)\r\n\r\n    def test_quotient(self):\r\n        self.assertEqual(quotient(7, 2), 3.5)\r\n\r\n    def test_mean(self):\r\n        self.assertEqual(mean([2, 4, 6]), 4)\r\n\r\n    def test_zero_divisor(self):\r\n        with self.assertRaises(ZeroDivisionError):\r\n            quotient(1, 0)\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "allowed_changes": [
+      "**/__pycache__/**"
+    ],
+    "answer": {
+      "contains": [
+        "test_mul"
+      ],
+      "not_contains": [
+        "test_add",
+        "test_sub",
+        "test_quotient",
+        "test_mean",
+        "test_zero_divisor"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "test.run \"geometry\" framework: unittest |> filter status == \"failed\" |> select name",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nSet-Location geometry; & $py -m unittest discover -s tests -v 2>&1 | ForEach-Object { \"$_\" } | Select-String '\\.\\.\\. (FAIL|ERROR)$'\n",
+  "tags": [
+    "python",
+    "tests"
+  ],
+  "license": "CC-BY-4.0"
+}

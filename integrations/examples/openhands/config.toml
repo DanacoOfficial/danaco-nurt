@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Configuration of OpenHands that adds the nurt tool through the Model Context
+# Protocol. Merge the section into the config.toml of the OpenHands installation.
+
+[mcp]
+stdio_servers = [
+  { name = "nurt", command = "nurt", args = ["mcp", "--stdio"] },
+]

@@ -1,0 +1,1009 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/files/write/create",
+      "kind": "parity",
+      "summary": "Creates a new file with the text.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"new.txt\" \"hello\\n\" mode: create",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "write",
+          "summary": {
+            "files_created": 1
+          },
+          "changes": [
+            {
+              "path": "${base}/new.txt",
+              "action": "create"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "new.txt",
+            "type": "file",
+            "content_utf8": "hello\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/create-existing",
+      "kind": "parity",
+      "summary": "Creating an existing file fails and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"keep.txt\" \"x\" mode: create",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_EXISTS"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/write/create-parents",
+      "kind": "parity",
+      "summary": "Creates missing parent directories.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"a/b/c.txt\" \"x\\n\" mode: create",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "a/b/c.txt",
+            "type": "file",
+            "content_utf8": "x\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/create-without-parents",
+      "kind": "parity",
+      "summary": "Fails without parents when parents is false.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"a/b/c.txt\" \"x\\n\" mode: create parents: false",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_NOT_FOUND"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/write/overwrite",
+      "kind": "parity",
+      "summary": "Replaces the content of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"keep.txt\" \"new\\n\" mode: overwrite",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "summary": {
+            "files_modified": 1
+          },
+          "notable": [
+            {
+              "code": "overwrote_existing"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "new\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/overwrite-missing",
+      "kind": "parity",
+      "summary": "Overwrite creates a missing file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"n.txt\" \"n\\n\" mode: overwrite",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "n.txt",
+            "type": "file",
+            "content_utf8": "n\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/append",
+      "kind": "parity",
+      "summary": "Appends to a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"keep.txt\" \"more\\n\" mode: append",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\nmore\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/prepend",
+      "kind": "parity",
+      "summary": "Prepends to a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"keep.txt\" \"first\\n\" mode: prepend",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "first\nkeep\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/ensure-newline",
+      "kind": "parity",
+      "summary": "Adds a final line ending when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"e.txt\" \"x\" mode: create ensure_newline: true",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "e.txt",
+            "type": "file",
+            "content_utf8": "x\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/no-newline-added",
+      "kind": "parity",
+      "summary": "Writes the text as given by default.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"e.txt\" \"x\" mode: create",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "e.txt",
+            "type": "file",
+            "content_utf8": "x"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/empty-text",
+      "kind": "parity",
+      "summary": "Writes an empty file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"e.txt\" \"\" mode: create",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "e.txt",
+            "type": "file",
+            "content_utf8": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/emptied-is-notable",
+      "kind": "parity",
+      "summary": "Emptying a file is an unusual effect.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"keep.txt\" \"\" mode: overwrite",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "file_emptied",
+              "severity": "warning",
+              "path": "${base}/keep.txt"
+            },
+            {
+              "code": "overwrote_existing"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/identical-content",
+      "kind": "parity",
+      "summary": "Writing identical content is reported as unchanged.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"keep.txt\" \"keep\\n\" mode: overwrite",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "unchanged"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/write/crlf-line-endings",
+      "kind": "parity",
+      "summary": "Writes CRLF line endings when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"w.txt\" \"a\\nb\\n\" mode: create line_ending: crlf",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a\r\nb\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/keeps-crlf-on-append",
+      "kind": "parity",
+      "summary": "Appending to a CRLF file keeps its line endings.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a\r\nb\r\n"
+          }
+        ]
+      },
+      "program": "write \"w.txt\" \"c\\n\" mode: append",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a\r\nb\r\nc\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/keeps-legacy-encoding",
+      "kind": "parity",
+      "summary": "Overwriting a Windows-1250 file keeps its encoding.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_base64": "jmlsaW5hCg=="
+          }
+        ]
+      },
+      "program": "write \"l.txt\" \"Šala\\n\" mode: overwrite",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "encoding_preserved"
+            },
+            {
+              "code": "overwrote_existing"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_base64": "imFsYQo="
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/explicit-encoding",
+      "kind": "parity",
+      "summary": "Writes a new file in the given encoding.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"n.txt\" \"Šala\\n\" mode: create encoding: \"windows-1250\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "n.txt",
+            "type": "file",
+            "content_base64": "imFsYQo="
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/utf16-with-bom",
+      "kind": "parity",
+      "summary": "Writes a UTF-16 file with a byte order mark.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"u.txt\" \"hi\\n\" mode: create encoding: \"utf-16le\" bom: true",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "u.txt",
+            "type": "file",
+            "content_base64": "//5oAGkACgA="
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/utf8-bom",
+      "kind": "parity",
+      "summary": "Writes a UTF-8 byte order mark when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"b.txt\" \"x\\n\" mode: create bom: true",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_base64": "77u/eAo="
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/multiline-raw-text",
+      "kind": "parity",
+      "summary": "Writes a raw multi-line text.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"Dockerfile\" r#\"FROM alpine:3.20\nCMD [\"sh\"]\n\"# mode: create",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "Dockerfile",
+            "type": "file",
+            "content_utf8": "FROM alpine:3.20\nCMD [\"sh\"]\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/from-pipeline",
+      "kind": "parity",
+      "summary": "Writes the lines of a pipeline to a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "in.txt",
+            "type": "file",
+            "content_utf8": "b\na\nc\n"
+          }
+        ]
+      },
+      "program": "write \"out.txt\" from: (lines \"in.txt\" |> sort text) mode: create format: text",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "in.txt",
+            "type": "file",
+            "content_utf8": "b\na\nc\n"
+          },
+          {
+            "path": "out.txt",
+            "type": "file",
+            "content_utf8": "a\nb\nc\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/sorted-into-same-file",
+      "kind": "parity",
+      "summary": "Sorts the lines of a file into the same file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "d.txt",
+            "type": "file",
+            "content_utf8": "b\na\nc\n"
+          }
+        ]
+      },
+      "program": "lines \"d.txt\" |> sort text |> write \"d.txt\" mode: overwrite",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "d.txt",
+            "type": "file",
+            "content_utf8": "a\nb\nc\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/json-valid",
+      "kind": "parity",
+      "summary": "Writes a valid JSON document.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"c.json\" \"{\\\"a\\\": 1}\\n\" mode: create",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\"a\": 1}\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/json-invalid-rejected",
+      "kind": "parity",
+      "summary": "Writing an invalid JSON document is rejected by validation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"c.json\" \"{\\\"a\\\": \" mode: create",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_DOC_PARSE"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/write/json-invalid-allowed",
+      "kind": "parity",
+      "summary": "Validation off writes the text as given.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"c.json\" \"{\\\"a\\\": \" mode: create validate: off",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\"a\": "
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/batch",
+      "kind": "parity",
+      "summary": "Writes several files in one operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write files: [{path: \"x.txt\", text: \"x\\n\"}, {path: \"y.txt\", text: \"y\\n\"}] mode: create",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "summary": {
+            "files_created": 2
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "x.txt",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "y.txt",
+            "type": "file",
+            "content_utf8": "y\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/if-match-stale",
+      "kind": "parity",
+      "summary": "A write with an outdated entity tag fails and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "read \"keep.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "write \"keep.txt\" \"changed\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "write \"keep.txt\" \"late\\n\" mode: overwrite if_match: \"${step1/report/records/rows/0/fields/etag/v}\"",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_STALE"
+              }
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "keep.txt",
+                "type": "file",
+                "content_utf8": "changed\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/files/write/file-mode",
+      "kind": "parity",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Creates a file with the given permission bits.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"run.sh\" \"#!/bin/sh\\n\" mode: create file_mode: \"0755\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "run.sh",
+            "type": "file",
+            "content_utf8": "#!/bin/sh\n",
+            "mode": "0755"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/write/preview",
+      "kind": "parity",
+      "summary": "A preview of a write changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"new.txt\" \"x\\n\" mode: create",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned",
+          "kind": "write"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/write/bytes",
+      "kind": "parity",
+      "summary": "Writes binary data.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          }
+        ]
+      },
+      "program": "write \"b.bin\" data: b64\"AAEC\" mode: create",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "keep\n"
+          },
+          {
+            "path": "b.bin",
+            "type": "file",
+            "content_base64": "AAEC"
+          }
+        ]
+      }
+    }
+  ]
+}

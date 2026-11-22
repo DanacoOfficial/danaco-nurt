@@ -1,0 +1,39 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-048",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run the PowerShell script scripts/build.ps1 with the argument 9.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "scripts/build.ps1",
+        "type": "file",
+        "content_utf8": "New-Item -ItemType Directory -Force out | Out-Null\r\nSet-Content out/build-info.txt \"build $($args[0])\"\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/build-info.txt": {
+        "lines": [
+          "build 9"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"pwsh\", \"-File\", \"scripts/build.ps1\", \"9\"] cwd: \".\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n& ./scripts/build.ps1 9\n",
+  "tags": [
+    "run",
+    "scripts"
+  ],
+  "license": "CC-BY-4.0"
+}

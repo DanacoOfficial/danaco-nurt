@@ -1,0 +1,47 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-013",
+  "domain": 6,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Run tools/summary.py with the arguments stock.csv and product and save its standard output to out/by-product-2.txt (create out/ if needed).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "stock.csv",
+        "type": "file",
+        "content_utf8": "region,product,quantity\nsouth,nut,300\nnorth,hinge,4\neast,bolt,75\nsouth,washer,1000\nnorth,nut,50\nnorth,bolt,120\n"
+      },
+      {
+        "path": "tools/summary.py",
+        "type": "file",
+        "content_utf8": "import csv\nimport sys\n\n\ndef main(path, column):\n    totals = {}\n    with open(path, newline=\"\", encoding=\"utf-8\") as handle:\n        for row in csv.DictReader(handle):\n            totals[row[column]] = totals.get(row[column], 0) + int(row[\"quantity\"])\n    for key in sorted(totals):\n        print(f\"{key} {totals[key]}\")\n\n\nif __name__ == \"__main__\":\n    main(sys.argv[1], sys.argv[2])\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "out/by-product-2.txt": {
+        "lines": [
+          "bolt 195",
+          "hinge 4",
+          "nut 350",
+          "washer 1000"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"tools/summary.py\", \"stock.csv\", \"product\"] save_to: \"out/by-product-2.txt\"",
+  "reference_bash": "mkdir -p out && python3 tools/summary.py stock.csv product > out/by-product-2.txt\n",
+  "tags": [
+    "redirect",
+    "run"
+  ],
+  "license": "CC-BY-4.0"
+}

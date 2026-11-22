@@ -1,0 +1,64 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-045",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Two files under images/ have identical content. Which ones?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "images/banner.svg",
+        "type": "file",
+        "content_utf8": "banner\nbanner\nbanner\nbanner\nbanner\nbanner\nbanner\nbanner\nbanner\n"
+      },
+      {
+        "path": "images/icon.svg",
+        "type": "file",
+        "content_utf8": "icon\nicon\nicon\nicon\nicon\nicon\nicon\n"
+      },
+      {
+        "path": "images/logo.svg",
+        "type": "file",
+        "content_utf8": "logo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\n"
+      },
+      {
+        "path": "images/old/icon-v1.svg",
+        "type": "file",
+        "content_utf8": "icon v1\nicon v1\nicon v1\nicon v1\nicon v1\nicon v1\nicon v1\n"
+      },
+      {
+        "path": "images/old/logo-copy2.svg",
+        "type": "file",
+        "content_utf8": "logo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\nlogo version 2\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "logo.svg",
+        "logo-copy2.svg"
+      ],
+      "not_contains": [
+        "icon.svg",
+        "banner.svg",
+        "icon-v1.svg"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"images\" type: file |> hash |> group sha256 |> filter count > 1",
+  "reference_bash": "find images -type f -exec sha256sum {} + | sort | uniq -w64 -D\n",
+  "reference_pwsh": "Get-ChildItem images -Recurse -File | Get-FileHash | Group-Object Hash | Where-Object Count -gt 1 | ForEach-Object { $_.Group.Path }\n",
+  "tags": [
+    "duplicates",
+    "hash"
+  ],
+  "license": "CC-BY-4.0"
+}

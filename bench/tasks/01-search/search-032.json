@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-032",
+  "domain": 1,
+  "split": "public",
+  "platform": "windows",
+  "nl": "What is the address of the replica database in config/db.toml? Answer with the value.",
+  "fs_before": {
+    "fixture": "config-mixed"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\w.])postgres://replica\\.example\\.com:5432/orders(?![\\w.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"config/db.toml\" key: \"database.replica.url\"",
+  "reference_pwsh": "$lines = Get-Content config/db.toml; $i = [array]::IndexOf($lines, '[database.replica]'); $lines[($i + 1)..($lines.Count - 1)] | Select-String '^url' | ForEach-Object Line\n",
+  "tags": [
+    "config",
+    "read"
+  ],
+  "license": "CC-BY-4.0"
+}

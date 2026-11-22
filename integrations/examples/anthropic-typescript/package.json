@@ -1,0 +1,14 @@
+{
+  "name": "nurt-example-anthropic-typescript",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node agent.ts",
+    "test": "node --test agent.test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "nurt": "^0.1.0"
+  }
+}

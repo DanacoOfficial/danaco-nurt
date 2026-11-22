@@ -1,0 +1,33 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-026",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Show lines 7 to 9 of tests/test_models.py.",
+  "fs_before": {
+    "fixture": "py-inventory"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "def test_total_value(self):",
+        "items = [Item(\"A1\", \"bolt\", 10, 0.5), Item(\"B2\", \"nut\", 4, 0.25)]",
+        "self.assertEqual(total_value(items), 6.0)"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"tests/test_models.py\" lines: 7..9",
+  "reference_bash": "sed -n '7,9p' tests/test_models.py\n",
+  "reference_pwsh": "Get-Content tests/test_models.py | Select-Object -Skip 6 -First 3\n",
+  "tags": [
+    "line-range",
+    "read"
+  ],
+  "license": "CC-BY-4.0"
+}

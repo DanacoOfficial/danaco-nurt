@@ -1,0 +1,156 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "http.request",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "https://api.example.com/health",
+                "span": [
+                  1,
+                  14,
+                  1,
+                  46
+                ]
+              },
+              "span": [
+                1,
+                14,
+                1,
+                46
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            46
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "assert",
+            "args": [
+              {
+                "name": "count",
+                "value": {
+                  "t": "int",
+                  "v": 1,
+                  "span": [
+                    1,
+                    64,
+                    1,
+                    65
+                  ]
+                },
+                "span": [
+                  1,
+                  57,
+                  1,
+                  65
+                ]
+              }
+            ],
+            "span": [
+              1,
+              50,
+              1,
+              65
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          65
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "http.download",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "https://example.com/a.tar.gz",
+                "span": [
+                  2,
+                  15,
+                  2,
+                  45
+                ]
+              },
+              "span": [
+                2,
+                15,
+                2,
+                45
+              ]
+            },
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/dl/a.tar.gz",
+                "span": [
+                  2,
+                  46,
+                  2,
+                  64
+                ]
+              },
+              "span": [
+                2,
+                46,
+                2,
+                64
+              ]
+            },
+            {
+              "name": "hash",
+              "value": {
+                "t": "text",
+                "v": "sha256:50d858e0985ecc7f60418aaf0cc5ab587f42c2570a884095a9e8ccacd0f6545c",
+                "span": [
+                  2,
+                  71,
+                  2,
+                  144
+                ]
+              },
+              "span": [
+                2,
+                65,
+                2,
+                144
+              ]
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            144
+          ]
+        },
+        "stages": [],
+        "span": [
+          2,
+          1,
+          2,
+          144
+        ]
+      }
+    ]
+  }
+}

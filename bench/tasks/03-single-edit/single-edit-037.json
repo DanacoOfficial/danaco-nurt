@@ -1,0 +1,38 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-037",
+  "domain": 3,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Enable the setting `server.compression.enabled=true` in app.properties by removing the comment marker from its line. Other commented lines stay commented.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "app.properties",
+        "type": "file",
+        "content_utf8": "server.port=8080\n#server.compression.enabled=true\n#debug=true\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "app.properties": {
+        "text": "server.port=8080\nserver.compression.enabled=true\n#debug=true\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"app.properties\" |> filter text == \"#server.compression.enabled=true\" |> replace \"#server.compression.enabled=true\" \"server.compression.enabled=true\" mode: literal",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('app.properties')\nt = p.read_bytes().decode('utf-8')\nold = '#server.compression.enabled=true\\n'\nassert t.count(old) == 1\np.write_bytes(t.replace(old, 'server.compression.enabled=true\\n').encode('utf-8'))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'app.properties'\n$t = [IO.File]::ReadAllText($p)\n$old = '#server.compression.enabled=true'\n$new = 'server.compression.enabled=true'\nif (([regex]::Matches($t, [regex]::Escape($old))).Count -ne 1) { throw 'expected one match' }\n[IO.File]::WriteAllText($p, $t.Replace($old, $new))\n",
+  "tags": [
+    "config",
+    "uncomment"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,63 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-046",
+  "domain": 1,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Two files under media-src/ have identical content. Which ones?",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "media-src/banner.svg",
+        "type": "file",
+        "content_utf8": "banner\nbanner\nbanner\nbanner\nbanner\nbanner\nbanner\nbanner\nbanner\n"
+      },
+      {
+        "path": "media-src/icon.svg",
+        "type": "file",
+        "content_utf8": "icon\nicon\nicon\nicon\nicon\nicon\nicon\n"
+      },
+      {
+        "path": "media-src/logo.svg",
+        "type": "file",
+        "content_utf8": "logo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\n"
+      },
+      {
+        "path": "media-src/old/icon-v1.svg",
+        "type": "file",
+        "content_utf8": "icon v1\nicon v1\nicon v1\nicon v1\nicon v1\nicon v1\nicon v1\n"
+      },
+      {
+        "path": "media-src/old/logo-copy3.svg",
+        "type": "file",
+        "content_utf8": "logo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\nlogo version 3\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "logo.svg",
+        "logo-copy3.svg"
+      ],
+      "not_contains": [
+        "icon.svg",
+        "banner.svg",
+        "icon-v1.svg"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"media-src\" type: file |> hash |> group sha256 |> filter count > 1",
+  "reference_pwsh": "Get-ChildItem media-src -Recurse -File | Get-FileHash | Group-Object Hash | Where-Object Count -gt 1 | ForEach-Object { $_.Group.Path }\n",
+  "tags": [
+    "duplicates",
+    "hash"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,44 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-012",
+  "domain": 3,
+  "split": "public",
+  "platform": "cross",
+  "nl": "In limits.env, change 10 to 20 on line 1 only. Other lines with 10 stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "limits.env",
+        "type": "file",
+        "content_utf8": "MAX=10\nMIN=1\nMAX=10\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "limits.env": {
+        "text": "MAX=20\nMIN=1\nMAX=10\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"limits.env\" 1..1 |> replace \"10\" \"20\" mode: literal",
+  "reference_bash": "sed -i '1s/10/20/' limits.env\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'limits.env'; $l = [IO.File]::ReadAllLines($p); $l[0] = $l[0].Replace('10', '20'); [IO.File]::WriteAllText($p, ($l -join \"`n\") + \"`n\")\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/10/20/g' limits.env",
+      "defect": "changes every line"
+    }
+  ],
+  "tags": [
+    "line-edit"
+  ],
+  "license": "CC-BY-4.0"
+}

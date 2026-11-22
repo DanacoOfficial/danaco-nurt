@@ -1,0 +1,1341 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/files/edit/replace-all",
+      "kind": "parity",
+      "summary": "Replaces every occurrence in a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "replace \"oldName\" \"newName\" in: [\"a.go\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "replace",
+          "summary": {
+            "files_modified": 1,
+            "replacements": 2
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc newName() {}\n\nfunc b() { newName() }\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-first",
+      "kind": "parity",
+      "summary": "Replaces the first occurrence only.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "replace \"oldName\" \"newName\" in: [\"a.go\"] occurrence: 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "summary": {
+            "replacements": 1
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc newName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-second",
+      "kind": "parity",
+      "summary": "Replaces the second occurrence only.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "replace \"oldName\" \"newName\" in: [\"a.go\"] occurrence: 2",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { newName() }\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-regex-group",
+      "kind": "parity",
+      "summary": "Replaces with a capture group.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "v.txt",
+            "type": "file",
+            "content_utf8": "version=1.2.3\n"
+          }
+        ]
+      },
+      "program": "replace /version=(\\d+)\\.(\\d+)\\.(\\d+)/ \"version=$1.$2.4\" in: [\"v.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "v.txt",
+            "type": "file",
+            "content_utf8": "version=1.2.4\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-literal-dollar",
+      "kind": "parity",
+      "summary": "A replacement without groups keeps a dollar sign when templates are off.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "p.txt",
+            "type": "file",
+            "content_utf8": "price\n"
+          }
+        ]
+      },
+      "program": "replace \"price\" \"$5\" in: [\"p.txt\"] template: false",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "p.txt",
+            "type": "file",
+            "content_utf8": "$5\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-expect-holds",
+      "kind": "parity",
+      "summary": "A replacement with the expected count applies.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "replace \"oldName\" \"newName\" in: [\"a.go\"] expect: 2",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc newName() {}\n\nfunc b() { newName() }\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-expect-fails",
+      "kind": "parity",
+      "summary": "A replacement with another count than expected changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "replace \"oldName\" \"newName\" in: [\"a.go\"] expect: 3",
+      "expect": {
+        "report": {
+          "status": "failed"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/replace-no-match-skip",
+      "kind": "parity",
+      "summary": "A replacement without a match succeeds and changes nothing by default.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "replace \"absent\" \"x\" in: [\"a.go\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "nothing_matched"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/replace-no-match-error",
+      "kind": "parity",
+      "summary": "A replacement without a match fails when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "replace \"absent\" \"x\" in: [\"a.go\"] on_missing: error",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_NO_MATCH"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/replace-whole-word",
+      "kind": "parity",
+      "summary": "Replaces whole words only.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "cat catalog cat\n"
+          }
+        ]
+      },
+      "program": "replace \"cat\" \"dog\" in: [\"w.txt\"] whole_word: true",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "dog catalog dog\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-case-insensitive",
+      "kind": "parity",
+      "summary": "Replaces without letter case when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "Foo foo FOO\n"
+          }
+        ]
+      },
+      "program": "replace \"foo\" \"bar\" in: [\"w.txt\"] case_sensitive: false",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "bar bar bar\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-in-directory",
+      "kind": "parity",
+      "summary": "Replaces in every file of a directory matching a glob.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "x = 1\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "x = 2\n"
+          },
+          {
+            "path": "c.md",
+            "type": "file",
+            "content_utf8": "x = 3\n"
+          }
+        ]
+      },
+      "program": "replace \"x =\" \"y =\" in: [\".\"] glob: \"*.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "summary": {
+            "files_modified": 2
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "y = 1\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "y = 2\n"
+          },
+          {
+            "path": "c.md",
+            "type": "file",
+            "content_utf8": "x = 3\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-found-matches",
+      "kind": "parity",
+      "summary": "Replaces the matches found by a search.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "search \"oldName\" \".\" |> replace \"newName\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "summary": {
+            "replacements": 2
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc newName() {}\n\nfunc b() { newName() }\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-assert-before",
+      "kind": "parity",
+      "summary": "An assertion on the number of files before the change holds and the change applies.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "search \"oldName\" \".\" |> assert paths: 1 |> replace \"newName\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc newName() {}\n\nfunc b() { newName() }\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-assert-fails",
+      "kind": "parity",
+      "summary": "A failed assertion before the change changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "search \"oldName\" \".\" |> assert paths: 2 |> replace \"newName\"",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_ASSERT",
+            "stage": "3"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/replace-keeps-crlf",
+      "kind": "parity",
+      "summary": "A replacement keeps CRLF line endings.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "old\r\nkeep\r\n"
+          }
+        ]
+      },
+      "program": "replace \"old\" \"new\" in: [\"w.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "new\r\nkeep\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-keeps-cp1250",
+      "kind": "parity",
+      "summary": "A replacement keeps the Windows-1250 encoding.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_base64": "QnJubyCOaWxpbmEK"
+          }
+        ]
+      },
+      "program": "replace \"Brno\" \"Košice\" in: [\"l.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "encoding_preserved"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_base64": "S2+aaWNlII5pbGluYQo="
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-keeps-utf16",
+      "kind": "parity",
+      "summary": "A replacement keeps the UTF-16 encoding and byte order mark.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "u.txt",
+            "type": "file",
+            "content_base64": "//5hAGwAcABoAGEACgA="
+          }
+        ]
+      },
+      "program": "replace \"alpha\" \"beta\" in: [\"u.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "u.txt",
+            "type": "file",
+            "content_base64": "//5iAGUAdABhAAoA"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-unrepresentable",
+      "kind": "parity",
+      "summary": "A character the encoding of the file cannot hold fails and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_base64": "YQo="
+          }
+        ]
+      },
+      "program": "replace \"a\" \"日本\" in: [\"l.txt\"]",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_ENCODING"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/replace-binary-skipped",
+      "kind": "parity",
+      "summary": "Binary files are skipped by a replacement in a directory.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "t.txt",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "b.bin",
+            "type": "file",
+            "content_base64": "AHgA"
+          }
+        ]
+      },
+      "program": "replace \"x\" \"y\" in: [\".\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "binary_skipped",
+              "count": 1
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "t.txt",
+            "type": "file",
+            "content_utf8": "y\n"
+          },
+          {
+            "path": "b.bin",
+            "type": "file",
+            "content_base64": "AHgA"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-breaks-json",
+      "kind": "parity",
+      "summary": "A replacement that breaks a JSON document is rejected.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\"a\": 1}\n"
+          }
+        ]
+      },
+      "program": "replace \"1}\" \"1\" in: [\"c.json\"]",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_DOC_PARSE"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/replace-whitespace-normalize",
+      "kind": "parity",
+      "summary": "Matches across different runs of white space by default.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "s.txt",
+            "type": "file",
+            "content_utf8": "if  (x)   {\n"
+          }
+        ]
+      },
+      "program": "replace \"if (x) {\" \"if (y) {\" in: [\"s.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "s.txt",
+            "type": "file",
+            "content_utf8": "if (y) {\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-whitespace-exact",
+      "kind": "parity",
+      "summary": "Exact white space does not match different spacing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "s.txt",
+            "type": "file",
+            "content_utf8": "if  (x)\n"
+          }
+        ]
+      },
+      "program": "replace \"if (x)\" \"if (y)\" in: [\"s.txt\"] whitespace: exact",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "nothing_matched"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/replace-multiline",
+      "kind": "parity",
+      "summary": "Replaces a match that spans lines.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "a\nb\nc\n"
+          }
+        ]
+      },
+      "program": "replace /a\\nb/ \"ab\" in: [\"m.txt\"] multiline: true",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "ab\nc\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/replace-preview",
+      "kind": "parity",
+      "summary": "A preview of a replacement shows the difference and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n\nfunc oldName() {}\n\nfunc b() { oldName() }\n"
+          }
+        ]
+      },
+      "program": "replace \"oldName\" \"newName\" in: [\"a.go\"]",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned",
+          "kind": "replace",
+          "summary": {
+            "replacements": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/replace-lines",
+      "kind": "parity",
+      "summary": "Replaces in the lines produced by lines.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.ini",
+            "type": "file",
+            "content_utf8": "debug = true\nport = 80\n"
+          }
+        ]
+      },
+      "program": "lines \"c.ini\" |> filter text ~ /^debug/ |> replace \"true\" \"false\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "c.ini",
+            "type": "file",
+            "content_utf8": "debug = false\nport = 80\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/insert-after-line",
+      "kind": "parity",
+      "summary": "Inserts a line after the matching line.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "package main\n\nfunc main() {}\n"
+          }
+        ]
+      },
+      "program": "lines \"main.go\" |> filter text == \"package main\" |> insert r#\"import \"fmt\"\"# position: after",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "package main\nimport \"fmt\"\n\nfunc main() {}\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/insert-before-line",
+      "kind": "parity",
+      "summary": "Inserts a line before a line number.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "package main\n\nfunc main() {}\n"
+          }
+        ]
+      },
+      "program": "insert \"// header\" in: \"main.go\" line: 1 position: before",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "// header\npackage main\n\nfunc main() {}\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/insert-at-start",
+      "kind": "parity",
+      "summary": "Inserts at the start of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "package main\n\nfunc main() {}\n"
+          }
+        ]
+      },
+      "program": "insert \"// top\\n\" in: \"main.go\" position: start",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "// top\npackage main\n\nfunc main() {}\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/insert-at-end",
+      "kind": "parity",
+      "summary": "Inserts at the end of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "package main\n\nfunc main() {}\n"
+          }
+        ]
+      },
+      "program": "insert \"// end\\n\" in: \"main.go\" position: end",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "package main\n\nfunc main() {}\n// end\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/insert-after-line-number",
+      "kind": "parity",
+      "summary": "Inserts after a line number by default.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "package main\n\nfunc main() {}\n"
+          }
+        ]
+      },
+      "program": "insert \"// two\" in: \"main.go\" line: 2",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "main.go",
+            "type": "file",
+            "content_utf8": "package main\n\n// two\nfunc main() {}\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/insert-crlf",
+      "kind": "parity",
+      "summary": "An inserted line takes the CRLF line ending of the file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a\r\nb\r\n"
+          }
+        ]
+      },
+      "program": "insert \"x\" in: \"w.txt\" line: 1",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a\r\nx\r\nb\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/edit-all-changes",
+      "kind": "parity",
+      "summary": "Applies a list of changes to one file in one operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "e.go",
+            "type": "file",
+            "content_utf8": "line1\nline2 oldName(\nline3\nline4\nline5\n"
+          }
+        ]
+      },
+      "program": "edit \"e.go\" changes: [{replace: \"oldName(\", with: \"newName(\"}, {delete_lines: 4..5}]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "edit"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "e.go",
+            "type": "file",
+            "content_utf8": "line1\nline2 newName(\nline3\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/edit-insert-and-replace",
+      "kind": "parity",
+      "summary": "Inserts and replaces in one operation; line numbers refer to the original file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "e.go",
+            "type": "file",
+            "content_utf8": "line1\nline2 oldName(\nline3\nline4\nline5\n"
+          }
+        ]
+      },
+      "program": "edit \"e.go\" changes: [{insert: \"// top\", line: 1, position: before}, {replace: \"line3\", with: \"LINE3\"}]",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "e.go",
+            "type": "file",
+            "content_utf8": "// top\nline1\nline2 oldName(\nLINE3\nline4\nline5\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/edit-all-or-nothing",
+      "kind": "parity",
+      "summary": "A change without a match fails the whole edit when asked; nothing changes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "e.go",
+            "type": "file",
+            "content_utf8": "line1\nline2 oldName(\nline3\nline4\nline5\n"
+          }
+        ]
+      },
+      "program": "edit \"e.go\" changes: [{replace: \"oldName(\", with: \"newName(\"}, {replace: \"absent\", with: \"x\"}] on_missing: error",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_NO_MATCH"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/edit-expect-count",
+      "kind": "parity",
+      "summary": "An edit with the expected number of changes applies.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "e.go",
+            "type": "file",
+            "content_utf8": "line1\nline2 oldName(\nline3\nline4\nline5\n"
+          }
+        ]
+      },
+      "program": "edit \"e.go\" changes: [{replace: \"line1\", with: \"L1\"}, {replace: \"line5\", with: \"L5\"}] expect: 2",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "e.go",
+            "type": "file",
+            "content_utf8": "L1\nline2 oldName(\nline3\nline4\nL5\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/edit-preview",
+      "kind": "parity",
+      "summary": "A preview of an edit changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "e.go",
+            "type": "file",
+            "content_utf8": "line1\nline2 oldName(\nline3\nline4\nline5\n"
+          }
+        ]
+      },
+      "program": "edit \"e.go\" changes: [{replace: \"line1\", with: \"L1\"}]",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/set-json-key",
+      "kind": "parity",
+      "summary": "Sets a key of a JSON document and keeps its layout.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "package.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"scripts\": {\n    \"test\": \"jest\"\n  }\n}\n"
+          }
+        ]
+      },
+      "program": "set \"package.json\" key: \"scripts.test\" value: \"vitest\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "set"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "package.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"scripts\": {\n    \"test\": \"vitest\"\n  }\n}\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/set-toml-keeps-comments",
+      "kind": "parity",
+      "summary": "Sets a key of a TOML document and keeps comments.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "Cargo.toml",
+            "type": "file",
+            "content_utf8": "[package]\n# release name\nversion = \"0.3.0\"\n"
+          }
+        ]
+      },
+      "program": "set \"Cargo.toml\" key: \"package.version\" value: \"0.4.0\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "Cargo.toml",
+            "type": "file",
+            "content_utf8": "[package]\n# release name\nversion = \"0.4.0\"\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/set-creates-key",
+      "kind": "parity",
+      "summary": "Creates a missing key with its parents.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\"a\": 1}\n"
+          }
+        ]
+      },
+      "program": "set \"c.json\" key: \"b.c\" value: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "keys_created"
+            }
+          ]
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/set-without-create",
+      "kind": "parity",
+      "summary": "Setting a missing key without creation fails.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\"a\": 1}\n"
+          }
+        ]
+      },
+      "program": "set \"c.json\" key: \"b\" value: 2 create: false",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_KEY_NOT_FOUND"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/edit/remove-line",
+      "kind": "parity",
+      "summary": "Removes the lines matching a condition.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "c.ini",
+            "type": "file",
+            "content_utf8": "a = 1\ndebug = true\nb = 2\n"
+          }
+        ]
+      },
+      "program": "lines \"c.ini\" |> filter text ~ /^\\s*debug\\s*=/ |> remove",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "c.ini",
+            "type": "file",
+            "content_utf8": "a = 1\nb = 2\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/convert-line-endings",
+      "kind": "parity",
+      "summary": "Converts CRLF to LF.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a\r\nb\r\n"
+          }
+        ]
+      },
+      "program": "convert \"w.txt\" line_ending: lf",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "convert"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a\nb\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/convert-encoding",
+      "kind": "parity",
+      "summary": "Converts Windows-1250 to UTF-8.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_base64": "jmlsaW5hCg=="
+          }
+        ]
+      },
+      "program": "convert \"l.txt\" encoding: \"utf-8\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_utf8": "Žilina\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/patch",
+      "kind": "parity",
+      "summary": "Applies a unified difference.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\ntwo\n"
+          }
+        ]
+      },
+      "program": "patch \"--- a/a.txt\\n+++ b/a.txt\\n@@ -1,2 +1,2 @@\\n one\\n-two\\n+TWO\\n\" root: \".\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "patch"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\nTWO\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/edit/patch-rejected",
+      "kind": "parity",
+      "summary": "A hunk that does not apply changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "one\nthree\n"
+          }
+        ]
+      },
+      "program": "patch \"--- a/a.txt\\n+++ b/a.txt\\n@@ -1,2 +1,2 @@\\n one\\n-two\\n+TWO\\n\" root: \".\"",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_PATCH_REJECTED"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    }
+  ]
+}

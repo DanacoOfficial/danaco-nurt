@@ -1,0 +1,782 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+# Errors that depend on the state of the system, of remote hosts or of
+# external programs are produced by the failpoints of the optional feature
+# `testkit`: `testkit.failpoint.set` makes the named stage of the next call
+# fail with the given code, so the case checks how the error is reported.
+
+[[case]]
+id = "errors/injected/internal-correction"
+kind = "error"
+class = "optional:testkit"
+code = "E_INTERNAL_CORRECTION"
+summary = "A correction that violates an invariant executes nothing."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "parse", code = "E_INTERNAL_CORRECTION" }
+expect = {}
+
+[[case.step]]
+program = "find 'src'"
+expect = { report = { status = "failed", error = { code = "E_INTERNAL_CORRECTION" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/unsupported-mode"
+kind = "error"
+class = "optional:testkit"
+code = "E_UNSUPPORTED"
+summary = "A mode not available on the system is reported as unsupported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "bind", code = "E_UNSUPPORTED" }
+expect = {}
+
+[[case.step]]
+program = 'run ["true"] memory: 64mb'
+expect = { report = { status = "failed", error = { code = "E_UNSUPPORTED" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/external-program-missing"
+kind = "error"
+class = "optional:testkit"
+code = "E_EXTERNAL_MISSING"
+summary = "A missing external program required by a command is reported with a fix."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "bind", code = "E_EXTERNAL_MISSING" }
+expect = {}
+
+[[case.step]]
+program = 'code.diagnostics "."'
+expect = { report = { status = "failed", error = { code = "E_EXTERNAL_MISSING" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/external-program-failed"
+kind = "error"
+class = "optional:testkit"
+code = "E_EXTERNAL_FAILED"
+summary = "A failed external program used by a command is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_EXTERNAL_FAILED" }
+expect = {}
+
+[[case.step]]
+program = 'code.hover "a.rs" line: 1 column: 4'
+expect = { report = { status = "failed", error = { code = "E_EXTERNAL_FAILED" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/encrypted-archive"
+kind = "error"
+class = "optional:testkit"
+code = "E_ENCRYPTED"
+summary = "An encrypted archive is reported as encrypted."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_ENCRYPTED" }
+expect = {}
+
+[[case.step]]
+program = 'archive.list "secret.zip"'
+expect = { report = { status = "failed", error = { code = "E_ENCRYPTED" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/unsupported-construct"
+kind = "error"
+class = "optional:testkit"
+code = "E_UNSUPPORTED_CONSTRUCT"
+summary = "A construct that cannot be changed without losing layout is named and nothing changes."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_UNSUPPORTED_CONSTRUCT" }
+expect = {}
+
+[[case.step]]
+program = 'set "a.yaml" key: "a" value: 1'
+expect = { report = { status = "failed", error = { code = "E_UNSUPPORTED_CONSTRUCT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/symbol-not-found"
+kind = "error"
+class = "optional:testkit"
+code = "E_SYMBOL_NOT_FOUND"
+summary = "A symbol without definition is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_SYMBOL_NOT_FOUND" }
+expect = {}
+
+[[case.step]]
+program = 'code.definition "a.rs" symbol: "missing"'
+expect = { report = { status = "failed", error = { code = "E_SYMBOL_NOT_FOUND" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/symbol-ambiguous"
+kind = "error"
+class = "optional:testkit"
+code = "E_SYMBOL_AMBIGUOUS"
+summary = "A symbol with several definitions lists ready programs."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_SYMBOL_AMBIGUOUS" }
+expect = {}
+
+[[case.step]]
+program = 'code.definition "." symbol: "init"'
+expect = { report = { status = "failed", error = { code = "E_SYMBOL_AMBIGUOUS" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/rename-conflict"
+kind = "error"
+class = "optional:testkit"
+code = "E_RENAME_CONFLICT"
+summary = "A new name that collides with a symbol in scope changes nothing."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_RENAME_CONFLICT" }
+expect = {}
+
+[[case.step]]
+program = 'code.symbols "oldName" path: ["."] |> code.rename "existing"'
+expect = { report = { status = "failed", error = { code = "E_RENAME_CONFLICT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/stale-file"
+kind = "error"
+class = "optional:testkit"
+code = "E_STALE"
+summary = "A file changed after it was read rolls the whole operation back."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_STALE" }
+expect = {}
+
+[[case.step]]
+program = 'replace "a" "b" in: ["a.txt"]'
+expect = { report = { status = "failed", error = { code = "E_STALE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/encoding"
+kind = "error"
+class = "optional:testkit"
+code = "E_ENCODING"
+summary = "A character that the encoding of the file cannot represent changes nothing."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_ENCODING" }
+expect = {}
+
+[[case.step]]
+program = 'write "latin1.txt" "€" mode: append'
+expect = { report = { status = "failed", error = { code = "E_ENCODING" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/io"
+kind = "error"
+class = "optional:testkit"
+code = "E_IO"
+summary = "An input or output error of the file system is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_IO" }
+expect = {}
+
+[[case.step]]
+program = 'read "a.txt"'
+expect = { report = { status = "failed", error = { code = "E_IO" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/permission"
+kind = "error"
+class = "optional:testkit"
+code = "E_PERMISSION"
+summary = "Access denied by permissions is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_PERMISSION" }
+expect = {}
+
+[[case.step]]
+program = 'read "a.txt"'
+expect = { report = { status = "failed", error = { code = "E_PERMISSION" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/in-use"
+kind = "error"
+class = "optional:testkit"
+code = "E_IN_USE"
+summary = "A target in use lists the processes holding it."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_IN_USE" }
+expect = {}
+
+[[case.step]]
+program = 'remove "a.txt"'
+expect = { report = { status = "failed", error = { code = "E_IN_USE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/privilege"
+kind = "error"
+class = "optional:testkit"
+code = "E_PRIVILEGE"
+summary = "An operation that needs a missing privilege is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_PRIVILEGE" }
+expect = {}
+
+[[case.step]]
+program = 'restart "example"'
+expect = { report = { status = "failed", error = { code = "E_PRIVILEGE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/no-space"
+kind = "error"
+class = "optional:testkit"
+code = "E_NO_SPACE"
+summary = "A volume without space fails the write and changes nothing."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_NO_SPACE" }
+expect = {}
+
+[[case.step]]
+program = 'write "a.txt" "x" mode: create'
+expect = { report = { status = "failed", error = { code = "E_NO_SPACE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/cancelled"
+kind = "error"
+class = "optional:testkit"
+code = "E_CANCELLED"
+summary = "A cancelled execution ends as failed with the cancellation."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_CANCELLED" }
+expect = {}
+
+[[case.step]]
+program = 'find "."'
+expect = { report = { status = "failed", error = { code = "E_CANCELLED" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/limit"
+kind = "error"
+class = "optional:testkit"
+code = "E_LIMIT"
+summary = "A resource limit ends the execution as failed."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_LIMIT" }
+expect = {}
+
+[[case.step]]
+program = 'find "."'
+expect = { report = { status = "failed", error = { code = "E_LIMIT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/stage-failed"
+kind = "error"
+class = "optional:testkit"
+code = "E_STAGE_FAILED"
+summary = "A failed stage may carry what was read before it failed."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_STAGE_FAILED" }
+expect = {}
+
+[[case.step]]
+program = 'find "." |> count'
+expect = { report = { status = "failed", error = { code = "E_STAGE_FAILED" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/rollback-failed"
+kind = "error"
+class = "optional:testkit"
+code = "E_ROLLBACK_FAILED"
+summary = "A rollback that cannot restore everything lists the files."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "verify", code = "E_ROLLBACK_FAILED" }
+expect = {}
+
+[[case.step]]
+program = 'replace "a" "b" in: ["a.txt"] |> verify (find "." glob: "*.txt" |> assert count: 0)'
+expect = { report = { error = { code = "E_ROLLBACK_FAILED" } } }
+
+[[case]]
+id = "errors/injected/journal-expired"
+kind = "error"
+class = "optional:testkit"
+code = "E_JOURNAL_EXPIRED"
+summary = "Undoing an expired entry changes nothing."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_JOURNAL_EXPIRED" }
+expect = {}
+
+[[case.step]]
+program = 'undo 1'
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_EXPIRED" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/journal-partial"
+kind = "error"
+class = "optional:testkit"
+code = "E_JOURNAL_PARTIAL"
+summary = "Undoing a partial entry as a whole changes nothing."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_JOURNAL_PARTIAL" }
+expect = {}
+
+[[case.step]]
+program = 'undo 1'
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_PARTIAL" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/journal-corrupt"
+kind = "error"
+class = "optional:testkit"
+code = "E_JOURNAL_CORRUPT"
+summary = "An entry that fails its integrity check is reported and kept."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_JOURNAL_CORRUPT" }
+expect = {}
+
+[[case.step]]
+program = 'undo 1'
+expect = { report = { status = "failed", error = { code = "E_JOURNAL_CORRUPT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/job-state"
+kind = "error"
+class = "optional:testkit"
+code = "E_JOB_STATE"
+summary = "An action not allowed in the state of a job is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_JOB_STATE" }
+expect = {}
+
+[[case.step]]
+program = 'retry 1'
+expect = { report = { status = "failed", error = { code = "E_JOB_STATE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/output-parse"
+kind = "error"
+class = "optional:testkit"
+code = "E_OUTPUT_PARSE"
+summary = "Output of a test framework that cannot be read includes the raw result."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_OUTPUT_PARSE" }
+expect = {}
+
+[[case.step]]
+program = 'test.run "."'
+expect = { report = { status = "failed", error = { code = "E_OUTPUT_PARSE" } } }
+
+[[case]]
+id = "errors/injected/network"
+kind = "error"
+class = "optional:testkit"
+code = "E_NETWORK"
+summary = "A failed name resolution is a network error."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_NETWORK" }
+expect = {}
+
+[[case.step]]
+program = 'http.request "https://host.invalid/"'
+expect = { report = { status = "failed", error = { code = "E_NETWORK" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/hash-mismatch"
+kind = "error"
+class = "optional:testkit"
+code = "E_HASH_MISMATCH"
+summary = "A download with an unexpected hash is not kept."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_HASH_MISMATCH" }
+expect = {}
+
+[[case.step]]
+program = 'http.download "https://example.com/a.tar.gz" to: "a.tar.gz" sha256: "00"'
+expect = { report = { status = "failed", error = { code = "E_HASH_MISMATCH" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/service-manager"
+kind = "error"
+class = "optional:testkit"
+code = "E_SERVICE"
+summary = "An error of the service manager is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_SERVICE" }
+expect = {}
+
+[[case.step]]
+program = 'restart "example"'
+expect = { report = { status = "failed", error = { code = "E_SERVICE" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/service-not-running"
+kind = "error"
+class = "optional:testkit"
+code = "E_SERVICE_NOT_RUNNING"
+summary = "A call that needs the background service of the instance reports that it is not running."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_SERVICE_NOT_RUNNING" }
+expect = {}
+
+[[case.step]]
+program = 'schedule.list'
+expect = { report = { status = "failed", error = { code = "E_SERVICE_NOT_RUNNING" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/program-catalog"
+kind = "error"
+class = "optional:testkit"
+code = "E_CATALOG"
+summary = "A program catalog that cannot be read is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_CATALOG" }
+expect = {}
+
+[[case.step]]
+program = 'program.catalog'
+expect = { report = { status = "failed", error = { code = "E_CATALOG" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-revision"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_REVISION"
+summary = "An unknown revision is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_GIT_REVISION" }
+expect = {}
+
+[[case.step]]
+program = 'git.show "no-such-revision"'
+expect = { report = { status = "failed", error = { code = "E_GIT_REVISION" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-reference"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_REF"
+summary = "An invalid reference name is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_GIT_REF" }
+expect = {}
+
+[[case.step]]
+program = 'git.branch "bad..name"'
+expect = { report = { status = "failed", error = { code = "E_GIT_REF" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-dirty"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_DIRTY"
+summary = "Local changes that would be overwritten stop the switch."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_GIT_DIRTY" }
+expect = {}
+
+[[case.step]]
+program = 'git.switch "main"'
+expect = { report = { status = "failed", error = { code = "E_GIT_DIRTY" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-conflict"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_CONFLICT"
+summary = "A merge with conflicts keeps its effect and lists the conflicts."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_GIT_CONFLICT" }
+expect = {}
+
+[[case.step]]
+program = 'git.merge "feature"'
+expect = { report = { error = { code = "E_GIT_CONFLICT" } } }
+
+[[case]]
+id = "errors/injected/git-in-progress"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_IN_PROGRESS"
+summary = "A merge in progress stops another merge."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_GIT_IN_PROGRESS" }
+expect = {}
+
+[[case.step]]
+program = 'git.merge "feature"'
+expect = { report = { status = "failed", error = { code = "E_GIT_IN_PROGRESS" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-locked"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_LOCKED"
+summary = "A lock file of the repository stops the change."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_GIT_LOCKED" }
+expect = {}
+
+[[case.step]]
+program = 'git.stage "a.txt"'
+expect = { report = { status = "failed", error = { code = "E_GIT_LOCKED" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-non-fast-forward"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_NON_FAST_FORWARD"
+summary = "Diverged histories stop a fast-forward."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_GIT_NON_FAST_FORWARD" }
+expect = {}
+
+[[case.step]]
+program = 'git.pull "origin"'
+expect = { report = { status = "failed", error = { code = "E_GIT_NON_FAST_FORWARD" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-nothing-to-commit"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_NOTHING_TO_COMMIT"
+summary = "A commit without changes is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_GIT_NOTHING_TO_COMMIT" }
+expect = {}
+
+[[case.step]]
+program = 'git.commit "message"'
+expect = { report = { status = "failed", error = { code = "E_GIT_NOTHING_TO_COMMIT" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/git-hook"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_HOOK"
+summary = "A hook with a non-zero exit code stops the commit."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_GIT_HOOK" }
+expect = {}
+
+[[case.step]]
+program = 'git.commit "message"'
+expect = { report = { status = "failed", error = { code = "E_GIT_HOOK" } } }
+
+[[case]]
+id = "errors/injected/git-sign"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_SIGN"
+summary = "A commit that cannot be signed is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_GIT_SIGN" }
+expect = {}
+
+[[case.step]]
+program = 'git.commit "message" sign: true'
+expect = { report = { status = "failed", error = { code = "E_GIT_SIGN" } } }
+
+[[case]]
+id = "errors/injected/git-authentication"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_AUTH"
+summary = "A rejected authentication of the remote is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_GIT_AUTH" }
+expect = {}
+
+[[case.step]]
+program = 'git.fetch "origin"'
+expect = { report = { status = "failed", error = { code = "E_GIT_AUTH" } } }
+
+[[case]]
+id = "errors/injected/git-host-key"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_HOST_KEY"
+summary = "An unknown host key of the remote is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_GIT_HOST_KEY" }
+expect = {}
+
+[[case.step]]
+program = 'git.fetch "origin"'
+expect = { report = { status = "failed", error = { code = "E_GIT_HOST_KEY" } } }
+
+[[case]]
+id = "errors/injected/git-push-rejected"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_PUSH_REJECTED"
+summary = "A reference update rejected by the remote is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_GIT_PUSH_REJECTED" }
+expect = {}
+
+[[case.step]]
+program = 'git.push "origin"'
+expect = { report = { status = "failed", error = { code = "E_GIT_PUSH_REJECTED" } } }
+
+[[case]]
+id = "errors/injected/git-protocol"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_PROTOCOL"
+summary = "A remote that breaks the protocol is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "apply", code = "E_GIT_PROTOCOL" }
+expect = {}
+
+[[case.step]]
+program = 'git.fetch "origin"'
+expect = { report = { status = "failed", error = { code = "E_GIT_PROTOCOL" } } }
+
+[[case]]
+id = "errors/injected/git-unsupported"
+kind = "error"
+class = "optional:testkit"
+code = "E_GIT_UNSUPPORTED"
+summary = "An unsupported feature of a repository is reported."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "read", code = "E_GIT_UNSUPPORTED" }
+expect = {}
+
+[[case.step]]
+program = 'git.log "."'
+expect = { report = { status = "failed", error = { code = "E_GIT_UNSUPPORTED" } } }
+fs_after = "unchanged"
+
+[[case]]
+id = "errors/injected/internal"
+kind = "error"
+class = "optional:testkit"
+code = "E_INTERNAL"
+summary = "An internal error keeps the report complete up to the failing stage."
+
+[[case.step]]
+method = "testkit.failpoint.set"
+params = { stage = "plan", code = "E_INTERNAL" }
+expect = {}
+
+[[case.step]]
+program = 'find "."'
+expect = { report = { status = "failed", error = { code = "E_INTERNAL" } } }
+fs_after = "unchanged"

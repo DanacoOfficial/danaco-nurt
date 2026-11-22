@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gemini API function declaration",
+  "description": "An element of `functionDeclarations` of a Gemini API tool, with `parameters` in the OpenAPI schema subset of the `Schema` object.",
+  "type": "object",
+  "required": ["name", "description"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-zA-Z0-9_:.-]{1,128}$" },
+    "description": { "type": "string" },
+    "behavior": { "enum": ["UNSPECIFIED", "BLOCKING", "NON_BLOCKING"] },
+    "parameters": {
+      "allOf": [
+        { "$ref": "#/$defs/schema" },
+        { "properties": { "type": { "const": "OBJECT" } } }
+      ]
+    },
+    "response": { "$ref": "#/$defs/schema" }
+  },
+  "$defs": {
+    "schema": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": ["TYPE_UNSPECIFIED", "STRING", "NUMBER", "INTEGER", "BOOLEAN", "ARRAY", "OBJECT", "NULL"]
+        },
+        "format": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "nullable": { "type": "boolean" },
+        "enum": { "type": "array", "items": { "type": "string" } },
+        "items": { "$ref": "#/$defs/schema" },
+        "maxItems": { "$ref": "#/$defs/int64" },
+        "minItems": { "$ref": "#/$defs/int64" },
+        "properties": { "type": "object", "additionalProperties": { "$ref": "#/$defs/schema" } },
+        "required": { "type": "array", "items": { "type": "string" } },
+        "minProperties": { "$ref": "#/$defs/int64" },
+        "maxProperties": { "$ref": "#/$defs/int64" },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minLength": { "$ref": "#/$defs/int64" },
+        "maxLength": { "$ref": "#/$defs/int64" },
+        "pattern": { "type": "string" },
+        "example": true,
+        "anyOf": { "type": "array", "items": { "$ref": "#/$defs/schema" } },
+        "propertyOrdering": { "type": "array", "items": { "type": "string" } },
+        "default": true
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "OBJECT" } } },
+          "then": { "required": ["properties"], "properties": { "properties": { "minProperties": 1 } } }
+        },
+        {
+          "if": { "required": ["enum"] },
+          "then": { "properties": { "type": { "const": "STRING" } } }
+        }
+      ]
+    },
+    "int64": {
+      "description": "Protocol buffer int64: a JSON number or a decimal string.",
+      "anyOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "string", "pattern": "^[0-9]+$" }
+      ]
+    }
+  }
+}

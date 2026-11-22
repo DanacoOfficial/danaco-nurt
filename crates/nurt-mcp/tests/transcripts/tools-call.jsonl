@@ -1,0 +1,13 @@
+{"client": {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "transcript", "version": "1.0.0"}}}}
+{"server": {"jsonrpc": "2.0", "id": 1, "result": "*"}}
+{"client": {"jsonrpc": "2.0", "method": "notifications/initialized"}}
+{"client": {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "nurt", "arguments": {"program": "ok"}}}}
+{"server": {"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "ok"}], "structuredContent": {"nurt": "1.0", "status": "ok", "kind": "find"}, "isError": false}}}
+{"client": {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "nurt", "arguments": {"program": "fail"}}}}
+{"server": {"jsonrpc": "2.0", "id": 3, "result": {"content": [{"type": "text", "text": "error E_SYNTAX: unexpected token"}], "structuredContent": {"nurt": "1.0", "status": "failed", "kind": "find", "error": {"code": "E_SYNTAX", "message": "unexpected token"}}, "isError": true}}}
+{"client": {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "nurt", "arguments": {"program": "call-error"}}}}
+{"server": {"jsonrpc": "2.0", "id": 4, "result": {"content": [{"type": "text", "text": "call failed: NURT_E_IO: journal is not writable"}], "isError": true}}}
+{"client": {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "nurt_help", "arguments": {"topic": "find"}}}}
+{"server": {"jsonrpc": "2.0", "id": 5, "result": {"content": [{"type": "text", "text": "help topic=find kind=any examples=3 language=en"}], "isError": false}}}
+{"client": {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "sh", "arguments": {}}}}
+{"server": {"jsonrpc": "2.0", "id": 6, "error": {"code": -32602, "message": "unknown tool `sh`; available tools: nurt, nurt_help"}}}

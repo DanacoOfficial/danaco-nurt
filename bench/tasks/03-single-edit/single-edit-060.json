@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-060",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Move `rate-limit` to the first position in chain.list. The result must be: rate-limit, auth, log, proxy.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "chain.list",
+        "type": "file",
+        "content_utf8": "auth\r\nlog\r\nrate-limit\r\nproxy\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "chain.list": {
+        "text": "rate-limit\r\nauth\r\nlog\r\nproxy\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"chain.list\" changes: [{move_line: 3, to: 1}]",
+  "reference_pwsh": "$p = Join-Path $PWD 'chain.list'; $l = [Collections.Generic.List[string]][IO.File]::ReadAllLines($p); $x = $l[2]; $l.RemoveAt(2); $l.Insert(0, $x); [IO.File]::WriteAllText($p, ($l -join \"`r`n\") + \"`r`n\")\n",
+  "tags": [
+    "reorder"
+  ],
+  "license": "CC-BY-4.0"
+}

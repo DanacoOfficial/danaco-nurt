@@ -1,0 +1,32 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-025",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Show lines 14 to 15 of inventory/models.py.",
+  "fs_before": {
+    "fixture": "py-inventory"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "def total_value(items):",
+        "return sum(item.quantity * item.unit_price for item in items)"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"inventory/models.py\" lines: 14..15",
+  "reference_bash": "sed -n '14,15p' inventory/models.py\n",
+  "reference_pwsh": "Get-Content inventory/models.py | Select-Object -Skip 13 -First 2\n",
+  "tags": [
+    "line-range",
+    "read"
+  ],
+  "license": "CC-BY-4.0"
+}

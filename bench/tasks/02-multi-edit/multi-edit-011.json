@@ -1,0 +1,72 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-011",
+  "domain": 2,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Change the version 5.0.1 to 5.0.2 in every file of the project except CHANGELOG.md.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "CHANGELOG.md",
+        "type": "file",
+        "content_utf8": "## 5.0.1\n\n- Probe fix.\n"
+      },
+      {
+        "path": "chart/Chart.yaml",
+        "type": "file",
+        "content_utf8": "name: api\nversion: 5.0.1\nappVersion: 5.0.1\n"
+      },
+      {
+        "path": "chart/values.yaml",
+        "type": "file",
+        "content_utf8": "image:\n  tag: 5.0.1\n"
+      },
+      {
+        "path": "docs/deploy.md",
+        "type": "file",
+        "content_utf8": "Deploy chart 5.0.1.\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "chart/Chart.yaml": {
+        "text": "name: api\nversion: 5.0.2\nappVersion: 5.0.2\n"
+      },
+      "chart/values.yaml": {
+        "text": "image:\n  tag: 5.0.2\n"
+      },
+      "docs/deploy.md": {
+        "text": "Deploy chart 5.0.2.\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "CHANGELOG.md",
+      "change": "any",
+      "reason": "the changelog records released versions"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"5.0.1\" \".\" mode: literal exclude: [\"CHANGELOG.md\"] |> replace \"5.0.2\"",
+  "reference_bash": "grep -rlF --exclude=CHANGELOG.md -- '5.0.1' . | xargs -r sed -i 's/5\\.0\\.1/5.0.2/g'\n",
+  "reference_pwsh": "Get-ChildItem -Recurse -File | Where-Object Name -ne 'CHANGELOG.md' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  if ($t.Contains('5.0.1')) { [IO.File]::WriteAllText($_.FullName, $t.Replace('5.0.1', '5.0.2')) }\n}\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "grep -rlF -- '5.0.1' . | xargs -r sed -i 's/5\\.0\\.1/5.0.2/g'",
+      "defect": "rewrites the changelog"
+    }
+  ],
+  "tags": [
+    "replace",
+    "version"
+  ],
+  "license": "CC-BY-4.0"
+}

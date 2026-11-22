@@ -1,0 +1,25 @@
+# Image of the Linux tasks of nurt-bench: bash with the usual command line
+# programs, Python for the oracle, Git, and the executables under test.
+# Build context: a directory holding the release executables `nurt` and
+# `nurt-bench` for x86_64-unknown-linux-musl and the directory `bench/`.
+FROM docker.io/library/ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LC_ALL=C.UTF-8 \
+    TZ=UTC
+
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends \
+      bash coreutils findutils grep sed gawk diffutils patch file \
+      tar gzip bzip2 xz-utils zstd zip unzip \
+      git ca-certificates curl jq python3 procps psmisc \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY nurt nurt-bench /usr/local/bin/
+COPY bench /opt/nurt-bench/bench
+
+RUN useradd --create-home --shell /bin/bash user
+USER user
+WORKDIR /opt/nurt-bench
+
+ENTRYPOINT ["/usr/local/bin/nurt-bench"]

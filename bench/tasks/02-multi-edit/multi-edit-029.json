@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-029",
+  "domain": 2,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Rename the key imageTag to image_tag in all YAML files (.yaml and .yml) under deploy/, at any nesting level. Do not edit other files.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "deploy/README.md",
+        "type": "file",
+        "content_utf8": "The key imageTag sets the limit.\r\n"
+      },
+      {
+        "path": "deploy/api.yaml",
+        "type": "file",
+        "content_utf8": "name: api\r\nimageTag: 512Mi\r\nresources:\r\n  imageTag: 256Mi\r\n"
+      },
+      {
+        "path": "deploy/cron.yaml",
+        "type": "file",
+        "content_utf8": "name: cron\r\nschedule: '0 * * * *'\r\n"
+      },
+      {
+        "path": "deploy/legacy/web3.yml",
+        "type": "file",
+        "content_utf8": "name: web\r\nimageTag: 128Mi\r\n"
+      },
+      {
+        "path": "deploy/worker.yaml",
+        "type": "file",
+        "content_utf8": "name: worker\r\nimageTag: 1Gi\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "deploy/api.yaml": {
+        "text": "name: api\r\nimage_tag: 512Mi\r\nresources:\r\n  image_tag: 256Mi\r\n"
+      },
+      "deploy/legacy/web3.yml": {
+        "text": "name: web\r\nimage_tag: 128Mi\r\n"
+      },
+      "deploy/worker.yaml": {
+        "text": "name: worker\r\nimage_tag: 1Gi\r\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "deploy/README.md",
+      "change": "any",
+      "reason": "documentation is not a YAML file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search /^(\\s*)imageTag:/ \"deploy\" glob: \"**/*.{yaml,yml}\" |> replace \"${1}image_tag:\"",
+  "reference_pwsh": "Get-ChildItem deploy -Recurse -File -Include '*.yaml','*.yml' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t -creplace '(?m)^([ \\t]*)imageTag:', '${1}image_tag:'\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "tags": [
+    "rename-key",
+    "yaml"
+  ],
+  "license": "CC-BY-4.0"
+}

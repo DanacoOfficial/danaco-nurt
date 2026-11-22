@@ -1,0 +1,72 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-009",
+  "domain": 2,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Change the version 0.9.12 to 0.10.0 in every file of the project except CHANGELOG.md.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "CHANGELOG.md",
+        "type": "file",
+        "content_utf8": "## 0.9.12\n\n- Faster lexer.\n"
+      },
+      {
+        "path": "Cargo.toml",
+        "type": "file",
+        "content_utf8": "[package]\nname = \"parser\"\nversion = \"0.9.12\"\n"
+      },
+      {
+        "path": "docs/usage.md",
+        "type": "file",
+        "content_utf8": "parser 0.9.12 reads files.\n"
+      },
+      {
+        "path": "src/lib.rs",
+        "type": "file",
+        "content_utf8": "pub const VERSION: &str = \"0.9.12\";\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "Cargo.toml": {
+        "text": "[package]\nname = \"parser\"\nversion = \"0.10.0\"\n"
+      },
+      "docs/usage.md": {
+        "text": "parser 0.10.0 reads files.\n"
+      },
+      "src/lib.rs": {
+        "text": "pub const VERSION: &str = \"0.10.0\";\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "CHANGELOG.md",
+      "change": "any",
+      "reason": "the changelog records released versions"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"0.9.12\" \".\" mode: literal exclude: [\"CHANGELOG.md\"] |> replace \"0.10.0\"",
+  "reference_bash": "grep -rlF --exclude=CHANGELOG.md -- '0.9.12' . | xargs -r sed -i 's/0\\.9\\.12/0.10.0/g'\n",
+  "reference_pwsh": "Get-ChildItem -Recurse -File | Where-Object Name -ne 'CHANGELOG.md' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  if ($t.Contains('0.9.12')) { [IO.File]::WriteAllText($_.FullName, $t.Replace('0.9.12', '0.10.0')) }\n}\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "grep -rlF -- '0.9.12' . | xargs -r sed -i 's/0\\.9\\.12/0.10.0/g'",
+      "defect": "rewrites the changelog"
+    }
+  ],
+  "tags": [
+    "replace",
+    "version"
+  ],
+  "license": "CC-BY-4.0"
+}

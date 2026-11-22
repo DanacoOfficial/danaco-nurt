@@ -1,0 +1,91 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-031",
+  "domain": 5,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Move the function low_stock from inventory/models.py to a new module inventory/levels.py whose content is the docstring \"\"\"Stock level rules.\"\"\", two blank lines and the function. Update the imports in inventory/report.py and tests/test_models.py to import low_stock from the new module on a separate line.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "README.md",
+        "type": "file",
+        "content_utf8": "# inventory\r\n\r\nStock keeping for small warehouses.\r\n\r\nRun the tests with `python3 -m unittest discover -s tests`.\r\n"
+      },
+      {
+        "path": "data/items.csv",
+        "type": "file",
+        "content_utf8": "sku,name,quantity,unit_price\r\nA1,bolt M6,120,0.08\r\nA2,bolt M8,45,0.12\r\nB1,nut M6,300,0.03\r\nB2,nut M8,3,0.05\r\nC1,washer 6 mm,0,0.01\r\nD4,hinge 80 mm,12,2.40\r\n"
+      },
+      {
+        "path": "inventory/__init__.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Stock keeping.\"\"\"\r\n\r\n__version__ = \"1.4.2\"\r\n"
+      },
+      {
+        "path": "inventory/models.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Data model.\"\"\"\r\n\r\nfrom dataclasses import dataclass\r\n\r\n\r\n@dataclass\r\nclass Item:\r\n    sku: str\r\n    name: str\r\n    quantity: int\r\n    unit_price: float\r\n\r\n\r\ndef total_value(items):\r\n    return sum(item.quantity * item.unit_price for item in items)\r\n\r\n\r\ndef low_stock(items, threshold=5):\r\n    return [item for item in items if item.quantity < threshold]\r\n"
+      },
+      {
+        "path": "inventory/report.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Text reports.\"\"\"\r\n\r\nfrom .models import low_stock, total_value\r\n\r\n\r\ndef format_report(items):\r\n    rows = [f\"{item.sku:<8} {item.name:<20} {item.quantity:>5}\" for item in items]\r\n    rows.append(f\"total value: {total_value(items):.2f}\")\r\n    for item in low_stock(items):\r\n        rows.append(f\"low stock: {item.sku}\")\r\n    return \"\\n\".join(rows)\r\n"
+      },
+      {
+        "path": "inventory/store.py",
+        "type": "file",
+        "content_utf8": "\"\"\"CSV storage.\"\"\"\r\n\r\nimport csv\r\n\r\nfrom .models import Item\r\n\r\n\r\ndef load_items(path):\r\n    with open(path, newline=\"\", encoding=\"utf-8\") as handle:\r\n        return [\r\n            Item(row[\"sku\"], row[\"name\"], int(row[\"quantity\"]), float(row[\"unit_price\"]))\r\n            for row in csv.DictReader(handle)\r\n        ]\r\n\r\n\r\ndef find_item(items, sku):\r\n    for item in items:\r\n        if item.sku == sku:\r\n            return item\r\n    return None\r\n"
+      },
+      {
+        "path": "pyproject.toml",
+        "type": "file",
+        "content_utf8": "[project]\r\nname = \"inventory\"\r\nversion = \"1.4.2\"\r\nrequires-python = \">=3.10\"\r\n\r\n[tool.inventory]\r\ncurrency = \"EUR\"\r\n"
+      },
+      {
+        "path": "tests/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tests/test_models.py",
+        "type": "file",
+        "content_utf8": "import unittest\r\n\r\nfrom inventory.models import Item, low_stock, total_value\r\n\r\n\r\nclass ModelTests(unittest.TestCase):\r\n    def test_total_value(self):\r\n        items = [Item(\"A1\", \"bolt\", 10, 0.5), Item(\"B2\", \"nut\", 4, 0.25)]\r\n        self.assertEqual(total_value(items), 6.0)\r\n\r\n    def test_low_stock(self):\r\n        items = [Item(\"A1\", \"bolt\", 10, 0.5), Item(\"B2\", \"nut\", 4, 0.25)]\r\n        self.assertEqual([item.sku for item in low_stock(items)], [\"B2\"])\r\n"
+      },
+      {
+        "path": "tests/test_store.py",
+        "type": "file",
+        "content_utf8": "import unittest\r\n\r\nfrom inventory.models import Item\r\nfrom inventory.store import find_item\r\n\r\n\r\nclass StoreTests(unittest.TestCase):\r\n    def test_find_item(self):\r\n        items = [Item(\"A1\", \"bolt\", 10, 0.5)]\r\n        self.assertEqual(find_item(items, \"A1\").name, \"bolt\")\r\n\r\n    def test_find_missing_item(self):\r\n        self.assertIsNone(find_item([], \"Z9\"))\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "inventory/levels.py": {
+        "text": "\"\"\"Stock level rules.\"\"\"\r\n\r\n\r\ndef low_stock(items, threshold=5):\r\n    return [item for item in items if item.quantity < threshold]\r\n"
+      },
+      "inventory/models.py": {
+        "text": "\"\"\"Data model.\"\"\"\r\n\r\nfrom dataclasses import dataclass\r\n\r\n\r\n@dataclass\r\nclass Item:\r\n    sku: str\r\n    name: str\r\n    quantity: int\r\n    unit_price: float\r\n\r\n\r\ndef total_value(items):\r\n    return sum(item.quantity * item.unit_price for item in items)\r\n"
+      },
+      "inventory/report.py": {
+        "text": "\"\"\"Text reports.\"\"\"\r\n\r\nfrom .models import total_value\r\nfrom .levels import low_stock\r\n\r\n\r\ndef format_report(items):\r\n    rows = [f\"{item.sku:<8} {item.name:<20} {item.quantity:>5}\" for item in items]\r\n    rows.append(f\"total value: {total_value(items):.2f}\")\r\n    for item in low_stock(items):\r\n        rows.append(f\"low stock: {item.sku}\")\r\n    return \"\\n\".join(rows)\r\n"
+      },
+      "tests/test_models.py": {
+        "text": "import unittest\r\n\r\nfrom inventory.models import Item, total_value\r\nfrom inventory.levels import low_stock\r\n\r\n\r\nclass ModelTests(unittest.TestCase):\r\n    def test_total_value(self):\r\n        items = [Item(\"A1\", \"bolt\", 10, 0.5), Item(\"B2\", \"nut\", 4, 0.25)]\r\n        self.assertEqual(total_value(items), 6.0)\r\n\r\n    def test_low_stock(self):\r\n        items = [Item(\"A1\", \"bolt\", 10, 0.5), Item(\"B2\", \"nut\", 4, 0.25)]\r\n        self.assertEqual([item.sku for item in low_stock(items)], [\"B2\"])\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.symbols \"low_stock\" path: [\"inventory/models.py\"] kind: function |> code.move to: \"inventory/levels.py\"",
+  "reference_pwsh": "$p = Join-Path $PWD 'inventory/models.py'; $t = [IO.File]::ReadAllText($p)\n$o = '\n\ndef low_stock(items, threshold=5):\n    return [item for item in items if item.quantity < threshold]\n'.Replace(\"`n\", \"`r`n\"); $n = ''.Replace(\"`n\", \"`r`n\")\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in inventory/models.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'inventory/report.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'from .models import low_stock, total_value'.Replace(\"`n\", \"`r`n\"); $n = 'from .models import total_value\nfrom .levels import low_stock'.Replace(\"`n\", \"`r`n\")\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in inventory/report.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n$p = Join-Path $PWD 'tests/test_models.py'; $t = [IO.File]::ReadAllText($p)\n$o = 'from inventory.models import Item, low_stock, total_value'.Replace(\"`n\", \"`r`n\"); $n = 'from inventory.models import Item, total_value\nfrom inventory.levels import low_stock'.Replace(\"`n\", \"`r`n\")\nif (([regex]::Matches($t, [regex]::Escape($o))).Count -ne 1) { throw 'unexpected match count in tests/test_models.py' }\n[IO.File]::WriteAllText($p, $t.Replace($o, $n))\n[IO.File]::WriteAllText((Join-Path $PWD 'inventory/levels.py'), '\"\"\"Stock level rules.\"\"\"\n\n\ndef low_stock(items, threshold=5):\n    return [item for item in items if item.quantity < threshold]\n'.Replace(\"`n\", \"`r`n\"))\n",
+  "tags": [
+    "move",
+    "python"
+  ],
+  "license": "CC-BY-4.0"
+}

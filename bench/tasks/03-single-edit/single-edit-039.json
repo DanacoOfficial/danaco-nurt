@@ -1,0 +1,38 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-039",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "In appsettings.json, replace `\"Warning\"` with `\"Information\"`. The file starts with a UTF-8 byte order mark and uses CRLF line endings; keep both.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "appsettings.json",
+        "type": "file",
+        "content_utf8": "\ufeff{\r\n  \"Logging\": {\r\n    \"Level\": \"Warning\"\r\n  }\r\n}\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "appsettings.json": {
+        "text": "\ufeff{\r\n  \"Logging\": {\r\n    \"Level\": \"Information\"\r\n  }\r\n}\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"\\\"Warning\\\"\" \"\\\"Information\\\"\" in: [\"appsettings.json\"] mode: literal expect: 1",
+  "reference_pwsh": "$p = Join-Path $PWD 'appsettings.json'; $t = [IO.File]::ReadAllText($p); [IO.File]::WriteAllText($p, $t.Replace('\"Warning\"', '\"Information\"'), [Text.UTF8Encoding]::new($true))\n",
+  "tags": [
+    "bom",
+    "crlf",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

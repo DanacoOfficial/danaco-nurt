@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-039",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "How many files with the extension .py does the tree contain? Answer with the number.",
+  "fs_before": {
+    "fixture": "py-inventory"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])7(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.py\" type: file |> count",
+  "reference_bash": "find . -type f -name '*.py' | wc -l\n",
+  "tags": [
+    "count",
+    "find"
+  ],
+  "license": "CC-BY-4.0"
+}

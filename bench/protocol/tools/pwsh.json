@@ -1,0 +1,13 @@
+{
+  "format": "nurt-bench-tool/1",
+  "name": "pwsh",
+  "description": "Runs a command in PowerShell 7 and returns its standard output, its standard error after the line [stderr], and its exit code when it is not 0. Each call starts a new pwsh process in the root of the task; variables and the current location do not persist between calls. Standard input is empty. The usual cmdlets and programs of the system are available.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "command": {"type": "string", "description": "The PowerShell command to run."}
+    },
+    "required": ["command"]
+  },
+  "argument": "command"
+}

@@ -1,0 +1,62 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-017",
+  "domain": 2,
+  "split": "public",
+  "platform": "linux",
+  "nl": "In the Markdown files under docs/api/, change every link that starts with http://example.com to start with https://example.com.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "docs/api/customers.md",
+        "type": "file",
+        "content_utf8": "# Customers API\n\n`GET /customers/{id}` returns one customer.\n"
+      },
+      {
+        "path": "docs/api/orders.md",
+        "type": "file",
+        "content_utf8": "# Orders API\n\n`GET /orders` returns all orders.\n`POST /orders/new` creates an order.\nReference: http://example.com/orders/api\n"
+      },
+      {
+        "path": "docs/changelog.md",
+        "type": "file",
+        "content_utf8": "# Changelog\n\n## 2.3.0\n\n- Added the customers API.\n\n## 2.2.0\n\n- Added order export.\n- Links now use http://example.com/orders/releases.\n"
+      },
+      {
+        "path": "docs/config.md",
+        "type": "file",
+        "content_utf8": "# Configuration\n\nThe service reads `config.toml` from the working directory.\n\n## Database\n\nSet `database.url`. The default is `sqlite://orders.db`.\n\n## Logging\n\nSet `log.level` to `debug`, `info` or `warn`.\n"
+      },
+      {
+        "path": "docs/index.md",
+        "type": "file",
+        "content_utf8": "# Orders service\n\nSee [installation](install.md) and [configuration](config.md).\nSource code: http://example.com/orders/source\n"
+      },
+      {
+        "path": "docs/install.md",
+        "type": "file",
+        "content_utf8": "# Installation\n\nDownload the release from http://example.com/orders/releases.\nVerify the checksum published at http://example.com/orders/sha256.\n\n## Requirements\n\n- Linux, macOS or Windows\n- 512 MB of memory\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "docs/api/orders.md": {
+        "text": "# Orders API\n\n`GET /orders` returns all orders.\n`POST /orders/new` creates an order.\nReference: https://example.com/orders/api\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"http://example.com\" \"docs/api\" glob: \"**/*.md\" mode: literal |> replace \"https://example.com\"",
+  "reference_bash": "grep -rlF --include='*.md' 'http://example.com' docs/api | xargs -r sed -i 's|http://example\\.com|https://example.com|g'\n",
+  "tags": [
+    "links",
+    "markdown"
+  ],
+  "license": "CC-BY-4.0"
+}

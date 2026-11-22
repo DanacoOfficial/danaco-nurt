@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-028",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Add the line `ops@example.com` at the end of authorized.txt (the file is without a final line break). The new entry must be on a line of its own.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "authorized.txt",
+        "type": "file",
+        "content_utf8": "user@example.com"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "authorized.txt": {
+        "text": "user@example.com\r\nops@example.com\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \"authorized.txt\" \"ops@example.com\" mode: append ensure_newline: true",
+  "reference_pwsh": "$p = Join-Path $PWD 'authorized.txt'; $t = [IO.File]::ReadAllText($p); $eol = if ($t.Contains(\"`r`n\") -or -not $t.Contains(\"`n\")) { \"`r`n\" } else { \"`n\" }; if ($t.Length -gt 0 -and -not $t.EndsWith(\"`n\")) { $t += $eol }; [IO.File]::WriteAllText($p, $t + 'ops@example.com' + $eol)\n",
+  "tags": [
+    "append"
+  ],
+  "license": "CC-BY-4.0"
+}

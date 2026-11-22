@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-035",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Enable the setting `maxmemory 256mb` in redis.conf by removing the comment marker from its line. Other commented lines stay commented.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "redis.conf",
+        "type": "file",
+        "content_utf8": "bind 127.0.0.1\n# requirepass change-me\n# maxmemory 256mb\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "redis.conf": {
+        "text": "bind 127.0.0.1\n# requirepass change-me\nmaxmemory 256mb\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"redis.conf\" |> filter text == \"# maxmemory 256mb\" |> replace \"# maxmemory 256mb\" \"maxmemory 256mb\" mode: literal",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('redis.conf')\nt = p.read_bytes().decode('utf-8')\nold = '# maxmemory 256mb\\n'\nassert t.count(old) == 1\np.write_bytes(t.replace(old, 'maxmemory 256mb\\n').encode('utf-8'))\nEOF\n",
+  "tags": [
+    "config",
+    "uncomment"
+  ],
+  "license": "CC-BY-4.0"
+}

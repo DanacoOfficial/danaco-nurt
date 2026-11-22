@@ -4,7 +4,7 @@
 
 [package]
 name = "nurt-bench"
-description = "Benchmark tasks, oracles and comparison protocol of Danaco Nurt."
+description = "Runner, statistical analysis and data set tools of the Danaco Nurt benchmark."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,7 +17,21 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[[bin]]
+name = "nurt-bench"
+path = "src/main.rs"
+
 [dependencies]
 nurt-contracts = { workspace = true }
+base64 = { workspace = true }
+clap = { workspace = true }
+hex = { workspace = true }
+jiff = { workspace = true }
+regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+ureq = { workspace = true }

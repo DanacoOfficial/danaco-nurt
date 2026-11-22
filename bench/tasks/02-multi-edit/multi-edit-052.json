@@ -1,0 +1,61 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-052",
+  "domain": 2,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Remove trailing spaces and tabs at the end of lines in all .md files under notes/ (recursively). Keep the existing line endings. The tree includes notes/sub/c3.md.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "notes/a.md",
+        "type": "file",
+        "content_utf8": "# Title  \r\n\r\nText with trailing spaces   \r\nClean line\r\n"
+      },
+      {
+        "path": "notes/b.md",
+        "type": "file",
+        "content_utf8": "- item\t\r\n- item two \r\n"
+      },
+      {
+        "path": "notes/data.csv",
+        "type": "file",
+        "content_utf8": "a,b \r\nc,d \r\n"
+      },
+      {
+        "path": "notes/sub/c3.md",
+        "type": "file",
+        "content_utf8": "No trailing\r\nwhite space here\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "notes/a.md": {
+        "text": "# Title\r\n\r\nText with trailing spaces\r\nClean line\r\n"
+      },
+      "notes/b.md": {
+        "text": "- item\r\n- item two\r\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "notes/data.csv",
+      "change": "any",
+      "reason": "CSV data is not part of the request"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search /[ \\t]+$/ \"notes\" glob: \"**/*.md\" |> replace \"\"",
+  "reference_pwsh": "Get-ChildItem notes -Recurse -File -Include '*.md' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t -creplace '(?m)[ \\t]+(?=\\r?$)', ''\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "tags": [
+    "markdown",
+    "whitespace"
+  ],
+  "license": "CC-BY-4.0"
+}

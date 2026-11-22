@@ -1,0 +1,28 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "journal.space",
+          "args": [],
+          "span": [
+            1,
+            1,
+            1,
+            14
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          14
+        ]
+      }
+    ]
+  }
+}

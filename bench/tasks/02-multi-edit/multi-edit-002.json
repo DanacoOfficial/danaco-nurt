@@ -1,0 +1,103 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-002",
+  "domain": 2,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rename the function find_item to lookup_item in every Python file of the project, including its call sites and imports. Do not change other file types.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "README.md",
+        "type": "file",
+        "content_utf8": "# inventory\n\nStock keeping for small warehouses.\n\nRun the tests with `python3 -m unittest discover -s tests`.\n"
+      },
+      {
+        "path": "data/items.csv",
+        "type": "file",
+        "content_utf8": "sku,name,quantity,unit_price\nA1,bolt M6,120,0.08\nA2,bolt M8,45,0.12\nB1,nut M6,300,0.03\nB2,nut M8,3,0.05\nC1,washer 6 mm,0,0.01\nD4,hinge 80 mm,12,2.40\n"
+      },
+      {
+        "path": "docs/notes.md",
+        "type": "file",
+        "content_utf8": "The function find_item is public API.\n"
+      },
+      {
+        "path": "inventory/__init__.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Stock keeping.\"\"\"\n\n__version__ = \"1.4.2\"\n"
+      },
+      {
+        "path": "inventory/models.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Data model.\"\"\"\n\nfrom dataclasses import dataclass\n\n\n@dataclass\nclass Item:\n    sku: str\n    name: str\n    quantity: int\n    unit_price: float\n\n\ndef total_value(items):\n    return sum(item.quantity * item.unit_price for item in items)\n\n\ndef low_stock(items, threshold=5):\n    return [item for item in items if item.quantity < threshold]\n"
+      },
+      {
+        "path": "inventory/report.py",
+        "type": "file",
+        "content_utf8": "\"\"\"Text reports.\"\"\"\n\nfrom .models import low_stock, total_value\n\n\ndef format_report(items):\n    rows = [f\"{item.sku:<8} {item.name:<20} {item.quantity:>5}\" for item in items]\n    rows.append(f\"total value: {total_value(items):.2f}\")\n    for item in low_stock(items):\n        rows.append(f\"low stock: {item.sku}\")\n    return \"\\n\".join(rows)\n"
+      },
+      {
+        "path": "inventory/store.py",
+        "type": "file",
+        "content_utf8": "\"\"\"CSV storage.\"\"\"\n\nimport csv\n\nfrom .models import Item\n\n\ndef load_items(path):\n    with open(path, newline=\"\", encoding=\"utf-8\") as handle:\n        return [\n            Item(row[\"sku\"], row[\"name\"], int(row[\"quantity\"]), float(row[\"unit_price\"]))\n            for row in csv.DictReader(handle)\n        ]\n\n\ndef find_item(items, sku):\n    for item in items:\n        if item.sku == sku:\n            return item\n    return None\n"
+      },
+      {
+        "path": "pyproject.toml",
+        "type": "file",
+        "content_utf8": "[project]\nname = \"inventory\"\nversion = \"1.4.2\"\nrequires-python = \">=3.10\"\n\n[tool.inventory]\ncurrency = \"EUR\"\n"
+      },
+      {
+        "path": "tests/__init__.py",
+        "type": "file",
+        "content_utf8": ""
+      },
+      {
+        "path": "tests/test_models.py",
+        "type": "file",
+        "content_utf8": "import unittest\n\nfrom inventory.models import Item, low_stock, total_value\n\n\nclass ModelTests(unittest.TestCase):\n    def test_total_value(self):\n        items = [Item(\"A1\", \"bolt\", 10, 0.5), Item(\"B2\", \"nut\", 4, 0.25)]\n        self.assertEqual(total_value(items), 6.0)\n\n    def test_low_stock(self):\n        items = [Item(\"A1\", \"bolt\", 10, 0.5), Item(\"B2\", \"nut\", 4, 0.25)]\n        self.assertEqual([item.sku for item in low_stock(items)], [\"B2\"])\n"
+      },
+      {
+        "path": "tests/test_store.py",
+        "type": "file",
+        "content_utf8": "import unittest\n\nfrom inventory.models import Item\nfrom inventory.store import find_item\n\n\nclass StoreTests(unittest.TestCase):\n    def test_find_item(self):\n        items = [Item(\"A1\", \"bolt\", 10, 0.5)]\n        self.assertEqual(find_item(items, \"A1\").name, \"bolt\")\n\n    def test_find_missing_item(self):\n        self.assertIsNone(find_item([], \"Z9\"))\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "inventory/store.py": {
+        "text": "\"\"\"CSV storage.\"\"\"\n\nimport csv\n\nfrom .models import Item\n\n\ndef load_items(path):\n    with open(path, newline=\"\", encoding=\"utf-8\") as handle:\n        return [\n            Item(row[\"sku\"], row[\"name\"], int(row[\"quantity\"]), float(row[\"unit_price\"]))\n            for row in csv.DictReader(handle)\n        ]\n\n\ndef lookup_item(items, sku):\n    for item in items:\n        if item.sku == sku:\n            return item\n    return None\n"
+      },
+      "tests/test_store.py": {
+        "text": "import unittest\n\nfrom inventory.models import Item\nfrom inventory.store import lookup_item\n\n\nclass StoreTests(unittest.TestCase):\n    def test_find_item(self):\n        items = [Item(\"A1\", \"bolt\", 10, 0.5)]\n        self.assertEqual(lookup_item(items, \"A1\").name, \"bolt\")\n\n    def test_find_missing_item(self):\n        self.assertIsNone(lookup_item([], \"Z9\"))\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "docs/**",
+      "change": "modify",
+      "reason": "documentation is outside the requested file types"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search /\\bfind_item\\b/ \".\" glob: \"**/*.py\" |> replace \"lookup_item\"",
+  "reference_bash": "grep -rlE --include='*.py' '\\bfind_item\\b' . | xargs -r sed -i -E 's/\\bfind_item\\b/lookup_item/g'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "grep -rlE '\\bfind_item\\b' . | xargs -r sed -i -E 's/\\bfind_item\\b/lookup_item/g'",
+      "defect": "edits the Markdown notes as well"
+    }
+  ],
+  "tags": [
+    "python",
+    "rename"
+  ],
+  "license": "CC-BY-4.0"
+}

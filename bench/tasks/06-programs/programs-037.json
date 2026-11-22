@@ -1,0 +1,42 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-037",
+  "domain": 6,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Run tools/slow.py slow with a time limit of 3 seconds (job 1). If it ends in time, write the word finished to status.txt; otherwise stop it and write the word timeout.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/slow.py",
+        "type": "file",
+        "content_utf8": "import pathlib\nimport sys\nimport time\n\ndelay = {\"quick\": 0.2, \"slow\": 60}[sys.argv[1]]\ntime.sleep(delay)\npathlib.Path(\"out\").mkdir(exist_ok=True)\npathlib.Path(\"out/result.txt\").write_text(\"done\\n\")\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "status.txt": {
+        "lines": [
+          "timeout"
+        ]
+      },
+      "out/result.txt": {
+        "absent": true
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 60
+  },
+  "oracle_program": "run [\"python3\", \"tools/slow.py\", \"slow\"] timeout: 3s |> select status |> write \"status.txt\"",
+  "reference_bash": "if timeout 3 python3 tools/slow.py slow; then echo finished; else echo timeout; fi > status.txt\n",
+  "tags": [
+    "run",
+    "timeout"
+  ],
+  "license": "CC-BY-4.0"
+}

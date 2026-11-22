@@ -1,0 +1,35 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-034",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Write the relative paths of all .py files in inventory/ (recursively) to modules.txt, one path per line, sorted, with '/' as separator and without a leading './'.",
+  "fs_before": {
+    "fixture": "py-inventory"
+  },
+  "expect": {
+    "files": {
+      "modules.txt": {
+        "lines": [
+          "inventory/__init__.py",
+          "inventory/models.py",
+          "inventory/report.py",
+          "inventory/store.py"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"inventory\" glob: \"**/*.py\" type: file sort: name |> select relative |> write \"modules.txt\" format: lines",
+  "reference_bash": "find inventory -type f -name '*.py' | sed 's|^\\./||' | LC_ALL=C sort > modules.txt\n",
+  "tags": [
+    "find",
+    "write-result"
+  ],
+  "license": "CC-BY-4.0"
+}

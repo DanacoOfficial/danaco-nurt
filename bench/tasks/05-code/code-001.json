@@ -1,0 +1,61 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-001",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rename the method area of the class Circle to surface, together with its calls on Circle objects. The method area of Square and its calls stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "app/main.py",
+        "type": "file",
+        "content_utf8": "from app.model import Circle, Square\n\n\ndef run():\n    circle = Circle()\n    square = Square()\n    return [circle.area(), square.area()]\n"
+      },
+      {
+        "path": "app/model.py",
+        "type": "file",
+        "content_utf8": "class Circle:\n    def area(self):\n        return 'circle'\n\n\nclass Square:\n    def area(self):\n        return 'square'\n"
+      },
+      {
+        "path": "tests/test_model.py",
+        "type": "file",
+        "content_utf8": "from app.model import Circle, Square\n\n\ndef test_circle():\n    assert Circle().area() == 'circle'\n\n\ndef test_square():\n    assert Square().area() == 'square'\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "app/main.py": {
+        "text": "from app.model import Circle, Square\n\n\ndef run():\n    circle = Circle()\n    square = Square()\n    return [circle.surface(), square.area()]\n"
+      },
+      "app/model.py": {
+        "text": "class Circle:\n    def surface(self):\n        return 'circle'\n\n\nclass Square:\n    def area(self):\n        return 'square'\n"
+      },
+      "tests/test_model.py": {
+        "text": "from app.model import Circle, Square\n\n\ndef test_circle():\n    assert Circle().surface() == 'circle'\n\n\ndef test_square():\n    assert Square().area() == 'square'\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.rename \"surface\" path: \"app/model.py\" symbol: \"Circle.area\" paths: [\"app\", \"tests\"]",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('app/model.py'); t = p.read_bytes().decode()\nassert t.count('class Circle:\\n    def area(self):') == 1, 'app/model.py'\np.write_bytes(t.replace('class Circle:\\n    def area(self):', 'class Circle:\\n    def surface(self):').encode())\np = pathlib.Path('app/main.py'); t = p.read_bytes().decode()\nassert t.count('circle.area()') == 1, 'app/main.py'\np.write_bytes(t.replace('circle.area()', 'circle.surface()').encode())\np = pathlib.Path('tests/test_model.py'); t = p.read_bytes().decode()\nassert t.count('Circle().area()') == 1, 'tests/test_model.py'\np.write_bytes(t.replace('Circle().area()', 'Circle().surface()').encode())\nEOF\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/\\barea(/surface(/g' app/*.py tests/*.py",
+      "defect": "renames the method of Square as well"
+    }
+  ],
+  "tags": [
+    "python",
+    "rename",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

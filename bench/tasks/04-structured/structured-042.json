@@ -1,0 +1,45 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-042",
+  "domain": 4,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Convert orders.json (an array of objects) to export/orders-3.csv with the columns customer, total, status in this order, a header line and one line per order, without quotes.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "orders.json",
+        "type": "file",
+        "content_utf8": "[\n  {\n    \"id\": 101,\n    \"customer\": \"acme\",\n    \"total\": 250,\n    \"status\": \"paid\"\n  },\n  {\n    \"id\": 102,\n    \"customer\": \"globex\",\n    \"total\": 80,\n    \"status\": \"open\"\n  },\n  {\n    \"id\": 103,\n    \"customer\": \"initech\",\n    \"total\": 1200,\n    \"status\": \"paid\"\n  },\n  {\n    \"id\": 104,\n    \"customer\": \"acme\",\n    \"total\": 45,\n    \"status\": \"cancelled\"\n  }\n]\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "export/orders-3.csv": {
+        "lines": [
+          "customer,total,status",
+          "acme,250,paid",
+          "globex,80,open",
+          "initech,1200,paid",
+          "acme,45,cancelled"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"orders.json\" |> select customer total status |> write \"export/orders-3.csv\" format: csv parents: true",
+  "reference_bash": "python3 - <<'EOF'\nimport json, os\nos.makedirs('export', exist_ok=True)\nrows = json.load(open('orders.json'))\ncols = ['customer', 'total', 'status']\nwith open('export/orders-3.csv', 'w') as f:\n    f.write(','.join(cols) + '\\n')\n    for r in rows:\n        f.write(','.join(str(r[c]) for c in cols) + '\\n')\nEOF\n",
+  "reference_pwsh": "New-Item -ItemType Directory -Force export | Out-Null\nGet-Content orders.json -Raw | ConvertFrom-Json | Select-Object customer,total,status | ConvertTo-Csv -NoTypeInformation -UseQuotes Never | Set-Content export/orders-3.csv\n",
+  "tags": [
+    "convert",
+    "csv",
+    "json"
+  ],
+  "license": "CC-BY-4.0"
+}

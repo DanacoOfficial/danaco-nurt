@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-059",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Move `Save as` directly after `Save` in menu.txt. The result must be: Open, Save, Save as, Exit.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "menu.txt",
+        "type": "file",
+        "content_utf8": "Open\nSave\nExit\nSave as\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "menu.txt": {
+        "text": "Open\nSave\nSave as\nExit\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "edit \"menu.txt\" changes: [{move_line: 4, to: 3}]",
+  "reference_bash": "printf '%s\\n' 'Open' 'Save' 'Save as' 'Exit' > menu.txt\n",
+  "tags": [
+    "reorder"
+  ],
+  "license": "CC-BY-4.0"
+}

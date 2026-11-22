@@ -1,0 +1,57 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-006",
+  "domain": 3,
+  "split": "public",
+  "platform": "cross",
+  "nl": "In config/deploy.yaml, replace the exact text `image: ghcr.io/example/orders:2.3.0` with `image: ghcr.io/example/orders:2.3.1`. Change nothing else.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": ".env.example",
+        "type": "file",
+        "content_utf8": "DATABASE_URL=postgres://db.example.com:5432/orders\nLOG_LEVEL=info\n"
+      },
+      {
+        "path": "config/app.json",
+        "type": "file",
+        "content_utf8": "{\n  \"name\": \"orders\",\n  \"port\": 8080,\n  \"features\": {\n    \"export\": true,\n    \"beta_ui\": false\n  },\n  \"allowed_origins\": [\"https://example.com\"]\n}\n"
+      },
+      {
+        "path": "config/db.toml",
+        "type": "file",
+        "content_utf8": "# Database settings\n[database]\nurl = \"postgres://db.example.com:5432/orders\"\npool_size = 10\ntimeout_seconds = 30\n\n[database.replica]\nurl = \"postgres://replica.example.com:5432/orders\"\nenabled = false\n"
+      },
+      {
+        "path": "config/deploy.yaml",
+        "type": "file",
+        "content_utf8": "service: orders\nreplicas: 2\nimage: ghcr.io/example/orders:2.3.0\nresources:\n  memory: 512Mi\n  cpu: 500m\nenv:\n  LOG_LEVEL: info\n  REGION: eu-central\n"
+      },
+      {
+        "path": "config/legacy.ini",
+        "type": "file",
+        "content_utf8": "[server]\nhost = 0.0.0.0\nport = 8080\ndebug = true\n\n[mail]\nsender = orders@example.com\nsmtp = smtp.example.com\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "config/deploy.yaml": {
+        "text": "service: orders\nreplicas: 2\nimage: ghcr.io/example/orders:2.3.1\nresources:\n  memory: 512Mi\n  cpu: 500m\nenv:\n  LOG_LEVEL: info\n  REGION: eu-central\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"image: ghcr.io/example/orders:2.3.0\" \"image: ghcr.io/example/orders:2.3.1\" in: [\"config/deploy.yaml\"] mode: literal expect: 1",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('config/deploy.yaml')\nt = p.read_bytes().decode('utf-8')\nold = 'image: ghcr.io/example/orders:2.3.0'\nassert t.count(old) == 1\np.write_bytes(t.replace(old, 'image: ghcr.io/example/orders:2.3.1').encode('utf-8'))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'config/deploy.yaml'\n$t = [IO.File]::ReadAllText($p)\n$old = 'image: ghcr.io/example/orders:2.3.0'\n$new = 'image: ghcr.io/example/orders:2.3.1'\nif (([regex]::Matches($t, [regex]::Escape($old))).Count -ne 1) { throw 'expected one match' }\n[IO.File]::WriteAllText($p, $t.Replace($old, $new))\n",
+  "tags": [
+    "exact-replace"
+  ],
+  "license": "CC-BY-4.0"
+}

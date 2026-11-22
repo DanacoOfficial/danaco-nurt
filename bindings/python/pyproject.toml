@@ -1,0 +1,60 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nurt"
+dynamic = ["version"]
+description = "Python binding of Danaco Nurt, the command console for AI agents and people."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+authors = [{ name = "Danaco Holding Group", email = "support@danaco-group.pl" }]
+keywords = ["nurt", "console", "shell", "ai-agents", "tool-calling"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: System :: Shells",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://nurt.danaco-group.pl"
+Documentation = "https://nurt.danaco-group.pl"
+Repository = "https://github.com/DanacoOfficial/nurt"
+Issues = "https://github.com/DanacoOfficial/nurt/issues"
+
+[project.scripts]
+nurt = "nurt._cli:main"
+
+[tool.hatch.version]
+path = "src/nurt/_version.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/nurt", "tests", "tools", "README.md", "pyproject.toml"]
+exclude = ["src/nurt/_bin"]
+
+[tool.hatch.build.targets.sdist.force-include]
+"../../LICENSE" = "LICENSE"
+"../../NOTICE" = "NOTICE"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nurt"]
+exclude = ["src/nurt/_bin"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+files = ["src/nurt"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"

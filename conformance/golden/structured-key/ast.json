@@ -1,0 +1,68 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "set",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/package.json"
+              }
+            },
+            {
+              "name": "key",
+              "value": {
+                "t": "key",
+                "segs": [
+                  "workspaces",
+                  0,
+                  {
+                    "wild": "*"
+                  },
+                  {
+                    "wild": "**"
+                  },
+                  {
+                    "wild": "+"
+                  },
+                  {
+                    "filter": {
+                      "t": "bin",
+                      "op": "==",
+                      "l": {
+                        "t": "ident",
+                        "v": "name"
+                      },
+                      "r": {
+                        "t": "text",
+                        "v": "web"
+                      }
+                    }
+                  },
+                  -1
+                ]
+              }
+            },
+            {
+              "name": "value",
+              "value": {
+                "t": "text",
+                "v": "vitest"
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  },
+  "meta": {
+    "producer": "client",
+    "comments": []
+  }
+}

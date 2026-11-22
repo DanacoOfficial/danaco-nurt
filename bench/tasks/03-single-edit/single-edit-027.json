@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-027",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Add the line `coverage` at the end of .dockerignore (the file is ending with a line break). The new entry must be on a line of its own.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": ".dockerignore",
+        "type": "file",
+        "content_utf8": ".git\nnode_modules\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      ".dockerignore": {
+        "text": ".git\nnode_modules\ncoverage\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \".dockerignore\" \"coverage\" mode: append ensure_newline: true",
+  "reference_bash": "[ -n \"$(tail -c 1 .dockerignore)\" ] && echo >> .dockerignore; printf '%s\\n' 'coverage' >> .dockerignore\n",
+  "tags": [
+    "append"
+  ],
+  "license": "CC-BY-4.0"
+}

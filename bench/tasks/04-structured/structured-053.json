@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-053",
+  "domain": 4,
+  "split": "public",
+  "platform": "linux",
+  "nl": "How many events in events.jsonl have the level error? Answer with the number.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "events.jsonl",
+        "type": "file",
+        "content_utf8": "{\"ts\": \"t01\", \"level\": \"info\", \"service\": \"api\", \"ms\": 12}\n{\"ts\": \"t02\", \"level\": \"error\", \"service\": \"api\", \"ms\": 900}\n{\"ts\": \"t03\", \"level\": \"warn\", \"service\": \"worker\", \"ms\": 450}\n{\"ts\": \"t04\", \"level\": \"error\", \"service\": \"worker\", \"ms\": 30}\n{\"ts\": \"t05\", \"level\": \"info\", \"service\": \"api\", \"ms\": 8}\n{\"ts\": \"t06\", \"level\": \"error\", \"service\": \"api\", \"ms\": 1500}\n{\"ts\": \"t07\", \"level\": \"info\", \"service\": \"worker\", \"ms\": 61}\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])3(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"events.jsonl\" format: jsonl |> filter level == \"error\" |> count",
+  "reference_bash": "python3 -c 'import json; print(sum(1 for l in open(\"events.jsonl\") for e in [json.loads(l)] if e[\"level\"] == \"error\"))'\n",
+  "tags": [
+    "count",
+    "jsonl"
+  ],
+  "license": "CC-BY-4.0"
+}

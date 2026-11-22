@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-014",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Which files under inventory/ contain the text 'total_value'? List their relative paths.",
+  "fs_before": {
+    "fixture": "py-inventory"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "inventory/models.py",
+        "inventory/report.py"
+      ],
+      "not_contains": [
+        "store.py",
+        "__init__.py"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"total_value\" \"inventory\" mode: literal output: paths",
+  "reference_bash": "grep -rlF -- 'total_value' inventory | sort\n",
+  "reference_pwsh": "Get-ChildItem inventory -Recurse -File | Select-String -SimpleMatch 'total_value' -List | ForEach-Object { (Resolve-Path -Relative $_.Path) -replace '\\\\', '/' }\n",
+  "tags": [
+    "content-search",
+    "grep"
+  ],
+  "license": "CC-BY-4.0"
+}

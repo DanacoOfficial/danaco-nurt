@@ -1,0 +1,4481 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Typing errors and unique prefixes of parameter names.
+# Written by conformance/tools/generate_correction.py; edit the generator, not this file.
+
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-check/changed-only-cahnged-only'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cahnged_only is within the distance threshold of changed_only only.'
+method = "correct"
+program = 'analyze.check "/home/user/app" cahnged_only: false'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" changed_only: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cahnged_only', to = 'changed_only' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-check/changed-only-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix cha names only the parameter changed_only.'
+method = "correct"
+program = 'analyze.check "/home/user/app" cha: false'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" changed_only: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'cha', to = 'changed_only' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-check/include-tests-icnlude-tests'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name icnlude_tests is within the distance threshold of include_tests only.'
+method = "correct"
+program = 'analyze.check "/home/user/app" icnlude_tests: true'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" include_tests: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'icnlude_tests', to = 'include_tests' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-check/include-tests-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix inc names only the parameter include_tests.'
+method = "correct"
+program = 'analyze.check "/home/user/app" inc: true'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" include_tests: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'inc', to = 'include_tests' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-check/complexity-max-cmoplexity-max'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cmoplexity_max is within the distance threshold of complexity_max only.'
+method = "correct"
+program = 'analyze.check "/home/user/app" cmoplexity_max: 15'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" complexity_max: 15'
+corrections = [{ rule = 'L02', class = 'F', from = 'cmoplexity_max', to = 'complexity_max' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-check/complexity-max-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix com names only the parameter complexity_max.'
+method = "correct"
+program = 'analyze.check "/home/user/app" com: 15'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" complexity_max: 15'
+corrections = [{ rule = 'L05', class = 'F', from = 'com', to = 'complexity_max' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-check/fail-on-fial-on'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fial_on is within the distance threshold of fail_on only.'
+method = "correct"
+program = 'analyze.check "/home/user/app" fial_on: error'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" fail_on: error'
+corrections = [{ rule = 'L02', class = 'F', from = 'fial_on', to = 'fail_on' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-check/fail-on-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix fai names only the parameter fail_on.'
+method = "correct"
+program = 'analyze.check "/home/user/app" fai: error'
+
+[case.expect]
+program = 'analyze.check "/home/user/app" fail_on: error'
+corrections = [{ rule = 'L05', class = 'F', from = 'fai', to = 'fail_on' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-format/changed-only-cahnged-only'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cahnged_only is within the distance threshold of changed_only only.'
+method = "correct"
+program = 'analyze.format "/home/user/app/src" cahnged_only: false'
+
+[case.expect]
+program = 'analyze.format "/home/user/app/src" changed_only: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cahnged_only', to = 'changed_only' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-format/changed-only-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix cha names only the parameter changed_only.'
+method = "correct"
+program = 'analyze.format "/home/user/app/src" cha: false'
+
+[case.expect]
+program = 'analyze.format "/home/user/app/src" changed_only: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'cha', to = 'changed_only' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-format/sample-lines-smaple-lines'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name smaple_lines is within the distance threshold of sample_lines only.'
+method = "correct"
+program = 'analyze.format "/home/user/app/src" smaple_lines: 12'
+
+[case.expect]
+program = 'analyze.format "/home/user/app/src" sample_lines: 12'
+corrections = [{ rule = 'L02', class = 'F', from = 'smaple_lines', to = 'sample_lines' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-format/sample-lines-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix sam names only the parameter sample_lines.'
+method = "correct"
+program = 'analyze.format "/home/user/app/src" sam: 12'
+
+[case.expect]
+program = 'analyze.format "/home/user/app/src" sample_lines: 12'
+corrections = [{ rule = 'L05', class = 'F', from = 'sam', to = 'sample_lines' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-show/min-severity-mni-severity'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mni_severity is within the distance threshold of min_severity only.'
+method = "correct"
+program = 'analyze.show mni_severity: info'
+
+[case.expect]
+program = 'analyze.show min_severity: info'
+corrections = [{ rule = 'L02', class = 'F', from = 'mni_severity', to = 'min_severity' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-show/min-severity-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix min names only the parameter min_severity.'
+method = "correct"
+program = 'analyze.show min: info'
+
+[case.expect]
+program = 'analyze.show min_severity: info'
+corrections = [{ rule = 'L05', class = 'F', from = 'min', to = 'min_severity' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-show/max-findings-mxa-findings'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mxa_findings is within the distance threshold of max_findings only.'
+method = "correct"
+program = 'analyze.show mxa_findings: 100'
+
+[case.expect]
+program = 'analyze.show max_findings: 100'
+corrections = [{ rule = 'L02', class = 'F', from = 'mxa_findings', to = 'max_findings' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-show/max-findings-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix max names only the parameter max_findings.'
+method = "correct"
+program = 'analyze.show max: 100'
+
+[case.expect]
+program = 'analyze.show max_findings: 100'
+corrections = [{ rule = 'L05', class = 'F', from = 'max', to = 'max_findings' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-tools/changed-only-cahnged-only'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cahnged_only is within the distance threshold of changed_only only.'
+method = "correct"
+program = 'analyze.tools "/home/user/app" cahnged_only: false'
+
+[case.expect]
+program = 'analyze.tools "/home/user/app" changed_only: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cahnged_only', to = 'changed_only' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/analyze-tools/changed-only-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix cha names only the parameter changed_only.'
+method = "correct"
+program = 'analyze.tools "/home/user/app" cha: false'
+
+[case.expect]
+program = 'analyze.tools "/home/user/app" changed_only: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'cha', to = 'changed_only' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-create/format-fromat'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fromat is within the distance threshold of format only.'
+method = "correct"
+program = 'find "/home/user/app" |> archive.create "/home/user/a.zip" fromat: auto'
+
+[case.expect]
+program = 'find "/home/user/app" |> archive.create "/home/user/a.zip" format: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'fromat', to = 'format' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-create/follow-links-flolow-links'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name flolow_links is within the distance threshold of follow_links only.'
+method = "correct"
+program = 'find "/home/user/app" |> archive.create "/home/user/a.zip" flolow_links: false'
+
+[case.expect]
+program = 'find "/home/user/app" |> archive.create "/home/user/a.zip" follow_links: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'flolow_links', to = 'follow_links' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-create/follow-links-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix fol names only the parameter follow_links.'
+method = "correct"
+program = 'find "/home/user/app" |> archive.create "/home/user/a.zip" fol: false'
+
+[case.expect]
+program = 'find "/home/user/app" |> archive.create "/home/user/a.zip" follow_links: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'fol', to = 'follow_links' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-extract/strip-components-srtip-components'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name srtip_components is within the distance threshold of strip_components only.'
+method = "correct"
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" srtip_components: 0'
+
+[case.expect]
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" strip_components: 0'
+corrections = [{ rule = 'L02', class = 'F', from = 'srtip_components', to = 'strip_components' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-extract/strip-components-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix str names only the parameter strip_components.'
+method = "correct"
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" str: 0'
+
+[case.expect]
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" strip_components: 0'
+corrections = [{ rule = 'L05', class = 'F', from = 'str', to = 'strip_components' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-extract/on-conflict-on-ocnflict'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name on_ocnflict is within the distance threshold of on_conflict only.'
+method = "correct"
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" on_ocnflict: overwrite'
+
+[case.expect]
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" on_conflict: overwrite'
+corrections = [{ rule = 'L02', class = 'F', from = 'on_ocnflict', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-extract/on-conflict-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix on_c names only the parameter on_conflict.'
+method = "correct"
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" on_c: overwrite'
+
+[case.expect]
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" on_conflict: overwrite'
+corrections = [{ rule = 'L05', class = 'F', from = 'on_c', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-extract/preserve-permissions-perserve-permissions'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name perserve_permissions is within the distance threshold of preserve_permissions only.'
+method = "correct"
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" perserve_permissions: true'
+
+[case.expect]
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" preserve_permissions: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'perserve_permissions', to = 'preserve_permissions' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-extract/preserve-permissions-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix pre names only the parameter preserve_permissions.'
+method = "correct"
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" pre: true'
+
+[case.expect]
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" preserve_permissions: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'pre', to = 'preserve_permissions' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-extract/allow-outside-alolw-outside'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name alolw_outside is within the distance threshold of allow_outside only.'
+method = "correct"
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" alolw_outside: false'
+
+[case.expect]
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" allow_outside: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'alolw_outside', to = 'allow_outside' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/archive-extract/allow-outside-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix all names only the parameter allow_outside.'
+method = "correct"
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" all: false'
+
+[case.expect]
+program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out" allow_outside: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'all', to = 'allow_outside' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/attributes/recursive-rceursive'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rceursive is within the distance threshold of recursive only.'
+method = "correct"
+program = 'attributes "/home/user/app/run.sh" mode: "0755" rceursive: false'
+
+[case.expect]
+program = 'attributes "/home/user/app/run.sh" mode: "0755" recursive: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'rceursive', to = 'recursive' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/attributes/recursive-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix rec names only the parameter recursive.'
+method = "correct"
+program = 'attributes "/home/user/app/run.sh" mode: "0755" rec: false'
+
+[case.expect]
+program = 'attributes "/home/user/app/run.sh" mode: "0755" recursive: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'rec', to = 'recursive' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-actions/language-lnaguage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnaguage is within the distance threshold of language only.'
+method = "correct"
+program = 'code.actions "/home/user/app/src/main.rs" line: 10 lnaguage: "auto"'
+
+[case.expect]
+program = 'code.actions "/home/user/app/src/main.rs" line: 10 language: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'lnaguage', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-actions/language-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lan names only the parameter language.'
+method = "correct"
+program = 'code.actions "/home/user/app/src/main.rs" line: 10 lan: "auto"'
+
+[case.expect]
+program = 'code.actions "/home/user/app/src/main.rs" line: 10 language: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'lan', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-call-hierarchy/direction-driection'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name driection is within the distance threshold of direction only.'
+method = "correct"
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 driection: both'
+
+[case.expect]
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 direction: both'
+corrections = [{ rule = 'L02', class = 'F', from = 'driection', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-call-hierarchy/direction-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix dir names only the parameter direction.'
+method = "correct"
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 dir: both'
+
+[case.expect]
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 direction: both'
+corrections = [{ rule = 'L05', class = 'F', from = 'dir', to = 'direction' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-call-hierarchy/language-lnaguage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnaguage is within the distance threshold of language only.'
+method = "correct"
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 lnaguage: "auto"'
+
+[case.expect]
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'lnaguage', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-call-hierarchy/language-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lan names only the parameter language.'
+method = "correct"
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 lan: "auto"'
+
+[case.expect]
+program = 'code.call_hierarchy "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'lan', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-definition/language-lnaguage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnaguage is within the distance threshold of language only.'
+method = "correct"
+program = 'code.definition "/home/user/app/src/main.rs" line: 10 column: 5 lnaguage: "auto"'
+
+[case.expect]
+program = 'code.definition "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'lnaguage', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-definition/language-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lan names only the parameter language.'
+method = "correct"
+program = 'code.definition "/home/user/app/src/main.rs" line: 10 column: 5 lan: "auto"'
+
+[case.expect]
+program = 'code.definition "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'lan', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-diagnostics/changed-cahnged'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cahnged is within the distance threshold of changed only.'
+method = "correct"
+program = 'code.diagnostics "/home/user/app/src" cahnged: false'
+
+[case.expect]
+program = 'code.diagnostics "/home/user/app/src" changed: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cahnged', to = 'changed' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-diagnostics/changed-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix cha names only the parameter changed.'
+method = "correct"
+program = 'code.diagnostics "/home/user/app/src" cha: false'
+
+[case.expect]
+program = 'code.diagnostics "/home/user/app/src" changed: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'cha', to = 'changed' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-diagnostics/severity-sveerity'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name sveerity is within the distance threshold of severity only.'
+method = "correct"
+program = 'code.diagnostics "/home/user/app/src" sveerity: hint'
+
+[case.expect]
+program = 'code.diagnostics "/home/user/app/src" severity: hint'
+corrections = [{ rule = 'L02', class = 'F', from = 'sveerity', to = 'severity' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-diagnostics/severity-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix sev names only the parameter severity.'
+method = "correct"
+program = 'code.diagnostics "/home/user/app/src" sev: hint'
+
+[case.expect]
+program = 'code.diagnostics "/home/user/app/src" severity: hint'
+corrections = [{ rule = 'L05', class = 'F', from = 'sev', to = 'severity' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-diagnostics/source-suorce'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name suorce is within the distance threshold of source only.'
+method = "correct"
+program = 'code.diagnostics "/home/user/app/src" suorce: auto'
+
+[case.expect]
+program = 'code.diagnostics "/home/user/app/src" source: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'suorce', to = 'source' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-diagnostics/language-lnaguage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnaguage is within the distance threshold of language only.'
+method = "correct"
+program = 'code.diagnostics "/home/user/app/src" lnaguage: "auto"'
+
+[case.expect]
+program = 'code.diagnostics "/home/user/app/src" language: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'lnaguage', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-diagnostics/language-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lan names only the parameter language.'
+method = "correct"
+program = 'code.diagnostics "/home/user/app/src" lan: "auto"'
+
+[case.expect]
+program = 'code.diagnostics "/home/user/app/src" language: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'lan', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-hover/language-lnaguage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnaguage is within the distance threshold of language only.'
+method = "correct"
+program = 'code.hover "/home/user/app/src/main.rs" line: 10 column: 5 lnaguage: "auto"'
+
+[case.expect]
+program = 'code.hover "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'lnaguage', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-hover/language-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lan names only the parameter language.'
+method = "correct"
+program = 'code.hover "/home/user/app/src/main.rs" line: 10 column: 5 lan: "auto"'
+
+[case.expect]
+program = 'code.hover "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'lan', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-implementations/language-lnaguage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnaguage is within the distance threshold of language only.'
+method = "correct"
+program = 'code.implementations "/home/user/app/src/main.rs" line: 10 column: 5 lnaguage: "auto"'
+
+[case.expect]
+program = 'code.implementations "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'lnaguage', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-implementations/language-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lan names only the parameter language.'
+method = "correct"
+program = 'code.implementations "/home/user/app/src/main.rs" line: 10 column: 5 lan: "auto"'
+
+[case.expect]
+program = 'code.implementations "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'lan', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-profile/days-dyas'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name dyas is within the distance threshold of days only.'
+method = "correct"
+program = 'code.profile "/home/user/app" dyas: 90'
+
+[case.expect]
+program = 'code.profile "/home/user/app" days: 90'
+corrections = [{ rule = 'L02', class = 'F', from = 'dyas', to = 'days' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-profile/refresh-rferesh'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rferesh is within the distance threshold of refresh only.'
+method = "correct"
+program = 'code.profile "/home/user/app" rferesh: false'
+
+[case.expect]
+program = 'code.profile "/home/user/app" refresh: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'rferesh', to = 'refresh' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-profile/refresh-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ref names only the parameter refresh.'
+method = "correct"
+program = 'code.profile "/home/user/app" ref: false'
+
+[case.expect]
+program = 'code.profile "/home/user/app" refresh: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'ref', to = 'refresh' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-references/include-definition-icnlude-definition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name icnlude_definition is within the distance threshold of include_definition only.'
+method = "correct"
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 icnlude_definition: true'
+
+[case.expect]
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 include_definition: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'icnlude_definition', to = 'include_definition' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-references/include-definition-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix inc names only the parameter include_definition.'
+method = "correct"
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 inc: true'
+
+[case.expect]
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 include_definition: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'inc', to = 'include_definition' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-references/scope-socpe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name socpe is within the distance threshold of scope only.'
+method = "correct"
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 socpe: project'
+
+[case.expect]
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 scope: project'
+corrections = [{ rule = 'L02', class = 'F', from = 'socpe', to = 'scope' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-references/language-lnaguage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnaguage is within the distance threshold of language only.'
+method = "correct"
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 lnaguage: "auto"'
+
+[case.expect]
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'lnaguage', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-references/language-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lan names only the parameter language.'
+method = "correct"
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 lan: "auto"'
+
+[case.expect]
+program = 'code.references "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'lan', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-rename/scope-socpe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name socpe is within the distance threshold of scope only.'
+method = "correct"
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" socpe: project'
+
+[case.expect]
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" scope: project'
+corrections = [{ rule = 'L02', class = 'F', from = 'socpe', to = 'scope' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-rename/include-comments-icnlude-comments'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name icnlude_comments is within the distance threshold of include_comments only.'
+method = "correct"
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" icnlude_comments: false'
+
+[case.expect]
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" include_comments: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'icnlude_comments', to = 'include_comments' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-rename/include-comments-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix include_c names only the parameter include_comments.'
+method = "correct"
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" include_c: false'
+
+[case.expect]
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" include_comments: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'include_c', to = 'include_comments' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-rename/include-strings-icnlude-strings'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name icnlude_strings is within the distance threshold of include_strings only.'
+method = "correct"
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" icnlude_strings: false'
+
+[case.expect]
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" include_strings: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'icnlude_strings', to = 'include_strings' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-rename/include-strings-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix include_s names only the parameter include_strings.'
+method = "correct"
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" include_s: false'
+
+[case.expect]
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" include_strings: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'include_s', to = 'include_strings' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-rename/source-suorce'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name suorce is within the distance threshold of source only.'
+method = "correct"
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" suorce: auto'
+
+[case.expect]
+program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName" source: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'suorce', to = 'source' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-symbols/glob-golb'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name golb is within the distance threshold of glob only.'
+method = "correct"
+program = 'code.symbols "parse" path: ["/home/user/app/src"] golb: "**"'
+
+[case.expect]
+program = 'code.symbols "parse" path: ["/home/user/app/src"] glob: "**"'
+corrections = [{ rule = 'L02', class = 'F', from = 'golb', to = 'glob' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-symbols/kind-knid'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name knid is within the distance threshold of kind only.'
+method = "correct"
+program = 'code.symbols "parse" path: ["/home/user/app/src"] knid: any'
+
+[case.expect]
+program = 'code.symbols "parse" path: ["/home/user/app/src"] kind: any'
+corrections = [{ rule = 'L02', class = 'F', from = 'knid', to = 'kind' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-symbols/match-mtach'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mtach is within the distance threshold of match only.'
+method = "correct"
+program = 'code.symbols "parse" path: ["/home/user/app/src"] mtach: fuzzy'
+
+[case.expect]
+program = 'code.symbols "parse" path: ["/home/user/app/src"] match: fuzzy'
+corrections = [{ rule = 'L02', class = 'F', from = 'mtach', to = 'match' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-symbols/language-lnaguage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnaguage is within the distance threshold of language only.'
+method = "correct"
+program = 'code.symbols "parse" path: ["/home/user/app/src"] lnaguage: "auto"'
+
+[case.expect]
+program = 'code.symbols "parse" path: ["/home/user/app/src"] language: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'lnaguage', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-symbols/language-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lan names only the parameter language.'
+method = "correct"
+program = 'code.symbols "parse" path: ["/home/user/app/src"] lan: "auto"'
+
+[case.expect]
+program = 'code.symbols "parse" path: ["/home/user/app/src"] language: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'lan', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-type-definition/language-lnaguage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnaguage is within the distance threshold of language only.'
+method = "correct"
+program = 'code.type_definition "/home/user/app/src/main.rs" line: 10 column: 5 lnaguage: "auto"'
+
+[case.expect]
+program = 'code.type_definition "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'lnaguage', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/code-type-definition/language-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lan names only the parameter language.'
+method = "correct"
+program = 'code.type_definition "/home/user/app/src/main.rs" line: 10 column: 5 lan: "auto"'
+
+[case.expect]
+program = 'code.type_definition "/home/user/app/src/main.rs" line: 10 column: 5 language: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'lan', to = 'language' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/compress/algorithm-aglorithm'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name aglorithm is within the distance threshold of algorithm only.'
+method = "correct"
+program = 'compress "/home/user/app/a.log" aglorithm: gzip'
+
+[case.expect]
+program = 'compress "/home/user/app/a.log" algorithm: gzip'
+corrections = [{ rule = 'L02', class = 'F', from = 'aglorithm', to = 'algorithm' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/compress/algorithm-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix alg names only the parameter algorithm.'
+method = "correct"
+program = 'compress "/home/user/app/a.log" alg: gzip'
+
+[case.expect]
+program = 'compress "/home/user/app/a.log" algorithm: gzip'
+corrections = [{ rule = 'L05', class = 'F', from = 'alg', to = 'algorithm' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/compress/keep-kepe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name kepe is within the distance threshold of keep only.'
+method = "correct"
+program = 'compress "/home/user/app/a.log" kepe: true'
+
+[case.expect]
+program = 'compress "/home/user/app/a.log" keep: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'kepe', to = 'keep' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/copy/on-conflict-on-ocnflict'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name on_ocnflict is within the distance threshold of on_conflict only.'
+method = "correct"
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_ocnflict: overwrite'
+
+[case.expect]
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_conflict: overwrite'
+corrections = [{ rule = 'L02', class = 'F', from = 'on_ocnflict', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/copy/on-conflict-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix on_c names only the parameter on_conflict.'
+method = "correct"
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_c: overwrite'
+
+[case.expect]
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_conflict: overwrite'
+corrections = [{ rule = 'L05', class = 'F', from = 'on_c', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/copy/preserve-perserve'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name perserve is within the distance threshold of preserve only.'
+method = "correct"
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" perserve: true'
+
+[case.expect]
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" preserve: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'perserve', to = 'preserve' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/copy/preserve-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix pre names only the parameter preserve.'
+method = "correct"
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" pre: true'
+
+[case.expect]
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" preserve: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'pre', to = 'preserve' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/copy/clone-colne'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name colne is within the distance threshold of clone only.'
+method = "correct"
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" colne: auto'
+
+[case.expect]
+program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt" clone: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'colne', to = 'clone' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/create/hard-hrad'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name hrad is within the distance threshold of hard only.'
+method = "correct"
+program = 'create "/home/user/app/out" type: directory hrad: false'
+
+[case.expect]
+program = 'create "/home/user/app/out" type: directory hard: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'hrad', to = 'hard' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/create/temporary-tmeporary'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tmeporary is within the distance threshold of temporary only.'
+method = "correct"
+program = 'create "/home/user/app/out" type: directory tmeporary: false'
+
+[case.expect]
+program = 'create "/home/user/app/out" type: directory temporary: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'tmeporary', to = 'temporary' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/create/temporary-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix tem names only the parameter temporary.'
+method = "correct"
+program = 'create "/home/user/app/out" type: directory tem: false'
+
+[case.expect]
+program = 'create "/home/user/app/out" type: directory temporary: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'tem', to = 'temporary' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/create/parents-praents'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name praents is within the distance threshold of parents only.'
+method = "correct"
+program = 'create "/home/user/app/out" type: directory praents: true'
+
+[case.expect]
+program = 'create "/home/user/app/out" type: directory parents: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'praents', to = 'parents' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/create/parents-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix par names only the parameter parents.'
+method = "correct"
+program = 'create "/home/user/app/out" type: directory par: true'
+
+[case.expect]
+program = 'create "/home/user/app/out" type: directory parents: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'par', to = 'parents' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/create/on-exists-on-xeists'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name on_xeists is within the distance threshold of on_exists only.'
+method = "correct"
+program = 'create "/home/user/app/out" type: directory on_xeists: skip'
+
+[case.expect]
+program = 'create "/home/user/app/out" type: directory on_exists: skip'
+corrections = [{ rule = 'L02', class = 'F', from = 'on_xeists', to = 'on_exists' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/create/on-exists-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix on_e names only the parameter on_exists.'
+method = "correct"
+program = 'create "/home/user/app/out" type: directory on_e: skip'
+
+[case.expect]
+program = 'create "/home/user/app/out" type: directory on_exists: skip'
+corrections = [{ rule = 'L05', class = 'F', from = 'on_e', to = 'on_exists' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/decompress/keep-kepe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name kepe is within the distance threshold of keep only.'
+method = "correct"
+program = 'decompress "/home/user/app/a.log.gz" kepe: true'
+
+[case.expect]
+program = 'decompress "/home/user/app/a.log.gz" keep: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'kepe', to = 'keep' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/diff/context-cnotext'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cnotext is within the distance threshold of context only.'
+method = "correct"
+program = 'diff "/home/user/app/a.txt" "/home/user/app/b.txt" cnotext: 3'
+
+[case.expect]
+program = 'diff "/home/user/app/a.txt" "/home/user/app/b.txt" context: 3'
+corrections = [{ rule = 'L02', class = 'F', from = 'cnotext', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/diff/context-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix con names only the parameter context.'
+method = "correct"
+program = 'diff "/home/user/app/a.txt" "/home/user/app/b.txt" con: 3'
+
+[case.expect]
+program = 'diff "/home/user/app/a.txt" "/home/user/app/b.txt" context: 3'
+corrections = [{ rule = 'L05', class = 'F', from = 'con', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/diff/ignore-whitespace-ingore-whitespace'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ingore_whitespace is within the distance threshold of ignore_whitespace only.'
+method = "correct"
+program = 'diff "/home/user/app/a.txt" "/home/user/app/b.txt" ingore_whitespace: false'
+
+[case.expect]
+program = 'diff "/home/user/app/a.txt" "/home/user/app/b.txt" ignore_whitespace: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'ingore_whitespace', to = 'ignore_whitespace' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/diff/ignore-whitespace-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ign names only the parameter ignore_whitespace.'
+method = "correct"
+program = 'diff "/home/user/app/a.txt" "/home/user/app/b.txt" ign: false'
+
+[case.expect]
+program = 'diff "/home/user/app/a.txt" "/home/user/app/b.txt" ignore_whitespace: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'ign', to = 'ignore_whitespace' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/edit/whitespace-wihtespace'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wihtespace is within the distance threshold of whitespace only.'
+method = "correct"
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] wihtespace: normalize'
+
+[case.expect]
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] whitespace: normalize'
+corrections = [{ rule = 'L02', class = 'F', from = 'wihtespace', to = 'whitespace' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/edit/whitespace-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix whi names only the parameter whitespace.'
+method = "correct"
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] whi: normalize'
+
+[case.expect]
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] whitespace: normalize'
+corrections = [{ rule = 'L05', class = 'F', from = 'whi', to = 'whitespace' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/edit/on-missing-on-imssing'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name on_imssing is within the distance threshold of on_missing only.'
+method = "correct"
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] on_imssing: skip'
+
+[case.expect]
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] on_missing: skip'
+corrections = [{ rule = 'L02', class = 'F', from = 'on_imssing', to = 'on_missing' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/edit/on-missing-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix on_m names only the parameter on_missing.'
+method = "correct"
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] on_m: skip'
+
+[case.expect]
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] on_missing: skip'
+corrections = [{ rule = 'L05', class = 'F', from = 'on_m', to = 'on_missing' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/edit/validate-vlaidate'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name vlaidate is within the distance threshold of validate only.'
+method = "correct"
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] vlaidate: reject'
+
+[case.expect]
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] validate: reject'
+corrections = [{ rule = 'L02', class = 'F', from = 'vlaidate', to = 'validate' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/edit/validate-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix val names only the parameter validate.'
+method = "correct"
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] val: reject'
+
+[case.expect]
+program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}] validate: reject'
+corrections = [{ rule = 'L05', class = 'F', from = 'val', to = 'validate' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/environment/scope-socpe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name socpe is within the distance threshold of scope only.'
+method = "correct"
+program = 'environment socpe: process'
+
+[case.expect]
+program = 'environment scope: process'
+corrections = [{ rule = 'L02', class = 'F', from = 'socpe', to = 'scope' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/find/type-tpye'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tpye is within the distance threshold of type only.'
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" tpye: file'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" type: file'
+corrections = [{ rule = 'L02', class = 'F', from = 'tpye', to = 'type' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/find/hidden-hdiden'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name hdiden is within the distance threshold of hidden only.'
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" hdiden: true'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" hidden: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'hdiden', to = 'hidden' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/find/follow-links-flolow-links'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name flolow_links is within the distance threshold of follow_links only.'
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" flolow_links: false'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" follow_links: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'flolow_links', to = 'follow_links' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/find/follow-links-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix fol names only the parameter follow_links.'
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" fol: false'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" follow_links: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'fol', to = 'follow_links' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/find/gitignore-gtiignore'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name gtiignore is within the distance threshold of gitignore only.'
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" gtiignore: false'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" gitignore: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'gtiignore', to = 'gitignore' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/find/gitignore-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix git names only the parameter gitignore.'
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go" git: false'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" gitignore: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'git', to = 'gitignore' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-blame/revision-rveision'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rveision is within the distance threshold of revision only.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" rveision: "HEAD"'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" revision: "HEAD"'
+corrections = [{ rule = 'L02', class = 'F', from = 'rveision', to = 'revision' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-blame/revision-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix rev names only the parameter revision.'
+method = "correct"
+program = 'git.blame "/home/user/app/a.txt" rev: "HEAD"'
+
+[case.expect]
+program = 'git.blame "/home/user/app/a.txt" revision: "HEAD"'
+corrections = [{ rule = 'L05', class = 'F', from = 'rev', to = 'revision' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-branch/remote-rmeote'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rmeote is within the distance threshold of remote only.'
+method = "correct"
+program = 'git.branch "/home/user/app" rmeote: false'
+
+[case.expect]
+program = 'git.branch "/home/user/app" remote: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'rmeote', to = 'remote' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-branch/from-form'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name form is within the distance threshold of from only.'
+method = "correct"
+program = 'git.branch "/home/user/app" form: "HEAD"'
+
+[case.expect]
+program = 'git.branch "/home/user/app" from: "HEAD"'
+corrections = [{ rule = 'L02', class = 'F', from = 'form', to = 'from' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-branch/switch-siwtch'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name siwtch is within the distance threshold of switch only.'
+method = "correct"
+program = 'git.branch "/home/user/app" siwtch: false'
+
+[case.expect]
+program = 'git.branch "/home/user/app" switch: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'siwtch', to = 'switch' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-branch/checkpoint-cehckpoint'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cehckpoint is within the distance threshold of checkpoint only.'
+method = "correct"
+program = 'git.branch "/home/user/app" cehckpoint: false'
+
+[case.expect]
+program = 'git.branch "/home/user/app" checkpoint: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cehckpoint', to = 'checkpoint' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-branch/checkpoint-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix che names only the parameter checkpoint.'
+method = "correct"
+program = 'git.branch "/home/user/app" che: false'
+
+[case.expect]
+program = 'git.branch "/home/user/app" checkpoint: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'che', to = 'checkpoint' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-checkpoint/stat-satt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satt is within the distance threshold of stat only.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list satt: false'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list stat: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'satt', to = 'stat' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-checkpoint/context-cnotext'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cnotext is within the distance threshold of context only.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list cnotext: 3'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list context: 3'
+corrections = [{ rule = 'L02', class = 'F', from = 'cnotext', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-checkpoint/context-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix con names only the parameter context.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list con: 3'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list context: 3'
+corrections = [{ rule = 'L05', class = 'F', from = 'con', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-checkpoint/function-context-fnuction-context'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fnuction_context is within the distance threshold of function_context only.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list fnuction_context: false'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list function_context: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'fnuction_context', to = 'function_context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-checkpoint/function-context-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix fun names only the parameter function_context.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list fun: false'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list function_context: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'fun', to = 'function_context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-checkpoint/word-diff-wrod-diff'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wrod_diff is within the distance threshold of word_diff only.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list wrod_diff: false'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list word_diff: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'wrod_diff', to = 'word_diff' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-checkpoint/word-diff-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix wor names only the parameter word_diff.'
+method = "correct"
+program = 'git.checkpoint "/home/user/app" action: list wor: false'
+
+[case.expect]
+program = 'git.checkpoint "/home/user/app" action: list word_diff: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'wor', to = 'word_diff' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-clone/bare-brae'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name brae is within the distance threshold of bare only.'
+method = "correct"
+program = 'git.clone "https://example.com/repo.git" "/home/user/repo" brae: false'
+
+[case.expect]
+program = 'git.clone "https://example.com/repo.git" "/home/user/repo" bare: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'brae', to = 'bare' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-commit/staged-satged'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satged is within the distance threshold of staged only.'
+method = "correct"
+program = 'git.commit "/home/user/app" message: "fix: parser" satged: false'
+
+[case.expect]
+program = 'git.commit "/home/user/app" message: "fix: parser" staged: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'satged', to = 'staged' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-commit/amend-aemnd'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name aemnd is within the distance threshold of amend only.'
+method = "correct"
+program = 'git.commit "/home/user/app" message: "fix: parser" aemnd: false'
+
+[case.expect]
+program = 'git.commit "/home/user/app" message: "fix: parser" amend: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'aemnd', to = 'amend' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-commit/trailers-tarilers'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tarilers is within the distance threshold of trailers only.'
+method = "correct"
+program = 'git.commit "/home/user/app" message: "fix: parser" tarilers: []'
+
+[case.expect]
+program = 'git.commit "/home/user/app" message: "fix: parser" trailers: []'
+corrections = [{ rule = 'L02', class = 'F', from = 'tarilers', to = 'trailers' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-commit/trailers-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix tra names only the parameter trailers.'
+method = "correct"
+program = 'git.commit "/home/user/app" message: "fix: parser" tra: []'
+
+[case.expect]
+program = 'git.commit "/home/user/app" message: "fix: parser" trailers: []'
+corrections = [{ rule = 'L05', class = 'F', from = 'tra', to = 'trailers' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-commit/sign-off-sgin-off'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name sgin_off is within the distance threshold of sign_off only.'
+method = "correct"
+program = 'git.commit "/home/user/app" message: "fix: parser" sgin_off: false'
+
+[case.expect]
+program = 'git.commit "/home/user/app" message: "fix: parser" sign_off: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'sgin_off', to = 'sign_off' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-commit/sign-off-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix sig names only the parameter sign_off.'
+method = "correct"
+program = 'git.commit "/home/user/app" message: "fix: parser" sig: false'
+
+[case.expect]
+program = 'git.commit "/home/user/app" message: "fix: parser" sign_off: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'sig', to = 'sign_off' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-diff/staged-satged'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satged is within the distance threshold of staged only.'
+method = "correct"
+program = 'git.diff "/home/user/app" satged: false'
+
+[case.expect]
+program = 'git.diff "/home/user/app" staged: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'satged', to = 'staged' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-diff/context-cnotext'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cnotext is within the distance threshold of context only.'
+method = "correct"
+program = 'git.diff "/home/user/app" cnotext: 3'
+
+[case.expect]
+program = 'git.diff "/home/user/app" context: 3'
+corrections = [{ rule = 'L02', class = 'F', from = 'cnotext', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-diff/context-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix con names only the parameter context.'
+method = "correct"
+program = 'git.diff "/home/user/app" con: 3'
+
+[case.expect]
+program = 'git.diff "/home/user/app" context: 3'
+corrections = [{ rule = 'L05', class = 'F', from = 'con', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-diff/stat-satt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satt is within the distance threshold of stat only.'
+method = "correct"
+program = 'git.diff "/home/user/app" satt: false'
+
+[case.expect]
+program = 'git.diff "/home/user/app" stat: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'satt', to = 'stat' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-diff/function-context-fnuction-context'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fnuction_context is within the distance threshold of function_context only.'
+method = "correct"
+program = 'git.diff "/home/user/app" fnuction_context: false'
+
+[case.expect]
+program = 'git.diff "/home/user/app" function_context: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'fnuction_context', to = 'function_context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-diff/function-context-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix fun names only the parameter function_context.'
+method = "correct"
+program = 'git.diff "/home/user/app" fun: false'
+
+[case.expect]
+program = 'git.diff "/home/user/app" function_context: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'fun', to = 'function_context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-fetch/remote-rmeote'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rmeote is within the distance threshold of remote only.'
+method = "correct"
+program = 'git.fetch "/home/user/app" rmeote: "origin"'
+
+[case.expect]
+program = 'git.fetch "/home/user/app" remote: "origin"'
+corrections = [{ rule = 'L02', class = 'F', from = 'rmeote', to = 'remote' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-fetch/prune-purne'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name purne is within the distance threshold of prune only.'
+method = "correct"
+program = 'git.fetch "/home/user/app" purne: false'
+
+[case.expect]
+program = 'git.fetch "/home/user/app" prune: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'purne', to = 'prune' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-fetch/tags-tgas'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tgas is within the distance threshold of tags only.'
+method = "correct"
+program = 'git.fetch "/home/user/app" tgas: false'
+
+[case.expect]
+program = 'git.fetch "/home/user/app" tags: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'tgas', to = 'tags' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-log/count-cuont'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cuont is within the distance threshold of count only.'
+method = "correct"
+program = 'git.log "/home/user/app" cuont: 20'
+
+[case.expect]
+program = 'git.log "/home/user/app" count: 20'
+corrections = [{ rule = 'L02', class = 'F', from = 'cuont', to = 'count' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-log/skip-sikp'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name sikp is within the distance threshold of skip only.'
+method = "correct"
+program = 'git.log "/home/user/app" sikp: 0'
+
+[case.expect]
+program = 'git.log "/home/user/app" skip: 0'
+corrections = [{ rule = 'L02', class = 'F', from = 'sikp', to = 'skip' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-log/revision-rveision'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rveision is within the distance threshold of revision only.'
+method = "correct"
+program = 'git.log "/home/user/app" rveision: "HEAD"'
+
+[case.expect]
+program = 'git.log "/home/user/app" revision: "HEAD"'
+corrections = [{ rule = 'L02', class = 'F', from = 'rveision', to = 'revision' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-log/revision-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix rev names only the parameter revision.'
+method = "correct"
+program = 'git.log "/home/user/app" rev: "HEAD"'
+
+[case.expect]
+program = 'git.log "/home/user/app" revision: "HEAD"'
+corrections = [{ rule = 'L05', class = 'F', from = 'rev', to = 'revision' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-log/follow-flolow'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name flolow is within the distance threshold of follow only.'
+method = "correct"
+program = 'git.log "/home/user/app" flolow: false'
+
+[case.expect]
+program = 'git.log "/home/user/app" follow: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'flolow', to = 'follow' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-merge/action-atcion'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name atcion is within the distance threshold of action only.'
+method = "correct"
+program = 'git.merge "/home/user/app" branch: "feature" atcion: start'
+
+[case.expect]
+program = 'git.merge "/home/user/app" branch: "feature" action: start'
+corrections = [{ rule = 'L02', class = 'F', from = 'atcion', to = 'action' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-merge/fast-forward-fsat-forward'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fsat_forward is within the distance threshold of fast_forward only.'
+method = "correct"
+program = 'git.merge "/home/user/app" branch: "feature" fsat_forward: auto'
+
+[case.expect]
+program = 'git.merge "/home/user/app" branch: "feature" fast_forward: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'fsat_forward', to = 'fast_forward' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-merge/fast-forward-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix fas names only the parameter fast_forward.'
+method = "correct"
+program = 'git.merge "/home/user/app" branch: "feature" fas: auto'
+
+[case.expect]
+program = 'git.merge "/home/user/app" branch: "feature" fast_forward: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'fas', to = 'fast_forward' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-merge/no-commit-no-ocmmit'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name no_ocmmit is within the distance threshold of no_commit only.'
+method = "correct"
+program = 'git.merge "/home/user/app" branch: "feature" no_ocmmit: false'
+
+[case.expect]
+program = 'git.merge "/home/user/app" branch: "feature" no_commit: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'no_ocmmit', to = 'no_commit' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-merge/no-commit-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix no_c names only the parameter no_commit.'
+method = "correct"
+program = 'git.merge "/home/user/app" branch: "feature" no_c: false'
+
+[case.expect]
+program = 'git.merge "/home/user/app" branch: "feature" no_commit: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'no_c', to = 'no_commit' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-pull/remote-rmeote'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rmeote is within the distance threshold of remote only.'
+method = "correct"
+program = 'git.pull "/home/user/app" rmeote: "origin"'
+
+[case.expect]
+program = 'git.pull "/home/user/app" remote: "origin"'
+corrections = [{ rule = 'L02', class = 'F', from = 'rmeote', to = 'remote' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-push/remote-rmeote'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rmeote is within the distance threshold of remote only.'
+method = "correct"
+program = 'git.push "/home/user/app" branch: "main" rmeote: "origin"'
+
+[case.expect]
+program = 'git.push "/home/user/app" branch: "main" remote: "origin"'
+corrections = [{ rule = 'L02', class = 'F', from = 'rmeote', to = 'remote' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-push/force-froce'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name froce is within the distance threshold of force only.'
+method = "correct"
+program = 'git.push "/home/user/app" branch: "main" froce: false'
+
+[case.expect]
+program = 'git.push "/home/user/app" branch: "main" force: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'froce', to = 'force' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-push/tags-tgas'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tgas is within the distance threshold of tags only.'
+method = "correct"
+program = 'git.push "/home/user/app" branch: "main" tgas: false'
+
+[case.expect]
+program = 'git.push "/home/user/app" branch: "main" tags: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'tgas', to = 'tags' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-push/set-upstream-ste-upstream'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ste_upstream is within the distance threshold of set_upstream only.'
+method = "correct"
+program = 'git.push "/home/user/app" branch: "main" ste_upstream: false'
+
+[case.expect]
+program = 'git.push "/home/user/app" branch: "main" set_upstream: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'ste_upstream', to = 'set_upstream' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-push/set-upstream-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix set names only the parameter set_upstream.'
+method = "correct"
+program = 'git.push "/home/user/app" branch: "main" set: false'
+
+[case.expect]
+program = 'git.push "/home/user/app" branch: "main" set_upstream: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'set', to = 'set_upstream' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-rebase/action-atcion'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name atcion is within the distance threshold of action only.'
+method = "correct"
+program = 'git.rebase "/home/user/app" onto: "main" atcion: start'
+
+[case.expect]
+program = 'git.rebase "/home/user/app" onto: "main" action: start'
+corrections = [{ rule = 'L02', class = 'F', from = 'atcion', to = 'action' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-reset/mode-mdoe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mdoe is within the distance threshold of mode only.'
+method = "correct"
+program = 'git.reset "/home/user/app" revision: "HEAD~1" mdoe: mixed'
+
+[case.expect]
+program = 'git.reset "/home/user/app" revision: "HEAD~1" mode: mixed'
+corrections = [{ rule = 'L02', class = 'F', from = 'mdoe', to = 'mode' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-restore/staged-satged'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satged is within the distance threshold of staged only.'
+method = "correct"
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] satged: false'
+
+[case.expect]
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] staged: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'satged', to = 'staged' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-restore/worktree-wroktree'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wroktree is within the distance threshold of worktree only.'
+method = "correct"
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] wroktree: true'
+
+[case.expect]
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] worktree: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'wroktree', to = 'worktree' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-restore/worktree-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix wor names only the parameter worktree.'
+method = "correct"
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] wor: true'
+
+[case.expect]
+program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"] worktree: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'wor', to = 'worktree' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-show/stat-satt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satt is within the distance threshold of stat only.'
+method = "correct"
+program = 'git.show "/home/user/app" "HEAD" satt: false'
+
+[case.expect]
+program = 'git.show "/home/user/app" "HEAD" stat: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'satt', to = 'stat' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-show/context-cnotext'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cnotext is within the distance threshold of context only.'
+method = "correct"
+program = 'git.show "/home/user/app" "HEAD" cnotext: 3'
+
+[case.expect]
+program = 'git.show "/home/user/app" "HEAD" context: 3'
+corrections = [{ rule = 'L02', class = 'F', from = 'cnotext', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-show/context-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix con names only the parameter context.'
+method = "correct"
+program = 'git.show "/home/user/app" "HEAD" con: 3'
+
+[case.expect]
+program = 'git.show "/home/user/app" "HEAD" context: 3'
+corrections = [{ rule = 'L05', class = 'F', from = 'con', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-stash/include-untracked-icnlude-untracked'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name icnlude_untracked is within the distance threshold of include_untracked only.'
+method = "correct"
+program = 'git.stash "/home/user/app" action: list icnlude_untracked: false'
+
+[case.expect]
+program = 'git.stash "/home/user/app" action: list include_untracked: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'icnlude_untracked', to = 'include_untracked' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-stash/include-untracked-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix inc names only the parameter include_untracked.'
+method = "correct"
+program = 'git.stash "/home/user/app" action: list inc: false'
+
+[case.expect]
+program = 'git.stash "/home/user/app" action: list include_untracked: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'inc', to = 'include_untracked' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-status/untracked-utnracked'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name utnracked is within the distance threshold of untracked only.'
+method = "correct"
+program = 'git.status "/home/user/app" utnracked: normal'
+
+[case.expect]
+program = 'git.status "/home/user/app" untracked: normal'
+corrections = [{ rule = 'L02', class = 'F', from = 'utnracked', to = 'untracked' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-status/untracked-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix unt names only the parameter untracked.'
+method = "correct"
+program = 'git.status "/home/user/app" unt: normal'
+
+[case.expect]
+program = 'git.status "/home/user/app" untracked: normal'
+corrections = [{ rule = 'L05', class = 'F', from = 'unt', to = 'untracked' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-status/ignored-ingored'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ingored is within the distance threshold of ignored only.'
+method = "correct"
+program = 'git.status "/home/user/app" ingored: false'
+
+[case.expect]
+program = 'git.status "/home/user/app" ignored: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'ingored', to = 'ignored' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-status/ignored-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ign names only the parameter ignored.'
+method = "correct"
+program = 'git.status "/home/user/app" ign: false'
+
+[case.expect]
+program = 'git.status "/home/user/app" ignored: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'ign', to = 'ignored' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-status/limit-lmiit'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lmiit is within the distance threshold of limit only.'
+method = "correct"
+program = 'git.status "/home/user/app" lmiit: 200'
+
+[case.expect]
+program = 'git.status "/home/user/app" limit: 200'
+corrections = [{ rule = 'L02', class = 'F', from = 'lmiit', to = 'limit' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-status/stat-satt'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satt is within the distance threshold of stat only.'
+method = "correct"
+program = 'git.status "/home/user/app" satt: false'
+
+[case.expect]
+program = 'git.status "/home/user/app" stat: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'satt', to = 'stat' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-switch/create-cerate'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cerate is within the distance threshold of create only.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" cerate: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" create: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cerate', to = 'create' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-switch/checkpoint-cehckpoint'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cehckpoint is within the distance threshold of checkpoint only.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" cehckpoint: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" checkpoint: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cehckpoint', to = 'checkpoint' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-switch/checkpoint-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix che names only the parameter checkpoint.'
+method = "correct"
+program = 'git.switch "/home/user/app" branch: "main" che: false'
+
+[case.expect]
+program = 'git.switch "/home/user/app" branch: "main" checkpoint: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'che', to = 'checkpoint' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-tag/revision-rveision'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rveision is within the distance threshold of revision only.'
+method = "correct"
+program = 'git.tag "/home/user/app" rveision: "HEAD"'
+
+[case.expect]
+program = 'git.tag "/home/user/app" revision: "HEAD"'
+corrections = [{ rule = 'L02', class = 'F', from = 'rveision', to = 'revision' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/git-tag/revision-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix rev names only the parameter revision.'
+method = "correct"
+program = 'git.tag "/home/user/app" rev: "HEAD"'
+
+[case.expect]
+program = 'git.tag "/home/user/app" revision: "HEAD"'
+corrections = [{ rule = 'L05', class = 'F', from = 'rev', to = 'revision' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/group/keep-items-kepe-items'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name kepe_items is within the distance threshold of keep_items only.'
+method = "correct"
+program = 'find "/home/user/app" |> group extension kepe_items: false'
+
+[case.expect]
+program = 'find "/home/user/app" |> group extension keep_items: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'kepe_items', to = 'keep_items' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/group/keep-items-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix kee names only the parameter keep_items.'
+method = "correct"
+program = 'find "/home/user/app" |> group extension kee: false'
+
+[case.expect]
+program = 'find "/home/user/app" |> group extension keep_items: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'kee', to = 'keep_items' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/hash/algorithm-aglorithm'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name aglorithm is within the distance threshold of algorithm only.'
+method = "correct"
+program = 'hash "/home/user/app/a.txt" aglorithm: sha256'
+
+[case.expect]
+program = 'hash "/home/user/app/a.txt" algorithm: sha256'
+corrections = [{ rule = 'L02', class = 'F', from = 'aglorithm', to = 'algorithm' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/hash/algorithm-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix alg names only the parameter algorithm.'
+method = "correct"
+program = 'hash "/home/user/app/a.txt" alg: sha256'
+
+[case.expect]
+program = 'hash "/home/user/app/a.txt" algorithm: sha256'
+corrections = [{ rule = 'L05', class = 'F', from = 'alg', to = 'algorithm' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/help/kind-knid'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name knid is within the distance threshold of kind only.'
+method = "correct"
+program = 'help "find" knid: command'
+
+[case.expect]
+program = 'help "find" kind: command'
+corrections = [{ rule = 'L02', class = 'F', from = 'knid', to = 'kind' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/help/examples-eaxmples'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name eaxmples is within the distance threshold of examples only.'
+method = "correct"
+program = 'help "find" eaxmples: 3'
+
+[case.expect]
+program = 'help "find" examples: 3'
+corrections = [{ rule = 'L02', class = 'F', from = 'eaxmples', to = 'examples' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/help/examples-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix exa names only the parameter examples.'
+method = "correct"
+program = 'help "find" exa: 3'
+
+[case.expect]
+program = 'help "find" examples: 3'
+corrections = [{ rule = 'L05', class = 'F', from = 'exa', to = 'examples' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/history/state-satte'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satte is within the distance threshold of state only.'
+method = "correct"
+program = 'history limit: 5 satte: any'
+
+[case.expect]
+program = 'history limit: 5 state: any'
+corrections = [{ rule = 'L02', class = 'F', from = 'satte', to = 'state' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/history/deleted-dleeted'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name dleeted is within the distance threshold of deleted only.'
+method = "correct"
+program = 'history limit: 5 dleeted: false'
+
+[case.expect]
+program = 'history limit: 5 deleted: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'dleeted', to = 'deleted' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/history/deleted-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix del names only the parameter deleted.'
+method = "correct"
+program = 'history limit: 5 del: false'
+
+[case.expect]
+program = 'history limit: 5 deleted: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'del', to = 'deleted' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/history/details-dteails'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name dteails is within the distance threshold of details only.'
+method = "correct"
+program = 'history limit: 5 dteails: false'
+
+[case.expect]
+program = 'history limit: 5 details: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'dteails', to = 'details' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/history/details-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix det names only the parameter details.'
+method = "correct"
+program = 'history limit: 5 det: false'
+
+[case.expect]
+program = 'history limit: 5 details: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'det', to = 'details' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/host/programs-porgrams'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name porgrams is within the distance threshold of programs only.'
+method = "correct"
+program = 'host porgrams: []'
+
+[case.expect]
+program = 'host programs: []'
+corrections = [{ rule = 'L02', class = 'F', from = 'porgrams', to = 'programs' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/host/programs-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix pro names only the parameter programs.'
+method = "correct"
+program = 'host pro: []'
+
+[case.expect]
+program = 'host programs: []'
+corrections = [{ rule = 'L05', class = 'F', from = 'pro', to = 'programs' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/host/versions-vresions'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name vresions is within the distance threshold of versions only.'
+method = "correct"
+program = 'host vresions: false'
+
+[case.expect]
+program = 'host versions: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'vresions', to = 'versions' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/host/versions-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ver names only the parameter versions.'
+method = "correct"
+program = 'host ver: false'
+
+[case.expect]
+program = 'host versions: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'ver', to = 'versions' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/http-download/resume-rseume'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rseume is within the distance threshold of resume only.'
+method = "correct"
+program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz" rseume: true'
+
+[case.expect]
+program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz" resume: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'rseume', to = 'resume' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/http-download/timeout-tmieout'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tmieout is within the distance threshold of timeout only.'
+method = "correct"
+program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz" tmieout: 300s'
+
+[case.expect]
+program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz" timeout: 300s'
+corrections = [{ rule = 'L02', class = 'F', from = 'tmieout', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/http-download/timeout-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix tim names only the parameter timeout.'
+method = "correct"
+program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz" tim: 300s'
+
+[case.expect]
+program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz" timeout: 300s'
+corrections = [{ rule = 'L05', class = 'F', from = 'tim', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/http-request/method-mtehod'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mtehod is within the distance threshold of method only.'
+method = "correct"
+program = 'http.request "https://example.com/api" mtehod: get'
+
+[case.expect]
+program = 'http.request "https://example.com/api" method: get'
+corrections = [{ rule = 'L02', class = 'F', from = 'mtehod', to = 'method' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/http-request/extract-etxract'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name etxract is within the distance threshold of extract only.'
+method = "correct"
+program = 'http.request "https://example.com/api" etxract: content'
+
+[case.expect]
+program = 'http.request "https://example.com/api" extract: content'
+corrections = [{ rule = 'L02', class = 'F', from = 'etxract', to = 'extract' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/http-request/extract-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ext names only the parameter extract.'
+method = "correct"
+program = 'http.request "https://example.com/api" ext: content'
+
+[case.expect]
+program = 'http.request "https://example.com/api" extract: content'
+corrections = [{ rule = 'L05', class = 'F', from = 'ext', to = 'extract' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/http-request/table-tbale'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tbale is within the distance threshold of table only.'
+method = "correct"
+program = 'http.request "https://example.com/api" tbale: 0'
+
+[case.expect]
+program = 'http.request "https://example.com/api" table: 0'
+corrections = [{ rule = 'L02', class = 'F', from = 'tbale', to = 'table' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/http-request/main-only-mian-only'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mian_only is within the distance threshold of main_only only.'
+method = "correct"
+program = 'http.request "https://example.com/api" mian_only: true'
+
+[case.expect]
+program = 'http.request "https://example.com/api" main_only: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'mian_only', to = 'main_only' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/http-request/main-only-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix mai names only the parameter main_only.'
+method = "correct"
+program = 'http.request "https://example.com/api" mai: true'
+
+[case.expect]
+program = 'http.request "https://example.com/api" main_only: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'mai', to = 'main_only' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/info/hash-hsah'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name hsah is within the distance threshold of hash only.'
+method = "correct"
+program = 'info "/home/user/app/a.txt" hsah: none'
+
+[case.expect]
+program = 'info "/home/user/app/a.txt" hash: none'
+corrections = [{ rule = 'L02', class = 'F', from = 'hsah', to = 'hash' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/info/details-dteails'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name dteails is within the distance threshold of details only.'
+method = "correct"
+program = 'info "/home/user/app/a.txt" dteails: []'
+
+[case.expect]
+program = 'info "/home/user/app/a.txt" details: []'
+corrections = [{ rule = 'L02', class = 'F', from = 'dteails', to = 'details' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/info/details-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix det names only the parameter details.'
+method = "correct"
+program = 'info "/home/user/app/a.txt" det: []'
+
+[case.expect]
+program = 'info "/home/user/app/a.txt" details: []'
+corrections = [{ rule = 'L05', class = 'F', from = 'det', to = 'details' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/insert/position-psoition'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name psoition is within the distance threshold of position only.'
+method = "correct"
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 psoition: after'
+
+[case.expect]
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 position: after'
+corrections = [{ rule = 'L02', class = 'F', from = 'psoition', to = 'position' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/insert/position-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix pos names only the parameter position.'
+method = "correct"
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 pos: after'
+
+[case.expect]
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 position: after'
+corrections = [{ rule = 'L05', class = 'F', from = 'pos', to = 'position' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/insert/ensure-newline-esnure-newline'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name esnure_newline is within the distance threshold of ensure_newline only.'
+method = "correct"
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 esnure_newline: false'
+
+[case.expect]
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 ensure_newline: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'esnure_newline', to = 'ensure_newline' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/insert/ensure-newline-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ens names only the parameter ensure_newline.'
+method = "correct"
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 ens: false'
+
+[case.expect]
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 ensure_newline: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'ens', to = 'ensure_newline' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/insert/validate-vlaidate'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name vlaidate is within the distance threshold of validate only.'
+method = "correct"
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 vlaidate: reject'
+
+[case.expect]
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 validate: reject'
+corrections = [{ rule = 'L02', class = 'F', from = 'vlaidate', to = 'validate' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/insert/validate-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix val names only the parameter validate.'
+method = "correct"
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 val: reject'
+
+[case.expect]
+program = 'insert "x" in: "/home/user/app/a.txt" line: 1 validate: reject'
+corrections = [{ rule = 'L05', class = 'F', from = 'val', to = 'validate' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/jobs/state-satte'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satte is within the distance threshold of state only.'
+method = "correct"
+program = 'jobs satte: any'
+
+[case.expect]
+program = 'jobs state: any'
+corrections = [{ rule = 'L02', class = 'F', from = 'satte', to = 'state' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/jobs/stream-srteam'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name srteam is within the distance threshold of stream only.'
+method = "correct"
+program = 'jobs srteam: both'
+
+[case.expect]
+program = 'jobs stream: both'
+corrections = [{ rule = 'L02', class = 'F', from = 'srteam', to = 'stream' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/jobs/wait-wiat'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wiat is within the distance threshold of wait only.'
+method = "correct"
+program = 'jobs wiat: 0s'
+
+[case.expect]
+program = 'jobs wait: 0s'
+corrections = [{ rule = 'L02', class = 'F', from = 'wiat', to = 'wait' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/jobs/view-veiw'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name veiw is within the distance threshold of view only.'
+method = "correct"
+program = 'jobs veiw: status'
+
+[case.expect]
+program = 'jobs view: status'
+corrections = [{ rule = 'L02', class = 'F', from = 'veiw', to = 'view' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/journal-limits/scope-socpe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name socpe is within the distance threshold of scope only.'
+method = "correct"
+program = 'journal.limits socpe: session'
+
+[case.expect]
+program = 'journal.limits scope: session'
+corrections = [{ rule = 'L02', class = 'F', from = 'socpe', to = 'scope' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/journal-pin/release-rleease'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rleease is within the distance threshold of release only.'
+method = "correct"
+program = 'journal.pin 3 rleease: false'
+
+[case.expect]
+program = 'journal.pin 3 release: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'rleease', to = 'release' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/journal-pin/release-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix rel names only the parameter release.'
+method = "correct"
+program = 'journal.pin 3 rel: false'
+
+[case.expect]
+program = 'journal.pin 3 release: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'rel', to = 'release' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/list/depth-dpeth'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name dpeth is within the distance threshold of depth only.'
+method = "correct"
+program = 'list "/home/user/app" dpeth: 1'
+
+[case.expect]
+program = 'list "/home/user/app" depth: 1'
+corrections = [{ rule = 'L02', class = 'F', from = 'dpeth', to = 'depth' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/list/type-tpye'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tpye is within the distance threshold of type only.'
+method = "correct"
+program = 'list "/home/user/app" tpye: any'
+
+[case.expect]
+program = 'list "/home/user/app" type: any'
+corrections = [{ rule = 'L02', class = 'F', from = 'tpye', to = 'type' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/list/hidden-hdiden'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name hdiden is within the distance threshold of hidden only.'
+method = "correct"
+program = 'list "/home/user/app" hdiden: true'
+
+[case.expect]
+program = 'list "/home/user/app" hidden: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'hdiden', to = 'hidden' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/list/sort-srot'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name srot is within the distance threshold of sort only.'
+method = "correct"
+program = 'list "/home/user/app" srot: name'
+
+[case.expect]
+program = 'list "/home/user/app" sort: name'
+corrections = [{ rule = 'L02', class = 'F', from = 'srot', to = 'sort' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/logs/level-lveel'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lveel is within the distance threshold of level only.'
+method = "correct"
+program = 'logs lveel: info'
+
+[case.expect]
+program = 'logs level: info'
+corrections = [{ rule = 'L02', class = 'F', from = 'lveel', to = 'level' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/logs/limit-lmiit'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lmiit is within the distance threshold of limit only.'
+method = "correct"
+program = 'logs lmiit: 100'
+
+[case.expect]
+program = 'logs limit: 100'
+corrections = [{ rule = 'L02', class = 'F', from = 'lmiit', to = 'limit' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/move/on-conflict-on-ocnflict'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name on_ocnflict is within the distance threshold of on_conflict only.'
+method = "correct"
+program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_ocnflict: overwrite'
+
+[case.expect]
+program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_conflict: overwrite'
+corrections = [{ rule = 'L02', class = 'F', from = 'on_ocnflict', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/move/on-conflict-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix on_c names only the parameter on_conflict.'
+method = "correct"
+program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_c: overwrite'
+
+[case.expect]
+program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt" on_conflict: overwrite'
+corrections = [{ rule = 'L05', class = 'F', from = 'on_c', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/network-ping/count-cuont'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cuont is within the distance threshold of count only.'
+method = "correct"
+program = 'network.ping "example.com" cuont: 4'
+
+[case.expect]
+program = 'network.ping "example.com" count: 4'
+corrections = [{ rule = 'L02', class = 'F', from = 'cuont', to = 'count' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/network-ping/timeout-tmieout'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tmieout is within the distance threshold of timeout only.'
+method = "correct"
+program = 'network.ping "example.com" tmieout: 2s'
+
+[case.expect]
+program = 'network.ping "example.com" timeout: 2s'
+corrections = [{ rule = 'L02', class = 'F', from = 'tmieout', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/network-ping/timeout-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix tim names only the parameter timeout.'
+method = "correct"
+program = 'network.ping "example.com" tim: 2s'
+
+[case.expect]
+program = 'network.ping "example.com" timeout: 2s'
+corrections = [{ rule = 'L05', class = 'F', from = 'tim', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/network-resolve/type-tpye'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tpye is within the distance threshold of type only.'
+method = "correct"
+program = 'network.resolve "example.com" tpye: a'
+
+[case.expect]
+program = 'network.resolve "example.com" type: a'
+corrections = [{ rule = 'L02', class = 'F', from = 'tpye', to = 'type' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/notebook-cells/outputs-otuputs'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name otuputs is within the distance threshold of outputs only.'
+method = "correct"
+program = 'notebook.cells "/home/user/app/a.ipynb" otuputs: none'
+
+[case.expect]
+program = 'notebook.cells "/home/user/app/a.ipynb" outputs: none'
+corrections = [{ rule = 'L02', class = 'F', from = 'otuputs', to = 'outputs' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/notebook-cells/outputs-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix out names only the parameter outputs.'
+method = "correct"
+program = 'notebook.cells "/home/user/app/a.ipynb" out: none'
+
+[case.expect]
+program = 'notebook.cells "/home/user/app/a.ipynb" outputs: none'
+corrections = [{ rule = 'L05', class = 'F', from = 'out', to = 'outputs' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/notebook-cells/scope-socpe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name socpe is within the distance threshold of scope only.'
+method = "correct"
+program = 'notebook.cells "/home/user/app/a.ipynb" socpe: source'
+
+[case.expect]
+program = 'notebook.cells "/home/user/app/a.ipynb" scope: source'
+corrections = [{ rule = 'L02', class = 'F', from = 'socpe', to = 'scope' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/notebook-cells/view-veiw'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name veiw is within the distance threshold of view only.'
+method = "correct"
+program = 'notebook.cells "/home/user/app/a.ipynb" veiw: outline'
+
+[case.expect]
+program = 'notebook.cells "/home/user/app/a.ipynb" view: outline'
+corrections = [{ rule = 'L02', class = 'F', from = 'veiw', to = 'view' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/notebook-replace/whole-word-wohle-word'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wohle_word is within the distance threshold of whole_word only.'
+method = "correct"
+program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)" wohle_word: false'
+
+[case.expect]
+program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)" whole_word: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'wohle_word', to = 'whole_word' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/notebook-replace/whole-word-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix who names only the parameter whole_word.'
+method = "correct"
+program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)" who: false'
+
+[case.expect]
+program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)" whole_word: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'who', to = 'whole_word' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/notebook-replace/reset-outputs-rseet-outputs'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rseet_outputs is within the distance threshold of reset_outputs only.'
+method = "correct"
+program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)" rseet_outputs: false'
+
+[case.expect]
+program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)" reset_outputs: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'rseet_outputs', to = 'reset_outputs' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/notebook-replace/reset-outputs-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix res names only the parameter reset_outputs.'
+method = "correct"
+program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)" res: false'
+
+[case.expect]
+program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)" reset_outputs: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'res', to = 'reset_outputs' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-install/manager-mnaager'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mnaager is within the distance threshold of manager only.'
+method = "correct"
+program = 'package.install ["curl"] mnaager: auto'
+
+[case.expect]
+program = 'package.install ["curl"] manager: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'mnaager', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-install/manager-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix man names only the parameter manager.'
+method = "correct"
+program = 'package.install ["curl"] man: auto'
+
+[case.expect]
+program = 'package.install ["curl"] manager: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'man', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-list/outdated-otudated'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name otudated is within the distance threshold of outdated only.'
+method = "correct"
+program = 'package.list otudated: false'
+
+[case.expect]
+program = 'package.list outdated: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'otudated', to = 'outdated' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-list/outdated-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix out names only the parameter outdated.'
+method = "correct"
+program = 'package.list out: false'
+
+[case.expect]
+program = 'package.list outdated: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'out', to = 'outdated' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-list/manager-mnaager'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mnaager is within the distance threshold of manager only.'
+method = "correct"
+program = 'package.list mnaager: auto'
+
+[case.expect]
+program = 'package.list manager: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'mnaager', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-list/manager-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix man names only the parameter manager.'
+method = "correct"
+program = 'package.list man: auto'
+
+[case.expect]
+program = 'package.list manager: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'man', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-remove/manager-mnaager'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mnaager is within the distance threshold of manager only.'
+method = "correct"
+program = 'package.remove ["curl"] mnaager: auto'
+
+[case.expect]
+program = 'package.remove ["curl"] manager: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'mnaager', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-remove/manager-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix man names only the parameter manager.'
+method = "correct"
+program = 'package.remove ["curl"] man: auto'
+
+[case.expect]
+program = 'package.remove ["curl"] manager: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'man', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-search/manager-mnaager'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mnaager is within the distance threshold of manager only.'
+method = "correct"
+program = 'package.search "curl" mnaager: auto'
+
+[case.expect]
+program = 'package.search "curl" manager: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'mnaager', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-search/manager-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix man names only the parameter manager.'
+method = "correct"
+program = 'package.search "curl" man: auto'
+
+[case.expect]
+program = 'package.search "curl" manager: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'man', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-upgrade/manager-mnaager'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mnaager is within the distance threshold of manager only.'
+method = "correct"
+program = 'package.upgrade mnaager: auto'
+
+[case.expect]
+program = 'package.upgrade manager: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'mnaager', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/package-upgrade/manager-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix man names only the parameter manager.'
+method = "correct"
+program = 'package.upgrade man: auto'
+
+[case.expect]
+program = 'package.upgrade manager: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'man', to = 'manager' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/patch/reverse-rveerse'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name rveerse is within the distance threshold of reverse only.'
+method = "correct"
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" rveerse: false'
+
+[case.expect]
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" reverse: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'rveerse', to = 'reverse' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/patch/reverse-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix rev names only the parameter reverse.'
+method = "correct"
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" rev: false'
+
+[case.expect]
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" reverse: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'rev', to = 'reverse' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/patch/fuzz-fzuz'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fzuz is within the distance threshold of fuzz only.'
+method = "correct"
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" fzuz: 0'
+
+[case.expect]
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" fuzz: 0'
+corrections = [{ rule = 'L02', class = 'F', from = 'fzuz', to = 'fuzz' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/patch/strip-srtip'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name srtip is within the distance threshold of strip only.'
+method = "correct"
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" srtip: 0'
+
+[case.expect]
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" strip: 0'
+corrections = [{ rule = 'L02', class = 'F', from = 'srtip', to = 'strip' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/patch/validate-vlaidate'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name vlaidate is within the distance threshold of validate only.'
+method = "correct"
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" vlaidate: reject'
+
+[case.expect]
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" validate: reject'
+corrections = [{ rule = 'L02', class = 'F', from = 'vlaidate', to = 'validate' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/patch/validate-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix val names only the parameter validate.'
+method = "correct"
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" val: reject'
+
+[case.expect]
+program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app" validate: reject'
+corrections = [{ rule = 'L05', class = 'F', from = 'val', to = 'validate' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/ports/state-satte'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name satte is within the distance threshold of state only.'
+method = "correct"
+program = 'ports satte: listen'
+
+[case.expect]
+program = 'ports state: listen'
+corrections = [{ rule = 'L02', class = 'F', from = 'satte', to = 'state' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/ports/protocol-portocol'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name portocol is within the distance threshold of protocol only.'
+method = "correct"
+program = 'ports portocol: any'
+
+[case.expect]
+program = 'ports protocol: any'
+corrections = [{ rule = 'L02', class = 'F', from = 'portocol', to = 'protocol' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/ports/protocol-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix pro names only the parameter protocol.'
+method = "correct"
+program = 'ports pro: any'
+
+[case.expect]
+program = 'ports protocol: any'
+corrections = [{ rule = 'L05', class = 'F', from = 'pro', to = 'protocol' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/processes/tree-tere'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tere is within the distance threshold of tree only.'
+method = "correct"
+program = 'processes tere: false'
+
+[case.expect]
+program = 'processes tree: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'tere', to = 'tree' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/program-describe/include-guide-icnlude-guide'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name icnlude_guide is within the distance threshold of include_guide only.'
+method = "correct"
+program = 'program.describe "git" icnlude_guide: true'
+
+[case.expect]
+program = 'program.describe "git" include_guide: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'icnlude_guide', to = 'include_guide' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/program-describe/include-guide-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix inc names only the parameter include_guide.'
+method = "correct"
+program = 'program.describe "git" inc: true'
+
+[case.expect]
+program = 'program.describe "git" include_guide: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'inc', to = 'include_guide' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/program-find/versions-vresions'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name vresions is within the distance threshold of versions only.'
+method = "correct"
+program = 'program.find "git" vresions: false'
+
+[case.expect]
+program = 'program.find "git" versions: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'vresions', to = 'versions' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/program-find/versions-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ver names only the parameter versions.'
+method = "correct"
+program = 'program.find "git" ver: false'
+
+[case.expect]
+program = 'program.find "git" versions: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'ver', to = 'versions' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/program-search/limit-lmiit'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lmiit is within the distance threshold of limit only.'
+method = "correct"
+program = 'program.search "pdf" lmiit: 15'
+
+[case.expect]
+program = 'program.search "pdf" limit: 15'
+corrections = [{ rule = 'L02', class = 'F', from = 'lmiit', to = 'limit' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/read/context-cnotext'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cnotext is within the distance threshold of context only.'
+method = "correct"
+program = 'read "/home/user/app/a.txt" cnotext: 3'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" context: 3'
+corrections = [{ rule = 'L02', class = 'F', from = 'cnotext', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/read/context-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix con names only the parameter context.'
+method = "correct"
+program = 'read "/home/user/app/a.txt" con: 3'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" context: 3'
+corrections = [{ rule = 'L05', class = 'F', from = 'con', to = 'context' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/read/view-veiw'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name veiw is within the distance threshold of view only.'
+method = "correct"
+program = 'read "/home/user/app/a.txt" veiw: full'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" view: full'
+corrections = [{ rule = 'L02', class = 'F', from = 'veiw', to = 'view' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/read/mode-mdoe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mdoe is within the distance threshold of mode only.'
+method = "correct"
+program = 'read "/home/user/app/a.txt" mdoe: text'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" mode: text'
+corrections = [{ rule = 'L02', class = 'F', from = 'mdoe', to = 'mode' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/read/encoding-ecnoding'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ecnoding is within the distance threshold of encoding only.'
+method = "correct"
+program = 'read "/home/user/app/a.txt" ecnoding: "auto"'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" encoding: "auto"'
+corrections = [{ rule = 'L02', class = 'F', from = 'ecnoding', to = 'encoding' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/read/encoding-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix enc names only the parameter encoding.'
+method = "correct"
+program = 'read "/home/user/app/a.txt" enc: "auto"'
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" encoding: "auto"'
+corrections = [{ rule = 'L05', class = 'F', from = 'enc', to = 'encoding' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/remove/on-missing-on-imssing'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name on_imssing is within the distance threshold of on_missing only.'
+method = "correct"
+program = 'remove "/home/user/app/a.txt" on_imssing: skip'
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt" on_missing: skip'
+corrections = [{ rule = 'L02', class = 'F', from = 'on_imssing', to = 'on_missing' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/remove/on-missing-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix on_m names only the parameter on_missing.'
+method = "correct"
+program = 'remove "/home/user/app/a.txt" on_m: skip'
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt" on_missing: skip'
+corrections = [{ rule = 'L05', class = 'F', from = 'on_m', to = 'on_missing' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/remove/check-references-cehck-references'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cehck_references is within the distance threshold of check_references only.'
+method = "correct"
+program = 'remove "/home/user/app/a.txt" cehck_references: false'
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt" check_references: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cehck_references', to = 'check_references' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/remove/check-references-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix che names only the parameter check_references.'
+method = "correct"
+program = 'remove "/home/user/app/a.txt" che: false'
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt" check_references: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'che', to = 'check_references' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/rename/on-conflict-on-ocnflict'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name on_ocnflict is within the distance threshold of on_conflict only.'
+method = "correct"
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" on_ocnflict: error'
+
+[case.expect]
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" on_conflict: error'
+corrections = [{ rule = 'L02', class = 'F', from = 'on_ocnflict', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/rename/on-conflict-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix on_c names only the parameter on_conflict.'
+method = "correct"
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" on_c: error'
+
+[case.expect]
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" on_conflict: error'
+corrections = [{ rule = 'L05', class = 'F', from = 'on_c', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/rename/check-references-cehck-references'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cehck_references is within the distance threshold of check_references only.'
+method = "correct"
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" cehck_references: false'
+
+[case.expect]
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" check_references: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cehck_references', to = 'check_references' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/rename/check-references-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix che names only the parameter check_references.'
+method = "correct"
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" che: false'
+
+[case.expect]
+program = 'rename path: "/home/user/app/a.txt" to: "b.txt" check_references: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'che', to = 'check_references' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/replace/glob-golb'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name golb is within the distance threshold of glob only.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] golb: "**"'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] glob: "**"'
+corrections = [{ rule = 'L02', class = 'F', from = 'golb', to = 'glob' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/replace/mode-mdoe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mdoe is within the distance threshold of mode only.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] mdoe: auto'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] mode: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'mdoe', to = 'mode' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/replace/case-sensitive-csae-sensitive'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name csae_sensitive is within the distance threshold of case_sensitive only.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] csae_sensitive: true'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] case_sensitive: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'csae_sensitive', to = 'case_sensitive' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/replace/case-sensitive-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix cas names only the parameter case_sensitive.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] cas: true'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] case_sensitive: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'cas', to = 'case_sensitive' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/replace/whole-word-wohle-word'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wohle_word is within the distance threshold of whole_word only.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] wohle_word: false'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] whole_word: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'wohle_word', to = 'whole_word' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/replace/whole-word-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix who names only the parameter whole_word.'
+method = "correct"
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] who: false'
+
+[case.expect]
+program = 'replace "a" "b" in: ["/home/user/app/a.txt"] whole_word: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'who', to = 'whole_word' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/restart/wait-wiat'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wiat is within the distance threshold of wait only.'
+method = "correct"
+program = 'services name: "nginx" |> restart wiat: 10s'
+
+[case.expect]
+program = 'services name: "nginx" |> restart wait: 10s'
+corrections = [{ rule = 'L02', class = 'F', from = 'wiat', to = 'wait' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/run/timeout-tmieout'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tmieout is within the distance threshold of timeout only.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" tmieout: 120s'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" timeout: 120s'
+corrections = [{ rule = 'L02', class = 'F', from = 'tmieout', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/run/timeout-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix tim names only the parameter timeout.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" tim: 120s'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" timeout: 120s'
+corrections = [{ rule = 'L05', class = 'F', from = 'tim', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/run/idle-timeout-ilde-timeout'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ilde_timeout is within the distance threshold of idle_timeout only.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" ilde_timeout: 60s'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" idle_timeout: 60s'
+corrections = [{ rule = 'L02', class = 'F', from = 'ilde_timeout', to = 'idle_timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/run/idle-timeout-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix idl names only the parameter idle_timeout.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" idl: 60s'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" idle_timeout: 60s'
+corrections = [{ rule = 'L05', class = 'F', from = 'idl', to = 'idle_timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/run/wait-wiat'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wiat is within the distance threshold of wait only.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" wiat: 3s'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" wait: 3s'
+corrections = [{ rule = 'L02', class = 'F', from = 'wiat', to = 'wait' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/run/background-bcakground'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name bcakground is within the distance threshold of background only.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" bcakground: false'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" background: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'bcakground', to = 'background' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/run/background-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix bac names only the parameter background.'
+method = "correct"
+program = 'run ["make", "test"] cwd: "/home/user/app" bac: false'
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" background: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'bac', to = 'background' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/schedule-create/timezone-tmiezone'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tmiezone is within the distance threshold of timezone only.'
+method = "correct"
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") tmiezone: "local"'
+
+[case.expect]
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") timezone: "local"'
+corrections = [{ rule = 'L02', class = 'F', from = 'tmiezone', to = 'timezone' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/schedule-create/on-missed-on-imssed'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name on_imssed is within the distance threshold of on_missed only.'
+method = "correct"
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") on_imssed: skip'
+
+[case.expect]
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") on_missed: skip'
+corrections = [{ rule = 'L02', class = 'F', from = 'on_imssed', to = 'on_missed' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/schedule-create/on-missed-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix on_m names only the parameter on_missed.'
+method = "correct"
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") on_m: skip'
+
+[case.expect]
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") on_missed: skip'
+corrections = [{ rule = 'L05', class = 'F', from = 'on_m', to = 'on_missed' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/schedule-create/misfire-msifire'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name msifire is within the distance threshold of misfire only.'
+method = "correct"
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") msifire: 2m'
+
+[case.expect]
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") misfire: 2m'
+corrections = [{ rule = 'L02', class = 'F', from = 'msifire', to = 'misfire' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/schedule-create/misfire-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix mis names only the parameter misfire.'
+method = "correct"
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") mis: 2m'
+
+[case.expect]
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") misfire: 2m'
+corrections = [{ rule = 'L05', class = 'F', from = 'mis', to = 'misfire' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/schedule-create/overlap-oevrlap'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name oevrlap is within the distance threshold of overlap only.'
+method = "correct"
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") oevrlap: skip'
+
+[case.expect]
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") overlap: skip'
+corrections = [{ rule = 'L02', class = 'F', from = 'oevrlap', to = 'overlap' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/schedule-create/overlap-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ove names only the parameter overlap.'
+method = "correct"
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") ove: skip'
+
+[case.expect]
+program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app") overlap: skip'
+corrections = [{ rule = 'L05', class = 'F', from = 'ove', to = 'overlap' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/schedule-history/limit-lmiit'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lmiit is within the distance threshold of limit only.'
+method = "correct"
+program = 'schedule.history lmiit: 20'
+
+[case.expect]
+program = 'schedule.history limit: 20'
+corrections = [{ rule = 'L02', class = 'F', from = 'lmiit', to = 'limit' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/search/glob-golb'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name golb is within the distance threshold of glob only.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" golb: "**"'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" glob: "**"'
+corrections = [{ rule = 'L02', class = 'F', from = 'golb', to = 'glob' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/search/mode-mdoe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name mdoe is within the distance threshold of mode only.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" mdoe: auto'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" mode: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'mdoe', to = 'mode' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/search/case-sensitive-csae-sensitive'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name csae_sensitive is within the distance threshold of case_sensitive only.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" csae_sensitive: true'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" case_sensitive: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'csae_sensitive', to = 'case_sensitive' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/search/case-sensitive-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix cas names only the parameter case_sensitive.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" cas: true'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" case_sensitive: true'
+corrections = [{ rule = 'L05', class = 'F', from = 'cas', to = 'case_sensitive' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/search/whole-word-wohle-word'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wohle_word is within the distance threshold of whole_word only.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" wohle_word: false'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" whole_word: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'wohle_word', to = 'whole_word' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/search/whole-word-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix who names only the parameter whole_word.'
+method = "correct"
+program = 'search "TODO" "/home/user/app" who: false'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" whole_word: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'who', to = 'whole_word' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/services/scope-socpe'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name socpe is within the distance threshold of scope only.'
+method = "correct"
+program = 'services socpe: system'
+
+[case.expect]
+program = 'services scope: system'
+corrections = [{ rule = 'L02', class = 'F', from = 'socpe', to = 'scope' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/set/create-cerate'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cerate is within the distance threshold of create only.'
+method = "correct"
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" cerate: true'
+
+[case.expect]
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" create: true'
+corrections = [{ rule = 'L02', class = 'F', from = 'cerate', to = 'create' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/set/format-fromat'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fromat is within the distance threshold of format only.'
+method = "correct"
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" fromat: auto'
+
+[case.expect]
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" format: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'fromat', to = 'format' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/set/validate-vlaidate'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name vlaidate is within the distance threshold of validate only.'
+method = "correct"
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" vlaidate: reject'
+
+[case.expect]
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" validate: reject'
+corrections = [{ rule = 'L02', class = 'F', from = 'vlaidate', to = 'validate' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/set/validate-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix vali names only the parameter validate.'
+method = "correct"
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" vali: reject'
+
+[case.expect]
+program = 'set "/home/user/app/package.json" key: "scripts.test" value: "vitest" validate: reject'
+corrections = [{ rule = 'L05', class = 'F', from = 'vali', to = 'validate' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/sort/order-odrer'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name odrer is within the distance threshold of order only.'
+method = "correct"
+program = 'find "/home/user/app" |> sort size odrer: asc'
+
+[case.expect]
+program = 'find "/home/user/app" |> sort size order: asc'
+corrections = [{ rule = 'L02', class = 'F', from = 'odrer', to = 'order' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/sql/params-praams'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name praams is within the distance threshold of params only.'
+method = "correct"
+program = 'sql "/home/user/app/app.db" "select 1" praams: []'
+
+[case.expect]
+program = 'sql "/home/user/app/app.db" "select 1" params: []'
+corrections = [{ rule = 'L02', class = 'F', from = 'praams', to = 'params' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/sql/write-wirte'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wirte is within the distance threshold of write only.'
+method = "correct"
+program = 'sql "/home/user/app/app.db" "select 1" wirte: false'
+
+[case.expect]
+program = 'sql "/home/user/app/app.db" "select 1" write: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'wirte', to = 'write' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/start/wait-wiat'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wiat is within the distance threshold of wait only.'
+method = "correct"
+program = 'services name: "nginx" |> start wiat: 10s'
+
+[case.expect]
+program = 'services name: "nginx" |> start wait: 10s'
+corrections = [{ rule = 'L02', class = 'F', from = 'wiat', to = 'wait' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/stop/signal-sginal'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name sginal is within the distance threshold of signal only.'
+method = "correct"
+program = 'jobs "j1" |> stop sginal: terminate'
+
+[case.expect]
+program = 'jobs "j1" |> stop signal: terminate'
+corrections = [{ rule = 'L02', class = 'F', from = 'sginal', to = 'signal' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/stop/grace-garce'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name garce is within the distance threshold of grace only.'
+method = "correct"
+program = 'jobs "j1" |> stop garce: 5s'
+
+[case.expect]
+program = 'jobs "j1" |> stop grace: 5s'
+corrections = [{ rule = 'L02', class = 'F', from = 'garce', to = 'grace' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-failed/timeout-tmieout'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tmieout is within the distance threshold of timeout only.'
+method = "correct"
+program = 'test.failed tmieout: 30m'
+
+[case.expect]
+program = 'test.failed timeout: 30m'
+corrections = [{ rule = 'L02', class = 'F', from = 'tmieout', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-failed/timeout-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix tim names only the parameter timeout.'
+method = "correct"
+program = 'test.failed tim: 30m'
+
+[case.expect]
+program = 'test.failed timeout: 30m'
+corrections = [{ rule = 'L05', class = 'F', from = 'tim', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-failed/wait-wiat'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name wiat is within the distance threshold of wait only.'
+method = "correct"
+program = 'test.failed wiat: 3s'
+
+[case.expect]
+program = 'test.failed wait: 3s'
+corrections = [{ rule = 'L02', class = 'F', from = 'wiat', to = 'wait' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-failed/failures-fialures'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fialures is within the distance threshold of failures only.'
+method = "correct"
+program = 'test.failed fialures: 10'
+
+[case.expect]
+program = 'test.failed failures: 10'
+corrections = [{ rule = 'L02', class = 'F', from = 'fialures', to = 'failures' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-failed/failures-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix fai names only the parameter failures.'
+method = "correct"
+program = 'test.failed fai: 10'
+
+[case.expect]
+program = 'test.failed failures: 10'
+corrections = [{ rule = 'L05', class = 'F', from = 'fai', to = 'failures' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-failed/message-lines-msesage-lines'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name msesage_lines is within the distance threshold of message_lines only.'
+method = "correct"
+program = 'test.failed msesage_lines: 5'
+
+[case.expect]
+program = 'test.failed message_lines: 5'
+corrections = [{ rule = 'L02', class = 'F', from = 'msesage_lines', to = 'message_lines' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-failed/message-lines-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix mes names only the parameter message_lines.'
+method = "correct"
+program = 'test.failed mes: 5'
+
+[case.expect]
+program = 'test.failed message_lines: 5'
+corrections = [{ rule = 'L05', class = 'F', from = 'mes', to = 'message_lines' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-list/limit-lmiit'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lmiit is within the distance threshold of limit only.'
+method = "correct"
+program = 'test.list lmiit: 20'
+
+[case.expect]
+program = 'test.list limit: 20'
+corrections = [{ rule = 'L02', class = 'F', from = 'lmiit', to = 'limit' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-run/framework-farmework'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name farmework is within the distance threshold of framework only.'
+method = "correct"
+program = 'test.run "/home/user/app" farmework: auto'
+
+[case.expect]
+program = 'test.run "/home/user/app" framework: auto'
+corrections = [{ rule = 'L02', class = 'F', from = 'farmework', to = 'framework' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-run/framework-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix fra names only the parameter framework.'
+method = "correct"
+program = 'test.run "/home/user/app" fra: auto'
+
+[case.expect]
+program = 'test.run "/home/user/app" framework: auto'
+corrections = [{ rule = 'L05', class = 'F', from = 'fra', to = 'framework' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-run/bail-bial'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name bial is within the distance threshold of bail only.'
+method = "correct"
+program = 'test.run "/home/user/app" bial: false'
+
+[case.expect]
+program = 'test.run "/home/user/app" bail: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'bial', to = 'bail' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-run/coverage-cvoerage'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name cvoerage is within the distance threshold of coverage only.'
+method = "correct"
+program = 'test.run "/home/user/app" cvoerage: false'
+
+[case.expect]
+program = 'test.run "/home/user/app" coverage: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'cvoerage', to = 'coverage' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-run/timeout-tmieout'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name tmieout is within the distance threshold of timeout only.'
+method = "correct"
+program = 'test.run "/home/user/app" tmieout: 30m'
+
+[case.expect]
+program = 'test.run "/home/user/app" timeout: 30m'
+corrections = [{ rule = 'L02', class = 'F', from = 'tmieout', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-run/timeout-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix tim names only the parameter timeout.'
+method = "correct"
+program = 'test.run "/home/user/app" tim: 30m'
+
+[case.expect]
+program = 'test.run "/home/user/app" timeout: 30m'
+corrections = [{ rule = 'L05', class = 'F', from = 'tim', to = 'timeout' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-show/failures-fialures'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name fialures is within the distance threshold of failures only.'
+method = "correct"
+program = 'test.show fialures: 10'
+
+[case.expect]
+program = 'test.show failures: 10'
+corrections = [{ rule = 'L02', class = 'F', from = 'fialures', to = 'failures' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-show/failures-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix fai names only the parameter failures.'
+method = "correct"
+program = 'test.show fai: 10'
+
+[case.expect]
+program = 'test.show failures: 10'
+corrections = [{ rule = 'L05', class = 'F', from = 'fai', to = 'failures' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-show/message-lines-msesage-lines'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name msesage_lines is within the distance threshold of message_lines only.'
+method = "correct"
+program = 'test.show msesage_lines: 5'
+
+[case.expect]
+program = 'test.show message_lines: 5'
+corrections = [{ rule = 'L02', class = 'F', from = 'msesage_lines', to = 'message_lines' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/test-show/message-lines-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix mes names only the parameter message_lines.'
+method = "correct"
+program = 'test.show mes: 5'
+
+[case.expect]
+program = 'test.show message_lines: 5'
+corrections = [{ rule = 'L05', class = 'F', from = 'mes', to = 'message_lines' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/undo/all-sessions-all-esssions'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name all_esssions is within the distance threshold of all_sessions only.'
+method = "correct"
+program = 'undo 3 all_esssions: false'
+
+[case.expect]
+program = 'undo 3 all_sessions: false'
+corrections = [{ rule = 'L02', class = 'F', from = 'all_esssions', to = 'all_sessions' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/undo/all-sessions-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix all names only the parameter all_sessions.'
+method = "correct"
+program = 'undo 3 all: false'
+
+[case.expect]
+program = 'undo 3 all_sessions: false'
+corrections = [{ rule = 'L05', class = 'F', from = 'all', to = 'all_sessions' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/undo/on-conflict-on-ocnflict'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name on_ocnflict is within the distance threshold of on_conflict only.'
+method = "correct"
+program = 'undo 3 on_ocnflict: report'
+
+[case.expect]
+program = 'undo 3 on_conflict: report'
+corrections = [{ rule = 'L02', class = 'F', from = 'on_ocnflict', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/undo/on-conflict-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix on_c names only the parameter on_conflict.'
+method = "correct"
+program = 'undo 3 on_c: report'
+
+[case.expect]
+program = 'undo 3 on_conflict: report'
+corrections = [{ rule = 'L05', class = 'F', from = 'on_c', to = 'on_conflict' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/windows-cim/namespace-nmaespace'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:windows']
+summary = 'The parameter name nmaespace is within the distance threshold of namespace only.'
+method = "correct"
+program = 'windows.cim "Win32_OperatingSystem" nmaespace: "root/cimv2"'
+
+[case.expect]
+program = 'windows.cim "Win32_OperatingSystem" namespace: "root/cimv2"'
+corrections = [{ rule = 'L02', class = 'F', from = 'nmaespace', to = 'namespace' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/windows-cim/namespace-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ['os:windows']
+summary = 'The prefix nam names only the parameter namespace.'
+method = "correct"
+program = 'windows.cim "Win32_OperatingSystem" nam: "root/cimv2"'
+
+[case.expect]
+program = 'windows.cim "Win32_OperatingSystem" namespace: "root/cimv2"'
+corrections = [{ rule = 'L05', class = 'F', from = 'nam', to = 'namespace' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/write/encoding-ecnoding'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name ecnoding is within the distance threshold of encoding only.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create ecnoding: \"auto\""
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create encoding: \"auto\""
+corrections = [{ rule = 'L02', class = 'F', from = 'ecnoding', to = 'encoding' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/write/encoding-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix enc names only the parameter encoding.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create enc: \"auto\""
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create encoding: \"auto\""
+corrections = [{ rule = 'L05', class = 'F', from = 'enc', to = 'encoding' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/write/line-ending-lnie-ending'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name lnie_ending is within the distance threshold of line_ending only.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create lnie_ending: keep"
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create line_ending: keep"
+corrections = [{ rule = 'L02', class = 'F', from = 'lnie_ending', to = 'line_ending' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/write/line-ending-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix lin names only the parameter line_ending.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create lin: keep"
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create line_ending: keep"
+corrections = [{ rule = 'L05', class = 'F', from = 'lin', to = 'line_ending' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/write/parents-praents'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name praents is within the distance threshold of parents only.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create praents: true"
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create parents: true"
+corrections = [{ rule = 'L02', class = 'F', from = 'praents', to = 'parents' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/write/parents-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix par names only the parameter parents.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create par: true"
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create parents: true"
+corrections = [{ rule = 'L05', class = 'F', from = 'par', to = 'parents' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/write/ensure-newline-esnure-newline'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The parameter name esnure_newline is within the distance threshold of ensure_newline only.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create esnure_newline: false"
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create ensure_newline: false"
+corrections = [{ rule = 'L02', class = 'F', from = 'esnure_newline', to = 'ensure_newline' }]
+
+[[case]]
+id = 'correction/generated/parameter-typos/write/ensure-newline-prefix'
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = 'The prefix ens names only the parameter ensure_newline.'
+method = "correct"
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create ens: false"
+
+[case.expect]
+program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create ensure_newline: false"
+corrections = [{ rule = 'L05', class = 'F', from = 'ens', to = 'ensure_newline' }]

@@ -1,0 +1,71 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-008",
+  "domain": 2,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Change the version 2.3.0 to 2.4.0 in every file of the project except CHANGELOG.md.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "CHANGELOG.md",
+        "type": "file",
+        "content_utf8": "## 2.3.0\n\n- Customers API.\n"
+      },
+      {
+        "path": "README.md",
+        "type": "file",
+        "content_utf8": "webapp 2.3.0\n"
+      },
+      {
+        "path": "package.json",
+        "type": "file",
+        "content_utf8": "{\n  \"name\": \"webapp\",\n  \"version\": \"2.3.0\"\n}\n"
+      },
+      {
+        "path": "src/version.ts",
+        "type": "file",
+        "content_utf8": "export const VERSION = \"2.3.0\";\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "README.md": {
+        "text": "webapp 2.4.0\n"
+      },
+      "package.json": {
+        "text": "{\n  \"name\": \"webapp\",\n  \"version\": \"2.4.0\"\n}\n"
+      },
+      "src/version.ts": {
+        "text": "export const VERSION = \"2.4.0\";\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "CHANGELOG.md",
+      "change": "any",
+      "reason": "the changelog records released versions"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"2.3.0\" \".\" mode: literal exclude: [\"CHANGELOG.md\"] |> replace \"2.4.0\"",
+  "reference_bash": "grep -rlF --exclude=CHANGELOG.md -- '2.3.0' . | xargs -r sed -i 's/2\\.3\\.0/2.4.0/g'\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "grep -rlF -- '2.3.0' . | xargs -r sed -i 's/2\\.3\\.0/2.4.0/g'",
+      "defect": "rewrites the changelog"
+    }
+  ],
+  "tags": [
+    "replace",
+    "version"
+  ],
+  "license": "CC-BY-4.0"
+}

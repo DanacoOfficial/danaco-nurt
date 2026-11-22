@@ -1,0 +1,38 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-016",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Which files under docs/ contain the text 'http://example.com'? List their relative paths.",
+  "fs_before": {
+    "fixture": "docs-site"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "docs/index.md",
+        "docs/install.md",
+        "docs/api/orders.md"
+      ],
+      "not_contains": [
+        "config.md",
+        "customers.md",
+        "changelog.md"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"http://example.com\" \"docs\" mode: literal output: paths",
+  "reference_bash": "grep -rlF -- 'http://example.com' docs | sort\n",
+  "reference_pwsh": "Get-ChildItem docs -Recurse -File | Select-String -SimpleMatch 'http://example.com' -List | ForEach-Object { (Resolve-Path -Relative $_.Path) -replace '\\\\', '/' }\n",
+  "tags": [
+    "content-search",
+    "grep"
+  ],
+  "license": "CC-BY-4.0"
+}

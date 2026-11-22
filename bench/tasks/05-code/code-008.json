@@ -1,0 +1,33 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-008",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Where is the function ListOrders defined? Answer with the relative file path and the line number.",
+  "fs_before": {
+    "fixture": "go-service"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "internal/handlers/orders.go"
+      ],
+      "regex": [
+        "(?<!\\d)10(?!\\d)"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.symbols \"ListOrders\" path: [\".\"] kind: function",
+  "reference_bash": "grep -rn 'func ListOrders\\b' --include='*.go' .\n",
+  "tags": [
+    "definition",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,13 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-bench-model/1"
+id = "qwen3-coder"
+provider = "openai-compatible"
+model = "Qwen/Qwen3-Coder-480B-A35B-Instruct"
+producer = "Alibaba Cloud"
+weights = "open"
+api_key_env = "NURT_BENCH_OPEN_WEIGHTS_KEY"
+temperature = 0.0
+max_output_tokens = 4096
+base_url = "https://inference.example.com"

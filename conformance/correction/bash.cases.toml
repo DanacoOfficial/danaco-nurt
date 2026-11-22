@@ -1,0 +1,1547 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "correction/bash/b01-rm-rf"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "rm -rf removes a path; recursion and the absence of errors for missing paths are the defaults."
+method = "correct"
+program = "rm -rf /home/user/app/build"
+
+[case.expect]
+program = 'remove "/home/user/app/build"'
+
+[[case]]
+id = "correction/bash/b01-rm-file"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "rm without flags removes a file."
+method = "correct"
+program = "rm /home/user/app/old.log"
+
+[case.expect]
+program = 'remove "/home/user/app/old.log"'
+
+[[case]]
+id = "correction/bash/b01-rm-several"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "rm with several paths removes all of them in one operation."
+method = "correct"
+program = "rm -f /home/user/app/a.log /home/user/app/b.log"
+
+[case.expect]
+program = 'remove ["/home/user/app/a.log", "/home/user/app/b.log"]'
+
+[[case]]
+id = "correction/bash/b01-rm-quoted-path"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A quoted shell path with a space is one path."
+method = "correct"
+program = 'rm -r "/home/user/my dir"'
+
+[case.expect]
+program = 'remove "/home/user/my dir"'
+
+[[case]]
+id = "correction/bash/b01-rm-single-quoted-path"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A single-quoted shell path keeps its bytes."
+method = "correct"
+program = "rm '/home/user/a $b.txt'"
+
+[case.expect]
+program = 'remove "/home/user/a $b.txt"'
+
+[[case]]
+id = "correction/bash/b02-rm-glob"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A shell glob of rm matches one directory level and skips hidden files."
+method = "correct"
+program = "rm /home/user/app/build/*.tmp"
+
+[case.expect]
+program = 'find "/home/user/app/build" glob: "*.tmp" depth: 1 hidden: false |> remove'
+
+[[case]]
+id = "correction/bash/b02-rm-rf-glob"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "rm -rf with a glob keeps the glob expansion of the shell."
+method = "correct"
+program = "rm -rf /home/user/app/cache/*"
+
+[case.expect]
+program = 'find "/home/user/app/cache" glob: "*" depth: 1 hidden: false |> remove'
+
+[[case]]
+id = "correction/bash/b03-mv"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "mv moves a path to a destination."
+method = "correct"
+program = "mv /home/user/a.txt /home/user/b.txt"
+
+[case.expect]
+program = 'move "/home/user/a.txt" to: "/home/user/b.txt"'
+
+[[case]]
+id = "correction/bash/b03-mv-into-directory-path"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "mv to a path that may be a directory is the same move; the directory case is decided at execution."
+method = "correct"
+program = "mv /home/user/a.txt /home/user/archive"
+
+[case.expect]
+program = 'move "/home/user/a.txt" to: "/home/user/archive"'
+
+[[case]]
+id = "correction/bash/b04-cp-r"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "cp -r copies a directory; recursion is the default."
+method = "correct"
+program = "cp -r /home/user/app/dist /home/user/backup"
+
+[case.expect]
+program = 'copy "/home/user/app/dist" to: "/home/user/backup"'
+
+[[case]]
+id = "correction/bash/b04-cp-a"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "cp -a keeps attributes, which is the default of copy."
+method = "correct"
+program = "cp -a /home/user/app/dist /home/user/backup"
+
+[case.expect]
+program = 'copy "/home/user/app/dist" to: "/home/user/backup"'
+
+[[case]]
+id = "correction/bash/b04-cp-file"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "cp copies a file."
+method = "correct"
+program = "cp /home/user/a.txt /home/user/b.txt"
+
+[case.expect]
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt"'
+
+[[case]]
+id = "correction/bash/b05-mkdir-p"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "mkdir -p creates a directory with its parents, the default of create."
+method = "correct"
+program = "mkdir -p /home/user/app/out/logs"
+
+[case.expect]
+program = 'create "/home/user/app/out/logs" type: directory'
+
+[[case]]
+id = "correction/bash/b05-mkdir-several"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "mkdir with several paths creates all of them."
+method = "correct"
+program = "mkdir /home/user/a /home/user/b"
+
+[case.expect]
+program = 'create ["/home/user/a", "/home/user/b"] type: directory'
+
+[[case]]
+id = "correction/bash/b06-touch"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "touch creates a file or updates its modification time."
+method = "correct"
+program = "touch /home/user/app/a.txt"
+
+[case.expect]
+program = 'create "/home/user/app/a.txt" type: file on_exists: touch'
+
+[[case]]
+id = "correction/bash/b07-chmod"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "chmod sets the mode as written."
+method = "correct"
+program = "chmod 755 /home/user/app/run.sh"
+
+[case.expect]
+program = 'attributes "/home/user/app/run.sh" mode: "755"'
+
+[[case]]
+id = "correction/bash/b07-chmod-recursive"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "chmod -R is recursive."
+method = "correct"
+program = "chmod -R 700 /home/user/secret"
+
+[case.expect]
+program = 'attributes "/home/user/secret" mode: "700" recursive: true'
+
+[[case]]
+id = "correction/bash/b07-chmod-symbolic"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A symbolic mode is kept as written."
+method = "correct"
+program = "chmod u+x /home/user/app/run.sh"
+
+[case.expect]
+program = 'attributes "/home/user/app/run.sh" mode: "u+x"'
+
+[[case]]
+id = "correction/bash/b08-chown"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "chown with an account and a group sets both."
+method = "correct"
+program = "chown user:staff /home/user/a.txt"
+
+[case.expect]
+program = 'attributes "/home/user/a.txt" owner: "user" group: "staff"'
+
+[[case]]
+id = "correction/bash/b09-ln-s"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ln -s creates a symbolic link at the second path pointing to the first."
+method = "correct"
+program = "ln -s /home/user/app/src /home/user/link"
+
+[case.expect]
+program = 'create "/home/user/link" type: link target: "/home/user/app/src"'
+
+[[case]]
+id = "correction/bash/b09-ln-hard"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ln without -s creates a hard link."
+method = "correct"
+program = "ln /home/user/a.txt /home/user/b.txt"
+
+[case.expect]
+program = 'create "/home/user/b.txt" type: link target: "/home/user/a.txt" hard: true'
+
+[[case]]
+id = "correction/bash/b10-cat"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "cat reads a file."
+method = "correct"
+program = "cat /home/user/app/README.md"
+
+[case.expect]
+program = 'read "/home/user/app/README.md"'
+
+[[case]]
+id = "correction/bash/b10-cat-several"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "cat with several files reads each of them."
+method = "correct"
+program = "cat /home/user/a.txt /home/user/b.txt"
+
+[case.expect]
+program = 'read ["/home/user/a.txt", "/home/user/b.txt"]'
+
+[[case]]
+id = "correction/bash/b11-head-n"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "head -n N reads the first N lines."
+method = "correct"
+program = "head -n 5 /home/user/app/a.log"
+
+[case.expect]
+program = 'read "/home/user/app/a.log" lines: ..5'
+
+[[case]]
+id = "correction/bash/b11-head-default"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "head without -n reads ten lines."
+method = "correct"
+program = "head /home/user/app/a.log"
+
+[case.expect]
+program = 'read "/home/user/app/a.log" lines: ..10'
+
+[[case]]
+id = "correction/bash/b11-tail-n"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "tail -n N reads the last N lines."
+method = "correct"
+program = "tail -n 20 /home/user/app/a.log"
+
+[case.expect]
+program = 'read "/home/user/app/a.log" last: 20'
+
+[[case]]
+id = "correction/bash/b11-tail-default"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "tail without -n reads the last ten lines."
+method = "correct"
+program = "tail /home/user/app/a.log"
+
+[case.expect]
+program = 'read "/home/user/app/a.log" last: 10'
+
+[[case]]
+id = "correction/bash/b12-wc-l"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "wc -l counts the lines of a file."
+method = "correct"
+program = "wc -l /home/user/app/a.txt"
+
+[case.expect]
+program = 'lines "/home/user/app/a.txt" |> count'
+
+[[case]]
+id = "correction/bash/b13-ls"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ls without -a hides hidden entries."
+method = "correct"
+program = "ls /home/user/app"
+
+[case.expect]
+program = 'list "/home/user/app" hidden: false'
+
+[[case]]
+id = "correction/bash/b13-ls-la"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ls -la shows hidden entries, the default of list."
+method = "correct"
+program = "ls -la /home/user/app"
+
+[case.expect]
+program = 'list "/home/user/app"'
+
+[[case]]
+id = "correction/bash/b13-ls-glob"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ls with a glob finds entries of one directory level."
+method = "correct"
+program = "ls /home/user/app/*.go"
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go" depth: 1'
+
+[[case]]
+id = "correction/bash/b14-find-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find -name matches the name at any depth."
+method = "correct"
+program = 'find /home/user/app -name "*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.go"'
+
+[[case]]
+id = "correction/bash/b14-find-type-f"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find -type f selects files."
+method = "correct"
+program = 'find /home/user/app -name "*.md" -type f'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.md" type: file'
+
+[[case]]
+id = "correction/bash/b14-find-type-d"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find -type d selects directories."
+method = "correct"
+program = 'find /home/user/app -name "node_modules" -type d'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/node_modules" type: directory'
+
+[[case]]
+id = "correction/bash/b14-find-maxdepth"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find -maxdepth K is depth K."
+method = "correct"
+program = 'find /home/user/app -maxdepth 2 -name "*.json"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.json" depth: 2'
+
+[[case]]
+id = "correction/bash/b14-find-mtime"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find -mtime -N keeps entries modified in the last N days."
+method = "correct"
+program = 'find /home/user/app -name "*.log" -mtime -7'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.log" |> filter modified > ago(7d)'
+
+[[case]]
+id = "correction/bash/b14-find-iname"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find -iname matches without letter case."
+method = "correct"
+program = 'find /home/user/app -iname "readme*"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/readme*" case_sensitive: false'
+
+[[case]]
+id = "correction/bash/b14-find-delete"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find -delete removes exactly the found entries."
+method = "correct"
+program = 'find /home/user/app -name "*.tmp" -delete'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.tmp" |> remove'
+
+[[case]]
+id = "correction/bash/b15-grep-literal"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "grep -rn with a pattern without special characters searches the text; recursion and line numbers are the defaults."
+method = "correct"
+program = 'grep -rn "TODO" /home/user/app/src'
+
+[case.expect]
+program = 'search "TODO" "/home/user/app/src"'
+
+[[case]]
+id = "correction/bash/b15-grep-basic-regex-read"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A basic regular expression with a literal parenthesis is read as text in a reading program; the regular expression is the alternative."
+method = "correct"
+program = 'grep -rn "oldName(" /home/user/app/src'
+
+[case.expect]
+program = 'search "oldName(" "/home/user/app/src"'
+corrections = [{ rule = "B15", class = "P" }]
+
+[[case]]
+id = "correction/bash/b15-grep-i"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "grep -i searches without letter case."
+method = "correct"
+program = "grep -i todo /home/user/app/a.txt"
+
+[case.expect]
+program = 'search "todo" "/home/user/app/a.txt" case_sensitive: false'
+
+[[case]]
+id = "correction/bash/b15-grep-v"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "grep -v keeps the lines that do not match."
+method = "correct"
+program = "grep -v DEBUG /home/user/app/a.log"
+
+[case.expect]
+program = 'search "DEBUG" "/home/user/app/a.log" invert: true'
+
+[[case]]
+id = "correction/bash/b15-grep-w"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "grep -w matches whole words."
+method = "correct"
+program = "grep -w id /home/user/app/a.go"
+
+[case.expect]
+program = 'search "id" "/home/user/app/a.go" whole_word: true'
+
+[[case]]
+id = "correction/bash/b15-grep-context"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "grep -C N shows N lines of context."
+method = "correct"
+program = "grep -C 2 panic /home/user/app/a.log"
+
+[case.expect]
+program = 'search "panic" "/home/user/app/a.log" context: 2'
+
+[[case]]
+id = "correction/bash/b15-grep-l"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "grep -l lists the matching files."
+method = "correct"
+program = "grep -rl TODO /home/user/app"
+
+[case.expect]
+program = 'search "TODO" "/home/user/app" output: files'
+
+[[case]]
+id = "correction/bash/b15-grep-c"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "grep -c counts the matches per file."
+method = "correct"
+program = "grep -c TODO /home/user/app/a.go"
+
+[case.expect]
+program = 'search "TODO" "/home/user/app/a.go" output: counts'
+
+[[case]]
+id = "correction/bash/b15-grep-e"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "grep -E with an alternation is a regular expression."
+method = "correct"
+program = 'grep -E "error|warning" /home/user/app/a.log'
+
+[case.expect]
+program = 'search /error|warning/ "/home/user/app/a.log"'
+
+[[case]]
+id = "correction/bash/b15-grep-fixed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "grep -F searches the pattern as text."
+method = "correct"
+program = 'grep -F "a.b[0]" /home/user/app/a.txt'
+
+[case.expect]
+program = 'search "a.b[0]" "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/bash/b16-sed-substitute"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "sed -i reads its pattern as a basic regular expression; in a change the readings are offered, not applied."
+method = "correct"
+program = "sed -i 's/old(/new(/g' /home/user/app/a.go"
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+candidates = [
+  { program = 'replace "old(" "new(" in: ["/home/user/app/a.go"]' },
+  { program = 'replace /old\(/ "new(" in: ["/home/user/app/a.go"]' },
+]
+
+[[case]]
+id = "correction/bash/b16-sed-plain-word"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Every sed substitution in a change is a probable reading and is offered, not applied."
+method = "correct"
+program = "sed -i 's/foo/bar/g' /home/user/app/a.txt"
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/bash/b16-sed-first-only"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A substitution without g replaces the first occurrence; the program is offered with occurrence 1."
+method = "correct"
+program = "sed -i 's/foo/bar/' /home/user/app/a.txt"
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/bash/b17-sed-print-range"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "sed -n 'A,Bp' reads a range of lines."
+method = "correct"
+program = "sed -n '5,10p' /home/user/app/a.txt"
+
+[case.expect]
+program = 'read "/home/user/app/a.txt" lines: 5..10'
+
+[[case]]
+id = "correction/bash/b17-sed-delete-line"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "sed -i 'Nd' removes one line."
+method = "correct"
+program = "sed -i '3d' /home/user/app/a.txt"
+
+[case.expect]
+program = 'lines "/home/user/app/a.txt" 3 |> remove'
+
+[[case]]
+id = "correction/bash/b17-sed-delete-pattern"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Removing lines by a basic regular expression in a change is offered, not applied."
+method = "correct"
+program = "sed -i '/DEBUG/d' /home/user/app/a.log"
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/bash/b17-sed-other-script"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Other sed scripts are not translated."
+method = "correct"
+program = "sed -e 'y/abc/xyz/' /home/user/app/a.txt"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b18-awk-program"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An awk program beyond printing fields is not translated."
+method = "correct"
+program = "awk 'BEGIN { s = 0 } { s += $1 } END { print s }' /home/user/app/a.txt"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b19-echo-overwrite"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "echo with > writes the text and a line ending."
+method = "correct"
+program = 'echo "hello" > /home/user/app/a.txt'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "hello\n" mode: overwrite'
+
+[[case]]
+id = "correction/bash/b19-echo-append"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "echo with >> appends."
+method = "correct"
+program = 'echo "dist/" >> /home/user/app/.gitignore'
+
+[case.expect]
+program = 'write "/home/user/app/.gitignore" "dist/\n" mode: append'
+
+[[case]]
+id = "correction/bash/b19-echo-n"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "echo -n writes no line ending."
+method = "correct"
+program = 'echo -n "x" > /home/user/app/a.txt'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "x" mode: overwrite'
+
+[[case]]
+id = "correction/bash/b19-tee"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "echo piped to tee writes the file."
+method = "correct"
+program = 'echo "x" | tee /home/user/app/a.txt'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "x\n" mode: overwrite'
+
+[[case]]
+id = "correction/bash/b20-cd-and-run"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "cd to an absolute directory before a program is its working directory."
+method = "correct"
+program = "cd /home/user/app && go test ./..."
+
+[case.expect]
+program = 'run ["go", "test", "./..."] cwd: "/home/user/app"'
+
+[[case]]
+id = "correction/bash/b20-cd-semicolon"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "cd followed by a semicolon is treated like cd followed by &&."
+method = "correct"
+program = "cd /home/user/app; make build"
+
+[case.expect]
+program = 'run ["make", "build"] cwd: "/home/user/app"'
+
+[[case]]
+id = "correction/bash/b20-cd-and-cat"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Relative paths after cd to an absolute directory are resolved against it."
+method = "correct"
+program = "cd /home/user/app && cat README.md"
+
+[case.expect]
+program = 'read "/home/user/app/README.md"'
+
+[[case]]
+id = "correction/bash/b20-relative-cd"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "cd to a relative directory has no base and is not translated."
+method = "correct"
+program = "cd src && make"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b22-two-changes-and"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Two changing commands joined by && are two steps; neither runs."
+method = "correct"
+program = "mkdir /home/user/out && cp -r /home/user/app/dist /home/user/out"
+
+[case.expect.error]
+code = "E_ONE_EFFECT"
+
+[[case]]
+id = "correction/bash/b22-read-and-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A reading and a changing command joined by && are two steps."
+method = "correct"
+program = "ls /home/user/app && rm /home/user/app/x"
+
+[case.expect.error]
+code = "E_ONE_EFFECT"
+
+[[case]]
+id = "correction/bash/b22-semicolon"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Two removals separated by a semicolon are two steps."
+method = "correct"
+program = "rm /home/user/a.txt; rm /home/user/b.txt"
+
+[case.expect.error]
+code = "E_ONE_EFFECT"
+
+[[case]]
+id = "correction/bash/b23-or"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An alternative branch with || has no counterpart."
+method = "correct"
+program = "make test || echo failed"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b24-cat-grep"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A pipe of two translatable commands is a pipeline."
+method = "correct"
+program = "cat /home/user/app/a.log | grep ERROR"
+
+[case.expect]
+program = 'read "/home/user/app/a.log" |> search "ERROR"'
+
+[[case]]
+id = "correction/bash/b24-find-wc"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find piped to wc -l counts the found entries."
+method = "correct"
+program = 'find /home/user/app -name "*.go" | wc -l'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.go" |> count'
+
+[[case]]
+id = "correction/bash/b25-variable-in-text"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A shell variable inside a text is not expanded."
+method = "correct"
+program = 'cat "$HOME/a.txt"'
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b27-long-flag"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A long flag with a value names a parameter of the command."
+method = "correct"
+program = 'find "/home/user/app" --glob "*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+
+[[case]]
+id = "correction/bash/b27-long-flag-equals"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A long flag with an equals sign names a parameter of the command."
+method = "correct"
+program = 'list "/home/user/app" --depth=2'
+
+[case.expect]
+program = 'list "/home/user/app" depth: 2'
+
+[[case]]
+id = "correction/bash/b27-kebab-flag"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A long flag in kebab case names the parameter in snake case."
+method = "correct"
+program = 'find "/home/user/app" --case-sensitive=false'
+
+[case.expect]
+program = 'find "/home/user/app" case_sensitive: false'
+
+[[case]]
+id = "correction/bash/b27-flag-without-counterpart"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A short flag without a parameter of the command is not translated; the fix drops it."
+method = "correct"
+program = 'remove "/home/user/build" -rf'
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+fix = ['remove "/home/user/build"']
+
+[[case]]
+id = "correction/bash/b28-sudo"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Privilege elevation has no counterpart."
+method = "correct"
+program = "sudo rm /etc/x"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b28-sudo-install"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "sudo before a package manager is not translated."
+method = "correct"
+program = "sudo apt install curl"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b29-background"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A trailing & starts the program in the background."
+method = "correct"
+program = "cd /home/user/app && make build &"
+
+[case.expect]
+program = 'run ["make", "build"] cwd: "/home/user/app" background: true'
+
+[[case]]
+id = "correction/bash/b29-nohup"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "nohup with & starts the program in the background."
+method = "correct"
+program = "nohup /home/user/app/server &"
+
+[case.expect]
+program = 'run ["/home/user/app/server"] background: true'
+
+[[case]]
+id = "correction/bash/b30-time"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "time is dropped; the duration is always in the result."
+method = "correct"
+program = "cd /home/user/app && time make"
+
+[case.expect]
+program = 'run ["make"] cwd: "/home/user/app"'
+
+[[case]]
+id = "correction/bash/b30-timeout"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "timeout N sets the time limit of the program."
+method = "correct"
+program = "cd /home/user/app && timeout 30 make test"
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" timeout: 30s'
+
+[[case]]
+id = "correction/bash/b31-assignment-prefix"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A variable assignment before a program is its environment."
+method = "correct"
+program = "cd /home/user/app && FOO=1 make"
+
+[case.expect]
+program = 'run ["make"] cwd: "/home/user/app" env: {FOO: "1"}'
+
+[[case]]
+id = "correction/bash/b31-env-command"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "env with an assignment sets the environment of the program."
+method = "correct"
+program = "cd /home/user/app && env DEBUG=1 make test"
+
+[case.expect]
+program = 'run ["make", "test"] cwd: "/home/user/app" env: {DEBUG: "1"}'
+
+[[case]]
+id = "correction/bash/b31-export"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "export before a program on the same line sets its environment."
+method = "correct"
+program = "cd /home/user/app && export GOOS=linux; go build"
+
+[case.expect]
+program = 'run ["go", "build"] cwd: "/home/user/app" env: {GOOS: "linux"}'
+
+[[case]]
+id = "correction/bash/b32-curl-get"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "curl -s sends a request; redirects are followed by default."
+method = "correct"
+program = "curl -sSL https://example.com/api/health"
+
+[case.expect]
+program = 'http.request "https://example.com/api/health"'
+
+[[case]]
+id = "correction/bash/b32-curl-output"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "curl -o saves the body to a file."
+method = "correct"
+program = "curl -o /home/user/a.tar.gz https://example.com/a.tar.gz"
+
+[case.expect]
+program = 'http.request "https://example.com/a.tar.gz" save: "/home/user/a.tar.gz"'
+
+[[case]]
+id = "correction/bash/b32-curl-post"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "curl -X POST with a header and data is a POST request."
+method = "correct"
+program = '''curl -X POST -H "Content-Type: application/json" -d '{"a":1}' https://example.com/api'''
+
+[case.expect]
+program = 'http.request "https://example.com/api" method: post headers: {"Content-Type": "application/json"} body: r#"{"a":1}"#'
+
+[[case]]
+id = "correction/bash/b32-wget"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "wget -O downloads a file."
+method = "correct"
+program = "wget -O /home/user/a.tar.gz https://example.com/a.tar.gz"
+
+[case.expect]
+program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"'
+
+[[case]]
+id = "correction/bash/b33-xargs-rm"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find piped to xargs rm is a probable reading of a change and is offered, not applied."
+method = "correct"
+program = 'find /home/user/app -name "*.tmp" | xargs rm'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+candidates = [{ program = 'find "/home/user/app" glob: "**/*.tmp" |> remove' }]
+
+[[case]]
+id = "correction/bash/b33-exec-rm"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find -exec rm is a probable reading of a change and is offered, not applied."
+method = "correct"
+program = 'find /home/user/app -name "*.tmp" -exec rm {} +'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/bash/b34-tar-extract"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "tar -xzf with -C extracts into a directory."
+method = "correct"
+program = "tar -xzf /home/user/a.tar.gz -C /home/user/out"
+
+[case.expect]
+program = 'archive.extract "/home/user/a.tar.gz" into: "/home/user/out"'
+
+[[case]]
+id = "correction/bash/b34-tar-create"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "tar -czf creates an archive of a directory."
+method = "correct"
+program = "tar -czf /home/user/app.tar.gz /home/user/app"
+
+[case.expect]
+program = 'find "/home/user/app" |> archive.create "/home/user/app.tar.gz"'
+
+[[case]]
+id = "correction/bash/b34-unzip"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "unzip -d extracts into a directory."
+method = "correct"
+program = "unzip /home/user/a.zip -d /home/user/out"
+
+[case.expect]
+program = 'archive.extract "/home/user/a.zip" into: "/home/user/out"'
+
+[[case]]
+id = "correction/bash/b34-zip"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "zip -r creates an archive of a directory."
+method = "correct"
+program = "zip -r /home/user/app.zip /home/user/app"
+
+[case.expect]
+program = 'find "/home/user/app" |> archive.create "/home/user/app.zip"'
+
+[[case]]
+id = "correction/bash/b34-gzip"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "gzip compresses a file."
+method = "correct"
+program = "gzip /home/user/app/a.log"
+
+[case.expect]
+program = 'compress "/home/user/app/a.log"'
+
+[[case]]
+id = "correction/bash/b34-gunzip"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "gunzip decompresses a file."
+method = "correct"
+program = "gunzip /home/user/app/a.log.gz"
+
+[case.expect]
+program = 'decompress "/home/user/app/a.log.gz"'
+
+[[case]]
+id = "correction/bash/b35-ps"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ps aux lists processes."
+method = "correct"
+program = "ps aux"
+
+[case.expect]
+program = "processes"
+
+[[case]]
+id = "correction/bash/b35-df"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "df -h lists disks."
+method = "correct"
+program = "df -h"
+
+[case.expect]
+program = "disks"
+
+[[case]]
+id = "correction/bash/b35-ss"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ss -ltnp lists ports."
+method = "correct"
+program = "ss -ltnp"
+
+[case.expect]
+program = "ports"
+
+[[case]]
+id = "correction/bash/b35-netstat"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "netstat -tlnp lists ports."
+method = "correct"
+program = "netstat -tlnp"
+
+[case.expect]
+program = "ports"
+
+[[case]]
+id = "correction/bash/b35-env"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "env without arguments lists the environment."
+method = "correct"
+program = "env"
+
+[case.expect]
+program = "environment"
+
+[[case]]
+id = "correction/bash/b35-uname"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "uname -a describes the host."
+method = "correct"
+program = "uname -a"
+
+[case.expect]
+program = "host"
+
+[[case]]
+id = "correction/bash/b35-whoami"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "whoami describes the host and the current account."
+method = "correct"
+program = "whoami"
+
+[case.expect]
+program = "host"
+
+[[case]]
+id = "correction/bash/b35-which"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "which locates a program."
+method = "correct"
+program = "which git"
+
+[case.expect]
+program = 'program.find "git"'
+
+[[case]]
+id = "correction/bash/b35-command-v"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "command -v locates a program."
+method = "correct"
+program = "command -v python3"
+
+[case.expect]
+program = 'program.find "python3"'
+
+[[case]]
+id = "correction/bash/b35-lsof-file"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "lsof with a file lists the processes holding it."
+method = "correct"
+program = "lsof /home/user/app/a.log"
+
+[case.expect]
+program = 'open_files "/home/user/app/a.log"'
+
+[[case]]
+id = "correction/bash/b36-kill"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "kill PID stops the process."
+method = "correct"
+program = "kill 1234"
+
+[case.expect]
+program = "processes pid: 1234 |> stop"
+
+[[case]]
+id = "correction/bash/b36-kill-9"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "kill -9 stops the process with the kill signal."
+method = "correct"
+program = "kill -9 1234"
+
+[case.expect]
+program = "processes pid: 1234 |> stop signal: kill"
+
+[[case]]
+id = "correction/bash/b37-diff"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "diff compares two files."
+method = "correct"
+program = "diff /home/user/a.txt /home/user/b.txt"
+
+[case.expect]
+program = 'diff "/home/user/a.txt" "/home/user/b.txt"'
+
+[[case]]
+id = "correction/bash/b37-du"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "du -sh sums the sizes under a directory."
+method = "correct"
+program = "du -sh /home/user/app"
+
+[case.expect]
+program = 'find "/home/user/app" |> summarize size'
+
+[[case]]
+id = "correction/bash/b37-file"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "file describes the content of a file."
+method = "correct"
+program = "file /home/user/app/a.bin"
+
+[case.expect]
+program = 'info "/home/user/app/a.bin" details: [text]'
+
+[[case]]
+id = "correction/bash/b37-sha256sum"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "sha256sum computes the SHA-256 hash."
+method = "correct"
+program = "sha256sum /home/user/app/a.tar.gz"
+
+[case.expect]
+program = 'hash "/home/user/app/a.tar.gz"'
+
+[[case]]
+id = "correction/bash/b37-iconv"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "iconv converts the encoding of a file."
+method = "correct"
+program = "iconv -f cp1250 -t utf-8 /home/user/app/legacy.txt"
+
+[case.expect]
+program = 'convert "/home/user/app/legacy.txt" encoding: "utf-8"'
+
+[[case]]
+id = "correction/bash/b37-dos2unix"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "dos2unix converts line endings to LF."
+method = "correct"
+program = "dos2unix /home/user/app/a.txt"
+
+[case.expect]
+program = 'convert "/home/user/app/a.txt" line_ending: lf'
+
+[[case]]
+id = "correction/bash/b38-git-c-status"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "git -C D status is the built-in status of the repository."
+method = "correct"
+program = "git -C /home/user/app status"
+
+[case.expect]
+program = 'git.status "/home/user/app"'
+
+[[case]]
+id = "correction/bash/b38-cd-git-log"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "cd D && git log is the built-in log of the repository."
+method = "correct"
+program = "cd /home/user/app && git log"
+
+[case.expect]
+program = 'git.log "/home/user/app"'
+
+[[case]]
+id = "correction/bash/b38-git-without-directory"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "git without a repository directory is not translated; the directory is never guessed."
+method = "correct"
+program = "git status"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b39-for-loop"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A loop is not translated."
+method = "correct"
+program = "for f in /home/user/app/*.log; do rm $f; done"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b39-if"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A conditional is not translated."
+method = "correct"
+program = "if [ -f /home/user/a.txt ]; then rm /home/user/a.txt; fi"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b39-while"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A while loop is not translated."
+method = "correct"
+program = "while true; do sleep 1; done"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/bash/b40-systemctl-restart"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "systemctl restart restarts the service."
+method = "correct"
+program = "systemctl restart nginx"
+
+[case.expect]
+program = 'services name: "nginx" |> restart'
+
+[[case]]
+id = "correction/bash/b40-service-restart"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "service X restart restarts the service."
+method = "correct"
+program = "service nginx restart"
+
+[case.expect]
+program = 'services name: "nginx" |> restart'
+
+[[case]]
+id = "correction/bash/b40-systemctl-enable"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "systemctl enable enables the service."
+method = "correct"
+program = "systemctl enable nginx"
+
+[case.expect]
+program = 'services name: "nginx" |> enable'
+
+[[case]]
+id = "correction/bash/b40-apt-install"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "apt install installs a package."
+method = "correct"
+program = "apt install -y curl"
+
+[case.expect]
+program = 'package.install ["curl"]'
+
+[[case]]
+id = "correction/bash/b40-brew-install"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "brew install installs a package."
+method = "correct"
+program = "brew install jq"
+
+[case.expect]
+program = 'package.install ["jq"]'
+
+[[case]]
+id = "correction/bash/b40-date"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "date evaluates the current time."
+method = "correct"
+program = "date"
+
+[case.expect]
+program = "evaluate now()"
+
+[[case]]
+id = "correction/bash/b40-sleep"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "sleep N waits N seconds."
+method = "correct"
+program = "sleep 5"
+
+[case.expect]
+program = "sleep 5s"
+
+[[case]]
+id = "correction/bash/b40-crontab-edit"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Interactive editing of the crontab is not translated."
+method = "correct"
+program = "crontab -e"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"

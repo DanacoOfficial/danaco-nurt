@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "nurt": {
+      "type": "stdio",
+      "command": "nurt",
+      "args": ["mcp", "--stdio"]
+    }
+  }
+}

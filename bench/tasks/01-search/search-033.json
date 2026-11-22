@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-033",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Write the relative paths of all .md files in docs/ (recursively) to docs-index.txt, one path per line, sorted, with '/' as separator and without a leading './'.",
+  "fs_before": {
+    "fixture": "docs-site"
+  },
+  "expect": {
+    "files": {
+      "docs-index.txt": {
+        "lines": [
+          "docs/api/customers.md",
+          "docs/api/orders.md",
+          "docs/changelog.md",
+          "docs/config.md",
+          "docs/index.md",
+          "docs/install.md"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"docs\" glob: \"**/*.md\" type: file sort: name |> select relative |> write \"docs-index.txt\" format: lines",
+  "reference_bash": "find docs -type f -name '*.md' | sed 's|^\\./||' | LC_ALL=C sort > docs-index.txt\n",
+  "tags": [
+    "find",
+    "write-result"
+  ],
+  "license": "CC-BY-4.0"
+}

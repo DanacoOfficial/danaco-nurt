@@ -1,0 +1,77 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-059",
+  "domain": 2,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Update the copyright line 'Copyright 2025 Example Ltd.' to 'Copyright 2026 Example Ltd.' in all .go files under src/, including src/gen/table6.go. Other years and other numbers stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "LICENSE.txt",
+        "type": "file",
+        "content_utf8": "Copyright 2025 Example Ltd.\n"
+      },
+      {
+        "path": "src/gen/table6.go",
+        "type": "file",
+        "content_utf8": "// Copyright 2025 Example Ltd.\n// table version 2025.1\n"
+      },
+      {
+        "path": "src/main.go",
+        "type": "file",
+        "content_utf8": "// Copyright 2025 Example Ltd.\n// main module\n"
+      },
+      {
+        "path": "src/util/helpers.go",
+        "type": "file",
+        "content_utf8": "// Copyright 2025 Example Ltd.\n"
+      },
+      {
+        "path": "src/util/legacy.go",
+        "type": "file",
+        "content_utf8": "// Copyright 2019 Example Ltd.\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "src/gen/table6.go": {
+        "text": "// Copyright 2026 Example Ltd.\n// table version 2025.1\n"
+      },
+      "src/main.go": {
+        "text": "// Copyright 2026 Example Ltd.\n// main module\n"
+      },
+      "src/util/helpers.go": {
+        "text": "// Copyright 2026 Example Ltd.\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "LICENSE.txt",
+      "change": "any",
+      "reason": "the license text is not a source file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"Copyright 2025 Example Ltd.\" \"src\" glob: \"**/*.go\" mode: literal |> replace \"Copyright 2026 Example Ltd.\"",
+  "reference_bash": "grep -rlF --include='*.go' 'Copyright 2025 Example Ltd.' src | xargs -r sed -i 's/Copyright 2025 Example Ltd\\./Copyright 2026 Example Ltd./'\n",
+  "reference_pwsh": "Get-ChildItem src -Recurse -File -Include '*.go' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t -creplace 'Copyright 2025 Example Ltd\\.', 'Copyright 2026 Example Ltd.'\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "find src -name '*.go' -exec sed -i 's/2025/2026/g' {} +",
+      "defect": "also changes unrelated numbers"
+    }
+  ],
+  "tags": [
+    "header",
+    "replace"
+  ],
+  "license": "CC-BY-4.0"
+}

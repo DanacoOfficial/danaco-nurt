@@ -1,0 +1,68 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-006",
+  "domain": 4,
+  "split": "public",
+  "platform": "windows",
+  "nl": "In config/app.json, set features.audit_log to true. The file must stay valid JSON with all other values unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": ".env.example",
+        "type": "file",
+        "content_utf8": "DATABASE_URL=postgres://db.example.com:5432/orders\r\nLOG_LEVEL=info\r\n"
+      },
+      {
+        "path": "config/app.json",
+        "type": "file",
+        "content_utf8": "{\r\n  \"name\": \"orders\",\r\n  \"port\": 8080,\r\n  \"features\": {\r\n    \"export\": true,\r\n    \"beta_ui\": false\r\n  },\r\n  \"allowed_origins\": [\"https://example.com\"]\r\n}\r\n"
+      },
+      {
+        "path": "config/db.toml",
+        "type": "file",
+        "content_utf8": "# Database settings\r\n[database]\r\nurl = \"postgres://db.example.com:5432/orders\"\r\npool_size = 10\r\ntimeout_seconds = 30\r\n\r\n[database.replica]\r\nurl = \"postgres://replica.example.com:5432/orders\"\r\nenabled = false\r\n"
+      },
+      {
+        "path": "config/deploy.yaml",
+        "type": "file",
+        "content_utf8": "service: orders\r\nreplicas: 2\r\nimage: ghcr.io/example/orders:2.3.0\r\nresources:\r\n  memory: 512Mi\r\n  cpu: 500m\r\nenv:\r\n  LOG_LEVEL: info\r\n  REGION: eu-central\r\n"
+      },
+      {
+        "path": "config/legacy.ini",
+        "type": "file",
+        "content_utf8": "[server]\r\nhost = 0.0.0.0\r\nport = 8080\r\ndebug = true\r\n\r\n[mail]\r\nsender = orders@example.com\r\nsmtp = smtp.example.com\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "config/app.json": {
+        "json": {
+          "name": "orders",
+          "port": 8080,
+          "features": {
+            "export": true,
+            "beta_ui": false,
+            "audit_log": true
+          },
+          "allowed_origins": [
+            "https://example.com"
+          ]
+        }
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"config/app.json\" key: \"features.audit_log\" value: true",
+  "reference_pwsh": "$p = Join-Path $PWD 'config/app.json'\n$d = Get-Content $p -Raw | ConvertFrom-Json\n$d.features | Add-Member -NotePropertyName audit_log -NotePropertyValue $true -Force\n$d | ConvertTo-Json -Depth 20 | Set-Content $p\n",
+  "tags": [
+    "json",
+    "set-key"
+  ],
+  "license": "CC-BY-4.0"
+}

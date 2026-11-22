@@ -1,0 +1,227 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "processes",
+          "args": [],
+          "span": [
+            1,
+            1,
+            1,
+            10
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "args": [
+              {
+                "value": {
+                  "t": "bin",
+                  "op": ">",
+                  "l": {
+                    "t": "ident",
+                    "v": "memory",
+                    "span": [
+                      1,
+                      21,
+                      1,
+                      27
+                    ]
+                  },
+                  "r": {
+                    "t": "size",
+                    "v": 500000000,
+                    "span": [
+                      1,
+                      30,
+                      1,
+                      35
+                    ]
+                  },
+                  "span": [
+                    1,
+                    21,
+                    1,
+                    35
+                  ]
+                },
+                "span": [
+                  1,
+                  21,
+                  1,
+                  35
+                ]
+              }
+            ],
+            "span": [
+              1,
+              14,
+              1,
+              35
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "sort",
+            "args": [
+              {
+                "value": {
+                  "t": "ident",
+                  "v": "memory",
+                  "span": [
+                    1,
+                    44,
+                    1,
+                    50
+                  ]
+                },
+                "span": [
+                  1,
+                  44,
+                  1,
+                  50
+                ]
+              },
+              {
+                "name": "order",
+                "value": {
+                  "t": "ident",
+                  "v": "desc",
+                  "span": [
+                    1,
+                    58,
+                    1,
+                    62
+                  ]
+                },
+                "span": [
+                  1,
+                  51,
+                  1,
+                  62
+                ]
+              }
+            ],
+            "span": [
+              1,
+              39,
+              1,
+              62
+            ]
+          },
+          {
+            "t": "stage",
+            "name": "select",
+            "args": [
+              {
+                "value": {
+                  "t": "ident",
+                  "v": "pid",
+                  "span": [
+                    1,
+                    73,
+                    1,
+                    76
+                  ]
+                },
+                "span": [
+                  1,
+                  73,
+                  1,
+                  76
+                ]
+              },
+              {
+                "value": {
+                  "t": "ident",
+                  "v": "name",
+                  "span": [
+                    1,
+                    77,
+                    1,
+                    81
+                  ]
+                },
+                "span": [
+                  1,
+                  77,
+                  1,
+                  81
+                ]
+              },
+              {
+                "value": {
+                  "t": "ident",
+                  "v": "memory",
+                  "span": [
+                    1,
+                    82,
+                    1,
+                    88
+                  ]
+                },
+                "span": [
+                  1,
+                  82,
+                  1,
+                  88
+                ]
+              }
+            ],
+            "span": [
+              1,
+              66,
+              1,
+              88
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          88
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "processes",
+          "args": [],
+          "span": [
+            2,
+            1,
+            2,
+            10
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "describe",
+            "args": [],
+            "span": [
+              2,
+              14,
+              2,
+              22
+            ]
+          }
+        ],
+        "span": [
+          2,
+          1,
+          2,
+          22
+        ]
+      }
+    ]
+  }
+}

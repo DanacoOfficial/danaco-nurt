@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-038",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Enable the setting `pl_PL.UTF-8 UTF-8` in locale.gen by removing the comment marker from its line. Other commented lines stay commented.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "locale.gen",
+        "type": "file",
+        "content_utf8": "# en_US.UTF-8 UTF-8\r\n# pl_PL.UTF-8 UTF-8\r\n# de_DE.UTF-8 UTF-8\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "locale.gen": {
+        "text": "# en_US.UTF-8 UTF-8\r\npl_PL.UTF-8 UTF-8\r\n# de_DE.UTF-8 UTF-8\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"locale.gen\" |> filter text == \"# pl_PL.UTF-8 UTF-8\" |> replace \"# pl_PL.UTF-8 UTF-8\" \"pl_PL.UTF-8 UTF-8\" mode: literal",
+  "reference_pwsh": "$p = Join-Path $PWD 'locale.gen'\n$t = [IO.File]::ReadAllText($p)\n$old = '# pl_PL.UTF-8 UTF-8'\n$new = 'pl_PL.UTF-8 UTF-8'\nif (([regex]::Matches($t, [regex]::Escape($old))).Count -ne 1) { throw 'expected one match' }\n[IO.File]::WriteAllText($p, $t.Replace($old, $new))\n",
+  "tags": [
+    "config",
+    "uncomment"
+  ],
+  "license": "CC-BY-4.0"
+}

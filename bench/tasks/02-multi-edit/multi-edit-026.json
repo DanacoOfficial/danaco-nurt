@@ -1,0 +1,69 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-026",
+  "domain": 2,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Rename the key memoryLimit to memory_limit in all YAML files (.yaml and .yml) under deploy/, at any nesting level. Do not edit other files.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "deploy/README.md",
+        "type": "file",
+        "content_utf8": "The key memoryLimit sets the limit.\n"
+      },
+      {
+        "path": "deploy/api.yaml",
+        "type": "file",
+        "content_utf8": "name: api\nmemoryLimit: 512Mi\nresources:\n  memoryLimit: 256Mi\n"
+      },
+      {
+        "path": "deploy/cron.yaml",
+        "type": "file",
+        "content_utf8": "name: cron\nschedule: '0 * * * *'\n"
+      },
+      {
+        "path": "deploy/legacy/web0.yml",
+        "type": "file",
+        "content_utf8": "name: web\nmemoryLimit: 128Mi\n"
+      },
+      {
+        "path": "deploy/worker.yaml",
+        "type": "file",
+        "content_utf8": "name: worker\nmemoryLimit: 1Gi\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "deploy/api.yaml": {
+        "text": "name: api\nmemory_limit: 512Mi\nresources:\n  memory_limit: 256Mi\n"
+      },
+      "deploy/legacy/web0.yml": {
+        "text": "name: web\nmemory_limit: 128Mi\n"
+      },
+      "deploy/worker.yaml": {
+        "text": "name: worker\nmemory_limit: 1Gi\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "deploy/README.md",
+      "change": "any",
+      "reason": "documentation is not a YAML file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search /^(\\s*)memoryLimit:/ \"deploy\" glob: \"**/*.{yaml,yml}\" |> replace \"${1}memory_limit:\"",
+  "reference_bash": "find deploy -type f \\( -name '*.yaml' -o -name '*.yml' \\) -exec sed -i -E 's/^([[:space:]]*)memoryLimit:/\\1memory_limit:/' {} +\n",
+  "tags": [
+    "rename-key",
+    "yaml"
+  ],
+  "license": "CC-BY-4.0"
+}

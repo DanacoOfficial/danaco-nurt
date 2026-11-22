@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-008",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "How many requests in the access logs logs/access-*.log returned the HTTP status 404? Answer with the number.",
+  "fs_before": {
+    "fixture": "web-logs"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])6(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"\\\" 404 \" \"logs\" glob: \"access-*.log\" mode: literal |> count",
+  "reference_bash": "cat logs/access-*.log | grep -F -- '\" 404 ' | wc -l\n",
+  "tags": [
+    "count",
+    "logs"
+  ],
+  "license": "CC-BY-4.0"
+}

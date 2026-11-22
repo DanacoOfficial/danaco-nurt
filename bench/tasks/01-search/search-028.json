@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-028",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "What is the port of the [server] section in config/legacy.ini? Answer with the value.",
+  "fs_before": {
+    "fixture": "config-mixed"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\w.])8080(?![\\w.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"config/legacy.ini\" key: \"server.port\"",
+  "reference_bash": "sed -n '/^\\[server\\]/,/^\\[/p' config/legacy.ini | grep '^port'\n",
+  "tags": [
+    "config",
+    "read"
+  ],
+  "license": "CC-BY-4.0"
+}

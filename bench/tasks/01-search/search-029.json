@@ -1,0 +1,30 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-029",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "What is the pool size of the primary database in config/db.toml? Answer with the value.",
+  "fs_before": {
+    "fixture": "config-mixed"
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\w.])10(?![\\w.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"config/db.toml\" key: \"database.pool_size\"",
+  "reference_bash": "sed -n '/^\\[database\\]/,/^\\[/p' config/db.toml | grep '^pool_size'\n",
+  "tags": [
+    "config",
+    "read"
+  ],
+  "license": "CC-BY-4.0"
+}

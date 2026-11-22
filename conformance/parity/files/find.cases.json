@@ -1,0 +1,3362 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/files/find/all-files",
+      "kind": "parity",
+      "summary": "Finds entries with \".\".",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.env"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": ".env"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "b.txt"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/g.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "g.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "c.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/e.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "e.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/f.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "f.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 7
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/glob-recursive",
+      "kind": "parity",
+      "summary": "Finds entries with \".\" glob: \"**/*.go\".",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/*.go\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "c.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/e.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "e.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/glob-top-level",
+      "kind": "parity",
+      "summary": "Finds entries with \".\" glob: \"*.go\" depth: 1.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"*.go\" depth: 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/glob-in-subdirectory",
+      "kind": "parity",
+      "summary": "Finds entries with \"src\" glob: \"**/*.md\".",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \"src\" glob: \"**/*.md\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/f.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "f.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/glob-question-mark",
+      "kind": "parity",
+      "summary": "Finds entries with \".\" glob: \"?.txt\" depth: 1.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"?.txt\" depth: 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "b.txt"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/glob-list",
+      "kind": "parity",
+      "summary": "Finds entries with \".\" glob: [\"**/*.go\", \"**/*.md\"].",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" glob: [\"**/*.go\", \"**/*.md\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/g.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "g.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "c.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/e.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "e.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/f.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "f.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 5
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/depth-two",
+      "kind": "parity",
+      "summary": "Finds entries with \".\" depth: 2.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" depth: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/.env"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": ".env"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "b.txt"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/g.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "g.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "c.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 5
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/directories",
+      "kind": "parity",
+      "summary": "Finds entries with \".\" type: directory.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" type: directory",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "docs"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/empty"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "empty"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "src"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "d"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  }
+                }
+              }
+            ],
+            "matched": 4
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/without-hidden",
+      "kind": "parity",
+      "summary": "Finds entries with \".\" hidden: false.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" hidden: false",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "b.txt"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/g.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "g.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "c.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/e.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "e.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/f.md"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "f.md"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 6
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/path-glob",
+      "kind": "parity",
+      "summary": "Finds entries with \".\" glob: \"src/**/*.go\".",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"src/**/*.go\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "find",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "c.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/e.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "e.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/any-type",
+      "kind": "parity",
+      "summary": "Finds files and directories.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \"src\" type: any",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "matched": 4
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/exclude",
+      "kind": "parity",
+      "summary": "Skips entries matching an exclusion.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/*.go\" exclude: [\"src/d/**\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/exclude-preset-vcs",
+      "kind": "parity",
+      "summary": "Skips version control directories with a preset.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": ".git/config",
+            "type": "file",
+            "content_utf8": "[core]\n"
+          },
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          }
+        ]
+      },
+      "program": "find \".\" exclude_preset: [vcs]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/gitignore",
+      "kind": "parity",
+      "summary": "Skips ignored entries when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": ".gitignore",
+            "type": "file",
+            "content_utf8": "*.log\n"
+          },
+          {
+            "path": "a.log",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "y\n"
+          }
+        ]
+      },
+      "program": "find \".\" gitignore: true hidden: false",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/case-insensitive",
+      "kind": "parity",
+      "summary": "Matches names without letter case when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "A.GO",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "b.go",
+            "type": "file",
+            "content_utf8": "y\n"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"*.go\" depth: 1 case_sensitive: false",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/A.GO"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.go"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/case-sensitive-default",
+      "kind": "parity",
+      "summary": "Matches names with letter case by default.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "A.GO",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "b.go",
+            "type": "file",
+            "content_utf8": "y\n"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"*.go\" depth: 1",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/b.go"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/sort-size-desc",
+      "kind": "parity",
+      "summary": "Sorts entries by size, largest first.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "s.txt",
+            "type": "file",
+            "content_utf8": "x"
+          },
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxx"
+          },
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      "program": "find \".\" sort: size order: desc",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "l.txt"
+                  },
+                  "size": {
+                    "t": "size",
+                    "v": 100
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "m.txt"
+                  },
+                  "size": {
+                    "t": "size",
+                    "v": 10
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "s.txt"
+                  },
+                  "size": {
+                    "t": "size",
+                    "v": 1
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/filter-size",
+      "kind": "parity",
+      "summary": "Keeps entries larger than a size.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "s.txt",
+            "type": "file",
+            "content_utf8": "x"
+          },
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxx"
+          },
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      "program": "find \".\" |> filter size > 5b",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "l.txt"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "m.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/filter-extension",
+      "kind": "parity",
+      "summary": "Keeps entries by extension.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" |> filter extension == \"md\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/docs/g.md"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/d/f.md"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/first-two",
+      "kind": "parity",
+      "summary": "Keeps the first two entries.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/*.go\" |> first 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src/c.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "c.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/count",
+      "kind": "parity",
+      "summary": "Counts the entries.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/*.go\" |> count",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/fuzzy",
+      "kind": "parity",
+      "summary": "Ranks entries by similarity of the name.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" fuzzy: \"egm\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/missing-directory",
+      "kind": "parity",
+      "summary": "Finding under a missing directory fails.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \"absent\"",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_NOT_FOUND"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/follow-links-off",
+      "kind": "parity",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Does not descend into linked directories by default.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "real/x.txt",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "link",
+            "type": "symlink",
+            "target": "real"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/x.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/real/x.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/follow-links-on",
+      "kind": "parity",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Descends into linked directories when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "real/x.txt",
+            "type": "file",
+            "content_utf8": "x\n"
+          },
+          {
+            "path": "link",
+            "type": "symlink",
+            "target": "real"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"**/x.txt\" follow_links: true",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/link/x.txt"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/real/x.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 2
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/list-top-level",
+      "kind": "parity",
+      "summary": "Lists one directory level, hidden entries included.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "list \".\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "list",
+          "records": {
+            "type": "entry",
+            "matched": 6
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/list-without-hidden",
+      "kind": "parity",
+      "summary": "Lists without hidden entries.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "list \".\" hidden: false",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "matched": 5
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/list-files",
+      "kind": "parity",
+      "summary": "Lists only files.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "list \".\" type: file",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": ".env"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "b.txt"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/list-depth-two",
+      "kind": "parity",
+      "summary": "Lists two directory levels.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "list \"src\" depth: 2",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "matched": 4
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/list-sort-name-desc",
+      "kind": "parity",
+      "summary": "Lists in descending name order.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a",
+            "type": "file",
+            "content_utf8": ""
+          },
+          {
+            "path": "b",
+            "type": "file",
+            "content_utf8": ""
+          },
+          {
+            "path": "c",
+            "type": "file",
+            "content_utf8": ""
+          }
+        ]
+      },
+      "program": "list \".\" order: desc",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "c"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "b"
+                  }
+                }
+              },
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "a"
+                  }
+                }
+              }
+            ],
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/list-tree",
+      "kind": "parity",
+      "summary": "Lists a tree view.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "list \".\" depth: 3 view: tree",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/list-sizes",
+      "kind": "parity",
+      "summary": "Lists directory size totals.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "list \".\" view: sizes",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/list-missing",
+      "kind": "parity",
+      "summary": "Listing a missing directory fails.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "list \"absent\"",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_NOT_FOUND"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/list-empty-directory",
+      "kind": "parity",
+      "summary": "Lists an empty directory.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "list \"empty\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [],
+            "matched": 0
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/info-file",
+      "kind": "parity",
+      "summary": "Describes a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "info \"a.go\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "info",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/a.go"
+                  },
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "file"
+                  },
+                  "exists": {
+                    "t": "bool",
+                    "v": true
+                  },
+                  "size": {
+                    "t": "size",
+                    "v": 10
+                  },
+                  "extension": {
+                    "t": "text",
+                    "v": "go"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/info-directory",
+      "kind": "parity",
+      "summary": "Describes a directory.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "info \"src\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/src"
+                  },
+                  "type": {
+                    "t": "enum",
+                    "v": "directory"
+                  },
+                  "exists": {
+                    "t": "bool",
+                    "v": true
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/info-missing",
+      "kind": "parity",
+      "summary": "Describes a path that does not exist.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "info \"absent.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "path": {
+                    "t": "path",
+                    "v": "${base}/absent.txt"
+                  },
+                  "exists": {
+                    "t": "bool",
+                    "v": false
+                  },
+                  "size": {
+                    "t": "size",
+                    "v": 0
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/info-several",
+      "kind": "parity",
+      "summary": "Describes several paths.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "info [\"a.go\", \"b.txt\", \"absent\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "matched": 3
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/info-sha256",
+      "kind": "parity",
+      "summary": "Computes the SHA-256 hash of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "h.txt",
+            "type": "file",
+            "content_utf8": "hello\n"
+          }
+        ]
+      },
+      "program": "info \"h.txt\" hash: sha256",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "hash": {
+                    "t": "text",
+                    "v": "sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/info-text-details",
+      "kind": "parity",
+      "summary": "Describes the text of a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "a\r\nb\r\n"
+          }
+        ]
+      },
+      "program": "info \"w.txt\" details: [text]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "line_ending": {
+                    "t": "enum",
+                    "v": "crlf"
+                  },
+                  "lines": {
+                    "t": "int",
+                    "v": 2
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/info-mode",
+      "kind": "parity",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Reports the permission bits.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "run.sh",
+            "type": "file",
+            "content_utf8": "#!/bin/sh\n",
+            "mode": "0755"
+          }
+        ]
+      },
+      "program": "info \"run.sh\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "mode": {
+                    "t": "text",
+                    "v": "0755"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/info-link",
+      "kind": "parity",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Describes a symbolic link with its target.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "t.txt",
+            "type": "file",
+            "content_utf8": "t\n"
+          },
+          {
+            "path": "l.txt",
+            "type": "symlink",
+            "target": "t.txt"
+          }
+        ]
+      },
+      "program": "info \"l.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "type": {
+                    "t": "enum",
+                    "v": "link"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/hash-command",
+      "kind": "parity",
+      "summary": "Hashes a file with hash.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "h.txt",
+            "type": "file",
+            "content_utf8": "hello\n"
+          }
+        ]
+      },
+      "program": "hash \"h.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "hash": {
+                    "t": "text",
+                    "v": "sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/hash-md5",
+      "kind": "parity",
+      "summary": "Hashes a file with MD5.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "h.txt",
+            "type": "file",
+            "content_utf8": "hello\n"
+          }
+        ]
+      },
+      "program": "hash \"h.txt\" algorithm: md5",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "hash": {
+                    "t": "text",
+                    "v": "md5:b1946ac92492d2347c6235b4d2611184"
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/select-fields",
+      "kind": "parity",
+      "summary": "Keeps selected fields of the found entries.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"*.go\" depth: 1 |> select name size",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "records": {
+            "type": "entry",
+            "rows": [
+              {
+                "kind": "entry",
+                "fields": {
+                  "name": {
+                    "t": "text",
+                    "v": "a.go"
+                  },
+                  "size": {
+                    "t": "size",
+                    "v": 10
+                  }
+                }
+              }
+            ],
+            "matched": 1
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/summarize-size",
+      "kind": "parity",
+      "summary": "Sums the sizes of the found files.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "s.txt",
+            "type": "file",
+            "content_utf8": "x"
+          },
+          {
+            "path": "m.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxx"
+          },
+          {
+            "path": "l.txt",
+            "type": "file",
+            "content_utf8": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      "program": "find \".\" |> summarize size",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/find/group-extension",
+      "kind": "parity",
+      "summary": "Groups the found files by extension.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.go",
+            "type": "file",
+            "content_utf8": "package a\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": ".env",
+            "type": "file",
+            "content_utf8": "X=1\n"
+          },
+          {
+            "path": "src/c.go",
+            "type": "file",
+            "content_utf8": "package c\n"
+          },
+          {
+            "path": "src/d/e.go",
+            "type": "file",
+            "content_utf8": "package e\n"
+          },
+          {
+            "path": "src/d/f.md",
+            "type": "file",
+            "content_utf8": "# f\n"
+          },
+          {
+            "path": "docs/g.md",
+            "type": "file",
+            "content_utf8": "# g\n"
+          },
+          {
+            "path": "empty",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \".\" |> group extension",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    }
+  ]
+}

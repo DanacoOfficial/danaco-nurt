@@ -1,0 +1,33 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-037",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Write the relative paths of all .md files in docs/api/ (recursively) to api-pages.txt, one path per line, sorted, with '/' as separator and without a leading './'.",
+  "fs_before": {
+    "fixture": "docs-site"
+  },
+  "expect": {
+    "files": {
+      "api-pages.txt": {
+        "lines": [
+          "docs/api/customers.md",
+          "docs/api/orders.md"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"docs/api\" glob: \"**/*.md\" type: file sort: name |> select relative |> write \"api-pages.txt\" format: lines",
+  "reference_bash": "find docs/api -type f -name '*.md' | sed 's|^\\./||' | LC_ALL=C sort > api-pages.txt\n",
+  "tags": [
+    "find",
+    "write-result"
+  ],
+  "license": "CC-BY-4.0"
+}

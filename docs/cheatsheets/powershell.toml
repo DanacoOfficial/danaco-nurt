@@ -1,0 +1,249 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-correction-table/1"
+shell = "powershell"
+title = "Nurt for PowerShell users"
+
+[[entry]]
+id = "P01"
+topic = "Files and directories"
+habit = "Get-ChildItem -Path C:\\Users\\user\\app"
+canonical = 'list "C:/Users/user/app"'
+outcome = "corrected"
+
+[[entry]]
+id = "P02"
+topic = "Files and directories"
+habit = "Get-ChildItem C:\\Users\\user\\app -Recurse -Filter *.go"
+canonical = 'find "C:/Users/user/app" glob: "**/*.go"'
+outcome = "corrected"
+
+[[entry]]
+id = "P06"
+topic = "Files and directories"
+habit = "Copy-Item C:\\Users\\user\\app C:\\Users\\user\\backup -Recurse"
+canonical = 'copy "C:/Users/user/app" to: "C:/Users/user/backup"'
+outcome = "corrected"
+
+[[entry]]
+id = "P07"
+topic = "Files and directories"
+habit = "Move-Item C:\\Users\\user\\a.txt C:\\Users\\user\\archive"
+canonical = 'move "C:/Users/user/a.txt" to: "C:/Users/user/archive"'
+outcome = "corrected"
+
+[[entry]]
+id = "P08"
+topic = "Files and directories"
+habit = "Remove-Item C:\\Users\\user\\app\\build -Recurse -Force"
+canonical = 'remove "C:/Users/user/app/build"'
+outcome = "corrected"
+
+[[entry]]
+id = "P09"
+topic = "Files and directories"
+habit = "New-Item -ItemType Directory -Path C:\\Users\\user\\app\\out"
+canonical = 'create "C:/Users/user/app/out" type: directory'
+outcome = "corrected"
+
+[[entry]]
+id = "P10"
+topic = "Files and directories"
+habit = "Rename-Item C:\\Users\\user\\a.txt -NewName b.txt"
+canonical = 'rename path: "C:/Users/user/a.txt" to: "b.txt"'
+outcome = "corrected"
+
+[[entry]]
+id = "P11"
+topic = "Files and directories"
+habit = "Test-Path C:\\Users\\user\\a.txt"
+canonical = 'info "C:/Users/user/a.txt"'
+outcome = "corrected"
+
+[[entry]]
+id = "P03"
+topic = "Reading and searching text"
+habit = "Get-Content C:\\Users\\user\\a.log -Tail 20"
+canonical = 'read "C:/Users/user/a.log" last: 20'
+outcome = "corrected"
+
+[[entry]]
+id = "P05"
+topic = "Reading and searching text"
+habit = "Select-String -Pattern todo -Path C:\\Users\\user\\app\\a.go"
+canonical = 'search /todo/i "C:/Users/user/app/a.go"'
+outcome = "corrected"
+note = "Select-String ignores letter case by default, so the pattern is case-insensitive"
+
+[[entry]]
+id = "P04"
+topic = "Writing text"
+habit = "Add-Content C:\\Users\\user\\app\\.gitignore -Value dist/"
+canonical = 'write "C:/Users/user/app/.gitignore" "dist/\n" mode: append'
+outcome = "corrected"
+
+[[entry]]
+id = "P21"
+topic = "Reading and searching text"
+habit = "Get-FileHash C:\\Users\\user\\a.zip -Algorithm SHA256"
+canonical = 'hash "C:/Users/user/a.zip" algorithm: sha256'
+outcome = "corrected"
+
+[[entry]]
+id = "P20"
+topic = "Reading and searching text"
+habit = "Compare-Object (Get-Content a.txt) (Get-Content b.txt)"
+canonical = 'diff "C:/Users/user/a.txt" "C:/Users/user/b.txt"'
+outcome = "error"
+note = "only files are compared; the fix names both files"
+
+[[entry]]
+id = "P12"
+topic = "Registry"
+habit = "Get-ItemProperty -Path HKCU:\\Software\\Example -Name Mode"
+canonical = 'read "registry:/HKCU/Software/Example/Mode"'
+outcome = "corrected"
+
+[[entry]]
+id = "P13"
+topic = "Registry"
+habit = "Set-ItemProperty -Path HKCU:\\Software\\Example -Name Mode -Value 3 -Type DWord"
+canonical = 'write "registry:/HKCU/Software/Example/Mode" "3" value_type: dword mode: overwrite'
+outcome = "corrected"
+
+[[entry]]
+id = "P15"
+topic = "Pipelines"
+habit = "Get-ChildItem C:\\Users\\user\\app -Recurse | Where-Object { $_.Length -gt 1MB }"
+canonical = 'find "C:/Users/user/app" |> filter size > 1mb'
+outcome = "corrected"
+
+[[entry]]
+id = "P16"
+topic = "Pipelines"
+habit = "Get-Process | Select-Object -First 5"
+canonical = 'processes |> first 5'
+outcome = "corrected"
+
+[[entry]]
+id = "P17"
+topic = "Pipelines"
+habit = "Get-Process | Sort-Object WorkingSet -Descending"
+canonical = 'processes |> sort memory order: desc'
+outcome = "corrected"
+
+[[entry]]
+id = "P18"
+topic = "Pipelines"
+habit = "Get-Process | Measure-Object"
+canonical = 'processes |> count'
+outcome = "corrected"
+
+[[entry]]
+id = "P19"
+topic = "Pipelines"
+habit = "Get-Process | ForEach-Object { Write-Host $_.Name }"
+canonical = 'processes |> select name'
+outcome = "error"
+note = "loops are replaced by pipelines; the fix selects the field"
+
+[[entry]]
+id = "P22"
+topic = "Processes and services"
+habit = "Stop-Process -Id 8120 -Force"
+canonical = 'processes pid: 8120 |> stop signal: kill'
+outcome = "corrected"
+
+[[entry]]
+id = "P23"
+topic = "Processes and services"
+habit = "Start-Process npm -ArgumentList 'test' -WorkingDirectory C:\\Users\\user\\app -Wait"
+canonical = 'run ["npm", "test"] cwd: "C:/Users/user/app" wait: forever'
+outcome = "corrected"
+
+[[entry]]
+id = "P24"
+topic = "Processes and services"
+habit = "Restart-Service nginx"
+canonical = 'services name: "nginx" |> restart'
+outcome = "corrected"
+
+[[entry]]
+id = "P31"
+topic = "Processes and services"
+habit = "$env:PATH"
+canonical = 'environment name: "PATH"'
+outcome = "corrected"
+
+[[entry]]
+id = "P40"
+topic = "Processes and services"
+habit = "Get-Volume"
+canonical = 'disks'
+outcome = "corrected"
+
+[[entry]]
+id = "P37"
+topic = "Processes and services"
+habit = "Get-WinEvent -LogName System -MaxEvents 50"
+canonical = 'logs source: "System" limit: 50'
+outcome = "corrected"
+
+[[entry]]
+id = "P39"
+topic = "Processes and services"
+habit = "Get-CimInstance -ClassName Win32_OperatingSystem"
+canonical = 'windows.cim "Win32_OperatingSystem"'
+outcome = "corrected"
+
+[[entry]]
+id = "P25"
+topic = "Network"
+habit = "Invoke-WebRequest https://example.com/a.zip -OutFile C:\\Users\\user\\a.zip"
+canonical = 'http.download "https://example.com/a.zip" "C:/Users/user/a.zip"'
+outcome = "corrected"
+
+[[entry]]
+id = "P38"
+topic = "Network"
+habit = "Test-Connection example.com"
+canonical = 'network.ping "example.com"'
+outcome = "corrected"
+
+[[entry]]
+id = "P38b"
+topic = "Network"
+habit = "Resolve-DnsName example.com"
+canonical = 'network.resolve "example.com"'
+outcome = "corrected"
+
+[[entry]]
+id = "P29"
+topic = "Archives"
+habit = "Expand-Archive -Path C:\\Users\\user\\a.zip -DestinationPath C:\\Users\\user\\data"
+canonical = 'archive.extract "C:/Users/user/a.zip" into: "C:/Users/user/data"'
+outcome = "corrected"
+
+[[entry]]
+id = "P26"
+topic = "Other"
+habit = "Start-Sleep -Seconds 5"
+canonical = 'sleep 5s'
+outcome = "corrected"
+
+[[entry]]
+id = "P30"
+topic = "Other"
+habit = "Set-Location C:\\Users\\user\\app"
+canonical = 'run ["make"] cwd: "C:/Users/user/app"'
+outcome = "error"
+note = "there is no current directory; the fix passes the directory as cwd or base"
+
+[[entry]]
+id = "P42"
+topic = "Other"
+habit = "Invoke-Expression $command"
+canonical = 'run ["pwsh", "-Command", "Get-Date"] cwd: "C:/Users/user"'
+outcome = "error"
+note = "the language has no eval; the fix runs the program explicitly"

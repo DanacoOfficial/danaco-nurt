@@ -1,0 +1,44 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-045",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "strings.txt is encoded in UTF-16 LE with a byte order mark. Replace `Retry=Retry` with `Retry=Try again` and keep the encoding.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "strings.txt",
+        "type": "file",
+        "content_base64": "//5PAEsAPQBPAEsADQAKAEMAYQBuAGMAZQBsAD0AQwBhAG4AYwBlAGwADQAKAFIAZQB0AHIAeQA9AFIAZQB0AHIAeQANAAoA"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "strings.txt": {
+        "base64": "//5PAEsAPQBPAEsADQAKAEMAYQBuAGMAZQBsAD0AQwBhAG4AYwBlAGwADQAKAFIAZQB0AHIAeQA9AFQAcgB5ACAAYQBnAGEAaQBuAA0ACgA="
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"Retry=Retry\" \"Retry=Try again\" in: [\"strings.txt\"] mode: literal expect: 1",
+  "reference_pwsh": "$p = Join-Path $PWD 'strings.txt'; $t = [IO.File]::ReadAllText($p, [Text.Encoding]::Unicode); [IO.File]::WriteAllText($p, $t.Replace('Retry=Retry', 'Retry=Try again'), [Text.Encoding]::Unicode)\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "(Get-Content strings.txt) -replace 'Retry=Retry', 'Retry=Try again' | Set-Content strings.txt",
+      "defect": "rewrites the file as UTF-8"
+    }
+  ],
+  "tags": [
+    "encoding",
+    "utf-16"
+  ],
+  "license": "CC-BY-4.0"
+}

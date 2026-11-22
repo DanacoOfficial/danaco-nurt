@@ -1,0 +1,44 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-043",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "setup.inf is encoded in UTF-16 LE with a byte order mark. Replace `1.0.0.0` with `1.0.1.0` and keep the encoding.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "setup.inf",
+        "type": "file",
+        "content_base64": "//5bAFYAZQByAHMAaQBvAG4AXQANAAoAUwBpAGcAbgBhAHQAdQByAGUAPQAiACQAVwBpAG4AZABvAHcAcwAgAE4AVAAkACIADQAKAEQAcgBpAHYAZQByAFYAZQByAD0AMAAxAC8AMAAxAC8AMgAwADIANgAsADEALgAwAC4AMAAuADAADQAKAA=="
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "setup.inf": {
+        "base64": "//5bAFYAZQByAHMAaQBvAG4AXQANAAoAUwBpAGcAbgBhAHQAdQByAGUAPQAiACQAVwBpAG4AZABvAHcAcwAgAE4AVAAkACIADQAKAEQAcgBpAHYAZQByAFYAZQByAD0AMAAxAC8AMAAxAC8AMgAwADIANgAsADEALgAwAC4AMQAuADAADQAKAA=="
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"1.0.0.0\" \"1.0.1.0\" in: [\"setup.inf\"] mode: literal expect: 1",
+  "reference_pwsh": "$p = Join-Path $PWD 'setup.inf'; $t = [IO.File]::ReadAllText($p, [Text.Encoding]::Unicode); [IO.File]::WriteAllText($p, $t.Replace('1.0.0.0', '1.0.1.0'), [Text.Encoding]::Unicode)\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "(Get-Content setup.inf) -replace '1\\.0\\.0\\.0', '1.0.1.0' | Set-Content setup.inf",
+      "defect": "rewrites the file as UTF-8"
+    }
+  ],
+  "tags": [
+    "encoding",
+    "utf-16"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,53 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-059",
+  "domain": 1,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Find the source files that contain 'Customer'. Ignore node_modules/ and dist/. List relative paths.",
+  "fs_before": {
+    "fixture": "ts-webapp",
+    "overlay": [
+      {
+        "path": "dist/bundle.js",
+        "type": "file",
+        "content_utf8": "var x = 'Customer';\n"
+      },
+      {
+        "path": "node_modules/lib4/dist/customer.js",
+        "type": "file",
+        "content_utf8": "Customer\n"
+      },
+      {
+        "path": "node_modules/lib4/index.js",
+        "type": "file",
+        "content_utf8": "// uses Customer\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "src/api.ts",
+        "src/components/CustomerCard.tsx"
+      ],
+      "not_contains": [
+        "node_modules",
+        "dist/bundle.js"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"Customer\" \".\" mode: literal exclude: [\"node_modules/**\", \"dist/**\"] output: paths",
+  "reference_bash": "grep -rlF --exclude-dir=node_modules --exclude-dir=dist -- 'Customer' . | sort\n",
+  "reference_pwsh": "Get-ChildItem -Recurse -File | Where-Object { $_.FullName -notmatch '[\\\\/](node_modules|dist)[\\\\/]' } | Select-String -SimpleMatch 'Customer' -List | ForEach-Object { (Resolve-Path -Relative $_.Path) -replace '\\\\', '/' }\n",
+  "tags": [
+    "exclude",
+    "grep"
+  ],
+  "license": "CC-BY-4.0"
+}

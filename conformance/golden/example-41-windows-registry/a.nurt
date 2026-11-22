@@ -1,0 +1,2 @@
+write "registry:/HKCU/Software/Example/Mode" 3 value_type: dword mode: overwrite
+read "registry:/HKCU/Software/Example/Mode"

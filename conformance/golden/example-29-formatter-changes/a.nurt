@@ -1,0 +1,1 @@
+run ["gofmt", "-w", "."] cwd: "/srv/app" watch: ["/srv/app"]

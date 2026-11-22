@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-056",
+  "domain": 4,
+  "split": "public",
+  "platform": "windows",
+  "nl": "How many events in events.jsonl come from the service worker? Answer with the number.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "events.jsonl",
+        "type": "file",
+        "content_utf8": "{\"ts\": \"t01\", \"level\": \"info\", \"service\": \"api\", \"ms\": 12}\r\n{\"ts\": \"t02\", \"level\": \"error\", \"service\": \"api\", \"ms\": 900}\r\n{\"ts\": \"t03\", \"level\": \"warn\", \"service\": \"worker\", \"ms\": 450}\r\n{\"ts\": \"t04\", \"level\": \"error\", \"service\": \"worker\", \"ms\": 30}\r\n{\"ts\": \"t05\", \"level\": \"info\", \"service\": \"api\", \"ms\": 8}\r\n{\"ts\": \"t06\", \"level\": \"error\", \"service\": \"api\", \"ms\": 1500}\r\n{\"ts\": \"t07\", \"level\": \"info\", \"service\": \"worker\", \"ms\": 61}\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "regex": [
+        "(?<![\\d.])3(?![\\d.])"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"events.jsonl\" format: jsonl |> filter service == \"worker\" |> count",
+  "reference_pwsh": "(Get-Content events.jsonl | ForEach-Object { $_ | ConvertFrom-Json } | Where-Object { $_.service -eq 'worker' }).Count\n",
+  "tags": [
+    "count",
+    "jsonl"
+  ],
+  "license": "CC-BY-4.0"
+}

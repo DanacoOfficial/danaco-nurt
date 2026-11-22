@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-043",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove the unused import from tools/export.py. The other imports are used and stay.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/export.py",
+        "type": "file",
+        "content_utf8": "import csv\nimport io\nimport logging\n\n\ndef render(rows):\n    buf = io.StringIO()\n    csv.writer(buf).writerows(rows)\n    return buf.getvalue()\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "tools/export.py": {
+        "text": "import csv\nimport io\n\n\ndef render(rows):\n    buf = io.StringIO()\n    csv.writer(buf).writerows(rows)\n    return buf.getvalue()\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.actions \"tools/export.py\" |> filter kind == \"remove_unused_import\" |> apply",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('tools/export.py'); t = p.read_bytes().decode()\nassert t.count('import logging\\n') == 1, 'tools/export.py'\np.write_bytes(t.replace('import logging\\n', '').encode())\nEOF\n",
+  "tags": [
+    "imports",
+    "python"
+  ],
+  "license": "CC-BY-4.0"
+}

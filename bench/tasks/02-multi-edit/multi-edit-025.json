@@ -1,0 +1,63 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-025",
+  "domain": 2,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Every .ps1 script under scripts/ (recursively) must start with the line '#Requires -Version 7.0'. Add it as the first line where it is missing (tool4.ps1 is one of the scripts).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "scripts/build.ps1",
+        "type": "file",
+        "content_utf8": "Write-Output 'build'\r\n"
+      },
+      {
+        "path": "scripts/lib/util.ps1",
+        "type": "file",
+        "content_utf8": "function Get-Root { $PSScriptRoot }\r\n"
+      },
+      {
+        "path": "scripts/readme.txt",
+        "type": "file",
+        "content_utf8": "Scripts\r\n"
+      },
+      {
+        "path": "scripts/test.ps1",
+        "type": "file",
+        "content_utf8": "#Requires -Version 7.0\r\nInvoke-Pester\r\n"
+      },
+      {
+        "path": "scripts/tool4.ps1",
+        "type": "file",
+        "content_utf8": "param([int]$Count = 1)\r\n$Count\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "scripts/build.ps1": {
+        "text": "#Requires -Version 7.0\r\nWrite-Output 'build'\r\n"
+      },
+      "scripts/lib/util.ps1": {
+        "text": "#Requires -Version 7.0\r\nfunction Get-Root { $PSScriptRoot }\r\n"
+      },
+      "scripts/tool4.ps1": {
+        "text": "#Requires -Version 7.0\r\nparam([int]$Count = 1)\r\n$Count\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"scripts\" glob: \"**/*.ps1\" |> filter not (read first: 1) == \"#Requires -Version 7.0\" |> insert \"#Requires -Version 7.0\" line: 1 position: before",
+  "reference_pwsh": "Get-ChildItem scripts -Recurse -File -Filter '*.ps1' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  if (-not $t.StartsWith('#Requires -Version 7.0')) { [IO.File]::WriteAllText($_.FullName, \"#Requires -Version 7.0`r`n\" + $t) }\n}\n",
+  "tags": [
+    "insert-line",
+    "powershell"
+  ],
+  "license": "CC-BY-4.0"
+}

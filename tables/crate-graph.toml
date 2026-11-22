@@ -321,7 +321,6 @@ deps = ["nurt-contracts", "nurt-types"]
 [crate.nurt-tooldef]
 layer = "component"
 area = "integration"
-reserved = true
 summary = "Tool definitions in the formats of integration platforms."
 deps = ["nurt-contracts", "nurt-catalog"]
 
@@ -398,7 +397,6 @@ deps = [
 [crate.nurt]
 layer = "interface"
 area = "integration"
-reserved = true
 summary = "Published facade of the program and the library."
 deps = ["nurt-contracts", "nurt-core", "nurt-cli"]
 
@@ -417,6 +415,5 @@ deps = ["nurt-contracts", "nurt-testkit", "nurt-core"]
 [crate.nurt-docgen]
 layer = "tool"
 area = "integration"
-reserved = true
 summary = "Generator of the documentation site and manual pages."
 deps = ["nurt-contracts", "nurt-catalog", "nurt-help"]

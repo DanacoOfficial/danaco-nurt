@@ -1,0 +1,42 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-040",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Run tools/slow.py quick with a time limit of 3 seconds (job 4). If it ends in time, write the word finished to status.txt; otherwise stop it and write the word timeout.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/slow.py",
+        "type": "file",
+        "content_utf8": "import pathlib\r\nimport sys\r\nimport time\r\n\r\ndelay = {\"quick\": 0.2, \"slow\": 60}[sys.argv[1]]\r\ntime.sleep(delay)\r\npathlib.Path(\"out\").mkdir(exist_ok=True)\r\npathlib.Path(\"out/result.txt\").write_text(\"done\\n\")\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "status.txt": {
+        "lines": [
+          "finished"
+        ]
+      },
+      "out/result.txt": {
+        "text": "done\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 60
+  },
+  "oracle_program": "run [\"python3\", \"tools/slow.py\", \"quick\"] timeout: 3s |> select status |> write \"status.txt\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\n$p = Start-Process $py -ArgumentList 'tools/slow.py','quick' -PassThru -NoNewWindow\n$r = if ($p.WaitForExit(3000)) { 'finished' } else { $p.Kill(); 'timeout' }\nSet-Content status.txt $r\n",
+  "tags": [
+    "run",
+    "timeout"
+  ],
+  "license": "CC-BY-4.0"
+}

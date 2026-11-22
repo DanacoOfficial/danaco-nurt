@@ -1,0 +1,1403 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/safety/journal/undo-file",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Undo of one file restores only that file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"a\" \"A\" in: [\"a.txt\", \"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "undo file: \"a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "brAvo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/undo-paths",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Undo of selected paths of one operation restores those paths.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove [\"a.txt\", \"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} paths: [\"b.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/undo-to",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Undo to an operation reverts every later operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "undo to: ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              },
+              {
+                "path": "x.txt",
+                "type": "file",
+                "content_utf8": "x\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/conflict-report",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Undo after a later change of the same file reports the conflict and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_CONFLICT"
+              }
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nBETA\nlater\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/conflict-force",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Undo with force restores the content despite a later change.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: force",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/conflict-include-later",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Undo with include_later also undoes the later change.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: include_later",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/conflict-abort",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Undo with abort changes nothing on a conflict.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"later\\n\" mode: append",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op} on_conflict: abort",
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nBETA\nlater\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/redo-invalidated",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Redo after a later change of the same file reports the conflict.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "write \"a.txt\" \"x\\n\" mode: overwrite",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "redo ${step2/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_CONFLICT"
+              }
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "x\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/undo-nothing",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Undo without operations reports that there is nothing to undo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/undo-unknown-operation",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "Undo of an unknown operation changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "undo 999999",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/history-lists-operations",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "History lists the operations, newest first.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "history limit: 2",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "history",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "kind": {
+                        "t": "text",
+                        "v": "remove"
+                      }
+                    }
+                  },
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "kind": {
+                        "t": "text",
+                        "v": "write"
+                      }
+                    }
+                  }
+                ],
+                "matched": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/history-state-undone",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "History shows an undone operation as undone.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "undo",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "history ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "rows": [
+                  {
+                    "kind": "operation",
+                    "fields": {
+                      "state": {
+                        "t": "enum",
+                        "v": "undone"
+                      }
+                    }
+                  }
+                ],
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/history-of-path",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "History of one path lists only the operations that touched it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "write \"x.txt\" \"x\\n\" mode: create",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "remove \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "program": "history path: \"b.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "records": {
+                "type": "operation",
+                "matched": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "parity/safety/journal/report-has-no-expiry",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "The report of a change carries the operation number and no expiry.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "program": "remove \"b.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "op": "<volatile>"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/safety/journal/edited-then-undone-twice",
+      "kind": "parity",
+      "class": "optional:journal",
+      "summary": "A second undo of the same operation reports nothing to undo.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          },
+          {
+            "path": "dir/c.txt",
+            "type": "file",
+            "content_utf8": "charlie\n"
+          },
+          {
+            "path": "dir/sub/d.txt",
+            "type": "file",
+            "content_utf8": "delta\n"
+          },
+          {
+            "path": "c.json",
+            "type": "file",
+            "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+          },
+          {
+            "path": "w.txt",
+            "type": "file",
+            "content_utf8": "one\r\ntwo\r\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "replace \"beta\" \"BETA\" in: [\"a.txt\"]",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nBETA\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "failed",
+              "error": {
+                "code": "E_JOURNAL_NOOP"
+              }
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "dir/c.txt",
+                "type": "file",
+                "content_utf8": "charlie\n"
+              },
+              {
+                "path": "dir/sub/d.txt",
+                "type": "file",
+                "content_utf8": "delta\n"
+              },
+              {
+                "path": "c.json",
+                "type": "file",
+                "content_utf8": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\"\n}\n"
+              },
+              {
+                "path": "w.txt",
+                "type": "file",
+                "content_utf8": "one\r\ntwo\r\n"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

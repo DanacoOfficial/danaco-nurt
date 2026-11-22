@@ -1,0 +1,65 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-056",
+  "domain": 5,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Rename the exported TypeScript interface Customer to Buyer in all .ts and .tsx files under src/. Identifiers that only contain the name as part of a longer word stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "package.json",
+        "type": "file",
+        "content_utf8": "{\r\n  \"name\": \"webapp\",\r\n  \"version\": \"2.3.0\",\r\n  \"private\": true,\r\n  \"scripts\": {\r\n    \"build\": \"tsc -p .\",\r\n    \"test\": \"vitest run\"\r\n  },\r\n  \"dependencies\": {\r\n    \"preact\": \"^10.22.0\"\r\n  },\r\n  \"devDependencies\": {\r\n    \"typescript\": \"^5.5.0\",\r\n    \"vitest\": \"^2.0.0\"\r\n  }\r\n}\r\n"
+      },
+      {
+        "path": "src/api.ts",
+        "type": "file",
+        "content_utf8": "const BASE_URL = \"https://api.example.com/v1\";\r\n\r\nexport async function fetchOrders(): Promise<Order[]> {\r\n  console.log(\"fetching orders\");\r\n  const response = await fetch(`${BASE_URL}/orders`);\r\n  return response.json();\r\n}\r\n\r\nexport async function fetchCustomer(id: number): Promise<Customer> {\r\n  const response = await fetch(`${BASE_URL}/customers/${id}`);\r\n  return response.json();\r\n}\r\n\r\nexport interface Order {\r\n  id: number;\r\n  customerId: number;\r\n  total: number;\r\n}\r\n\r\nexport interface Customer {\r\n  id: number;\r\n  name: string;\r\n}\r\n"
+      },
+      {
+        "path": "src/components/CustomerCard.tsx",
+        "type": "file",
+        "content_utf8": "import { Customer } from \"../api\";\r\n\r\nexport function CustomerCard({ customer }: { customer: Customer }) {\r\n  return <div class=\"card\">{customer.name}</div>;\r\n}\r\n"
+      },
+      {
+        "path": "src/components/OrderList.tsx",
+        "type": "file",
+        "content_utf8": "import { fetchOrders, Order } from \"../api\";\r\nimport { formatPrice } from \"../format\";\r\n\r\nexport function OrderList({ orders }: { orders: Order[] }) {\r\n  console.log(\"rendering\", orders.length);\r\n  return (\r\n    <ul>\r\n      {orders.map((order) => (\r\n        <li key={order.id}>{formatPrice(order.total)}</li>\r\n      ))}\r\n    </ul>\r\n  );\r\n}\r\n\r\nexport { fetchOrders };\r\n"
+      },
+      {
+        "path": "src/format.ts",
+        "type": "file",
+        "content_utf8": "export function formatPrice(value: number): string {\r\n  return value.toFixed(2) + \" EUR\";\r\n}\r\n\r\nexport function formatDate(value: Date): string {\r\n  console.log(\"formatting\", value);\r\n  return value.toISOString().slice(0, 10);\r\n}\r\n"
+      },
+      {
+        "path": "tsconfig.json",
+        "type": "file",
+        "content_utf8": "{\r\n  \"compilerOptions\": {\r\n    \"target\": \"ES2022\",\r\n    \"module\": \"ESNext\",\r\n    \"strict\": true,\r\n    \"jsx\": \"react-jsx\",\r\n    \"jsxImportSource\": \"preact\"\r\n  },\r\n  \"include\": [\"src\"]\r\n}\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "src/api.ts": {
+        "text": "const BASE_URL = \"https://api.example.com/v1\";\r\n\r\nexport async function fetchOrders(): Promise<Order[]> {\r\n  console.log(\"fetching orders\");\r\n  const response = await fetch(`${BASE_URL}/orders`);\r\n  return response.json();\r\n}\r\n\r\nexport async function fetchCustomer(id: number): Promise<Buyer> {\r\n  const response = await fetch(`${BASE_URL}/customers/${id}`);\r\n  return response.json();\r\n}\r\n\r\nexport interface Order {\r\n  id: number;\r\n  customerId: number;\r\n  total: number;\r\n}\r\n\r\nexport interface Buyer {\r\n  id: number;\r\n  name: string;\r\n}\r\n"
+      },
+      "src/components/CustomerCard.tsx": {
+        "text": "import { Buyer } from \"../api\";\r\n\r\nexport function CustomerCard({ customer }: { customer: Buyer }) {\r\n  return <div class=\"card\">{customer.name}</div>;\r\n}\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.rename \"Buyer\" path: \"src/api.ts\" symbol: \"Customer\" paths: [\"src\"]",
+  "reference_pwsh": "Get-ChildItem src -Recurse -File -Include '*.ts','*.tsx' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t -creplace '\\bCustomer\\b', 'Buyer'\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "tags": [
+    "rename",
+    "typescript"
+  ],
+  "license": "CC-BY-4.0"
+}

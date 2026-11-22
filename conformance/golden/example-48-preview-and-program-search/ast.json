@@ -1,0 +1,156 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/build",
+                "span": [
+                  1,
+                  6,
+                  1,
+                  22
+                ]
+              },
+              "span": [
+                1,
+                6,
+                1,
+                22
+              ]
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "text",
+                "v": "**/*.o",
+                "span": [
+                  1,
+                  29,
+                  1,
+                  37
+                ]
+              },
+              "span": [
+                1,
+                23,
+                1,
+                37
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            37
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "remove",
+            "args": [],
+            "span": [
+              1,
+              41,
+              1,
+              47
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          47
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "program.search",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "ocr pdf",
+                "span": [
+                  2,
+                  16,
+                  2,
+                  25
+                ]
+              },
+              "span": [
+                2,
+                16,
+                2,
+                25
+              ]
+            },
+            {
+              "name": "kind",
+              "value": {
+                "t": "ident",
+                "v": "programs",
+                "span": [
+                  2,
+                  32,
+                  2,
+                  40
+                ]
+              },
+              "span": [
+                2,
+                26,
+                2,
+                40
+              ]
+            },
+            {
+              "name": "limit",
+              "value": {
+                "t": "int",
+                "v": 3,
+                "span": [
+                  2,
+                  48,
+                  2,
+                  49
+                ]
+              },
+              "span": [
+                2,
+                41,
+                2,
+                49
+              ]
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            49
+          ]
+        },
+        "stages": [],
+        "span": [
+          2,
+          1,
+          2,
+          49
+        ]
+      }
+    ]
+  }
+}

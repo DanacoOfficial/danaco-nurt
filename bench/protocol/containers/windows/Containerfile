@@ -1,0 +1,31 @@
+# escape=`
+# Image of the Windows tasks of nurt-bench: PowerShell 7, Python for the
+# oracle, Git, and the executables under test. Build context: a directory
+# holding the release executables `nurt.exe` and `nurt-bench.exe` for
+# x86_64-pc-windows-msvc and the directory `bench\`.
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop';"]
+
+ARG PWSH_VERSION=7.4.6
+ARG PYTHON_VERSION=3.12.7
+ARG GIT_VERSION=2.47.0
+
+RUN Invoke-WebRequest -Uri "https://github.com/PowerShell/PowerShell/releases/download/v$env:PWSH_VERSION/PowerShell-$env:PWSH_VERSION-win-x64.msi" -OutFile pwsh.msi; `
+    Start-Process msiexec.exe -Wait -ArgumentList '/i', 'pwsh.msi', '/quiet', 'ADD_PATH=1'; `
+    Remove-Item pwsh.msi
+
+RUN Invoke-WebRequest -Uri "https://www.python.org/ftp/python/$env:PYTHON_VERSION/python-$env:PYTHON_VERSION-amd64.exe" -OutFile python.exe; `
+    Start-Process python.exe -Wait -ArgumentList '/quiet', 'InstallAllUsers=1', 'PrependPath=1'; `
+    Remove-Item python.exe
+
+RUN Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download/v$env:GIT_VERSION.windows.1/MinGit-$env:GIT_VERSION-64-bit.zip" -OutFile git.zip; `
+    Expand-Archive git.zip -DestinationPath C:\MinGit; `
+    Remove-Item git.zip; `
+    [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\MinGit\cmd', 'Machine')
+
+COPY nurt.exe nurt-bench.exe ["C:/Program Files/Danaco Nurt/"]
+COPY bench C:/nurt-bench/bench
+
+WORKDIR C:/nurt-bench
+ENTRYPOINT ["C:/Program Files/Danaco Nurt/nurt-bench.exe"]

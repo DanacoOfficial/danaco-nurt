@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-020",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove all DEBUG lines from app.log. Keep all other lines in their order.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "app.log",
+        "type": "file",
+        "content_utf8": "10:00 INFO start\n10:01 DEBUG cache warm\n10:02 INFO ready\n10:03 DEBUG gc\n10:04 WARN slow\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "app.log": {
+        "text": "10:00 INFO start\n10:02 INFO ready\n10:04 WARN slow\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "lines \"app.log\" |> filter text ~ \"DEBUG\" |> remove",
+  "reference_bash": "sed -i '/DEBUG/d' app.log\n",
+  "tags": [
+    "delete-lines"
+  ],
+  "license": "CC-BY-4.0"
+}

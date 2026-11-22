@@ -1,0 +1,154 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "cat-1",
+  "corr_rev": "corr-1",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "write",
+          "effect": "local",
+          "phase": "mutate",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/srv/app/.gitignore"
+              }
+            },
+            {
+              "name": "text",
+              "value": {
+                "t": "text",
+                "v": "node_modules/\n"
+              }
+            },
+            {
+              "name": "mode",
+              "value": {
+                "t": "enum",
+                "v": "append"
+              }
+            },
+            {
+              "name": "from",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "t": "text",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "line_ending",
+              "value": {
+                "t": "enum",
+                "v": "keep"
+              },
+              "default": true
+            },
+            {
+              "name": "bom",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "parents",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "ensure_newline",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "format",
+              "value": {
+                "t": "enum",
+                "v": "auto"
+              },
+              "default": true
+            },
+            {
+              "name": "files",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "value_type",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "file_mode",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "size",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "data",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "offset",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "validate",
+              "value": {
+                "t": "enum",
+                "v": "reject"
+              },
+              "default": true
+            },
+            {
+              "name": "if_match",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}

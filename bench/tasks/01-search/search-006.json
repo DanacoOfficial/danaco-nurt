@@ -1,0 +1,67 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-006",
+  "domain": 1,
+  "split": "public",
+  "platform": "windows",
+  "nl": "List the relative paths of all files with the extension .xml anywhere in the current tree.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "build/pom.xml",
+        "type": "file",
+        "content_utf8": "<project/>\r\n"
+      },
+      {
+        "path": "conf/app.xml",
+        "type": "file",
+        "content_utf8": "<app/>\r\n"
+      },
+      {
+        "path": "conf/logging/log4net.xml",
+        "type": "file",
+        "content_utf8": "<log4net/>\r\n"
+      },
+      {
+        "path": "conf/old/app.xml.orig",
+        "type": "file",
+        "content_utf8": "<app/>\r\n"
+      },
+      {
+        "path": "conf/readme.txt",
+        "type": "file",
+        "content_utf8": "xml files\r\n"
+      },
+      {
+        "path": "src/Data.xsd",
+        "type": "file",
+        "content_utf8": "<schema/>\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "build/pom.xml",
+        "conf/app.xml",
+        "conf/logging/log4net.xml"
+      ],
+      "not_contains": [
+        "app.xml.orig"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \".\" glob: \"**/*.xml\" type: file",
+  "reference_pwsh": "Get-ChildItem -Recurse -File | Where-Object Extension -eq '.xml' | ForEach-Object { (Resolve-Path -Relative $_.FullName) -replace '\\\\', '/' }\n",
+  "tags": [
+    "find",
+    "glob"
+  ],
+  "license": "CC-BY-4.0"
+}

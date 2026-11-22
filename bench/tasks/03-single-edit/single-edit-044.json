@@ -1,0 +1,44 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-044",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "export.reg is encoded in UTF-16 LE with a byte order mark. Replace `dword:00000064` with `dword:0000007d` and keep the encoding.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "export.reg",
+        "type": "file",
+        "content_base64": "//5XAGkAbgBkAG8AdwBzACAAUgBlAGcAaQBzAHQAcgB5ACAARQBkAGkAdABvAHIAIABWAGUAcgBzAGkAbwBuACAANQAuADAAMAANAAoADQAKAFsASABLAEUAWQBfAEMAVQBSAFIARQBOAFQAXwBVAFMARQBSAFwAUwBvAGYAdAB3AGEAcgBlAFwATgB1AHIAdABCAGUAbgBjAGgAXABWAGkAZQB3AGUAcgBdAA0ACgAiAFoAbwBvAG0AIgA9AGQAdwBvAHIAZAA6ADAAMAAwADAAMAAwADYANAANAAoA"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "export.reg": {
+        "base64": "//5XAGkAbgBkAG8AdwBzACAAUgBlAGcAaQBzAHQAcgB5ACAARQBkAGkAdABvAHIAIABWAGUAcgBzAGkAbwBuACAANQAuADAAMAANAAoADQAKAFsASABLAEUAWQBfAEMAVQBSAFIARQBOAFQAXwBVAFMARQBSAFwAUwBvAGYAdAB3AGEAcgBlAFwATgB1AHIAdABCAGUAbgBjAGgAXABWAGkAZQB3AGUAcgBdAA0ACgAiAFoAbwBvAG0AIgA9AGQAdwBvAHIAZAA6ADAAMAAwADAAMAAwADcAZAANAAoA"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"dword:00000064\" \"dword:0000007d\" in: [\"export.reg\"] mode: literal expect: 1",
+  "reference_pwsh": "$p = Join-Path $PWD 'export.reg'; $t = [IO.File]::ReadAllText($p, [Text.Encoding]::Unicode); [IO.File]::WriteAllText($p, $t.Replace('dword:00000064', 'dword:0000007d'), [Text.Encoding]::Unicode)\n",
+  "negatives": [
+    {
+      "shell": "pwsh",
+      "script": "(Get-Content export.reg) -replace 'dword:00000064', 'dword:0000007d' | Set-Content export.reg",
+      "defect": "rewrites the file as UTF-8"
+    }
+  ],
+  "tags": [
+    "encoding",
+    "utf-16"
+  ],
+  "license": "CC-BY-4.0"
+}

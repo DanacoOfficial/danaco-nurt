@@ -1,0 +1,131 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "bind/defaults/omitted-parameter-is-explicit"
+kind = "bind"
+summary = "A parameter that was not written appears in the bound tree with its default and the mark default."
+method = "check"
+program = 'find "src"'
+expect_at = "/bound/program/statements/0/head/args/1"
+expect = { name = "glob", default = true }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/defaults/written-parameter-is-not-default"
+kind = "bind"
+summary = "A parameter written by name is bound without the mark default."
+method = "check"
+program = 'find "src" glob: "*.go"'
+expect_at = "/bound/program/statements/0/head/args/1"
+expect = { name = "glob", value = { t = "glob", v = "*.go" } }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/defaults/effect-and-phase-come-from-the-catalog"
+kind = "bind"
+summary = "The head of a reading program has the effect read and the phase source."
+method = "check"
+program = 'find "src"'
+expect_at = "/bound/program/statements/0/head"
+expect = { name = "find", effect = "read", phase = "source" }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/expansion/short-remove"
+kind = "bind"
+summary = "The short form of remove binds to a find of depth 0 followed by remove."
+method = "check"
+program = 'remove "old.log"'
+fs_before = { entries = [{ path = "old.log", type = "file", content_utf8 = "x" }] }
+expect_at = "/bound/program/statements/0"
+expect = { head = { name = "find" }, stages = [{ name = "remove", phase = "mutate", effect = "local" }] }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/phases/stage-after-the-effect"
+kind = "bind"
+summary = "A count after a change is bound in the phase after."
+method = "check"
+program = 'find "." glob: "*.tmp" |> remove |> count'
+fs_before = { entries = [{ path = "a.tmp", type = "file", content_utf8 = "" }] }
+expect_at = "/bound/program/statements/0/stages/1"
+expect = { name = "count", phase = "after", effect = "read" }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/phases/assert-before-the-effect"
+kind = "bind"
+summary = "An assertion before a change is bound in the phase check."
+method = "check"
+program = 'find "." glob: "*.tmp" |> assert count: 1 |> remove'
+fs_before = { entries = [{ path = "a.tmp", type = "file", content_utf8 = "" }] }
+expect_at = "/bound/program/statements/0/stages/0"
+expect = { name = "assert", phase = "check", effect = "read" }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/phases/verify-is-last"
+kind = "bind"
+summary = "Verify is bound as the last stage in the phase verify."
+method = "check"
+program = 'replace "old" "new" in: ["a.txt"] |> verify (find "." glob: "*.txt" |> assert count: 1)'
+fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "old\n" }] }
+expect_at = "/bound/program/statements/0/stages/1"
+expect = { name = "verify", phase = "verify" }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/one-effect/two-changes"
+kind = "bind"
+code = "E_ONE_EFFECT"
+summary = "Two changing stages are rejected by check with next steps."
+method = "check"
+program = 'find "." glob: "*.tmp" |> remove |> remove'
+fs_before = { entries = [{ path = "a.tmp", type = "file", content_utf8 = "" }] }
+expect = { error = { code = "E_ONE_EFFECT" } }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/one-effect/transform-after-the-effect"
+kind = "bind"
+code = "E_ONE_EFFECT"
+summary = "A transformation that is not allowed after the effect is rejected."
+method = "check"
+program = 'find "." glob: "*.tmp" |> remove |> lines'
+fs_before = { entries = [{ path = "a.tmp", type = "file", content_utf8 = "" }] }
+expect = { error = { code = "E_ONE_EFFECT" } }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/check/no-effect-of-a-change"
+kind = "bind"
+summary = "Check of a removing program returns the bound tree and leaves the directory unchanged."
+method = "check"
+program = 'find "." glob: "*.tmp" |> remove'
+fs_before = { entries = [{ path = "a.tmp", type = "file", content_utf8 = "" }, { path = "keep.txt", type = "file", content_utf8 = "k" }] }
+expect_at = "/bound/program/statements/0/stages/0"
+expect = { name = "remove", phase = "mutate" }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/check/no-effect-of-a-write"
+kind = "bind"
+summary = "Check of a write creates no file."
+method = "check"
+program = 'write "new.txt" "x" mode: create'
+expect_at = "/bound/program/statements/0/head"
+expect = { name = "write", phase = "mutate" }
+fs_after = "unchanged"
+
+[[case]]
+id = "bind/check/ast-hash-of-the-bound-tree"
+kind = "bind"
+summary = "Check reports ast_hash of the bound tree."
+method = "check"
+program = 'find "src" glob: "*.go"'
+expect = { ast_hash = "<volatile>" }
+volatile = ["/ast_hash"]
+fs_after = "unchanged"

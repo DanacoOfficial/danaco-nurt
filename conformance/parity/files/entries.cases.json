@@ -1,0 +1,1114 @@
+{
+  "format": "nurt-conformance-cases/1",
+  "case": [
+    {
+      "id": "parity/files/entries/remove-file",
+      "kind": "parity",
+      "summary": "Removes a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "remove \"a.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "remove",
+          "summary": {
+            "files_deleted": 1
+          },
+          "changes": [
+            {
+              "path": "${base}/a.txt",
+              "action": "delete"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/remove-tree",
+      "kind": "parity",
+      "summary": "Removes a directory tree as one target.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "remove \"dir\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "delete_tree"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/remove-several",
+      "kind": "parity",
+      "summary": "Removes several paths in one operation.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "remove [\"a.txt\", \"keep.txt\"]",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "summary": {
+            "files_deleted": 2
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/remove-missing-skip",
+      "kind": "parity",
+      "summary": "Removing a missing path succeeds and changes nothing by default.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "remove \"absent.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/entries/remove-missing-error",
+      "kind": "parity",
+      "summary": "Removing a missing path fails when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "remove \"absent.txt\" on_missing: error",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_NOT_FOUND"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/entries/remove-found",
+      "kind": "parity",
+      "summary": "Removes the files found by find.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "find \"dir\" glob: \"**/*.txt\" |> remove",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "summary": {
+            "files_deleted": 2
+          }
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          },
+          {
+            "path": "dir/sub",
+            "type": "dir"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/remove-path-with-space",
+      "kind": "parity",
+      "summary": "Removes a path with a space.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "my file.txt",
+            "type": "file",
+            "content_utf8": "x\n"
+          }
+        ]
+      },
+      "program": "remove \"my file.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": []
+      }
+    },
+    {
+      "id": "parity/files/entries/remove-preview",
+      "kind": "parity",
+      "summary": "A preview of a removal lists the targets and changes nothing.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "remove \"dir\"",
+      "options": {
+        "preview": true
+      },
+      "expect": {
+        "report": {
+          "status": "planned",
+          "kind": "remove"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/entries/move-file",
+      "kind": "parity",
+      "summary": "Moves a file to a new path.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "move \"a.txt\" to: \"moved.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "move"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          },
+          {
+            "path": "moved.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/move-into",
+      "kind": "parity",
+      "summary": "Moves a file into a directory.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "move \"a.txt\" into: \"dir\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          },
+          {
+            "path": "dir/a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/move-conflict-error",
+      "kind": "parity",
+      "summary": "Moving onto an existing file fails when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "move \"a.txt\" to: \"keep.txt\" on_conflict: error",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_EXISTS"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/entries/move-conflict-overwrite",
+      "kind": "parity",
+      "summary": "Moving onto an existing file replaces it by default.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "move \"a.txt\" to: \"keep.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "notable": [
+            {
+              "code": "overwrote_existing"
+            }
+          ]
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/move-found",
+      "kind": "parity",
+      "summary": "Moves the files found by find into a directory.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "in/a.log",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "in/b.log",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "in/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "arch",
+            "type": "dir"
+          }
+        ]
+      },
+      "program": "find \"in\" glob: \"*.log\" depth: 1 |> move into: \"arch\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "in/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "arch/a.log",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "arch/b.log",
+            "type": "file",
+            "content_utf8": "b\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/copy-file",
+      "kind": "parity",
+      "summary": "Copies a file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "copy \"a.txt\" to: \"copy.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "copy"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          },
+          {
+            "path": "copy.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/copy-tree",
+      "kind": "parity",
+      "summary": "Copies a directory tree.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "copy \"dir\" to: \"dir2\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          },
+          {
+            "path": "dir2/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir2/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/copy-conflict-skip",
+      "kind": "parity",
+      "summary": "Copying onto an existing file leaves it when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "copy \"a.txt\" to: \"keep.txt\" on_conflict: skip",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/entries/rename-file",
+      "kind": "parity",
+      "summary": "Renames a file in its directory.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "rename path: \"a.txt\" to: \"z.txt\"",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "rename"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          },
+          {
+            "path": "z.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/rename-pattern",
+      "kind": "parity",
+      "summary": "Renames found entries by a pattern.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "x.log",
+            "type": "file",
+            "content_utf8": "1"
+          },
+          {
+            "path": "y.log",
+            "type": "file",
+            "content_utf8": "2"
+          }
+        ]
+      },
+      "program": "find \".\" glob: \"*.log\" depth: 1 |> rename /\\.log$/ \".txt\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "x.txt",
+            "type": "file",
+            "content_utf8": "1"
+          },
+          {
+            "path": "y.txt",
+            "type": "file",
+            "content_utf8": "2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/create-directory",
+      "kind": "parity",
+      "summary": "Creates a directory with its parents.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "create \"out/logs\" type: directory",
+      "expect": {
+        "report": {
+          "status": "ok",
+          "kind": "create"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          },
+          {
+            "path": "out/logs",
+            "type": "dir"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parity/files/entries/create-file-exists-touch",
+      "kind": "parity",
+      "summary": "Creating an existing file with touch keeps its content.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "create \"a.txt\" type: file on_exists: touch",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/entries/create-file-exists-error",
+      "kind": "parity",
+      "summary": "Creating an existing file fails when asked.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "create \"a.txt\" type: file on_exists: error",
+      "expect": {
+        "report": {
+          "status": "failed",
+          "error": {
+            "code": "E_EXISTS"
+          }
+        }
+      },
+      "fs_after": "unchanged"
+    },
+    {
+      "id": "parity/files/entries/create-link",
+      "kind": "parity",
+      "requires": [
+        "os:unix"
+      ],
+      "summary": "Creates a symbolic link.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          }
+        ]
+      },
+      "program": "create \"l\" type: link target: \"dir\"",
+      "expect": {
+        "report": {
+          "status": "ok"
+        }
+      },
+      "fs_after": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "a\n"
+          },
+          {
+            "path": "dir/b.txt",
+            "type": "file",
+            "content_utf8": "b\n"
+          },
+          {
+            "path": "dir/sub/c.txt",
+            "type": "file",
+            "content_utf8": "c\n"
+          },
+          {
+            "path": "keep.txt",
+            "type": "file",
+            "content_utf8": "k\n"
+          },
+          {
+            "path": "l",
+            "type": "symlink",
+            "target": "dir"
+          }
+        ]
+      }
+    }
+  ]
+}

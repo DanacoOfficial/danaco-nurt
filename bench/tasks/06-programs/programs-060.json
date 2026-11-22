@@ -1,0 +1,54 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "programs-060",
+  "domain": 6,
+  "split": "public",
+  "platform": "windows",
+  "nl": "tools/count.py counts the lines of data.txt in its working directory. Run it with data/2026 as working directory and save its output to data/2026/count.txt.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "data.txt",
+        "type": "file",
+        "content_utf8": "top\r\n"
+      },
+      {
+        "path": "data/2026/data.txt",
+        "type": "file",
+        "content_utf8": "row 0\r\nrow 1\r\nrow 2\r\nrow 3\r\nrow 4\r\nrow 5\r\n"
+      },
+      {
+        "path": "data/2027/data.txt",
+        "type": "file",
+        "content_utf8": "x\r\n"
+      },
+      {
+        "path": "tools/count.py",
+        "type": "file",
+        "content_utf8": "import pathlib\r\n\r\nrows = pathlib.Path(\"data.txt\").read_text().splitlines()\r\nprint(f\"{len(rows)} rows\")\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "data/2026/count.txt": {
+        "lines": [
+          "6 rows"
+        ]
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "run [\"python3\", \"../../tools/count.py\"] cwd: \"data/2026\" save_to: \"data/2026/count.txt\"",
+  "reference_pwsh": "$py = if ($IsWindows) { 'python' } else { 'python3' }\nPush-Location data/2026; try { & $py ../../tools/count.py | Set-Content count.txt } finally { Pop-Location }\n",
+  "tags": [
+    "run",
+    "working-directory"
+  ],
+  "license": "CC-BY-4.0"
+}

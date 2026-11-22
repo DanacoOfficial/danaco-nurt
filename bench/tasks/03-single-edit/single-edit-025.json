@@ -1,0 +1,36 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-025",
+  "domain": 3,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Add the line `*.tmp` at the end of .gitignore (the file is ending with a line break). The new entry must be on a line of its own.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": ".gitignore",
+        "type": "file",
+        "content_utf8": "target/\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      ".gitignore": {
+        "text": "target/\n*.tmp\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "write \".gitignore\" \"*.tmp\" mode: append ensure_newline: true",
+  "reference_bash": "[ -n \"$(tail -c 1 .gitignore)\" ] && echo >> .gitignore; printf '%s\\n' '*.tmp' >> .gitignore\n",
+  "tags": [
+    "append"
+  ],
+  "license": "CC-BY-4.0"
+}

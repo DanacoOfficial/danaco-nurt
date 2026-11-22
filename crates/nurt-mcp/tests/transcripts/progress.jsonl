@@ -1,0 +1,9 @@
+{"client": {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "transcript", "version": "1.0.0"}}}}
+{"server": {"jsonrpc": "2.0", "id": 1, "result": "*"}}
+{"client": {"jsonrpc": "2.0", "method": "notifications/initialized"}}
+{"client": {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "nurt", "arguments": {"program": "progress"}, "_meta": {"progressToken": 11}}}}
+{"server": {"jsonrpc": "2.0", "method": "notifications/progress", "params": {"progressToken": 11, "progress": 1.0, "message": "find scan: 1/2"}}}
+{"server": {"jsonrpc": "2.0", "method": "notifications/progress", "params": {"progressToken": 11, "progress": 2.0, "message": "half done"}}}
+{"server": {"jsonrpc": "2.0", "method": "notifications/progress", "params": {"progressToken": 11, "progress": 3.0, "message": "line one"}}}
+{"server": {"jsonrpc": "2.0", "method": "notifications/message", "params": {"level": "warning", "logger": "space", "data": "slow volume"}}}
+{"server": {"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "ok"}], "structuredContent": "*", "isError": false}}}

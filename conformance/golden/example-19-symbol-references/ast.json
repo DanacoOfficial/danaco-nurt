@@ -1,0 +1,85 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "code.references",
+          "args": [
+            {
+              "value": {
+                "t": "text",
+                "v": "/srv/app/src/a.go",
+                "span": [
+                  1,
+                  17,
+                  1,
+                  36
+                ]
+              },
+              "span": [
+                1,
+                17,
+                1,
+                36
+              ]
+            },
+            {
+              "name": "line",
+              "value": {
+                "t": "int",
+                "v": 12,
+                "span": [
+                  1,
+                  43,
+                  1,
+                  45
+                ]
+              },
+              "span": [
+                1,
+                37,
+                1,
+                45
+              ]
+            },
+            {
+              "name": "column",
+              "value": {
+                "t": "int",
+                "v": 6,
+                "span": [
+                  1,
+                  54,
+                  1,
+                  55
+                ]
+              },
+              "span": [
+                1,
+                46,
+                1,
+                55
+              ]
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            55
+          ]
+        },
+        "stages": [],
+        "span": [
+          1,
+          1,
+          1,
+          55
+        ]
+      }
+    ]
+  }
+}

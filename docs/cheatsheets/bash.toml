@@ -1,0 +1,293 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-correction-table/1"
+shell = "bash"
+title = "Nurt for bash users"
+
+[[entry]]
+id = "B01"
+topic = "Files and directories"
+habit = "rm -rf /home/user/app/build"
+canonical = 'remove "/home/user/app/build"'
+outcome = "corrected"
+note = "recursion is implicit and a missing path is skipped"
+
+[[entry]]
+id = "B02"
+topic = "Files and directories"
+habit = "rm /home/user/app/build/*.tmp"
+canonical = 'find "/home/user/app/build" glob: "*.tmp" depth: 1 hidden: false |> remove'
+outcome = "corrected"
+note = "the glob is expanded as bash would, without recursion"
+
+[[entry]]
+id = "B03"
+topic = "Files and directories"
+habit = "mv /home/user/a.txt /home/user/archive"
+canonical = 'move "/home/user/a.txt" to: "/home/user/archive"'
+outcome = "corrected"
+
+[[entry]]
+id = "B04"
+topic = "Files and directories"
+habit = "cp -r /home/user/app /home/user/backup"
+canonical = 'copy "/home/user/app" to: "/home/user/backup"'
+outcome = "corrected"
+
+[[entry]]
+id = "B05"
+topic = "Files and directories"
+habit = "mkdir -p /home/user/app/out"
+canonical = 'create "/home/user/app/out" type: directory'
+outcome = "corrected"
+
+[[entry]]
+id = "B06"
+topic = "Files and directories"
+habit = "touch /home/user/app/a.txt"
+canonical = 'create "/home/user/app/a.txt" type: file on_exists: touch'
+outcome = "corrected"
+
+[[entry]]
+id = "B07"
+topic = "Files and directories"
+habit = "chmod -R 755 /home/user/app/bin"
+canonical = 'attributes "/home/user/app/bin" mode: "755" recursive: true'
+outcome = "corrected"
+
+[[entry]]
+id = "B09"
+topic = "Files and directories"
+habit = "ln -s /home/user/app/src /home/user/link"
+canonical = 'create "/home/user/link" type: link target: "/home/user/app/src"'
+outcome = "corrected"
+
+[[entry]]
+id = "B13"
+topic = "Files and directories"
+habit = "ls -la /home/user/app"
+canonical = 'list "/home/user/app"'
+outcome = "corrected"
+
+[[entry]]
+id = "B14"
+topic = "Files and directories"
+habit = "find /home/user/app -name '*.go' -type f"
+canonical = 'find "/home/user/app" glob: "**/*.go" type: file'
+outcome = "corrected"
+
+[[entry]]
+id = "B37"
+topic = "Files and directories"
+habit = "stat /home/user/app/a.txt"
+canonical = 'info "/home/user/app/a.txt"'
+outcome = "corrected"
+
+[[entry]]
+id = "B10"
+topic = "Reading and searching text"
+habit = "cat /home/user/app/a.txt"
+canonical = 'read "/home/user/app/a.txt"'
+outcome = "corrected"
+
+[[entry]]
+id = "B11"
+topic = "Reading and searching text"
+habit = "tail -n 20 /home/user/app/a.log"
+canonical = 'read "/home/user/app/a.log" last: 20'
+outcome = "corrected"
+
+[[entry]]
+id = "B12"
+topic = "Reading and searching text"
+habit = "wc -l /home/user/app/a.txt"
+canonical = 'lines "/home/user/app/a.txt" |> count'
+outcome = "corrected"
+
+[[entry]]
+id = "B15"
+topic = "Reading and searching text"
+habit = "grep -rni 'todo' /home/user/app/src"
+canonical = 'search /todo/i "/home/user/app/src"'
+outcome = "corrected"
+note = "a pattern in basic regular expression syntax is converted with an assumption that the report names"
+
+[[entry]]
+id = "B16"
+topic = "Reading and searching text"
+habit = "sed -i 's/oldName/newName/g' /home/user/app/a.go"
+canonical = 'replace /oldName/ "newName" in: ["/home/user/app/a.go"]'
+outcome = "corrected"
+
+[[entry]]
+id = "B17"
+topic = "Reading and searching text"
+habit = "sed -n '10,20p' /home/user/app/a.go"
+canonical = 'read "/home/user/app/a.go" lines: 10..20'
+outcome = "corrected"
+
+[[entry]]
+id = "B19"
+topic = "Writing text"
+habit = "echo \"dist/\" >> /home/user/app/.gitignore"
+canonical = 'write "/home/user/app/.gitignore" "dist/\n" mode: append'
+outcome = "corrected"
+
+[[entry]]
+id = "B37b"
+topic = "Reading and searching text"
+habit = "sha256sum /home/user/app/a.tar.gz"
+canonical = 'hash "/home/user/app/a.tar.gz" algorithm: sha256'
+outcome = "corrected"
+
+[[entry]]
+id = "B37c"
+topic = "Reading and searching text"
+habit = "diff /home/user/a.txt /home/user/b.txt"
+canonical = 'diff "/home/user/a.txt" "/home/user/b.txt"'
+outcome = "corrected"
+
+[[entry]]
+id = "B34"
+topic = "Archives"
+habit = "tar -xzf /home/user/dl/data.tar.gz -C /home/user/data"
+canonical = 'archive.extract "/home/user/dl/data.tar.gz" into: "/home/user/data"'
+outcome = "corrected"
+
+[[entry]]
+id = "B34b"
+topic = "Archives"
+habit = "gzip /home/user/app/a.log"
+canonical = 'compress "/home/user/app/a.log"'
+outcome = "corrected"
+
+[[entry]]
+id = "B35a"
+topic = "Processes and system"
+habit = "ps aux"
+canonical = 'processes'
+outcome = "corrected"
+
+[[entry]]
+id = "B35b"
+topic = "Processes and system"
+habit = "df -h"
+canonical = 'disks'
+outcome = "corrected"
+
+[[entry]]
+id = "B35c"
+topic = "Processes and system"
+habit = "ss -ltnp"
+canonical = 'ports state: listen'
+outcome = "corrected"
+
+[[entry]]
+id = "B35d"
+topic = "Processes and system"
+habit = "printenv"
+canonical = 'environment'
+outcome = "corrected"
+
+[[entry]]
+id = "B35e"
+topic = "Processes and system"
+habit = "which git"
+canonical = 'program.find "git"'
+outcome = "corrected"
+
+[[entry]]
+id = "B36"
+topic = "Processes and system"
+habit = "kill -9 4132"
+canonical = 'processes pid: 4132 |> stop signal: kill'
+outcome = "corrected"
+
+[[entry]]
+id = "B29"
+topic = "Running programs"
+habit = "npm run build &"
+canonical = 'run ["npm", "run", "build"] background: true'
+outcome = "corrected"
+
+[[entry]]
+id = "B30"
+topic = "Running programs"
+habit = "timeout 60 make test"
+canonical = 'run ["make", "test"] timeout: 60s'
+outcome = "corrected"
+
+[[entry]]
+id = "B20"
+topic = "Running programs"
+habit = "cd /home/user/app && make"
+canonical = 'run ["make"] cwd: "/home/user/app"'
+outcome = "corrected"
+note = "only a change to an absolute directory in the same line is converted"
+
+[[entry]]
+id = "B31"
+topic = "Running programs"
+habit = "CI=1 npm test"
+canonical = 'run ["npm", "test"] env: {CI: "1"}'
+outcome = "corrected"
+
+[[entry]]
+id = "B32"
+topic = "Network"
+habit = "curl -fsS https://example.com/health"
+canonical = 'http.request "https://example.com/health"'
+outcome = "corrected"
+
+[[entry]]
+id = "B32b"
+topic = "Network"
+habit = "wget -O /home/user/a.tar.gz https://example.com/a.tar.gz"
+canonical = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"'
+outcome = "corrected"
+
+[[entry]]
+id = "B38"
+topic = "Git"
+habit = "git status --short"
+canonical = 'git.status "/home/user/app"'
+outcome = "corrected"
+
+[[entry]]
+id = "B40"
+topic = "Services and packages"
+habit = "systemctl restart nginx"
+canonical = 'services name: "nginx" |> restart'
+outcome = "corrected"
+
+[[entry]]
+id = "B40b"
+topic = "Services and packages"
+habit = "apt install ripgrep"
+canonical = 'package.install ["ripgrep"]'
+outcome = "corrected"
+
+[[entry]]
+id = "B22"
+topic = "Control flow"
+habit = "mkdir /home/user/out && cp /home/user/a.txt /home/user/out"
+canonical = 'create "/home/user/out" type: directory'
+outcome = "error"
+note = "two changing commands are not run in one program; the fix is one call per change"
+
+[[entry]]
+id = "B25"
+topic = "Control flow"
+habit = "rm -rf \"$BUILD\"/*"
+canonical = 'find "/home/user/app/build" glob: "*" depth: 1 |> remove'
+outcome = "error"
+note = "there are no variables in text; the fix names the directory"
+
+[[entry]]
+id = "B28"
+topic = "Control flow"
+habit = "sudo systemctl restart nginx"
+canonical = 'services name: "nginx" |> restart'
+outcome = "error"
+note = "the language has no privilege elevation"

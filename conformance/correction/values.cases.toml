@@ -1,0 +1,270 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "correction/values/v01-ascending"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The value ascending of order is asc."
+method = "correct"
+program = 'list "/home/user/app" order: ascending'
+
+[case.expect]
+program = 'list "/home/user/app" order: asc'
+corrections = [{ rule = "V01" }]
+
+[[case]]
+id = "correction/values/v01-descending"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The value descending of order is desc."
+method = "correct"
+program = 'find "/home/user/app" |> sort size order: descending'
+
+[case.expect]
+program = 'find "/home/user/app" |> sort size order: desc'
+
+[[case]]
+id = "correction/values/v01-signal-term"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The signal term is terminate; the changing stage and its input are unchanged."
+method = "correct"
+program = 'processes name: "sleep" |> stop signal: term'
+
+[case.expect]
+program = 'processes name: "sleep" |> stop signal: terminate'
+
+[[case]]
+id = "correction/values/v01-typo-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A typing error in an enumeration value is corrected when one value is within the threshold."
+method = "correct"
+program = 'list "/home/user/app" sort: nmae'
+
+[case.expect]
+program = 'list "/home/user/app" sort: name'
+corrections = [{ rule = "V01", class = "F", from = "nmae", to = "name" }]
+
+[[case]]
+id = "correction/values/v01-typo-file"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The value fiel of type is file."
+method = "correct"
+program = 'find "/home/user/app" type: fiel'
+
+[case.expect]
+program = 'find "/home/user/app" type: file'
+corrections = [{ rule = "V01", class = "F", from = "fiel", to = "file" }]
+
+[[case]]
+id = "correction/values/v01-on-conflict-typo-in-change"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A mode value of a change is corrected only on an unambiguous hit."
+method = "correct"
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt" on_conflict: skpi'
+
+[case.expect]
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt" on_conflict: skip'
+corrections = [{ rule = "V01", class = "F", from = "skpi", to = "skip" }]
+
+[[case]]
+id = "correction/values/v01-tie-uncorrected"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A value equally close to asc and desc is not corrected."
+method = "correct"
+program = 'list "/home/user/app" order: dsc'
+
+[case.expect.error]
+code = "E_UNKNOWN_VALUE"
+
+[[case]]
+id = "correction/values/v01-create-type-not-guessed"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A value of type in create that matches no value within the threshold is not guessed."
+method = "correct"
+program = 'create "/home/user/app/out" type: block'
+
+[case.expect.error]
+code = "E_UNKNOWN_VALUE"
+
+[[case]]
+id = "correction/values/v02-mtime"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The field mtime is modified."
+method = "correct"
+program = 'find "/home/user/app" |> filter mtime > ago(1h)'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter modified > ago(1h)'
+corrections = [{ rule = "V02" }]
+
+[[case]]
+id = "correction/values/v02-last-write-time"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The field LastWriteTime is modified."
+method = "correct"
+program = 'find "/home/user/app" |> sort LastWriteTime'
+
+[case.expect]
+program = 'find "/home/user/app" |> sort modified'
+
+[[case]]
+id = "correction/values/v02-filename"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The field filename is name."
+method = "correct"
+program = 'find "/home/user/app" |> filter filename == "main.go"'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter name == "main.go"'
+
+[[case]]
+id = "correction/values/v02-length"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The field length of an entry is size."
+method = "correct"
+program = 'find "/home/user/app" |> sort length order: desc'
+
+[case.expect]
+program = 'find "/home/user/app" |> sort size order: desc'
+
+[[case]]
+id = "correction/values/v02-ext"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The field ext is extension."
+method = "correct"
+program = 'find "/home/user/app" |> group ext'
+
+[case.expect]
+program = 'find "/home/user/app" |> group extension'
+
+[[case]]
+id = "correction/values/v02-line-number"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The field line_number of a line is no."
+method = "correct"
+program = 'lines "/home/user/app/a.txt" |> filter line_number > 10'
+
+[case.expect]
+program = 'lines "/home/user/app/a.txt" |> filter no > 10'
+
+[[case]]
+id = "correction/values/v02-kind"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The field kind of an entry is type."
+method = "correct"
+program = 'list "/home/user/app" |> filter kind == "directory"'
+
+[case.expect]
+program = 'list "/home/user/app" |> filter type == "directory"'
+
+[[case]]
+id = "correction/values/v02-field-typo"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A typing error in a field name is corrected to the only field within the threshold."
+method = "correct"
+program = 'find "/home/user/app" |> filter sise > 1kb'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter size > 1kb'
+corrections = [{ rule = "V02", class = "F", from = "sise", to = "size" }]
+
+[[case]]
+id = "correction/values/v02-several-fields"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Value and field names of one pipeline are corrected together."
+method = "correct"
+program = 'find "/home/user/app" type: dir |> filter mtime > ago(1h) |> sort length order: ascending'
+
+[case.expect]
+program = 'find "/home/user/app" type: directory |> filter modified > ago(1h) |> sort size order: asc'
+
+[[case]]
+id = "correction/values/v03-lowercase"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The function lowercase is lower."
+method = "correct"
+program = 'find "/home/user/app" |> filter lowercase(name) == "readme.md"'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter lower(name) == "readme.md"'
+corrections = [{ rule = "V03" }]
+
+[[case]]
+id = "correction/values/v03-length-function"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The function length is len."
+method = "correct"
+program = 'find "/home/user/app" |> filter length(name) > 20'
+
+[case.expect]
+program = 'find "/home/user/app" |> filter len(name) > 20'
+
+[[case]]
+id = "correction/values/v04-let-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A reference one edit from a let name of the program is that name."
+method = "correct"
+program = """
+let changed = find "/home/user/app/src" glob: "**/*.ts" |> filter modified > ago(1h)
+@chnaged |> count"""
+
+[case.expect]
+program = """
+let changed = find "/home/user/app/src" glob: "**/*.ts" |> filter modified > ago(1h)
+@changed |> count"""
+corrections = [{ rule = "V04", class = "F", from = "chnaged", to = "changed" }]
+
+[[case]]
+id = "correction/values/v04-unknown-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A reference far from every let name is not corrected."
+method = "correct"
+program = """
+let changed = find "/home/user/app/src" glob: "**/*.ts"
+@other |> count"""
+
+[case.expect.error]
+code = "E_UNKNOWN_NAME"

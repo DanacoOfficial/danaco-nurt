@@ -1,0 +1,61 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "cat-1",
+  "corr_rev": "corr-1",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "ports",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "state",
+              "value": {
+                "t": "enum",
+                "v": "listen"
+              }
+            },
+            {
+              "name": "protocol",
+              "value": {
+                "t": "enum",
+                "v": "any"
+              },
+              "default": true
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "filter",
+            "effect": "read",
+            "phase": "transform",
+            "args": [
+              {
+                "name": "condition",
+                "value": {
+                  "t": "bin",
+                  "op": "==",
+                  "l": {
+                    "t": "field",
+                    "name": "port"
+                  },
+                  "r": {
+                    "t": "int",
+                    "v": 8080
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

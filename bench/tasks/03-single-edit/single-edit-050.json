@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-050",
+  "domain": 3,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Set REPLICAS to 4 in deploy.env. Do not touch other variables, including those whose names start with REPLICAS.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "deploy.env",
+        "type": "file",
+        "content_utf8": "REGION=eu-central\r\nREPLICAS=2\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "deploy.env": {
+        "text": "REGION=eu-central\r\nREPLICAS=4\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "set \"deploy.env\" key: \"REPLICAS\" value: \"4\" format: env",
+  "reference_pwsh": "$p = Join-Path $PWD 'deploy.env'; $t = [IO.File]::ReadAllText($p); [IO.File]::WriteAllText($p, ($t -creplace '(?m)^REPLICAS=[^\\r\\n]*', 'REPLICAS=4'))\n",
+  "tags": [
+    "env",
+    "key-value"
+  ],
+  "license": "CC-BY-4.0"
+}

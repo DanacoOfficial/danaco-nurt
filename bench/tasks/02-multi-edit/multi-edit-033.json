@@ -1,0 +1,83 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-033",
+  "domain": 2,
+  "split": "public",
+  "platform": "windows",
+  "nl": "Rename every .jpeg file in site/img/ to the extension .jpg and update the src attributes in the HTML files under site/ that refer to them (hero, team and office3). Do not change other text.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "site/about.html",
+        "type": "file",
+        "content_utf8": "<img src=\"img/team.jpeg\">\r\n<p>Photos are stored as .jpeg files.</p>\r\n"
+      },
+      {
+        "path": "site/img/hero.jpeg",
+        "type": "file",
+        "content_base64": "/9j/4AMEaGVybw=="
+      },
+      {
+        "path": "site/img/logo.png",
+        "type": "file",
+        "content_base64": "iVBORw0KGgpsb2dv"
+      },
+      {
+        "path": "site/img/office3.jpeg",
+        "type": "file",
+        "content_base64": "/9j/4AMHb2ZmaWNlMw=="
+      },
+      {
+        "path": "site/img/team.jpeg",
+        "type": "file",
+        "content_base64": "/9j/4AMEdGVhbQ=="
+      },
+      {
+        "path": "site/index.html",
+        "type": "file",
+        "content_utf8": "<img src=\"img/hero.jpeg\" alt=\"hero\">\r\n<img src=\"img/team.jpeg\" alt=\"team\">\r\n<img src=\"img/office3.jpeg\" alt=\"office3\">\r\n<img src=\"img/logo.png\">\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "site/about.html": {
+        "text": "<img src=\"img/team.jpg\">\r\n<p>Photos are stored as .jpeg files.</p>\r\n"
+      },
+      "site/img/hero.jpeg": {
+        "absent": true
+      },
+      "site/img/hero.jpg": {
+        "base64": "/9j/4AMEaGVybw=="
+      },
+      "site/img/office3.jpeg": {
+        "absent": true
+      },
+      "site/img/office3.jpg": {
+        "base64": "/9j/4AMHb2ZmaWNlMw=="
+      },
+      "site/img/team.jpeg": {
+        "absent": true
+      },
+      "site/img/team.jpg": {
+        "base64": "/9j/4AMEdGVhbQ=="
+      },
+      "site/index.html": {
+        "text": "<img src=\"img/hero.jpg\" alt=\"hero\">\r\n<img src=\"img/team.jpg\" alt=\"team\">\r\n<img src=\"img/office3.jpg\" alt=\"office3\">\r\n<img src=\"img/logo.png\">\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"site/img\" glob: \"*.jpeg\" |> rename /\\.jpeg$/ \".jpg\"\nsearch /(src=\"img\\/[^\"]+)\\.jpeg\"/ \"site\" glob: \"*.html\" |> replace \"${1}.jpg\\\"\"",
+  "reference_pwsh": "Get-ChildItem site/img -Filter '*.jpeg' | Rename-Item -NewName { $_.BaseName + '.jpg' }\nGet-ChildItem site -Filter '*.html' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t -creplace '(src=\"img/[^\"]+)\\.jpeg\"', '$1.jpg\"'\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "tags": [
+    "html",
+    "rename"
+  ],
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,51 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "search-058",
+  "domain": 1,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Find the source files that contain 'formatDate'. Ignore node_modules/ and dist/. List relative paths.",
+  "fs_before": {
+    "fixture": "ts-webapp",
+    "overlay": [
+      {
+        "path": "dist/bundle.js",
+        "type": "file",
+        "content_utf8": "var x = 'formatDate';\n"
+      },
+      {
+        "path": "node_modules/lib3/dist/formatdate.js",
+        "type": "file",
+        "content_utf8": "formatDate\n"
+      },
+      {
+        "path": "node_modules/lib3/index.js",
+        "type": "file",
+        "content_utf8": "// uses formatDate\n"
+      }
+    ]
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "src/format.ts"
+      ],
+      "not_contains": [
+        "node_modules",
+        "dist/bundle.js"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search \"formatDate\" \".\" mode: literal exclude: [\"node_modules/**\", \"dist/**\"] output: paths",
+  "reference_bash": "grep -rlF --exclude-dir=node_modules --exclude-dir=dist -- 'formatDate' . | sort\n",
+  "tags": [
+    "exclude",
+    "grep"
+  ],
+  "license": "CC-BY-4.0"
+}

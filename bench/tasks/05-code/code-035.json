@@ -1,0 +1,35 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-035",
+  "domain": 5,
+  "split": "public",
+  "platform": "cross",
+  "nl": "List the names of the functions or methods defined in inventory/store.py.",
+  "fs_before": {
+    "fixture": "py-inventory"
+  },
+  "expect": {
+    "answer": {
+      "contains": [
+        "load_items",
+        "find_item"
+      ],
+      "not_contains": [
+        "total_value"
+      ]
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.outline \"inventory/store.py\"",
+  "reference_bash": "grep -E '^def ' inventory/store.py\n",
+  "reference_pwsh": "Select-String -Path inventory/store.py -Pattern '^def ' | ForEach-Object Line\n",
+  "tags": [
+    "outline",
+    "symbol"
+  ],
+  "license": "CC-BY-4.0"
+}

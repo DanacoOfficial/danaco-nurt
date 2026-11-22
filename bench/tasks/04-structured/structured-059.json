@@ -1,0 +1,51 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "structured-059",
+  "domain": 4,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Merge override.json into base.json and write the result to effective.json: keys of override.json replace those of base.json, nested objects are merged key by key (case 3).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "base.json",
+        "type": "file",
+        "content_utf8": "{\n  \"name\": \"orders\",\n  \"port\": 8080,\n  \"log\": {\n    \"level\": \"info\",\n    \"format\": \"text\"\n  },\n  \"workers\": 2\n}\n"
+      },
+      {
+        "path": "override.json",
+        "type": "file",
+        "content_utf8": "{\n  \"workers\": 8,\n  \"log\": {\n    \"format\": \"json\"\n  }\n}\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "effective.json": {
+        "json": {
+          "name": "orders",
+          "port": 8080,
+          "log": {
+            "level": "info",
+            "format": "json"
+          },
+          "workers": 8
+        }
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "read \"base.json\" |> merge (read \"override.json\") deep: true |> write \"effective.json\" format: json",
+  "reference_bash": "python3 - <<'EOF'\nimport json\nb = json.load(open('base.json'))\no = json.load(open('override.json'))\nfor k, v in o.items():\n    if isinstance(v, dict):\n        b.setdefault(k, {}).update(v)\n    else:\n        b[k] = v\njson.dump(b, open('effective.json', 'w'), indent=2)\nEOF\n",
+  "reference_pwsh": "$b = Get-Content base.json -Raw | ConvertFrom-Json -AsHashtable\n$o = Get-Content override.json -Raw | ConvertFrom-Json -AsHashtable\nforeach ($k in $o.Keys) {\n  if ($o[$k] -is [Collections.IDictionary]) { foreach ($n in $o[$k].Keys) { $b[$k][$n] = $o[$k][$n] } }\n  else { $b[$k] = $o[$k] }\n}\n$b | ConvertTo-Json -Depth 10 | Set-Content effective.json\n",
+  "tags": [
+    "json",
+    "merge"
+  ],
+  "license": "CC-BY-4.0"
+}

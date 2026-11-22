@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Anthropic Messages API custom tool",
+  "description": "An element of `tools` in a Messages API request. The input schema is a JSON Schema object without `oneOf`, `anyOf` or `allOf` at the top level.",
+  "type": "object",
+  "required": ["name", "input_schema"],
+  "additionalProperties": false,
+  "properties": {
+    "type": { "const": "custom" },
+    "name": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{1,64}$" },
+    "description": { "type": "string", "minLength": 1 },
+    "input_schema": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "object" },
+        "properties": { "type": "object" },
+        "required": { "type": "array", "items": { "type": "string" } }
+      },
+      "not": {
+        "anyOf": [
+          { "required": ["oneOf"] },
+          { "required": ["anyOf"] },
+          { "required": ["allOf"] }
+        ]
+      }
+    },
+    "cache_control": { "type": "object" },
+    "strict": { "type": "boolean" }
+  }
+}

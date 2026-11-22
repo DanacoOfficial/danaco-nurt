@@ -1,0 +1,221 @@
+{
+  "format": "nurt-bench-holdout/1",
+  "tasks": [
+    {
+      "id": "search-005",
+      "domain": 1,
+      "platform": "windows",
+      "sha256": "c5ced77f61c0132727b7a72eb07c1dd24e254fa9d7ecf6df981794d309267f1a"
+    },
+    {
+      "id": "search-009",
+      "domain": 1,
+      "platform": "linux",
+      "sha256": "7396890ccd5f2f8a3f49928a364b2cab7c5a8befaeb1a29034246b2e8a639d75"
+    },
+    {
+      "id": "search-031",
+      "domain": 1,
+      "platform": "cross",
+      "sha256": "af27e312486a397ef0041dc62d90bbd5196f1722c900e9f77cd493a9208f562a"
+    },
+    {
+      "id": "search-050",
+      "domain": 1,
+      "platform": "windows",
+      "sha256": "66573bc1f94d1028b4fe6ecf2d13206a12439e06cd7da010a6aaeb71e58aa9e0"
+    },
+    {
+      "id": "search-054",
+      "domain": 1,
+      "platform": "cross",
+      "sha256": "9a8df7c59c1134c57e948004939b1d8ef177a2996e61d0388cc5417606d7407e"
+    },
+    {
+      "id": "search-060",
+      "domain": 1,
+      "platform": "windows",
+      "sha256": "b2d73db3f066028a94a02dd9f95871bab303d626a8ac8f02e5be0ecf30839b2c"
+    },
+    {
+      "id": "multi-edit-003",
+      "domain": 2,
+      "platform": "linux",
+      "sha256": "97b32137f30802ba6ccb31218e132fd1357e0aa588c6f840f6f3ccdc1148dac6"
+    },
+    {
+      "id": "multi-edit-014",
+      "domain": 2,
+      "platform": "cross",
+      "sha256": "48823eb765fb959acc163c0da4f8402eba2dc734a72e38843ba29bef9bbd0f73"
+    },
+    {
+      "id": "multi-edit-022",
+      "domain": 2,
+      "platform": "linux",
+      "sha256": "cd65f9c42a3176c0ae3fc5882beecdfaa0af9abb961261cb0ab4fa7da8bbe6fd"
+    },
+    {
+      "id": "multi-edit-030",
+      "domain": 2,
+      "platform": "linux",
+      "sha256": "5fe4b5c0b9ac6e284f71b87201d556ab94c85673cf319230a3998ab230fd88b9"
+    },
+    {
+      "id": "multi-edit-046",
+      "domain": 2,
+      "platform": "linux",
+      "sha256": "cb69369d5b5903dc673d8f59d56da6270a6f64ea83efdefdb6cbdc8be8f4fc64"
+    },
+    {
+      "id": "multi-edit-057",
+      "domain": 2,
+      "platform": "linux",
+      "sha256": "60ed36be3509872c4b8bdb9528113fcb3964be40d23db344da2c43d4af88ed71"
+    },
+    {
+      "id": "single-edit-007",
+      "domain": 3,
+      "platform": "windows",
+      "sha256": "5d8609ab4db6578a1d1cc107a1ec7a4695e132d919ebe7be22e35858fa5a315c"
+    },
+    {
+      "id": "single-edit-008",
+      "domain": 3,
+      "platform": "windows",
+      "sha256": "0714b4f135c1a04905d600dfd89b2d0a04071a85c170588b1ed156e53824914a"
+    },
+    {
+      "id": "single-edit-026",
+      "domain": 3,
+      "platform": "cross",
+      "sha256": "acbf723e31d00bb69d8ba5a03bb74da0205a82eba20aa589b35501a1867689d7"
+    },
+    {
+      "id": "single-edit-040",
+      "domain": 3,
+      "platform": "windows",
+      "sha256": "7e05aa27f529cbb1fd8f51f038a5b2d9628ccefcb90614427cfd7745dc02e8f4"
+    },
+    {
+      "id": "single-edit-052",
+      "domain": 3,
+      "platform": "linux",
+      "sha256": "13fb534d84c2da4ae18198e60b7b96613755288090a79f8b3061fbfa44798ffc"
+    },
+    {
+      "id": "single-edit-053",
+      "domain": 3,
+      "platform": "linux",
+      "sha256": "8405138dacf8f6aaa6575fd48d2637645f694228bf8314d5c22ce9d7d0282896"
+    },
+    {
+      "id": "structured-002",
+      "domain": 4,
+      "platform": "linux",
+      "sha256": "c0f01b79e24758740903ef5c4eb83c63c873a562fb8d35983e66a72bba8fe898"
+    },
+    {
+      "id": "structured-007",
+      "domain": 4,
+      "platform": "linux",
+      "sha256": "c25ccb685a6852a3835c8bc34c93441eaa7a71ee1a05da1adad25c77a11b2e85"
+    },
+    {
+      "id": "structured-039",
+      "domain": 4,
+      "platform": "windows",
+      "sha256": "d452f104d0a709d563a253a446c8b03f736af3a001df8ecf21be0385fe570b78"
+    },
+    {
+      "id": "structured-044",
+      "domain": 4,
+      "platform": "linux",
+      "sha256": "33740aad74c5e2c9b341900a7016ce1fcc1d22ba85def88b5d41871684519b3c"
+    },
+    {
+      "id": "structured-047",
+      "domain": 4,
+      "platform": "windows",
+      "sha256": "220c48b97230c7f2bb61dc2117d6b5759c310424510ecd567a6db8127797aab6"
+    },
+    {
+      "id": "structured-055",
+      "domain": 4,
+      "platform": "cross",
+      "sha256": "81ea24951a1f636fc846849b97f4ea8ed545b08bd971d405d0913961fe897b51"
+    },
+    {
+      "id": "code-004",
+      "domain": 5,
+      "platform": "cross",
+      "sha256": "f2b1a509566975e68c1f4c3d87b33a00ca5d5124130067ce2ac1c33644171292"
+    },
+    {
+      "id": "code-015",
+      "domain": 5,
+      "platform": "linux",
+      "sha256": "e87775f85c0d10642d0d012cfe697c499428634417c922a1739d220e784c9e16"
+    },
+    {
+      "id": "code-027",
+      "domain": 5,
+      "platform": "windows",
+      "sha256": "7b1c01df0b64c8f04cf30078e05b382d84138724029460f7ddb5624bc63efcb7"
+    },
+    {
+      "id": "code-030",
+      "domain": 5,
+      "platform": "cross",
+      "sha256": "a7c5dafc0d9915f22ab38f1ff10efc6b5ce087ad2b63136f63c29043ed53c82c"
+    },
+    {
+      "id": "code-040",
+      "domain": 5,
+      "platform": "linux",
+      "sha256": "ff7dc661ab1d1d22d3dad91b4a811605fdc661b034ad60d646399fefa1128c78"
+    },
+    {
+      "id": "code-050",
+      "domain": 5,
+      "platform": "windows",
+      "sha256": "a978de7b40af297fa9aa611b17d7c54f4054802d2d115cdac25cce5db2682d07"
+    },
+    {
+      "id": "programs-002",
+      "domain": 6,
+      "platform": "linux",
+      "sha256": "f1f850716ccc9847e613cfbc33838f9c466808fd7577950daf8d62ce1b417f58"
+    },
+    {
+      "id": "programs-012",
+      "domain": 6,
+      "platform": "linux",
+      "sha256": "9e4f6cf8e37ec853293e395e8507901cfc82781e9a25a6014fa166f883cdcdd7"
+    },
+    {
+      "id": "programs-046",
+      "domain": 6,
+      "platform": "linux",
+      "sha256": "5e8ddab53b7f30716195d9a33924d99eec7158d66378f3ac89eabc7b9f7607a3"
+    },
+    {
+      "id": "programs-047",
+      "domain": 6,
+      "platform": "cross",
+      "sha256": "de6af36e5396103d1e2ccfd9ec8a3344a19a3edea470fe9e503463d2f9bc6070"
+    },
+    {
+      "id": "programs-052",
+      "domain": 6,
+      "platform": "linux",
+      "sha256": "5ef89684a013da5b5eb3c276c79ff4e016e204243895596b398e165507d68577"
+    },
+    {
+      "id": "programs-058",
+      "domain": 6,
+      "platform": "cross",
+      "sha256": "1a4c363ed26072192da6a1bc48f61e45e5a7b62373d930d26d93806588f5a438"
+    }
+  ]
+}

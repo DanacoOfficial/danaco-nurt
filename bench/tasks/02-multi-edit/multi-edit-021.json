@@ -1,0 +1,68 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-021",
+  "domain": 2,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Every .sh script under scripts/ (recursively) must start with the line '#!/usr/bin/env bash'. Add it as the first line where a script has no '#!' line (task0.sh is one of the scripts).",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "scripts/README.md",
+        "type": "file",
+        "content_utf8": "Helper scripts\n"
+      },
+      {
+        "path": "scripts/build.sh",
+        "type": "file",
+        "content_utf8": "set -eu\nmake all\n"
+      },
+      {
+        "path": "scripts/ci/lint.sh",
+        "type": "file",
+        "content_utf8": "shellcheck scripts/*.sh\n"
+      },
+      {
+        "path": "scripts/deploy.sh",
+        "type": "file",
+        "content_utf8": "#!/usr/bin/env bash\nset -eu\nrsync -a dist/ /srv/www/\n"
+      },
+      {
+        "path": "scripts/env.txt",
+        "type": "file",
+        "content_utf8": "PATH=/usr/bin\n"
+      },
+      {
+        "path": "scripts/task0.sh",
+        "type": "file",
+        "content_utf8": "echo task\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "scripts/build.sh": {
+        "text": "#!/usr/bin/env bash\nset -eu\nmake all\n"
+      },
+      "scripts/ci/lint.sh": {
+        "text": "#!/usr/bin/env bash\nshellcheck scripts/*.sh\n"
+      },
+      "scripts/task0.sh": {
+        "text": "#!/usr/bin/env bash\necho task\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "find \"scripts\" glob: \"**/*.sh\" |> filter not (read lines: 1..1) ~ /^#!/ |> insert \"#!/usr/bin/env bash\" line: 1 position: before",
+  "reference_bash": "find scripts -type f -name '*.sh' | while IFS= read -r f; do\n  head -c 2 \"$f\" | grep -q '#!' || sed -i '1i #!/usr/bin/env bash' \"$f\"\ndone\n",
+  "tags": [
+    "insert-line",
+    "shell"
+  ],
+  "license": "CC-BY-4.0"
+}

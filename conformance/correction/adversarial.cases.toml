@@ -1,0 +1,534 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "correction/adversarial/tie-list-last"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "lest is one edit from list and from last; no command is chosen."
+method = "correct"
+program = 'lest "/home/user/app"'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/tie-lst"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "lst is one edit from list, last and ls; no command is chosen."
+method = "correct"
+program = 'lst "/home/user/app"'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/tie-skip-stop"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "skop is one edit from skip and from stop; the changing stop is not chosen."
+method = "correct"
+program = 'jobs "j1" |> skop'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/tie-redo-read"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "reod is one edit from redo and from read; neither is chosen."
+method = "correct"
+program = "reod 3"
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/tie-info-undo"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "indo is one edit from info and from undo; neither is chosen."
+method = "correct"
+program = "indo 3"
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/tie-hash-host-last"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "hast is one edit from hash, host and last; no command is chosen."
+method = "correct"
+program = "hast"
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/tie-restart-start"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "rstart is one edit from restart and from start; neither changing command is chosen."
+method = "correct"
+program = 'services name: "nginx" |> rstart'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/tie-remove-move"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "emove is one edit from remove and from move; the kind of change is never guessed."
+method = "correct"
+program = 'emove "/home/user/app/a.txt"'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/short-name-run"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Names of three characters are corrected only by the synonym table."
+method = "correct"
+program = 'rnu ["make"] cwd: "/home/user/app"'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/short-name-set"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "sat is one edit from set but set is too short for a distance correction."
+method = "correct"
+program = 'sat "/home/user/app/package.json" key: "version" value: "1.0.0"'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/distance-two-short-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A name of six characters two edits away is not corrected."
+method = "correct"
+program = 'rmvoe "/home/user/app/a.txt"'
+
+[case.expect.error]
+code = "E_UNKNOWN_COMMAND"
+
+[[case]]
+id = "correction/adversarial/parameter-prefix-not-unique"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A prefix shared by several parameters names none of them."
+method = "correct"
+program = 'search "x" "/home/user/app" excl: ["*.min.js"]'
+
+[case.expect.error]
+code = "E_UNKNOWN_PARAM"
+
+[[case]]
+id = "correction/adversarial/path-like-command-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A file name that looks like a misspelt command stays as written."
+method = "correct"
+program = 'read "/home/user/notes/remvoe.txt"'
+
+[case.expect]
+program = 'read "/home/user/notes/remvoe.txt"'
+
+[[case]]
+id = "correction/adversarial/directory-named-like-command"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A directory named like a command stays as written."
+method = "correct"
+program = 'list "/home/user/list"'
+
+[case.expect]
+program = 'list "/home/user/list"'
+
+[[case]]
+id = "correction/adversarial/search-text-like-command"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A search text that looks like a misspelt command stays as written."
+method = "correct"
+program = 'search "fnid" "/home/user/app"'
+
+[case.expect]
+program = 'search "fnid" "/home/user/app"'
+
+[[case]]
+id = "correction/adversarial/replacement-text-kept"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Pattern and replacement texts of a change are never corrected."
+method = "correct"
+program = 'replace "remvoe" "remove" in: ["/home/user/app/a.txt"]'
+
+[case.expect]
+program = 'replace "remvoe" "remove" in: ["/home/user/app/a.txt"]'
+
+[[case]]
+id = "correction/adversarial/written-text-like-command"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Written content that looks like a program stays as written."
+method = "correct"
+program = 'write "/home/user/app/a.txt" "remvoe | count" mode: create'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "remvoe | count" mode: create'
+
+[[case]]
+id = "correction/adversarial/work-as-path"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The word work inside a path is not the command jobs."
+method = "correct"
+program = 'list "/home/user/work"'
+
+[case.expect]
+program = 'list "/home/user/work"'
+
+[[case]]
+id = "correction/adversarial/path-named-like-flag"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A quoted path that starts with a dash is a path, not a flag."
+method = "correct"
+program = 'remove "/home/user/app/-rf"'
+
+[case.expect]
+program = 'remove "/home/user/app/-rf"'
+
+[[case]]
+id = "correction/adversarial/program-arguments-kept"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Arguments of a launched program are content; shell flags inside them are not translated."
+method = "correct"
+program = 'run ["rm", "-rf", "build"] cwd: "/home/user/app"'
+
+[case.expect]
+program = 'run ["rm", "-rf", "build"] cwd: "/home/user/app"'
+
+[[case]]
+id = "correction/adversarial/program-arguments-with-pipe"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A bar inside a program argument is not a pipe."
+method = "correct"
+program = 'run ["grep", "-E", "a|b", "log.txt"] cwd: "/home/user/app"'
+
+[case.expect]
+program = 'run ["grep", "-E", "a|b", "log.txt"] cwd: "/home/user/app"'
+
+[[case]]
+id = "correction/adversarial/bar-inside-text"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A bar inside a text is not a pipe."
+method = "correct"
+program = 'search "a|b" "/home/user/app"'
+
+[case.expect]
+program = 'search "a|b" "/home/user/app"'
+
+[[case]]
+id = "correction/adversarial/arrow-inside-text"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An arrow inside a text is not a pipe."
+method = "correct"
+program = 'replace "a->b" "a=>b" in: ["/home/user/app/a.txt"]'
+
+[case.expect]
+program = 'replace "a->b" "a=>b" in: ["/home/user/app/a.txt"]'
+
+[[case]]
+id = "correction/adversarial/size-inside-text"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A size notation inside a text is content."
+method = "correct"
+program = 'write "/home/user/app/a.txt" "10 MB" mode: create'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "10 MB" mode: create'
+
+[[case]]
+id = "correction/adversarial/typographic-quotes-inside-text"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Typographic quotes inside a text are content, not delimiters."
+method = "correct"
+program = 'write "/home/user/app/a.txt" "„quoted“ and “quoted”" mode: create'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "„quoted“ and “quoted”" mode: create'
+
+[[case]]
+id = "correction/adversarial/apostrophe-inside-text"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An apostrophe inside a text is content."
+method = "correct"
+program = '''write "/home/user/app/a.txt" "it's" mode: create'''
+
+[case.expect]
+program = '''write "/home/user/app/a.txt" "it's" mode: create'''
+
+[[case]]
+id = "correction/adversarial/backslash-in-raw-text"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Backslashes inside a raw text are content."
+method = "correct"
+program = 'search r#"C:\temp"# "/home/user/app"'
+
+[case.expect]
+program = 'search r#"C:\temp"# "/home/user/app"'
+
+[[case]]
+id = "correction/adversarial/double-slash-in-url"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Slashes of an address are not path separators."
+method = "correct"
+program = 'http.request "https://example.com//api/"'
+
+[case.expect]
+program = 'http.request "https://example.com//api/"'
+
+[[case]]
+id = "correction/adversarial/trailing-slash-in-glob"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A trailing slash of a glob is part of the pattern."
+method = "correct"
+program = 'find "/home/user/app" glob: "**/build/" type: directory'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/build/" type: directory'
+
+[[case]]
+id = "correction/adversarial/letter-case-of-literals"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Letter case of paths and globs is kept."
+method = "correct"
+program = 'find "/home/user/App" glob: "*.GO"'
+
+[case.expect]
+program = 'find "/home/user/App" glob: "*.GO"'
+
+[[case]]
+id = "correction/adversarial/regex-kept"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A regular expression that contains a path is a regular expression in a pattern place."
+method = "correct"
+program = 'search /\/etc\/passwd/ "/home/user/app"'
+
+[case.expect]
+program = 'search /\/etc\/passwd/ "/home/user/app"'
+
+[[case]]
+id = "correction/adversarial/numbers-kept"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Numbers of first, depth and assert are never changed."
+method = "correct"
+program = 'find "/home/user/app" depth: 3 |> assert count: 12 |> first 7'
+
+[case.expect]
+program = 'find "/home/user/app" depth: 3 |> assert count: 12 |> first 7'
+
+[[case]]
+id = "correction/adversarial/nurt-find-not-bash"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find with Nurt arguments is not a shell habit."
+method = "correct"
+program = 'find "/home/user/app" glob: "*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "*.go"'
+
+[[case]]
+id = "correction/adversarial/nurt-sleep-not-bash"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "sleep with a duration is the Nurt command."
+method = "correct"
+program = "sleep 5s"
+
+[case.expect]
+program = "sleep 5s"
+
+[[case]]
+id = "correction/adversarial/no-default-inserted"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Mode parameters are never filled in by the correction."
+method = "correct"
+program = 'write "/home/user/app/a.txt" "x"'
+
+[case.expect.error]
+code = "E_MISSING_PARAM"
+
+[[case]]
+id = "correction/adversarial/mode-value-far"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A mode value far from every value is not guessed."
+method = "correct"
+program = 'write "/home/user/app/a.txt" "x" mode: upsert'
+
+[case.expect.error]
+code = "E_UNKNOWN_VALUE"
+
+[[case]]
+id = "correction/adversarial/value-tie"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A value equally close to two values is not corrected."
+method = "correct"
+program = 'find "/home/user/app" |> sort size order: dsc'
+
+[case.expect.error]
+code = "E_UNKNOWN_VALUE"
+
+[[case]]
+id = "correction/adversarial/field-tie"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A field equally close to mode and mime is not corrected."
+method = "correct"
+program = 'find "/home/user/app" |> filter mome == "0644"'
+
+[case.expect.error]
+code = "E_UNKNOWN_FIELD"
+
+[[case]]
+id = "correction/adversarial/let-name-far"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A reference two edits from a let name is not corrected."
+method = "correct"
+program = """
+let changed = find "/home/user/app/src"
+@chnagde |> count"""
+
+[case.expect.error]
+code = "E_UNKNOWN_NAME"
+
+[[case]]
+id = "correction/adversarial/size-in-change-ambiguous"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A single-letter size unit in a change is offered in both readings."
+method = "correct"
+program = 'find "/home/user/app/logs" |> filter size > 5M |> remove'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/adversarial/regex-path-in-find"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "find /etc/ is a path, never a regular expression."
+method = "correct"
+program = "find /etc/"
+
+[case.expect]
+program = 'find "/etc"'
+
+[[case]]
+id = "correction/adversarial/glob-in-text-place"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A glob in a text place stays a text."
+method = "correct"
+program = 'search "*.go" "/home/user/app"'
+
+[case.expect]
+program = 'search "*.go" "/home/user/app"'
+
+[[case]]
+id = "correction/adversarial/unicode-path"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Non-ASCII letters of a path are kept."
+method = "correct"
+program = 'read "/home/user/docs/Zürich café ÅÆØ.txt"'
+
+[case.expect]
+program = 'read "/home/user/docs/Zürich café ÅÆØ.txt"'
+
+[[case]]
+id = "correction/adversarial/capitalised-path-segment"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A path segment equal to a command name in another letter case is kept."
+method = "correct"
+program = 'list "/home/user/Find"'
+
+[case.expect]
+program = 'list "/home/user/Find"'

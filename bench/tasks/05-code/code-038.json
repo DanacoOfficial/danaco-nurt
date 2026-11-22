@@ -1,0 +1,37 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "code-038",
+  "domain": 5,
+  "split": "public",
+  "platform": "linux",
+  "nl": "Remove the unused import from tools/cleanup.py. The other imports are used and stay.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "tools/cleanup.py",
+        "type": "file",
+        "content_utf8": "import os\nimport sys\nimport shutil\n\n\ndef main(path):\n    shutil.rmtree(path)\n    return 0\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main(sys.argv[1]))\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "tools/cleanup.py": {
+        "text": "import sys\nimport shutil\n\n\ndef main(path):\n    shutil.rmtree(path)\n    return 0\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main(sys.argv[1]))\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "code.actions \"tools/cleanup.py\" |> filter kind == \"remove_unused_import\" |> apply",
+  "reference_bash": "python3 - <<'EOF'\nimport os, pathlib\np = pathlib.Path('tools/cleanup.py'); t = p.read_bytes().decode()\nassert t.count('import os\\n') == 1, 'tools/cleanup.py'\np.write_bytes(t.replace('import os\\n', '').encode())\nEOF\n",
+  "tags": [
+    "imports",
+    "python"
+  ],
+  "license": "CC-BY-4.0"
+}

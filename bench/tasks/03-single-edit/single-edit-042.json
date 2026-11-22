@@ -1,0 +1,46 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "single-edit-042",
+  "domain": 3,
+  "split": "public",
+  "platform": "cross",
+  "nl": "In labels.csv, replace `2;closed` with `2;done`. The file starts with a UTF-8 byte order mark and uses CRLF line endings; keep both.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "labels.csv",
+        "type": "file",
+        "content_utf8": "\ufeffid;label\r\n1;open\r\n2;closed\r\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "labels.csv": {
+        "text": "\ufeffid;label\r\n1;open\r\n2;done\r\n"
+      }
+    }
+  },
+  "forbidden": [],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "replace \"2;closed\" \"2;done\" in: [\"labels.csv\"] mode: literal expect: 1",
+  "reference_bash": "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('labels.csv')\np.write_bytes(p.read_bytes().replace(b'2;closed', b'2;done', 1))\nEOF\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'labels.csv'; $t = [IO.File]::ReadAllText($p); [IO.File]::WriteAllText($p, $t.Replace('2;closed', '2;done'), [Text.UTF8Encoding]::new($true))\n",
+  "negatives": [
+    {
+      "shell": "bash",
+      "script": "sed -i 's/2;closed/2;done/' labels.csv && sed -i '1s/^\\xEF\\xBB\\xBF//' labels.csv",
+      "defect": "drops the byte order mark"
+    }
+  ],
+  "tags": [
+    "bom",
+    "crlf",
+    "encoding"
+  ],
+  "license": "CC-BY-4.0"
+}

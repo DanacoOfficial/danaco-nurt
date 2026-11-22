@@ -1,0 +1,11 @@
+{"client": {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "transcript", "version": "1.0.0"}}}}
+{"server": {"jsonrpc": "2.0", "id": 1, "result": "*"}}
+{"client": {"jsonrpc": "2.0", "method": "notifications/initialized"}}
+{"client": {"jsonrpc": "2.0", "id": 2, "method": "resources/read", "params": {"uri": "nurt://help/replace"}}}
+{"server": {"jsonrpc": "2.0", "id": 2, "result": {"contents": [{"uri": "nurt://help/replace", "mimeType": "text/plain", "text": "help topic=replace kind=any examples=3 language=en"}]}}}
+{"client": {"jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": "nurt://describe/group/git"}}}
+{"server": {"jsonrpc": "2.0", "id": 3, "result": {"contents": [{"uri": "nurt://describe/group/git", "mimeType": "text/plain", "text": "Group git: repository commands."}]}}}
+{"client": {"jsonrpc": "2.0", "id": 4, "method": "resources/read", "params": {"uri": "nurt://describe/group/none"}}}
+{"server": {"jsonrpc": "2.0", "id": 4, "error": {"code": -32002, "message": "resource `nurt://describe/group/none` not found: unknown group `none`", "data": {"uri": "nurt://describe/group/none", "status": "NURT_E_ARG"}}}}
+{"client": {"jsonrpc": "2.0", "id": 5, "method": "resources/read", "params": {"uri": "nurt://other"}}}
+{"server": {"jsonrpc": "2.0", "id": 5, "error": {"code": -32002, "message": "unknown resource `nurt://other`; see resources/list and resources/templates/list", "data": {"uri": "nurt://other"}}}}

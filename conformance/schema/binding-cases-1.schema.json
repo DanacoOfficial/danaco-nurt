@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nurt.danaco-group.pl/schema/nurt-binding-cases-1.schema.json",
+  "title": "nurt-binding-cases/1",
+  "description": "Cases of the application interface shared by the language bindings.",
+  "type": "object",
+  "required": ["format", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "nurt-binding-cases/1" },
+    "cases": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/case" } }
+  },
+  "$defs": {
+    "pointer": { "type": "string", "pattern": "^(/([^~]|~[01])*)*$" },
+    "fsEntry": {
+      "description": "Entry of a snapshot nurt-fs-snapshot/1 limited to files with text content and directories.",
+      "type": "object",
+      "required": ["path", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "pattern": "^[^/\\\\\\u0000]+(/[^/\\\\\\u0000]+)*$" },
+        "type": { "enum": ["file", "dir"] },
+        "content_utf8": { "type": "string" }
+      },
+      "if": { "properties": { "type": { "const": "file" } } },
+      "then": { "required": ["content_utf8"] },
+      "else": { "not": { "required": ["content_utf8"] } }
+    },
+    "case": {
+      "type": "object",
+      "required": ["id", "summary", "steps"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]*$" },
+        "summary": { "type": "string", "minLength": 1 },
+        "class": {
+          "type": "string",
+          "pattern": "^(mandatory|optional:[a-z0-9][a-z0-9_.-]*)$",
+          "default": "mandatory"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(os:(linux|macos|windows|unix)|feature:[a-z0-9][a-z0-9_.-]*)$"
+          }
+        },
+        "backends": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["process", "library"] }
+        },
+        "fs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fsEntry" }
+        },
+        "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" } }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": ["call", "expect"],
+      "additionalProperties": false,
+      "properties": {
+        "call": {
+          "enum": [
+            "run", "start", "check", "parse", "print", "correct", "page", "describe", "help",
+            "catalog", "schema", "history", "space", "info", "close", "wait", "cancel", "events"
+          ]
+        },
+        "execution": { "type": "integer", "minimum": 1 },
+        "args": { "type": "object" },
+        "expect": { "$ref": "#/$defs/expect" }
+      },
+      "if": { "properties": { "call": { "enum": ["wait", "cancel", "events"] } } },
+      "then": { "required": ["execution"] },
+      "else": { "not": { "required": ["execution"] } }
+    },
+    "expect": {
+      "type": "object",
+      "required": ["outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "outcome": { "enum": ["ok", "language_error", "call_error"] },
+        "status": {
+          "enum": [
+            "NURT_E_TIMEOUT", "NURT_E_CANCELLED", "NURT_E_ARG", "NURT_E_ABI", "NURT_E_IO",
+            "NURT_E_INTERNAL"
+          ]
+        },
+        "code": { "type": "string", "pattern": "^E_[A-Z0-9_]+$" },
+        "fields": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/pointer" }
+        },
+        "present": { "type": "array", "items": { "$ref": "#/$defs/pointer" } },
+        "absent": { "type": "array", "items": { "$ref": "#/$defs/pointer" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "outcome": { "const": "call_error" } } },
+          "then": { "required": ["status"], "not": { "required": ["code"] } },
+          "else": { "not": { "required": ["status"] } }
+        },
+        {
+          "if": { "properties": { "outcome": { "const": "language_error" } } },
+          "then": { "required": ["code"] }
+        },
+        {
+          "if": { "properties": { "outcome": { "const": "ok" } } },
+          "then": { "not": { "required": ["code"] } }
+        }
+      ]
+    }
+  }
+}

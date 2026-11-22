@@ -1,0 +1,1320 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "correction/powershell/p01-get-childitem"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-ChildItem without -Recurse lists one directory level."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app"
+
+[case.expect]
+program = 'list "/home/user/app"'
+
+[[case]]
+id = "correction/powershell/p01-gci"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The alias gci with a positional path lists the directory."
+method = "correct"
+program = "gci /home/user/app"
+
+[case.expect]
+program = 'list "/home/user/app"'
+
+[[case]]
+id = "correction/powershell/p01-lower-case-cmdlet"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Cmdlet names are recognised without letter case."
+method = "correct"
+program = "get-childitem -path /home/user/app"
+
+[case.expect]
+program = 'list "/home/user/app"'
+
+[[case]]
+id = "correction/powershell/p02-recurse-filter-file"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-ChildItem -Recurse -File -Filter finds files at any depth."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app -Recurse -File -Filter "*.go"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.go" type: file'
+
+[[case]]
+id = "correction/powershell/p02-recurse-directory"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-ChildItem -Recurse -Directory finds directories."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app -Recurse -Directory -Filter "test*"'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/test*" type: directory'
+
+[[case]]
+id = "correction/powershell/p02-depth"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-ChildItem -Depth K limits the depth."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app -Recurse -File -Filter "*.json" -Depth 2'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.json" type: file depth: 2'
+
+[[case]]
+id = "correction/powershell/p02-force"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-ChildItem -Force includes hidden entries."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app -Recurse -File -Filter "*.env" -Force'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.env" type: file hidden: true'
+
+[[case]]
+id = "correction/powershell/p02-name"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-ChildItem -Name returns only names."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app -Recurse -File -Filter "*.md" -Name'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.md" type: file |> select name'
+
+[[case]]
+id = "correction/powershell/p03-get-content"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Content reads a file."
+method = "correct"
+program = "Get-Content /home/user/app/a.txt"
+
+[case.expect]
+program = 'read "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p03-tail"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Content -Tail N reads the last N lines."
+method = "correct"
+program = "Get-Content -Path /home/user/app/a.log -Tail 20"
+
+[case.expect]
+program = 'read "/home/user/app/a.log" last: 20'
+
+[[case]]
+id = "correction/powershell/p03-total-count"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Content -TotalCount N reads the first N lines."
+method = "correct"
+program = "Get-Content -Path /home/user/app/a.log -TotalCount 5"
+
+[case.expect]
+program = 'read "/home/user/app/a.log" lines: ..5'
+
+[[case]]
+id = "correction/powershell/p03-raw"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Content -Raw reads the whole text, the default of read."
+method = "correct"
+program = "Get-Content /home/user/app/a.txt -Raw"
+
+[case.expect]
+program = 'read "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p03-encoding"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Content -Encoding sets the encoding."
+method = "correct"
+program = "Get-Content /home/user/app/legacy.txt -Encoding utf8"
+
+[case.expect]
+program = 'read "/home/user/app/legacy.txt" encoding: "utf8"'
+
+[[case]]
+id = "correction/powershell/p03-gc"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The alias gc reads a file."
+method = "correct"
+program = "gc /home/user/app/a.txt"
+
+[case.expect]
+program = 'read "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p04-set-content"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Set-Content overwrites a file with the value."
+method = "correct"
+program = 'Set-Content -Path /home/user/app/a.txt -Value "x"'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "x" mode: overwrite'
+
+[[case]]
+id = "correction/powershell/p04-add-content"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Add-Content appends the value."
+method = "correct"
+program = 'Add-Content -Path /home/user/app/a.txt -Value "x"'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "x" mode: append'
+
+[[case]]
+id = "correction/powershell/p04-out-file"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A text piped to Out-File overwrites the file."
+method = "correct"
+program = '"x" | Out-File /home/user/app/a.txt'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "x" mode: overwrite'
+
+[[case]]
+id = "correction/powershell/p04-out-file-append"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Out-File -Append appends."
+method = "correct"
+program = '"x" | Out-File /home/user/app/a.txt -Append'
+
+[case.expect]
+program = 'write "/home/user/app/a.txt" "x" mode: append'
+
+[[case]]
+id = "correction/powershell/p05-select-string"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-String searches a regular expression without letter case, as PowerShell does by default."
+method = "correct"
+program = 'Select-String -Pattern "TODO" -Path /home/user/app/a.txt'
+
+[case.expect]
+program = 'search /TODO/ "/home/user/app/a.txt" case_sensitive: false'
+
+[[case]]
+id = "correction/powershell/p05-case-sensitive"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-String -CaseSensitive keeps the default of search."
+method = "correct"
+program = 'Select-String -Pattern "TODO" -Path /home/user/app/a.txt -CaseSensitive'
+
+[case.expect]
+program = 'search /TODO/ "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p05-not-match"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-String -NotMatch inverts the match."
+method = "correct"
+program = 'Select-String -Pattern "DEBUG" -Path /home/user/app/a.log -NotMatch'
+
+[case.expect]
+program = 'search /DEBUG/ "/home/user/app/a.log" case_sensitive: false invert: true'
+
+[[case]]
+id = "correction/powershell/p05-list"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-String -List returns the matching files."
+method = "correct"
+program = 'Select-String -Pattern "TODO" -Path /home/user/app/a.txt -List'
+
+[case.expect]
+program = 'search /TODO/ "/home/user/app/a.txt" case_sensitive: false output: files'
+
+[[case]]
+id = "correction/powershell/p05-context"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-String -Context a,b sets lines before and after."
+method = "correct"
+program = 'Select-String -Pattern "panic" -Path /home/user/app/a.log -Context 2,3'
+
+[case.expect]
+program = 'search /panic/ "/home/user/app/a.log" case_sensitive: false before: 2 after: 3'
+
+[[case]]
+id = "correction/powershell/p06-copy-item"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Copy-Item copies to the destination."
+method = "correct"
+program = "Copy-Item -Path /home/user/a.txt -Destination /home/user/b.txt"
+
+[case.expect]
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt"'
+
+[[case]]
+id = "correction/powershell/p06-copy-recurse"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Copy-Item -Recurse -Force copies a directory."
+method = "correct"
+program = "Copy-Item -Path /home/user/app/dist -Destination /home/user/backup -Recurse -Force"
+
+[case.expect]
+program = 'copy "/home/user/app/dist" to: "/home/user/backup"'
+
+[[case]]
+id = "correction/powershell/p06-cpi"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The alias cpi copies."
+method = "correct"
+program = "cpi /home/user/a.txt /home/user/b.txt"
+
+[case.expect]
+program = 'copy "/home/user/a.txt" to: "/home/user/b.txt"'
+
+[[case]]
+id = "correction/powershell/p07-move-item"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Move-Item moves to the destination."
+method = "correct"
+program = "Move-Item -Path /home/user/a.txt -Destination /home/user/archive/a.txt"
+
+[case.expect]
+program = 'move "/home/user/a.txt" to: "/home/user/archive/a.txt"'
+
+[[case]]
+id = "correction/powershell/p07-mi"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The alias mi moves."
+method = "correct"
+program = "mi /home/user/a.txt /home/user/b.txt"
+
+[case.expect]
+program = 'move "/home/user/a.txt" to: "/home/user/b.txt"'
+
+[[case]]
+id = "correction/powershell/p08-remove-item"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Remove-Item -Recurse -Force removes a directory; recursion is the default."
+method = "correct"
+program = "Remove-Item -Path /home/user/app/build -Recurse -Force"
+
+[case.expect]
+program = 'remove "/home/user/app/build"'
+
+[[case]]
+id = "correction/powershell/p08-ri"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The alias ri removes."
+method = "correct"
+program = "ri /home/user/app/old.log"
+
+[case.expect]
+program = 'remove "/home/user/app/old.log"'
+
+[[case]]
+id = "correction/powershell/p08-rd"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The alias rd removes a directory."
+method = "correct"
+program = "rd /home/user/app/tmp -Recurse"
+
+[case.expect]
+program = 'remove "/home/user/app/tmp"'
+
+[[case]]
+id = "correction/powershell/p09-new-directory"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "New-Item -ItemType Directory creates a directory."
+method = "correct"
+program = "New-Item -ItemType Directory -Path /home/user/app/out"
+
+[case.expect]
+program = 'create "/home/user/app/out" type: directory'
+
+[[case]]
+id = "correction/powershell/p09-new-file"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "New-Item -ItemType File creates a file."
+method = "correct"
+program = "New-Item -ItemType File -Path /home/user/app/a.txt"
+
+[case.expect]
+program = 'create "/home/user/app/a.txt" type: file'
+
+[[case]]
+id = "correction/powershell/p09-new-link"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "New-Item -ItemType SymbolicLink creates a link."
+method = "correct"
+program = "New-Item -ItemType SymbolicLink -Path /home/user/link -Target /home/user/app/src"
+
+[case.expect]
+program = 'create "/home/user/link" type: link target: "/home/user/app/src"'
+
+[[case]]
+id = "correction/powershell/p10-rename-item"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Rename-Item gives an entry a new name in the same directory."
+method = "correct"
+program = "Rename-Item -Path /home/user/a.txt -NewName b.txt"
+
+[case.expect]
+program = 'rename path: "/home/user/a.txt" to: "b.txt"'
+
+[[case]]
+id = "correction/powershell/p11-test-path"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Test-Path describes the path, including its existence."
+method = "correct"
+program = "Test-Path /home/user/app/a.txt"
+
+[case.expect]
+program = 'info "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p11-test-path-leaf"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Test-Path -PathType Leaf asserts that the path is a file."
+method = "correct"
+program = "Test-Path /home/user/app/a.txt -PathType Leaf"
+
+[case.expect]
+program = 'info "/home/user/app/a.txt" |> assert all: type == file'
+
+[[case]]
+id = "correction/powershell/p12-get-item"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Item describes the path."
+method = "correct"
+program = "Get-Item /home/user/app/a.txt"
+
+[case.expect]
+program = 'info "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p12-get-itemproperty-registry"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ["os:windows"]
+summary = "Get-ItemProperty of a registry value reads it through the registry provider."
+method = "correct"
+program = 'Get-ItemProperty -Path HKCU:\Software\Example -Name Mode'
+
+[case.expect]
+program = 'read "registry:/HKCU/Software/Example/Mode"'
+
+[[case]]
+id = "correction/powershell/p13-set-itemproperty-registry"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ["os:windows"]
+summary = "Set-ItemProperty of a registry value writes it with its value type."
+method = "correct"
+program = 'Set-ItemProperty -Path HKCU:\Software\Example -Name Mode -Value 3 -Type DWord'
+
+[case.expect]
+program = 'write "registry:/HKCU/Software/Example/Mode" 3 value_type: dword mode: overwrite'
+
+[[case]]
+id = "correction/powershell/p14-get-acl"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Acl describes the path with its access control entries."
+method = "correct"
+program = "Get-Acl /home/user/app/a.txt"
+
+[case.expect]
+program = 'info "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p14-set-acl"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Set-Acl with an object is not translated."
+method = "correct"
+program = "Set-Acl -Path /home/user/app/a.txt -AclObject $acl"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/powershell/p15-where-length"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Where-Object with Length -gt is a filter on size."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app -Recurse -File -Filter "*.log" | Where-Object { $_.Length -gt 1MB }'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.log" type: file |> filter size > 1mb'
+
+[[case]]
+id = "correction/powershell/p15-where-name-and"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Comparisons joined by -and are one condition."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app -Recurse -File -Filter "*.log" | Where-Object { $_.Length -gt 1KB -and $_.Name -ne "keep.log" }'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.log" type: file |> filter size > 1kb and name != "keep.log"'
+
+[[case]]
+id = "correction/powershell/p15-question-mark"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The alias ? is Where-Object."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app -Recurse -File -Filter "*" | ? { $_.Name -eq "main.go" }'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*" type: file |> filter name == "main.go"'
+
+[[case]]
+id = "correction/powershell/p15-script-block"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A script block beyond comparisons of fields is not translated."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app | Where-Object { Test-Path ($_.FullName + ".bak") }'
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/powershell/p16-select-first"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-Object -First N keeps the first N records."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Select-Object -First 5"
+
+[case.expect]
+program = 'list "/home/user/app" |> first 5'
+
+[[case]]
+id = "correction/powershell/p16-select-last"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-Object -Last N keeps the last N records."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Select-Object -Last 3"
+
+[case.expect]
+program = 'list "/home/user/app" |> last 3'
+
+[[case]]
+id = "correction/powershell/p16-select-skip"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-Object -Skip N drops the first N records."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Select-Object -Skip 2"
+
+[case.expect]
+program = 'list "/home/user/app" |> skip 2'
+
+[[case]]
+id = "correction/powershell/p16-select-property"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-Object -Property keeps fields with PowerShell names mapped to record fields."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Select-Object -Property Name,Length"
+
+[case.expect]
+program = 'list "/home/user/app" |> select name size'
+
+[[case]]
+id = "correction/powershell/p16-select-unique"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Select-Object -Unique keeps distinct records."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Select-Object -Unique"
+
+[case.expect]
+program = 'list "/home/user/app" |> distinct'
+
+[[case]]
+id = "correction/powershell/p17-sort-descending"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Sort-Object -Descending sorts in descending order."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Sort-Object -Property Length -Descending"
+
+[case.expect]
+program = 'list "/home/user/app" |> sort size order: desc'
+
+[[case]]
+id = "correction/powershell/p17-sort-positional"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Sort-Object with a positional property sorts by it."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Sort-Object Name"
+
+[case.expect]
+program = 'list "/home/user/app" |> sort name'
+
+[[case]]
+id = "correction/powershell/p17-pipeline-of-four"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "A pipeline of four cmdlets is a pipeline of four stages."
+method = "correct"
+program = 'Get-ChildItem -Path /home/user/app -Recurse -File -Filter "*.go" | Where-Object { $_.Length -gt 1MB } | Sort-Object Length -Descending | Select-Object -First 5'
+
+[case.expect]
+program = 'find "/home/user/app" glob: "**/*.go" type: file |> filter size > 1mb |> sort size order: desc |> first 5'
+
+[[case]]
+id = "correction/powershell/p18-group-object"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Group-Object groups by a field."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Group-Object -Property Extension"
+
+[case.expect]
+program = 'list "/home/user/app" |> group by: extension'
+
+[[case]]
+id = "correction/powershell/p18-measure-count"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Measure-Object without a property counts."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Measure-Object"
+
+[case.expect]
+program = 'list "/home/user/app" |> count'
+
+[[case]]
+id = "correction/powershell/p18-measure-sum"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Measure-Object -Property -Sum summarizes the field."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Measure-Object -Property Length -Sum"
+
+[case.expect]
+program = 'list "/home/user/app" |> summarize size'
+
+[[case]]
+id = "correction/powershell/p19-foreach-property"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ForEach-Object that returns one property is select."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | ForEach-Object { $_.Name }"
+
+[case.expect]
+program = 'list "/home/user/app" |> select name'
+
+[[case]]
+id = "correction/powershell/p19-foreach-loop"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "ForEach-Object with a command is a loop and is not translated."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | % { Remove-Item $_ }"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/powershell/p21-get-filehash"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-FileHash -Algorithm SHA256 is hash with sha256."
+method = "correct"
+program = "Get-FileHash /home/user/app/a.tar.gz -Algorithm SHA256"
+
+[case.expect]
+program = 'hash "/home/user/app/a.tar.gz" algorithm: sha256'
+
+[[case]]
+id = "correction/powershell/p21-md5"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-FileHash -Algorithm MD5 is hash with md5."
+method = "correct"
+program = "Get-FileHash /home/user/app/a.tar.gz -Algorithm MD5"
+
+[case.expect]
+program = 'hash "/home/user/app/a.tar.gz" algorithm: md5'
+
+[[case]]
+id = "correction/powershell/p22-get-process"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Process -Name lists processes by name."
+method = "correct"
+program = "Get-Process -Name nginx"
+
+[case.expect]
+program = 'processes name: "nginx"'
+
+[[case]]
+id = "correction/powershell/p22-stop-process"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Stop-Process -Id stops the process."
+method = "correct"
+program = "Stop-Process -Id 1234"
+
+[case.expect]
+program = "processes pid: 1234 |> stop"
+
+[[case]]
+id = "correction/powershell/p22-stop-process-force"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Stop-Process -Force uses the kill signal."
+method = "correct"
+program = "Stop-Process -Id 1234 -Force"
+
+[case.expect]
+program = "processes pid: 1234 |> stop signal: kill"
+
+[[case]]
+id = "correction/powershell/p23-start-process"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Start-Process with a list of arguments runs the program in its working directory."
+method = "correct"
+program = 'Start-Process -FilePath make -ArgumentList "test","-v" -WorkingDirectory /home/user/app'
+
+[case.expect]
+program = 'run ["make", "test", "-v"] cwd: "/home/user/app"'
+
+[[case]]
+id = "correction/powershell/p23-start-process-wait"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Start-Process -Wait waits until the program ends."
+method = "correct"
+program = 'Start-Process -FilePath make -ArgumentList "build" -WorkingDirectory /home/user/app -Wait'
+
+[case.expect]
+program = 'run ["make", "build"] cwd: "/home/user/app" wait: forever'
+
+[[case]]
+id = "correction/powershell/p23-argument-string"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An argument list given as one text needs a guessed split; the program is offered, not run."
+method = "correct"
+program = 'Start-Process -FilePath make -ArgumentList "test -v" -WorkingDirectory /home/user/app'
+
+[case.expect.error]
+code = "E_AMBIGUOUS"
+
+[[case]]
+id = "correction/powershell/p24-get-service"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Service -Name lists the service."
+method = "correct"
+program = "Get-Service -Name nginx"
+
+[case.expect]
+program = 'services name: "nginx"'
+
+[[case]]
+id = "correction/powershell/p24-restart-service"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Restart-Service restarts the service."
+method = "correct"
+program = "Restart-Service -Name nginx"
+
+[case.expect]
+program = 'services name: "nginx" |> restart'
+
+[[case]]
+id = "correction/powershell/p24-stop-service"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Stop-Service stops the service."
+method = "correct"
+program = "Stop-Service nginx"
+
+[case.expect]
+program = 'services name: "nginx" |> stop'
+
+[[case]]
+id = "correction/powershell/p24-start-service"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Start-Service starts the service."
+method = "correct"
+program = "Start-Service -Name nginx"
+
+[case.expect]
+program = 'services name: "nginx" |> start'
+
+[[case]]
+id = "correction/powershell/p24-set-service-automatic"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Set-Service -StartupType Automatic enables the service."
+method = "correct"
+program = "Set-Service -Name nginx -StartupType Automatic"
+
+[case.expect]
+program = 'services name: "nginx" |> enable'
+
+[[case]]
+id = "correction/powershell/p24-set-service-disabled"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Set-Service -StartupType Disabled disables the service."
+method = "correct"
+program = "Set-Service -Name nginx -StartupType Disabled"
+
+[case.expect]
+program = 'services name: "nginx" |> disable'
+
+[[case]]
+id = "correction/powershell/p25-invoke-webrequest-outfile"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Invoke-WebRequest -OutFile downloads a file."
+method = "correct"
+program = "Invoke-WebRequest -Uri https://example.com/a.zip -OutFile /home/user/a.zip"
+
+[case.expect]
+program = 'http.download "https://example.com/a.zip" "/home/user/a.zip"'
+
+[[case]]
+id = "correction/powershell/p25-iwr"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The alias iwr sends a request."
+method = "correct"
+program = "iwr https://example.com/api/health"
+
+[case.expect]
+program = 'http.request "https://example.com/api/health"'
+
+[[case]]
+id = "correction/powershell/p25-method-post"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Invoke-WebRequest -Method Post sends a POST request."
+method = "correct"
+program = 'Invoke-WebRequest -Uri https://example.com/api -Method Post -Body "x=1"'
+
+[case.expect]
+program = 'http.request "https://example.com/api" method: post body: "x=1"'
+
+[[case]]
+id = "correction/powershell/p25-invoke-restmethod"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Invoke-RestMethod returns the body of the response."
+method = "correct"
+program = "Invoke-RestMethod https://example.com/api/items"
+
+[case.expect]
+program = 'http.request "https://example.com/api/items" |> select body'
+
+[[case]]
+id = "correction/powershell/p26-get-date"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Date evaluates the current time."
+method = "correct"
+program = "Get-Date"
+
+[case.expect]
+program = "evaluate now()"
+
+[[case]]
+id = "correction/powershell/p26-start-sleep"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Start-Sleep -Seconds N waits N seconds."
+method = "correct"
+program = "Start-Sleep -Seconds 5"
+
+[case.expect]
+program = "sleep 5s"
+
+[[case]]
+id = "correction/powershell/p26-start-sleep-milliseconds"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Start-Sleep -Milliseconds N waits N milliseconds."
+method = "correct"
+program = "Start-Sleep -Milliseconds 250"
+
+[case.expect]
+program = "sleep 250ms"
+
+[[case]]
+id = "correction/powershell/p27-get-command"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Command with a program name locates the program."
+method = "correct"
+program = "Get-Command git"
+
+[case.expect]
+program = 'program.find "git"'
+
+[[case]]
+id = "correction/powershell/p27-get-member"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Member describes the fields of the records."
+method = "correct"
+program = "Get-ChildItem -Path /home/user/app | Get-Member"
+
+[case.expect]
+program = 'list "/home/user/app" |> describe'
+
+[[case]]
+id = "correction/powershell/p29-expand-archive"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Expand-Archive extracts into a directory."
+method = "correct"
+program = "Expand-Archive -Path /home/user/a.zip -DestinationPath /home/user/out"
+
+[case.expect]
+program = 'archive.extract "/home/user/a.zip" into: "/home/user/out"'
+
+[[case]]
+id = "correction/powershell/p29-compress-archive"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Compress-Archive creates an archive of a directory."
+method = "correct"
+program = "Compress-Archive -Path /home/user/app -DestinationPath /home/user/app.zip"
+
+[case.expect]
+program = 'find "/home/user/app" |> archive.create "/home/user/app.zip"'
+
+[[case]]
+id = "correction/powershell/p30-set-location"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Set-Location has no counterpart; paths are absolute or relative to base."
+method = "correct"
+program = "Set-Location /home/user/app"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/powershell/p30-get-location"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Location has no counterpart."
+method = "correct"
+program = "Get-Location"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/powershell/p30-push-location"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Push-Location has no counterpart."
+method = "correct"
+program = "Push-Location /home/user/app"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/powershell/p31-env-variable"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "$env:NAME reads one environment variable."
+method = "correct"
+program = "$env:PATH"
+
+[case.expect]
+program = 'environment name: "PATH"'
+
+[[case]]
+id = "correction/powershell/p32-assignment"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "An assignment of a pipeline is a named result; the variable is a reference."
+method = "correct"
+program = """
+$files = Get-ChildItem -Path /home/user/app -Recurse -File -Filter "*.md"
+$files | Measure-Object"""
+
+[case.expect]
+program = """
+let files = find "/home/user/app" glob: "**/*.md" type: file
+@files |> count"""
+
+[[case]]
+id = "correction/powershell/p33-whatif"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "-WhatIf is the call option preview; the program text has no flag."
+method = "correct"
+program = "Remove-Item -Path /home/user/app/build -Recurse -WhatIf"
+
+[case.expect]
+program = 'remove "/home/user/app/build"'
+
+[[case]]
+id = "correction/powershell/p34-confirm-false"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "-Confirm:$false is dropped; nothing asks for consent."
+method = "correct"
+program = "Remove-Item /home/user/app/a.txt -Confirm:$false"
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p34-confirm"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "-Confirm is dropped."
+method = "correct"
+program = "Remove-Item /home/user/app/a.txt -Confirm"
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p35-silently-continue"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "-ErrorAction SilentlyContinue is on_missing skip where the command has it."
+method = "correct"
+program = "Remove-Item /home/user/app/a.txt -ErrorAction SilentlyContinue"
+
+[case.expect]
+program = 'remove "/home/user/app/a.txt" on_missing: skip'
+
+[[case]]
+id = "correction/powershell/p35-stop"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "-ErrorAction Stop is the default and is dropped."
+method = "correct"
+program = "Get-Content /home/user/app/a.txt -ErrorAction Stop"
+
+[case.expect]
+program = 'read "/home/user/app/a.txt"'
+
+[[case]]
+id = "correction/powershell/p36-write-output"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Write-Output of a text evaluates the text."
+method = "correct"
+program = 'Write-Output "done"'
+
+[case.expect]
+program = 'evaluate "done"'
+
+[[case]]
+id = "correction/powershell/p36-write-host"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Write-Host of a text evaluates the text."
+method = "correct"
+program = 'Write-Host "done"'
+
+[case.expect]
+program = 'evaluate "done"'
+
+[[case]]
+id = "correction/powershell/p37-get-winevent"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-WinEvent -LogName -MaxEvents reads the system log."
+method = "correct"
+program = "Get-WinEvent -LogName System -MaxEvents 20"
+
+[case.expect]
+program = 'logs source: "System" limit: 20'
+
+[[case]]
+id = "correction/powershell/p38-get-nettcpconnection"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-NetTCPConnection lists ports."
+method = "correct"
+program = "Get-NetTCPConnection"
+
+[case.expect]
+program = "ports"
+
+[[case]]
+id = "correction/powershell/p38-test-connection"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Test-Connection pings a host."
+method = "correct"
+program = "Test-Connection example.com"
+
+[case.expect]
+program = 'network.ping "example.com"'
+
+[[case]]
+id = "correction/powershell/p38-resolve-dnsname"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Resolve-DnsName resolves a name."
+method = "correct"
+program = "Resolve-DnsName example.com"
+
+[case.expect]
+program = 'network.resolve "example.com"'
+
+[[case]]
+id = "correction/powershell/p38-get-netipaddress"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-NetIPAddress lists network interfaces."
+method = "correct"
+program = "Get-NetIPAddress"
+
+[case.expect]
+program = "network.interfaces"
+
+[[case]]
+id = "correction/powershell/p39-get-ciminstance"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ["os:windows"]
+summary = "Get-CimInstance queries a CIM class."
+method = "correct"
+program = "Get-CimInstance -ClassName Win32_OperatingSystem"
+
+[case.expect]
+program = 'windows.cim "Win32_OperatingSystem"'
+
+[[case]]
+id = "correction/powershell/p39-get-ciminstance-filter"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+requires = ["os:windows"]
+summary = "Get-CimInstance -Filter is the where condition."
+method = "correct"
+program = '''Get-CimInstance -ClassName Win32_Process -Filter "Name = 'notepad.exe'"'''
+
+[case.expect]
+program = '''windows.cim "Win32_Process" where: "Name = 'notepad.exe'"'''
+
+[[case]]
+id = "correction/powershell/p40-get-volume"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Volume lists disks."
+method = "correct"
+program = "Get-Volume"
+
+[case.expect]
+program = "disks"
+
+[[case]]
+id = "correction/powershell/p40-get-disk"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Get-Disk lists disks."
+method = "correct"
+program = "Get-Disk"
+
+[case.expect]
+program = "disks"
+
+[[case]]
+id = "correction/powershell/p41-register-scheduledtask"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Scheduled tasks of the system are not translated; schedule.create is proposed."
+method = "correct"
+program = "Register-ScheduledTask -TaskName backup -Action $action -Trigger $trigger"
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/powershell/p41-schtasks"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "schtasks /create is not translated."
+method = "correct"
+program = 'schtasks /create /tn backup /tr "C:\backup.cmd" /sc daily'
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"
+
+[[case]]
+id = "correction/powershell/p42-call-operator"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "The call operator runs a program with its arguments."
+method = "correct"
+program = "& /home/user/app/build.sh --release"
+
+[case.expect]
+program = 'run ["/home/user/app/build.sh", "--release"]'
+
+[[case]]
+id = "correction/powershell/p42-invoke-expression"
+kind = "correction"
+class = "mandatory"
+language = "1.0"
+summary = "Invoke-Expression has no counterpart."
+method = "correct"
+program = 'Invoke-Expression "Remove-Item /home/user/a.txt"'
+
+[case.expect.error]
+code = "E_UNCORRECTABLE"

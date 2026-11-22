@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenAI strict function parameters",
+  "description": "Parameters of a function tool with `strict: true`: the JSON Schema subset of structured outputs. Every object lists all its properties in `required` (checked by the test, not expressible here) and sets `additionalProperties: false`; the root is an object and not `anyOf`.",
+  "allOf": [
+    { "$ref": "#/$defs/schema" },
+    {
+      "type": "object",
+      "required": ["type", "properties", "required", "additionalProperties"],
+      "properties": { "type": { "const": "object" } },
+      "not": { "required": ["anyOf"] }
+    }
+  ],
+  "$defs": {
+    "schema": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "type",
+          "description",
+          "properties",
+          "required",
+          "additionalProperties",
+          "enum",
+          "const",
+          "items",
+          "anyOf",
+          "pattern",
+          "format",
+          "minimum",
+          "maximum",
+          "exclusiveMinimum",
+          "exclusiveMaximum",
+          "multipleOf",
+          "minItems",
+          "maxItems",
+          "$ref",
+          "$defs"
+        ]
+      },
+      "properties": {
+        "type": {
+          "anyOf": [
+            { "$ref": "#/$defs/typeName" },
+            { "type": "array", "items": { "$ref": "#/$defs/typeName" }, "minItems": 1 }
+          ]
+        },
+        "properties": { "type": "object", "additionalProperties": { "$ref": "#/$defs/schema" } },
+        "required": { "type": "array", "items": { "type": "string" } },
+        "additionalProperties": { "const": false },
+        "items": { "$ref": "#/$defs/schema" },
+        "anyOf": { "type": "array", "items": { "$ref": "#/$defs/schema" } },
+        "format": {
+          "enum": ["date-time", "time", "date", "duration", "email", "hostname", "ipv4", "ipv6", "uuid"]
+        }
+      },
+      "if": { "required": ["properties"] },
+      "then": { "required": ["required", "additionalProperties"] }
+    },
+    "typeName": { "enum": ["string", "number", "boolean", "integer", "object", "array", "null"] }
+  }
+}

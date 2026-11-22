@@ -1,0 +1,70 @@
+{
+  "format": "nurt-bench-task/1",
+  "id": "multi-edit-037",
+  "domain": 2,
+  "split": "public",
+  "platform": "cross",
+  "nl": "Turn off debugging in every .conf file under conf.d/: each active setting 'debug = true' (with or without spaces around '=') becomes 'debug = false'; extra3.conf is included. Comments and other files stay unchanged.",
+  "fs_before": {
+    "format": "nurt-fs-snapshot/1",
+    "entries": [
+      {
+        "path": "conf.d/api.conf",
+        "type": "file",
+        "content_utf8": "[main]\nname = api\ndebug = true\nport = 8081\n"
+      },
+      {
+        "path": "conf.d/extra3.conf",
+        "type": "file",
+        "content_utf8": "[main]\ndebug=true\n"
+      },
+      {
+        "path": "conf.d/notes.txt",
+        "type": "file",
+        "content_utf8": "debug = true\n"
+      },
+      {
+        "path": "conf.d/web.conf",
+        "type": "file",
+        "content_utf8": "[main]\nname = web\ndebug = true\n# debug = true enables tracing\n"
+      },
+      {
+        "path": "conf.d/worker.conf",
+        "type": "file",
+        "content_utf8": "[main]\nname = worker\ndebug = false\n"
+      }
+    ]
+  },
+  "expect": {
+    "files": {
+      "conf.d/api.conf": {
+        "text": "[main]\nname = api\ndebug = false\nport = 8081\n"
+      },
+      "conf.d/extra3.conf": {
+        "text": "[main]\ndebug = false\n"
+      },
+      "conf.d/web.conf": {
+        "text": "[main]\nname = web\ndebug = false\n# debug = true enables tracing\n"
+      }
+    }
+  },
+  "forbidden": [
+    {
+      "path": "conf.d/notes.txt",
+      "change": "any",
+      "reason": "not a configuration file"
+    }
+  ],
+  "limits": {
+    "steps": 15,
+    "seconds": 120
+  },
+  "oracle_program": "search /^debug\\s*=\\s*true$/ \"conf.d\" glob: \"*.conf\" |> replace \"debug = false\"",
+  "reference_bash": "sed -i -E 's/^debug[[:space:]]*=[[:space:]]*true$/debug = false/' conf.d/*.conf\n",
+  "reference_pwsh": "Get-ChildItem conf.d -Recurse -File -Include '*.conf' | ForEach-Object {\n  $t = [IO.File]::ReadAllText($_.FullName)\n  $n = $t -creplace '(?m)^debug[ \\t]*=[ \\t]*true(?=\\r?$)', 'debug = false'\n  if ($n -cne $t) { [IO.File]::WriteAllText($_.FullName, $n) }\n}\n",
+  "tags": [
+    "config",
+    "replace"
+  ],
+  "license": "CC-BY-4.0"
+}
