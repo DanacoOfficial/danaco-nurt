@@ -23,7 +23,9 @@ pub mod walk;
 
 mod commands {
     pub(crate) mod attributes;
+    pub(crate) mod conflict;
     pub(crate) mod convert;
+    pub(crate) mod copy;
     pub(crate) mod create;
     pub(crate) mod edit;
     pub(crate) mod file_types;
@@ -33,7 +35,10 @@ mod commands {
     pub(crate) mod insert;
     pub(crate) mod lines;
     pub(crate) mod list;
+    pub(crate) mod move_entries;
     pub(crate) mod read;
+    pub(crate) mod remove;
+    pub(crate) mod rename;
     pub(crate) mod replace;
     pub(crate) mod search;
     pub(crate) mod validate;
@@ -53,6 +58,7 @@ pub fn stages() -> Vec<Arc<dyn StageImpl>> {
     [
         commands::attributes::stages(),
         commands::convert::stages(),
+        commands::copy::stages(),
         commands::create::stages(),
         commands::edit::stages(),
         commands::find::stages(),
@@ -61,7 +67,10 @@ pub fn stages() -> Vec<Arc<dyn StageImpl>> {
         commands::insert::stages(),
         commands::lines::stages(),
         commands::list::stages(),
+        commands::move_entries::stages(),
         commands::read::stages(),
+        commands::remove::stages(),
+        commands::rename::stages(),
         commands::replace::stages(),
         commands::search::stages(),
         commands::write::stages(),
