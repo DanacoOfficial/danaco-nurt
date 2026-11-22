@@ -149,7 +149,7 @@ reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["commit"]
+output = ["commit", "group"]
 summary = "List commits of a revision, optionally limited to files, authors, dates or content."
 
 [[command.param]]
@@ -343,7 +343,7 @@ reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["branch", "effect"]
+output = ["branch", "effect", "git_trash_entry"]
 summary = "List branches, or create, rename, switch or delete them."
 reversibility_note = "Branch changes are reversible from the journal, which keeps the previous value of each reference."
 effects = [
@@ -806,6 +806,12 @@ default = "true"
 summary = "Run the pre-commit and commit-msg hooks of the repository as user programs."
 
 [[command.param]]
+name = "sign"
+type = "bool"
+default_note = "the setting commit.gpgSign of the repository configuration"
+summary = "Sign the commit with the signing key of the repository configuration."
+
+[[command.param]]
 name = "exclude"
 type = "list<glob>"
 default = "[]"
@@ -855,6 +861,12 @@ type = "text"
 summary = "Message of an annotated tag."
 
 [[command.param]]
+name = "sign"
+type = "bool"
+default_note = "the setting tag.gpgSign of the repository configuration"
+summary = "Create a signed annotated tag with the signing key of the repository configuration."
+
+[[command.param]]
 name = "delete"
 type = "text"
 summary = "Tag to delete."
@@ -899,6 +911,11 @@ name = "depth"
 type = "int"
 summary = "Limit the fetched history to this many commits."
 
+[[command.param]]
+name = "accept_host_key"
+type = "text"
+summary = "SHA-256 fingerprint (SHA256:<base64>) of the SSH host key to accept when the host is not known."
+
 [[command]]
 name = "git.clone"
 category = "change"
@@ -940,6 +957,11 @@ name = "bare"
 type = "bool"
 default = "false"
 summary = "Create a repository without a working tree."
+
+[[command.param]]
+name = "accept_host_key"
+type = "text"
+summary = "SHA-256 fingerprint (SHA256:<base64>) of the SSH host key to accept when the host is not known."
 
 [[command]]
 name = "git.switch"
@@ -1249,6 +1271,11 @@ values = ["merge", "rebase", "fast_forward_only"]
 default_note = "the setting of the repository configuration"
 summary = "How the changes are integrated."
 
+[[command.param]]
+name = "accept_host_key"
+type = "text"
+summary = "SHA-256 fingerprint (SHA256:<base64>) of the SSH host key to accept when the host is not known."
+
 [[command]]
 name = "git.push"
 category = "change"
@@ -1307,3 +1334,8 @@ name = "delete"
 type = "bool"
 default = "false"
 summary = "Delete the branch on the remote."
+
+[[command.param]]
+name = "accept_host_key"
+type = "text"
+summary = "SHA-256 fingerprint (SHA256:<base64>) of the SSH host key to accept when the host is not known."

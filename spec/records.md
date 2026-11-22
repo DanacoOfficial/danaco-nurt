@@ -102,6 +102,7 @@ A record has a kind and fields in a fixed order. A field marked as required is a
 | [`git_checkpoint`](#git_checkpoint) | Checkpoint of a working tree. |
 | [`git_ref_update`](#git_ref_update) | Update of a reference by a transfer. |
 | [`git_conflict`](#git_conflict) | Conflict left by a merge. |
+| [`git_trash_entry`](#git_trash_entry) | Preserved copy of a deleted branch or a dropped stash entry. |
 | `map` | Record of computed or source-defined fields without a fixed kind, for example the result of `select` with computed fields. |
 
 ### entry
@@ -414,6 +415,7 @@ Change of one file within an effect.
 | `added` | int | no | Lines added. |
 | `removed` | int | no | Lines removed. |
 | `replacements` | int | no | Replacements made. |
+| `rows_changed` | int | no | Rows inserted, updated or deleted by SQL statements. |
 | `flags` | list<text> | no | Notes about the change, for example `crlf_preserved`. |
 | `encoding_before` | text | no | Encoding before. |
 | `encoding_after` | text | no | Encoding after. |
@@ -714,6 +716,7 @@ Commit of a repository.
 | `trailers` | map<text> | no | Trailers of the message. |
 | `tree` | text | no | Tree identifier. |
 | `files` | list<object [`CommitFile`](#commitfile)> | no | Files changed. |
+| `branch` | text | no | Branch that received the commit, in the result of `git.commit`. |
 
 ### git_status
 
@@ -1325,6 +1328,7 @@ Verdict of an analysis.
 | `started` | instant | yes | Start time. |
 | `duration` | duration | yes | Time taken. |
 | `fingerprint` | text | no | Fingerprint of the state of the code. |
+| `duplication_percent` | number | no | Share of duplicated lines in the analysed files, in percent. |
 | `op` | int | no | Journal operation of the analysis. |
 
 ### analyze_tool
@@ -1423,6 +1427,19 @@ Conflict left by a merge.
 | `base` | text | no | Object identifier of the base. |
 | `ours` | text | no | Object identifier of the current side. |
 | `theirs` | text | no | Object identifier of the other side. |
+
+### git_trash_entry
+
+Preserved copy of a deleted branch or a dropped stash entry.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `name` | text | yes | Name of the deleted branch or stash entry. |
+| `kind` | enum(branch\|stash) | yes | Kind. |
+| `ref` | text | yes | Reference that keeps the copy, for example `refs/nurt/trash/feature`. |
+| `commit` | text | yes | Commit identifier. |
+| `time` | instant | yes | Time of the deletion. |
+| `subject` | text | no | First line of the message of the commit. |
 
 ## Nested objects
 

@@ -20,7 +20,7 @@
 set -eu
 
 readonly TYPES="feat|fix|perf|refactor|docs|test|build|ci|style|chore|revert"
-readonly AREAS="workspace deps ci spec catalog tables docs tools release repo"
+readonly AREAS="workspace deps ci spec catalog tables docs tools release repo bindings packaging integrations"
 readonly MAX_SUBJECT=72
 
 if [ $# -ne 1 ]; then
