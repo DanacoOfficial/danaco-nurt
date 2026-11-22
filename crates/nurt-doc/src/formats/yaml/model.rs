@@ -17,9 +17,11 @@ use nurt_contracts::value::{Fields, Value};
 pub use nurt_contracts::config::YamlVersion;
 
 use super::scalar;
+use crate::constructs::{self, YAML_ALIAS_EXPANSION_LIMIT};
 
-/// Maximum number of nodes produced when aliases are expanded into a value.
-pub const ALIAS_EXPANSION_LIMIT: usize = 100_000;
+/// Maximum number of nodes that the expansion of aliases and merge keys adds
+/// to a value, beyond the nodes written in the document.
+pub const ALIAS_EXPANSION_LIMIT: usize = 1_000_000;
 
 /// Identifier of a node in a [`YamlModel`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -467,7 +469,10 @@ impl YamlModel {
     #[must_use]
     pub fn line_col(&self, offset: usize) -> (usize, usize) {
         let line = self.line_starts.partition_point(|&start| start <= offset);
-        let start = self.line_starts[line.saturating_sub(1)];
+        let mut start = self.line_starts[line.saturating_sub(1)];
+        if start == 0 && self.bom {
+            start = '\u{FEFF}'.len_utf8().min(offset);
+        }
         let end = offset.min(self.source.len());
         let column = self
             .source
@@ -528,7 +533,11 @@ impl YamlModel {
     #[must_use]
     pub fn starts_line(&self, offset: usize) -> bool {
         let start = self.line_start(offset);
-        let skip = if start == 0 && self.bom { '\u{FEFF}'.len_utf8() } else { 0 };
+        let skip = if start == 0 && self.bom {
+            '\u{FEFF}'.len_utf8()
+        } else {
+            0
+        };
         self.source.as_bytes()[(start + skip).min(offset)..offset]
             .iter()
             .all(|&byte| byte == b' ' || byte == b'\t')
@@ -581,9 +590,16 @@ impl YamlModel {
             .map(|mapping| mapping.entries[index].value)
     }
 
-    /// Mapping entry whose value is the given node, with its index.
+    /// Mapping entry whose value is the given node.
     #[must_use]
-    pub fn entry_of(&self, value: NodeId) -> Option<(usize, &MapEntry)> {
+    pub fn entry_of(&self, value: NodeId) -> Option<&MapEntry> {
+        self.entry_position(value).map(|(_, entry)| entry)
+    }
+
+    /// Mapping entry whose value is the given node, with its index in the
+    /// mapping.
+    #[must_use]
+    pub fn entry_position(&self, value: NodeId) -> Option<(usize, &MapEntry)> {
         let parent = self.parent(value)?;
         self.node(parent)
             .as_mapping()?
@@ -613,9 +629,7 @@ impl YamlModel {
         match &node.kind {
             NodeKind::Scalar(scalar) => Some(scalar.value.clone()),
             NodeKind::Alias(_) => None,
-            NodeKind::Mapping(_) | NodeKind::Sequence(_) => {
-                Some(self.text(&node.span).to_owned())
-            }
+            NodeKind::Mapping(_) | NodeKind::Sequence(_) => Some(self.text(&node.span).to_owned()),
         }
     }
 
@@ -631,9 +645,9 @@ impl YamlModel {
     ///
     /// # Errors
     ///
-    /// `E_DOC_PARSE` when the expansion of aliases exceeds
-    /// [`ALIAS_EXPANSION_LIMIT`] nodes or an alias refers to an undefined
-    /// anchor.
+    /// `E_UNSUPPORTED_CONSTRUCT` naming `yaml.alias_expansion_limit` when the
+    /// expansion of aliases adds more than [`ALIAS_EXPANSION_LIMIT`] nodes;
+    /// `E_DOC_PARSE` when an alias refers to an undefined anchor.
     pub fn value(&self, id: NodeId) -> Result<Value> {
         self.value_with(id, &ValueOverrides::default())
     }
@@ -655,7 +669,7 @@ impl YamlModel {
     ///
     /// As for [`YamlModel::value`].
     pub fn value_with(&self, id: NodeId, overrides: &ValueOverrides) -> Result<Value> {
-        let mut budget = ALIAS_EXPANSION_LIMIT;
+        let mut budget = self.nodes.len().saturating_add(ALIAS_EXPANSION_LIMIT);
         self.expand(id, overrides, &mut budget, &mut Vec::new())
     }
 
@@ -667,9 +681,9 @@ impl YamlModel {
         active: &mut Vec<NodeId>,
     ) -> Result<Value> {
         if *budget == 0 {
-            return Err(Error::new(
-                ErrorCode::DocParse,
-                format!("alias expansion exceeds {ALIAS_EXPANSION_LIMIT} nodes"),
+            return Err(constructs::unsupported(
+                YAML_ALIAS_EXPANSION_LIMIT,
+                format!("the expansion of aliases adds more than {ALIAS_EXPANSION_LIMIT} nodes"),
             ));
         }
         *budget -= 1;
@@ -760,6 +774,9 @@ impl YamlModel {
         }
         if let Some(extra) = overrides.appended_entries.get(&id) {
             for (key, value) in extra {
+                // An appended key that overrides a merged key is written last
+                // in the text, so it is read last.
+                fields.shift_remove(key);
                 fields.insert(key.clone(), value.clone());
             }
         }

@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+services:
+  web:
+    image: nginx:1.27
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+  api:
+    build:
+      context: ./api
+      args:
+        RELEASE: "true"
+    environment:
+      DATABASE_URL: postgres://app@db:5432/app
+      LOG_FORMAT: json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      retries: 3
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data: {}

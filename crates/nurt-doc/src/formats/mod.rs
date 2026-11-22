@@ -4,7 +4,8 @@
 //! Supported document formats.
 
 pub mod json;
+pub mod yaml;
 
 /// Registration functions of the built-in formats, in detection priority
 /// order; [`crate::registry::Registry::builtin`] registers their formats.
-pub(crate) const BUILTIN: &[crate::registry::FormatsFn] = &[json::formats];
+pub(crate) const BUILTIN: &[crate::registry::FormatsFn] = &[json::formats, yaml::formats];

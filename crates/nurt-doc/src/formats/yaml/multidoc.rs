@@ -91,7 +91,11 @@ pub fn document_comment(model: &YamlModel, index: usize) -> Option<String> {
         .or_else(|| document.start_marker.as_ref().map(|marker| marker.start))
         .unwrap_or_else(|| previous_document_end(model, index));
     let comments = Comments::new(model);
-    let first = if root.is_empty_node() { document.span.end.max(first) } else { first };
+    let first = if root.is_empty_node() {
+        document.span.end.max(first)
+    } else {
+        first
+    };
     comments.join(&comments.document(start, first))
 }
 
@@ -122,7 +126,11 @@ pub fn empty_root_insertion(model: &YamlModel, index: usize) -> Option<(usize, b
 fn first_token(model: &YamlModel, index: usize) -> Option<usize> {
     let document = model.documents().get(index)?;
     let root = model.node(document.root);
-    Some(if root.is_empty_node() { document.span.end } else { root.full_span().start })
+    Some(if root.is_empty_node() {
+        document.span.end
+    } else {
+        root.full_span().start
+    })
 }
 
 fn previous_document_end(model: &YamlModel, index: usize) -> usize {
@@ -130,4 +138,61 @@ fn previous_document_end(model: &YamlModel, index: usize) -> usize {
         .checked_sub(1)
         .and_then(|previous| model.documents().get(previous))
         .map_or(0, |document| document.span.end)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(text: &str) -> YamlModel {
+        YamlModel::parse(text).expect("valid YAML")
+    }
+
+    /// Stream of `count` documents, each with the key `index`.
+    fn stream(count: usize) -> String {
+        (0..count)
+            .map(|index| format!("---\nindex: {index}\n"))
+            .collect()
+    }
+
+    #[test]
+    fn selects_documents_by_index_or_all() {
+        let model = parse(&stream(3));
+        assert_eq!(select(&model, None), vec![0]);
+        assert_eq!(select(&model, Some(DocSelector::Index(2))), vec![2]);
+        assert!(select(&model, Some(DocSelector::Index(3))).is_empty());
+        assert_eq!(select(&model, Some(DocSelector::All)), vec![0, 1, 2]);
+        assert_eq!(item_document(&model, 1), Some(1));
+        assert_eq!(item_document(&parse("a: 1\n"), 0), None);
+        assert_eq!(selector_of(0), None);
+        assert_eq!(selector_of(2), Some(DocSelector::Index(2)));
+    }
+
+    #[test]
+    fn offers_the_first_documents_as_candidates_of_a_missing_document() {
+        let count = MAX_DOCUMENT_CANDIDATES + 2;
+        let model = parse(&stream(count));
+        let key = KeyPath::parse("#12:index").expect("key path");
+        let error = document_not_found(&model, &key);
+        assert_eq!(error.code, ErrorCode::KeyNotFound);
+        assert_eq!(error.candidates.len(), MAX_DOCUMENT_CANDIDATES);
+        assert_eq!(error.candidates[0].program, "index");
+        assert_eq!(error.candidates[1].program, "#1:index");
+        assert!(error.message.contains(&format!("{count} documents")));
+    }
+
+    #[test]
+    fn reads_the_comment_of_a_document_with_an_empty_root() {
+        let model = parse("---\n# reserved\n...\n");
+        let comment = document_comment(&model, 0);
+        assert!(
+            comment
+                .as_deref()
+                .is_some_and(|comment| comment.contains("reserved")),
+            "{comment:?}"
+        );
+        assert_eq!(document_comment(&model, 1), None);
+        assert_eq!(empty_root_insertion(&model, 1), None);
+        assert_eq!(empty_root_insertion(&parse("a: 1\n"), 0), None);
+    }
 }

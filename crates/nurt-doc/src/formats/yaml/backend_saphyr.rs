@@ -1,34 +1,17 @@
-// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
-// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
-// https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Node events of a YAML stream read with the `saphyr` loader.
+//! Node events of a YAML stream read with the `saphyr-parser` event parser.
 //!
-//! The loader validates the whole stream against YAML 1.2 and reports every
-//! node with its range in characters. The events below carry byte ranges;
+//! The parser validates the whole stream against YAML 1.2 and reports every
+//! event with its range in characters. The events below carry byte ranges;
 //! anchors, tags, indicators and comments are recovered from the source by
-//! the model builder. An alias appears in the loader output as a copy of
-//! its target with the range of the alias, so an alias is recognised by the
-//! `*` at the start of its range.
+//! the model builder. Repeated keys are valid YAML and are kept; the model
+//! reads the last of them.
 
 use std::ops::Range;
 
-use saphyr::{LoadableYamlNode, MarkedYaml, Scalar, YamlData};
+use saphyr_parser::{Event, Parser};
 
 /// Maximum nesting of collections accepted in a stream.
 pub(crate) const MAX_DEPTH: usize = 512;
-
-/// Content of a scalar as reported by the loader.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum RawScalar {
-    /// Text after unescaping and folding.
-    Text(String),
-    /// Plain scalar that the loader resolved to a non-string type; its text
-    /// equals its source text.
-    Typed,
-    /// Scalar without a loader value: an empty document or a value that does
-    /// not match its core tag.
-    Unresolved,
-}
 
 /// Kind of a [`RawEvent`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,16 +24,17 @@ pub(crate) enum RawKind {
     SequenceStart,
     /// End of a sequence.
     SequenceEnd,
-    /// Scalar.
-    Scalar(RawScalar),
+    /// Scalar with its value after unescaping and folding.
+    Scalar(String),
     /// Alias.
     Alias,
 }
 
 /// Node event with its byte range.
 ///
-/// The range of a node includes its anchor and tag. The range of a
-/// collection end is the position of the token that ends it.
+/// The range of a scalar includes its anchor and tag and may reach the next
+/// token. The range of a collection start or end is the position of the
+/// token that starts or ends it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RawEvent {
     /// Kind of the event.
@@ -59,105 +43,74 @@ pub(crate) struct RawEvent {
     pub(crate) span: Range<usize>,
 }
 
-/// Failure of the loader.
+/// Failure of the parser.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RawError {
     /// Byte offset of the error.
     pub(crate) offset: usize,
-    /// Message of the loader.
+    /// Message of the parser.
     pub(crate) message: String,
 }
 
 /// Events of every document of `text`, in stream order.
 pub(crate) fn events(text: &str) -> Result<Vec<Vec<RawEvent>>, RawError> {
     let map = CharMap::new(text);
-    let documents = MarkedYaml::load_from_str(text).map_err(|error| RawError {
-        offset: map.byte(error.marker().index()),
-        message: error.info().to_owned(),
-    })?;
-    let mut result = Vec::with_capacity(documents.len());
-    for document in &documents {
-        let mut out = Vec::new();
-        walk(document, text, &map, 0, &mut out)?;
-        result.push(out);
+    let mut documents = Vec::new();
+    let mut current: Vec<RawEvent> = Vec::new();
+    let mut depth = 0usize;
+    for item in Parser::new_from_str(text) {
+        let (event, span) = item.map_err(|error| RawError {
+            offset: map.byte(error.marker().index()),
+            message: error.info().to_owned(),
+        })?;
+        let range = map.byte(span.start.index())..map.byte(span.end.index());
+        let kind = match event {
+            Event::DocumentStart(_) => {
+                current.clear();
+                continue;
+            }
+            Event::DocumentEnd => {
+                documents.push(std::mem::take(&mut current));
+                continue;
+            }
+            Event::Scalar(value, ..) => {
+                current.push(RawEvent {
+                    kind: RawKind::Scalar(value.into_owned()),
+                    span: range,
+                });
+                continue;
+            }
+            Event::Alias(_) => {
+                current.push(RawEvent {
+                    kind: RawKind::Alias,
+                    span: range,
+                });
+                continue;
+            }
+            Event::MappingStart(..) => RawKind::MappingStart,
+            Event::SequenceStart(..) => RawKind::SequenceStart,
+            Event::MappingEnd => RawKind::MappingEnd,
+            Event::SequenceEnd => RawKind::SequenceEnd,
+            Event::StreamStart | Event::StreamEnd | Event::Nothing => continue,
+        };
+        depth = nest(depth, &kind, range.start)?;
+        current.push(RawEvent {
+            kind,
+            span: range.start..range.start,
+        });
     }
-    Ok(result)
+    Ok(documents)
 }
 
-fn walk(
-    node: &MarkedYaml<'_>,
-    text: &str,
-    map: &CharMap,
-    depth: usize,
-    out: &mut Vec<RawEvent>,
-) -> Result<(), RawError> {
-    let span = map.byte(node.span.start.index())..map.byte(node.span.end.index());
-    if depth > MAX_DEPTH {
-        return Err(RawError {
-            offset: span.start,
+/// Nesting depth after a collection event.
+fn nest(depth: usize, kind: &RawKind, offset: usize) -> Result<usize, RawError> {
+    match kind {
+        RawKind::MappingStart | RawKind::SequenceStart if depth >= MAX_DEPTH => Err(RawError {
+            offset,
             message: format!("collections are nested deeper than {MAX_DEPTH} levels"),
-        });
-    }
-    let alias = text.get(span.clone()).is_some_and(|slice| slice.starts_with('*'));
-    if alias {
-        out.push(RawEvent {
-            kind: RawKind::Alias,
-            span,
-        });
-        return Ok(());
-    }
-    match &node.data {
-        YamlData::Tagged(_, inner) => walk(inner, text, map, depth, out),
-        YamlData::Sequence(items) => {
-            out.push(RawEvent {
-                kind: RawKind::SequenceStart,
-                span: span.start..span.start,
-            });
-            for item in items {
-                walk(item, text, map, depth + 1, out)?;
-            }
-            out.push(RawEvent {
-                kind: RawKind::SequenceEnd,
-                span: span.end..span.end,
-            });
-            Ok(())
-        }
-        YamlData::Mapping(entries) => {
-            out.push(RawEvent {
-                kind: RawKind::MappingStart,
-                span: span.start..span.start,
-            });
-            for (key, value) in entries {
-                walk(key, text, map, depth + 1, out)?;
-                walk(value, text, map, depth + 1, out)?;
-            }
-            out.push(RawEvent {
-                kind: RawKind::MappingEnd,
-                span: span.end..span.end,
-            });
-            Ok(())
-        }
-        YamlData::Value(Scalar::String(value)) | YamlData::Representation(value, _, _) => {
-            out.push(RawEvent {
-                kind: RawKind::Scalar(RawScalar::Text(value.to_string())),
-                span,
-            });
-            Ok(())
-        }
-        YamlData::Value(_) => {
-            out.push(RawEvent {
-                kind: RawKind::Scalar(RawScalar::Typed),
-                span,
-            });
-            Ok(())
-        }
-        YamlData::Alias(_) | YamlData::BadValue => {
-            out.push(RawEvent {
-                kind: RawKind::Scalar(RawScalar::Unresolved),
-                span,
-            });
-            Ok(())
-        }
+        }),
+        RawKind::MappingStart | RawKind::SequenceStart => Ok(depth + 1),
+        _ => Ok(depth.saturating_sub(1)),
     }
 }
 
@@ -191,9 +144,7 @@ impl CharMap {
 
     fn byte(&self, index: usize) -> usize {
         let position = self.extra.partition_point(|&(start, _)| start <= index);
-        let extra = position
-            .checked_sub(1)
-            .map_or(0, |last| self.extra[last].1);
+        let extra = position.checked_sub(1).map_or(0, |last| self.extra[last].1);
         (index + extra).min(self.len)
     }
 }
@@ -202,9 +153,17 @@ impl CharMap {
 mod tests {
     use super::*;
 
+    fn scalar_starts(events: &[RawEvent]) -> Vec<usize> {
+        events
+            .iter()
+            .filter(|event| matches!(event.kind, RawKind::Scalar(_)))
+            .map(|event| event.span.start)
+            .collect()
+    }
+
     #[test]
     fn maps_character_indices_to_bytes() {
-        let map = CharMap::new("aż b");
+        let map = CharMap::new("aé b");
         assert_eq!(map.byte(0), 0);
         assert_eq!(map.byte(1), 1);
         assert_eq!(map.byte(2), 3);
@@ -214,22 +173,30 @@ mod tests {
 
     #[test]
     fn reports_byte_ranges_of_scalars_after_multibyte_text() {
-        let events = events("zażółć: ąę\n").unwrap();
-        let spans: Vec<_> = events[0].iter().map(|event| event.span.clone()).collect();
-        assert_eq!(spans[1], 0..10);
-        assert_eq!(spans[2], 12..16);
+        let events = events("zaéüλö: €é\n").unwrap();
+        assert_eq!(scalar_starts(&events[0]), vec![0, 12]);
     }
 
     #[test]
-    fn recognises_aliases_by_their_indicator() {
-        let events = events("a: &x 1\nb: *x\n").unwrap();
+    fn reports_aliases_and_repeated_keys() {
+        let events = events("a: &x 1\nb: *x\na: 2\n").unwrap();
         assert!(events[0].iter().any(|event| event.kind == RawKind::Alias));
+        assert_eq!(scalar_starts(&events[0]).len(), 5);
+    }
+
+    #[test]
+    fn splits_documents() {
+        let events = events("a: 1\n--- b\n...\n").unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[1][0].kind, RawKind::Scalar("b".to_owned()));
+        assert!(super::events("").unwrap().is_empty());
     }
 
     #[test]
     fn reports_error_offset_in_bytes() {
-        let error = events("ż: [1\n").unwrap_err();
+        let error = events("é: [1\n").unwrap_err();
         assert!(error.offset >= 2);
+        assert!(events("a: *missing\n").is_err());
     }
 
     #[test]

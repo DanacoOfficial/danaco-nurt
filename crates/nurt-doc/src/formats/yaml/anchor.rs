@@ -16,8 +16,8 @@
 //!
 //! Documents are checked when they are opened ([`check_expansion`]): an
 //! alias inside the node its anchor defines forms a cycle, and nested
-//! aliases whose expansion exceeds [`MAX_ALIAS_EXPANSION`] nodes are refused
-//! instead of being expanded.
+//! aliases that add more than [`ALIAS_EXPANSION_LIMIT`] nodes are refused
+//! instead of being expanded ("billion laughs").
 
 use std::collections::{HashMap, HashSet};
 
@@ -26,21 +26,10 @@ use nurt_contracts::keypath::{KeyPath, KeySegment};
 use nurt_contracts::report::Notable;
 
 use super::merge;
-use super::model::{NodeId, NodeKind, YamlModel};
+use super::model::{ALIAS_EXPANSION_LIMIT, NodeId, NodeKind, YamlModel};
 use super::multidoc;
-use crate::constructs;
+use crate::constructs::{self, YAML_ALIAS_CYCLE, YAML_ALIAS_EXPANSION_LIMIT};
 use crate::edit::EditReport;
-
-/// Construct name of an alias that refers to a node containing it.
-pub const YAML_ALIAS_CYCLE: &str = "yaml.alias_cycle";
-
-/// Construct name of a document whose aliases expand to more nodes than
-/// [`MAX_ALIAS_EXPANSION`].
-pub const YAML_ALIAS_EXPANSION_LIMIT: &str = "yaml.alias_expansion_limit";
-
-/// Largest number of nodes that aliases may add to a document when it is
-/// expanded; guards against exponential expansion ("billion laughs").
-pub const MAX_ALIAS_EXPANSION: u64 = 1_000_000;
 
 /// Largest number of alias key paths listed for one change.
 pub const MAX_SHARED_PATHS: usize = 64;
@@ -110,8 +99,8 @@ impl Anchors {
     }
 }
 
-/// Checks every document of `model` for alias cycles and for an expansion
-/// larger than [`MAX_ALIAS_EXPANSION`] nodes.
+/// Checks every document of `model` for alias cycles and for aliases that
+/// add more than [`ALIAS_EXPANSION_LIMIT`] nodes when expanded.
 ///
 /// # Errors
 ///
@@ -128,8 +117,7 @@ pub fn check_expansion(model: &YamlModel) -> Result<()> {
             .node_ids()
             .filter(|&id| model.node(id).document == index)
             .count();
-        let own = u64::try_from(own).unwrap_or(u64::MAX);
-        if size.saturating_sub(own) > MAX_ALIAS_EXPANSION {
+        if size.saturating_sub(own) > ALIAS_EXPANSION_LIMIT {
             return Err(expansion_error(index));
         }
     }
@@ -140,7 +128,7 @@ fn expansion_error(document: usize) -> Error {
     constructs::unsupported(
         YAML_ALIAS_EXPANSION_LIMIT,
         format!(
-            "the aliases of document {document} expand to more than {MAX_ALIAS_EXPANSION} nodes; reduce the nesting of aliases"
+            "the aliases of document {document} expand to more than {ALIAS_EXPANSION_LIMIT} nodes; reduce the nesting of aliases"
         ),
     )
 }
@@ -151,9 +139,9 @@ fn expanded_size(
     model: &YamlModel,
     anchors: &Anchors,
     root: NodeId,
-    sizes: &mut [Option<u64>],
+    sizes: &mut [Option<usize>],
     open: &mut [bool],
-) -> Result<u64> {
+) -> Result<usize> {
     let mut stack = vec![(root, false)];
     while let Some((id, finished)) = stack.pop() {
         let index = id.index();
@@ -165,8 +153,8 @@ fn expanded_size(
             let size = dependencies
                 .iter()
                 .map(|dependency| sizes[dependency.index()].unwrap_or(0))
-                .fold(own_weight(model, id), u64::saturating_add);
-            if size > MAX_ALIAS_EXPANSION.saturating_mul(2) {
+                .fold(own_weight(model, id), usize::saturating_add);
+            if size > ALIAS_EXPANSION_LIMIT.saturating_add(model.node_ids().count()) {
                 return Err(expansion_error(model.node(id).document));
             }
             sizes[index] = Some(size);
@@ -188,8 +176,8 @@ fn expanded_size(
     Ok(sizes[root.index()].unwrap_or(0))
 }
 
-fn own_weight(model: &YamlModel, id: NodeId) -> u64 {
-    u64::from(!matches!(model.node(id).kind, NodeKind::Alias(_)))
+fn own_weight(model: &YamlModel, id: NodeId) -> usize {
+    usize::from(!matches!(model.node(id).kind, NodeKind::Alias(_)))
 }
 
 fn dependencies(model: &YamlModel, anchors: &Anchors, id: NodeId) -> Vec<NodeId> {
@@ -306,7 +294,9 @@ pub fn shared_by(model: &YamlModel, node: NodeId) -> Vec<KeyPath> {
         loop {
             if model.node(current).anchor.is_some() {
                 for &alias in anchors.aliases_of(current) {
-                    if paths.len() >= MAX_SHARED_PATHS || !seen.insert((alias, format!("{relative:?}"))) {
+                    if paths.len() >= MAX_SHARED_PATHS
+                        || !seen.insert((alias, format!("{relative:?}")))
+                    {
                         continue;
                     }
                     if let Some(path) = visible_path(model, &anchors, alias, &relative) {
@@ -351,9 +341,14 @@ fn visible_path(
     let Some(KeySegment::Key(name)) = relative.first() else {
         return None;
     };
-    let local = model.node(merging).as_mapping()?.entries.iter().any(|entry| {
-        !entry.merge && merge::key_name_with(model, anchors, entry.key).as_deref() == Some(name)
-    });
+    let local = model
+        .node(merging)
+        .as_mapping()?
+        .entries
+        .iter()
+        .any(|entry| {
+            !entry.merge && merge::key_name_with(model, anchors, entry.key).as_deref() == Some(name)
+        });
     (!local).then(|| join(path_with(model, anchors, merging), relative))
 }
 

@@ -298,3 +298,113 @@ pub fn check_new_key(name: &str) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fmt::Write as _;
+
+    use super::*;
+    use crate::model::Span;
+
+    fn parse(text: &str) -> YamlModel {
+        YamlModel::parse(text).expect("valid YAML")
+    }
+
+    fn root(model: &YamlModel) -> NodeId {
+        model.documents()[0].root
+    }
+
+    fn value_node(model: &YamlModel, key: &str) -> NodeId {
+        model.map_get(root(model), key).expect("key exists")
+    }
+
+    #[test]
+    fn finds_no_merged_keys_in_a_node_that_is_not_a_mapping() {
+        let model = parse("a: 1\nb: [x]\n");
+        for node in [value_node(&model, "a"), value_node(&model, "b")] {
+            assert!(merge_sources(&model, node).is_empty());
+            assert!(inherited_members(&model, node).is_empty());
+            assert!(local_entry(&model, node, "x").is_none());
+            assert_eq!(inherited_value(&model, node, "x"), None);
+        }
+    }
+
+    #[test]
+    fn skips_merge_values_that_are_not_mappings() {
+        let model =
+            parse("base: &base {a: 1}\nmap:\n  <<: [*base, plain]\n  b: 2\nother:\n  <<: text\n");
+        let map = value_node(&model, "map");
+        assert_eq!(merge_sources(&model, map), vec![value_node(&model, "base")]);
+        assert!(merge_sources(&model, value_node(&model, "other")).is_empty());
+        assert!(is_override(&model, map, "a"));
+        assert!(!is_override(&model, map, "b"));
+        assert!(check_remove(&model, map, "b").is_ok());
+        let error = check_remove(&model, map, "a").expect_err("inherited key");
+        assert_eq!(error.found.as_deref(), Some(YAML_MERGE_INHERITED_REMOVE));
+    }
+
+    #[test]
+    fn stops_following_merge_chains_past_the_depth_limit() {
+        let levels = MAX_MERGE_DEPTH + 2;
+        let mut text = String::from("m0: &m0 {k0: 0}\n");
+        for level in 1..=levels {
+            writeln!(
+                text,
+                "m{level}: &m{level} {{<<: *m{}, k{level}: {level}}}",
+                level - 1
+            )
+            .expect("write to a string");
+        }
+        let model = parse(&text);
+        let top = value_node(&model, &format!("m{levels}"));
+        let names: Vec<String> = inherited_members(&model, top)
+            .into_iter()
+            .map(|member| member.name)
+            .collect();
+        assert!(names.contains(&format!("k{}", levels - MAX_MERGE_DEPTH)));
+        assert!(!names.contains(&format!("k{}", levels - MAX_MERGE_DEPTH - 1)));
+    }
+
+    #[test]
+    fn leaves_keys_nested_past_the_depth_limit_unnamed() {
+        let depth = MAX_MERGE_DEPTH + 2;
+        let key = format!("{}x{}", "[".repeat(depth), "]".repeat(depth));
+        let model = parse(&format!("{key}: 1\nshort: 2\n"));
+        let mapping = model.node(root(&model)).as_mapping().expect("mapping");
+        assert_eq!(key_name(&model, mapping.entries[0].key), None);
+        assert_eq!(
+            key_name(&model, mapping.entries[1].key).as_deref(),
+            Some("short")
+        );
+    }
+
+    #[test]
+    fn allows_edits_at_the_edges_of_an_explicit_key_only() {
+        let model = parse("? a\n: 1\nb: 2\n");
+        let allowed = [
+            ByteEdit::insert(0, "c: 3\n"),
+            ByteEdit::insert(3, " "),
+            ByteEdit::replace(Span::new(6, 7), "5"),
+            ByteEdit::delete(Span::new(8, 13)),
+        ];
+        for edit in allowed {
+            assert!(guard_key_edits(&model, &[edit]).is_ok());
+        }
+        let refused = [
+            ByteEdit::insert(2, "z"),
+            ByteEdit::delete(Span::new(2, 3)),
+            ByteEdit::replace(Span::new(0, 1), "-"),
+        ];
+        for edit in refused {
+            let error = guard_key_edits(&model, &[edit]).expect_err("explicit key");
+            assert_eq!(error.found.as_deref(), Some(YAML_COMPLEX_KEY));
+        }
+    }
+
+    #[test]
+    fn refuses_new_keys_that_need_the_explicit_form() {
+        assert!(check_new_key("name").is_ok());
+        assert!(check_new_key("two\nlines").is_err());
+        assert!(check_new_key(&"k".repeat(MAX_IMPLICIT_KEY_BYTES + 1)).is_err());
+    }
+}
