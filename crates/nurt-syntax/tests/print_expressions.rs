@@ -610,3 +610,74 @@ fn left_operand_ending_with_an_open_range_is_parenthesized() {
     );
     assert_expr(bin(BinOp::Div, int(3), range(Some(2), None)), "3 / 2..");
 }
+
+#[test]
+fn let_names_outside_the_identifier_shape_are_rejected() {
+    for name in ["in", "Recent", "1x"] {
+        let document = program(vec![Statement::Let(Let {
+            name: name.to_owned(),
+            value: pipeline(stage("jobs", Vec::new()), Vec::new()),
+            span: None,
+        })]);
+        assert!(
+            matches!(
+                print::try_print(&document, Variant::A),
+                Err(PrintError::Unprintable { node: "let", .. })
+            ),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn argument_names_outside_the_identifier_shape_are_rejected_in_every_variant() {
+    let document = one(stage("find", vec![named("Glob", text("*.go"))]));
+    for variant in [Variant::A, Variant::B, Variant::C] {
+        assert!(
+            matches!(
+                print::try_print(&document, variant),
+                Err(PrintError::Unprintable {
+                    node: "argument",
+                    ..
+                })
+            ),
+            "{variant:?}"
+        );
+    }
+}
+
+/// `verify (verify (… (first 1)))` with `levels` nested sub-pipelines; every
+/// sub-pipeline has the stages `extra` after its head.
+fn nested_subs(levels: usize, extra: &[Stage]) -> AstDocument {
+    let mut value = int(1);
+    let mut name = "first";
+    for _ in 0..levels {
+        value = sub(pipeline(stage(name, vec![pos(value)]), extra.to_vec()));
+        name = "verify";
+    }
+    one(stage("verify", vec![pos(value)]))
+}
+
+#[test]
+fn nested_sub_pipelines_beyond_the_limit_are_reported_without_overflow() {
+    assert_a(&nested_subs(2, &[]), "verify (verify (first 1))\n");
+    let count = [stage("count", Vec::new())];
+    assert_eq!(
+        print::try_print(&nested_subs(2, &count), Variant::B),
+        Ok("verify(verify(first(1) |> count()) |> count())\n".to_owned())
+    );
+    for (variant, extra) in [(Variant::A, &[][..]), (Variant::B, &count[..])] {
+        let document = nested_subs(MAX_NESTING_DEPTH, extra);
+        assert_eq!(
+            print::try_print(&document, variant),
+            Err(PrintError::TooDeep {
+                limit: MAX_NESTING_DEPTH
+            }),
+            "{variant:?}"
+        );
+        assert!(
+            print::print(&document, variant).contains("null"),
+            "{variant:?}"
+        );
+    }
+}
