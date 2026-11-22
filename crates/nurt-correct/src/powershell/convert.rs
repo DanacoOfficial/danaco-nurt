@@ -62,19 +62,21 @@ pub(crate) fn path(
     if let Some(converted) = registry_path(written, registry) {
         return Ok(converted);
     }
-    if let Some((drive, rest)) = written.split_once(':') {
-        if drive.eq_ignore_ascii_case("env") {
-            let name = rest.trim_start_matches(['\\', '/']);
-            return Err(PathProblem::Environment((!name.is_empty()).then(|| name.to_owned())));
-        }
+    if let Some((drive, rest)) = written.split_once(':')
+        && drive.eq_ignore_ascii_case("env")
+    {
+        let name = rest.trim_start_matches(['\\', '/']);
+        return Err(PathProblem::Environment(
+            (!name.is_empty()).then(|| name.to_owned()),
+        ));
     }
     let windows = is_drive_path(written) || written.starts_with("\\\\");
     let text = if windows {
         let mut chars: Vec<char> = written.replace('\\', "/").chars().collect();
-        if is_drive_path(written) {
-            if let Some(letter) = chars.first_mut() {
-                *letter = letter.to_ascii_uppercase();
-            }
+        if is_drive_path(written)
+            && let Some(letter) = chars.first_mut()
+        {
+            *letter = letter.to_ascii_uppercase();
         }
         collapse(&chars.into_iter().collect::<String>())
     } else if written.starts_with('/') {
@@ -89,6 +91,12 @@ pub(crate) fn path(
         text,
         registry: false,
     })
+}
+
+/// Whether the text is written in Windows notation: `C:\…` or a UNC path
+/// `\\server\share`.
+pub(crate) fn is_windows_path(written: &str) -> bool {
+    written.starts_with("\\\\") || (is_drive_path(written) && written.contains('\\'))
 }
 
 /// `C:\…` or `C:/…`; a bare `C:` is relative to the current directory of
@@ -271,12 +279,18 @@ mod tests {
         assert_eq!(converted(r"c:\proj\src\"), Ok("C:/proj/src".to_owned()));
         assert_eq!(converted(r"C:\"), Ok("C:/".to_owned()));
         assert_eq!(converted(r"C:\a\\b"), Ok("C:/a/b".to_owned()));
-        assert_eq!(converted(r"C:\Program Files\App"), Ok("C:/Program Files/App".to_owned()));
+        assert_eq!(
+            converted(r"C:\Program Files\App"),
+            Ok("C:/Program Files/App".to_owned())
+        );
     }
 
     #[test]
     fn unc_and_posix_paths() {
-        assert_eq!(converted(r"\\server\share\x"), Ok("//server/share/x".to_owned()));
+        assert_eq!(
+            converted(r"\\server\share\x"),
+            Ok("//server/share/x".to_owned())
+        );
         assert_eq!(converted("/srv//app/"), Ok("/srv/app".to_owned()));
         assert_eq!(converted("/"), Ok("/".to_owned()));
     }
@@ -299,7 +313,10 @@ mod tests {
         assert_eq!(converted(r".\a"), Err(PathProblem::Relative));
         assert_eq!(converted("C:a"), Err(PathProblem::Relative));
         assert_eq!(converted("~/a"), Err(PathProblem::Home));
-        assert_eq!(converted("env:PATH"), Err(PathProblem::Environment(Some("PATH".to_owned()))));
+        assert_eq!(
+            converted("env:PATH"),
+            Err(PathProblem::Environment(Some("PATH".to_owned())))
+        );
         assert_eq!(converted("Env:"), Err(PathProblem::Environment(None)));
         assert_eq!(converted(r"$HOME\a"), Err(PathProblem::Variable));
     }
@@ -312,12 +329,18 @@ mod tests {
 
     #[test]
     fn unchanged_path_is_not_reported() {
-        assert_eq!(path("/srv/a", &registry(), None).map(|path| path.changed), Ok(false));
+        assert_eq!(
+            path("/srv/a", &registry(), None).map(|path| path.changed),
+            Ok(false)
+        );
     }
 
     #[test]
     fn splits_wildcard_paths() {
-        assert_eq!(split_wildcard(r"C:\logs\*.log"), Some((r"C:\logs", "*.log")));
+        assert_eq!(
+            split_wildcard(r"C:\logs\*.log"),
+            Some((r"C:\logs", "*.log"))
+        );
         assert_eq!(split_wildcard(r"C:\*"), Some((r"C:\", "*")));
         assert_eq!(split_wildcard(r"C:\*\a.log"), None);
         assert_eq!(split_wildcard("*.log"), None);

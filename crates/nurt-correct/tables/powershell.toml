@@ -415,8 +415,10 @@ absent = [{ params = ["File", "Directory"], arg = "type", ident = "any" }, { par
 [[entry.variant]]
 rule = "P01"
 class = "C"
+unless = ["Filter", "Include", "Exclude"]
 stages = ["list"]
 absent = [{ params = ["Force"], arg = "hidden", bool = false }]
+drop = { FollowSymlink = "links are followed only by a recursive search" }
 
 [[entry]]
 rule = "P03"
@@ -469,7 +471,7 @@ values = { UTF8 = "utf-8", UTF8BOM = "utf-8", UTF8NoBOM = "utf-8", ASCII = "asci
 rule = "P03"
 class = "C"
 continued = true
-unless = ["Tail", "TotalCount", "Raw"]
+unless = ["Tail", "TotalCount", "Raw", "Encoding"]
 stages = ["lines"]
 output = "line"
 
@@ -899,6 +901,7 @@ help = "help write"
 rule = "P09"
 class = "C"
 when = ["Value"]
+unless = ["Target"]
 stages = ["write"]
 set = [{ arg = "mode", ident = "create" }]
 drop = { ItemType = "write creates a file" }
@@ -1165,6 +1168,7 @@ rule = "P14"
 error = "E_UNCORRECTABLE"
 kind = "cmdlet"
 from = ["Set-Acl"]
+raw_args = true
 
 [[entry.variant]]
 rule = "P14"

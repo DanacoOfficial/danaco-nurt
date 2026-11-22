@@ -112,7 +112,9 @@ impl PowerShellTable {
     /// As [`PowerShellTable::parse`].
     pub fn from_tables(tables: &Tables) -> Result<Self, TableError> {
         let missing = |name: &str| error(name, format!("table `{name}` is missing"));
-        let table = tables.table(TABLE_NAME).ok_or_else(|| missing(TABLE_NAME))?;
+        let table = tables
+            .table(TABLE_NAME)
+            .ok_or_else(|| missing(TABLE_NAME))?;
         let habits = tables
             .table(HABITS_TABLE_NAME)
             .ok_or_else(|| missing(HABITS_TABLE_NAME))?;
@@ -141,20 +143,39 @@ impl PowerShellTable {
             registry: Registry::read(&root.child("registry")?)?,
             dates: Dates::read(&root.child("dates")?)?,
             wildcard: Wildcard::read(&root.child("wildcard")?)?,
-            operators: root.children("operator")?.iter().map(Operator::read).collect::<Result<_, _>>()?,
+            operators: root
+                .children("operator")?
+                .iter()
+                .map(Operator::read)
+                .collect::<Result<_, _>>()?,
             comparison: Comparison::read(&root.child("comparison")?)?,
-            records: root.children("record")?.iter().map(Record::read).collect::<Result<_, _>>()?,
-            common: root.children("common")?.iter().map(Param::read).collect::<Result<_, _>>()?,
-            cmdlets: root.children("entry")?.iter().map(Cmdlet::read).collect::<Result<_, _>>()?,
+            records: root
+                .children("record")?
+                .iter()
+                .map(Record::read)
+                .collect::<Result<_, _>>()?,
+            common: root
+                .children("common")?
+                .iter()
+                .map(Param::read)
+                .collect::<Result<_, _>>()?,
+            cmdlets: root
+                .children("entry")?
+                .iter()
+                .map(Cmdlet::read)
+                .collect::<Result<_, _>>()?,
             verbs: habits_root.opt_strings("verbs")?.unwrap_or_default(),
         })
     }
 
     /// The cmdlet entry for a written command name, case-insensitive.
     pub(crate) fn cmdlet(&self, name: &str) -> Option<&Cmdlet> {
-        self.cmdlets
-            .iter()
-            .find(|cmdlet| cmdlet.names.iter().any(|known| known.eq_ignore_ascii_case(name)))
+        self.cmdlets.iter().find(|cmdlet| {
+            cmdlet
+                .names
+                .iter()
+                .any(|known| known.eq_ignore_ascii_case(name))
+        })
     }
 
     /// Whether a word has the form `Verb-Noun` with an approved verb.
@@ -164,7 +185,10 @@ impl PowerShellTable {
         };
         !noun.is_empty()
             && noun.chars().all(|c| c.is_ascii_alphanumeric())
-            && self.verbs.iter().any(|known| known.eq_ignore_ascii_case(verb))
+            && self
+                .verbs
+                .iter()
+                .any(|known| known.eq_ignore_ascii_case(verb))
     }
 
     pub(crate) fn record(&self, name: &str) -> Option<&Record> {
@@ -172,9 +196,12 @@ impl PowerShellTable {
     }
 
     pub(crate) fn operator(&self, name: &str) -> Option<&Operator> {
-        self.operators
-            .iter()
-            .find(|operator| operator.names.iter().any(|known| known.eq_ignore_ascii_case(name)))
+        self.operators.iter().find(|operator| {
+            operator
+                .names
+                .iter()
+                .any(|known| known.eq_ignore_ascii_case(name))
+        })
     }
 
     pub(crate) fn is_effect(&self, command: &str) -> bool {
@@ -195,7 +222,10 @@ impl PowerShellTable {
                     .chain(cmdlet.params.iter().filter_map(|param| param.emit.as_ref()))
                     .cloned()
             })
-            .chain([self.wildcard.command.clone(), self.syntax.output_command.clone()])
+            .chain([
+                self.wildcard.command.clone(),
+                self.syntax.output_command.clone(),
+            ])
             .chain([self.syntax.environment_command.clone()])
             .collect();
         names.sort();
@@ -222,7 +252,17 @@ impl PowerShellTable {
                         pairs.push((stage, arg.clone()));
                     }
                 }
-                for param in &cmdlet.params {
+                let excluded = |name: &str| {
+                    variant
+                        .unless
+                        .iter()
+                        .any(|known| known.eq_ignore_ascii_case(name))
+                        || variant
+                            .drop
+                            .iter()
+                            .any(|(known, _)| known.eq_ignore_ascii_case(name))
+                };
+                for param in cmdlet.params.iter().filter(|param| !excluded(&param.name)) {
                     let arg = variant
                         .args
                         .iter()
@@ -231,7 +271,10 @@ impl PowerShellTable {
                         .or(param.arg.as_ref());
                     let stage = param.emit.clone().or_else(|| stage_of(&param.stage));
                     let in_variant = param.emit.is_some()
-                        || param.stage.as_ref().is_none_or(|stage| variant.stages.contains(stage));
+                        || param
+                            .stage
+                            .as_ref()
+                            .is_none_or(|stage| variant.stages.contains(stage));
                     if let (Some(stage), Some(arg), true) = (stage, arg, in_variant) {
                         pairs.push((stage, arg.clone()));
                     }
@@ -247,7 +290,10 @@ impl PowerShellTable {
                 pairs.push((self.wildcard.command.clone(), arg.clone()));
             }
         }
-        pairs.push((self.wildcard.command.clone(), self.wildcard.glob_arg.clone()));
+        pairs.push((
+            self.wildcard.command.clone(),
+            self.wildcard.glob_arg.clone(),
+        ));
         pairs.sort();
         pairs.dedup();
         pairs
@@ -263,7 +309,12 @@ impl PowerShellTable {
                     .fields
                     .iter()
                     .map(|field| (record.name.clone(), field.field.clone()))
-                    .chain(record.self_field.iter().map(|field| (record.name.clone(), field.clone())))
+                    .chain(
+                        record
+                            .self_field
+                            .iter()
+                            .map(|field| (record.name.clone(), field.clone())),
+                    )
             })
             .collect()
     }
@@ -374,8 +425,16 @@ impl Wildcard {
         Ok(Self {
             command: node.string("command")?,
             glob_arg: node.string("glob_arg")?,
-            set: node.inline_tables("set")?.iter().map(SetArg::read).collect::<Result<_, _>>()?,
-            absent: node.inline_tables("absent")?.iter().map(Absent::read).collect::<Result<_, _>>()?,
+            set: node
+                .inline_tables("set")?
+                .iter()
+                .map(SetArg::read)
+                .collect::<Result<_, _>>()?,
+            absent: node
+                .inline_tables("absent")?
+                .iter()
+                .map(Absent::read)
+                .collect::<Result<_, _>>()?,
         })
     }
 }
@@ -487,7 +546,11 @@ impl Record {
         Ok(Self {
             name: node.string("name")?,
             self_field: node.opt_string("self")?,
-            fields: node.inline_tables("fields")?.iter().map(FieldMap::read).collect::<Result<_, _>>()?,
+            fields: node
+                .inline_tables("fields")?
+                .iter()
+                .map(FieldMap::read)
+                .collect::<Result<_, _>>()?,
         })
     }
 
@@ -498,7 +561,10 @@ impl Record {
     }
 
     pub(crate) fn property_names(&self) -> Vec<&str> {
-        self.fields.iter().map(|field| field.property.as_str()).collect()
+        self.fields
+            .iter()
+            .map(|field| field.property.as_str())
+            .collect()
     }
 }
 
@@ -516,7 +582,9 @@ pub(crate) struct FieldMap {
 
 impl FieldMap {
     fn read(node: &Node<'_>) -> Result<Self, TableError> {
-        node.allow(&["property", "field", "type", "prefix", "function", "equals", "values"])?;
+        node.allow(&[
+            "property", "field", "type", "prefix", "function", "equals", "values",
+        ])?;
         Ok(Self {
             property: node.string("property")?,
             field: node.string("field")?,
@@ -586,10 +654,13 @@ impl Cmdlet {
                 table
                     .iter()
                     .map(|(alias, values)| {
-                        let inner = values
-                            .as_table_like()
-                            .ok_or_else(|| node.error(format!("preset `{alias}` must be a table")))?;
-                        Ok((alias.to_owned(), Node::new(node.table, &node.at, inner).all_pairs()?))
+                        let inner = values.as_table_like().ok_or_else(|| {
+                            node.error(format!("preset `{alias}` must be a table"))
+                        })?;
+                        Ok((
+                            alias.to_owned(),
+                            Node::new(node.table, &node.at, inner).all_pairs()?,
+                        ))
                     })
                     .collect::<Result<_, TableError>>()?
             }
@@ -602,8 +673,16 @@ impl Cmdlet {
             handler,
             presets,
             raw_args: node.flag("raw_args")?,
-            params: node.children("param")?.iter().map(Param::read).collect::<Result<_, _>>()?,
-            variants: node.children("variant")?.iter().map(Variant::read).collect::<Result<_, _>>()?,
+            params: node
+                .children("param")?
+                .iter()
+                .map(Param::read)
+                .collect::<Result<_, _>>()?,
+            variants: node
+                .children("variant")?
+                .iter()
+                .map(Variant::read)
+                .collect::<Result<_, _>>()?,
             names,
         };
         if cmdlet.variants.is_empty() && cmdlet.handler.is_none() {
@@ -617,7 +696,9 @@ impl Cmdlet {
     }
 
     pub(crate) fn is_shared(&self, word: &str) -> bool {
-        self.shared.iter().any(|known| known.eq_ignore_ascii_case(word))
+        self.shared
+            .iter()
+            .any(|known| known.eq_ignore_ascii_case(word))
     }
 
     pub(crate) fn preset(&self, word: &str) -> &[(String, String)] {
@@ -761,9 +842,27 @@ pub(crate) struct Param {
 impl Param {
     fn read(node: &Node<'_>) -> Result<Self, TableError> {
         node.allow(&[
-            "name", "aliases", "position", "switch", "type", "role", "rule", "arg", "positional",
-            "stage", "emit", "set", "values", "drop", "error", "wildcards", "from_pipeline",
-            "literal_when", "order_assumption", "required", "assumption",
+            "name",
+            "aliases",
+            "position",
+            "switch",
+            "type",
+            "role",
+            "rule",
+            "arg",
+            "positional",
+            "stage",
+            "emit",
+            "set",
+            "values",
+            "drop",
+            "error",
+            "wildcards",
+            "from_pipeline",
+            "literal_when",
+            "order_assumption",
+            "required",
+            "assumption",
         ])?;
         let name = node.string("name")?;
         let node = node.named(&name);
@@ -827,7 +926,10 @@ impl Param {
     /// aliases.
     pub(crate) fn is_named(&self, written: &str) -> bool {
         self.name.eq_ignore_ascii_case(written)
-            || self.aliases.iter().any(|alias| alias.eq_ignore_ascii_case(written))
+            || self
+                .aliases
+                .iter()
+                .any(|alias| alias.eq_ignore_ascii_case(written))
     }
 
     /// Whether the written name is a prefix of the name or of an alias.
@@ -877,7 +979,15 @@ pub(crate) struct Absent {
 
 impl Absent {
     fn read(node: &Node<'_>) -> Result<Self, TableError> {
-        node.allow(&["params", "arg", "ident", "text", "bool", "int", "self_field"])?;
+        node.allow(&[
+            "params",
+            "arg",
+            "ident",
+            "text",
+            "bool",
+            "int",
+            "self_field",
+        ])?;
         let self_field = node.flag("self_field")?;
         Ok(Self {
             params: node.strings("params")?,
@@ -926,10 +1036,32 @@ pub(crate) struct Variant {
 impl Variant {
     fn read(node: &Node<'_>) -> Result<Self, TableError> {
         node.allow(&[
-            "rule", "class", "error", "when", "when_any", "unless", "when_value", "piped",
-            "continued", "wildcard", "registry", "stages", "recursive", "set", "absent", "args",
-            "drop", "output", "assumption", "problem", "message", "fix", "help", "wildcard_arg",
-            "merge", "merge_next",
+            "rule",
+            "class",
+            "error",
+            "when",
+            "when_any",
+            "unless",
+            "when_value",
+            "piped",
+            "continued",
+            "wildcard",
+            "registry",
+            "stages",
+            "recursive",
+            "set",
+            "absent",
+            "args",
+            "drop",
+            "output",
+            "assumption",
+            "problem",
+            "message",
+            "fix",
+            "help",
+            "wildcard_arg",
+            "merge",
+            "merge_next",
         ])?;
         let class = node.opt_class("class")?;
         let error = node.opt_string("error")?;
@@ -956,8 +1088,16 @@ impl Variant {
             registry: node.opt_bool("registry")?,
             stages: node.opt_strings("stages")?.unwrap_or_default(),
             recursive: node.flag("recursive")?,
-            set: node.inline_tables("set")?.iter().map(SetArg::read).collect::<Result<_, _>>()?,
-            absent: node.inline_tables("absent")?.iter().map(Absent::read).collect::<Result<_, _>>()?,
+            set: node
+                .inline_tables("set")?
+                .iter()
+                .map(SetArg::read)
+                .collect::<Result<_, _>>()?,
+            absent: node
+                .inline_tables("absent")?
+                .iter()
+                .map(Absent::read)
+                .collect::<Result<_, _>>()?,
             args: node.opt_pairs("args")?,
             drop: node.opt_pairs("drop")?,
             output: node.opt_string("output")?,
@@ -1126,7 +1266,11 @@ impl<'a> Node<'a> {
         let inner = self
             .table_like(key)?
             .ok_or_else(|| self.error(format!("`{key}` is missing")))?;
-        Ok(Node::new(self.table, &format!("{} `{key}`", self.at), inner))
+        Ok(Node::new(
+            self.table,
+            &format!("{} `{key}`", self.at),
+            inner,
+        ))
     }
 
     fn children(&self, key: &str) -> Result<Vec<Node<'a>>, TableError> {
@@ -1140,7 +1284,11 @@ impl<'a> Node<'a> {
             .iter()
             .enumerate()
             .map(|(index, table)| {
-                Node::new(self.table, &format!("{} `{key}` {}", self.at, index + 1), table)
+                Node::new(
+                    self.table,
+                    &format!("{} `{key}` {}", self.at, index + 1),
+                    table,
+                )
             })
             .collect())
     }
@@ -1159,7 +1307,11 @@ impl<'a> Node<'a> {
                 value
                     .as_inline_table()
                     .map(|table| {
-                        Node::new(self.table, &format!("{} `{key}` {}", self.at, index + 1), table)
+                        Node::new(
+                            self.table,
+                            &format!("{} `{key}` {}", self.at, index + 1),
+                            table,
+                        )
                     })
                     .ok_or_else(|| self.error(format!("`{key}` must be an array of tables")))
             })
@@ -1180,7 +1332,9 @@ impl<'a> Node<'a> {
     fn opt_pairs(&self, key: &str) -> Result<Vec<(String, String)>, TableError> {
         match self.table_like(key)? {
             None => Ok(Vec::new()),
-            Some(inner) => Node::new(self.table, &format!("{} `{key}`", self.at), inner).all_pairs(),
+            Some(inner) => {
+                Node::new(self.table, &format!("{} `{key}`", self.at), inner).all_pairs()
+            }
         }
     }
 
@@ -1275,7 +1429,9 @@ mod tests {
         let extra = "[[entry]]\nrule = \"P01\"\nclass = \"C\"\nfrom = [\"Get-X\"]\n\
                      [[entry.variant]]\nrule = \"P01\"\nclass = \"C\"\nerror = \"E_UNCORRECTABLE\"\nmessage = \"m\"\n";
         let table = PowerShellTable::parse(&minimal(extra), HABITS);
-        assert!(table.is_err_and(|error| error.message.contains("exactly one of `class` and `error`")));
+        assert!(
+            table.is_err_and(|error| error.message.contains("exactly one of `class` and `error`"))
+        );
     }
 
     #[test]
@@ -1322,7 +1478,12 @@ mod tests {
         let Some(param) = PowerShellTable::embedded()
             .ok()
             .and_then(|table| table.cmdlet("Get-ChildItem"))
-            .and_then(|cmdlet| cmdlet.params.iter().find(|param| param.name == "LiteralPath"))
+            .and_then(|cmdlet| {
+                cmdlet
+                    .params
+                    .iter()
+                    .find(|param| param.name == "LiteralPath")
+            })
         else {
             panic!("LiteralPath is missing");
         };

@@ -56,15 +56,6 @@ pub(crate) enum Element {
     Expression(Value),
 }
 
-impl Element {
-    pub(crate) fn range(&self) -> (usize, usize) {
-        match self {
-            Self::Command(command) => (command.start, command.end),
-            Self::Expression(value) => (value.start, value.end),
-        }
-    }
-}
-
 /// A command invocation.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Command {
@@ -522,7 +513,11 @@ impl<'a> Parser<'a> {
                 TokenKind::CloseBrace => {
                     depth -= 1;
                     if depth == 0 {
-                        return Ok(self.tokens.get(start..self.pos - 1).unwrap_or_default().to_vec());
+                        return Ok(self
+                            .tokens
+                            .get(start..self.pos - 1)
+                            .unwrap_or_default()
+                            .to_vec());
                     }
                 }
                 _ => {}
@@ -631,7 +626,6 @@ fn describe(kind: &TokenKind) -> String {
         TokenKind::HashOpen => "`@{`".to_owned(),
         TokenKind::Redirect(_) => "redirection".to_owned(),
         TokenKind::Operator(op) => format!("operator `{op}`"),
-        _ => "token".to_owned(),
     }
 }
 
@@ -676,8 +670,12 @@ mod tests {
         let pipeline = only_pipeline("Copy-Item -Path a -Destination:b -Force");
         let args = &command(&pipeline.elements[0]).args;
         assert!(matches!(&args[0], RawArg::Param { name, value: None, .. } if name == "Path"));
-        assert!(matches!(&args[1], RawArg::Value(Value { kind: ValueKind::Bare(text), .. }) if text == "a"));
-        assert!(matches!(&args[2], RawArg::Param { name, value: Some(_), .. } if name == "Destination"));
+        assert!(
+            matches!(&args[1], RawArg::Value(Value { kind: ValueKind::Bare(text), .. }) if text == "a")
+        );
+        assert!(
+            matches!(&args[2], RawArg::Param { name, value: Some(_), .. } if name == "Destination")
+        );
         assert!(matches!(&args[3], RawArg::Param { name, value: None, .. } if name == "Force"));
     }
 
@@ -685,7 +683,9 @@ mod tests {
     fn comma_lists_span_white_space() {
         let pipeline = only_pipeline("Select-Object Id, Name, WorkingSet");
         let args = &command(&pipeline.elements[0]).args;
-        assert!(matches!(&args[0], RawArg::Value(Value { kind: ValueKind::List(items), .. }) if items.len() == 3));
+        assert!(
+            matches!(&args[0], RawArg::Value(Value { kind: ValueKind::List(items), .. }) if items.len() == 3)
+        );
     }
 
     #[test]

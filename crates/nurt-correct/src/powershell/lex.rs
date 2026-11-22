@@ -144,8 +144,7 @@ impl VarRef {
     /// `$PSItem`.
     #[must_use]
     pub fn is_pipeline_item(&self) -> bool {
-        self.scope.is_none()
-            && (self.name == "_" || self.name.eq_ignore_ascii_case("PSItem"))
+        self.scope.is_none() && (self.name == "_" || self.name.eq_ignore_ascii_case("PSItem"))
     }
 
     /// Whether the variable is an environment variable, `$env:NAME`.
@@ -323,7 +322,10 @@ impl<'a> Lexer<'a> {
                 ' ' | '\t' | '\r' | '\u{00A0}' | '\u{FEFF}' => {
                     self.bump();
                 }
-                '`' if self.peek_at(1).is_some_and(|next| next == '\n' || next == '\r') => {
+                '`' if self
+                    .peek_at(1)
+                    .is_some_and(|next| next == '\n' || next == '\r') =>
+                {
                     self.bump();
                     self.skip_line_break();
                 }
@@ -363,11 +365,15 @@ impl<'a> Lexer<'a> {
     }
 
     fn peek(&self) -> Option<char> {
-        self.input.get(self.pos..).and_then(|rest| rest.chars().next())
+        self.input
+            .get(self.pos..)
+            .and_then(|rest| rest.chars().next())
     }
 
     fn peek_at(&self, n: usize) -> Option<char> {
-        self.input.get(self.pos..).and_then(|rest| rest.chars().nth(n))
+        self.input
+            .get(self.pos..)
+            .and_then(|rest| rest.chars().nth(n))
     }
 
     fn bump(&mut self) -> Option<char> {
@@ -395,7 +401,11 @@ impl<'a> Lexer<'a> {
         for _ in 0..chars {
             self.bump();
         }
-        let text = self.input.get(start..self.pos).unwrap_or_default().to_owned();
+        let text = self
+            .input
+            .get(start..self.pos)
+            .unwrap_or_default()
+            .to_owned();
         self.push(TokenKind::Operator(text), start);
     }
 
@@ -427,7 +437,11 @@ impl<'a> Lexer<'a> {
 
     fn skip_block_comment(&mut self) -> Result<(), LexError> {
         let start = self.pos;
-        match self.input.get(self.pos + 2..).and_then(|rest| rest.find("#>")) {
+        match self
+            .input
+            .get(self.pos + 2..)
+            .and_then(|rest| rest.find("#>"))
+        {
             Some(end) => {
                 self.pos += 2 + end + 2;
                 Ok(())
@@ -503,9 +517,11 @@ impl<'a> Lexer<'a> {
             return;
         }
         if !next.is_some_and(|c| c.is_alphabetic() || c == '_' || c == '?') {
-            if next.is_some_and(|c| DASHES.contains(&c)) {
-                self.operator(start, 2);
-            } else if next == Some('=') {
+            let long_option = next.is_some_and(|c| DASHES.contains(&c))
+                && self.peek_at(2).is_some_and(char::is_alphanumeric);
+            if long_option {
+                self.bare(start);
+            } else if next.is_some_and(|c| DASHES.contains(&c) || c == '=') {
                 self.operator(start, 2);
             } else {
                 self.operator(start, 1);
@@ -520,7 +536,11 @@ impl<'a> Lexer<'a> {
         {
             self.bump();
         }
-        let name = self.input.get(name_start..self.pos).unwrap_or_default().to_owned();
+        let name = self
+            .input
+            .get(name_start..self.pos)
+            .unwrap_or_default()
+            .to_owned();
         let colon = self.peek() == Some(':');
         if colon {
             self.bump();
@@ -558,7 +578,10 @@ impl<'a> Lexer<'a> {
         loop {
             match self.bump() {
                 Some(c) if SINGLE_QUOTES.contains(&c) => {
-                    if self.peek().is_some_and(|next| SINGLE_QUOTES.contains(&next)) {
+                    if self
+                        .peek()
+                        .is_some_and(|next| SINGLE_QUOTES.contains(&next))
+                    {
                         self.bump();
                         text.push(c);
                     } else {
@@ -583,7 +606,10 @@ impl<'a> Lexer<'a> {
                 None => return Err(self.error(LexErrorKind::UnterminatedString, start)),
                 Some(c) if DOUBLE_QUOTES.contains(&c) => {
                     self.bump();
-                    if self.peek().is_some_and(|next| DOUBLE_QUOTES.contains(&next)) {
+                    if self
+                        .peek()
+                        .is_some_and(|next| DOUBLE_QUOTES.contains(&next))
+                    {
                         self.bump();
                         text.push(c);
                     } else {
@@ -647,7 +673,11 @@ impl<'a> Lexer<'a> {
         Ok(())
     }
 
-    fn string_dollar(&mut self, parts: &mut Vec<StrPart>, text: &mut String) -> Result<(), LexError> {
+    fn string_dollar(
+        &mut self,
+        parts: &mut Vec<StrPart>,
+        text: &mut String,
+    ) -> Result<(), LexError> {
         let start = self.pos;
         match self.peek_at(1) {
             Some('(') => {
@@ -665,7 +695,10 @@ impl<'a> Lexer<'a> {
                         }
                     }
                 }
-                let inner = self.input.get(inner_start..self.pos - 1).unwrap_or_default();
+                let inner = self
+                    .input
+                    .get(inner_start..self.pos - 1)
+                    .unwrap_or_default();
                 flush_text(parts, text);
                 parts.push(StrPart::SubExpr(inner.to_owned()));
             }
@@ -711,14 +744,14 @@ impl<'a> Lexer<'a> {
             let raw = self.input.get(name_start..self.pos - 1).unwrap_or_default();
             return Ok(split_scope(raw));
         }
-        if let Some(c) = self.peek().filter(|c| matches!(c, '_' | '$' | '?' | '^')) {
-            if c != '_' || !self.peek_at(1).is_some_and(is_name_char) {
-                self.bump();
-                return Ok(VarRef {
-                    scope: None,
-                    name: c.to_string(),
-                });
-            }
+        if let Some(c) = self.peek().filter(|c| matches!(c, '_' | '$' | '?' | '^'))
+            && (c != '_' || !self.peek_at(1).is_some_and(is_name_char))
+        {
+            self.bump();
+            return Ok(VarRef {
+                scope: None,
+                name: c.to_string(),
+            });
         }
         let name_start = self.pos;
         while self.peek().is_some_and(is_name_char) {
@@ -726,17 +759,33 @@ impl<'a> Lexer<'a> {
         }
         let mut scope = None;
         if self.peek() == Some(':') && self.peek_at(1).is_some_and(is_name_char) {
-            scope = Some(self.input.get(name_start..self.pos).unwrap_or_default().to_owned());
+            scope = Some(
+                self.input
+                    .get(name_start..self.pos)
+                    .unwrap_or_default()
+                    .to_owned(),
+            );
             self.bump();
             let inner_start = self.pos;
             while self.peek().is_some_and(is_name_char) {
                 self.bump();
             }
-            let name = self.input.get(inner_start..self.pos).unwrap_or_default().to_owned();
+            let name = self
+                .input
+                .get(inner_start..self.pos)
+                .unwrap_or_default()
+                .to_owned();
             return Ok(VarRef { scope, name });
         }
-        let name = self.input.get(name_start..self.pos).unwrap_or_default().to_owned();
-        Ok(VarRef { scope: scope.take(), name })
+        let name = self
+            .input
+            .get(name_start..self.pos)
+            .unwrap_or_default()
+            .to_owned();
+        Ok(VarRef {
+            scope: scope.take(),
+            name,
+        })
     }
 
     /// Reads member accesses written directly after a value, `.Length`,
@@ -748,7 +797,11 @@ impl<'a> Lexer<'a> {
                 self.operator(start, 2);
                 continue;
             }
-            if self.peek() != Some('.') || !self.peek_at(1).is_some_and(|c| c.is_alphabetic() || c == '_') {
+            if self.peek() != Some('.')
+                || !self
+                    .peek_at(1)
+                    .is_some_and(|c| c.is_alphabetic() || c == '_')
+            {
                 return;
             }
             self.bump();
@@ -756,7 +809,11 @@ impl<'a> Lexer<'a> {
             while self.peek().is_some_and(is_name_char) {
                 self.bump();
             }
-            let name = self.input.get(name_start..self.pos).unwrap_or_default().to_owned();
+            let name = self
+                .input
+                .get(name_start..self.pos)
+                .unwrap_or_default()
+                .to_owned();
             self.push(TokenKind::Member(name), start);
         }
     }
@@ -873,7 +930,7 @@ fn parse_number(word: &str) -> Option<NumberLit> {
     };
     Some(NumberLit {
         int,
-        value: value * f64::from(sign),
+        value: if negative { -value } else { value },
         exponent,
     })
 }
@@ -903,20 +960,30 @@ mod tests {
     fn splits_command_with_parameters_and_bare_path() {
         assert_eq!(
             kinds(r"gci -Path C:\proj -Recurse"),
-            vec![word("gci"), param("Path"), word(r"C:\proj"), param("Recurse")]
+            vec![
+                word("gci"),
+                param("Path"),
+                word(r"C:\proj"),
+                param("Recurse")
+            ]
         );
     }
 
     #[test]
     fn single_quoted_string_keeps_bytes_and_doubles_quote() {
-        assert_eq!(kinds("'it''s a\\b'"), vec![TokenKind::Literal("it's a\\b".to_owned())]);
+        assert_eq!(
+            kinds("'it''s a\\b'"),
+            vec![TokenKind::Literal("it's a\\b".to_owned())]
+        );
     }
 
     #[test]
     fn double_quoted_string_resolves_backtick_escapes() {
         assert_eq!(
             kinds("\"a`tb`n`\"c\"\"d\""),
-            vec![TokenKind::Expandable(vec![StrPart::Text("a\tb\n\"c\"d".to_owned())])]
+            vec![TokenKind::Expandable(vec![StrPart::Text(
+                "a\tb\n\"c\"d".to_owned()
+            )])]
         );
     }
 
@@ -948,7 +1015,9 @@ mod tests {
     fn lone_dollar_in_string_is_text() {
         assert_eq!(
             kinds("\"5 $ total\""),
-            vec![TokenKind::Expandable(vec![StrPart::Text("5 $ total".to_owned())])]
+            vec![TokenKind::Expandable(vec![StrPart::Text(
+                "5 $ total".to_owned()
+            )])]
         );
     }
 
@@ -1037,7 +1106,10 @@ mod tests {
 
     #[test]
     fn words_that_look_numeric_stay_words() {
-        assert_eq!(kinds("7zip 1.2.3 1MBx"), vec![word("7zip"), word("1.2.3"), word("1MBx")]);
+        assert_eq!(
+            kinds("7zip 1.2.3 1MBx"),
+            vec![word("7zip"), word("1.2.3"), word("1MBx")]
+        );
     }
 
     #[test]
@@ -1075,7 +1147,10 @@ mod tests {
     #[test]
     fn unterminated_braced_variable_is_an_error() {
         let error = lex("${abc").err();
-        assert_eq!(error.map(|e| e.kind), Some(LexErrorKind::UnterminatedVariable));
+        assert_eq!(
+            error.map(|e| e.kind),
+            Some(LexErrorKind::UnterminatedVariable)
+        );
     }
 
     #[test]
@@ -1191,7 +1266,9 @@ mod tests {
         );
         assert_eq!(
             kinds("@\"\na `$b\n\"@"),
-            vec![TokenKind::Expandable(vec![StrPart::Text("a $b".to_owned())])]
+            vec![TokenKind::Expandable(vec![StrPart::Text(
+                "a $b".to_owned()
+            )])]
         );
     }
 
@@ -1211,7 +1288,10 @@ mod tests {
     fn spans_count_unicode_scalar_values() {
         let tokens = lex("'Zürich' -Path\nx").unwrap_or_default();
         let spans: Vec<[u32; 4]> = tokens.iter().map(|token| token.span.into()).collect();
-        assert_eq!(spans, vec![[1, 1, 1, 9], [1, 10, 1, 15], [1, 15, 2, 1], [2, 1, 2, 2]]);
+        assert_eq!(
+            spans,
+            vec![[1, 1, 1, 9], [1, 10, 1, 15], [1, 15, 2, 1], [2, 1, 2, 2]]
+        );
     }
 
     #[test]

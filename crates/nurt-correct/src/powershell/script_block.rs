@@ -36,7 +36,11 @@ pub(crate) struct Condition {
 
 /// Translates the arguments of `Where-Object`: a script block or the
 /// simplified syntax `Where-Object Property -Operator Value`.
-pub(crate) fn where_condition(session: &Session<'_>, command: &Command, record: &Record) -> Result<Condition, Error> {
+pub(crate) fn where_condition(
+    session: &Session<'_>,
+    command: &Command,
+    record: &Record,
+) -> Result<Condition, Error> {
     let mut block = None;
     let mut property: Option<&Value> = None;
     let mut value: Option<&Value> = None;
@@ -51,14 +55,23 @@ pub(crate) fn where_condition(session: &Session<'_>, command: &Command, record: 
                 _ if value.is_none() => value = Some(found),
                 _ => return Err(extra(session, found.start, found.end)),
             },
-            RawArg::Param { name, value: inline, start, end } => {
-                let next = inline.as_ref().or_else(|| match args.peek() {
+            RawArg::Param {
+                name,
+                value: inline,
+                start,
+                end,
+            } => {
+                let next = inline.as_ref().or_else(|| match args.peek().copied() {
                     Some(RawArg::Value(next)) => Some(next),
                     _ => None,
                 });
                 match name.to_ascii_lowercase().as_str() {
                     "filterscript" => {
-                        if let Some(Value { kind: ValueKind::Block(tokens), .. }) = next {
+                        if let Some(Value {
+                            kind: ValueKind::Block(tokens),
+                            ..
+                        }) = next
+                        {
                             block = Some(tokens);
                             consume(inline.is_none(), &mut args);
                         }
@@ -86,7 +99,11 @@ pub(crate) fn where_condition(session: &Session<'_>, command: &Command, record: 
     };
     let expr = match (block, property) {
         (Some(tokens), None) => {
-            parser.tokens = tokens.iter().filter(|token| token.kind != TokenKind::Newline).cloned().collect();
+            parser.tokens = tokens
+                .iter()
+                .filter(|token| token.kind != TokenKind::Newline)
+                .cloned()
+                .collect();
             let expr = parser.or()?;
             if let Some(token) = parser.tokens.get(parser.pos) {
                 return Err(unsupported(session, token.start, token.end));
@@ -97,7 +114,10 @@ pub(crate) fn where_condition(session: &Session<'_>, command: &Command, record: 
             let field = parser.property_operand(property)?;
             let expr = match (operator, value) {
                 (Some((name, start, end)), Some(value)) => {
-                    let op = session.table.operator(&name).ok_or_else(|| unknown_operator(session, &name, start, end))?;
+                    let op = session
+                        .table
+                        .operator(&name)
+                        .ok_or_else(|| unknown_operator(session, &name, start, end))?;
                     parser.compare(field, op, value)?
                 }
                 (None, None) => parser.truthy(&field, property)?,
@@ -111,11 +131,7 @@ pub(crate) fn where_condition(session: &Session<'_>, command: &Command, record: 
                     ));
                 }
             };
-            if negate {
-                not(expr)
-            } else {
-                expr
-            }
+            if negate { not(expr) } else { expr }
         }
         _ => {
             return Err(session.uncorrectable(
@@ -140,7 +156,13 @@ fn consume<'a>(take: bool, args: &mut std::iter::Peekable<std::slice::Iter<'a, R
 }
 
 fn extra(session: &Session<'_>, start: usize, end: usize) -> Error {
-    session.uncorrectable("extra_argument", "Where-Object takes one condition", start, end, HELP_FILTER)
+    session.uncorrectable(
+        "extra_argument",
+        "Where-Object takes one condition",
+        start,
+        end,
+        HELP_FILTER,
+    )
 }
 
 fn unsupported(session: &Session<'_>, start: usize, end: usize) -> Error {
@@ -156,7 +178,9 @@ fn unsupported(session: &Session<'_>, start: usize, end: usize) -> Error {
 fn unknown_operator(session: &Session<'_>, name: &str, start: usize, end: usize) -> Error {
     session.uncorrectable(
         "operator",
-        format!("-{name} has no Nurt form in a filter; use comparisons, -like, -match, -contains or -in"),
+        format!(
+            "-{name} has no Nurt form in a filter; use comparisons, -like, -match, -contains or -in"
+        ),
         start,
         end,
         HELP_FILTER,
@@ -222,7 +246,10 @@ impl<'r> Parser<'_, 'r> {
     }
 
     fn take_keyword(&mut self, keyword: &str) -> bool {
-        if self.peek_param().is_some_and(|(name, _, _)| name.eq_ignore_ascii_case(keyword)) {
+        if self
+            .peek_param()
+            .is_some_and(|(name, _, _)| name.eq_ignore_ascii_case(keyword))
+        {
             self.pos += 1;
             return true;
         }
@@ -272,7 +299,11 @@ impl<'r> Parser<'_, 'r> {
         let left = self.primary()?;
         let operator = self
             .peek_param()
-            .filter(|(name, _, _)| !["and", "or", "not"].iter().any(|keyword| name.eq_ignore_ascii_case(keyword)))
+            .filter(|(name, _, _)| {
+                !["and", "or", "not"]
+                    .iter()
+                    .any(|keyword| name.eq_ignore_ascii_case(keyword))
+            })
             .map(|(name, start, end)| (name.to_owned(), start, end));
         match (left, operator) {
             (Operand::Condition(expr), None) => Ok(expr),
@@ -294,7 +325,9 @@ impl<'r> Parser<'_, 'r> {
                 let field = self.property_operand(&value)?;
                 self.compare(field, op, &right)
             }
-            (Operand::Condition(_), Some((_, start, end))) => Err(unsupported(self.session, start, end)),
+            (Operand::Condition(_), Some((_, start, end))) => {
+                Err(unsupported(self.session, start, end))
+            }
         }
     }
 
@@ -304,10 +337,22 @@ impl<'r> Parser<'_, 'r> {
             return Err(unsupported(self.session, end, end));
         };
         if token.kind == TokenKind::OpenParen {
-            let inner_is_command = matches!(self.tokens.get(self.pos + 1), Some(Token { kind: TokenKind::Word(_), .. }));
+            let inner_is_command = matches!(
+                self.tokens.get(self.pos + 1),
+                Some(Token {
+                    kind: TokenKind::Word(_),
+                    ..
+                })
+            );
             if !inner_is_command {
-                let close = self.matching_paren().ok_or_else(|| unsupported(self.session, token.start, token.end))?;
-                let inner: Vec<Token> = self.tokens.get(self.pos + 1..close).unwrap_or_default().to_vec();
+                let close = self
+                    .matching_paren()
+                    .ok_or_else(|| unsupported(self.session, token.start, token.end))?;
+                let inner: Vec<Token> = self
+                    .tokens
+                    .get(self.pos + 1..close)
+                    .unwrap_or_default()
+                    .to_vec();
                 let mut nested = Parser {
                     session: self.session,
                     record: self.record,
@@ -327,17 +372,33 @@ impl<'r> Parser<'_, 'r> {
         let (value, next) = syntax::parse_value(&self.tokens, self.pos)
             .map_err(|error| unsupported(self.session, error.start, error.end))?;
         self.pos = next;
-        if matches!(self.tokens.get(self.pos), Some(Token { kind: TokenKind::Comma, .. })) {
+        if matches!(
+            self.tokens.get(self.pos),
+            Some(Token {
+                kind: TokenKind::Comma,
+                ..
+            })
+        ) {
             let start = value.start;
             let mut items = vec![value];
-            while matches!(self.tokens.get(self.pos), Some(Token { kind: TokenKind::Comma, .. })) {
+            while matches!(
+                self.tokens.get(self.pos),
+                Some(Token {
+                    kind: TokenKind::Comma,
+                    ..
+                })
+            ) {
                 let (item, next) = syntax::parse_value(&self.tokens, self.pos + 1)
                     .map_err(|error| unsupported(self.session, error.start, error.end))?;
                 self.pos = next;
                 items.push(item);
             }
             let end = items.last().map_or(start, |item| item.end);
-            return Ok(Operand::Value(Value { kind: ValueKind::List(items), start, end }));
+            return Ok(Operand::Value(Value {
+                kind: ValueKind::List(items),
+                start,
+                end,
+            }));
         }
         Ok(Operand::Value(value))
     }
@@ -364,17 +425,25 @@ impl<'r> Parser<'_, 'r> {
     fn property_operand(&self, value: &Value) -> Result<FieldRef<'r>, Error> {
         let span = self.session.span(value.start, value.end);
         let property = match &value.kind {
-            ValueKind::Member { base, name, args: None }
-                if matches!(&base.kind, ValueKind::Variable(var) if var.is_pipeline_item()) =>
-            {
+            ValueKind::Member {
+                base,
+                name,
+                args: None,
+            } if matches!(&base.kind, ValueKind::Variable(var) if var.is_pipeline_item()) => {
                 name.clone()
             }
             ValueKind::Variable(var) if var.is_pipeline_item() => {
                 return match &self.record.self_field {
-                    Some(field) => Ok(FieldRef { map: None, expr: ident(field.clone(), span) }),
+                    Some(field) => Ok(FieldRef {
+                        map: None,
+                        expr: ident(field.clone(), span),
+                    }),
                     None => Err(self.session.uncorrectable(
                         "whole_object",
-                        format!("the whole {} object has no Nurt value; compare one of its properties", self.record.name),
+                        format!(
+                            "the whole {} object has no Nurt value; compare one of its properties",
+                            self.record.name
+                        ),
                         value.start,
                         value.end,
                         "help describe",
@@ -392,16 +461,19 @@ impl<'r> Parser<'_, 'r> {
                 ));
             }
         };
-        let map = self
-            .record
-            .field(&property)
-            .ok_or_else(|| self.session.unknown_property(&property, self.record, value.start, value.end))?;
+        let map = self.record.field(&property).ok_or_else(|| {
+            self.session
+                .unknown_property(&property, self.record, value.start, value.end)
+        })?;
         let base = ident(map.field.clone(), span);
         let expr = match &map.function {
             Some(function) => call(function, base, span),
             None => base,
         };
-        Ok(FieldRef { map: Some(map), expr })
+        Ok(FieldRef {
+            map: Some(map),
+            expr,
+        })
     }
 
     /// A property used as a condition on its own.
@@ -425,7 +497,12 @@ impl<'r> Parser<'_, 'r> {
         }
     }
 
-    fn compare(&mut self, field: FieldRef<'_>, op: &Operator, right: &Value) -> Result<Expr, Error> {
+    fn compare(
+        &mut self,
+        field: FieldRef<'_>,
+        op: &Operator,
+        right: &Value,
+    ) -> Result<Expr, Error> {
         let span = self.session.span(right.start, right.end);
         if let Some(equals) = field.map.and_then(|map| map.equals.clone()) {
             if !matches!(op.op, BinOp::Eq | BinOp::Ne) {
@@ -434,7 +511,11 @@ impl<'r> Parser<'_, 'r> {
             let flag = match &right.kind {
                 ValueKind::Variable(var) if var.name.eq_ignore_ascii_case("true") => true,
                 ValueKind::Variable(var) if var.name.eq_ignore_ascii_case("false") => false,
-                _ => return Err(self.literal_error(right, "the property is compared with $true or $false")),
+                _ => {
+                    return Err(
+                        self.literal_error(right, "the property is compared with $true or $false")
+                    );
+                }
             };
             let positive = (op.op == BinOp::Eq) == flag;
             let op = if positive { BinOp::Eq } else { BinOp::Ne };
@@ -444,14 +525,25 @@ impl<'r> Parser<'_, 'r> {
         let right_expr = match op.pattern {
             Some(Pattern::Wildcard) => {
                 let pattern = self.text_literal(right)?;
-                Expr::Regex { v: convert::wildcard_regex(&pattern), flags: self.flags(op), span: Some(span) }
+                Expr::Regex {
+                    v: convert::wildcard_regex(&pattern),
+                    flags: self.flags(op),
+                    span: Some(span),
+                }
             }
             Some(Pattern::Regex) => {
                 let pattern = self.text_literal(right)?;
                 regex::Regex::new(&pattern).map_err(|_| {
-                    self.literal_error(right, "the regular expression uses a construct Nurt does not support")
+                    self.literal_error(
+                        right,
+                        "the regular expression uses a construct Nurt does not support",
+                    )
                 })?;
-                Expr::Regex { v: pattern, flags: self.flags(op), span: Some(span) }
+                Expr::Regex {
+                    v: pattern,
+                    flags: self.flags(op),
+                    span: Some(span),
+                }
             }
             None => {
                 let (expr, folded) = self.value(field.map, op, right)?;
@@ -461,7 +553,11 @@ impl<'r> Parser<'_, 'r> {
                 expr
             }
         };
-        let expr = if op.swap { bin(op.op, right_expr, left, span) } else { bin(op.op, left, right_expr, span) };
+        let expr = if op.swap {
+            bin(op.op, right_expr, left, span)
+        } else {
+            bin(op.op, left, right_expr, span)
+        };
         Ok(if op.negate { not(expr) } else { expr })
     }
 
@@ -474,7 +570,13 @@ impl<'r> Parser<'_, 'r> {
     }
 
     fn literal_error(&self, value: &Value, message: &str) -> Error {
-        self.session.uncorrectable("comparison_value", message.to_owned(), value.start, value.end, HELP_FILTER)
+        self.session.uncorrectable(
+            "comparison_value",
+            message.to_owned(),
+            value.start,
+            value.end,
+            HELP_FILTER,
+        )
     }
 
     fn text_literal(&self, value: &Value) -> Result<String, Error> {
@@ -491,7 +593,12 @@ impl<'r> Parser<'_, 'r> {
 
     /// The right operand of a comparison; the flag tells whether the left
     /// side has to be folded to lower case.
-    fn value(&mut self, map: Option<&FieldMap>, op: &Operator, value: &Value) -> Result<(Expr, bool), Error> {
+    fn value(
+        &mut self,
+        map: Option<&FieldMap>,
+        op: &Operator,
+        value: &Value,
+    ) -> Result<(Expr, bool), Error> {
         let span = self.session.span(value.start, value.end);
         match &value.kind {
             ValueKind::List(items) => {
@@ -502,35 +609,74 @@ impl<'r> Parser<'_, 'r> {
                     folded |= fold;
                     converted.push(expr);
                 }
-                Ok((Expr::List { items: converted, span: Some(span) }, folded))
+                Ok((
+                    Expr::List {
+                        items: converted,
+                        span: Some(span),
+                    },
+                    folded,
+                ))
             }
             ValueKind::Number(number) => {
                 let is_size = map.is_some_and(|map| map.ty.as_deref() == Some("size"));
                 let expr = match (is_size, number.bytes(), number.int) {
-                    (true, Some(bytes), _) => Expr::Size { v: bytes, span: Some(span) },
-                    (false, Some(bytes), _) if number.exponent > 0 => Expr::Int {
-                        v: i64::try_from(bytes).map_err(|_| self.literal_error(value, "the number is too large"))?,
+                    (true, Some(bytes), _) => Expr::Size {
+                        v: bytes,
                         span: Some(span),
                     },
-                    (_, _, Some(int)) if int >= 0 => Expr::Int { v: int, span: Some(span) },
-                    (_, _, None) if number.value >= 0.0 => Expr::Num { v: number.value, span: Some(span) },
+                    (false, Some(bytes), _) if number.exponent > 0 => Expr::Int {
+                        v: i64::try_from(bytes)
+                            .map_err(|_| self.literal_error(value, "the number is too large"))?,
+                        span: Some(span),
+                    },
+                    (_, _, Some(int)) if int >= 0 => Expr::Int {
+                        v: int,
+                        span: Some(span),
+                    },
+                    (_, _, None) if number.value >= 0.0 => Expr::Num {
+                        v: number.value,
+                        span: Some(span),
+                    },
                     _ => Expr::Un {
                         op: UnOp::Neg,
                         x: Box::new(match number.int {
-                            Some(int) => Expr::Int { v: int.saturating_neg(), span: Some(span) },
-                            None => Expr::Num { v: -number.value, span: Some(span) },
+                            Some(int) => Expr::Int {
+                                v: int.saturating_neg(),
+                                span: Some(span),
+                            },
+                            None => Expr::Num {
+                                v: -number.value,
+                                span: Some(span),
+                            },
                         }),
                         span: Some(span),
                     },
                 };
                 Ok((expr, false))
             }
-            ValueKind::Variable(var) if var.scope.is_none() => match var.name.to_ascii_lowercase().as_str() {
-                "true" => Ok((Expr::Bool { v: true, span: Some(span) }, false)),
-                "false" => Ok((Expr::Bool { v: false, span: Some(span) }, false)),
-                "null" => Ok((Expr::Null { span: Some(span) }, false)),
-                _ => Err(self.literal_error(value, "variables are not expanded; compare with a literal value")),
-            },
+            ValueKind::Variable(var) if var.scope.is_none() => {
+                match var.name.to_ascii_lowercase().as_str() {
+                    "true" => Ok((
+                        Expr::Bool {
+                            v: true,
+                            span: Some(span),
+                        },
+                        false,
+                    )),
+                    "false" => Ok((
+                        Expr::Bool {
+                            v: false,
+                            span: Some(span),
+                        },
+                        false,
+                    )),
+                    "null" => Ok((Expr::Null { span: Some(span) }, false)),
+                    _ => Err(self.literal_error(
+                        value,
+                        "variables are not expanded; compare with a literal value",
+                    )),
+                }
+            }
             ValueKind::Paren(_) | ValueKind::Member { .. } => Ok((self.instant(value)?, false)),
             _ => {
                 let written = self.text_literal(value)?;
@@ -539,7 +685,13 @@ impl<'r> Parser<'_, 'r> {
         }
     }
 
-    fn text_value(&mut self, map: Option<&FieldMap>, op: &Operator, written: &str, value: &Value) -> Result<(Expr, bool), Error> {
+    fn text_value(
+        &mut self,
+        map: Option<&FieldMap>,
+        op: &Operator,
+        written: &str,
+        value: &Value,
+    ) -> Result<(Expr, bool), Error> {
         let span = self.session.span(value.start, value.end);
         if let Some(map) = map {
             if !map.values.is_empty() {
@@ -551,7 +703,8 @@ impl<'r> Parser<'_, 'r> {
                 return match mapped {
                     Some(mapped) => Ok((ident(mapped, span), false)),
                     None => {
-                        let names: Vec<&str> = map.values.iter().map(|(name, _)| name.as_str()).collect();
+                        let names: Vec<&str> =
+                            map.values.iter().map(|(name, _)| name.as_str()).collect();
                         Err(self.session.uncorrectable(
                             "comparison_value",
                             format!("{} has the values {}", map.property, names.join(", ")),
@@ -562,18 +715,23 @@ impl<'r> Parser<'_, 'r> {
                     }
                 };
             }
-            if let Some(prefix) = &map.prefix {
-                if let Some(stripped) = written.strip_prefix(prefix.as_str()) {
-                    let assumption = self.session.table.comparison.prefix_assumption.clone();
-                    self.assume(&assumption);
-                    return self.fold_text(op, stripped, span);
-                }
+            if let Some(prefix) = &map.prefix
+                && let Some(stripped) = written.strip_prefix(prefix.as_str())
+            {
+                let assumption = self.session.table.comparison.prefix_assumption.clone();
+                self.assume(&assumption);
+                return self.fold_text(op, stripped, span);
             }
         }
         self.fold_text(op, written, span)
     }
 
-    fn fold_text(&mut self, op: &Operator, written: &str, span: Span) -> Result<(Expr, bool), Error> {
+    fn fold_text(
+        &mut self,
+        op: &Operator,
+        written: &str,
+        span: Span,
+    ) -> Result<(Expr, bool), Error> {
         if !convert::has_cased(written) {
             return Ok((text(written, span), false));
         }
@@ -599,7 +757,11 @@ impl<'r> Parser<'_, 'r> {
     fn instant(&self, value: &Value) -> Result<Expr, Error> {
         let span = self.session.span(value.start, value.end);
         let dates = &self.session.table.dates;
-        let now = || Expr::Call { function: dates.now.clone(), args: Vec::new(), span: Some(span) };
+        let now = || Expr::Call {
+            function: dates.now.clone(),
+            args: Vec::new(),
+            span: Some(span),
+        };
         let is_now = |value: &Value| match &value.kind {
             ValueKind::Paren(script) => match script.statements.as_slice() {
                 [statement] => match &statement.kind {
@@ -616,12 +778,25 @@ impl<'r> Parser<'_, 'r> {
         if is_now(value) {
             return Ok(now());
         }
-        let ValueKind::Member { base, name, args: Some(args) } = &value.kind else {
-            return Err(self.literal_error(value, "compare with a literal value or with (Get-Date).AddDays(-n)"));
+        let ValueKind::Member {
+            base,
+            name,
+            args: Some(args),
+        } = &value.kind
+        else {
+            return Err(self.literal_error(
+                value,
+                "compare with a literal value or with (Get-Date).AddDays(-n)",
+            ));
         };
         let unit = dates.unit(name).filter(|_| is_now(base));
         let count = match args.as_slice() {
-            [Value { kind: ValueKind::Number(number), .. }] if number.exponent == 0 => Some(number.value),
+            [
+                Value {
+                    kind: ValueKind::Number(number),
+                    ..
+                },
+            ] if number.exponent == 0 => Some(number.value),
             _ => None,
         };
         let (Some(unit), Some(count)) = (unit, count) else {
@@ -631,13 +806,20 @@ impl<'r> Parser<'_, 'r> {
             return Ok(now());
         }
         if count > 0.0 {
-            return Err(self.literal_error(value, "a filter compares with past instants; use a negative count"));
+            return Err(self.literal_error(
+                value,
+                "a filter compares with past instants; use a negative count",
+            ));
         }
-        let ms = convert::duration_ms(-count, unit)
-            .ok_or_else(|| self.literal_error(value, "the duration must be a whole number of milliseconds"))?;
+        let ms = convert::duration_ms(-count, unit).ok_or_else(|| {
+            self.literal_error(value, "the duration must be a whole number of milliseconds")
+        })?;
         Ok(Expr::Call {
             function: dates.ago.clone(),
-            args: vec![Expr::Dur { v: ms, span: Some(span) }],
+            args: vec![Expr::Dur {
+                v: ms,
+                span: Some(span),
+            }],
             span: Some(span),
         })
     }
@@ -647,12 +829,27 @@ impl<'r> Parser<'_, 'r> {
 /// `ForEach-Object Name`; `None` for any other block.
 pub(crate) fn selected_properties(command: &Command) -> Option<Vec<String>> {
     match command.args.as_slice() {
-        [RawArg::Value(Value { kind: ValueKind::Block(tokens), .. })] => {
-            let significant: Vec<&Token> = tokens.iter().filter(|token| token.kind != TokenKind::Newline).collect();
+        [
+            RawArg::Value(Value {
+                kind: ValueKind::Block(tokens),
+                ..
+            }),
+        ] => {
+            let significant: Vec<&Token> = tokens
+                .iter()
+                .filter(|token| token.kind != TokenKind::Newline)
+                .collect();
             match significant.as_slice() {
-                [Token { kind: TokenKind::Variable(var), .. }, Token { kind: TokenKind::Member(name), .. }] if var.is_pipeline_item() => {
-                    Some(vec![name.clone()])
-                }
+                [
+                    Token {
+                        kind: TokenKind::Variable(var),
+                        ..
+                    },
+                    Token {
+                        kind: TokenKind::Member(name),
+                        ..
+                    },
+                ] if var.is_pipeline_item() => Some(vec![name.clone()]),
                 _ => None,
             }
         }
@@ -660,9 +857,12 @@ pub(crate) fn selected_properties(command: &Command) -> Option<Vec<String>> {
             ValueKind::Bare(name) => Some(vec![name.clone()]),
             _ => None,
         },
-        [RawArg::Param { name, value: None, .. }, RawArg::Value(value)] if name.eq_ignore_ascii_case("MemberName") => {
-            value.plain_text().map(|name| vec![name])
-        }
+        [
+            RawArg::Param {
+                name, value: None, ..
+            },
+            RawArg::Value(value),
+        ] if name.eq_ignore_ascii_case("MemberName") => value.plain_text().map(|name| vec![name]),
         _ => None,
     }
 }
@@ -671,7 +871,10 @@ pub(crate) fn selected_properties(command: &Command) -> Option<Vec<String>> {
 /// replaces the loop by a stage.
 pub(crate) fn single_command(command: &Command) -> Option<Command> {
     let tokens = command.args.iter().find_map(|arg| match arg {
-        RawArg::Value(Value { kind: ValueKind::Block(tokens), .. }) => Some(tokens),
+        RawArg::Value(Value {
+            kind: ValueKind::Block(tokens),
+            ..
+        }) => Some(tokens),
         _ => None,
     })?;
     let script = syntax::parse(tokens).ok()?;

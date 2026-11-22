@@ -168,7 +168,9 @@ impl Chain {
             Some(Head::Stage(stage)) => Some(stage.clone()),
             _ => None,
         };
-        head.into_iter().chain(self.stages.iter().cloned()).collect()
+        head.into_iter()
+            .chain(self.stages.iter().cloned())
+            .collect()
     }
 
     fn pipeline(self, span: Span) -> Option<NurtPipeline> {
@@ -385,11 +387,12 @@ impl<'a> Session<'a> {
     }
 
     fn position(&self, start: usize, end: usize) -> TextPosition {
-        let at = self.at(start, end);
+        let (line, column) = self.positions.at(self.input, start);
+        let length = self.source(start, end).chars().count();
         TextPosition {
-            line: at.line,
-            column: at.column,
-            length: at.length,
+            line,
+            column,
+            length: Some(u32::try_from(length).unwrap_or(u32::MAX)),
         }
     }
 
@@ -401,8 +404,9 @@ impl<'a> Session<'a> {
         start: usize,
         end: usize,
     ) -> Error {
+        let stage = code.stages().first().copied().unwrap_or(ErrorStage::Parse);
         Error::new(code, message)
-            .with_stage(ErrorStage::Parse)
+            .with_stage(stage)
             .with_at(self.at(start, end))
             .with_found(self.source(start, end))
     }
@@ -436,7 +440,13 @@ impl<'a> Session<'a> {
 
     /// Inserts the correction of a command before the path corrections
     /// recorded while its arguments were converted.
-    fn command_correction(&mut self, rule: RuleId, class: Class, range: (usize, usize), to: String) {
+    fn command_correction(
+        &mut self,
+        rule: RuleId,
+        class: Class,
+        range: (usize, usize),
+        to: String,
+    ) {
         let index = self
             .corrections
             .iter()
@@ -664,11 +674,19 @@ impl<'a> Session<'a> {
                 let syntax = &self.table.syntax;
                 let stage = NurtStage {
                     name: syntax.environment_command.clone(),
-                    args: vec![named(&syntax.environment_param, text(var.name.clone(), span))],
+                    args: vec![named(
+                        &syntax.environment_param,
+                        text(var.name.clone(), span),
+                    )],
                     span: Some(span),
                 };
                 let rule = syntax.environment;
-                self.command_correction(rule, Class::Certain, range, fragment_text(std::slice::from_ref(&stage)));
+                self.command_correction(
+                    rule,
+                    Class::Certain,
+                    range,
+                    fragment_text(std::slice::from_ref(&stage)),
+                );
                 chain.push(stage);
                 Ok(())
             }
@@ -687,10 +705,12 @@ impl<'a> Session<'a> {
                 Ok(())
             }
             ValueKind::Paren(script) => match script.statements.as_slice() {
-                [Statement {
-                    kind: StatementKind::Pipeline(inner),
-                    ..
-                }] => {
+                [
+                    Statement {
+                        kind: StatementKind::Pipeline(inner),
+                        ..
+                    },
+                ] => {
                     let (pipeline, record) = self.pipeline(inner)?;
                     chain.head = Some(pipeline.head);
                     chain.stages = pipeline.stages;
@@ -699,7 +719,10 @@ impl<'a> Session<'a> {
                 }
                 _ => Err(self.expression_error(value)),
             },
-            ValueKind::Literal(_) | ValueKind::Expandable(_) | ValueKind::Bare(_) | ValueKind::Number(_) => {
+            ValueKind::Literal(_)
+            | ValueKind::Expandable(_)
+            | ValueKind::Bare(_)
+            | ValueKind::Number(_) => {
                 if continued {
                     chain.literal = Some(value.clone());
                     return Ok(());
@@ -712,7 +735,12 @@ impl<'a> Session<'a> {
                     span: Some(span),
                 };
                 let rule = syntax.output;
-                self.command_correction(rule, Class::Certain, range, fragment_text(std::slice::from_ref(&stage)));
+                self.command_correction(
+                    rule,
+                    Class::Certain,
+                    range,
+                    fragment_text(std::slice::from_ref(&stage)),
+                );
                 chain.push(stage);
                 Ok(())
             }
@@ -751,16 +779,14 @@ impl<'a> Session<'a> {
                 },
                 _ => text(self.source(value.start, value.end), span),
             }),
-            ValueKind::Variable(var) if !var.is_environment() => {
-                match self.known_let(&var.name) {
-                    Some(name) => Ok(Expr::Ref(Ref {
-                        name,
-                        fields: Vec::new(),
-                        span: Some(span),
-                    })),
-                    None => Err(self.unknown_variable(&var.name, value.start, value.end)),
-                }
-            }
+            ValueKind::Variable(var) if !var.is_environment() => match self.known_let(&var.name) {
+                Some(name) => Ok(Expr::Ref(Ref {
+                    name,
+                    fields: Vec::new(),
+                    span: Some(span),
+                })),
+                None => Err(self.unknown_variable(&var.name, value.start, value.end)),
+            },
             ValueKind::List(items) => Ok(Expr::List {
                 items: items
                     .iter()
@@ -818,7 +844,12 @@ impl<'a> Session<'a> {
         self.cmdlet_command(&command, cmdlet, false, chain)
     }
 
-    fn command(&mut self, command: &Command, continued: bool, chain: &mut Chain) -> Result<(), Error> {
+    fn command(
+        &mut self,
+        command: &Command,
+        continued: bool,
+        chain: &mut Chain,
+    ) -> Result<(), Error> {
         if command.call.is_some() {
             return self.call(command, chain);
         }
@@ -859,7 +890,13 @@ impl<'a> Session<'a> {
             ));
         }
         let program = command.call.as_deref().ok_or_else(|| {
-            self.uncorrectable("program_value", "the program is missing", command.start, command.end, "help run")
+            self.uncorrectable(
+                "program_value",
+                "the program is missing",
+                command.start,
+                command.end,
+                "help run",
+            )
         })?;
         let mut items = vec![self.program_expr(program)?];
         for arg in &command.args {
@@ -922,21 +959,27 @@ impl<'a> Session<'a> {
                 "help run",
             )
         })?;
-        if plain.contains(['\\', '/']) && !plain.starts_with('.') {
-            if let Ok(path) = convert::path(&plain, &self.table.registry, self.context.base) {
-                if path.changed {
-                    let rule = self.table.path_rule;
-                    let to = expr_text(&text(path.text.clone(), span));
-                    self.record_correction(rule, (value.start, value.end), to, CorrectionKind::Path);
-                }
-                return Ok(text(path.text, span));
+        if plain.contains(['\\', '/'])
+            && !plain.starts_with('.')
+            && let Ok(path) = convert::path(&plain, &self.table.registry, self.context.base)
+        {
+            if path.changed {
+                let rule = self.table.path_rule;
+                let to = expr_text(&text(path.text.clone(), span));
+                self.record_correction(rule, (value.start, value.end), to, CorrectionKind::Path);
             }
+            return Ok(text(path.text, span));
         }
         Ok(text(plain, span))
     }
 
     /// Binds the arguments of a command to the parameters of its entry.
-    fn bind(&self, command: &Command, cmdlet: &'a Cmdlet, chain: &mut Chain) -> Result<Bound<'a>, Error> {
+    fn bind(
+        &self,
+        command: &Command,
+        cmdlet: &'a Cmdlet,
+        chain: &mut Chain,
+    ) -> Result<Bound<'a>, Error> {
         let mut items: Vec<BoundParam<'a>> = Vec::new();
         for (name, value) in cmdlet.preset(&command.name) {
             if let Some(param) = cmdlet.params.iter().find(|param| param.is_named(name)) {
@@ -955,7 +998,12 @@ impl<'a> Session<'a> {
         let mut args = command.args.iter().peekable();
         while let Some(arg) = args.next() {
             match arg {
-                RawArg::Param { name, value, start, end } => {
+                RawArg::Param {
+                    name,
+                    value,
+                    start,
+                    end,
+                } => {
                     let param = self.resolve_param(cmdlet, name, *start, *end)?;
                     if items.iter().any(|item| std::ptr::eq(item.param, param)) {
                         return Err(self.uncorrectable(
@@ -967,8 +1015,21 @@ impl<'a> Session<'a> {
                         ));
                     }
                     if param.switch {
-                        if !value.as_ref().is_some_and(is_false) {
-                            items.push(BoundParam { param, value: None, start: *start, end: *end });
+                        let off = value.as_ref().is_some_and(is_false);
+                        if !off {
+                            items.push(BoundParam {
+                                param,
+                                value: None,
+                                start: *start,
+                                end: *end,
+                            });
+                        } else if self.is_common(param) {
+                            items.push(BoundParam {
+                                param,
+                                value: value.clone(),
+                                start: *start,
+                                end: *end,
+                            });
                         }
                         continue;
                     }
@@ -988,7 +1049,12 @@ impl<'a> Session<'a> {
                         },
                     };
                     let end = value.end;
-                    items.push(BoundParam { param, value: Some(value), start: *start, end });
+                    items.push(BoundParam {
+                        param,
+                        value: Some(value),
+                        start: *start,
+                        end,
+                    });
                 }
                 RawArg::Value(value) => {
                     let mut candidates: Vec<&'a Param> = cmdlet
@@ -1003,7 +1069,10 @@ impl<'a> Session<'a> {
                     let param = next.ok_or_else(|| {
                         self.uncorrectable(
                             "extra_argument",
-                            format!("{} takes no further argument here; name the parameter", cmdlet.name()),
+                            format!(
+                                "{} takes no further argument here; name the parameter",
+                                cmdlet.name()
+                            ),
                             value.start,
                             value.end,
                             HELP_CORRECTIONS,
@@ -1043,34 +1112,60 @@ impl<'a> Session<'a> {
         Ok(Bound { items })
     }
 
-    fn resolve_param(&self, cmdlet: &'a Cmdlet, written: &str, start: usize, end: usize) -> Result<&'a Param, Error> {
-        let all: Vec<&'a Param> = cmdlet.params.iter().chain(self.table.common.iter()).collect();
-        if let Some(param) = all.iter().find(|param| param.is_named(written)) {
+    fn resolve_param(
+        &self,
+        cmdlet: &'a Cmdlet,
+        written: &str,
+        start: usize,
+        end: usize,
+    ) -> Result<&'a Param, Error> {
+        let all: Vec<&'a Param> = cmdlet
+            .params
+            .iter()
+            .chain(self.table.common.iter())
+            .collect();
+        if let Some(param) = all.iter().copied().find(|param| param.is_named(written)) {
             return Ok(param);
         }
-        let matches: Vec<&'a Param> = all.into_iter().filter(|param| param.has_prefix(written)).collect();
+        let matches: Vec<&'a Param> = all
+            .into_iter()
+            .filter(|param| param.has_prefix(written))
+            .collect();
         match matches.as_slice() {
-            [param] => Ok(param),
+            [param] => Ok(*param),
             [] => {
                 let known: Vec<String> = cmdlet
                     .params
                     .iter()
                     .map(|param| format!("-{}", param.name))
                     .collect();
-                let list = if known.is_empty() { "none".to_owned() } else { known.join(", ") };
+                let list = if known.is_empty() {
+                    "none".to_owned()
+                } else {
+                    known.join(", ")
+                };
                 Err(self.uncorrectable(
                     "unknown_parameter",
-                    format!("-{written} of {} has no Nurt translation; translated parameters: {list}", cmdlet.name()),
+                    format!(
+                        "-{written} of {} has no Nurt translation; translated parameters: {list}",
+                        cmdlet.name()
+                    ),
                     start,
                     end,
                     HELP_CORRECTIONS,
                 ))
             }
             several => {
-                let names: Vec<String> = several.iter().map(|param| format!("-{}", param.name)).collect();
+                let names: Vec<String> = several
+                    .iter()
+                    .map(|param| format!("-{}", param.name))
+                    .collect();
                 Err(self.uncorrectable(
                     "ambiguous_parameter",
-                    format!("-{written} matches {}; write the full name", names.join(", ")),
+                    format!(
+                        "-{written} matches {}; write the full name",
+                        names.join(", ")
+                    ),
                     start,
                     end,
                     HELP_CORRECTIONS,
@@ -1080,32 +1175,58 @@ impl<'a> Session<'a> {
     }
 
     /// Translates a cmdlet by its parameters and variants.
-    fn cmdlet_command(&mut self, command: &Command, cmdlet: &'a Cmdlet, continued: bool, chain: &mut Chain) -> Result<(), Error> {
+    fn cmdlet_command(
+        &mut self,
+        command: &Command,
+        cmdlet: &'a Cmdlet,
+        continued: bool,
+        chain: &mut Chain,
+    ) -> Result<(), Error> {
         let range = (command.start, command.end);
         if cmdlet.raw_args {
-            let variant = cmdlet.variants.first().ok_or_else(|| self.internal(range))?;
+            let variant = cmdlet
+                .variants
+                .first()
+                .ok_or_else(|| self.internal(range))?;
             return Err(self.variant_error(variant, &Bound { items: Vec::new() }, range));
         }
         let bound = self.bind(command, cmdlet, chain)?;
         let piped_input = self.path_input(&bound, chain)?;
-        let main_path = bound.with_role(Role::Path).filter(|_| !piped_input).cloned();
-        let main_text = main_path.as_ref().and_then(|item| item.value.as_ref()?.plain_text());
+        let main_path = bound
+            .with_role(Role::Path)
+            .filter(|_| !piped_input)
+            .cloned();
+        let main_text = main_path
+            .as_ref()
+            .and_then(|item| item.value.as_ref()?.plain_text());
         let wildcard = main_path.as_ref().is_some_and(|item| item.param.wildcards)
             && main_text.as_deref().is_some_and(convert::has_wildcard);
         let registry = main_text
             .as_deref()
             .and_then(|text| convert::path(text, &self.table.registry, self.context.base).ok())
             .is_some_and(|path| path.registry);
-        let selecting_head = wildcard && cmdlet.variants.iter().all(|variant| variant.wildcard_arg.is_none());
+        let selecting_head = wildcard
+            && cmdlet
+                .variants
+                .iter()
+                .all(|variant| variant.wildcard_arg.is_none());
         let piped = !chain.is_empty() || piped_input || selecting_head;
         if let Some(location) = bound.with_role(Role::Location) {
             self.remember_location(location);
         }
-        let place = Place { piped, continued, wildcard, registry };
+        let place = Place {
+            piped,
+            continued,
+            wildcard,
+            registry,
+        };
         let variant = select_variant(cmdlet, &bound, place).ok_or_else(|| {
             self.uncorrectable(
                 "no_translation",
-                format!("{} has no Nurt translation with these parameters", cmdlet.name()),
+                format!(
+                    "{} has no Nurt translation with these parameters",
+                    cmdlet.name()
+                ),
                 command.start,
                 command.end,
                 HELP_CORRECTIONS,
@@ -1114,7 +1235,10 @@ impl<'a> Session<'a> {
         if variant.error.is_some() {
             return Err(self.variant_error(variant, &bound, range));
         }
-        let missing_path = cmdlet.params.iter().any(|param| param.role == Some(Role::Path))
+        let missing_path = cmdlet
+            .params
+            .iter()
+            .any(|param| param.role == Some(Role::Path))
             && main_path.is_none()
             && !piped
             && variant.merge.is_none();
@@ -1181,7 +1305,12 @@ impl<'a> Session<'a> {
             span: Some(self.span(*start, *end)),
         }));
         let rule = self.table.syntax.assignment;
-        self.record_correction(rule, (*start, *end), format!("@{name}"), CorrectionKind::Ref);
+        self.record_correction(
+            rule,
+            (*start, *end),
+            format!("@{name}"),
+            CorrectionKind::Ref,
+        );
         Ok(true)
     }
 
@@ -1202,15 +1331,26 @@ impl<'a> Session<'a> {
             Some("E_AMBIGUOUS") => ErrorCode::Ambiguous,
             _ => ErrorCode::Uncorrectable,
         };
-        let mut error = self.error(code, variant.message.clone().unwrap_or_default(), range.0, range.1);
+        let mut error = self.error(
+            code,
+            variant.message.clone().unwrap_or_default(),
+            range.0,
+            range.1,
+        );
         if let Some(problem) = &variant.problem {
             error = error.with_problem(problem);
         }
         error = error.with_help(variant.help.as_deref().unwrap_or(HELP_CORRECTIONS));
-        for fix in variant.fix.iter().filter_map(|template| self.fill_template(template, bound)) {
+        for fix in variant
+            .fix
+            .iter()
+            .filter_map(|template| self.fill_template(template, bound))
+        {
             error = error.with_fix(fix);
         }
-        if let (Some("no_current_directory"), Some(location)) = (variant.problem.as_deref(), &self.location) {
+        if let (Some("no_current_directory"), Some(location)) =
+            (variant.problem.as_deref(), &self.location)
+        {
             error = error.with_detail("base", serde_json::Value::from(location.clone()));
         }
         error
@@ -1227,7 +1367,10 @@ impl<'a> Session<'a> {
             let close = after.find('}')?;
             let value = bound.text_of(after.get(..close)?)?;
             let path = convert::path(&value, &self.table.registry, self.context.base).ok()?;
-            out.push_str(&expr_text(&Expr::Text { v: path.text, span: None }));
+            out.push_str(&expr_text(&Expr::Text {
+                v: path.text,
+                span: None,
+            }));
             rest = after.get(close + 1..)?;
         }
         out.push_str(rest);
@@ -1236,7 +1379,10 @@ impl<'a> Session<'a> {
 
     /// Builds the stages of a variant and pushes them to the chain; returns
     /// the class of the translation.
-    #[expect(clippy::too_many_arguments, reason = "a variant is built from the command, its entry, the bound arguments and the place in the pipeline")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a variant is built from the command, its entry, the bound arguments and the place in the pipeline"
+    )]
     fn build(
         &mut self,
         command: &Command,
@@ -1250,7 +1396,11 @@ impl<'a> Session<'a> {
         let span = self.span(command.start, command.end);
         let range = (command.start, command.end);
         let mut built = Built {
-            stages: variant.stages.iter().map(|name| StageArgs::new(name)).collect(),
+            stages: variant
+                .stages
+                .iter()
+                .map(|name| StageArgs::new(name))
+                .collect(),
             emitted: Vec::new(),
             extra: Vec::new(),
             run_list: Vec::new(),
@@ -1268,7 +1418,11 @@ impl<'a> Session<'a> {
                 stage.positional.push(positional(text(location, span)));
             }
         }
-        if let Some(param) = cmdlet.params.iter().find(|param| param.required.is_some() && !bound.has(&param.name)) {
+        if let Some(param) = cmdlet
+            .params
+            .iter()
+            .find(|param| param.required.is_some() && !bound.has(&param.name))
+        {
             return Err(self.uncorrectable(
                 "missing_parameter",
                 param.required.clone().unwrap_or_default(),
@@ -1293,12 +1447,20 @@ impl<'a> Session<'a> {
                 (None, Some(_)) => continue,
                 (None, None) => built.stages.first_mut(),
             };
-            target.ok_or_else(|| self.internal(range))?.place(set.arg.as_deref(), vec![value]);
+            target
+                .ok_or_else(|| self.internal(range))?
+                .place(set.arg.as_deref(), vec![value]);
         }
-        for absent in variant.absent.iter().filter(|absent| !absent.params.iter().any(|name| bound.has(name))) {
+        for absent in variant
+            .absent
+            .iter()
+            .filter(|absent| !absent.params.iter().any(|name| bound.has(name)))
+        {
             self.absent(absent, chain, &mut built.stages, span, range)?;
         }
-        if let (Class::Probable, Some(assumption)) = (variant.class.unwrap_or(Class::Certain), &variant.assumption) {
+        if let (Class::Probable, Some(assumption)) =
+            (variant.class.unwrap_or(Class::Certain), &variant.assumption)
+        {
             self.assume(variant.rule, assumption);
         }
         if let Some(merge) = &variant.merge {
@@ -1330,7 +1492,10 @@ impl<'a> Session<'a> {
     }
 
     /// Converts one bound parameter and places its values.
-    #[expect(clippy::too_many_arguments, reason = "a parameter is placed by its entry, the variant, the other arguments and the place in the pipeline")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a parameter is placed by its entry, the variant, the other arguments and the place in the pipeline"
+    )]
     fn bound_param(
         &mut self,
         item: &BoundParam<'a>,
@@ -1344,9 +1509,19 @@ impl<'a> Session<'a> {
         let param = item.param;
         let rule = variant.rule;
         if let Some(message) = &param.error {
-            return Err(self.uncorrectable("unsupported_parameter", message.clone(), item.start, item.end, HELP_CORRECTIONS));
+            return Err(self.uncorrectable(
+                "unsupported_parameter",
+                message.clone(),
+                item.start,
+                item.end,
+                HELP_CORRECTIONS,
+            ));
         }
-        if let Some((_, note)) = variant.drop.iter().find(|(name, _)| param.name.eq_ignore_ascii_case(name)) {
+        if let Some((_, note)) = variant
+            .drop
+            .iter()
+            .find(|(name, _)| param.name.eq_ignore_ascii_case(name))
+        {
             self.note(rule, note);
             return Ok(());
         }
@@ -1360,14 +1535,23 @@ impl<'a> Session<'a> {
         match param.role {
             Some(Role::Path) if item.value.as_ref().is_some_and(is_variable) => return Ok(()),
             Some(Role::Path) if place.wildcard => {
-                built.wildcard_head = self.wildcard_path(item, variant, bound, &mut built.stages)?;
+                built.wildcard_head =
+                    self.wildcard_path(item, variant, bound, &mut built.stages)?;
                 return Ok(());
             }
             Some(Role::Include | Role::Exclude) => {
-                built.extra.push(self.name_filter(item, param.role == Some(Role::Exclude))?);
+                built
+                    .extra
+                    .push(self.name_filter(item, param.role == Some(Role::Exclude))?);
                 return Ok(());
             }
-            Some(Role::NoNewline | Role::Selector | Role::Location | Role::ChildName | Role::RegistryName) => {
+            Some(
+                Role::NoNewline
+                | Role::Selector
+                | Role::Location
+                | Role::ChildName
+                | Role::RegistryName,
+            ) => {
                 return Ok(());
             }
             Some(Role::Program) => {
@@ -1390,6 +1574,15 @@ impl<'a> Session<'a> {
                 return Ok(());
             }
             _ => {}
+        }
+        if param.ty == Some(ValueType::Context) {
+            let args = self.context_args(item)?;
+            let stage = built
+                .stages
+                .first_mut()
+                .ok_or_else(|| self.internal((item.start, item.end)))?;
+            stage.named.extend(args);
+            return Ok(());
         }
         if param.ty.is_none() && param.set.is_none() {
             return Ok(());
@@ -1418,7 +1611,11 @@ impl<'a> Session<'a> {
         let target = target.ok_or_else(|| {
             self.uncorrectable(
                 "parameter_not_applicable",
-                format!("-{} has no Nurt form in this use of {}", param.name, cmdlet.name()),
+                format!(
+                    "-{} has no Nurt form in this use of {}",
+                    param.name,
+                    cmdlet.name()
+                ),
                 item.start,
                 item.end,
                 HELP_CORRECTIONS,
@@ -1435,14 +1632,21 @@ impl<'a> Session<'a> {
         if built.run_list.is_empty() {
             return;
         }
-        let Some(stage) = built.stages.iter_mut().find(|stage| stage.name == RUN_COMMAND) else {
+        let Some(stage) = built
+            .stages
+            .iter_mut()
+            .find(|stage| stage.name == RUN_COMMAND)
+        else {
             return;
         };
         if let Some(alternative) = built.alternative.take() {
             let mut items: Vec<Expr> = built.run_list.first().cloned().into_iter().collect();
             items.extend(alternative);
             let mut other = StageArgs::new(RUN_COMMAND);
-            other.positional.push(positional(Expr::List { items, span: Some(span) }));
+            other.positional.push(positional(Expr::List {
+                items,
+                span: Some(span),
+            }));
             other.named = stage.named.clone();
             self.alternatives.push(AlternativeStage {
                 statement: self.statement,
@@ -1451,10 +1655,23 @@ impl<'a> Session<'a> {
             });
         }
         let items = std::mem::take(&mut built.run_list);
-        stage.positional.insert(0, positional(Expr::List { items, span: Some(span) }));
+        stage.positional.insert(
+            0,
+            positional(Expr::List {
+                items,
+                span: Some(span),
+            }),
+        );
     }
 
-    fn merge(&mut self, variant: &Variant, merge: &str, span: Span, chain: &mut Chain, range: (usize, usize)) -> Result<(), Error> {
+    fn merge(
+        &mut self,
+        variant: &Variant,
+        merge: &str,
+        span: Span,
+        chain: &mut Chain,
+        range: (usize, usize),
+    ) -> Result<(), Error> {
         let args: Vec<Arg> = variant
             .set
             .iter()
@@ -1485,7 +1702,14 @@ impl<'a> Session<'a> {
         }
     }
 
-    fn absent(&self, absent: &Absent, chain: &Chain, stages: &mut [StageArgs], span: Span, range: (usize, usize)) -> Result<(), Error> {
+    fn absent(
+        &self,
+        absent: &Absent,
+        chain: &Chain,
+        stages: &mut [StageArgs],
+        span: Span,
+        range: (usize, usize),
+    ) -> Result<(), Error> {
         let Some(stage) = stages.first_mut() else {
             return Ok(());
         };
@@ -1507,39 +1731,62 @@ impl<'a> Session<'a> {
             stage.positional.push(positional(ident(field, span)));
             return Ok(());
         }
-        if let (Some(arg), Some(value)) = (&absent.arg, &absent.value) {
-            if !stage.has_named(arg) {
-                stage.named.push(named(arg, set_value(value, span)));
-            }
+        if let (Some(arg), Some(value)) = (&absent.arg, &absent.value)
+            && !stage.has_named(arg)
+        {
+            stage.named.push(named(arg, set_value(value, span)));
         }
         Ok(())
     }
 
     /// Common parameters `-WhatIf`, `-Confirm`, `-ErrorAction`, `-Verbose`
     /// and `-Debug`; returns whether the item was one.
-    fn common_param(&mut self, item: &BoundParam<'_>, stages: &mut [StageArgs], variant_rule: RuleId) -> Result<bool, Error> {
+    fn common_param(
+        &mut self,
+        item: &BoundParam<'_>,
+        stages: &mut [StageArgs],
+        variant_rule: RuleId,
+    ) -> Result<bool, Error> {
         let param = item.param;
-        if !self.table.common.iter().any(|common| std::ptr::eq(common, param)) {
+        if !self.is_common(param) {
             return Ok(false);
         }
         let rule = param.rule.unwrap_or(variant_rule);
         let range = (item.start, item.end);
         match param.role {
-            Some(Role::Preview) => {
+            Some(Role::Preview) if item.value.is_none() => {
                 self.options.preview = Some(true);
-                self.record_correction(rule, range, "preview: true".to_owned(), CorrectionKind::Habit);
+                self.record_correction(
+                    rule,
+                    range,
+                    "preview: true".to_owned(),
+                    CorrectionKind::Habit,
+                );
             }
             Some(Role::ErrorAction) => {
-                let written = item.value.as_ref().and_then(Value::plain_text).unwrap_or_default();
-                let mapped = param.mapped_value(&written).ok_or_else(|| self.unknown_value(item, &written))?;
+                let written = item
+                    .value
+                    .as_ref()
+                    .and_then(Value::plain_text)
+                    .unwrap_or_default();
+                let mapped = param
+                    .mapped_value(&written)
+                    .ok_or_else(|| self.unknown_value(item, &written))?;
                 let target = param
                     .stage
                     .as_ref()
                     .and_then(|name| stages.iter_mut().find(|stage| &stage.name == name));
                 match (target, param.arg.as_ref()) {
                     (Some(stage), Some(arg)) if !mapped.is_empty() => {
-                        stage.named.push(named(arg, ident(mapped, self.span(item.start, item.end))));
-                        self.record_correction(rule, range, format!("{arg}: {mapped}"), CorrectionKind::Habit);
+                        stage
+                            .named
+                            .push(named(arg, ident(mapped, self.span(item.start, item.end))));
+                        self.record_correction(
+                            rule,
+                            range,
+                            format!("{arg}: {mapped}"),
+                            CorrectionKind::Habit,
+                        );
                     }
                     _ => {
                         self.record_correction(rule, range, String::new(), CorrectionKind::Habit);
@@ -1557,12 +1804,24 @@ impl<'a> Session<'a> {
         Ok(true)
     }
 
+    /// Whether the parameter is a common parameter of every cmdlet.
+    fn is_common(&self, param: &Param) -> bool {
+        self.table
+            .common
+            .iter()
+            .any(|common| std::ptr::eq(common, param))
+    }
+
     fn unknown_value(&self, item: &BoundParam<'_>, written: &str) -> Error {
         let param = item.param;
         let values: Vec<&str> = param.values.iter().map(|(name, _)| name.as_str()).collect();
         self.uncorrectable(
             "unknown_value",
-            format!("-{} {written} has no Nurt form; values: {}", param.name, values.join(", ")),
+            format!(
+                "-{} {written} has no Nurt form; values: {}",
+                param.name,
+                values.join(", ")
+            ),
             item.start,
             item.end,
             HELP_CORRECTIONS,
@@ -1570,7 +1829,14 @@ impl<'a> Session<'a> {
     }
 
     /// Converts the value of a bound parameter into Nurt expressions.
-    fn param_values(&mut self, item: &BoundParam<'_>, bound: &Bound<'_>, variant: &Variant, chain: &Chain, class: &mut Class) -> Result<Vec<Expr>, Error> {
+    fn param_values(
+        &mut self,
+        item: &BoundParam<'_>,
+        bound: &Bound<'_>,
+        variant: &Variant,
+        chain: &Chain,
+        class: &mut Class,
+    ) -> Result<Vec<Expr>, Error> {
         let param = item.param;
         let Some(value) = &item.value else {
             let span = self.span(item.start, item.end);
@@ -1591,27 +1857,46 @@ impl<'a> Session<'a> {
                 span: Some(span),
             },
             ValueType::LineText => {
-                let lines: Vec<String> = list_items(value).into_iter().map(|item| self.plain(item)).collect::<Result<_, _>>()?;
+                let lines: Vec<String> = list_items(value)
+                    .into_iter()
+                    .map(|item| self.plain(item))
+                    .collect::<Result<_, _>>()?;
                 let mut joined = lines.join("\n");
                 if !bound.has(NO_NEWLINE_PARAM) {
                     joined.push('\n');
                 }
                 text(joined, span)
             }
-            ValueType::Int => Expr::Int { v: self.int(value)?, span: Some(span) },
+            ValueType::Int => Expr::Int {
+                v: self.int(value)?,
+                span: Some(span),
+            },
             ValueType::Depth => Expr::Int {
                 v: self.int(value)?.saturating_add(1),
                 span: Some(span),
             },
-            ValueType::Upto => Expr::Range { lo: None, hi: Some(self.int(value)?), span: Some(span) },
+            ValueType::Upto => Expr::Range {
+                lo: None,
+                hi: Some(self.int(value)?),
+                span: Some(span),
+            },
             ValueType::Seconds | ValueType::Milliseconds => {
-                let unit = if ty == ValueType::Seconds { SECOND_UNIT } else { MILLISECOND_UNIT };
-                let ms = convert::duration_ms(self.number(value)?, unit)
-                    .ok_or_else(|| self.value_error(item, "the duration must be a whole number of milliseconds"))?;
-                Expr::Dur { v: ms, span: Some(span) }
+                let unit = if ty == ValueType::Seconds {
+                    SECOND_UNIT
+                } else {
+                    MILLISECOND_UNIT
+                };
+                let ms = convert::duration_ms(self.number(value)?, unit).ok_or_else(|| {
+                    self.value_error(item, "the duration must be a whole number of milliseconds")
+                })?;
+                Expr::Dur {
+                    v: ms,
+                    span: Some(span),
+                }
             }
             ValueType::Fields | ValueType::Field => {
-                let fields = self.fields(value, chain, param.order_assumption, variant.rule, class)?;
+                let fields =
+                    self.fields(value, chain, param.order_assumption, variant.rule, class)?;
                 if ty == ValueType::Field && fields.len() != 1 {
                     return Err(self.value_error(item, "one property is grouped at a time"));
                 }
@@ -1619,7 +1904,9 @@ impl<'a> Session<'a> {
             }
             ValueType::Enum | ValueType::EnumText | ValueType::TypeCheck => {
                 let written = self.plain(value)?;
-                let mapped = param.mapped_value(&written).ok_or_else(|| self.unknown_value(item, &written))?;
+                let mapped = param
+                    .mapped_value(&written)
+                    .ok_or_else(|| self.unknown_value(item, &written))?;
                 match ty {
                     ValueType::EnumText => text(mapped, span),
                     ValueType::TypeCheck => Expr::Bin {
@@ -1634,7 +1921,11 @@ impl<'a> Session<'a> {
             ValueType::Name => {
                 let written = self.plain(value)?;
                 if convert::has_wildcard(&written) {
-                    Expr::Regex { v: convert::wildcard_regex(&written), flags: IGNORE_CASE_FLAG.to_owned(), span: Some(span) }
+                    Expr::Regex {
+                        v: convert::wildcard_regex(&written),
+                        flags: IGNORE_CASE_FLAG.to_owned(),
+                        span: Some(span),
+                    }
                 } else {
                     text(written, span)
                 }
@@ -1648,7 +1939,10 @@ impl<'a> Session<'a> {
                 }
             }
             ValueType::Regex => {
-                let literal = param.literal_when.as_deref().is_some_and(|name| bound.has(name));
+                let literal = param
+                    .literal_when
+                    .as_deref()
+                    .is_some_and(|name| bound.has(name));
                 let mut patterns = list_items(value)
                     .into_iter()
                     .map(|item| self.pattern(item, literal))
@@ -1656,21 +1950,28 @@ impl<'a> Session<'a> {
                 if patterns.len() == 1 {
                     patterns.remove(0)
                 } else {
-                    Expr::List { items: patterns, span: Some(span) }
+                    Expr::List {
+                        items: patterns,
+                        span: Some(span),
+                    }
                 }
             }
             ValueType::Map => self.map(value)?,
             ValueType::Value => match &value.kind {
-                ValueKind::Number(number) if number.exponent == 0 && number.int.is_some_and(|int| int >= 0) => {
-                    Expr::Int { v: number.int.unwrap_or_default(), span: Some(span) }
+                ValueKind::Number(number)
+                    if number.exponent == 0 && number.int.is_some_and(|int| int >= 0) =>
+                {
+                    Expr::Int {
+                        v: number.int.unwrap_or_default(),
+                        span: Some(span),
+                    }
                 }
                 ValueKind::Number(_) => text(self.source(value.start, value.end), span),
                 _ => text(self.plain(value)?, span),
             },
-            ValueType::Context => return self.context_values(item),
             ValueType::NewName => return self.new_name(item),
             ValueType::ContentPath => self.content_path(value)?,
-            ValueType::Program | ValueType::Arguments => return Ok(Vec::new()),
+            ValueType::Context | ValueType::Program | ValueType::Arguments => return Ok(Vec::new()),
         };
         Ok(vec![expr])
     }
@@ -1690,11 +1991,21 @@ impl<'a> Session<'a> {
                 "help search",
             )
         })?;
-        Ok(Expr::Regex { v: pattern, flags: String::new(), span: Some(span) })
+        Ok(Expr::Regex {
+            v: pattern,
+            flags: String::new(),
+            span: Some(span),
+        })
     }
 
     fn value_error(&self, item: &BoundParam<'_>, message: &str) -> Error {
-        self.uncorrectable("invalid_value", message.to_owned(), item.start, item.end, HELP_CORRECTIONS)
+        self.uncorrectable(
+            "invalid_value",
+            message.to_owned(),
+            item.start,
+            item.end,
+            HELP_CORRECTIONS,
+        )
     }
 
     fn plain(&self, value: &Value) -> Result<String, Error> {
@@ -1725,14 +2036,26 @@ impl<'a> Session<'a> {
         match &value.kind {
             ValueKind::Number(number) if number.exponent == 0 => Ok(number.value),
             _ => self.plain(value)?.parse().map_err(|_| {
-                self.uncorrectable("invalid_value", "a number is required", value.start, value.end, HELP_CORRECTIONS)
+                self.uncorrectable(
+                    "invalid_value",
+                    "a number is required",
+                    value.start,
+                    value.end,
+                    HELP_CORRECTIONS,
+                )
             }),
         }
     }
 
     fn int(&self, value: &Value) -> Result<i64, Error> {
         let invalid = || {
-            self.uncorrectable("invalid_value", "a non-negative whole number is required", value.start, value.end, HELP_CORRECTIONS)
+            self.uncorrectable(
+                "invalid_value",
+                "a non-negative whole number is required",
+                value.start,
+                value.end,
+                HELP_CORRECTIONS,
+            )
         };
         match &value.kind {
             ValueKind::Number(number) => number
@@ -1807,7 +2130,13 @@ impl<'a> Session<'a> {
 
     /// A wildcard path: the pattern becomes a glob argument of the command
     /// or a selecting stage before it.
-    fn wildcard_path(&mut self, item: &BoundParam<'_>, variant: &Variant, bound: &Bound<'_>, stages: &mut [StageArgs]) -> Result<Option<NurtStage>, Error> {
+    fn wildcard_path(
+        &mut self,
+        item: &BoundParam<'_>,
+        variant: &Variant,
+        bound: &Bound<'_>,
+        stages: &mut [StageArgs],
+    ) -> Result<Option<NurtStage>, Error> {
         let Some(value) = &item.value else {
             return Ok(None);
         };
@@ -1852,11 +2181,16 @@ impl<'a> Session<'a> {
         let wildcard = &self.table.wildcard;
         let mut head = StageArgs::new(&wildcard.command);
         head.positional.push(positional(directory_expr));
-        head.named.push(named(&wildcard.glob_arg, text(pattern, span)));
+        head.named
+            .push(named(&wildcard.glob_arg, text(pattern, span)));
         for set in &wildcard.set {
             head.place(set.arg.as_deref(), vec![set_value(&set.value, span)]);
         }
-        for absent in wildcard.absent.iter().filter(|absent| !absent.params.iter().any(|name| bound.has(name))) {
+        for absent in wildcard
+            .absent
+            .iter()
+            .filter(|absent| !absent.params.iter().any(|name| bound.has(name)))
+        {
             if let (Some(arg), Some(value)) = (&absent.arg, &absent.value) {
                 head.named.push(named(arg, set_value(value, span)));
             }
@@ -1867,23 +2201,37 @@ impl<'a> Session<'a> {
     /// `-Include` and `-Exclude` become `filter name ~ /…/i`.
     fn name_filter(&self, item: &BoundParam<'_>, exclude: bool) -> Result<NurtStage, Error> {
         let span = self.span(item.start, item.end);
-        let value = item.value.as_ref().ok_or_else(|| self.value_error(item, "a pattern is required"))?;
+        let value = item
+            .value
+            .as_ref()
+            .ok_or_else(|| self.value_error(item, "a pattern is required"))?;
         let patterns: Vec<String> = list_items(value)
             .into_iter()
-            .map(|item| self.plain(item).map(|pattern| convert::wildcard_regex(&pattern)))
+            .map(|item| {
+                self.plain(item)
+                    .map(|pattern| convert::wildcard_regex(&pattern))
+            })
             .collect::<Result<_, _>>()?;
         let regex = if patterns.len() == 1 {
             patterns.concat()
         } else {
             format!("(?:{})", patterns.join("|"))
         };
-        let op = if exclude { BinOp::NotMatch } else { BinOp::Match };
+        let op = if exclude {
+            BinOp::NotMatch
+        } else {
+            BinOp::Match
+        };
         Ok(NurtStage {
             name: FILTER_COMMAND.to_owned(),
             args: vec![positional(Expr::Bin {
                 op,
                 l: Box::new(ident(NAME_FIELD, span)),
-                r: Box::new(Expr::Regex { v: regex, flags: IGNORE_CASE_FLAG.to_owned(), span: Some(span) }),
+                r: Box::new(Expr::Regex {
+                    v: regex,
+                    flags: IGNORE_CASE_FLAG.to_owned(),
+                    span: Some(span),
+                }),
                 span: Some(span),
             })],
             span: Some(span),
@@ -1892,7 +2240,10 @@ impl<'a> Session<'a> {
 
     /// `-Name` of the registry: the value name is the last part of the path.
     fn registry_name(&self, bound: &Bound<'_>, stages: &mut [StageArgs]) -> Result<(), Error> {
-        let Some(value) = bound.with_role(Role::RegistryName).and_then(|item| item.value.as_ref()) else {
+        let Some(value) = bound
+            .with_role(Role::RegistryName)
+            .and_then(|item| item.value.as_ref())
+        else {
             return Ok(());
         };
         let name = self.plain(value)?;
@@ -1900,8 +2251,14 @@ impl<'a> Session<'a> {
         let path_arg = stages
             .iter_mut()
             .flat_map(|stage| stage.positional.iter_mut())
-            .find(|arg| matches!(&arg.value, Expr::Text { v, .. } if v.starts_with(scheme.as_str())));
-        if let Some(Arg { value: Expr::Text { v, .. }, .. }) = path_arg {
+            .find(
+                |arg| matches!(&arg.value, Expr::Text { v, .. } if v.starts_with(scheme.as_str())),
+            );
+        if let Some(Arg {
+            value: Expr::Text { v, .. },
+            ..
+        }) = path_arg
+        {
             v.push('/');
             v.push_str(&name);
         }
@@ -1917,8 +2274,14 @@ impl<'a> Session<'a> {
             return Ok(());
         };
         let name = self.plain(value)?;
-        match stages.first_mut().and_then(|stage| stage.positional.first_mut()) {
-            Some(Arg { value: Expr::Text { v, .. }, .. }) => {
+        match stages
+            .first_mut()
+            .and_then(|stage| stage.positional.first_mut())
+        {
+            Some(Arg {
+                value: Expr::Text { v, .. },
+                ..
+            }) => {
                 if !v.ends_with('/') {
                     v.push('/');
                 }
@@ -1937,7 +2300,10 @@ impl<'a> Session<'a> {
         };
         let span = self.span(value.start, value.end);
         if let ValueKind::List(items) = &value.kind {
-            let exprs = items.iter().map(|item| self.argument_text(item)).collect::<Result<_, _>>()?;
+            let exprs = items
+                .iter()
+                .map(|item| self.argument_text(item))
+                .collect::<Result<_, _>>()?;
             return Ok((exprs, None));
         }
         let whole = self.plain(value)?;
@@ -1951,9 +2317,31 @@ impl<'a> Session<'a> {
 
     /// `-Context 2` becomes `context: 2`; `-Context 1,3` becomes
     /// `before: 1 after: 3`.
-    fn context_values(&self, item: &BoundParam<'_>) -> Result<Vec<Expr>, Error> {
-        let _ = item;
-        Err(self.value_error(item, "the context is placed by its own arguments"))
+    fn context_args(&self, item: &BoundParam<'_>) -> Result<Vec<Arg>, Error> {
+        let invalid = || {
+            self.value_error(
+                item,
+                "-Context takes one number or two numbers separated by a comma",
+            )
+        };
+        let value = item.value.as_ref().ok_or_else(invalid)?;
+        let span = self.span(value.start, value.end);
+        let numbers = list_items(value)
+            .into_iter()
+            .map(|item| self.int(item))
+            .collect::<Result<Vec<_>, _>>()?;
+        let int = |v: i64| Expr::Int {
+            v,
+            span: Some(span),
+        };
+        match numbers.as_slice() {
+            [both] => Ok(vec![named(CONTEXT_ARG, int(*both))]),
+            [before, after] => Ok(vec![
+                named(BEFORE_ARG, int(*before)),
+                named(AFTER_ARG, int(*after)),
+            ]),
+            _ => Err(invalid()),
+        }
     }
 
     /// `-NewName N` becomes `to: "N"`; `($_.Name + "S")` becomes `/$/ "S"`.
@@ -1992,7 +2380,11 @@ impl<'a> Session<'a> {
             )
         })?;
         Ok(vec![
-            Expr::Regex { v: anchor.to_owned(), flags: String::new(), span: Some(span) },
+            Expr::Regex {
+                v: anchor.to_owned(),
+                flags: String::new(),
+                span: Some(span),
+            },
             text(added, span),
         ])
     }
@@ -2002,7 +2394,11 @@ impl<'a> Session<'a> {
         let table = self.table;
         let path = match &value.kind {
             ValueKind::Paren(script) => match single_command_of(script) {
-                Some(command) if table.cmdlet(&command.name).is_some_and(|cmdlet| cmdlet.name().eq_ignore_ascii_case(CONTENT_CMDLET)) => {
+                Some(command)
+                    if table.cmdlet(&command.name).is_some_and(|cmdlet| {
+                        cmdlet.name().eq_ignore_ascii_case(CONTENT_CMDLET)
+                    }) =>
+                {
                     command.args.iter().find_map(|arg| match arg {
                         RawArg::Value(value) => Some(value.clone()),
                         RawArg::Param { .. } => None,
@@ -2037,13 +2433,29 @@ impl<'a> Session<'a> {
         };
         let entries = entries
             .iter()
-            .map(|(key, value)| Ok(MapEntry { k: key.clone(), v: text(self.plain(value)?, span) }))
+            .map(|(key, value)| {
+                Ok(MapEntry {
+                    k: key.clone(),
+                    v: text(self.plain(value)?, span),
+                    span: Some(span),
+                })
+            })
             .collect::<Result<_, Error>>()?;
-        Ok(Expr::Map { entries, span: Some(span) })
+        Ok(Expr::Map {
+            entries,
+            span: Some(span),
+        })
     }
 
     /// Property names mapped to the fields of the input record.
-    fn fields(&mut self, value: &Value, chain: &Chain, order: bool, rule: RuleId, class: &mut Class) -> Result<Vec<Expr>, Error> {
+    fn fields(
+        &mut self,
+        value: &Value,
+        chain: &Chain,
+        order: bool,
+        rule: RuleId,
+        class: &mut Class,
+    ) -> Result<Vec<Expr>, Error> {
         let record = self.input_record(chain.record.as_deref(), value.start, value.end)?;
         let mut exprs = Vec::new();
         for item in list_items(value) {
@@ -2071,7 +2483,12 @@ impl<'a> Session<'a> {
         Ok(exprs)
     }
 
-    pub(crate) fn input_record(&self, record: Option<&str>, start: usize, end: usize) -> Result<&'a Record, Error> {
+    pub(crate) fn input_record(
+        &self,
+        record: Option<&str>,
+        start: usize,
+        end: usize,
+    ) -> Result<&'a Record, Error> {
         let table = self.table;
         record.and_then(|name| table.record(name)).ok_or_else(|| {
             self.uncorrectable(
@@ -2084,7 +2501,13 @@ impl<'a> Session<'a> {
         })
     }
 
-    pub(crate) fn unknown_property(&self, property: &str, record: &Record, start: usize, end: usize) -> Error {
+    pub(crate) fn unknown_property(
+        &self,
+        property: &str,
+        record: &Record,
+        start: usize,
+        end: usize,
+    ) -> Error {
         self.uncorrectable(
             "unknown_property",
             format!(
@@ -2098,7 +2521,12 @@ impl<'a> Session<'a> {
         )
     }
 
-    fn where_object(&mut self, command: &Command, cmdlet: &Cmdlet, chain: &mut Chain) -> Result<(), Error> {
+    fn where_object(
+        &mut self,
+        command: &Command,
+        cmdlet: &Cmdlet,
+        chain: &mut Chain,
+    ) -> Result<(), Error> {
         if chain.is_empty() {
             return Err(self.uncorrectable(
                 "filter_without_input",
@@ -2130,7 +2558,12 @@ impl<'a> Session<'a> {
         Ok(())
     }
 
-    fn foreach_object(&mut self, command: &Command, cmdlet: &Cmdlet, chain: &mut Chain) -> Result<(), Error> {
+    fn foreach_object(
+        &mut self,
+        command: &Command,
+        cmdlet: &Cmdlet,
+        chain: &mut Chain,
+    ) -> Result<(), Error> {
         let range = (command.start, command.end);
         if let Some(properties) = script_block::selected_properties(command) {
             let record = self.input_record(chain.record.as_deref(), command.start, command.end)?;
@@ -2141,18 +2574,34 @@ impl<'a> Session<'a> {
                     record
                         .field(property)
                         .map(|field| positional(ident(field.field.clone(), span)))
-                        .ok_or_else(|| self.unknown_property(property, record, command.start, command.end))
+                        .ok_or_else(|| {
+                            self.unknown_property(property, record, command.start, command.end)
+                        })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let stage = NurtStage { name: SELECT_COMMAND.to_owned(), args, span: Some(span) };
+            let stage = NurtStage {
+                name: SELECT_COMMAND.to_owned(),
+                args,
+                span: Some(span),
+            };
             let to = fragment_text(std::slice::from_ref(&stage));
             chain.push(stage);
             self.command_correction(cmdlet.rule, Class::Certain, range, to);
             return Ok(());
         }
-        let mut error = self.uncorrectable("no_loops", "no loops; one pattern per step", range.0, range.1, HELP_CORRECTIONS);
+        let mut error = self.uncorrectable(
+            "no_loops",
+            "no loops; one pattern per step",
+            range.0,
+            range.1,
+            HELP_CORRECTIONS,
+        );
         if let Some(inner) = script_block::single_command(command) {
-            let saved = (self.corrections.len(), self.assumptions.len(), self.notes.len());
+            let saved = (
+                self.corrections.len(),
+                self.assumptions.len(),
+                self.notes.len(),
+            );
             let mut proposal = Chain {
                 head: chain.head.clone(),
                 stages: chain.stages.clone(),
@@ -2176,19 +2625,41 @@ impl<'a> Session<'a> {
 
     /// `attrib [+r|-r|+h|-h] F` becomes `attributes "F" readonly: true`;
     /// `attrib F` becomes `info "F"`.
-    fn attrib(&mut self, command: &Command, cmdlet: &Cmdlet, chain: &mut Chain) -> Result<(), Error> {
+    fn attrib(
+        &mut self,
+        command: &Command,
+        cmdlet: &Cmdlet,
+        chain: &mut Chain,
+    ) -> Result<(), Error> {
         let span = self.span(command.start, command.end);
         let mut path = None;
         let mut flags = Vec::new();
         for arg in &command.args {
             let (written, start, end, value) = match arg {
-                RawArg::Param { name, start, end, .. } => (format!("-{name}"), *start, *end, None),
-                RawArg::Value(value) => (value.plain_text().unwrap_or_default(), value.start, value.end, Some(value)),
+                RawArg::Param {
+                    name, start, end, ..
+                } => (format!("-{name}"), *start, *end, None),
+                RawArg::Value(value) => (
+                    value.plain_text().unwrap_or_default(),
+                    value.start,
+                    value.end,
+                    Some(value),
+                ),
             };
-            let flag = ATTRIB_FLAGS.iter().find(|(name, _, _)| name.eq_ignore_ascii_case(&written));
+            let flag = ATTRIB_FLAGS
+                .iter()
+                .find(|(name, _, _)| name.eq_ignore_ascii_case(&written));
             match (flag, value) {
-                (Some((_, name, set)), _) => flags.push(named(name, Expr::Bool { v: *set, span: Some(span) })),
-                (None, Some(value)) if path.is_none() && !is_cmd_switch(&written) => path = Some(self.path_expr(value)?),
+                (Some((_, name, set)), _) => flags.push(named(
+                    name,
+                    Expr::Bool {
+                        v: *set,
+                        span: Some(span),
+                    },
+                )),
+                (None, Some(value)) if path.is_none() && !is_cmd_switch(&written) => {
+                    path = Some(self.path_expr(value)?)
+                }
                 _ => {
                     return Err(self.uncorrectable(
                         "attrib_flag",
@@ -2201,19 +2672,37 @@ impl<'a> Session<'a> {
             }
         }
         let path = path.ok_or_else(|| self.no_current_directory(command.start, command.end))?;
-        let name = if flags.is_empty() { INFO_COMMAND } else { ATTRIBUTES_COMMAND };
+        let name = if flags.is_empty() {
+            INFO_COMMAND
+        } else {
+            ATTRIBUTES_COMMAND
+        };
         let mut args = vec![positional(path)];
         args.extend(flags);
-        let stage = NurtStage { name: name.to_owned(), args, span: Some(span) };
+        let stage = NurtStage {
+            name: name.to_owned(),
+            args,
+            span: Some(span),
+        };
         let to = fragment_text(std::slice::from_ref(&stage));
         chain.push(stage);
-        self.command_correction(cmdlet.rule, Class::Certain, (command.start, command.end), to);
+        self.command_correction(
+            cmdlet.rule,
+            Class::Certain,
+            (command.start, command.end),
+            to,
+        );
         Ok(())
     }
 
     /// `icacls P` becomes `info "P"`; changes of permissions have no
     /// translation.
-    fn icacls(&mut self, command: &Command, cmdlet: &Cmdlet, chain: &mut Chain) -> Result<(), Error> {
+    fn icacls(
+        &mut self,
+        command: &Command,
+        cmdlet: &Cmdlet,
+        chain: &mut Chain,
+    ) -> Result<(), Error> {
         let span = self.span(command.start, command.end);
         let [RawArg::Value(value)] = command.args.as_slice() else {
             return Err(self.uncorrectable(
@@ -2225,18 +2714,33 @@ impl<'a> Session<'a> {
             ));
         };
         let path = self.path_expr(value)?;
-        let stage = NurtStage { name: INFO_COMMAND.to_owned(), args: vec![positional(path)], span: Some(span) };
+        let stage = NurtStage {
+            name: INFO_COMMAND.to_owned(),
+            args: vec![positional(path)],
+            span: Some(span),
+        };
         let to = fragment_text(std::slice::from_ref(&stage));
         chain.push(stage);
-        self.command_correction(cmdlet.rule, Class::Certain, (command.start, command.end), to);
+        self.command_correction(
+            cmdlet.rule,
+            Class::Certain,
+            (command.start, command.end),
+            to,
+        );
         Ok(())
     }
 }
 
 fn set_value(value: &SetValue, span: Span) -> Expr {
     match value {
-        SetValue::Bool(flag) => Expr::Bool { v: *flag, span: Some(span) },
-        SetValue::Int(int) => Expr::Int { v: *int, span: Some(span) },
+        SetValue::Bool(flag) => Expr::Bool {
+            v: *flag,
+            span: Some(span),
+        },
+        SetValue::Int(int) => Expr::Int {
+            v: *int,
+            span: Some(span),
+        },
         SetValue::Ident(name) => ident(name.clone(), span),
         SetValue::Text(value) => text(value.clone(), span),
         SetValue::Call(function) => Expr::Call {
@@ -2251,7 +2755,8 @@ fn set_value(value: &SetValue, span: Span) -> Expr {
 fn push_stage(chain: &mut Chain, mut stage: NurtStage) {
     if let Some(args) = chain.merge_next.take() {
         for arg in args {
-            let present = arg.name.is_some() && stage.args.iter().any(|known| known.name == arg.name);
+            let present =
+                arg.name.is_some() && stage.args.iter().any(|known| known.name == arg.name);
             if !present {
                 stage.args.push(arg);
             }
@@ -2270,7 +2775,12 @@ pub(crate) fn list_items(value: &Value) -> Vec<&Value> {
 
 fn single_expression(script: &super::syntax::Script) -> Option<&Value> {
     match script.statements.as_slice() {
-        [Statement { kind: StatementKind::Pipeline(Pipeline { elements, .. }), .. }] => match elements.as_slice() {
+        [
+            Statement {
+                kind: StatementKind::Pipeline(Pipeline { elements, .. }),
+                ..
+            },
+        ] => match elements.as_slice() {
             [Element::Expression(value)] => Some(value),
             _ => None,
         },
@@ -2280,7 +2790,12 @@ fn single_expression(script: &super::syntax::Script) -> Option<&Value> {
 
 fn single_command_of(script: &super::syntax::Script) -> Option<&Command> {
     match script.statements.as_slice() {
-        [Statement { kind: StatementKind::Pipeline(Pipeline { elements, .. }), .. }] => match elements.as_slice() {
+        [
+            Statement {
+                kind: StatementKind::Pipeline(Pipeline { elements, .. }),
+                ..
+            },
+        ] => match elements.as_slice() {
             [Element::Command(command)] => Some(command),
             _ => None,
         },
@@ -2325,14 +2840,21 @@ fn select_variant<'t>(cmdlet: &'t Cmdlet, bound: &Bound<'_>, place: Place) -> Op
         variant.when.iter().all(|name| bound.has(name))
             && (variant.when_any.is_empty() || variant.when_any.iter().any(|name| bound.has(name)))
             && !variant.unless.iter().any(|name| bound.has(name))
-            && variant
-                .when_value
-                .iter()
-                .all(|(name, value)| bound.text_of(name).is_some_and(|written| written.eq_ignore_ascii_case(value)))
+            && variant.when_value.iter().all(|(name, value)| {
+                bound
+                    .text_of(name)
+                    .is_some_and(|written| written.eq_ignore_ascii_case(value))
+            })
             && variant.piped.is_none_or(|piped| piped == place.piped)
-            && variant.continued.is_none_or(|continued| continued == place.continued)
-            && variant.wildcard.is_none_or(|wildcard| wildcard == place.wildcard)
-            && variant.registry.is_none_or(|registry| registry == place.registry)
+            && variant
+                .continued
+                .is_none_or(|continued| continued == place.continued)
+            && variant
+                .wildcard
+                .is_none_or(|wildcard| wildcard == place.wildcard)
+            && variant
+                .registry
+                .is_none_or(|registry| registry == place.registry)
     })
 }
 
