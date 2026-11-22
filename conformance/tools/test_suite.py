@@ -27,11 +27,12 @@ import suite
 
 HEADER_KEYS = {
     "id", "kind", "class", "language", "requires", "summary", "variant", "code",
-    "volatile", "config", "fs_before", "step",
+    "volatile", "config", "fs_before", "step", "second_volume_before", "http_files",
 }
 STEP_KEYS = {
     "method", "program", "program_file", "variant", "options", "params", "expect",
-    "expect_at", "match", "expect_error", "validate", "fs_after",
+    "expect_at", "match", "expect_error", "validate", "fs_after", "absent", "events",
+    "events_match", "second_volume_after",
 }
 DIRECTORIES = {"exec": "exec", "journal": "journal", "correction": "correction", "parity": "parity"}
 
@@ -48,14 +49,14 @@ UNSPECIFIED_RULES = {"B21", "B26", "P20", "P28"}
 EXEC_TOPICS = (
     "preview", "page", "fields", "stale", "utf-16", "cp852", "cp1250", "crlf",
     "bulk", "notable", "irreversible", "out-of-range", "link-loop", "named-params",
-    "rows-changed",
+    "rows-changed", "events",
 )
 JOURNAL_TOPICS = (
     "undo-last", "redo", "undo-to", "conflict-report", "conflict-force",
     "conflict-include-later", "conflict-partial", "conflict-abort", "history",
     "no-expiry", "expiry-size", "pin-protects-from-limits", "pin-release-within-limits",
     "journal-below-reserve", "journal-op-too-large", "journal-oversize-skip",
-    "journal-oversize-keep",
+    "journal-oversize-keep", "volume-max-size", "expiry-age-pinned",
 )
 FIELD_NAME = re.compile(r"^[a-z_][a-z0-9_]*$")
 PARITY_MINIMUM = {"files": 250, "safety": 90}

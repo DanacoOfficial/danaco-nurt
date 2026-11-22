@@ -196,8 +196,9 @@ class Collection:
     def add(self, name: str, summary: str, before: dict | None, program: str | None = None, *,
             report: dict | None = None, after: object = UNCHANGED, options: dict | None = None,
             steps: list[dict] | None = None, feature: str | None = None,
-            requires: tuple[str, ...] = (), config: str | None = None) -> None:
-        """Adds one case."""
+            requires: tuple[str, ...] = (), config: str | None = None,
+            extra: dict | None = None) -> None:
+        """Adds one case; `extra` holds further members of the case header, such as `http_files`."""
         parts = [self.kind, self.tool] + ([self.topic] if self.topic else []) + [name]
         case: dict = {"id": "/".join(parts), "kind": self.kind}
         if config is not None:
@@ -209,6 +210,8 @@ class Collection:
         case["summary"] = summary
         if before is not None:
             case["fs_before"] = before
+        if extra:
+            case.update(extra)
         if steps is not None:
             case["step"] = steps
         else:

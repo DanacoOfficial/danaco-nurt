@@ -1683,6 +1683,141 @@
       ]
     },
     {
+      "id": "journal/coverage/move-cross-volume",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:second-volume"
+      ],
+      "summary": "Undo of a move to another volume restores the file on both volumes.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "second_volume_before": {
+        "entries": []
+      },
+      "step": [
+        {
+          "program": "move \"a.txt\" to: \"${second_volume}/a.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "move"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          },
+          "second_volume_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          },
+          "second_volume_after": {
+            "entries": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/create-temporary",
+      "kind": "journal",
+      "class": "optional:journal",
+      "summary": "Undo of a created temporary file removes it.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "create \"${base}\" temporary: true type: file",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "create"
+            }
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
       "id": "journal/coverage/rename",
       "kind": "journal",
       "class": "optional:journal",
@@ -4065,6 +4200,376 @@
         }
       },
       "fs_after": "unchanged"
+    },
+    {
+      "id": "journal/coverage/http.request-save",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "Undo of a saved response removes the saved file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "http_files": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "served\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.request \"${http_base}/files/a.txt\" save: \"out.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.request"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "out.txt",
+                "type": "file",
+                "content_utf8": "served\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/http.download",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "Undo of a download removes the downloaded file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "http_files": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "served\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.download \"${http_base}/files/a.txt\" \"d.txt\"",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.download"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              },
+              {
+                "path": "d.txt",
+                "type": "file",
+                "content_utf8": "served\n"
+              }
+            ]
+          }
+        },
+        {
+          "program": "undo ${step1/report/op}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "undo"
+            }
+          },
+          "fs_after": {
+            "entries": [
+              {
+                "path": "a.txt",
+                "type": "file",
+                "content_utf8": "alpha\nbeta\n"
+              },
+              {
+                "path": "b.txt",
+                "type": "file",
+                "content_utf8": "bravo\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/http.request-post",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "A post request is reported as irreversible and changes no file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.request \"${http_base}/echo/item\" method: post json: {name: \"a\"}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.request",
+              "irreversible": [
+                {
+                  "reason": "network"
+                }
+              ]
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/http.request-put",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "A put request is reported as irreversible and changes no file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.request \"${http_base}/echo/item\" method: put json: {name: \"a\"}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.request",
+              "irreversible": [
+                {
+                  "reason": "network"
+                }
+              ]
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/http.request-patch",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "A patch request is reported as irreversible and changes no file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.request \"${http_base}/echo/item\" method: patch json: {name: \"a\"}",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.request",
+              "irreversible": [
+                {
+                  "reason": "network"
+                }
+              ]
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/http.request-delete",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "A delete request is reported as irreversible and changes no file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.request \"${http_base}/echo/item\" method: delete",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.request",
+              "irreversible": [
+                {
+                  "reason": "network"
+                }
+              ]
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
+    },
+    {
+      "id": "journal/coverage/http.request-options",
+      "kind": "journal",
+      "class": "optional:journal",
+      "requires": [
+        "fixture:http"
+      ],
+      "summary": "A options request is reported as irreversible and changes no file.",
+      "fs_before": {
+        "entries": [
+          {
+            "path": "a.txt",
+            "type": "file",
+            "content_utf8": "alpha\nbeta\n"
+          },
+          {
+            "path": "b.txt",
+            "type": "file",
+            "content_utf8": "bravo\n"
+          }
+        ]
+      },
+      "step": [
+        {
+          "program": "http.request \"${http_base}/echo/item\" method: options",
+          "expect": {
+            "report": {
+              "status": "ok",
+              "kind": "http.request",
+              "irreversible": [
+                {
+                  "reason": "network"
+                }
+              ]
+            }
+          },
+          "fs_after": "unchanged"
+        }
+      ]
     },
     {
       "id": "journal/coverage/schedule.create",

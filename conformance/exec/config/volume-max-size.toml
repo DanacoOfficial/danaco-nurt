@@ -1,0 +1,2 @@
+[journal.volume."${work_mount}"]
+max_size = "1kib"
