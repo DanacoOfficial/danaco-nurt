@@ -187,6 +187,10 @@ pub(crate) fn open(config: &Value) -> Result<Box<dyn Backend>, CallError> {
 /// Opens the engine for a validated configuration.
 #[cfg(not(feature = "stub"))]
 pub(crate) fn open(config: &Value) -> Result<Box<dyn Backend>, CallError> {
+    #[cfg(feature = "e2e")]
+    if std::env::var_os(crate::e2e::ENGINE_ENV).is_some() {
+        return crate::e2e::open().map(|backend| Box::new(backend) as Box<dyn Backend>);
+    }
     crate::engine_backend::EngineBackend::open(config)
         .map(|backend| Box::new(backend) as Box<dyn Backend>)
 }

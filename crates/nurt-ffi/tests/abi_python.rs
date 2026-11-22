@@ -53,3 +53,23 @@ fn python_script_passes_the_interface_checks_on_the_engine() {
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ok");
 }
+
+#[cfg(all(feature = "e2e", not(feature = "stub")))]
+#[test]
+fn python_script_runs_find_filter_count_and_remove_pipelines() {
+    let Some(python) = common::find_program("python3") else {
+        return;
+    };
+    let work = tempfile::tempdir().unwrap();
+    let script = common::manifest_dir().join("tests/abi/python/pipeline_test.py");
+    let output = common::run_isolated_with(
+        Command::new(python)
+            .arg("-I")
+            .arg(script)
+            .arg(common::shared_library()),
+        work.path(),
+        "NURT_E2E_ENGINE",
+        "1",
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ok");
+}
