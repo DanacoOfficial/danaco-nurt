@@ -11,6 +11,9 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+pub mod codec;
 pub mod edit_plan;
+pub mod eol;
 pub mod fuzzy_match;
+pub mod hash;
 pub mod template;
