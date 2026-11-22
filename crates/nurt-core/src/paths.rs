@@ -202,6 +202,6 @@ mod tests {
     #[test]
     fn join_drops_trailing_separators() {
         assert_eq!(join("/home/user/", &["a", "b"], '/'), "/home/user/a/b");
-        assert_eq!(join("C:\\Users\\", &["a"], '\\'), "C:\\Users\\a");
+        assert_eq!(join("C:\\Data\\", &["a"], '\\'), "C:\\Data\\a");
     }
 }
