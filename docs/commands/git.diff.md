@@ -72,19 +72,19 @@ no longer matches is rejected.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `repo` | `path` | required | Repository or a path inside it. |
+| `repo` | `path` | required | Repository or path inside it. |
 | `from` | `text` | the index or HEAD | Old revision. |
-| `to` | `text` | the working tree | New revision; needs `from`. |
-| `staged` | `bool` | `false` | Compare the index instead of the working tree; not with `to`. |
-| `path` | `list<path>` | none | Files and directories, relative to the repository root. |
-| `context` | `int` | `3` | Context lines around each change, from 0 to 200. |
-| `stat` | `bool` | `false` | One `change` record per file with the numbers of added and removed lines. |
-| `function_context` | `bool` | `false` | Extend each hunk to the whole enclosing function. |
-| `symbol` | `text` | none | Only changes inside this code element of the new version; needs exactly one file in `path`. |
-| `word_diff` | `bool` | `false` | Lines in the form of `--word-diff=porcelain`. |
-| `ignore_whitespace` | `bool` | `false` | Ignore white space when comparing lines. |
-| `ignore_moved` | `bool` | `false` | Leave out hunks whose changes only move blocks of at least three lines. |
-| `exclude` | `list<glob>` | `[]` | Files to leave out; a pattern without `/` matches the file name in any directory. |
+| `to` | `text` | the working tree | New revision. |
+| `staged` | `bool` | `false` | Compare the index with HEAD. |
+| `path` | `list<path>` | none | Only these files or directories. |
+| `context` | `int` | `3` | Lines of context around each change. |
+| `stat` | `bool` | `false` | Only the numbers of added and removed lines per file. |
+| `function_context` | `bool` | `false` | Extend each change to the whole enclosing function. |
+| `symbol` | `text` | none | Only changes within this code element on the new side. |
+| `word_diff` | `bool` | `false` | Show changes word by word. |
+| `ignore_whitespace` | `bool` | `false` | Ignore changes in whitespace. |
+| `ignore_moved` | `bool` | `false` | Hide blocks of lines that were only moved. |
+| `exclude` | `list<glob>` | `[]` | Paths to leave out; the report counts the excluded files. |
 
 ## Input and output
 

@@ -80,16 +80,16 @@ binary file is read as Windows-1252 text.
 | `in` | `list<path>` | required | Files or directories in the source form. |
 | `glob` | `glob \| list<glob>` | `"**"` | Name patterns of the files in directories. |
 | `mode` | `enum(auto\|literal\|regex\|syntax)` | `auto` | Pattern mode; auto treats text as literal and /…/ as a regular expression. |
-| `occurrence` | `int` | every occurrence | Replace only this occurrence, counted from 1, in every file. |
+| `occurrence` | `int` | every occurrence | Replace only this occurrence, counted from 1. |
 | `case_sensitive` | `bool` | `true` | Match with case sensitivity. |
-| `whole_word` | `bool` | `false` | Match whole words only; a word consists of letters, digits and `_`. |
-| `multiline` | `bool` | `false` | Allow matches of regular expressions across lines. |
+| `whole_word` | `bool` | `false` | Match whole words only. |
+| `multiline` | `bool` | `false` | Allow matches across lines. |
 | `whitespace` | `enum(exact\|trailing\|indent\|normalize)` | `normalize` | Tolerance of whitespace differences; normalize also adapts the replacement to the file style. |
 | `scope` | `enum(any\|code\|comments\|strings)` | `any` | Part of source code in which matches are replaced. |
 | `check_references` | `bool` | `false` | Report references to the replaced text left after the change. |
 | `template` | `bool` | `true` | Treat the replacement as a template with group references. |
 | `on_missing` | `enum(skip\|error)` | `skip` | Behaviour when nothing matches. |
-| `expect` | `range` | none | Expected number of matches of all files; otherwise nothing is changed. |
+| `expect` | `range` | none | Expected number of replacements; otherwise nothing is changed. |
 | `if_match` | `text \| map<text>` | none | Expected etag of the file, or a map from path to etag for several files. |
 | `validate` | `enum(off\|warn\|reject)` | `reject` | Roll back a change that adds a new syntax error to a known format. |
 | `hidden` | `bool` | `true` | Include hidden files. |

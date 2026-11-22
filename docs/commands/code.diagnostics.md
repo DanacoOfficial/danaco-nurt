@@ -45,7 +45,7 @@ column. For more than five files the command reports its progress.
 | `changed` | `bool` | `false` | Only files changed in the repository. |
 | `severity` | `enum(error\|warning\|info\|hint)` | `hint` | Lowest severity reported. |
 | `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis, or the server when available. |
-| `language` | `text` | `"auto"` | Programming language; `auto` detects it from file extensions. |
+| `language` | `text` | `"auto"` | Programming language; auto detects it from file extensions. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
 
 ## Input and output
@@ -81,7 +81,7 @@ code.diagnostics "/srv/app/src" severity: error
 Check the files changed in the repository and list the files with errors.
 
 ```nurt example
-code.diagnostics changed: true |> filter severity == "error" |> select path, line, message
+code.diagnostics changed: true |> filter severity == "error" |> select path line message
 ```
 
 ## Errors

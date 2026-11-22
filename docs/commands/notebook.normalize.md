@@ -40,7 +40,7 @@ The `effect` record carries the counter `cells_changed`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
+| `path` | `path` | required | Notebook file. |
 
 ## Input and output
 

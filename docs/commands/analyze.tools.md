@@ -30,7 +30,7 @@ search path. Versions are read with `--version`, in parallel.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `list<path>` | none | Files or directories to inspect. |
-| `changed_only` | `bool` | `false` | Only files changed in the repository. |
+| `changed_only` | `bool` | `false` | Only languages of files changed in the repository. |
 
 ## Input and output
 

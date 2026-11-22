@@ -68,20 +68,20 @@ protocol through the journal; an existing lock fails with `E_GIT_LOCKED`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `repo` | `path` | required | Repository or a path inside it. |
+| `repo` | `path` | required | Repository or path inside it. |
 | `remote` | `bool` | `false` | List remote-tracking branches. |
 | `create` | `text` | none | Name of a branch to create. |
-| `from` | `text` | `"HEAD"` | Start point of the new branch: a branch, tag, commit or remote-tracking branch. |
+| `from` | `text` | `"HEAD"` | Start point of the new branch. |
 | `rename` | `text` | none | Branch to rename. |
-| `new_name` | `text` | none | New name of the renamed branch; required with `rename`. |
-| `switch` | `bool` | `false` | Check out the created branch. Requires `create`. |
-| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree before switching. Requires `switch`. |
+| `new_name` | `text` | none | New name of the renamed branch. |
+| `switch` | `bool` | `false` | Switch to the branch after creating it. |
+| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree before switching. |
 | `delete` | `text \| list<text>` | none | Branches to delete. |
 | `force` | `bool` | `false` | Delete branches that are not merged. |
-| `trash` | `bool` | `false` | List the kept copies of deleted branches instead of the branches. |
-| `purge` | `list<text> \| enum(all)` | none | Kept copies to remove, by reference, copy name or branch name. |
-| `check_references` | `bool` | `true` | After `delete` or `rename`, report other references that still name the old branch. |
-| `expect_state` | `text` | none | State token of an earlier effect; nothing changes when the state differs. |
+| `trash` | `bool` | `false` | List the preserved copies of deleted branches instead of the branches. |
+| `purge` | `list<text> \| enum(all)` | none | Preserved copies of deleted branches to remove. |
+| `check_references` | `bool` | `true` | After delete or rename, report other references that still name the old branch. |
+| `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
 
 ## Input and output
 

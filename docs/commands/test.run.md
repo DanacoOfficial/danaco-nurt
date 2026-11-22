@@ -70,18 +70,18 @@ command returns the `job` record. The test run is stored when the job ends.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | none | Project directory. |
-| `framework` | `enum(auto\|bun\|vitest\|jest\|npm\|pytest\|go\|cargo)` | `auto` | Test framework. |
+| `framework` | `enum(auto\|bun\|vitest\|jest\|npm\|pytest\|go\|cargo)` | `auto` | Test framework; auto detects it from the project. |
 | `targets` | `list<text>` | none | Test files, packages or identifiers to run. |
 | `filter` | `text` | none | Only tests whose name matches this filter. |
 | `bail` | `bool` | `false` | Stop at the first failing test. |
-| `command` | `list<text>` | none | Command run instead of the detected one. |
-| `coverage` | `bool` | `false` | Collect code coverage. |
-| `coverage_file` | `path` | none | Coverage report produced by the tests. |
-| `timeout` | `duration` | `30m` | Time limit of the run. |
-| `wait` | `duration` | `3s` | Time to wait before the run continues as a job. |
+| `command` | `list<text>` | none | Test command run instead of the detected framework command. |
+| `coverage` | `bool` | `false` | Collect code coverage and return it with the run. |
+| `coverage_file` | `path` | none | Coverage report in LCOV, Cobertura or Go format produced by the tests; detected from the framework when omitted. |
+| `timeout` | `duration` | `30m` | Time limit of the test run. |
+| `wait` | `duration` | `3s` | Time to wait before the run continues in the background as a job. |
 | `slowest` | `int` | `0` | Number of slowest tests reported. |
-| `failures` | `int` | `10` | Failed tests reported in detail. |
-| `message_lines` | `int` | `5` | Message lines per failed test. |
+| `failures` | `int` | `10` | Maximum number of failed tests reported in detail. |
+| `message_lines` | `int` | `5` | Maximum number of message lines per failed test. |
 
 ## Input and output
 

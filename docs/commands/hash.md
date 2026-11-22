@@ -43,8 +43,8 @@ parallel; the output keeps the order of the input.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | none | Files to hash in the source form; position 1, repeated. Relative paths are resolved against the base directory. Not allowed in the stage form. |
-| `algorithm` | `enum(sha256\|sha512\|sha1\|md5\|blake3\|crc32)` | `sha256` | Digest algorithm. `sha1`, `md5` and `crc32` serve compatibility with existing checksums and do not protect against deliberate changes. |
+| `path` | `list<path>` | none | Files to hash in the source form. |
+| `algorithm` | `enum(sha256\|sha512\|sha1\|md5\|blake3\|crc32)` | `sha256` | Digest algorithm. |
 
 ## Input and output
 
@@ -114,7 +114,8 @@ path                  hash
 | `E_NOT_FOUND` | A file does not exist. | Check the path. |
 | `E_PERMISSION` | A file cannot be read. | Check the permissions of the file. |
 | `E_IO` | Reading a file failed. | Check the device and repeat the call. |
-| `E_CANCELLED`, `E_TIMEOUT` | The call was cancelled or reached its time limit while hashing. | Repeat the call with a longer `timeout`. |
+| `E_CANCELLED` | The call was cancelled or reached its time limit while hashing. | Repeat the call with a longer `timeout`. |
+| `E_TIMEOUT` | The call was cancelled or reached its time limit while hashing. | Repeat the call with a longer `timeout`. |
 
 ## Related
 

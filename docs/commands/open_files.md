@@ -49,7 +49,7 @@ The file layer uses the same search to name the holders of a file in the
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | File or directory; position 1. |
+| `path` | `path` | required | File or directory. |
 
 ## Input and output
 
@@ -82,7 +82,7 @@ user: app
 Find the processes that keep a mounted volume busy:
 
 ```nurt example
-open_files "/mnt/backup" |> select pid, name, user
+open_files "/mnt/backup" |> select pid name user
 ```
 
 Find the programs that lock a file on Windows:

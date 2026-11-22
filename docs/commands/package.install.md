@@ -34,7 +34,7 @@ A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and t
 |---|---|---|---|
 | `names` | `list<text>` | required | Packages to install. |
 | `version` | `text` | none | Version to install. |
-| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager. `auto` selects the managers found on the system. |
+| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager; auto selects the manager of the system. |
 
 ## Input and output
 
@@ -64,7 +64,7 @@ package.install "ripgrep"
 Install two packages with the apt manager.
 
 ```nurt example
-package.install "curl", "jq" manager: apt
+package.install "curl" "jq" manager: apt
 ```
 
 Install a chosen version of a package.

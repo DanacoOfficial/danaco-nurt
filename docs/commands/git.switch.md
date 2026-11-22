@@ -44,14 +44,14 @@ from the log of `HEAD`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `repo` | `path` | required | Repository or a path inside it. |
-| `branch` | `text` | required | Branch to switch to; `-` for the previous branch; with `detach` any revision. |
-| `create` | `bool` | `false` | Create the branch at `start_point` first; fails when it exists. The new branch log receives `branch: Created from <start_point>`. |
-| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree and the index before switching, as `git.checkpoint action: create index: true` does, labelled `before git.switch to <branch>`. |
-| `guess` | `bool` | `false` | When no local branch exists, create one tracking the only remote-tracking branch of that name (`branch.<name>.remote` and `branch.<name>.merge` are added to the configuration). |
-| `start_point` | `text` | none | Revision at which a created branch starts. |
-| `detach` | `bool` | `false` | Point `HEAD` directly at the commit of `branch` instead of a branch. |
-| `discard_changes` | `bool` | `false` | Overwrite local changes of tracked files; untracked files in the way still refuse the switch. |
+| `repo` | `path` | required | Repository or path inside it. |
+| `branch` | `text` | required | Branch to switch to. |
+| `create` | `bool` | `false` | Create the branch from HEAD first. |
+| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree before switching. |
+| `guess` | `bool` | `false` | Create a local branch from a remote branch of the same name when no local branch exists. |
+| `start_point` | `text` | none | Revision the new branch starts from; applies with create. |
+| `detach` | `bool` | `false` | Detach HEAD at the revision instead of switching to a branch. |
+| `discard_changes` | `bool` | `false` | Discard local changes of the working tree while switching. |
 
 ## Input and output
 

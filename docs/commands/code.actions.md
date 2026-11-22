@@ -37,7 +37,7 @@ command.
 | `line` | `int` | required | First line of the range, counted from 1. |
 | `end_line` | `int` | none | Last line of the range. |
 | `column` | `int` | none | Column within the first line, counted from 1. |
-| `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
+| `language` | `text` | `"auto"` | Programming language; auto detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
 
 ## Input and output

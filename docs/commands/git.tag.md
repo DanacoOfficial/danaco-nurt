@@ -49,11 +49,11 @@ with the message `tag: tagging <id> (<subject>, <date>)` of `git tag`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `repo` | `path` | required | Repository or a path inside it. |
-| `name` | `text` | none | Name of a tag to create, without `refs/tags/`. |
-| `revision` | `text` | `"HEAD"` | Revision the new tag points to: a commit, tree, blob or tag. |
+| `repo` | `path` | required | Repository or path inside it. |
+| `name` | `text` | none | Name of a tag to create. |
+| `revision` | `text` | `"HEAD"` | Revision the new tag points to. |
 | `message` | `text` | none | Message of an annotated tag. |
-| `sign` | `bool` | the setting tag.gpgSign of the repository configuration | Sign the annotated tag with the signing key of the repository configuration. |
+| `sign` | `bool` | the setting tag.gpgSign of the repository configuration | Create a signed annotated tag with the signing key of the repository configuration. |
 | `delete` | `text` | none | Tag to delete. |
 
 ## Input and output

@@ -58,16 +58,16 @@ account fails with `E_PRIVILEGE` before anything is changed.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `list<path>` | required | Entries to change in the source form. |
-| `mode` | `text` | none | Permissions, such as `"0644"` or `"u+x"`. Octal digits replace the permission bits; symbolic clauses (`u`, `g`, `o`, `a`; `+`, `-`, `=`; `r`, `w`, `x`, `X`, `s`, `t`, separated by commas) change them. A clause without classes applies to all classes. |
-| `owner` | `text` | none | Account of the file: a name from the account table, a numeric id, or the form `name (id)` of `info`. |
-| `group` | `text` | none | Group of the file: a name from the group table or a numeric id. |
-| `acl` | `list<map<any>>` | none | Access control entries: maps with `tag` (`user`, `group`, `mask`, `other`), `perms` (letters `r`, `w`, `x`, `-`) and, for a named account or group, `id`. Entries for the account of the file, its group and others are required; a missing mask is computed. |
+| `mode` | `text` | none | Permissions, such as "0644" or "u+x". |
+| `owner` | `text` | none | Account of the file. |
+| `group` | `text` | none | Group of the file. |
+| `acl` | `list<map<any>>` | none | Access control entries. |
 | `readonly` | `bool` | none | Read-only attribute. |
 | `hidden` | `bool` | none | Hidden attribute. |
 | `modified` | `instant` | none | Modification time. |
 | `accessed` | `instant` | none | Access time. |
 | `created` | `instant` | none | Creation time. |
-| `xattrs` | `map<text>` | none | Extended attributes to set; a `null` value removes the attribute. |
+| `xattrs` | `map<text>` | none | Extended attributes to set. |
 | `recursive` | `bool` | `false` | Apply to the content of directories. |
 
 ## Input and output

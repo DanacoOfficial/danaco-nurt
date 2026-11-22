@@ -38,11 +38,11 @@ name and, for more than one call, the number of calls (`x3`).
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
-| `line` | `int` | none | Line of the function, counted from 1; required unless `symbol` is given. |
+| `line` | `int` | none | Line of the function, counted from 1. |
 | `column` | `int` | none | Column of the function, counted from 1. |
-| `symbol` | `text` | none | Function name, optionally qualified as `Container.name`, instead of a position. |
+| `symbol` | `text` | none | Function name, optionally qualified as Container.name, instead of a position. |
 | `direction` | `enum(incoming\|outgoing\|both)` | `both` | Callers, callees or both. |
-| `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
+| `language` | `text` | `"auto"` | Programming language; auto detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
 
 ## Input and output

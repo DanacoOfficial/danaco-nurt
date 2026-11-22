@@ -71,8 +71,8 @@ and merge driver programs are not started during a rebase.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
-| `onto` | `text` | none | Revision to rebase onto; required when `action` is `start`. |
-| `action` | `enum(start\|continue\|skip\|abort)` | `start` | Start a rebase, continue it after resolving conflicts, skip the stopped commit, or abort it. |
+| `onto` | `text` | none | Revision to rebase onto; required when action is start. |
+| `action` | `enum(start\|continue\|skip\|abort)` | `start` | Start a rebase, continue it, skip the current commit, or abort it. |
 
 ## Input and output
 

@@ -61,21 +61,21 @@ conversion, `ident` and `working-tree-encoding` are applied.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
 | `action` | `enum(create\|list\|compare\|restore\|delete)` | required | Operation on checkpoints. |
-| `label` | `text` | none | Label of a new checkpoint; only the first line is kept. |
-| `checkpoint_id` | `text \| list<text>` | none | Checkpoint to compare or restore, as `cp-<N>`, or checkpoints to delete. |
-| `against` | `text` | the working tree | With `compare`: checkpoint or revision on the new side. |
-| `stat` | `bool` | `false` | With `compare`: one change per file with added and removed lines instead of hunks. |
-| `context` | `int` | `3` | With `compare`: lines of context around each change, from 0 to 200. |
-| `function_context` | `bool` | `false` | With `compare`: not available for checkpoints; `true` fails with `E_GIT_UNSUPPORTED`. |
-| `symbol` | `text` | none | With `compare`: not available for checkpoints; fails with `E_GIT_UNSUPPORTED`. |
-| `word_diff` | `bool` | `false` | With `compare`: not available for checkpoints; `true` fails with `E_GIT_UNSUPPORTED`. |
-| `ignore_whitespace` | `bool` | `false` | With `compare`: not available for checkpoints; `true` fails with `E_GIT_UNSUPPORTED`. |
-| `ignore_moved` | `bool` | `false` | With `compare`: not available for checkpoints; `true` fails with `E_GIT_UNSUPPORTED`. |
-| `paths` | `list<path>` | none | With `compare` and `restore`: files or directories, relative to the root of the working tree or absolute inside it. |
-| `index` | `bool` | `false` | With `create`: also record the index. With `restore`: also restore the recorded index. |
-| `keep` | `int` | none | With `delete`: keep only this many newest checkpoints; excludes `checkpoint_id`. |
-| `save_current` | `bool` | `true` | With `restore`: record the current state as a new checkpoint labelled `before restore of cp-<N>` in the same operation, unless the restore changes nothing. The effect names it in `checkpoint_before`. |
-| `exclude` | `list<glob>` | `[]` | With `create`: patterns of files left out of the checkpoint, tracked or not. The patterns are stored in the commit message as `exclude:` lines; `restore` leaves matching files untouched. The report counts the excluded files (`excluded`). |
+| `label` | `text` | none | Label of a new checkpoint. |
+| `checkpoint_id` | `text \| list<text>` | none | Checkpoint to compare or restore, or checkpoints to delete. |
+| `against` | `text` | the working tree | With compare: revision or checkpoint to compare with. |
+| `stat` | `bool` | `false` | With compare: only changed files with added and removed lines. |
+| `context` | `int` | `3` | With compare: lines of context around each change. |
+| `function_context` | `bool` | `false` | With compare: extend each change to the whole enclosing function. |
+| `symbol` | `text` | none | With compare: only changes within this code element. |
+| `word_diff` | `bool` | `false` | With compare: show changes word by word. |
+| `ignore_whitespace` | `bool` | `false` | With compare: ignore changes in whitespace. |
+| `ignore_moved` | `bool` | `false` | With compare: hide blocks of lines that were only moved. |
+| `paths` | `list<path>` | none | Only these files or directories. |
+| `index` | `bool` | `false` | With restore: also restore the index. |
+| `keep` | `int` | none | With delete: keep only this many newest checkpoints. |
+| `save_current` | `bool` | `true` | Create a checkpoint of the current changes before restore. |
+| `exclude` | `list<glob>` | `[]` | Paths to leave out of create; the report counts the excluded files. |
 | `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
 
 ## Input and output

@@ -68,7 +68,7 @@ schedule.run "s1"
 Run a schedule and keep its exit code and standard output:
 
 ```nurt example
-schedule.run "s1" |> select exit_code, stdout
+schedule.run "s1" |> select exit_code stdout
 ```
 
 Create a schedule and test its action at once:

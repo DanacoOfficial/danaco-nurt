@@ -40,9 +40,9 @@ Raw sockets are not used.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `host` | `text` | required | Host name or address. Position 1. |
-| `count` | `int` | `4` | Number of requests; at least 1. |
-| `timeout` | `duration` | `2s` | Time to wait for each reply; longer than zero. |
+| `host` | `text` | required | Host name or address. |
+| `count` | `int` | `4` | Number of requests. |
+| `timeout` | `duration` | `2s` | Time to wait for each reply. |
 
 ## Input and output
 
@@ -87,7 +87,7 @@ network.ping "2001:db8::1" count: 10 timeout: 1s
 Report only the loss and the average round trip of a gateway:
 
 ```nurt example
-network.ping "192.168.1.1" count: 20 |> select loss, rtt_avg
+network.ping "192.168.1.1" count: 20 |> select loss rtt_avg
 ```
 
 ## Errors

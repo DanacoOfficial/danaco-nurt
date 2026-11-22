@@ -28,9 +28,9 @@ The `effect` record carries the counter `cells_removed`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
-| `index` | `range` | none | Cells to remove by index, counted from 0, for example `2` or `0..1`. Excludes `id`. |
-| `id` | `text \| list<text>` | none | Cells to remove by identifier. Excludes `index`. |
+| `path` | `path` | required | Notebook file. |
+| `index` | `range` | none | Cells to remove by index, counted from 0. |
+| `id` | `text \| list<text>` | none | Cells to remove by identifier. |
 
 ## Input and output
 

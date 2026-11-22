@@ -30,8 +30,8 @@ The help text of a program is never read on its own: `program.describe` starts n
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text` | required | Program, alias, application or guide name, 1 to 120 characters. |
-| `include_guide` | `bool` | `true` | Include the text of the usage guide in the field `guide`. `false` keeps `guide_sections` and `guide_etag`, for a guide already read. |
+| `name` | `text` | required | Program name. |
+| `include_guide` | `bool` | `true` | Include the usage guide when one is available. |
 
 ## Input and output
 
@@ -67,13 +67,13 @@ tar   archives  1.35     /usr/bin/tar  An archiving utility.
 Describe a program whose guide was already read in the session.
 
 ```nurt example
-program.describe "ffmpeg" include_guide: false |> select name, guide_sections, guide_etag
+program.describe "ffmpeg" include_guide: false |> select name guide_sections guide_etag
 ```
 
 Resolve an alias to its main program.
 
 ```nurt example
-program.describe "vi" |> select name, requested, alias_kind, path
+program.describe "vi" |> select name requested alias_kind path
 ```
 
 ## Errors

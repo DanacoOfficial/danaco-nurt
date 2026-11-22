@@ -27,7 +27,7 @@ severity, then paged with `offset` and `max_findings`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `analysis_id` | `text` | the latest analysis | Earlier analysis, for example `an-3`. |
+| `analysis_id` | `text` | the latest analysis | Earlier analysis. |
 | `check` | `text` | none | Only findings of this check. |
 | `file` | `path` | none | Only findings in this file. |
 | `offset` | `int` | none | Number of findings to skip. |

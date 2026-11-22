@@ -53,9 +53,9 @@ again.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `root` | `path` | required | Repository root. |
-| `sections` | `list<enum(commands\|entry_points\|hotspots\|manifests\|languages\|modules\|instructions)>` | none | Sections to return. |
-| `limit` | `int` | none | Maximum number of entries per section; at least 1. |
-| `days` | `int` | `90` | Days of history used for change hotspots, from 1 to 3650. |
+| `sections` | `list<enum(commands\|entry_points\|hotspots\|manifests\|languages\|modules\|instructions)>` | none | Sections to return; all when omitted. |
+| `limit` | `int` | none | Maximum number of entries per section. |
+| `days` | `int` | `90` | Days of history used for change hotspots. |
 | `refresh` | `bool` | `false` | Rebuild the profile instead of using the cached one. |
 
 ## Input and output
@@ -101,7 +101,7 @@ code.profile "/srv/app" sections: [commands]
 Show the five files changed most often in the last 30 days.
 
 ```nurt example
-code.profile "/srv/app" sections: [hotspots] days: 30 limit: 5 |> select name, changes, last_change
+code.profile "/srv/app" sections: [hotspots] days: 30 limit: 5 |> select name changes last_change
 ```
 
 Read the profile again after a change of the build setup.

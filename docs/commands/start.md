@@ -38,7 +38,7 @@ order; an error stops the processing of the remaining services.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `wait` | `duration` | `10s` | Time to wait for each service to settle; `0s` returns at once. |
+| `wait` | `duration` | `10s` | Time to wait for each service to reach the running state. |
 
 ## Input and output
 

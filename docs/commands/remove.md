@@ -58,7 +58,7 @@ the result reports `nothing_matched`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | required | Paths to remove; directories are removed recursively. |
+| `path` | `list<path>` | required | Paths to remove in the source form; directories are removed recursively. |
 | `on_missing` | `enum(skip\|error)` | `skip` | Behaviour when a path does not exist. |
 | `check_references` | `bool` | `false` | Report references to the removed names left after the change. |
 

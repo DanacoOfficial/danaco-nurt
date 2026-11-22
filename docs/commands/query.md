@@ -79,8 +79,8 @@ from `jq`:
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `expression` | `text` | required | Filter in `jq` syntax. |
-| `path` | `path` | none | Document to query in the source form; required in the source form. |
+| `expression` | `text` | required | Filter in jq syntax. |
+| `path` | `path` | none | Document to query in the source form. |
 
 ## Input and output
 
@@ -168,7 +168,8 @@ query "[.[] | objects] | length" path: "/home/user/app/config.toml"
 | `E_MISSING_PARAM` | the source form has no `path` | add `path:` |
 | `E_STALE` | the file changed while it was read | run the command again |
 | `E_LIMIT` | the filter produces more results than one execution may hold, or the file is larger than the document size limit | narrow the filter, use `limit(n; f)`, or raise the limit |
-| `E_CANCELLED`, `E_TIMEOUT` | the execution was cancelled or its time limit passed, including inside endless generators such as `repeat` | run the command again with a narrower filter |
+| `E_CANCELLED` | the execution was cancelled or its time limit passed, including inside endless generators such as `repeat` | run the command again with a narrower filter |
+| `E_TIMEOUT` | the execution was cancelled or its time limit passed, including inside endless generators such as `repeat` | run the command again with a narrower filter |
 
 ## Related
 

@@ -80,18 +80,18 @@ not change the result.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
 | `message` | `text` | required | Commit message. |
-| `paths` | `list<path>` | none | Commit `HEAD` with the working tree content of these files and directories. |
-| `all` | `bool` | `false` | Stage every change of the working tree, untracked files included, before committing. |
-| `staged` | `bool` | `false` | Commit exactly the content of the index; concludes a merge in progress. |
-| `amend` | `bool` | `false` | Replace the last commit; alone, change only its message. |
-| `trailers` | `list<text>` | `[]` | Trailers `Token: value` or `Token=value` appended to the message. |
-| `sign_off` | `bool` | `false` | Append `Signed-off-by` with the committer identity. |
-| `author` | `text` | the repository configuration | Author as `Name <email>`. |
+| `paths` | `list<path>` | none | Files to stage before committing. |
+| `all` | `bool` | `false` | Stage all changes to tracked files before committing. |
+| `staged` | `bool` | `false` | Commit exactly the content of the index. |
+| `amend` | `bool` | `false` | Replace the last commit. |
+| `trailers` | `list<text>` | `[]` | Trailers appended to the message, such as Co-Authored-By lines. |
+| `sign_off` | `bool` | `false` | Append a Signed-off-by trailer. |
+| `author` | `text` | the repository configuration | Author as Name <email>. |
 | `allow_empty` | `bool` | `false` | Allow a commit without changes. |
-| `hooks` | `bool` | `true` | Run the hooks of the repository as user programs. |
+| `hooks` | `bool` | `true` | Run the pre-commit and commit-msg hooks of the repository as user programs. |
 | `sign` | `bool` | the setting commit.gpgSign of the repository configuration | Sign the commit with the signing key of the repository configuration. |
-| `exclude` | `list<glob>` | `[]` | Paths to leave out of the commit; a pattern without `/` matches the file name in any directory. |
-| `expect_state` | `text` | none | State token of an earlier `git.commit` effect; nothing changes when the repository state differs. |
+| `exclude` | `list<glob>` | `[]` | Paths to leave out of the commit; the report counts the excluded files. |
+| `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
 
 ## Input and output
 

@@ -58,10 +58,10 @@ result reports `nothing_matched`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Entry to rename. |
-| `pattern` | `text \| regex` | none | Part of the name to replace; used with `with`. |
-| `with` | `text` | one of `replacement` | Replacement of the pattern in the name; a template for a regex pattern. |
-| `to` | `text` | one of `replacement` | New name. Evaluated per record. |
+| `path` | `path` | required | Entry to rename in the source form. |
+| `pattern` | `text \| regex` | none | Part of the name to replace; used with with. |
+| `with` | `text` | one of `replacement` | Replacement of the pattern in the name. |
+| `to` | `text` | one of `replacement` | New name. |
 | `on_conflict` | `enum(overwrite\|skip\|error)` | `error` | Behaviour when an entry with the new name exists. |
 | `check_references` | `bool` | `false` | Report references to the old names left after the change. |
 

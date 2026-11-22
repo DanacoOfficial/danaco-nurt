@@ -34,8 +34,8 @@ output, and `message_lines` cuts each of those texts to that number of lines.
 | `run_id` | `text` | the latest run | Earlier test run. |
 | `test` | `text` | none | Only the test with this identifier or name. |
 | `status` | `enum(failed\|passed\|skipped)` | none | Only tests with this status. |
-| `failures` | `int` | `10` | Failed tests reported in detail. |
-| `message_lines` | `int` | `5` | Message lines per failed test. |
+| `failures` | `int` | `10` | Maximum number of failed tests reported in detail. |
+| `message_lines` | `int` | `5` | Maximum number of message lines per failed test. |
 
 ## Input and output
 

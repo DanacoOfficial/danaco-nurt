@@ -45,13 +45,13 @@ number of records of each role is the count of that role.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Source file. |
-| `line` | `int` | none | Line of the symbol, counted from 1; required unless `symbol` is given. |
+| `path` | `path` | required | Source file in the source form. |
+| `line` | `int` | none | Line of the symbol, counted from 1. |
 | `column` | `int` | none | Column of the symbol, counted from 1. |
-| `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
+| `symbol` | `text` | none | Symbol name, optionally qualified as Container.name, instead of a position. |
 | `include_definition` | `bool` | `true` | Include the definition among the references. |
 | `scope` | `enum(project\|file)` | `project` | Search the whole project or only the file. |
-| `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
+| `language` | `text` | `"auto"` | Programming language; auto detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
 
 ## Input and output

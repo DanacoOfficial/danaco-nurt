@@ -60,23 +60,23 @@ or per author day, most frequent first.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
-| `count` | `int` | `20` | Largest number of commits listed. |
-| `skip` | `int` | `0` | Number of selected commits left out before the first listed one. |
+| `count` | `int` | `20` | Maximum number of commits. |
+| `skip` | `int` | `0` | Number of commits to skip. |
 | `path` | `list<path>` | none | Only commits that change these files or directories. |
 | `revision` | `text` | `"HEAD"` | Revision or range to list. |
-| `author` | `text` | none | Regular expression matched against `Name <email>` of the author. |
-| `since` | `instant` | none | Only commits at or after this committer time. |
-| `until` | `instant` | none | Only commits at or before this committer time. |
-| `message` | `regex` | none | Only commits with a message line that matches. |
-| `pickaxe` | `text \| regex` | none | Only commits that change the number of occurrences or matches in a file. |
-| `follow` | `bool` | `false` | Follow the single file in `path` across renames and copies. |
-| `symbol` | `text` | none | Only commits that change the lines of this element of the single file in `path`. |
-| `stat` | `bool` | `false` | Add the changed files with added and removed lines. |
-| `group_by` | `enum(type\|author\|day)` | none | Count commits per Conventional Commits type, author or day. |
-| `diff_regex` | `regex` | none | Only commits with an added or removed line that matches. |
-| `exclude` | `list<glob>` | `[]` | Paths left out of `stat`, `pickaxe` and `diff_regex`; a pattern without `/` matches the file name in any directory. |
-| `find_renames` | `bool` | `false` | Pair deleted and added files into renames in `stat`, `pickaxe` and `diff_regex`. |
-| `find_copies` | `bool` | `false` | As `find_renames`, and also pair an added file with a file that the same commit modified (`git log -C`). |
+| `author` | `text` | none | Only commits whose author matches this text. |
+| `since` | `instant` | none | Only commits at or after this time. |
+| `until` | `instant` | none | Only commits before this time. |
+| `message` | `regex` | none | Only commits whose message matches this pattern. |
+| `pickaxe` | `text \| regex` | none | Only commits that add or remove this text or pattern. |
+| `follow` | `bool` | `false` | Follow a single file across renames. |
+| `symbol` | `text` | none | Only commits that change the lines of this code element. |
+| `stat` | `bool` | `false` | Include changed files with added and removed lines. |
+| `group_by` | `enum(type\|author\|day)` | none | Group commits by conventional commit type, author or day. |
+| `diff_regex` | `regex` | none | Only commits whose changed lines match this pattern. |
+| `exclude` | `list<glob>` | `[]` | Paths to leave out, also from the pickaxe and diff_regex filters. |
+| `find_renames` | `bool` | `false` | Detect renamed files when limiting the log to paths. |
+| `find_copies` | `bool` | `false` | Detect copied files when limiting the log to paths. |
 
 ## Input and output
 
@@ -142,7 +142,8 @@ git.log "/home/user/repo" path: "/home/user/repo/src/lib.rs" symbol: "parse_head
 | `E_INVALID_VALUE` | More than one file with `follow` or `symbol`, `symbol` with `follow` or `stat`, `pickaxe` with `diff_regex`, an empty `pickaxe`, a negative `count` or `skip`, or an unknown `group_by`. | Remove one of the arguments |
 | `E_UNSUPPORTED` | `symbol` on a host without the code service. | Use `path` without `symbol` |
 | `E_UNSUPPORTED_LANGUAGE` | `symbol` in a file without a grammar. | Use `path` without `symbol` |
-| `E_SYMBOL_NOT_FOUND`, `E_SYMBOL_AMBIGUOUS` | The element is not defined, or defined several times; the candidates are listed. | Use a qualified name from the candidates |
+| `E_SYMBOL_NOT_FOUND` | The element is not defined, or defined several times; the candidates are listed. | Use a qualified name from the candidates |
+| `E_SYMBOL_AMBIGUOUS` | The element is not defined, or defined several times; the candidates are listed. | Use a qualified name from the candidates |
 | `E_NOT_FOUND` | The file of `symbol` does not exist at the listed revision. | Give an existing file |
 | `E_IO` | An object of the repository cannot be read. | Check the repository with `git.status` |
 

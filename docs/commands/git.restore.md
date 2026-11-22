@@ -47,14 +47,14 @@ restoration of both sides cannot be combined with `hunks`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `repo` | `path` | required | Repository or a path inside it. |
-| `paths` | `list<path>` | required | Files, directories or patterns to restore, relative to the repository root or absolute inside it. |
+| `repo` | `path` | required | Repository or path inside it. |
+| `paths` | `list<path>` | required | Files or directories to restore. |
 | `source` | `text` | the index, or HEAD with staged | Revision to restore from. |
 | `staged` | `bool` | `false` | Restore the index. |
 | `worktree` | `bool` | `true` | Restore the working tree. |
-| `hunks` | `list<text>` | none | Only these hunks, by identifier as in `git.stage`. |
-| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree and the index before the changes are discarded, labelled `before git.restore`. |
-| `expect_state` | `text` | none | State token from the `state_token` field of an earlier `git.restore` result; nothing changes when `HEAD` or the index changed since. |
+| `hunks` | `list<text>` | none | Only these hunks, by identifier as in git.stage. |
+| `checkpoint` | `bool` | `false` | Create a checkpoint of the changes before they are discarded. |
+| `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
 
 ## Input and output
 

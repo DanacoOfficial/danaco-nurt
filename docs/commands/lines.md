@@ -44,7 +44,7 @@ out for `content` records that hold a range of lines.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | File to read in the source form. |
-| `range` | `range` | `all` | Line range, such as `10..20`, `40..`, `..9` or a single line number. |
+| `range` | `range` | `all` | Line range. |
 
 ## Input and output
 

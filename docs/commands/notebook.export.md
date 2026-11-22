@@ -40,8 +40,8 @@ The `effect` record carries the counters `files_created` and
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
-| `to` | `path` | required | File to create; it must not exist. |
+| `path` | `path` | required | Notebook file. |
+| `to` | `path` | required | File to create. |
 | `format` | `enum(script\|markdown\|text)` | required | Format of the exported file. |
 
 ## Input and output

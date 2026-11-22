@@ -80,33 +80,33 @@ that controls network access can refuse connections before they are opened.
 |---|---|---|---|
 | `url` | `text \| list<text>` | required | Address, or several addresses with one result each. |
 | `method` | `enum(get\|head\|post\|put\|patch\|delete\|options)` | `get` | HTTP method. |
-| `headers` | `map<text>` | none | Request headers. The values are secret and do not appear in the check or the report. |
+| `headers` | `map<text>` | none | Request headers. |
 | `body` | `text \| path` | none | Request body as text or from a file. |
-| `json` | `any` | none | Value sent as a JSON body with the header `Content-Type: application/json`. Excludes `body`. |
-| `save` | `path` | none | Write the response body to this file. Accepts one address. |
+| `json` | `any` | none | Value sent as a JSON body with the matching Content-Type header. |
+| `save` | `path` | none | Write the response body to this file. |
 | `as` | `enum(raw\|text\|markdown)` | `raw` | Return an HTML page unchanged, as plain text or as Markdown with an outline. |
-| `extract` | `enum(content\|headers\|links\|headings\|meta\|tables)` | `content` | Part of the page returned: content, headers only, links, headings with sizes, metadata (`title`, `description`, `language`, `canonical`) or tables. |
-| `table` | `int` | `0` | Number of the table returned with `extract: tables`, counted from 1; `0` returns all tables. |
+| `extract` | `enum(content\|headers\|links\|headings\|meta\|tables)` | `content` | Part of the page returned: content, headers, links, headings, metadata or tables. |
+| `table` | `int` | `0` | Number of the table returned with extract set to tables, counted from 1; 0 returns all tables. |
 | `main_only` | `bool` | `true` | Keep only the main content of the page when converting to text or Markdown. |
-| `links` | `enum(inline\|list\|none)` | `inline` | Keep links inline, collect them in a numbered list after the content, or drop them. |
-| `images` | `enum(drop\|alt)` | `alt` | Drop images or keep their alternative text. |
+| `links` | `enum(inline\|list\|none)` | `inline` | Keep links inline, collect them in a list, or drop them when converting. |
+| `images` | `enum(drop\|alt)` | `alt` | Drop images or keep their alternative text when converting. |
 | `section` | `text` | none | Return only the section under the heading with this text. |
 | `outline` | `enum(auto\|always\|never)` | `auto` | Return an outline of a long page before its content. |
 | `query` | `text` | none | Return only the paragraphs of the page most relevant to this query. |
-| `query_limit` | `int` | `5` | Maximum number of paragraphs returned for `query`, from 1 to 20. |
+| `query_limit` | `int` | `5` | Maximum number of paragraphs returned for query, from 1 to 20. |
 | `find` | `regex` | none | Return only the paragraphs that match this pattern. |
-| `find_context` | `int` | `1` | Number of paragraphs of context around each paragraph matched by `find`, up to 10. |
-| `links_filter` | `regex` | none | Only links whose address matches this pattern, with `extract: links`. |
-| `same_host` | `bool` | `false` | Only links to the same host, with `extract: links`. |
-| `charset` | `text` | `"auto"` | Character set used to decode the body, for example `iso-8859-2`. |
-| `offset` | `int` | `0` | Number of characters of the result to skip. |
+| `find_context` | `int` | `1` | Number of paragraphs of context around each paragraph matched by find, up to 10. |
+| `links_filter` | `regex` | none | Only links whose address matches this pattern, with extract set to links. |
+| `same_host` | `bool` | `false` | Only links to the same host, with extract set to links. |
+| `charset` | `text` | `"auto"` | Character set used to decode the body. |
+| `offset` | `int` | `0` | Number of characters of the body to skip. |
 | `cache` | `enum(bypass\|use\|revalidate\|only)` | `bypass` | Ignore the response cache, use it, revalidate cached responses, or answer only from the cache without the network. |
 | `unchanged_since` | `text` | none | Etag of a known version; an unchanged response returns no body. |
-| `timeout` | `duration` | `30s` | Time limit of the request, including name resolution, redirects, retries and reading the body. |
+| `timeout` | `duration` | `30s` | Time limit of the request. |
 | `follow_redirects` | `bool` | `true` | Follow redirects. |
 | `max_redirects` | `int` | `10` | Maximum number of redirects followed. |
-| `verify_tls` | `bool` | `true` | Verify the TLS certificate of the server against the certificate store of the system and `http.ca_file`. |
-| `retries` | `int` | `0` | Number of retries after a connection failure or a transient status. |
+| `verify_tls` | `bool` | `true` | Verify the TLS certificate of the server. |
+| `retries` | `int` | `0` | Number of retries after a connection failure. |
 
 ## Input and output
 

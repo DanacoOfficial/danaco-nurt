@@ -84,12 +84,12 @@ The rules of `subject` apply to the first non-blank line of `message`:
 | `scope` | `enum(all\|staged\|working)` | `all` | Staged changes, working tree changes, or both. |
 | `paths` | `list<path>` | none | Only changes in these files or directories. |
 | `base` | `text` | none | Base revision of a range to review instead of uncommitted changes. |
-| `target` | `text` | none | End revision of the range; needs `base`. |
+| `target` | `text` | none | End revision of the range. |
 | `message` | `text` | none | Planned commit message to check. |
-| `checks` | `list<enum(conflict_markers\|whitespace\|large_files\|binary\|secrets\|subject\|tests\|debug_statements\|final_newline)>` | none | Checks to run: `conflict_markers`, `whitespace`, `large_files`, `binary`, `secrets`, `subject`, `tests`, `debug_statements`, `final_newline`. |
-| `subject_max` | `int` | `72` | Longest allowed subject line in characters, at least 20. |
+| `checks` | `list<enum(conflict_markers\|whitespace\|large_files\|binary\|secrets\|subject\|tests\|debug_statements\|final_newline)>` | none | Checks to run; all when omitted. |
+| `subject_max` | `int` | `72` | Longest allowed subject line of the commit message, at least 20. |
 | `conventional` | `bool` | `false` | Require a Conventional Commits subject line. |
-| `exclude` | `list<glob>` | `[]` | Paths to leave out; a pattern without `/` matches the file name in any directory. |
+| `exclude` | `list<glob>` | `[]` | Paths to leave out; the report counts the excluded files. |
 
 ## Input and output
 

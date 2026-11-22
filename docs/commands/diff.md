@@ -55,11 +55,11 @@ Equal inputs give no records.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `from` | `path` | required | Old file or directory in the source form; position 1, required. |
-| `to` | `path` | required | New file or directory in the source form; position 2, required. |
-| `against` | `path \| stream<any>` | none | File, directory or named result that the input is compared with in the stage form; position 1, required. |
-| `context` | `int` | `3` | Lines of context around each change; changes separated by at most twice this many lines share a hunk. Must be zero or more. |
-| `ignore_whitespace` | `bool` | `false` | Treat lines that differ only in spaces, tabs, vertical tabs, form feeds and carriage returns as equal, as `diff -w`. Context lines are then taken from the old side. |
+| `from` | `path` | required | Old file in the source form. |
+| `to` | `path` | required | New file in the source form. |
+| `against` | `path \| stream<any>` | none | File or named result that the input is compared with in the stage form. |
+| `context` | `int` | `3` | Lines of context around each change. |
+| `ignore_whitespace` | `bool` | `false` | Ignore changes in whitespace. |
 
 ## Input and output
 
@@ -136,7 +136,9 @@ diff "/srv/app/build.cmd" "/srv/app/build.new.cmd" ignore_whitespace: true
 | `E_TYPE` | `against` is neither a path nor a named result of `entry` or `content` records, or a `content` record has no `text`. | Pass a path or the result of `read`. |
 | `E_LIMIT` | A file is larger than the limit of text files. | Compare smaller files. |
 | `E_ENCODING` | A file is not valid in its detected encoding. | Convert the file with `convert`. |
-| `E_NOT_FOUND`, `E_PERMISSION`, `E_IO` | A file cannot be read. | Check the path and its permissions. |
+| `E_NOT_FOUND` | A file cannot be read. | Check the path and its permissions. |
+| `E_PERMISSION` | A file cannot be read. | Check the path and its permissions. |
+| `E_IO` | A file cannot be read. | Check the path and its permissions. |
 
 ## Related
 

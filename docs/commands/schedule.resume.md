@@ -34,7 +34,7 @@ and no file is written for them.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `id` | `list<text>` | none | Schedules to resume. |
-| `all` | `bool` | `false` | Resume all paused schedules. Excludes `id`. |
+| `all` | `bool` | `false` | Resume all paused schedules. |
 
 ## Input and output
 
@@ -73,7 +73,7 @@ Resume every paused schedule and list the next run times:
 
 ```nurt example
 schedule.resume all: true
-schedule.list state: active |> select id, label, next_run
+schedule.list state: active |> select id label next_run
 ```
 
 ## Errors

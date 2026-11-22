@@ -29,7 +29,7 @@ Supported indexes: apt lists (plain, gzip, xz, bzip2, lz4 and zstd), dnf and zyp
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `query` | `text` | required | Search terms. |
-| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager. `auto` selects the managers found on the system. |
+| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager; auto selects the manager of the system. |
 
 ## Input and output
 
@@ -63,7 +63,7 @@ package.search "editor" manager: apt |> filter installed == false
 Show the first ten matches with their repositories.
 
 ```nurt example
-package.search "json" |> first 10 |> select name, version, source
+package.search "json" |> first 10 |> select name version source
 ```
 
 ## Errors

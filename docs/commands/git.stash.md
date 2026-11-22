@@ -50,14 +50,14 @@ also accept a commit. Configured filter drivers are not run.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `repo` | `path` | required | Repository or a path inside it. |
-| `action` | `enum(push\|pop\|apply\|list\|show\|drop\|clear)` | required | Operation on the stash. |
-| `stash` | `text` | the newest entry | Entry for `pop`, `apply`, `show` and `drop`. |
-| `message` | `text` | none | With `push`: message of the new entry. |
-| `include_untracked` | `bool` | `false` | With `push`: also save and remove untracked files. |
-| `paths` | `list<path>` | none | With `push`: only changes in these files or directories. |
-| `exclude` | `list<glob>` | `[]` | With `push`: paths to leave out; the report counts the excluded files. |
-| `expect_state` | `text` | none | State token from an earlier read; nothing changes when `HEAD`, the index or the newest entry differ. |
+| `repo` | `path` | required | Repository or path inside it. |
+| `action` | `enum(push\|pop\|apply\|list\|show\|drop\|clear)` | required | Operation on the stash; apply keeps the entry, pop removes it. |
+| `stash` | `text` | the newest entry | Stash entry, such as stash@{2}. |
+| `message` | `text` | none | With push: message of the new entry. |
+| `include_untracked` | `bool` | `false` | With push: also stash untracked files. |
+| `paths` | `list<path>` | none | With push: only changes in these files or directories. |
+| `exclude` | `list<glob>` | `[]` | Paths to leave out of push; the report counts the excluded files. |
+| `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
 
 ## Input and output
 

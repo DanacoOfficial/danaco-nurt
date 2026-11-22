@@ -60,6 +60,10 @@ First release.
   are commands of the language.
 - The recovery time of 5 seconds for a journal of one million entries is not
   confirmed: the last measurement was 6.2 seconds, before later corrections.
+- The commands `help`, `describe` and `evaluate` are bound and checked, but a
+  program that runs them ends with `E_INTERNAL`; the subcommand `help` shows the
+  help text.
+- The Linux archive is built for the glibc target only.
 - The release is not signed.
 
 [Unreleased]: https://github.com/DanacoOfficial/nurt/compare/v0.1.0...main

@@ -43,7 +43,7 @@ duration without waiting.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `duration` | `duration` | required | Time to wait. Literals take the units `ms`, `s`, `m`, `h` and `d`, for example `500ms`, `2s` or `1h30m`. |
+| `duration` | `duration` | required | Time to wait. |
 
 ## Input and output
 

@@ -73,13 +73,13 @@ current one, writes nothing and reports the notable event `unchanged`.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | Document to change in the source form. |
-| `key` | `key` | none | Key path to set, such as `"scripts.test"`, or `"deps[+]"` to append to a list. |
-| `value` | `any` | none | New value at the key path; in the stage form the value of each item. |
+| `key` | `key` | none | Key path to set, such as "scripts.test" or "deps[+]" to append to a list. |
+| `value` | `any` | none | New value at the key path. |
 | `values` | `map<any>` | none | Several key paths and their values, set in one transaction. |
-| `create` | `bool` | `true` | Create missing keys, intermediate maps and a missing file. |
-| `format` | `enum(auto\|json\|jsonc\|yaml\|toml\|xml\|ini\|csv\|tsv\|properties\|env\|plist)` | `auto` | Document format; `auto` selects it from the file name and content. |
-| `validate` | `enum(off\|warn\|reject)` | `reject` | Treatment of a new syntax error. |
-| `if_match` | `text` | none | Expected entity tag of the document, in the form `sha256:<hex>`; a different document is not changed. |
+| `create` | `bool` | `true` | Create missing keys and intermediate tables. |
+| `format` | `enum(auto\|json\|jsonc\|yaml\|toml\|xml\|ini\|csv\|tsv\|properties\|env\|plist)` | `auto` | Document format; auto selects it from the file extension. |
+| `validate` | `enum(off\|warn\|reject)` | `reject` | Roll back the change when it introduces a new syntax error. |
+| `if_match` | `text` | none | Expected etag of the document; a different document is not changed. |
 
 ## Input and output
 

@@ -37,7 +37,7 @@ visible in `schedule.history`.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `id` | `list<text>` | none | Schedules to remove. |
-| `all` | `bool` | `false` | Remove all schedules. Excludes `id`. |
+| `all` | `bool` | `false` | Remove all schedules. |
 
 ## Input and output
 

@@ -53,12 +53,12 @@ deleted.
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
 | `action` | `enum(add\|list\|remove)` | required | Operation on working trees. |
-| `path` | `path` | none | Directory of the working tree; a relative path is taken relative to `repo`. For `add` the directory must not exist or must be empty. |
-| `branch` | `text` | none | With `add`: branch checked out in the new working tree. |
-| `start_point` | `text` | none | With `add`: revision a new branch starts from; not allowed for an existing branch. Without `branch`: local branch to check out, or revision to check out detached. |
-| `force` | `bool` | `false` | With `remove`: remove a working tree that has uncommitted changes or untracked files. |
-| `checkpoint` | `bool` | `false` | With `remove`: record the content of the working tree as a checkpoint (`git.checkpoint`) in the same operation; the effect names it in `checkpoint`. |
-| `expect_state` | `text` | none | State token from an earlier effect. The operation fails with `E_STALE` and problem `state_changed` when `HEAD`, the branches, a registration or a working tree, including the names of its ignored files, changed since. |
+| `path` | `path` | none | Directory of the working tree to add or remove. |
+| `branch` | `text` | none | Branch checked out in the new working tree. |
+| `start_point` | `text` | none | Revision the new branch starts from. |
+| `force` | `bool` | `false` | Remove a working tree that has uncommitted changes. |
+| `checkpoint` | `bool` | `false` | Create a checkpoint of the changes before remove. |
+| `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
 
 ## Input and output
 

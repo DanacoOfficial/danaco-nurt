@@ -48,10 +48,10 @@ of `text`.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | File in a repository. |
-| `lines` | `range` | none | Lines to annotate, counted from 1; an end beyond the file is cut to its last line. |
-| `revision` | `text` | `"HEAD"` | Commit whose file is annotated. |
-| `find_moves` | `bool` | `false` | Attribute lines moved within the file to the commit that wrote them. |
-| `find_copies` | `bool` | `false` | As `find_moves`, and also lines copied from other files changed by the same commit. |
+| `lines` | `range` | none | Only these lines. |
+| `revision` | `text` | `"HEAD"` | Revision to annotate. |
+| `find_moves` | `bool` | `false` | Follow lines moved within the file. |
+| `find_copies` | `bool` | `false` | Follow lines copied from other files. |
 
 ## Input and output
 

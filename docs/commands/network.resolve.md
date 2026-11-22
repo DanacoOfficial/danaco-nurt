@@ -38,9 +38,9 @@ of type `ANY`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text` | required | Domain name. Position 1. |
-| `type` | `enum(a\|aaaa\|mx\|txt\|ns\|cname\|any)` | `a` | Record type; case is ignored. |
-| `server` | `text` | none | DNS server: an address with an optional port (`192.0.2.53`, `192.0.2.53:5353`, `[2001:db8::53]:53`) or a host name resolved by the system resolver. |
+| `name` | `text` | required | Domain name. |
+| `type` | `enum(a\|aaaa\|mx\|txt\|ns\|cname\|any)` | `a` | Record type. |
+| `server` | `text` | none | DNS server to ask instead of the system resolver. |
 
 ## Input and output
 

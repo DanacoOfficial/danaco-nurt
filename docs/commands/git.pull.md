@@ -70,10 +70,10 @@ allows them; skipped programs are reported as notable entries.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
-| `remote` | `text` | `"origin"` | Remote to pull from; `branch.<name>.remote` takes precedence over the default. |
+| `remote` | `text` | `"origin"` | Remote to pull from. |
 | `branch` | `text` | the upstream of the current branch | Remote branch to integrate. |
 | `mode` | `enum(merge\|rebase\|fast_forward_only)` | the setting of the repository configuration | How the changes are integrated. |
-| `accept_host_key` | `text` | none | SHA-256 fingerprint (`SHA256:<base64>`) of the SSH host key to accept when the host is not known. |
+| `accept_host_key` | `text` | none | SHA-256 fingerprint (SHA256:<base64>) of the SSH host key to accept when the host is not known. |
 
 ## Input and output
 
@@ -135,7 +135,10 @@ git.pull "/home/user/app" mode: fast_forward_only accept_host_key: "SHA256:uNiVz
 | `E_GIT_CONFLICT` | The merge stopped with conflicts; `effect_applied` is true. | Resolve, then `git.merge "<repo>" action: continue` |
 | `E_GIT_UNSUPPORTED` | Invalid `pull.rebase` or `pull.ff` value, a bare repository, several branches to merge at once, or a rebase that the installation does not provide. | Correct the configuration or give `mode`. |
 | `E_GIT_LOCKED` | A lock file of the index or of a reference exists. | Remove the stale `.lock` file after checking that no Git process runs. |
-| `E_NETWORK`, `E_GIT_AUTH`, `E_GIT_HOST_KEY`, `E_GIT_PROTOCOL` | The transfer failed; nothing local changed. | See `git.fetch`. |
+| `E_NETWORK` | The transfer failed; nothing local changed. | See `git.fetch`. |
+| `E_GIT_AUTH` | The transfer failed; nothing local changed. | See `git.fetch`. |
+| `E_GIT_HOST_KEY` | The transfer failed; nothing local changed. | See `git.fetch`. |
+| `E_GIT_PROTOCOL` | The transfer failed; nothing local changed. | See `git.fetch`. |
 
 Errors after the transfer carry `effect_applied: true` and list the updated
 remote-tracking references in `details.ref_updates`.

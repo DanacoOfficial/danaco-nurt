@@ -75,7 +75,7 @@ network.interfaces |> filter up and gateway != null
 Show the hardware addresses of the wireless interfaces:
 
 ```nurt example
-network.interfaces |> filter kind == "wireless" |> select name, mac
+network.interfaces |> filter kind == "wireless" |> select name mac
 ```
 
 ## Errors

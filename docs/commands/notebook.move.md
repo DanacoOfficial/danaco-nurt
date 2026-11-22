@@ -29,9 +29,9 @@ The `effect` record carries the counter `cells_moved`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
-| `from` | `int` | required | Current index of the cell, counted from 0. |
-| `to` | `int` | required | New index of the cell, counted from 0. |
+| `path` | `path` | required | Notebook file. |
+| `from` | `int` | required | Current index of the cell. |
+| `to` | `int` | required | New index of the cell. |
 
 ## Input and output
 

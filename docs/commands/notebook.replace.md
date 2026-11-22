@@ -46,15 +46,15 @@ The `effect` record carries the counters `cells_changed` and, with `find`,
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
+| `path` | `path` | required | Notebook file. |
 | `index` | `int` | none | Cell to change by index, counted from 0. |
 | `id` | `text` | none | Cell to change by identifier. |
 | `source` | `text` | none | New source of the cell. |
 | `cell_type` | `enum(code\|markdown\|raw)` | none | New type of the cell. |
 | `find` | `text \| regex` | none | Text or pattern to replace within cell sources. |
-| `with` | `text` | none | Replacement for the text matched by `find`; a template for a regular expression. |
-| `whole_word` | `bool` | `false` | Match `find` only as a whole word or identifier. |
-| `reset_outputs` | `bool` | `false` | Clear the outputs and execution counters of changed cells. |
+| `with` | `text` | none | Replacement for the text matched by find. |
+| `whole_word` | `bool` | `false` | Match find only as a whole word or identifier. |
+| `reset_outputs` | `bool` | `false` | Clear the outputs of changed cells. |
 
 ## Input and output
 

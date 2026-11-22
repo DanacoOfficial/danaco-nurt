@@ -42,9 +42,9 @@ ending, `ident` and working tree encoding conversions are applied.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `repo` | `path` | required | Repository or a path inside it. |
-| `revision` | `text` | required | Commit to move to: a branch, tag, commit or expression such as `HEAD~2`. |
-| `mode` | `enum(soft\|mixed\|hard)` | `mixed` | What is reset besides the reference. |
+| `repo` | `path` | required | Repository or path inside it. |
+| `revision` | `text` | required | Revision to move to. |
+| `mode` | `enum(soft\|mixed\|hard)` | `mixed` | Keep the index and working tree, reset the index, or reset both. |
 
 ## Input and output
 

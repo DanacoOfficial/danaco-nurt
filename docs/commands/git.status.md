@@ -55,9 +55,9 @@ the built-in conversions (`core.autocrlf`, `eol`, `text`, `ident`,
 | `repo` | `list<path>` | required | Repositories or paths inside them. |
 | `untracked` | `enum(normal\|all\|no)` | `normal` | Untracked files: directories collapsed, every file, or none. |
 | `ignored` | `bool` | `false` | Include ignored files. |
-| `limit` | `int` | `200` | Largest number of entries per repository, from 1 to 5000. |
-| `stat` | `bool` | `false` | Add the numbers of lines added and removed from `HEAD` to the working tree. |
-| `exclude` | `list<glob>` | `[]` | Paths to leave out; a pattern without `/` matches the file name in any directory. |
+| `limit` | `int` | `200` | Maximum number of entries per repository. |
+| `stat` | `bool` | `false` | Include the numbers of added and removed lines. |
+| `exclude` | `list<glob>` | `[]` | Paths to leave out; the report counts the excluded files. |
 
 ## Input and output
 

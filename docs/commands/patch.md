@@ -75,14 +75,14 @@ nothing is checked.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `root` | `path` | required | Directory that the paths in the diff are relative to; required. |
-| `diff` | `text` | one of `patch_source` | Text of the diff; position 1. Exclusive with `from`. |
-| `from` | `path` | one of `patch_source` | File that contains the diff. Exclusive with `diff`. |
+| `root` | `path` | required | Directory that the paths in the diff are relative to. |
+| `diff` | `text` | one of `patch_source` | Diff text. |
+| `from` | `path` | one of `patch_source` | File that contains the diff. |
 | `reverse` | `bool` | `false` | Apply the diff in reverse. |
-| `fuzz` | `int` | `0` | Number of context lines at each end of a hunk that may differ when the hunk is placed. |
+| `fuzz` | `int` | `0` | Number of context lines that may differ when a hunk is placed. |
 | `strip` | `int` | `0` | Number of leading path components removed from the paths in the diff. |
-| `validate` | `enum(off\|warn\|reject)` | `reject` | Check created and changed text of a known format: `reject` rolls back a patch that adds a syntax error, `warn` reports it, `off` skips the check. |
-| `if_match` | `text \| map<text>` | none | Expected etag of the patched file, or a map from path to etag for several files. A file with another etag fails with `E_STALE` and nothing changes. |
+| `validate` | `enum(off\|warn\|reject)` | `reject` | Roll back the change when it introduces a new syntax error. |
+| `if_match` | `text \| map<text>` | none | Expected etag of the patched file, or a map from path to etag for several files; a different file is not changed. |
 
 ## Input and output
 
@@ -196,7 +196,8 @@ patch from: "/srv/patches/bump.diff" root: "/srv/app" strip: 1 validate: warn
 | `E_BINARY` | A file to change has binary content. | Patch text files only. |
 | `E_ENCODING` | A file is not valid in its detected encoding, or an added character cannot be represented in it. | Convert the file with `convert`. |
 | `E_LIMIT` | A file is larger than the limit of text files. | Patch smaller files. |
-| `E_PERMISSION`, `E_IO` | A file cannot be read or written. | Check the permissions. |
+| `E_PERMISSION` | A file cannot be read or written. | Check the permissions. |
+| `E_IO` | A file cannot be read or written. | Check the permissions. |
 
 ## Related
 

@@ -47,14 +47,14 @@ A notebook without cells produces no records.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
-| `index` | `range` | none | Cells to return by index, counted from 0, for example `2` or `1..4`. |
+| `path` | `path` | required | Notebook file. |
+| `index` | `range` | none | Cells to return by index, counted from 0. |
 | `id` | `list<text>` | none | Cells to return by identifier. |
 | `cell_type` | `enum(code\|markdown\|raw)` | none | Only cells of this type. |
 | `outputs` | `enum(none\|summary\|text\|full)` | `none` | Detail of cell outputs returned. |
 | `find` | `text \| regex` | none | Only cells containing this text or pattern. |
-| `scope` | `enum(source\|outputs)` | `source` | Part of the cell that `find` searches. |
-| `view` | `enum(outline\|full)` | `outline` | Outline or full content; without `view`, selected cells are listed in full. |
+| `scope` | `enum(source\|outputs)` | `source` | Part of the cell that find searches. |
+| `view` | `enum(outline\|full)` | `outline` | Outline or full content when no cells are selected. |
 
 ## Input and output
 

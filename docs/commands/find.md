@@ -147,10 +147,10 @@ for all files below it that pass the exclusions, whether or not they match
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Directory to search; position 1. |
-| `glob` | `glob \| list<glob>` | `"**"` | Name patterns relative to the directory; position 2. |
+| `path` | `path` | required | Directory to search. |
+| `glob` | `glob \| list<glob>` | `"**"` | Name patterns relative to the directory. |
 | `type` | `enum(file\|directory\|link\|any)` | `file` | Kind of entries to find. |
-| `depth` | `int` | no limit | Maximum number of directory levels to descend; 0 selects the root only. |
+| `depth` | `int` | no limit | Maximum number of directory levels to descend. |
 | `hidden` | `bool` | `true` | Include hidden entries. |
 | `follow_links` | `bool` | `false` | Descend into linked directories. |
 | `gitignore` | `bool` | `false` | Apply the rules of .gitignore files. |

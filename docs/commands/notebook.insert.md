@@ -36,11 +36,11 @@ the `index` and `id` of the new cell.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
+| `path` | `path` | required | Notebook file. |
 | `cell_type` | `enum(code\|markdown\|raw)` | required | Type of the new cell. |
 | `source` | `text` | required | Source of the new cell. |
-| `index` | `int` | the end of the notebook | Position of the new cell, counted from 0; at most the number of cells. Excludes `after_id`. |
-| `after_id` | `text` | none | Insert after the cell with this identifier. Excludes `index`. |
+| `index` | `int` | the end of the notebook | Position of the new cell, counted from 0. |
+| `after_id` | `text` | none | Insert after the cell with this identifier. |
 
 ## Input and output
 

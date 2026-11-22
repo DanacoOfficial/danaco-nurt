@@ -32,9 +32,9 @@ that changed.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
-| `index` | `range` | `all` | Cells to clear by index, counted from 0. Excludes `id`. |
-| `id` | `list<text>` | none | Cells to clear by identifier. Excludes `index`. |
+| `path` | `path` | required | Notebook file. |
+| `index` | `range` | `all` | Cells to clear by index, counted from 0. |
+| `id` | `list<text>` | none | Cells to clear by identifier. |
 
 ## Input and output
 

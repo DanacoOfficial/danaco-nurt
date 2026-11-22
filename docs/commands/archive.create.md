@@ -50,9 +50,9 @@ An empty input creates an empty archive.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `to` | `path` | required | Archive file to create; position 1. It must not exist. |
-| `format` | `enum(auto\|zip\|tar\|tar_gz\|tar_zst\|tar_xz\|tar_bz2\|seven_zip)` | `auto` | Archive format; `auto` selects it from the file extension. |
-| `base` | `path` | none | Directory that member names are relative to. |
+| `to` | `path` | required | Archive file to create. |
+| `format` | `enum(auto\|zip\|tar\|tar_gz\|tar_zst\|tar_xz\|tar_bz2\|seven_zip)` | `auto` | Archive format; auto selects it from the file extension. |
+| `base` | `path` | none | Directory that entry names in the archive are relative to. |
 | `level` | `int` | none | Compression level of the format. |
 | `follow_links` | `bool` | `false` | Store the targets of symbolic links instead of the links. |
 

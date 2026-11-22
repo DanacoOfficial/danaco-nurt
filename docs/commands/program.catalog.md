@@ -30,10 +30,10 @@ With `query` the programs of the category are ranked as by `program.search` and 
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `category` | `text` | none | Category to open, by id or alias; compared after folding. |
-| `subcategory` | `text` | none | Subcategory to open; needs `category`. |
-| `query` | `text` | none | Keywords, 2 to 200 characters, that rank the programs of the category. |
-| `source` | `text` | none | Only programs from this kind of provider (`path`, `package`, `app`, `catalog`) or this provider id, such as `dpkg` or `catalog:<id>`. |
+| `category` | `text` | none | Category to open; without it the result lists all categories. |
+| `subcategory` | `text` | none | Subcategory to open. |
+| `query` | `text` | none | Keywords that narrow the listed programs. |
+| `source` | `text` | none | Only programs from this source. |
 
 ## Input and output
 
@@ -70,7 +70,7 @@ network   57     Network
 Open one category and show its programs.
 
 ```nurt example
-program.catalog "archives" |> select name, summary
+program.catalog "archives" |> select name summary
 ```
 
 Rank the programs of a category from one catalog.

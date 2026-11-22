@@ -60,7 +60,7 @@ retention limits and the state of the journal are reported by
 | `since` | `int` | none | List only operations newer than this one. |
 | `path` | `path` | none | List only operations that touched this file. |
 | `deleted` | `bool` | `false` | List only operations that removed files. |
-| `details` | `bool` | `false` | Include the items of each operation in `items`. |
+| `details` | `bool` | `false` | Include the changes and differences of each operation. |
 
 ## Input and output
 

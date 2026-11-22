@@ -44,8 +44,8 @@ archive produces no records.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Archive file; position 1. |
-| `glob` | `glob` | none | Only members whose path matches this pattern. |
+| `path` | `path` | required | Archive file. |
+| `glob` | `glob` | none | Only entries whose path matches this pattern. |
 
 ## Input and output
 

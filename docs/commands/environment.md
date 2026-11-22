@@ -48,7 +48,7 @@ registry value, which also notifies running programs with
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text \| regex` | none | Variable name or pattern; position 1. |
+| `name` | `text \| regex` | none | Variable name or pattern. |
 | `scope` | `enum(process\|user\|machine)` | `process` | Variables of this process, or persistent user or machine variables on Windows. |
 
 ## Input and output

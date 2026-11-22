@@ -64,19 +64,19 @@ same language family are also reported as `rename_incomplete`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `to` | `text` | required | New name of the symbol; letters, digits, `_` and `$`, not starting with a digit. |
-| `path` | `path` | none | Source file of the symbol. |
-| `line` | `int` | none | Line of the symbol, counted from 1. |
-| `column` | `int` | none | Column of the symbol, counted from 1 in characters. |
-| `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
+| `to` | `text` | required | New name of the symbol. |
+| `path` | `path` | none | Source file of the symbol in the source form. |
+| `line` | `int` | none | Line of the symbol in the source form, counted from 1. |
+| `column` | `int` | none | Column of the symbol in the source form, counted from 1. |
+| `symbol` | `text` | none | Symbol name, optionally qualified as Container.name, instead of a position. |
 | `scope` | `enum(project\|file)` | `project` | Rename in the whole project or only in the file. |
 | `paths` | `list<path>` | the project | Files and directories to rename in. |
 | `include_comments` | `bool` | `false` | Also rename occurrences in comments. |
 | `include_strings` | `bool` | `false` | Also rename occurrences in string literals. |
-| `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis, or the server when available. |
+| `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis with confidence, or the server when available. |
 | `check_references` | `bool` | `true` | Report references to the old name left after the change. |
-| `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
-| `root` | `path` | detected from the location of the file | Project root: the nearest directory above the file with `.git` or a project manifest. |
+| `language` | `text` | `"auto"` | Programming language; auto detects it from the file extension. |
+| `root` | `path` | detected from the location of the file | Project root for the language server. |
 
 ## Input and output
 

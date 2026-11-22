@@ -63,7 +63,7 @@ example `[kthreadd]`. A state without a counterpart is `other`, and
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text \| regex` | none | Process name or pattern. Positional. |
+| `name` | `text \| regex` | none | Process name or pattern. |
 | `user` | `text` | none | Only processes of this account. |
 | `pid` | `int` | none | Only the process with this identifier. |
 | `cwd` | `bool` | `false` | Include the working directory of each process. |

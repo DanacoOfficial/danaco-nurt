@@ -35,7 +35,7 @@ Local variables declared inside functions are not part of an outline.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
-| `depth` | `int` | no limit | Deepest nesting level listed, from 0 for top-level symbols. |
+| `depth` | `int` | no limit | Maximum nesting depth of symbols. |
 
 ## Input and output
 
@@ -81,7 +81,8 @@ code.outline "src/Cart.java" |> filter container == "Cart" and kind == "method"
 | `E_INVALID_VALUE` | `depth` is negative. | Give a depth of 0 or more. |
 | `E_LIMIT` | The file is larger than `code.file_bytes_max`. | Raise the limit. |
 | `E_NOT_FOUND` | The file does not exist. | Check the path. |
-| `E_EXTERNAL_FAILED`, `E_TIMEOUT` | The language server of a language without a grammar failed or did not answer. | See the message of the server, or raise `code.timeout`. |
+| `E_EXTERNAL_FAILED` | The language server of a language without a grammar failed. | See the message of the server. |
+| `E_TIMEOUT` | The language server of a language without a grammar did not answer. | Raise `code.timeout`. |
 
 ## Related
 

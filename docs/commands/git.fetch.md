@@ -60,12 +60,12 @@ address is used for the transfer and never written to the results.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `repo` | `path` | required | Repository or a path inside it. |
-| `remote` | `text` | `"origin"` | Configured remote or address. |
+| `repo` | `path` | required | Repository or path inside it. |
+| `remote` | `text` | `"origin"` | Remote to fetch from. |
 | `prune` | `bool` | `false` | Remove remote-tracking references that no longer exist on the remote. |
-| `tags` | `bool` | `false` | Fetch every tag of the remote. |
-| `depth` | `int` | none | Limit the fetched history to this many commits; at least 1. |
-| `accept_host_key` | `text` | none | SHA-256 fingerprint (`SHA256:<base64>`) of the SSH host key to accept when the host is not known. |
+| `tags` | `bool` | `false` | Fetch all tags of the remote. |
+| `depth` | `int` | none | Limit the fetched history to this many commits. |
+| `accept_host_key` | `text` | none | SHA-256 fingerprint (SHA256:<base64>) of the SSH host key to accept when the host is not known. |
 
 ## Input and output
 
@@ -119,7 +119,8 @@ git.fetch "/home/user/app" depth: 50
 | `E_GIT_HOST_KEY` | The SSH host key is unknown or changed. | Pass `accept_host_key` with the fingerprint of the host. |
 | `E_GIT_PROTOCOL` | The remote answered outside the protocol, or its object format differs. | Check that the address names a Git repository. |
 | `E_NETWORK` | The connection failed; the problem is `dns`, `connect`, `tls`, `timeout`, `proxy` or `http_status`. | Check the address, the proxy settings and the network. |
-| `E_CANCELLED`, `E_TIMEOUT` | The transfer was interrupted; no reference was changed. | Repeat the call. |
+| `E_CANCELLED` | The transfer was interrupted; no reference was changed. | Repeat the call. |
+| `E_TIMEOUT` | The transfer was interrupted; no reference was changed. | Repeat the call. |
 
 ## Related
 

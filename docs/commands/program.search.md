@@ -30,10 +30,10 @@ A list of queries gives one ranked list per query; each record then has the fiel
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `query` | `text \| list<text>` | required | Task, topic or program name, 2 to 200 characters; a list holds up to 8 queries. |
-| `category` | `text` | none | Only programs in this category or subcategory; compared after folding, aliases of catalog categories are accepted. |
-| `source` | `list<enum(path\|package\|app\|catalog)>` | `[path, package, app, catalog]` | Kinds of providers searched. |
-| `limit` | `int` | `15` | Maximum number of programs per query, 1 to 60. |
+| `query` | `text \| list<text>` | required | Task, topic or program name, or several queries with one result list each. |
+| `category` | `text` | none | Only programs in this category. |
+| `source` | `list<enum(path\|package\|app\|catalog)>` | `[path, package, app, catalog]` | Sources searched. |
+| `limit` | `int` | `15` | Maximum number of programs, best match first. |
 
 ## Input and output
 
@@ -71,13 +71,13 @@ handbrake video    Transcodes video files.
 Search only the installed packages and the search path.
 
 ```nurt example
-program.search "pdf merge" source: [path, package] |> select name, path, score
+program.search "pdf merge" source: [path, package] |> select name path score
 ```
 
 Run two queries at once and keep the best match of each.
 
 ```nurt example
-program.search ["compress files", "edit images"] limit: 1 |> select query, name
+program.search ["compress files", "edit images"] limit: 1 |> select query name
 ```
 
 ## Errors

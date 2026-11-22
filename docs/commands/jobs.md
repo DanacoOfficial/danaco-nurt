@@ -73,7 +73,7 @@ A removed identifier is not reused, and a later reference to it fails with
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `text` | none | Job identifier, such as `j7`. |
+| `id` | `text` | none | Job identifier, such as j7. |
 | `state` | `enum(any\|running\|suspended\|exited\|failed\|stopped\|timed_out\|stalled\|limit\|lost)` | `any` | State of the jobs to list. |
 | `head` | `int` | none | Number of first output lines returned. |
 | `tail` | `int` | none | Number of last output lines returned. |
@@ -82,7 +82,7 @@ A removed identifier is not reused, and a later reference to it fails with
 | `wait` | `duration` | `0s` | Time to wait for the job to finish. |
 | `view` | `enum(status\|output\|result)` | `status` | State, output, or final result of the job. |
 | `filter` | `regex` | none | Return only output lines that match. |
-| `context` | `int` | `0` | Lines of context around lines matching `filter`. |
+| `context` | `int` | `0` | Lines of context around lines matching filter. |
 | `dedupe` | `bool` | `false` | Collapse repeated identical output lines. |
 
 ## Input and output

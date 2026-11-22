@@ -49,12 +49,12 @@ junction is the alternative for directories.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `type` | `enum(file\|directory\|link\|junction)` | required | Kind of entry; there is no default. |
-| `path` | `list<path>` | none | Paths to create; with `temporary`, the directory of the new entry. |
+| `path` | `list<path>` | none | Paths to create; with temporary, the directory of the new entry. |
 | `target` | `text` | none | Target of a link or junction. |
 | `hard` | `bool` | `false` | Create a hard link instead of a symbolic link. |
 | `temporary` | `bool` | `false` | Create an entry with a unique name in the temporary directory. |
 | `parents` | `bool` | `true` | Create missing parent directories. |
-| `on_exists` | `enum(skip\|error\|touch)` | `skip` | Behaviour when the entry exists; `touch` updates its modification time. |
+| `on_exists` | `enum(skip\|error\|touch)` | `skip` | Behaviour when the entry exists; touch updates its modification time. |
 
 ## Input and output
 

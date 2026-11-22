@@ -42,10 +42,10 @@ file.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
-| `line` | `int` | none | Line of the symbol, counted from 1; required unless `symbol` is given. |
-| `column` | `int` | none | Column of the symbol, counted from 1 in characters. |
-| `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
-| `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
+| `line` | `int` | none | Line of the symbol, counted from 1. |
+| `column` | `int` | none | Column of the symbol, counted from 1. |
+| `symbol` | `text` | none | Symbol name, optionally qualified as Container.name, instead of a position. |
+| `language` | `text` | `"auto"` | Programming language; auto detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
 
 ## Input and output

@@ -43,14 +43,14 @@ only; the counts and the verdict cover all findings.
 |---|---|---|---|
 | `path` | `list<path>` | none | Files or directories to check. |
 | `changed_only` | `bool` | `false` | Only files changed in the repository. |
-| `checks` | `list<enum(types\|lint\|format\|complexity\|duplication)>` | none | Checks to run. |
-| `include_tests` | `bool` | `true` | Include test files in the duplication check. |
+| `checks` | `list<enum(types\|lint\|format\|complexity\|duplication)>` | none | Checks to run; all available checks when omitted. |
+| `include_tests` | `bool` | `true` | Include test files. |
 | `complexity_max` | `int` | `15` | Highest cyclomatic complexity accepted. |
 | `fail_on` | `enum(error\|warning)` | `error` | Lowest severity that fails the verdict. |
 | `min_severity` | `enum(error\|warning\|info)` | `info` | Lowest severity of findings returned. |
 | `max_findings` | `int` | `100` | Maximum number of findings returned. |
 | `sample_lines` | `int` | `5` | Maximum number of source lines shown with each finding. |
-| `wait` | `duration` | `3s` | Time to wait before the analysis continues as a job. |
+| `wait` | `duration` | `3s` | Time to wait before the analysis continues in the background as a job. |
 
 ## Input and output
 
@@ -94,7 +94,7 @@ analyze.check changed_only: true fail_on: warning
 Run only the complexity check with a lower threshold.
 
 ```nurt example
-analyze.check checks: ["complexity"], complexity_max: 10
+analyze.check checks: ["complexity"] complexity_max: 10
 ```
 
 ## Errors

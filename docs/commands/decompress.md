@@ -44,7 +44,7 @@ and other entries that are not regular files are skipped.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | none | Files to decompress in the source form; position 1, repeated. Relative paths are resolved against the base directory. Not allowed in the stage form. |
+| `path` | `list<path>` | none | Files to decompress in the source form. |
 | `keep` | `bool` | `true` | Keep the compressed files. |
 
 ## Input and output
@@ -115,8 +115,11 @@ targets 1 file
 | `E_EXISTS` | The output file exists, or two sources have the same output name (`problem: output_exists`). | Remove or rename the existing file. |
 | `E_NOT_FOUND` | A file does not exist. | Check the path. |
 | `E_STALE` | A source changed after the plan. | Repeat the call. |
-| `E_PERMISSION`, `E_IO`, `E_NO_SPACE` | A file cannot be read or the output cannot be written. | Check the permissions and the free space. |
-| `E_CANCELLED`, `E_TIMEOUT` | The call was cancelled or reached its time limit. | Repeat the call with a longer `timeout`. |
+| `E_PERMISSION` | A file cannot be read or the output cannot be written. | Check the permissions and the free space. |
+| `E_IO` | A file cannot be read or the output cannot be written. | Check the permissions and the free space. |
+| `E_NO_SPACE` | A file cannot be read or the output cannot be written. | Check the permissions and the free space. |
+| `E_CANCELLED` | The call was cancelled or reached its time limit. | Repeat the call with a longer `timeout`. |
+| `E_TIMEOUT` | The call was cancelled or reached its time limit. | Repeat the call with a longer `timeout`. |
 
 ## Related
 

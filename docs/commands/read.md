@@ -173,26 +173,26 @@ Content with more than one control character in twenty characters is binary.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | one of `target` | Files to read; positional and repeated. Exclusive with `targets`. |
-| `lines` | `range \| list<range>` | none | Line ranges to read, such as `5`, `1..5`, `40..` or `..9`. |
-| `last` | `int` | none | Number of last lines to read, at least 1. |
+| `path` | `list<path>` | one of `target` | Files to read. |
+| `lines` | `range \| list<range>` | none | Line ranges to read. |
+| `last` | `int` | none | Number of last lines to read. |
 | `around` | `text \| regex` | none | Read the lines around matches of this pattern. |
-| `context` | `int` | `3` | Lines of context around matches of `around`. |
+| `context` | `int` | `3` | Lines of context around matches of around. |
 | `symbol` | `text` | none | Read the definition of this code symbol. |
-| `section` | `text` | none | Read the Markdown section with this heading; nested headings are joined with ` > `. |
+| `section` | `text` | none | Read the Markdown section with this heading. |
 | `cell` | `int \| text` | none | Notebook cell by index or identifier. |
-| `targets` | `list<map<any>>` | one of `target` | Selectors per target, with the keys `path`, `lines`, `around`, `symbol`, `key`, `section` and `cell`; `path` is required. |
-| `key` | `key` | none | Key path in a structured document; the result is `item` records. |
-| `depth` | `int` | none | Depth of nested values read at `key`, and of the symbols of the outline views. |
+| `targets` | `list<map<any>>` | one of `target` | Selectors per target: path, lines, around, symbol, key, section, cell. |
+| `key` | `key` | none | Key path in a structured document; the result is item records. |
+| `depth` | `int` | none | Depth of nested values read at key. |
 | `view` | `enum(full\|outline\|outline_first\|symbols\|header\|hex)` | `full` | Full content, outline, symbols, header or hexadecimal dump. |
 | `pages` | `range \| list<range>` | none | PDF pages to read. |
 | `mode` | `enum(text\|layout\|images)` | `text` | Extraction mode of PDF pages. |
-| `encoding` | `text` | `"auto"` | Text encoding, such as `utf-8` or `windows-1250`; `auto` detects it. |
+| `encoding` | `text` | `"auto"` | Text encoding; auto detects it. |
 | `decompress` | `enum(auto\|none)` | `auto` | Read compressed files after decompressing them on the fly. |
 | `unchanged_since` | `text` | none | Etag; an unchanged file is returned without text. |
 | `since` | `text` | none | Etag of an earlier read; the result holds the differences since then. |
 | `known` | `map<text>` | none | Map from path to etag; unchanged files are skipped. |
-| `line_numbers` | `bool` | `false` | Prefix lines with their numbers, right-aligned and followed by two spaces. |
+| `line_numbers` | `bool` | `false` | Prefix lines with their numbers. |
 | `max_line` | `int` | no limit | Maximum length of a returned line in characters; longer lines are cut and marked. |
 
 ## Input and output

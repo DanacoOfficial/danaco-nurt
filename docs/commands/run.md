@@ -122,28 +122,28 @@ engine.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `command` | `list<text>` | required | Program and arguments; the first element is the program. Numbers, truth values and paths are written as text. |
-| `cwd` | `path` | required | Working directory of the program; one of them is required. A relative `cwd` is taken against `base`. |
-| `env` | `map<text>` | none | Environment variables to set; `null` removes a variable. |
+| `command` | `list<text>` | required | Program and arguments; the first element is the program. |
+| `cwd` | `path` | required | Working directory of the program. |
+| `env` | `map<text>` | none | Environment variables to set. |
 | `inherit_env` | `enum(all\|none)` | `all` | Inherit the environment of the console or start with an empty one. |
 | `stdin` | `text \| path` | none | Text or file given on standard input; the input is empty otherwise. |
 | `timeout` | `duration` | `120s` | Time limit of the program. |
-| `idle_timeout` | `duration` | `60s` | Time limit without output and without processor use; `0s` disables it. |
-| `wait` | `duration \| enum(forever)` | `3s` | Time to wait for the program before it continues as a job; `forever` waits until `timeout`. |
-| `background` | `bool` | `false` | Start as a job at once, the same as `wait: 0s`. |
+| `idle_timeout` | `duration` | `60s` | Time limit without output. |
+| `wait` | `duration \| enum(forever)` | `3s` | Time to wait for the program before it continues as a job; forever waits until timeout. |
+| `background` | `bool` | `false` | Start as a job at once, the same as wait: 0s. |
 | `merge_stderr` | `bool` | `false` | Merge standard error into standard output. |
 | `show` | `enum(auto\|both\|stdout\|stderr\|errors\|summary\|none)` | `auto` | Output returned in the result; the full output is always kept in a file. |
 | `head` | `int` | `20` | Number of first output lines returned. |
 | `tail` | `int` | `40` | Number of last output lines returned. |
 | `filter` | `regex` | none | Return only output lines that match. |
-| `context` | `int` | `0` | Lines of context around lines matching `filter`. |
+| `context` | `int` | `0` | Lines of context around lines matching filter. |
 | `dedupe` | `bool` | `false` | Collapse repeated identical output lines. |
 | `quiet_on_success` | `bool` | `false` | Return no output when the exit code is 0. |
-| `output_encoding` | `text` | `"auto"` | Encoding of the program output; `auto` detects it. |
+| `output_encoding` | `text` | `"auto"` | Encoding of the program output; auto detects it. |
 | `watch` | `list<path>` | none | Directories in which changes made by the program are detected. |
 | `track_changes` | `enum(auto\|scan\|events\|none)` | `auto` | Method of detecting changes made by the program. |
-| `max_cpu` | `duration` | none | Limit of processor time of the process tree. |
-| `max_memory` | `size` | none | Limit of memory of the process tree. |
+| `max_cpu` | `duration` | none | Limit of processor time. |
+| `max_memory` | `size` | none | Limit of memory. |
 | `priority` | `enum(low\|normal\|high)` | `normal` | Scheduling priority. |
 | `label` | `text` | none | Short name of the job. |
 | `description` | `text` | none | Description of the job. |
@@ -204,7 +204,7 @@ find "/home/user/app" glob: "**/*.go" |> run ["gofmt", "-w"] batch: 20 parallel:
 Give text on standard input, with an environment of its own:
 
 ```nurt example
-run ["sort"] cwd: "/home/user" stdin: "b\na\n" inherit_env: none env: {LC_ALL: "C"}
+run ["sort"] cwd: "/home/user" stdin: "b\na\n" inherit_env: none env: {"LC_ALL": "C"}
 ```
 
 Fail when the program exits with a code other than zero:

@@ -168,7 +168,7 @@ List the active schedules that do not fire because the service does not
 run:
 
 ```nurt example
-schedule.list state: active |> where reason == "service_not_running" |> select label, reason
+schedule.list state: active |> filter reason == "service_not_running" |> select label reason
 ```
 
 Show the errors logged by the service unit:

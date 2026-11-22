@@ -105,7 +105,7 @@ terminal application.
 | `since` | `instant` | none | Only events at or after this time. |
 | `until` | `instant` | none | Only events before this time. |
 | `message` | `regex` | none | Only events whose message matches this pattern. |
-| `limit` | `int` | `100` | Maximum number of events, newest first; from 1 to 100000. |
+| `limit` | `int` | `100` | Maximum number of events, newest first. |
 
 ## Input and output
 

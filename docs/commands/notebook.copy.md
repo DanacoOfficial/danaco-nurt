@@ -30,9 +30,9 @@ The `effect` record carries the counter `cells_copied` and, in `after`, the
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
-| `from` | `int` | required | Index of the cell to copy, counted from 0. |
-| `to` | `int` | required | Index of the copy, from 0 to the number of cells. |
+| `path` | `path` | required | Notebook file. |
+| `from` | `int` | required | Index of the cell to copy. |
+| `to` | `int` | required | Index of the copy. |
 
 ## Input and output
 

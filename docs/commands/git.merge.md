@@ -70,11 +70,11 @@ The `merge.directoryRenames` setting is not read.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
-| `branch` | `text` | none | Branch, tag or commit to merge; required when `action` is `start`. |
+| `branch` | `text` | none | Branch to merge; required when action is start. |
 | `action` | `enum(start\|continue\|abort)` | `start` | Start a merge, continue it after resolving conflicts, or abort it. |
 | `fast_forward` | `enum(auto\|only\|never)` | `auto` | Fast-forward when possible, only fast-forward, or always create a merge commit. |
 | `message` | `text` | none | Message of the merge commit. |
-| `no_commit` | `bool` | `false` | Stop before creating the merge commit, as after a conflict. |
+| `no_commit` | `bool` | `false` | Stop before creating the merge commit. |
 
 ## Input and output
 

@@ -59,10 +59,10 @@ credential stores; credential helpers that are programs are not run.
 |---|---|---|---|
 | `url` | `text` | required | Address of the repository. |
 | `to` | `path` | required | Directory to create. |
-| `depth` | `int` | none | Limit the history to this many commits; at least 1. |
-| `branch` | `text` | none | Branch to check out. |
+| `depth` | `int` | none | Limit the cloned history to this many commits. |
+| `branch` | `text` | none | Branch to check out instead of the default branch. |
 | `bare` | `bool` | `false` | Create a repository without a working tree. |
-| `accept_host_key` | `text` | none | SHA-256 fingerprint (`SHA256:<base64>`) of the SSH host key to accept when the host is not known. |
+| `accept_host_key` | `text` | none | SHA-256 fingerprint (SHA256:<base64>) of the SSH host key to accept when the host is not known. |
 
 ## Input and output
 
@@ -116,7 +116,8 @@ git.clone "/srv/git/app.git" "/home/user/app.git" bare: true
 | `E_GIT_HOST_KEY` | The SSH host key is unknown or changed. | Pass `accept_host_key` with the fingerprint of the host. |
 | `E_GIT_PROTOCOL` | The remote answered outside the protocol. | Check that the address names a Git repository. |
 | `E_NETWORK` | The connection failed; the problem is `dns`, `connect`, `tls`, `timeout`, `proxy` or `http_status`. | Check the address, the proxy settings and the network. |
-| `E_CANCELLED`, `E_TIMEOUT` | The transfer was interrupted; the new directory was removed. | Repeat the call. |
+| `E_CANCELLED` | The transfer was interrupted; the new directory was removed. | Repeat the call. |
+| `E_TIMEOUT` | The transfer was interrupted; the new directory was removed. | Repeat the call. |
 
 ## Related
 

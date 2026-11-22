@@ -63,12 +63,12 @@ cancels it, and neither is undone; a `redo` of such an undo is undone.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `int` | the latest operation | Operation to undo; with `paths`, the operation whose items are undone. |
+| `id` | `int` | the latest operation | Operation to undo. |
 | `to` | `int` | none | Undo every operation newer than this one, latest first, in one transaction. |
 | `file` | `path` | none | Undo every change of this file since the given point. |
-| `since` | `int \| instant` | none | Operation number, or time, from which changes of `file` are undone; without it every available change of the file is undone. |
+| `since` | `int \| instant` | none | Operation or time from which changes of file are undone. |
 | `paths` | `list<path>` | none | Undo only the changes of these paths within the operation. |
-| `all_sessions` | `bool` | `false` | Include operations of other sessions; only with `to`. |
+| `all_sessions` | `bool` | `false` | Include operations of other sessions; only with to. |
 | `on_conflict` | `enum(report\|force\|include_later\|partial\|abort)` | `report` | Behaviour when later changes touch the same files. |
 
 ## Input and output

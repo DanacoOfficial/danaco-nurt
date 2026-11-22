@@ -56,10 +56,10 @@ An empty directory produces no records.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Directory to list; position 1. |
-| `depth` | `int` | `1` | Number of directory levels to list; at least 1. |
-| `type` | `enum(file\|directory\|link\|any)` | `any` | Kind of entries to list. `link` selects links themselves. |
-| `hidden` | `bool` | `true` | Include hidden entries: names starting with `.` and, on Windows, entries with the hidden attribute. |
+| `path` | `path` | required | Directory to list. |
+| `depth` | `int` | `1` | Number of directory levels to list. |
+| `type` | `enum(file\|directory\|link\|any)` | `any` | Kind of entries to list. |
+| `hidden` | `bool` | `true` | Include hidden entries. |
 | `sort` | `enum(name\|modified\|size\|type)` | `name` | Sort key of the entries. |
 | `order` | `enum(asc\|desc)` | `asc` | Sort order. |
 | `view` | `enum(flat\|tree\|sizes)` | `flat` | Flat list, tree, or tree with directory size totals. |

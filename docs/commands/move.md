@@ -59,8 +59,8 @@ reports `nothing_matched`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `from` | `list<path>` | required | Files and directories to move. |
-| `to` | `path` | one of `destination` | Target path; an existing directory receives the entry. Evaluated per record. |
+| `from` | `list<path>` | required | Files and directories to move in the source form. |
+| `to` | `path` | one of `destination` | Target path; an existing directory receives the entry. |
 | `into` | `path` | one of `destination` | Target directory, created when missing. |
 | `on_conflict` | `enum(overwrite\|skip\|error)` | `overwrite` | Behaviour when the target file exists. |
 

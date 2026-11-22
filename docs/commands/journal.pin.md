@@ -42,7 +42,7 @@ Entries that do not exist, expired or were undone are listed in
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `list<int>` | none | Entries to pin or release; positional and repeatable. |
+| `id` | `list<int>` | none | Entries to pin or release. |
 | `release` | `bool` | `false` | Release the pin instead of setting it. |
 | `until` | `duration` | the configured maximum pin age | Duration of the pin. |
 

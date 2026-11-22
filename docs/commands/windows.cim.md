@@ -58,10 +58,10 @@ The rest of the pipeline may limit the number of records, for example with
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `class` | `text` | required | CIM class name, for example `Win32_Process`. |
+| `class` | `text` | required | CIM class name, for example Win32_Process. |
 | `where` | `text` | none | WQL condition on instance properties. |
 | `namespace` | `text` | `"root/cimv2"` | CIM namespace. |
-| `properties` | `list<text>` | none | Properties to return. |
+| `properties` | `list<text>` | none | Properties to return; all when omitted. |
 
 ## Input and output
 

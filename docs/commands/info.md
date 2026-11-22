@@ -68,9 +68,9 @@ without a grammar has no `symbols` group.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | required | Paths to describe; a missing path gives `exists: false`. Relative paths are resolved against the base directory. |
-| `hash` | `enum(none\|sha256\|sha512\|sha1\|md5\|blake3\|crc32)` | `none` | Hash algorithm of the content. The `hash` field holds the algorithm name, `:` and lower-case hexadecimal digits. Directories get no hash. |
-| `details` | `list<enum(text\|exif\|pdf\|media\|git\|symbols)>` | `[]` | Additional groups of metadata, in the `details` field by group name. |
+| `path` | `list<path>` | required | Paths to describe; a missing path gives exists: false. |
+| `hash` | `enum(none\|sha256\|sha512\|sha1\|md5\|blake3\|crc32)` | `none` | Hash algorithm of the content. |
+| `details` | `list<enum(text\|exif\|pdf\|media\|git\|symbols)>` | `[]` | Additional groups of metadata. |
 | `known` | `map<text>` | none | Map from path to etag; unchanged paths are reported without details. |
 
 ## Input and output

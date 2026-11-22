@@ -47,12 +47,12 @@ must exist.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `url` | `text` | required | Address of the file; `https://` is assumed when the scheme is missing. Position 1. |
-| `to` | `path` | required | File to write. Position 2. |
-| `resume` | `bool` | `true` | Continue a partial download of the same address; `false` starts from the first byte. |
-| `hash` | `text` | none | Expected digest `<algorithm>:<hex>` with the algorithm `sha256`, `sha512` or `blake3`; case is ignored. |
-| `headers` | `map<text>` | none | Request headers. `Range` and `If-Range` are set by the command and cannot be given. Values are secret and do not appear in reports. |
-| `timeout` | `duration` | `300s` | Time limit of the download, including name resolution, connection, redirects and the transfer of the body. |
+| `url` | `text` | required | Address of the file. |
+| `to` | `path` | required | File to write. |
+| `resume` | `bool` | `true` | Continue a partial download. |
+| `hash` | `text` | none | Expected digest of the file, for example sha256:<hex>; a mismatch keeps the target unchanged. |
+| `headers` | `map<text>` | none | Request headers. |
+| `timeout` | `duration` | `300s` | Time limit of the download. |
 
 ## Input and output
 
@@ -102,7 +102,7 @@ http.download "https://example.org/images/disk.img" "/srv/images/disk.img" resum
 Download a build artifact with an additional request header:
 
 ```nurt example
-http.download "https://artifacts.example.org/builds/42/app.zip" "/home/user/app.zip" headers: {Accept: "application/zip"}
+http.download "https://artifacts.example.org/builds/42/app.zip" "/home/user/app.zip" headers: {accept: "application/zip"}
 ```
 
 Show the download object, which tells whether an earlier partial download
@@ -123,7 +123,9 @@ http.download "https://example.org/data.csv" "/home/user/data.csv" |> select aft
 | `E_HASH_MISMATCH` | The digest of the content differs from `hash`. | Check the expected digest and the address. |
 | `E_TIMEOUT` | The download did not finish within `timeout`. | Increase `timeout`; the next run resumes the partial download. |
 | `E_CANCELLED` | The execution was cancelled. | Run the command again to resume. |
-| `E_PERMISSION`, `E_NO_SPACE`, `E_IO` | The partial file or the target cannot be written. | Check the permissions and the free space of the volume. |
+| `E_PERMISSION` | The partial file or the target cannot be written. | Check the permissions and the free space of the volume. |
+| `E_NO_SPACE` | The partial file or the target cannot be written. | Check the permissions and the free space of the volume. |
+| `E_IO` | The partial file or the target cannot be written. | Check the permissions and the free space of the volume. |
 | `E_STALE` | The target was created by another process during the download. | Run the command again. |
 
 ## Related

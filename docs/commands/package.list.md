@@ -40,7 +40,7 @@ When several managers are found and `manager` is `auto`, each package record nam
 |---|---|---|---|
 | `name` | `text` | none | Only packages whose name contains this text. |
 | `outdated` | `bool` | `false` | Only packages with a newer version available. |
-| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager. `auto` selects the managers found on the system. |
+| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager; auto selects the manager of the system. |
 
 ## Input and output
 

@@ -63,8 +63,8 @@ reports `nothing_matched`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `from` | `list<path>` | required | Files and directories to copy. |
-| `to` | `path` | one of `destination` | Target path; an existing directory receives the copy. Evaluated per record. |
+| `from` | `list<path>` | required | Files and directories to copy in the source form. |
+| `to` | `path` | one of `destination` | Target path; an existing directory receives the copy. |
 | `into` | `path` | one of `destination` | Target directory, created when missing. |
 | `on_conflict` | `enum(overwrite\|skip\|error)` | `overwrite` | Behaviour when the target file exists. |
 | `preserve` | `bool` | `true` | Keep times, permissions and attributes. |

@@ -39,10 +39,10 @@ and no results, and starts nothing.
 |---|---|---|---|
 | `run_id` | `text` | the latest run | Earlier test run. |
 | `path` | `path` | none | Project directory of the earlier run. |
-| `timeout` | `duration` | `30m` | Time limit of the run. |
-| `wait` | `duration` | `3s` | Time to wait before the run continues as a job. |
-| `failures` | `int` | `10` | Failed tests reported in detail. |
-| `message_lines` | `int` | `5` | Message lines per failed test. |
+| `timeout` | `duration` | `30m` | Time limit of the test run. |
+| `wait` | `duration` | `3s` | Time to wait before the run continues in the background as a job. |
+| `failures` | `int` | `10` | Maximum number of failed tests reported in detail. |
+| `message_lines` | `int` | `5` | Maximum number of message lines per failed test. |
 
 ## Input and output
 

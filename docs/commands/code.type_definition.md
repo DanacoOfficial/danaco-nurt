@@ -31,10 +31,10 @@ command. `source: syntax` fails with `E_EXTERNAL_MISSING` as well.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
-| `line` | `int` | none | Line of the symbol, counted from 1; required unless `symbol` is given. |
+| `line` | `int` | none | Line of the symbol, counted from 1. |
 | `column` | `int` | none | Column of the symbol, counted from 1. |
-| `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
-| `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
+| `symbol` | `text` | none | Symbol name, optionally qualified as Container.name, instead of a position. |
+| `language` | `text` | `"auto"` | Programming language; auto detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
 
 ## Input and output
@@ -73,7 +73,7 @@ code.type_definition "/srv/app/src/model.py" symbol: "Order.customer"
 Show the file and line of the type.
 
 ```nurt example
-code.type_definition "/srv/app/src/main.ts" line: 22 column: 9 |> select name, path, line
+code.type_definition "/srv/app/src/main.ts" line: 22 column: 9 |> select name path line
 ```
 
 ## Errors

@@ -35,10 +35,10 @@ under another name.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | Source file. |
-| `line` | `int` | none | Line of the symbol, counted from 1; required unless `symbol` is given. |
+| `line` | `int` | none | Line of the symbol, counted from 1. |
 | `column` | `int` | none | Column of the symbol, counted from 1. |
-| `symbol` | `text` | none | Symbol name, optionally qualified as `Container.name`, instead of a position. |
-| `language` | `text` | `"auto"` | Programming language; `auto` detects it from the file extension. |
+| `symbol` | `text` | none | Symbol name, optionally qualified as Container.name, instead of a position. |
+| `language` | `text` | `"auto"` | Programming language; auto detects it from the file extension. |
 | `root` | `path` | detected from the location of the file | Project root for the language server. |
 
 ## Input and output
@@ -76,7 +76,7 @@ code.implementations "/srv/app/src/store.rs" line: 18 column: 8
 List the derived classes with their files.
 
 ```nurt example
-code.implementations "/srv/app/src/shapes.py" symbol: "Shape" |> select name, path, line
+code.implementations "/srv/app/src/shapes.py" symbol: "Shape" |> select name path line
 ```
 
 ## Errors

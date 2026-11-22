@@ -44,8 +44,8 @@ manager of the current account on the session bus.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text \| regex` | none | Service name, or a pattern the name matches. |
-| `state` | `text` | none | Only services in this state, raw state or part of the raw state. |
+| `name` | `text \| regex` | none | Service name or pattern. |
+| `state` | `text` | none | Only services in this state. |
 | `scope` | `enum(system\|user)` | `system` | System services or services of the current account. |
 
 ## Input and output

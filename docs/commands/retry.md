@@ -89,7 +89,8 @@ jobs state: failed |> retry wait: 0s
 |---|---|---|
 | `E_JOB_STATE` | The job still runs. | Stop it first: `jobs "j7" \|> stop`. |
 | `E_UNKNOWN_JOB` | No job has the identifier. | Use one of the identifiers in `candidates`. |
-| `E_PROGRAM_NOT_FOUND`, `E_SPAWN` | The program cannot be started again. | Check the program and the working directory. |
+| `E_PROGRAM_NOT_FOUND` | The program cannot be started again. | Check the program and the working directory. |
+| `E_SPAWN` | The program cannot be started again. | Check the program and the working directory. |
 
 ## Related
 

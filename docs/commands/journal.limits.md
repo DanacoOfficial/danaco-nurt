@@ -69,9 +69,9 @@ and a call without `steps`, `age` and `size` only reports.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `steps` | `int \| enum(unlimited)` | none | Maximum number of entries kept, `1` to `100000`. |
-| `age` | `duration \| enum(unlimited)` | none | Maximum age of entries kept, `10s` to `365d`. |
-| `size` | `size \| percent \| enum(unlimited)` | none | Maximum journal size as a size such as `20gib` (at least `1mib`, at most the capacity), a share of the volume such as `"10%"` (`1%` to `90%`) or a share of free space such as `"50%free"` (`1%free` to `100%free`). Shares are clamped to `journal.max_size_min` and `journal.max_size_max`. |
+| `steps` | `int \| enum(unlimited)` | none | Maximum number of entries kept. |
+| `age` | `duration \| enum(unlimited)` | none | Maximum age of entries kept. |
+| `size` | `size \| percent \| enum(unlimited)` | none | Maximum journal size as a size such as 20gib, a share of the volume such as "10%" or a share of free space such as "50%free". |
 | `scope` | `enum(session\|user)` | `session` | Change the limits for this session or persistently for the account. |
 | `volume` | `path` | none | Only the journal of the volume that contains this path. |
 

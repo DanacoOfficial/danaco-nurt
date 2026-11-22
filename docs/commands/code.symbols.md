@@ -61,18 +61,18 @@ share the words `get`, `user`, `by`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text \| regex \| list<text>` | none | Symbol name, pattern or names; a list matches any of them. |
+| `name` | `text \| regex \| list<text>` | none | Symbol name, pattern or names; all symbols when omitted. |
 | `path` | `list<path>` | none | Files or directories to search. |
-| `glob` | `glob` | `"**"` | Only files whose path relative to the searched directory matches. |
-| `kind` | `enum(function\|method\|class\|struct\|interface\|enum\|variable\|constant\|field\|module\|type\|macro\|any)` | `any` | `function`, `method`, `class`, `struct`, `interface`, `enum`, `variable`, `constant`, `field`, `module`, `type`, `macro` or `any`. |
-| `match` | `enum(exact\|prefix\|substring\|fuzzy\|regex)` | `fuzzy` | `exact`, `prefix`, `substring`, `fuzzy` or `regex`. |
-| `language` | `text` | `"auto"` | Language identifier or alias (`py`, `ts`, `c#`); `auto` detects it per file. |
-| `source` | `enum(auto\|lsp\|syntax)` | `auto` | `lsp`, `syntax`, or `auto` for the server when available. |
-| `with_signature` | `bool` | `false` | Fill `signature`. |
-| `with_references` | `bool` | `false` | Fill `references`. |
+| `glob` | `glob` | `"**"` | Only files whose path matches this pattern. |
+| `kind` | `enum(function\|method\|class\|struct\|interface\|enum\|variable\|constant\|field\|module\|type\|macro\|any)` | `any` | Kind of symbol. |
+| `match` | `enum(exact\|prefix\|substring\|fuzzy\|regex)` | `fuzzy` | How the name is matched. |
+| `language` | `text` | `"auto"` | Programming language; auto detects it from file extensions. |
+| `source` | `enum(auto\|lsp\|syntax)` | `auto` | Language server, syntax analysis, or the server when available. |
+| `with_signature` | `bool` | `false` | Include the signature of each symbol. |
+| `with_references` | `bool` | `false` | Include the number of references to each symbol. |
 | `exported_only` | `bool` | `false` | Only symbols visible outside their module. |
 | `exclude` | `list<glob>` | `[]` | Paths to skip, in gitignore syntax. |
-| `exclude_preset` | `list<enum(vcs\|deps\|build\|cache\|tests)>` | `[]` | `vcs`, `deps`, `build`, `cache`, `tests` (test files by the conventions of each language). |
+| `exclude_preset` | `list<enum(vcs\|deps\|build\|cache\|tests)>` | `[]` | Predefined groups of paths to skip, such as dependencies or test files. |
 
 ## Input and output
 

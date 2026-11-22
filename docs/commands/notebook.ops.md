@@ -47,7 +47,7 @@ a list with the `change`, `index` and `id` of every inserted or copied cell.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Notebook file; position 1. |
+| `path` | `path` | required | Notebook file. |
 | `changes` | `list<map<any>>` | required | Operations applied together; all succeed or none. |
 
 ## Input and output

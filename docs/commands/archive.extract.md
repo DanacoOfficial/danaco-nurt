@@ -66,13 +66,13 @@ declares more fails before anything is written.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `path` | required | Archive file; position 1. |
+| `path` | `path` | required | Archive file. |
 | `into` | `path` | required | Directory to extract into; created when missing. |
-| `only` | `glob` | none | Only members whose path matches this pattern. |
-| `strip_components` | `int` | `0` | Number of leading path components removed from member paths. |
+| `only` | `glob` | none | Only entries whose path matches this pattern. |
+| `strip_components` | `int` | `0` | Number of leading path components removed from entry paths. |
 | `on_conflict` | `enum(overwrite\|skip\|error)` | `overwrite` | Behaviour when a target file already exists. |
 | `preserve_permissions` | `bool` | `true` | Apply the permissions stored in the archive. |
-| `allow_outside` | `bool` | `false` | Extract members whose resolved path lies outside `into`. |
+| `allow_outside` | `bool` | `false` | Extract entries whose resolved path lies outside the target directory. |
 
 ## Input and output
 

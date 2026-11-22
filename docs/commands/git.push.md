@@ -74,14 +74,14 @@ transports start programs and are not supported.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `repo` | `path` | required | Repository or a path inside it. |
-| `branch` | `text` | required | Refspec as described above. |
-| `remote` | `text` | `"origin"` | Configured remote, URL or path. `remote.<name>.pushurl` takes precedence over `remote.<name>.url`. |
-| `force` | `bool \| enum(no\|lease\|yes)` | `false` | `true` and `lease` overwrite only while the remote reference has the value of its remote-tracking reference; `yes` overwrites unconditionally. |
-| `force_with_lease` | `text` | none | Revision the remote reference must still have; implies a lease. |
-| `tags` | `bool` | `false` | Also push every local tag. |
-| `set_upstream` | `bool` | `false` | Record the pushed branch as the upstream of the local branch. |
-| `delete` | `bool` | `false` | Delete the remote reference named by `branch`. |
+| `repo` | `path` | required | Repository or path inside it. |
+| `branch` | `text` | required | Branch to push. |
+| `remote` | `text` | `"origin"` | Remote to push to. |
+| `force` | `bool \| enum(no\|lease\|yes)` | `false` | Overwrite a remote branch that is not an ancestor: lease or true only while it is unchanged since the last fetch, yes always. |
+| `force_with_lease` | `text` | none | Overwrite the remote branch only while it still points to this revision. |
+| `tags` | `bool` | `false` | Also push tags. |
+| `set_upstream` | `bool` | `false` | Set the pushed branch as the upstream of the local branch. |
+| `delete` | `bool` | `false` | Delete the branch on the remote. |
 | `accept_host_key` | `text` | none | SHA-256 fingerprint (SHA256:<base64>) of the SSH host key to accept when the host is not known. |
 
 ## Input and output

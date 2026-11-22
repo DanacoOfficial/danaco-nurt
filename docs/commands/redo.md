@@ -41,7 +41,7 @@ like any other operation.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `int` | the latest undone operation | Undone operation to apply again: the number of the undo operation. |
+| `id` | `int` | the latest undone operation | Undone operation to apply again. |
 
 ## Input and output
 

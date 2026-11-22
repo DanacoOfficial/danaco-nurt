@@ -40,7 +40,7 @@ The command reads the schedule store and changes nothing.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `id` | `text` | none | Schedule to show, for example `s3`. |
+| `id` | `text` | none | Schedule to show with its last five runs. |
 | `state` | `enum(all\|active\|paused\|completed\|expired)` | `all` | Only schedules in this state. |
 
 ## Input and output
@@ -81,7 +81,7 @@ schedule.list "s3"
 List the labels and next run times of active schedules that do not run:
 
 ```nurt example
-schedule.list state: active |> filter not active |> select label, next_run, reason
+schedule.list state: active |> filter not active |> select label next_run reason
 ```
 
 ## Errors

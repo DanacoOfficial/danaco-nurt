@@ -31,7 +31,7 @@ A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and t
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `names` | `list<text>` | required | Packages to remove. |
-| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager. `auto` selects the managers found on the system. |
+| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager; auto selects the manager of the system. |
 
 ## Input and output
 
@@ -61,7 +61,7 @@ package.remove "nano"
 Remove several packages with Homebrew.
 
 ```nurt example
-package.remove "wget", "tree" manager: brew
+package.remove "wget" "tree" manager: brew
 ```
 
 Remove two packages in one call.

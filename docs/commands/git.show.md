@@ -50,14 +50,14 @@ rename, is one hunk without lines. A binary change is one hunk with
 |---|---|---|---|
 | `repo` | `path` | required | Repository or path inside it. |
 | `revision` | `text` | required | Revision to show. |
-| `revs` | `list<text>` | none | Further revisions shown after `revision`. |
-| `file` | `path` | none | Return the content of this file at the revision instead of the changes. |
+| `revs` | `list<text>` | none | Further revisions to show. |
+| `file` | `path` | none | Return the content of this file at the revision. |
 | `paths` | `list<path>` | none | Only changes in these files or directories. |
-| `offset` | `int` | none | First line of the content returned with `file`, counted from 1. |
-| `limit` | `int` | none | Largest number of lines of the content returned with `file`. |
-| `stat` | `bool` | `false` | Only changed files with added and removed lines, in the `commit` record; a merge is compared with its first parent. |
-| `context` | `int` | `3` | Unchanged lines around each change. |
-| `exclude` | `list<glob>` | `[]` | Paths to leave out; a pattern without `/` matches the file name in any directory. |
+| `offset` | `int` | none | First line of the file content returned, counted from 1. |
+| `limit` | `int` | none | Maximum number of lines of the file content returned. |
+| `stat` | `bool` | `false` | Only changed files with added and removed lines. |
+| `context` | `int` | `3` | Lines of context around each change. |
+| `exclude` | `list<glob>` | `[]` | Paths to leave out; the report counts the excluded files. |
 
 ## Input and output
 

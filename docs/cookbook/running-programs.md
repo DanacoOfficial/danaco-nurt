@@ -40,7 +40,7 @@ exit_code
 Run a program with an additional environment variable.
 
 ```nurt example
-run ["npm", "test"] cwd: "/home/user/app" env: {CI: "1"}
+run ["npm", "test"] cwd: "/home/user/app" env: {"CI": "1"}
 ```
 
 ```text expected
@@ -240,7 +240,7 @@ make 2>&1 | grep -E -C 2 'warning|error'
 Run a program without the environment of the session and with one variable.
 
 ```nurt example
-run ["env"] inherit_env: none env: {LANG: "C"}
+run ["env"] inherit_env: none env: {"LANG": "C"}
 ```
 
 ```text expected

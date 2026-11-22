@@ -91,8 +91,8 @@ reader does; the database file itself is not changed.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | `path` | required | SQLite database file. |
-| `query` | `text` | required | SQL statements, separated by `;`. |
-| `params` | `list<any> \| map<any>` | `[]` | Values bound to the placeholders of the statements: a list in statement order, or a map from placeholder names to values. |
+| `query` | `text` | required | SQL statements. |
+| `params` | `list<any> \| map<any>` | `[]` | Values bound to the placeholders of the statements: a list for positional placeholders, a map from names to values for named placeholders. |
 | `write` | `bool` | `false` | Allow statements that change the database. |
 
 ## Input and output
@@ -195,7 +195,8 @@ sql "/home/user/app.db" "select ?2 - ?1 as span, upper(?3) as label" params: [5,
 | `E_PERMISSION` | the file or its directory cannot be read or written | check the permissions |
 | `E_NO_SPACE` | the volume is full during the change | free space and run the call again |
 | `E_LIMIT` | the statements of a change return more rows than one execution may hold | return fewer rows from `RETURNING` or `SELECT` |
-| `E_CANCELLED`, `E_TIMEOUT` | the execution was cancelled or its time limit passed; a change is rolled back | run the call again |
+| `E_CANCELLED` | the execution was cancelled or its time limit passed; a change is rolled back | run the call again |
+| `E_TIMEOUT` | the execution was cancelled or its time limit passed; a change is rolled back | run the call again |
 
 ## Related
 

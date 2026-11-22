@@ -28,8 +28,8 @@ A name that resolves gives `found: true`, the first matching file in `path` and 
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `list<text>` | required | Program names, without a directory. |
-| `versions` | `bool` | `false` | Read the version of each located program from the package that installed it. |
+| `name` | `list<text>` | required | Program names. |
+| `versions` | `bool` | `false` | Read the version of each located program. |
 
 ## Input and output
 
@@ -72,7 +72,7 @@ program.find "ffmpeg" "gs" "magick" |> filter found == false |> select name
 Show the installed version of each program with its source.
 
 ```nurt example
-program.find "python3" "node" versions: true |> select name, version, version_source
+program.find "python3" "node" versions: true |> select name version version_source
 ```
 
 ## Errors

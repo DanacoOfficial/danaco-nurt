@@ -62,7 +62,7 @@ test.list |> filter status == "failed"
 Show the identifier and the fingerprint of the latest run.
 
 ```nurt example
-test.list limit: 1 |> select id, fingerprint
+test.list limit: 1 |> select id fingerprint
 ```
 
 ## Errors

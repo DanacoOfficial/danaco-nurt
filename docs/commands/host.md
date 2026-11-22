@@ -60,8 +60,8 @@ program is started.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `programs` | `list<text>` | `[]` | Program names to locate in `PATH`. |
-| `versions` | `bool` | `false` | Read the version of each located program from its file metadata. |
+| `programs` | `list<text>` | `[]` | Program names to locate in PATH. |
+| `versions` | `bool` | `false` | Run each located program with --version to read its version. |
 
 ## Input and output
 

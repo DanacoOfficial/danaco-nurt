@@ -65,23 +65,23 @@ checked, and without the documents and code groups nothing is checked.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `mode` | `enum(create\|overwrite\|append\|prepend)` | required | Write mode; there is no default. |
-| `path` | `path` | one of `target` | File to write; excludes `files`. |
+| `path` | `path` | one of `target` | File to write. |
 | `text` | `text` | none | Text to write. |
 | `from` | `pipeline \| stream<any> \| path` | none | Pipeline, named result or file whose content is written. |
-| `encoding` | `text` | `"auto"` | Text encoding; `auto` keeps the encoding of an existing file and writes UTF-8 to a new one. |
-| `line_ending` | `enum(lf\|crlf\|cr\|keep)` | `keep` | Line endings of the written text; `keep` follows the file. |
+| `encoding` | `text` | `"auto"` | Text encoding; auto keeps the encoding of an existing file. |
+| `line_ending` | `enum(lf\|crlf\|cr\|keep)` | `keep` | Line endings of the written text. |
 | `bom` | `bool` | as in the existing file | Write a byte order mark. |
 | `parents` | `bool` | `true` | Create missing parent directories. |
 | `ensure_newline` | `bool` | `false` | End the file with a line ending. |
-| `format` | `enum(auto\|json\|yaml\|toml\|csv\|tsv\|text)` | `auto` | Serialization of written records; `auto` follows the file extension. |
-| `files` | `list<map<any>>` | one of `target` | Batch of files written in one transaction, each with `path`, `text` and an optional `mode`. |
-| `value_type` | `enum(string\|dword\|qword\|multi_string\|expand_string\|binary)` | none | Type of a registry value; only for `registry:/` paths. |
-| `file_mode` | `text` | none | Permissions of a new file, such as `"0644"`; an existing file keeps its permissions. |
-| `size` | `size` | none | Truncate or extend the file to this size; the new bytes are zero. |
+| `format` | `enum(auto\|json\|yaml\|toml\|csv\|tsv\|text)` | `auto` | Serialization of written records; auto follows the file extension. |
+| `files` | `list<map<any>>` | one of `target` | Batch of files written in one transaction, each with path, text and optional mode. |
+| `value_type` | `enum(string\|dword\|qword\|multi_string\|expand_string\|binary)` | none | Type of a registry value; only for registry: paths. |
+| `file_mode` | `text` | none | Permissions of a new file, such as "0644". |
+| `size` | `size` | none | Truncate or extend the file to this size. |
 | `data` | `bytes` | none | Bytes to write. |
-| `offset` | `int` | none | Byte offset at which `data` is written in place; needs `mode: overwrite` or `create`. |
-| `validate` | `enum(off\|warn\|reject)` | `reject` | Check written text of a known format: `reject` rolls back a write that adds a syntax error, `warn` reports it, `off` skips the check. |
-| `if_match` | `text \| map<text>` | none | Expected etag of the file, or a map from path to etag for `files`. |
+| `offset` | `int` | none | Byte offset at which data is written. |
+| `validate` | `enum(off\|warn\|reject)` | `reject` | Roll back a write that adds a new syntax error to a known format. |
+| `if_match` | `text \| map<text>` | none | Expected etag of the file, or a map from path to etag for files. |
 
 ## Input and output
 

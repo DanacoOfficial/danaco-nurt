@@ -83,18 +83,18 @@ not completed or expired, paused ones included, is limited by
 |---|---|---|---|
 | `label` | `text` | required | Name of the schedule. |
 | `action` | `pipeline` | required | Pipeline to run. |
-| `cron` | `text` | one of `trigger` | Five-field cron expression or a shortcut such as `@daily`; at most 200 characters. Exactly one of `cron`, `every` and `at`. |
-| `every` | `duration` | one of `trigger` | Interval between runs, from `schedule.min_interval` to `schedule.max_interval`. |
-| `at` | `instant` | one of `trigger` | Single run at this time; must lie in the future. |
-| `timezone` | `text` | `"local"` | IANA time zone of the cron expression and of the times shown, for example `"Europe/Warsaw"` or `"UTC"`. An unknown name is rejected with similar names as candidates. |
-| `on_missed` | `enum(skip\|run_once)` | `skip` | Behaviour for run times missed by more than `misfire`, for example while the service or the device was not running. |
-| `misfire` | `duration` | `2m` | Largest delay after which a run time still runs. The default comes from `schedule.misfire`. |
-| `overlap` | `enum(skip\|queue\|parallel)` | `skip` | Behaviour when a run time is reached while the previous run is still running. |
-| `timeout` | `duration` | `1h` | Time limit of each run, at most `schedule.max_timeout` (default `24h`). The default comes from `schedule.default_timeout`. |
-| `max_runs` | `int` | none | Number of runs started by run times after which the schedule is `completed`; at least 1. Manual runs do not count. |
-| `expires` | `instant \| duration` | none | Time, or time from now, after which the schedule is `expired`. |
-| `run_now` | `bool` | `false` | Also run once immediately when the service runs. |
-| `enabled` | `bool` | `true` | Create the schedule active; `false` creates it paused. |
+| `cron` | `text` | one of `trigger` | Five-field cron expression or a shortcut such as @daily. |
+| `every` | `duration` | one of `trigger` | Interval between runs; at least the configured minimum. |
+| `at` | `instant` | one of `trigger` | Single run at this time. |
+| `timezone` | `text` | `"local"` | Time zone of the cron expression and times. |
+| `on_missed` | `enum(skip\|run_once)` | `skip` | Behaviour for runs missed while the service was not running. |
+| `misfire` | `duration` | `2m` | Maximum delay after which a missed run is not made up. |
+| `overlap` | `enum(skip\|queue\|parallel)` | `skip` | Behaviour when a run is due while the previous one is still running. |
+| `timeout` | `duration` | `1h` | Time limit of each run. |
+| `max_runs` | `int` | none | Number of runs after which the schedule completes. |
+| `expires` | `instant \| duration` | none | Time, or time from now, after which the schedule expires. |
+| `run_now` | `bool` | `false` | Also run once immediately. |
+| `enabled` | `bool` | `true` | Create the schedule active rather than paused. |
 
 ## Input and output
 

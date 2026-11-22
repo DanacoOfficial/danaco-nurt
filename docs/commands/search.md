@@ -96,33 +96,33 @@ the order of the result does not depend on the number of threads.
 |---|---|---|---|
 | `pattern` | `text \| regex \| list<text \| regex>` | required | Pattern; with a list, counts are given per pattern. |
 | `path` | `list<path>` | required | Files or directories to search in the source form. |
-| `glob` | `glob \| list<glob>` | `"**"` | Name patterns of the files to search, relative to each directory searched. |
-| `mode` | `enum(auto\|literal\|regex\|syntax)` | `auto` | Pattern mode; `auto` treats text as literal and `/…/` as a regular expression. |
+| `glob` | `glob \| list<glob>` | `"**"` | Name patterns of the files to search. |
+| `mode` | `enum(auto\|literal\|regex\|syntax)` | `auto` | Pattern mode; auto treats text as literal and /…/ as a regular expression. |
 | `case_sensitive` | `bool` | `true` | Match with case sensitivity. |
-| `whole_word` | `bool` | `false` | Match whole words only; word characters follow Unicode. |
+| `whole_word` | `bool` | `false` | Match whole words only. |
 | `multiline` | `bool` | `false` | Allow matches across lines. |
 | `invert` | `bool` | `false` | Produce the lines that do not match. |
-| `only_matching` | `bool` | `false` | Give only the matched text instead of the whole line, one record per match. |
+| `only_matching` | `bool` | `false` | Give only the matched text instead of the whole line. |
 | `trim` | `bool` | `false` | Trim leading and trailing whitespace of lines. |
-| `dedupe` | `bool` | `false` | Drop repeated identical lines within a file. |
+| `dedupe` | `bool` | `false` | Drop repeated identical lines. |
 | `scope` | `enum(any\|code\|comments\|strings)` | `any` | Part of source code in which matches count. |
-| `enclosing` | `bool` | `false` | Add the enclosing code element of each match as `container`. |
-| `max_line` | `int` | `500` | Maximum length of a reported line in characters; `0` keeps lines whole. |
+| `enclosing` | `bool` | `false` | Add the enclosing code element of each match. |
+| `max_line` | `int` | `500` | Maximum length of a reported line in characters. |
 | `exclude` | `list<glob>` | `[]` | Patterns to exclude, in gitignore syntax. |
 | `exclude_preset` | `list<enum(vcs\|deps\|build\|cache)>` | `[]` | Predefined exclusions: version control, dependencies, build output, caches. |
 | `context` | `int` | `0` | Lines of context before and after each match. |
 | `before` | `int` | none | Lines of context before each match. |
 | `after` | `int` | none | Lines of context after each match. |
 | `output` | `enum(matches\|files\|counts\|unmatched)` | `matches` | Matches, matching files, counts per file, or files without matches. |
-| `max_per_file` | `int` | none | Maximum number of matching lines per file, or of matches with `only_matching`; `0` is no limit. |
+| `max_per_file` | `int` | none | Maximum number of matches per file. |
 | `binary` | `enum(skip\|text)` | `skip` | Skip binary files or search them as text. |
-| `whitespace` | `enum(exact\|trailing\|indent\|normalize)` | `exact` | Tolerance of whitespace differences for literal patterns: at line ends, at line starts, or in every run of spaces and tabs. |
+| `whitespace` | `enum(exact\|trailing\|indent\|normalize)` | `exact` | Tolerance of whitespace differences for literal patterns. |
 | `hidden` | `bool` | `true` | Include hidden files. |
-| `gitignore` | `bool` | `false` | Apply the rules of `.gitignore` files. |
-| `language` | `text` | none | Programming language of syntax patterns and of `scope` and `enclosing`. |
-| `file_type` | `list<text>` | `[]` | File types, such as `rust`, `py`, `ts`, `md`, `make` or `docker`, with the names of `rg --type-list`; applies in every output mode. |
-| `exclude_file_type` | `list<text>` | `[]` | File types to leave out. |
-| `sort` | `enum(path\|modified\|count\|rank)` | `path` | Sort key of the results; `rank` orders by relevance. |
+| `gitignore` | `bool` | `false` | Apply the rules of .gitignore files. |
+| `language` | `text` | none | Programming language of syntax patterns. |
+| `file_type` | `list<text>` | `[]` | File types by extension, such as go or ts; applies in every output mode. |
+| `exclude_file_type` | `list<text>` | `[]` | File types by extension to leave out. |
+| `sort` | `enum(path\|modified\|count\|rank)` | `path` | Sort key of the results; rank orders by relevance. |
 | `adaptive` | `bool` | `false` | Fit the result to the limit: full matches for files with most matches, counts for the rest. |
 
 ## Input and output
@@ -208,7 +208,8 @@ search /\brun\b|\bmain\b/ "." output: files sort: count
 | `E_UNSUPPORTED` | `scope` or `mode: syntax` is used without the code command group. | Load the code group, or search with `scope: any` and a text pattern. |
 | `E_PATH_RELATIVE` | A relative path is given without a base directory. | Give an absolute path or set the `base` option. |
 | `E_NOT_FOUND` | A file or directory of `path` does not exist. | Check the path. |
-| `E_PERMISSION`, `E_IO` | A root cannot be read. | Check the access rights of the path. |
+| `E_PERMISSION` | A root cannot be read. | Check the access rights of the path. |
+| `E_IO` | A root cannot be read. | Check the access rights of the path. |
 
 ## Related
 

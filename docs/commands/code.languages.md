@@ -64,7 +64,7 @@ code.languages |> filter server_found
 Show the running servers with their roots.
 
 ```nurt example
-code.languages |> filter server_running |> select language, server, server_pid, server_root
+code.languages |> filter server_running |> select language server server_pid server_root
 ```
 
 ## Errors

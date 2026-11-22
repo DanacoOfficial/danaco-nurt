@@ -33,7 +33,7 @@ and no file is written for them.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `id` | `list<text>` | none | Schedules to pause. |
-| `all` | `bool` | `false` | Pause all schedules. Excludes `id`. |
+| `all` | `bool` | `false` | Pause all schedules. |
 
 ## Input and output
 

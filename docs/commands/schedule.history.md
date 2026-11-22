@@ -40,7 +40,7 @@ Manual runs made without the service are not recorded.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `id` | `text` | none | Only runs of this schedule. |
-| `limit` | `int` | `20` | Maximum number of runs, newest first; at least 1. |
+| `limit` | `int` | `20` | Maximum number of runs, newest first. |
 
 ## Input and output
 
@@ -74,7 +74,7 @@ schedule.history "s1" limit: 5
 List the runs that did not succeed:
 
 ```nurt example
-schedule.history limit: 100 |> filter exit_state != "ok" |> select schedule_id, started, message
+schedule.history limit: 100 |> filter exit_state != "ok" |> select schedule_id started message
 ```
 
 ## Errors

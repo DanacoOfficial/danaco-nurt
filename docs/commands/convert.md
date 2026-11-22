@@ -46,10 +46,10 @@ converted once.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | `list<path>` | none | Files to convert in the source form; position 1, repeated. Not allowed in the stage form. |
-| `encoding` | `text` | none | Target encoding: `utf-8`, `utf-16le`, `utf-16be`, `windows-1250`, `iso-8859-2`, `windows-1252` or `ibm852`, or an alias such as `cp1250`, `latin2` or `cp852`. `auto` and no value keep the encoding of each file. |
-| `line_ending` | `enum(lf\|crlf\|cr\|keep)` | `keep` | Target line ending, or `keep` to leave line endings unchanged. |
-| `bom` | `bool` | none | Add (`true`) or remove (`false`) the byte order mark. |
+| `path` | `list<path>` | none | Files to convert in the source form. |
+| `encoding` | `text` | none | Target encoding, such as utf-8 or windows-1250. |
+| `line_ending` | `enum(lf\|crlf\|cr\|keep)` | `keep` | Target line ending, or keep to leave line endings unchanged. |
+| `bom` | `bool` | none | Add or remove the byte order mark. |
 
 ## Input and output
 
@@ -153,7 +153,9 @@ error E_ENCODING  stage 4  /srv/app/notes.txt:2:8
 | `E_BINARY` | A path of the source form has binary content. | Give text files only. |
 | `E_LIMIT` | A file is larger than the limit of text files. | Convert smaller files. |
 | `E_STALE` | A file changed after the plan. | Repeat the call. |
-| `E_NOT_FOUND`, `E_PERMISSION`, `E_IO` | A file cannot be read or written. | Check the path and its permissions. |
+| `E_NOT_FOUND` | A file cannot be read or written. | Check the path and its permissions. |
+| `E_PERMISSION` | A file cannot be read or written. | Check the path and its permissions. |
+| `E_IO` | A file cannot be read or written. | Check the path and its permissions. |
 
 ## Related
 

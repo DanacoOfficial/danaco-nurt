@@ -31,7 +31,7 @@ A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and t
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `names` | `list<text>` | none | Packages to upgrade; all installed packages when omitted. |
-| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager. `auto` selects the managers found on the system. |
+| `manager` | `enum(auto\|apt\|dnf\|pacman\|zypper\|brew\|winget\|choco\|scoop)` | `auto` | Package manager; auto selects the manager of the system. |
 
 ## Input and output
 
@@ -61,7 +61,7 @@ package.upgrade
 Upgrade two packages.
 
 ```nurt example
-package.upgrade "openssl", "curl"
+package.upgrade "openssl" "curl"
 ```
 
 Upgrade all packages of Scoop.
