@@ -10,19 +10,31 @@
 //! result index holds the conflict stages. Text is merged with the
 //! histogram algorithm, as by `merge-ort`, whatever `diff.algorithm` says.
 //!
-//! [`prepare_completion`] reads a stopped merge for the commit that
-//! concludes it.
+//! [`plan_merge`] and [`apply_merge`] implement `git.merge`: the start of a
+//! merge (fast-forward, merge commit or stop with conflicts), its
+//! conclusion and its abort. [`prepare_completion`] reads a stopped merge
+//! for the commit that concludes it, also when `git.commit` concludes it.
 
+mod abort;
+mod command;
 mod conflict;
 mod driver;
 mod finish;
 #[cfg(test)]
 mod fixture;
+mod layout;
 mod message;
+mod source;
+mod stage;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_command;
 mod trees;
 
+pub use command::{
+    FastForward, MergeAction, MergePlan, MergeRequest, MergeResult, apply_merge, plan_merge,
+};
 pub use conflict::{MergeConflict, kind_from_stages};
 pub use driver::{DriverMode, ExternalDriver};
 pub use finish::{MergeCompletion, prepare_completion, unmerged_error, unmerged_paths};
@@ -30,6 +42,8 @@ pub use message::{
     Cleanup, DEFAULT_SUPPRESSED_DESTINATIONS, MergeSource, clean_message, merge_message,
     reflog_commit_merge, reflog_fast_forward, reflog_merge, with_conflicts_section,
 };
+pub use source::MergeTarget;
+pub use stage::MergeCommand;
 pub use trees::{
     ConflictStyle, DEFAULT_MARKER_SIZE, DEFAULT_RENAME_LIMIT, Favor, MergeLabels, MergeOptions,
     MergeOutcome, merge_base_virtual, merge_bases, merge_commits, merge_trees, unrelated_error,

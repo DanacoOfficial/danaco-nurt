@@ -13,6 +13,9 @@ pub const DEFAULT_SUPPRESSED_DESTINATIONS: &[&str] = &["main", "master"];
 pub enum MergeSource {
     /// A local branch: `Merge branch '<name>'`.
     Branch(String),
+    /// An ancestor of a local branch named with `^` suffixes:
+    /// `Merge branch '<name>' (early part)`.
+    EarlyPart(String),
     /// A remote-tracking branch, as `<remote>/<branch>`:
     /// `Merge remote-tracking branch '<name>'`.
     RemoteBranch(String),
@@ -40,6 +43,7 @@ impl MergeSource {
     fn title(&self) -> String {
         match self {
             Self::Branch(name) => format!("Merge branch '{name}'"),
+            Self::EarlyPart(name) => format!("Merge branch '{name}' (early part)"),
             Self::RemoteBranch(name) => format!("Merge remote-tracking branch '{name}'"),
             Self::Tag { name, .. } => format!("Merge tag '{name}'"),
             Self::Commit(id) => format!("Merge commit '{id}'"),
@@ -231,6 +235,10 @@ mod tests {
             (
                 MergeSource::Branch("dev".into()),
                 "Merge branch 'dev' into feat\n",
+            ),
+            (
+                MergeSource::EarlyPart("dev".into()),
+                "Merge branch 'dev' (early part) into feat\n",
             ),
             (
                 MergeSource::RemoteBranch("origin/dev".into()),

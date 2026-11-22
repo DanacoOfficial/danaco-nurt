@@ -102,6 +102,9 @@ pub struct PullParams {
     /// Integration mode given by the program; `None` selects the mode from
     /// the repository configuration.
     pub mode: Option<PullMode>,
+    /// SHA-256 fingerprint (`SHA256:<base64>`) of an SSH host key to accept
+    /// when the host is not known.
+    pub accept_host_key: Option<String>,
 }
 
 impl PullParams {
@@ -144,6 +147,7 @@ impl PullParams {
             remote,
             branch,
             mode,
+            accept_host_key: given_text(args, "accept_host_key")?,
         })
     }
 }
@@ -210,6 +214,15 @@ mod tests {
         assert_eq!(params.remote.as_deref(), Some("upstream"));
         assert_eq!(params.branch.as_deref(), Some("dev"));
         assert_eq!(params.mode, Some(PullMode::FastForwardOnly));
+        assert_eq!(params.accept_host_key, None);
+        let key = args.with("accept_host_key", text("SHA256:AAAA"), false);
+        assert_eq!(
+            PullParams::from_args(&key)
+                .unwrap()
+                .accept_host_key
+                .as_deref(),
+            Some("SHA256:AAAA")
+        );
     }
 
     #[test]

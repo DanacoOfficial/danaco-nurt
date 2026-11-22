@@ -1,7 +1,6 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-
 //! Patch identifiers and patch text of commits.
 //!
 //! The patch identifier follows the unstable mode of `git patch-id`: one
@@ -15,7 +14,6 @@ use std::ops::Range;
 use bstr::{BStr, ByteSlice};
 use gix::ObjectId;
 use gix_imara_diff::{Algorithm, Diff, InternedInput};
-use gix_object::tree::EntryMode;
 use nurt_contracts::error::Result;
 use sha1::{Digest, Sha1};
 
@@ -71,8 +69,22 @@ fn hash_change(repo: &gix::Repository, change: &LeafChange, hasher: &mut Sha1) -
     let new_data = content(repo, change.new)?;
     if is_binary(&old_data) || is_binary(&new_data) {
         let null = ObjectId::null(repo.object_hash());
-        hasher.update(change.old.map_or(null, |leaf| leaf.id).to_hex().to_string().as_bytes());
-        hasher.update(change.new.map_or(null, |leaf| leaf.id).to_hex().to_string().as_bytes());
+        hasher.update(
+            change
+                .old
+                .map_or(null, |leaf| leaf.id)
+                .to_hex()
+                .to_string()
+                .as_bytes(),
+        );
+        hasher.update(
+            change
+                .new
+                .map_or(null, |leaf| leaf.id)
+                .to_hex()
+                .to_string()
+                .as_bytes(),
+        );
         return Ok(());
     }
     match (change.old, change.new) {
@@ -153,7 +165,7 @@ impl<'a> LineDiff<'a> {
     fn new(old: &'a [u8], new: &'a [u8]) -> Self {
         let old_lines: Vec<&[u8]> = old.split_inclusive(|byte| *byte == b'\n').collect();
         let new_lines: Vec<&[u8]> = new.split_inclusive(|byte| *byte == b'\n').collect();
-        let input = InternedInput::new(old_lines.iter().copied(), new_lines.iter().copied());
+        let input = InternedInput::new(old, new);
         let mut diff = Diff::compute(Algorithm::Myers, &input);
         diff.postprocess_no_heuristic(&input);
         Self {
@@ -168,9 +180,12 @@ impl<'a> LineDiff<'a> {
     fn hunks(&self) -> Vec<Hunk> {
         let mut out: Vec<Hunk> = Vec::new();
         for change in &self.changes {
-            let joins = out.last().and_then(|hunk| hunk.changes.last()).is_some_and(|last| {
-                change.before.start.saturating_sub(last.before.end) <= MAX_COMMON_LINES
-            });
+            let joins = out
+                .last()
+                .and_then(|hunk| hunk.changes.last())
+                .is_some_and(|last| {
+                    change.before.start.saturating_sub(last.before.end) <= MAX_COMMON_LINES
+                });
             if joins && let Some(hunk) = out.last_mut() {
                 hunk.changes.push(change.clone());
                 continue;
@@ -244,8 +259,9 @@ impl<'a> LineDiff<'a> {
             .iter()
             .rev()
             .find(|line| {
-                line.first()
-                    .is_some_and(|byte| byte.is_ascii_alphabetic() || *byte == b'_' || *byte == b'$')
+                line.first().is_some_and(|byte| {
+                    byte.is_ascii_alphabetic() || *byte == b'_' || *byte == b'$'
+                })
             })
             .map(|line| {
                 let line = &line[..line.len().min(FUNCTION_CONTEXT_BYTES)];
@@ -254,7 +270,9 @@ impl<'a> LineDiff<'a> {
     }
 }
 
-/// Text of the patch between two trees in the format of `git log -p`.
+/// Text of the patch between two trees as `git` records it for a stopped
+/// pick: the comparison is not recursive, so only changes of files directly
+/// in the root tree appear.
 pub(super) fn patch_text(
     repo: &gix::Repository,
     short: &dyn Fn(ObjectId) -> String,
@@ -263,6 +281,9 @@ pub(super) fn patch_text(
 ) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     for change in objects::diff_trees(repo, old, new)? {
+        if change.path.contains(&b'/') {
+            continue;
+        }
         write_change(repo, short, &change, &mut out)?;
     }
     Ok(out)
@@ -289,7 +310,9 @@ fn write_change(
     };
     let same_content = change.old.map(|leaf| leaf.id) == change.new.map(|leaf| leaf.id);
     if !same_content {
-        out.extend_from_slice(format!("index {}..{}", abbrev(change.old), abbrev(change.new)).as_bytes());
+        out.extend_from_slice(
+            format!("index {}..{}", abbrev(change.old), abbrev(change.new)).as_bytes(),
+        );
         if let (Some(old), Some(new)) = (change.old, change.new)
             && old.mode == new.mode
         {
@@ -341,10 +364,14 @@ fn side_names(path: &BStr, change: &LeafChange) -> (Vec<u8>, Vec<u8>) {
 fn write_mode_lines(change: &LeafChange, out: &mut Vec<u8>) {
     match (change.old, change.new) {
         (None, Some(new)) => {
-            out.extend_from_slice(format!("new file mode {}\n", objects::mode_text(new.mode)).as_bytes());
+            out.extend_from_slice(
+                format!("new file mode {}\n", objects::mode_text(new.mode)).as_bytes(),
+            );
         }
         (Some(old), None) => {
-            out.extend_from_slice(format!("deleted file mode {}\n", objects::mode_text(old.mode)).as_bytes());
+            out.extend_from_slice(
+                format!("deleted file mode {}\n", objects::mode_text(old.mode)).as_bytes(),
+            );
         }
         (Some(old), Some(new)) if old.mode != new.mode => {
             out.extend_from_slice(
@@ -393,12 +420,6 @@ fn range_text(range: &Range<u32>) -> String {
     }
 }
 
-/// Whether two modes describe the same kind of entry.
-#[cfg(test)]
-fn same_kind(a: EntryMode, b: EntryMode) -> bool {
-    a.kind() == b.kind()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -407,9 +428,17 @@ mod tests {
         let diff = LineDiff::new(old.as_bytes(), new.as_bytes());
         let mut out = Vec::new();
         for hunk in diff.hunks() {
-            out.push(format!("@@ -{} +{} @@", range_text(&hunk.old), range_text(&hunk.new)));
+            out.push(format!(
+                "@@ -{} +{} @@",
+                range_text(&hunk.old),
+                range_text(&hunk.new)
+            ));
             diff.each_line(&hunk, |marker, line| {
-                out.push(format!("{}{}", marker as char, String::from_utf8_lossy(line).trim_end()));
+                out.push(format!(
+                    "{}{}",
+                    marker as char,
+                    String::from_utf8_lossy(line).trim_end()
+                ));
             });
         }
         out
@@ -421,7 +450,17 @@ mod tests {
         let new = "1\n2\n3\n4\nX\n6\n7\n8\n9\n";
         assert_eq!(
             lines_of(old, new),
-            vec!["@@ -2,7 +2,7 @@", " 2", " 3", " 4", "-5", "+X", " 6", " 7", " 8"]
+            vec![
+                "@@ -2,7 +2,7 @@",
+                " 2",
+                " 3",
+                " 4",
+                "-5",
+                "+X",
+                " 6",
+                " 7",
+                " 8"
+            ]
         );
     }
 
@@ -430,7 +469,10 @@ mod tests {
         let old = "a\n1\n2\n3\n4\n5\n6\nb\n";
         let new = "A\n1\n2\n3\n4\n5\n6\nB\n";
         let lines = lines_of(old, new);
-        assert_eq!(lines.iter().filter(|line| line.starts_with("@@")).count(), 1);
+        assert_eq!(
+            lines.iter().filter(|line| line.starts_with("@@")).count(),
+            1
+        );
     }
 
     #[test]
@@ -438,7 +480,10 @@ mod tests {
         let old = "a\n1\n2\n3\n4\n5\n6\n7\nb\n";
         let new = "A\n1\n2\n3\n4\n5\n6\n7\nB\n";
         let lines = lines_of(old, new);
-        assert_eq!(lines.iter().filter(|line| line.starts_with("@@")).count(), 2);
+        assert_eq!(
+            lines.iter().filter(|line| line.starts_with("@@")).count(),
+            2
+        );
     }
 
     #[test]
@@ -464,10 +509,5 @@ mod tests {
         let diff = LineDiff::new(old.as_bytes(), new.as_bytes());
         let hunks = diff.hunks();
         assert_eq!(diff.function_context(&hunks[0]), Some(&b"fn a() {"[..]));
-    }
-
-    #[test]
-    fn kinds_compare_by_entry_kind() {
-        assert!(same_kind(EntryMode::from(gix_object::tree::EntryKind::Blob), EntryMode::from(gix_object::tree::EntryKind::Blob)));
     }
 }

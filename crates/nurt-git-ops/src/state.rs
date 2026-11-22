@@ -23,6 +23,7 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::{Expect, Mutation, TargetAction, TargetPath, TargetSpec};
 use nurt_contracts::record::GitInProgress;
+use nurt_git::apply::StateFilePlan;
 
 /// A state file in the Git directory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -148,7 +149,9 @@ impl OpState {
         match self {
             Self::Merge => GitInProgress::Merge,
             Self::Rebase { .. } | Self::RebaseApply => GitInProgress::Rebase,
-            Self::CherryPick | Self::Revert | Self::Bisect => GitInProgress::None,
+            Self::CherryPick => GitInProgress::CherryPick,
+            Self::Revert => GitInProgress::Revert,
+            Self::Bisect => GitInProgress::Bisect,
         }
     }
 
@@ -345,6 +348,29 @@ impl StateChange {
         match self {
             Self::Write { content, .. } => Mutation::WriteBytes(content.clone()),
             Self::Remove(_) => Mutation::Remove,
+        }
+    }
+
+    /// The change as a state file of a working tree update plan.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nurt_git_ops::state::{StateChange, StateFile};
+    ///
+    /// let plan = StateChange::Remove(StateFile::MergeHead).to_plan();
+    /// assert_eq!(plan.path, "MERGE_HEAD");
+    /// assert!(plan.content.is_none());
+    /// ```
+    #[must_use]
+    pub fn to_plan(&self) -> StateFilePlan {
+        StateFilePlan {
+            path: self.file().file_name().to_owned(),
+            content: match self {
+                Self::Write { content, .. } => Some(content.clone()),
+                Self::Remove(_) => None,
+            },
+            expect: Expect::Unchecked,
         }
     }
 }
@@ -579,7 +605,16 @@ mod tests {
             OpState::Rebase { interactive: true }.to_record(),
             GitInProgress::Rebase
         );
-        assert_eq!(OpState::CherryPick.to_record(), GitInProgress::None);
+        assert_eq!(OpState::CherryPick.to_record(), GitInProgress::CherryPick);
+        assert_eq!(OpState::Bisect.to_record(), GitInProgress::Bisect);
+        assert_eq!(OpState::Revert.to_record(), GitInProgress::Revert);
+        let plan = StateChange::Write {
+            file: StateFile::OrigHead,
+            content: b"x\n".to_vec(),
+        }
+        .to_plan();
+        assert_eq!(plan.path, "ORIG_HEAD");
+        assert_eq!(plan.content.as_deref(), Some(&b"x\n"[..]));
         assert_eq!(OpState::Bisect.as_str(), "bisect");
         assert!(OpState::Revert.in_progress_error("/r").data().fix[0].starts_with("git.reset"));
     }

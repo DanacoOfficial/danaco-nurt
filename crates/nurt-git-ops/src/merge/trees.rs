@@ -18,6 +18,7 @@ use nurt_contracts::report::NotableEntry;
 
 use super::conflict::{self, MergeConflict};
 use super::driver::{self, DriverMode, ExternalDriver};
+use super::layout;
 
 /// Marker size of Git when neither the `conflict-marker-size` attribute
 /// nor the caller sets one.
@@ -496,6 +497,13 @@ fn finish(
     drivers: DriverMode<'_>,
 ) -> Result<MergeOutcome> {
     let report = driver::run_external(repo, &mut outcome, options, drivers)?;
+    let fixes = layout::plan(
+        &outcome.conflicts,
+        &outcome.tree,
+        &options.labels.ours,
+        &options.labels.theirs,
+    );
+    layout::apply_to_tree(&mut outcome.tree, &fixes)?;
     let tree = outcome
         .tree
         .write(|tree| repo.write_object(tree).map(gix::Id::detach))
@@ -508,6 +516,7 @@ fn finish(
         &mut index,
         RemovalMode::Prune,
     );
+    layout::apply_to_index(&mut index, &fixes);
     let conflicts = conflict::collect(&index, &outcome.conflicts);
     Ok(MergeOutcome {
         tree,

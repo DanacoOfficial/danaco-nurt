@@ -6,12 +6,18 @@
 //! Restoration copies the selected paths from a source into the index, the
 //! working tree or both, in the no-overlay mode of `git restore`: selected
 //! paths that the source lacks are removed. Without `source` the working
-//! tree is restored from the index and the index from `HEAD`.
+//! tree is restored from the index and the index from `HEAD`. With `hunks`
+//! only the named hunks of the selected files are taken back.
+
+mod hunks;
+mod stage;
 
 use bstr::{BString, ByteSlice};
 use gix::ObjectId;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_git::apply::{ApplyContext, ApplyPlan, PathSource, PathsRequest, plan_paths};
+
+pub use stage::RestoreCommand;
 
 /// Parameters of a restoration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +32,11 @@ pub struct RestoreRequest {
     pub staged: bool,
     /// Restore the working tree.
     pub worktree: bool,
+    /// Hunk identifiers as in `git.stage` (`path#number[:fingerprint][@rows]`);
+    /// when present, only these hunks are taken back: those between the
+    /// index and the working tree with `worktree`, those between `HEAD` and
+    /// the index with `staged`. Each hunk must lie in a file of `paths`.
+    pub hunks: Vec<String>,
 }
 
 /// Plans a restoration; the plan is executed with
@@ -37,7 +48,12 @@ pub struct RestoreRequest {
 /// `E_GIT_REVISION` for an unknown source, `E_NO_MATCH` when a pathspec
 /// matches nothing, `E_GIT_DIRTY` with the problem `unmerged` for paths with
 /// conflict stages restored from the index, and `E_IO` when the repository
-/// cannot be read.
+/// cannot be read. With `hunks`: `E_GIT_UNSUPPORTED` with the problem
+/// `hunks_source` together with `source` and `hunks_both` when both sides are
+/// restored, `E_ARG` with `hunk_outside_paths` for a hunk outside `paths` or
+/// a malformed identifier, `E_NOT_FOUND` with `not_found` for a hunk or a
+/// change that does not exist and `E_STALE` with `changed` for a fingerprint
+/// that no longer matches.
 pub fn plan_restore(ctx: &ApplyContext<'_>, request: &RestoreRequest) -> Result<ApplyPlan> {
     if !request.staged && !request.worktree {
         return Err(Error::new(
@@ -46,17 +62,23 @@ pub fn plan_restore(ctx: &ApplyContext<'_>, request: &RestoreRequest) -> Result<
         )
         .with_problem("no_target"));
     }
+    if !request.hunks.is_empty() {
+        return hunks::plan_hunks(ctx, request);
+    }
     let source = match (&request.source, request.staged) {
         (Some(spec), _) => PathSource::Tree(tree_of(ctx.repo(), spec)?),
         (None, true) => PathSource::Tree(head_tree(ctx.repo())?),
         (None, false) => PathSource::Index,
     };
-    plan_paths(ctx, &PathsRequest {
-        source,
-        pathspec: request.paths.clone(),
-        to_index: request.staged,
-        to_worktree: request.worktree,
-    })
+    plan_paths(
+        ctx,
+        &PathsRequest {
+            source,
+            pathspec: request.paths.clone(),
+            to_index: request.staged,
+            to_worktree: request.worktree,
+        },
+    )
 }
 
 fn head_tree(repo: &gix::Repository) -> Result<ObjectId> {
@@ -89,6 +111,7 @@ fn tree_of(repo: &gix::Repository, spec: &str) -> Result<ObjectId> {
 mod tests {
     use super::*;
     use gix::object::tree::EntryKind;
+    use nurt_contracts::journal::MutationTx;
     use nurt_git::apply::apply_plan;
     use nurt_git::apply::testjournal::{RecordingJournal, tree_state};
 
@@ -115,9 +138,15 @@ mod tests {
         let tree = editor.write().expect("tree").detach();
         let mut time = Default::default();
         let mut time2 = Default::default();
-        repo.new_commit_as(signature().to_ref(&mut time), signature().to_ref(&mut time2), "c", tree, parents.iter().copied())
-            .expect("commit")
-            .id
+        repo.new_commit_as(
+            signature().to_ref(&mut time),
+            signature().to_ref(&mut time2),
+            "c",
+            tree,
+            parents.iter().copied(),
+        )
+        .expect("commit")
+        .id
     }
 
     fn fixture() -> Fixture {
@@ -132,16 +161,29 @@ mod tests {
         .to_thread_local();
         let first = commit(&repo, &[("a.txt", "old\n"), ("c.txt", "c\n")], &[]);
         let second = commit(&repo, &[("a.txt", "new\n"), ("b.txt", "b\n")], &[first]);
-        std::fs::write(repo.git_dir().join("refs/heads/main"), format!("{second}\n")).expect("ref");
+        std::fs::write(
+            repo.git_dir().join("refs/heads/main"),
+            format!("{second}\n"),
+        )
+        .expect("ref");
         std::fs::write(repo.git_dir().join("HEAD"), "ref: refs/heads/main\n").expect("head");
         let journal = RecordingJournal::new();
         let ctx = ApplyContext::open(&repo).expect("context");
-        let tree = repo.find_commit(second).expect("commit").tree_id().expect("tree").detach();
+        let tree = repo
+            .find_commit(second)
+            .expect("commit")
+            .tree_id()
+            .expect("tree")
+            .detach();
         let plan = nurt_git::apply::plan_new_tree(&ctx, &tree).expect("plan");
         let mut tx = journal.begin();
         apply_plan(&mut tx, &ctx, plan).expect("apply");
         Box::new(tx).commit().expect("commit");
-        Fixture { _dir: dir, repo, journal }
+        Fixture {
+            _dir: dir,
+            repo,
+            journal,
+        }
     }
 
     fn restore(fixture: &Fixture, request: &RestoreRequest) -> Result<()> {
@@ -159,6 +201,7 @@ mod tests {
             source: None,
             staged: false,
             worktree: true,
+            hunks: Vec::new(),
         }
     }
 
@@ -197,8 +240,13 @@ mod tests {
         staged.source = None;
         restore(&fixture, &staged).expect("unstage");
         let index = fixture.repo.open_index().expect("index");
-        let entry = index.entry_by_path("a.txt".as_bytes().as_bstr()).expect("entry");
-        assert_eq!(entry.id, fixture.repo.write_blob(b"new\n").expect("blob").detach());
+        let entry = index
+            .entry_by_path("a.txt".as_bytes().as_bstr())
+            .expect("entry");
+        assert_eq!(
+            entry.id,
+            fixture.repo.write_blob(b"new\n").expect("blob").detach()
+        );
         assert_eq!(read(&fixture, "a.txt").as_deref(), Some("new\n"));
     }
 
@@ -208,12 +256,21 @@ mod tests {
         let ctx = ApplyContext::open(&fixture.repo).expect("context");
         let mut nothing = request(&["a.txt"]);
         nothing.worktree = false;
-        assert_eq!(plan_restore(&ctx, &nothing).expect_err("no target").code(), ErrorCode::Arg);
+        assert_eq!(
+            plan_restore(&ctx, &nothing).expect_err("no target").code(),
+            ErrorCode::Arg
+        );
         let mut unknown = request(&["a.txt"]);
         unknown.source = Some("missing-branch".to_owned());
-        assert_eq!(plan_restore(&ctx, &unknown).expect_err("unknown").code(), ErrorCode::GitRevision);
+        assert_eq!(
+            plan_restore(&ctx, &unknown).expect_err("unknown").code(),
+            ErrorCode::GitRevision
+        );
         let unmatched = request(&["nothing-here"]);
-        assert_eq!(plan_restore(&ctx, &unmatched).expect_err("no match").code(), ErrorCode::NoMatch);
+        assert_eq!(
+            plan_restore(&ctx, &unmatched).expect_err("no match").code(),
+            ErrorCode::NoMatch
+        );
     }
 
     #[test]

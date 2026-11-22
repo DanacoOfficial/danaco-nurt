@@ -1,7 +1,6 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-
 //! The state directory `rebase-merge/` of a rebase in progress.
 //!
 //! The files have the names and the format written by Git 2.53 for a rebase
@@ -24,7 +23,11 @@ pub(super) const DIR: &str = "rebase-merge";
 pub(super) const DETACHED: &str = "detached HEAD";
 
 /// Empty marker files that Git writes into the state directory.
-pub(super) const MARKERS: [&str; 3] = ["interactive", "drop_redundant_commits", "no-reschedule-failed-exec"];
+pub(super) const MARKERS: [&str; 3] = [
+    "interactive",
+    "drop_redundant_commits",
+    "no-reschedule-failed-exec",
+];
 
 /// Help text appended by Git to `git-rebase-todo.backup`.
 const TODO_HELP: &str = "#
@@ -154,9 +157,12 @@ impl AuthorScript {
             fields.insert(key, shell_unquote(&line[at + 1..])?);
         }
         let mut take = |key: &str| {
-            fields
-                .remove(key)
-                .ok_or_else(|| error::corrupt("invalid rebase-merge/author-script", format!("{key} is missing")))
+            fields.remove(key).ok_or_else(|| {
+                error::corrupt(
+                    "invalid rebase-merge/author-script",
+                    format!("{key} is missing"),
+                )
+            })
         };
         Ok(Self {
             name: take("GIT_AUTHOR_NAME")?,
@@ -223,7 +229,9 @@ pub(super) fn todo_backup(items: &[TodoItem], range: &str, onto: &str) -> Vec<u8
     let count = items.len();
     let plural = if count == 1 { "" } else { "s" };
     let mut text: String = items.iter().map(todo_line).collect();
-    text.push_str(&format!("\n# Rebase {range} onto {onto} ({count} command{plural})\n"));
+    text.push_str(&format!(
+        "\n# Rebase {range} onto {onto} ({count} command{plural})\n"
+    ));
     text.push_str(TODO_HELP);
     text.into_bytes()
 }
@@ -258,10 +266,18 @@ pub(super) fn read(
     let head_name = text("head-name").ok_or_else(|| missing("head-name"))?;
     let onto = parse_object(&text("onto").ok_or_else(|| missing("onto"))?)?;
     let orig_head = parse_object(&text("orig-head").ok_or_else(|| missing("orig-head"))?)?;
-    let todo = parse_todo(files.get("git-rebase-todo").map(Vec::as_slice).unwrap_or_default(), resolve)?;
+    let todo = parse_todo(
+        files
+            .get("git-rebase-todo")
+            .map(Vec::as_slice)
+            .unwrap_or_default(),
+        resolve,
+    )?;
     let done = BString::from(files.get("done").cloned().unwrap_or_default());
     let done_count = done.lines().filter(|line| !line.trim().is_empty()).count();
-    let end = text("end").and_then(|value| value.parse().ok()).unwrap_or(done_count + todo.len());
+    let end = text("end")
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(done_count + todo.len());
     let author = files
         .get("author-script")
         .map(|data| AuthorScript::parse(data))
@@ -301,21 +317,26 @@ fn parse_object(text: &str) -> Result<ObjectId> {
 /// Every regular file of the state directory with its content.
 fn read_files(dir: &Path) -> Result<BTreeMap<String, Vec<u8>>> {
     let mut files = BTreeMap::new();
-    let entries = std::fs::read_dir(dir).map_err(|cause| error::io(&format!("cannot read {}", dir.display()), cause))?;
+    let entries = std::fs::read_dir(dir)
+        .map_err(|cause| error::io(&format!("read {}", dir.display()), cause))?;
     for entry in entries {
-        let entry = entry.map_err(|cause| error::io(&format!("cannot read {}", dir.display()), cause))?;
+        let entry = entry.map_err(|cause| error::io(&format!("read {}", dir.display()), cause))?;
         let path = entry.path();
         if !path.is_file() {
             continue;
         }
-        let data = std::fs::read(&path).map_err(|cause| error::io(&format!("cannot read {}", path.display()), cause))?;
+        let data = std::fs::read(&path)
+            .map_err(|cause| error::io(&format!("read {}", path.display()), cause))?;
         files.insert(entry.file_name().to_string_lossy().into_owned(), data);
     }
     Ok(files)
 }
 
 /// Parses todo lines; only `pick` and `drop` commands are accepted.
-fn parse_todo(data: &[u8], resolve: &dyn Fn(&str) -> Result<(ObjectId, String)>) -> Result<Vec<TodoItem>> {
+fn parse_todo(
+    data: &[u8],
+    resolve: &dyn Fn(&str) -> Result<(ObjectId, String)>,
+) -> Result<Vec<TodoItem>> {
     let mut items = Vec::new();
     for line in data.lines() {
         let line = line.to_str_lossy();
@@ -336,7 +357,9 @@ fn parse_todo(data: &[u8], resolve: &dyn Fn(&str) -> Result<(ObjectId, String)>)
             other => {
                 return Err(error::unsupported(
                     "interactive_command",
-                    format!("the todo list contains the command `{other}`, which only an interactive rebase supports"),
+                    format!(
+                        "the todo list contains the command `{other}`, which only an interactive rebase supports"
+                    ),
                 ));
             }
         }
@@ -366,8 +389,14 @@ mod tests {
     #[test]
     fn author_header_round_trips() {
         let author = AuthorScript::from_header(BStr::new("A U <a@e> 1700000000 +0100")).ok();
-        assert_eq!(author.as_ref().map(|author| author.header()), Some(BString::from("A U <a@e> 1700000000 +0100")));
-        assert_eq!(author.map(|author| author.date), Some(BString::from("@1700000000 +0100")));
+        assert_eq!(
+            author.as_ref().map(|author| author.header()),
+            Some(BString::from("A U <a@e> 1700000000 +0100"))
+        );
+        assert_eq!(
+            author.map(|author| author.date),
+            Some(BString::from("@1700000000 +0100"))
+        );
     }
 
     #[test]
@@ -376,15 +405,23 @@ mod tests {
             id: ObjectId::from_bytes_or_panic(&[1; 20]),
             subject: "t1".into(),
         };
-        let text = String::from_utf8(todo_backup(&[item], "aaaaaaa..bbbbbbb", "aaaaaaa")).unwrap_or_default();
+        let text = String::from_utf8(todo_backup(&[item], "aaaaaaa..bbbbbbb", "aaaaaaa"))
+            .unwrap_or_default();
         assert!(text.starts_with("pick 0101010101010101010101010101010101010101 # t1\n\n# Rebase aaaaaaa..bbbbbbb onto aaaaaaa (1 command)\n#\n# Commands:\n"));
-        assert!(text.ends_with("# However, if you remove everything, the rebase will be aborted.\n#\n"));
+        assert!(
+            text.ends_with("# However, if you remove everything, the rebase will be aborted.\n#\n")
+        );
     }
 
     #[test]
     fn todo_parser_rejects_interactive_commands() {
-        let resolve = |_: &str| -> Result<(ObjectId, String)> { Ok((ObjectId::null(gix_hash::Kind::Sha1), String::new())) };
-        assert!(parse_todo(b"pick 0101 # a\n# note\n\ndrop 0202 # b\n", &resolve).is_ok_and(|items| items.len() == 1));
+        let resolve = |_: &str| -> Result<(ObjectId, String)> {
+            Ok((ObjectId::null(gix_hash::Kind::Sha1), String::new()))
+        };
+        assert!(
+            parse_todo(b"pick 0101 # a\n# note\n\ndrop 0202 # b\n", &resolve)
+                .is_ok_and(|items| items.len() == 1)
+        );
         assert!(parse_todo(b"edit 0101 # a\n", &resolve).is_err());
     }
 }

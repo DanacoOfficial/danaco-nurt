@@ -12,16 +12,20 @@
 //!
 //! Checks that `git` makes before contacting the remote (unmerged files, an
 //! unfinished merge or rebase, uncommitted changes before a rebase) run in the
-//! plan step and change nothing. The transfer and the local integration run
-//! in one journal transaction: the remote-tracking references and
-//! `FETCH_HEAD` are recorded as previous content, the transfer itself is
-//! marked irreversible (`remote_ref_updated`). A failure after the transfer
-//! keeps the fetched state, as `git` does, and the error carries
-//! `effect_applied`.
+//! plan step and change nothing. In the apply step the transfer adds the
+//! received objects to the object store and plans the updates of the
+//! remote-tracking references and `FETCH_HEAD`; these are written together
+//! with the integration in one journal transaction, so one undo restores
+//! the working tree, the index, the references and the state files. The
+//! transfer itself is marked irreversible (`remote_ref_updated`). When the
+//! integration is refused after the transfer, the fetched state is written
+//! alone, as `git` keeps it, and the error carries `effect_applied`.
 
 mod decide;
 mod errors;
+mod integrate;
 mod message;
+mod native;
 mod params;
 mod probe;
 mod settings;
@@ -30,6 +34,7 @@ mod steps;
 
 pub use decide::{Action, Refusal, Relation, decide};
 pub use message::{MergeSource, SourceKind, merge_message};
+pub use native::{PlanFetch, PlanRebase};
 pub use params::{PullMode, PullParams};
 pub use settings::{
     ConfigSource, DEFAULT_REMOTE, FfPolicy, InvalidSetting, RebaseKind, Strategy, Target,
@@ -37,6 +42,6 @@ pub use settings::{
 };
 pub use stage::GitPull;
 pub use steps::{
-    FetchOutcome, FetchRequest, FetchedHead, InitialRequest, LocalOutcome, MergeRequest, PullSteps,
-    RebaseRequest,
+    FETCH_HEAD, FetchOutcome, FetchRequest, FetchedHead, LocalOutcome, PullFetch, PullRebase,
+    RebaseError, RebaseRequest,
 };

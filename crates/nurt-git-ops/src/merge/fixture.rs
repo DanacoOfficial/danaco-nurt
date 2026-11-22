@@ -16,7 +16,7 @@ use gix_object::tree::EntryKind;
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::services::{
-    ProcessHost, ProgramOutcome, ProgramSpec, ServiceChild, ServiceSpawnSpec,
+    ProcessHost, ProgramOutcome, ProgramSpec, ServiceChild, ServiceSpawnSpec, Services,
 };
 use nurt_contracts::stage::{CancelReason, CancelToken, ExecCtx};
 
@@ -235,7 +235,7 @@ pub(crate) fn context(
         builder = builder.state_dir(dir);
     }
     if let Some(process) = process {
-        builder = builder.process(process);
+        builder = builder.services(Arc::new(Services::new().with_process_host(process)));
     }
     builder.build()
 }
