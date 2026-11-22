@@ -102,7 +102,10 @@ pub(crate) fn sample() -> Value {
         vec![
             markdown(
                 Some("intro"),
-                &["# Analysis\n", "Data from \"sensors\" — ąę."],
+                &[
+                    "# Analysis\n",
+                    "Data from \"sensors\" \u{2014} \u{105}\u{119}.",
+                ],
             ),
             code(
                 Some("load"),

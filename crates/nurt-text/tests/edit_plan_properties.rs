@@ -41,7 +41,7 @@ fn replace_all(text: &str, pattern: &str, with: &str, whitespace: Whitespace) ->
 }
 
 fn whitespace() -> impl Strategy<Value = Whitespace> {
-    prop_oneof![Just(Whitespace::Exact), Just(Whitespace::Normalize)]
+    prop::sample::select(vec![Whitespace::Exact, Whitespace::Normalize])
 }
 
 proptest! {

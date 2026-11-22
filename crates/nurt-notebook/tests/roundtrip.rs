@@ -149,7 +149,7 @@ fn single_line_notebook_changes_only_the_changed_value() {
 }
 
 fn source_text() -> impl Strategy<Value = String> {
-    proptest::string::string_regex("[a-zA-Z0-9 _=()\"'\\\\\n\r\t\u{1}\u{1b}ąęż€😀\u{2028}]{0,40}")
+    proptest::string::string_regex("[a-zA-Z0-9 _=()\"'\\\\\n\r\t\u{1}\u{1b}\u{105}\u{119}\u{17c}\u{20ac}\u{1f600}\u{2028}]{0,40}")
         .unwrap()
 }
 

@@ -619,15 +619,15 @@ fn export_writes_script_markdown_and_text() {
     let notebook = open(&sample());
     assert_eq!(
         notebook.export(ExportFormat::Script),
-        "# %% [markdown]\n# # Analysis\n# Data from \"sensors\" — ąę.\n\n# %%\nimport pandas as pd\ndf = pd.read_csv('a.csv')\nprint(len(df))\n\n# %%\ndf.plot()\n\n# %% [markdown]\n# Notes\tand\u{1b} control characters\n"
+        "# %% [markdown]\n# # Analysis\n# Data from \"sensors\" \u{2014} \u{105}\u{119}.\n\n# %%\nimport pandas as pd\ndf = pd.read_csv('a.csv')\nprint(len(df))\n\n# %%\ndf.plot()\n\n# %% [markdown]\n# Notes\tand\u{1b} control characters\n"
     );
     assert_eq!(
         notebook.export(ExportFormat::Markdown),
-        "# Analysis\nData from \"sensors\" — ąę.\n\n```python\nimport pandas as pd\ndf = pd.read_csv('a.csv')\nprint(len(df))\n```\n\n```text\n42\n```\n\n```python\ndf.plot()\n```\n\n```text\n<Figure size 640x480 with 1 Axes>\n```\n\nNotes\tand\u{1b} control characters\n"
+        "# Analysis\nData from \"sensors\" \u{2014} \u{105}\u{119}.\n\n```python\nimport pandas as pd\ndf = pd.read_csv('a.csv')\nprint(len(df))\n```\n\n```text\n42\n```\n\n```python\ndf.plot()\n```\n\n```text\n<Figure size 640x480 with 1 Axes>\n```\n\nNotes\tand\u{1b} control characters\n"
     );
     assert_eq!(
         notebook.export(ExportFormat::Text),
-        "# Analysis\nData from \"sensors\" — ąę.\n\nimport pandas as pd\ndf = pd.read_csv('a.csv')\nprint(len(df))\n\ndf.plot()\n\nNotes\tand\u{1b} control characters\n"
+        "# Analysis\nData from \"sensors\" \u{2014} \u{105}\u{119}.\n\nimport pandas as pd\ndf = pd.read_csv('a.csv')\nprint(len(df))\n\ndf.plot()\n\nNotes\tand\u{1b} control characters\n"
     );
 }
 

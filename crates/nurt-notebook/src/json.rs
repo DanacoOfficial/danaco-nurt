@@ -895,7 +895,7 @@ mod tests {
     fn escapes_non_ascii_in_ascii_documents() {
         let mut document = parse("{\"a\": \"\\u00e9\"}");
         assert!(document.layout.ascii_only);
-        document.root.set("a", json!("ż😀"));
+        document.root.set("a", json!("\u{17c}\u{1f600}"));
         assert_eq!(document.render(&[]), "{\"a\": \"\\u017c\\ud83d\\ude00\"}");
     }
 

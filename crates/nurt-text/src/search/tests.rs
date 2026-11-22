@@ -238,7 +238,7 @@ fn invalid_pattern_reports_code_and_position() {
             .starts_with("invalid regular expression in pattern 0 at character 3: ")
     );
 
-    let error = pattern_error(Pattern::regex("żółw[z-a]"));
+    let error = pattern_error(Pattern::regex("\u{17c}\u{f3}\u{142}w[z-a]"));
     assert!(
         matches!(
             error,
@@ -302,12 +302,23 @@ fn regex_flags_set_case_dot_and_extended_mode() {
 fn case_insensitive_search_folds_unicode_letters() {
     let options = SearchOptions::new().case_sensitive(false);
     let s = searcher(
-        &[Pattern::literal("łódź"), Pattern::regex("ΣΟΦΙΑ")],
+        &[
+            Pattern::literal("\u{142}\u{f3}d\u{17a}"),
+            Pattern::regex("\u{3a3}\u{39f}\u{3a6}\u{399}\u{391}"),
+        ],
         options,
     );
     assert_eq!(
-        matched_texts(&s, "ŁÓDŹ i Łódź\nσοφια".as_bytes()),
-        ["ŁÓDŹ", "Łódź", "σοφια"]
+        matched_texts(
+            &s,
+            "\u{141}\u{d3}D\u{179} i \u{141}\u{f3}d\u{17a}\n\u{3c3}\u{3bf}\u{3c6}\u{3b9}\u{3b1}"
+                .as_bytes()
+        ),
+        [
+            "\u{141}\u{d3}D\u{179}",
+            "\u{141}\u{f3}d\u{17a}",
+            "\u{3c3}\u{3bf}\u{3c6}\u{3b9}\u{3b1}"
+        ]
     );
 }
 
@@ -317,7 +328,7 @@ fn whole_word_uses_unicode_word_characters() {
         &[Pattern::literal("kot")],
         SearchOptions::new().whole_word(true),
     );
-    let (seen, _) = search(&s, "kot, kotek, żkot, kot_ (kot)".as_bytes());
+    let (seen, _) = search(&s, "kot, kotek, \u{17c}kot, kot_ (kot)".as_bytes());
     let columns: Vec<_> = seen[0].matches.iter().map(|m| m.column).collect();
     assert_eq!(columns, [1, 25]);
 }
@@ -337,7 +348,7 @@ fn whole_word_applies_to_regex_and_to_patterns_starting_with_punctuation() {
 #[test]
 fn positions_count_bytes_from_start_and_characters_in_line() {
     let s = searcher(&[Pattern::literal("foo")], SearchOptions::new());
-    let (seen, _) = search(&s, "ab\nzażółć foo".as_bytes());
+    let (seen, _) = search(&s, "ab\nza\u{17c}\u{f3}\u{142}\u{107} foo".as_bytes());
     let found = seen[0].matches[0];
     assert_eq!(
         (found.line, found.column, found.start, found.end),
@@ -620,7 +631,7 @@ fn mixed_engines_merge_matches_by_position() {
 #[test]
 fn empty_matches_advance_by_one_character() {
     let s = searcher(&[Pattern::regex("x*")], SearchOptions::new());
-    let (seen, _) = search(&s, "aż\n".as_bytes());
+    let (seen, _) = search(&s, "a\u{17c}\n".as_bytes());
     let columns: Vec<_> = seen[0].matches.iter().map(|m| m.column).collect();
     assert_eq!(columns, [1, 2, 3]);
 }
@@ -726,10 +737,7 @@ fn slice_and_reader_agree_on_random_input() {
         vec![Pattern::regex(r"\bab\b")],
     ];
     let strategy = (
-        proptest::collection::vec(
-            prop_oneof![Just(b'a'), Just(b'b'), Just(b' '), Just(b'\n')],
-            0..40,
-        ),
+        proptest::collection::vec(prop::sample::select(vec![b'a', b'b', b' ', b'\n']), 0..40),
         0..pattern_sets.len(),
         0usize..3,
         0usize..3,

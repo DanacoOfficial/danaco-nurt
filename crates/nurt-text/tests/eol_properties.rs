@@ -23,11 +23,11 @@ fn config() -> ProptestConfig {
 
 /// Lines with a random terminator each, including none on the last line.
 fn lines_with_terminators() -> impl Strategy<Value = Vec<(String, Option<Terminator>)>> {
-    let terminator = prop_oneof![
-        Just(Some(Terminator::Lf)),
-        Just(Some(Terminator::CrLf)),
-        Just(Some(Terminator::Cr)),
-    ];
+    let terminator = prop::sample::select(vec![
+        Some(Terminator::Lf),
+        Some(Terminator::CrLf),
+        Some(Terminator::Cr),
+    ]);
     let content = "[a-zA-Z\u{105}\u{107}\u{119}\u{142}\u{144}\u{f3}\u{15b}\u{17a}\u{17c} ]{0,12}";
     (
         prop::collection::vec((content, terminator), 0..24),
@@ -54,9 +54,7 @@ proptest! {
     #![proptest_config(config())]
 
     #[test]
-    fn conversion_changes_only_terminators(lines in lines_with_terminators(), target in prop_oneof![
-        Just(Terminator::Lf), Just(Terminator::CrLf), Just(Terminator::Cr)
-    ]) {
+    fn conversion_changes_only_terminators(lines in lines_with_terminators(), target in prop::sample::select(vec![Terminator::Lf, Terminator::CrLf, Terminator::Cr])) {
         // A `\r` line followed by an empty `\n` line reads back as one
         // `\r\n` line, so the expected lines come from the joined text.
         let text = join(&lines);
