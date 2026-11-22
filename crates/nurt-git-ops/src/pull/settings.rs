@@ -316,6 +316,7 @@ pub fn tracking_ref(refspecs: &[String], source: &str) -> Option<String> {
 ///     remote: None,
 ///     branch: Some("main".into()),
 ///     mode: Some(PullMode::Rebase),
+///     accept_host_key: None,
 /// };
 /// assert_eq!(reflog_action(&params, "origin"), "pull --rebase origin main");
 /// ```
@@ -377,6 +378,7 @@ pub(crate) mod tests {
             remote: remote.map(str::to_owned),
             branch: branch.map(str::to_owned),
             mode,
+            accept_host_key: None,
         }
     }
 

@@ -218,10 +218,15 @@ impl HookRun {
         let mut error = if self.outcome.timed_out {
             Error::new(
                 ErrorCode::Timeout,
-                format!("the {hook} hook exceeded its time limit; raise `git.hooks.timeout` or skip the hooks"),
+                format!(
+                    "the {hook} hook exceeded its time limit; raise `git.hooks.timeout` or skip the hooks"
+                ),
             )
         } else if self.outcome.cancelled {
-            Error::new(ErrorCode::Cancelled, format!("the {hook} hook was stopped by cancellation"))
+            Error::new(
+                ErrorCode::Cancelled,
+                format!("the {hook} hook was stopped by cancellation"),
+            )
         } else {
             let ending = match (self.outcome.exit_code, self.outcome.signal) {
                 (Some(code), _) => format!("exited with code {code}"),
@@ -329,7 +334,10 @@ mod tests {
         }
 
         fn spawn_service(&self, _spec: &ServiceSpawnSpec) -> Result<Box<dyn ServiceChild>> {
-            Err(Error::new(ErrorCode::Unsupported, "services are not used by hooks"))
+            Err(Error::new(
+                ErrorCode::Unsupported,
+                "services are not used by hooks",
+            ))
         }
     }
 
@@ -360,9 +368,19 @@ mod tests {
     #[test]
     fn hooks_path_expands_home_and_keeps_absolute_paths() {
         let home = Path::new("/home/user");
-        let dir = HookDir::new(Path::new("/r/.git"), Some(Path::new("/r")), Some("~/hooks"), Some(home));
+        let dir = HookDir::new(
+            Path::new("/r/.git"),
+            Some(Path::new("/r")),
+            Some("~/hooks"),
+            Some(home),
+        );
         assert_eq!(dir.dir(), Path::new("/home/user/hooks"));
-        let absolute = HookDir::new(Path::new("/r/.git"), Some(Path::new("/r")), Some("/opt/hooks"), None);
+        let absolute = HookDir::new(
+            Path::new("/r/.git"),
+            Some(Path::new("/r")),
+            Some("/opt/hooks"),
+            None,
+        );
         assert_eq!(absolute.dir(), Path::new("/opt/hooks"));
     }
 
@@ -399,7 +417,9 @@ mod tests {
             name: "GIT_INDEX_FILE".to_owned(),
             value: Some("/r/.git/index".to_owned()),
         }];
-        let ran = run(&host, &dir, request, &CancelToken::new()).unwrap().unwrap();
+        let ran = run(&host, &dir, request, &CancelToken::new())
+            .unwrap()
+            .unwrap();
         assert!(ran.succeeded());
         let seen = host.seen.lock().unwrap();
         assert_eq!(seen[0].args, vec!["/tmp/msg".to_owned()]);
@@ -421,14 +441,19 @@ mod tests {
             },
         };
         let error = run
-            .into_result(Some("git.commit \"/r\" message: \"x\" hooks: false".to_owned()))
+            .into_result(Some(
+                "git.commit \"/r\" message: \"x\" hooks: false".to_owned(),
+            ))
             .unwrap_err();
         assert_eq!(error.code(), ErrorCode::GitHook);
         let data = error.data();
         assert_eq!(data.problem.as_deref(), Some("pre-commit"));
         assert_eq!(data.sample, vec!["lint failed".to_owned()]);
         assert!(data.fix[0].ends_with("hooks: false"));
-        assert!(data.message.starts_with("the pre-commit hook exited with code 1"));
+        assert!(
+            data.message
+                .starts_with("the pre-commit hook exited with code 1")
+        );
     }
 
     #[test]
@@ -441,11 +466,17 @@ mod tests {
                 ..ProgramOutcome::default()
             },
         };
-        assert_eq!(base.clone().into_result(None).unwrap_err().code(), ErrorCode::Timeout);
+        assert_eq!(
+            base.clone().into_result(None).unwrap_err().code(),
+            ErrorCode::Timeout
+        );
         let mut cancelled = base;
         cancelled.outcome.timed_out = false;
         cancelled.outcome.cancelled = true;
-        assert_eq!(cancelled.into_result(None).unwrap_err().code(), ErrorCode::Cancelled);
+        assert_eq!(
+            cancelled.into_result(None).unwrap_err().code(),
+            ErrorCode::Cancelled
+        );
     }
 
     #[test]
@@ -474,9 +505,14 @@ mod tests {
             seen: Mutex::new(Vec::new()),
         };
         let request = HookRequest::new(Hook::PreCommit, Duration::from_secs(1));
-        let ran = run(&host, &dir, request, &CancelToken::new()).unwrap().unwrap();
+        let ran = run(&host, &dir, request, &CancelToken::new())
+            .unwrap()
+            .unwrap();
         assert!(!ran.succeeded());
-        assert_eq!(ran.into_result(None).unwrap_err().code(), ErrorCode::Timeout);
+        assert_eq!(
+            ran.into_result(None).unwrap_err().code(),
+            ErrorCode::Timeout
+        );
         assert!(host.resolve_program("x", temp.path()).is_ok());
         let spawn = ServiceSpawnSpec {
             program: "x".to_owned(),

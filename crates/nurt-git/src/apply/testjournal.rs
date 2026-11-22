@@ -11,6 +11,10 @@
 //! [`tree_state`] and [`assert_declared`] a test proves that every change of
 //! a directory went through a transaction.
 
+// Test support fails loudly on setup errors and on misuse of the journal
+// protocol, so the panicking helpers are intended.
+#![allow(clippy::expect_used, clippy::panic, clippy::missing_panics_doc)]
+
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::io::Write as _;

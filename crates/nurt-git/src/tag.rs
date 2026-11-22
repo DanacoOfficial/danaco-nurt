@@ -10,38 +10,53 @@
 //! [`MutationTx`].
 //!
 //! An annotated tag object is byte-identical to the object `git tag -a -m`
-//! writes for the same tagger, time and message.
+//! writes for the same tagger, time and message. An annotated tag is signed
+//! by the built-in signer of [`nurt_git_transport::sign`] when
+//! [`NewTag::sign`] asks for it, or by default when `tag.gpgSign` is true; a
+//! tag without a message stays lightweight and unsigned.
+//! [`GitTagCommand`] is the implementation used by the executor.
 
-use bstr::{BStr, BString, ByteSlice};
+mod command;
+
+use bstr::{BString, ByteSlice};
 use gix_hash::ObjectId;
 use gix_object::WriteTo;
 use gix_ref::{FullName, Target};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::{ExemptWrite, MutationTx};
 use nurt_contracts::record::{GitTag, GitTagKind};
+use nurt_contracts::report::Change;
 use nurt_contracts::value::Instant;
+use nurt_git_transport::sign::{Signer, SigningConfig, sign_tag};
+
+pub use command::GitTagCommand;
 
 use crate::branch::{quoted_repo, revision_error};
 use crate::refs_tx::{PreparedRefTx, PreviousValue, RefEdit, RefLayout, RefOutcome, RefTx};
 
 const TAGS_PREFIX: &str = "refs/tags/";
-const ABBREV_LEN: usize = 7;
+const ABBREV_DIGITS: usize = 7;
 const SECONDS_PER_DAY: i64 = 86_400;
+/// Comment character of `core.commentChar` at its default value.
+const COMMENT_CHAR: char = '#';
 
-/// Produces the `gpgsig` block of a signed tag.
-///
-/// The payload is the complete tag object without a signature; the result is
-/// appended to the object as Git appends an armored signature.
-pub trait TagSigner {
-    /// Signs `payload`.
-    ///
-    /// # Errors
-    ///
-    /// `E_GIT_SIGN` when no key is available or signing fails.
-    fn sign(&self, payload: &[u8]) -> Result<BString>;
+/// Signer and settings used for a tag when `tag.gpgSign` is true.
+#[derive(Clone, Copy)]
+pub struct TagSigning<'a> {
+    /// Signer of the tag object.
+    pub signer: &'a dyn Signer,
+    /// Key and format settings.
+    pub config: &'a SigningConfig,
+}
+
+impl std::fmt::Debug for TagSigning<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TagSigning").finish_non_exhaustive()
+    }
 }
 
 /// Parameters of a new tag.
+#[derive(Debug)]
 pub struct NewTag<'a> {
     /// Short name, without `refs/tags/`.
     pub name: &'a str,
@@ -51,8 +66,18 @@ pub struct NewTag<'a> {
     pub message: Option<&'a str>,
     /// Tagger and time of an annotated tag; committer of the reflog entry.
     pub tagger: gix_actor::Signature,
-    /// Signer used when `tag.gpgSign` is true.
-    pub signer: Option<&'a dyn TagSigner>,
+    /// Whether the annotated tag is signed; `None` follows `tag.gpgSign`.
+    pub sign: Option<bool>,
+    /// Signer used when the tag is signed.
+    pub signing: Option<TagSigning<'a>>,
+}
+
+impl NewTag<'_> {
+    /// Whether the tag is created as a signed annotated tag.
+    #[must_use]
+    pub fn signs(&self, repo: &gix::Repository) -> bool {
+        self.message.is_some() && self.sign.unwrap_or_else(|| signs_tags(repo))
+    }
 }
 
 /// Planned change of a tag.
@@ -74,6 +99,12 @@ impl TagPlan {
     #[must_use]
     pub fn record(&self) -> Option<&GitTag> {
         self.record.as_ref()
+    }
+
+    /// Planned changes of files, one per target.
+    #[must_use]
+    pub fn changes(&self) -> Vec<Change> {
+        crate::branch::command::target_changes(&self.refs.targets())
     }
 
     /// Writes the tag object and changes the reference.
@@ -181,11 +212,20 @@ fn lightweight(name: String, id: ObjectId) -> GitTag {
 /// * `E_GIT_REF` with problem `invalid_name` for a name Git rejects and
 ///   `exists` when the tag exists;
 /// * `E_GIT_REVISION` when the revision cannot be resolved;
-/// * `E_GIT_SIGN` with problem `signer_unavailable` when `tag.gpgSign` asks
-///   for a signature and no signer is given;
+/// * `E_MISSING_PARAM` with problem `missing_message` when `sign` is true
+///   and there is no message;
+/// * `E_GIT_SIGN` with problem `signer_unavailable` when the tag is signed
+///   and no signer is given, and the errors of the signer;
 /// * the errors of [`RefTx::prepare`].
 pub fn plan_create(repo: &gix::Repository, new: NewTag<'_>) -> Result<TagPlan> {
     let full = tag_name(repo, new.name)?;
+    if new.sign == Some(true) && new.message.is_none() {
+        return Err(Error::new(
+            ErrorCode::MissingParam,
+            "a signed tag is an annotated tag and needs a message; pass message",
+        )
+        .with_problem("missing_message"));
+    }
     let id = repo
         .rev_parse_single(new.revision)
         .map_err(|error| revision_error(repo, new.revision, &error))?
@@ -286,7 +326,7 @@ fn tag_name(repo: &gix::Repository, name: &str) -> Result<FullName> {
     FullName::try_from(format!("{TAGS_PREFIX}{name}")).map_err(|_| invalid())
 }
 
-/// Tag object for an annotated tag, signed when `tag.gpgSign` asks for it.
+/// Tag object for an annotated tag, signed when [`NewTag::signs`].
 fn annotated(
     repo: &gix::Repository,
     new: &NewTag<'_>,
@@ -302,22 +342,24 @@ fn annotated(
         message: clean_message(message).into(),
         signature: None,
     };
-    let sign = repo
-        .config_snapshot()
-        .boolean("tag.gpgSign")
-        .unwrap_or(false);
-    if sign {
-        let signer = new.signer.ok_or_else(|| {
+    if new.signs(repo) {
+        let signing = new.signing.ok_or_else(|| {
             Error::new(
                 ErrorCode::GitSign,
-                "tag.gpgSign is true but no signing key is configured; configure user.signingKey or set tag.gpgSign to false",
+                "the tag is to be signed but no signing key is configured; configure user.signingKey or pass sign: false",
             )
             .with_problem("signer_unavailable")
         })?;
-        let payload = tag_bytes(&tag)?;
-        tag.signature = Some(signer.sign(&payload)?);
+        sign_tag(&mut tag, signing.signer, signing.config)?;
     }
     Ok(tag)
+}
+
+/// Whether `tag.gpgSign` asks for signed annotated tags.
+pub(crate) fn signs_tags(repo: &gix::Repository) -> bool {
+    repo.config_snapshot()
+        .boolean("tag.gpgSign")
+        .unwrap_or(false)
 }
 
 fn tag_bytes(tag: &gix_object::Tag) -> Result<Vec<u8>> {
@@ -331,13 +373,17 @@ fn tag_bytes(tag: &gix_object::Tag) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-/// Message cleaned as `git tag -m` cleans it: trailing whitespace removed from
-/// every line, runs of blank lines collapsed, leading and trailing blank
-/// lines removed, and a final line feed added to a non-empty message.
+/// Message cleaned as `git tag -m` cleans it: lines starting with the comment
+/// character `#` removed, trailing whitespace removed from every line, runs
+/// of blank lines collapsed, leading and trailing blank lines removed, and a
+/// final line feed added to a non-empty message.
 pub(crate) fn clean_message(message: &str) -> String {
     let mut out = String::new();
     let mut blank_pending = false;
     for line in message.lines() {
+        if line.starts_with(COMMENT_CHAR) {
+            continue;
+        }
         let line = line.trim_end();
         if line.is_empty() {
             blank_pending = !out.is_empty();
@@ -356,7 +402,7 @@ pub(crate) fn clean_message(message: &str) -> String {
 /// Reflog message of `git tag`, used when a reflog of the tag is written.
 fn reflog_message(repo: &gix::Repository, id: ObjectId) -> Result<BString> {
     let object = repo.find_object(id).map_err(read_error)?;
-    let short = id.to_hex_with_len(ABBREV_LEN).to_string();
+    let short = id.to_hex_with_len(ABBREV_DIGITS).to_string();
     if object.kind != gix_object::Kind::Commit {
         return Ok(format!("tag: tagging {short} ({})", object.kind).into());
     }
@@ -429,6 +475,10 @@ mod tests {
         );
         assert_eq!(clean_message("\n\n"), "");
         assert_eq!(clean_message("a"), "a\n");
+        assert_eq!(
+            clean_message("  first  \n# comment\n\n\nsecond\n\n"),
+            "  first\n\nsecond\n"
+        );
     }
 
     #[test]
@@ -458,7 +508,8 @@ mod tests {
                 revision: "HEAD",
                 message: None,
                 tagger: repo.signature(),
-                signer: None,
+                sign: None,
+                signing: None,
             },
         )
         .unwrap();
@@ -482,13 +533,15 @@ mod tests {
                 revision: "HEAD",
                 message: Some("release\n\n\nnotes  \n"),
                 tagger: repo.signature(),
-                signer: None,
+                sign: None,
+                signing: None,
             },
         )
         .unwrap();
         repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
         let id = ObjectId::from_hex(repo.read("refs/tags/v2").trim().as_bytes()).unwrap();
-        let object = repo.open().find_object(id).unwrap();
+        let opened = repo.open();
+        let object = opened.find_object(id).unwrap();
         let expected = format!(
             "object {head}\ntype commit\ntag v2\ntagger {}\n\nrelease\n\nnotes\n",
             repo.ident()
@@ -513,7 +566,8 @@ mod tests {
                     revision: "HEAD",
                     message: None,
                     tagger: repo.signature(),
-                    signer: None,
+                    sign: None,
+                    signing: None,
                 },
             )
         };
@@ -536,7 +590,8 @@ mod tests {
                 revision: "no-such-rev",
                 message: None,
                 tagger: repo.signature(),
-                signer: None,
+                sign: None,
+                signing: None,
             },
         )
         .unwrap_err();
@@ -544,31 +599,89 @@ mod tests {
     }
 
     #[test]
-    fn signing_without_a_signer_fails_and_a_signer_is_used() {
-        struct Fixed;
-        impl TagSigner for Fixed {
-            fn sign(&self, payload: &[u8]) -> Result<BString> {
-                assert!(payload.ends_with(b"msg\n"));
-                Ok("-----BEGIN PGP SIGNATURE-----\nx\n-----END PGP SIGNATURE-----\n".into())
+    fn signing_requires_a_signer_and_reports_its_failure() {
+        use nurt_git_transport::sign::{CommitSignature, Signature, VerifyConfig};
+
+        struct Refusing;
+        impl Signer for Refusing {
+            fn sign(&self, payload: &[u8], _config: &SigningConfig) -> Result<Signature> {
+                assert!(payload.starts_with(b"object "));
+                Err(Error::new(ErrorCode::GitSign, "no key").with_problem("no_key"))
+            }
+
+            fn verify(
+                &self,
+                _payload: &[u8],
+                _signature: &[u8],
+                _config: &VerifyConfig,
+            ) -> Result<CommitSignature> {
+                Err(Error::new(ErrorCode::GitSign, "no key"))
             }
         }
         let repo = TestRepo::new();
         repo.commit("first");
         repo.append_config("[tag]\n\tgpgSign = true\n");
-        let new = |signer: Option<&'static dyn TagSigner>| NewTag {
-            name: "s1",
-            revision: "HEAD",
-            message: Some("msg"),
-            tagger: repo.signature(),
-            signer,
-        };
+        let config = SigningConfig::new(nurt_git_transport::sign::SignatureFormat::Openpgp, 0);
+        fn new<'a>(repo: &TestRepo, signing: Option<TagSigning<'a>>) -> NewTag<'a> {
+            NewTag {
+                name: "s1",
+                revision: "HEAD",
+                message: Some("msg"),
+                tagger: repo.signature(),
+                sign: None,
+                signing,
+            }
+        }
+        let new = |signing| new(&repo, signing);
         let error = plan_create(&repo.open(), new(None)).unwrap_err();
-        assert_eq!(error.code, ErrorCode::GitSign);
-        let plan = plan_create(&repo.open(), new(Some(&Fixed))).unwrap();
-        repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
-        let id = ObjectId::from_hex(repo.read("refs/tags/s1").trim().as_bytes()).unwrap();
-        let data = repo.open().find_object(id).unwrap().data.clone();
-        assert!(data.ends_with(b"-----END PGP SIGNATURE-----\n"));
+        assert_eq!(error.problem.as_deref(), Some("signer_unavailable"));
+        let signing = TagSigning {
+            signer: &Refusing,
+            config: &config,
+        };
+        let error = plan_create(&repo.open(), new(Some(signing))).unwrap_err();
+        assert_eq!(error.problem.as_deref(), Some("no_key"));
+        let lightweight = NewTag {
+            message: None,
+            ..new(None)
+        };
+        assert!(plan_create(&repo.open(), lightweight).is_ok());
+        let unsigned = NewTag {
+            sign: Some(false),
+            ..new(None)
+        };
+        assert!(plan_create(&repo.open(), unsigned).is_ok());
+        let without_message = NewTag {
+            message: None,
+            sign: Some(true),
+            ..new(None)
+        };
+        let error = plan_create(&repo.open(), without_message).unwrap_err();
+        assert_eq!(error.code, ErrorCode::MissingParam);
+        assert_eq!(error.problem.as_deref(), Some("missing_message"));
+    }
+
+    #[test]
+    fn explicit_sign_overrides_the_configuration() {
+        let repo = TestRepo::new();
+        repo.commit("first");
+        let new = |sign| NewTag {
+            name: "s",
+            revision: "HEAD",
+            message: Some("m"),
+            tagger: repo.signature(),
+            sign,
+            signing: None,
+        };
+        let opened = repo.open();
+        assert!(!new(None).signs(&opened));
+        assert!(new(Some(true)).signs(&opened));
+        let error = plan_create(&opened, new(Some(true))).unwrap_err();
+        assert_eq!(error.problem.as_deref(), Some("signer_unavailable"));
+        repo.append_config("[tag]\n\tgpgSign = true\n");
+        let opened = repo.open();
+        assert!(new(None).signs(&opened));
+        assert!(!new(Some(false)).signs(&opened));
     }
 
     #[test]
@@ -602,13 +715,14 @@ mod tests {
                 revision: "HEAD",
                 message: None,
                 tagger: repo.signature(),
-                signer: None,
+                sign: None,
+                signing: None,
             },
         )
         .unwrap();
         repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
         let log = repo.read("logs/refs/tags/logged");
-        let short = &head.to_string()[..ABBREV_LEN];
+        let short = &head.to_string()[..ABBREV_DIGITS];
         assert!(
             log.ends_with(&format!(
                 "\ttag: tagging {short} (subject line, 2026-01-01)\n"

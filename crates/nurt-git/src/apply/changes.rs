@@ -166,7 +166,16 @@ pub(crate) enum Untracked {
 
 /// Flags kept from a previous index entry when the planner replaces it.
 pub(crate) fn kept_flags(previous: Option<&gix_index::Entry>) -> Flags {
-    previous.map_or(Flags::empty(), |entry| entry.flags & Flags::SKIP_WORKTREE)
+    match previous {
+        Some(entry) if entry.flags.contains(Flags::SKIP_WORKTREE) => skip_worktree_flags(),
+        _ => Flags::empty(),
+    }
+}
+
+/// Flags of an index entry without a working tree file; `skip-worktree` is
+/// an extended flag, so the entry also carries the extended marker.
+pub(crate) fn skip_worktree_flags() -> Flags {
+    Flags::SKIP_WORKTREE | Flags::EXTENDED
 }
 
 /// Checks the working tree before a file is created at `path` that the
@@ -294,9 +303,10 @@ pub(crate) fn local_changes(
         }
         let staged = target.get(path).copied() != Some(Blob::of(entry));
         let skipped = entry.flags.contains(Flags::SKIP_WORKTREE);
-        if staged || (!skipped && !worktree.is_uptodate(entry, path, &ctx.index)?) {
-            carried.push(path.to_owned());
-        } else if !skipped && !worktree.observe(path)?.node.exists() {
+        let changed_file = !skipped
+            && (!worktree.is_uptodate(entry, path, &ctx.index)?
+                || !worktree.observe(path)?.node.exists());
+        if staged || changed_file {
             carried.push(path.to_owned());
         }
     }

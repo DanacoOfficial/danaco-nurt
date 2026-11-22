@@ -18,12 +18,12 @@ use std::path::{Component, Path as StdPath, PathBuf};
 use bstr::{BStr, BString, ByteSlice};
 use gix::ObjectId;
 use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::record::{Change, ChangeAction};
+use nurt_contracts::record::{Change, ChangeAction, DiffUnit};
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::services::CodeService;
 use nurt_contracts::stage::{
-    BoundArgs, CheckCtx, ExecCtx, InputKinds, ReadStage, RecordStream, StageDescriptor, StageImpl, StageInput,
-    StageOutput, StaticInfo,
+    BoundArgs, CheckCtx, ExecCtx, InputKinds, ReadStage, RecordStream, StageDescriptor, StageImpl,
+    StageInput, StageOutput, StaticInfo,
 };
 use nurt_contracts::value::{Path, Record, Value};
 use regex::bytes::Regex;
@@ -32,11 +32,15 @@ use super::canonical::{Driver, FileDiff, FileOptions, FilePair, configured_lines
 use super::hunk::{CANONICAL_CONTEXT, Layout};
 use super::moved::{mark_moved, only_moved};
 use super::rename::{RenameOptions, detect_renames};
-use super::source::{Entry, Reader, index_files, open_repository, read_error, resolve_tree, tree_files};
+use super::source::{
+    Entry, Reader, index_files, open_repository, read_error, resolve_tree, tree_files,
+};
 use super::words::word_lines;
 
 /// Largest accepted number of context lines.
 pub const MAX_CONTEXT: u32 = 200;
+
+const TYPE_MASK: u32 = 0o170_000;
 
 /// File names of dependency lock files, flagged `lockfile` in `change`
 /// records.
@@ -158,8 +162,11 @@ impl DiffRequest {
     /// context above [`MAX_CONTEXT`].
     pub fn validate(&self) -> Result<(), Error> {
         if self.to.is_some() && self.from.is_none() {
-            return Err(Error::new(ErrorCode::MissingParam, "`to` needs `from`, give the old revision as `from`")
-                .with_problem("missing_from"));
+            return Err(Error::new(
+                ErrorCode::MissingParam,
+                "`to` needs `from`, give the old revision as `from`",
+            )
+            .with_problem("missing_from"));
         }
         if self.staged && self.to.is_some() {
             return Err(Error::new(
@@ -174,13 +181,19 @@ impl DiffRequest {
         if self.symbol.is_some() {
             match self.paths.len() {
                 0 => {
-                    return Err(Error::new(ErrorCode::MissingParam, "`symbol` needs exactly one file in `paths`")
-                        .with_problem("missing_path"));
+                    return Err(Error::new(
+                        ErrorCode::MissingParam,
+                        "`symbol` needs exactly one file in `paths`",
+                    )
+                    .with_problem("missing_path"));
                 }
                 1 => {}
                 _ => {
-                    return Err(Error::new(ErrorCode::Arity, "`symbol` needs exactly one file in `paths`")
-                        .with_problem("too_many_paths"));
+                    return Err(Error::new(
+                        ErrorCode::Arity,
+                        "`symbol` needs exactly one file in `paths`",
+                    )
+                    .with_problem("too_many_paths"));
                 }
             }
         }
@@ -188,7 +201,10 @@ impl DiffRequest {
     }
 
     fn canonical_layout(&self) -> bool {
-        self.context == CANONICAL_CONTEXT && !self.function_context && !self.ignore_whitespace && self.symbol.is_none()
+        self.context == CANONICAL_CONTEXT
+            && !self.function_context
+            && !self.ignore_whitespace
+            && self.symbol.is_none()
     }
 }
 
@@ -250,7 +266,11 @@ impl PathFilter {
     ///
     /// `E_GIT_NOT_REPOSITORY` with problem `path_outside_repo` for a path
     /// outside the repository.
-    pub(crate) fn new(root: Option<&StdPath>, paths: &[String], exclude: &[String]) -> Result<Self, Error> {
+    pub(crate) fn new(
+        root: Option<&StdPath>,
+        paths: &[String],
+        exclude: &[String],
+    ) -> Result<Self, Error> {
         let mut prefixes = Vec::new();
         for path in paths {
             match normalize(root, path)? {
@@ -263,7 +283,10 @@ impl PathFilter {
         }
         Ok(Self {
             prefixes,
-            exclude: exclude.iter().map(|pattern| BString::from(pattern.as_str())).collect(),
+            exclude: exclude
+                .iter()
+                .map(|pattern| BString::from(pattern.as_str()))
+                .collect(),
         })
     }
 
@@ -272,14 +295,17 @@ impl PathFilter {
         let included = self.prefixes.is_empty()
             || self.prefixes.iter().any(|prefix| {
                 path == prefix.as_bstr()
-                    || (path.starts_with(prefix.as_slice()) && path.get(prefix.len()) == Some(&b'/'))
+                    || (path.starts_with(prefix.as_slice())
+                        && path.get(prefix.len()) == Some(&b'/'))
             });
         included && !self.excluded(path)
     }
 
     /// The path matches an exclusion pattern.
     pub(crate) fn excluded(&self, path: &BStr) -> bool {
-        self.exclude.iter().any(|pattern| glob_match(pattern.as_bstr(), path))
+        self.exclude
+            .iter()
+            .any(|pattern| glob_match(pattern.as_bstr(), path))
     }
 
     /// The filter has exclusion patterns.
@@ -306,7 +332,9 @@ fn normalize(root: Option<&StdPath>, path: &str) -> Result<Option<BString>, Erro
     let outside = || {
         Error::new(
             ErrorCode::GitNotRepository,
-            format!("`{path}` is outside the repository, give a path relative to the repository root"),
+            format!(
+                "`{path}` is outside the repository, give a path relative to the repository root"
+            ),
         )
         .with_problem("path_outside_repo")
         .with_found(path)
@@ -315,8 +343,13 @@ fn normalize(root: Option<&StdPath>, path: &str) -> Result<Option<BString>, Erro
     let relative = if candidate.is_absolute() {
         let root = root.ok_or_else(outside)?;
         let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-        let resolved = candidate.canonicalize().unwrap_or_else(|_| candidate.to_path_buf());
-        resolved.strip_prefix(&root).map_err(|_| outside())?.to_path_buf()
+        let resolved = candidate
+            .canonicalize()
+            .unwrap_or_else(|_| candidate.to_path_buf());
+        resolved
+            .strip_prefix(&root)
+            .map_err(|_| outside())?
+            .to_path_buf()
     } else {
         candidate.to_path_buf()
     };
@@ -325,7 +358,9 @@ fn normalize(root: Option<&StdPath>, path: &str) -> Result<Option<BString>, Erro
         match component {
             Component::Normal(part) => parts.push(part.to_string_lossy().into_owned()),
             Component::CurDir => {}
-            Component::ParentDir | Component::RootDir | Component::Prefix(_) => return Err(outside()),
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(outside());
+            }
         }
     }
     if parts.is_empty() {
@@ -350,8 +385,16 @@ enum NewSide {
 }
 
 fn sides(repo: &gix::Repository, request: &DiffRequest) -> Result<(OldSide, NewSide), Error> {
-    let from = request.from.as_deref().map(|rev| resolve_tree(repo, Some(rev))).transpose()?;
-    let to = request.to.as_deref().map(|rev| resolve_tree(repo, Some(rev))).transpose()?;
+    let from = request
+        .from
+        .as_deref()
+        .map(|rev| resolve_tree(repo, Some(rev)))
+        .transpose()?;
+    let to = request
+        .to
+        .as_deref()
+        .map(|rev| resolve_tree(repo, Some(rev)))
+        .transpose()?;
     let sides = match (from, to, request.staged) {
         (Some(old), Some(new), _) => (OldSide::Tree(old), NewSide::Tree(new)),
         (Some(old), None, true) => (OldSide::Tree(old), NewSide::Index),
@@ -378,7 +421,9 @@ pub(crate) enum WorktreeState {
 
 /// Paths whose working tree file differs from the index, without
 /// untracked files.
-pub(crate) fn worktree_changes(repo: &gix::Repository) -> Result<BTreeMap<BString, WorktreeState>, Error> {
+pub(crate) fn worktree_changes(
+    repo: &gix::Repository,
+) -> Result<BTreeMap<BString, WorktreeState>, Error> {
     use gix::status::index_worktree::Item;
     use gix::status::plumbing::index_as_worktree::{Change as WtChange, EntryStatus};
     let platform = repo
@@ -396,12 +441,14 @@ pub(crate) fn worktree_changes(repo: &gix::Repository) -> Result<BTreeMap<BStrin
     let mut changes = BTreeMap::new();
     for item in iter {
         let item = item.map_err(|error| read_error("status", &error))?;
-        if let Item::Modification { rela_path, status, .. } = item {
+        if let Item::Modification {
+            rela_path, status, ..
+        } = item
+        {
             let state = match status {
                 EntryStatus::Change(WtChange::Removed) => WorktreeState::Removed,
-                EntryStatus::Change(WtChange::Type { .. } | WtChange::Modification { .. }) | EntryStatus::IntentToAdd => {
-                    WorktreeState::Changed
-                }
+                EntryStatus::Change(WtChange::Type { .. } | WtChange::Modification { .. })
+                | EntryStatus::IntentToAdd => WorktreeState::Changed,
                 _ => continue,
             };
             changes.insert(rela_path, state);
@@ -416,7 +463,12 @@ struct Sides {
     worktree_data: HashMap<BString, Vec<u8>>,
 }
 
-fn collect_sides(reader: &mut Reader<'_>, old: OldSide, new: NewSide, filter: &PathFilter) -> Result<Sides, Error> {
+fn collect_sides(
+    reader: &mut Reader<'_>,
+    old: OldSide,
+    new: NewSide,
+    filter: &PathFilter,
+) -> Result<Sides, Error> {
     let repo = reader.repo();
     let (index, conflicts) = index_files(reader.index());
     let unmerged: BTreeSet<BString> = conflicts.into_keys().collect();
@@ -441,7 +493,9 @@ fn collect_sides(reader: &mut Reader<'_>, old: OldSide, new: NewSide, filter: &P
                     }
                     Some(WorktreeState::Removed) => {}
                     Some(WorktreeState::Changed) => {
-                        if let Some((data, mode)) = reader.worktree(path.as_bstr(), Some(entry.mode))? {
+                        if let Some((data, mode)) =
+                            reader.worktree(path.as_bstr(), Some(entry.mode))?
+                        {
                             files.insert(path.clone(), Entry { mode, id: None });
                             worktree_data.insert(path.clone(), data);
                         }
@@ -468,7 +522,8 @@ fn pairs_of(sides: &Sides) -> Vec<FilePair> {
         .filter_map(|path| {
             let old = sides.old.get(path).copied();
             let new = sides.new.get(path).copied();
-            let unchanged = old.is_some() && old == new && new.is_some_and(|entry| entry.id.is_some());
+            let unchanged =
+                old.is_some() && old == new && new.is_some_and(|entry| entry.id.is_some());
             (!unchanged).then(|| FilePair {
                 path: path.clone(),
                 old_path: None,
@@ -481,11 +536,16 @@ fn pairs_of(sides: &Sides) -> Vec<FilePair> {
         .collect()
 }
 
-fn load_side(reader: &mut Reader<'_>, data: &HashMap<BString, Vec<u8>>, path: &BStr, entry: &Entry) -> Result<Vec<u8>, Error> {
-    if entry.id.is_none() {
-        if let Some(content) = data.get(path) {
-            return Ok(content.clone());
-        }
+fn load_side(
+    reader: &mut Reader<'_>,
+    data: &HashMap<BString, Vec<u8>>,
+    path: &BStr,
+    entry: &Entry,
+) -> Result<Vec<u8>, Error> {
+    if entry.id.is_none()
+        && let Some(content) = data.get(path)
+    {
+        return Ok(content.clone());
     }
     reader.content(path, entry)
 }
@@ -497,22 +557,27 @@ fn load_side(reader: &mut Reader<'_>, data: &HashMap<BString, Vec<u8>>, path: &B
 /// Fails for an invalid parameter combination, a path outside the
 /// repository, an unknown revision, an unknown symbol and when the
 /// repository cannot be read.
-pub fn run_diff(request: &DiffRequest, code: Option<&dyn CodeService>) -> Result<DiffOutput, Error> {
+pub fn run_diff(request: &DiffRequest, ctx: &ExecCtx) -> Result<DiffOutput, Error> {
     request.validate()?;
-    let opened = open_repository(&request.repo)?;
-    let repo = opened.repo;
+    let opened = open_repository(&request.repo, ctx)?;
+    let repo = opened.repo.gix();
     let mut notes = opened.notes;
-    let (old_side, new_side) = sides(&repo, request)?;
+    let (old_side, new_side) = sides(repo, request)?;
     let filter = PathFilter::new(repo.workdir(), &request.paths, &request.exclude)?;
-    let mut reader = Reader::new(&repo)?;
-    let sides_data = collect_sides(&mut reader, old_side, new_side, &PathFilter::new(repo.workdir(), &request.paths, &[])?)?;
+    let mut reader = Reader::new(repo)?;
+    let sides_data = collect_sides(
+        &mut reader,
+        old_side,
+        new_side,
+        &PathFilter::new(repo.workdir(), &request.paths, &[])?,
+    )?;
     let mut pairs = pairs_of(&sides_data);
     if filter.has_exclusions() {
         let before = pairs.len();
         pairs.retain(|pair| !filter.excluded(pair.path.as_bstr()));
         let excluded = before - pairs.len();
         if excluded > 0 {
-            let mut note = NotableEntry::new(Notable::Ignored);
+            let mut note = NotableEntry::new(Notable::Excluded);
             note.count = Some(excluded as u64);
             note.detail = Some("files left out by `exclude`".to_owned());
             notes.push(note);
@@ -527,10 +592,14 @@ pub fn run_diff(request: &DiffRequest, code: Option<&dyn CodeService>) -> Result
         let mut load = |path: &BStr, entry: &Entry| load_side(&mut reader, data, path, entry);
         pairs = detect_renames(pairs, &options, &mut load)?;
     }
-    let (lines, substituted) = configured_lines(&repo);
+    if !request.stat {
+        pairs = split_type_changes(pairs);
+    }
+    let (lines, substituted) = configured_lines(repo);
     if substituted {
         let mut note = NotableEntry::new(Notable::SemanticFallback);
-        note.detail = Some("diff.algorithm patience is computed with the histogram algorithm".to_owned());
+        note.detail =
+            Some("diff.algorithm patience is computed with the histogram algorithm".to_owned());
         notes.push(note);
     }
     let mut options = FileOptions {
@@ -555,16 +624,28 @@ pub fn run_diff(request: &DiffRequest, code: Option<&dyn CodeService>) -> Result
         note_driver(&driver, &path, &mut notes);
         let old_path = pair.old_path.clone().unwrap_or_else(|| path.clone());
         let old = match &pair.old {
-            Some(entry) => load_side(&mut reader, &sides_data.worktree_data, old_path.as_bstr(), entry)?,
+            Some(entry) => load_side(
+                &mut reader,
+                &sides_data.worktree_data,
+                old_path.as_bstr(),
+                entry,
+            )?,
             None => Vec::new(),
         };
         let new = match &pair.new {
-            Some(entry) => load_side(&mut reader, &sides_data.worktree_data, path.as_bstr(), entry)?,
+            Some(entry) => load_side(
+                &mut reader,
+                &sides_data.worktree_data,
+                path.as_bstr(),
+                entry,
+            )?,
             None => Vec::new(),
         };
         let mut file_options = options;
         let keep = match &request.symbol {
-            Some(name) => symbol_lines(code, &path, &new, name, &mut file_options, &mut notes)?,
+            Some(name) => {
+                symbol_lines(ctx.code(), &path, &new, name, &mut file_options, &mut notes)?
+            }
             None => None,
         };
         let diff = diff_texts(pair, &old, &new, &file_options, &driver, keep.as_ref());
@@ -583,6 +664,28 @@ pub fn run_diff(request: &DiffRequest, code: Option<&dyn CodeService>) -> Result
     Ok(DiffOutput { records, notes })
 }
 
+/// Git writes a change of the object type, such as a file replaced by a
+/// symbolic link, as the deletion of the old entry followed by the creation
+/// of the new one; the statistics count it as one changed file.
+fn split_type_changes(pairs: Vec<FilePair>) -> Vec<FilePair> {
+    let mut out = Vec::with_capacity(pairs.len());
+    for pair in pairs {
+        match (pair.old, pair.new) {
+            (Some(old), Some(new))
+                if pair.old_path.is_none() && old.mode & TYPE_MASK != new.mode & TYPE_MASK =>
+            {
+                out.push(FilePair {
+                    new: None,
+                    ..pair.clone()
+                });
+                out.push(FilePair { old: None, ..pair });
+            }
+            _ => out.push(pair),
+        }
+    }
+    out
+}
+
 fn note_driver(driver: &Driver, path: &BString, notes: &mut Vec<NotableEntry>) {
     if driver.textconv_skipped {
         let mut note = NotableEntry::new(Notable::FilterNotApplied);
@@ -593,7 +696,9 @@ fn note_driver(driver: &Driver, path: &BString, notes: &mut Vec<NotableEntry>) {
     if let Some(pattern) = &driver.invalid_pattern {
         let mut note = NotableEntry::new(Notable::SemanticFallback);
         note.path = Some(path.to_str_lossy().into_owned());
-        note.detail = Some(format!("invalid function pattern `{pattern}`, the default rule is used"));
+        note.detail = Some(format!(
+            "invalid function pattern `{pattern}`, the default rule is used"
+        ));
         notes.push(note);
     }
 }
@@ -609,12 +714,18 @@ fn symbol_lines(
     notes: &mut Vec<NotableEntry>,
 ) -> Result<Option<Range<usize>>, Error> {
     let file = StdPath::new(path.to_str_lossy().as_ref()).to_path_buf();
-    let language = code.and_then(|service| service.language_of(Some(&file), new).map(|language| (service, language)));
+    let language = code.and_then(|service| {
+        service
+            .language_of(Some(&file), new)
+            .map(|language| (service, language))
+    });
     let Some((service, language)) = language else {
         options.layout.function_context = true;
         let mut note = NotableEntry::new(Notable::SemanticFallback);
         note.path = Some(path.to_str_lossy().into_owned());
-        note.detail = Some(format!("no code service for `{name}`, whole functions are shown"));
+        note.detail = Some(format!(
+            "no code service for `{name}`, whole functions are shown"
+        ));
         notes.push(note);
         return Ok(None);
     };
@@ -639,12 +750,19 @@ fn hunk_records(
     canonical: bool,
     new_side: NewSide,
 ) -> Result<Vec<Record>, Error> {
+    let mut sections: HashMap<&BString, usize> = HashMap::new();
+    for file in files {
+        *sections.entry(&file.pair.path).or_default() += 1;
+    }
     let mut records = Vec::new();
     for (file, word_pattern) in files.iter().zip(words) {
         let pattern = match (request.word_diff, word_pattern) {
             (true, Some(text)) => Some(Regex::new(text).map_err(|error| {
-                Error::new(ErrorCode::InvalidValue, format!("invalid word pattern `{text}`: {error}"))
-                    .with_problem("invalid_pattern")
+                Error::new(
+                    ErrorCode::InvalidValue,
+                    format!("invalid word pattern `{text}`: {error}"),
+                )
+                .with_problem("invalid_pattern")
             })?),
             _ => None,
         };
@@ -656,20 +774,24 @@ fn hunk_records(
             if request.ignore_moved && only_moved(hunk) {
                 continue;
             }
-            let with_id = canonical && file.pair.old_path.is_none();
-            let mut record = hunk.to_record(with_id);
+            let with_id = canonical
+                && file.pair.old_path.is_none()
+                && sections.get(&file.pair.path) == Some(&1);
+            let mut record = hunk.to_hunk_record(with_id);
             if canonical {
-                record.set("staged", Value::from(new_side == NewSide::Index));
+                record.staged = Some(new_side == NewSide::Index);
             }
             if request.word_diff {
-                let lines = word_lines(hunk, pattern.as_ref())
+                record.lines = word_lines(hunk, pattern.as_ref())
                     .into_iter()
-                    .map(|line| Value::from(line.to_str_lossy().into_owned()))
-                    .collect::<Vec<_>>();
-                record.set("lines", Value::List(lines));
-                record.set("unit", Value::from("words"));
+                    .map(|line| line.to_str_lossy().into_owned())
+                    .collect();
+                record.unit = Some(DiffUnit::Words);
             }
-            records.push(record);
+            if request.ignore_whitespace {
+                record.ignore_whitespace = Some(true);
+            }
+            records.push(Record::from(record));
         }
     }
     Ok(records)
@@ -737,9 +859,13 @@ pub fn is_lock_file(path: &BStr) -> bool {
 #[must_use]
 pub fn is_generated(path: &BStr) -> bool {
     let rooted = BString::from(format!("x/{path}"));
-    GENERATED_PATTERNS
-        .iter()
-        .any(|pattern| gix::glob::wildmatch(pattern.as_bytes().as_bstr(), rooted.as_bstr(), gix::glob::wildmatch::Mode::NO_MATCH_SLASH_LITERAL))
+    GENERATED_PATTERNS.iter().any(|pattern| {
+        gix::glob::wildmatch(
+            pattern.as_bytes().as_bstr(),
+            rooted.as_bstr(),
+            gix::glob::wildmatch::Mode::NO_MATCH_SLASH_LITERAL,
+        )
+    })
 }
 
 /// The `git.diff` stage.
@@ -766,14 +892,21 @@ impl StageImpl for GitDiff {
 }
 
 impl ReadStage for GitDiff {
-    fn execute<'a>(&'a self, args: &'a BoundArgs, _input: StageInput<'a>, ctx: &'a ExecCtx) -> Result<StageOutput<'a>, Error> {
+    fn execute<'a>(
+        &'a self,
+        args: &'a BoundArgs,
+        _input: StageInput<'a>,
+        ctx: &'a ExecCtx,
+    ) -> Result<StageOutput<'a>, Error> {
         let request = DiffRequest::from_args(args)?;
         ctx.checkpoint()?;
-        let output = run_diff(&request, ctx.code())?;
+        let output = run_diff(&request, ctx)?;
         for note in output.notes {
             ctx.note(note);
         }
-        Ok(StageOutput::records(RecordStream::from_records(output.records).checked(ctx)))
+        Ok(StageOutput::records(
+            RecordStream::from_records(output.records).checked(ctx),
+        ))
     }
 }
 
@@ -781,6 +914,10 @@ impl ReadStage for GitDiff {
 mod tests {
     use super::*;
     use crate::diff::fixture::Fixture;
+
+    fn ctx() -> ExecCtx {
+        crate::testutil::test_ctx()
+    }
 
     fn request(fixture: &Fixture) -> DiffRequest {
         DiffRequest::new(fixture.root())
@@ -813,13 +950,22 @@ mod tests {
         assert_eq!(bad.validate().unwrap_err().code(), ErrorCode::MissingParam);
         bad.from = Some("HEAD~1".to_owned());
         bad.staged = true;
-        assert_eq!(bad.validate().unwrap_err().data().problem.as_deref(), Some("param_conflict"));
+        assert_eq!(
+            bad.validate().unwrap_err().data().problem.as_deref(),
+            Some("param_conflict")
+        );
         let mut context = DiffRequest::new("/tmp");
         context.context = MAX_CONTEXT + 1;
-        assert_eq!(context.validate().unwrap_err().code(), ErrorCode::InvalidValue);
+        assert_eq!(
+            context.validate().unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
         let mut symbol = DiffRequest::new("/tmp");
         symbol.symbol = Some("beta".to_owned());
-        assert_eq!(symbol.validate().unwrap_err().code(), ErrorCode::MissingParam);
+        assert_eq!(
+            symbol.validate().unwrap_err().code(),
+            ErrorCode::MissingParam
+        );
         symbol.paths = vec!["a".to_owned(), "b".to_owned()];
         assert_eq!(symbol.validate().unwrap_err().code(), ErrorCode::Arity);
     }
@@ -829,10 +975,18 @@ mod tests {
         let fixture = Fixture::new();
         fixture.commit(&[("src/a.ts", "export function alpha() {\n  return 1;\n}\n")]);
         fixture.write("src/a.ts", "export function alpha() {\n  return 10;\n}\n");
-        let output = run_diff(&request(&fixture), None).unwrap();
+        let output = run_diff(&request(&fixture), &ctx()).unwrap();
         assert_eq!(output.records.len(), 1);
         let record = &output.records[0];
-        assert_eq!(texts(record, "lines"), [" export function alpha() {", "-  return 1;", "+  return 10;", " }"]);
+        assert_eq!(
+            texts(record, "lines"),
+            [
+                " export function alpha() {",
+                "-  return 1;",
+                "+  return 10;",
+                " }"
+            ]
+        );
         assert_eq!(text(record, "id").as_deref(), Some("src/a.ts#1"));
         assert!(text(record, "fingerprint").is_some_and(|value| value.len() == 6));
     }
@@ -845,23 +999,37 @@ mod tests {
         fixture.stage(&[("a.txt", "3\n")]);
         let mut staged = request(&fixture);
         staged.staged = true;
-        let output = run_diff(&staged, None).unwrap();
+        let output = run_diff(&staged, &ctx()).unwrap();
         assert_eq!(texts(&output.records[0], "lines"), ["-2", "+3"]);
         let mut revisions = request(&fixture);
         revisions.from = Some(first.to_string());
         revisions.to = Some(second.to_string());
         revisions.stat = true;
-        let output = run_diff(&revisions, None).unwrap();
+        let output = run_diff(&revisions, &ctx()).unwrap();
         let summary: Vec<_> = output
             .records
             .iter()
-            .map(|record| (text(record, "path").unwrap(), record.get("added").cloned(), record.get("removed").cloned()))
+            .map(|record| {
+                (
+                    text(record, "path").unwrap(),
+                    record.get("added").cloned(),
+                    record.get("removed").cloned(),
+                )
+            })
             .collect();
         assert_eq!(
             summary,
             [
-                ("README.md".to_owned(), Some(Value::from(2_u64)), Some(Value::from(0_u64))),
-                ("a.txt".to_owned(), Some(Value::from(1_u64)), Some(Value::from(1_u64))),
+                (
+                    "README.md".to_owned(),
+                    Some(Value::from(2_u64)),
+                    Some(Value::from(0_u64))
+                ),
+                (
+                    "a.txt".to_owned(),
+                    Some(Value::from(1_u64)),
+                    Some(Value::from(1_u64))
+                ),
             ]
         );
     }
@@ -874,15 +1042,15 @@ mod tests {
         fixture.write("b.txt", "B\n");
         let mut only_src = request(&fixture);
         only_src.paths = vec!["src".to_owned()];
-        let output = run_diff(&only_src, None).unwrap();
+        let output = run_diff(&only_src, &ctx()).unwrap();
         assert_eq!(output.records.len(), 1);
         let mut outside = request(&fixture);
         outside.paths = vec!["/etc/hosts".to_owned()];
-        let error = run_diff(&outside, None).unwrap_err();
+        let error = run_diff(&outside, &ctx()).unwrap_err();
         assert_eq!(error.data().problem.as_deref(), Some("path_outside_repo"));
         let mut parent = request(&fixture);
         parent.paths = vec!["../x".to_owned()];
-        assert!(run_diff(&parent, None).is_err());
+        assert!(run_diff(&parent, &ctx()).is_err());
     }
 
     #[test]
@@ -891,10 +1059,24 @@ mod tests {
         fixture.commit(&[("a.txt", "a\n")]);
         let mut unknown = request(&fixture);
         unknown.from = Some("no-such-branch".to_owned());
-        assert_eq!(run_diff(&unknown, None).unwrap_err().data().problem.as_deref(), Some("not_found"));
+        assert_eq!(
+            run_diff(&unknown, &ctx())
+                .unwrap_err()
+                .data()
+                .problem
+                .as_deref(),
+            Some("not_found")
+        );
         let mut option_like = request(&fixture);
         option_like.from = Some("--output=x".to_owned());
-        assert_eq!(run_diff(&option_like, None).unwrap_err().data().problem.as_deref(), Some("invalid_syntax"));
+        assert_eq!(
+            run_diff(&option_like, &ctx())
+                .unwrap_err()
+                .data()
+                .problem
+                .as_deref(),
+            Some("invalid_syntax")
+        );
     }
 
     #[test]
@@ -903,20 +1085,34 @@ mod tests {
         let content = "one\ntwo\nthree\nfour\nfive\n";
         fixture.commit(&[("old.txt", content)]);
         let repo = fixture.repo();
-        let mut index = repo.index_from_tree(&repo.head_tree_id().unwrap().detach()).unwrap();
+        let mut index = repo
+            .index_from_tree(&repo.head_tree_id().unwrap().detach())
+            .unwrap();
         let entry_index = index.entry_index_by_path("old.txt".into()).unwrap();
         let entry = index.entries()[entry_index].clone();
         index.remove_entries(|_, path, _| path == "old.txt");
-        index.dangerously_push_entry(entry.stat, entry.id, entry.flags, entry.mode, "new.txt".into());
+        index.dangerously_push_entry(
+            entry.stat,
+            entry.id,
+            entry.flags,
+            entry.mode,
+            "new.txt".into(),
+        );
         index.sort_entries();
-        index.write(gix::index::write::Options::default()).unwrap();
+        fixture.save_index(&mut index);
         let mut staged = request(&fixture);
         staged.staged = true;
-        let output = run_diff(&staged, None).unwrap();
+        let output = run_diff(&staged, &ctx()).unwrap();
         assert_eq!(output.records.len(), 1);
         assert_eq!(text(&output.records[0], "path").as_deref(), Some("new.txt"));
-        assert_eq!(text(&output.records[0], "old_path").as_deref(), Some("old.txt"));
-        assert_eq!(text(&output.records[0], "status").as_deref(), Some("renamed"));
+        assert_eq!(
+            text(&output.records[0], "old_path").as_deref(),
+            Some("old.txt")
+        );
+        assert_eq!(
+            text(&output.records[0], "status").as_deref(),
+            Some("renamed")
+        );
     }
 
     #[test]
@@ -926,45 +1122,82 @@ mod tests {
         fixture.write("a.txt", "return 10;\nkeep\n");
         let mut words = request(&fixture);
         words.word_diff = true;
-        let output = run_diff(&words, None).unwrap();
-        assert_eq!(texts(&output.records[0], "lines"), [" return ", "-1;", "+10;", "~", "-keep", "+keep", "~"]);
+        let output = run_diff(&words, &ctx()).unwrap();
+        assert_eq!(
+            texts(&output.records[0], "lines"),
+            [" return ", "-1;", "+10;", "~", " keep", "~"]
+        );
         assert_eq!(text(&output.records[0], "unit").as_deref(), Some("words"));
         fixture.write("a.txt", "return  1;\nkeep\n");
         let mut whitespace = request(&fixture);
         whitespace.ignore_whitespace = true;
-        assert!(run_diff(&whitespace, None).unwrap().records.is_empty());
+        assert!(run_diff(&whitespace, &ctx()).unwrap().records.is_empty());
     }
 
     #[test]
     fn symbol_without_code_service_falls_back_to_function_context() {
         let fixture = Fixture::new();
-        fixture.commit(&[("a.c", "int alpha(void)\n{\n  return 1;\n}\n\nint beta(void)\n{\n  return 2;\n}\n")]);
-        fixture.write("a.c", "int alpha(void)\n{\n  return 1;\n}\n\nint beta(void)\n{\n  return 20;\n}\n");
+        fixture.commit(&[(
+            "a.c",
+            "int alpha(void)\n{\n  return 1;\n}\n\nint beta(void)\n{\n  return 2;\n}\n",
+        )]);
+        fixture.write(
+            "a.c",
+            "int alpha(void)\n{\n  return 1;\n}\n\nint beta(void)\n{\n  return 20;\n}\n",
+        );
         let mut symbol = request(&fixture);
         symbol.paths = vec!["a.c".to_owned()];
         symbol.symbol = Some("beta".to_owned());
-        let output = run_diff(&symbol, None).unwrap();
-        assert!(output.notes.iter().any(|note| note.code == Notable::SemanticFallback));
-        assert_eq!(texts(&output.records[0], "lines")[0], " int beta(void)");
+        let output = run_diff(&symbol, &ctx()).unwrap();
+        assert!(
+            output
+                .notes
+                .iter()
+                .any(|note| note.code == Notable::SemanticFallback)
+        );
+        assert_eq!(
+            texts(&output.records[0], "lines")[..2],
+            [" ", " int beta(void)"]
+        );
     }
 
     #[test]
     fn stat_flags_lock_generated_and_binary_files() {
         let fixture = Fixture::new();
-        fixture.commit(&[("bun.lock", "a\n"), ("dist/app.js", "x\n"), ("logo.bin", "a")]);
+        fixture.commit(&[
+            ("bun.lock", "a\n"),
+            ("dist/app.js", "x\n"),
+            ("logo.bin", "a"),
+        ]);
         fixture.write("bun.lock", "a\nb\nc\n");
         fixture.write("dist/app.js", "y\n");
         fixture.write_bytes("logo.bin", b"\0\x01");
         let mut stat = request(&fixture);
         stat.stat = true;
-        let output = run_diff(&stat, None).unwrap();
-        let flags: Vec<_> = output.records.iter().map(|record| texts(record, "flags")).collect();
-        assert_eq!(flags, [vec!["lockfile".to_owned()], vec!["generated".to_owned()], vec!["binary".to_owned()]]);
+        let output = run_diff(&stat, &ctx()).unwrap();
+        let flags: Vec<_> = output
+            .records
+            .iter()
+            .map(|record| texts(record, "flags"))
+            .collect();
+        assert_eq!(
+            flags,
+            [
+                vec!["lockfile".to_owned()],
+                vec!["generated".to_owned()],
+                vec!["binary".to_owned()]
+            ]
+        );
         let mut excluded = request(&fixture);
         excluded.exclude = vec!["*.lock".to_owned()];
-        let output = run_diff(&excluded, None).unwrap();
+        let output = run_diff(&excluded, &ctx()).unwrap();
         assert_eq!(output.records.len(), 2);
-        assert!(output.notes.iter().any(|note| note.code == Notable::Ignored && note.count == Some(1)));
+        assert!(
+            output
+                .notes
+                .iter()
+                .any(|note| note.code == Notable::Excluded && note.count == Some(1))
+        );
     }
 
     #[test]
@@ -976,17 +1209,60 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             let path = fixture.root().join("run.sh");
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-            let output = run_diff(&request(&fixture), None).unwrap();
+            let output = run_diff(&request(&fixture), &ctx()).unwrap();
             assert_eq!(output.records.len(), 1);
             assert!(texts(&output.records[0], "lines").is_empty());
-            assert_eq!(text(&output.records[0], "new_mode").as_deref(), Some("100755"));
+            assert_eq!(
+                text(&output.records[0], "new_mode").as_deref(),
+                Some("100755")
+            );
         }
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn type_change_is_a_deletion_and_an_addition() {
+        let fixture = Fixture::new();
+        fixture.commit(&[("a.txt", "a\n"), ("x", "x\n")]);
+        fixture.remove("x");
+        std::os::unix::fs::symlink("a.txt", fixture.root().join("x")).unwrap();
+        let output = run_diff(&request(&fixture), &ctx()).unwrap();
+        let summary: Vec<_> = output
+            .records
+            .iter()
+            .map(|record| {
+                (
+                    text(record, "status"),
+                    texts(record, "lines"),
+                    text(record, "id"),
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                (Some("deleted".to_owned()), vec!["-x".to_owned()], None),
+                (
+                    Some("added".to_owned()),
+                    vec!["+a.txt".to_owned(), NO_NEWLINE_LINE.to_owned()],
+                    None
+                ),
+            ]
+        );
+        let mut stat = request(&fixture);
+        stat.stat = true;
+        assert_eq!(run_diff(&stat, &ctx()).unwrap().records.len(), 1);
+    }
+
+    const NO_NEWLINE_LINE: &str = "\\ No newline at end of file";
 
     #[test]
     fn matches_glob_patterns() {
         assert!(glob_match("*.lock".into(), "dir/bun.lock".into()));
-        assert!(glob_match("**/secrets.*".into(), "config/secrets.json".into()));
+        assert!(glob_match(
+            "**/secrets.*".into(),
+            "config/secrets.json".into()
+        ));
         assert!(!glob_match("src/*.ts".into(), "src/deep/a.ts".into()));
         assert!(is_generated("web/dist/app.js".into()));
         assert!(is_generated("app.min.js".into()));

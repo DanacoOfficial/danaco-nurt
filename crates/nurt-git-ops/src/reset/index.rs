@@ -1,41 +1,24 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Reading, building and serializing the index.
+//! Index states built from trees and the file status data of a new index.
 
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::path::Path;
 
 use gix::bstr::{BStr, BString, ByteSlice};
 use gix::hash::ObjectId;
 use gix::index::State;
-use gix::index::entry::{Flags, Mode, Stat};
+use gix::index::entry::{Flags, Mode, Stage, Stat};
 use gix::objs::tree::EntryKind;
-use nurt_contracts::error::{ErrorCode, Result};
+use nurt_contracts::error::Result;
+use nurt_git::repo::GitRepo;
 
-use super::repo::{Repo, error, io_error};
-
-/// The current index, empty when the file does not exist.
-pub(crate) fn load(repo: &Repo) -> Result<State> {
-    let path = repo.index_path();
-    if !path.exists() {
-        return Ok(State::new(repo.repo.object_hash()));
-    }
-    let file = gix::index::File::at(&path, repo.repo.object_hash(), false, Default::default())
-        .map_err(|cause| io_error("cannot read the index", cause))?;
-    let state = file.into_parts().0;
-    if state.is_sparse() {
-        return Err(error(
-            ErrorCode::GitUnsupported,
-            "the index is sparse; expand it with `git sparse-checkout disable` first",
-        )
-        .with_problem("sparse_index"));
-    }
-    Ok(state)
-}
+use super::repo::{io_error, join_slash};
 
 /// Index with the entries of a tree and empty stat data.
-pub(crate) fn from_tree(repo: &Repo, tree: ObjectId) -> Result<State> {
-    repo.repo
+pub(crate) fn from_tree(repo: &GitRepo, tree: ObjectId) -> Result<State> {
+    repo.gix()
         .index_from_tree(&tree)
         .map(|file| file.into_parts().0)
         .map_err(|cause| io_error("cannot read tree", cause))
@@ -43,10 +26,7 @@ pub(crate) fn from_tree(repo: &Repo, tree: ObjectId) -> Result<State> {
 
 /// Whether the index has entries in a conflict stage.
 pub(crate) fn has_conflicts(state: &State) -> bool {
-    state
-        .entries()
-        .iter()
-        .any(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
+    !nurt_git::repo::index::unmerged_paths(state).is_empty()
 }
 
 /// Tree kind of an index entry mode.
@@ -62,123 +42,121 @@ pub(crate) fn entry_kind(mode: Mode) -> EntryKind {
     }
 }
 
-/// Index entry mode of a tree entry kind.
-pub(crate) fn entry_mode(kind: EntryKind) -> Mode {
-    match kind {
-        EntryKind::BlobExecutable => Mode::FILE_EXECUTABLE,
-        EntryKind::Link => Mode::SYMLINK,
-        EntryKind::Commit => Mode::COMMIT,
-        EntryKind::Blob | EntryKind::Tree => Mode::FILE,
-    }
+/// Merged entry of `path`.
+pub(crate) fn merged_entry<'a>(state: &'a State, path: &BStr) -> Option<&'a gix::index::Entry> {
+    state.entry_by_path_and_stage(path, Stage::Unconflicted)
 }
 
-/// Writes the tree of the merged entries of `state`, like `git write-tree`;
-/// entries added with intent to add are left out.
-pub(crate) fn write_tree(repo: &Repo, state: &State) -> Result<ObjectId> {
-    let empty = ObjectId::empty_tree(repo.repo.object_hash());
-    let mut editor = repo
-        .repo
-        .edit_tree(empty)
-        .map_err(|cause| io_error("cannot edit tree", cause))?;
-    for entry in state.entries() {
-        if entry.stage() != gix::index::entry::Stage::Unconflicted
-            || entry.flags.contains(Flags::INTENT_TO_ADD)
-        {
+/// Paths whose file status data is set when the new index is written.
+#[derive(Debug, Default)]
+pub(crate) struct StatSources<'a> {
+    /// Files the operation writes; their stat data is taken after the
+    /// write when the index entry holds the written object, otherwise it
+    /// stays empty so that the next status compares the content.
+    pub(crate) written: Option<&'a HashSet<BString>>,
+    /// Unchanged files that already hold the content of their new entry;
+    /// their stat data is read now.
+    pub(crate) read_now: Option<&'a HashSet<BString>>,
+}
+
+/// `state` with file status data: copied from `old` for entries with the
+/// same path, object and mode, read from the working tree for the paths of
+/// `sources.read_now`, empty otherwise.
+///
+/// The cached tree extension is dropped because the entries changed.
+pub(crate) fn with_stats(
+    root: &Path,
+    mut state: State,
+    old: &State,
+    sources: &StatSources<'_>,
+) -> State {
+    let contains =
+        |set: Option<&HashSet<BString>>, path: &BString| set.is_some_and(|set| set.contains(path));
+    let paths: Vec<BString> = state
+        .entries()
+        .iter()
+        .map(|entry| entry.path(&state).to_owned())
+        .collect();
+    for (entry, path) in state.entries_mut().iter_mut().zip(&paths) {
+        if entry.stage() != Stage::Unconflicted {
             continue;
         }
-        editor
-            .upsert(entry.path(state), entry_kind(entry.mode), entry.id)
-            .map_err(|cause| io_error("cannot edit tree", cause))?;
+        entry.stat = Stat::default();
+        if contains(sources.written, path) {
+            continue;
+        }
+        let previous = merged_entry(old, path.as_bstr())
+            .filter(|previous| previous.id == entry.id && previous.mode == entry.mode);
+        match previous {
+            Some(previous) if previous.stat != Stat::default() => {
+                entry.stat = previous.stat;
+                entry.flags |= previous.flags & Flags::SKIP_WORKTREE;
+            }
+            _ if contains(sources.read_now, path) => {
+                let file = join_slash(root, &path.to_str_lossy());
+                if let Some(stat) = gix::index::fs::Metadata::from_path_no_follow(&file)
+                    .ok()
+                    .and_then(|meta| Stat::from_fs(&meta).ok())
+                {
+                    entry.stat = stat;
+                }
+            }
+            _ => {}
+        }
     }
-    editor
-        .write()
-        .map(gix::Id::detach)
-        .map_err(|cause| io_error("cannot write tree", cause))
+    state.remove_tree();
+    state
 }
 
-/// Merged entry of `path`: object, mode and stat.
-pub(crate) fn merged_entry<'a>(state: &'a State, path: &BStr) -> Option<&'a gix::index::Entry> {
-    state.entry_by_path_and_stage(path, gix::index::entry::Stage::Unconflicted)
-}
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests fail by panicking")]
+mod tests {
+    use super::*;
 
-/// New index content and the entries whose stat data is read from the
-/// working tree when the index is written.
-pub(crate) struct IndexUpdate {
-    /// Entries of the new index.
-    pub(crate) state: State,
-    /// Paths whose stat data is taken from the working tree at write time.
-    pub(crate) needs_stat: Vec<BString>,
-    /// Path of the index file.
-    pub(crate) path: PathBuf,
-    /// Root of the working tree.
-    pub(crate) workdir: PathBuf,
-}
+    fn state_with(paths: &[&str]) -> State {
+        let hash = gix::hash::Kind::Sha1;
+        let mut state = State::new(hash);
+        for path in paths {
+            state.dangerously_push_entry(
+                Stat {
+                    size: 3,
+                    ..Stat::default()
+                },
+                ObjectId::empty_blob(hash),
+                Flags::empty(),
+                Mode::FILE,
+                path.as_bytes().as_bstr(),
+            );
+        }
+        state.sort_entries();
+        state
+    }
 
-impl IndexUpdate {
-    /// Index for `state` with stat data copied from `old` for entries with
-    /// the same path, object and mode; the remaining merged entries are
-    /// listed in `needs_stat` when `fresh` accepts them.
-    pub(crate) fn new(
-        repo: &Repo,
-        mut state: State,
-        old: &State,
-        fresh: &mut dyn FnMut(&BStr, &gix::index::Entry) -> Result<bool>,
-    ) -> Result<Self> {
-        let mut needs_stat = Vec::new();
-        let paths: Vec<BString> = state
+    #[test]
+    fn stat_data_of_unchanged_entries_is_kept_and_written_entries_are_cleared() {
+        let old = state_with(&["a", "b"]);
+        let new = old.clone();
+        let written: HashSet<BString> = [BString::from("b")].into_iter().collect();
+        let sources = StatSources {
+            written: Some(&written),
+            read_now: None,
+        };
+        let result = with_stats(Path::new("/nonexistent"), new, &old, &sources);
+        let sizes: Vec<u32> = result
             .entries()
             .iter()
-            .map(|entry| entry.path(&state).to_owned())
+            .map(|entry| entry.stat.size)
             .collect();
-        for (entry, path) in state.entries_mut().iter_mut().zip(&paths) {
-            if entry.stage() != gix::index::entry::Stage::Unconflicted {
-                continue;
-            }
-            let same = merged_entry(old, path.as_bstr())
-                .filter(|previous| previous.id == entry.id && previous.mode == entry.mode);
-            match same {
-                Some(previous) if previous.stat != Stat::default() => {
-                    entry.stat = previous.stat;
-                    entry.flags |= previous.flags & Flags::SKIP_WORKTREE;
-                }
-                _ => {
-                    if fresh(path.as_bstr(), entry)? {
-                        needs_stat.push(path.clone());
-                    }
-                }
-            }
-        }
-        Ok(Self {
-            state,
-            needs_stat,
-            path: repo.index_path(),
-            workdir: repo.workdir.clone(),
-        })
+        assert_eq!(sizes, vec![3, 0]);
     }
 
-    /// Serialized index; stat data of `needs_stat` entries is read now.
-    pub(crate) fn serialize(mut self) -> Result<Vec<u8>> {
-        for path in &self.needs_stat {
-            let file = super::repo::join_slash(&self.workdir, &path.to_str_lossy());
-            let Ok(meta) = gix::index::fs::Metadata::from_path_no_follow(&file) else {
-                continue;
-            };
-            let Ok(stat) = Stat::from_fs(&meta) else {
-                continue;
-            };
-            if let Some(index) = self
-                .state
-                .entry_index_by_path_and_stage(path.as_bstr(), gix::index::entry::Stage::Unconflicted)
-                && let Some(entry) = self.state.entries_mut().get_mut(index)
-            {
-                entry.stat = stat;
-            }
-        }
-        self.state.remove_tree();
-        let file = gix::index::File::from_state(self.state, self.path);
-        let mut out = Vec::new();
-        file.write_to(&mut out, gix::index::write::Options::default())
-            .map_err(|cause| io_error("cannot serialize the index", cause))?;
-        Ok(out)
+    #[test]
+    fn entry_kinds_follow_the_modes() {
+        assert_eq!(entry_kind(Mode::FILE), EntryKind::Blob);
+        assert_eq!(entry_kind(Mode::FILE_EXECUTABLE), EntryKind::BlobExecutable);
+        assert_eq!(entry_kind(Mode::SYMLINK), EntryKind::Link);
+        assert_eq!(entry_kind(Mode::COMMIT), EntryKind::Commit);
+        assert!(!has_conflicts(&state_with(&["a"])));
+        assert!(merged_entry(&state_with(&["a"]), b"a".as_bstr()).is_some());
     }
 }

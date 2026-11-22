@@ -88,13 +88,19 @@ struct Candidate {
 /// # Errors
 ///
 /// Fails when the content of a candidate cannot be loaded.
-pub fn detect_renames(pairs: Vec<FilePair>, options: &RenameOptions, load: &mut Loader<'_>) -> Result<Vec<FilePair>, Error> {
+pub fn detect_renames(
+    pairs: Vec<FilePair>,
+    options: &RenameOptions,
+    load: &mut Loader<'_>,
+) -> Result<Vec<FilePair>, Error> {
     let mut sources = Vec::new();
     let mut destinations = Vec::new();
     for (index, pair) in pairs.iter().enumerate() {
         match (&pair.old, &pair.new) {
             (Some(old), None) if eligible(old) => sources.push((index, true, *old)),
-            (Some(old), Some(_)) if options.copies && eligible(old) => sources.push((index, false, *old)),
+            (Some(old), Some(_)) if options.copies && eligible(old) => {
+                sources.push((index, false, *old))
+            }
             (None, Some(new)) if eligible(new) => destinations.push((index, *new)),
             _ => {}
         }
@@ -105,7 +111,10 @@ pub fn detect_renames(pairs: Vec<FilePair>, options: &RenameOptions, load: &mut 
     let sources = load_all(&pairs, &sources, true, load)?;
     let destinations = load_all(
         &pairs,
-        &destinations.iter().map(|(index, entry)| (*index, true, *entry)).collect::<Vec<_>>(),
+        &destinations
+            .iter()
+            .map(|(index, entry)| (*index, true, *entry))
+            .collect::<Vec<_>>(),
         false,
         load,
     )?;
@@ -151,7 +160,11 @@ fn load_all(
 /// A match: source index, destination index, score.
 type Match = (usize, usize, u32);
 
-fn pair_up(sources: &[(Candidate, bool)], destinations: &[(Candidate, bool)], options: &RenameOptions) -> Vec<Match> {
+fn pair_up(
+    sources: &[(Candidate, bool)],
+    destinations: &[(Candidate, bool)],
+    options: &RenameOptions,
+) -> Vec<Match> {
     let mut matches = Vec::new();
     let mut source_taken = vec![false; sources.len()];
     let mut destination_taken = vec![false; destinations.len()];
@@ -248,7 +261,11 @@ fn similarity(source: &[u8], destination: &[u8], destination_chunks: &HashMap<&[
     let source_chunks = chunk_keys(source);
     let common: u64 = source_chunks
         .iter()
-        .map(|(chunk, weight)| destination_chunks.get(chunk).map_or(0, |other| (*weight).min(*other)))
+        .map(|(chunk, weight)| {
+            destination_chunks
+                .get(chunk)
+                .map_or(0, |other| (*weight).min(*other))
+        })
         .sum();
     u32::try_from(common * FULL / largest).unwrap_or(0)
 }
@@ -264,7 +281,10 @@ fn apply_matches(
     for &(source_index, destination_index, score) in matches {
         let (source, deleted) = &sources[source_index];
         let (destination, _) = &destinations[destination_index];
-        let renamed = *deleted && !joined.iter().any(|(pair, _): &(usize, FilePair)| *pair == source.pair);
+        let renamed = *deleted
+            && !joined
+                .iter()
+                .any(|(pair, _): &(usize, FilePair)| *pair == source.pair);
         if renamed {
             remove[source.pair] = true;
         }
@@ -298,7 +318,10 @@ mod tests {
     use crate::diff::source::{MODE_FILE, MODE_LINK};
 
     fn side() -> Option<Entry> {
-        Some(Entry { mode: MODE_FILE, id: None })
+        Some(Entry {
+            mode: MODE_FILE,
+            id: None,
+        })
     }
 
     fn pair(path: &str, old: bool, new: bool) -> FilePair {
@@ -312,7 +335,11 @@ mod tests {
         }
     }
 
-    fn run(pairs: Vec<FilePair>, contents: &[(&str, &str)], options: &RenameOptions) -> Vec<FilePair> {
+    fn run(
+        pairs: Vec<FilePair>,
+        contents: &[(&str, &str)],
+        options: &RenameOptions,
+    ) -> Vec<FilePair> {
         let mut load = |path: &BStr, _entry: &Entry| -> Result<Vec<u8>, Error> {
             Ok(contents
                 .iter()
@@ -326,10 +353,14 @@ mod tests {
     #[test]
     fn pairs_identical_content_as_full_rename() {
         let pairs = vec![pair("old.txt", true, false), pair("new.txt", false, true)];
-        let found = run(pairs, &[("old.txt", "same\n"), ("new.txt", "same\n")], &RenameOptions::default());
+        let found = run(
+            pairs,
+            &[("old.txt", "same\n"), ("new.txt", "same\n")],
+            &RenameOptions::default(),
+        );
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].path, "new.txt");
-        assert_eq!(found[0].old_path.as_deref(), Some(b"old.txt".as_bstr()));
+        assert_eq!(found[0].old_path, Some("old.txt".into()));
         assert_eq!(found[0].similarity, Some(100));
         assert!(!found[0].copied);
     }
@@ -339,7 +370,11 @@ mod tests {
         let old = "line one\nline two\nline three\nline four\n";
         let new = "line one\nline two\nline three\nline 4\n";
         let pairs = vec![pair("a.txt", true, false), pair("b.txt", false, true)];
-        let found = run(pairs, &[("a.txt", old), ("b.txt", new)], &RenameOptions::default());
+        let found = run(
+            pairs,
+            &[("a.txt", old), ("b.txt", new)],
+            &RenameOptions::default(),
+        );
         assert_eq!(found.len(), 1);
         let score = found[0].similarity.unwrap();
         assert!((50..100).contains(&score), "{score}");
@@ -348,7 +383,11 @@ mod tests {
     #[test]
     fn keeps_dissimilar_files_apart() {
         let pairs = vec![pair("a.txt", true, false), pair("b.txt", false, true)];
-        let found = run(pairs, &[("a.txt", "alpha\nbeta\n"), ("b.txt", "gamma\ndelta\n")], &RenameOptions::default());
+        let found = run(
+            pairs,
+            &[("a.txt", "alpha\nbeta\n"), ("b.txt", "gamma\ndelta\n")],
+            &RenameOptions::default(),
+        );
         assert_eq!(found.len(), 2);
         assert!(found.iter().all(|pair| pair.old_path.is_none()));
     }
@@ -362,22 +401,37 @@ mod tests {
         ];
         let found = run(
             pairs,
-            &[("x/a.txt", "same\n"), ("x/b.txt", "same\n"), ("y/b.txt", "same\n")],
+            &[
+                ("x/a.txt", "same\n"),
+                ("x/b.txt", "same\n"),
+                ("y/b.txt", "same\n"),
+            ],
             &RenameOptions::default(),
         );
         let renamed = found.iter().find(|pair| pair.path == "y/b.txt").unwrap();
-        assert_eq!(renamed.old_path.as_deref(), Some(b"x/b.txt".as_bstr()));
+        assert_eq!(renamed.old_path, Some("x/b.txt".into()));
     }
 
     #[test]
     fn detects_copies_of_modified_files() {
         let options = RenameOptions::from_config(Some("copies")).unwrap();
         let pairs = vec![pair("a.txt", true, true), pair("c.txt", false, true)];
-        let found = run(pairs, &[("a.txt", "shared text\nmore\n"), ("c.txt", "shared text\nmore\n")], &options);
+        let found = run(
+            pairs,
+            &[
+                ("a.txt", "shared text\nmore\n"),
+                ("c.txt", "shared text\nmore\n"),
+            ],
+            &options,
+        );
         let copy = found.iter().find(|pair| pair.path == "c.txt").unwrap();
         assert!(copy.copied);
-        assert_eq!(copy.old_path.as_deref(), Some(b"a.txt".as_bstr()));
-        assert!(found.iter().any(|pair| pair.path == "a.txt" && pair.old_path.is_none()));
+        assert_eq!(copy.old_path, Some("a.txt".into()));
+        assert!(
+            found
+                .iter()
+                .any(|pair| pair.path == "a.txt" && pair.old_path.is_none())
+        );
     }
 
     #[test]
@@ -385,9 +439,16 @@ mod tests {
         let pairs = vec![pair("a", true, false), pair("b", false, true)];
         assert_eq!(run(pairs, &[], &RenameOptions::default()).len(), 2);
         let mut link = pair("l", false, true);
-        link.new = Some(Entry { mode: MODE_LINK, id: None });
+        link.new = Some(Entry {
+            mode: MODE_LINK,
+            id: None,
+        });
         let pairs = vec![pair("f", true, false), link];
-        let found = run(pairs, &[("f", "target text\n"), ("l", "target text\n")], &RenameOptions::default());
+        let found = run(
+            pairs,
+            &[("f", "target text\n"), ("l", "target text\n")],
+            &RenameOptions::default(),
+        );
         assert_eq!(found.len(), 1);
     }
 

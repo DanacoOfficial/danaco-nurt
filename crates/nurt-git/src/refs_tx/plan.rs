@@ -12,6 +12,7 @@ use gix_ref::{Category, FullName, FullNameRef, Target};
 use indexmap::IndexMap;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::AbsPath;
+use nurt_contracts::journal::Expect;
 
 use super::read::{Loose, Packed, is_missing, loose_content, parse_loose, read_loose};
 use super::reflog::format_reflog_entry;
@@ -32,7 +33,7 @@ const MAX_SYMREF_DEPTH: usize = 5;
 const KEPT_REF_DEPTH: usize = 2;
 const KEPT_LOG_DEPTH: usize = 3;
 
-/// File state verified again while the locks are held.
+/// File state verified again immediately before the first change.
 #[derive(Debug, Clone)]
 pub(super) struct Guard {
     pub(super) path: AbsPath,
@@ -92,7 +93,7 @@ struct Builder<'a> {
     outcomes: Vec<RefOutcome>,
     create_dirs: Vec<AbsPath>,
     clear_dirs: Vec<AbsPath>,
-    writes: Vec<(AbsPath, AbsPath, Vec<u8>)>,
+    writes: Vec<Step>,
     ref_deletes: Vec<(AbsPath, AbsPath, Vec<u8>)>,
     log_deletes: Vec<AbsPath>,
     logs: IndexMap<AbsPath, LogWrite>,
@@ -542,7 +543,8 @@ impl<'a> Builder<'a> {
         Ok(dirs)
     }
 
-    /// Schedules `content` to be written to `path` under `path.lock`.
+    /// Schedules `content` to be written to `path`; the journal checks the
+    /// previous content read now atomically with the switch.
     fn schedule_write(&mut self, path: AbsPath, content: Vec<u8>) -> Result<()> {
         let state = self.loose(&path)?;
         if state == Loose::Dir {
@@ -551,18 +553,28 @@ impl<'a> Builder<'a> {
         } else {
             self.ensure_parents(&path)?;
         }
-        let expected = if state == Loose::Dir {
-            Loose::Absent
-        } else {
-            state
+        self.created.push(path.clone());
+        self.push_write(path, content, state)
+    }
+
+    /// Records the write of `path`, whose current state is `state`.
+    fn push_write(&mut self, path: AbsPath, content: Vec<u8>, state: Loose) -> Result<()> {
+        let expect = match &state {
+            Loose::File(old) => Expect::Hash(apply::content_hash(old)),
+            Loose::Absent => Expect::Absent,
+            Loose::Dir => Expect::Unchecked,
         };
         self.guards.push(Guard {
             path: path.clone(),
-            expected,
+            expected: state,
         });
         let lock = lock_path(&path)?;
-        self.created.push(path.clone());
-        self.writes.push((lock, path, content));
+        self.writes.push(Step::Write {
+            lock,
+            path,
+            content,
+            expect,
+        });
         Ok(())
     }
 
@@ -631,26 +643,15 @@ impl<'a> Builder<'a> {
     fn finish(mut self) -> Result<Plan> {
         if !self.packed_removals.is_empty() {
             let content = self.packed.without(&self.packed_removals);
-            let lock = lock_path(&self.packed_path)?;
-            self.guards.push(Guard {
-                path: self.packed_path.clone(),
-                expected: self.packed.raw.clone().map_or(Loose::Absent, Loose::File),
-            });
-            self.writes.push((lock, self.packed_path.clone(), content));
+            let state = self.packed.raw.clone().map_or(Loose::Absent, Loose::File);
+            let path = self.packed_path.clone();
+            self.push_write(path, content, state)?;
         }
         let remove_dirs = self.empty_dirs()?;
         let mut steps = Vec::new();
         steps.extend(self.create_dirs.into_iter().map(Step::CreateDir));
         steps.extend(self.clear_dirs.into_iter().map(Step::ClearDir));
-        steps.extend(
-            self.writes
-                .into_iter()
-                .map(|(lock, path, content)| Step::Write {
-                    lock,
-                    path,
-                    content,
-                }),
-        );
+        steps.extend(self.writes);
         steps.extend(
             self.ref_deletes
                 .into_iter()
@@ -671,7 +672,7 @@ impl<'a> Builder<'a> {
             }
         }));
         steps.extend(remove_dirs.into_iter().map(Step::RemoveDir));
-        check_locks(&steps)?;
+        apply::check_locks(&steps)?;
         Ok(Plan {
             outcomes: self.outcomes,
             steps,
@@ -906,18 +907,4 @@ fn all_entries_gone(dir: &Path, gone: &HashSet<PathBuf>) -> Result<bool> {
         }
     }
     Ok(true)
-}
-
-/// Fails with `E_GIT_LOCKED` when a lock file of a written file exists.
-fn check_locks(steps: &[Step]) -> Result<()> {
-    for step in steps {
-        if let Some(lock) = step.lock() {
-            match std::fs::symlink_metadata(lock.as_path()) {
-                Ok(_) => return Err(apply::locked(lock)),
-                Err(error) if is_missing(&error) => {}
-                Err(error) => return Err(io_error(lock.as_path(), &error)),
-            }
-        }
-    }
-    Ok(())
 }

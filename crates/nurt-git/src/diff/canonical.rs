@@ -8,6 +8,8 @@
 //! detection, using the configured algorithm (`diff.algorithm`) and
 //! indentation heuristic (`diff.indentHeuristic`).
 
+use std::ops::Range;
+
 use bstr::{BStr, BString, ByteSlice};
 use nurt_contracts::error::Error;
 use nurt_contracts::record::HunkStatus;
@@ -87,7 +89,9 @@ impl Driver {
     pub fn of(reader: &mut Reader<'_>, path: &BStr) -> Self {
         let attr = reader.diff_attr(path);
         let config = reader.repo().config_snapshot();
-        let global_words = config.string("diff.wordRegex").map(|value| value.to_str_lossy().into_owned());
+        let global_words = config
+            .string("diff.wordRegex")
+            .map(|value| value.to_str_lossy().into_owned());
         let mut driver = Self {
             word_regex: global_words,
             ..Self::default()
@@ -162,7 +166,28 @@ impl FileDiff {
 
 /// Computes the difference of a pair from given contents.
 #[must_use]
-pub fn diff_contents(pair: FilePair, old: &[u8], new: &[u8], options: &FileOptions, driver: &Driver) -> FileDiff {
+pub fn diff_contents(
+    pair: FilePair,
+    old: &[u8],
+    new: &[u8],
+    options: &FileOptions,
+    driver: &Driver,
+) -> FileDiff {
+    diff_texts(pair, old, new, options, driver, None)
+}
+
+/// Computes the difference of a pair from given contents; with `keep`, only
+/// the changes that touch these lines of the new text (from 0, end
+/// exclusive) are kept and counted.
+#[must_use]
+pub fn diff_texts(
+    pair: FilePair,
+    old: &[u8],
+    new: &[u8],
+    options: &FileOptions,
+    driver: &Driver,
+    keep: Option<&Range<usize>>,
+) -> FileDiff {
     let binary = driver
         .binary
         .unwrap_or_else(|| looks_binary(old) || looks_binary(new));
@@ -172,7 +197,11 @@ pub fn diff_contents(pair: FilePair, old: &[u8], new: &[u8], options: &FileOptio
         let mut hunks = Vec::new();
         if changed {
             let mut hunk = Hunk::binary_placeholder(pair.path.clone());
-            hunk.status = if status == HunkStatus::Modified { HunkStatus::Binary } else { status };
+            hunk.status = if status == HunkStatus::Modified {
+                HunkStatus::Binary
+            } else {
+                status
+            };
             decorate(&mut hunk, &pair);
             hunks.push(hunk);
         }
@@ -184,7 +213,10 @@ pub fn diff_contents(pair: FilePair, old: &[u8], new: &[u8], options: &FileOptio
             binary: true,
         };
     }
-    let text = TextDiff::new(old, new, &options.lines);
+    let mut text = TextDiff::new(old, new, &options.lines);
+    if let Some(lines) = keep {
+        text.retain_new_lines(lines);
+    }
     let (added, removed) = text.counts();
     let mut hunks = text.hunks(&pair.path, &options.layout, &driver.funcs);
     for hunk in &mut hunks {
@@ -211,7 +243,12 @@ fn decorate(hunk: &mut Hunk, pair: &FilePair) {
 /// # Errors
 ///
 /// Fails when an object or a worktree file cannot be read.
-pub fn diff_pair(reader: &mut Reader<'_>, pair: FilePair, options: &FileOptions, driver: &Driver) -> Result<FileDiff, Error> {
+pub fn diff_pair(
+    reader: &mut Reader<'_>,
+    pair: FilePair,
+    options: &FileOptions,
+    driver: &Driver,
+) -> Result<FileDiff, Error> {
     let old_path = pair.old_path.clone().unwrap_or_else(|| pair.path.clone());
     let old = match &pair.old {
         Some(entry) => reader.content(old_path.as_bstr(), entry)?,
@@ -245,7 +282,7 @@ pub fn configured_lines(repo: &gix::Repository) -> (LineOptions, bool) {
 
 /// Canonical hunks of `path` on `side`, numbered from 1.
 ///
-/// `path` is relative to the repository root with `/` separators. A path
+/// The path is relative to the repository root with `/` separators. A path
 /// without a difference, an untracked path and a path with conflict stages
 /// have no hunks. A binary file has one hunk without lines. The hunks carry
 /// the file status and modes.
@@ -271,7 +308,11 @@ pub fn hunks_for(repo: &gix::Repository, side: Side, path: &BStr) -> Result<Vec<
     let index_entry = reader
         .index()
         .entry_by_path_and_stage(path, gix::index::entry::Stage::Unconflicted)
-        .filter(|entry| !entry.flags.contains(gix::index::entry::Flags::INTENT_TO_ADD))
+        .filter(|entry| {
+            !entry
+                .flags
+                .contains(gix::index::entry::Flags::INTENT_TO_ADD)
+        })
         .map(|entry| Entry {
             mode: entry.mode.bits(),
             id: Some(entry.id),
@@ -291,12 +332,22 @@ pub fn hunks_for(repo: &gix::Repository, side: Side, path: &BStr) -> Result<Vec<
             };
             let pair = canonical_pair(path, Some(old), new_entry);
             let driver = Driver::of(&mut reader, path);
-            return Ok(diff_contents(pair, &old_data, &new_data, &canonical_options(repo), &driver).hunks);
+            return Ok(diff_contents(
+                pair,
+                &old_data,
+                &new_data,
+                &canonical_options(repo),
+                &driver,
+            )
+            .hunks);
         }
         Side::Staged => {
             let head = super::source::resolve_tree(repo, None)?;
-            let tree = repo.find_tree(head).map_err(|error| read_error("tree", &error))?;
-            let relative = gix::path::from_bstr(path).map_err(|error| read_error("path", &error))?;
+            let tree = repo
+                .find_tree(head)
+                .map_err(|error| read_error("tree", &error))?;
+            let relative =
+                gix::path::from_bstr(path).map_err(|error| read_error("path", &error))?;
             let old = tree
                 .lookup_entry_by_path(relative)
                 .map_err(|error| read_error("tree", &error))?
@@ -343,12 +394,16 @@ fn canonical_options(repo: &gix::Repository) -> FileOptions {
 ///
 /// let hunks = text_hunks("a.txt", b"one\ntwo\n", b"one\n2\n");
 /// assert_eq!(hunks.len(), 1);
-/// assert_eq!(hunks[0].header_line(), "@@ -1,2 +1,2 @@ one");
+/// assert_eq!(hunks[0].header_line(), "@@ -1,2 +1,2 @@");
 /// ```
 #[must_use]
 pub fn text_hunks(path: &str, old: &[u8], new: &[u8]) -> Vec<Hunk> {
     let text = TextDiff::new(old, new, &LineOptions::default());
-    text.hunks(&BString::from(path), &Layout::default(), &FuncMatcher::default_rule())
+    text.hunks(
+        &BString::from(path),
+        &Layout::default(),
+        &FuncMatcher::default_rule(),
+    )
 }
 
 #[cfg(test)]
@@ -369,7 +424,10 @@ mod tests {
     fn statuses_follow_sides() {
         assert_eq!(pair(None, entry(0o100_644)).status(), HunkStatus::Added);
         assert_eq!(pair(entry(0o100_644), None).status(), HunkStatus::Deleted);
-        assert_eq!(pair(entry(0o100_644), entry(0o100_644)).status(), HunkStatus::Modified);
+        assert_eq!(
+            pair(entry(0o100_644), entry(0o100_644)).status(),
+            HunkStatus::Modified
+        );
         let mut renamed = pair(entry(0o100_644), entry(0o100_644));
         renamed.old_path = Some("g.txt".into());
         assert_eq!(renamed.status(), HunkStatus::Renamed);
@@ -406,20 +464,38 @@ mod tests {
             binary: Some(false),
             ..Driver::default()
         };
-        let diff = diff_contents(pair(entry(0o100_644), entry(0o100_644)), b"\0a\n", b"\0b\n", &FileOptions::default(), &forced_text);
+        let diff = diff_contents(
+            pair(entry(0o100_644), entry(0o100_644)),
+            b"\0a\n",
+            b"\0b\n",
+            &FileOptions::default(),
+            &forced_text,
+        );
         assert!(!diff.binary);
         assert_eq!((diff.added, diff.removed), (Some(1), Some(1)));
         let forced_binary = Driver {
             binary: Some(true),
             ..Driver::default()
         };
-        let diff = diff_contents(pair(entry(0o100_644), entry(0o100_644)), b"a\n", b"b\n", &FileOptions::default(), &forced_binary);
+        let diff = diff_contents(
+            pair(entry(0o100_644), entry(0o100_644)),
+            b"a\n",
+            b"b\n",
+            &FileOptions::default(),
+            &forced_binary,
+        );
         assert!(diff.binary);
     }
 
     #[test]
     fn mode_change_alone_has_no_hunks_but_is_not_empty() {
-        let diff = diff_contents(pair(entry(0o100_644), entry(0o100_755)), b"a\n", b"a\n", &FileOptions::default(), &Driver::default());
+        let diff = diff_contents(
+            pair(entry(0o100_644), entry(0o100_755)),
+            b"a\n",
+            b"a\n",
+            &FileOptions::default(),
+            &Driver::default(),
+        );
         assert!(diff.hunks.is_empty());
         assert!(!diff.is_empty());
         assert_eq!(diff.old_mode().as_deref(), Some("100644"));
@@ -445,8 +521,16 @@ mod tests {
             .map(|line| line.text.to_string())
             .collect();
         assert_eq!(added, ["four"]);
-        assert!(hunks_for(&repo, Side::Worktree, "b.txt".into()).unwrap().is_empty());
-        assert!(hunks_for(&repo, Side::Worktree, "missing.txt".into()).unwrap().is_empty());
+        assert!(
+            hunks_for(&repo, Side::Worktree, "b.txt".into())
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            hunks_for(&repo, Side::Worktree, "missing.txt".into())
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -469,7 +553,10 @@ mod tests {
         new_lines[18] = "c".to_owned();
         let new = new_lines.join("\n") + "\n";
         let hunks = text_hunks("f", old.as_bytes(), new.as_bytes());
-        assert_eq!(hunks.iter().map(|hunk| hunk.number).collect::<Vec<_>>(), [1, 2]);
+        assert_eq!(
+            hunks.iter().map(|hunk| hunk.number).collect::<Vec<_>>(),
+            [1, 2]
+        );
         assert_eq!(hunks[1].id().to_string(), "f#2");
     }
 }

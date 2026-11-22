@@ -11,13 +11,16 @@ use gix::ObjectId;
 use gix::objs::tree::EntryKind;
 use indexmap::IndexMap;
 use nurt_contracts::error::Error;
-use nurt_contracts::record::{Commit, CommitFile, CommitSignature, CommitStats, SignatureFormat, SignatureStatus};
+use nurt_contracts::record::{
+    Commit, CommitFile, CommitSignature, CommitStats, SignatureFormat, SignatureStatus,
+};
 use nurt_contracts::stage::FieldDemand;
 use nurt_contracts::value::Instant;
 
 use super::changes::{FileChange, Side};
 use super::lines;
 use super::repo::OpenRepo;
+use nurt_git_transport::sign::{verify_commit, verify_tag};
 
 /// A person as recorded in a commit, after `.mailmap`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,7 +48,8 @@ impl<'r> CommitRecords<'r> {
     /// only when used, the signature only when asked for by name.
     pub(crate) fn new(repo: &'r OpenRepo, demand: &FieldDemand) -> Self {
         let decorations = demand.wants("refs").then(|| decorations(repo));
-        let signatures = matches!(demand, FieldDemand::Only(fields) if fields.contains("signature"));
+        let signatures =
+            matches!(demand, FieldDemand::Only(fields) if fields.contains("signature"));
         Self {
             repo,
             mailmap: repo.repo.open_mailmap(),
@@ -59,11 +63,18 @@ impl<'r> CommitRecords<'r> {
         self.repo
     }
 
+    /// Whether the signature of commits and tags was asked for.
+    pub(crate) fn signatures(&self) -> bool {
+        self.signatures
+    }
+
     /// Author of a commit.
     pub(crate) fn author(&self, id: ObjectId) -> Result<Person, Error> {
         let object = self.object(id)?;
         let commit = self.decode(id, &object)?;
-        let author = commit.author().map_err(|err| self.repo.read_error(format_args!("commit {id}"), err))?;
+        let author = commit
+            .author()
+            .map_err(|err| self.repo.read_error(format_args!("commit {id}"), err))?;
         Ok(self.person(author))
     }
 
@@ -71,9 +82,16 @@ impl<'r> CommitRecords<'r> {
     pub(crate) fn commit(&self, id: ObjectId) -> Result<Commit, Error> {
         let object = self.object(id)?;
         let commit = self.decode(id, &object)?;
-        let invalid = |err: gix::objs::decode::Error| self.repo.read_error(format_args!("commit {id}"), err);
-        let author = self.person(commit.author().map_err(invalid)?);
-        let committer = self.person(commit.committer().map_err(invalid)?);
+        let author = self.person(
+            commit
+                .author()
+                .map_err(|err| self.repo.read_error(format_args!("commit {id}"), err))?,
+        );
+        let committer = self.person(
+            commit
+                .committer()
+                .map_err(|err| self.repo.read_error(format_args!("commit {id}"), err))?,
+        );
         let raw = commit.message;
         let parsed = gix::objs::commit::MessageRef::from_bytes(raw);
         let trailers = trailers(&parsed);
@@ -89,12 +107,26 @@ impl<'r> CommitRecords<'r> {
             committer: Some(committer.name),
             committer_email: Some(committer.email),
             commit_time: Some(instant(committer.seconds)),
-            refs: self.decorations.as_ref().map(|all| all.get(&id).cloned().unwrap_or_default()),
-            signature: self.signatures.then(|| signature(&commit)),
+            refs: self
+                .decorations
+                .as_ref()
+                .map(|all| all.get(&id).cloned().unwrap_or_default()),
+            signature: self.signatures.then(|| {
+                signature_of(
+                    self.repo,
+                    SignedKind::Commit,
+                    &object.data,
+                    commit
+                        .extra_headers()
+                        .find("gpgsig")
+                        .or_else(|| commit.extra_headers().find("gpgsig-sha256")),
+                )
+            }),
             stats: None,
             trailers: (!trailers.is_empty()).then_some(trailers),
             tree: Some(commit.tree().to_string()),
             files: None,
+            branch: None,
         })
     }
 
@@ -105,12 +137,17 @@ impl<'r> CommitRecords<'r> {
             .map_err(|err| self.repo.read_error(format_args!("commit {id}"), err))
     }
 
-    fn decode<'a>(&self, id: ObjectId, object: &'a gix::Object<'r>) -> Result<gix::objs::CommitRef<'a>, Error> {
+    fn decode<'a>(
+        &self,
+        id: ObjectId,
+        object: &'a gix::Object<'r>,
+    ) -> Result<gix::objs::CommitRef<'a>, Error> {
         gix::objs::CommitRef::from_bytes(&object.data, self.repo.repo.object_hash())
             .map_err(|err| self.repo.read_error(format_args!("commit {id}"), err))
     }
 
-    fn person(&self, signature: gix::actor::SignatureRef<'_>) -> Person {
+    /// A recorded identity with its time, after `.mailmap`.
+    pub(crate) fn person(&self, signature: gix::actor::SignatureRef<'_>) -> Person {
         let signature = signature.trim();
         let seconds = signature.seconds();
         let offset = signature.time().map_or(0, |time| time.offset);
@@ -125,7 +162,10 @@ impl<'r> CommitRecords<'r> {
 
     /// Changed files and their totals; binary files and submodules count no
     /// lines.
-    pub(crate) fn file_stats(&self, changes: &[FileChange]) -> Result<(Vec<CommitFile>, CommitStats), Error> {
+    pub(crate) fn file_stats(
+        &self,
+        changes: &[FileChange],
+    ) -> Result<(Vec<CommitFile>, CommitStats), Error> {
         let mut files = Vec::with_capacity(changes.len());
         let mut stats = CommitStats {
             files: 0,
@@ -136,7 +176,9 @@ impl<'r> CommitRecords<'r> {
             let old = self.content(change.old)?;
             let new = self.content(change.new)?;
             let binary = lines::is_binary(&old) || lines::is_binary(&new);
-            let (added, removed) = if binary { (None, None) } else {
+            let (added, removed) = if binary {
+                (None, None)
+            } else {
                 let (added, removed) = lines::line_counts(&old, &new);
                 (Some(added), Some(removed))
             };
@@ -146,7 +188,10 @@ impl<'r> CommitRecords<'r> {
             files.push(CommitFile {
                 path: change.path.to_str_lossy().into_owned(),
                 status: change.status,
-                old_path: change.old_path.as_ref().map(|path| path.to_str_lossy().into_owned()),
+                old_path: change
+                    .old_path
+                    .as_ref()
+                    .map(|path| path.to_str_lossy().into_owned()),
                 added,
                 removed,
                 binary: Some(binary),
@@ -160,7 +205,9 @@ impl<'r> CommitRecords<'r> {
     pub(crate) fn content(&self, side: Option<Side>) -> Result<Vec<u8>, Error> {
         match side {
             None => Ok(Vec::new()),
-            Some(side) if side.mode.kind() == EntryKind::Commit => Ok(format!("Subproject commit {}\n", side.id).into_bytes()),
+            Some(side) if side.mode.kind() == EntryKind::Commit => {
+                Ok(format!("Subproject commit {}\n", side.id).into_bytes())
+            }
             Some(side) => self.repo.blob(side.id),
         }
     }
@@ -189,11 +236,26 @@ fn trailers(message: &gix::objs::commit::MessageRef<'_>) -> IndexMap<String, Str
     out
 }
 
-fn signature(commit: &gix::objs::CommitRef<'_>) -> CommitSignature {
-    let header = commit
-        .extra_headers()
-        .find("gpgsig")
-        .or_else(|| commit.extra_headers().find("gpgsig-sha256"));
+/// Kind of a signed object.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum SignedKind {
+    /// Commit.
+    Commit,
+    /// Annotated tag.
+    Tag,
+}
+
+/// Signature of the object `data`, whose signature header or field is
+/// `header`, verified with the signer of `repo`.
+///
+/// A signature that cannot be verified is reported as unsupported with the
+/// format recognised from the header.
+pub(crate) fn signature_of(
+    repo: &OpenRepo,
+    kind: SignedKind,
+    data: &[u8],
+    header: Option<&BStr>,
+) -> CommitSignature {
     let Some(text) = header else {
         return CommitSignature {
             status: SignatureStatus::None,
@@ -202,12 +264,17 @@ fn signature(commit: &gix::objs::CommitRef<'_>) -> CommitSignature {
             signer: None,
         };
     };
-    CommitSignature {
+    let hash = repo.repo.object_hash();
+    let verified = match kind {
+        SignedKind::Commit => verify_commit(data, hash, repo.signer.as_ref(), &repo.verify),
+        SignedKind::Tag => verify_tag(data, hash, repo.signer.as_ref(), &repo.verify),
+    };
+    verified.unwrap_or_else(|_| CommitSignature {
         status: SignatureStatus::Unsupported,
         format: Some(signature_format(text)),
         key: None,
         signer: None,
-    }
+    })
 }
 
 fn signature_format(text: &BStr) -> SignatureFormat {
@@ -226,37 +293,43 @@ fn signature_format(text: &BStr) -> SignatureFormat {
 fn decorations(repo: &OpenRepo) -> HashMap<ObjectId, Vec<String>> {
     let mut by_commit: HashMap<ObjectId, BTreeMap<(u8, String), String>> = HashMap::new();
     let current = repo.repo.head_name().ok().flatten();
-    if let Ok(platform) = repo.repo.references() {
-        if let Ok(all) = platform.all() {
-            for mut reference in all.flatten() {
-                let full = reference.name().as_bstr().to_str_lossy().into_owned();
-                let Ok(target) = reference.peel_to_id() else {
-                    continue;
-                };
-                let Some(commit) = repo.peel_to_commit(target.detach()) else {
-                    continue;
-                };
-                let short = reference.name().shorten().to_str_lossy().into_owned();
-                let (rank, label) = if current.as_ref().is_some_and(|name| name.as_bstr() == full.as_bytes()) {
-                    (0, format!("HEAD -> {short}"))
-                } else if full.starts_with("refs/tags/") {
-                    (3, format!("tag: {short}"))
-                } else if full.starts_with("refs/heads/") {
-                    (1, short)
-                } else {
-                    (2, short)
-                };
-                by_commit.entry(commit).or_default().insert((rank, full), label);
-            }
+    if let Ok(platform) = repo.repo.references()
+        && let Ok(all) = platform.all()
+    {
+        for mut reference in all.flatten() {
+            let full = reference.name().as_bstr().to_str_lossy().into_owned();
+            let Ok(target) = reference.peel_to_id() else {
+                continue;
+            };
+            let Some(commit) = repo.peel_to_commit(target.detach()) else {
+                continue;
+            };
+            let short = reference.name().shorten().to_str_lossy().into_owned();
+            let (rank, label) = if current
+                .as_ref()
+                .is_some_and(|name| name.as_bstr() == full.as_bytes())
+            {
+                (0, format!("HEAD -> {short}"))
+            } else if full.starts_with("refs/tags/") {
+                (3, format!("tag: {short}"))
+            } else if full.starts_with("refs/heads/") {
+                (1, short)
+            } else {
+                (2, short)
+            };
+            by_commit
+                .entry(commit)
+                .or_default()
+                .insert((rank, full), label);
         }
     }
-    if current.is_none() {
-        if let Ok(head) = repo.repo.head_id() {
-            by_commit
-                .entry(head.detach())
-                .or_default()
-                .insert((0, "HEAD".to_owned()), "HEAD".to_owned());
-        }
+    if current.is_none()
+        && let Ok(head) = repo.repo.head_id()
+    {
+        by_commit
+            .entry(head.detach())
+            .or_default()
+            .insert((0, "HEAD".to_owned()), "HEAD".to_owned());
     }
     by_commit
         .into_iter()
@@ -295,7 +368,10 @@ mod tests {
         assert!(record.parents.is_empty());
         assert_eq!(record.time, instant(fixture.time_of(id)));
         let trailers = record.trailers.unwrap();
-        assert_eq!(trailers["Signed-off-by"], "A <a@example.com>, B <b@example.com>");
+        assert_eq!(
+            trailers["Signed-off-by"],
+            "A <a@example.com>, B <b@example.com>"
+        );
         assert_eq!(record.refs.unwrap(), ["HEAD -> main", "tag: v1"]);
         assert!(record.signature.is_none());
     }
@@ -303,7 +379,10 @@ mod tests {
     #[test]
     fn maps_identities_through_mailmap() {
         let mut fixture = Fixture::new();
-        fixture.write_file(".mailmap", "Proper Name <proper@example.com> <author@example.com>\n");
+        fixture.write_file(
+            ".mailmap",
+            "Proper Name <proper@example.com> <author@example.com>\n",
+        );
         let id = fixture.commit("first", &[("a.txt", Some("a\n"))]);
         let repo = fixture.open();
         let records = CommitRecords::new(&repo, &all());
@@ -316,28 +395,50 @@ mod tests {
     #[test]
     fn reports_signature_format_only_when_asked_for() {
         let mut fixture = Fixture::new();
-        let id = fixture.commit_signed("signed", "-----BEGIN SSH SIGNATURE-----\nabc\n-----END SSH SIGNATURE-----");
+        let id = fixture.commit_signed(
+            "signed",
+            "-----BEGIN SSH SIGNATURE-----\nabc\n-----END SSH SIGNATURE-----",
+        );
         let plain = fixture.commit("plain", &[("a", Some("a\n"))]);
         let repo = fixture.open();
         let demand = FieldDemand::Only(BTreeSet::from(["signature".to_owned()]));
         let records = CommitRecords::new(&repo, &demand);
         let signature = records.commit(id).unwrap().signature.unwrap();
-        assert_eq!(signature.status, SignatureStatus::Unsupported);
+        assert_ne!(signature.status, SignatureStatus::None);
         assert_eq!(signature.format, Some(SignatureFormat::Ssh));
-        assert_eq!(records.commit(plain).unwrap().signature.unwrap().status, SignatureStatus::None);
+        assert_eq!(
+            records.commit(plain).unwrap().signature.unwrap().status,
+            SignatureStatus::None
+        );
         assert!(records.commit(plain).unwrap().refs.is_none());
-        assert_eq!(signature_format(b"-----BEGIN PGP SIGNATURE".as_bstr()), SignatureFormat::Openpgp);
-        assert_eq!(signature_format(b"-----BEGIN SIGNED MESSAGE".as_bstr()), SignatureFormat::X509);
+        assert_eq!(
+            signature_format(b"-----BEGIN PGP SIGNATURE".as_bstr()),
+            SignatureFormat::Openpgp
+        );
+        assert_eq!(
+            signature_format(b"-----BEGIN SIGNED MESSAGE".as_bstr()),
+            SignatureFormat::X509
+        );
     }
 
     #[test]
     fn counts_lines_of_changed_files() {
         let mut fixture = Fixture::new();
         let first = fixture.commit("first", &[("a.txt", Some("a\nb\n")), ("bin", Some("x\0y"))]);
-        let second = fixture.commit("second", &[("a.txt", Some("a\nB\nc\n")), ("bin", Some("x\0z"))]);
+        let second = fixture.commit(
+            "second",
+            &[("a.txt", Some("a\nB\nc\n")), ("bin", Some("x\0z"))],
+        );
         let repo = fixture.open();
         let records = CommitRecords::new(&repo, &all());
-        let changes = tree_changes(&repo, Some(repo.tree_of(first).unwrap()), repo.tree_of(second).unwrap(), Detect::Renames, None).unwrap();
+        let changes = tree_changes(
+            &repo,
+            Some(repo.tree_of(first).unwrap()),
+            repo.tree_of(second).unwrap(),
+            Detect::Renames,
+            None,
+        )
+        .unwrap();
         let (files, stats) = records.file_stats(&changes).unwrap();
         assert_eq!((stats.files, stats.added, stats.removed), (2, 2, 1));
         assert_eq!(files[0].path, "a.txt");

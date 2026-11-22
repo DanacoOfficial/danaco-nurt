@@ -3,8 +3,8 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Read-only view of a repository for the checks of a pull.
 //!
-//! The repository is opened without running a program: the configuration
-//! of a `git` installation found through the `git` program is not read.
+//! The repository is opened through [`GitRepo`]: no program runs, and the
+//! system and global configuration come from the execution context.
 
 use std::collections::BTreeMap;
 use std::fmt::Display;
@@ -14,6 +14,8 @@ use std::time::UNIX_EPOCH;
 use gix::ObjectId;
 use gix::bstr::ByteSlice;
 use nurt_contracts::error::{Error, ErrorCode, Result, Stage};
+use nurt_contracts::stage::ExecCtx;
+use nurt_git::repo::GitRepo;
 
 use super::settings::ConfigSource;
 
@@ -57,9 +59,9 @@ impl HeadState {
     }
 }
 
-/// Repository opened for reading.
+/// Repository with a working tree, opened for reading.
 pub(crate) struct Repo {
-    repo: gix::Repository,
+    repo: GitRepo,
     root: PathBuf,
 }
 
@@ -72,24 +74,13 @@ fn read_error(what: &str, error: impl Display) -> Error {
 }
 
 /// Opens the repository that contains `path`.
-pub(crate) fn open(path: &Path) -> Result<Repo> {
-    let mut permissions = gix::open::Permissions::all();
-    permissions.config.git_binary = false;
-    permissions.attributes.git_binary = false;
-    let options = gix::open::Options::default().permissions(permissions);
-    let mapping = gix::sec::trust::Mapping {
-        full: options.clone(),
-        reduced: options,
-    };
-    let repo = gix::ThreadSafeRepository::discover_opts(path, Default::default(), mapping)
-        .map_err(|error| {
-            Error::new(
-                ErrorCode::GitNotRepository,
-                format!("`{}` is not inside a repository: {error}", path.display()),
-            )
-            .with_stage(Stage::Read)
-        })?
-        .to_thread_local();
+///
+/// # Errors
+///
+/// The errors of [`GitRepo::discover`], and `E_GIT_UNSUPPORTED` for a bare
+/// repository.
+pub(crate) fn open(path: &Path, ctx: &ExecCtx) -> Result<Repo> {
+    let repo = GitRepo::discover(path, ctx)?;
     let Some(root) = repo.workdir().map(Path::to_path_buf) else {
         return Err(Error::new(
             ErrorCode::GitUnsupported,
@@ -103,17 +94,19 @@ pub(crate) fn open(path: &Path) -> Result<Repo> {
 
 impl ConfigSource for Repo {
     fn get(&self, key: &str) -> Option<String> {
-        let config = self.repo.config_snapshot();
-        let value = config.string(key)?;
-        if value.is_empty() && matches!(config.plumbing().boolean(key), Ok(Some(true))) {
-            return Some("true".to_owned());
+        let config = self.repo.config();
+        let truth = config.boolean(key);
+        match config.string(key) {
+            Some(value) if value.is_empty() && truth == Some(true) => Some("true".to_owned()),
+            Some(value) => Some(value.to_str_lossy().into_owned()),
+            None if truth == Some(true) => Some("true".to_owned()),
+            None => None,
         }
-        Some(value.to_str_lossy().into_owned())
     }
 
     fn get_all(&self, key: &str) -> Vec<String> {
         self.repo
-            .config_snapshot()
+            .config()
             .plumbing()
             .strings(key)
             .unwrap_or_default()
@@ -124,6 +117,15 @@ impl ConfigSource for Repo {
 }
 
 impl Repo {
+    /// The opened repository.
+    pub(crate) fn git(&self) -> &GitRepo {
+        &self.repo
+    }
+
+    fn gix(&self) -> &gix::Repository {
+        self.repo.gix()
+    }
+
     /// Root of the working tree.
     pub(crate) fn root(&self) -> &Path {
         &self.root
@@ -132,7 +134,7 @@ impl Repo {
     /// State of `HEAD`.
     pub(crate) fn head(&self) -> Result<HeadState> {
         let head = self
-            .repo
+            .gix()
             .head()
             .map_err(|error| read_error("HEAD", error))?;
         let branch = head
@@ -163,11 +165,8 @@ impl Repo {
         self.git_file_exists("rebase-merge") || self.git_file_exists("rebase-apply")
     }
 
-    fn index(&self) -> Result<gix::worktree::IndexPersistedOrInMemory> {
-        self.repo
-            .index_or_empty()
-            .map(gix::worktree::IndexPersistedOrInMemory::Persisted)
-            .map_err(|error| read_error("the index", error))
+    fn index(&self) -> Result<gix::index::File> {
+        self.repo.index_file()
     }
 
     /// Paths with unmerged index entries, sorted and without repetitions.
@@ -189,7 +188,7 @@ impl Repo {
             return Ok(entries);
         };
         let tree = self
-            .repo
+            .gix()
             .find_commit(head)
             .and_then(|commit| commit.tree())
             .map_err(|error| read_error("the tree of HEAD", error))?;
@@ -297,7 +296,7 @@ impl Repo {
         } else {
             std::fs::read(&file).map_err(|error| read_error(path, error))?
         };
-        let id = gix::objs::compute_hash(self.repo.object_hash(), gix::objs::Kind::Blob, &content)
+        let id = gix::objs::compute_hash(self.gix().object_hash(), gix::objs::Kind::Blob, &content)
             .map_err(|error| read_error(path, error))?;
         Ok(id != entry.id)
     }
@@ -308,7 +307,7 @@ impl Repo {
             return Ok(true);
         }
         let base = self
-            .repo
+            .gix()
             .merge_base(ancestor, descendant)
             .map_err(|error| read_error("the history", error))?;
         Ok(base.is_some_and(|base| base.detach() == ancestor))
@@ -316,7 +315,7 @@ impl Repo {
 
     /// Best merge base of two commits.
     pub(crate) fn merge_base(&self, one: ObjectId, two: ObjectId) -> Result<Option<ObjectId>> {
-        self.repo
+        self.gix()
             .merge_base(one, two)
             .map(|base| base.map(gix::Id::detach))
             .map_err(|error| read_error("the history", error))
@@ -359,7 +358,7 @@ impl Repo {
     pub(crate) fn fork_point(&self, reference: &str, head: ObjectId) -> Result<Option<ObjectId>> {
         let mut candidates = self.reflog_ids(reference)?;
         if candidates.is_empty() {
-            match self.repo.try_find_reference(reference) {
+            match self.gix().try_find_reference(reference) {
                 Ok(Some(mut found)) => {
                     if let Ok(id) = found.peel_to_id() {
                         candidates.push(id.detach());
@@ -370,7 +369,7 @@ impl Repo {
             }
         }
         let bases = self
-            .repo
+            .gix()
             .merge_bases_many(head, &candidates)
             .map_err(|error| read_error("the history", error))?;
         match bases.as_slice() {
@@ -398,10 +397,15 @@ pub(crate) mod tests {
     use std::fs;
 
     use gix::objs::tree::{Entry, EntryKind};
+    use nurt_contracts::journal::MutationTx;
+    use nurt_git::apply::testjournal::RecordingJournal;
+    use nurt_git::apply::{ApplyContext, apply_plan, plan_new_tree};
+    use nurt_git::testutil::test_ctx;
 
     use super::*;
 
-    /// Repository built with `gix` alone: commits, branches and an index.
+    /// Repository built with `gix` alone: commits, references and a working
+    /// tree checked out through the working tree engine.
     pub(crate) struct Fixture {
         pub(crate) dir: tempfile::TempDir,
         pub(crate) repo: gix::Repository,
@@ -422,6 +426,10 @@ pub(crate) mod tests {
 
         pub(crate) fn root(&self) -> &Path {
             self.dir.path()
+        }
+
+        pub(crate) fn git_dir(&self) -> PathBuf {
+            self.repo.git_dir().to_path_buf()
         }
 
         pub(crate) fn tree(&self, files: &[(&str, &str)]) -> ObjectId {
@@ -480,18 +488,28 @@ pub(crate) mod tests {
             fs::write(path, text).unwrap();
         }
 
-        /// Writes the index and the working tree of `commit`.
-        pub(crate) fn checkout(&self, commit: ObjectId, files: &[(&str, &str)]) {
+        /// Appends `text` to the repository configuration.
+        pub(crate) fn config(&self, text: &str) {
+            let path = self.repo.git_dir().join("config");
+            let mut config = fs::read_to_string(&path).unwrap();
+            config.push_str(text);
+            fs::write(path, config).unwrap();
+        }
+
+        /// Writes the index and the working tree of `commit` into the
+        /// repository without an index.
+        pub(crate) fn checkout(&self, commit: ObjectId) {
             let tree = self.repo.find_commit(commit).unwrap().tree_id().unwrap();
-            let mut index = self.repo.index_from_tree(&tree).unwrap();
-            index.write(Default::default()).unwrap();
-            for (name, content) in files {
-                fs::write(self.root().join(name), content).unwrap();
-            }
+            let ctx = ApplyContext::open(&self.repo).unwrap();
+            let plan = plan_new_tree(&ctx, &tree).unwrap();
+            let journal = RecordingJournal::new();
+            let mut tx = journal.begin();
+            apply_plan(&mut tx, &ctx, plan).unwrap();
+            Box::new(tx).commit().unwrap();
         }
 
         pub(crate) fn open(&self) -> Repo {
-            open(self.root()).unwrap()
+            open(self.root(), &test_ctx()).unwrap()
         }
     }
 
@@ -517,7 +535,7 @@ pub(crate) mod tests {
         );
         assert_eq!(head.branch(), Some("main"));
         assert_eq!(head.id(), Some(first));
-        fs::write(fixture.repo.git_dir().join("HEAD"), format!("{first}\n")).unwrap();
+        fs::write(fixture.git_dir().join("HEAD"), format!("{first}\n")).unwrap();
         let detached = fixture.open().head().unwrap();
         assert_eq!(detached, HeadState::Detached { id: first });
         assert_eq!(detached.branch(), None);
@@ -526,27 +544,38 @@ pub(crate) mod tests {
     #[test]
     fn rejects_paths_outside_a_repository() {
         let dir = tempfile::tempdir().unwrap();
-        let error = open(dir.path()).err().unwrap();
+        let error = open(dir.path(), &test_ctx()).err().unwrap();
         assert_eq!(error.code, ErrorCode::GitNotRepository);
+    }
+
+    #[test]
+    fn rejects_a_bare_repository() {
+        let dir = tempfile::tempdir().unwrap();
+        gix::init_bare(dir.path()).unwrap();
+        let error = open(dir.path(), &test_ctx()).err().unwrap();
+        assert_eq!(error.code, ErrorCode::GitUnsupported);
+        assert_eq!(error.problem.as_deref(), Some("bare_repository"));
     }
 
     #[test]
     fn reads_configuration_values() {
         let fixture = Fixture::new();
-        let config = fixture.repo.git_dir().join("config");
-        let mut text = fs::read_to_string(&config).unwrap();
-        text.push_str("[pull]\n\trebase\n\tff = \n[branch \"main\"]\n\tmerge = refs/heads/a\n\tmerge = refs/heads/b\n");
-        fs::write(&config, text).unwrap();
+        fixture.config("[pull]\n\trebase\n\tff = \n[branch \"main\"]\n\tmerge = refs/heads/a\n\tmerge = refs/heads/b\n[rebase]\n\tautoStash = yes\n");
         let repo = fixture.open();
         assert_eq!(repo.get("pull.rebase").as_deref(), Some("true"));
         assert_eq!(repo.get("pull.ff").as_deref(), Some(""));
+        assert_eq!(repo.get("rebase.autoStash").as_deref(), Some("yes"));
         assert_eq!(repo.get("pull.missing"), None);
         assert_eq!(
             repo.get_all("branch.main.merge"),
             ["refs/heads/a", "refs/heads/b"]
         );
         assert!(repo.get_all("branch.other.merge").is_empty());
-        assert_eq!(repo.root(), fixture.root());
+        assert_eq!(
+            fs::canonicalize(repo.root()).unwrap(),
+            fs::canonicalize(fixture.root()).unwrap()
+        );
+        assert!(repo.git().workdir().is_some());
     }
 
     #[test]
@@ -555,8 +584,8 @@ pub(crate) mod tests {
         let repo = fixture.open();
         assert!(!repo.merge_in_progress());
         assert!(!repo.rebase_in_progress());
-        fs::write(fixture.repo.git_dir().join("MERGE_HEAD"), "x\n").unwrap();
-        fs::create_dir(fixture.repo.git_dir().join("rebase-merge")).unwrap();
+        fs::write(fixture.git_dir().join("MERGE_HEAD"), "x\n").unwrap();
+        fs::create_dir(fixture.git_dir().join("rebase-merge")).unwrap();
         assert!(repo.merge_in_progress());
         assert!(repo.rebase_in_progress());
     }
@@ -567,7 +596,7 @@ pub(crate) mod tests {
         let files = [("a.txt", "a\n"), ("b.txt", "b\n")];
         let first = fixture.commit(&files, &[], "init");
         fixture.set_ref("refs/heads/main", first);
-        fixture.checkout(first, &files);
+        fixture.checkout(first);
         let repo = fixture.open();
         assert!(repo.staged_paths(Some(first)).unwrap().is_empty());
         assert!(repo.unstaged_paths().unwrap().is_empty());
@@ -584,10 +613,14 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "the fixture adds conflict stages by writing the index directly, outside a transaction"
+    )]
     fn lists_unmerged_paths_once() {
         let mut fixture = Fixture::new();
         let first = fixture.commit(&[("a.txt", "a\n")], &[], "init");
-        fixture.checkout(first, &[("a.txt", "a\n")]);
+        fixture.checkout(first);
         let mut index = fixture.repo.open_index().unwrap();
         let blob = fixture.repo.write_blob(b"theirs\n").unwrap().detach();
         for stage in [2_u32, 3] {

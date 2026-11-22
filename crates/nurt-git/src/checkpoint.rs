@@ -23,10 +23,8 @@
 //! ```
 
 mod compare;
-#[cfg(test)]
-mod difftest;
 mod restore;
-mod snapshot;
+pub(crate) mod snapshot;
 pub(crate) mod support;
 #[cfg(test)]
 pub(crate) mod test_journal;
@@ -44,15 +42,17 @@ use nurt_contracts::stage::{
     BoundArgs, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, ReadStage,
     RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput,
 };
-use nurt_contracts::value::{Instant, Path as RecordPath, Record, Value};
+use nurt_contracts::value::{Instant, Path as RecordPath, Record};
+use sha2::{Digest, Sha256};
 
 pub use compare::{CompareRequest, Comparison, compare};
 pub use restore::{RestorePlan, RestoreRequest, apply_restore, plan_restore};
 
+use crate::repo::pathspec::PathFilter;
 use snapshot::{Blobs, index_entries, snapshot_worktree};
 use support::{
-    Filters, TxPlan, abs, committer, delete_ref, display_path, packed_ref_line, problem, quote,
-    ref_content, ref_file, repo_error, workdir, write_tree,
+    Filters, TxPlan, abs, check_expected_state, committer, delete_ref, display_path, feed,
+    finish_token, problem, quote, ref_content, ref_file, repo_error, workdir, write_tree,
 };
 
 /// Prefix of the references of checkpoints.
@@ -73,6 +73,9 @@ const SUBJECT_PREFIX: &str = "nurt checkpoint ";
 /// Value of a metadata line that has no value.
 const NONE_VALUE: &str = "none";
 
+/// Prefix of a message line that records an `exclude` pattern.
+const EXCLUDE_KEY: &str = "exclude: ";
+
 /// Nanoseconds in one second.
 const NANOSECONDS_PER_SECOND: i64 = 1_000_000_000;
 
@@ -83,6 +86,9 @@ pub struct CreateRequest {
     pub label: Option<String>,
     /// Also record the index as a second commit.
     pub index: bool,
+    /// Patterns of files left out of the checkpoint, tracked or not. A
+    /// restore leaves files that match them untouched.
+    pub exclude: Vec<String>,
 }
 
 /// Checkpoint computed by [`plan_create`]; its objects are already in the
@@ -94,6 +100,7 @@ pub struct CreatePlan {
     commit: ObjectId,
     record: GitCheckpoint,
     filters_skipped: bool,
+    excluded: u64,
 }
 
 impl CreatePlan {
@@ -101,6 +108,25 @@ impl CreatePlan {
     #[must_use]
     pub fn checkpoint(&self) -> &GitCheckpoint {
         &self.record
+    }
+
+    /// Number of files left out by the `exclude` patterns.
+    #[must_use]
+    pub fn excluded(&self) -> u64 {
+        self.excluded
+    }
+
+    pub(crate) fn reference_file(&self) -> PathBuf {
+        ref_path(&self.common_dir, &self.reference)
+    }
+
+    /// Declares the write of the reference in `writes`.
+    pub(crate) fn declare(&self, writes: &mut TxPlan, tx: &mut dyn MutationTx) -> Result<()> {
+        writes.write_locked(&self.reference_file(), ref_content(self.commit), None)?;
+        tx.record_exempt(ExemptWrite::ObjectStore {
+            repo: abs(&self.common_dir)?,
+        });
+        Ok(())
     }
 }
 
@@ -116,14 +142,27 @@ impl CreatePlan {
 /// Fails with `E_NOT_FOUND` when `repo` does not exist, `E_GIT_NOT_REPOSITORY` when it
 /// is not inside a repository, `E_GIT_UNSUPPORTED` for a bare repository and
 /// Fails with `E_IO` when the repository cannot be read or objects cannot be written.
+/// Fails with `E_INVALID_VALUE` for an `exclude` pattern with a line break.
 pub fn plan_create(repo: &Path, request: &CreateRequest, ctx: &ExecCtx) -> Result<CreatePlan> {
+    if request.exclude.iter().any(|glob| glob.contains('\n')) {
+        return Err(Error::new(
+            ErrorCode::InvalidValue,
+            "`exclude` patterns must not contain line breaks; pass one pattern per entry",
+        ));
+    }
     let repo = support::open_repo(repo)?;
     let root = workdir(&repo)?;
+    let filter = PathFilter::new(&root, &[], &request.exclude)?;
     let index = repo
         .index_or_empty()
         .map_err(|err| repo_error("read the index", err))?;
     let mut filters = Filters::new(&repo, &index)?;
-    let snapshot = snapshot_worktree(&repo, &index, &mut filters, Blobs::Write)?;
+    let mut snapshot = snapshot_worktree(&repo, &index, &mut filters, Blobs::Write)?;
+    let found = snapshot.files.len();
+    snapshot
+        .files
+        .retain(|path, _| !filter.excluded(path.as_bstr()));
+    let excluded = (found - snapshot.files.len()) as u64;
     let worktree_tree = write_tree(&repo, &snapshot.files)?;
     let head = repo.head_id().ok().map(gix::Id::detach);
     let branch = current_branch(&repo);
@@ -139,17 +178,31 @@ pub fn plan_create(repo: &Path, request: &CreateRequest, ctx: &ExecCtx) -> Resul
     let who = committer(&repo, ctx);
     let index_commit = if request.index {
         match index_entries(&index) {
-            Some(entries) => {
+            Some(mut entries) => {
+                entries.retain(|path, _| !filter.excluded(path.as_bstr()));
                 let tree = write_tree(&repo, &entries)?;
                 let message = format!("{SUBJECT_PREFIX}{id} index\n");
-                Some(write_commit(&repo, tree, head.into_iter().collect(), &who, message)?)
+                Some(write_commit(
+                    &repo,
+                    tree,
+                    head.into_iter().collect(),
+                    &who,
+                    message,
+                )?)
             }
             None => None,
         }
     } else {
         None
     };
-    let message = checkpoint_message(&id, &label, branch.as_deref(), head, index_commit);
+    let message = checkpoint_message(
+        &id,
+        &label,
+        branch.as_deref(),
+        head,
+        index_commit,
+        &request.exclude,
+    );
     let parents = head.into_iter().chain(index_commit).collect();
     let commit = write_commit(&repo, worktree_tree, parents, &who, message)?;
     let reference = format!("{CHECKPOINT_PREFIX}{id}");
@@ -164,11 +217,12 @@ pub fn plan_create(repo: &Path, request: &CreateRequest, ctx: &ExecCtx) -> Resul
     };
     drop(root);
     Ok(CreatePlan {
-        common_dir: repo.common_dir().to_path_buf(),
+        common_dir: support::lexical(repo.common_dir()),
         reference,
         commit,
         record,
         filters_skipped: filters.drivers_skipped(),
+        excluded,
     })
 }
 
@@ -181,11 +235,7 @@ pub fn plan_create(repo: &Path, request: &CreateRequest, ctx: &ExecCtx) -> Resul
 /// the journal.
 pub fn apply_create(plan: &CreatePlan, tx: &mut dyn MutationTx) -> Result<GitCheckpoint> {
     let mut writes = TxPlan::default();
-    let file = ref_path(&plan.common_dir, &plan.reference);
-    writes.write_locked(&file, ref_content(plan.commit), None)?;
-    tx.record_exempt(ExemptWrite::ObjectStore {
-        repo: abs(&plan.common_dir)?,
-    });
+    plan.declare(&mut writes, tx)?;
     writes.preserve(tx)?;
     writes.apply_rest(tx)?;
     Ok(plan.record.clone())
@@ -247,7 +297,10 @@ pub fn plan_delete(repo: &Path, request: &DeleteRequest) -> Result<DeletePlan> {
                 ErrorCode::MissingParam,
                 "`git.checkpoint` with `action: delete` needs `checkpoint_id` or `keep`",
             )
-            .with_fix(format!("git.checkpoint {} action: delete keep: 10", quote(&shown))));
+            .with_fix(format!(
+                "git.checkpoint {} action: delete keep: 10",
+                quote(&shown)
+            )));
         }
         (false, Some(_)) => {
             return Err(problem(
@@ -279,7 +332,10 @@ pub fn plan_delete(repo: &Path, request: &DeleteRequest) -> Result<DeletePlan> {
                 .filter(|found| !found.legacy)
                 .collect();
             let keep = usize::try_from(keep).unwrap_or(usize::MAX);
-            own.into_iter().skip(keep).map(|found| found.reference).collect()
+            own.into_iter()
+                .skip(keep)
+                .map(|found| found.reference)
+                .collect()
         }
     };
     Ok(DeletePlan {
@@ -323,6 +379,7 @@ pub(crate) struct CheckpointCommit {
     pub(crate) head: Option<ObjectId>,
     pub(crate) label: String,
     pub(crate) time: i64,
+    pub(crate) excludes: Vec<String>,
 }
 
 /// Checkpoint references, newest first; own references before legacy ones
@@ -373,7 +430,10 @@ pub(crate) fn resolve(repo: &gix::Repository, id: &str, shown_repo: &str) -> Res
 }
 
 /// Reads the metadata of a checkpoint commit.
-pub(crate) fn read_commit(repo: &gix::Repository, found: &CheckpointRef) -> Result<CheckpointCommit> {
+pub(crate) fn read_commit(
+    repo: &gix::Repository,
+    found: &CheckpointRef,
+) -> Result<CheckpointCommit> {
     let commit = repo
         .find_commit(found.commit)
         .map_err(|err| repo_error(&format!("read checkpoint `{}`", found.id), err))?;
@@ -403,6 +463,12 @@ pub(crate) fn read_commit(repo: &gix::Repository, found: &CheckpointRef) -> Resu
         head: metadata.get("head").and_then(|value| parse_oid(value)),
         label: label_of(&message, &found.id),
         time,
+        excludes: message
+            .lines()
+            .skip(1)
+            .filter_map(|line| line.strip_prefix(EXCLUDE_KEY))
+            .map(str::to_owned)
+            .collect(),
     })
 }
 
@@ -460,14 +526,65 @@ fn checkpoint_message(
     branch: Option<&str>,
     head: Option<ObjectId>,
     index: Option<ObjectId>,
+    exclude: &[String],
 ) -> String {
-    let show = |oid: Option<ObjectId>| oid.map_or_else(|| NONE_VALUE.to_owned(), |oid| oid.to_string());
-    format!(
+    let show =
+        |oid: Option<ObjectId>| oid.map_or_else(|| NONE_VALUE.to_owned(), |oid| oid.to_string());
+    let mut message = format!(
         "{SUBJECT_PREFIX}{id}: {label}\n\nbranch: {}\nhead: {}\nindex: {}\n",
         branch.unwrap_or(NONE_VALUE),
         show(head),
         show(index)
-    )
+    );
+    for glob in exclude {
+        message.push_str(EXCLUDE_KEY);
+        message.push_str(glob);
+        message.push('\n');
+    }
+    message
+}
+
+/// Token of the state a checkpoint command depends on: `HEAD`, the index,
+/// the files of the working tree and the checkpoint references.
+///
+/// The token is compared with the `expect_state` argument.
+pub(crate) fn state_token(repo_path: &Path) -> Result<String> {
+    let repo = support::open_repo(repo_path)?;
+    let index = repo
+        .index_or_empty()
+        .map_err(|err| repo_error("read the index", err))?;
+    let mut filters = Filters::new(&repo, &index)?;
+    let snapshot = snapshot_worktree(&repo, &index, &mut filters, Blobs::HashOnly)?;
+    let mut hasher = Sha256::new();
+    feed(
+        &mut hasher,
+        current_branch(&repo).unwrap_or_default().as_bytes(),
+    );
+    let head = repo.head_id().ok().map(|id| id.to_string());
+    feed(&mut hasher, head.unwrap_or_default().as_bytes());
+    feed(
+        &mut hasher,
+        &std::fs::read(repo.index_path()).unwrap_or_default(),
+    );
+    for (path, (kind, id)) in &snapshot.files {
+        feed(&mut hasher, path);
+        feed(&mut hasher, format!("{kind:?} {id}").as_bytes());
+    }
+    for found in checkpoint_refs(&repo)? {
+        feed(&mut hasher, found.reference.as_bytes());
+        feed(&mut hasher, found.commit.to_string().as_bytes());
+    }
+    Ok(finish_token(hasher))
+}
+
+/// Fails with `E_STALE` when `expect_state` of `args` differs from the
+/// current state of the repository at `repo_path`.
+fn check_expected(args: &BoundArgs, repo_path: &Path) -> Result<()> {
+    let expected = args::text(args, "expect_state")?;
+    if expected.is_none() {
+        return Ok(());
+    }
+    check_expected_state(expected.as_deref(), &state_token(repo_path)?, repo_path)
 }
 
 fn write_commit(
@@ -528,13 +645,17 @@ pub(crate) fn refs_with_prefix(
     let packed = repo.common_dir().join("packed-refs");
     if let Ok(content) = std::fs::read(&packed) {
         for line in content.lines() {
-            let Some((oid, name)) = line.to_str_lossy().split_once(' ').map(|(a, b)| (a.to_owned(), b.to_owned())) else {
+            let Some((oid, name)) = line
+                .to_str_lossy()
+                .split_once(' ')
+                .map(|(a, b)| (a.to_owned(), b.to_owned()))
+            else {
                 continue;
             };
-            if name.starts_with(prefix) {
-                if let Ok(oid) = ObjectId::from_hex(oid.as_bytes()) {
-                    out.insert(name, oid);
-                }
+            if name.starts_with(prefix)
+                && let Ok(oid) = ObjectId::from_hex(oid.as_bytes())
+            {
+                out.insert(name, oid);
             }
         }
     }
@@ -616,24 +737,43 @@ impl EffectStage for CheckpointCommand {
         ctx: &'a ExecCtx,
     ) -> Result<EffectPlan> {
         let repo = args::repo(args)?;
+        check_expected(args, &repo)?;
         match args::action(args)?.as_str() {
             "create" => {
                 let request = CreateRequest {
                     label: args.text("label")?.map(str::to_owned),
                     index: args.bool("index")?.unwrap_or(false),
+                    exclude: args::texts(args, "exclude")?,
                 };
                 let plan = plan_create(&repo, &request, ctx)?;
-                let file = ref_path(&plan.common_dir, &plan.reference);
                 let mut effect = EffectPlan::new();
-                effect.changes.push(Change::new(display_path(&file), ChangeAction::Create));
+                effect.changes.push(Change::new(
+                    display_path(&plan.reference_file()),
+                    ChangeAction::Create,
+                ));
                 if plan.filters_skipped {
-                    effect.notable.push(NotableEntry::new(Notable::FilterNotApplied));
+                    effect
+                        .notable
+                        .push(NotableEntry::new(Notable::FilterNotApplied));
+                }
+                if plan.excluded > 0 {
+                    let mut entry = NotableEntry::new(Notable::Excluded);
+                    entry.count = Some(plan.excluded);
+                    effect.notable.push(entry);
                 }
                 Ok(effect.with_state(Planned::Create(plan)))
             }
             "restore" => {
                 let request = args::restore_request(args)?;
-                let plan = plan_restore(&repo, &request)?;
+                let mut plan = plan_restore(&repo, &request)?;
+                if args.bool("save_current")?.unwrap_or(true) && !plan.is_empty() {
+                    let before = CreateRequest {
+                        label: Some(format!("before restore of {}", request.checkpoint)),
+                        index: request.index,
+                        exclude: Vec::new(),
+                    };
+                    plan.save_current(plan_create(&repo, &before, ctx)?);
+                }
                 let mut effect = EffectPlan::new();
                 effect.changes = plan.changes();
                 effect.notable = plan.notable();
@@ -649,12 +789,15 @@ impl EffectStage for CheckpointCommand {
                 let open = support::open_repo(&repo)?;
                 let mut effect = EffectPlan::new();
                 for reference in &plan.references {
-                    effect
-                        .changes
-                        .push(Change::new(display_path(&ref_file(&open, reference)), ChangeAction::Delete));
+                    effect.changes.push(Change::new(
+                        display_path(&ref_file(&open, reference)),
+                        ChangeAction::Delete,
+                    ));
                 }
                 if plan.references.is_empty() {
-                    effect.notable.push(NotableEntry::new(Notable::NothingMatched));
+                    effect
+                        .notable
+                        .push(NotableEntry::new(Notable::NothingMatched));
                 }
                 effect.bulk = effect.changes.len() > 1;
                 Ok(effect.with_state(Planned::Delete(plan)))
@@ -674,7 +817,10 @@ impl EffectStage for CheckpointCommand {
         let changes = std::mem::take(&mut plan.changes);
         let notable = std::mem::take(&mut plan.notable);
         let planned = plan.take_state::<Planned>().ok_or_else(|| {
-            Error::new(ErrorCode::StageFailed, "`git.checkpoint` received a plan of another stage")
+            Error::new(
+                ErrorCode::StageFailed,
+                "`git.checkpoint` received a plan of another stage",
+            )
         })?;
         let record: Record = match planned {
             Planned::Create(plan) => apply_create(&plan, tx)?.into(),
@@ -685,7 +831,8 @@ impl EffectStage for CheckpointCommand {
                     GitEffectState::Completed
                 };
                 apply_restore(&plan, tx)?;
-                effect_record(&repo, state)?
+                let saved = plan.saved().map(|saved| saved.id.clone());
+                effect_record(&repo, state, saved)?
             }
             Planned::Delete(plan) => {
                 let deleted = apply_delete(&plan, tx)?;
@@ -694,7 +841,7 @@ impl EffectStage for CheckpointCommand {
                 } else {
                     GitEffectState::Completed
                 };
-                effect_record(&repo, state)?
+                effect_record(&repo, state, None)?
             }
         };
         let mut outcome = EffectOutcome::new(StageOutput::records(RecordStream::once(record)));
@@ -704,7 +851,11 @@ impl EffectStage for CheckpointCommand {
     }
 }
 
-fn effect_record(repo_path: &Path, state: GitEffectState) -> Result<Record> {
+fn effect_record(
+    repo_path: &Path,
+    state: GitEffectState,
+    checkpoint_before: Option<String>,
+) -> Result<Record> {
     let repo = support::open_repo(repo_path)?;
     let root = workdir(&repo)?;
     let head = repo.head_id().ok().map(|id| id.to_string());
@@ -714,6 +865,8 @@ fn effect_record(repo_path: &Path, state: GitEffectState) -> Result<Record> {
         head_before: head.clone(),
         head_after: head,
         branch: current_branch(&repo),
+        checkpoint_before,
+        state_token: Some(state_token(repo_path)?),
         ..GitEffect::default()
     }
     .into())
@@ -735,7 +888,9 @@ pub(crate) mod args {
     /// Text of a scalar value given as text, enumeration member or path.
     fn scalar(value: &Value) -> Option<String> {
         match value {
-            Value::Text(text) | Value::Enum(text) | Value::Path(text) => Some(text.clone()),
+            Value::Text(text) | Value::Enum(text) | Value::Path(text) | Value::Glob(text) => {
+                Some(text.clone())
+            }
             _ => None,
         }
     }
@@ -823,7 +978,12 @@ pub(crate) mod args {
 
     /// Request of `action: compare`.
     pub(crate) fn compare_request(args: &BoundArgs) -> Result<CompareRequest> {
-        for name in ["function_context", "word_diff", "ignore_whitespace", "ignore_moved"] {
+        for name in [
+            "function_context",
+            "word_diff",
+            "ignore_whitespace",
+            "ignore_moved",
+        ] {
             if args.bool(name)?.unwrap_or(false) {
                 return Err(unsupported_option(name));
             }
@@ -885,6 +1045,7 @@ mod tests {
     use super::test_journal::{Fixture, RecordingJournal, test_ctx};
     use super::*;
     use nurt_contracts::stage::ArgValue;
+    use nurt_contracts::value::Value;
 
     fn args(pairs: &[(&str, Value)]) -> BoundArgs {
         let mut args = BoundArgs::new(COMMAND);
@@ -898,7 +1059,11 @@ mod tests {
         Value::Text(value.to_owned())
     }
 
-    fn create(fixture: &Fixture, journal: &RecordingJournal, request: &CreateRequest) -> GitCheckpoint {
+    fn create(
+        fixture: &Fixture,
+        journal: &RecordingJournal,
+        request: &CreateRequest,
+    ) -> GitCheckpoint {
         let ctx = test_ctx();
         let plan = plan_create(&fixture.root, request, &ctx).unwrap();
         let mut tx = journal.begin(fixture.base());
@@ -909,7 +1074,11 @@ mod tests {
 
     #[test]
     fn create_records_untracked_and_modified_files_without_touching_the_repository() {
-        let fixture = Fixture::new(&[("a.txt", "one\n"), ("src/b.txt", "two\n"), (".gitignore", "*.log\n")]);
+        let fixture = Fixture::new(&[
+            ("a.txt", "one\n"),
+            ("src/b.txt", "two\n"),
+            (".gitignore", "*.log\n"),
+        ]);
         fixture.write("a.txt", "changed\n");
         fixture.write("new.txt", "new\n");
         fixture.write("debug.log", "ignored\n");
@@ -946,6 +1115,7 @@ mod tests {
             &CreateRequest {
                 label: Some("before refactoring\nsecond line".into()),
                 index: true,
+                exclude: Vec::new(),
             },
         );
         assert_eq!(second.id, "cp-2");
@@ -965,7 +1135,9 @@ mod tests {
         let journal = RecordingJournal::default();
         let record = create(&fixture, &journal, &CreateRequest::default());
         let repo = support::open_repo(&fixture.root).unwrap();
-        let commit = repo.find_commit(ObjectId::from_hex(record.commit.as_bytes()).unwrap()).unwrap();
+        let commit = repo
+            .find_commit(ObjectId::from_hex(record.commit.as_bytes()).unwrap())
+            .unwrap();
         assert_eq!(commit.parent_ids().count(), 0);
         assert_eq!(record.files, Some(1));
     }
@@ -990,16 +1162,34 @@ mod tests {
         let mut tx = journal.begin(fixture.base());
         apply_delete(&plan, tx.as_mut()).unwrap();
         journal.commit(tx);
-        let ids: Vec<String> = list(&fixture.root).unwrap().into_iter().map(|r| r.id).collect();
+        let ids: Vec<String> = list(&fixture.root)
+            .unwrap()
+            .into_iter()
+            .map(|r| r.id)
+            .collect();
         assert_eq!(ids, ["cp-3", "cp-1"]);
         journal.undo_last();
         assert_eq!(fixture.state(), before);
-        let keep = plan_delete(&fixture.root, &DeleteRequest { ids: vec![], keep: Some(1) }).unwrap();
+        let keep = plan_delete(
+            &fixture.root,
+            &DeleteRequest {
+                ids: vec![],
+                keep: Some(1),
+            },
+        )
+        .unwrap();
         assert_eq!(
             keep.references(),
             ["refs/nurt/checkpoints/cp-2", "refs/nurt/checkpoints/cp-1"]
         );
-        let none = plan_delete(&fixture.root, &DeleteRequest { ids: vec![], keep: Some(5) }).unwrap();
+        let none = plan_delete(
+            &fixture.root,
+            &DeleteRequest {
+                ids: vec![],
+                keep: Some(5),
+            },
+        )
+        .unwrap();
         assert!(none.references().is_empty());
     }
 
@@ -1048,7 +1238,10 @@ mod tests {
         std::fs::remove_file(git_dir.join("refs/nurt/checkpoints/cp-1")).unwrap();
         std::fs::write(
             git_dir.join("packed-refs"),
-            format!("# pack-refs with: peeled fully-peeled sorted \n{} refs/nurt/checkpoints/cp-1\n", record.commit),
+            format!(
+                "# pack-refs with: peeled fully-peeled sorted \n{} refs/nurt/checkpoints/cp-1\n",
+                record.commit
+            ),
         )
         .unwrap();
         assert_eq!(list(&fixture.root).unwrap().len(), 1);
@@ -1077,7 +1270,11 @@ mod tests {
         let legacy = fixture.root.join(".git/refs/danaco/checkpoints");
         std::fs::create_dir_all(&legacy).unwrap();
         std::fs::write(legacy.join("cp-4"), format!("{}\n", record.commit)).unwrap();
-        let ids: Vec<String> = list(&fixture.root).unwrap().into_iter().map(|r| r.id).collect();
+        let ids: Vec<String> = list(&fixture.root)
+            .unwrap()
+            .into_iter()
+            .map(|r| r.id)
+            .collect();
         assert_eq!(ids, ["cp-4", "cp-1"]);
         let err = plan_delete(
             &fixture.root,
@@ -1128,7 +1325,10 @@ mod tests {
         journal.commit(tx);
         let records = records_of(outcome.output);
         assert_eq!(records[0].get("id"), Some(&text("cp-1")));
-        let list_args = args(&[("repo", repo.clone()), ("action", Value::Enum("list".into()))]);
+        let list_args = args(&[
+            ("repo", repo.clone()),
+            ("action", Value::Enum("list".into())),
+        ]);
         let read = command.as_read().unwrap();
         let listed = records_of(read.execute(&list_args, StageInput::none(), &ctx).unwrap());
         assert_eq!(listed.len(), 1);
@@ -1143,7 +1343,9 @@ mod tests {
         effect.apply(&delete_args, plan, tx.as_mut(), &ctx).unwrap();
         journal.commit(tx);
         assert!(list(&fixture.root).unwrap().is_empty());
-        let wrong = effect.plan(&list_args, StageInput::none(), &ctx).unwrap_err();
+        let wrong = effect
+            .plan(&list_args, StageInput::none(), &ctx)
+            .unwrap_err();
         assert_eq!(wrong.code(), ErrorCode::StageFailed);
         let unsupported = args(&[
             ("repo", repo),
@@ -1151,7 +1353,9 @@ mod tests {
             ("checkpoint_id", text("cp-1")),
             ("word_diff", Value::Bool(true)),
         ]);
-        let err = read.execute(&unsupported, StageInput::none(), &ctx).unwrap_err();
+        let err = read
+            .execute(&unsupported, StageInput::none(), &ctx)
+            .unwrap_err();
         assert_eq!(err.code(), ErrorCode::GitUnsupported);
     }
 
@@ -1171,12 +1375,111 @@ mod tests {
         assert_eq!(parse_id("cp-"), None);
         assert_eq!(parse_id("x-1"), None);
         let head = ObjectId::null(gix::hash::Kind::Sha1);
-        let message = checkpoint_message("cp-3", "label: with colon", Some("main"), Some(head), None);
+        let message = checkpoint_message(
+            "cp-3",
+            "label: with colon",
+            Some("main"),
+            Some(head),
+            None,
+            &["*.log".to_owned()],
+        );
         assert_eq!(label_of(&message, "cp-3"), "label: with colon");
         let metadata = parse_metadata(&message);
         assert_eq!(metadata.get("branch").map(String::as_str), Some("main"));
         assert_eq!(metadata.get("index").map(String::as_str), Some(NONE_VALUE));
         assert_eq!(parse_oid(&metadata["head"]), Some(head));
         assert_eq!(label_of("plain label\n", "cp-1"), "plain label");
+    }
+
+    #[test]
+    fn create_leaves_out_excluded_files_and_restore_keeps_them() {
+        let fixture = Fixture::new(&[("a.txt", "one\n"), ("keep.log", "tracked log\n")]);
+        fixture.write("scratch/out.log", "x\n");
+        fixture.write("new.txt", "new\n");
+        let journal = RecordingJournal::default();
+        let request = CreateRequest {
+            exclude: vec!["*.log".into()],
+            ..CreateRequest::default()
+        };
+        let plan = plan_create(&fixture.root, &request, &test_ctx()).unwrap();
+        assert_eq!(plan.excluded(), 2);
+        let mut tx = journal.begin(fixture.base());
+        let record = apply_create(&plan, tx.as_mut()).unwrap();
+        journal.commit(tx);
+        assert_eq!(record.files, Some(2));
+        let repo = support::open_repo(&fixture.root).unwrap();
+        let found = resolve(&repo, "cp-1", "repo").unwrap();
+        assert_eq!(read_commit(&repo, &found).unwrap().excludes, ["*.log"]);
+        fixture.write("a.txt", "changed\n");
+        fixture.write("keep.log", "changed log\n");
+        let restore = plan_restore(
+            &fixture.root,
+            &RestoreRequest {
+                checkpoint: "cp-1".into(),
+                ..RestoreRequest::default()
+            },
+        )
+        .unwrap();
+        let mut tx = journal.begin(fixture.base());
+        apply_restore(&restore, tx.as_mut()).unwrap();
+        journal.commit(tx);
+        assert_eq!(fixture.read("a.txt"), "one\n");
+        assert_eq!(fixture.read("keep.log"), "changed log\n");
+        assert_eq!(fixture.read("scratch/out.log"), "x\n");
+    }
+
+    #[test]
+    fn create_rejects_exclude_pattern_with_line_break() {
+        let fixture = Fixture::new(&[("a.txt", "one\n")]);
+        let request = CreateRequest {
+            exclude: vec!["a\nb".into()],
+            ..CreateRequest::default()
+        };
+        let err = plan_create(&fixture.root, &request, &test_ctx()).unwrap_err();
+        assert_eq!(err.code(), ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn stage_restore_saves_current_state_and_checks_expected_state() {
+        let fixture = Fixture::new(&[("a.txt", "one\n")]);
+        let ctx = test_ctx();
+        let journal = RecordingJournal::default();
+        create(&fixture, &journal, &CreateRequest::default());
+        fixture.write("a.txt", "two\n");
+        let before = fixture.state();
+        let repo = Value::Path(fixture.root.to_string_lossy().into_owned());
+        let restore_args = |extra: &[(&str, Value)]| {
+            let mut pairs = vec![
+                ("repo", repo.clone()),
+                ("action", Value::Enum("restore".into())),
+                ("checkpoint_id", text("cp-1")),
+            ];
+            pairs.extend(extra.iter().cloned());
+            args(&pairs)
+        };
+        let command = CheckpointCommand;
+        let effect = command.as_effect().unwrap();
+        let stale = restore_args(&[("expect_state", text("0000"))]);
+        let err = effect.plan(&stale, StageInput::none(), &ctx).unwrap_err();
+        assert_eq!(err.code(), ErrorCode::Stale);
+        assert_eq!(err.data().problem.as_deref(), Some("state_changed"));
+        let without = restore_args(&[("save_current", Value::Bool(false))]);
+        let plan = effect.plan(&without, StageInput::none(), &ctx).unwrap();
+        assert_eq!(plan.changes.len(), 1);
+        let token = state_token(&fixture.root).unwrap();
+        let given = restore_args(&[("expect_state", text(&token))]);
+        let plan = effect.plan(&given, StageInput::none(), &ctx).unwrap();
+        assert_eq!(plan.changes.len(), 2);
+        let mut tx = journal.begin(fixture.base());
+        let outcome = effect.apply(&given, plan, tx.as_mut(), &ctx).unwrap();
+        journal.commit(tx);
+        let records = records_of(outcome.output);
+        assert_eq!(records[0].get("checkpoint_before"), Some(&text("cp-2")));
+        assert!(records[0].get("state_token").is_some());
+        assert_eq!(fixture.read("a.txt"), "one\n");
+        let listed = list(&fixture.root).unwrap();
+        assert_eq!(listed[0].label.as_deref(), Some("before restore of cp-1"));
+        journal.undo_last();
+        assert_eq!(fixture.state(), before);
     }
 }

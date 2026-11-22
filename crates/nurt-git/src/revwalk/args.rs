@@ -3,6 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Arguments of the history commands read from bound arguments.
 
+use bstr::BString;
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::stage::BoundArgs;
 use nurt_contracts::value::{Range, Regex, RegexFlags, Value};
@@ -13,7 +14,10 @@ pub(crate) fn invalid(args: &BoundArgs, name: &str, message: impl Into<String>) 
 }
 
 fn type_error(args: &BoundArgs, name: &str, expected: &str) -> Error {
-    Error::new(ErrorCode::Type, format!("`{}` expects {expected} for `{name}`", args.command()))
+    Error::new(
+        ErrorCode::Type,
+        format!("`{}` expects {expected} for `{name}`", args.command()),
+    )
 }
 
 fn path_text(value: &Value) -> Option<&str> {
@@ -36,7 +40,10 @@ pub(crate) fn path(args: &BoundArgs, name: &str) -> Result<Option<String>, Error
 /// A path argument that must be given.
 pub(crate) fn required_path(args: &BoundArgs, name: &str) -> Result<String, Error> {
     path(args, name)?.ok_or_else(|| {
-        Error::new(ErrorCode::MissingParam, format!("`{}` needs a value for `{name}`", args.command()))
+        Error::new(
+            ErrorCode::MissingParam,
+            format!("`{}` needs a value for `{name}`", args.command()),
+        )
     })
 }
 
@@ -46,7 +53,11 @@ pub(crate) fn paths(args: &BoundArgs, name: &str) -> Result<Vec<String>, Error> 
         None | Some(Value::Null) => Ok(Vec::new()),
         Some(Value::List(items)) => items
             .iter()
-            .map(|item| path_text(item).map(str::to_owned).ok_or_else(|| type_error(args, name, "a list of paths")))
+            .map(|item| {
+                path_text(item)
+                    .map(str::to_owned)
+                    .ok_or_else(|| type_error(args, name, "a list of paths"))
+            })
             .collect(),
         Some(value) => path_text(value)
             .map(|text| vec![text.to_owned()])
@@ -67,6 +78,19 @@ pub(crate) fn texts(args: &BoundArgs, name: &str) -> Result<Vec<String>, Error> 
             .collect(),
         Some(Value::Text(text)) => Ok(vec![text.clone()]),
         Some(_) => Err(type_error(args, name, "a list of texts")),
+    }
+}
+
+/// A list of glob patterns; a single pattern is a list of one.
+pub(crate) fn globs(args: &BoundArgs, name: &str) -> Result<Vec<BString>, Error> {
+    let pattern = |value: &Value| match value {
+        Value::Glob(text) | Value::Text(text) => Ok(BString::from(text.as_str())),
+        _ => Err(type_error(args, name, "a list of glob patterns")),
+    };
+    match args.value(name) {
+        None | Some(Value::Null) => Ok(Vec::new()),
+        Some(Value::List(items)) => items.iter().map(pattern).collect(),
+        Some(value) => Ok(vec![pattern(value)?]),
     }
 }
 
@@ -92,9 +116,13 @@ pub(crate) fn flag(args: &BoundArgs, name: &str) -> Result<bool, Error> {
 pub(crate) fn count(args: &BoundArgs, name: &str) -> Result<Option<u64>, Error> {
     match args.value(name) {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Int(number)) => u64::try_from(*number)
-            .map(Some)
-            .map_err(|_| invalid(args, name, format!("`{name}` must be 0 or more, not {number}"))),
+        Some(Value::Int(number)) => u64::try_from(*number).map(Some).map_err(|_| {
+            invalid(
+                args,
+                name,
+                format!("`{name}` must be 0 or more, not {number}"),
+            )
+        }),
         Some(_) => Err(type_error(args, name, "an integer")),
     }
 }
@@ -103,7 +131,9 @@ pub(crate) fn count(args: &BoundArgs, name: &str) -> Result<Option<u64>, Error> 
 pub(crate) fn seconds(args: &BoundArgs, name: &str) -> Result<Option<i64>, Error> {
     match args.value(name) {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Instant(instant)) => Ok(Some(instant.as_unix_nanos().div_euclid(1_000_000_000))),
+        Some(Value::Instant(instant)) => {
+            Ok(Some(instant.as_unix_nanos().div_euclid(1_000_000_000)))
+        }
         Some(_) => Err(type_error(args, name, "an instant")),
     }
 }
@@ -148,7 +178,11 @@ pub(crate) fn regex(args: &BoundArgs, name: &str) -> Result<Option<regex::Regex>
 }
 
 /// A regular expression for bytes.
-pub(crate) fn bytes_regex(args: &BoundArgs, name: &str, source: &Regex) -> Result<regex::bytes::Regex, Error> {
+pub(crate) fn bytes_regex(
+    args: &BoundArgs,
+    name: &str,
+    source: &Regex,
+) -> Result<regex::bytes::Regex, Error> {
     regex::bytes::RegexBuilder::new(&source.pattern)
         .case_insensitive(source.flags.case_insensitive)
         .multi_line(source.flags.multi_line)
@@ -161,8 +195,11 @@ pub(crate) fn bytes_regex(args: &BoundArgs, name: &str, source: &Regex) -> Resul
 fn regex_error(args: &BoundArgs, name: &str, err: &regex::Error) -> Error {
     let detail = err.to_string();
     let last = detail.lines().last().unwrap_or_default().trim().to_owned();
-    Error::new(ErrorCode::Regex, format!("`{name}` is not a valid regular expression: {last}"))
-        .with_found(format!("{} {name}:", args.command()))
+    Error::new(
+        ErrorCode::Regex,
+        format!("`{name}` is not a valid regular expression: {last}"),
+    )
+    .with_found(format!("{} {name}:", args.command()))
 }
 
 #[cfg(test)]
@@ -176,7 +213,10 @@ mod tests {
         let bound = args(
             "git.log",
             &[
-                ("path", Value::List(vec![Value::Path("/r/a".into()), Value::Text("/r/b".into())])),
+                (
+                    "path",
+                    Value::List(vec![Value::Path("/r/a".into()), Value::Text("/r/b".into())]),
+                ),
                 ("one", Value::Path("/r/c".into())),
                 ("revs", Value::List(vec![Value::Text("a".into())])),
                 ("revision", Value::Text("HEAD".into())),
@@ -193,8 +233,14 @@ mod tests {
         assert!(flag(&bound, "stat").unwrap());
         assert!(!flag(&bound, "absent").unwrap());
         assert_eq!(required_path(&bound, "one").unwrap(), "/r/c");
-        assert_eq!(required_path(&bound, "absent").unwrap_err().code(), ErrorCode::MissingParam);
-        assert_eq!(flag(&bound, "revision").unwrap_err().code(), ErrorCode::Type);
+        assert_eq!(
+            required_path(&bound, "absent").unwrap_err().code(),
+            ErrorCode::MissingParam
+        );
+        assert_eq!(
+            flag(&bound, "revision").unwrap_err().code(),
+            ErrorCode::Type
+        );
         assert_eq!(path(&bound, "stat").unwrap_err().code(), ErrorCode::Type);
     }
 
@@ -205,11 +251,17 @@ mod tests {
             &[
                 ("count", Value::Int(-1)),
                 ("skip", Value::Int(3)),
-                ("since", Value::Instant(Instant::from_unix_nanos(1_500_000_000))),
+                (
+                    "since",
+                    Value::Instant(Instant::from_unix_nanos(1_500_000_000)),
+                ),
                 ("lines", Value::Int(4)),
             ],
         );
-        assert_eq!(count(&bound, "count").unwrap_err().code(), ErrorCode::InvalidValue);
+        assert_eq!(
+            count(&bound, "count").unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
         assert_eq!(count(&bound, "skip").unwrap(), Some(3));
         assert_eq!(seconds(&bound, "since").unwrap(), Some(1));
         assert_eq!(range(&bound, "lines").unwrap(), Some(Range::single(4)));
@@ -225,10 +277,19 @@ mod tests {
                 ("bad", Value::Text("(".into())),
             ],
         );
-        assert!(regex(&bound, "message").unwrap().unwrap().is_match("FIX bug"));
+        assert!(
+            regex(&bound, "message")
+                .unwrap()
+                .unwrap()
+                .is_match("FIX bug")
+        );
         assert!(regex(&bound, "author").unwrap().unwrap().is_match("Joanna"));
         assert_eq!(regex(&bound, "bad").unwrap_err().code(), ErrorCode::Regex);
         let source = pattern(&bound, "message").unwrap().unwrap();
-        assert!(bytes_regex(&bound, "message", &source).unwrap().is_match(b"Fixed"));
+        assert!(
+            bytes_regex(&bound, "message", &source)
+                .unwrap()
+                .is_match(b"Fixed")
+        );
     }
 }

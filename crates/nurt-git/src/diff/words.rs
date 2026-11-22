@@ -51,7 +51,10 @@ pub fn word_lines(hunk: &Hunk, pattern: Option<&Regex>) -> Vec<BString> {
                     plus.pop();
                 }
                 LineKind::Context => {
-                    if out.last().is_some_and(|line: &BString| line.as_slice() == NEWLINE_MARK.as_bytes()) {
+                    if out
+                        .last()
+                        .is_some_and(|line: &BString| line.as_slice() == NEWLINE_MARK.as_bytes())
+                    {
                         out.pop();
                     }
                 }
@@ -82,8 +85,14 @@ fn flush(out: &mut Vec<BString>, minus: &[u8], plus: &[u8], pattern: Option<&Reg
     }
     let minus_words = split_words(minus, pattern);
     let plus_words = split_words(plus, pattern);
-    let minus_tokens: Vec<&[u8]> = minus_words.iter().map(|word| &minus[word.start..word.end]).collect();
-    let plus_tokens: Vec<&[u8]> = plus_words.iter().map(|word| &plus[word.start..word.end]).collect();
+    let minus_tokens: Vec<&[u8]> = minus_words
+        .iter()
+        .map(|word| &minus[word.start..word.end])
+        .collect();
+    let plus_tokens: Vec<&[u8]> = plus_words
+        .iter()
+        .map(|word| &plus[word.start..word.end])
+        .collect();
     let options = LineOptions {
         indent_heuristic: false,
         ..LineOptions::default()
@@ -152,7 +161,10 @@ fn split_words(text: &[u8], pattern: Option<&Regex>) -> Vec<Word> {
                 match (is_space(byte), start) {
                     (false, None) => start = Some(index),
                     (true, Some(begin)) => {
-                        words.push(Word { start: begin, end: index });
+                        words.push(Word {
+                            start: begin,
+                            end: index,
+                        });
                         start = None;
                     }
                     _ => {}
@@ -184,8 +196,24 @@ mod tests {
 
     #[test]
     fn marks_replaced_and_added_words() {
-        let lines = porcelain("one two  three\nfour five\n", "one TWO  three\nfour five six\n", None);
-        assert_eq!(lines, [" one ", "-two", "+TWO", "   three", "~", " four five ", "+six", "~"]);
+        let lines = porcelain(
+            "one two  three\nfour five\n",
+            "one TWO  three\nfour five six\n",
+            None,
+        );
+        assert_eq!(
+            lines,
+            [
+                " one ",
+                "-two",
+                "+TWO",
+                "   three",
+                "~",
+                " four five ",
+                "+six",
+                "~"
+            ]
+        );
     }
 
     #[test]
@@ -196,8 +224,22 @@ mod tests {
         assert_eq!(
             lines,
             [
-                " alpha", "~", " beta ", "-gamma", "+GAMMA", "~", " ctx1", "~", " ctx2", "~", "+new line here", "~",
-                " delta", "~", " last", "~"
+                " alpha",
+                "~",
+                " beta ",
+                "-gamma",
+                "+GAMMA",
+                "~",
+                " ctx1",
+                "~",
+                " ctx2",
+                "~",
+                "+new line here",
+                "~",
+                " delta",
+                "~",
+                " last",
+                "~"
             ]
         );
     }

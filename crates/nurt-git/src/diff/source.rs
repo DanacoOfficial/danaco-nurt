@@ -17,78 +17,52 @@ use bstr::{BStr, BString, ByteSlice};
 use gix::ObjectId;
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::{Notable, NotableEntry};
+use nurt_contracts::stage::ExecCtx;
+
+use crate::repo::GitRepo;
 
 /// Bytes inspected for a NUL byte when deciding whether content is binary.
 pub const BINARY_PROBE: usize = 8000;
 
 /// Mode of a regular file.
-pub const MODE_FILE: u32 = 0o100_644;
+pub(crate) const MODE_FILE: u32 = 0o100_644;
 /// Mode of an executable file.
-pub const MODE_EXECUTABLE: u32 = 0o100_755;
+pub(crate) const MODE_EXECUTABLE: u32 = 0o100_755;
 /// Mode of a symbolic link.
-pub const MODE_LINK: u32 = 0o120_000;
+pub(crate) const MODE_LINK: u32 = 0o120_000;
 /// Mode of a submodule commit.
-pub const MODE_GITLINK: u32 = 0o160_000;
+pub(crate) const MODE_GITLINK: u32 = 0o160_000;
 
 /// Configuration keys of filter drivers that name programs.
 const FILTER_PROGRAM_KEYS: [&str; 3] = ["clean", "smudge", "process"];
 
 /// A repository opened for reading, with the notes that the opening raised.
+#[derive(Debug)]
 pub struct Opened {
     /// The repository.
-    pub repo: gix::Repository,
+    pub repo: GitRepo,
     /// Settings that are not applied because they name programs.
     pub notes: Vec<NotableEntry>,
 }
 
-/// Opens the repository that contains `path`, searching upwards.
-///
-/// The configuration of the Git installation is not looked up through the
-/// `git` program, the `file`, `ssh` and `ext` transports are disabled and
-/// filter driver sections are removed from the in-memory configuration.
+/// Opens the repository that contains `path`, searching upwards, and
+/// removes the filter driver sections from its in-memory configuration so
+/// that no filter program is started.
 ///
 /// # Errors
 ///
-/// `E_NOT_FOUND` when `path` does not exist, `E_GIT_NOT_REPOSITORY` when no
-/// repository contains it.
-pub fn open_repository(path: &StdPath) -> Result<Opened, Error> {
-    if std::fs::symlink_metadata(path).is_err() {
-        return Err(Error::new(ErrorCode::NotFound, format!("`{}` does not exist", path.display()))
-            .with_problem("not_found"));
-    }
-    let mut permissions = gix::open::Permissions::default();
-    permissions.config.git_binary = false;
-    let options = gix::open::Options::default()
-        .permissions(permissions)
-        .config_overrides(["protocol.file.allow=never", "protocol.ssh.allow=never", "protocol.ext.allow=never"]);
-    let mapping = gix::sec::trust::Mapping {
-        full: options.clone(),
-        reduced: options,
-    };
-    let repo = gix::ThreadSafeRepository::discover_opts(path, gix::discover::upwards::Options::default(), mapping)
-        .map_err(|_| not_a_repository(path))?;
-    let mut repo = repo.to_thread_local();
+/// As [`GitRepo::discover`].
+pub fn open_repository(path: &StdPath, ctx: &ExecCtx) -> Result<Opened, Error> {
+    let mut repo = GitRepo::discover(path, ctx)?;
     let mut notes = Vec::new();
-    strip_filter_drivers(&mut repo, &mut notes)?;
-    let fsmonitor = repo.config_snapshot().string("core.fsmonitor");
-    if fsmonitor.is_some_and(|value| !matches!(value.to_str_lossy().as_ref(), "" | "false" | "0" | "no" | "off")) {
-        let mut note = NotableEntry::new(Notable::FsmonitorIgnored);
-        note.detail = Some("core.fsmonitor is not used, files are checked directly".to_owned());
-        notes.push(note);
-    }
+    strip_filter_drivers(repo.gix_mut(), &mut notes)?;
     Ok(Opened { repo, notes })
 }
 
-fn not_a_repository(path: &StdPath) -> Error {
-    Error::new(
-        ErrorCode::GitNotRepository,
-        format!("`{}` is not inside a git repository", path.display()),
-    )
-    .with_problem("not_a_repository")
-    .with_next_step(format!("git.status \"{}\"", path.display()))
-}
-
-fn strip_filter_drivers(repo: &mut gix::Repository, notes: &mut Vec<NotableEntry>) -> Result<(), Error> {
+fn strip_filter_drivers(
+    repo: &mut gix::Repository,
+    notes: &mut Vec<NotableEntry>,
+) -> Result<(), Error> {
     let mut drivers = Vec::new();
     let mut snapshot = repo.config_snapshot_mut();
     let ids: Vec<_> = snapshot
@@ -99,10 +73,8 @@ fn strip_filter_drivers(repo: &mut gix::Repository, notes: &mut Vec<NotableEntry
                     let names_program = FILTER_PROGRAM_KEYS
                         .iter()
                         .any(|key| section.value(key).is_some());
-                    if names_program {
-                        if let Some(name) = section.header().subsection_name() {
-                            drivers.push(name.to_str_lossy().into_owned());
-                        }
+                    if names_program && let Some(name) = section.header().subsection_name() {
+                        drivers.push(name.to_str_lossy().into_owned());
                     }
                     id
                 })
@@ -112,7 +84,9 @@ fn strip_filter_drivers(repo: &mut gix::Repository, notes: &mut Vec<NotableEntry
     for id in ids {
         snapshot.remove_section_by_id(id);
     }
-    snapshot.commit().map_err(|error| read_error("configuration", &error))?;
+    snapshot
+        .commit()
+        .map_err(|error| read_error("configuration", &error))?;
     drivers.sort();
     drivers.dedup();
     if !drivers.is_empty() {
@@ -126,7 +100,11 @@ fn strip_filter_drivers(repo: &mut gix::Repository, notes: &mut Vec<NotableEntry
 
 /// Error of a failed read of repository data.
 pub(crate) fn read_error(what: &str, error: &dyn std::fmt::Display) -> Error {
-    Error::new(ErrorCode::StageFailed, format!("cannot read {what}: {error}")).with_problem("read_failed")
+    Error::new(
+        ErrorCode::StageFailed,
+        format!("cannot read {what}: {error}"),
+    )
+    .with_problem("read_failed")
 }
 
 /// An entry of one side of a comparison.
@@ -170,12 +148,17 @@ pub(crate) fn index_mode(mode: gix::index::entry::Mode) -> u32 {
 }
 
 /// Files of a tree, sorted by path.
-pub(crate) fn tree_files(repo: &gix::Repository, tree: ObjectId) -> Result<BTreeMap<BString, Entry>, Error> {
+pub(crate) fn tree_files(
+    repo: &gix::Repository,
+    tree: ObjectId,
+) -> Result<BTreeMap<BString, Entry>, Error> {
     let mut files = BTreeMap::new();
     if tree == ObjectId::empty_tree(repo.object_hash()) {
         return Ok(files);
     }
-    let tree = repo.find_tree(tree).map_err(|error| read_error("tree", &error))?;
+    let tree = repo
+        .find_tree(tree)
+        .map_err(|error| read_error("tree", &error))?;
     let mut recorder = gix::traverse::tree::Recorder::default();
     tree.traverse()
         .breadthfirst(&mut recorder)
@@ -195,11 +178,14 @@ pub(crate) fn tree_files(repo: &gix::Repository, tree: ObjectId) -> Result<BTree
     Ok(files)
 }
 
+/// Entries of the conflict stages 1 to 3 of each path with a conflict.
+pub(crate) type ConflictStages = BTreeMap<BString, [Option<Entry>; 3]>;
+
 /// Stage-0 files of the index, sorted by path, and the paths with conflict
 /// stages.
-pub(crate) fn index_files(index: &gix::index::State) -> (BTreeMap<BString, Entry>, BTreeMap<BString, [Option<Entry>; 3]>) {
+pub(crate) fn index_files(index: &gix::index::State) -> (BTreeMap<BString, Entry>, ConflictStages) {
     let mut files = BTreeMap::new();
-    let mut conflicts: BTreeMap<BString, [Option<Entry>; 3]> = BTreeMap::new();
+    let mut conflicts: ConflictStages = BTreeMap::new();
     for entry in index.entries() {
         let path = entry.path(index).to_owned();
         let side = Entry {
@@ -208,7 +194,10 @@ pub(crate) fn index_files(index: &gix::index::State) -> (BTreeMap<BString, Entry
         };
         match entry.stage_raw() {
             0 => {
-                if !entry.flags.contains(gix::index::entry::Flags::INTENT_TO_ADD) {
+                if !entry
+                    .flags
+                    .contains(gix::index::entry::Flags::INTENT_TO_ADD)
+                {
                     files.insert(path, side);
                 }
             }
@@ -238,7 +227,11 @@ pub(crate) fn resolve_tree(repo: &gix::Repository, rev: Option<&str>) -> Result<
             .map_err(|error| read_error("HEAD", &error));
     };
     if rev.is_empty() || rev.starts_with('-') || rev.chars().any(char::is_control) {
-        return Err(revision_error(rev, "invalid_syntax", "is not a valid revision"));
+        return Err(revision_error(
+            rev,
+            "invalid_syntax",
+            "is not a valid revision",
+        ));
     }
     let id = repo
         .rev_parse_single(rev)
@@ -253,9 +246,12 @@ pub(crate) fn resolve_tree(repo: &gix::Repository, rev: Option<&str>) -> Result<
 }
 
 fn revision_error(rev: &str, problem: &str, what: &str) -> Error {
-    Error::new(ErrorCode::GitRevision, format!("`{rev}` {what}, use a branch, a tag or a commit"))
-        .with_problem(problem)
-        .with_found(rev)
+    Error::new(
+        ErrorCode::GitRevision,
+        format!("`{rev}` {what}, use a branch, a tag or a commit"),
+    )
+    .with_problem(problem)
+    .with_found(rev)
 }
 
 /// Attribute `diff` of a path.
@@ -296,8 +292,13 @@ impl<'r> Reader<'r> {
                 .map_err(|error| read_error("attributes", &error))?;
             (Some(pipeline), index)
         } else {
-            let index = repo.index_or_empty().map_err(|error| read_error("index", &error))?;
-            (None, gix::worktree::IndexPersistedOrInMemory::Persisted(index))
+            let index = repo
+                .index_or_empty()
+                .map_err(|error| read_error("index", &error))?;
+            (
+                None,
+                gix::worktree::IndexPersistedOrInMemory::Persisted(index),
+            )
         };
         let source = if workdir.is_some() {
             gix::worktree::stack::state::attributes::Source::WorktreeThenIdMapping
@@ -338,7 +339,10 @@ impl<'r> Reader<'r> {
         if id.is_null() {
             return Ok(Vec::new());
         }
-        let object = self.repo.find_object(id).map_err(|error| read_error("object", &error))?;
+        let object = self
+            .repo
+            .find_object(id)
+            .map_err(|error| read_error("object", &error))?;
         Ok(object.detach().data)
     }
 
@@ -350,12 +354,17 @@ impl<'r> Reader<'r> {
     /// Fails when the object or the file cannot be read.
     pub fn content(&mut self, path: &BStr, entry: &Entry) -> Result<Vec<u8>, Error> {
         if entry.mode == MODE_GITLINK {
-            let id = entry.id.unwrap_or_else(|| ObjectId::null(self.repo.object_hash()));
+            let id = entry
+                .id
+                .unwrap_or_else(|| ObjectId::null(self.repo.object_hash()));
             return Ok(format!("Subproject commit {id}\n").into_bytes());
         }
         match entry.id {
             Some(id) => self.blob(id),
-            None => Ok(self.worktree(path, None)?.map(|(data, _)| data).unwrap_or_default()),
+            None => Ok(self
+                .worktree(path, None)?
+                .map(|(data, _)| data)
+                .unwrap_or_default()),
         }
     }
 
@@ -366,7 +375,11 @@ impl<'r> Reader<'r> {
     /// # Errors
     ///
     /// Fails when the file cannot be read or converted.
-    pub fn worktree(&mut self, path: &BStr, index_mode: Option<u32>) -> Result<Option<(Vec<u8>, u32)>, Error> {
+    pub fn worktree(
+        &mut self,
+        path: &BStr,
+        index_mode: Option<u32>,
+    ) -> Result<Option<(Vec<u8>, u32)>, Error> {
         let Some(root) = &self.workdir else {
             return Ok(None);
         };
@@ -394,7 +407,8 @@ impl<'r> Reader<'r> {
             .convert_to_git(file, &relative, &self.index)
             .map_err(|error| read_error("file", &error))?;
         let mut data = Vec::new();
-        std::io::Read::read_to_end(&mut { outcome }, &mut data).map_err(|error| read_error("file", &error))?;
+        std::io::Read::read_to_end(&mut { outcome }, &mut data)
+            .map_err(|error| read_error("file", &error))?;
         Ok(Some((data, mode)))
     }
 
@@ -405,12 +419,17 @@ impl<'r> Reader<'r> {
                 _ => MODE_FILE,
             };
         }
-        if is_executable(metadata) { MODE_EXECUTABLE } else { MODE_FILE }
+        if is_executable(metadata) {
+            MODE_EXECUTABLE
+        } else {
+            MODE_FILE
+        }
     }
 
     /// The `diff` attribute of `path`.
     pub fn diff_attr(&mut self, path: &BStr) -> DiffAttr {
-        let (Some(stack), Some(out)) = (self.attributes.as_mut(), self.attribute_out.as_mut()) else {
+        let (Some(stack), Some(out)) = (self.attributes.as_mut(), self.attribute_out.as_mut())
+        else {
             return DiffAttr::Auto;
         };
         let Ok(platform) = stack.at_entry(path, None) else {
@@ -424,7 +443,9 @@ impl<'r> Reader<'r> {
         match found.assignment.state {
             gix::attrs::StateRef::Set => DiffAttr::Text,
             gix::attrs::StateRef::Unset => DiffAttr::Binary,
-            gix::attrs::StateRef::Value(value) => DiffAttr::Driver(value.as_bstr().to_str_lossy().into_owned()),
+            gix::attrs::StateRef::Value(value) => {
+                DiffAttr::Driver(value.as_bstr().to_str_lossy().into_owned())
+            }
             gix::attrs::StateRef::Unspecified => DiffAttr::Auto,
         }
     }

@@ -20,14 +20,15 @@ use nurt_contracts::error::{Candidate, Error, ErrorCode};
 use nurt_contracts::record::Commit;
 use nurt_contracts::services::CodeService;
 use nurt_contracts::stage::{
-    BoundArgs, ExecCtx, InputKinds, ReadStage, RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput,
+    BoundArgs, ExecCtx, InputKinds, ReadStage, RecordStream, StageDescriptor, StageImpl,
+    StageInput, StageOutput,
 };
 use nurt_contracts::value::{Record, RecordKind, Value};
 
 use crate::revwalk::args;
 use crate::revwalk::changes::{self, Detect, FileChange};
 use crate::revwalk::lines;
-use crate::revwalk::paths::{PathFilter, entry_at};
+use crate::revwalk::paths::{PathFilter, entry_at, excluded};
 use crate::revwalk::record::{CommitRecords, Person};
 use crate::revwalk::repo::{OpenRepo, quote};
 use crate::revwalk::spec::{self, Tips};
@@ -81,10 +82,15 @@ impl ReadStage for GitLog {
     /// cannot be combined, `E_SYMBOL_NOT_FOUND`, `E_SYMBOL_AMBIGUOUS` and
     /// `E_UNSUPPORTED_LANGUAGE` for `symbol`, `E_IO` when the repository
     /// cannot be read and `E_CANCELLED` when the program is stopped.
-    fn execute<'a>(&'a self, args: &'a BoundArgs, _input: StageInput<'a>, ctx: &'a ExecCtx) -> nurt_contracts::error::Result<StageOutput<'a>> {
+    fn execute<'a>(
+        &'a self,
+        args: &'a BoundArgs,
+        _input: StageInput<'a>,
+        ctx: &'a ExecCtx,
+    ) -> nurt_contracts::error::Result<StageOutput<'a>> {
         let query = Query::from_args(args)?;
-        let repo = OpenRepo::discover(&query.repo)?;
-        let records = run(&repo, &query, args, ctx)?;
+        let repo = OpenRepo::discover(&query.repo, ctx)?;
+        let records = run(&repo, &query, ctx)?;
         Ok(StageOutput::records(RecordStream::from_records(records)))
     }
 }
@@ -121,6 +127,7 @@ struct Query {
     symbol: Option<String>,
     stat: bool,
     group_by: Option<GroupBy>,
+    exclude: Vec<BString>,
 }
 
 impl Query {
@@ -136,22 +143,43 @@ impl Query {
             Some("author") => Some(GroupBy::Author),
             Some("day") => Some(GroupBy::Day),
             Some(other) => {
-                return Err(args::invalid(bound, "group_by", format!("`group_by` is `type`, `author` or `day`, not `{other}`")));
+                return Err(args::invalid(
+                    bound,
+                    "group_by",
+                    format!("`group_by` is `type`, `author` or `day`, not `{other}`"),
+                ));
             }
         };
         if follow || symbol.is_some() {
             let name = if follow { "follow" } else { "symbol" };
             if paths.is_empty() {
-                return Err(Error::new(ErrorCode::MissingParam, format!("`{name}` needs one file in `path`"))
-                    .with_fix(format!("git.log {} path: \"<file>\" {name}: …", quote(&repo))));
+                return Err(Error::new(
+                    ErrorCode::MissingParam,
+                    format!("`{name}` needs one file in `path`"),
+                )
+                .with_fix(format!(
+                    "git.log {} path: \"<file>\" {name}: …",
+                    quote(&repo)
+                )));
             }
             if paths.len() > 1 {
-                return Err(args::invalid(bound, "path", format!("`{name}` needs exactly one file in `path`, not {}", paths.len())));
+                return Err(args::invalid(
+                    bound,
+                    "path",
+                    format!(
+                        "`{name}` needs exactly one file in `path`, not {}",
+                        paths.len()
+                    ),
+                ));
             }
         }
         if symbol.is_some() && (follow || stat) {
             let other = if follow { "follow" } else { "stat" };
-            return Err(args::invalid(bound, "symbol", format!("`symbol` cannot be combined with `{other}`")));
+            return Err(args::invalid(
+                bound,
+                "symbol",
+                format!("`symbol` cannot be combined with `{other}`"),
+            ));
         }
         Ok(Self {
             revision: args::text(bound, "revision")?.unwrap_or_else(|| "HEAD".to_owned()),
@@ -168,43 +196,67 @@ impl Query {
             symbol,
             stat,
             group_by,
+            exclude: args::globs(bound, "exclude")?,
         })
     }
 }
 
 fn pickaxe(bound: &BoundArgs) -> Result<Option<Pickaxe>, Error> {
     let text = match bound.value("pickaxe") {
-        Some(Value::Regex(regex)) => Some(Pickaxe::Pattern(args::bytes_regex(bound, "pickaxe", regex)?)),
+        Some(Value::Regex(regex)) => Some(Pickaxe::Pattern(args::bytes_regex(
+            bound, "pickaxe", regex,
+        )?)),
         Some(Value::Text(text)) if text.is_empty() => {
-            return Err(args::invalid(bound, "pickaxe", "`pickaxe` needs a non-empty text"));
+            return Err(args::invalid(
+                bound,
+                "pickaxe",
+                "`pickaxe` needs a non-empty text",
+            ));
         }
         Some(Value::Text(text)) => Some(Pickaxe::Text(text.clone().into_bytes())),
         None | Some(Value::Null) => None,
-        Some(_) => return Err(Error::new(ErrorCode::Type, "`git.log` expects a text or a regular expression for `pickaxe`")),
+        Some(_) => {
+            return Err(Error::new(
+                ErrorCode::Type,
+                "`git.log` expects a text or a regular expression for `pickaxe`",
+            ));
+        }
     };
     let lines = match args::pattern(bound, "diff_regex")? {
-        Some(source) => Some(Pickaxe::Lines(args::bytes_regex(bound, "diff_regex", &source)?)),
+        Some(source) => Some(Pickaxe::Lines(args::bytes_regex(
+            bound,
+            "diff_regex",
+            &source,
+        )?)),
         None => None,
     };
     if text.is_some() && lines.is_some() {
-        return Err(args::invalid(bound, "diff_regex", "`diff_regex` cannot be combined with `pickaxe`"));
+        return Err(args::invalid(
+            bound,
+            "diff_regex",
+            "`diff_regex` cannot be combined with `pickaxe`",
+        ));
     }
     Ok(text.or(lines))
 }
 
-fn run(repo: &OpenRepo, query: &Query, bound: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Record>, Error> {
+fn run(repo: &OpenRepo, query: &Query, ctx: &ExecCtx) -> Result<Vec<Record>, Error> {
     let tips = spec::resolve(repo, &query.revision)?;
     if tips.is_empty() {
         return Ok(Vec::new());
     }
-    let relative: Vec<BString> = query.paths.iter().map(|path| repo.relative(path)).collect::<Result<_, _>>()?;
+    let relative: Vec<BString> = query
+        .paths
+        .iter()
+        .map(|path| repo.relative(path))
+        .collect::<Result<_, _>>()?;
     let filter = (!relative.is_empty()).then(|| PathFilter::new(relative.clone()));
     let demand = ctx.demand();
     let mut wanted = query.count;
-    if query.group_by.is_none() {
-        if let Some(limit) = demand.limit {
-            wanted = wanted.min(limit);
-        }
+    if query.group_by.is_none()
+        && let Some(limit) = demand.limit
+    {
+        wanted = wanted.min(limit);
     }
     let records = CommitRecords::new(repo, &demand.fields);
     let mut selector = Selector {
@@ -230,10 +282,12 @@ fn run(repo: &OpenRepo, query: &Query, bound: &BoundArgs, ctx: &ExecCtx) -> Resu
             select(walk, &mut selector, wanted, query.skip, ctx)?
         }
     };
-    let _ = bound;
     match query.group_by {
         Some(group) => group_records(&records, &commits, group),
-        None => Ok(commits.into_iter().map(|(_, commit)| Record::from(commit)).collect()),
+        None => Ok(commits
+            .into_iter()
+            .map(|(_, commit)| Record::from(commit))
+            .collect()),
     }
 }
 
@@ -282,15 +336,23 @@ impl Selector<'_, '_> {
         if !self.text_matches(&commit) {
             return Ok(None);
         }
-        if self.query.until.is_some_and(|until| commit.commit_time.is_some_and(|time| time.as_unix_nanos().div_euclid(1_000_000_000) > until)) {
+        if self.query.until.is_some_and(|until| {
+            commit
+                .commit_time
+                .is_some_and(|time| time.as_unix_nanos().div_euclid(1_000_000_000) > until)
+        }) {
             return Ok(None);
         }
-        let needs_changes = self.follow.is_some() || self.query.pickaxe.is_some() || self.query.stat;
+        let needs_changes =
+            self.follow.is_some() || self.query.pickaxe.is_some() || self.query.stat;
         if !needs_changes {
             return Ok(Some(commit));
         }
         let repo = self.records.repo();
-        let info = repo.commits.info(&repo.repo, id).map_err(|err| repo.read_error(format_args!("commit {id}"), err))?;
+        let info = repo
+            .commits
+            .info(&repo.repo, id)
+            .map_err(|err| repo.read_error(format_args!("commit {id}"), err))?;
         if info.parents.len() > 1 {
             let filtered = self.follow.is_some() || self.query.pickaxe.is_some();
             return Ok((!filtered).then_some(commit));
@@ -307,8 +369,11 @@ impl Selector<'_, '_> {
                 }
                 changes
             }
-            None => changes::tree_changes(repo, old, info.tree, Detect::Renames, self.filter.as_ref())?,
+            None => {
+                changes::tree_changes(repo, old, info.tree, Detect::Renames, self.filter.as_ref())?
+            }
         };
+        found.retain(|change| !excluded(&self.query.exclude, change.path.as_ref()));
         if let Some(pickaxe) = &self.query.pickaxe {
             found = self.picked(pickaxe, found)?;
             if found.is_empty() {
@@ -325,7 +390,11 @@ impl Selector<'_, '_> {
 
     fn text_matches(&self, commit: &Commit) -> bool {
         if let Some(author) = &self.query.author {
-            let identity = format!("{} <{}>", commit.author, commit.author_email.as_deref().unwrap_or_default());
+            let identity = format!(
+                "{} <{}>",
+                commit.author,
+                commit.author_email.as_deref().unwrap_or_default()
+            );
             if !author.is_match(&identity) {
                 return false;
             }
@@ -339,16 +408,21 @@ impl Selector<'_, '_> {
     /// Changes of the followed file; when the file is new in the commit and
     /// was renamed or copied from another file, the other file is followed
     /// from here on.
-    fn followed_changes(&mut self, old: Option<ObjectId>, new: ObjectId, path: BString) -> Result<Vec<FileChange>, Error> {
+    fn followed_changes(
+        &mut self,
+        old: Option<ObjectId>,
+        new: ObjectId,
+        path: BString,
+    ) -> Result<Vec<FileChange>, Error> {
         let repo = self.records.repo();
         let limit = PathFilter::new(vec![path.clone()]);
         let mut found = changes::tree_changes(repo, old, new, Detect::Nothing, Some(&limit))?;
-        let added = found.iter().any(|change| change.path == path && change.old.is_none());
-        if added {
-            if let Some(origin) = changes::origin_of(repo, old, new, path.as_ref())? {
-                self.follow = Some(origin.source_path().to_owned());
-                found = vec![origin];
-            }
+        let added = found
+            .iter()
+            .any(|change| change.path == path && change.old.is_none());
+        if added && let Some(origin) = changes::origin_of(repo, old, new, path.as_ref())? {
+            self.follow = Some(origin.source_path().to_owned());
+            found = vec![origin];
         }
         Ok(found)
     }
@@ -379,21 +453,36 @@ fn is_submodule(side: Option<changes::Side>) -> bool {
 fn pickaxe_matches(pickaxe: &Pickaxe, old: &[u8], new: &[u8]) -> bool {
     match pickaxe {
         Pickaxe::Text(needle) => old.find_iter(needle).count() != new.find_iter(needle).count(),
-        Pickaxe::Pattern(pattern) => pattern.find_iter(old).count() != pattern.find_iter(new).count(),
+        Pickaxe::Pattern(pattern) => {
+            pattern.find_iter(old).count() != pattern.find_iter(new).count()
+        }
         Pickaxe::Lines(pattern) => {
             let old_lines = lines::split_lines(old);
             let new_lines = lines::split_lines(new);
-            let strip = |line: &[u8]| -> Vec<u8> { line.strip_suffix(b"\n").unwrap_or(line).to_vec() };
+            let strip =
+                |line: &[u8]| -> Vec<u8> { line.strip_suffix(b"\n").unwrap_or(line).to_vec() };
             lines::edits(old, new).iter().any(|edit| {
-                let removed = edit.before.clone().filter_map(|index| old_lines.get(index as usize));
-                let added = edit.after.clone().filter_map(|index| new_lines.get(index as usize));
-                removed.chain(added).any(|line| pattern.is_match(&strip(line)))
+                let removed = edit
+                    .before
+                    .clone()
+                    .filter_map(|index| old_lines.get(index as usize));
+                let added = edit
+                    .after
+                    .clone()
+                    .filter_map(|index| new_lines.get(index as usize));
+                removed
+                    .chain(added)
+                    .any(|line| pattern.is_match(&strip(line)))
             })
         }
     }
 }
 
-fn group_records(records: &CommitRecords<'_>, commits: &[(ObjectId, Commit)], group: GroupBy) -> Result<Vec<Record>, Error> {
+fn group_records(
+    records: &CommitRecords<'_>,
+    commits: &[(ObjectId, Commit)],
+    group: GroupBy,
+) -> Result<Vec<Record>, Error> {
     let mut counts: HashMap<String, i64> = HashMap::new();
     for (id, commit) in commits {
         let key = match group {
@@ -407,7 +496,11 @@ fn group_records(records: &CommitRecords<'_>, commits: &[(ObjectId, Commit)], gr
     sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
     Ok(sorted
         .into_iter()
-        .map(|(key, count)| Record::new(RecordKind::Map).with("key", Value::Text(key)).with("count", Value::Int(count)))
+        .map(|(key, count)| {
+            Record::new(RecordKind::Map)
+                .with("key", Value::Text(key))
+                .with("count", Value::Int(count))
+        })
         .collect())
 }
 
@@ -430,7 +523,7 @@ fn commit_type(subject: &str) -> String {
     }
 }
 
-/// Date of the author time in the author's own time zone, `YYYY-MM-DD`.
+/// Date of the author time at the UTC offset recorded with it, `YYYY-MM-DD`.
 fn day_of(person: &Person) -> String {
     let local = person.seconds + i64::from(person.offset);
     let days = local.div_euclid(SECONDS_PER_DAY);
@@ -463,28 +556,52 @@ fn symbol_range(
     code: Option<&dyn CodeService>,
 ) -> Result<Range<u32>, Error> {
     let code = code.ok_or_else(|| {
-        Error::new(ErrorCode::Unsupported, "`symbol` needs the code service, which this host does not provide")
-            .with_next_step(format!("git.log {} path: {}", quote(repo.label()), quote(given)))
+        Error::new(
+            ErrorCode::Unsupported,
+            "`symbol` needs the code service, which this host does not provide",
+        )
+        .with_next_step(format!(
+            "git.log {} path: {}",
+            quote(repo.label()),
+            quote(given)
+        ))
     })?;
     let tip = tips.include[0];
     let tree = repo.tree_of(tip)?;
-    let entry = entry_at(repo, tree, path.as_ref()).map_err(|err| repo.read_error("the file", err))?;
-    let Some((mode, blob)) = entry.filter(|(mode, _)| !mode.is_tree()) else {
-        return Err(Error::new(ErrorCode::NotFound, format!("`{given}` does not exist at the listed revision"))
-            .with_next_step(format!("git.log {} path: {}", quote(repo.label()), quote(given))));
+    let entry =
+        entry_at(repo, tree, path.as_ref()).map_err(|err| repo.read_error("the file", err))?;
+    let Some((_, blob)) = entry.filter(|(mode, _)| !mode.is_tree()) else {
+        return Err(Error::new(
+            ErrorCode::NotFound,
+            format!("`{given}` does not exist at the listed revision"),
+        )
+        .with_next_step(format!(
+            "git.log {} path: {}",
+            quote(repo.label()),
+            quote(given)
+        )));
     };
-    let _ = mode;
     let bytes = repo.blob(blob)?;
     let file = Path::new(given);
     let language = code.language_of(Some(file), &bytes).ok_or_else(|| {
-        Error::new(ErrorCode::UnsupportedLanguage, format!("the language of `{given}` has no grammar, so `symbol` cannot be found"))
-            .with_next_step(format!("git.log {} path: {}", quote(repo.label()), quote(given)))
+        Error::new(
+            ErrorCode::UnsupportedLanguage,
+            format!("the language of `{given}` has no grammar, so `symbol` cannot be found"),
+        )
+        .with_next_step(format!(
+            "git.log {} path: {}",
+            quote(repo.label()),
+            quote(given)
+        ))
     })?;
     let found = code.find_symbol(&bytes, &language, symbol)?;
     match found.as_slice() {
-        [] => Err(Error::new(ErrorCode::SymbolNotFound, format!("`{symbol}` is not defined in `{given}`"))
-            .with_found(symbol)
-            .with_next_step(format!("read {} view: outline", quote(given)))),
+        [] => Err(Error::new(
+            ErrorCode::SymbolNotFound,
+            format!("`{symbol}` is not defined in `{given}`"),
+        )
+        .with_found(symbol)
+        .with_next_step(format!("read {} view: outline", quote(given)))),
         [only] => {
             let start = only.span.start.line.saturating_sub(1);
             let end = if only.span.end.column == 1 && only.span.end.line > only.span.start.line {
@@ -495,17 +612,25 @@ fn symbol_range(
             Ok(start..end.max(start + 1))
         }
         many => {
-            let mut error = Error::new(ErrorCode::SymbolAmbiguous, format!("`{symbol}` is defined {} times in `{given}`", many.len()))
-                .with_found(symbol);
+            let mut error = Error::new(
+                ErrorCode::SymbolAmbiguous,
+                format!("`{symbol}` is defined {} times in `{given}`", many.len()),
+            )
+            .with_found(symbol);
             for (rank, candidate) in many.iter().enumerate() {
-                let qualified = candidate
-                    .container
-                    .as_ref()
-                    .map_or_else(|| candidate.name.clone(), |container| format!("{container}.{}", candidate.name));
+                let qualified = candidate.container.as_ref().map_or_else(
+                    || candidate.name.clone(),
+                    |container| format!("{container}.{}", candidate.name),
+                );
                 error = error.with_candidate(Candidate {
                     rank: u32::try_from(rank + 1).unwrap_or(u32::MAX),
                     reference: Some(format!("{given}:{}", candidate.span.start.line)),
-                    program: format!("git.log {} path: {} symbol: {}", quote(repo.label()), quote(given), quote(&qualified)),
+                    program: format!(
+                        "git.log {} path: {} symbol: {}",
+                        quote(repo.label()),
+                        quote(given),
+                        quote(&qualified)
+                    ),
                     why: None,
                 });
             }
@@ -548,7 +673,13 @@ struct LineTrace<'r> {
 }
 
 impl<'r> LineTrace<'r> {
-    fn new(repo: &'r OpenRepo, tips: &Tips, path: BString, range: Range<u32>, since: Option<i64>) -> Result<Self, Error> {
+    fn new(
+        repo: &'r OpenRepo,
+        tips: &Tips,
+        path: BString,
+        range: Range<u32>,
+        since: Option<i64>,
+    ) -> Result<Self, Error> {
         let mut hidden = HashSet::new();
         if !tips.exclude.is_empty() {
             let excluded = Tips {
@@ -582,7 +713,12 @@ impl<'r> LineTrace<'r> {
                 *existing = union(std::mem::take(existing));
             }
             None => {
-                let time = self.repo.commits.info(&self.repo.repo, id).map_err(|err| self.repo.read_error(format_args!("commit {id}"), err))?.time;
+                let time = self
+                    .repo
+                    .commits
+                    .info(&self.repo.repo, id)
+                    .map_err(|err| self.repo.read_error(format_args!("commit {id}"), err))?
+                    .time;
                 self.ranges.insert(id, (path, union(ranges)));
                 self.queue.push(Traced {
                     time,
@@ -612,10 +748,20 @@ impl<'r> LineTrace<'r> {
 
     /// Carries the ranges of `id` to its parents and tells whether `id`
     /// changed them.
-    fn process(&mut self, id: ObjectId, path: &BString, ranges: &[Range<u32>]) -> Result<bool, Error> {
+    fn process(
+        &mut self,
+        id: ObjectId,
+        path: &BString,
+        ranges: &[Range<u32>],
+    ) -> Result<bool, Error> {
         let repo = self.repo;
-        let info = repo.commits.info(&repo.repo, id).map_err(|err| repo.read_error(format_args!("commit {id}"), err))?;
-        let new_blob = match entry_at(repo, info.tree, path.as_ref()).map_err(|err| repo.read_error("the file", err))? {
+        let info = repo
+            .commits
+            .info(&repo.repo, id)
+            .map_err(|err| repo.read_error(format_args!("commit {id}"), err))?;
+        let new_blob = match entry_at(repo, info.tree, path.as_ref())
+            .map_err(|err| repo.read_error("the file", err))?
+        {
             Some((_, blob)) => blob,
             None => return Ok(false),
         };
@@ -626,12 +772,19 @@ impl<'r> LineTrace<'r> {
         let mut carried = Vec::with_capacity(info.parents.len());
         for parent in &info.parents {
             let parent_tree = repo.tree_of(*parent)?;
-            let (old_path, old_blob) = match entry_at(repo, parent_tree, path.as_ref()).map_err(|err| repo.read_error("the file", err))? {
+            let (old_path, old_blob) = match entry_at(repo, parent_tree, path.as_ref())
+                .map_err(|err| repo.read_error("the file", err))?
+            {
                 Some((_, blob)) => (path.clone(), Some(blob)),
-                None => match changes::origin_of(repo, Some(parent_tree), info.tree, path.as_ref())? {
-                    Some(origin) => (origin.source_path().to_owned(), origin.old.map(|side| side.id)),
-                    None => (path.clone(), None),
-                },
+                None => {
+                    match changes::origin_of(repo, Some(parent_tree), info.tree, path.as_ref())? {
+                        Some(origin) => (
+                            origin.source_path().to_owned(),
+                            origin.old.map(|side| side.id),
+                        ),
+                        None => (path.clone(), None),
+                    }
+                }
             };
             let Some(old_blob) = old_blob else {
                 carried.push((*parent, old_path, Vec::new(), true));
@@ -653,7 +806,9 @@ impl<'r> LineTrace<'r> {
             }
             carried.push((*parent, old_path, mapped, touched));
         }
-        if let Some((parent, old_path, mapped, _)) = carried.iter().find(|(_, _, _, touched)| !touched) {
+        if let Some((parent, old_path, mapped, _)) =
+            carried.iter().find(|(_, _, _, touched)| !touched)
+        {
             self.give(*parent, old_path.clone(), mapped.clone())?;
             return Ok(false);
         }
@@ -728,21 +883,73 @@ mod tests {
 
     fn linear() -> Fixture {
         let mut fixture = Fixture::new();
-        fixture.commit("feat: add a", &[("a.txt", Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n"))]);
-        fixture.commit_as(("Bob", "bob@example.com"), "fix(core): copy b", &[("b.txt", Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n"))]);
-        fixture.commit("docs: change a", &[("a.txt", Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine foo\n"))]);
-        fixture.commit("rename a to z", &[("a.txt", None), ("z.txt", Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine foo\n"))]);
-        fixture.commit("change z", &[("z.txt", Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine foo\nten\n"))]);
+        fixture.commit(
+            "feat: add a",
+            &[(
+                "a.txt",
+                Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n"),
+            )],
+        );
+        fixture.commit_as(
+            ("Bob", "bob@example.com"),
+            "fix(core): copy b",
+            &[(
+                "b.txt",
+                Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n"),
+            )],
+        );
+        fixture.commit(
+            "docs: change a",
+            &[(
+                "a.txt",
+                Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine foo\n"),
+            )],
+        );
+        fixture.commit(
+            "rename a to z",
+            &[
+                ("a.txt", None),
+                (
+                    "z.txt",
+                    Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine foo\n"),
+                ),
+            ],
+        );
+        fixture.commit(
+            "change z",
+            &[(
+                "z.txt",
+                Some("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine foo\nten\n"),
+            )],
+        );
         fixture
     }
 
     #[test]
     fn lists_commits_newest_first_with_count_and_skip() {
         let fixture = linear();
-        assert_eq!(subjects(&log(&fixture, &[])), ["change z", "rename a to z", "docs: change a", "fix(core): copy b", "feat: add a"]);
-        assert_eq!(subjects(&log(&fixture, &[("count", Value::Int(2)), ("skip", Value::Int(1))])), ["rename a to z", "docs: change a"]);
+        assert_eq!(
+            subjects(&log(&fixture, &[])),
+            [
+                "change z",
+                "rename a to z",
+                "docs: change a",
+                "fix(core): copy b",
+                "feat: add a"
+            ]
+        );
+        assert_eq!(
+            subjects(&log(
+                &fixture,
+                &[("count", Value::Int(2)), ("skip", Value::Int(1))]
+            )),
+            ["rename a to z", "docs: change a"]
+        );
         assert!(log(&fixture, &[("count", Value::Int(0))]).is_empty());
-        assert_eq!(subjects(&log(&fixture, &[("revision", text("HEAD~3..HEAD~1"))])), ["rename a to z", "docs: change a"]);
+        assert_eq!(
+            subjects(&log(&fixture, &[("revision", text("HEAD~3..HEAD~1"))])),
+            ["rename a to z", "docs: change a"]
+        );
     }
 
     #[test]
@@ -755,38 +962,92 @@ mod tests {
     fn limits_history_to_paths() {
         let fixture = linear();
         let z = fixture.path("z.txt");
-        assert_eq!(subjects(&log(&fixture, &[("path", Value::List(vec![Value::Path(z.clone())]))])), ["change z", "rename a to z"]);
-        assert_eq!(subjects(&log(&fixture, &[("path", Value::Path(z)), ("follow", Value::Bool(true))])), ["change z", "rename a to z", "docs: change a", "feat: add a"]);
+        assert_eq!(
+            subjects(&log(
+                &fixture,
+                &[("path", Value::List(vec![Value::Path(z.clone())]))]
+            )),
+            ["change z", "rename a to z"]
+        );
+        assert_eq!(
+            subjects(&log(
+                &fixture,
+                &[("path", Value::Path(z)), ("follow", Value::Bool(true))]
+            )),
+            ["change z", "rename a to z", "docs: change a", "feat: add a"]
+        );
         let b = fixture.path("b.txt");
-        assert_eq!(subjects(&log(&fixture, &[("path", Value::Path(b)), ("follow", Value::Bool(true))])), ["fix(core): copy b", "feat: add a"]);
+        assert_eq!(
+            subjects(&log(
+                &fixture,
+                &[("path", Value::Path(b)), ("follow", Value::Bool(true))]
+            )),
+            ["fix(core): copy b", "feat: add a"]
+        );
     }
 
     #[test]
     fn filters_by_author_message_and_dates() {
         let fixture = linear();
-        assert_eq!(subjects(&log(&fixture, &[("author", text("^Bob <"))])), ["fix(core): copy b"]);
-        assert_eq!(subjects(&log(&fixture, &[("message", Value::Regex(Regex::new("^CHANGE", "i").unwrap()))])), ["change z", "docs: change a"]);
+        assert_eq!(
+            subjects(&log(&fixture, &[("author", text("^Bob <"))])),
+            ["fix(core): copy b"]
+        );
+        assert_eq!(
+            subjects(&log(
+                &fixture,
+                &[("message", Value::Regex(Regex::new("CHANGE", "i").unwrap()))]
+            )),
+            ["change z", "docs: change a"]
+        );
         let second = fixture.resolve("HEAD~3");
         let time = fixture.time_of(second);
         let since = Value::Instant(Instant::from_unix_seconds(time).unwrap());
         assert_eq!(log(&fixture, &[("since", since.clone())]).len(), 4);
-        assert_eq!(subjects(&log(&fixture, &[("until", since)])), ["fix(core): copy b", "feat: add a"]);
+        assert_eq!(
+            subjects(&log(&fixture, &[("until", since)])),
+            ["fix(core): copy b", "feat: add a"]
+        );
     }
 
     #[test]
     fn pickaxe_finds_commits_that_change_occurrences() {
         let fixture = linear();
-        assert_eq!(subjects(&log(&fixture, &[("pickaxe", text("foo"))])), ["docs: change a"]);
-        assert_eq!(subjects(&log(&fixture, &[("pickaxe", Value::Regex(Regex::new("^ten$", "m").unwrap()))])), ["change z"]);
-        assert_eq!(subjects(&log(&fixture, &[("diff_regex", text("^nine"))])), ["docs: change a"]);
-        assert_eq!(log_error(&fixture, &[("pickaxe", text(""))]), ErrorCode::InvalidValue);
-        assert_eq!(log_error(&fixture, &[("pickaxe", text("a")), ("diff_regex", text("b"))]), ErrorCode::InvalidValue);
+        assert_eq!(
+            subjects(&log(&fixture, &[("pickaxe", text("foo"))])),
+            ["docs: change a"]
+        );
+        assert_eq!(
+            subjects(&log(
+                &fixture,
+                &[("pickaxe", Value::Regex(Regex::new("^ten$", "m").unwrap()))]
+            )),
+            ["change z"]
+        );
+        assert_eq!(
+            subjects(&log(&fixture, &[("diff_regex", text("^nine"))])),
+            ["docs: change a"]
+        );
+        assert_eq!(
+            log_error(&fixture, &[("pickaxe", text(""))]),
+            ErrorCode::InvalidValue
+        );
+        assert_eq!(
+            log_error(
+                &fixture,
+                &[("pickaxe", text("a")), ("diff_regex", text("b"))]
+            ),
+            ErrorCode::InvalidValue
+        );
     }
 
     #[test]
     fn stat_lists_changed_files() {
         let fixture = linear();
-        let records = log(&fixture, &[("stat", Value::Bool(true)), ("count", Value::Int(2))]);
+        let records = log(
+            &fixture,
+            &[("stat", Value::Bool(true)), ("count", Value::Int(2))],
+        );
         let commit = Commit::try_from(records[1].clone()).unwrap();
         let files = commit.files.unwrap();
         assert_eq!(files[0].path, "z.txt");
@@ -795,10 +1056,45 @@ mod tests {
     }
 
     #[test]
+    fn exclude_leaves_files_out_of_stat_and_pickaxe() {
+        let fixture = linear();
+        let exclude = Value::List(vec![Value::Glob("z.*".into())]);
+        assert_eq!(
+            subjects(&log(&fixture, &[("pickaxe", text("ten"))])),
+            ["change z"]
+        );
+        assert!(
+            log(
+                &fixture,
+                &[("pickaxe", text("ten")), ("exclude", exclude.clone())]
+            )
+            .is_empty()
+        );
+        let records = log(
+            &fixture,
+            &[
+                ("stat", Value::Bool(true)),
+                ("count", Value::Int(1)),
+                ("exclude", exclude),
+            ],
+        );
+        let commit = Commit::try_from(records[0].clone()).unwrap();
+        assert!(commit.files.unwrap().is_empty());
+    }
+
+    #[test]
     fn groups_commits() {
         let fixture = linear();
         let groups = log(&fixture, &[("group_by", Value::Enum("type".into()))]);
-        let pairs: Vec<(Value, Value)> = groups.iter().map(|g| (g.get("key").cloned().unwrap(), g.get("count").cloned().unwrap())).collect();
+        let pairs: Vec<(Value, Value)> = groups
+            .iter()
+            .map(|g| {
+                (
+                    g.get("key").cloned().unwrap(),
+                    g.get("count").cloned().unwrap(),
+                )
+            })
+            .collect();
         assert_eq!(pairs[0], (text("other"), Value::Int(2)));
         assert_eq!(pairs.len(), 4);
         let authors = log(&fixture, &[("group_by", Value::Enum("author".into()))]);
@@ -810,35 +1106,101 @@ mod tests {
     #[test]
     fn rejects_inconsistent_arguments() {
         let fixture = linear();
-        assert_eq!(log_error(&fixture, &[("follow", Value::Bool(true))]), ErrorCode::MissingParam);
-        let two = Value::List(vec![Value::Path(fixture.path("a")), Value::Path(fixture.path("b"))]);
-        assert_eq!(log_error(&fixture, &[("follow", Value::Bool(true)), ("path", two)]), ErrorCode::InvalidValue);
+        assert_eq!(
+            log_error(&fixture, &[("follow", Value::Bool(true))]),
+            ErrorCode::MissingParam
+        );
+        let two = Value::List(vec![
+            Value::Path(fixture.path("a")),
+            Value::Path(fixture.path("b")),
+        ]);
+        assert_eq!(
+            log_error(&fixture, &[("follow", Value::Bool(true)), ("path", two)]),
+            ErrorCode::InvalidValue
+        );
         let one = Value::Path(fixture.path("z.txt"));
-        assert_eq!(log_error(&fixture, &[("symbol", text("f")), ("path", one.clone()), ("stat", Value::Bool(true))]), ErrorCode::InvalidValue);
-        assert_eq!(log_error(&fixture, &[("symbol", text("f")), ("path", one)]), ErrorCode::Unsupported);
-        assert_eq!(log_error(&fixture, &[("group_by", Value::Enum("week".into()))]), ErrorCode::InvalidValue);
-        assert_eq!(log_error(&fixture, &[("revision", text("missing"))]), ErrorCode::GitRevision);
-        assert_eq!(log_error(&fixture, &[("pickaxe", Value::Int(1))]), ErrorCode::Type);
+        assert_eq!(
+            log_error(
+                &fixture,
+                &[
+                    ("symbol", text("f")),
+                    ("path", one.clone()),
+                    ("stat", Value::Bool(true))
+                ]
+            ),
+            ErrorCode::InvalidValue
+        );
+        assert_eq!(
+            log_error(&fixture, &[("symbol", text("f")), ("path", one)]),
+            ErrorCode::Unsupported
+        );
+        assert_eq!(
+            log_error(&fixture, &[("group_by", Value::Enum("week".into()))]),
+            ErrorCode::InvalidValue
+        );
+        assert_eq!(
+            log_error(&fixture, &[("revision", text("missing"))]),
+            ErrorCode::GitRevision
+        );
+        assert_eq!(
+            log_error(&fixture, &[("pickaxe", Value::Int(1))]),
+            ErrorCode::Type
+        );
     }
 
     #[test]
     fn symbol_follows_the_lines_of_a_function() {
         let mut fixture = Fixture::new();
-        fixture.commit("add", &[("lib.rs", Some("fn a() {\n    1\n}\n\nfn b() {\n    2\n}\n"))]);
-        fixture.commit("change b", &[("lib.rs", Some("fn a() {\n    1\n}\n\nfn b() {\n    3\n}\n"))]);
-        fixture.commit("change a", &[("lib.rs", Some("fn a() {\n    10\n}\n\nfn b() {\n    3\n}\n"))]);
-        fixture.commit("move", &[("lib.rs", Some("// top\nfn a() {\n    10\n}\n\nfn b() {\n    3\n}\n"))]);
+        fixture.commit(
+            "add",
+            &[("lib.rs", Some("fn a() {\n    1\n}\n\nfn b() {\n    2\n}\n"))],
+        );
+        fixture.commit(
+            "change b",
+            &[("lib.rs", Some("fn a() {\n    1\n}\n\nfn b() {\n    3\n}\n"))],
+        );
+        fixture.commit(
+            "change a",
+            &[(
+                "lib.rs",
+                Some("fn a() {\n    10\n}\n\nfn b() {\n    3\n}\n"),
+            )],
+        );
+        fixture.commit(
+            "move",
+            &[(
+                "lib.rs",
+                Some("// top\nfn a() {\n    10\n}\n\nfn b() {\n    3\n}\n"),
+            )],
+        );
         let path = Value::Path(fixture.path("lib.rs"));
-        assert_eq!(subjects(&log(&fixture, &[("path", path.clone()), ("symbol", text("b"))])), ["change b", "add"]);
-        assert_eq!(subjects(&log(&fixture, &[("path", path.clone()), ("symbol", text("a"))])), ["change a", "add"]);
-        assert_eq!(log_error_with_code(&fixture, &[("path", path), ("symbol", text("missing"))]), ErrorCode::SymbolNotFound);
+        assert_eq!(
+            subjects(&log(
+                &fixture,
+                &[("path", path.clone()), ("symbol", text("b"))]
+            )),
+            ["change b", "add"]
+        );
+        assert_eq!(
+            subjects(&log(
+                &fixture,
+                &[("path", path.clone()), ("symbol", text("a"))]
+            )),
+            ["change a", "add"]
+        );
+        assert_eq!(
+            log_error_with_code(&fixture, &[("path", path), ("symbol", text("missing"))]),
+            ErrorCode::SymbolNotFound
+        );
     }
 
     fn log_error_with_code(fixture: &Fixture, values: &[(&str, Value)]) -> ErrorCode {
         let mut all = vec![("repo", Value::Path(fixture.root()))];
         all.extend(values.iter().cloned());
         let args = bound(COMMAND, &all);
-        execute(&GitLog, &args, &exec_ctx(Some(Arc::new(LineCode)))).unwrap_err().code()
+        execute(&GitLog, &args, &exec_ctx(Some(Arc::new(LineCode))))
+            .unwrap_err()
+            .code()
     }
 
     #[test]

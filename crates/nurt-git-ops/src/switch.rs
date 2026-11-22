@@ -19,6 +19,10 @@ use nurt_git::apply::{
     StateFilePlan, apply_plan, plan_reset, plan_two_way,
 };
 
+pub(crate) mod stage;
+
+pub use stage::SwitchCommand;
+
 /// Prefix of local branch references.
 const HEADS: &str = "refs/heads/";
 /// Prefix of remote-tracking references.
@@ -105,7 +109,7 @@ pub fn plan_switch(ctx: &ApplyContext<'_>, request: &SwitchRequest) -> Result<Sw
         .map_err(|err| io_error(err, "read HEAD"))?
         .map(|name| name.as_bstr().to_string());
     let head_before = repo.head_id().ok().map(gix::Id::detach);
-    let target = resolve(repo, request, head_name.as_deref())?;
+    let target = resolve(repo, request)?;
     let head_tree = head_before.map(|id| tree_of(repo, id)).transpose()?;
     let target_tree = tree_of(repo, target.commit)?;
     let mut apply = if request.discard_changes {
@@ -127,7 +131,12 @@ pub fn plan_switch(ctx: &ApplyContext<'_>, request: &SwitchRequest) -> Result<Sw
             repo,
             branch,
             RefTarget::Object(target.commit),
-            Some(line(request, null, target.commit, format!("branch: Created from {from}"))),
+            Some(line(
+                request,
+                null,
+                target.commit,
+                format!("branch: Created from {from}"),
+            )),
         )?);
     }
     if let (Some((remote, merge)), Some(branch)) = (&target.tracking, &target.branch) {
@@ -228,21 +237,25 @@ fn short_branch(name: &str) -> &str {
 }
 
 fn tree_of(repo: &gix::Repository, commit: ObjectId) -> Result<ObjectId> {
+    let what = format!("read the tree of commit {commit}");
     repo.find_commit(commit)
-        .and_then(|commit| commit.tree_id())
+        .map_err(|err| io_error(err, &what))?
+        .tree_id()
         .map(gix::Id::detach)
-        .map_err(|err| io_error(err, &format!("read the tree of commit {commit}")))
+        .map_err(|err| io_error(err, &what))
 }
 
 fn commit_of(repo: &gix::Repository, spec: &str) -> Result<ObjectId> {
-    let id = repo.rev_parse_single(spec.as_bytes().as_bstr()).map_err(|_| {
-        Error::new(
-            ErrorCode::GitRevision,
-            format!("invalid reference: {spec}; give a branch, tag or commit that exists"),
-        )
-        .with_problem("unknown")
-        .with_found(spec.to_owned())
-    })?;
+    let id = repo
+        .rev_parse_single(spec.as_bytes().as_bstr())
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::GitRevision,
+                format!("invalid reference: {spec}; give a branch, tag or commit that exists"),
+            )
+            .with_problem("unknown")
+            .with_found(spec.to_owned())
+        })?;
     let object = id
         .object()
         .map_err(|err| io_error(err, &format!("read {spec}")))?;
@@ -265,7 +278,7 @@ fn branch_exists(repo: &gix::Repository, full: &str) -> Result<bool> {
         .map_err(|err| io_error(err, &format!("read {full}")))
 }
 
-fn resolve(repo: &gix::Repository, request: &SwitchRequest, head: Option<&str>) -> Result<Target> {
+fn resolve(repo: &gix::Repository, request: &SwitchRequest) -> Result<Target> {
     let name = match request.branch.as_deref() {
         Some(PREVIOUS) => Some(previous_branch(repo)?),
         other => other.map(ToOwned::to_owned),
@@ -290,7 +303,9 @@ fn resolve(repo: &gix::Repository, request: &SwitchRequest, head: Option<&str>) 
     if gix::refs::FullName::try_from(full.as_str()).is_err() {
         return Err(Error::new(
             ErrorCode::GitRef,
-            format!("'{name}' is not a valid branch name; use letters, digits, '-', '_', '/' and '.'"),
+            format!(
+                "'{name}' is not a valid branch name; use letters, digits, '-', '_', '/' and '.'"
+            ),
         )
         .with_problem("invalid_name")
         .with_found(name));
@@ -316,11 +331,10 @@ fn resolve(repo: &gix::Repository, request: &SwitchRequest, head: Option<&str>) 
             commit: commit_of(repo, &remote_ref)?,
             branch: Some(full.clone()),
             to_label: name,
-            create_from: Some(format!("{remote}/{}", short_branch(&full))),
+            create_from: Some(remote_ref),
             tracking: Some((remote, full)),
         });
     }
-    let _ = head;
     Err(not_a_branch(repo, &name))
 }
 
@@ -338,7 +352,10 @@ fn create_target(
         .with_problem("exists")
         .with_found(name));
     }
-    let start = request.start_point.clone().unwrap_or_else(|| "HEAD".to_owned());
+    let start = request
+        .start_point
+        .clone()
+        .unwrap_or_else(|| "HEAD".to_owned());
     Ok(Target {
         commit: commit_of(repo, &start)?,
         branch: Some(full),
@@ -352,7 +369,9 @@ fn not_a_branch(repo: &gix::Repository, name: &str) -> Error {
     if commit_of(repo, name).is_ok() {
         return Error::new(
             ErrorCode::GitRef,
-            format!("a branch is expected, got '{name}'; switch with detach: true to check out a commit"),
+            format!(
+                "a branch is expected, got '{name}'; switch with detach: true to check out a commit"
+            ),
         )
         .with_problem("expected_branch")
         .with_found(name.to_owned());
@@ -371,7 +390,7 @@ fn only_remote_branch(repo: &gix::Repository, name: &str) -> Result<Option<Strin
         .references()
         .map_err(|err| io_error(err, "list references"))?;
     let iter = references
-        .prefixed(REMOTES)
+        .remote_branches()
         .map_err(|err| io_error(err, "list references"))?;
     let mut remotes = Vec::new();
     for reference in iter.flatten() {
@@ -384,7 +403,11 @@ fn only_remote_branch(repo: &gix::Repository, name: &str) -> Result<Option<Strin
             remotes.push(remote.to_owned());
         }
     }
-    Ok(if remotes.len() == 1 { remotes.pop() } else { None })
+    Ok(if remotes.len() == 1 {
+        remotes.pop()
+    } else {
+        None
+    })
 }
 
 /// Branch left by the last `checkout: moving from <a> to <b>` line of the
@@ -416,7 +439,8 @@ fn tracking_config(
     merge: &str,
 ) -> Result<StateFilePlan> {
     let path = repo.git_dir().join("config");
-    let mut content = std::fs::read(&path).map_err(|err| io_error(err, "read the configuration"))?;
+    let mut content =
+        std::fs::read(&path).map_err(|err| io_error(err, "read the configuration"))?;
     if !content.is_empty() && !content.ends_with(b"\n") {
         content.push(b'\n');
     }
@@ -437,7 +461,9 @@ fn with_switch_fixes(error: Error, request: &SwitchRequest) -> Error {
     let branch = request.branch.clone().unwrap_or_default();
     error
         .with_fix("git.stash \".\" action: push".to_owned())
-        .with_fix(format!("git.switch \".\" branch: \"{branch}\" discard_changes: true"))
+        .with_fix(format!(
+            "git.switch \".\" branch: \"{branch}\" discard_changes: true"
+        ))
 }
 
 #[cfg(test)]
@@ -481,9 +507,15 @@ mod tests {
             editor.upsert(*path, EntryKind::Blob, blob).expect("upsert");
         }
         let tree = editor.write().expect("tree").detach();
-        repo.new_commit_as(signature().to_ref(&mut Default::default()), signature().to_ref(&mut Default::default()), "c", tree, parents.iter().copied())
-            .expect("commit")
-            .id
+        repo.new_commit_as(
+            signature().to_ref(&mut Default::default()),
+            signature().to_ref(&mut Default::default()),
+            "c",
+            tree,
+            parents.iter().copied(),
+        )
+        .expect("commit")
+        .id
     }
 
     fn write_ref(repo: &gix::Repository, name: &str, content: &str) {
@@ -503,17 +535,28 @@ mod tests {
         .expect("init")
         .to_thread_local();
         let main = commit(&repo, &[("a.txt", "a\n"), ("same.txt", "s\n")], &[]);
-        let side = commit(&repo, &[("a.txt", "side\n"), ("same.txt", "s\n"), ("b.txt", "b\n")], &[main]);
+        let side = commit(
+            &repo,
+            &[("a.txt", "side\n"), ("same.txt", "s\n"), ("b.txt", "b\n")],
+            &[main],
+        );
         write_ref(&repo, "refs/heads/main", &format!("{main}\n"));
         write_ref(&repo, "refs/heads/side", &format!("{side}\n"));
         write_ref(&repo, "HEAD", "ref: refs/heads/main\n");
         let journal = RecordingJournal::new();
         let ctx = ApplyContext::open(&repo).expect("context");
-        let plan = nurt_git::apply::plan_new_tree(&ctx, &tree_of(&repo, main).expect("tree")).expect("plan");
+        let plan = nurt_git::apply::plan_new_tree(&ctx, &tree_of(&repo, main).expect("tree"))
+            .expect("plan");
         let mut tx = journal.begin();
         apply_plan(&mut tx, &ctx, plan).expect("apply");
         Box::new(tx).commit().expect("commit");
-        Fixture { _dir: dir, repo, journal, main, side }
+        Fixture {
+            _dir: dir,
+            repo,
+            journal,
+            main,
+            side,
+        }
     }
 
     fn switch(fixture: &Fixture, request: &SwitchRequest) -> Result<SwitchOutcome> {
@@ -536,9 +579,15 @@ mod tests {
         assert_eq!(outcome.head_after, fixture.side);
         assert_eq!(git_file(&fixture, "HEAD"), "ref: refs/heads/side\n");
         let log = git_file(&fixture, "logs/HEAD");
-        assert!(log.ends_with("\tcheckout: moving from main to side\n"), "{log}");
+        assert!(
+            log.ends_with("\tcheckout: moving from main to side\n"),
+            "{log}"
+        );
         let root = fixture.repo.workdir().expect("workdir");
-        assert_eq!(std::fs::read_to_string(root.join("b.txt")).expect("b"), "b\n");
+        assert_eq!(
+            std::fs::read_to_string(root.join("b.txt")).expect("b"),
+            "b\n"
+        );
     }
 
     #[test]
@@ -554,8 +603,13 @@ mod tests {
         let mut create = request("topic");
         create.create = true;
         switch(&fixture, &create).expect("switch");
-        assert_eq!(git_file(&fixture, "refs/heads/topic"), format!("{}\n", fixture.main));
-        assert!(git_file(&fixture, "logs/refs/heads/topic").ends_with("\tbranch: Created from HEAD\n"));
+        assert_eq!(
+            git_file(&fixture, "refs/heads/topic"),
+            format!("{}\n", fixture.main)
+        );
+        assert!(
+            git_file(&fixture, "logs/refs/heads/topic").ends_with("\tbranch: Created from HEAD\n")
+        );
         let error = switch(&fixture, &create).expect_err("exists");
         assert_eq!(error.code(), ErrorCode::GitRef);
     }
@@ -566,7 +620,13 @@ mod tests {
         let mut detach = request("side");
         detach.detach = true;
         let outcome = switch(&fixture, &detach).expect("switch");
-        assert!(outcome.report.notable.iter().any(|item| item.kind == "detached_head"));
+        assert!(
+            outcome
+                .report
+                .notable
+                .iter()
+                .any(|item| item.kind == "detached_head")
+        );
         assert_eq!(git_file(&fixture, "HEAD"), format!("{}\n", fixture.side));
         switch(&fixture, &request(PREVIOUS)).expect("previous");
         assert_eq!(git_file(&fixture, "HEAD"), "ref: refs/heads/main\n");
@@ -592,7 +652,10 @@ mod tests {
         let mut discard = request("side");
         discard.discard_changes = true;
         switch(&fixture, &discard).expect("switch");
-        assert_eq!(std::fs::read_to_string(root.join("a.txt")).expect("a"), "side\n");
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.txt")).expect("a"),
+            "side\n"
+        );
     }
 
     #[test]
@@ -606,13 +669,24 @@ mod tests {
     #[test]
     fn switch_guess_creates_tracking_branch() {
         let fixture = fixture();
-        write_ref(&fixture.repo, "refs/remotes/origin/feature", &format!("{}\n", fixture.side));
+        write_ref(
+            &fixture.repo,
+            "refs/remotes/origin/feature",
+            &format!("{}\n", fixture.side),
+        );
         let mut guess = request("feature");
         assert!(switch(&fixture, &guess).is_err(), "no guessing by default");
         guess.guess = true;
         switch(&fixture, &guess).expect("switch");
-        assert!(git_file(&fixture, "config").contains("[branch \"feature\"]\n\tremote = origin\n\tmerge = refs/heads/feature\n"));
-        assert!(git_file(&fixture, "logs/refs/heads/feature").ends_with("branch: Created from origin/feature\n"));
+        assert!(
+            git_file(&fixture, "config").contains(
+                "[branch \"feature\"]\n\tremote = origin\n\tmerge = refs/heads/feature\n"
+            )
+        );
+        assert!(
+            git_file(&fixture, "logs/refs/heads/feature")
+                .ends_with("branch: Created from refs/remotes/origin/feature\n")
+        );
     }
 
     #[test]

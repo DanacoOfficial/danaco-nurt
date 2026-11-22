@@ -16,6 +16,7 @@ use nurt_contracts::journal::Expect;
 
 use super::changes::{Changes, Write, build_index};
 use super::context::ApplyContext;
+use super::exec::is_empty_dir;
 use super::plan::{ApplyPlan, Content, EntryAction, EntryKind, IndexPlan, PlanEntry};
 use super::worktree::{Node, Observation, Worktree, expect_of};
 
@@ -79,10 +80,18 @@ impl Layout {
                 continue;
             }
             let observation = worktree.observe(path.as_bstr())?;
-            if !observation.node.exists() || observation.node.is_dir() {
+            if observation.node.is_dir() {
+                if is_empty_dir(&worktree.path(path.as_bstr())?) {
+                    self.gone.insert(path.clone());
+                    self.rmdirs
+                        .push(entry(path, EntryAction::Rmdir, Expect::Unchecked, None));
+                }
                 continue;
             }
-            let expect = expect_of(&worktree.path(path.as_bstr()), &observation)?;
+            if !observation.node.exists() {
+                continue;
+            }
+            let expect = expect_of(&worktree.path(path.as_bstr())?, &observation)?;
             self.gone.insert(path.clone());
             self.deletes
                 .insert(path.clone(), entry(path, EntryAction::Delete, expect, None));
@@ -103,7 +112,7 @@ impl Layout {
                 Node::Missing => EntryAction::Mkdir,
                 _ => EntryAction::TypeChange,
             };
-            let expect = expect_of(&worktree.path(dir), &observation)?;
+            let expect = expect_of(&worktree.path(dir)?, &observation)?;
             self.deletes.remove(dir);
             self.fresh.insert(dir.to_owned());
             let mut planned = entry(&dir.to_owned(), action, expect, None);
@@ -122,7 +131,7 @@ impl Layout {
             if observation.node.is_dir() {
                 self.fold_directory(path.as_bstr());
             }
-            let expect = expect_of(&worktree.path(path.as_bstr()), &observation)?;
+            let expect = expect_of(&worktree.path(path.as_bstr())?, &observation)?;
             let content = (write.kind != EntryKind::Directory).then(|| write.content.clone());
             let mut planned = entry(path, action, expect, content);
             planned.kind = Some(write.kind);
@@ -167,7 +176,7 @@ impl Layout {
     }
 
     fn is_emptied(&self, worktree: &Worktree<'_>, dir: &BStr) -> Result<bool> {
-        let native = worktree.path(dir);
+        let native = worktree.path(dir)?;
         let Ok(reader) = std::fs::read_dir(&native) else {
             return Ok(false);
         };
@@ -175,7 +184,8 @@ impl Layout {
             let Ok(item) = item else {
                 return Ok(false);
             };
-            let Ok(name) = gix_path::os_str_into_bstr(&item.file_name()) else {
+            let file_name = item.file_name();
+            let Ok(name) = gix_path::os_str_into_bstr(&file_name) else {
                 return Ok(false);
             };
             let mut child = dir.to_owned();

@@ -60,7 +60,12 @@ pub enum Direction {
 /// assert_eq!(staged, b"a\nB\nc\n");
 /// # Ok::<(), nurt_contracts::error::Error>(())
 /// ```
-pub fn apply_selected(base: &[u8], hunks: &[Hunk], ids: &[HunkId], direction: Direction) -> Result<Vec<u8>, Error> {
+pub fn apply_selected(
+    base: &[u8],
+    hunks: &[Hunk],
+    ids: &[HunkId],
+    direction: Direction,
+) -> Result<Vec<u8>, Error> {
     let picks = collect_picks(hunks, ids)?;
     let base_lines = split_lines(base);
     let mut out = Vec::with_capacity(base.len());
@@ -74,14 +79,25 @@ pub fn apply_selected(base: &[u8], hunks: &[Hunk], ids: &[HunkId], direction: Di
             Direction::Forward => (hunk.old_start, hunk.old_len),
             Direction::Reverse => (hunk.new_start, hunk.new_len),
         };
-        let first = if len == 0 { start as usize } else { start as usize - 1 };
+        let first = if len == 0 {
+            start as usize
+        } else {
+            start as usize - 1
+        };
         if first < cursor || first > base_lines.len() {
             return Err(mismatch(hunk));
         }
         for line in &base_lines[cursor..first] {
             push(&mut out, line);
         }
-        cursor = apply_hunk(&mut out, &base_lines, first, hunk, rows.as_deref(), direction)?;
+        cursor = apply_hunk(
+            &mut out,
+            &base_lines,
+            first,
+            hunk,
+            rows.as_deref(),
+            direction,
+        )?;
     }
     for line in &base_lines[cursor..] {
         push(&mut out, line);
@@ -104,13 +120,13 @@ fn collect_picks(hunks: &[Hunk], ids: &[HunkId]) -> Result<Picks, Error> {
                 format!("`{id}` belongs to a binary file, select the whole path instead"),
             ));
         }
-        if let Some(expected) = &id.fingerprint {
-            if *expected != hunk.fingerprint() {
-                return Err(hunk_error(
-                    HunkProblem::Changed,
-                    format!("hunk `{id}` changed since it was listed, list the hunks again"),
-                ));
-            }
+        if let Some(expected) = &id.fingerprint
+            && *expected != hunk.fingerprint()
+        {
+            return Err(hunk_error(
+                HunkProblem::Changed,
+                format!("hunk `{id}` changed since it was listed, list the hunks again"),
+            ));
         }
         if let Some(rows) = &id.rows {
             check_rows(hunk, id, rows)?;
@@ -128,7 +144,10 @@ fn check_rows(hunk: &Hunk, id: &HunkId, rows: &[RowRange]) -> Result<(), Error> 
     if hunk.status != HunkStatus::Modified && hunk.status != HunkStatus::Renamed {
         return Err(hunk_error(
             HunkProblem::RowsOnAddedOrDeleted,
-            format!("rows can be selected only in modified files, select the whole hunk `{}`", hunk.id()),
+            format!(
+                "rows can be selected only in modified files, select the whole hunk `{}`",
+                hunk.id()
+            ),
         ));
     }
     let count = u32::try_from(hunk.lines.len()).unwrap_or(u32::MAX);
@@ -139,7 +158,8 @@ fn check_rows(hunk: &Hunk, id: &HunkId, rows: &[RowRange]) -> Result<(), Error> 
         ));
     }
     let changes_selected = hunk.lines.iter().enumerate().any(|(index, line)| {
-        matches!(line.kind, LineKind::Added | LineKind::Removed) && row_selected(hunk, index, Some(rows))
+        matches!(line.kind, LineKind::Added | LineKind::Removed)
+            && row_selected(hunk, index, Some(rows))
     });
     if changes_selected {
         Ok(())
@@ -237,7 +257,10 @@ fn not_found(hunks: &[Hunk], number: u32) -> Error {
 fn mismatch(hunk: &Hunk) -> Error {
     hunk_error(
         HunkProblem::ApplyFailed,
-        format!("hunk `{}` does not match the file, list the hunks again", hunk.id()),
+        format!(
+            "hunk `{}` does not match the file, list the hunks again",
+            hunk.id()
+        ),
     )
 }
 
@@ -276,7 +299,11 @@ mod tests {
     fn rows_select_single_lines() {
         let hunks = text_hunks("f", OLD, NEW);
         let second = &hunks[1];
-        let rendered: Vec<String> = second.lines.iter().map(|line| line.render().to_string()).collect();
+        let rendered: Vec<String> = second
+            .lines
+            .iter()
+            .map(|line| line.render().to_string())
+            .collect();
         assert_eq!(rendered, [" 9", " 10", " 11", "-12", "+TWELVE", "+13"]);
         let only_added = apply_selected(OLD, &hunks, &ids(&["f#2@6"]), Direction::Forward).unwrap();
         assert_eq!(only_added, b"1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n");
@@ -312,7 +339,8 @@ mod tests {
         let fingerprint = hunks[0].fingerprint();
         let current = format!("f#1:{fingerprint}");
         assert!(apply_selected(OLD, &hunks, &ids(&[current.as_str()]), Direction::Forward).is_ok());
-        let wrong_base = apply_selected(b"x\n", &hunks, &ids(&["f#1"]), Direction::Forward).unwrap_err();
+        let wrong_base =
+            apply_selected(b"x\n", &hunks, &ids(&["f#1"]), Direction::Forward).unwrap_err();
         assert_eq!(wrong_base.data().problem.as_deref(), Some("apply_failed"));
     }
 
@@ -321,7 +349,10 @@ mod tests {
         let mut hunks = text_hunks("f", b"", b"a\nb\n");
         hunks[0].status = HunkStatus::Added;
         let error = apply_selected(b"", &hunks, &ids(&["f#1@1"]), Direction::Forward).unwrap_err();
-        assert_eq!(error.data().problem.as_deref(), Some("rows_on_added_or_deleted"));
+        assert_eq!(
+            error.data().problem.as_deref(),
+            Some("rows_on_added_or_deleted")
+        );
         let whole = apply_selected(b"", &hunks, &ids(&["f#1"]), Direction::Forward).unwrap();
         assert_eq!(whole, b"a\nb\n");
     }

@@ -12,14 +12,18 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gix::ObjectId;
+use gix::objs::Write as _;
 use gix::objs::tree::EntryKind;
 use nurt_contracts::env::{BootId, Clock, ClockStamp, Host, HostInfo, Os, PathStyle, WallTime};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::services::{
-    ClassifiedSpan, CodeService, FunctionMetrics, LanguageId, LanguageInfo, SymbolInfo, SymbolKind, SymbolReference,
-    SyntaxIssue, SyntaxMatch, SyntaxPattern, SyntaxToken, TextPosition, TextSpan, ByteRange,
+    ByteRange, ClassifiedSpan, CodeService, FunctionMetrics, LanguageId, LanguageInfo, Services,
+    SymbolInfo, SymbolKind, SymbolReference, SyntaxIssue, SyntaxMatch, SyntaxPattern, SyntaxToken,
+    TextPosition, TextSpan,
 };
-use nurt_contracts::stage::{ArgValue, BoundArgs, CancelReason, CancelToken, ExecCtx, ReadStage, StageInput};
+use nurt_contracts::stage::{
+    ArgValue, BoundArgs, CancelReason, CancelToken, ExecCtx, ReadStage, StageData, StageInput,
+};
 use nurt_contracts::value::{Record, Value};
 
 use super::repo::{OpenRepo, display_path};
@@ -72,7 +76,7 @@ impl Fixture {
 
     /// The repository opened as the commands open it.
     pub(crate) fn open(&self) -> OpenRepo {
-        OpenRepo::discover(&self.root()).unwrap()
+        OpenRepo::discover(&self.root(), &exec_ctx(None)).unwrap()
     }
 
     /// Gives every following commit the same time.
@@ -92,7 +96,12 @@ impl Fixture {
     }
 
     /// As [`Fixture::commit`], with another author.
-    pub(crate) fn commit_as(&mut self, author: (&str, &str), message: &str, files: &[(&str, Option<&str>)]) -> ObjectId {
+    pub(crate) fn commit_as(
+        &mut self,
+        author: (&str, &str),
+        message: &str,
+        files: &[(&str, Option<&str>)],
+    ) -> ObjectId {
         let parents: Vec<ObjectId> = self.head_commit().into_iter().collect();
         let id = self.write_commit(&parents, author, message, files, None);
         for (path, content) in files {
@@ -110,19 +119,38 @@ impl Fixture {
 
     /// Commits changes on top of the tree of the first of `parents` without
     /// moving any reference.
-    pub(crate) fn commit_on(&mut self, parents: &[ObjectId], message: &str, files: &[(&str, Option<&str>)]) -> ObjectId {
-        self.write_commit(parents, ("Author", "author@example.com"), message, files, None)
+    pub(crate) fn commit_on(
+        &mut self,
+        parents: &[ObjectId],
+        message: &str,
+        files: &[(&str, Option<&str>)],
+    ) -> ObjectId {
+        self.write_commit(
+            parents,
+            ("Author", "author@example.com"),
+            message,
+            files,
+            None,
+        )
     }
 
     /// Commits a symbolic link at `path` on top of `HEAD`.
     pub(crate) fn commit_link(&mut self, message: &str, path: &str, target: &str) -> ObjectId {
         let parents: Vec<ObjectId> = self.head_commit().into_iter().collect();
-        let base = parents.first().map_or_else(|| self.empty_tree(), |id| self.tree(*id));
+        let base = parents
+            .first()
+            .map_or_else(|| self.empty_tree(), |id| self.tree(*id));
         let blob = self.repo.write_blob(target.as_bytes()).unwrap().detach();
         let mut editor = self.repo.edit_tree(base).unwrap();
         editor.upsert(path, EntryKind::Link, blob).unwrap();
         let tree = editor.write().unwrap().detach();
-        let id = self.write_raw_commit(tree, &parents, ("Author", "author@example.com"), message, None);
+        let id = self.write_raw_commit(
+            tree,
+            &parents,
+            ("Author", "author@example.com"),
+            message,
+            None,
+        );
         self.move_current(id);
         id
     }
@@ -130,7 +158,13 @@ impl Fixture {
     /// Commits on top of `HEAD` without changes, with a `gpgsig` header.
     pub(crate) fn commit_signed(&mut self, message: &str, signature: &str) -> ObjectId {
         let parents: Vec<ObjectId> = self.head_commit().into_iter().collect();
-        let id = self.write_commit(&parents, ("Author", "author@example.com"), message, &[], Some(signature));
+        let id = self.write_commit(
+            &parents,
+            ("Author", "author@example.com"),
+            message,
+            &[],
+            Some(signature),
+        );
         self.move_current(id);
         id
     }
@@ -151,7 +185,10 @@ impl Fixture {
         let body = format!(
             "object {id}\ntype commit\ntag {name}\ntagger Tagger <tagger@example.com> {time} +0000\n\n{message}\n"
         );
-        let tag = self.repo.write_buf(gix::object::Kind::Tag, body.as_bytes()).unwrap().detach();
+        let tag = self
+            .repo
+            .write_buf(gix::object::Kind::Tag, body.as_bytes())
+            .unwrap();
         self.set_ref(&format!("refs/tags/{name}"), tag);
         tag
     }
@@ -195,7 +232,10 @@ impl Fixture {
     }
 
     fn set_ref(&mut self, name: &str, id: ObjectId) {
-        write_bytes(&self.dir.path().join(".git").join(name), format!("{id}\n").as_bytes());
+        write_bytes(
+            &self.dir.path().join(".git").join(name),
+            format!("{id}\n").as_bytes(),
+        );
     }
 
     fn empty_tree(&self) -> ObjectId {
@@ -203,7 +243,12 @@ impl Fixture {
     }
 
     fn tree(&self, commit: ObjectId) -> ObjectId {
-        self.repo.find_commit(commit).unwrap().tree_id().unwrap().detach()
+        self.repo
+            .find_commit(commit)
+            .unwrap()
+            .tree_id()
+            .unwrap()
+            .detach()
     }
 
     fn tick(&mut self) -> i64 {
@@ -222,7 +267,9 @@ impl Fixture {
         files: &[(&str, Option<&str>)],
         signature: Option<&str>,
     ) -> ObjectId {
-        let base = parents.first().map_or_else(|| self.empty_tree(), |id| self.tree(*id));
+        let base = parents
+            .first()
+            .map_or_else(|| self.empty_tree(), |id| self.tree(*id));
         let mut editor = self.repo.edit_tree(base).unwrap();
         for (path, content) in files {
             match content {
@@ -253,7 +300,11 @@ impl Fixture {
             writeln!(body, "parent {parent}").unwrap();
         }
         writeln!(body, "author {} <{}> {time} +0000", author.0, author.1).unwrap();
-        writeln!(body, "committer Committer <committer@example.com> {time} +0000").unwrap();
+        writeln!(
+            body,
+            "committer Committer <committer@example.com> {time} +0000"
+        )
+        .unwrap();
         if let Some(signature) = signature {
             writeln!(body, "gpgsig {}", signature.replace('\n', "\n ")).unwrap();
         }
@@ -262,9 +313,13 @@ impl Fixture {
         if !message.ends_with('\n') {
             body.push('\n');
         }
-        let id = self.repo.write_buf(gix::object::Kind::Commit, body.as_bytes()).unwrap().detach();
+        let id = self
+            .repo
+            .write_buf(gix::object::Kind::Commit, body.as_bytes())
+            .unwrap();
         self.times.insert(id, time);
-        self.messages.insert(id, message.lines().next().unwrap_or_default().to_owned());
+        self.messages
+            .insert(id, message.lines().next().unwrap_or_default().to_owned());
         id
     }
 }
@@ -296,7 +351,11 @@ impl Clock for FixedClock {
         }
     }
 
-    fn sleep(&self, _duration: Duration, cancel: &CancelToken) -> std::result::Result<(), CancelReason> {
+    fn sleep(
+        &self,
+        _duration: Duration,
+        cancel: &CancelToken,
+    ) -> std::result::Result<(), CancelReason> {
         cancel.reason().map_or(Ok(()), Err)
     }
 }
@@ -338,7 +397,9 @@ pub(crate) fn exec_ctx(code: Option<Arc<dyn CodeService>>) -> ExecCtx {
     };
     let builder = ExecCtx::builder(Arc::new(FixedClock), Arc::new(host));
     match code {
-        Some(code) => builder.code(code).build(),
+        Some(code) => builder
+            .services(Arc::new(Services::new().with_code(code)))
+            .build(),
         None => builder.build(),
     }
 }
@@ -355,7 +416,11 @@ pub(crate) fn args(command: &str, values: &[(&str, Value)]) -> BoundArgs {
 /// Runs a read stage and collects its records.
 pub(crate) fn run(stage: &dyn ReadStage, args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Record>> {
     let output = stage.execute(args, StageInput::none(), ctx)?;
-    output.into_records()?.collect()
+    match output.data {
+        StageData::Records(stream) => stream.collect(),
+        StageData::None => Ok(Vec::new()),
+        _ => panic!("a source stage returned a value instead of records"),
+    }
 }
 
 /// Code service that knows functions written as `fn name(` at the start of
@@ -363,7 +428,10 @@ pub(crate) fn run(stage: &dyn ReadStage, args: &BoundArgs, ctx: &ExecCtx) -> Res
 pub(crate) struct LineCode;
 
 fn unsupported<T>() -> Result<T> {
-    Err(Error::new(ErrorCode::UnsupportedLanguage, "not available in tests"))
+    Err(Error::new(
+        ErrorCode::UnsupportedLanguage,
+        "not available in tests",
+    ))
 }
 
 fn rust() -> LanguageId {
@@ -376,7 +444,9 @@ impl CodeService for LineCode {
     }
 
     fn language_of(&self, path: Option<&Path>, _bytes: &[u8]) -> Option<LanguageId> {
-        path.and_then(Path::extension).is_some_and(|ext| ext == "rs").then(rust)
+        path.and_then(Path::extension)
+            .is_some_and(|ext| ext == "rs")
+            .then(rust)
     }
 
     fn outline(&self, _: &[u8], _: &LanguageId, _: Option<u32>) -> Result<Vec<SymbolInfo>> {
@@ -389,7 +459,10 @@ impl CodeService for LineCode {
         let mut found = Vec::new();
         for (index, line) in lines.iter().enumerate() {
             if line.starts_with(&format!("fn {name}(")) {
-                let end = lines[index..].iter().position(|l| *l == "}").map_or(lines.len(), |p| index + p);
+                let end = lines[index..]
+                    .iter()
+                    .position(|l| *l == "}")
+                    .map_or(lines.len(), |p| index + p);
                 let start = TextPosition {
                     line: u32::try_from(index + 1).unwrap(),
                     column: 1,

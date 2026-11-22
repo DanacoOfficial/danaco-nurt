@@ -12,7 +12,7 @@
 
 use std::io::Read;
 
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, BString};
 use gix_filter::pipeline::convert::{ToGitOutcome, ToWorktreeOutcome, to_worktree};
 use gix_worktree::stack::state::attributes::Source;
 use nurt_contracts::error::{Error, ErrorCode, Result};
@@ -74,13 +74,13 @@ impl<'r> Filters<'r> {
 
     /// Converts working tree bytes of `path` to the form stored in the
     /// object database.
-    pub(crate) fn to_git(
+    pub(crate) fn clean(
         &mut self,
         path: &BStr,
         data: &[u8],
         index: &gix_index::State,
     ) -> Result<Vec<u8>> {
-        let native = gix_path::try_from_bstr(path).map_err(|err| path_error(path, &err))?;
+        let native = gix_path::from_bstr(path).map_err(|err| path_error(path, &err))?;
         let platform = self
             .stack
             .at_entry(path, None, &self.repo.objects)
@@ -125,7 +125,7 @@ impl<'r> Filters<'r> {
     ///
     /// The notable effect is present when the path names a configured filter
     /// driver that was not applied.
-    pub(crate) fn to_worktree(
+    pub(crate) fn smudge(
         &mut self,
         path: &BStr,
         data: &[u8],
@@ -151,7 +151,7 @@ impl<'r> Filters<'r> {
                     platform.matching_attributes(attrs);
                 },
                 to_worktree::Options {
-                    can_delay: false,
+                    can_delay: gix_filter::driver::apply::Delay::Forbid,
                     unknown_encoding: to_worktree::UnknownEncoding::Fail,
                 },
             )

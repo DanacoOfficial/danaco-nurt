@@ -270,10 +270,30 @@ pub(crate) fn multiple_heads(call: &PullCall, what: &str) -> Error {
     .with_fix(call.text(Some(PullMode::Merge)))
 }
 
+/// Several fetched heads to merge at once (an octopus merge).
+pub(crate) fn octopus_merge(call: &PullCall) -> Error {
+    apply_error(
+        ErrorCode::GitUnsupported,
+        "octopus_merge",
+        "merging several fetched branches at once is not supported; give one `branch`".to_owned(),
+    )
+    .with_next_step(format!("git.branch {} remote: true", quote(call.repo())))
+}
+
+/// A rebase is required and no rebase engine is available.
+pub(crate) fn rebase_unavailable(call: &PullCall) -> Error {
+    apply_error(
+        ErrorCode::GitUnsupported,
+        "rebase_unavailable",
+        "a pull with rebase is not available in this installation; give `mode: merge`".to_owned(),
+    )
+    .with_fix(call.text(Some(PullMode::Merge)))
+}
+
 /// Marks an error that happened after the transfer: the fetched references
 /// and `FETCH_HEAD` stay updated.
 pub(crate) fn after_transfer(error: Error, ref_updates: &[GitRefUpdate]) -> Error {
-    let stage = error.stage.unwrap_or(Stage::Apply);
+    let stage = error.stage().unwrap_or(Stage::Apply);
     let updates: Vec<serde_json::Value> = ref_updates
         .iter()
         .map(|update| {
@@ -370,7 +390,7 @@ mod tests {
         assert_eq!(staged.fix[0], "git.stash \"/work/repo\" action: push");
         let unstaged = uncommitted_changes(&call(), false, &[]);
         assert_eq!(unstaged.problem.as_deref(), Some("unstaged_changes"));
-        assert_eq!(unstaged.stage, Some(Stage::Plan));
+        assert_eq!(unstaged.stage(), Some(Stage::Plan));
     }
 
     #[test]
@@ -407,6 +427,16 @@ mod tests {
     }
 
     #[test]
+    fn reports_integrations_that_are_not_available() {
+        let octopus = octopus_merge(&call());
+        assert_eq!(octopus.code, ErrorCode::GitUnsupported);
+        assert_eq!(octopus.problem.as_deref(), Some("octopus_merge"));
+        let rebase = rebase_unavailable(&call());
+        assert_eq!(rebase.problem.as_deref(), Some("rebase_unavailable"));
+        assert_eq!(rebase.fix, ["git.pull \"/work/repo\" mode: merge"]);
+    }
+
+    #[test]
     fn keeps_the_transfer_in_errors_after_it() {
         let update = GitRefUpdate {
             reference: "refs/remotes/origin/main".to_owned(),
@@ -418,7 +448,7 @@ mod tests {
         };
         let error = after_transfer(diverged(&call()), &[update]);
         assert!(error.effect_applied);
-        assert_eq!(error.stage, Some(Stage::Apply));
+        assert_eq!(error.stage(), Some(Stage::Apply));
         assert_eq!(
             error.details["ref_updates"][0]["status"],
             serde_json::json!("updated")

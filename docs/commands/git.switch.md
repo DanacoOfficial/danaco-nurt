@@ -51,20 +51,25 @@ from the log of `HEAD`.
 | `detach` | `bool` | `false` | Point `HEAD` directly at the commit of `branch` instead of a branch. |
 | `discard_changes` | `bool` | `false` | Overwrite local changes of tracked files; untracked files in the way still refuse the switch. |
 | `guess` | `bool` | `false` | When no local branch exists, create one tracking the only remote-tracking branch of that name (`branch.<name>.remote` and `branch.<name>.merge` are added to the configuration). |
-| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree before switching. |
+| `checkpoint` | `bool` | `false` | Create a checkpoint of the working tree and the index before switching, as `git.checkpoint action: create index: true` does, labelled `before git.switch to <branch>`. |
+
+`start_point` requires `create: true`; to check out a revision without a
+branch, give it as `branch` with `detach: true`.
 
 ## Input and output
 
 No input. The output is an `effect` record with the `git` part: `head_before`,
-`head_after`, reference updates and the notable effects
-`local_changes_carried` and `detached_head`.
+`head_after`, `branch`, `branch_before`, `detached`, `checkpoint_before` (the
+identifier of the checkpoint, with `checkpoint: true`) and the notable effects
+`local_changes_carried`, `detached_head` and `filter_not_applied`.
 
 ## Effect
 
 Category `change`, local effect, reversible. Every changed working tree file,
-the index, `HEAD`, a created branch with its log and the configuration are
-targets of one journal entry; `undo` restores them exactly. The log of `HEAD`
-is restored to its previous length. New objects are not created.
+the index, `HEAD`, a created branch with its log, the configuration and the
+reference of the checkpoint are targets of one journal entry; `undo` restores
+them exactly. The log of `HEAD` is restored to its previous length. Only the
+checkpoint writes new objects; they stay in the object database after `undo`.
 
 ## Examples
 
@@ -96,12 +101,23 @@ Return to the previous branch.
 git.switch "/home/user/repo" branch: "-"
 ```
 
+Keep the current working tree in a checkpoint, then switch.
+
+```nurt example
+git.switch "/home/user/repo" branch: "main" checkpoint: true
+```
+
+```text expected
+effect git.switch head_after: 9c03e7a branch: main checkpoint_before: cp-4
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_GIT_DIRTY` | Local changes, untracked files or unresolved conflicts block the switch; the details list the paths by kind (`local_changes`, `untracked_overwritten`, `untracked_removed`, `dir_loses_untracked`, `unmerged`). | `git.stash "/home/user/repo" action: push`, or `discard_changes: true` |
 | `E_GIT_REF` | The branch exists (`create`), the name is invalid, or the name is a commit without `detach` (`expected_branch`). | Drop `create`, or add `detach: true` |
+| `E_ARG` | `start_point` without `create` (`start_point_without_create`). | Add `create: true` |
 | `E_GIT_REVISION` | The branch or start point does not exist. | `git.branch "/home/user/repo"` to list branches |
 | `E_GIT_IN_PROGRESS` | A merge, rebase, cherry-pick or revert is in progress. | Finish or abort the operation |
 | `E_GIT_LOCKED` | `index.lock` or a reference lock exists. | Wait for the other process or remove the stale lock |

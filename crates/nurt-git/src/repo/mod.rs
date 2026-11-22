@@ -14,6 +14,10 @@
 pub mod config;
 pub mod env;
 pub mod error;
+pub mod filter;
+pub mod index;
+pub mod lock;
+pub mod pathspec;
 pub mod records;
 pub mod revision;
 
@@ -95,6 +99,13 @@ impl GitRepo {
         let repo = gix::ThreadSafeRepository::discover_opts(path, upwards, mapping)
             .map_err(|_| error::not_repository(path, &nearby_repositories(path), command(ctx)))?
             .to_thread_local();
+        if crosses_ceiling(path, root_of(&repo), env.ceiling_dirs()) {
+            return Err(error::not_repository(
+                path,
+                &nearby_repositories(path),
+                command(ctx),
+            ));
+        }
         Self::finish(repo, ctx)
     }
 
@@ -111,7 +122,8 @@ impl GitRepo {
             ));
         }
         let head = repo.head_name().ok().flatten();
-        let outer = config::load_outer_layers(&env, repo.git_dir(), head.as_ref().map(AsRef::as_ref))?;
+        let outer =
+            config::load_outer_layers(&env, repo.git_dir(), head.as_ref().map(AsRef::as_ref))?;
         check_ownership(&repo, &outer, &env)?;
         let plan = {
             let local = repo.config_snapshot();
@@ -121,7 +133,8 @@ impl GitRepo {
         if config::fsmonitor_configured(&repo.config_snapshot()) {
             let mut note = NotableEntry::new(Notable::FsmonitorIgnored);
             note.path = Some(root_of(&repo).to_string_lossy().into_owned());
-            note.detail = Some("core.fsmonitor is set; every status checks the files directly".to_owned());
+            note.detail =
+                Some("core.fsmonitor is set; every status checks the files directly".to_owned());
             ctx.note(note);
         }
         Ok(Self {
@@ -256,7 +269,9 @@ impl GitRepo {
     /// extended until it is unique in the repository.
     #[must_use]
     pub fn short_id(&self, id: &gix::oid) -> String {
-        gix::prelude::ObjectIdExt::attach(id.to_owned(), &self.repo).shorten_or_id().to_string()
+        gix::prelude::ObjectIdExt::attach(id.to_owned(), &self.repo)
+            .shorten_or_id()
+            .to_string()
     }
 
     /// Value of a configuration key, `section.name` or
@@ -293,6 +308,24 @@ pub fn open_options() -> gix::open::Options {
 
 fn root_of(repo: &gix::Repository) -> &Path {
     repo.workdir().unwrap_or_else(|| repo.git_dir())
+}
+
+/// Whether discovery from `start` reached `found` by entering a directory
+/// of `GIT_CEILING_DIRECTORIES`: `git` searches upwards from a path below a
+/// ceiling only as far as the directories strictly below that ceiling.
+fn crosses_ceiling(start: &Path, found: &Path, ceilings: &[PathBuf]) -> bool {
+    let canonical =
+        |path: &Path| std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let start = canonical(start);
+    let found = canonical(found);
+    ceilings
+        .iter()
+        .map(|ceiling| canonical(ceiling))
+        .any(|ceiling| {
+            start.starts_with(&ceiling)
+                && start != ceiling
+                && !(found.starts_with(&ceiling) && found != ceiling)
+        })
 }
 
 fn command(ctx: &ExecCtx) -> &str {

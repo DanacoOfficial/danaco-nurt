@@ -12,7 +12,8 @@ use gix_index::entry::Flags;
 use nurt_contracts::error::Result;
 
 use super::changes::{
-    Blob, Changes, IndexChange, Untracked, flatten_tree, kept_flags, verify_absent,
+    Blob, Changes, IndexChange, Untracked, flatten_tree, kept_flags, skip_worktree_flags,
+    verify_absent,
 };
 use super::context::ApplyContext;
 use super::plan::ApplyPlan;
@@ -87,6 +88,9 @@ pub fn plan_reset(
                     changes.write_blob(path, *blob);
                 }
             }
+            None if !ctx.sparse.includes(path) => {
+                changes.set_index(path, *blob, skip_worktree_flags());
+            }
             None => {
                 changes.set_index(path, *blob, Flags::empty());
                 changes.write_blob(path, *blob);
@@ -131,11 +135,16 @@ pub fn plan_new_tree(ctx: &ApplyContext<'_>, tree: &gix::oid) -> Result<ApplyPla
             .insert(entry.path(&ctx.index).to_owned(), IndexChange::Remove);
     }
     for (path, blob) in &new {
-        changes.set_index(path.as_bstr(), *blob, Flags::empty());
-        changes.write_blob(path.as_bstr(), *blob);
+        if ctx.sparse.includes(path.as_bstr()) {
+            changes.set_index(path.as_bstr(), *blob, Flags::empty());
+            changes.write_blob(path.as_bstr(), *blob);
+        } else {
+            changes.set_index(path.as_bstr(), *blob, skip_worktree_flags());
+        }
     }
     for path in new.keys() {
-        if ctx.index.entry_by_path(path.as_bstr()).is_none() {
+        if ctx.index.entry_by_path(path.as_bstr()).is_none() && ctx.sparse.includes(path.as_bstr())
+        {
             verify_absent(
                 ctx,
                 &mut worktree,

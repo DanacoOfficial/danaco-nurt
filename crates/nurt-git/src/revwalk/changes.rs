@@ -4,14 +4,14 @@
 //! Files changed between two trees, with detection of renamed and copied
 //! files.
 
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice};
 use gix::ObjectId;
 use gix::diff::tree_with_rewrites::Change;
 use gix::objs::tree::EntryMode;
 use nurt_contracts::error::Error;
 use nurt_contracts::record::GitFileState;
 
-use super::paths::PathFilter;
+use super::paths::{PathFilter, entry_at};
 use super::repo::OpenRepo;
 
 /// Similarity, as a fraction of the content, above which two files are a
@@ -77,8 +77,14 @@ pub(crate) fn tree_changes(
     detect: Detect,
     limit: Option<&PathFilter>,
 ) -> Result<Vec<FileChange>, Error> {
-    let detect = if limit.is_some() { Detect::Nothing } else { detect };
-    let read = |what: &str, err: &dyn std::fmt::Display| repo.read_error(format_args!("the {what} tree"), err);
+    let detect = if limit.is_some() {
+        Detect::Nothing
+    } else {
+        detect
+    };
+    let read = |what: &str, err: &dyn std::fmt::Display| {
+        repo.read_error(format_args!("the {what} tree"), err)
+    };
     let old_tree = old
         .map(|id| repo.repo.find_tree(id))
         .transpose()
@@ -122,23 +128,29 @@ fn convert(change: Change) -> Option<FileChange> {
             entry_mode,
             id,
             ..
-        } => (!entry_mode.is_tree()).then(|| FileChange {
+        } => (!entry_mode.is_tree()).then_some(FileChange {
             status: GitFileState::Added,
             path: location,
             old_path: None,
             old: None,
-            new: Some(Side { id, mode: entry_mode }),
+            new: Some(Side {
+                id,
+                mode: entry_mode,
+            }),
         }),
         Change::Deletion {
             location,
             entry_mode,
             id,
             ..
-        } => (!entry_mode.is_tree()).then(|| FileChange {
+        } => (!entry_mode.is_tree()).then_some(FileChange {
             status: GitFileState::Deleted,
             path: location,
             old_path: None,
-            old: Some(Side { id, mode: entry_mode }),
+            old: Some(Side {
+                id,
+                mode: entry_mode,
+            }),
             new: None,
         }),
         Change::Modification {
@@ -157,15 +169,22 @@ fn convert(change: Change) -> Option<FileChange> {
             location,
             copy,
             ..
-        } => (!entry_mode.is_tree()).then(|| FileChange {
-            status: if copy { GitFileState::Copied } else { GitFileState::Renamed },
+        } => (!entry_mode.is_tree()).then_some(FileChange {
+            status: if copy {
+                GitFileState::Copied
+            } else {
+                GitFileState::Renamed
+            },
             path: location,
             old_path: Some(source_location),
             old: Some(Side {
                 id: source_id,
                 mode: source_entry_mode,
             }),
-            new: Some(Side { id, mode: entry_mode }),
+            new: Some(Side {
+                id,
+                mode: entry_mode,
+            }),
         }),
     }
 }
@@ -199,14 +218,59 @@ fn modification(
 
 /// Path of the file that `path` was renamed or copied from in a commit whose
 /// tree is `new`, when `path` is new in it.
-pub(crate) fn origin_of(repo: &OpenRepo, old: Option<ObjectId>, new: ObjectId, path: &BStr) -> Result<Option<FileChange>, Error> {
+pub(crate) fn origin_of(
+    repo: &OpenRepo,
+    old: Option<ObjectId>,
+    new: ObjectId,
+    path: &BStr,
+) -> Result<Option<FileChange>, Error> {
     let Some(old) = old else {
         return Ok(None);
     };
     let changes = tree_changes(repo, Some(old), new, Detect::RenamesAndCopies, None)?;
-    Ok(changes
+    if let Some(found) = changes
         .into_iter()
-        .find(|change| change.path == path && change.old_path.is_some()))
+        .find(|change| change.path == path && change.old_path.is_some())
+    {
+        return Ok(Some(found));
+    }
+    exact_copy(repo, old, new, path)
+}
+
+/// A file of `old` whose content equals the file at `path` in `new`: an
+/// exact copy of a file that the commit left unchanged.
+fn exact_copy(
+    repo: &OpenRepo,
+    old: ObjectId,
+    new: ObjectId,
+    path: &BStr,
+) -> Result<Option<FileChange>, Error> {
+    let target = entry_at(repo, new, path).map_err(|err| repo.read_error("the new tree", err))?;
+    let Some((mode, id)) = target.filter(|(mode, _)| !mode.is_tree()) else {
+        return Ok(None);
+    };
+    let tree = repo
+        .repo
+        .find_tree(old)
+        .map_err(|err| repo.read_error("the old tree", err))?;
+    let files = tree
+        .traverse()
+        .breadthfirst
+        .files()
+        .map_err(|err| repo.read_error("the old tree", err))?;
+    Ok(files
+        .into_iter()
+        .find(|entry| entry.oid == id && !entry.mode.is_tree() && entry.filepath.as_bstr() != path)
+        .map(|entry| FileChange {
+            status: GitFileState::Copied,
+            path: path.to_owned(),
+            old_path: Some(entry.filepath),
+            old: Some(Side {
+                id: entry.oid,
+                mode: entry.mode,
+            }),
+            new: Some(Side { id, mode }),
+        }))
 }
 
 #[cfg(test)]
@@ -219,10 +283,23 @@ mod tests {
     #[test]
     fn lists_added_modified_deleted_and_renamed_files() {
         let mut fixture = Fixture::new();
-        let first = fixture.commit("first", &[("a.txt", Some(TEXT)), ("b.txt", Some("b\n")), ("d/x", Some("x\n"))]);
+        let first = fixture.commit(
+            "first",
+            &[
+                ("a.txt", Some(TEXT)),
+                ("b.txt", Some("b\n")),
+                ("d/x", Some("x\n")),
+            ],
+        );
         let second = fixture.commit(
             "second",
-            &[("a.txt", None), ("z.txt", Some(TEXT)), ("b.txt", Some("b2\n")), ("d/x", None), ("n.txt", Some("n\n"))],
+            &[
+                ("a.txt", None),
+                ("z.txt", Some(TEXT)),
+                ("b.txt", Some("b2\n")),
+                ("d/x", None),
+                ("n.txt", Some("n\n")),
+            ],
         );
         let repo = fixture.open();
         let old = repo.tree_of(first).unwrap();
@@ -230,7 +307,13 @@ mod tests {
         let changes = tree_changes(&repo, Some(old), new, Detect::Renames, None).unwrap();
         let summary: Vec<(GitFileState, String, Option<String>)> = changes
             .iter()
-            .map(|c| (c.status, c.path.to_string(), c.old_path.as_ref().map(ToString::to_string)))
+            .map(|c| {
+                (
+                    c.status,
+                    c.path.to_string(),
+                    c.old_path.as_ref().map(ToString::to_string),
+                )
+            })
             .collect();
         assert_eq!(
             summary,
@@ -238,13 +321,24 @@ mod tests {
                 (GitFileState::Modified, "b.txt".to_owned(), None),
                 (GitFileState::Deleted, "d/x".to_owned(), None),
                 (GitFileState::Added, "n.txt".to_owned(), None),
-                (GitFileState::Renamed, "z.txt".to_owned(), Some("a.txt".to_owned())),
+                (
+                    GitFileState::Renamed,
+                    "z.txt".to_owned(),
+                    Some("a.txt".to_owned())
+                ),
             ]
         );
         assert_eq!(changes[3].source_path(), "a.txt");
         let plain = tree_changes(&repo, Some(old), new, Detect::Nothing, None).unwrap();
         assert_eq!(plain.len(), 5);
-        let limited = tree_changes(&repo, Some(old), new, Detect::Renames, Some(&PathFilter::new(vec!["z.txt".into()]))).unwrap();
+        let limited = tree_changes(
+            &repo,
+            Some(old),
+            new,
+            Detect::Renames,
+            Some(&PathFilter::new(vec!["z.txt".into()])),
+        )
+        .unwrap();
         assert_eq!(limited.len(), 1);
         assert_eq!(limited[0].status, GitFileState::Added);
     }
@@ -257,11 +351,21 @@ mod tests {
         let repo = fixture.open();
         let old = repo.tree_of(first).unwrap();
         let new = repo.tree_of(second).unwrap();
-        let origin = origin_of(&repo, Some(old), new, "b.txt".into()).unwrap().unwrap();
+        let origin = origin_of(&repo, Some(old), new, "b.txt".into())
+            .unwrap()
+            .unwrap();
         assert_eq!(origin.status, GitFileState::Copied);
         assert_eq!(origin.source_path(), "a.txt");
-        assert!(origin_of(&repo, None, new, "b.txt".into()).unwrap().is_none());
-        assert!(origin_of(&repo, Some(old), new, "a.txt".into()).unwrap().is_none());
+        assert!(
+            origin_of(&repo, None, new, "b.txt".into())
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            origin_of(&repo, Some(old), new, "a.txt".into())
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -270,7 +374,14 @@ mod tests {
         let first = fixture.commit("first", &[("t", Some("target\n"))]);
         let second = fixture.commit_link("link", "t", "elsewhere");
         let repo = fixture.open();
-        let changes = tree_changes(&repo, Some(repo.tree_of(first).unwrap()), repo.tree_of(second).unwrap(), Detect::Nothing, None).unwrap();
+        let changes = tree_changes(
+            &repo,
+            Some(repo.tree_of(first).unwrap()),
+            repo.tree_of(second).unwrap(),
+            Detect::Nothing,
+            None,
+        )
+        .unwrap();
         assert_eq!(changes[0].status, GitFileState::TypeChanged);
     }
 }

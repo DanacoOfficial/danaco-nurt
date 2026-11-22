@@ -5,48 +5,48 @@
 //!
 //! `git.reset` moves the current branch, or a detached `HEAD`, to a
 //! revision. `soft` changes only the reference, `mixed` also replaces the
-//! index, `hard` also brings the working tree to the revision; `merge` and
-//! `keep` behave like `git reset --merge` and `git reset --keep`. The
+//! index, `hard` also brings the working tree to the revision. The
 //! previous value of `HEAD` is written to `ORIG_HEAD`, reflog entries read
 //! `reset: moving to <revision>`, and the state files of a merge in progress
 //! are removed. Every change goes through one journal transaction.
 
 pub(crate) mod args;
+pub(crate) mod execute;
 pub(crate) mod ident;
 pub(crate) mod index;
-pub(crate) mod refs;
 pub(crate) mod repo;
 #[cfg(test)]
 pub(crate) mod testing;
 #[cfg(test)]
 mod tests;
-pub(crate) mod txplan;
 pub(crate) mod worktree;
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use gix::bstr::{BString, ByteSlice};
+use gix::bstr::BString;
 use gix::hash::ObjectId;
+use gix::index::entry::Stat;
 use nurt_contracts::error::{ErrorCode, Result};
-use nurt_contracts::journal::{MutationTx, TargetPath, TargetSpec};
+use nurt_contracts::journal::MutationTx;
 use nurt_contracts::record::{
-    Change, ChangeAction, Effect, EffectStatus, GitEffect, GitEffectState, Record,
+    Change, ChangeAction, Effect, EffectStatus, GitEffect, GitEffectState,
 };
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::{
     BoundArgs, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, RecordStream,
     StageDescriptor, StageImpl, StageInput, StageOutput,
 };
-use nurt_contracts::value;
+use nurt_contracts::value::{self, Record};
+use nurt_git::apply::{ApplyContext, IndexPlan, ResetOptions};
+use nurt_git::repo::GitRepo;
 
-pub use self::ident::Environment;
+use self::execute::{move_head, ref_tx, state_removal, touched};
 use self::ident::Identity;
-use self::index::IndexUpdate;
-use self::refs::{check_unlocked, plan_head_update, plan_ref_write, plan_state_removal};
-use self::repo::{Repo, error, quote};
-use self::txplan::TxPlan;
-use self::worktree::{Checkout, Policy, Worktree, plan_checkout, plan_index_only};
+use self::index::StatSources;
+use self::repo::{error, root_literal};
+use self::worktree::Worktree;
 
 /// State files of a merge, cherry-pick or revert that `git reset` removes.
 pub(crate) const BRANCH_STATE: [&str; 8] = [
@@ -80,12 +80,6 @@ pub enum ResetMode {
     Mixed,
     /// The reference, the index and the working tree.
     Hard,
-    /// Like `hard`, keeping local changes of paths the reset does not
-    /// change; refused when such changes would be lost.
-    Merge,
-    /// Like `hard` for paths that differ between `HEAD` and the revision;
-    /// refused when one of them has local changes.
-    Keep,
 }
 
 impl ResetMode {
@@ -96,8 +90,6 @@ impl ResetMode {
             Self::Soft => "soft",
             Self::Mixed => "mixed",
             Self::Hard => "hard",
-            Self::Merge => "merge",
-            Self::Keep => "keep",
         }
     }
 }
@@ -115,13 +107,11 @@ impl FromStr for ResetMode {
             "soft" => Ok(Self::Soft),
             "mixed" => Ok(Self::Mixed),
             "hard" => Ok(Self::Hard),
-            "merge" => Ok(Self::Merge),
-            "keep" => Ok(Self::Keep),
             other => Err(error(
                 ErrorCode::UnknownValue,
-                format!("unknown reset mode `{other}`; use soft, mixed, hard, merge or keep"),
+                format!("unknown reset mode `{other}`; use soft, mixed or hard"),
             )
-            .with_expected(serde_json::json!(["soft", "mixed", "hard", "merge", "keep"]))),
+            .with_expected(serde_json::json!(["soft", "mixed", "hard"]))),
         }
     }
 }
@@ -157,27 +147,27 @@ pub struct ResetOutcome {
     pub history_rewritten: bool,
 }
 
-/// A planned reset: the journal targets and the content to write.
+/// A planned reset: the changes to make and the outcome they have.
 pub struct PlannedReset {
-    tx: TxPlan,
-    index: Option<IndexUpdate>,
+    repo: GitRepo,
+    change: execute::Change,
     outcome: ResetOutcome,
 }
 
 impl std::fmt::Debug for PlannedReset {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PlannedReset")
-            .field("targets", &self.tx.targets().count())
+            .field("targets", &self.change.target_count())
             .field("outcome", &self.outcome)
             .finish_non_exhaustive()
     }
 }
 
 impl PlannedReset {
-    /// Journal targets in the order they are changed.
+    /// Number of journal targets the reset declares.
     #[must_use]
-    pub fn targets(&self) -> Vec<TargetSpec> {
-        self.tx.targets().cloned().collect()
+    pub fn target_count(&self) -> usize {
+        self.change.target_count()
     }
 
     /// The outcome the reset will have.
@@ -191,60 +181,62 @@ impl PlannedReset {
     /// # Errors
     ///
     /// Fails with the errors of the journal after the transaction was rolled
-    /// back: `E_STALE` when a target changed after the plan, `E_EXISTS` when
-    /// a lock file appeared and `E_IO`.
+    /// back: `E_STALE` when a target changed after the plan, `E_GIT_LOCKED`
+    /// when a lock file appeared and `E_IO`.
     pub fn apply(self, tx: &mut dyn MutationTx) -> Result<ResetOutcome> {
-        let mut index = self.index;
-        let mut deferred = || -> Result<Vec<u8>> {
-            index
-                .take()
-                .ok_or_else(|| error(ErrorCode::Internal, "the index was requested twice"))?
-                .serialize()
-        };
-        self.tx.execute(tx, &mut deferred)?;
+        self.change.run(&self.repo, tx)?;
         Ok(self.outcome)
     }
 }
 
-fn policy(mode: ResetMode) -> Option<Policy> {
-    match mode {
-        ResetMode::Soft | ResetMode::Mixed => None,
-        ResetMode::Hard => Some(Policy::Hard),
-        ResetMode::Merge => Some(Policy::Merge),
-        ResetMode::Keep => Some(Policy::Keep),
+/// Index of a mixed reset: the entries of `tree`, with the file status data
+/// of unchanged entries kept and fresh data for files that already hold the
+/// content.
+fn mixed_index(repo: &GitRepo, context: &ApplyContext<'_>, tree: ObjectId) -> Result<IndexPlan> {
+    let old = context.index();
+    let state = index::from_tree(repo, tree)?;
+    let mut worktree = Worktree::new(repo)?;
+    let mut read_now: HashSet<BString> = HashSet::new();
+    for entry in state.entries() {
+        let path = entry.path(&state);
+        let reusable = index::merged_entry(old, path).is_some_and(|previous| {
+            previous.id == entry.id
+                && previous.mode == entry.mode
+                && previous.stat != Stat::default()
+        });
+        if !reusable && worktree.matches(path, entry)? {
+            read_now.insert(path.to_owned());
+        }
     }
-}
-
-fn to_strings(paths: Vec<BString>) -> Vec<String> {
-    paths
-        .into_iter()
-        .map(|path| path.to_str_lossy().into_owned())
-        .collect()
+    let sources = StatSources {
+        written: None,
+        read_now: Some(&read_now),
+    };
+    Ok(IndexPlan {
+        state: index::with_stats(repo.root(), state, old, &sources),
+        expect: context.index_expect().clone(),
+    })
 }
 
 /// Plans a reset of the repository containing `path`.
 ///
-/// Nothing is changed; the result lists the journal targets and is applied
-/// with [`PlannedReset::apply`].
+/// Nothing is changed; the result is applied with [`PlannedReset::apply`].
 ///
 /// # Errors
 ///
 /// Fails with `E_GIT_NOT_REPOSITORY` when `path` is not in a repository
 /// with a working tree, `E_GIT_REVISION` when the revision does not name a
 /// commit, `E_GIT_IN_PROGRESS` for a soft reset during a merge,
-/// `E_GIT_DIRTY` when `merge` or `keep` would lose local changes,
 /// `E_GIT_LOCKED` when `index.lock` or a reference lock exists and `E_IO`
 /// when the repository cannot be read.
-pub fn plan_reset(path: &Path, request: &ResetRequest, env: &Environment) -> Result<PlannedReset> {
-    let repo = Repo::open(path)?;
-    let identity = Identity::resolve(&repo, env);
-    check_unlocked(&repo.index_path())?;
-    let head = repo.head()?;
+pub fn plan_reset(path: &Path, request: &ResetRequest, ctx: &ExecCtx) -> Result<PlannedReset> {
+    let repo = repo::open(path, ctx)?;
+    let identity = Identity::resolve(&repo);
+    let context = ApplyContext::open(repo.gix())?;
+    let head = repo::head(&repo)?;
     let target = repo.resolve_commit(&request.revision)?;
-    let current = index::load(&repo)?;
-    let root = quote(&repo.workdir.to_string_lossy());
     if request.mode == ResetMode::Soft
-        && (repo.git_dir.join("MERGE_HEAD").exists() || index::has_conflicts(&current))
+        && (repo.git_dir().join("MERGE_HEAD").exists() || index::has_conflicts(context.index()))
     {
         return Err(error(
             ErrorCode::GitInProgress,
@@ -252,62 +244,55 @@ pub fn plan_reset(path: &Path, request: &ResetRequest, env: &Environment) -> Res
         )
         .with_problem("merge_in_progress")
         .with_fix(format!(
-            "git.reset {root} revision: {} mode: mixed",
-            quote(&request.revision)
+            "git.reset {} revision: {} mode: mixed",
+            root_literal(&repo),
+            nurt_git::repo::error::quote(&request.revision)
         )));
     }
-    let target_state = index::from_tree(&repo, repo.commit_tree(target)?)?;
-    let mut tx = TxPlan::new();
-    let mut outcome = ResetOutcome {
-        repo: repo.workdir.clone(),
-        head_before: head.id,
-        head_after: Some(target),
-        branch: head.branch.as_ref().map(|name| name.shorten().to_string()),
-        ..ResetOutcome::default()
-    };
-    let index_update = match (request.mode, policy(request.mode)) {
-        (ResetMode::Soft, _) => None,
-        (_, None) => {
-            let mut wt = Worktree::new(&repo)?;
-            Some(plan_index_only(&mut wt, &current, target_state)?)
-        }
-        (_, Some(policy)) => {
-            let head_state = match head.id {
-                Some(id) => Some(index::from_tree(&repo, repo.commit_tree(id)?)?),
-                None => None,
-            };
-            let mut wt = Worktree::new(&repo)?;
-            let plan = plan_checkout(
-                &mut wt,
-                &Checkout {
-                    current: &current,
-                    head: head_state.as_ref(),
-                    target: &target_state,
-                    policy,
-                    scope: None,
-                    extra_removals: &[],
+    let tree = repo::commit_tree(&repo, target)?;
+    let mut change = execute::Change::new();
+    match request.mode {
+        ResetMode::Soft => {}
+        ResetMode::Mixed => change.plan.index = Some(mixed_index(&repo, &context, tree)?),
+        ResetMode::Hard => {
+            change.plan = nurt_git::apply::plan_reset(
+                &context,
+                &tree,
+                ResetOptions {
+                    overwrite_untracked: true,
                 },
             )?;
-            tx.extend(plan.tx);
-            outcome.written = to_strings(plan.written);
-            outcome.removed = to_strings(plan.removed);
-            Some(plan.index)
         }
+    }
+    let (written, removed) = touched(&change.plan);
+    let (files, state_removed) = state_removal(&repo, &BRANCH_STATE)?;
+    change.plan.state_files.extend(files);
+    let mut refs = ref_tx(&repo, &identity.committer)?;
+    move_head(
+        &mut refs,
+        &head,
+        target,
+        &format!("reset: moving to {}", request.revision),
+    )?;
+    change.set_refs(refs)?;
+    let history_rewritten = head.branch.is_some()
+        && head
+            .id
+            .is_some_and(|old| old != target && !repo::is_ancestor(&repo, old, target));
+    let outcome = ResetOutcome {
+        repo: repo.root().to_path_buf(),
+        head_before: head.id,
+        head_after: Some(target),
+        branch: head.short_branch(),
+        written,
+        removed,
+        state_removed,
+        history_rewritten,
     };
-    if index_update.is_some() {
-        tx.locked_write(&repo.index_path(), None)?;
-    }
-    let message = format!("reset: moving to {}", request.revision);
-    plan_head_update(&mut tx, &repo, &head, target, &identity.committer, &message)?;
-    if let Some(old) = head.id {
-        plan_ref_write(&mut tx, &repo, "ORIG_HEAD", old)?;
-        outcome.history_rewritten =
-            head.branch.is_some() && old != target && !repo.is_ancestor(old, target);
-    }
-    outcome.state_removed = plan_state_removal(&mut tx, &repo, &BRANCH_STATE)?;
+    drop(context);
     Ok(PlannedReset {
-        tx,
-        index: index_update,
+        repo,
+        change,
         outcome,
     })
 }
@@ -322,12 +307,21 @@ pub(crate) fn file_changes(root: &Path, written: &[String], removed: &[String]) 
     written
         .iter()
         .map(|path| change(path, ChangeAction::Modify))
-        .chain(removed.iter().map(|path| change(path, ChangeAction::Delete)))
+        .chain(
+            removed
+                .iter()
+                .map(|path| change(path, ChangeAction::Delete)),
+        )
         .collect()
 }
 
 /// Effect record of a repository operation.
-pub(crate) fn effect_record(kind: &str, git: GitEffect, changes: &[Change], notable: &[NotableEntry]) -> Record {
+pub(crate) fn effect_record(
+    kind: &str,
+    git: GitEffect,
+    changes: &[Change],
+    notable: &[NotableEntry],
+) -> Record {
     let codes: Vec<String> = notable.iter().map(|entry| entry.code.to_string()).collect();
     Effect {
         status: EffectStatus::Ok,
@@ -397,19 +391,19 @@ impl StageImpl for ResetCommand {
 }
 
 impl EffectStage for ResetCommand {
-    fn plan<'a>(&'a self, args: &'a BoundArgs, _input: StageInput<'a>, ctx: &'a ExecCtx) -> Result<EffectPlan> {
+    fn plan<'a>(
+        &'a self,
+        args: &'a BoundArgs,
+        _input: StageInput<'a>,
+        ctx: &'a ExecCtx,
+    ) -> Result<EffectPlan> {
         let (repo, request) = request_of(args)?;
-        let planned = plan_reset(&repo, &request, &Environment::from_ctx(ctx))?;
+        let planned = plan_reset(&repo, &request, ctx)?;
         let outcome = planned.outcome();
         let mut plan = EffectPlan::new();
         plan.changes = file_changes(&outcome.repo, &outcome.written, &outcome.removed);
         plan.notable = outcome.notable();
-        plan.bulk = planned
-            .targets()
-            .iter()
-            .filter(|target| matches!(target.path, TargetPath::Fs(_)))
-            .count()
-            > 1;
+        plan.bulk = planned.target_count() > 1;
         Ok(plan.with_state(planned))
     }
 

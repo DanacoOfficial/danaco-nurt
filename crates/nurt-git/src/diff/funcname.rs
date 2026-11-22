@@ -94,7 +94,9 @@ impl FuncMatcher {
     /// down to index 0.
     pub(crate) fn find_backward(&self, lines: &[&[u8]], start: usize) -> Option<usize> {
         let first = start.min(lines.len().checked_sub(1)?);
-        (0..=first).rev().find(|&index| self.is_function(lines[index]))
+        (0..=first)
+            .rev()
+            .find(|&index| self.is_function(lines[index]))
     }
 }
 
@@ -163,7 +165,10 @@ mod tests {
     #[test]
     fn default_rule_accepts_letters_underscore_and_dollar() {
         let rule = FuncMatcher::default_rule();
-        assert_eq!(rule.function_text(b"int main(void)   \n"), Some(b"int main(void)".to_vec()));
+        assert_eq!(
+            rule.function_text(b"int main(void)   \n"),
+            Some(b"int main(void)".to_vec())
+        );
         assert!(rule.is_function(b"_start\n"));
         assert!(rule.is_function(b"$x\n"));
         assert!(!rule.is_function(b"  indented\n"));
@@ -181,7 +186,10 @@ mod tests {
     #[test]
     fn patterns_report_first_group_and_honour_negation() {
         let rule = FuncMatcher::from_patterns("!^skip\n^def (\\w+)", false).unwrap();
-        assert_eq!(rule.function_text(b"def name(x):\r\n"), Some(b"name".to_vec()));
+        assert_eq!(
+            rule.function_text(b"def name(x):\r\n"),
+            Some(b"name".to_vec())
+        );
         assert!(!rule.is_function(b"skip def x\n"));
         assert!(!rule.is_function(b"other\n"));
     }

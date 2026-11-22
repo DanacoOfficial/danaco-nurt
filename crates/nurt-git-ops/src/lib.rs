@@ -22,3 +22,7 @@ pub mod restore;
 pub mod stash;
 pub mod state;
 pub mod switch;
+
+mod registry;
+
+pub use registry::register;

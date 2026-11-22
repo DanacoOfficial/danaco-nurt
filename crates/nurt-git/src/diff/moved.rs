@@ -72,8 +72,8 @@ fn best_match(
     for &start in candidates {
         let mut length = 0;
         while let (Some(from), Some(to)) = (removed.get(at + length), added.get(start + length)) {
-            let continues = length == 0
-                || (from.run == removed[at].run && to.run == added[start].run);
+            let continues =
+                length == 0 || (from.run == removed[at].run && to.run == added[start].run);
             if !continues || used[start + length] || from.key != to.key {
                 break;
             }
@@ -98,10 +98,9 @@ fn attach(files: &mut [FileDiff], from: &Located, to: &Located, length: usize) {
         if let Some(hunk) = files
             .get_mut(place.file)
             .and_then(|file| file.hunks.get_mut(place.hunk))
+            && !hunk.moved.contains(&block)
         {
-            if !hunk.moved.contains(&block) {
-                hunk.moved.push(block.clone());
-            }
+            hunk.moved.push(block.clone());
         }
     }
 }
@@ -121,15 +120,28 @@ fn collect(files: &[FileDiff]) -> (Vec<Located>, Vec<Located>) {
     let mut run = 0;
     for (file_index, file) in files.iter().enumerate() {
         for (hunk_index, hunk) in file.hunks.iter().enumerate() {
-            let mut old_line = if hunk.old_len == 0 { hunk.old_start + 1 } else { hunk.old_start };
-            let mut new_line = if hunk.new_len == 0 { hunk.new_start + 1 } else { hunk.new_start };
+            let mut old_line = if hunk.old_len == 0 {
+                hunk.old_start + 1
+            } else {
+                hunk.old_start
+            };
+            let mut new_line = if hunk.new_len == 0 {
+                hunk.new_start + 1
+            } else {
+                hunk.new_start
+            };
             let mut previous = LineKind::Context;
             for line in &hunk.lines {
                 if line.kind != previous && line.kind != LineKind::NoNewline {
                     run += 1;
                 }
                 let located = |number: u32, run: usize| Located {
-                    key: line.text.iter().copied().filter(|&byte| !is_space(byte)).collect(),
+                    key: line
+                        .text
+                        .iter()
+                        .copied()
+                        .filter(|&byte| !is_space(byte))
+                        .collect(),
                     file: file_index,
                     hunk: hunk_index,
                     line: number,
@@ -165,13 +177,22 @@ pub fn only_moved(hunk: &super::hunk::Hunk) -> bool {
     if hunk.moved.is_empty() {
         return false;
     }
-    let mut old_line = if hunk.old_len == 0 { hunk.old_start + 1 } else { hunk.old_start };
-    let mut new_line = if hunk.new_len == 0 { hunk.new_start + 1 } else { hunk.new_start };
+    let mut old_line = if hunk.old_len == 0 {
+        hunk.old_start + 1
+    } else {
+        hunk.old_start
+    };
+    let mut new_line = if hunk.new_len == 0 {
+        hunk.new_start + 1
+    } else {
+        hunk.new_start
+    };
     for line in &hunk.lines {
         match line.kind {
             LineKind::Removed => {
                 let inside = hunk.moved.iter().any(|block| {
-                    (block.from_line..block.from_line + block.lines).contains(&old_line) && block.from_path == hunk_old_path(hunk)
+                    (block.from_line..block.from_line + block.lines).contains(&old_line)
+                        && block.from_path == hunk_old_path(hunk)
                 });
                 if !inside {
                     return false;
@@ -180,7 +201,8 @@ pub fn only_moved(hunk: &super::hunk::Hunk) -> bool {
             }
             LineKind::Added => {
                 let inside = hunk.moved.iter().any(|block| {
-                    (block.to_line..block.to_line + block.lines).contains(&new_line) && block.to_path == hunk.path
+                    (block.to_line..block.to_line + block.lines).contains(&new_line)
+                        && block.to_path == hunk.path
                 });
                 if !inside {
                     return false;
@@ -208,7 +230,10 @@ mod tests {
     use crate::diff::source::{Entry, MODE_FILE};
 
     fn file(path: &str, old: &str, new: &str) -> FileDiff {
-        let side = Some(Entry { mode: MODE_FILE, id: None });
+        let side = Some(Entry {
+            mode: MODE_FILE,
+            id: None,
+        });
         let pair = FilePair {
             path: path.into(),
             old_path: None,
@@ -217,7 +242,13 @@ mod tests {
             similarity: None,
             copied: false,
         };
-        diff_contents(pair, old.as_bytes(), new.as_bytes(), &FileOptions::default(), &Driver::default())
+        diff_contents(
+            pair,
+            old.as_bytes(),
+            new.as_bytes(),
+            &FileOptions::default(),
+            &Driver::default(),
+        )
     }
 
     #[test]
@@ -226,7 +257,11 @@ mod tests {
         let new = "fn x() {}\nfn y() {}\nfn z() {}\nfn w() {}\nfn v() {}\nfn u() {}\nfn t() {}\nconst A = 1;\nconst B = 2;\nconst C = 3;\nconst D = 4;\n";
         let mut files = vec![file("a.ts", old, new)];
         mark_moved(&mut files);
-        let blocks: Vec<_> = files[0].hunks.iter().flat_map(|hunk| hunk.moved.clone()).collect();
+        let blocks: Vec<_> = files[0]
+            .hunks
+            .iter()
+            .flat_map(|hunk| hunk.moved.clone())
+            .collect();
         assert!(!blocks.is_empty());
         let block = &blocks[0];
         assert_eq!(block.lines, 4);
@@ -250,9 +285,7 @@ mod tests {
 
     #[test]
     fn ignores_short_and_blank_blocks() {
-        let mut files = vec![
-            file("a.txt", "x\ny\n\n\n\nz\n", "z\nx\ny\n"),
-        ];
+        let mut files = vec![file("a.txt", "x\ny\n\n\n\nz\n", "z\nx\ny\n")];
         mark_moved(&mut files);
         assert!(files[0].hunks.iter().all(|hunk| hunk.moved.is_empty()));
         assert!(!only_moved(&files[0].hunks[0]));

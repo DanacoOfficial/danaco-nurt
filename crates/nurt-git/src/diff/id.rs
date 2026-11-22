@@ -93,9 +93,10 @@ impl HunkProblem {
             Self::NotFound => ErrorCode::NotFound,
             Self::Changed => ErrorCode::Stale,
             Self::ApplyFailed => ErrorCode::StageFailed,
-            Self::InvalidId | Self::InvalidRows | Self::NoChangeRows | Self::RowsOnAddedOrDeleted => {
-                ErrorCode::Arg
-            }
+            Self::InvalidId
+            | Self::InvalidRows
+            | Self::NoChangeRows
+            | Self::RowsOnAddedOrDeleted => ErrorCode::Arg,
         }
     }
 }
@@ -109,8 +110,10 @@ pub fn hunk_error(problem: HunkProblem, message: impl Into<String>) -> Error {
 fn grammar() -> &'static Regex {
     static GRAMMAR: OnceLock<Regex> = OnceLock::new();
     GRAMMAR.get_or_init(|| {
-        Regex::new(r"^(.+)#([0-9]+)(?::([0-9a-f]{6}))?(?:@([0-9]+(?:-[0-9]+)?(?:,[0-9]+(?:-[0-9]+)?)*))?$")
-            .unwrap_or_else(|_| unreachable!("the hunk identifier grammar is a valid expression"))
+        Regex::new(
+            r"^(.+)#([0-9]+)(?::([0-9a-f]{6}))?(?:@([0-9]+(?:-[0-9]+)?(?:,[0-9]+(?:-[0-9]+)?)*))?$",
+        )
+        .unwrap_or_else(|_| unreachable!("the hunk identifier grammar is a valid expression"))
     })
 }
 
@@ -128,7 +131,9 @@ impl FromStr for HunkId {
         let invalid = || {
             hunk_error(
                 HunkProblem::InvalidId,
-                format!("invalid hunk identifier `{text}`, expected `path#number[:fingerprint][@rows]`"),
+                format!(
+                    "invalid hunk identifier `{text}`, expected `path#number[:fingerprint][@rows]`"
+                ),
             )
         };
         let captures = grammar().captures(text).ok_or_else(invalid)?;
@@ -136,7 +141,10 @@ impl FromStr for HunkId {
         if number == 0 {
             return Err(invalid());
         }
-        let rows = captures.get(4).map(|rows| parse_rows(rows.as_str())).transpose()?;
+        let rows = captures
+            .get(4)
+            .map(|rows| parse_rows(rows.as_str()))
+            .transpose()?;
         Ok(Self {
             path: captures[1].to_owned(),
             number,
@@ -150,7 +158,9 @@ fn parse_rows(text: &str) -> Result<Vec<RowRange>, Error> {
     let invalid = || {
         hunk_error(
             HunkProblem::InvalidRows,
-            format!("invalid rows `{text}`, use rows from 1 to {MAX_ROW} in ascending ranges such as `3-5,8`"),
+            format!(
+                "invalid rows `{text}`, use rows from 1 to {MAX_ROW} in ascending ranges such as `3-5,8`"
+            ),
         )
     };
     text.split(',')
@@ -217,7 +227,10 @@ mod tests {
         let rows = parse("a.txt#1@3-5,8").unwrap();
         assert_eq!(
             rows.rows,
-            Some(vec![RowRange { first: 3, last: 5 }, RowRange { first: 8, last: 8 }])
+            Some(vec![
+                RowRange { first: 3, last: 5 },
+                RowRange { first: 8, last: 8 }
+            ])
         );
         let hash_in_name = parse("a#b.txt#2:012345@1").unwrap();
         assert_eq!(hash_in_name.path, "a#b.txt");
@@ -226,9 +239,20 @@ mod tests {
 
     #[test]
     fn rejects_malformed_identifiers() {
-        for text in ["a.txt", "a.txt#x", "a.txt#1:ABCDEF", "a.txt#1@", "a.txt#0", "#1"] {
+        for text in [
+            "a.txt",
+            "a.txt#x",
+            "a.txt#1:ABCDEF",
+            "a.txt#1@",
+            "a.txt#0",
+            "#1",
+        ] {
             let error = parse(text).unwrap_err();
-            assert_eq!(error.data().problem.as_deref(), Some("invalid_id"), "{text}");
+            assert_eq!(
+                error.data().problem.as_deref(),
+                Some("invalid_id"),
+                "{text}"
+            );
         }
     }
 
@@ -236,7 +260,11 @@ mod tests {
     fn rejects_invalid_rows() {
         for text in ["a.txt#1@0", "a.txt#1@5-3", "a.txt#1@5001"] {
             let error = parse(text).unwrap_err();
-            assert_eq!(error.data().problem.as_deref(), Some("invalid_rows"), "{text}");
+            assert_eq!(
+                error.data().problem.as_deref(),
+                Some("invalid_rows"),
+                "{text}"
+            );
             assert_eq!(error.code(), ErrorCode::Arg);
         }
     }
@@ -252,9 +280,18 @@ mod tests {
 
     #[test]
     fn maps_problems_to_codes() {
-        assert_eq!(hunk_error(HunkProblem::Changed, "x").code(), ErrorCode::Stale);
-        assert_eq!(hunk_error(HunkProblem::NotFound, "x").code(), ErrorCode::NotFound);
-        assert_eq!(hunk_error(HunkProblem::ApplyFailed, "x").code(), ErrorCode::StageFailed);
+        assert_eq!(
+            hunk_error(HunkProblem::Changed, "x").code(),
+            ErrorCode::Stale
+        );
+        assert_eq!(
+            hunk_error(HunkProblem::NotFound, "x").code(),
+            ErrorCode::NotFound
+        );
+        assert_eq!(
+            hunk_error(HunkProblem::ApplyFailed, "x").code(),
+            ErrorCode::StageFailed
+        );
         assert!(RowRange { first: 2, last: 4 }.contains(3));
     }
 }

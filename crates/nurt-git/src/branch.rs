@@ -8,28 +8,57 @@
 //! [`plan_delete`] read the repository and plan the change without writing;
 //! [`BranchPlan::apply`] changes the references, their reflogs and the
 //! `branch.<name>` section of the repository configuration through one
-//! [`MutationTx`].
+//! [`MutationTx`], and checks the new branch out when the plan was made with
+//! [`CreateOptions::switch`]. [`GitBranchCommand`] is the implementation used
+//! by the executor.
+
+pub(crate) mod command;
+mod switch;
+mod trash;
+
+use std::path::Path;
 
 use bstr::{BStr, BString, ByteSlice};
 use gix_hash::ObjectId;
 use gix_ref::{FullName, Target};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::AbsPath;
-use nurt_contracts::journal::{Expect, Mutation, MutationTx, TargetAction, TargetPath, TargetSpec};
-use nurt_contracts::record::Branch;
+use nurt_contracts::journal::{
+    ExemptWrite, Expect, Mutation, MutationTx, TargetAction, TargetPath, TargetSpec,
+};
+use nurt_contracts::record::{Branch, GitCheckpoint};
+use nurt_contracts::report::Change;
 use nurt_contracts::value::{Instant, Path as RecordPath};
 
+pub use command::GitBranchCommand;
+pub use trash::{list_trash, plan_purge};
+
 use crate::refs_tx::{PreparedRefTx, PreviousValue, RefEdit, RefLayout, RefOutcome, RefTx};
+use switch::SwitchPart;
 
 const HEADS: &str = "refs/heads/";
 const REMOTES: &str = "refs/remotes/";
 const TRASH: &str = "refs/nurt/trash/";
+
+/// Options of [`plan_create_with`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CreateOptions<'a> {
+    /// Check the new branch out, carrying local changes over as
+    /// `git switch -c` does.
+    pub switch: bool,
+    /// Checkpoint whose objects are written and whose reference is created
+    /// in the same transaction, before the switch.
+    pub checkpoint: Option<&'a GitCheckpoint>,
+}
 
 /// Planned change of branches.
 #[derive(Debug)]
 pub struct BranchPlan {
     refs: PreparedRefTx,
     config: Option<ConfigWrite>,
+    switch: Option<SwitchPart>,
+    objects_written: bool,
+    unmerged: Vec<String>,
 }
 
 /// New content of the repository configuration file.
@@ -41,6 +70,16 @@ struct ConfigWrite {
 }
 
 impl BranchPlan {
+    fn from_refs(refs: PreparedRefTx) -> Self {
+        Self {
+            refs,
+            config: None,
+            switch: None,
+            objects_written: false,
+            unmerged: Vec::new(),
+        }
+    }
+
     /// Outcome of every reference edit as planned.
     #[must_use]
     pub fn outcomes(&self) -> &[RefOutcome] {
@@ -53,13 +92,66 @@ impl BranchPlan {
         self.config.is_some()
     }
 
-    /// Changes the references and the configuration.
+    /// Whether the plan checks a new branch out.
+    #[must_use]
+    pub fn switches(&self) -> bool {
+        self.switch.is_some()
+    }
+
+    /// Whether local changes are carried over to the checked out branch.
+    #[must_use]
+    pub fn carries_changes(&self) -> bool {
+        self.switch
+            .as_ref()
+            .is_some_and(SwitchPart::carries_changes)
+    }
+
+    /// Branches deleted with `force` that were not merged.
+    #[must_use]
+    pub fn unmerged(&self) -> &[String] {
+        &self.unmerged
+    }
+
+    /// Planned changes of files, one per target, for the working tree `root`
+    /// and the repository directory `git_dir`.
+    #[must_use]
+    pub fn changes(&self, root: &Path, git_dir: &Path) -> Vec<Change> {
+        let mut out = command::target_changes(&self.refs.targets());
+        if let Some(write) = &self.config {
+            out.push(Change::new(
+                write.path.to_language_string(),
+                nurt_contracts::record::ChangeAction::Modify,
+            ));
+        }
+        if let Some(switch) = &self.switch {
+            out.extend(switch.changes(root, git_dir));
+        }
+        out
+    }
+
+    /// Changes the references and the configuration, and checks the new
+    /// branch out when the plan switches.
+    ///
+    /// With a switch, the new branch is written by the checkout together
+    /// with `HEAD`, as `git switch -c` writes it; the other references of
+    /// the plan are declared before the checkout and written after it.
     ///
     /// # Errors
     ///
     /// `E_STALE` when the configuration changed since the plan, and the
-    /// errors of [`PreparedRefTx::apply`].
-    pub fn apply(mut self, tx: &mut dyn MutationTx) -> Result<Vec<RefOutcome>> {
+    /// errors of [`PreparedRefTx::apply`] and of the checkout
+    /// (`E_GIT_LOCKED`, `E_STALE`).
+    pub fn apply(
+        mut self,
+        repo: &gix::Repository,
+        tx: &mut dyn MutationTx,
+    ) -> Result<Vec<RefOutcome>> {
+        if self.objects_written {
+            let layout = RefLayout::from_repo(repo)?;
+            tx.record_exempt(ExemptWrite::ObjectStore {
+                repo: layout.common_dir().clone(),
+            });
+        }
         self.refs.declare(tx)?;
         let config = match &self.config {
             Some(write) => {
@@ -70,10 +162,15 @@ impl BranchPlan {
                     size_hint: u64::try_from(write.old.len()).ok(),
                 };
                 let preserved = tx.preserve(&[spec])?;
-                preserved.first().map(|item| (item.index, write.new.clone()))
+                preserved
+                    .first()
+                    .map(|item| (item.index, write.new.clone()))
             }
             None => None,
         };
+        if let Some(switch) = self.switch.take() {
+            switch.apply(repo, tx)?;
+        }
         let outcomes = self.refs.apply(tx)?;
         if let Some((index, bytes)) = config {
             tx.apply(index, Mutation::WriteBytes(bytes))?;
@@ -158,7 +255,12 @@ fn commit_record(repo: &gix::Repository, name: &str, id: ObjectId, remote: bool)
 }
 
 /// Sets `upstream`, `ahead`, `behind` and `upstream_gone` of a local branch.
-fn fill_upstream(repo: &gix::Repository, full: &FullName, id: ObjectId, record: &mut Branch) -> Result<()> {
+fn fill_upstream(
+    repo: &gix::Repository,
+    full: &FullName,
+    id: ObjectId,
+    record: &mut Branch,
+) -> Result<()> {
     let Some(tracking) = upstream_ref(repo, full)? else {
         return Ok(());
     };
@@ -218,15 +320,59 @@ pub fn plan_create(
     from: &str,
     committer: gix_actor::Signature,
 ) -> Result<BranchPlan> {
+    plan_create_with(repo, name, from, committer, &CreateOptions::default())
+}
+
+/// Plans `git branch <name> <from>` with the options of `git.branch`:
+/// checking the branch out (`git switch -c <name> <from>`) and keeping a
+/// checkpoint of the working tree before the switch.
+///
+/// # Errors
+///
+/// The errors of [`plan_create`]; with [`CreateOptions::switch`] also
+/// `E_GIT_DIRTY` when local changes would be overwritten and `E_GIT_CONFLICT`
+/// when the index has conflicts; `E_GIT_REVISION` for a checkpoint whose
+/// commit is not a valid identifier.
+pub fn plan_create_with(
+    repo: &gix::Repository,
+    name: &str,
+    from: &str,
+    committer: gix_actor::Signature,
+    options: &CreateOptions<'_>,
+) -> Result<BranchPlan> {
     let full = branch_name(repo, name)?;
     let id = resolve_commit(repo, from)?;
-    let mut refs = RefTx::new(RefLayout::from_repo(repo)?, committer);
-    refs.push(RefEdit::set(
-        full,
-        Target::Object(id),
-        PreviousValue::MustNotExist,
-        format!("branch: Created from {from}"),
-    ));
+    let mut refs = RefTx::new(RefLayout::from_repo(repo)?, committer.clone());
+    let switch = if options.switch {
+        if repo
+            .try_find_reference(full.as_ref())
+            .map_err(read_error)?
+            .is_some()
+        {
+            return Err(with_ref_fixes(repo, name, exists(name)));
+        }
+        Some(SwitchPart::plan(repo, &full, id, from, &committer)?)
+    } else {
+        refs.push(RefEdit::set(
+            full,
+            Target::Object(id),
+            PreviousValue::MustNotExist,
+            format!("branch: Created from {from}"),
+        ));
+        None
+    };
+    if let Some(checkpoint) = options.checkpoint {
+        let reference = FullName::try_from(checkpoint.reference.as_str())
+            .map_err(|_| invalid_name(repo, &checkpoint.reference))?;
+        let commit = ObjectId::from_hex(checkpoint.commit.as_bytes())
+            .map_err(|error| revision_error(repo, &checkpoint.commit, &error))?;
+        refs.push(RefEdit::set(
+            reference,
+            Target::Object(commit),
+            PreviousValue::MustNotExist,
+            "",
+        ));
+    }
     let refs = refs
         .prepare()
         .map_err(|error| with_ref_fixes(repo, name, error))?;
@@ -234,10 +380,14 @@ pub fn plan_create(
         Some((remote, merge)) => {
             let (path, old, mut file) = read_config(repo)?;
             let mut section = file
-                .new_section("branch", Some(BString::from(name).into()))
+                .new_section("branch", Some(BString::from(name)))
                 .map_err(config_error)?;
-            section.push("remote".try_into().map_err(config_error)?, Some(remote.as_bstr()));
-            section.push("merge".try_into().map_err(config_error)?, Some(merge.as_bstr()));
+            section
+                .push("remote", Some(remote.as_bstr()))
+                .map_err(config_error)?;
+            section
+                .push("merge", Some(merge.as_bstr()))
+                .map_err(config_error)?;
             Some(ConfigWrite {
                 path,
                 old,
@@ -246,13 +396,21 @@ pub fn plan_create(
         }
         None => None,
     };
-    Ok(BranchPlan { refs, config })
+    Ok(BranchPlan {
+        config,
+        switch,
+        objects_written: options.checkpoint.is_some(),
+        ..BranchPlan::from_refs(refs)
+    })
 }
 
 /// Remote and merge reference for a branch created from `from`.
 fn tracking_setup(repo: &gix::Repository, from: &str) -> Result<Option<(BString, BString)>> {
     let config = repo.config_snapshot();
-    if config.string("branch.autoSetupMerge").is_some_and(|v| v.as_bstr() == "false") {
+    if config
+        .string("branch.autoSetupMerge")
+        .is_some_and(|value| value.eq_ignore_ascii_case(b"false"))
+    {
         return Ok(None);
     }
     let Ok(Some(reference)) = repo.try_find_reference(from) else {
@@ -266,8 +424,7 @@ fn tracking_setup(repo: &gix::Repository, from: &str) -> Result<Option<(BString,
         return Ok(None);
     };
     let remote = remote.as_bstr().to_owned();
-    let known = repo.remote_names().iter().any(|name| name.as_ref() == remote.as_bstr());
-    if !known {
+    if !repo.remote_names().contains(&remote) {
         return Ok(None);
     }
     let mut merge = BString::from(HEADS);
@@ -301,7 +458,7 @@ pub fn plan_rename(
             "branch",
             Some(BStr::new(from)),
             "branch",
-            Some(BString::from(to).into()),
+            Some(BString::from(to)),
         )
         .is_ok();
     let config = renamed.then(|| ConfigWrite {
@@ -309,7 +466,10 @@ pub fn plan_rename(
         old: old_bytes,
         new: file.to_bstring().into(),
     });
-    Ok(BranchPlan { refs, config })
+    Ok(BranchPlan {
+        config,
+        ..BranchPlan::from_refs(refs)
+    })
 }
 
 /// Plans `git branch -d` (or `-D` with `force`) of every name.
@@ -336,12 +496,16 @@ pub fn plan_delete(
     let mut refs = RefTx::new(RefLayout::from_repo(repo)?, committer);
     let (path, old_bytes, mut file) = read_config(repo)?;
     let mut config_changed = false;
+    let mut unmerged = Vec::new();
     for name in names {
         let full = branch_name(repo, name)?;
         let id = branch_id(repo, &full, name)?;
         check_deletable(repo, name, &full, head.as_ref(), &worktrees)?;
-        if !force && !is_merged(repo, &full, id)? {
-            return Err(not_merged(repo, name));
+        if !is_merged(repo, &full, id)? {
+            if !force {
+                return Err(not_merged(repo, name));
+            }
+            unmerged.push((*name).to_owned());
         }
         refs.push(RefEdit::delete(
             full,
@@ -351,7 +515,12 @@ pub fn plan_delete(
         if trash {
             let kept = FullName::try_from(format!("{TRASH}{name}-{seconds}"))
                 .map_err(|_| invalid_name(repo, name))?;
-            refs.push(RefEdit::set(kept, Target::Object(id), PreviousValue::Any, ""));
+            refs.push(RefEdit::set(
+                kept,
+                Target::Object(id),
+                PreviousValue::Any,
+                "",
+            ));
         }
         config_changed |= file
             .remove_section("branch", Some(BStr::new(name)))
@@ -363,7 +532,11 @@ pub fn plan_delete(
         old: old_bytes,
         new: file.to_bstring().into(),
     });
-    Ok(BranchPlan { refs, config })
+    Ok(BranchPlan {
+        config,
+        unmerged,
+        ..BranchPlan::from_refs(refs)
+    })
 }
 
 fn branch_id(repo: &gix::Repository, full: &FullName, name: &str) -> Result<ObjectId> {
@@ -395,7 +568,10 @@ fn check_deletable(
         )
         .with_problem("current_branch")
         .with_found(name.to_owned())
-        .with_next_step(format!("git.switch {} branch: \"<other>\"", quoted_repo(repo))));
+        .with_next_step(format!(
+            "git.switch {} branch: \"<other>\"",
+            quoted_repo(repo)
+        )));
     }
     if let Some((_, path)) = worktrees.iter().find(|(branch, _)| branch == full) {
         return Err(Error::new(
@@ -431,7 +607,7 @@ fn is_merged(repo: &gix::Repository, full: &FullName, id: ObjectId) -> Result<bo
     if reference == id {
         return Ok(true);
     }
-    Ok(matches!(repo.merge_base(id, reference), Ok(base) if base.detach() == id))
+    Ok(matches!(repo.merge_base(id, reference), Ok(Some(base)) if base.detach() == id))
 }
 
 fn not_merged(repo: &gix::Repository, name: &str) -> Error {
@@ -526,6 +702,15 @@ fn resolve_commit(repo: &gix::Repository, revision: &str) -> Result<ObjectId> {
     Ok(commit.id)
 }
 
+fn exists(name: &str) -> Error {
+    Error::new(
+        ErrorCode::GitRef,
+        format!("a branch named {name} already exists; switch to it or choose another name"),
+    )
+    .with_problem("exists")
+    .with_found(name.to_owned())
+}
+
 /// Adds ready programs to errors about an existing branch.
 fn with_ref_fixes(repo: &gix::Repository, name: &str, error: Error) -> Error {
     if error.problem.as_deref() != Some("exists") {
@@ -571,7 +756,7 @@ pub(crate) fn revision_error(
 }
 
 /// Configuration file of the repository: path, raw content and parsed form.
-fn read_config(repo: &gix::Repository) -> Result<(AbsPath, Vec<u8>, gix_config::File<'static>)> {
+fn read_config(repo: &gix::Repository) -> Result<(AbsPath, Vec<u8>, gix_config::File)> {
     let path = repo.common_dir().join("config");
     let bytes = match std::fs::read(&path) {
         Ok(bytes) => bytes,
@@ -584,8 +769,12 @@ fn read_config(repo: &gix::Repository) -> Result<(AbsPath, Vec<u8>, gix_config::
         }
     };
     let meta = gix_config::file::Metadata::from(gix_config::Source::Local);
-    let file = gix_config::File::from_bytes_owned(&mut bytes.clone(), meta, gix_config::file::init::Options::default())
-        .map_err(config_error)?;
+    let file = gix_config::File::from_bytes_owned(
+        &mut bytes.clone(),
+        meta,
+        gix_config::file::init::Options::default(),
+    )
+    .map_err(config_error)?;
     let path = AbsPath::new(&path).map_err(|error| Error::new(ErrorCode::Io, error.to_string()))?;
     Ok((path, bytes, file))
 }
@@ -599,7 +788,10 @@ fn config_error(error: impl std::fmt::Display) -> Error {
 }
 
 fn read_error(error: impl std::fmt::Display) -> Error {
-    Error::new(ErrorCode::Io, format!("cannot read the repository: {error}"))
+    Error::new(
+        ErrorCode::Io,
+        format!("cannot read the repository: {error}"),
+    )
 }
 
 fn content_hash(bytes: &[u8]) -> nurt_contracts::fs::ContentHash {
@@ -683,8 +875,16 @@ pub(crate) mod test_repo {
         /// Commit with an empty tree on top of the current branch.
         pub(crate) fn commit(&self, message: &str) -> ObjectId {
             let repo = self.open();
-            let tree = repo.write_object(gix_object::Tree::empty()).unwrap().detach();
-            let parents: Vec<ObjectId> = repo.head_id().ok().map(gix::Id::detach).into_iter().collect();
+            let tree = repo
+                .write_object(gix_object::Tree::empty())
+                .unwrap()
+                .detach();
+            let parents: Vec<ObjectId> = repo
+                .head_id()
+                .ok()
+                .map(gix::Id::detach)
+                .into_iter()
+                .collect();
             let commit = gix_object::Commit {
                 tree,
                 parents: parents.into(),
@@ -707,7 +907,10 @@ pub(crate) mod test_repo {
         /// declared targets and the object store changed, commits, and checks
         /// that undo restores the repository; then restores the state after
         /// the change.
-        pub(crate) fn apply<T>(&self, change: impl FnOnce(&mut dyn MutationTx) -> Result<T>) -> Result<T> {
+        pub(crate) fn apply<T>(
+            &self,
+            change: impl FnOnce(&mut dyn MutationTx) -> Result<T>,
+        ) -> Result<T> {
             let objects = self.path("objects");
             let snapshot = || {
                 let mut state = tree_state(&self.git_dir());
@@ -733,6 +936,9 @@ pub(crate) mod test_repo {
                 self.journal.undo_last();
                 assert_eq!(snapshot(), before, "undo did not restore the repository");
                 for (path, content) in full_after {
+                    if path.starts_with(&objects) {
+                        continue;
+                    }
                     match content {
                         None => std::fs::create_dir_all(&path).unwrap(),
                         Some(bytes) => {
@@ -771,7 +977,7 @@ mod tests {
         let head = repo.commit("first");
         let plan = plan_create(&repo.open(), "topic", "HEAD", repo.signature()).unwrap();
         assert!(!plan.changes_config());
-        repo.apply(|tx| plan.apply(tx)).unwrap();
+        repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
         assert_eq!(repo.read("refs/heads/topic"), format!("{head}\n"));
         assert_eq!(
             repo.read("logs/refs/heads/topic"),
@@ -785,11 +991,17 @@ mod tests {
         let head = repo.commit("first");
         repo.append_config("[remote \"origin\"]\n\turl = /nowhere\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n");
         repo.write("refs/remotes/origin/feature", &format!("{head}\n"));
-        let plan = plan_create(&repo.open(), "feature", "origin/feature", repo.signature()).unwrap();
+        let plan =
+            plan_create(&repo.open(), "feature", "origin/feature", repo.signature()).unwrap();
         assert!(plan.changes_config());
-        repo.apply(|tx| plan.apply(tx)).unwrap();
+        repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
         let config = repo.read("config");
-        assert!(config.ends_with("[branch \"feature\"]\n\tremote = origin\n\tmerge = refs/heads/feature\n"), "{config}");
+        assert!(
+            config.ends_with(
+                "[branch \"feature\"]\n\tremote = origin\n\tmerge = refs/heads/feature\n"
+            ),
+            "{config}"
+        );
         let branches = list(&repo.open(), false).unwrap();
         let feature = branches.iter().find(|b| b.name == "feature").unwrap();
         assert_eq!(feature.upstream.as_deref(), Some("origin/feature"));
@@ -804,9 +1016,9 @@ mod tests {
     fn create_rejects_existing_invalid_and_unknown_start_points() {
         let repo = TestRepo::new();
         repo.commit("first");
-        let error = plan_create(&repo.open(), "main", "HEAD", repo.signature())
-            .or_else(|_| plan_create(&repo.open(), "master", "HEAD", repo.signature()))
-            .unwrap_err();
+        let current = repo.open().head_name().unwrap().unwrap();
+        let short = short_name(current.as_bstr(), HEADS);
+        let error = plan_create(&repo.open(), &short, "HEAD", repo.signature()).unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("exists"));
         assert_eq!(error.fix.len(), 2);
         for bad in ["", "-x", "HEAD", "a..b", "a b", "x.lock"] {
@@ -826,8 +1038,13 @@ mod tests {
         repo.append_config("[remote \"origin\"]\n\turl = /nowhere\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n");
         let current = repo.open().head_name().unwrap().unwrap();
         let short = short_name(current.as_bstr(), HEADS);
-        repo.append_config(&format!("[branch \"{short}\"]\n\tremote = origin\n\tmerge = refs/heads/{short}\n"));
-        repo.write(&format!("refs/remotes/origin/{short}"), &format!("{first}\n"));
+        repo.append_config(&format!(
+            "[branch \"{short}\"]\n\tremote = origin\n\tmerge = refs/heads/{short}\n"
+        ));
+        repo.write(
+            &format!("refs/remotes/origin/{short}"),
+            &format!("{first}\n"),
+        );
         repo.write("refs/heads/gone", &format!("{first}\n"));
         repo.append_config("[branch \"gone\"]\n\tremote = origin\n\tmerge = refs/heads/gone\n");
         let branches = list(&repo.open(), false).unwrap();
@@ -848,14 +1065,23 @@ mod tests {
         let head = repo.commit("first");
         let current = repo.open().head_name().unwrap().unwrap();
         let short = short_name(current.as_bstr(), HEADS);
-        repo.append_config(&format!("[branch \"{short}\"]\n\tremote = origin\n\tmerge = refs/heads/{short}\n"));
+        repo.append_config(&format!(
+            "[branch \"{short}\"]\n\tremote = origin\n\tmerge = refs/heads/{short}\n"
+        ));
         let plan = plan_rename(&repo.open(), &short, "trunk", repo.signature()).unwrap();
         assert!(plan.changes_config());
-        repo.apply(|tx| plan.apply(tx)).unwrap();
+        repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
         assert_eq!(repo.read("HEAD"), "ref: refs/heads/trunk\n");
         assert_eq!(repo.read("refs/heads/trunk"), format!("{head}\n"));
-        assert!(repo.read("config").contains("[branch \"trunk\"]\n\tremote = origin\n\tmerge = refs/heads/"));
-        assert!(!repo.read("config").contains(&format!("[branch \"{short}\"]")));
+        assert!(
+            repo.read("config")
+                .contains("[branch \"trunk\"]\n\tremote = origin\n\tmerge = refs/heads/")
+        );
+        assert!(
+            !repo
+                .read("config")
+                .contains(&format!("[branch \"{short}\"]"))
+        );
         let message = format!("Branch: renamed refs/heads/{short} to refs/heads/trunk");
         assert!(repo.read("logs/HEAD").ends_with(&format!(
             "{head} {} {IDENT}\t{message}\n{} {head} {IDENT}\t{message}\n",
@@ -888,16 +1114,26 @@ mod tests {
         };
         repo.write("refs/heads/side", &format!("{ahead}\n"));
         repo.append_config("[branch \"merged\"]\n\tremote = origin\n");
-        let error = plan_delete(&repo.open(), &["side"], false, false, repo.signature()).unwrap_err();
+        let error =
+            plan_delete(&repo.open(), &["side"], false, false, repo.signature()).unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("not_merged"));
         assert!(error.fix[0].ends_with("delete: \"side\" force: true"));
-        let error = plan_delete(&repo.open(), &[&short], true, false, repo.signature()).unwrap_err();
+        let error =
+            plan_delete(&repo.open(), &[&short], true, false, repo.signature()).unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("current_branch"));
-        let error = plan_delete(&repo.open(), &["none"], true, false, repo.signature()).unwrap_err();
+        let error =
+            plan_delete(&repo.open(), &["none"], true, false, repo.signature()).unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("missing"));
-        let plan = plan_delete(&repo.open(), &["merged", "side"], true, false, repo.signature()).unwrap();
+        let plan = plan_delete(
+            &repo.open(),
+            &["merged", "side"],
+            true,
+            false,
+            repo.signature(),
+        )
+        .unwrap();
         assert!(plan.changes_config());
-        repo.apply(|tx| plan.apply(tx)).unwrap();
+        repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
         assert!(!repo.path("refs/heads/merged").exists());
         assert!(!repo.path("refs/heads/side").exists());
         assert!(!repo.read("config").contains("[branch \"merged\"]"));
@@ -910,8 +1146,11 @@ mod tests {
         repo.write("packed-refs", &format!("{head} refs/heads/old\n"));
         let plan = plan_delete(&repo.open(), &["old"], false, true, repo.signature()).unwrap();
         assert_eq!(plan.outcomes().len(), 2);
-        repo.apply(|tx| plan.apply(tx)).unwrap();
-        assert_eq!(repo.read("refs/nurt/trash/old-1767225600"), format!("{head}\n"));
+        repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
+        assert_eq!(
+            repo.read("refs/nurt/trash/old-1767225600"),
+            format!("{head}\n")
+        );
         assert!(!repo.read("packed-refs").contains("refs/heads/old"));
     }
 
@@ -921,7 +1160,13 @@ mod tests {
         let head = repo.commit("first");
         repo.write("refs/heads/wt", &format!("{head}\n"));
         repo.write("worktrees/wt/HEAD", "ref: refs/heads/wt\n");
-        let elsewhere = repo.git_dir().parent().unwrap().parent().unwrap().join("wt/.git");
+        let elsewhere = repo
+            .git_dir()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("wt/.git");
         repo.write("worktrees/wt/gitdir", &format!("{}\n", elsewhere.display()));
         let error = plan_delete(&repo.open(), &["wt"], true, false, repo.signature()).unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("checked_out"));

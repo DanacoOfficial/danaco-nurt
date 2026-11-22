@@ -160,11 +160,11 @@ fn fill_upstream(repo: &GitRepo, branch: &str, id: gix::ObjectId, record: &mut B
     record.upstream = Some(short_ref_name(&tracking).to_owned());
     match repo.gix().find_reference(tracking.as_str()) {
         Ok(mut reference) => {
-            if let Ok(upstream) = reference.peel_to_id() {
-                if let Ok((ahead, behind)) = ahead_behind(repo, id, upstream.detach()) {
-                    record.ahead = Some(ahead);
-                    record.behind = Some(behind);
-                }
+            if let Ok(upstream) = reference.peel_to_id()
+                && let Ok((ahead, behind)) = ahead_behind(repo, id, upstream.detach())
+            {
+                record.ahead = Some(ahead);
+                record.behind = Some(behind);
             }
         }
         Err(_) => record.upstream_gone = Some(true),
@@ -217,7 +217,11 @@ fn map_refspec(source: &str, destination: &str, name: &str) -> Option<String> {
 /// # Errors
 ///
 /// `E_IO` when the history cannot be walked.
-pub fn ahead_behind(repo: &GitRepo, local: gix::ObjectId, upstream: gix::ObjectId) -> Result<(u64, u64), Error> {
+pub fn ahead_behind(
+    repo: &GitRepo,
+    local: gix::ObjectId,
+    upstream: gix::ObjectId,
+) -> Result<(u64, u64), Error> {
     let count = |tip: gix::ObjectId, hidden: gix::ObjectId| -> Result<u64, Error> {
         let walk = repo
             .gix()
@@ -267,7 +271,7 @@ pub fn tag(repo: &GitRepo, name: &str) -> Result<GitTag, Error> {
     let tag = object.into_tag();
     let decoded = tag
         .decode()
-        .map_err(|source| error::from_gix("decode a tag", &source.into()))?;
+        .map_err(|source| error::from_gix("decode a tag", &source))?;
     let (tagger, time) = match decoded.tagger() {
         Ok(Some(signature)) => {
             let (name, email, time) = self::signature(&signature);
@@ -360,8 +364,14 @@ mod tests {
         assert_eq!(record.short_id.len(), 7);
         assert_eq!(record.subject, "Add a");
         assert_eq!(record.author, RepoBuilder::AUTHOR_NAME);
-        assert_eq!(record.author_email.as_deref(), Some(RepoBuilder::AUTHOR_EMAIL));
-        assert_eq!(record.time, Instant::from_unix_seconds(RepoBuilder::EPOCH).unwrap());
+        assert_eq!(
+            record.author_email.as_deref(),
+            Some(RepoBuilder::AUTHOR_EMAIL)
+        );
+        assert_eq!(
+            record.time,
+            Instant::from_unix_seconds(RepoBuilder::EPOCH).unwrap()
+        );
         assert!(record.parents.is_empty());
         let trailers = record.trailers.unwrap();
         assert_eq!(trailers["Signed-off-by"], "Ada <ada@example.com>");
@@ -415,7 +425,10 @@ mod tests {
         let annotated = tag(&repo, "refs/tags/v1").unwrap();
         assert_eq!(annotated.kind, GitTagKind::Annotated);
         assert_eq!(annotated.message.as_deref(), Some("release 1\n"));
-        assert_eq!(annotated.target, repo.head_id().unwrap().unwrap().to_string());
+        assert_eq!(
+            annotated.target,
+            repo.head_id().unwrap().unwrap().to_string()
+        );
     }
 
     #[test]
@@ -440,7 +453,10 @@ mod tests {
             map_refspec("refs/heads/main", "refs/remotes/o/trunk", "refs/heads/main"),
             Some("refs/remotes/o/trunk".to_owned())
         );
-        assert_eq!(map_refspec("refs/tags/*", "refs/tags/*", "refs/heads/main"), None);
+        assert_eq!(
+            map_refspec("refs/tags/*", "refs/tags/*", "refs/heads/main"),
+            None
+        );
     }
 
     #[test]
@@ -461,7 +477,10 @@ mod tests {
             GitFileState::Unmodified,
             GitStatusKind::Tracked,
         );
-        assert_eq!(record.repo.as_str(), fixture.path().to_string_lossy().replace('\\', "/"));
+        assert_eq!(
+            record.repo.as_str(),
+            fixture.path().to_string_lossy().replace('\\', "/")
+        );
     }
 
     #[test]

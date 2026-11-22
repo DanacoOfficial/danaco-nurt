@@ -1,0 +1,32 @@
+cognitive-complexity-threshold = 15
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-print-in-tests = true
+allow-dbg-in-tests = true
+
+# Clippy reads this file instead of the workspace file, so the workspace
+# settings are repeated. The repository operations run no program: every
+# library entry point that starts one, or that writes repository files
+# outside the journal, is rejected.
+disallowed-methods = [
+  { path = "nurt_contracts::fs::TxScope::new_for_journal", reason = "Only the journal implementation creates transaction scopes." },
+  { path = "std::process::Command::new", reason = "Programs run only through the program service of the execution context." },
+  { path = "gix::command::prepare", reason = "Programs run only through the program service of the execution context.", allow-invalid = true },
+  { path = "gix::Commit::signed", reason = "Signatures are verified by the signing module; the library starts gpg or ssh-keygen.", allow-invalid = true },
+  { path = "gix::Commit::verify_signature", reason = "Signatures are verified by the signing module; the library starts gpg or ssh-keygen.", allow-invalid = true },
+  { path = "gix::Repository::commit", reason = "Commits are written through the journal; the library updates references directly.", allow-invalid = true },
+  { path = "gix::Repository::commit_as", reason = "Commits are written through the journal; the library updates references directly.", allow-invalid = true },
+  { path = "gix::index::File::write", reason = "The index is written by repo::index::write_index through the journal.", allow-invalid = true },
+  { path = "gix::Remote::connect", reason = "Transports are opened by nurt_git_transport::connect; the library starts git-upload-pack or ssh.", allow-invalid = true },
+  { path = "gix::remote::Connection::configured_credentials", reason = "Credentials come from the credential sources; the library starts credential helpers.", allow-invalid = true },
+  { path = "gix::clone::PrepareFetch::fetch_only", reason = "Clones are assembled with nurt_git_transport::connect; the library connects by itself.", allow-invalid = true },
+  { path = "gix::clone::PrepareFetch::fetch_then_checkout", reason = "Clones are assembled with nurt_git_transport::connect; the library connects by itself.", allow-invalid = true },
+  { path = "gix::clone::PrepareCheckout::main_worktree", reason = "The checkout of the library runs filter drivers; check out through the apply module.", allow-invalid = true },
+  { path = "gix::credentials::helper::invoke", reason = "Credential helpers are programs; use the credential sources.", allow-invalid = true },
+  { path = "gix::credentials::builtin", reason = "Credential helpers are programs; use the credential sources.", allow-invalid = true },
+  { path = "gix::credentials::helper::Cascade::invoke", reason = "Credential helpers are programs; use the credential sources.", allow-invalid = true },
+  { path = "gix::prompt::ask", reason = "The console has no terminal prompt for repository operations.", allow-invalid = true },
+  { path = "gix::prompt::openly", reason = "The console has no terminal prompt for repository operations.", allow-invalid = true },
+  { path = "gix::prompt::securely", reason = "The console has no terminal prompt for repository operations.", allow-invalid = true },
+]

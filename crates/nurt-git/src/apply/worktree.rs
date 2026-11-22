@@ -10,11 +10,11 @@ use std::path::{Path, PathBuf};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gix_index::entry::{Mode, Stat};
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::{ContentHash, Etag, FileId};
+use nurt_contracts::fs::ContentHash;
 use nurt_contracts::journal::Expect;
 use sha2::{Digest, Sha256};
 
-use super::error::{io_error, object_error, repo_error};
+use super::error::{io_error, repo_error, unsafe_path};
 use super::filter::{Direction, Filters};
 
 /// Kind of a working tree entry found by `lstat`.
@@ -54,9 +54,13 @@ pub(crate) struct Observation {
 
 /// Converts a path relative to the working tree into a native path below
 /// `root`.
-pub(crate) fn native_path(root: &Path, rela: &BStr) -> PathBuf {
-    let native = gix_path::to_native_path_on_windows(rela);
-    root.join(native)
+///
+/// Fails with `E_GIT_UNSUPPORTED` when the path cannot be represented on
+/// this system, such as a name that is not valid Unicode on Windows.
+pub(crate) fn native_path(root: &Path, rela: &BStr) -> Result<PathBuf> {
+    let native = gix_path::to_native_path_on_windows(rela)
+        .map_err(|err| unsafe_path(rela, &err.to_string()))?;
+    Ok(root.join(native))
 }
 
 /// Reads the entry at `path` without following a final symbolic link.
@@ -122,6 +126,7 @@ pub(crate) fn expect_of(path: &Path, observation: &Observation) -> Result<Expect
 
 #[cfg(unix)]
 fn etag_expect(_path: &Path, _node: Node, meta: &std::fs::Metadata) -> Result<Expect> {
+    use nurt_contracts::fs::{Etag, FileId};
     use std::os::unix::fs::MetadataExt;
     const NANOS_PER_SECOND: i64 = 1_000_000_000;
     Ok(Expect::Etag(Etag {
@@ -186,13 +191,12 @@ pub(crate) fn verify_expect(path: &Path, expect: &Expect) -> Result<()> {
 /// files compare to index entries.
 pub(crate) struct Worktree<'r> {
     pub(crate) root: PathBuf,
-    pub(crate) caps: gix_fs::Capabilities,
+    pub(crate) caps: gix::fs::Capabilities,
     repo: &'r gix::Repository,
     stat_options: gix_index::entry::stat::Options,
     index_timestamp: (i64, u32),
     filters: Filters<'r>,
     excludes: gix_worktree::Stack,
-    buf: Vec<u8>,
 }
 
 impl<'r> Worktree<'r> {
@@ -226,16 +230,15 @@ impl<'r> Worktree<'r> {
             index_timestamp,
             filters: Filters::new(repo, index, Direction::ToGit)?,
             excludes,
-            buf: Vec::new(),
         })
     }
 
-    pub(crate) fn path(&self, rela: &BStr) -> PathBuf {
+    pub(crate) fn path(&self, rela: &BStr) -> Result<PathBuf> {
         native_path(&self.root, rela)
     }
 
     pub(crate) fn observe(&self, rela: &BStr) -> Result<Observation> {
-        observe_native(&self.path(rela))
+        observe_native(&self.path(rela)?)
     }
 
     /// Whether `rela` matches the ignore rules (`.gitignore`,
@@ -273,8 +276,8 @@ impl<'r> Worktree<'r> {
         if !self.kind_matches(entry.mode, observation.node) {
             return Ok(false);
         }
-        let stat = stat_of(&self.path(rela))?;
-        if stat.size != entry.stat.size {
+        let stat = stat_of(&self.path(rela)?)?;
+        if entry.stat.size != 0 && stat.size != entry.stat.size {
             return Ok(false);
         }
         if !self.is_racy(&entry.stat) && entry.stat.matches(&stat, self.stat_options) {
@@ -318,18 +321,20 @@ impl<'r> Worktree<'r> {
         node: Node,
         index: &gix_index::State,
     ) -> Result<gix::ObjectId> {
-        let path = self.path(rela);
+        let path = self.path(rela)?;
         let data = match node {
             Node::Symlink => {
                 let target = std::fs::read_link(&path).map_err(|err| io_error(&err, &path))?;
-                let target = gix_path::into_bstr(target).into_owned();
+                let target = gix_path::into_bstr(target)
+                    .map_err(|err| repo_error(err, "read a link target"))?
+                    .into_owned();
                 gix_path::to_unix_separators_on_windows(target)
                     .into_owned()
                     .into()
             }
             _ => {
                 let bytes = std::fs::read(&path).map_err(|err| io_error(&err, &path))?;
-                self.filters.to_git(rela, &bytes, index)?
+                self.filters.clean(rela, &bytes, index)?
             }
         };
         gix_object::compute_hash(self.repo.object_hash(), gix_object::Kind::Blob, &data)
@@ -347,7 +352,7 @@ impl<'r> Worktree<'r> {
         let mut found = Vec::new();
         let mut pending = vec![rela.to_owned()];
         while let Some(dir) = pending.pop() {
-            let native = self.path(dir.as_bstr());
+            let native = self.path(dir.as_bstr())?;
             let reader = std::fs::read_dir(&native).map_err(|err| io_error(&err, &native))?;
             for item in reader {
                 let item = item.map_err(|err| io_error(&err, &native))?;
@@ -373,14 +378,6 @@ impl<'r> Worktree<'r> {
         }
         found.sort();
         Ok(found)
-    }
-
-    /// Reads the blob `id`; used by the planner for content comparisons.
-    pub(crate) fn blob(&mut self, id: &gix::oid) -> Result<Vec<u8>> {
-        let data = gix_object::Find::try_find(&self.repo.objects, id, &mut self.buf)
-            .map_err(|err| object_error(err, id))?
-            .ok_or_else(|| object_error("not found", id))?;
-        Ok(data.data.to_vec())
     }
 }
 

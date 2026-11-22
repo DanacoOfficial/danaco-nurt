@@ -10,10 +10,8 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::Expect;
 
 use super::error::{locked, repo_error};
+use super::sparse::Sparse;
 use super::worktree::{Node, expect_of, observe_native};
-
-/// File name of the lock that guards the index, as used by `git`.
-pub(crate) const INDEX_LOCK: &str = "index.lock";
 
 /// The repository, its working tree and its current index, read once before
 /// a plan is made.
@@ -27,6 +25,7 @@ pub struct ApplyContext<'r> {
     pub(crate) index_path: PathBuf,
     pub(crate) index_expect: Expect,
     pub(crate) index_exists: bool,
+    pub(crate) sparse: Sparse,
 }
 
 impl<'r> ApplyContext<'r> {
@@ -36,7 +35,7 @@ impl<'r> ApplyContext<'r> {
     ///
     /// `E_GIT_UNSUPPORTED` for a bare repository or a sparse index,
     /// `E_GIT_LOCKED` when `index.lock` exists, and `E_IO` when the index
-    /// cannot be read.
+    /// or the sparse checkout patterns cannot be read.
     pub fn open(repo: &'r gix::Repository) -> Result<Self> {
         let root = repo
             .workdir()
@@ -70,6 +69,10 @@ impl<'r> ApplyContext<'r> {
             )
             .with_problem("sparse_index"));
         }
+        let caps = repo
+            .filesystem_options()
+            .map_err(|err| repo_error(err, "read the core settings"))?;
+        let sparse = Sparse::load(repo, caps.ignore_case)?;
         Ok(Self {
             repo,
             root,
@@ -77,6 +80,7 @@ impl<'r> ApplyContext<'r> {
             index_path,
             index_expect,
             index_exists,
+            sparse,
         })
     }
 
@@ -93,6 +97,12 @@ impl<'r> ApplyContext<'r> {
     /// The index as read.
     pub fn index(&self) -> &gix_index::State {
         &self.index
+    }
+
+    /// Expectation of the index file as read, for an index written by a
+    /// caller in the same transaction.
+    pub fn index_expect(&self) -> &Expect {
+        &self.index_expect
     }
 
     /// Paths of index entries in a conflict stage, sorted and without

@@ -93,7 +93,10 @@ mod tests {
             .with("flag", ArgValue::Value(Value::Bool(true)), false)
             .with(
                 "paths",
-                ArgValue::Value(Value::List(vec![Value::Path("a".into()), Value::Text("b".into())])),
+                ArgValue::Value(Value::List(vec![
+                    Value::Path("a".into()),
+                    Value::Text("b".into()),
+                ])),
                 false,
             )
             .with("count", ArgValue::Value(Value::Int(1)), false)
@@ -114,6 +117,9 @@ mod tests {
         let args = args();
         assert_eq!(text(&args, "count").unwrap_err().code, ErrorCode::Type);
         assert_eq!(flag(&args, "repo").unwrap_err().code, ErrorCode::Type);
-        assert_eq!(required_text(&args, "missing").unwrap_err().code, ErrorCode::MissingParam);
+        assert_eq!(
+            required_text(&args, "missing").unwrap_err().code,
+            ErrorCode::MissingParam
+        );
     }
 }

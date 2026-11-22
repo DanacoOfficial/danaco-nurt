@@ -1,7 +1,6 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-
 //! Selection of the commits to replay.
 //!
 //! The list equals `git rev-list --reverse --topo-order --no-merges
@@ -50,10 +49,10 @@ fn walk(repo: &gix::Repository, tip: ObjectId, hidden: ObjectId) -> Result<Vec<N
         .rev_walk([tip])
         .with_hidden([hidden])
         .all()
-        .map_err(|cause| error::io("cannot walk the history", cause))?;
+        .map_err(|cause| error::io("walk the history", cause))?;
     let mut nodes = Vec::new();
     for info in walk {
-        let info = info.map_err(|cause| error::io("cannot walk the history", cause))?;
+        let info = info.map_err(|cause| error::io("walk the history", cause))?;
         nodes.push(Node {
             id: info.id,
             parents: info.parent_ids().map(|id| id.detach()).collect(),
@@ -71,7 +70,11 @@ fn graph_order(nodes: &[Node], tip: ObjectId) -> Vec<ObjectId> {
         nodes.iter().map(|node| (node.id, &node.parents)).collect();
     let mut children: HashMap<ObjectId, usize> = HashMap::new();
     for node in nodes {
-        for parent in node.parents.iter().filter(|parent| in_set.contains(*parent)) {
+        for parent in node
+            .parents
+            .iter()
+            .filter(|parent| in_set.contains(*parent))
+        {
             *children.entry(*parent).or_default() += 1;
         }
     }
@@ -95,15 +98,13 @@ fn graph_order(nodes: &[Node], tip: ObjectId) -> Vec<ObjectId> {
     out
 }
 
-/// Selects the commits of `upstream..head` to replay onto the upstream.
-///
-/// With `reapply_cherry_picks` false, commits whose patch identifier equals
-/// that of a non-merge commit of `head..upstream` are skipped.
+/// Selects the commits of `upstream..head` to replay onto the upstream;
+/// commits whose patch identifier equals that of a non-merge commit of
+/// `head..upstream` are skipped.
 pub(super) fn select(
     repo: &gix::Repository,
     head: ObjectId,
     upstream: ObjectId,
-    reapply_cherry_picks: bool,
 ) -> Result<Selection> {
     let ours = walk(repo, head, upstream)?;
     let merges: HashSet<ObjectId> = ours
@@ -114,7 +115,7 @@ pub(super) fn select(
     let mut order = graph_order(&ours, head);
     order.reverse();
     order.retain(|id| !merges.contains(id));
-    let applied = if reapply_cherry_picks || order.is_empty() {
+    let applied = if order.is_empty() {
         HashSet::new()
     } else {
         upstream_patch_ids(repo, upstream, head)?
@@ -134,8 +135,19 @@ pub(super) fn select(
     Ok(selection)
 }
 
+/// Whether every commit of `hidden..tip` has exactly one parent.
+pub(super) fn is_linear(repo: &gix::Repository, tip: ObjectId, hidden: ObjectId) -> Result<bool> {
+    Ok(walk(repo, tip, hidden)?
+        .iter()
+        .all(|node| node.parents.len() == 1))
+}
+
 /// Patch identifiers of the non-merge commits of `head..upstream`.
-fn upstream_patch_ids(repo: &gix::Repository, upstream: ObjectId, head: ObjectId) -> Result<HashSet<[u8; 20]>> {
+fn upstream_patch_ids(
+    repo: &gix::Repository,
+    upstream: ObjectId,
+    head: ObjectId,
+) -> Result<HashSet<[u8; 20]>> {
     let mut ids = HashSet::new();
     for node in walk(repo, upstream, head)? {
         if node.parents.len() > 1 {
@@ -149,7 +161,10 @@ fn upstream_patch_ids(repo: &gix::Repository, upstream: ObjectId, head: ObjectId
 
 /// Patch identifier of a commit against its first parent, or against the
 /// empty tree for a root commit.
-pub(super) fn commit_patch_id(repo: &gix::Repository, commit: &objects::CommitInfo) -> Result<[u8; 20]> {
+pub(super) fn commit_patch_id(
+    repo: &gix::Repository,
+    commit: &objects::CommitInfo,
+) -> Result<[u8; 20]> {
     let base = match commit.parents.first() {
         Some(parent) => objects::tree_of(repo, *parent)?,
         None => objects::empty_tree(repo),
@@ -168,10 +183,22 @@ mod tests {
     #[test]
     fn graph_order_follows_one_line_before_the_other() {
         let nodes = vec![
-            Node { id: id(4), parents: vec![id(2), id(3)] },
-            Node { id: id(3), parents: vec![id(1)] },
-            Node { id: id(2), parents: vec![id(1)] },
-            Node { id: id(1), parents: vec![] },
+            Node {
+                id: id(4),
+                parents: vec![id(2), id(3)],
+            },
+            Node {
+                id: id(3),
+                parents: vec![id(1)],
+            },
+            Node {
+                id: id(2),
+                parents: vec![id(1)],
+            },
+            Node {
+                id: id(1),
+                parents: vec![],
+            },
         ];
         assert_eq!(graph_order(&nodes, id(4)), vec![id(4), id(3), id(2), id(1)]);
     }
@@ -179,8 +206,14 @@ mod tests {
     #[test]
     fn graph_order_ignores_parents_outside_the_set() {
         let nodes = vec![
-            Node { id: id(2), parents: vec![id(1)] },
-            Node { id: id(1), parents: vec![id(9)] },
+            Node {
+                id: id(2),
+                parents: vec![id(1)],
+            },
+            Node {
+                id: id(1),
+                parents: vec![id(9)],
+            },
         ];
         assert_eq!(graph_order(&nodes, id(2)), vec![id(2), id(1)]);
     }

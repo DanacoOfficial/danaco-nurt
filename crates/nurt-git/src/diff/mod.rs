@@ -28,6 +28,7 @@
 //! ```
 
 mod canonical;
+pub(crate) mod command;
 #[cfg(test)]
 pub(crate) mod fixture;
 mod funcname;
@@ -40,13 +41,27 @@ mod select;
 pub(crate) mod source;
 mod words;
 
-pub use canonical::{Driver, FileDiff, FileOptions, FilePair, Side, configured_lines, diff_contents, diff_pair, hunks_for, text_hunks};
+pub use canonical::{
+    Driver, FileDiff, FileOptions, FilePair, Side, configured_lines, diff_contents, diff_pair,
+    diff_texts, hunks_for, text_hunks,
+};
+pub use command::{
+    DiffOutput, DiffRequest, GENERATED_PATTERNS, GitDiff, LOCK_FILES, MAX_CONTEXT, is_generated,
+    is_lock_file, run_diff,
+};
 pub use funcname::{FUNCNAME_MAX, FuncMatcher, PatternError, builtin_patterns};
-pub use hunk::{CANONICAL_CONTEXT, FINGERPRINT_LEN, Hunk, HunkLine, Layout, LineKind, MovedBlock, NO_NEWLINE, TextDiff};
+pub use hunk::{
+    CANONICAL_CONTEXT, FINGERPRINT_LEN, Hunk, HunkLine, Layout, LineKind, MovedBlock, NO_NEWLINE,
+    TextDiff,
+};
 pub use id::{HunkId, HunkProblem, MAX_ROW, RowRange, hunk_error};
 pub use lines::{Algorithm, Change, LineOptions};
 pub use moved::{MOVED_MIN_LINES, mark_moved, only_moved};
-pub use rename::{CHUNK_MAX, DEFAULT_LIMIT, DEFAULT_THRESHOLD, Loader, RenameOptions, detect_renames};
+pub use rename::{
+    CHUNK_MAX, DEFAULT_LIMIT, DEFAULT_THRESHOLD, Loader, RenameOptions, detect_renames,
+};
 pub use select::{Direction, apply_selected};
-pub use source::{DiffAttr, Entry, Opened, Reader, looks_binary, mode_text, open_repository};
+pub use source::{
+    BINARY_PROBE, DiffAttr, Entry, Opened, Reader, looks_binary, mode_text, open_repository,
+};
 pub use words::{NEWLINE_MARK, word_lines};

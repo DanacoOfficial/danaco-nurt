@@ -101,7 +101,10 @@ pub fn not_repository(path: &Path, nearby: &[std::path::PathBuf], command: &str)
 pub fn path_not_found(path: &Path) -> Error {
     Error::new(
         ErrorCode::GitNotRepository,
-        format!("path does not exist: {}; pass an existing directory", path.display()),
+        format!(
+            "path does not exist: {}; pass an existing directory",
+            path.display()
+        ),
     )
     .with_problem("path_not_found")
     .with_detail("path", Value::from(path.to_string_lossy().into_owned()))
@@ -223,7 +226,11 @@ pub fn revision(
         error = error.with_candidate(Candidate {
             rank,
             reference: None,
-            program: format!("git.log {} revision: {} count: 1", quote_path(repo), quote(name)),
+            program: format!(
+                "git.log {} revision: {} count: 1",
+                quote_path(repo),
+                quote(name)
+            ),
             why: (!why.is_empty()).then(|| why.clone()),
         });
     }
@@ -272,9 +279,12 @@ pub fn from_gix(what: &str, error: &gix::Error) -> Error {
     } else {
         (ErrorCode::Io, "repository_error")
     };
-    Error::new(code, format!("{what} failed: {}", first_line(&error.to_string())))
-        .with_problem(problem)
-        .with_detail("operation", Value::from(what))
+    Error::new(
+        code,
+        format!("{what} failed: {}", first_line(&error.to_string())),
+    )
+    .with_problem(problem)
+    .with_detail("operation", Value::from(what))
 }
 
 fn io_code(kind: io::ErrorKind) -> (ErrorCode, &'static str) {
@@ -342,7 +352,10 @@ mod tests {
             "",
         );
         assert_eq!(error.problem.as_deref(), Some("not_found"));
-        assert_eq!(error.candidates[0].program, r#"git.log "/r" revision: "main" count: 1"#);
+        assert_eq!(
+            error.candidates[0].program,
+            r#"git.log "/r" revision: "main" count: 1"#
+        );
         assert_eq!(error.expected, Some(json!(["main"])));
     }
 
@@ -350,7 +363,10 @@ mod tests {
     fn io_maps_error_kinds_to_codes() {
         let missing = io(Path::new("/x"), &io::Error::from(io::ErrorKind::NotFound));
         assert_eq!(missing.code, ErrorCode::NotFound);
-        let denied = io(Path::new("/x"), &io::Error::from(io::ErrorKind::PermissionDenied));
+        let denied = io(
+            Path::new("/x"),
+            &io::Error::from(io::ErrorKind::PermissionDenied),
+        );
         assert_eq!(denied.code, ErrorCode::Permission);
         let other = io(Path::new("/x"), &io::Error::other("broken"));
         assert_eq!(other.code, ErrorCode::Io);
@@ -358,11 +374,14 @@ mod tests {
 
     #[test]
     fn unsafe_repository_offers_safe_directory_entry() {
-        let error = unsafe_repository(Path::new("/srv/r"), Some(Path::new("/home/a/.gitconfig")));
+        let error = unsafe_repository(
+            Path::new("/srv/r"),
+            Some(Path::new("/home/user/.gitconfig")),
+        );
         assert_eq!(error.problem.as_deref(), Some("unsafe_repository"));
         assert_eq!(
             error.fix[0],
-            r#"set "/home/a/.gitconfig" key: "safe.directory[+]" value: "/srv/r" format: ini"#
+            r#"set "/home/user/.gitconfig" key: "safe.directory[+]" value: "/srv/r" format: ini"#
         );
     }
 }
