@@ -133,9 +133,6 @@ struct PairsArgs {
     /// Directory of run logs whose passed Danaco Nurt runs give pairs.
     #[arg(long)]
     runs: Option<PathBuf>,
-    /// Command that starts the server used for validation.
-    #[arg(long, required_unless_present = "list_only")]
-    nurt: Option<String>,
     /// Write the candidates without validation.
     #[arg(long)]
     list_only: bool,
@@ -262,14 +259,11 @@ fn pairs(args: &PairsArgs) -> Result<bool> {
     if let Some(runs) = &args.runs {
         candidates.extend(dataset::from_runs(runs, &tasks, &args.fixtures)?);
     }
-    let summary = match (&args.nurt, args.list_only) {
-        (Some(command), false) => {
-            let (_scratch, mut client) = launch(command)?;
-            let summary = dataset::build(candidates, Some(&mut client), &args.out)?;
-            client.shutdown();
-            summary
-        }
-        _ => dataset::build(candidates, None, &args.out)?,
+    let summary = if args.list_only {
+        dataset::build(candidates, None, &args.out)?
+    } else {
+        let mut validator = dataset::EngineValidator::new(dataset::open_engine(None)?);
+        dataset::build(candidates, Some(&mut validator), &args.out)?
     };
     for count in &summary.sources {
         let source = serde_json::to_value(count.source)

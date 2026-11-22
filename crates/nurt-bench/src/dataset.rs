@@ -13,8 +13,14 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 use nurt_contracts::envelope::{Request, RequestOptions};
+use nurt_contracts::error::{Error, ErrorCode};
+use nurt_core::config::ConfigSources;
+use nurt_core::{DeliveredEvent, Engine, EngineConfig, EventListener, Frontend};
+use nurt_testkit::clock::VirtualClock;
+use nurt_testkit::host::TestHost;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -78,6 +84,9 @@ pub struct Validation {
     /// Status of the report of the execution.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
+    /// Why the pair was not executed although it was not rejected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
     /// Why the pair was rejected.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rejected: Option<String>,
@@ -432,13 +441,35 @@ pub fn deduplicate(candidates: Vec<Candidate>) -> Vec<Candidate> {
         .collect()
 }
 
-fn request(pair: &Pair, base: &Path) -> Request {
-    let options = RequestOptions {
-        base: Some(base.display().to_string().replace('\\', "/")),
-        script: pair.script.then_some(true),
-        ..RequestOptions::default()
-    };
-    Request::program(pair.program.clone()).with_options(options)
+/// Result of one call of a [`Validator`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Outcome {
+    /// Code of the error of the response, when it has one.
+    pub error: Option<String>,
+    /// Status of the effect report.
+    pub status: Option<String>,
+    /// Whether the call could not do its work because a component of the
+    /// engine is not connected yet; the pair is then neither accepted as
+    /// executed nor rejected.
+    pub unavailable: bool,
+}
+
+/// Source of the verdicts that validate a pair: binding and execution of a
+/// program.
+pub trait Validator {
+    /// Binds the program of `request` without running it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the validator itself fails.
+    fn check(&mut self, request: &Request) -> Result<Outcome>;
+
+    /// Runs the program of `request`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the validator itself fails.
+    fn run(&mut self, request: &Request) -> Result<Outcome>;
 }
 
 fn error_text(value: &Value) -> Option<String> {
@@ -448,20 +479,147 @@ fn error_text(value: &Value) -> Option<String> {
     Some(error["code"].as_str().unwrap_or("error").to_owned())
 }
 
+impl Validator for RpcClient {
+    fn check(&mut self, request: &Request) -> Result<Outcome> {
+        let response = self.request("check", request, CALL_TIMEOUT)?;
+        Ok(Outcome {
+            error: error_text(&response),
+            ..Outcome::default()
+        })
+    }
+
+    fn run(&mut self, request: &Request) -> Result<Outcome> {
+        let response = self.request("run", request, RUN_TIMEOUT)?;
+        Ok(Outcome {
+            error: error_text(&response),
+            status: response["report"]["status"].as_str().map(str::to_owned),
+            unavailable: false,
+        })
+    }
+}
+
+struct NullListener;
+
+impl EventListener for NullListener {
+    fn deliver(&self, _event: DeliveredEvent) {}
+}
+
+/// Engine with the configuration sources isolated from the host, no state
+/// directory and the given language front end.
+///
+/// # Errors
+///
+/// Returns an error when the engine cannot be opened.
+pub fn open_engine(frontend: Option<Arc<dyn Frontend>>) -> Result<Engine> {
+    let mut config = EngineConfig::new(Arc::new(VirtualClock::new()), Arc::new(TestHost::linux()))
+        .with_sources(ConfigSources::isolated())
+        .without_state_dir();
+    if let Some(frontend) = frontend {
+        config = config.with_frontend(frontend);
+    }
+    Engine::open(config).map_err(|error| BenchError::Argument(error.to_string()))
+}
+
+/// Validator that calls an [`Engine`] in the process: `check` through
+/// [`Engine::check`] and execution through [`Engine::start`] and its
+/// [`ExecHandle`].
+///
+/// While the planner of the engine is not connected, `check` reports
+/// `E_UNSUPPORTED` after the program was bound successfully, which counts as
+/// a program that binds, and a run fails with `E_UNSUPPORTED`, which is
+/// reported as [`Outcome::unavailable`]. An engine without a language front
+/// end makes `check` unavailable as well.
+#[derive(Debug)]
+pub struct EngineValidator {
+    engine: Engine,
+}
+
+impl EngineValidator {
+    /// Validator of the given engine.
+    #[must_use]
+    pub fn new(engine: Engine) -> Self {
+        Self { engine }
+    }
+}
+
+impl Validator for EngineValidator {
+    fn check(&mut self, request: &Request) -> Result<Outcome> {
+        Ok(match self.engine.check(request) {
+            Ok(_) => Outcome::default(),
+            Err(error) if bound_without_planner(&error) => Outcome::default(),
+            Err(error) if error.code == ErrorCode::Unsupported => Outcome {
+                unavailable: true,
+                ..Outcome::default()
+            },
+            Err(error) => Outcome {
+                error: Some(error.code.as_str().to_owned()),
+                ..Outcome::default()
+            },
+        })
+    }
+
+    fn run(&mut self, request: &Request) -> Result<Outcome> {
+        let handle = self.engine.start(request, Arc::new(NullListener));
+        let Some(response) = handle.wait(Some(RUN_TIMEOUT)) else {
+            handle.cancel();
+            return Ok(Outcome {
+                error: Some(ErrorCode::Timeout.as_str().to_owned()),
+                ..Outcome::default()
+            });
+        };
+        let report = &response.report;
+        let status = serde_json::to_value(report.status)
+            .ok()
+            .and_then(|value| value.as_str().map(str::to_owned));
+        let unavailable = report
+            .error
+            .as_ref()
+            .is_some_and(|error| error.code == ErrorCode::Unsupported);
+        Ok(Outcome {
+            error: report
+                .error
+                .as_ref()
+                .filter(|_| !unavailable)
+                .map(|error| error.code.as_str().to_owned()),
+            status,
+            unavailable,
+        })
+    }
+}
+
+/// Whether `error` is the answer of an engine without a planner to a program
+/// that was bound: the engine adds the `command` detail after binding.
+fn bound_without_planner(error: &Error) -> bool {
+    error.code == ErrorCode::Unsupported && error.details.contains_key("command")
+}
+
+fn request(pair: &Pair, base: &Path) -> Request {
+    let options = RequestOptions {
+        base: Some(base.display().to_string().replace('\\', "/")),
+        script: pair.script.then_some(true),
+        ..RequestOptions::default()
+    };
+    Request::program(pair.program.clone()).with_options(options)
+}
+
 /// Validates a candidate: `check`, then `run` on its initial tree when it
 /// has one.
 ///
 /// # Errors
 ///
-/// Returns an error when the server fails or a temporary directory cannot
+/// Returns an error when the validator fails or a temporary directory cannot
 /// be created.
-pub fn validate(client: &mut RpcClient, candidate: &Candidate) -> Result<Pair> {
+pub fn validate(validator: &mut dyn Validator, candidate: &Candidate) -> Result<Pair> {
     let mut pair = candidate.pair.clone();
     let scratch =
         tempfile::tempdir().map_err(|error| BenchError::io(&std::env::temp_dir(), error))?;
-    let checked = client.request("check", &request(&pair, scratch.path()), CALL_TIMEOUT)?;
-    if let Some(code) = error_text(&checked) {
+    let checked = validator.check(&request(&pair, scratch.path()))?;
+    if let Some(code) = checked.error {
         pair.validation.rejected = Some(format!("check: {code}"));
+        return Ok(pair);
+    }
+    if checked.unavailable {
+        pair.validation.note = Some("check unavailable".to_owned());
         return Ok(pair);
     }
     pair.validation.checked = true;
@@ -469,10 +627,13 @@ pub fn validate(client: &mut RpcClient, candidate: &Candidate) -> Result<Pair> {
         return Ok(pair);
     };
     snapshot::materialize(tree, scratch.path())?;
-    let response = client.request("run", &request(&pair, scratch.path()), RUN_TIMEOUT)?;
-    pair.validation.status = response["report"]["status"].as_str().map(str::to_owned);
-    match error_text(&response) {
+    let outcome = validator.run(&request(&pair, scratch.path()))?;
+    pair.validation.status = outcome.status;
+    match outcome.error {
         Some(code) => pair.validation.rejected = Some(format!("run: {code}")),
+        None if outcome.unavailable => {
+            pair.validation.note = Some("execution unavailable".to_owned());
+        }
         None if matches!(
             pair.validation.status.as_deref(),
             Some("failed" | "rolled_back")
@@ -496,6 +657,9 @@ pub struct SourceCount {
     pub accepted: usize,
     /// Rejected pairs.
     pub rejected: usize,
+    /// Pairs that `check` could not judge.
+    #[serde(default)]
+    pub unvalidated: usize,
 }
 
 /// Summary of a generation, written as `summary.json`.
@@ -507,6 +671,9 @@ pub struct DatasetSummary {
     pub sources: Vec<SourceCount>,
     /// Accepted pairs in total.
     pub accepted: usize,
+    /// Pairs that `check` could not judge, in total.
+    #[serde(default)]
+    pub unvalidated: usize,
 }
 
 fn write_lines(path: &Path, pairs: &[Pair]) -> Result<()> {
@@ -520,38 +687,43 @@ fn write_lines(path: &Path, pairs: &[Pair]) -> Result<()> {
     fs::write(path, text).map_err(|error| BenchError::io(path, error))
 }
 
-/// Validates the candidates (or only lists them when `client` is `None`)
-/// and writes `pairs.jsonl`, `rejected.jsonl` and `summary.json` to `out`;
+/// Validates the candidates (or only lists them when `validator` is `None`)
+/// and writes `pairs.jsonl`, `rejected.jsonl`, `unvalidated.jsonl` and
+/// `summary.json` to `out`;
 /// without validation `candidates.jsonl` replaces the first two files.
 ///
 /// # Errors
 ///
-/// Returns an error when the server fails or a file cannot be written.
+/// Returns an error when the validator fails or a file cannot be written.
 pub fn build(
     candidates: Vec<Candidate>,
-    client: Option<&mut RpcClient>,
+    validator: Option<&mut dyn Validator>,
     out: &Path,
 ) -> Result<DatasetSummary> {
     let candidates = deduplicate(candidates);
     fs::create_dir_all(out).map_err(|error| BenchError::io(out, error))?;
     let mut summary = DatasetSummary {
-        validated: client.is_some(),
+        validated: validator.is_some(),
         ..DatasetSummary::default()
     };
     let mut accepted = Vec::new();
     let mut rejected = Vec::new();
-    match client {
-        Some(client) => {
+    let mut unvalidated = Vec::new();
+    match validator {
+        Some(validator) => {
             for candidate in &candidates {
-                let pair = validate(client, candidate)?;
+                let pair = validate(validator, candidate)?;
                 if pair.validation.rejected.is_some() {
                     rejected.push(pair);
-                } else {
+                } else if pair.validation.checked {
                     accepted.push(pair);
+                } else {
+                    unvalidated.push(pair);
                 }
             }
             write_lines(&out.join("pairs.jsonl"), &accepted)?;
             write_lines(&out.join("rejected.jsonl"), &rejected)?;
+            write_lines(&out.join("unvalidated.jsonl"), &unvalidated)?;
         }
         None => {
             let pairs: Vec<Pair> = candidates
@@ -575,9 +747,11 @@ pub fn build(
                 .count(),
             accepted: count(&accepted),
             rejected: count(&rejected),
+            unvalidated: count(&unvalidated),
         });
     }
     summary.accepted = accepted.len();
+    summary.unvalidated = unvalidated.len();
     let path = out.join("summary.json");
     let text = serde_json::to_string_pretty(&summary)
         .map_err(|error| BenchError::format(&path, "summary", error.to_string()))?;
@@ -718,6 +892,53 @@ mod tests {
         let listed = build(candidates, None, &dir.path().join("dry")).unwrap();
         assert!(!listed.validated);
         assert!(dir.path().join("dry/candidates.jsonl").is_file());
+    }
+
+    fn fixture_engine() -> Engine {
+        let frontend = nurt_core::fixtures::FixtureFrontend::new()
+            .with_bound(
+                "write out.txt hello",
+                nurt_testkit::fixtures::empty_program(),
+            )
+            .with_error(
+                "unknown",
+                Error::new(ErrorCode::UnknownCommand, "unknown command `unknown`"),
+            );
+        open_engine(Some(Arc::new(frontend))).unwrap()
+    }
+
+    #[test]
+    fn engine_validator_binds_known_programs_and_rejects_unknown_ones() {
+        let dir = tempfile::tempdir().unwrap();
+        let tasks = [
+            task("edit-001", "public", "write out.txt hello"),
+            task("edit-003", "public", "unknown"),
+        ];
+        let candidates = from_tasks(&tasks, dir.path()).unwrap();
+        let mut validator = EngineValidator::new(fixture_engine());
+        let summary = build(candidates, Some(&mut validator), &dir.path().join("out")).unwrap();
+        assert_eq!((summary.accepted, summary.unvalidated), (3, 0));
+        let rejected = fs::read_to_string(dir.path().join("out/rejected.jsonl")).unwrap();
+        assert_eq!(rejected.lines().count(), 3);
+        let accepted = fs::read_to_string(dir.path().join("out/pairs.jsonl")).unwrap();
+        let pair: Pair = serde_json::from_str(accepted.lines().next().unwrap()).unwrap();
+        assert!(pair.validation.checked);
+        assert!(!pair.validation.executed);
+        assert_eq!(
+            pair.validation.note.as_deref(),
+            Some("execution unavailable")
+        );
+    }
+
+    #[test]
+    fn engine_without_front_end_leaves_pairs_unvalidated() {
+        let dir = tempfile::tempdir().unwrap();
+        let tasks = [task("edit-001", "public", "write out.txt hello")];
+        let candidates = from_tasks(&tasks, dir.path()).unwrap();
+        let mut validator = EngineValidator::new(open_engine(None).unwrap());
+        let summary = build(candidates, Some(&mut validator), &dir.path().join("out")).unwrap();
+        assert_eq!((summary.accepted, summary.unvalidated), (0, 3));
+        assert!(dir.path().join("out/unvalidated.jsonl").is_file());
     }
 
     #[test]
