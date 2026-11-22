@@ -43,9 +43,9 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{Record, Value};
 
-use crate::host::SysRoot;
+use crate::common::SysRoot;
 #[cfg(unix)]
-use crate::host::canonical_path;
+use crate::common::canonical_path;
 
 /// Name of the command.
 pub(crate) const COMMAND: &str = "accounts";
@@ -198,9 +198,9 @@ pub(crate) fn is_system(id: u32, name: &str, os: Os, uid_min: u32) -> bool {
 #[cfg(unix)]
 fn list(root: &SysRoot, selection: Selection, os: Os, ctx: &ExecCtx) -> Result<Vec<Account>> {
     let users =
-        unix::users(root).map_err(|error| crate::host::source_error(&error, "/etc/passwd"))?;
+        unix::users(root).map_err(|error| crate::common::source_error(&error, "/etc/passwd"))?;
     let groups =
-        unix::groups(root).map_err(|error| crate::host::source_error(&error, "/etc/group"))?;
+        unix::groups(root).map_err(|error| crate::common::source_error(&error, "/etc/group"))?;
     let uid_min = root
         .read_to_string("/etc/login.defs")
         .ok()

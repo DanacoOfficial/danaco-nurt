@@ -29,8 +29,13 @@ A literal name that matches no event gives an empty result with the notice
 level returned: `level: warning` returns warnings, errors and critical events.
 `since` is inclusive and `until` is exclusive. `message` keeps the events whose
 message matches the regular expression. `limit` bounds the number of events;
-when older events remain, the result ends with the notice `log_limit_reached`
-and the `cursor` of the last event marks where the next page starts.
+when older events remain, the execution reports the notice `log_limit_reached`
+with the `cursor` of the last event, after which the older events follow.
+
+The notice `permission_denied_skipped` is an entry of `notable` in the report.
+The other notices of the command are diagnostic events of the execution whose
+message starts with the code of the notice. Notices are reported when the
+output ends or when the rest of the pipeline stops reading it.
 
 ### Linux
 
@@ -56,16 +61,39 @@ with the notice `permission_denied_skipped`.
 
 ### Windows
 
-On Windows the command reads the Event Log. `unit` names the channel, such as
-`System`, `Application` or `Microsoft-Windows-TaskScheduler/Operational`, and
-`source` names the provider. Channel and provider names are compared without
-regard to case. Event levels map as follows: 1 is `critical`, 2 `error`,
-3 `warning`, 0 and 4 `info`, 5 `debug`.
+On Windows the command reads the Event Log. `unit` names an event log channel,
+such as `System`, `Application`, `Security` or
+`Microsoft-Windows-TaskScheduler/Operational`; channel names are compared
+without regard to case. Without `unit`, the channels `System` and
+`Application` are read. `source` names the event provider (`Provider/@Name`).
+Event levels map as follows: 1 is `critical`, 2 `error`, 3 `warning`, 5
+`debug`; 0, 4 and provider levels from 16 are `info`. The message is formatted
+from the metadata of the provider; without metadata it holds the payload as
+`name=value` pairs and the notice `log_unformatted` gives the number of such
+events.
+
+| Condition | Result |
+|---|---|
+| unknown channel | `E_UNKNOWN_VALUE`, `expected` lists the nearest channel names |
+| named channel denied, such as `Security` | `E_PRIVILEGE`, `required: administrator` |
+| default channel denied | notice `permission_denied_skipped` |
+| event log service stopped | `E_NOT_FOUND` |
 
 ### macOS
 
-On macOS the command reads the unified log. `source` names the subsystem,
-such as `com.apple.xpc`, and `unit` names the category.
+On macOS the command reads the unified log. `unit` names a subsystem, such as
+`com.example.agent`, and `source` names a process. Faults are `critical`,
+errors `error`, messages of type `default` and `info` are `info`, and `debug`
+messages are `debug`. The system keeps debug and info messages only for a
+short time. Reading the log store of the running system requires root; a
+process that runs as root and is refused needs Full Disk Access for the
+terminal application.
+
+| Condition | Result |
+|---|---|
+| not root | `E_PRIVILEGE`, `required: root` |
+| root without Full Disk Access | `E_PRIVILEGE`, `required: full_disk_access` |
+| messages lost by the system | notice `log_events_lost` with the count |
 
 ## Parameters
 
@@ -77,7 +105,7 @@ such as `com.apple.xpc`, and `unit` names the category.
 | `since` | `instant` | none | Only events at or after this time. |
 | `until` | `instant` | none | Only events before this time. |
 | `message` | `regex` | none | Only events whose message matches this pattern. |
-| `limit` | `int` | `100` | Maximum number of events, newest first; at most the configuration value `logs.max_limit`. |
+| `limit` | `int` | `100` | Maximum number of events, newest first; from 1 to 100000. |
 
 ## Input and output
 
@@ -90,18 +118,20 @@ the log provides them `id`, `host`, `unit`, `pid`, `boot_id`, `cursor` and
 `fields`. On Linux `id` is `MESSAGE_ID` and `fields` holds the other fields of
 the entry except `MESSAGE`, `MESSAGE_ID`, `_HOSTNAME`, `_PID` and `_BOOT_ID`.
 
-Values longer than `logs.max_message_bytes` (message) or `logs.max_field_bytes`
-(other fields), and fields beyond `logs.max_fields`, are cut; the event is then
-marked as truncated. A message that is not valid UTF-8 is decoded with
-replacement characters.
+A message longer than 65536 bytes and a value of another field longer than
+16384 bytes are cut at a character boundary, and fields beyond the first 128
+are dropped; the event is then marked as truncated. A message that is not
+valid UTF-8 is decoded with replacement characters.
 
 | Notice | Meaning |
 |---|---|
-| `log_limit_reached` | More events match than `limit` allows. |
+| `log_limit_reached` | More events match than `limit` allows; the message gives the `cursor` of the last event. |
 | `log_unknown_name` | No event has the given `source` or `unit`; `detail` lists similar names. |
 | `log_file_skipped` | A log file was skipped; `detail` is `truncated`, `corrupt`, `unsupported_format` or `io`. |
 | `permission_denied_skipped` | Some log files could not be read for lack of permission; `count` gives their number. |
 | `log_cursor_approximate` | The log file of the cursor no longer exists; paging continues from the time of the cursor. |
+| `log_unformatted` | Messages could not be formatted and hold the raw values; `count` gives their number. |
+| `log_events_lost` | The system reported lost events; `count` gives their number. |
 
 ## Effect
 
@@ -145,10 +175,14 @@ logs unit: "*.timer" level: debug
 |---|---|---|
 | `E_NOT_FOUND` | The system has no log that `logs` reads, such as a Linux system without a systemd journal. | Read text log files such as `/var/log/syslog` with `read`. |
 | `E_PERMISSION` | No log file is readable by the account. | On Linux add the account to the group `systemd-journal` or `adm`, or run as root. |
+| `E_PRIVILEGE` | The log needs a privilege the process does not have: a named Windows channel such as `Security`, or the macOS log store. | Run with administrator rights on Windows; run as root, and grant Full Disk Access if needed, on macOS. |
+| `E_UNKNOWN_VALUE` | `unit` names a Windows channel that does not exist; `expected` lists the nearest names. | Use one of the listed channels. |
+| `E_OS_ONLY` | The operating system is not Linux, Windows or macOS. | Read text log files with `read`. |
 | `E_FORMAT` | No log file has a readable format; `files` lists the files with the class of their defect. | Check the files; files written by a newer systemd need a newer release of Danaco Nurt. |
 | `E_INVALID_VALUE` | A parameter has a value of the wrong form, such as a cursor of another system. | Use a cursor returned by `logs` on the same system. |
 | `E_REGEX` | The pattern of `message` is not a valid regular expression. | Correct the pattern. |
-| `E_LIMIT` | `limit` exceeds `logs.max_limit`. | Lower `limit` or page with the cursor of the last event. |
+| `E_PATTERN_SYNTAX` | The glob pattern of `source` or `unit` is malformed. | Close the bracket or escape the special character. |
+| `E_LIMIT` | `limit` is below 1 or above 100000. | Give a `limit` within the range, or narrow the query with `since` and `until`. |
 | `E_CANCELLED` | The execution was cancelled between two events. | Run the program again. |
 | `E_TIMEOUT` | The time limit of the program elapsed while the log was read. | Narrow the query with `since`, `unit` or `source`. |
 

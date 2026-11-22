@@ -26,8 +26,6 @@
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(any(target_os = "macos", windows))]
-mod process;
 #[cfg(test)]
 mod tests;
 #[cfg(windows)]
@@ -53,7 +51,9 @@ use self::linux as platform;
 use self::macos as platform;
 #[cfg(windows)]
 use self::windows as platform;
-use crate::host::{REQUIRED_PRIVILEGE, SysRoot, source_error};
+use crate::common::{REQUIRED_PRIVILEGE, SysRoot, source_error};
+use crate::processes::model::{ProcessSource, ReadRequest};
+use crate::processes::source_under;
 
 /// Name of the command.
 pub(crate) const COMMAND: &str = "open_files";
@@ -290,10 +290,12 @@ impl ReadStage for OpenFilesStage {
         ctx.checkpoint()?;
         let scan = platform::scan(&self.root, &target)?;
         report(ctx, &scan);
-        let records: Vec<Record> = with_raw(platform::processes(&self.root, &scan.holders), &scan)
-            .into_iter()
-            .map(Record::from)
-            .collect();
+        let source = source_under(&self.root);
+        let records: Vec<Record> =
+            with_raw(holder_processes(source.as_ref(), &scan.holders)?, &scan)
+                .into_iter()
+                .map(Record::from)
+                .collect();
         Ok(StageOutput::records(RecordStream::from_records(records)))
     }
 }
@@ -351,6 +353,27 @@ fn target_from_args(args: &BoundArgs) -> Result<Target> {
         .as_str()
         .ok_or_else(|| Error::new(ErrorCode::Type, "`open_files` expects a path for `path`"))?;
     Target::resolve(Path::new(path))
+}
+
+/// `process` records of `holders`, read by the process reader of the
+/// `processes` command; processes that ended meanwhile are left out.
+///
+/// # Errors
+///
+/// Fails when the process table cannot be read on this system.
+pub(crate) fn holder_processes(
+    source: &dyn ProcessSource,
+    holders: &[Holder],
+) -> Result<Vec<Process>> {
+    if holders.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut reader = source.open(ReadRequest { cwd: true })?;
+    Ok(holders
+        .iter()
+        .filter_map(|holder| reader.read(u64::from(holder.pid)))
+        .map(|process| process.into_record(None, None))
+        .collect())
 }
 
 /// Adds the attributes of each holder to `os_raw` of its record.

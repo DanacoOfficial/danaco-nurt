@@ -450,8 +450,8 @@ fn catalog_signatures_match_frozen() {
 #[cfg(unix)]
 mod procfs_tree {
     use super::*;
+    use crate::common::SysRoot;
     use crate::processes::procfs::{ProcFs, map_state, parse_passwd, parse_stat, split_command};
-    use crate::processes::sysroot::SysRoot;
     use crate::processes::testing::write;
 
     /// Clock rate of the synthetic tree, in ticks per second.

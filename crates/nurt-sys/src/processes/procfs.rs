@@ -18,7 +18,7 @@ use nurt_contracts::record::ProcessState;
 use nurt_contracts::value::Instant;
 
 use super::model::{ProcessInfo, ProcessReader, ProcessSource, ReadRequest};
-use super::sysroot::SysRoot;
+use crate::common::SysRoot;
 
 /// Length limit of the kernel command name (`TASK_COMM_LEN` without the
 /// terminating zero); longer names are cut to this length.
@@ -131,9 +131,16 @@ impl ProcFs {
     /// The process table of the running system.
     #[cfg(target_os = "linux")]
     pub(crate) fn live() -> Self {
+        Self::with_root(SysRoot::live())
+    }
+
+    /// The process table under `root`, with the clock rate and the page size
+    /// of the running system.
+    #[cfg(target_os = "linux")]
+    pub(crate) fn with_root(root: SysRoot) -> Self {
         let ticks = rustix::param::clock_ticks_per_second();
         Self {
-            root: SysRoot::live(),
+            root,
             ticks_per_second: ticks.max(1),
             page_size: u64::try_from(rustix::param::page_size()).unwrap_or(u64::MAX),
         }

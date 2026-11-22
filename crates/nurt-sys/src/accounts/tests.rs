@@ -57,7 +57,7 @@ mod unix_files {
     use nurt_contracts::value::{Record, Value};
 
     use super::super::{AccountsStage, files};
-    use crate::host::SysRoot;
+    use crate::common::SysRoot;
     use crate::host::test_support::{self, TestHost};
 
     /// Tree with `passwd`, `group`, `shadow` and `login.defs`.

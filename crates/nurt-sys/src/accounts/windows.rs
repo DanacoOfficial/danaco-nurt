@@ -28,12 +28,10 @@ use windows_sys::Win32::Security::{
     GetTokenInformation, LookupAccountNameW, LookupAccountSidW, PSID, SID_NAME_USE, TOKEN_QUERY,
     TOKEN_USER, TokenUser,
 };
-use windows_sys::Win32::System::Threading::{
-    GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
-};
+use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
 use super::Selection;
-use crate::host::canonical_path;
+use crate::common::canonical_path;
 
 /// Information level of `NetUserEnum` with flags, full name and last logon.
 const USER_LEVEL: u32 = 3;
@@ -79,20 +77,6 @@ pub(crate) fn current_sid() -> Option<String> {
     // closing.
     let process = unsafe { GetCurrentProcess() };
     token_account(process).map(|(sid, _)| sid)
-}
-
-/// Security identifier and account name of the process `pid`.
-pub(crate) fn process_account(pid: u32) -> Option<(String, String)> {
-    // SAFETY: plain call with a process identifier; a null handle signals
-    // failure and is not used.
-    let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if process.is_null() {
-        return None;
-    }
-    let account = token_account(process);
-    // SAFETY: `process` was opened above and is closed once.
-    unsafe { CloseHandle(process) };
-    account
 }
 
 /// Names of the local groups of the account `user`, including groups it

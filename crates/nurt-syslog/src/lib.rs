@@ -4,8 +4,8 @@
 //! System log readers for Danaco Nurt.
 //!
 //! The crate reads systemd journal files on Linux directly from their file
-//! format, the unified log on macOS and the event log on Windows, and produces
-//! typed log records for the `logs` command. No external program is run.
+//! format, the unified log on macOS and the event log on Windows, and
+//! implements the `logs` command over them. No external program is run.
 //! Unsafe code is limited to operating system interfaces of the Windows and
 //! macOS readers.
 
@@ -21,4 +21,78 @@ pub mod journald;
 pub mod limits;
 pub mod merge;
 pub mod query;
+pub mod stage;
 pub mod unified;
+
+use std::sync::Arc;
+
+use nurt_contracts::error::Result;
+use nurt_contracts::stage::StageRegistrar;
+
+/// Adds the stage of the `logs` command to `registrar`.
+///
+/// The stage reads the log of the running system: the systemd journal on
+/// Linux, the event log on Windows and the unified log on macOS.
+///
+/// # Errors
+///
+/// Fails with the error of the registrar, such as `E_UNKNOWN_COMMAND` when
+/// `logs` is not in the catalog of the registry.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+///
+/// use nurt_contracts::stage::StageImpl;
+///
+/// let mut stages: Vec<Arc<dyn StageImpl>> = Vec::new();
+/// nurt_syslog::register(&mut stages)?;
+/// assert_eq!(stages.len(), 1);
+/// assert_eq!(stages[0].descriptor().command, "logs");
+/// # Ok::<(), nurt_contracts::error::Error>(())
+/// ```
+pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
+    registrar.register(Arc::new(stage::LogsStage::new()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use nurt_contracts::stage::StageImpl;
+
+    /// Names of the `[[command]]` tables of `catalog/system.toml`; the name
+    /// is the first `name` key of each table.
+    fn catalog_commands() -> Vec<String> {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/system.toml");
+        let text = std::fs::read_to_string(path).unwrap();
+        let mut names = Vec::new();
+        let mut in_command = false;
+        for line in text.lines().map(str::trim) {
+            if line.starts_with('[') {
+                in_command = line == "[[command]]";
+            } else if let (true, Some(value)) = (in_command, line.strip_prefix("name = ")) {
+                names.push(value.trim_matches('"').to_owned());
+                in_command = false;
+            }
+        }
+        names
+    }
+
+    #[test]
+    fn registers_the_logs_stage_of_the_catalog() {
+        let mut stages: Vec<Arc<dyn StageImpl>> = Vec::new();
+        super::register(&mut stages).unwrap();
+        let names: Vec<String> = stages
+            .iter()
+            .map(|stage| stage.descriptor().command)
+            .collect();
+        assert_eq!(names, [super::stage::COMMAND]);
+        let catalog = catalog_commands();
+        assert!(
+            names.iter().all(|name| catalog.contains(name)),
+            "{catalog:?}"
+        );
+    }
+}

@@ -158,7 +158,7 @@ mod procfs_tree {
     use nurt_contracts::value::Value;
 
     use super::super::{OpenFilesStage, SystemFileHolders};
-    use crate::host::SysRoot;
+    use crate::common::SysRoot;
     use crate::host::test_support::{self, FixedClock, TestHost};
 
     /// Boot time written to the synthetic `/proc/stat`.
@@ -370,8 +370,10 @@ mod procfs_tree {
     fn open_files_skips_vanished_processes_and_reports_missing_proc() {
         let tree = Tree::new();
         let file = tree.file("file.txt");
+        let source = crate::processes::source_under(&tree.sysroot());
         let holders =
-            super::super::linux::processes(&tree.sysroot(), &[super::super::Holder::new(999)]);
+            super::super::holder_processes(source.as_ref(), &[super::super::Holder::new(999)])
+                .unwrap();
         assert!(holders.is_empty());
         assert_eq!(
             super::super::linux::mapped_path("7f00-7f10 r--p 0 0:0 0"),

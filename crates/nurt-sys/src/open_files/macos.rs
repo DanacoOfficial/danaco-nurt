@@ -20,7 +20,7 @@ use nurt_contracts::error::Result;
 
 pub(crate) use super::process::processes;
 use super::{Access, Holder, Scan, Target};
-use crate::host::SysRoot;
+use crate::common::SysRoot;
 use crate::processes::macos::{c_text, list_pids, process_name};
 
 /// Flavor of `proc_pidinfo` listing the open descriptors.

@@ -21,7 +21,7 @@ use windows_sys::Win32::System::RestartManager::{
 pub(crate) use super::process::processes;
 use super::{Holder, Scan, Target};
 use crate::accounts::windows::wide;
-use crate::host::{REQUIRED_PRIVILEGE, SysRoot};
+use crate::common::{REQUIRED_PRIVILEGE, SysRoot};
 
 /// Largest number of files below a directory registered with one session.
 const MAX_RESOURCES: usize = 10_000;

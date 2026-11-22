@@ -16,10 +16,10 @@
 //! example `write "registry:/HKCU/Environment/NAME" "value" type: string`; on
 //! Linux and macOS by editing profile files with `write` or `replace`.
 
+#[cfg(any(windows, test))]
+mod persistent;
 #[cfg(test)]
 mod tests;
-#[cfg(windows)]
-mod windows;
 
 use std::ffi::OsString;
 
@@ -205,7 +205,7 @@ fn lossy(text: OsString) -> String {
 
 #[cfg(windows)]
 fn persistent_variables(scope: EnvironmentScope) -> Result<Vec<(String, String)>> {
-    windows::read_persistent(scope)
+    persistent::read_persistent(&crate::registry::RegistryProvider::system(), scope)
 }
 
 #[cfg(not(windows))]
