@@ -23,10 +23,13 @@ pub mod walk;
 
 mod commands {
     pub(crate) mod convert;
+    pub(crate) mod file_types;
     pub(crate) mod find;
     pub(crate) mod hash;
+    pub(crate) mod lines;
     pub(crate) mod list;
     pub(crate) mod read;
+    pub(crate) mod search;
 }
 
 /// Stage implementations of the commands of this crate.
@@ -42,8 +45,10 @@ pub fn stages() -> Vec<Arc<dyn StageImpl>> {
         commands::convert::stages(),
         commands::find::stages(),
         commands::hash::stages(),
+        commands::lines::stages(),
         commands::list::stages(),
         commands::read::stages(),
+        commands::search::stages(),
     ]
     .into_iter()
     .flatten()
