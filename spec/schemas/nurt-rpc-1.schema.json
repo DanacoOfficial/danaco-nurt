@@ -165,7 +165,7 @@
         "initialize": {"$ref": "#/$defs/initialize_result"},
         "run": {"$ref": "nurt-response-1.schema.json"},
         "page": {"$ref": "nurt-response-1.schema.json"},
-        "check": {"description": "The check result nurt-check/1 with the diagnostics of binding.", "allOf": [{"$ref": "nurt-check-1.schema.json"}], "type": "object", "required": ["diagnostics"], "properties": {"diagnostics": {"type": "array"}}},
+        "check": {"description": "The check result nurt-check/1 with the diagnostics of binding.", "allOf": [{"$ref": "nurt-check-1.schema.json"}], "type": "object", "required": ["diagnostics"], "properties": {"diagnostics": {"type": "array"}, "bound": {"description": "Bound tree nurt-bound/1 of the checked program.", "type": "object"}, "ast_hash": {"description": "Hash of the canonical syntax tree without positions.", "type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}},
         "parse": {"type": "object", "required": ["ast", "diagnostics"], "properties": {"ast": {"$ref": "nurt-ast-1.schema.json"}, "diagnostics": {"type": "array"}}},
         "print": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}},
         "correct": {"type": "object"},
