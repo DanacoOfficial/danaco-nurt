@@ -50,7 +50,10 @@ fn golden_files() -> Vec<(String, Vec<serde_json::Value>)> {
     let mut files: Vec<(String, Vec<serde_json::Value>)> = std::fs::read_dir(&directory)
         .unwrap_or_else(|error| panic!("cannot read {}: {error}", directory.display()))
         .map(|entry| entry.unwrap().path())
-        .filter(|path| path.extension().is_some_and(|extension| extension == "json"))
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "json")
+        })
         .map(|path| {
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
             let json: serde_json::Value =
@@ -63,7 +66,11 @@ fn golden_files() -> Vec<(String, Vec<serde_json::Value>)> {
         })
         .collect();
     files.sort_by(|left, right| left.0.cmp(&right.0));
-    assert!(!files.is_empty(), "no golden files in {}", directory.display());
+    assert!(
+        !files.is_empty(),
+        "no golden files in {}",
+        directory.display()
+    );
     files
 }
 
@@ -73,7 +80,11 @@ where
 {
     let value: T = serde_json::from_value(json.clone())
         .unwrap_or_else(|error| panic!("{label}: does not deserialize: {error}"));
-    assert_eq!(&serde_json::to_value(&value).unwrap(), json, "{label}: JSON round trip");
+    assert_eq!(
+        &serde_json::to_value(&value).unwrap(),
+        json,
+        "{label}: JSON round trip"
+    );
     let mut bytes = Vec::new();
     ciborium::ser::into_writer(&value, &mut bytes).unwrap();
     let back: T = ciborium::de::from_reader(bytes.as_slice())
@@ -83,7 +94,10 @@ where
 }
 
 fn check_schema(validator: &jsonschema::Validator, label: &str, json: &serde_json::Value) {
-    let errors: Vec<String> = validator.iter_errors(json).map(|error| error.to_string()).collect();
+    let errors: Vec<String> = validator
+        .iter_errors(json)
+        .map(|error| error.to_string())
+        .collect();
     assert!(errors.is_empty(), "{label}: schema violations: {errors:#?}");
 }
 
@@ -141,7 +155,10 @@ fn every_typed_kind_has_a_golden_record() {
         .filter(|kind| !covered.contains(kind))
         .map(|kind| kind.as_str())
         .collect();
-    assert!(missing.is_empty(), "record kinds without a golden record: {missing:?}");
+    assert!(
+        missing.is_empty(),
+        "record kinds without a golden record: {missing:?}"
+    );
 }
 
 /// Names in `input` and `output` of the catalog that are not record kinds.
@@ -159,17 +176,27 @@ fn catalog_record_kinds_are_defined() {
     let mut used = BTreeSet::new();
     for entry in entries {
         let path = entry.unwrap().path();
-        let is_group = path.extension().is_some_and(|extension| extension == "toml")
+        let is_group = path
+            .extension()
+            .is_some_and(|extension| extension == "toml")
             && path.file_name().is_some_and(|name| name != "_index.toml");
         if !is_group {
             continue;
         }
         let table: toml::Table = toml::from_str(&std::fs::read_to_string(&path).unwrap())
             .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-        let commands = table.get("command").and_then(toml::Value::as_array).cloned().unwrap_or_default();
+        let commands = table
+            .get("command")
+            .and_then(toml::Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         for command in commands {
             for key in ["input", "output"] {
-                let names = command.get(key).and_then(toml::Value::as_array).cloned().unwrap_or_default();
+                let names = command
+                    .get(key)
+                    .and_then(toml::Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
                 for name in names.iter().filter_map(toml::Value::as_str) {
                     if !NOT_RECORD_KINDS.contains(&name) {
                         used.insert(name.to_owned());
@@ -182,7 +209,13 @@ fn catalog_record_kinds_are_defined() {
     for name in used {
         let kind = RecordKind::from_str(&name)
             .unwrap_or_else(|_| panic!("record kind `{name}` of the catalog is not a RecordKind"));
-        assert!(TypedRecord::KINDS.contains(&kind), "record kind `{name}` has no typed structure");
-        assert!(covered.contains(&kind), "record kind `{name}` has no golden record");
+        assert!(
+            TypedRecord::KINDS.contains(&kind),
+            "record kind `{name}` has no typed structure"
+        );
+        assert!(
+            covered.contains(&kind),
+            "record kind `{name}` has no golden record"
+        );
     }
 }

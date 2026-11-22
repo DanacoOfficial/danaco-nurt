@@ -226,8 +226,8 @@
       "path": "service:nginx",
       "action": "state",
       "irreversible": "service_changed",
-      "before": {"t": "enum", "v": "stopped"},
-      "after": {"t": "enum", "v": "running"}
+      "before": "stopped",
+      "after": "running"
     }
   },
   {

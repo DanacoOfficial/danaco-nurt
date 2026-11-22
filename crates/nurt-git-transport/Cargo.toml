@@ -19,27 +19,32 @@ workspace = true
 
 [features]
 default = ["git-ssh"]
-git-ssh = ["dep:russh", "dep:tokio"]
+# The SSH client runs on a current-thread tokio runtime owned by this crate;
+# the rest of the engine stays synchronous.
+git-ssh = ["dep:russh", "dep:tokio", "dep:tokio-util"]
 testutil = ["dep:tempfile"]
 
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
-gix = { workspace = true, features = ["blocking-network-client", "sha256"] }
-gix-credentials = "0.42.1"
-gix-hash = "0.28.1"
-gix-object = "0.66.1"
-gix-pack = { version = "0.77.0", features = ["generate", "streaming-input"] }
-gix-packetline = { version = "0.24.1", features = ["blocking-io"] }
-gix-protocol = { version = "0.68.0", features = ["blocking-client"] }
-gix-quote = "0.10.1"
-gix-sec = "0.16.1"
-gix-transport = { version = "0.62.0", features = ["blocking-client", "http-client"] }
-gix-url = "0.40.1"
-gix-utils = "0.5.2"
+gix = { workspace = true }
+gix-credentials = { workspace = true }
+gix-hash = { workspace = true }
+gix-object = { workspace = true }
+gix-pack = { workspace = true }
+gix-packetline = { workspace = true }
+gix-protocol = { workspace = true }
+gix-quote = { workspace = true }
+gix-sec = { workspace = true }
+gix-transport = { workspace = true }
+gix-url = { workspace = true }
+gix-utils = { workspace = true }
 russh = { workspace = true, optional = true }
+ssh-key = { workspace = true }
 pgp = { workspace = true }
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = ["rt", "net", "io-util", "sync", "time"] }
+tokio-util = { workspace = true, optional = true }
+hmac = { workspace = true }
 ureq = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
@@ -55,10 +60,12 @@ rand = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true, optional = true }
 thiserror = { workspace = true }
-rusqlite = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Credentials"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { workspace = true }
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 zbus = { workspace = true }
@@ -67,3 +74,4 @@ zbus = { workspace = true }
 nurt-testkit = { workspace = true }
 tempfile = { workspace = true }
 proptest = { workspace = true }
+rcgen = { workspace = true }

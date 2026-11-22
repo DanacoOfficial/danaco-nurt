@@ -5,7 +5,12 @@
 //! safety of the interfaces, stable serialized names, path normalisation,
 //! content hashes and entity tags.
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "tests report failures by panicking"
+)]
 
 use nurt_contracts::fs::{
     AbsPath, ContentHash, Etag, FileId, FileKind, FileLock, FileMeta, Fs, FsError, FsErrorKind,
@@ -113,7 +118,7 @@ fn admission_skip_carries_a_report_reason() {
 }
 
 #[test]
-fn op_kind_constructors() {
+fn op_kind_constructors_set_command_and_action() {
     assert_eq!(OpKind::command("write").action, None);
     let stash = OpKind::with_action("git.stash", "push");
     assert_eq!(stash.command, "git.stash");
@@ -127,7 +132,7 @@ fn op_kind_constructors() {
 }
 
 #[test]
-fn content_hash_text_form() {
+fn content_hash_round_trips_through_its_text_form() {
     let text = format!("sha256:{}", "0123456789abcdef".repeat(4));
     let hash = ContentHash::parse(&text).unwrap();
     assert_eq!(hash.0[0], 0x01);
@@ -172,7 +177,7 @@ fn abs(path: &str) -> AbsPath {
 }
 
 #[test]
-fn abs_path_normalisation() {
+fn abs_path_is_normalised_lexically() {
     let path = abs("/home/user/./src/../README.md");
     assert_eq!(path.to_language_string(), at("/home/user/README.md"));
     assert_eq!(
@@ -216,7 +221,7 @@ fn abs_path_serializes_in_language_form() {
 }
 
 #[test]
-fn target_spec_json_shape() {
+fn target_spec_serializes_with_tagged_path_and_action() {
     let spec = TargetSpec {
         path: TargetPath::Fs(abs("/home/user/a.txt")),
         action: TargetAction::Rename {
@@ -268,7 +273,7 @@ fn sample_meta() -> FileMeta {
 }
 
 #[test]
-fn etag_matching_rule() {
+fn etags_match_on_size_time_identity_and_common_hash() {
     let meta = sample_meta();
     let tag = meta.etag();
     assert_eq!(tag.size, 12);
@@ -334,6 +339,10 @@ fn fs_error_kinds_map_to_language_codes() {
     assert!(error.to_string().starts_with("E_IN_USE (in_use) in rename"));
 }
 
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the constructor is reserved for journal implementations; this test checks the constructor itself"
+)]
 #[test]
 fn tx_scope_carries_operation_and_purpose() {
     let scope = TxScope::new_for_journal(OpId(7), ScopePurpose::Recovery);
@@ -343,7 +352,7 @@ fn tx_scope_carries_operation_and_purpose() {
 }
 
 #[test]
-fn schemas_are_generated() {
+fn schemas_describe_hash_and_path_strings() {
     let spec = serde_json::to_value(schemars::schema_for!(TargetSpec)).unwrap();
     assert!(spec.is_object());
     let hash = serde_json::to_value(schemars::schema_for!(ContentHash)).unwrap();

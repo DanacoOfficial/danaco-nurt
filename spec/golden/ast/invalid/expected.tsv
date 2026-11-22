@@ -1,0 +1,13 @@
+file	code	layer	reason
+bound-members.json	E_AST_SCHEMA	types	surface tree with the root members of a bound tree
+bound-stage-member.json	E_AST_SCHEMA	types	surface stage with the member effect
+empty-program.json	E_AST_SCHEMA	schema	program without statements
+flags-order.json	E_AST_SCHEMA	schema	regular expression flags not in the order imsx
+keyword-ident.json	E_AST_SCHEMA	schema	reserved word as an identifier
+negative-int.json	E_AST_SCHEMA	schema	negative integer literal
+newer-minor.json	E_AST_VERSION	types	newer minor version with an unknown node kind
+other-major.json	E_AST_VERSION	schema	unsupported major version
+path-node.json	E_AST_SCHEMA	types	node kind of the bound tree in a surface tree
+spread-outside-list.json	E_AST_SCHEMA	schema	spread outside a list
+unknown-member.json	E_AST_SCHEMA	types	unknown member of a node
+unsafe-int.json	E_AST_SCHEMA	schema	integer above 2^53 - 1

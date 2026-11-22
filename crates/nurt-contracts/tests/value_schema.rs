@@ -62,7 +62,18 @@ fn published_schema_matches_types() {
 fn schema_is_valid_json_schema() {
     let schema = generated_schema();
     jsonschema::validator_for(&schema).unwrap();
-    for name in ["Value", "Record", "TypedRecord", "Error", "ErrorCode", "Instant", "Range"] {
-        assert!(schema["$defs"].get(name).is_some(), "definition {name} is missing");
+    for name in [
+        "Value",
+        "Record",
+        "TypedRecord",
+        "Error",
+        "ErrorCode",
+        "Instant",
+        "Range",
+    ] {
+        assert!(
+            schema["$defs"].get(name).is_some(),
+            "definition {name} is missing"
+        );
     }
 }

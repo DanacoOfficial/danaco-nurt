@@ -1,0 +1,58 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "run",
+          "args": [
+            {
+              "name": "command",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "go"
+                  },
+                  {
+                    "t": "text",
+                    "v": "test"
+                  },
+                  {
+                    "t": "text",
+                    "v": "./..."
+                  }
+                ]
+              }
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "text",
+                "v": "/srv/app"
+              }
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "assert",
+            "args": [
+              {
+                "name": "exit_code",
+                "value": {
+                  "t": "int",
+                  "v": 0
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

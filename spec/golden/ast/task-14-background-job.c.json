@@ -1,0 +1,51 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "run",
+          "args": [
+            {
+              "name": "command",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "text",
+                    "v": "npm"
+                  },
+                  {
+                    "t": "text",
+                    "v": "run"
+                  },
+                  {
+                    "t": "text",
+                    "v": "build"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "cwd",
+              "value": {
+                "t": "text",
+                "v": "/srv/app"
+              }
+            },
+            {
+              "name": "background",
+              "value": {
+                "t": "bool",
+                "v": true
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}
