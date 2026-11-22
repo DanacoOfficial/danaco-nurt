@@ -313,6 +313,15 @@ enum Rule {
     FloatRounding,
 }
 
+impl Rule {
+    /// `true` for a rule whose matches depend on the float parsing of
+    /// `serde_json`, which a dependency may change with the `float_roundtrip`
+    /// feature, so that the rule need not match any file.
+    fn is_optional(&self) -> bool {
+        matches!(self, Rule::FloatRounding)
+    }
+}
+
 /// Relative difference of two floats that differ only by rounding.
 const FLOAT_ROUNDING: f64 = 1e-15;
 
@@ -528,10 +537,11 @@ fn check_format(format: &Format) {
             .collect::<Vec<_>>()
             .join("\n")
     );
-    let unused: Vec<&str> = rules
+    let unused: Vec<&str> = known
         .iter()
-        .filter(|(_, count)| **count == 0)
-        .map(|(id, _)| *id)
+        .zip(&used)
+        .filter(|(entry, count)| **count == 0 && !entry.rule.is_optional())
+        .map(|(entry, _)| entry.id.as_str())
         .collect();
     assert!(
         unused.is_empty(),

@@ -75,5 +75,5 @@ on every file and fail when its output differs from the record.
 | `toml-signed-nan` | `yq` | `yq` rejects `+nan` and `-nan` |
 | `toml-binary-integer` | `yq` | `yq` rejects integers with the `0b` prefix |
 | `toml-json-output` | `yq` | `yq` cannot write an infinite float as JSON |
-| `toml-float-rounding` | `yq` | `yq` writes some floats with a rounding error in the last digit |
+| `toml-float-rounding` | `yq` | a float read from the record may differ in the last digit, depending on the float parsing of the JSON reader |
 | `toml-dotted-keys-in-inline-table` | `yq` | `yq` drops all but the last of several dotted keys with a common prefix in an inline table |
