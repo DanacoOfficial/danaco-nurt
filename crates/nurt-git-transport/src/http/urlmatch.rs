@@ -8,6 +8,8 @@
 //! pattern must equal the user of the address. The longest path wins, then a
 //! pattern with a user name.
 
+use bstr::ByteSlice;
+
 /// Parts of an address used for matching.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UrlParts {
@@ -21,7 +23,7 @@ pub(crate) struct UrlParts {
 /// Quality of a match; a greater value is more specific.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Specificity {
-    path_len: usize,
+    path_length: usize,
     has_user: bool,
 }
 
@@ -70,17 +72,20 @@ impl UrlParts {
 
     /// How well the pattern `self` matches `url`; `None` when it does not.
     pub(crate) fn matches(&self, url: &Self) -> Option<Specificity> {
-        if self.scheme != url.scheme || self.port != url.port || !host_matches(&self.host, &url.host) {
+        if self.scheme != url.scheme
+            || self.port != url.port
+            || !host_matches(&self.host, &url.host)
+        {
             return None;
         }
-        if let Some(user) = &self.user {
-            if url.user.as_ref() != Some(user) {
-                return None;
-            }
+        if let Some(user) = &self.user
+            && url.user.as_ref() != Some(user)
+        {
+            return None;
         }
-        let path_len = path_match(&self.path, &url.path)?;
+        let path_length = path_match(&self.path, &url.path)?;
         Some(Specificity {
-            path_len,
+            path_length,
             has_user: self.user.is_some(),
         })
     }
@@ -115,22 +120,6 @@ fn path_match(pattern: &str, path: &str) -> Option<usize> {
     (rest.is_empty() || rest.starts_with('/')).then_some(pattern.len())
 }
 
-/// Selects the most specific of `patterns` matching `url`, returning its
-/// position; later patterns win ties, as later configuration entries do.
-pub(crate) fn best_match<'a>(patterns: impl IntoIterator<Item = &'a str>, url: &str) -> Option<usize> {
-    let url = UrlParts::parse(url)?;
-    let mut best: Option<(Specificity, usize)> = None;
-    for (index, pattern) in patterns.into_iter().enumerate() {
-        let Some(score) = UrlParts::parse(pattern).and_then(|p| p.matches(&url)) else {
-            continue;
-        };
-        if best.is_none_or(|(current, _)| score >= current) {
-            best = Some((score, index));
-        }
-    }
-    best.map(|(_, index)| index)
-}
-
 /// Whether `pattern` matches `url` at all.
 pub(crate) fn matches(pattern: &str, url: &str) -> bool {
     match (UrlParts::parse(pattern), UrlParts::parse(url)) {
@@ -139,40 +128,147 @@ pub(crate) fn matches(pattern: &str, url: &str) -> bool {
     }
 }
 
+/// Value of `<section>.<key>` from the most specific section applying to
+/// `url`, where `<section>.<url>.<key>` is more specific than `<section>.<key>`;
+/// later sections win ties.
+pub(crate) fn best_value(
+    config: &gix::config::File,
+    section: &str,
+    key: &str,
+    url: &str,
+) -> Option<String> {
+    let target = UrlParts::parse(url);
+    let mut best: Option<(Option<Specificity>, String)> = None;
+    for candidate in config.sections_by_name(section).into_iter().flatten() {
+        let score = match candidate.header().subsection_name() {
+            None => None,
+            Some(pattern) => {
+                let pattern = UrlParts::parse(&pattern.to_str_lossy());
+                match pattern.zip(target.as_ref()).and_then(|(p, u)| p.matches(u)) {
+                    Some(score) => Some(score),
+                    None => continue,
+                }
+            }
+        };
+        if let Some(value) = candidate.value(key)
+            && best.as_ref().is_none_or(|(current, _)| score >= *current)
+        {
+            best = Some((score, value.to_str_lossy().into_owned()));
+        }
+    }
+    best.map(|(_, value)| value)
+}
+
+/// All values of `<section>.<key>` from sections applying to `url`, in
+/// configuration order; an empty value clears the values before it.
+pub(crate) fn all_values(
+    config: &gix::config::File,
+    section: &str,
+    key: &str,
+    url: &str,
+) -> Vec<String> {
+    let mut out = Vec::new();
+    for candidate in config.sections_by_name(section).into_iter().flatten() {
+        if let Some(pattern) = candidate.header().subsection_name()
+            && !matches(&pattern.to_str_lossy(), url)
+        {
+            continue;
+        }
+        for value in candidate.values(key) {
+            if value.is_empty() {
+                out.clear();
+            } else {
+                out.push(value.to_str_lossy().into_owned());
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn config(text: &str) -> gix::config::File {
+        text.parse().expect("valid configuration")
+    }
+
     #[test]
     fn matches_scheme_host_port_and_path_components() {
-        assert!(matches("https://example.com", "https://example.com/org/repo.git"));
-        assert!(matches("https://example.com:443/org", "https://example.com/org/repo.git"));
-        assert!(!matches("https://example.com/or", "https://example.com/org/repo.git"));
+        assert!(matches(
+            "https://example.com",
+            "https://example.com/org/repo.git"
+        ));
+        assert!(matches(
+            "https://example.com:443/org",
+            "https://example.com/org/repo.git"
+        ));
+        assert!(!matches(
+            "https://example.com/or",
+            "https://example.com/org/repo.git"
+        ));
         assert!(!matches("http://example.com", "https://example.com/r"));
-        assert!(!matches("https://example.com:8443", "https://example.com/r"));
+        assert!(!matches(
+            "https://example.com:8443",
+            "https://example.com/r"
+        ));
     }
 
     #[test]
     fn matches_wildcard_host_labels() {
-        assert!(matches("https://*.example.com", "https://git.example.com/r"));
+        assert!(matches(
+            "https://*.example.com",
+            "https://git.example.com/r"
+        ));
         assert!(!matches("https://*.example.com", "https://example.com/r"));
-        assert!(matches("https://g*.example.com", "https://git.example.com/r"));
+        assert!(matches(
+            "https://g*.example.com",
+            "https://git.example.com/r"
+        ));
     }
 
     #[test]
     fn requires_equal_user_when_the_pattern_has_one() {
-        assert!(matches("https://bob@example.com", "https://bob:pw@example.com/r"));
-        assert!(!matches("https://bob@example.com", "https://alice@example.com/r"));
-        assert!(matches("https://example.com", "https://alice@example.com/r"));
+        assert!(matches(
+            "https://bob@example.com",
+            "https://bob:pw@example.com/r"
+        ));
+        assert!(!matches(
+            "https://bob@example.com",
+            "https://alice@example.com/r"
+        ));
+        assert!(matches(
+            "https://example.com",
+            "https://alice@example.com/r"
+        ));
     }
 
     #[test]
-    fn prefers_longer_path_then_user_then_later_entry() {
+    fn prefers_longer_path_then_user_then_later_section() {
         let url = "https://bob@example.com/org/repo";
-        assert_eq!(best_match(["https://example.com/org", "https://example.com"], url), Some(0));
-        assert_eq!(best_match(["https://bob@example.com", "https://example.com"], url), Some(0));
-        assert_eq!(best_match(["https://example.com", "https://example.com/"], url), Some(1));
-        assert_eq!(best_match(["https://other.com"], url), None);
-        assert_eq!(best_match(["https://example.com"], "/local/path"), None);
+        let longer = config(
+            "[s \"https://example.com/org\"]\n\tk = path\n[s \"https://example.com\"]\n\tk = host\n",
+        );
+        assert_eq!(best_value(&longer, "s", "k", url).as_deref(), Some("path"));
+        let user = config(
+            "[s \"https://bob@example.com\"]\n\tk = user\n[s \"https://example.com\"]\n\tk = host\n",
+        );
+        assert_eq!(best_value(&user, "s", "k", url).as_deref(), Some("user"));
+        let later = config(
+            "[s \"https://example.com\"]\n\tk = first\n[s \"https://example.com/\"]\n\tk = second\n",
+        );
+        assert_eq!(best_value(&later, "s", "k", url).as_deref(), Some("second"));
+        let plain = config("[s]\n\tk = plain\n[s \"https://other.com\"]\n\tk = other\n");
+        assert_eq!(best_value(&plain, "s", "k", url).as_deref(), Some("plain"));
+        assert_eq!(best_value(&plain, "s", "missing", url), None);
+    }
+
+    #[test]
+    fn collects_values_of_matching_sections_in_order() {
+        let text = "[s]\n\tk = a\n[s \"https://other.com\"]\n\tk = b\n[s \"https://example.com\"]\n\tk = c\n";
+        assert_eq!(
+            all_values(&config(text), "s", "k", "https://example.com/r"),
+            ["a", "c"]
+        );
     }
 }

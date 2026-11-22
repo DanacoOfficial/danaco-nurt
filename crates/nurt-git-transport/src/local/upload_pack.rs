@@ -23,6 +23,9 @@ use super::objects::{self, FetchRequest};
 /// Buffer of the response writer; responses are flushed per section.
 const WRITE_BUFFER: usize = 64 * 1024;
 
+/// Longest chain of symbolic references followed, as in `git`.
+const MAX_SYMREF_DEPTH: usize = 5;
+
 /// One command of the client.
 #[derive(Debug, Default)]
 struct Command {
@@ -48,7 +51,11 @@ fn data_line(out: &mut impl Write, text: &str) -> io::Result<()> {
 
 /// Serves `repo` on the pair of streams until the client ends the
 /// interaction or closes its side.
-pub(crate) fn serve(repo: &gix::Repository, input: impl Read, output: impl Write) -> io::Result<()> {
+pub(crate) fn serve(
+    repo: &gix::Repository,
+    input: impl Read,
+    output: impl Write,
+) -> io::Result<()> {
     let mut out = BufWriter::with_capacity(WRITE_BUFFER, output);
     let mut lines = StreamingPeekableIter::new(input, &[PacketLineRef::Flush], false);
     advertise(repo, &mut out)?;
@@ -73,7 +80,10 @@ pub(crate) fn serve(repo: &gix::Repository, input: impl Read, output: impl Write
 
 fn advertise(repo: &gix::Repository, out: &mut impl Write) -> io::Result<()> {
     data_line(out, "version 2\n")?;
-    data_line(out, &format!("agent=git/nurt-{}\n", env!("CARGO_PKG_VERSION")))?;
+    data_line(
+        out,
+        &format!("agent=git/nurt-{}\n", env!("CARGO_PKG_VERSION")),
+    )?;
     data_line(out, "ls-refs=unborn\n")?;
     data_line(out, "fetch=shallow\n")?;
     data_line(out, &format!("object-format={}\n", repo.object_hash()))?;
@@ -92,7 +102,10 @@ fn read_command<R: Read>(lines: &mut StreamingPeekableIter<R>) -> io::Result<Opt
         any = true;
         match line {
             PacketLineRef::Data(data) => {
-                let text = data.trim_end_with(|c| c == '\n').to_str_lossy().into_owned();
+                let text = data
+                    .trim_end_with(|c| c == '\n')
+                    .to_str_lossy()
+                    .into_owned();
                 if in_arguments {
                     command.arguments.push(text);
                 } else if let Some(name) = text.strip_prefix("command=") {
@@ -115,7 +128,12 @@ fn resolve_symbolic(repo: &gix::Repository, name: &str) -> Option<ObjectId> {
         if let Some(id) = current.target().try_id() {
             return Some(id.to_owned());
         }
-        let next = current.target().try_name()?.as_bstr().to_str_lossy().into_owned();
+        let next = current
+            .target()
+            .try_name()?
+            .as_bstr()
+            .to_str_lossy()
+            .into_owned();
         current = repo.find_reference(next.as_str()).ok()?;
     }
     None
@@ -150,7 +168,8 @@ fn advertised_refs(repo: &gix::Repository) -> io::Result<Vec<Advertised>> {
         .all()
         .map_err(|e| protocol_error(format!("cannot list references: {e}")))?;
     for reference in all {
-        let reference = reference.map_err(|e| protocol_error(format!("cannot read a reference: {e}")))?;
+        let reference =
+            reference.map_err(|e| protocol_error(format!("cannot read a reference: {e}")))?;
         let name = reference.name().as_bstr().to_str_lossy().into_owned();
         let symref = reference
             .target()
@@ -175,7 +194,10 @@ fn ls_refs(repo: &gix::Repository, arguments: &[String], out: &mut impl Write) -
     let symrefs = arguments.iter().any(|a| a == "symrefs");
     let peel = arguments.iter().any(|a| a == "peel");
     let unborn = arguments.iter().any(|a| a == "unborn");
-    let prefixes: Vec<&str> = arguments.iter().filter_map(|a| a.strip_prefix("ref-prefix ")).collect();
+    let prefixes: Vec<&str> = arguments
+        .iter()
+        .filter_map(|a| a.strip_prefix("ref-prefix "))
+        .collect();
     for reference in advertised_refs(repo)? {
         if !prefixes.is_empty() && !prefixes.iter().any(|p| reference.name.starts_with(p)) {
             continue;
@@ -198,9 +220,12 @@ fn ls_refs(repo: &gix::Repository, arguments: &[String], out: &mut impl Write) -
 }
 
 fn parse_id(repo: &gix::Repository, text: &str) -> io::Result<ObjectId> {
-    let id = ObjectId::from_hex(text.as_bytes()).map_err(|_| protocol_error(format!("invalid object id '{text}'")))?;
+    let id = ObjectId::from_hex(text.as_bytes())
+        .map_err(|_| protocol_error(format!("invalid object id '{text}'")))?;
     if id.kind() != repo.object_hash() {
-        return Err(protocol_error(format!("object id '{text}' uses another hash algorithm")));
+        return Err(protocol_error(format!(
+            "object id '{text}' uses another hash algorithm"
+        )));
     }
     Ok(id)
 }
@@ -222,7 +247,11 @@ fn parse_fetch(repo: &gix::Repository, arguments: &[String]) -> io::Result<Fetch
                 request.deepen = Some(depth);
             }
             "thin-pack" | "ofs-delta" | "no-progress" => {}
-            other => return Err(protocol_error(format!("upload-pack: unsupported fetch argument '{other}'"))),
+            other => {
+                return Err(protocol_error(format!(
+                    "upload-pack: unsupported fetch argument '{other}'"
+                )));
+            }
         }
     }
     if request.wants.is_empty() {
@@ -231,7 +260,12 @@ fn parse_fetch(repo: &gix::Repository, arguments: &[String]) -> io::Result<Fetch
     Ok(request)
 }
 
-fn fetch(repo: &gix::Repository, arguments: &[String], common: &mut Vec<ObjectId>, out: &mut impl Write) -> io::Result<()> {
+fn fetch(
+    repo: &gix::Repository,
+    arguments: &[String],
+    common: &mut Vec<ObjectId>,
+    out: &mut impl Write,
+) -> io::Result<()> {
     let request = parse_fetch(repo, arguments)?;
     let mut acknowledged = Vec::new();
     for have in &request.haves {

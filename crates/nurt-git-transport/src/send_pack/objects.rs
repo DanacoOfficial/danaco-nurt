@@ -65,7 +65,7 @@ struct Walk<'a> {
     out: Vec<ObjectId>,
 }
 
-impl Walk<'_> {
+impl<'a> Walk<'a> {
     fn classify_tip(
         &mut self,
         tip: ObjectId,
@@ -78,10 +78,7 @@ impl Walk<'_> {
             match object.kind {
                 Kind::Tag => {
                     self.emit(id);
-                    id = object
-                        .try_to_tag_ref()
-                        .map_err(|_| missing(id))?
-                        .target();
+                    id = object.try_to_tag_ref().map_err(|_| missing(id))?.target();
                 }
                 Kind::Commit => {
                     commits.push(id);
@@ -201,7 +198,7 @@ impl Walk<'_> {
         }
     }
 
-    fn find(&self, id: ObjectId) -> Result<gix::Object<'_>> {
+    fn find(&self, id: ObjectId) -> Result<gix::Object<'a>> {
         self.repo.find_object(id).map_err(|_| missing(id))
     }
 
@@ -240,12 +237,25 @@ mod tests {
     fn sends_only_objects_unknown_to_the_remote() {
         let fixture = Fixture::new();
         let base = fixture.commit("main", &[("a.txt", "one\n"), ("dir/b.txt", "two\n")], &[]);
-        let next = fixture.commit("main", &[("a.txt", "one\n"), ("dir/b.txt", "three\n")], &[base]);
+        let next = fixture.commit(
+            "main",
+            &[("a.txt", "one\n"), ("dir/b.txt", "three\n")],
+            &[base],
+        );
         let repo = fixture.repo();
         let all = objects_to_send(&repo, &[next], &[], &AtomicBool::new(false)).unwrap();
-        let incremental = objects_to_send(&repo, &[next], &[base], &AtomicBool::new(false)).unwrap();
-        assert_eq!(all.len(), 8);
-        assert_eq!(incremental.len(), 4, "commit, root tree, dir tree, new blob");
+        let incremental =
+            objects_to_send(&repo, &[next], &[base], &AtomicBool::new(false)).unwrap();
+        assert_eq!(
+            all.len(),
+            9,
+            "two commits, two root trees, two dir trees, three blobs"
+        );
+        assert_eq!(
+            incremental.len(),
+            4,
+            "commit, root tree, dir tree, new blob"
+        );
         assert_eq!(incremental[0], next);
         let none = objects_to_send(&repo, &[next], &[next], &AtomicBool::new(false)).unwrap();
         assert!(none.is_empty());
@@ -258,7 +268,8 @@ mod tests {
         let tag = fixture.tag("v1", base);
         let repo = fixture.repo();
         let unknown = ObjectId::from_bytes_or_panic(&[9; 20]);
-        let objects = objects_to_send(&repo, &[tag], &[unknown, tag], &AtomicBool::new(false)).unwrap();
+        let objects =
+            objects_to_send(&repo, &[tag], &[unknown, tag], &AtomicBool::new(false)).unwrap();
         assert_eq!(objects[0], tag);
         let objects = objects_to_send(&repo, &[tag], &[unknown], &AtomicBool::new(false)).unwrap();
         assert_eq!(objects.len(), 4);
@@ -286,7 +297,12 @@ mod tests {
         fixture.write_blob("loose\n");
         let base = fixture.commit("main", &[("a.txt", "one\n")], &[]);
         let repo = fixture.repo();
-        let tree = repo.find_object(base).unwrap().try_to_commit_ref().unwrap().tree();
+        let tree = repo
+            .find_object(base)
+            .unwrap()
+            .try_to_commit_ref()
+            .unwrap()
+            .tree();
         let objects = objects_to_send(&repo, &[blob, tree], &[], &AtomicBool::new(false)).unwrap();
         assert_eq!(objects.len(), 3);
     }

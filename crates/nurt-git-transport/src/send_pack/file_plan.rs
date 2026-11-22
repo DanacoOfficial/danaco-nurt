@@ -171,8 +171,7 @@ impl FilePlan {
             self.ensure_dirs(root, parent)?;
         }
         let target = self.push_target(file, TargetAction::Create, Expect::Absent)?;
-        self.steps
-            .push((Phase::Commit, Step::Write(target, bytes)));
+        self.steps.push((Phase::Commit, Step::Write(target, bytes)));
         Ok(())
     }
 
@@ -237,9 +236,8 @@ impl FilePlan {
     }
 
     fn push_target(&mut self, path: &Path, action: TargetAction, expect: Expect) -> Result<u32> {
-        let index = u32::try_from(self.targets.len()).map_err(|_| {
-            Error::new(ErrorCode::Internal, "the plan has too many targets")
-        })?;
+        let index = u32::try_from(self.targets.len())
+            .map_err(|_| Error::new(ErrorCode::Internal, "the plan has too many targets"))?;
         self.targets.push(TargetSpec {
             path: TargetPath::Fs(abs(path)?),
             action,
@@ -277,9 +275,12 @@ pub fn preserve_and_apply(tx: &mut dyn MutationTx, plans: &[&FilePlan]) -> Resul
 fn apply_step(tx: &mut dyn MutationTx, first: TargetIndex, step: &Step) -> Result<()> {
     let at = |offset: u32| TargetIndex(first.0 + offset);
     let result = match step {
-        Step::CreateDir(target) => tx.apply(at(*target), Mutation::CreateDir {
-            mode: DIRECTORY_MODE,
-        }),
+        Step::CreateDir(target) => tx.apply(
+            at(*target),
+            Mutation::CreateDir {
+                mode: DIRECTORY_MODE,
+            },
+        ),
         Step::Write(target, bytes) => tx.apply(at(*target), Mutation::WriteBytes(bytes.clone())),
         Step::Rename(target) => tx.apply(at(*target), Mutation::Rename),
         Step::Remove(target) => tx.apply(at(*target), Mutation::Remove),
@@ -345,10 +346,14 @@ mod tests {
         std::fs::create_dir(&root).unwrap();
         let file = root.join("refs").join("heads").join("main");
         let mut plan = FilePlan::new();
-        plan.replace_locked(&root, &file, b"new\n".to_vec()).unwrap();
+        plan.replace_locked(&root, &file, b"new\n".to_vec())
+            .unwrap();
         plan.append(&root, &root.join("logs").join("x"), b"line\n".to_vec())
             .unwrap();
-        assert_eq!(plan.changed_files(), vec![file.clone(), root.join("logs").join("x")]);
+        assert_eq!(
+            plan.changed_files(),
+            vec![file.clone(), root.join("logs").join("x")]
+        );
         let mut tx = RecordingTx::new();
         preserve_and_apply(&mut tx, &[&plan]).unwrap();
         assert_eq!(std::fs::read(&file).unwrap(), b"new\n");
@@ -367,13 +372,18 @@ mod tests {
         let mut plan = FilePlan::new();
         let error = plan.replace_locked(&root, &file, Vec::new()).unwrap_err();
         assert_eq!(error.code(), ErrorCode::GitLocked);
-        assert_eq!(plan.delete(&file, Expect::Unchecked).unwrap_err().code(), ErrorCode::GitLocked);
+        assert_eq!(
+            plan.delete(&file, Expect::Unchecked).unwrap_err().code(),
+            ErrorCode::GitLocked
+        );
         std::fs::write(root.join("a"), b"x").unwrap();
         let error = plan
             .replace_locked(&root, &root.join("a").join("b"), Vec::new())
             .unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("name_conflict"));
-        let error = plan.replace_locked(&root, Path::new("relative"), Vec::new()).unwrap_err();
+        let error = plan
+            .replace_locked(&root, Path::new("relative"), Vec::new())
+            .unwrap_err();
         assert_eq!(error.code(), ErrorCode::Io);
         assert!(plan.is_empty());
         let mut tx = RecordingTx::new();
@@ -387,7 +397,8 @@ mod tests {
         let file = root.join("main");
         std::fs::write(&file, b"old\n").unwrap();
         let mut plan = FilePlan::new();
-        plan.replace_locked(&root, &file, b"new\n".to_vec()).unwrap();
+        plan.replace_locked(&root, &file, b"new\n".to_vec())
+            .unwrap();
         let lock = lock_path(&file);
         plan.check_when_locked(Box::new(move || {
             if lock.exists() {
@@ -404,7 +415,8 @@ mod tests {
         assert!(!lock_path(&file).exists());
 
         let mut plan = FilePlan::new();
-        plan.replace_locked(&root, &file, b"new\n".to_vec()).unwrap();
+        plan.replace_locked(&root, &file, b"new\n".to_vec())
+            .unwrap();
         std::fs::write(lock_path(&file), b"").unwrap();
         let mut tx = RecordingTx::new();
         let error = preserve_and_apply(&mut tx, &[&plan]).unwrap_err();

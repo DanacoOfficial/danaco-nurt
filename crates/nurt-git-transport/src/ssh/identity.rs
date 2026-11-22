@@ -121,7 +121,11 @@ pub(crate) fn load_key_file(path: &Path, passphrase: Option<&str>) -> Option<Key
 }
 
 /// Orders the keys as OpenSSH does.
-pub(crate) fn plan(files: Vec<KeyFile>, agent_keys: Vec<(PublicKey, String)>, identities_only: bool) -> Identities {
+pub(crate) fn plan(
+    files: Vec<KeyFile>,
+    agent_keys: Vec<(PublicKey, String)>,
+    identities_only: bool,
+) -> Identities {
     let mut identities = Identities::default();
     let mut files: Vec<Option<KeyFile>> = files.into_iter().map(Some).collect();
     for (key, comment) in agent_keys {
@@ -133,15 +137,22 @@ pub(crate) fn plan(files: Vec<KeyFile>, agent_keys: Vec<(PublicKey, String)>, id
         match matching {
             Some(slot) => {
                 *slot = None;
-                identities.credentials.push(Credential::Agent { key, comment });
+                identities
+                    .credentials
+                    .push(Credential::Agent { key, comment });
             }
-            None if !identities_only => identities.credentials.push(Credential::Agent { key, comment }),
+            None if !identities_only => identities
+                .credentials
+                .push(Credential::Agent { key, comment }),
             None => {}
         }
     }
     for file in files.into_iter().flatten() {
         match file.state {
-            KeyState::Ready(key) => identities.credentials.push(Credential::File { path: file.path, key }),
+            KeyState::Ready(key) => identities.credentials.push(Credential::File {
+                path: file.path,
+                key,
+            }),
             KeyState::Locked => identities.locked.push(file.path),
             KeyState::Unsupported(reason) => identities.unsupported.push((file.path, reason)),
         }
@@ -163,16 +174,22 @@ pub(crate) fn read_passphrase_file(path: &Path, home: &Path) -> Result<String> {
         )
         .with_problem("passphrase_file")
     };
-    let metadata = std::fs::metadata(path).map_err(|err| failure(format!("cannot be read: {err}")))?;
+    let metadata =
+        std::fs::metadata(path).map_err(|err| failure(format!("cannot be read: {err}")))?;
     check_permissions(path, &metadata, home).map_err(|reason| {
         failure(reason).with_fix(format!("run [\"chmod\", \"600\", \"{}\"]", path.display()))
     })?;
-    let text = std::fs::read_to_string(path).map_err(|err| failure(format!("cannot be read: {err}")))?;
+    let text =
+        std::fs::read_to_string(path).map_err(|err| failure(format!("cannot be read: {err}")))?;
     Ok(text.lines().next().unwrap_or_default().to_owned())
 }
 
 #[cfg(unix)]
-fn check_permissions(_path: &Path, metadata: &std::fs::Metadata, home: &Path) -> std::result::Result<(), String> {
+fn check_permissions(
+    _path: &Path,
+    metadata: &std::fs::Metadata,
+    home: &Path,
+) -> std::result::Result<(), String> {
     use std::os::unix::fs::MetadataExt;
     if metadata.mode() & GROUP_OTHER_BITS != 0 {
         return Err("is accessible to other accounts; allow access to the owner only".to_owned());
@@ -185,13 +202,20 @@ fn check_permissions(_path: &Path, metadata: &std::fs::Metadata, home: &Path) ->
 }
 
 #[cfg(not(unix))]
-fn check_permissions(_path: &Path, _metadata: &std::fs::Metadata, _home: &Path) -> std::result::Result<(), String> {
+fn check_permissions(
+    _path: &Path,
+    _metadata: &std::fs::Metadata,
+    _home: &Path,
+) -> std::result::Result<(), String> {
     Ok(())
 }
 
 /// Connects to the agent selected by `IdentityAgent`; `None` when no agent
 /// is reachable.
-pub(crate) async fn connect_agent(setting: &AgentSetting, auth_sock: Option<&Path>) -> Option<Agent> {
+pub(crate) async fn connect_agent(
+    setting: &AgentSetting,
+    auth_sock: Option<&Path>,
+) -> Option<Agent> {
     let path = match setting {
         AgentSetting::Disabled => return None,
         AgentSetting::Path(path) => Some(path.as_path()),
@@ -208,14 +232,20 @@ async fn connect_platform_agent(path: Option<&Path>) -> Option<Agent> {
 
 #[cfg(windows)]
 async fn connect_platform_agent(path: Option<&Path>) -> Option<Agent> {
-    let pipe = path.map_or_else(|| std::ffi::OsString::from(WINDOWS_AGENT_PIPE), |path| path.as_os_str().to_owned());
+    let pipe = path.map_or_else(
+        || std::ffi::OsString::from(WINDOWS_AGENT_PIPE),
+        |path| path.as_os_str().to_owned(),
+    );
     if let Ok(client) = AgentClient::connect_named_pipe(&pipe).await {
         return Some(client.dynamic());
     }
     if path.is_some() {
         return None;
     }
-    AgentClient::connect_pageant().await.ok().map(AgentClient::dynamic)
+    AgentClient::connect_pageant()
+        .await
+        .ok()
+        .map(AgentClient::dynamic)
 }
 
 #[cfg(not(any(unix, windows)))]
@@ -250,7 +280,9 @@ mod tests {
     fn write_key(dir: &Path, name: &str, seed: u8, passphrase: Option<&str>) -> PathBuf {
         let mut key = private(seed);
         if let Some(passphrase) = passphrase {
-            key = key.encrypt(&mut russh::keys::key::safe_rng(), passphrase).unwrap();
+            key = key
+                .encrypt(&mut russh::keys::key::safe_rng(), passphrase)
+                .unwrap();
         }
         let path = dir.join(name);
         std::fs::write(&path, key.to_openssh(LineEnding::LF).unwrap().as_bytes()).unwrap();
@@ -263,7 +295,10 @@ mod tests {
         let path = write_key(dir.path(), "id_ed25519", 1, None);
         let file = load_key_file(&path, None).unwrap();
         assert!(matches!(file.state, KeyState::Ready(_)));
-        assert_eq!(file.public.unwrap().key_data(), private(1).public_key().key_data());
+        assert_eq!(
+            file.public.unwrap().key_data(),
+            private(1).public_key().key_data()
+        );
     }
 
     #[test]
@@ -292,7 +327,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("id_ecdsa");
         std::fs::write(&path, "not a key").unwrap();
-        assert!(matches!(load_key_file(&path, None).unwrap().state, KeyState::Unsupported(_)));
+        assert!(matches!(
+            load_key_file(&path, None).unwrap().state,
+            KeyState::Unsupported(_)
+        ));
     }
 
     fn ready_file(seed: u8) -> KeyFile {
@@ -330,7 +368,9 @@ mod tests {
         ];
         let identities = plan(vec![ready_file(1)], agent, true);
         assert_eq!(identities.credentials.len(), 1);
-        assert!(matches!(&identities.credentials[0], Credential::Agent { comment, .. } if comment == "laptop"));
+        assert!(
+            matches!(&identities.credentials[0], Credential::Agent { comment, .. } if comment == "laptop")
+        );
     }
 
     #[test]
@@ -358,10 +398,18 @@ mod tests {
             public: Some(private(3).public_key().clone()),
             state: KeyState::Locked,
         };
-        let identities = plan(vec![locked], vec![(private(3).public_key().clone(), String::new())], true);
+        let identities = plan(
+            vec![locked],
+            vec![(private(3).public_key().clone(), String::new())],
+            true,
+        );
         assert_eq!(identities.credentials.len(), 1);
         assert!(identities.locked.is_empty());
-        assert!(identities.credentials[0].describe().starts_with("agent SHA256:"));
+        assert!(
+            identities.credentials[0]
+                .describe()
+                .starts_with("agent SHA256:")
+        );
     }
 
     #[cfg(unix)]
@@ -376,7 +424,10 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::GitAuth);
         assert!(!error.data().fix.is_empty());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
-        assert_eq!(read_passphrase_file(&path, dir.path()).unwrap(), "secret words");
+        assert_eq!(
+            read_passphrase_file(&path, dir.path()).unwrap(),
+            "secret words"
+        );
     }
 
     #[test]

@@ -94,12 +94,21 @@ fn add_tree(
 }
 
 /// Every tree and blob reachable from the trees of `commits`.
-fn reachable_from_trees(repo: &gix::Repository, commits: &HashSet<ObjectId>) -> io::Result<HashSet<ObjectId>> {
+fn reachable_from_trees(
+    repo: &gix::Repository,
+    commits: &HashSet<ObjectId>,
+) -> io::Result<HashSet<ObjectId>> {
     let mut seen = HashSet::new();
     let mut ignored = Vec::new();
     let none = HashSet::new();
     for commit in commits {
-        add_tree(repo, tree_of(repo, *commit)?, &none, &mut seen, &mut ignored)?;
+        add_tree(
+            repo,
+            tree_of(repo, *commit)?,
+            &none,
+            &mut seen,
+            &mut ignored,
+        )?;
     }
     Ok(seen)
 }
@@ -180,7 +189,11 @@ fn walk_shallow(
 }
 
 /// Commits reachable from the wants and not from the commits the client has.
-fn walk_incremental(repo: &gix::Repository, wants: &[ObjectId], common: &[ObjectId]) -> io::Result<Vec<ObjectId>> {
+fn walk_incremental(
+    repo: &gix::Repository,
+    wants: &[ObjectId],
+    common: &[ObjectId],
+) -> io::Result<Vec<ObjectId>> {
     if wants.is_empty() {
         return Ok(Vec::new());
     }
@@ -189,8 +202,11 @@ fn walk_incremental(repo: &gix::Repository, wants: &[ObjectId], common: &[Object
         .with_hidden(common.iter().copied())
         .all()
         .map_err(|e| invalid(format!("cannot walk history: {e}")))?;
-    walk.map(|info| info.map(|info| info.id).map_err(|e| invalid(format!("cannot walk history: {e}"))))
-        .collect()
+    walk.map(|info| {
+        info.map(|info| info.id)
+            .map_err(|e| invalid(format!("cannot walk history: {e}")))
+    })
+    .collect()
 }
 
 /// Annotated tags whose peeled target is among `sent`, for `include-tag`.
@@ -236,7 +252,11 @@ fn included_tags(
 }
 
 /// Determines the objects for `request`, given the commits both sides have.
-pub(crate) fn select(repo: &gix::Repository, request: &FetchRequest, common: &[ObjectId]) -> io::Result<Selection> {
+pub(crate) fn select(
+    repo: &gix::Repository,
+    request: &FetchRequest,
+    common: &[ObjectId],
+) -> io::Result<Selection> {
     let mut objects = Vec::new();
     let mut seen = HashSet::new();
     let want_commits = resolve_wants(repo, &request.wants, &mut objects, &mut seen)?;
@@ -244,7 +264,8 @@ pub(crate) fn select(repo: &gix::Repository, request: &FetchRequest, common: &[O
     let mut selection = Selection::default();
     let (commits, exclude) = match request.deepen {
         Some(depth) => {
-            let (commits, boundary, unshallow) = walk_shallow(repo, &want_commits, depth.max(1), &client_shallow)?;
+            let (commits, boundary, unshallow) =
+                walk_shallow(repo, &want_commits, depth.max(1), &client_shallow)?;
             selection.shallow = boundary;
             selection.unshallow = unshallow;
             (commits, HashSet::new())
@@ -257,7 +278,11 @@ pub(crate) fn select(repo: &gix::Repository, request: &FetchRequest, common: &[O
                 if client_shallow.contains(commit) {
                     continue;
                 }
-                edge.extend(parents(repo, *commit)?.into_iter().filter(|p| !sent.contains(p)));
+                edge.extend(
+                    parents(repo, *commit)?
+                        .into_iter()
+                        .filter(|p| !sent.contains(p)),
+                );
             }
             (commits, reachable_from_trees(repo, &edge)?)
         }
@@ -266,7 +291,13 @@ pub(crate) fn select(repo: &gix::Repository, request: &FetchRequest, common: &[O
         if seen.insert(*commit) {
             objects.push(*commit);
         }
-        add_tree(repo, tree_of(repo, *commit)?, &exclude, &mut seen, &mut objects)?;
+        add_tree(
+            repo,
+            tree_of(repo, *commit)?,
+            &exclude,
+            &mut seen,
+            &mut objects,
+        )?;
     }
     if request.include_tag {
         let sent: HashSet<ObjectId> = objects.iter().copied().collect();
@@ -284,7 +315,11 @@ struct Sideband<W> {
 impl<W: Write> Write for Sideband<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         for chunk in buf.chunks(SIDEBAND_CHUNK) {
-            gix_packetline::blocking_io::encode::band_to_write(gix_packetline::Channel::Data, chunk, &mut self.out)?;
+            gix_packetline::blocking_io::encode::band_to_write(
+                gix_packetline::Channel::Data,
+                chunk,
+                &mut self.out,
+            )?;
         }
         Ok(buf.len())
     }
@@ -295,7 +330,11 @@ impl<W: Write> Write for Sideband<W> {
 }
 
 /// Writes a pack with `objects` to `out`, framed in side-band channel 1.
-pub(crate) fn write_pack(repo: &gix::Repository, objects: Vec<ObjectId>, out: impl Write) -> io::Result<()> {
+pub(crate) fn write_pack(
+    repo: &gix::Repository,
+    objects: Vec<ObjectId>,
+    out: impl Write,
+) -> io::Result<()> {
     let to_io = |e: gix::error::Error| io::Error::other(e.to_string());
     let db = repo.objects.clone().into_arc()?.into_inner();
     let interrupt = AtomicBool::new(false);
@@ -308,13 +347,16 @@ pub(crate) fn write_pack(repo: &gix::Repository, objects: Vec<ObjectId>, out: im
         output::count::objects::ObjectExpansion::AsIs,
     )
     .map_err(to_io)?;
-    let entries = u32::try_from(counts.len()).map_err(|_| invalid("too many objects for one pack".to_owned()))?;
+    let entries = u32::try_from(counts.len())
+        .map_err(|_| invalid("too many objects for one pack".to_owned()))?;
     let options = output::entry::iter_from_counts::Options {
         thread_limit: Some(1),
         allow_thin_pack: false,
         ..Default::default()
     };
-    let chunks = output::entry::iter_from_counts(counts, db, Box::new(gix::progress::Discard), options).map_err(to_io)?;
+    let chunks =
+        output::entry::iter_from_counts(counts, db, Box::new(gix::progress::Discard), options)
+            .map_err(to_io)?;
     let mut sideband = Sideband { out };
     let writer = output::bytes::FromEntriesIter::new(
         chunks.map(|chunk| chunk.map(|(_, entries)| entries)),

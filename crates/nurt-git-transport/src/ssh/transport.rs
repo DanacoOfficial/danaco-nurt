@@ -124,14 +124,18 @@ impl RemoteDiagnostics {
 /// use gix_transport::Protocol;
 /// use nurt_git_transport::ssh::{connect, SshOptions};
 ///
-/// let url = gix_url::parse("git@git.example.com:team/repo.git".into()).expect("valid url");
-/// let options = SshOptions::new("/home/alice", "alice");
+/// let url = gix_url::parse(bstr::BStr::new("git@git.example.com:team/repo.git")).expect("valid url");
+/// let options = SshOptions::new("/home/user", "user");
 /// if let Ok(mut transport) = connect(&url, Protocol::default(), &options) {
 ///     let additions = transport.take_host_key_additions();
 ///     assert!(additions.iter().all(|addition| addition.fingerprint.starts_with("SHA256:")));
 /// }
 /// ```
-pub fn connect(url: &gix_url::Url, desired_version: Protocol, options: &SshOptions) -> Result<SshTransport> {
+pub fn connect(
+    url: &gix_url::Url,
+    desired_version: Protocol,
+    options: &SshOptions,
+) -> Result<SshTransport> {
     let target = Target::from_url(url)?;
     let sources = ConfigSources {
         home: options.home.clone(),
@@ -152,13 +156,17 @@ pub fn connect(url: &gix_url::Url, desired_version: Protocol, options: &SshOptio
     let mut notices: Vec<SshNotice> = options
         .ignored_ssh_command
         .iter()
-        .map(|source| SshNotice::SshCommandIgnored { source: source.clone() })
+        .map(|source| SshNotice::SshCommandIgnored {
+            source: source.clone(),
+        })
         .collect();
     notices.extend(hops.iter().flat_map(|hop| {
-        hop.match_exec.iter().map(|location| SshNotice::MatchExecIgnored {
-            file: location.file.clone(),
-            line: location.line,
-        })
+        hop.match_exec
+            .iter()
+            .map(|location| SshNotice::MatchExecIgnored {
+                file: location.file.clone(),
+                line: location.line,
+            })
     }));
     let auth = AuthInput {
         auth_sock: options.auth_sock.clone(),
@@ -174,7 +182,10 @@ pub fn connect(url: &gix_url::Url, desired_version: Protocol, options: &SshOptio
         deadline: options.timeout.map(|timeout| Instant::now() + timeout),
     };
     let runtime = Runtime::start()?;
-    let established: Established = runtime.run(session::establish(plans, auth, options.connect_timeout), &limits)?;
+    let established: Established = runtime.run(
+        session::establish(plans, auth, options.connect_timeout),
+        &limits,
+    )?;
     notices.extend(established.notices);
     Ok(SshTransport {
         connection: None,

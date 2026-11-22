@@ -20,9 +20,9 @@ use nurt_contracts::journal::{Expect, Mutation, MutationTx, TargetAction, Target
 use russh::keys::{Algorithm, HashAlg, PublicKey};
 use sha1::{Digest, Sha1};
 
+use super::SshNotice;
 use super::config::Location;
 use super::pattern::match_list;
-use super::SshNotice;
 
 /// Block size of SHA-1 in bytes, used by HMAC (RFC 2104).
 const SHA1_BLOCK: usize = 64;
@@ -56,8 +56,8 @@ pub struct HostKeyAddition {
 ///
 /// # Errors
 ///
-/// Errors of the journal: `E_IO`, `E_PERMISSION`, `E_STALE` and related
-/// codes; `E_ARG` when the file path is not absolute.
+/// Fails with the errors of the journal, such as `E_IO`, `E_PERMISSION` and
+/// `E_STALE`, and with `E_ARG` when the file path is not absolute.
 ///
 /// # Examples
 ///
@@ -69,7 +69,7 @@ pub struct HostKeyAddition {
 ///     transport: &mut SshTransport,
 ///     tx: &mut dyn MutationTx,
 /// ) -> nurt_contracts::error::Result<()> {
-///     if let Some(addition) = transport.take_host_key_addition() {
+///     for addition in transport.take_host_key_additions() {
 ///         record_host_key(tx, &addition)?;
 ///     }
 ///     Ok(())
@@ -104,14 +104,23 @@ pub fn record_host_key(tx: &mut dyn MutationTx, addition: &HostKeyAddition) -> R
     };
     content.extend_from_slice(addition.line.as_bytes());
     content.push(b'\n');
-    let expect = if existing.is_some() { Expect::Unchecked } else { Expect::Absent };
+    let expect = if existing.is_some() {
+        Expect::Unchecked
+    } else {
+        Expect::Absent
+    };
     targets.push(spec(file, file_action, expect));
     let preserved = tx.preserve(&targets)?;
     let (file_target, dir_targets) = preserved
         .split_last()
         .ok_or_else(|| Error::new(ErrorCode::Internal, "journal returned no preserved target"))?;
     for dir in dir_targets {
-        tx.apply(dir.index, Mutation::CreateDir { mode: DIRECTORY_MODE })?;
+        tx.apply(
+            dir.index,
+            Mutation::CreateDir {
+                mode: DIRECTORY_MODE,
+            },
+        )?;
     }
     let mutation = if existing.is_some() {
         Mutation::AppendBytes(content)
@@ -203,8 +212,13 @@ impl KnownHosts {
     /// Looks up `key` for the host recorded as `name`.
     pub(crate) fn check(&self, name: &str, key: &PublicKey) -> Verdict {
         let name = name.to_ascii_lowercase();
-        let for_host = || self.entries.iter().filter(|entry| entry.hosts.matches(&name));
-        if let Some(revoked) = for_host().find(|entry| entry.marker == Marker::Revoked && same_key(&entry.key, key))
+        let for_host = || {
+            self.entries
+                .iter()
+                .filter(|entry| entry.hosts.matches(&name))
+        };
+        if let Some(revoked) =
+            for_host().find(|entry| entry.marker == Marker::Revoked && same_key(&entry.key, key))
         {
             return Verdict::Revoked(revoked.location.clone());
         }
@@ -293,7 +307,9 @@ fn parse_hosts(field: &str) -> Option<Hosts> {
                 hash: STANDARD.decode(hash).ok()?,
             })
         }
-        None => Some(Hosts::Patterns(field.split(',').map(str::to_owned).collect())),
+        None => Some(Hosts::Patterns(
+            field.split(',').map(str::to_owned).collect(),
+        )),
     }
 }
 
@@ -337,7 +353,10 @@ pub(crate) fn fingerprint(key: &PublicKey) -> String {
 pub(crate) fn host_line(name: &str, key: &PublicKey) -> Result<String> {
     let bare = PublicKey::new(key.key_data().clone(), "");
     let encoded = bare.to_openssh().map_err(|err| {
-        Error::new(ErrorCode::Internal, format!("cannot encode host key: {err}"))
+        Error::new(
+            ErrorCode::Internal,
+            format!("cannot encode host key: {err}"),
+        )
     })?;
     Ok(format!("{name} {encoded}"))
 }
@@ -405,7 +424,10 @@ impl HostKeyCheck {
         let explicit = self.accept_fingerprint.as_deref() == Some(presented.as_str());
         if explicit || self.policy == Policy::AcceptNew {
             return match self.addition(key, &presented) {
-                Ok(addition) => Decision::Accept { addition, notice: None },
+                Ok(addition) => Decision::Accept {
+                    addition,
+                    notice: None,
+                },
                 Err(error) => Decision::Reject(error),
             };
         }
@@ -447,7 +469,11 @@ impl HostKeyCheck {
             )
         };
         let mut error = Error::new(ErrorCode::GitHostKey, message)
-            .with_problem(if mismatch { "fingerprint_mismatch" } else { "unknown" })
+            .with_problem(if mismatch {
+                "fingerprint_mismatch"
+            } else {
+                "unknown"
+            })
             .with_found(presented.to_owned())
             .with_help("git.ssh");
         if let Some(command) = &self.retry_command {
@@ -485,7 +511,11 @@ impl HostKeyCheck {
     fn revoked(&self, key: &PublicKey, location: &Location) -> Error {
         Error::new(
             ErrorCode::GitHostKey,
-            format!("host key {} of `{}` is revoked", fingerprint(key), self.host),
+            format!(
+                "host key {} of `{}` is revoked",
+                fingerprint(key),
+                self.host
+            ),
         )
         .with_problem("revoked")
         .with_found(fingerprint(key))
@@ -499,13 +529,15 @@ mod tests {
     use russh::keys::PrivateKey;
 
     fn key(seed: u8) -> PublicKey {
-        let private = PrivateKey::from(russh::keys::ssh_key::private::Ed25519Keypair::from_seed(&[seed; 32]));
+        let private = PrivateKey::from(russh::keys::ssh_key::private::Ed25519Keypair::from_seed(
+            &[seed; 32],
+        ));
         private.public_key().clone()
     }
 
     fn known(text: &str) -> KnownHosts {
         KnownHosts {
-            entries: parse(text, Path::new("/home/alice/.ssh/known_hosts")),
+            entries: parse(text, Path::new("/home/user/.ssh/known_hosts")),
         }
     }
 
@@ -518,20 +550,31 @@ mod tests {
             host: "example.com".into(),
             name: "example.com".into(),
             known,
-            files: vec![PathBuf::from("/home/alice/.ssh/known_hosts")],
+            files: vec![PathBuf::from("/home/user/.ssh/known_hosts")],
             policy,
             accept_fingerprint: None,
-            record_file: Some(PathBuf::from("/home/alice/.config/nurt/known_hosts")),
-            retry_command: Some("git.clone \"git@example.com:repo.git\" to: \"/home/alice/repo\"".into()),
+            record_file: Some(PathBuf::from("/home/user/.config/nurt/known_hosts")),
+            retry_command: Some(
+                "git.clone \"git@example.com:repo.git\" to: \"/home/user/repo\"".into(),
+            ),
         }
     }
 
     #[test]
     fn hmac_sha1_matches_rfc_2202_vectors() {
         let digest = hmac_sha1(&[0x0b; 20], b"Hi There");
-        assert_eq!(hex::encode(digest), "b617318655057264e28bc0b6fb378c8ef146be00");
-        let digest = hmac_sha1(&[0xaa; 80], b"Test Using Larger Than Block-Size Key - Hash Key First");
-        assert_eq!(hex::encode(digest), "aa4ae5e15272d00e95705637ce8a3b55ed402112");
+        assert_eq!(
+            hex::encode(digest),
+            "b617318655057264e28bc0b6fb378c8ef146be00"
+        );
+        let digest = hmac_sha1(
+            &[0xaa; 80],
+            b"Test Using Larger Than Block-Size Key - Hash Key First",
+        );
+        assert_eq!(
+            hex::encode(digest),
+            "aa4ae5e15272d00e95705637ce8a3b55ed402112"
+        );
     }
 
     #[test]
@@ -542,7 +585,10 @@ mod tests {
 
     #[test]
     fn pattern_list_with_negation() {
-        let known = known(&format!("*.example.com,!build.example.com {}\n", &line("x", 1)[2..]));
+        let known = known(&format!(
+            "*.example.com,!build.example.com {}\n",
+            &line("x", 1)[2..]
+        ));
         assert_eq!(known.check("git.example.com", &key(1)), Verdict::Trusted);
         assert_eq!(known.check("build.example.com", &key(1)), Verdict::Unknown);
     }
@@ -559,7 +605,11 @@ mod tests {
         let salt = [7u8; 20];
         let hash = hmac_sha1(&salt, b"example.com");
         let encoded = &line("x", 1)[2..];
-        let text = format!("|1|{}|{} {encoded}\n", STANDARD.encode(salt), STANDARD.encode(hash));
+        let text = format!(
+            "|1|{}|{} {encoded}\n",
+            STANDARD.encode(salt),
+            STANDARD.encode(hash)
+        );
         let known = known(&text);
         assert_eq!(known.check("example.com", &key(1)), Verdict::Trusted);
         assert_eq!(known.check("example.org", &key(1)), Verdict::Unknown);
@@ -580,8 +630,15 @@ mod tests {
 
     #[test]
     fn revoked_key_is_refused_even_when_listed() {
-        let text = format!("{}\n@revoked * {}\n", line("example.com", 1), &line("x", 1)[2..]);
-        assert!(matches!(known(&text).check("example.com", &key(1)), Verdict::Revoked(_)));
+        let text = format!(
+            "{}\n@revoked * {}\n",
+            line("example.com", 1),
+            &line("x", 1)[2..]
+        );
+        assert!(matches!(
+            known(&text).check("example.com", &key(1)),
+            Verdict::Revoked(_)
+        ));
     }
 
     #[test]
@@ -592,14 +649,20 @@ mod tests {
 
     #[test]
     fn malformed_lines_are_skipped() {
-        let text = format!("garbage\nexample.com ssh-ed25519 !!!\n{}\n", line("example.com", 1));
+        let text = format!(
+            "garbage\nexample.com ssh-ed25519 !!!\n{}\n",
+            line("example.com", 1)
+        );
         assert_eq!(known(&text).check("example.com", &key(1)), Verdict::Trusted);
     }
 
     #[test]
     fn algorithms_of_known_keys_are_listed_once() {
         let text = format!("{}\n{}\n", line("example.com", 1), line("example.com", 2));
-        assert_eq!(known(&text).algorithms_for("example.com"), [Algorithm::Ed25519]);
+        assert_eq!(
+            known(&text).algorithms_for("example.com"),
+            [Algorithm::Ed25519]
+        );
         assert!(known(&text).algorithms_for("other").is_empty());
     }
 
@@ -621,13 +684,23 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::GitHostKey);
         assert_eq!(error.data().problem.as_deref(), Some("unknown"));
         let fix = format!("accept_host_key: \"{}\"", fingerprint(&key(1)));
-        assert!(error.data().fix.iter().any(|program| program.ends_with(&fix)));
+        assert!(
+            error
+                .data()
+                .fix
+                .iter()
+                .any(|program| program.ends_with(&fix))
+        );
     }
 
     #[test]
     fn accept_new_records_unknown_host() {
         let decision = check(KnownHosts::default(), Policy::AcceptNew).decide(&key(1));
-        let Decision::Accept { addition: Some(addition), notice: None } = decision else {
+        let Decision::Accept {
+            addition: Some(addition),
+            notice: None,
+        } = decision
+        else {
             panic!("unknown host not recorded");
         };
         assert_eq!(addition.host, "example.com");
@@ -639,11 +712,20 @@ mod tests {
     fn explicit_fingerprint_accepts_only_that_key() {
         let mut check = check(KnownHosts::default(), Policy::Strict);
         check.accept_fingerprint = Some(fingerprint(&key(1)));
-        assert!(matches!(check.decide(&key(1)), Decision::Accept { addition: Some(_), .. }));
+        assert!(matches!(
+            check.decide(&key(1)),
+            Decision::Accept {
+                addition: Some(_),
+                ..
+            }
+        ));
         let Decision::Reject(error) = check.decide(&key(2)) else {
             panic!("other key accepted");
         };
-        assert_eq!(error.data().problem.as_deref(), Some("fingerprint_mismatch"));
+        assert_eq!(
+            error.data().problem.as_deref(),
+            Some("fingerprint_mismatch")
+        );
     }
 
     #[test]

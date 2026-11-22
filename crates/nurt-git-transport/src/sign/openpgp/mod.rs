@@ -22,12 +22,16 @@ use pgp::composed::{
 };
 use pgp::crypto::hash::HashAlgorithm;
 use pgp::crypto::public_key::PublicKeyAlgorithm;
-use pgp::packet::{SignatureConfig, SignatureType, Subpacket, SubpacketData};
-use pgp::types::{Fingerprint, KeyDetails, KeyVersion, Password, SigningKey, Timestamp};
+use pgp::packet::{
+    PacketHeader, PacketTrait, SignatureConfig, SignatureType, Subpacket, SubpacketData,
+};
+use pgp::types::{
+    Fingerprint, KeyDetails, KeyVersion, PacketHeaderVersion, Password, SigningKey, Tag, Timestamp,
+};
 
 use super::error::{
-    is_problem, key_locked, no_key, sign_error, with_path, AGENT_UNAVAILABLE, NO_KEY,
-    UNSUPPORTED_FORMAT,
+    AGENT_UNAVAILABLE, NO_KEY, UNSUPPORTED_FORMAT, is_problem, key_locked, no_key, sign_error,
+    with_path,
 };
 use super::{
     CommitSignature, KeySource, OpenPgpSource, Signature, SignatureFormat, SignatureStatus,
@@ -60,7 +64,9 @@ pub(crate) fn sign(payload: &[u8], config: &SigningConfig) -> Result<Signature> 
         }
     }
     Err(first_error.unwrap_or_else(|| {
-        no_key("no OpenPGP signing key is configured; set `user.signingKey` or `git.signing.key_file`")
+        no_key(
+            "no OpenPGP signing key is configured; set `user.signingKey` or `git.signing.key_file`",
+        )
     }))
 }
 
@@ -78,8 +84,12 @@ pub(crate) fn verify(
     let Ok((detached, _)) = DetachedSignature::from_armor_single(signature) else {
         return Ok(status);
     };
-    let issuer_fingerprints: Vec<Fingerprint> =
-        detached.signature.issuer_fingerprint().into_iter().cloned().collect();
+    let issuer_fingerprints: Vec<Fingerprint> = detached
+        .signature
+        .issuer_fingerprint()
+        .into_iter()
+        .cloned()
+        .collect();
     let issuer_ids: Vec<String> = detached
         .signature
         .issuer_key_id()
@@ -122,7 +132,11 @@ pub(crate) fn verify(
     Ok(status)
 }
 
-fn good(mut status: CommitSignature, cert: &SignedPublicKey, key: &dyn KeyDetails) -> CommitSignature {
+fn good(
+    mut status: CommitSignature,
+    cert: &SignedPublicKey,
+    key: &dyn KeyDetails,
+) -> CommitSignature {
     status.status = SignatureStatus::Good;
     status.key = Some(fingerprint_hex(&key.fingerprint()));
     status.signer = cert
@@ -258,11 +272,15 @@ fn sign_with_secret(
     armor(packet)
 }
 
-/// Reads a passphrase file; the file must be readable by its owner only.
+/// Reads a passphrase file; the file must grant no access to the group or
+/// to other accounts.
 pub(crate) fn read_passphrase(path: &Path) -> Result<String> {
     let metadata = std::fs::metadata(path).map_err(|source| {
         with_path(
-            key_locked(format!("cannot read the passphrase file `{}`: {source}", path.display())),
+            key_locked(format!(
+                "cannot read the passphrase file `{}`: {source}",
+                path.display()
+            )),
             "passphrase_file",
             path,
         )
@@ -286,7 +304,10 @@ pub(crate) fn read_passphrase(path: &Path) -> Result<String> {
     let _ = metadata;
     let text = std::fs::read_to_string(path).map_err(|source| {
         with_path(
-            key_locked(format!("cannot read the passphrase file `{}`: {source}", path.display())),
+            key_locked(format!(
+                "cannot read the passphrase file `{}`: {source}",
+                path.display()
+            )),
             "passphrase_file",
             path,
         )
@@ -297,20 +318,28 @@ pub(crate) fn read_passphrase(path: &Path) -> Result<String> {
 
 fn parse_secret_key(bytes: &[u8]) -> Option<SignedSecretKey> {
     if keyring::is_armored(bytes) {
-        SignedSecretKey::from_armor_single(bytes).ok().map(|(key, _)| key)
+        SignedSecretKey::from_armor_single(bytes)
+            .ok()
+            .map(|(key, _)| key)
     } else {
         SignedSecretKey::from_bytes(bytes).ok()
     }
 }
 
 fn sign_with_agent(payload: &[u8], config: &SigningConfig) -> Result<Option<Signature>> {
-    let Some(spec) = config.signing_key.as_ref().or(config.default_identity.as_ref()) else {
+    let Some(spec) = config
+        .signing_key
+        .as_ref()
+        .or(config.default_identity.as_ref())
+    else {
         return Err(no_key(
             "no OpenPGP key is named; set `user.signingKey` or the committer identity",
         ));
     };
     let Some(home) = &config.gnupg_home else {
-        return Err(no_key("the GnuPG home directory is unknown; set `GNUPGHOME`"));
+        return Err(no_key(
+            "the GnuPG home directory is unknown; set `GNUPGHOME`",
+        ));
     };
     let key_spec = KeySpec::parse(spec);
     let certs = keyring::load_gnupg(home);
@@ -365,29 +394,75 @@ pub(crate) fn signature_packet(
         ));
     }
     let created = Timestamp::from_secs(u32::try_from(created.max(0)).unwrap_or(u32::MAX));
-    let packet_error =
-        |error: pgp::errors::Error| sign_error(UNSUPPORTED_FORMAT, format!("cannot create the signature: {error}"));
+    let packet_error = |error: pgp::errors::Error| {
+        sign_error(
+            UNSUPPORTED_FORMAT,
+            format!("cannot create the signature: {error}"),
+        )
+    };
     let mut hashed = vec![
-        Subpacket::regular(SubpacketData::IssuerFingerprint(key.fingerprint())).map_err(packet_error)?,
+        Subpacket::regular(SubpacketData::IssuerFingerprint(key.fingerprint()))
+            .map_err(packet_error)?,
         Subpacket::regular(SubpacketData::SignatureCreationTime(created)).map_err(packet_error)?,
     ];
     if let Some(mailbox) = &selection.signer_mailbox {
         hashed.push(
-            Subpacket::regular(SubpacketData::SignersUserID(Bytes::from(mailbox.clone().into_bytes())))
-                .map_err(packet_error)?,
+            Subpacket::regular(SubpacketData::SignersUserID(Bytes::from(
+                mailbox.clone().into_bytes(),
+            )))
+            .map_err(packet_error)?,
         );
     }
     let mut signature_config = SignatureConfig::v4(SignatureType::Binary, key.algorithm(), hash);
     signature_config.hashed_subpackets = hashed;
-    signature_config.unhashed_subpackets =
-        vec![Subpacket::regular(SubpacketData::IssuerKeyId(key.legacy_key_id())).map_err(packet_error)?];
-    signature_config.sign(key, password, payload).map_err(packet_error)
+    signature_config.unhashed_subpackets = vec![
+        Subpacket::regular(SubpacketData::IssuerKeyId(key.legacy_key_id()))
+            .map_err(packet_error)?,
+    ];
+    let packet = signature_config
+        .sign(key, password, payload)
+        .map_err(packet_error)?;
+    with_legacy_header(packet).map_err(packet_error)
+}
+
+/// The same packet with the legacy packet header that GnuPG writes for
+/// signatures, so that the armored output equals `gpg --detach-sign`.
+fn with_legacy_header(
+    packet: pgp::packet::Signature,
+) -> pgp::errors::Result<pgp::packet::Signature> {
+    let header = PacketHeader::from_parts(
+        PacketHeaderVersion::Old,
+        Tag::Signature,
+        packet.packet_header().packet_length(),
+    )?;
+    let (Some(config), Some(signed_hash_value), Some(values)) = (
+        packet.config(),
+        packet.signed_hash_value(),
+        packet.signature(),
+    ) else {
+        return Ok(packet);
+    };
+    Ok(pgp::packet::Signature::v4(
+        header,
+        config.typ,
+        config.pub_alg,
+        config.hash_alg,
+        signed_hash_value,
+        values.clone(),
+        config.hashed_subpackets.clone(),
+        config.unhashed_subpackets.clone(),
+    ))
 }
 
 pub(crate) fn armor(packet: pgp::packet::Signature) -> Result<Vec<u8>> {
     DetachedSignature::new(packet)
         .to_armored_bytes(ArmorOptions::default())
-        .map_err(|error| sign_error(UNSUPPORTED_FORMAT, format!("cannot armor the signature: {error}")))
+        .map_err(|error| {
+            sign_error(
+                UNSUPPORTED_FORMAT,
+                format!("cannot armor the signature: {error}"),
+            )
+        })
 }
 
 fn preferred_hash(cert: &SignedPublicKey) -> HashAlgorithm {
@@ -445,7 +520,10 @@ impl KeySpec {
                 _ => {}
             }
         }
-        if let Some(mailbox) = body.strip_prefix('<').and_then(|rest| rest.strip_suffix('>')) {
+        if let Some(mailbox) = body
+            .strip_prefix('<')
+            .and_then(|rest| rest.strip_suffix('>'))
+        {
             return Self::Mailbox(mailbox.to_lowercase());
         }
         if body.contains('@') && !body.contains(char::is_whitespace) && !body.contains('<') {
@@ -468,23 +546,29 @@ impl KeySpec {
     }
 
     fn matching_user<'a>(&self, cert: &'a SignedPublicKey) -> Option<&'a [u8]> {
-        cert.details.users.iter().map(|user| user.id.id()).find(|id| {
-            let text = String::from_utf8_lossy(id).to_lowercase();
-            match self {
-                Self::Mailbox(mailbox) => mailbox_of(&text).is_some_and(|found| found == *mailbox),
-                Self::Substring(part) => text.contains(part.as_str()),
-                Self::Fingerprint { .. } | Self::KeyId { .. } => false,
-            }
-        })
+        cert.details
+            .users
+            .iter()
+            .map(|user| user.id.id())
+            .find(|id| {
+                let text = String::from_utf8_lossy(id).to_lowercase();
+                match self {
+                    Self::Mailbox(mailbox) => {
+                        mailbox_of(&text).is_some_and(|found| found == *mailbox)
+                    }
+                    Self::Substring(part) => text.contains(part.as_str()),
+                    Self::Fingerprint { .. } | Self::KeyId { .. } => false,
+                }
+            })
     }
 }
 
 /// The e-mail address inside a user ID, `Name <mail>` or a bare address.
 pub(crate) fn mailbox_of(user_id: &str) -> Option<String> {
-    if let (Some(start), Some(end)) = (user_id.rfind('<'), user_id.rfind('>')) {
-        if start < end {
-            return Some(user_id[start + 1..end].to_owned());
-        }
+    if let (Some(start), Some(end)) = (user_id.rfind('<'), user_id.rfind('>'))
+        && start < end
+    {
+        return Some(user_id[start + 1..end].to_owned());
     }
     user_id.contains('@').then(|| user_id.trim().to_owned())
 }
@@ -619,7 +703,7 @@ AQDl2Uclk5LHsLVZobmizzuyi9StkZuBQR8p/uNDduUPCg==
 
     pub(crate) const ED25519_KEYGRIP: &str = "3113052AB4195953005D8ECD72D2BF6C02777C8F";
 
-    /// `gpg -u ed@example.test --detach-sign --armor`
+    /// Signature made by `gpg -u ed@example.test --detach-sign --armor`.
     pub(crate) const ED25519_SIGNATURE: &str = "-----BEGIN PGP SIGNATURE-----
 
 iIYEABYKAC4WIQREZccEgm/vhVX7f1j2Nsh5gVEVWgUCaVW5ABAcZWRAZXhhbXBs
@@ -653,7 +737,7 @@ nLT0Q4pAsFK9zNc71t0=
 
     pub(crate) const RSA_KEYGRIP: &str = "EA7F4532B9FF10A7C1B24E2EAE9808793D00EF8A";
 
-    /// `gpg -u rsa@example.test --detach-sign --armor`
+    /// Signature made by `gpg -u rsa@example.test --detach-sign --armor`.
     pub(crate) const RSA_SIGNATURE: &str = "-----BEGIN PGP SIGNATURE-----
 
 iQFFBAABCgAvFiEEJgpMT2bd5nVq0edxwxi6rEgTxlEFAmlVuQARHHJzYUBleGFt
@@ -705,8 +789,14 @@ mod tests {
                 exact: false
             }
         );
-        assert_eq!(KeySpec::parse("<Ed@Example.test>"), KeySpec::Mailbox("ed@example.test".into()));
-        assert_eq!(KeySpec::parse("ed@example.test"), KeySpec::Mailbox("ed@example.test".into()));
+        assert_eq!(
+            KeySpec::parse("<Ed@Example.test>"),
+            KeySpec::Mailbox("ed@example.test".into())
+        );
+        assert_eq!(
+            KeySpec::parse("ed@example.test"),
+            KeySpec::Mailbox("ed@example.test".into())
+        );
         assert_eq!(
             KeySpec::parse("Test Ed <ed@example.test>"),
             KeySpec::Substring("test ed <ed@example.test>".into())
@@ -733,8 +823,18 @@ mod tests {
     fn verifies_gnupg_signatures_as_good() {
         let dir = tempfile::tempdir().expect("tempdir");
         for (public, signature, fingerprint, signer) in [
-            (ED25519_PUBLIC, ED25519_SIGNATURE, ED25519_FINGERPRINT, "Test Ed <ed@example.test>"),
-            (RSA_PUBLIC, RSA_SIGNATURE, RSA_FINGERPRINT, "Test Rsa <rsa@example.test>"),
+            (
+                ED25519_PUBLIC,
+                ED25519_SIGNATURE,
+                ED25519_FINGERPRINT,
+                "Test Ed <ed@example.test>",
+            ),
+            (
+                RSA_PUBLIC,
+                RSA_SIGNATURE,
+                RSA_FINGERPRINT,
+                "Test Rsa <rsa@example.test>",
+            ),
         ] {
             let config = verify_config(dir.path(), public);
             let result = verify(PAYLOAD, signature.as_bytes(), &config).expect("verify");
@@ -763,8 +863,12 @@ mod tests {
 
     #[test]
     fn reports_malformed_armor_as_bad() {
-        let result = verify(PAYLOAD, b"-----BEGIN PGP SIGNATURE-----\n\nxx\n", &VerifyConfig::default())
-            .expect("verify");
+        let result = verify(
+            PAYLOAD,
+            b"-----BEGIN PGP SIGNATURE-----\n\nxx\n",
+            &VerifyConfig::default(),
+        )
+        .expect("verify");
         assert_eq!(result.status, SignatureStatus::Bad);
     }
 

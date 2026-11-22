@@ -16,10 +16,6 @@
 //! commit and after the message of an annotated tag. [`verify_commit`] and
 //! [`verify_tag`] check an object read from a repository.
 //!
-//! SSH signatures require the build feature `git-ssh`; without it, a
-//! configuration with `gpg.format = ssh` fails with `E_GIT_SIGN` and
-//! verification reports the status `unsupported`.
-//!
 //! # Examples
 //!
 //! ```
@@ -34,7 +30,6 @@ mod config;
 mod error;
 mod object;
 mod openpgp;
-#[cfg(feature = "git-ssh")]
 mod sshsig;
 
 use std::path::PathBuf;
@@ -189,7 +184,6 @@ impl Signer for BuiltinSigner {
     fn sign(&self, payload: &[u8], config: &SigningConfig) -> Result<Signature> {
         match config.format {
             SignatureFormat::Openpgp => openpgp::sign(payload, config),
-            #[cfg(feature = "git-ssh")]
             SignatureFormat::Ssh => sshsig::sign(payload, config),
             other => Err(error::unsupported_format(other)),
         }
@@ -205,12 +199,7 @@ impl Signer for BuiltinSigner {
             Some(gix_object::signature::Format::OpenPgp) => {
                 openpgp::verify(payload, signature, config)
             }
-            #[cfg(feature = "git-ssh")]
             Some(gix_object::signature::Format::Ssh) => sshsig::verify(payload, signature, config),
-            #[cfg(not(feature = "git-ssh"))]
-            Some(gix_object::signature::Format::Ssh) => {
-                Ok(unsupported(Some(SignatureFormat::Ssh)))
-            }
             Some(gix_object::signature::Format::X509) => {
                 Ok(unsupported(Some(SignatureFormat::X509)))
             }

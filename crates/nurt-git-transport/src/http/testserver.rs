@@ -34,7 +34,9 @@ pub(crate) struct Reply {
 
 impl Reply {
     pub(crate) fn ok(content_type: &str, body: impl Into<Vec<u8>>) -> Self {
-        Self::status(200).with_header("Content-Type", content_type).with_body(body)
+        Self::status(200)
+            .with_header("Content-Type", content_type)
+            .with_body(body)
     }
 
     pub(crate) fn status(status: u16) -> Self {
@@ -96,7 +98,11 @@ fn serve(stream: TcpStream, handler: &Handler) {
         return;
     };
     let reply = handler(&request);
-    let mut out = format!("HTTP/1.1 {} X\r\nConnection: close\r\nContent-Length: {}\r\n", reply.status, reply.body.len());
+    let mut out = format!(
+        "HTTP/1.1 {} X\r\nConnection: close\r\nContent-Length: {}\r\n",
+        reply.status,
+        reply.body.len()
+    );
     for (name, value) in &reply.headers {
         out.push_str(&format!("{name}: {value}\r\n"));
     }
@@ -123,7 +129,12 @@ fn read_request(reader: &mut impl BufRead) -> Option<Request> {
         let (name, value) = line.split_once(':')?;
         headers.push((name.trim().to_owned(), value.trim().to_owned()));
     }
-    let find = |name: &str| headers.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, v)| v.clone());
+    let find = |name: &str| {
+        headers
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.clone())
+    };
     let mut body = Vec::new();
     if find("transfer-encoding").is_some() {
         loop {

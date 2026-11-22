@@ -75,14 +75,23 @@ mod tests {
 
     #[test]
     fn bracketed_port_form_is_literal() {
-        assert!(wildcard_match("[git.example.com]:2222", "[git.example.com]:2222"));
-        assert!(wildcard_match("[*.example.com]:*", "[git.example.com]:2222"));
+        assert!(wildcard_match(
+            "[git.example.com]:2222",
+            "[git.example.com]:2222"
+        ));
+        assert!(wildcard_match(
+            "[*.example.com]:*",
+            "[git.example.com]:2222"
+        ));
     }
 
     #[test]
     fn negated_pattern_excludes_a_match() {
         assert!(match_list("a.example.com", ["*.example.com"]));
-        assert!(!match_list("a.example.com", ["*.example.com", "!a.example.com"]));
+        assert!(!match_list(
+            "a.example.com",
+            ["*.example.com", "!a.example.com"]
+        ));
         assert!(!match_list("b.example.org", ["!a.example.com"]));
     }
 }

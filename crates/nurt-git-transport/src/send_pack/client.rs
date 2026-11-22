@@ -4,7 +4,6 @@
 //! Sending a push request over an established transport.
 
 use std::cell::RefCell;
-use std::io::Read;
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 
@@ -72,8 +71,13 @@ pub fn send(
         .request(WriteMode::Binary, MessageKind::Flush, false)
         .map_err(|error| transport_error(&error))?;
     let (mut writer, mut reader) = request.into_parts();
-    write_commands(writer.as_mut(), commands, &negotiated, &options.push_options)
-        .map_err(|error| stream_error(&error))?;
+    write_commands(
+        writer.as_mut(),
+        commands,
+        &negotiated,
+        &options.push_options,
+    )
+    .map_err(|error| stream_error(&error))?;
     if let Some(ids) = pack_objects {
         outcome.pack = Some(write_pack(repo, ids, writer.as_mut(), interrupt)?);
     }
@@ -90,7 +94,10 @@ pub fn send(
 
 type Reader<'a> = dyn gix_transport::client::blocking_io::ExtendedBufRead<'a> + Unpin + 'a;
 
-fn read_response(reader: &mut Reader<'_>, negotiated: &Negotiated) -> Result<(PushReport, Vec<String>)> {
+fn read_response(
+    reader: &mut Reader<'_>,
+    negotiated: &Negotiated,
+) -> Result<(PushReport, Vec<String>)> {
     if !negotiated.side_band {
         let mut lines = Vec::new();
         while let Some(line) = reader.readline() {
@@ -113,7 +120,7 @@ fn read_response(reader: &mut Reader<'_>, negotiated: &Negotiated) -> Result<(Pu
     let mut data = Vec::new();
     let read = reader.read_to_end(&mut data);
     reader.set_progress_handler(None);
-    let messages = messages.take();
+    let messages = messages.borrow_mut().finish();
     if let Some(fatal) = messages.fatal {
         return Err(protocol_error(
             "remote_fatal",
@@ -149,7 +156,7 @@ impl RemoteMessages {
         }
     }
 
-    fn take(&mut self) -> Self {
+    fn finish(&mut self) -> Self {
         let rest = self.partial.trim().to_owned();
         if !rest.is_empty() {
             self.lines.push(rest);
@@ -166,9 +173,12 @@ mod tests {
     fn splits_remote_messages_into_lines() {
         let mut messages = RemoteMessages::default();
         messages.push(false, b"Resolving deltas: 50%\rResolving deltas: 100%\n");
-        messages.push(false, b"error: hook declined to update refs/heads/b2   \nno new");
+        messages.push(
+            false,
+            b"error: hook declined to update refs/heads/b2   \nno new",
+        );
         messages.push(false, b"line");
-        let taken = messages.take();
+        let taken = messages.finish();
         assert_eq!(
             taken.lines,
             [
@@ -180,6 +190,6 @@ mod tests {
         );
         let mut fatal = RemoteMessages::default();
         fatal.push(true, b"disk full\n");
-        assert_eq!(fatal.take().fatal.as_deref(), Some("disk full"));
+        assert_eq!(fatal.finish().fatal.as_deref(), Some("disk full"));
     }
 }

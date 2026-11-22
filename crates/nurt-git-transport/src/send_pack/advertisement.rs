@@ -158,7 +158,9 @@ pub fn discover(transport: &mut dyn Transport) -> Result<Advertisement> {
             .map(|capability| {
                 (
                     capability.name().to_str_lossy().into_owned(),
-                    capability.value().map(|value| value.to_str_lossy().into_owned()),
+                    capability
+                        .value()
+                        .map(|value| value.to_str_lossy().into_owned()),
                 )
             })
             .collect(),
@@ -190,7 +192,10 @@ fn read_ref_lines(refs: &mut dyn ReadlineBufRead, advertisement: &mut Advertisem
 fn malformed(line: &[u8]) -> Error {
     protocol_error(
         "malformed_advertisement",
-        format!("the remote sent a malformed reference line `{}`", line.as_bstr()),
+        format!(
+            "the remote sent a malformed reference line `{}`",
+            line.as_bstr()
+        ),
     )
 }
 

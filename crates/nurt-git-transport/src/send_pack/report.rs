@@ -157,7 +157,9 @@ pub fn parse_report(bytes: &[u8]) -> Result<PushReport> {
 pub fn parse_lines<'a>(lines: impl IntoIterator<Item = &'a [u8]>) -> Result<PushReport> {
     let mut lines = lines.into_iter();
     let first = lines.next().ok_or_else(|| malformed(b"(empty report)"))?;
-    let unpack = first.strip_prefix(b"unpack ").ok_or_else(|| malformed(first))?;
+    let unpack = first
+        .strip_prefix(b"unpack ")
+        .ok_or_else(|| malformed(first))?;
     let mut report = PushReport {
         unpack_error: (unpack != b"ok").then(|| unpack.to_str_lossy().into_owned()),
         refs: Vec::new(),
@@ -248,7 +250,10 @@ mod tests {
         .unwrap();
         assert_eq!(report.unpack_error, None);
         assert_eq!(report.refs.len(), 2);
-        assert_eq!(report.get(b"refs/heads/main").unwrap().status, RefStatus::Ok);
+        assert_eq!(
+            report.get(b"refs/heads/main").unwrap().status,
+            RefStatus::Ok
+        );
         assert_eq!(
             report.get(b"refs/heads/b2").unwrap().status,
             RefStatus::Rejected("hook declined".to_owned())
@@ -271,7 +276,10 @@ mod tests {
         ]))
         .unwrap();
         let first = &report.refs[0];
-        assert_eq!(first.updated_name.as_deref(), Some(b"refs/changes/1".as_bstr()));
+        assert_eq!(
+            first.updated_name.as_ref().map(|name| name.as_bstr()),
+            Some(b"refs/changes/1".as_bstr())
+        );
         assert_eq!(first.old, ObjectId::from_hex(old.as_bytes()).ok());
         assert_eq!(first.new, ObjectId::from_hex(new.as_bytes()).ok());
         assert!(first.forced);
@@ -279,8 +287,11 @@ mod tests {
 
     #[test]
     fn reports_unpack_errors_and_rejects_malformed_reports() {
-        let report = parse_report(&encode(&["unpack index-pack failed", "ng refs/heads/x unpacker error"]))
-            .unwrap();
+        let report = parse_report(&encode(&[
+            "unpack index-pack failed",
+            "ng refs/heads/x unpacker error",
+        ]))
+        .unwrap();
         assert_eq!(report.unpack_error.as_deref(), Some("index-pack failed"));
         for lines in [
             &["garbage"][..],
