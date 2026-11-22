@@ -226,6 +226,7 @@ layer = "component"
 area = "language"
 summary = "Built-in help, documentation layers and command descriptions for tool integrations."
 deps = ["nurt-contracts", "nurt-types", "nurt-catalog", "nurt-syntax"]
+dev = ["nurt-bind"]
 
 [crate.nurt-langserver]
 layer = "component"
@@ -237,7 +238,7 @@ deps = ["nurt-contracts", "nurt-types", "nurt-syntax", "nurt-catalog", "nurt-cor
 layer = "component"
 area = "language"
 summary = "Translation of shell scripts to programs."
-deps = ["nurt-contracts", "nurt-types", "nurt-syntax", "nurt-catalog"]
+deps = ["nurt-contracts", "nurt-types", "nurt-syntax", "nurt-catalog", "nurt-correct"]
 
 [crate.nurt-exec]
 layer = "component"
@@ -398,6 +399,13 @@ layer = "interface"
 area = "integration"
 summary = "Published facade of the program and the library."
 deps = ["nurt-contracts", "nurt-core", "nurt-cli"]
+
+[crate.nurt-node]
+layer = "interface"
+area = "integration"
+reserved = true
+summary = "Node.js addon of the library."
+deps = ["nurt-contracts", "nurt-core"]
 
 [crate.nurt-conformance]
 layer = "tool"

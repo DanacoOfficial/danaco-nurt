@@ -360,3 +360,36 @@ fn schemas_describe_hash_and_path_strings() {
     let path = serde_json::to_value(schemars::schema_for!(AbsPath)).unwrap();
     assert_eq!(path["type"], json!("string"));
 }
+
+#[test]
+fn fields_added_later_default_when_absent() {
+    let pin: nurt_contracts::journal::PinOutcome =
+        serde_json::from_str(r#"{"changed": [], "not_available": []}"#).unwrap();
+    assert!(pin.expired.is_empty());
+    let space: nurt_contracts::fs::SpaceInfo = serde_json::from_str(
+        r#"{"total": 10, "available": 5, "quota_remaining": null, "purgeable_system": null}"#,
+    )
+    .unwrap();
+    assert_eq!(space.quota_limit, None);
+}
+
+#[test]
+fn inactive_volumes_map_to_irreversible_reasons() {
+    use nurt_contracts::journal::InactiveReason;
+    assert_eq!(
+        InactiveReason::NetworkVolume.irreversible(),
+        Irreversible::NetworkVolume
+    );
+    assert_eq!(
+        InactiveReason::RemovableVolume.irreversible(),
+        Irreversible::RemovableVolume
+    );
+    assert_eq!(
+        InactiveReason::BelowReserve.irreversible(),
+        Irreversible::NoSpaceForCopy
+    );
+    assert_eq!(
+        InactiveReason::ServiceDown.irreversible(),
+        Irreversible::JournalInactive
+    );
+}
