@@ -18,7 +18,6 @@ use windows_sys::Win32::System::RestartManager::{
     RmStartSession,
 };
 
-pub(crate) use super::process::processes;
 use super::{Holder, Scan, Target};
 use crate::accounts::windows::wide;
 use crate::common::{REQUIRED_PRIVILEGE, SysRoot};

@@ -18,7 +18,6 @@ use std::ptr::null_mut;
 
 use nurt_contracts::error::Result;
 
-pub(crate) use super::process::processes;
 use super::{Access, Holder, Scan, Target};
 use crate::common::SysRoot;
 use crate::processes::macos::{c_text, list_pids, process_name};

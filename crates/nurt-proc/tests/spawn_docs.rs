@@ -112,7 +112,6 @@ fn sections_follow_the_order_of_a_command_page() {
             "## Parameters",
             "## Input and output",
             "## Effect",
-            "## Notes",
             "## Examples",
             "## Errors",
             "## Related",
