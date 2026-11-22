@@ -293,7 +293,10 @@ pub(crate) fn render_block(block: &Block, form: TextForm) -> String {
             format!("{} {content}", "#".repeat(usize::from(level)))
         }
         (BlockKind::ListItem(depth), _) => {
-            format!("{}- {content}", "  ".repeat(usize::from(depth.saturating_sub(1))))
+            format!(
+                "{}- {content}",
+                "  ".repeat(usize::from(depth.saturating_sub(1)))
+            )
         }
         (BlockKind::Code, TextForm::Markdown) => format!("```\n{content}\n```"),
         (BlockKind::Quote, TextForm::Markdown) => format!("> {content}"),
@@ -330,7 +333,11 @@ mod tests {
     #[test]
     fn rejects_hash_without_space_as_heading() {
         let page = convert_markdown("#hashtag\n\n####### seven");
-        assert!(page.blocks.iter().all(|block| block.heading_level().is_none()));
+        assert!(
+            page.blocks
+                .iter()
+                .all(|block| block.heading_level().is_none())
+        );
     }
 
     #[test]

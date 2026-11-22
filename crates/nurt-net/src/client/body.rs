@@ -263,7 +263,10 @@ impl ResponseBody {
         if timed_out {
             return Error::new(
                 ErrorCode::Timeout,
-                format!("reading the response of `{}` exceeded the time limit", self.url),
+                format!(
+                    "reading the response of `{}` exceeded the time limit",
+                    self.url
+                ),
             );
         }
         let decode = matches!(inner, Some(ureq::Error::Decompress(..)))

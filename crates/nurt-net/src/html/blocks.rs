@@ -8,9 +8,7 @@ use std::mem;
 use url::Url;
 
 use super::dom::{self, Element, Node, collapse_whitespace};
-use super::{
-    Block, BlockKind, ConvertOptions, ImageStyle, Link, LinkStyle, Metadata, Page, Table,
-};
+use super::{Block, BlockKind, ConvertOptions, ImageStyle, Link, LinkStyle, Metadata, Page, Table};
 
 /// Elements never converted to text.
 const NEVER: &[&str] = &[
@@ -37,18 +35,69 @@ const CHROME_ROLES: &[&str] = &[
 
 /// Words in `class` and `id` that mark blocks left out with `main_only`.
 const NOISE: &[&str] = &[
-    "nav", "navbar", "navigation", "menu", "breadcrumb", "breadcrumbs", "sidebar", "footer",
-    "cookie", "cookies", "consent", "gdpr", "banner", "advert", "ad", "ads", "sponsor",
-    "sponsored", "promo", "promoted", "related", "recommended", "recommendations", "share",
-    "sharing", "social", "login", "signin", "signup", "newsletter", "subscribe", "toc",
-    "comments", "popup", "modal",
+    "nav",
+    "navbar",
+    "navigation",
+    "menu",
+    "breadcrumb",
+    "breadcrumbs",
+    "sidebar",
+    "footer",
+    "cookie",
+    "cookies",
+    "consent",
+    "gdpr",
+    "banner",
+    "advert",
+    "ad",
+    "ads",
+    "sponsor",
+    "sponsored",
+    "promo",
+    "promoted",
+    "related",
+    "recommended",
+    "recommendations",
+    "share",
+    "sharing",
+    "social",
+    "login",
+    "signin",
+    "signup",
+    "newsletter",
+    "subscribe",
+    "toc",
+    "comments",
+    "popup",
+    "modal",
 ];
 
 /// Elements that start a new paragraph.
 const BLOCK_ELEMENTS: &[&str] = &[
-    "p", "div", "section", "article", "main", "header", "footer", "nav", "aside", "body", "html",
-    "figure", "figcaption", "form", "fieldset", "details", "summary", "address", "center", "dl",
-    "dd", "dt", "hr", "#root",
+    "p",
+    "div",
+    "section",
+    "article",
+    "main",
+    "header",
+    "footer",
+    "nav",
+    "aside",
+    "body",
+    "html",
+    "figure",
+    "figcaption",
+    "form",
+    "fieldset",
+    "details",
+    "summary",
+    "address",
+    "center",
+    "dl",
+    "dd",
+    "dt",
+    "hr",
+    "#root",
 ];
 
 /// Converts an HTML document.
@@ -118,7 +167,9 @@ fn metadata(root: &Element, base: Option<&Url>) -> Metadata {
         all.iter()
             .filter(|element| element.name == "meta")
             .find(|element| {
-                element.attr("name").or_else(|| element.attr("property"))
+                element
+                    .attr("name")
+                    .or_else(|| element.attr("property"))
                     .is_some_and(|name| name.eq_ignore_ascii_case(key))
             })
             .and_then(|element| element.attr("content"))
@@ -135,9 +186,10 @@ fn metadata(root: &Element, base: Option<&Url>) -> Metadata {
         .iter()
         .find(|element| {
             element.name == "link"
-                && element
-                    .attr("rel")
-                    .is_some_and(|rel| rel.split_whitespace().any(|r| r.eq_ignore_ascii_case("canonical")))
+                && element.attr("rel").is_some_and(|rel| {
+                    rel.split_whitespace()
+                        .any(|r| r.eq_ignore_ascii_case("canonical"))
+                })
         })
         .and_then(|element| element.attr("href"))
         .map(|href| resolve(base, href));
@@ -197,11 +249,12 @@ impl Walker<'_> {
         if NEVER.contains(&element.name.as_str()) || hidden(element) {
             return true;
         }
-        self.options.main_only && (self.skip_chrome && CHROME.contains(&element.name.as_str())
-            || element
-                .attr("role")
-                .is_some_and(|role| CHROME_ROLES.contains(&role))
-            || noisy(element))
+        self.options.main_only
+            && (self.skip_chrome && CHROME.contains(&element.name.as_str())
+                || element
+                    .attr("role")
+                    .is_some_and(|role| CHROME_ROLES.contains(&role))
+                || noisy(element))
     }
 
     fn element(&mut self, element: &Element) {
@@ -513,8 +566,16 @@ mod tests {
     #[test]
     fn keeps_main_content_and_reads_metadata() {
         let page = convert_html(PAGE, &options());
-        let texts: Vec<&str> = page.blocks.iter().map(|block| block.text.as_str()).collect();
-        assert!(!texts.iter().any(|text| text.contains("Nav") || text.contains("Copyright")));
+        let texts: Vec<&str> = page
+            .blocks
+            .iter()
+            .map(|block| block.text.as_str())
+            .collect();
+        assert!(
+            !texts
+                .iter()
+                .any(|text| text.contains("Nav") || text.contains("Copyright"))
+        );
         assert!(!texts.iter().any(|text| text.contains("cookies")));
         assert_eq!(page.blocks[0].kind, BlockKind::Heading(1));
         assert_eq!(
@@ -537,7 +598,11 @@ mod tests {
         assert!(kinds.contains(&BlockKind::ListItem(2)));
         assert!(kinds.contains(&BlockKind::Code));
         assert!(kinds.contains(&BlockKind::Quote));
-        assert!(page.blocks.iter().any(|block| block.markdown == "![diagram]"));
+        assert!(
+            page.blocks
+                .iter()
+                .any(|block| block.markdown == "![diagram]")
+        );
         assert_eq!(page.tables.len(), 1);
         assert_eq!(page.tables[0].columns, vec!["Name", "Size"]);
         assert_eq!(page.tables[0].rows, vec![vec!["a", "1"]]);
@@ -554,10 +619,19 @@ mod tests {
                 ..options()
             },
         );
-        let texts: Vec<&str> = page.blocks.iter().map(|block| block.text.as_str()).collect();
+        let texts: Vec<&str> = page
+            .blocks
+            .iter()
+            .map(|block| block.text.as_str())
+            .collect();
         assert!(texts.iter().any(|text| text.contains("Copyright")));
         assert!(texts.iter().any(|text| text.contains("Nav[2]")));
-        assert!(!page.blocks.iter().any(|block| block.markdown.contains("diagram")));
+        assert!(
+            !page
+                .blocks
+                .iter()
+                .any(|block| block.markdown.contains("diagram"))
+        );
         assert_eq!(page.links[0].url, "https://example.test/");
     }
 
@@ -573,10 +647,7 @@ mod tests {
 
     #[test]
     fn numbers_tables_without_header() {
-        let page = convert_html(
-            "<table><tr><td>x</td><td>y|z</td></tr></table>",
-            &options(),
-        );
+        let page = convert_html("<table><tr><td>x</td><td>y|z</td></tr></table>", &options());
         assert_eq!(page.tables[0].columns, vec!["1", "2"]);
         assert!(page.blocks[0].markdown.contains("y\\|z"));
     }

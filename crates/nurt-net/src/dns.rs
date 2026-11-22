@@ -276,10 +276,7 @@ fn system_config(root: &SysRoot) -> Result<ResolverConfig> {
             ErrorCode::Io,
             format!("{} cannot be read: {error}", path.display()),
         )
-        .with_detail(
-            "path",
-            serde_json::Value::from(path.display().to_string()),
-        )),
+        .with_detail("path", serde_json::Value::from(path.display().to_string()))),
     }
 }
 
@@ -873,7 +870,10 @@ mod tests {
 
     #[test]
     fn invalid_domain_names_are_rejected() {
-        assert_eq!(domain_name(" ").unwrap_err().code(), ErrorCode::InvalidValue);
+        assert_eq!(
+            domain_name(" ").unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
         let long_label = "a".repeat(64);
         assert_eq!(
             domain_name(&long_label).unwrap_err().code(),

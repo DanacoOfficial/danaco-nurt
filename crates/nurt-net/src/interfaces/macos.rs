@@ -64,7 +64,11 @@ pub(super) fn list() -> io::Result<Vec<NetworkInterface>> {
             let gateway = gateways.get(&link.index).map(ToString::to_string);
             NetworkInterface {
                 kind: Some(kind(&name, link.link_type)),
-                addresses: link.addresses.iter().map(InterfaceAddress::to_text).collect(),
+                addresses: link
+                    .addresses
+                    .iter()
+                    .map(InterfaceAddress::to_text)
+                    .collect(),
                 up: link.up,
                 mac: link.mac,
                 mtu: link.mtu,
@@ -79,7 +83,10 @@ fn kind(name: &str, link_type: Option<u8>) -> InterfaceKind {
     match link_type {
         Some(IFT_LOOP) => InterfaceKind::Loopback,
         Some(IFT_IEEE80211) => InterfaceKind::Wireless,
-        _ if VIRTUAL_PREFIXES.iter().any(|prefix| name.starts_with(prefix)) => {
+        _ if VIRTUAL_PREFIXES
+            .iter()
+            .any(|prefix| name.starts_with(prefix)) =>
+        {
             InterfaceKind::Virtual
         }
         Some(IFT_ETHER) => InterfaceKind::Ethernet,
@@ -157,10 +164,7 @@ fn record_link(entry: &libc::ifaddrs, link: &mut Link) {
         // SAFETY: `sdl_len` covers the whole structure, so the name and the
         // link-layer address that follow `sdl_data` are inside it.
         let bytes = unsafe {
-            std::slice::from_raw_parts(
-                dl.sdl_data.as_ptr().cast::<u8>().add(name_len),
-                mac_len,
-            )
+            std::slice::from_raw_parts(dl.sdl_data.as_ptr().cast::<u8>().add(name_len), mac_len)
         };
         link.mac = format_mac(bytes);
     }

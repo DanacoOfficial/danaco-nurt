@@ -6303,15 +6303,37 @@ dependencies = [
 name = "nurt-net"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
+ "blake3",
+ "chardetng",
+ "ciborium",
+ "encoding_rs",
+ "flate2",
+ "hex",
  "hickory-resolver",
+ "indexmap",
+ "jiff 1.0.2",
+ "libc",
  "nurt-contracts",
+ "nurt-testkit",
  "nurt-types",
  "percent-encoding",
+ "proptest",
+ "regex",
+ "rustix",
  "rustls",
  "rustls-native-certs",
- "socket2",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
+ "tree-sitter",
+ "tree-sitter-html",
  "ureq",
  "url",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6352,8 +6374,32 @@ dependencies = [
 name = "nurt-programs"
 version = "0.1.0"
 dependencies = [
+ "bzip2",
+ "chardetng",
+ "ciborium",
+ "encoding_rs",
+ "flate2",
+ "hex",
+ "jsonschema",
+ "liblzma",
+ "lz4_flex",
+ "memchr",
  "nurt-contracts",
  "nurt-types",
+ "plist",
+ "proptest",
+ "quick-xml",
+ "rayon",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
+ "unicode-normalization",
+ "windows-sys 0.61.2",
+ "zstd",
 ]
 
 [[package]]
@@ -6372,19 +6418,36 @@ name = "nurt-sched"
 version = "0.1.0"
 dependencies = [
  "croner",
+ "hex",
+ "indexmap",
  "jiff 1.0.2",
  "nurt-contracts",
  "nurt-types",
+ "serde",
+ "serde_json",
+ "serde_json_canonicalizer",
+ "sha2 0.11.1",
+ "tempfile",
 ]
 
 [[package]]
 name = "nurt-service"
 version = "0.1.0"
 dependencies = [
+ "fs4",
+ "jiff 1.0.2",
+ "libc",
+ "nix 0.32.0",
  "nurt-contracts",
  "nurt-sched",
- "nurt-space",
+ "plist",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "windows",
  "windows-service",
+ "windows-sys 0.61.2",
+ "zbus",
 ]
 
 [[package]]
@@ -6417,16 +6480,39 @@ dependencies = [
 name = "nurt-sys"
 version = "0.1.0"
 dependencies = [
+ "bzip2",
  "core-foundation 0.10.1",
+ "flate2",
+ "globset",
+ "indexmap",
+ "jiff 1.0.2",
+ "libc",
+ "liblzma",
+ "lz4_flex",
  "netstat2",
+ "nix 0.32.0",
  "nurt-contracts",
  "nurt-syslog",
  "nurt-types",
+ "plist",
+ "proptest",
+ "quick-xml",
+ "regex",
+ "rusqlite",
+ "rustix",
+ "serde",
+ "serde_json",
  "sysinfo",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
+ "which",
  "windows",
  "windows-sys 0.61.2",
  "wmi",
  "zbus",
+ "zstd",
 ]
 
 [[package]]
@@ -6434,6 +6520,11 @@ name = "nurt-syslog"
 version = "0.1.0"
 dependencies = [
  "block2",
+ "globset",
+ "indexmap",
+ "jiff 1.0.2",
+ "libc",
+ "lz4_flex",
  "lzma-rust2",
  "macos-unifiedlogs",
  "nurt-contracts",
@@ -6441,7 +6532,16 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "objc2-os-log",
+ "proptest",
+ "quick-xml",
+ "regex",
+ "serde",
+ "serde_json",
  "siphasher",
+ "tempfile",
+ "thiserror 2.0.21",
+ "windows",
+ "zstd",
 ]
 
 [[package]]
@@ -7408,6 +7508,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
 dependencies = [
  "memchr",
+ "serde",
 ]
 
 [[package]]
@@ -9384,6 +9485,16 @@ dependencies = [
  "regex",
  "serde_json",
  "streaming-iterator",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-html"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "261b708e5d92061ede329babaaa427b819329a9d427a1d710abb0f67bbef63ee"
+dependencies = [
+ "cc",
  "tree-sitter-language",
 ]
 

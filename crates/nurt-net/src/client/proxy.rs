@@ -186,10 +186,7 @@ mod tests {
             parse_proxy("socks5://p.test:1080").unwrap_err().code(),
             ErrorCode::Arg
         );
-        assert_eq!(
-            parse_proxy("http://").unwrap_err().code(),
-            ErrorCode::Arg
-        );
+        assert_eq!(parse_proxy("http://").unwrap_err().code(), ErrorCode::Arg);
         assert_eq!(
             parse_proxy("p.test:3128").unwrap().as_str(),
             "http://p.test:3128/"

@@ -122,11 +122,7 @@ pub fn statistics(host: &str, address: IpAddr, sent: u64, rtts: &[f64]) -> PingR
     if !rtts.is_empty() {
         let count = rtts.len() as f64;
         let average = rtts.iter().sum::<f64>() / count;
-        let variance = rtts
-            .iter()
-            .map(|rtt| (rtt - average).powi(2))
-            .sum::<f64>()
-            / count;
+        let variance = rtts.iter().map(|rtt| (rtt - average).powi(2)).sum::<f64>() / count;
         result.rtt_min = rtts.iter().copied().reduce(f64::min);
         result.rtt_max = rtts.iter().copied().reduce(f64::max);
         result.rtt_avg = Some(average);
@@ -139,12 +135,11 @@ fn millis(duration: Duration) -> f64 {
     duration.as_secs_f64() * MILLIS_PER_SECOND
 }
 
-/// Returns the statistics of `count` echo requests sent to `address` one
-/// second apart.
+/// Statistics of a run of echo requests to an address.
 ///
-/// System files (`/proc/sys/net/ipv4/ping_group_range` for the error of a
-/// refused socket) are read below `root`. Progress events report the
-/// requests sent.
+/// The `count` requests are sent one second apart. System files
+/// (`/proc/sys/net/ipv4/ping_group_range` for the error of a refused socket)
+/// are read below `root`. Progress events report the requests sent.
 ///
 /// # Errors
 ///
@@ -177,6 +172,19 @@ pub fn ping(
 ) -> Result<PingResult> {
     ctx.checkpoint()?;
     let mut socket = open(address, root)?;
+    series(socket.as_mut(), host, address, count, timeout, ctx)
+}
+
+/// Returns the statistics of `count` requests sent through `socket` one
+/// interval apart.
+fn series(
+    socket: &mut dyn Echo,
+    host: &str,
+    address: IpAddr,
+    count: u64,
+    timeout: Duration,
+    ctx: &ExecCtx,
+) -> Result<PingResult> {
     let mut rtts = Vec::new();
     let mut sent = 0;
     let mut previous: Option<Instant> = None;
@@ -316,18 +324,14 @@ impl ReadStage for Ping {
         let host = host(args)?;
         let count = count(args)?;
         let timeout = timeout(args)?;
-        let address = resolve_host(host)?
-            .into_iter()
-            .next()
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorCode::Network,
-                    format!("host `{host}` has no address"),
-                )
+        let address = resolve_host(host)?.into_iter().next().ok_or_else(|| {
+            Error::new(ErrorCode::Network, format!("host `{host}` has no address"))
                 .with_problem("dns")
-            })?;
+        })?;
         let result = ping(host, address, count, timeout, &self.root, ctx)?;
-        Ok(StageOutput::records(RecordStream::once(Record::from(result))))
+        Ok(StageOutput::records(RecordStream::once(Record::from(
+            result,
+        ))))
     }
 }
 
@@ -408,6 +412,71 @@ mod tests {
         assert_eq!(count(&args).unwrap(), DEFAULT_COUNT);
         assert_eq!(timeout(&args).unwrap(), DEFAULT_TIMEOUT);
         assert_eq!(host(&args).unwrap(), "127.0.0.1");
+    }
+
+    /// Echo socket that answers from a list: a round-trip time, no reply, or
+    /// an error of the check.
+    struct ScriptedEcho {
+        replies: Vec<Option<Duration>>,
+        sequences: Vec<u16>,
+    }
+
+    impl Echo for ScriptedEcho {
+        fn echo(
+            &mut self,
+            sequence: u16,
+            _timeout: Duration,
+            check: &dyn Fn() -> Result<()>,
+        ) -> Result<Option<Duration>> {
+            check()?;
+            self.sequences.push(sequence);
+            Ok(self.replies.remove(0))
+        }
+    }
+
+    #[test]
+    fn series_counts_replies_and_reports_progress() {
+        let context = nurt_testkit::ctx::TestContext::new();
+        let ctx = context.ctx();
+        let mut socket = ScriptedEcho {
+            replies: vec![
+                Some(Duration::from_millis(10)),
+                None,
+                Some(Duration::from_millis(30)),
+            ],
+            sequences: Vec::new(),
+        };
+        let address = "192.0.2.1".parse().unwrap();
+        let result = series(&mut socket, "host", address, 3, DEFAULT_TIMEOUT, &ctx).unwrap();
+        assert_eq!(socket.sequences, [1, 2, 3]);
+        assert_eq!(result.sent, 3);
+        assert_eq!(result.received, 2);
+        assert_eq!(result.rtt_avg, Some(20.0));
+        let progress = context.events().events().len();
+        assert_eq!(progress, 3);
+    }
+
+    #[test]
+    fn series_stops_when_cancelled() {
+        let context = nurt_testkit::ctx::TestContext::new();
+        let cancel = nurt_contracts::stage::CancelToken::new();
+        let ctx = context.builder().cancel(cancel.clone()).build();
+        cancel.cancel(nurt_contracts::stage::CancelReason::Requested);
+        let mut socket = ScriptedEcho {
+            replies: vec![Some(Duration::from_millis(1))],
+            sequences: Vec::new(),
+        };
+        let address = "192.0.2.1".parse().unwrap();
+        let error = series(&mut socket, "host", address, 1, DEFAULT_TIMEOUT, &ctx).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Cancelled);
+        assert!(socket.sequences.is_empty());
+    }
+
+    #[test]
+    fn timeout_of_another_type_is_a_type_error() {
+        let mut args = args(None, None);
+        args.insert(PARAM_TIMEOUT, ArgValue::Value(Value::Int(2)), false);
+        assert_eq!(timeout(&args).unwrap_err().code(), ErrorCode::Type);
     }
 
     #[test]

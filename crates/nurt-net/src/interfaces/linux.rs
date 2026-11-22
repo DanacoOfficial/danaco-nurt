@@ -285,7 +285,8 @@ mod tests {
             ipv6_default_route(&line),
             Some(("eth0".to_owned(), "fe80::1".parse().unwrap()))
         );
-        let unreachable = format!("{zero} 00 {zero} 00 {zero} ffffffff 00000001 00000000 00200200 lo");
+        let unreachable =
+            format!("{zero} 00 {zero} 00 {zero} ffffffff 00000001 00000000 00200200 lo");
         assert_eq!(ipv6_default_route(&unreachable), None);
     }
 

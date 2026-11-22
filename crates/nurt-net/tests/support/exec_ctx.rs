@@ -4,8 +4,14 @@
 //! Execution context for tests of `nurt-net` commands: the real monotonic
 //! clock, a fixed host description and helpers for arguments and output.
 
-// Each test binary includes this file and uses a subset of the helpers.
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    unreachable_pub,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "each test binary includes this module, uses a subset of its public helpers, and a failed helper fails the test"
+)]
 
 use std::ffi::OsString;
 use std::sync::{Arc, Mutex};
@@ -45,7 +51,11 @@ impl Clock for SystemClock {
         }
     }
 
-    fn sleep(&self, duration: Duration, cancel: &CancelToken) -> std::result::Result<(), CancelReason> {
+    fn sleep(
+        &self,
+        duration: Duration,
+        cancel: &CancelToken,
+    ) -> std::result::Result<(), CancelReason> {
         match cancel.wait_timeout(duration) {
             Some(reason) => Err(reason),
             None => Ok(()),
@@ -114,9 +124,11 @@ pub fn ctx() -> ExecCtx {
 
 /// Arguments of `command` with the given values.
 pub fn args(command: &str, values: &[(&str, Value)]) -> BoundArgs {
-    values.iter().fold(BoundArgs::new(command), |args, (name, value)| {
-        args.with(*name, ArgValue::Value(value.clone()), false)
-    })
+    values
+        .iter()
+        .fold(BoundArgs::new(command), |args, (name, value)| {
+            args.with(*name, ArgValue::Value(value.clone()), false)
+        })
 }
 
 /// Text value.

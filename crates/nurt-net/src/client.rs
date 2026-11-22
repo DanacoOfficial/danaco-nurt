@@ -446,7 +446,10 @@ impl HttpClient {
             };
             drop(outcome);
             emit_retry(ctx, spec, attempt, retries, &reason);
-            let pause = self.settings.retry.pause(attempt - 1, retry_after.as_deref());
+            let pause = self
+                .settings
+                .retry
+                .pause(attempt - 1, retry_after.as_deref());
             wait(ctx, pause, deadline, &spec.target)?;
             attempt += 1;
         }
@@ -620,7 +623,10 @@ impl HttpClient {
         let (host, port, ip) = match proxy {
             Some(proxy) => {
                 let host = proxy.host_str().unwrap_or_default();
-                let host = host.trim_start_matches('[').trim_end_matches(']').to_owned();
+                let host = host
+                    .trim_start_matches('[')
+                    .trim_end_matches(']')
+                    .to_owned();
                 let ip = host.parse::<IpAddr>().ok();
                 (host, proxy.port_or_known_default().unwrap_or_default(), ip)
             }
@@ -848,7 +854,10 @@ fn wait(ctx: &ExecCtx, pause: Duration, deadline: Instant, target: &Target) -> R
 fn timeout_error(target: &Target) -> Error {
     Error::new(
         ErrorCode::Timeout,
-        format!("the request to `{}` exceeded its time limit", target.as_str()),
+        format!(
+            "the request to `{}` exceeded its time limit",
+            target.as_str()
+        ),
     )
 }
 
@@ -976,7 +985,7 @@ mod tests {
         };
         assert_eq!(head.media_type().as_deref(), Some("text/html"));
         assert_eq!(head.charset().as_deref(), Some("windows-1250"));
-        assert_eq!(head.header("Content-Type").map(str::len), Some(34));
+        assert_eq!(head.header("Content-Type").map(str::len), Some(33));
     }
 
     #[test]

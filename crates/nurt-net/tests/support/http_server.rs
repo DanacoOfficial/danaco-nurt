@@ -13,6 +13,10 @@
     dead_code,
     reason = "each test binary includes this module and uses a different part of it"
 )]
+#![allow(
+    clippy::expect_used,
+    reason = "a failure of the test server ends the test that uses it"
+)]
 
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Read, Write};
@@ -29,20 +33,20 @@ const STALL_POLL: Duration = Duration::from_millis(10);
 
 /// A request as received.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Request {
+pub(crate) struct Request {
     /// Method in upper case.
-    pub method: String,
+    pub(crate) method: String,
     /// Path with the query.
-    pub path: String,
+    pub(crate) path: String,
     /// Headers, names in lower case.
-    pub headers: Vec<(String, String)>,
+    pub(crate) headers: Vec<(String, String)>,
     /// Body.
-    pub body: Vec<u8>,
+    pub(crate) body: Vec<u8>,
 }
 
 impl Request {
     /// First value of a header.
-    pub fn header(&self, name: &str) -> Option<&str> {
+    pub(crate) fn header(&self, name: &str) -> Option<&str> {
         self.headers
             .iter()
             .find(|(header, _)| header.eq_ignore_ascii_case(name))
@@ -50,31 +54,31 @@ impl Request {
     }
 
     /// Path without the query.
-    pub fn route(&self) -> &str {
+    pub(crate) fn route(&self) -> &str {
         self.path.split('?').next().unwrap_or_default()
     }
 }
 
 /// A response to send.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Reply {
+pub(crate) struct Reply {
     /// Status code.
-    pub status: u16,
+    pub(crate) status: u16,
     /// Headers; `content-length` is added unless given.
-    pub headers: Vec<(String, String)>,
+    pub(crate) headers: Vec<(String, String)>,
     /// Body.
-    pub body: Vec<u8>,
+    pub(crate) body: Vec<u8>,
     /// Wait before the head is sent.
-    pub delay: Duration,
+    pub(crate) delay: Duration,
     /// Bytes of the body sent before `stall`.
-    pub stall_after: Option<usize>,
+    pub(crate) stall_after: Option<usize>,
     /// Wait after the first `stall_after` bytes of the body.
-    pub stall: Duration,
+    pub(crate) stall: Duration,
 }
 
 impl Reply {
     /// A response with a status and no body.
-    pub fn status(status: u16) -> Self {
+    pub(crate) fn status(status: u16) -> Self {
         Self {
             status,
             ..Self::default()
@@ -82,39 +86,39 @@ impl Reply {
     }
 
     /// A response with a media type and a body.
-    pub fn body(status: u16, content_type: &str, body: impl Into<Vec<u8>>) -> Self {
+    pub(crate) fn body(status: u16, content_type: &str, body: impl Into<Vec<u8>>) -> Self {
         Self::status(status)
             .header("content-type", content_type)
             .with_body(body)
     }
 
     /// Adds a header.
-    pub fn header(mut self, name: &str, value: &str) -> Self {
+    pub(crate) fn header(mut self, name: &str, value: &str) -> Self {
         self.headers.push((name.to_owned(), value.to_owned()));
         self
     }
 
     /// Replaces the body.
-    pub fn with_body(mut self, body: impl Into<Vec<u8>>) -> Self {
+    pub(crate) fn with_body(mut self, body: impl Into<Vec<u8>>) -> Self {
         self.body = body.into();
         self
     }
 
     /// Waits before sending the head.
-    pub fn delayed(mut self, delay: Duration) -> Self {
+    pub(crate) fn delayed(mut self, delay: Duration) -> Self {
         self.delay = delay;
         self
     }
 
     /// Sends `bytes` bytes of the body, then waits `stall` before the rest.
-    pub fn stalled(mut self, bytes: usize, stall: Duration) -> Self {
+    pub(crate) fn stalled(mut self, bytes: usize, stall: Duration) -> Self {
         self.stall_after = Some(bytes);
         self.stall = stall;
         self
     }
 
     /// A redirect to `location`.
-    pub fn redirect(status: u16, location: &str) -> Self {
+    pub(crate) fn redirect(status: u16, location: &str) -> Self {
         Self::status(status).header("location", location)
     }
 }
@@ -131,14 +135,14 @@ struct State {
 }
 
 /// Running test server; stops when dropped.
-pub struct TestServer {
+pub(crate) struct TestServer {
     address: SocketAddr,
     state: Arc<State>,
 }
 
 impl TestServer {
     /// Starts a server on `127.0.0.1` with a free port.
-    pub fn start(handler: impl Fn(&Request) -> Reply + Send + Sync + 'static) -> Self {
+    pub(crate) fn start(handler: impl Fn(&Request) -> Reply + Send + Sync + 'static) -> Self {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind loopback");
         let address = listener.local_addr().expect("local address");
         let state = Arc::new(State {
@@ -155,42 +159,42 @@ impl TestServer {
     }
 
     /// Address of the server.
-    pub fn address(&self) -> SocketAddr {
+    pub(crate) fn address(&self) -> SocketAddr {
         self.address
     }
 
     /// Port of the server.
-    pub fn port(&self) -> u16 {
+    pub(crate) fn port(&self) -> u16 {
         self.address.port()
     }
 
     /// `http://127.0.0.1:<port><path>`.
-    pub fn url(&self, path: &str) -> String {
+    pub(crate) fn url(&self, path: &str) -> String {
         format!("http://{}{path}", self.address)
     }
 
     /// Requests received so far, in order of arrival.
-    pub fn requests(&self) -> Vec<Request> {
+    pub(crate) fn requests(&self) -> Vec<Request> {
         self.state.requests.lock().expect("requests").clone()
     }
 
     /// Number of requests received so far.
-    pub fn request_count(&self) -> usize {
+    pub(crate) fn request_count(&self) -> usize {
         self.state.requests.lock().expect("requests").len()
     }
 
     /// Largest number of connections served at the same time.
-    pub fn peak_connections(&self) -> usize {
+    pub(crate) fn peak_connections(&self) -> usize {
         self.state.peak.load(Ordering::SeqCst)
     }
 
     /// Connections closed by the client before the whole body was sent.
-    pub fn aborted(&self) -> usize {
+    pub(crate) fn aborted(&self) -> usize {
         self.state.aborted.load(Ordering::SeqCst)
     }
 
     /// Waits up to `limit` until `aborted` reaches `count`.
-    pub fn wait_aborted(&self, count: usize, limit: Duration) -> bool {
+    pub(crate) fn wait_aborted(&self, count: usize, limit: Duration) -> bool {
         let start = Instant::now();
         while start.elapsed() < limit {
             if self.aborted() >= count {
@@ -295,7 +299,10 @@ fn write_reply(
     if request.method == "HEAD" {
         return stream.flush();
     }
-    let split = reply.stall_after.unwrap_or(reply.body.len()).min(reply.body.len());
+    let split = reply
+        .stall_after
+        .unwrap_or(reply.body.len())
+        .min(reply.body.len());
     stream.write_all(&reply.body[..split])?;
     stream.flush()?;
     if reply.stall_after.is_some() && client_left(&stream, reply.stall)? {
@@ -351,7 +358,7 @@ fn reason(status: u16) -> &'static str {
 
 /// Byte range `bytes=N-` or `bytes=N-M` of a request, for a body of `len`
 /// bytes: `Some((start, end_exclusive))`.
-pub fn requested_range(request: &Request, len: usize) -> Option<(usize, usize)> {
+pub(crate) fn requested_range(request: &Request, len: usize) -> Option<(usize, usize)> {
     let spec = request.header("range")?.strip_prefix("bytes=")?;
     let (start, end) = spec.split_once('-')?;
     let start: usize = start.trim().parse().ok()?;
@@ -365,14 +372,14 @@ pub fn requested_range(request: &Request, len: usize) -> Option<(usize, usize)> 
 /// Resolver that answers from a table and counts lookups; unknown names
 /// fail.
 #[derive(Default)]
-pub struct MockDns {
+pub(crate) struct MockDns {
     table: Mutex<HashMap<String, Vec<IpAddr>>>,
     lookups: AtomicUsize,
 }
 
 impl MockDns {
     /// A resolver that maps every name in `names` to `127.0.0.1`.
-    pub fn loopback(names: &[&str]) -> Arc<Self> {
+    pub(crate) fn loopback(names: &[&str]) -> Arc<Self> {
         let dns = Self::default();
         for name in names {
             dns.set(name, &[IpAddr::V4(Ipv4Addr::LOCALHOST)]);
@@ -381,7 +388,7 @@ impl MockDns {
     }
 
     /// Sets the answer for `name`.
-    pub fn set(&self, name: &str, addresses: &[IpAddr]) {
+    pub(crate) fn set(&self, name: &str, addresses: &[IpAddr]) {
         self.table
             .lock()
             .expect("table")
@@ -389,7 +396,7 @@ impl MockDns {
     }
 
     /// Number of lookups made.
-    pub fn lookups(&self) -> usize {
+    pub(crate) fn lookups(&self) -> usize {
         self.lookups.load(Ordering::SeqCst)
     }
 }

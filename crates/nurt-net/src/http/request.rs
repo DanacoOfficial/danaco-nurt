@@ -40,8 +40,8 @@ use sha2::{Digest, Sha256};
 use crate::cache::{CacheStore, CachedResponse};
 use crate::check::{AddressFact, RequestFacts, describe};
 use crate::client::{
-    BodyEncoding, ClientSettings, HttpClient, Method, NameResolver, Pins, ProxyChoice,
-    RequestBody, RequestSpec, ResponseBody, Target,
+    BodyEncoding, ClientSettings, HttpClient, Method, NameResolver, Pins, ProxyChoice, RequestBody,
+    RequestSpec, ResponseBody, Target,
 };
 use crate::html::{
     self, ConvertOptions, ImageStyle, LinkStyle, Page, TextForm, convert_html, convert_markdown,
@@ -166,9 +166,8 @@ impl EffectStage for HttpRequest {
             }
             None => (runner.run_all(ctx)?, Vec::new()),
         };
-        let mut outcome = EffectOutcome::new(StageOutput::records(RecordStream::from_records(
-            records,
-        )));
+        let mut outcome =
+            EffectOutcome::new(StageOutput::records(RecordStream::from_records(records)));
         outcome.changes = changes;
         outcome.irreversible = irreversible;
         Ok(outcome)
@@ -176,25 +175,15 @@ impl EffectStage for HttpRequest {
 }
 
 fn save_change(path: &AbsPath, existed: bool, before: Option<u64>, after: Option<u64>) -> Change {
-    Change {
-        path: path.to_language_string(),
-        action: if existed {
-            ChangeAction::Modify
-        } else {
-            ChangeAction::Create
-        },
-        from: None,
-        size_before: before,
-        size_after: after,
-        hash_before: None,
-        hash_after: None,
-        replacements: None,
-        added: None,
-        removed: None,
-        before: None,
-        after: None,
-        flags: Vec::new(),
-    }
+    let action = if existed {
+        ChangeAction::Modify
+    } else {
+        ChangeAction::Create
+    };
+    let mut change = Change::new(path.to_language_string(), action);
+    change.size_before = before.map(Size::from_bytes);
+    change.size_after = after.map(Size::from_bytes);
+    change
 }
 
 /// Form of the returned body.
@@ -322,7 +311,10 @@ fn choice<T: Copy>(args: &BoundArgs, name: &str, default: T, values: &[(&str, T)
             let names: Vec<&str> = values.iter().map(|(text, _)| *text).collect();
             Error::new(
                 ErrorCode::UnknownValue,
-                format!("`{given}` is not a value of `{name}`; use one of {}", names.join(", ")),
+                format!(
+                    "`{given}` is not a value of `{name}`; use one of {}",
+                    names.join(", ")
+                ),
             )
             .with_expected(serde_json::json!(names))
         })
@@ -347,7 +339,7 @@ fn count(args: &BoundArgs, name: &str, default: i64, high: i64) -> Result<usize>
 fn regex_arg(args: &BoundArgs, name: &str) -> Result<Option<Regex>> {
     let (pattern, flags) = match args.value(name) {
         None | Some(Value::Null) => return Ok(None),
-        Some(Value::Regex(regex)) => (regex.pattern.clone(), regex.flags.clone()),
+        Some(Value::Regex(regex)) => (regex.pattern.clone(), regex.flags),
         Some(Value::Text(text)) => (text.clone(), value::RegexFlags::default()),
         Some(other) => {
             return Err(Error::new(
@@ -375,9 +367,9 @@ fn regex_arg(args: &BoundArgs, name: &str) -> Result<Option<Regex>> {
 fn duration(args: &BoundArgs, name: &str, default: Duration) -> Result<Duration> {
     match args.value(name) {
         None | Some(Value::Null) => Ok(default),
-        Some(Value::Duration(value)) => value.to_std().ok_or_else(|| {
-            Error::new(ErrorCode::Arg, format!("`{name}` must not be negative"))
-        }),
+        Some(Value::Duration(value)) => value
+            .to_std()
+            .ok_or_else(|| Error::new(ErrorCode::Arg, format!("`{name}` must not be negative"))),
         Some(other) => Err(Error::new(
             ErrorCode::Type,
             format!("`{name}` expects a duration, not {}", other.type_name()),
@@ -421,13 +413,19 @@ fn addresses(args: &BoundArgs, mode: &Addresses<'_>) -> Result<Vec<AddressFact>>
         Some(other) => {
             return Err(Error::new(
                 ErrorCode::Type,
-                format!("`url` expects text or a list of text, not {}", other.type_name()),
+                format!(
+                    "`url` expects text or a list of text, not {}",
+                    other.type_name()
+                ),
             ));
         }
         None => args.require("url").map(|_| Vec::new())?,
     };
     if texts.is_empty() {
-        return Err(Error::new(ErrorCode::Arg, "`url` needs at least one address"));
+        return Err(Error::new(
+            ErrorCode::Arg,
+            "`url` needs at least one address",
+        ));
     }
     Ok(texts.into_iter().map(AddressFact::Fixed).collect())
 }
@@ -520,7 +518,10 @@ fn pins(args: &BoundArgs) -> Result<Pins> {
             other => {
                 return Err(Error::new(
                     ErrorCode::Type,
-                    format!("`resolve` expects lists of addresses, not {}", other.type_name()),
+                    format!(
+                        "`resolve` expects lists of addresses, not {}",
+                        other.type_name()
+                    ),
                 ));
             }
         };
@@ -554,13 +555,25 @@ impl Params {
         let params = Self {
             addresses: addresses(args, &mode)?,
             method: Method::parse(word(args, "method")?.unwrap_or("get")).ok_or_else(|| {
-                Error::new(ErrorCode::UnknownValue, "unknown HTTP method; use get, head, post, put, patch, delete or options")
+                Error::new(
+                    ErrorCode::UnknownValue,
+                    "unknown HTTP method; use get, head, post, put, patch, delete or options",
+                )
             })?,
             headers: headers(args)?,
             body,
             body_kind,
             save: save_path(args)?,
-            form: choice(args, "as", Form::Raw, &[("raw", Form::Raw), ("text", Form::Text), ("markdown", Form::Markdown)])?,
+            form: choice(
+                args,
+                "as",
+                Form::Raw,
+                &[
+                    ("raw", Form::Raw),
+                    ("text", Form::Text),
+                    ("markdown", Form::Markdown),
+                ],
+            )?,
             extract: choice(
                 args,
                 "extract",
@@ -577,32 +590,65 @@ impl Params {
             table: count(args, "table", 0, i64::MAX)?,
             convert: ConvertOptions {
                 main_only: flag(args, "main_only", true)?,
-                links: choice(args, "links", LinkStyle::Inline, &[("inline", LinkStyle::Inline), ("list", LinkStyle::List), ("none", LinkStyle::None)])?,
-                images: choice(args, "images", ImageStyle::Alt, &[("drop", ImageStyle::Drop), ("alt", ImageStyle::Alt)])?,
+                links: choice(
+                    args,
+                    "links",
+                    LinkStyle::Inline,
+                    &[
+                        ("inline", LinkStyle::Inline),
+                        ("list", LinkStyle::List),
+                        ("none", LinkStyle::None),
+                    ],
+                )?,
+                images: choice(
+                    args,
+                    "images",
+                    ImageStyle::Alt,
+                    &[("drop", ImageStyle::Drop), ("alt", ImageStyle::Alt)],
+                )?,
                 base: None,
             },
             section: word(args, "section")?.map(str::to_owned),
-            outline: choice(args, "outline", OutlineMode::Auto, &[("auto", OutlineMode::Auto), ("always", OutlineMode::Always), ("never", OutlineMode::Never)])?,
+            outline: choice(
+                args,
+                "outline",
+                OutlineMode::Auto,
+                &[
+                    ("auto", OutlineMode::Auto),
+                    ("always", OutlineMode::Always),
+                    ("never", OutlineMode::Never),
+                ],
+            )?,
             query: word(args, "query")?.map(str::to_owned),
             query_limit: query_limit(args)?,
             find: regex_arg(args, "find")?,
             find_context: count(args, "find_context", 1, MAX_FIND_CONTEXT)?,
             links_filter: regex_arg(args, "links_filter")?,
             same_host: flag(args, "same_host", false)?,
-            charset: word(args, "charset")?.filter(|name| *name != "auto").map(str::to_owned),
+            charset: word(args, "charset")?
+                .filter(|name| *name != "auto")
+                .map(str::to_owned),
             offset: count(args, "offset", 0, i64::MAX)?,
             cache: choice(
                 args,
                 "cache",
                 CacheMode::Bypass,
-                &[("bypass", CacheMode::Bypass), ("off", CacheMode::Bypass), ("use", CacheMode::Use), ("revalidate", CacheMode::Revalidate), ("only", CacheMode::Only)],
+                &[
+                    ("bypass", CacheMode::Bypass),
+                    ("off", CacheMode::Bypass),
+                    ("use", CacheMode::Use),
+                    ("revalidate", CacheMode::Revalidate),
+                    ("only", CacheMode::Only),
+                ],
             )?,
             unchanged_since: word(args, "unchanged_since")?.map(str::to_owned),
             timeout: duration(args, "timeout", crate::client::DEFAULT_TIMEOUT)?,
             follow_redirects: flag(args, "follow_redirects", true)?,
-            max_redirects: u32::try_from(count(args, "max_redirects", 10, i64::from(u32::MAX))?).unwrap_or(u32::MAX),
+            max_redirects: u32::try_from(count(args, "max_redirects", 10, i64::from(u32::MAX))?)
+                .unwrap_or(u32::MAX),
             verify_tls: flag(args, "verify_tls", true)?,
-            retries: u32::try_from(count(args, "retries", 0, i64::from(u32::MAX))?).unwrap_or(u32::MAX),
+            retries: u32::try_from(count(args, "retries", 0, i64::from(u32::MAX))?)
+                .unwrap_or(u32::MAX),
             fail_on_status: flag(args, "fail_on_status", false)?,
             on_error_record: word(args, "on_error")? == Some("record"),
             max_size: size(args, "max_size", DEFAULT_MAX_SIZE)?,
@@ -622,7 +668,9 @@ impl Params {
         }
         let link_options = self.links_filter.is_some() || self.same_host;
         if link_options && self.extract != Extract::Links {
-            return Err(conflict("`links_filter` and `same_host` apply only with `extract: links`"));
+            return Err(conflict(
+                "`links_filter` and `same_host` apply only with `extract: links`",
+            ));
         }
         let selection = self.section.is_some() || self.find.is_some() || self.query.is_some();
         if selection && (self.form == Form::Raw || self.extract != Extract::Content) {
@@ -816,7 +864,14 @@ impl<'p> Runner<'p> {
                 };
                 let target = Target::parse(text)?;
                 if target.scheme_assumed() {
-                    log(ctx, LogLevel::Info, format!("scheme_assumed: `{text}` is requested as `{}`", target.as_str()));
+                    log(
+                        ctx,
+                        LogLevel::Info,
+                        format!(
+                            "scheme_assumed: `{text}` is requested as `{}`",
+                            target.as_str()
+                        ),
+                    );
                 }
                 Ok(target)
             })
@@ -832,13 +887,15 @@ impl<'p> Runner<'p> {
         let next = AtomicUsize::new(0);
         std::thread::scope(|scope| {
             for _ in 0..PARALLEL.min(targets.len()) {
-                scope.spawn(|| loop {
-                    let index = next.fetch_add(1, Ordering::SeqCst);
-                    let Some(target) = targets.get(index) else {
-                        return;
-                    };
-                    let result = self.fetch(target, ctx, None);
-                    slots.lock().unwrap_or_else(PoisonError::into_inner)[index] = Some(result);
+                scope.spawn(|| {
+                    loop {
+                        let index = next.fetch_add(1, Ordering::SeqCst);
+                        let Some(target) = targets.get(index) else {
+                            return;
+                        };
+                        let result = self.fetch(target, ctx, None);
+                        slots.lock().unwrap_or_else(PoisonError::into_inner)[index] = Some(result);
+                    }
                 });
             }
         });
@@ -846,20 +903,33 @@ impl<'p> Runner<'p> {
             .into_inner()
             .unwrap_or_else(PoisonError::into_inner)
             .into_iter()
-            .map(|slot| slot.unwrap_or_else(|| Err(Error::new(ErrorCode::Internal, "a request was not run"))))
+            .map(|slot| {
+                slot.unwrap_or_else(|| {
+                    Err(Error::new(ErrorCode::Internal, "a request was not run"))
+                })
+            })
             .collect()
     }
 
-    fn run_saving(&self, ctx: &ExecCtx, path: &AbsPath, tx: &mut dyn MutationTx) -> Result<(Vec<Record>, Change)> {
+    fn run_saving(
+        &self,
+        ctx: &ExecCtx,
+        path: &AbsPath,
+        tx: &mut dyn MutationTx,
+    ) -> Result<(Vec<Record>, Change)> {
         let targets = self.targets(ctx)?;
-        let target = targets.first().ok_or_else(|| Error::new(ErrorCode::Arg, "`url` needs an address"))?;
+        let target = targets
+            .first()
+            .ok_or_else(|| Error::new(ErrorCode::Arg, "`url` needs an address"))?;
         let preserved = tx.preserve(&[TargetSpec {
             path: TargetPath::Fs(path.clone()),
             action: TargetAction::Modify,
             expect: Expect::Unchecked,
             size_hint: None,
         }])?;
-        let first = preserved.first().ok_or_else(|| Error::new(ErrorCode::Internal, "the journal declared no target"))?;
+        let first = preserved
+            .first()
+            .ok_or_else(|| Error::new(ErrorCode::Internal, "the journal declared no target"))?;
         let index = first.index;
         let before = first.before.clone();
         let mut saver = |body: &mut ResponseBody| -> Result<u64> {
@@ -877,26 +947,50 @@ impl<'p> Runner<'p> {
                 Value::Size(size) => Some(size.bytes()),
                 _ => None,
             });
-        Ok((records, save_change(path, before.exists, before.size, written)))
+        Ok((
+            records,
+            save_change(path, before.exists, before.size, written),
+        ))
     }
 
-    fn fetch(&self, target: &Target, ctx: &ExecCtx, saver: Option<Saver<'_>>) -> Result<Vec<Record>> {
+    fn fetch(
+        &self,
+        target: &Target,
+        ctx: &ExecCtx,
+        saver: Option<Saver<'_>>,
+    ) -> Result<Vec<Record>> {
         let started = Instant::now();
         let saving = saver.is_some();
         let obtained = self.obtain(target, ctx, saver)?;
         if self.params.fail_on_status && obtained.head.status >= 400 {
             return Err(Error::new(
                 ErrorCode::Network,
-                format!("`{}` answered with status {}", target.as_str(), obtained.head.status),
+                format!(
+                    "`{}` answered with status {}",
+                    target.as_str(),
+                    obtained.head.status
+                ),
             )
             .with_problem("status")
             .with_actual(serde_json::json!(obtained.head.status)));
         }
         if obtained.truncated {
-            log(ctx, LogLevel::Warn, format!("body_truncated: only the first {} bytes of `{}` were read", obtained.bytes.len(), target.as_str()));
+            log(
+                ctx,
+                LogLevel::Warn,
+                format!(
+                    "body_truncated: only the first {} bytes of `{}` were read",
+                    obtained.bytes.len(),
+                    target.as_str()
+                ),
+            );
         }
         let elapsed = started.elapsed();
-        let render = Render { params: self.params, target, ctx };
+        let render = Render {
+            params: self.params,
+            target,
+            ctx,
+        };
         if saving {
             return Ok(vec![render.saved_record(&obtained, elapsed)]);
         }
@@ -909,14 +1003,15 @@ impl<'p> Runner<'p> {
 
     fn obtain(&self, target: &Target, ctx: &ExecCtx, saver: Option<Saver<'_>>) -> Result<Obtained> {
         let params = self.params;
-        let cache = self
-            .cache
-            .as_ref()
-            .filter(|_| params.method == Method::Get && saver.is_none() && params.cache != CacheMode::Bypass);
+        let cache = self.cache.as_ref().filter(|_| {
+            params.method == Method::Get && saver.is_none() && params.cache != CacheMode::Bypass
+        });
         let usable = cache.filter(|_| params.headers.is_empty() || params.cache == CacheMode::Only);
         let key = self.cache_key(target);
         let now = unix_seconds(ctx);
-        let cached = usable.and_then(|store| store.load(&key)).filter(|entry| entry.serves(params.max_size));
+        let cached = usable
+            .and_then(|store| store.load(&key))
+            .filter(|entry| entry.serves(params.max_size));
         if let Some(found) = self.answer_from_cache(target, cached.as_ref(), now)? {
             if let Some(store) = usable {
                 let _ = store.touch(&key, None, now);
@@ -939,17 +1034,33 @@ impl<'p> Runner<'p> {
             status: exchange.head.status,
             headers: exchange.head.headers.clone(),
             final_url: exchange.head.final_url.clone(),
-            redirects: exchange.head.redirects.iter().map(|step| step.location.clone()).collect(),
-            remote: exchange.head.remote_address.map(|address| address.to_string()),
+            redirects: exchange
+                .head
+                .redirects
+                .iter()
+                .map(|step| step.location.clone())
+                .collect(),
+            remote: exchange
+                .head
+                .remote_address
+                .map(|address| address.to_string()),
             encoding: exchange.body.encoding().clone(),
             from_cache: false,
         };
         if let Some(saver) = saver {
             let written = saver(&mut exchange.body)?;
-            return Ok(Obtained { head, bytes: Vec::new(), truncated: false, saved: Some(written) });
+            return Ok(Obtained {
+                head,
+                bytes: Vec::new(),
+                truncated: false,
+                saved: Some(written),
+            });
         }
         let body = if params.method == Method::Head {
-            crate::client::LimitedBody { bytes: Vec::new(), truncated: false }
+            crate::client::LimitedBody {
+                bytes: Vec::new(),
+                truncated: false,
+            }
         } else {
             exchange.body.read_limited(params.max_size)?
         };
@@ -969,13 +1080,30 @@ impl<'p> Runner<'p> {
                 used: now,
             };
             if let Err(error) = store.store(&key, &entry) {
-                log(ctx, LogLevel::Warn, format!("the response of `{}` was not cached: {error}", target.as_str()));
+                log(
+                    ctx,
+                    LogLevel::Warn,
+                    format!(
+                        "the response of `{}` was not cached: {error}",
+                        target.as_str()
+                    ),
+                );
             }
         }
-        Ok(Obtained { head, bytes: body.bytes, truncated: body.truncated, saved: None })
+        Ok(Obtained {
+            head,
+            bytes: body.bytes,
+            truncated: body.truncated,
+            saved: None,
+        })
     }
 
-    fn answer_from_cache(&self, target: &Target, cached: Option<&CachedResponse>, now: i64) -> Result<Option<Obtained>> {
+    fn answer_from_cache(
+        &self,
+        target: &Target,
+        cached: Option<&CachedResponse>,
+        now: i64,
+    ) -> Result<Option<Obtained>> {
         let params = self.params;
         match (params.cache, cached) {
             (CacheMode::Only, Some(entry)) => Ok(Some(from_entry(entry))),
@@ -984,13 +1112,17 @@ impl<'p> Runner<'p> {
                 format!("no cached response for `{}`", target.as_str()),
             )
             .with_fix(format!("http.request \"{}\" cache: use", target.as_str()))),
-            (CacheMode::Use, Some(entry)) if entry.is_fresh(now, self.cache_ttl()) => Ok(Some(from_entry(entry))),
+            (CacheMode::Use, Some(entry)) if entry.is_fresh(now, self.cache_ttl()) => {
+                Ok(Some(from_entry(entry)))
+            }
             _ => Ok(None),
         }
     }
 
     fn cache_ttl(&self) -> Duration {
-        self.cache.as_ref().map_or(crate::cache::DEFAULT_TTL, CacheStore::ttl)
+        self.cache
+            .as_ref()
+            .map_or(crate::cache::DEFAULT_TTL, CacheStore::ttl)
     }
 
     fn spec(&self, target: &Target) -> RequestSpec {
@@ -1011,10 +1143,12 @@ impl<'p> Runner<'p> {
 
 fn conditional_headers(spec: &mut RequestSpec, entry: &CachedResponse) {
     if let Some(etag) = entry.header("etag") {
-        spec.headers.push(("If-None-Match".to_owned(), etag.to_owned()));
+        spec.headers
+            .push(("If-None-Match".to_owned(), etag.to_owned()));
     }
     if let Some(modified) = entry.header("last-modified") {
-        spec.headers.push(("If-Modified-Since".to_owned(), modified.to_owned()));
+        spec.headers
+            .push(("If-Modified-Since".to_owned(), modified.to_owned()));
     }
 }
 
@@ -1028,8 +1162,8 @@ fn from_entry(entry: &CachedResponse) -> Obtained {
 }
 
 fn unix_seconds(ctx: &ExecCtx) -> i64 {
-    const NANOS: i128 = 1_000_000_000;
-    i64::try_from(ctx.clock().now().0 / NANOS).unwrap_or(i64::MAX)
+    const PER_SECOND: i128 = 1_000_000_000;
+    i64::try_from(ctx.clock().now().0 / PER_SECOND).unwrap_or(i64::MAX)
 }
 
 fn log(ctx: &ExecCtx, level: LogLevel, message: String) {
@@ -1044,7 +1178,12 @@ fn report_failure(ctx: &ExecCtx, target: &Target, error: &Error) {
     log(
         ctx,
         LogLevel::Error,
-        format!("{}: {}: {}", target.as_str(), error.code(), error.data().message),
+        format!(
+            "{}: {}: {}",
+            target.as_str(),
+            error.code(),
+            error.data().message
+        ),
     );
 }
 
@@ -1075,7 +1214,11 @@ fn doc_kind(media: Option<&str>, url: &str, text: &str) -> DocKind {
         Some("text/markdown" | "text/x-markdown") => DocKind::Markdown,
         Some(_) => DocKind::Plain,
         None => {
-            let start = text.trim_start().get(..15).unwrap_or_default().to_ascii_lowercase();
+            let start = text
+                .trim_start()
+                .get(..15)
+                .unwrap_or_default()
+                .to_ascii_lowercase();
             if start.starts_with("<!doctype html") || start.starts_with("<html") {
                 DocKind::Html
             } else if url.ends_with(".md") {
@@ -1097,7 +1240,6 @@ struct Render<'a> {
 /// Body text with the facts that go into the record.
 struct BodyText {
     text: String,
-    charset: Option<String>,
     total_chars: Option<u64>,
 }
 
@@ -1129,7 +1271,11 @@ impl Render<'_> {
 
     fn saved_record(&self, obtained: &Obtained, elapsed: Duration) -> Record {
         let mut record = self.base(obtained, elapsed);
-        record.saved = self.params.save.as_ref().map(|path| value::Path::from(path.to_language_string().as_str()));
+        record.saved = self
+            .params
+            .save
+            .as_ref()
+            .map(|path| value::Path::from(path.to_language_string().as_str()));
         Record::from(record)
     }
 
@@ -1140,7 +1286,7 @@ impl Render<'_> {
             return Ok(vec![self.finish(record, String::new())]);
         }
         let decoded = self.decode(obtained)?;
-        record.charset = decoded.charset.clone().or(record.charset);
+        record.charset = Some(decoded.charset.clone());
         if self.params.extract == Extract::Tables {
             let page = self.page(&decoded.text, &obtained.head);
             return self.rows(&page, &obtained.head);
@@ -1176,10 +1322,18 @@ impl Render<'_> {
                     media.as_deref().unwrap_or("unknown type")
                 ),
             )
-            .with_fix(format!("http.request \"{}\" save: \"/tmp/body\"", self.target.as_str())));
+            .with_fix(format!(
+                "http.request \"{}\" save: \"/tmp/body\"",
+                self.target.as_str()
+            )));
         }
         let is_html = doc_kind(media.as_deref(), self.target.as_str(), "") == DocKind::Html;
-        html::decode(&obtained.bytes, head.charset().as_deref(), self.params.charset.as_deref(), is_html || media.is_none())
+        html::decode(
+            &obtained.bytes,
+            head.charset().as_deref(),
+            self.params.charset.as_deref(),
+            is_html || media.is_none(),
+        )
     }
 
     fn page(&self, text: &str, head: &Head) -> Page {
@@ -1210,13 +1364,15 @@ impl Render<'_> {
         if self.params.offset > total {
             return Err(Error::new(
                 ErrorCode::Arg,
-                format!("`offset` {} is past the end of the body of {total} characters", self.params.offset),
+                format!(
+                    "`offset` {} is past the end of the body of {total} characters",
+                    self.params.offset
+                ),
             )
             .with_actual(serde_json::json!(total)));
         }
         Ok(BodyText {
             text: full.chars().skip(self.params.offset).collect(),
-            charset: Some(decoded.charset.clone()),
             total_chars: Some(total as u64),
         })
     }
@@ -1253,31 +1409,54 @@ impl Render<'_> {
         }
         let saved = self.save_full(&rendered, form);
         let entries = select::sections(&blocks, form);
-        Ok(select::outline(page.metadata.title.as_deref(), &rendered, &entries, saved.as_deref()))
+        Ok(select::outline(
+            page.metadata.title.as_deref(),
+            &rendered,
+            &entries,
+            saved.as_deref(),
+        ))
     }
 
     fn save_full(&self, content: &str, form: TextForm) -> Option<String> {
         let dir = self.ctx.state_dir()?.join(RESULTS_DIR);
-        let extension = if form == TextForm::Markdown { "md" } else { "txt" };
+        let extension = if form == TextForm::Markdown {
+            "md"
+        } else {
+            "txt"
+        };
         let path = dir.join(format!("{}.{extension}", body_etag(content)));
         let written = std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&path, content));
         match written {
             Ok(()) => Some(path.display().to_string()),
             Err(error) => {
-                log(self.ctx, LogLevel::Warn, format!("the full content was not kept: {error}"));
+                log(
+                    self.ctx,
+                    LogLevel::Warn,
+                    format!("the full content was not kept: {error}"),
+                );
                 None
             }
         }
     }
 
     fn links(&self, page: &Page) -> String {
-        let host = url::Url::parse(self.target.as_str()).ok().and_then(|url| url.host_str().map(str::to_owned));
+        let host = url::Url::parse(self.target.as_str())
+            .ok()
+            .and_then(|url| url.host_str().map(str::to_owned));
         page.links
             .iter()
-            .filter(|link| self.params.links_filter.as_ref().is_none_or(|pattern| pattern.is_match(&link.url)))
+            .filter(|link| {
+                self.params
+                    .links_filter
+                    .as_ref()
+                    .is_none_or(|pattern| pattern.is_match(&link.url))
+            })
             .filter(|link| {
                 !self.params.same_host
-                    || url::Url::parse(&link.url).ok().and_then(|url| url.host_str().map(str::to_owned)) == host
+                    || url::Url::parse(&link.url)
+                        .ok()
+                        .and_then(|url| url.host_str().map(str::to_owned))
+                        == host
             })
             .map(|link| match self.params.textual_form() {
                 TextForm::Markdown => format!("- [{}]({})", link.text, link.url),
@@ -1290,7 +1469,14 @@ impl Render<'_> {
     fn headings(&self, page: &Page) -> String {
         select::sections(&page.blocks, self.params.textual_form())
             .iter()
-            .map(|entry| format!("{} {} ({})", "#".repeat(usize::from(entry.level)), entry.title, entry.chars))
+            .map(|entry| {
+                format!(
+                    "{} {} ({})",
+                    "#".repeat(usize::from(entry.level)),
+                    entry.title,
+                    entry.chars
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -1300,7 +1486,10 @@ impl Render<'_> {
         if wanted > page.tables.len() {
             return Err(Error::new(
                 ErrorCode::NotFound,
-                format!("table {wanted} does not exist; the page has {} tables", page.tables.len()),
+                format!(
+                    "table {wanted} does not exist; the page has {} tables",
+                    page.tables.len()
+                ),
             )
             .with_actual(serde_json::json!(page.tables.len())));
         }
@@ -1315,7 +1504,12 @@ impl Render<'_> {
                     .columns
                     .iter()
                     .enumerate()
-                    .map(|(column, name)| (name.clone(), Value::Text(row.get(column).cloned().unwrap_or_default())))
+                    .map(|(column, name)| {
+                        (
+                            name.clone(),
+                            Value::Text(row.get(column).cloned().unwrap_or_default()),
+                        )
+                    })
                     .collect();
                 records.push(Record::from(Row {
                     path: value::Path::from(head.final_url.as_str()),
@@ -1377,8 +1571,8 @@ fn record_headers(headers: &[(String, String)]) -> IndexMap<String, Value> {
 
 fn parse_http_date(text: &str) -> Option<value::Instant> {
     let zoned = jiff::fmt::rfc2822::parse(text.trim()).ok()?;
-    let nanos = i64::try_from(zoned.timestamp().as_nanosecond()).ok()?;
-    Some(value::Instant::from_unix_nanos(nanos))
+    let since_epoch = i64::try_from(zoned.timestamp().as_nanosecond()).ok()?;
+    Some(value::Instant::from_unix_nanos(since_epoch))
 }
 
 #[cfg(test)]
@@ -1397,7 +1591,10 @@ mod tests {
         assert_eq!(map["vary"], Value::Text("a, b".to_owned()));
         assert_eq!(
             map["set-cookie"],
-            Value::List(vec![Value::Text("x=1".to_owned()), Value::Text("y=2".to_owned())])
+            Value::List(vec![
+                Value::Text("x=1".to_owned()),
+                Value::Text("y=2".to_owned())
+            ])
         );
     }
 
@@ -1412,7 +1609,10 @@ mod tests {
     fn detects_document_kinds() {
         assert_eq!(doc_kind(Some("text/html"), "", ""), DocKind::Html);
         assert_eq!(doc_kind(None, "", "  <!DOCTYPE html><p>"), DocKind::Html);
-        assert_eq!(doc_kind(None, "https://a.test/README.md", "# x"), DocKind::Markdown);
+        assert_eq!(
+            doc_kind(None, "https://a.test/README.md", "# x"),
+            DocKind::Markdown
+        );
         assert_eq!(doc_kind(Some("text/plain"), "", "<html>"), DocKind::Plain);
     }
 }

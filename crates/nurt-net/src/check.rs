@@ -237,10 +237,19 @@ pub fn describe(
         }
         (None, AddressFact::Fixed(_)) => {}
     }
-    entry.insert("follow_redirects".to_owned(), Value::Bool(facts.follow_redirects));
-    entry.insert("max_redirects".to_owned(), Value::Int(i64::from(facts.max_redirects)));
+    entry.insert(
+        "follow_redirects".to_owned(),
+        Value::Bool(facts.follow_redirects),
+    );
+    entry.insert(
+        "max_redirects".to_owned(),
+        Value::Int(i64::from(facts.max_redirects)),
+    );
     entry.insert("retries".to_owned(), Value::Int(i64::from(facts.retries)));
-    entry.insert("proxy".to_owned(), proxy.as_deref().map_or(Value::Null, text));
+    entry.insert(
+        "proxy".to_owned(),
+        proxy.as_deref().map_or(Value::Null, text),
+    );
     entry.insert("pinned".to_owned(), Value::Bool(!facts.pins.is_empty()));
     entry.insert("verify_tls".to_owned(), Value::Bool(facts.verify_tls));
     entry.insert(
@@ -254,7 +263,10 @@ pub fn describe(
         ),
     );
     entry.insert("body".to_owned(), text(&facts.body));
-    entry.insert("save".to_owned(), facts.save.as_deref().map_or(Value::Null, text));
+    entry.insert(
+        "save".to_owned(),
+        facts.save.as_deref().map_or(Value::Null, text),
+    );
     entry.insert("cache".to_owned(), text(&facts.cache));
     let offline = facts.cache == "only";
     entry.insert(
@@ -283,7 +295,10 @@ fn address_fields(entry: &mut IndexMap<String, Value>, target: &Target) {
     entry.insert("url".to_owned(), text(target.as_str()));
     entry.insert("url_input".to_owned(), text(target.input()));
     entry.insert("scheme".to_owned(), text(target.scheme()));
-    entry.insert("scheme_assumed".to_owned(), Value::Bool(target.scheme_assumed()));
+    entry.insert(
+        "scheme_assumed".to_owned(),
+        Value::Bool(target.scheme_assumed()),
+    );
     entry.insert("host".to_owned(), text(&target.host()));
     entry.insert("host_kind".to_owned(), text(target.host_kind().as_str()));
     entry.insert("port".to_owned(), Value::Int(i64::from(target.port())));
@@ -299,7 +314,10 @@ fn addresses(
     let found: Option<Vec<IpAddr>> = target
         .ip()
         .map(|ip| vec![ip])
-        .or_else(|| pins.get(&target.host(), target.port()).map(<[IpAddr]>::to_vec))
+        .or_else(|| {
+            pins.get(&target.host(), target.port())
+                .map(<[IpAddr]>::to_vec)
+        })
         .or_else(|| {
             resolver.and_then(|resolver| resolver.resolve(&target.host(), target.port()).ok())
         });
@@ -381,11 +399,17 @@ mod tests {
     fn reports_embedded_ipv4_addresses() {
         let nat64 = classify("64:ff9b::a00:5".parse().unwrap());
         assert_eq!(nat64.class, "ipv4_translated");
-        assert_eq!(nat64.embedded, Some((Ipv4Addr::new(10, 0, 0, 5), "private")));
+        assert_eq!(
+            nat64.embedded,
+            Some((Ipv4Addr::new(10, 0, 0, 5), "private"))
+        );
         let six_to_four = classify("2002:7f00:1::1".parse().unwrap());
         assert_eq!(six_to_four.embedded.map(|e| e.1), Some("loopback"));
         let teredo = classify("2001:0:4136:e378:8000:63bf:3fff:fdd2".parse().unwrap());
         assert_eq!(teredo.class, "teredo");
-        assert_eq!(teredo.embedded.map(|e| e.0), Some(Ipv4Addr::new(192, 0, 2, 45)));
+        assert_eq!(
+            teredo.embedded.map(|e| e.0),
+            Some(Ipv4Addr::new(192, 0, 2, 45))
+        );
     }
 }

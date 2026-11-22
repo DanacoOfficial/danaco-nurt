@@ -120,10 +120,7 @@ fn adapter_record(adapter: &IP_ADAPTER_ADDRESSES_LH) -> NetworkInterface {
         name: wide_text(adapter.FriendlyName),
         addresses,
         up: adapter.OperStatus == IfOperStatusUp,
-        mac: adapter
-            .PhysicalAddress
-            .get(..mac_len)
-            .and_then(format_mac),
+        mac: adapter.PhysicalAddress.get(..mac_len).and_then(format_mac),
         mtu: (adapter.Mtu != u32::MAX).then_some(u64::from(adapter.Mtu)),
         kind: Some(kind(adapter.IfType)),
         gateway: gateways.first().map(ToString::to_string),

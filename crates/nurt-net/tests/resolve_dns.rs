@@ -4,10 +4,16 @@
 //! Tests of `network.resolve` against a DNS server on the loopback
 //! interface.
 //!
-//! The server answers from a fixed zone `example.test`: two A records, one
+//! The server answers for the domain `example.test`: two A records, one
 //! AAAA, MX, TXT and NS record; `missing.test` does not exist, `fail.test`
 //! fails with SERVFAIL and `big.test` is truncated over UDP and answered in
 //! full over TCP.
+
+#![allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "test helpers fail the test on an unexpected result"
+)]
 
 #[path = "support/exec_ctx.rs"]
 mod exec_ctx;
@@ -32,6 +38,8 @@ use nurt_net::interfaces::SysRoot;
 
 const TTL: u32 = 60;
 const POLL: Duration = Duration::from_millis(50);
+/// Ports tried for a UDP socket and a TCP listener on the same port.
+const BIND_ATTEMPTS: usize = 20;
 
 struct FakeDns {
     address: SocketAddr,
@@ -40,10 +48,22 @@ struct FakeDns {
 }
 
 impl FakeDns {
+    /// Binds a UDP socket and a TCP listener to the same free port; a port
+    /// free for UDP can be taken for TCP by another test, so the pair is
+    /// tried again on another port.
+    fn bind_pair() -> (UdpSocket, TcpListener) {
+        for _ in 0..BIND_ATTEMPTS {
+            let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
+            if let Ok(tcp) = TcpListener::bind(udp.local_addr().unwrap()) {
+                return (udp, tcp);
+            }
+        }
+        panic!("no loopback port is free for both UDP and TCP");
+    }
+
     fn start() -> Self {
-        let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let (udp, tcp) = Self::bind_pair();
         let address = udp.local_addr().unwrap();
-        let tcp = TcpListener::bind(address).unwrap();
         udp.set_read_timeout(Some(POLL)).unwrap();
         tcp.set_nonblocking(true).unwrap();
         let stop = Arc::new(AtomicBool::new(false));
@@ -122,26 +142,26 @@ fn answer(query: &[u8], over_tcp: bool) -> Option<Vec<u8>> {
     let mut response = Message::new(request.metadata.id, MessageType::Response, OpCode::Query);
     response.add_query(question.clone());
     let asked = question.name().to_ascii().to_ascii_lowercase();
-    let zone = name("example.test.");
+    let domain = name("example.test.");
     match (asked.as_str(), question.query_type()) {
         ("example.test.", RecordType::A) => {
-            response.add_answer(record(&zone, RData::A(A(Ipv4Addr::new(192, 0, 2, 10)))));
-            response.add_answer(record(&zone, RData::A(A(Ipv4Addr::new(192, 0, 2, 11)))));
+            response.add_answer(record(&domain, RData::A(A(Ipv4Addr::new(192, 0, 2, 10)))));
+            response.add_answer(record(&domain, RData::A(A(Ipv4Addr::new(192, 0, 2, 11)))));
         }
         ("example.test.", RecordType::AAAA) => {
             let ip = "2001:db8::10".parse::<Ipv6Addr>().unwrap();
-            response.add_answer(record(&zone, RData::AAAA(AAAA(ip))));
+            response.add_answer(record(&domain, RData::AAAA(AAAA(ip))));
         }
         ("example.test.", RecordType::MX) => {
             let mx = MX::new(10, name("mail.example.test."));
-            response.add_answer(record(&zone, RData::MX(mx)));
+            response.add_answer(record(&domain, RData::MX(mx)));
         }
         ("example.test.", RecordType::TXT) => {
             let txt = TXT::new(vec!["v=spf1 -all".to_owned()]);
-            response.add_answer(record(&zone, RData::TXT(txt)));
+            response.add_answer(record(&domain, RData::TXT(txt)));
         }
         ("example.test.", RecordType::NS) => {
-            response.add_answer(record(&zone, RData::NS(NS(name("ns1.example.test.")))));
+            response.add_answer(record(&domain, RData::NS(NS(name("ns1.example.test.")))));
         }
         ("missing.test.", _) => response.metadata.response_code = ResponseCode::NXDomain,
         ("fail.test.", _) => response.metadata.response_code = ResponseCode::ServFail,
@@ -155,7 +175,11 @@ fn answer(query: &[u8], over_tcp: bool) -> Option<Vec<u8>> {
     response.to_vec().ok()
 }
 
-fn resolve(server: &FakeDns, name: &str, kind: Option<&str>) -> nurt_contracts::error::Result<Vec<DnsRecord>> {
+fn resolve(
+    server: &FakeDns,
+    name: &str,
+    kind: Option<&str>,
+) -> nurt_contracts::error::Result<Vec<DnsRecord>> {
     let mut values = vec![("name", text(name)), ("server", server.server())];
     if let Some(kind) = kind {
         values.push(("type", Value::Enum(kind.to_owned())));
@@ -177,7 +201,10 @@ fn resolve_returns_a_records_of_the_server() {
     assert_eq!(first.name, "example.test");
     assert_eq!(first.kind, "A");
     assert_eq!(first.ttl, ValueDuration::from_millis(60_000));
-    assert_eq!(first.server.as_deref(), Some(server.address.to_string().as_str()));
+    assert_eq!(
+        first.server.as_deref(),
+        Some(server.address.to_string().as_str())
+    );
 }
 
 #[test]
@@ -265,7 +292,10 @@ fn resolve_reads_resolv_conf_below_root() {
     )
     .unwrap();
     let config = ResolverConfig::system(&SysRoot::new(dir.path())).unwrap();
-    assert_eq!(config.servers, vec!["192.0.2.53:53".parse::<SocketAddr>().unwrap()]);
+    assert_eq!(
+        config.servers,
+        vec!["192.0.2.53:53".parse::<SocketAddr>().unwrap()]
+    );
     assert_eq!(config.timeout, Duration::from_secs(1));
     assert_eq!(config.attempts, 1);
 }

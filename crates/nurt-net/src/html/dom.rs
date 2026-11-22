@@ -104,9 +104,25 @@ pub(crate) fn parse(source: &str) -> Element {
     root
 }
 
+/// Whether the source between two sibling nodes holds whitespace.
+///
+/// The grammar keeps whitespace out of `text` nodes, so the space between
+/// `a <b>c</b>` and around character references is recovered from the gap
+/// between the byte ranges of neighbouring nodes.
+fn spaced(source: &str, previous_end: Option<usize>, start: usize) -> bool {
+    previous_end
+        .and_then(|end| source.get(end..start))
+        .is_some_and(|gap| gap.chars().any(char::is_whitespace))
+}
+
 fn append_children(node: SyntaxNode<'_>, source: &str, out: &mut Vec<Node>) {
     let mut cursor = node.walk();
+    let mut previous_end = None;
     for child in node.named_children(&mut cursor) {
+        if spaced(source, previous_end, child.start_byte()) {
+            out.push(Node::Text(" ".to_owned()));
+        }
+        previous_end = Some(child.end_byte());
         match child.kind() {
             "element" | "script_element" | "style_element" => {
                 out.push(Node::Element(element(child, source)));
@@ -121,12 +137,20 @@ fn append_children(node: SyntaxNode<'_>, source: &str, out: &mut Vec<Node>) {
 fn element(node: SyntaxNode<'_>, source: &str) -> Element {
     let mut element = Element::default();
     let mut cursor = node.walk();
+    let mut previous_end = None;
     for child in node.named_children(&mut cursor) {
+        let raw = matches!(element.name.as_str(), "script" | "style");
+        if !raw && spaced(source, previous_end, child.start_byte()) {
+            element.children.push(Node::Text(" ".to_owned()));
+        }
+        previous_end = Some(child.end_byte());
         match child.kind() {
             "start_tag" | "self_closing_tag" => read_tag(child, source, &mut element),
             "end_tag" | "erroneous_end_tag" | "comment" => {}
             "element" | "script_element" | "style_element" => {
-                element.children.push(Node::Element(self::element(child, source)));
+                element
+                    .children
+                    .push(Node::Element(self::element(child, source)));
             }
             "raw_text" if matches!(element.name.as_str(), "script" | "style") => {
                 element

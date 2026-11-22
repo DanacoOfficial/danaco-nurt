@@ -56,6 +56,7 @@ const ALL_GROUPS: &str = "0 2147483647";
 pub(super) struct DatagramEcho {
     socket: UdpSocket,
     address: IpAddr,
+    destination: SocketAddr,
     token: [u8; PAYLOAD_LEN],
 }
 
@@ -83,6 +84,7 @@ impl DatagramEcho {
         Ok(Self {
             socket: UdpSocket::from(owned),
             address,
+            destination: SocketAddr::new(address, 0),
             token: token(),
         })
     }
@@ -136,7 +138,7 @@ impl Echo for DatagramEcho {
     ) -> Result<Option<Duration>> {
         let packet = self.request(sequence);
         let started = Instant::now();
-        match self.socket.send_to(&packet, SocketAddr::new(self.address, 0)) {
+        match self.socket.send_to(&packet, self.destination) {
             Ok(_) => {}
             Err(error) if is_unreachable(&error) => return Ok(None),
             Err(error) => return Err(self.network_error(&error)),
@@ -250,11 +252,80 @@ mod tests {
     use super::*;
 
     fn echo(address: &str) -> DatagramEcho {
+        let address: IpAddr = address.parse().unwrap();
         DatagramEcho {
             socket: UdpSocket::bind("127.0.0.1:0").unwrap(),
-            address: address.parse().unwrap(),
+            address,
+            destination: SocketAddr::new(address, 0),
             token: *b"nurttest",
         }
+    }
+
+    /// An IPv4 echo socket whose requests go to a UDP socket on the loopback
+    /// interface, which plays the remote host.
+    fn echo_with_peer() -> (DatagramEcho, UdpSocket) {
+        let peer = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let mut echo = echo("127.0.0.1");
+        echo.destination = peer.local_addr().unwrap();
+        (echo, peer)
+    }
+
+    fn no_check() -> Result<()> {
+        Ok(())
+    }
+
+    #[test]
+    fn echo_returns_round_trip_of_matching_reply() {
+        let (mut echo, peer) = echo_with_peer();
+        let answer = std::thread::spawn(move || {
+            let mut buffer = [0_u8; REPLY_BUFFER];
+            let (length, from) = peer.recv_from(&mut buffer).unwrap();
+            let mut stray = buffer[..length].to_vec();
+            stray[6] ^= 0xff;
+            peer.send_to(&stray, from).unwrap();
+            let mut packet = buffer[..length].to_vec();
+            packet[0] = ICMP_ECHO_REPLY;
+            peer.send_to(&packet, from).unwrap();
+        });
+        let rtt = echo.echo(9, Duration::from_secs(5), &no_check).unwrap();
+        answer.join().unwrap();
+        assert!(rtt.is_some_and(|rtt| rtt < Duration::from_secs(5)));
+    }
+
+    #[test]
+    fn echo_without_reply_ends_after_timeout() {
+        let (mut echo, _peer) = echo_with_peer();
+        let started = Instant::now();
+        let rtt = echo.echo(1, Duration::from_millis(150), &no_check).unwrap();
+        assert_eq!(rtt, None);
+        assert!(started.elapsed() >= Duration::from_millis(150));
+    }
+
+    #[test]
+    fn echo_wait_ends_with_error_of_check() {
+        let (mut echo, _peer) = echo_with_peer();
+        let cancelled = || Err(Error::new(ErrorCode::Cancelled, "cancelled"));
+        let error = echo
+            .echo(1, Duration::from_secs(5), &cancelled)
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Cancelled);
+    }
+
+    #[test]
+    fn unreachable_errors_are_recognised() {
+        assert!(is_unreachable(&io::Error::from_raw_os_error(
+            libc::EHOSTUNREACH
+        )));
+        assert!(!is_unreachable(&io::Error::from_raw_os_error(libc::EINVAL)));
+        let echo = echo("192.0.2.1");
+        let error = echo.network_error(&io::Error::from_raw_os_error(libc::EINVAL));
+        assert_eq!(error.problem.as_deref(), Some("icmp"));
+        assert_eq!(error.details["address"], "192.0.2.1");
+    }
+
+    #[test]
+    fn tokens_differ_between_sockets() {
+        assert_ne!(token(), token());
     }
 
     fn reply(echo: &DatagramEcho, reply_type: u8, sequence: u16) -> Vec<u8> {
@@ -313,7 +384,9 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Privilege);
         assert_eq!(
             error.fix,
-            vec![format!("write \"{PING_GROUP_RANGE_FILE}\" \"{ALL_GROUPS}\"")]
+            vec![format!(
+                "write \"{PING_GROUP_RANGE_FILE}\" \"{ALL_GROUPS}\""
+            )]
         );
         assert_eq!(error.details["range"], "1 0");
         assert_eq!(error.details["setting"], PING_GROUP_RANGE);

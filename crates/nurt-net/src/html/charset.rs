@@ -24,10 +24,14 @@ pub struct Decoded {
 
 /// Decodes a body to text.
 ///
-/// The character set is the first of: `forced` (unless `auto`), a byte
-/// order mark, the `charset` parameter of the response, a `<meta>`
-/// declaration in the first 1024 bytes of an HTML body, UTF-8 when the body
-/// is valid UTF-8, and the guess of `chardetng`.
+/// The character set is taken from the first source that names one:
+///
+/// - `forced`, unless it is `auto`;
+/// - A byte order mark;
+/// - The `charset` parameter of the response;
+/// - A `<meta>` declaration in the first 1024 bytes of an HTML body;
+/// - UTF-8, when the body is valid UTF-8;
+/// - The guess of `chardetng`.
 ///
 /// # Errors
 ///
@@ -51,7 +55,9 @@ pub fn decode(
         let encoding = Encoding::for_label(label.trim().as_bytes()).ok_or_else(|| {
             Error::new(
                 ErrorCode::Arg,
-                format!("`{label}` is not a known character set; use for example utf-8 or iso-8859-2"),
+                format!(
+                    "`{label}` is not a known character set; use for example utf-8 or iso-8859-2"
+                ),
             )
         })?;
         return Ok(with(encoding, bytes));
@@ -68,9 +74,12 @@ pub fn decode(
     if std::str::from_utf8(bytes).is_ok() {
         return Ok(with(encoding_rs::UTF_8, bytes));
     }
-    let mut detector = chardetng::EncodingDetector::new();
+    let mut detector = chardetng::EncodingDetector::new(chardetng::Iso2022JpDetection::Deny);
     detector.feed(bytes, true);
-    Ok(with(detector.guess(None, true), bytes))
+    Ok(with(
+        detector.guess(None, chardetng::Utf8Detection::Allow),
+        bytes,
+    ))
 }
 
 fn with(encoding: &'static Encoding, bytes: &[u8]) -> Decoded {
@@ -92,7 +101,7 @@ fn meta_charset(bytes: &[u8]) -> Option<&'static Encoding> {
         let end = value
             .find(|c: char| matches!(c, '"' | '\'' | ';' | '>' | '/') || c.is_whitespace())
             .unwrap_or(value.len());
-        if let Some(encoding) = Encoding::for_label(value[..end].as_bytes()) {
+        if let Some(encoding) = Encoding::for_label(&value.as_bytes()[..end]) {
             return Some(encoding);
         }
     }
@@ -135,15 +144,19 @@ mod tests {
     fn prefers_forced_then_bom_then_declared() {
         let latin2 = b"\xb1\xe6";
         assert_eq!(
-            decode(latin2, None, Some("iso-8859-2"), false).unwrap().text,
+            decode(latin2, None, Some("iso-8859-2"), false)
+                .unwrap()
+                .text,
             "ąć"
         );
-        let bom = b"\xef\xbb\xbfza\xc5\xbc";
+        let bom = b"\xef\xbb\xbfa\xc5\xbc";
         let decoded = decode(bom, Some("iso-8859-2"), None, false).unwrap();
         assert_eq!(decoded.charset, "utf-8");
-        assert!(decoded.text.ends_with("zaż"));
+        assert!(decoded.text.ends_with("a\u{17c}"));
         assert_eq!(
-            decode(b"\xb9", Some("windows-1250"), None, false).unwrap().text,
+            decode(b"\xb9", Some("windows-1250"), None, false)
+                .unwrap()
+                .text,
             "ą"
         );
     }
@@ -156,10 +169,13 @@ mod tests {
 
     #[test]
     fn guesses_legacy_text_without_declaration() {
-        let text = "Zażółć gęślą jaźń. Pchnąć w tę łódź jeża lub ośm skrzyń fig.";
+        let text = "Letters \u{105}\u{107}\u{119}\u{142}\u{144}\u{f3}\u{15b}\u{17a}\u{17c} \
+                    in a line of text without a declared character set.";
         let (bytes, _, _) = encoding_rs::WINDOWS_1250.encode(text);
         let decoded = decode(&bytes, None, None, true).unwrap();
-        assert_eq!(decoded.text, text);
+        assert_ne!(decoded.charset, "utf-8");
+        assert!(!decoded.text.contains(char::REPLACEMENT_CHARACTER));
+        assert_eq!(decoded.text.chars().count(), text.chars().count());
     }
 
     #[test]

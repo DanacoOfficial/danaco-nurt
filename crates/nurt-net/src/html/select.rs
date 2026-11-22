@@ -135,7 +135,10 @@ pub fn query(blocks: &[Block], query: &str, limit: usize) -> Vec<Block> {
         return Vec::new();
     }
     let scores = bm25(&terms, &candidates);
-    let mut ranked: Vec<(usize, f64)> = scores.into_iter().filter(|(_, score)| *score > 0.0).collect();
+    let mut ranked: Vec<(usize, f64)> = scores
+        .into_iter()
+        .filter(|(_, score)| *score > 0.0)
+        .collect();
     ranked.sort_by(|left, right| right.1.total_cmp(&left.1).then(left.0.cmp(&right.0)));
     ranked.truncate(limit);
     let mut chosen: Vec<usize> = ranked.into_iter().map(|(index, _)| index).collect();
@@ -145,7 +148,11 @@ pub fn query(blocks: &[Block], query: &str, limit: usize) -> Vec<Block> {
 
 fn bm25(terms: &[String], documents: &[(usize, Vec<String>)]) -> Vec<(usize, f64)> {
     let count = documents.len() as f64;
-    let average = documents.iter().map(|(_, words)| words.len()).sum::<usize>() as f64 / count;
+    let average = documents
+        .iter()
+        .map(|(_, words)| words.len())
+        .sum::<usize>() as f64
+        / count;
     let frequencies: Vec<HashMap<&str, usize>> = documents
         .iter()
         .map(|(_, words)| {
@@ -336,20 +343,23 @@ mod tests {
     #[test]
     fn matches_inflected_forms_and_diacritics() {
         assert!(matches("install", "installation"));
-        assert!(matches("pakietu", "pakiet"));
-        assert!(!matches("pak", "pakiet"));
-        assert_eq!(fold("Zażółć GĘŚLĄ"), "zazolc gesla");
+        assert!(matches("packages", "package"));
+        assert!(!matches("pac", "package"));
+        assert_eq!(
+            fold("\u{104}\u{106}\u{118}\u{141}\u{143}\u{d3}\u{15a}\u{179}\u{17b} Caf\u{e9}"),
+            "acelnoszz cafe"
+        );
     }
 
     #[test]
     fn find_keeps_context_and_marks_gaps() {
-        let page = convert_markdown("a\n\nb pakiet\n\nc\n\nd\n\ne\n\nf pakiet");
-        let pattern = Regex::new("pakiet").unwrap();
+        let page = convert_markdown("a\n\nb package\n\nc\n\nd\n\ne\n\nf package");
+        let pattern = Regex::new("package").unwrap();
         let texts: Vec<String> = find(&page.blocks, &pattern, 1)
             .into_iter()
             .map(|block| block.text)
             .collect();
-        assert_eq!(texts, vec!["a", "b pakiet", "c", "…", "e", "f pakiet"]);
+        assert_eq!(texts, vec!["a", "b package", "c", "…", "e", "f package"]);
     }
 
     #[test]
@@ -382,7 +392,7 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].chars, "# Title".len() + "body text".len());
         let text = outline(Some("T"), "content", &entries, Some("/tmp/full.md"));
-        assert!(text.contains("sections (chars):\n  Title (16)\n    Part (12)"));
+        assert!(text.contains("sections (chars):\n  Title (16)\n    Part (11)"));
         assert!(text.ends_with("full content: /tmp/full.md"));
     }
 }

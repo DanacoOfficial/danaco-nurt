@@ -132,12 +132,10 @@ fn split_authority(authority: &str) -> Result<(String, u16)> {
     if host.is_empty() {
         return Err(invalid());
     }
-    let host = url::Host::parse(host)
-        .map_err(|_| invalid())?
-        .to_string()
-        .trim_start_matches('[')
-        .trim_end_matches(']')
-        .to_owned();
+    let host = match host.parse::<IpAddr>() {
+        Ok(ip) => ip.to_string(),
+        Err(_) => url::Host::parse(host).map_err(|_| invalid())?.to_string(),
+    };
     Ok((host, port))
 }
 
@@ -221,11 +219,15 @@ mod tests {
     fn pins_reject_malformed_entries() {
         let mut pins = Pins::new();
         assert_eq!(
-            pins.insert("example.test", &["192.0.2.1"]).unwrap_err().code(),
+            pins.insert("example.test", &["192.0.2.1"])
+                .unwrap_err()
+                .code(),
             ErrorCode::Arg
         );
         assert_eq!(
-            pins.insert("example.test:443", &["not-an-ip"]).unwrap_err().code(),
+            pins.insert("example.test:443", &["not-an-ip"])
+                .unwrap_err()
+                .code(),
             ErrorCode::Arg
         );
         let empty: [&str; 0] = [];

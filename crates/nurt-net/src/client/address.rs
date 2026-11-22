@@ -211,7 +211,9 @@ impl Target {
     /// Port, with the default port of the scheme when none is written.
     #[must_use]
     pub fn port(&self) -> u16 {
-        self.url.port_or_known_default().unwrap_or(DEFAULT_HTTPS_PORT)
+        self.url
+            .port_or_known_default()
+            .unwrap_or(DEFAULT_HTTPS_PORT)
     }
 
     /// Whether the address carries a user name or a password.
@@ -261,7 +263,9 @@ impl Target {
     /// Whether both addresses have the same scheme, host and port.
     #[must_use]
     pub fn same_origin(&self, other: &Self) -> bool {
-        self.scheme() == other.scheme() && self.host() == other.host() && self.port() == other.port()
+        self.scheme() == other.scheme()
+            && self.host() == other.host()
+            && self.port() == other.port()
     }
 }
 
@@ -273,7 +277,9 @@ fn has_scheme(text: &str) -> bool {
         return false;
     };
     let mut chars = scheme.chars();
-    chars.next().is_some_and(|first| first.is_ascii_alphabetic())
+    chars
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic())
         && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
 }
 
@@ -296,9 +302,12 @@ mod tests {
 
     #[test]
     fn converts_international_names_to_punycode() {
-        let target = Target::parse("https://zażółć.example/a?b=1").unwrap();
+        let target = Target::parse("https://b\u{fc}cher.example/a?b=1").unwrap();
         let host = target.host();
-        assert!(host.starts_with("xn--") && host.ends_with(".example"), "{host}");
+        assert!(
+            host.starts_with("xn--") && host.ends_with(".example"),
+            "{host}"
+        );
         assert!(host.is_ascii());
         assert_eq!(target.host_kind(), HostKind::Name);
         assert_eq!(target.port(), 443);
