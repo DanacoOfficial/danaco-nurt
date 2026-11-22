@@ -48,12 +48,15 @@ impl CodeTypeDefinition {
         let files = Files::new(ctx);
         let source = Source::from_args(args)?;
         let target = Target::resolve(args, ctx, &files, COMMAND)?;
-        let locations = shared::require_server(self.semantic.as_deref(), source, COMMAND, |provider| {
-            provider.type_definition(ctx, &target.scope(), &target.at())
-        })?;
+        let locations =
+            shared::require_server(self.semantic.as_deref(), source, COMMAND, |provider| {
+                provider.type_definition(ctx, &target.scope(), &target.at())
+            })?;
         Ok(locations
             .iter()
-            .map(|location| shared::symbol_record(&files, &target, location, SymbolSource::Lsp).into())
+            .map(|location| {
+                shared::symbol_record(&files, &target, location, SymbolSource::Lsp).into()
+            })
             .collect())
     }
 }

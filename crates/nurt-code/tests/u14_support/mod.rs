@@ -38,8 +38,8 @@ use nurt_contracts::record::DiagnosticSeverity;
 use nurt_contracts::report::{Change, IrreversibleEntry, Notable};
 use nurt_contracts::services::{
     ByteRange, ClassifiedSpan, CodeService, FunctionMetrics, IssueSeverity, LanguageId,
-    LanguageInfo, ReferenceRole, SpanClass, SymbolInfo, SymbolKind, SymbolReference, SyntaxIssue,
-    SyntaxMatch, SyntaxPattern, SyntaxToken, TextPosition, TextSpan,
+    LanguageInfo, ReferenceRole, Services, SpanClass, SymbolInfo, SymbolKind, SymbolReference,
+    SyntaxIssue, SyntaxMatch, SyntaxPattern, SyntaxToken, TextPosition, TextSpan,
 };
 use nurt_contracts::stage::{
     ArgValue, BoundArgs, CancelReason, CancelToken, EffectPlan, ExecCtx, StageImpl, StageInput,
@@ -47,7 +47,7 @@ use nurt_contracts::stage::{
 use nurt_contracts::value::{Record, Value};
 
 /// Clock fixed at the Unix epoch.
-pub struct TestClock;
+pub(crate) struct TestClock;
 
 impl Clock for TestClock {
     fn now(&self) -> WallTime {
@@ -77,10 +77,10 @@ impl Clock for TestClock {
 }
 
 /// Host with fixed facts and no environment.
-pub struct TestHost(HostInfo);
+pub(crate) struct TestHost(HostInfo);
 
 impl TestHost {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self(HostInfo {
             os: Os::Linux,
             os_version: "6".to_owned(),
@@ -112,7 +112,7 @@ impl Host for TestHost {
 }
 
 /// Read-only file system over the real disk.
-pub struct StdFs;
+pub(crate) struct StdFs;
 
 fn io_error(error: &std::io::Error, op: &str, path: &Path) -> FsError {
     let kind = if error.kind() == std::io::ErrorKind::NotFound {
@@ -272,18 +272,18 @@ impl Fs for StdFs {
 /// Record of a journal double: the previous state of every target, kept
 /// before the first change, and what happened to the transaction.
 #[derive(Debug, Default)]
-pub struct JournalLog {
-    pub saved: Vec<(PathBuf, Option<Vec<u8>>)>,
-    pub preserve_calls: usize,
-    pub mutations: Vec<String>,
-    pub committed: bool,
-    pub rolled_back: bool,
+pub(crate) struct JournalLog {
+    pub(crate) saved: Vec<(PathBuf, Option<Vec<u8>>)>,
+    pub(crate) preserve_calls: usize,
+    pub(crate) mutations: Vec<String>,
+    pub(crate) committed: bool,
+    pub(crate) rolled_back: bool,
 }
 
 impl JournalLog {
     /// Restores every target to its previous state, newest first: the
     /// effect of `undo` on a committed entry and of a rollback.
-    pub fn restore(&mut self) {
+    pub(crate) fn restore(&mut self) {
         for (path, bytes) in self.saved.iter().rev() {
             match bytes {
                 Some(bytes) => {
@@ -302,13 +302,13 @@ impl JournalLog {
 
 /// Mutation transaction applying changes to the disk and keeping the
 /// previous content in a shared [`JournalLog`].
-pub struct TestTx {
+pub(crate) struct TestTx {
     log: Arc<Mutex<JournalLog>>,
     targets: Vec<TargetSpec>,
 }
 
 impl TestTx {
-    pub fn new(log: Arc<Mutex<JournalLog>>) -> Self {
+    pub(crate) fn new(log: Arc<Mutex<JournalLog>>) -> Self {
         Self {
             log,
             targets: Vec::new(),
@@ -439,15 +439,15 @@ impl MutationTx for TestTx {
 }
 
 /// Result of a rename run by [`execute`].
-pub struct Outcome {
-    pub records: Vec<Record>,
-    pub changes: Vec<Change>,
-    pub notable: Vec<Notable>,
+pub(crate) struct Outcome {
+    pub(crate) records: Vec<Record>,
+    pub(crate) changes: Vec<Change>,
+    pub(crate) notable: Vec<Notable>,
 }
 
 /// Runs plan and apply as the executor does: commits after success and
 /// rolls back after an error of the apply step.
-pub fn execute(
+pub(crate) fn execute(
     stage: &CodeRename,
     args: &BoundArgs,
     input: StageInput<'_>,
@@ -477,7 +477,7 @@ pub fn execute(
 }
 
 /// Runs only the plan step (`preview`).
-pub fn preview(stage: &CodeRename, args: &BoundArgs, ctx: &ExecCtx) -> Result<EffectPlan> {
+pub(crate) fn preview(stage: &CodeRename, args: &BoundArgs, ctx: &ExecCtx) -> Result<EffectPlan> {
     stage
         .as_effect()
         .unwrap()
@@ -485,7 +485,7 @@ pub fn preview(stage: &CodeRename, args: &BoundArgs, ctx: &ExecCtx) -> Result<Ef
 }
 
 /// Bound arguments of `code.rename`.
-pub fn args(pairs: &[(&str, Value)]) -> BoundArgs {
+pub(crate) fn args(pairs: &[(&str, Value)]) -> BoundArgs {
     let mut args = BoundArgs::new("code.rename");
     for (name, value) in pairs {
         args.insert(*name, ArgValue::Value(value.clone()), false);
@@ -493,35 +493,35 @@ pub fn args(pairs: &[(&str, Value)]) -> BoundArgs {
     args
 }
 
-pub fn path_value(path: &Path) -> Value {
+pub(crate) fn path_value(path: &Path) -> Value {
     Value::Path(path.to_string_lossy().into_owned())
 }
 
 /// Execution context with the disk, the toy code service and `config`.
-pub fn context(config: Config) -> ExecCtx {
+pub(crate) fn context(config: Config) -> ExecCtx {
     ExecCtx::builder(Arc::new(TestClock), Arc::new(TestHost::new()))
         .fs(Arc::new(StdFs))
-        .code(Arc::new(ToyCode))
+        .services(Arc::new(Services::new().with_code(Arc::new(ToyCode))))
         .config(Arc::new(config))
         .build()
 }
 
 /// Project directory with a `.git` marker.
-pub fn project() -> (tempfile::TempDir, PathBuf) {
+pub(crate) fn project() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("proj");
     std::fs::create_dir_all(root.join(".git")).unwrap();
     (dir, root)
 }
 
-pub fn write(path: &Path, text: &str) {
+pub(crate) fn write(path: &Path, text: &str) {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).unwrap();
     }
     std::fs::write(path, text).unwrap();
 }
 
-pub fn read(path: &Path) -> String {
+pub(crate) fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap()
 }
 
@@ -529,7 +529,7 @@ pub fn read(path: &Path) -> String {
 /// JavaScript (`.ts`, `.js`, `//` comments) files: identifiers, comments,
 /// string literals, definitions introduced by `def`, `class` or `function`,
 /// and unbalanced parentheses as the only syntax error.
-pub struct ToyCode;
+pub(crate) struct ToyCode;
 
 const KEYWORDS: &[&str] = &[
     "def", "class", "function", "import", "from", "return", "const", "let", "export",
@@ -860,22 +860,22 @@ fn reference(
 /// Semantic provider with a scripted rename answer, errors reported for
 /// content that contains a marker, and fixed server states.
 #[derive(Default)]
-pub struct ScriptedProvider {
-    pub rename: Mutex<Option<SemanticResult<WorkspaceChange>>>,
-    pub error_marker: Option<(PathBuf, String)>,
-    pub statuses: Vec<ServerStatus>,
-    pub diagnostics_calls: Mutex<usize>,
+pub(crate) struct ScriptedProvider {
+    pub(crate) rename: Mutex<Option<SemanticResult<WorkspaceChange>>>,
+    pub(crate) error_marker: Option<(PathBuf, String)>,
+    pub(crate) statuses: Vec<ServerStatus>,
+    pub(crate) diagnostics_calls: Mutex<usize>,
 }
 
 impl ScriptedProvider {
-    pub fn renaming(changes: Vec<DocumentChange>) -> Self {
+    pub(crate) fn renaming(changes: Vec<DocumentChange>) -> Self {
         Self {
             rename: Mutex::new(Some(Ok(WorkspaceChange { changes }))),
             ..Self::default()
         }
     }
 
-    pub fn failing(kind: SemanticErrorKind) -> Self {
+    pub(crate) fn failing(kind: SemanticErrorKind) -> Self {
         Self {
             rename: Mutex::new(Some(Err(SemanticError::new(
                 kind,
@@ -887,7 +887,13 @@ impl ScriptedProvider {
 }
 
 /// Text change replacing columns `start..end` of a line.
-pub fn text_change(path: &Path, line: u32, start: u32, end: u32, new_text: &str) -> DocumentChange {
+pub(crate) fn text_change(
+    path: &Path,
+    line: u32,
+    start: u32,
+    end: u32,
+    new_text: &str,
+) -> DocumentChange {
     DocumentChange::Text(TextChange {
         range: Location {
             path: path.to_path_buf(),

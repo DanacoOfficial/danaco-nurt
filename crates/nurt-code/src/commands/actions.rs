@@ -83,9 +83,10 @@ impl CodeActions {
                 column: end_column,
             },
         };
-        let actions = shared::require_server(self.semantic.as_deref(), source, COMMAND, |provider| {
-            provider.code_actions(ctx, &target.scope(), &range)
-        })?;
+        let actions =
+            shared::require_server(self.semantic.as_deref(), source, COMMAND, |provider| {
+                provider.code_actions(ctx, &target.scope(), &range)
+            })?;
         Ok(actions
             .into_iter()
             .map(|action| {

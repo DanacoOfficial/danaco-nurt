@@ -4,6 +4,9 @@
 //! Tests of `code.languages`: grammar languages, configured servers and the
 //! state of the server pool.
 
+// Tests report failures by panicking.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod u14_support;
 
 use std::path::PathBuf;

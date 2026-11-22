@@ -79,7 +79,12 @@ impl CodeHover {
                 } else {
                     sentence
                 };
-                return Ok(vec![hover_record(&target, SymbolSource::Lsp, signature, documentation)]);
+                return Ok(vec![hover_record(
+                    &target,
+                    SymbolSource::Lsp,
+                    signature,
+                    documentation,
+                )]);
             }
             Some(None) if source == Source::Lsp => return Ok(Vec::new()),
             Some(None) => shared::note_fallback(ctx, "the language server has no information"),
@@ -105,7 +110,12 @@ impl CodeHover {
     }
 }
 
-fn hover_record(target: &Target, source: SymbolSource, signature: String, documentation: String) -> Record {
+fn hover_record(
+    target: &Target,
+    source: SymbolSource,
+    signature: String,
+    documentation: String,
+) -> Record {
     Hover {
         path: shared::record_path(&target.path),
         line: u64::from(target.position.line),
@@ -130,10 +140,15 @@ fn hover_record(target: &Target, source: SymbolSource, signature: String, docume
 pub fn first_sentence(text: &str) -> String {
     let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
     let characters: Vec<char> = flat.chars().collect();
-    let end = characters.iter().enumerate().position(|(index, character)| {
-        matches!(character, '.' | '!' | '?')
-            && characters.get(index + 1).is_none_or(|next| next.is_whitespace())
-    });
+    let end = characters
+        .iter()
+        .enumerate()
+        .position(|(index, character)| {
+            matches!(character, '.' | '!' | '?')
+                && characters
+                    .get(index + 1)
+                    .is_none_or(|next| next.is_whitespace())
+        });
     let sentence: String = match end {
         Some(end) => characters[..=end].iter().collect(),
         None => flat,
@@ -198,14 +213,18 @@ pub fn shorten_hover(text: &str) -> (String, String) {
         let mut lines = text.lines().filter(|line| !line.trim().is_empty());
         let signature = lines.next().map(str::trim).unwrap_or_default();
         let rest = lines.collect::<Vec<_>>().join(" ");
-        return (shared::clip(signature, shared::SIGNATURE_MAX), first_sentence(&rest));
+        return (
+            shared::clip(signature, shared::SIGNATURE_MAX),
+            first_sentence(&rest),
+        );
     };
-    let prose = CODE_BLOCK
-        .as_ref()
-        .map_or_else(|| text.to_owned(), |pattern| pattern.replace_all(text, " ").into_owned());
-    let prose = RULE_LINE
-        .as_ref()
-        .map_or(prose.clone(), |pattern| pattern.replace_all(&prose, " ").into_owned());
+    let prose = CODE_BLOCK.as_ref().map_or_else(
+        || text.to_owned(),
+        |pattern| pattern.replace_all(text, " ").into_owned(),
+    );
+    let prose = RULE_LINE.as_ref().map_or(prose.clone(), |pattern| {
+        pattern.replace_all(&prose, " ").into_owned()
+    });
     (
         shared::clip(&flat_signature(&block), shared::SIGNATURE_MAX),
         first_sentence(&prose),

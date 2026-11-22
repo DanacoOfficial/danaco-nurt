@@ -9,6 +9,9 @@
 //! (line 1, columns 5 to 10) and `b.py` imports it (line 1, columns 15 to
 //! 20) and calls it (line 3, columns 7 to 12).
 
+// Tests report failures by panicking.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod u14_support;
 
 use std::path::{Path, PathBuf};

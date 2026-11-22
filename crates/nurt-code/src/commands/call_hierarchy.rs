@@ -32,7 +32,8 @@ use crate::semantic::{CallDirection, CallEdge, SemanticProvider};
 
 const COMMAND: &str = "code.call_hierarchy";
 
-static CALL: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"([A-Za-z_$][\w$]*)\s*\(").ok());
+static CALL: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"([A-Za-z_$][\w$]*)\s*\(").ok());
 
 /// Implementation of `code.call_hierarchy`.
 ///
@@ -76,7 +77,10 @@ impl CodeCallHierarchy {
         })?;
         let (calls, source) = match served {
             Some(edges) => (edges.iter().map(served_call).collect(), SymbolSource::Lsp),
-            None => (local_calls(ctx, &files, &target, direction)?, SymbolSource::Syntax),
+            None => (
+                local_calls(ctx, &files, &target, direction)?,
+                SymbolSource::Syntax,
+            ),
         };
         Ok(calls
             .into_iter()
@@ -127,7 +131,10 @@ fn call_record(files: &Files<'_>, call: Call, source: SymbolSource) -> Record {
         column: u64::from(call.position.column),
         role: ReferenceRole::Reference,
         source,
-        etag: files.get(&call.path).map(|file| file.etag.clone()).unwrap_or_default(),
+        etag: files
+            .get(&call.path)
+            .map(|file| file.etag.clone())
+            .unwrap_or_default(),
         end_column: None,
         text: Some(format!("{arrow} {} {qualified}{times}", call.kind.as_str())),
         container: call.container,
@@ -142,9 +149,18 @@ fn callable(kind: SymbolKind) -> bool {
     )
 }
 
-fn add_call(calls: &mut Vec<Call>, index: &mut HashMap<(bool, PathBuf, TextPosition), usize>, incoming: bool, path: &Path, info: &SymbolInfo) {
+fn add_call(
+    calls: &mut Vec<Call>,
+    index: &mut HashMap<(bool, PathBuf, TextPosition), usize>,
+    incoming: bool,
+    path: &Path,
+    info: &SymbolInfo,
+) {
     let key = (incoming, path.to_path_buf(), info.name_span.start);
-    if let Some(known) = index.get(&key).and_then(|position| calls.get_mut(*position)) {
+    if let Some(known) = index
+        .get(&key)
+        .and_then(|position| calls.get_mut(*position))
+    {
         known.count += 1;
         return;
     }
@@ -160,7 +176,12 @@ fn add_call(calls: &mut Vec<Call>, index: &mut HashMap<(bool, PathBuf, TextPosit
     });
 }
 
-fn local_calls(ctx: &ExecCtx, files: &Files<'_>, target: &Target, direction: CallDirection) -> Result<Vec<Call>> {
+fn local_calls(
+    ctx: &ExecCtx,
+    files: &Files<'_>,
+    target: &Target,
+    direction: CallDirection,
+) -> Result<Vec<Call>> {
     let mut calls = Vec::new();
     let mut index = HashMap::new();
     if target.word.is_none() {
@@ -187,9 +208,10 @@ fn local_incoming(
     };
     let word = target.word.as_deref().unwrap_or_default();
     let references = shared::local_references(ctx, files, target, true)?;
-    for reference in references.iter().filter(|item| {
-        !matches!(item.role, ReferenceRole::Import | ReferenceRole::Definition)
-    }) {
+    for reference in references
+        .iter()
+        .filter(|item| !matches!(item.role, ReferenceRole::Import | ReferenceRole::Definition))
+    {
         let Some(file) = files.get(&reference.path) else {
             continue;
         };
@@ -206,7 +228,11 @@ fn local_incoming(
 
 /// Callable definitions of the project by name; the first definition of a
 /// name wins.
-fn project_callables(ctx: &ExecCtx, files: &Files<'_>, target: &Target) -> Result<HashMap<String, (PathBuf, SymbolInfo)>> {
+fn project_callables(
+    ctx: &ExecCtx,
+    files: &Files<'_>,
+    target: &Target,
+) -> Result<HashMap<String, (PathBuf, SymbolInfo)>> {
     let mut callables = HashMap::new();
     let (Some(code), Some(language)) = (ctx.code(), target.language.as_ref()) else {
         return Ok(callables);
@@ -216,9 +242,14 @@ fn project_callables(ctx: &ExecCtx, files: &Files<'_>, target: &Target) -> Resul
         let Some(file) = files.get(&path) else {
             continue;
         };
-        for info in code.outline(file.text.as_bytes(), language, None).unwrap_or_default() {
+        for info in code
+            .outline(file.text.as_bytes(), language, None)
+            .unwrap_or_default()
+        {
             if callable(info.kind) {
-                callables.entry(info.name.clone()).or_insert_with(|| (path.clone(), info));
+                callables
+                    .entry(info.name.clone())
+                    .or_insert_with(|| (path.clone(), info));
             }
         }
     }
@@ -229,8 +260,12 @@ fn project_callables(ctx: &ExecCtx, files: &Files<'_>, target: &Target) -> Resul
 fn mask_non_code(body: &str, spans: &[nurt_contracts::services::ClassifiedSpan]) -> String {
     let mut bytes = body.as_bytes().to_vec();
     for span in spans.iter().filter(|span| span.class != SpanClass::Code) {
-        let start = usize::try_from(span.bytes.start).unwrap_or(usize::MAX).min(bytes.len());
-        let end = usize::try_from(span.bytes.end).unwrap_or(usize::MAX).min(bytes.len());
+        let start = usize::try_from(span.bytes.start)
+            .unwrap_or(usize::MAX)
+            .min(bytes.len());
+        let end = usize::try_from(span.bytes.end)
+            .unwrap_or(usize::MAX)
+            .min(bytes.len());
         for byte in &mut bytes[start..end] {
             if *byte != b'\n' {
                 *byte = b' ';
@@ -247,7 +282,9 @@ fn local_outgoing(
     calls: &mut Vec<Call>,
     index: &mut HashMap<(bool, PathBuf, TextPosition), usize>,
 ) -> Result<()> {
-    let (Some(code), Some(language), Some(pattern)) = (ctx.code(), target.language.as_ref(), CALL.as_ref()) else {
+    let (Some(code), Some(language), Some(pattern)) =
+        (ctx.code(), target.language.as_ref(), CALL.as_ref())
+    else {
         return Ok(());
     };
     let definitions = shared::local_definitions(ctx, files, target)?;
@@ -262,7 +299,9 @@ fn local_outgoing(
     let Some(body) = file.text.get(start..end) else {
         return Ok(());
     };
-    let spans = code.classify_spans(body.as_bytes(), language).unwrap_or_default();
+    let spans = code
+        .classify_spans(body.as_bytes(), language)
+        .unwrap_or_default();
     let masked = mask_non_code(body, &spans);
     let callables = project_callables(ctx, files, target)?;
     for found in pattern.captures_iter(&masked) {

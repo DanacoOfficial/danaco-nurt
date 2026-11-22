@@ -75,9 +75,20 @@ impl CodeReferences {
         })
     }
 
-    fn for_target(&self, ctx: &ExecCtx, files: &Files<'_>, target: &Target, options: &Options) -> Result<Vec<Record>> {
+    fn for_target(
+        &self,
+        ctx: &ExecCtx,
+        files: &Files<'_>,
+        target: &Target,
+        options: &Options,
+    ) -> Result<Vec<Record>> {
         let served = shared::ask(self.semantic.as_deref(), options.source, ctx, |provider| {
-            provider.references(ctx, &target.scope(), &target.at(), options.include_definition)
+            provider.references(
+                ctx,
+                &target.scope(),
+                &target.at(),
+                options.include_definition,
+            )
         })?;
         let (mut found, source) = match served {
             Some(locations) => (
@@ -107,7 +118,13 @@ impl CodeReferences {
             .collect())
     }
 
-    fn from_input(&self, args: &BoundArgs, input: StageInput<'_>, ctx: &ExecCtx, options: &Options) -> Result<Vec<Record>> {
+    fn for_input(
+        &self,
+        args: &BoundArgs,
+        input: StageInput<'_>,
+        ctx: &ExecCtx,
+        options: &Options,
+    ) -> Result<Vec<Record>> {
         let files = Files::new(ctx);
         let requested = shared::requested_language(args)?;
         let root = match shared::path_arg(args, "root")? {
@@ -117,7 +134,10 @@ impl CodeReferences {
         let mut records = Vec::new();
         for item in input.into_records()? {
             let symbol = Symbol::try_from(item?).map_err(|error| {
-                Error::new(ErrorCode::Type, format!("`{COMMAND}` expects symbol records: {error}"))
+                Error::new(
+                    ErrorCode::Type,
+                    format!("`{COMMAND}` expects symbol records: {error}"),
+                )
             })?;
             let position = (
                 u32::try_from(symbol.line).ok(),
@@ -174,15 +194,25 @@ fn enclosing_name(ctx: &ExecCtx, files: &Files<'_>, location: &Location) -> Opti
     let code = ctx.code()?;
     let language = code.language_of(Some(&location.path), file.text.as_bytes())?;
     let offset = shared::offset_of(&file.text, location.start)?;
-    let info = code.enclosing(file.text.as_bytes(), &language, offset).ok()??;
+    let info = code
+        .enclosing(file.text.as_bytes(), &language, offset)
+        .ok()??;
     Some(match info.container {
         Some(container) => format!("{container}.{}", info.name),
         None => info.name,
     })
 }
 
-fn reference_record(files: &Files<'_>, name: &str, item: Occurrence, source: SymbolSource) -> Record {
-    let etag = files.get(&item.path).map(|file| file.etag.clone()).unwrap_or_default();
+fn reference_record(
+    files: &Files<'_>,
+    name: &str,
+    item: Occurrence,
+    source: SymbolSource,
+) -> Record {
+    let etag = files
+        .get(&item.path)
+        .map(|file| file.etag.clone())
+        .unwrap_or_default();
     Reference {
         name: name.to_owned(),
         path: shared::record_path(&item.path),
@@ -225,7 +255,7 @@ impl ReadStage for CodeReferences {
             let target = Target::resolve(args, ctx, &files, COMMAND)?;
             self.for_target(ctx, &files, &target, &options)?
         } else {
-            self.from_input(args, input, ctx, &options)?
+            self.for_input(args, input, ctx, &options)?
         };
         Ok(StageOutput::records(RecordStream::from_records(records)))
     }

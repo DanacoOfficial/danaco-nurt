@@ -92,7 +92,9 @@ pub fn derives_pattern(name: &str) -> Option<Regex> {
 }
 
 fn local_implementations(ctx: &ExecCtx, files: &Files<'_>, target: &Target) -> Result<Vec<Record>> {
-    let (Some(word), Some(code), Some(language)) = (target.word.as_deref(), ctx.code(), target.language.as_ref()) else {
+    let (Some(word), Some(code), Some(language)) =
+        (target.word.as_deref(), ctx.code(), target.language.as_ref())
+    else {
         return Ok(Vec::new());
     };
     let Some(pattern) = derives_pattern(word) else {
@@ -107,7 +109,9 @@ fn local_implementations(ctx: &ExecCtx, files: &Files<'_>, target: &Target) -> R
         if !file.text.contains(word) {
             continue;
         }
-        let outline = code.outline(file.text.as_bytes(), language, None).unwrap_or_default();
+        let outline = code
+            .outline(file.text.as_bytes(), language, None)
+            .unwrap_or_default();
         for info in outline {
             let typed = matches!(
                 info.kind,

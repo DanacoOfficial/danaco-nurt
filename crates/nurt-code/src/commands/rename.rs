@@ -242,7 +242,7 @@ impl Options {
             source,
             check_references: args.bool("check_references")?.unwrap_or(true),
             language,
-            root: args.value("root").and_then(word).map(PathBuf::from),
+            root: word(args.value("root")).map(PathBuf::from),
         })
     }
 }
@@ -324,7 +324,7 @@ fn requests(args: &BoundArgs, input: StageInput<'_>) -> Result<Vec<Request>> {
 }
 
 fn source_request(args: &BoundArgs) -> Result<Request> {
-    let path = args.value("path").and_then(word).ok_or_else(|| {
+    let path = word(args.value("path")).ok_or_else(|| {
         Error::new(
             ErrorCode::MissingParam,
             "`code.rename` needs `path` with `symbol` or `line`, or `symbol` records as input",
@@ -368,7 +368,6 @@ struct Located {
     language: Option<LanguageId>,
     name: String,
     position: TextPosition,
-    start: usize,
 }
 
 /// Text file read for the plan.
@@ -572,7 +571,6 @@ impl Planner<'_> {
             language,
             name: loaded.text[start..end].to_owned(),
             position: position_at(&loaded.text, &starts, start),
-            start,
         })
     }
 
@@ -1434,14 +1432,14 @@ fn code_occurrences(
     text: &str,
     name: &str,
 ) -> Vec<usize> {
-    if let (Some(code), Some(language)) = (ctx.code(), language) {
-        if let Ok(found) = code.references(text.as_bytes(), language, name) {
-            return found
-                .into_iter()
-                .filter(|reference| reference.class == SpanClass::Code)
-                .filter_map(|reference| usize::try_from(reference.span.bytes.start).ok())
-                .collect();
-        }
+    if let (Some(code), Some(language)) = (ctx.code(), language)
+        && let Ok(found) = code.references(text.as_bytes(), language, name)
+    {
+        return found
+            .into_iter()
+            .filter(|reference| reference.class == SpanClass::Code)
+            .filter_map(|reference| usize::try_from(reference.span.bytes.start).ok())
+            .collect();
     }
     whole_words(text, name)
 }
@@ -1687,15 +1685,15 @@ fn position_offset(
         )
     })?;
     let end = start + line_text(text, starts, start).len();
-    if let (Some(code), Some(language)) = (code, language) {
-        if let Ok(tokens) = code.tokens(text.as_bytes(), language) {
-            let first = tokens.into_iter().find(|token| {
-                let at = usize::try_from(token.bytes.start).unwrap_or(usize::MAX);
-                at >= start && at < end && token.kind.ends_with("identifier")
-            });
-            if let Some(token) = first {
-                return usize::try_from(token.bytes.start).map_err(|_| limit_error());
-            }
+    if let (Some(code), Some(language)) = (code, language)
+        && let Ok(tokens) = code.tokens(text.as_bytes(), language)
+    {
+        let first = tokens.into_iter().find(|token| {
+            let at = usize::try_from(token.bytes.start).unwrap_or(usize::MAX);
+            at >= start && at < end && token.kind.ends_with("identifier")
+        });
+        if let Some(token) = first {
+            return usize::try_from(token.bytes.start).map_err(|_| limit_error());
         }
     }
     Ok(text[start..end]
@@ -1971,9 +1969,10 @@ impl Target {
             TargetKind::Modify => (ChangeAction::Modify, None),
             TargetKind::Create => (ChangeAction::Create, None),
             TargetKind::Delete => (ChangeAction::Delete, None),
-            TargetKind::Rename { from, .. } => {
-                (ChangeAction::Rename, Some(from.display().to_string()))
-            }
+            TargetKind::Rename { from, .. } => (
+                ChangeAction::Rename,
+                Some(Path::new(from.display().to_string())),
+            ),
         };
         let mut change = Change::new(self.path.display().to_string(), action);
         change.from = from;
@@ -2031,8 +2030,8 @@ struct Problem {
     message: String,
 }
 
-impl<'a> Applier<'a> {
-    fn apply(&self, tx: &mut dyn MutationTx) -> Result<EffectOutcome<'a>> {
+impl Applier<'_> {
+    fn apply(&self, tx: &mut dyn MutationTx) -> Result<EffectOutcome<'static>> {
         self.check_fresh()?;
         let mut contents = Vec::new();
         for target in &self.state.targets {
@@ -2139,19 +2138,19 @@ impl<'a> Applier<'a> {
     /// the target.
     fn problems(&self, target: &Target, text: &str) -> Vec<Problem> {
         let mut problems = Vec::new();
-        if let (Some(code), Some(language)) = (self.ctx.code(), &target.language) {
-            if let Ok(issues) = code.check_syntax(text.as_bytes(), language) {
-                problems.extend(
-                    issues
-                        .into_iter()
-                        .filter(|issue| issue.severity == IssueSeverity::Error)
-                        .map(|issue| Problem {
-                            line: issue.span.start.line,
-                            column: issue.span.start.column,
-                            message: issue.message,
-                        }),
-                );
-            }
+        if let (Some(code), Some(language)) = (self.ctx.code(), &target.language)
+            && let Ok(issues) = code.check_syntax(text.as_bytes(), language)
+        {
+            problems.extend(
+                issues
+                    .into_iter()
+                    .filter(|issue| issue.severity == IssueSeverity::Error)
+                    .map(|issue| Problem {
+                        line: issue.span.start.line,
+                        column: issue.span.start.column,
+                        message: issue.message,
+                    }),
+            );
         }
         if let (Some(semantic), SymbolSource::Lsp) = (self.semantic, self.state.source) {
             let scope = SemanticScope {
@@ -2177,7 +2176,7 @@ impl<'a> Applier<'a> {
         problems
     }
 
-    fn outcome(&self) -> EffectOutcome<'a> {
+    fn outcome(&self) -> EffectOutcome<'static> {
         let state = self.state;
         let changes = state.changes();
         let mut notable = state.plan_notes.clone();

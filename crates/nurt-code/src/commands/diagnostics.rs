@@ -71,7 +71,10 @@ impl CodeDiagnostics {
     /// without a repository service `changed: true` fails with
     /// `E_EXTERNAL_MISSING`.
     #[must_use]
-    pub fn new(semantic: Option<Arc<dyn SemanticProvider>>, git: Option<Arc<dyn GitQueryService>>) -> Self {
+    pub fn new(
+        semantic: Option<Arc<dyn SemanticProvider>>,
+        git: Option<Arc<dyn GitQueryService>>,
+    ) -> Self {
         Self { semantic, git }
     }
 
@@ -94,7 +97,11 @@ impl CodeDiagnostics {
             ctx.checkpoint()?;
             items.extend(self.file_diagnostics(ctx, &files, &request, path, &mut reasons)?);
             if paths.len() > PROGRESS_FILES_MIN {
-                ctx.progress("check", u64::try_from(done + 1).unwrap_or(u64::MAX), u64::try_from(paths.len()).ok());
+                ctx.progress(
+                    "check",
+                    u64::try_from(done + 1).unwrap_or(u64::MAX),
+                    u64::try_from(paths.len()).ok(),
+                );
             }
         }
         for reason in reasons {
@@ -102,11 +109,24 @@ impl CodeDiagnostics {
         }
         items.retain(|item| rank(item.severity) <= rank(request.minimum));
         items.sort_by(|left, right| {
-            (rank(left.severity), left.path.as_str(), left.line, left.column)
-                .cmp(&(rank(right.severity), right.path.as_str(), right.line, right.column))
+            (
+                rank(left.severity),
+                left.path.as_str(),
+                left.line,
+                left.column,
+            )
+                .cmp(&(
+                    rank(right.severity),
+                    right.path.as_str(),
+                    right.line,
+                    right.column,
+                ))
         });
         items.dedup_by(|left, right| {
-            left.path == right.path && left.line == right.line && left.column == right.column && left.message == right.message
+            left.path == right.path
+                && left.line == right.line
+                && left.column == right.column
+                && left.message == right.message
         });
         Ok(items.into_iter().map(Record::from).collect())
     }
@@ -136,7 +156,12 @@ impl CodeDiagnostics {
             .collect())
     }
 
-    fn changed_files(&self, ctx: &ExecCtx, files: &Files<'_>, given: &[PathBuf]) -> Result<Vec<PathBuf>> {
+    fn changed_files(
+        &self,
+        ctx: &ExecCtx,
+        files: &Files<'_>,
+        given: &[PathBuf],
+    ) -> Result<Vec<PathBuf>> {
         let git = self.git.as_ref().ok_or_else(|| {
             Error::new(
                 ErrorCode::ExternalMissing,
@@ -156,7 +181,10 @@ impl CodeDiagnostics {
         let root = git.repo_root(&start)?.ok_or_else(|| {
             Error::new(
                 ErrorCode::InvalidValue,
-                format!("{} is not inside a repository; give the paths instead of changed: true", start.display()),
+                format!(
+                    "{} is not inside a repository; give the paths instead of changed: true",
+                    start.display()
+                ),
             )
         })?;
         let mut paths: Vec<PathBuf> = git
@@ -179,14 +207,19 @@ impl CodeDiagnostics {
         reasons: &mut BTreeSet<String>,
     ) -> Result<Vec<Diagnostic>> {
         let file = files.read(path)?;
-        let language = request
-            .requested
-            .clone()
-            .or_else(|| ctx.code().and_then(|code| code.language_of(Some(path), file.text.as_bytes())));
-        let language_name = language.as_ref().map(|language| language.as_str().to_owned());
+        let language = request.requested.clone().or_else(|| {
+            ctx.code()
+                .and_then(|code| code.language_of(Some(path), file.text.as_bytes()))
+        });
+        let language_name = language
+            .as_ref()
+            .map(|language| language.as_str().to_owned());
         if request.source != Source::Syntax {
             let scope = SemanticScope {
-                root: request.root.clone().unwrap_or_else(|| shared::project_root(files, path)),
+                root: request
+                    .root
+                    .clone()
+                    .unwrap_or_else(|| shared::project_root(files, path)),
                 language: request.requested.clone(),
                 timeout: None,
             };
@@ -202,10 +235,12 @@ impl CodeDiagnostics {
                 }
             }
         }
-        Ok(syntax_issues(ctx, path, file.text.as_bytes(), language.as_ref())
-            .into_iter()
-            .map(|issue| syntax_record(path, &issue, language_name.clone()))
-            .collect())
+        Ok(
+            syntax_issues(ctx, path, file.text.as_bytes(), language.as_ref())
+                .into_iter()
+                .map(|issue| syntax_record(path, &issue, language_name.clone()))
+                .collect(),
+        )
     }
 
     /// Diagnostics of the server, or the cause of a fallback.
@@ -259,8 +294,12 @@ fn rank(severity: DiagnosticSeverity) -> u8 {
 
 /// Returns `true` for files with a grammar or a document format.
 fn checkable(ctx: &ExecCtx, path: &Path) -> bool {
-    let code = ctx.code().is_some_and(|code| code.language_of(Some(path), &[]).is_some());
-    code || ctx.doc().is_some_and(|doc| doc.detect_format(Some(path), &[]).is_some())
+    let code = ctx
+        .code()
+        .is_some_and(|code| code.language_of(Some(path), &[]).is_some());
+    code || ctx
+        .doc()
+        .is_some_and(|doc| doc.detect_format(Some(path), &[]).is_some())
 }
 
 fn expand(ctx: &ExecCtx, files: &Files<'_>, given: &[PathBuf]) -> Vec<PathBuf> {
@@ -276,7 +315,12 @@ fn expand(ctx: &ExecCtx, files: &Files<'_>, given: &[PathBuf]) -> Vec<PathBuf> {
     paths
 }
 
-fn syntax_issues(ctx: &ExecCtx, path: &Path, bytes: &[u8], language: Option<&LanguageId>) -> Vec<SyntaxIssue> {
+fn syntax_issues(
+    ctx: &ExecCtx,
+    path: &Path,
+    bytes: &[u8],
+    language: Option<&LanguageId>,
+) -> Vec<SyntaxIssue> {
     if let (Some(code), Some(language)) = (ctx.code(), language)
         && let Ok(issues) = code.check_syntax(bytes, language)
     {

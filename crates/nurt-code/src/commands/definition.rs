@@ -59,7 +59,9 @@ impl CodeDefinition {
             Some(locations) if !locations.is_empty() || source == Source::Lsp => {
                 return Ok(locations
                     .iter()
-                    .map(|location| shared::symbol_record(&files, &target, location, SymbolSource::Lsp).into())
+                    .map(|location| {
+                        shared::symbol_record(&files, &target, location, SymbolSource::Lsp).into()
+                    })
                     .collect());
             }
             Some(_) => shared::note_fallback(ctx, "the language server found no definition"),
@@ -111,7 +113,7 @@ pub(crate) mod shared {
     use std::sync::LazyLock;
 
     use nurt_contracts::error::{Error, ErrorCode, Result};
-    use nurt_contracts::fs::{AbsPath, Etag, FileKind, Follow};
+    use nurt_contracts::fs::{AbsPath, FileKind, Follow};
     use nurt_contracts::record::{
         ReferenceRole as RecordRole, Symbol, SymbolKind as RecordKind, SymbolSource,
     };
@@ -123,6 +125,7 @@ pub(crate) mod shared {
     use nurt_contracts::value::{Path as RecordPath, Value};
     use regex::Regex;
 
+    use crate::index::content_hash;
     use crate::semantic::{
         DocumentPosition, Location, SemanticProvider, SemanticResult, SemanticScope,
     };
@@ -272,11 +275,6 @@ pub(crate) mod shared {
         RecordPath::new(text)
     }
 
-    /// Text form of an entity tag: size and modification time.
-    pub(crate) fn etag_text(etag: &Etag) -> String {
-        format!("{:x}-{:x}", etag.size, etag.modified_ns)
-    }
-
     /// Content of a source file read through the context.
     #[derive(Debug)]
     pub(crate) struct FileText {
@@ -366,7 +364,9 @@ pub(crate) mod shared {
                     let path = directory.join(&entry.name);
                     let kind = entry.kind.or_else(|| {
                         let absolute = AbsPath::new(&path).ok()?;
-                        fs.metadata(&absolute, Follow::NoFollow).ok().map(|meta| meta.kind)
+                        fs.metadata(&absolute, Follow::NoFollow)
+                            .ok()
+                            .map(|meta| meta.kind)
                     });
                     match kind {
                         Some(FileKind::Directory) => {
@@ -407,18 +407,22 @@ pub(crate) mod shared {
         }
         let mut bytes = Vec::new();
         handle.read_to_end(&mut bytes).map_err(|error| {
-            Error::new(ErrorCode::Io, format!("cannot read {}: {error}", path.display()))
+            Error::new(
+                ErrorCode::Io,
+                format!("cannot read {}: {error}", path.display()),
+            )
         })?;
+        let etag = content_hash(&bytes).to_string();
         let text = String::from_utf8(bytes).map_err(|_| {
             Error::new(
                 ErrorCode::Encoding,
-                format!("{} is not UTF-8 text; code commands read UTF-8 sources", path.display()),
+                format!(
+                    "{} is not UTF-8 text; code commands read UTF-8 sources",
+                    path.display()
+                ),
             )
         })?;
-        Ok(FileText {
-            text,
-            etag: etag_text(&meta.etag()),
-        })
+        Ok(FileText { text, etag })
     }
 
     /// Line `line` (from 1) of `text`, without the line ending.
@@ -478,7 +482,9 @@ pub(crate) mod shared {
     /// Project root of a file: the nearest directory with a project marker,
     /// or the directory of the file.
     pub(crate) fn project_root(files: &Files<'_>, path: &Path) -> PathBuf {
-        let start = path.parent().map_or_else(|| path.to_path_buf(), Path::to_path_buf);
+        let start = path
+            .parent()
+            .map_or_else(|| path.to_path_buf(), Path::to_path_buf);
         start
             .ancestors()
             .find(|directory| {
@@ -492,12 +498,16 @@ pub(crate) mod shared {
     /// Returns `true` for paths of test files by common conventions.
     pub(crate) fn is_test_path(path: &Path) -> bool {
         let text = path.to_string_lossy().replace('\\', "/");
-        TEST_PATH.as_ref().is_some_and(|pattern| pattern.is_match(&text))
+        TEST_PATH
+            .as_ref()
+            .is_some_and(|pattern| pattern.is_match(&text))
     }
 
     /// Returns `true` for import and include lines.
     pub(crate) fn is_import_line(line: &str) -> bool {
-        IMPORT_LINE.as_ref().is_some_and(|pattern| pattern.is_match(line))
+        IMPORT_LINE
+            .as_ref()
+            .is_some_and(|pattern| pattern.is_match(line))
     }
 
     /// Text shortened to `max` characters.
@@ -526,9 +536,17 @@ pub(crate) mod shared {
     impl Target {
         /// Target of a command with `path`, `line`, `column`, `symbol`,
         /// `language` and `root`.
-        pub(crate) fn resolve(args: &BoundArgs, ctx: &ExecCtx, files: &Files<'_>, command: &str) -> Result<Self> {
+        pub(crate) fn resolve(
+            args: &BoundArgs,
+            ctx: &ExecCtx,
+            files: &Files<'_>,
+            command: &str,
+        ) -> Result<Self> {
             let text = path_arg(args, "path")?.ok_or_else(|| {
-                Error::new(ErrorCode::MissingParam, format!("`{command}` needs a value for `path`"))
+                Error::new(
+                    ErrorCode::MissingParam,
+                    format!("`{command}` needs a value for `path`"),
+                )
             })?;
             let path = resolve_path(ctx, &text)?;
             let requested = requested_language(args)?;
@@ -536,7 +554,15 @@ pub(crate) mod shared {
             let column = number_arg(args, "column")?;
             let symbol = word_arg(args, "symbol")?;
             let root = root_arg(args, ctx, files, &path)?;
-            Self::at_position(ctx, files, path, requested, root, (line, column, symbol.as_deref()), command)
+            Self::at_position(
+                ctx,
+                files,
+                path,
+                requested,
+                root,
+                (line, column, symbol.as_deref()),
+                command,
+            )
         }
 
         /// Target of a symbol record of the input.
@@ -644,7 +670,12 @@ pub(crate) mod shared {
     }
 
     /// Project root from the `root` parameter, or detected from `path`.
-    pub(crate) fn root_arg(args: &BoundArgs, ctx: &ExecCtx, files: &Files<'_>, path: &Path) -> Result<PathBuf> {
+    pub(crate) fn root_arg(
+        args: &BoundArgs,
+        ctx: &ExecCtx,
+        files: &Files<'_>,
+        path: &Path,
+    ) -> Result<PathBuf> {
         let Some(text) = path_arg(args, "root")? else {
             return Ok(project_root(files, path));
         };
@@ -658,11 +689,18 @@ pub(crate) mod shared {
         Ok(root)
     }
 
-    fn require_code<'c>(ctx: &'c ExecCtx, language: Option<&LanguageId>, path: &Path) -> Result<(&'c dyn CodeService, LanguageId)> {
+    fn require_code<'c>(
+        ctx: &'c ExecCtx,
+        language: Option<&LanguageId>,
+        path: &Path,
+    ) -> Result<(&'c dyn CodeService, LanguageId)> {
         let unsupported = || {
             Error::new(
                 ErrorCode::UnsupportedLanguage,
-                format!("no grammar is available for {}; set language", path.display()),
+                format!(
+                    "no grammar is available for {}; set language",
+                    path.display()
+                ),
             )
         };
         let code = ctx.code().ok_or_else(unsupported)?;
@@ -710,7 +748,11 @@ pub(crate) mod shared {
             Some(container) => format!("{container}.{}", info.name),
             None => info.name.clone(),
         };
-        format!("{} {name} line {}", kind_name(info.kind), info.name_span.start.line)
+        format!(
+            "{} {name} line {}",
+            kind_name(info.kind),
+            info.name_span.start.line
+        )
     }
 
     fn kind_name(kind: SymbolKind) -> &'static str {
@@ -800,7 +842,12 @@ pub(crate) mod shared {
     }
 
     /// Syntax symbol whose name starts at `position`, from the outline.
-    pub(crate) fn symbol_at(ctx: &ExecCtx, files: &Files<'_>, path: &Path, position: TextPosition) -> Option<SymbolInfo> {
+    pub(crate) fn symbol_at(
+        ctx: &ExecCtx,
+        files: &Files<'_>,
+        path: &Path,
+        position: TextPosition,
+    ) -> Option<SymbolInfo> {
         let file = files.get(path)?;
         let code = ctx.code()?;
         let language = code.language_of(Some(path), file.text.as_bytes())?;
@@ -817,7 +864,12 @@ pub(crate) mod shared {
     }
 
     /// Symbol record of a location answered by a server.
-    pub(crate) fn symbol_record(files: &Files<'_>, target: &Target, location: &Location, source: SymbolSource) -> Symbol {
+    pub(crate) fn symbol_record(
+        files: &Files<'_>,
+        target: &Target,
+        location: &Location,
+        source: SymbolSource,
+    ) -> Symbol {
         let info = symbol_at(files.ctx, files, &location.path, location.start);
         let file = files.get(&location.path);
         let text = file
@@ -830,11 +882,16 @@ pub(crate) mod shared {
                 .map(|info| info.name.clone())
                 .or_else(|| target.word.clone())
                 .unwrap_or_default(),
-            kind: info.as_ref().map_or(RecordKind::Other, |info| record_kind(info.kind)),
+            kind: info
+                .as_ref()
+                .map_or(RecordKind::Other, |info| record_kind(info.kind)),
             path: record_path(&location.path),
             line: u64::from(location.start.line),
             column: u64::from(location.start.column),
-            end_line: u64::from(info.as_ref().map_or(location.end.line, |info| info.span.end.line)),
+            end_line: u64::from(
+                info.as_ref()
+                    .map_or(location.end.line, |info| info.span.end.line),
+            ),
             language: target.language_name(),
             source,
             etag: file.map(|file| file.etag.clone()).unwrap_or_default(),
@@ -851,7 +908,12 @@ pub(crate) mod shared {
     }
 
     /// Symbol record of a definition found by syntax analysis.
-    pub(crate) fn local_symbol_record(files: &Files<'_>, target: &Target, path: &Path, info: &SymbolInfo) -> Symbol {
+    pub(crate) fn local_symbol_record(
+        files: &Files<'_>,
+        target: &Target,
+        path: &Path,
+        info: &SymbolInfo,
+    ) -> Symbol {
         let file = files.get(path);
         Symbol {
             name: info.name.clone(),
@@ -862,12 +924,20 @@ pub(crate) mod shared {
             end_line: u64::from(info.span.end.line),
             language: target.language_name(),
             source: SymbolSource::Syntax,
-            etag: file.as_ref().map(|file| file.etag.clone()).unwrap_or_default(),
+            etag: file
+                .as_ref()
+                .map(|file| file.etag.clone())
+                .unwrap_or_default(),
             end_column: Some(u64::from(info.name_span.end.column)),
             container: info.container.clone(),
-            signature: info.signature.as_deref().map(|signature| clip(signature, SIGNATURE_MAX)),
-            text: file
-                .and_then(|file| file.line(info.name_span.start.line).map(|line| line.trim().to_owned())),
+            signature: info
+                .signature
+                .as_deref()
+                .map(|signature| clip(signature, SIGNATURE_MAX)),
+            text: file.and_then(|file| {
+                file.line(info.name_span.start.line)
+                    .map(|line| line.trim().to_owned())
+            }),
             exported: info.exported,
             references: None,
         }
@@ -888,7 +958,11 @@ pub(crate) mod shared {
 
     /// Definitions of the identifier at the target found by syntax
     /// analysis: in the file first, then in the project.
-    pub(crate) fn local_definitions(ctx: &ExecCtx, files: &Files<'_>, target: &Target) -> Result<Vec<(PathBuf, SymbolInfo)>> {
+    pub(crate) fn local_definitions(
+        ctx: &ExecCtx,
+        files: &Files<'_>,
+        target: &Target,
+    ) -> Result<Vec<(PathBuf, SymbolInfo)>> {
         let Some(word) = target.word.as_deref() else {
             return Ok(Vec::new());
         };
@@ -903,7 +977,10 @@ pub(crate) mod shared {
             if !file.text.contains(word) {
                 continue;
             }
-            for info in code.find_symbol(file.text.as_bytes(), &language, word).unwrap_or_default() {
+            for info in code
+                .find_symbol(file.text.as_bytes(), &language, word)
+                .unwrap_or_default()
+            {
                 if seen.insert((path.clone(), info.name_span.start)) {
                     found.push((path.clone(), info));
                 }
@@ -952,7 +1029,10 @@ pub(crate) mod shared {
             let references = code
                 .references(file.text.as_bytes(), &language, word)
                 .unwrap_or_default();
-            for reference in references.into_iter().filter(|item| item.class == SpanClass::Code) {
+            for reference in references
+                .into_iter()
+                .filter(|item| item.class == SpanClass::Code)
+            {
                 let role = match reference.role {
                     ReferenceRole::Definition => RecordRole::Definition,
                     ReferenceRole::Import => RecordRole::Import,
