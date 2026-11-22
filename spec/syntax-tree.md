@@ -23,7 +23,7 @@ serialize to exactly these documents.
 |---|---|---|
 | Format name | `nurt-ast/1` | `nurt-bound/1` |
 | Version member | `"nurt": "1.0"` | `"nurt": "1.0"` and `"bound": "1.0"` |
-| Media type | `application/vnd.nurt.ast+json; v=1`, `application/vnd.nurt.ast+cbor; v=1` | carried inside reports and journal entries |
+| Media type | `application/vnd.nurt.ast+json; v=1`, `application/vnd.nurt.ast+cbor; v=1` | `application/vnd.nurt.bound+json; v=1`, `application/vnd.nurt.bound+cbor; v=1` |
 | File extension | `.nurt.json` (tree), `.nurt` (program text, UTF-8) | — |
 | Schema | `nurt-ast-1.schema.json` | `nurt-bound-1.schema.json` |
 | Canonical encoding | JSON according to RFC 8785 (JCS); deterministic CBOR (RFC 8949, section 4.2) | same |
@@ -32,9 +32,10 @@ Versions are written `MAJOR.MINOR`. Within one major version only optional
 members and new node kinds are added; new commands and parameters are catalog
 data and never change the schema. A reader accepts a document of its own major
 version whose minor version is not greater than its own; a newer minor version
-is rejected with `E_AST_VERSION` and the list of unknown node kinds. After a
-change of the major version, readers accept the previous major version for at
-least 24 months.
+is rejected with `E_AST_VERSION` and the list of unknown node kinds. The node
+kinds a reader knows are listed by `nurt_contracts::ast::SURFACE_KINDS` and
+`nurt_contracts::bound::BOUND_KINDS`. After a change of the major version,
+readers accept the previous major version for at least 24 months.
 
 The two documents are distinct: the surface schema rejects the root members
 `bound`, `catalog_rev` and `corr_rev`, the stage member `effect` and the
@@ -49,11 +50,20 @@ argument member `default`; the bound schema requires them.
   `items`, `entries`) are always present, possibly empty.
 * User data never appears as a member name: map entries are objects
   `{"k": key, "v": value}`.
-* `meta` is a free-form object at the root (session, source text, comments).
-  Comments of program text are not part of the tree.
+* A reader rejects an unknown member of any object with `E_AST_SCHEMA`.
+* Identifiers match `[a-z][a-z0-9_]*` and have at most 64 bytes; command names
+  have at most 129 bytes. The reserved words `let`, `true`, `false`, `null`,
+  `and`, `or`, `not` and `in` are not admissible as the name of a `let` result,
+  as the name of a reference or as an `ident` node; they remain admissible as
+  parameter names and map keys.
+* `meta` is an object at the root with the optional members `source` (program
+  text), `variant` (`a`, `b` or `c`) and `comments` (objects `{span, text}`,
+  the text without the leading `#`); other members are preserved. Comments are
+  not part of the program; a formatter restores them from `meta.comments`.
 * `span` is `[line, column, end_line, end_column]`. Lines and columns start at
   1, columns count Unicode scalar values and the end position is exclusive (the
-  position directly after the last character). Spans are informative.
+  position directly after the last character). Positions do not exceed
+  2^32 - 1. Spans are informative.
 
 ### Spans of the surface tree
 
@@ -66,6 +76,7 @@ argument member `default`; the bound schema requires them.
 | literal, identifier | the token, including quotes, the `r#` delimiters of raw text and the regular expression flags |
 | `ref` | from `@` to the end of the last field |
 | `list`, `map`, `call`, `sub` | from the opening bracket or name to the closing bracket |
+| map entry | from the key to the end of the value |
 | `bin` | from the start of the left operand to the end of the right operand |
 | `un`, `spread` | from the operator to the end of the operand |
 | `field` | from the start of the record expression to the end of the field name |
@@ -86,12 +97,12 @@ Root members: `nurt` (required), `program` (required), `meta`.
 | `text` | `v` | `"abc"`, `r"abc"`, `r#"…"#` |
 | `ident` | `v` | `desc`, `size` |
 | `regex` | `v`, `flags` (`imsx`, in this order) | `/oldName\(/i` |
-| `int`, `num` | `v` (`int` is non-negative) | `40`, `3.5` |
+| `int`, `num` | `v` (non-negative) | `40`, `3.5` |
 | `size` | `v` (bytes) | `10mb` = 10 000 000, `1kib` = 1 024 |
 | `dur` | `v` (milliseconds) | `30s`, `1h30m` |
 | `bool`, `null` | `v` / — | `true`, `null` |
 | `list` | `items` | `["a", "b"]` |
-| `map` | `entries: [{k, v}]` | `{replace: "a", with: "b"}` |
+| `map` | `entries: [{k, v, span?}]` | `{replace: "a", with: "b"}` |
 | `ref` | `name`, `fields?` | `@recent`, `@recent.path` |
 | `spread` | `x` | `...@recent.path` (list elements only) |
 | `field` | `name`, `of?` | `file.size` |
@@ -110,11 +121,13 @@ Rules of the surface tree:
    bare identifier. Paths, globs, instants and keys are `text` nodes; the
    binder types them by their place in the signature. The structured `key`
    node is an alternative to a key written as text for producers that build
-   trees directly.
+   trees directly. A printer writes a `key` node as a text literal in
+   canonical key notation, so parsing the printed program yields a `text`
+   node; both bind to the same `key` value of the bound tree.
 3. Text values are stored after escape processing. In a regular expression
-   `\/` is stored as `/`; every other escape is stored unchanged. Flags are
-   drawn from `imsx` and written in this order.
-4. Integer literals are non-negative: `-1` is `un` with `op: "neg"` applied to
+   `\/` is stored as `/`; every other escape is stored unchanged. The pattern
+   is not empty. Flags are drawn from `imsx` and written in this order.
+4. Numeric literals are non-negative: `-1` is `un` with `op: "neg"` applied to
    `int` 1. Every integer of a tree lies within ±(2^53 - 1), the range that
    canonical JSON represents exactly; a larger literal is a lexical error.
 5. `spread` appears only as an element of a list.
@@ -123,6 +136,11 @@ Rules of the surface tree:
 7. The binary operators, in increasing binding strength: `or`; `and`; `not`
    (unary); `== != < <= > >= ~ !~ in` (non-associative); `+ -`; `* /`;
    unary `-`; field access `.` and calls.
+8. Syntax variant B produces the same surface tree as variant A. Variant C
+   writes every argument by name, and the parser keeps the names because it
+   does not read the catalog; the surface tree of a variant C program
+   therefore differs from variant A, and the bound trees of all three variants
+   are equal.
 
 Example: `ports state: listen |> filter port == 8080`
 
@@ -143,8 +161,11 @@ Example: `ports state: listen |> filter port == 8080`
 
 Root members: `nurt`, `bound`, `catalog_rev`, `corr_rev`, `program` (all
 required) and `meta`. `catalog_rev` identifies the command catalog and
-`corr_rev` the correction tables used to produce the tree; both are opaque
-non-empty strings.
+`corr_rev` the correction tables used to produce the tree. Both are revision
+strings matching `[A-Za-z0-9][A-Za-z0-9:._-]*`, at most 128 bytes long. A
+binder writes `catalog_rev` as the catalog revision defined in
+[`catalog.md`](catalog.md) (`sha256:` followed by a lowercase hex digest) and
+`corr_rev` in the same form, computed over the correction tables.
 
 Statements, `let` and `pipeline` have the same shape as in the surface tree.
 A stage has the members:
@@ -154,7 +175,7 @@ A stage has the members:
 | `name` | canonical command name from the catalog: one identifier or a group and an identifier joined by `.` |
 | `effect` | effect kind from the catalog: `read`, `local`, `external`, `process` |
 | `phase` | execution phase (section 5); required |
-| `waits` | `true` when the stage blocks the call by waiting; omitted when `false` |
+| `waits` | `true` when the stage blocks the call by waiting; omitted when `false`. The catalog marks the command `waits`, or a parameter marked `waits` has a value greater than its default or the value `forever` |
 | `args` | every parameter of the signature, in signature order |
 | `span` | source range of the surface stage |
 
@@ -167,6 +188,14 @@ with a non-negative integer `v`; `regex` with `v` and `flags` from `imsx`;
 `list`; `map`; `range`; `ref`; `sub`; and the expression kinds `field`,
 `call`, `un`, `bin`, `spread`. Integers lie within ±(2^53 - 1); constant
 negation is folded, so `-1` binds to `int` -1.
+
+| Kind | Form of `v` |
+|---|---|
+| `path` | canonical absolute path: `/a/b`, `C:/a/b`, `//server/share/a` or `provider:/a/b`; forward slashes, no empty, `.` or `..` segment, no trailing `/` except at the root |
+| `instant` | RFC 3339 in UTC with the suffix `Z`; fractional seconds without trailing zeros (`2026-03-01T12:00:00Z`) |
+| `glob`, `key` | non-empty text |
+| `enum` | identifier |
+| `regex` | non-empty pattern |
 
 Binding rules:
 
@@ -185,11 +214,18 @@ Binding rules:
    per-record parameters), a bare identifier is the field of the current record
    and binds to `field`.
 5. Values derived from other parameters are written explicitly: the `mode` of
-   a pattern resolves to `literal` or `regex`, and the default `watch` list of
-   `run` is the list holding `cwd`.
+   a pattern resolves to `literal` or `regex`, and a parameter with
+   `default_from` in the catalog receives the value of its source converted to
+   its type (`run cwd` defaults to the call parameter `base`, and the default
+   `watch` list of `run` is the list holding `cwd`).
 6. Short source forms of change commands are expanded to their single
-   pipeline: `remove "/a"` binds to `find "/a" depth: 0 type: any |> remove`,
-   so both programs have the same bound tree.
+   pipeline. The source form names in `expand` the parameter that holds the
+   entries; its value becomes the `path` of an `info` head, followed by the
+   command bound in its form for `entry` input. `remove "/a"` binds to
+   `info ["/a"] |> remove`, so both programs have the same bound tree. `info`
+   accepts a list of paths, does not descend into directories and reports a
+   missing path as an entry with `exists: false`, which the command handles
+   according to its `on_missing` parameter.
 7. The pipeline checked by `verify` is the `sub` value of its parameter
    `check`.
 8. `effect` always comes from the catalog, never from the program. Stages of
@@ -210,7 +246,9 @@ Binding rules:
 
 A pipeline has at most one stage of phase `mutate` or `run`. Stages of phase
 `after` stand only after it, and `verify`, when present, is the last stage.
-Any other stage after the effect is rejected with `E_ONE_EFFECT`.
+Any other stage after the effect is rejected with `E_ONE_EFFECT`. The pipeline
+of a `let` has no stage of phase `mutate` or `run`. A decoded bound tree that
+breaks these rules is rejected with `E_AST_SCHEMA`.
 
 ## 6. `ast_hash`
 
@@ -223,10 +261,12 @@ root object and without the member `span` of every object
 (`nurt_contracts::ast::strip_for_hash`). It is taken from the JSON produced by
 serializing the decoded, typed tree, so omitted optional members and members
 written with their default value (`"waits": false`, `"default": false`) never
-change the hash. Programs that differ only in layout, comments or syntax
-variant have the same `ast_hash`. The report and the journal use `ast_hash` of
-the bound tree, which includes every default; a later change of a default
-value never changes the hash or the meaning of a recorded program.
+change the hash. Programs that differ only in layout or comments, or are
+written in syntax variants A and B, have the same surface `ast_hash`; programs
+in every syntax variant have the same bound tree. The report and the journal
+use `ast_hash` of the bound tree, which includes every default; a later change
+of a default value never changes the hash or the meaning of a recorded
+program.
 
 ## 7. Conformance files
 
@@ -235,13 +275,18 @@ value never changes the hash or the meaning of a recorded program.
 | `golden/ast/<name>.nurt` | program text, word notation |
 | `golden/ast/<name>.json` | surface tree of the program, with spans; trees without program text use structured nodes and metadata |
 | `golden/ast/<name>.hash` | `ast_hash` of the surface tree |
+| `golden/ast/<name>.b.nurt` | the same program in variant B; its surface tree is `<name>.json` |
+| `golden/ast/<name>.c.nurt`, `<name>.c.json`, `<name>.c.hash` | the same program in variant C, its surface tree and its `ast_hash` |
 | `golden/bound/<name>.json` | bound tree of the same program against the reference catalog |
 | `golden/bound/<name>.hash` | `ast_hash` of the bound tree |
+| `golden/<format>/invalid/<case>.json` | document that a reader rejects |
+| `golden/<format>/invalid/expected.tsv` | error code and layer of every rejected document: `schema` (the published schema rejects it), `types` (the schema and the Rust types reject it) or `rules` (the phase rules of section 5 reject it) |
 | `golden/<format>/schema.generated.json` | schema generated from the Rust types |
 
-Golden bound trees use the placeholder revisions `cat-1` and `corr-1`.
+Golden bound trees use the fixed revisions `cat-1` and `corr-1`.
 Conformance tests check that every tree is valid under the published schema
 and under the generated schema, deserializes into the Rust types and
 serializes back to the same JSON value, survives a CBOR round trip unchanged
-and has the recorded `ast_hash`. Setting `NURT_BLESS=1` regenerates the
-generated schemas and the recorded hashes after a reviewed change.
+and has the recorded `ast_hash`, and that every invalid document is rejected
+at its layer. Setting `NURT_BLESS=1` regenerates the generated schemas and the
+recorded hashes after a reviewed change.

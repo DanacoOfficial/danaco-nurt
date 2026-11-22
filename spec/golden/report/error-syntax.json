@@ -5,8 +5,7 @@
   "error": {
     "code": "E_SYNTAX",
     "message": "unclosed list",
-    "stage": "0",
-    "at": { "line": 1, "column": 27, "length": 1 },
+    "at": { "line": 1, "column": 27, "length": 1, "stage": "0" },
     "found": "end of program",
     "problem": "the list started at column 18 is not closed",
     "fix": ["find \"/srv/app\" glob: [\"*.go\"]"],

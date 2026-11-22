@@ -4,7 +4,7 @@
 
 [package]
 name = "nurt-git-transport"
-description = "SSH transport and commit signatures for the Git operations of Danaco Nurt."
+description = "Transports, credentials and signatures for the Git operations of Danaco Nurt."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,6 +17,58 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["git-ssh"]
+# The SSH client runs on a current-thread tokio runtime owned by this crate;
+# the rest of the engine stays synchronous.
+git-ssh = ["dep:russh", "dep:tokio", "dep:tokio-util"]
+
 [dependencies]
 nurt-contracts = { workspace = true }
+nurt-types = { workspace = true }
 gix = { workspace = true }
+gix-credentials = { workspace = true }
+gix-hash = { workspace = true }
+gix-object = { workspace = true }
+gix-pack = { workspace = true }
+gix-packetline = { workspace = true }
+gix-protocol = { workspace = true }
+gix-quote = { workspace = true }
+gix-sec = { workspace = true }
+gix-transport = { workspace = true }
+gix-url = { workspace = true }
+gix-utils = { workspace = true }
+russh = { workspace = true, optional = true }
+ssh-key = { workspace = true }
+pgp = { workspace = true }
+tokio = { workspace = true, optional = true, features = ["rt", "net", "io-util", "sync", "time"] }
+tokio-util = { workspace = true, optional = true }
+hmac = { workspace = true }
+ureq = { workspace = true }
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
+url = { workspace = true }
+percent-encoding = { workspace = true }
+base64 = { workspace = true }
+bstr = { workspace = true }
+sha1 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+jiff = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Credentials"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { workspace = true }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+zbus = { workspace = true }
+
+[dev-dependencies]
+nurt-testkit = { workspace = true }
+tempfile = { workspace = true }
+proptest = { workspace = true }
+rcgen = { workspace = true }

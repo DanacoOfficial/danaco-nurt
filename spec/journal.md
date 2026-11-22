@@ -11,19 +11,19 @@ reference semantics of test implementations.
 
 ## 1. Principles
 
-1. **Coverage.** Every change of files, provider values or repository state
+1. Coverage. Every change of files, provider values or repository state
    made by a command goes through a mutation transaction and is recorded in
    the journal. The only exceptions are listed in the coverage table
-   (`tables/journal-coverage.toml`, section 12) and are always reported with an
+   (`tables/journal-coverage.toml`, section 13) and are always reported with an
    explicit irreversible marker.
-2. **Order.** The previous content of every target is preserved before
+2. Order. The previous content of every target is preserved before
    anything is changed. At every instant of a crash the previous content exists
    in at least one place.
-3. **Space priority.** Free space for the user has priority over the journal.
+3. Space priority. Free space for the user has priority over the journal.
    The journal never causes a user operation to fail; when it cannot keep the
    previous content, the operation proceeds unpreserved and the target is
    marked irreversible.
-4. **Explicitness.** Missing coverage is always visible in the result. Results
+4. Explicitness. Missing coverage is always visible in the result. Results
    never state until when an operation can be undone.
 
 ## 2. Concepts
@@ -45,21 +45,21 @@ The executor opens a transaction with `JournalStore::begin`, passes it to the
 effect stage as `&mut dyn MutationTx`, and commits or rolls it back after the
 stage returns. The stage never commits.
 
-1. **Declare and preserve.** The stage declares every target with
+1. Declare and preserve. The stage declares every target with
    `MutationTx::preserve`, in one call or in batches. For each target the
    journal chooses a preserve mode, consulting `Admission`; it assigns the
    operation number at the first call, writes the entry in the `prepared`
    state and preserves the previous state of all declared targets before
    returning. `preserve` is not allowed after the first change.
-2. **Apply.** The stage changes targets with `MutationTx::apply`. New content
+2. Apply. The stage changes targets with `MutationTx::apply`. New content
    is written to a staged file in the directory of the target, either filled
    by the journal (`Mutation::WriteBytes`) or by the stage through the handle
    returned by `MutationTx::stage` (`Mutation::CommitStaged`), and switched in
    atomically. The metadata of the previous file is transferred by the journal.
-3. **Expected state.** `TargetSpec::expect` (`unchecked`, `absent`, an entity
+3. Expected state. `TargetSpec::expect` (`unchecked`, `absent`, an entity
    tag or a content hash) is checked atomically with the change. A mismatch
    fails with `E_STALE` and rolls the whole transaction back.
-4. **External writers.** Targets written by a library (embedded database
+4. External writers. Targets written by a library (embedded database
    engine, repository index writer) or by a launched program are declared with
    the action `external_write`; the journal preserves their full previous
    content by clone or copy. After the writer finishes, the stage reports the
@@ -67,19 +67,19 @@ stage returns. The stage never commits.
    reported are dropped from the entry at commit and their copies released.
    Changes detected by scanning without a declared target are recorded as
    irreversible (`previous_content_not_kept`) unless a copy exists.
-5. **Effects outside the file system.** Network requests, stopped processes,
+5. Effects outside the file system. Network requests, stopped processes,
    changed services and installed packages are recorded with
    `MutationTx::mark_irreversible`. A transaction may consist of markers only.
-6. **Exempt writes.** Writes that are outside the journal by design and never
+6. Exempt writes. Writes that are outside the journal by design and never
    undone (content-addressed objects added to a repository object store) are
    recorded with `MutationTx::record_exempt`.
-7. **Commit or roll back.** `MutationTx::commit` makes the changes durable
+7. Commit or roll back. `MutationTx::commit` makes the changes durable
    and the entry `committed`, and returns an `OpHandle` for the report. A
    transaction that changed nothing and marked nothing returns a handle with
    `op: null`, and no entry exists. `MutationTx::rollback` restores every
    target changed so far, in reverse order. Dropping a transaction without
    commit rolls it back.
-8. **Checks after the change.** A stage may check the result before the
+8. Checks after the change. A stage may check the result before the
    executor commits (validation, diagnostics); on failure the executor rolls
    back with reason `validate_failed` and the result has status `rolled_back`.
    A check after commit (`verify`) uses `JournalStore::rollback_committed`,
@@ -112,6 +112,26 @@ with `E_STAGE_FAILED` and roll back.
 
 Several files changed by one command are one transaction and one operation,
 reported as a bulk operation and undone as a whole.
+
+### 3.2 Command-level operations
+
+`FileOp` pairs the declaration and the mutation of each row of the table
+above (`write`, `create`, `append`, `write_at`, `set_length`, `remove`,
+`rename`, `copy`, `copy_over`, `create_dir`, `create_link`,
+`create_hard_link`, `set_meta`), with `expect` and `size_hint` as optional
+settings. `apply_ops(tx, ops)` performs one protocol pass: it declares and
+preserves every target with a single `preserve` call and then applies the
+mutations in order. A command therefore never chooses a preserve mode, the
+order of the protocol or the strategy across volumes; the journal does.
+
+Streamed content and library writes keep the explicit form: declare all
+targets with `preserve`, then `stage` and `commit_staged` per file, or
+`observe_external` after the library wrote the file. Applying a mutation to
+an undeclared target is a protocol violation (section 3).
+
+`AfterState.meta`, when present, holds the metadata the journal read after
+the change, so that callers recording file status (a repository index) do
+not repeat the `stat`.
 
 ## 4. Crash guarantees and recovery
 
@@ -352,7 +372,8 @@ exception; `none` rows list `none` or `external` (possibly with modes for local
 side effects) and an exception; `no_effect` rows list no modes.
 
 The reasons listed in `generic_irreversible` may degrade any row (inactive
-journal, network or removable volume, no space for the copy, size limits). The
+journal, network or removable volume, no space for the copy, size limits, a
+failure of the journal while recording). The
 test suite checks that the table is well formed, that every catalog command and
 every catalog action with an effect has a row, that every row names a catalog
 command, and that irreversible catalog entries are not marked `full` and

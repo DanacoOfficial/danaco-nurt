@@ -422,6 +422,13 @@
           "description": "The default is \"no limit\".",
           "type": "boolean"
         },
+        "default_from": {
+          "description": "Parameter whose value is the default: another parameter of the\ncommand or the call parameter `base`. The value is converted to the\ntype of this parameter, so a path becomes a one-element list. A\nrequired parameter with this key is missing only when its source has\nno value either.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "default_note": {
           "description": "Description of a default that is computed rather than literal (for\nexample \"the latest operation\").",
           "type": [
@@ -514,6 +521,13 @@
           "items": {
             "type": "string"
           }
+        },
+        "expand": {
+          "description": "Parameter of a source form that names the entries the command works\non. The binder expands the form to an `info` head whose `path` is the\nvalue of this parameter, followed by the command bound in its form for\n`entry` input.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "summary": {
           "description": "One-sentence description of the form.",

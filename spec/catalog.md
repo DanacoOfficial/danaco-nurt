@@ -83,16 +83,17 @@ summary = "Document to change."
 | `name` | identifier | yes | parameter name, unique in the command |
 | `type` | type expression | yes | section 3 |
 | `position` | integer ≥ 1 | no | position among positional arguments of the primary form; the positions of a command form the sequence `1..n` |
-| `required` | bool | no | required in the primary form; default `false`; a required parameter has no default |
+| `required` | bool | no | required in the primary form; default `false`; a required parameter has no `default`; with `default_from` it is missing only when its source has no value either |
 | `repeated` | bool | no | a positional parameter that collects several arguments into a list; its type accepts a list; at most one per command |
 | `per_record` | bool | no | the value may be an expression evaluated on each input record (`to: "/dst/" + name`) |
 | `default` | text | no | default value as a literal of the language in variant A: `"1"`, `"true"`, `'"**"'`, `"asc"`, `"120s"`, `"10mb"`, `"[]"`; absent means no value (`null`) |
 | `unbounded_default` | bool | no | the default is "no limit"; excludes `default` |
+| `default_from` | identifier | no | the default is the value of another parameter of the command or of the call parameter `base`, converted to the type of this parameter (a path becomes a one-element list): `run cwd` defaults to `base`, `run watch` to `cwd`; excludes `default` and `unbounded_default` |
 | `default_note` | text | no | description of a computed default ("the latest operation") |
 | `values` | list of identifiers | conditional | the enumeration values of the type, repeated for readability; required and equal to the values of the type, in order, when the type contains `enum(…)` |
 | `summary` | text | yes | short description |
 | `exclusive_group` | identifier | no | parameters with the same group name are mutually exclusive (section 6) |
-| `waits` | bool | no | a value of this parameter above the waiting threshold marks the stage `waits: true` in the bound tree (`run wait:`, `jobs wait:`) |
+| `waits` | bool | no | a value of this parameter greater than its default, or the value `forever`, marks the stage `waits: true` in the bound tree (`run wait:` above `3s`, `jobs wait:` above `0s`) |
 | `secret` | bool | no | the value is confidential (credentials in an address or a header); it is masked in the journal, the report and the printed bound tree |
 
 A bare-word default (`asc`, `auto`) is one of `values`; the word `all` is also
@@ -251,6 +252,7 @@ summary = "Replace the text of the input matches."
 | `positional` | no | positional parameters of the form, in order |
 | `required` | no | required parameters of the form; a name of an exclusive group means "exactly one of the group" |
 | `params` | no | parameters accepted by the form; empty means all |
+| `expand` | no | in a source form: the parameter that names the entries the command works on; the binder expands the form (section 5.2) |
 | `summary` | yes | one sentence |
 
 The binder selects the form whose `input` contains the kind of the input
@@ -259,10 +261,6 @@ records (`none` for a source). The first form is the primary form: the
 `required_groups` describe it, and the catalog check verifies that they agree.
 A command without forms has a single form described by its parameters.
 
-The source forms of `remove`, `copy`, `move`, `rename`, `attributes` are
-expanded by the binder into `info`/`find … depth: 0 type: any |> command`; the
-bound tree contains only the expanded stage.
-
 ### 5.1 Repeated positional parameters
 
 A repeated parameter (`repeated = true`) collects positional arguments into a
@@ -270,6 +268,32 @@ list. When positional parameters follow it (`copy FROM… TO`), the later
 positions take the last arguments and the repeated parameter takes the rest,
 as in `copy "/a" "/b" "/dst"` (`from: ["/a", "/b"]`, `to: "/dst"`). With a
 single positional argument the repeated parameter takes it.
+
+### 5.2 Expanded source forms
+
+A source form with the key `expand` is not bound as written. The binder
+expands it to an `info` head whose `path` is the value of the named
+parameter, followed by the command bound in its form for `entry` input:
+
+```toml
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["path"]
+required = ["path"]
+expand = "path"
+summary = "Remove the given files and directories."
+```
+
+`remove "/a" "/b"` binds to `info ["/a", "/b"] |> remove`, so the two programs
+have the same bound tree. `info` accepts a list of paths, does not descend
+into directories and reports a missing path as an entry with `exists: false`,
+which the command handles according to its `on_missing` parameter. The core
+catalog expands the source forms of `copy` and `move` (`from`) and of
+`remove`, `rename` and `attributes` (`path`). The named parameter accepts a
+path, the form takes no input, and the form for `entry` input does not accept
+the parameter. Source forms without `expand` (`replace`, `insert`) are bound
+as written.
 
 ## 6. Exclusive and required groups
 
@@ -341,6 +365,22 @@ commands = 33
 The first entry is `core`; every entry names `<name>.toml`; the sum of
 `commands` equals `total`.
 
+### 9.1 Catalog revision
+
+The catalog revision identifies the exact catalog used for binding and is
+recorded as `catalog_rev` in every bound tree:
+
+```
+catalog_rev = "sha256:" + lowercase_hex(SHA-256(UTF-8(JCS(files))))
+```
+
+`files` is the JSON array of the catalog files in the order of the index, each
+serialized from `CatalogFile` (the form validated by
+`nurt-catalog-1.schema.json`), and JCS is the canonical JSON of RFC 8785. Any
+change of a command, a parameter or a description therefore changes the
+revision. The revision of the correction tables, `corr_rev`, has the same
+form.
+
 ## 10. Checks
 
 `CatalogFile::check`, `CatalogIndex::check` and `check_catalog` return the list
@@ -352,11 +392,14 @@ of problems; the test suite requires an empty list for every file in
 2. command names are valid and unique in the whole catalog;
 3. every type expression parses; every `default` is non-empty; a required
    parameter has no default; `values` repeat the enumeration values of the
-   type; a bare-word default is one of the values;
+   type; a bare-word default is one of the values; `default_from` names
+   another parameter of the command or `base` and excludes `default`;
 4. the positions of each command form the sequence `1..n`; a repeated
    parameter is positional and accepts a list;
 5. exclusive groups have at least two members; required groups exist;
 6. forms are consistent with the parameters and cover every input kind once;
+   `expand` stands only in a source form, names a parameter that accepts a
+   path, and that parameter is not accepted by the form for `entry` input;
 7. the index lists every file with its number of commands, and when every
    listed file is present the number of commands equals `total`.
 

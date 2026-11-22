@@ -12,7 +12,7 @@
   "properties": {
     "nurt": {
       "type": "string",
-      "pattern": "^1\\.(0|[1-9][0-9]*)$",
+      "pattern": "^1\\.(0|[1-9][0-9]{0,4})$",
       "description": "Format version MAJOR.MINOR."
     },
     "program": {
@@ -20,20 +20,79 @@
     },
     "meta": {
       "type": "object",
-      "additionalProperties": true,
-      "description": "Free-form metadata (session, source text, comments); excluded from ast_hash."
+      "description": "Informative metadata; excluded from ast_hash. Members other than the ones below are preserved.",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Program text that produced the tree."
+        },
+        "variant": {
+          "enum": [
+            "a",
+            "b",
+            "c"
+          ],
+          "description": "Syntax variant of the program text."
+        },
+        "comments": {
+          "type": "array",
+          "description": "Comments of the program text in source order.",
+          "items": {
+            "type": "object",
+            "required": [
+              "span",
+              "text"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "span": {
+                "$ref": "#/$defs/span"
+              },
+              "text": {
+                "type": "string",
+                "description": "Comment text without the leading #."
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": true
     }
   },
   "$defs": {
     "identifier": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_]*$"
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "maxLength": 64
+    },
+    "name": {
+      "description": "Identifier that is not a reserved word.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/identifier"
+        },
+        {
+          "not": {
+            "enum": [
+              "let",
+              "true",
+              "false",
+              "null",
+              "and",
+              "or",
+              "not",
+              "in"
+            ]
+          }
+        }
+      ]
     },
     "span": {
       "type": "array",
       "items": {
         "type": "integer",
-        "minimum": 1
+        "minimum": 1,
+        "maximum": 4294967295
       },
       "minItems": 4,
       "maxItems": 4,
@@ -75,7 +134,7 @@
           "const": "let"
         },
         "name": {
-          "$ref": "#/$defs/identifier"
+          "$ref": "#/$defs/name"
         },
         "value": {
           "$ref": "#/$defs/pipeline"
@@ -133,7 +192,8 @@
         "name": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
-          "description": "Command name as written, after correction."
+          "description": "Command name as written, after correction.",
+          "maxLength": 129
         },
         "args": {
           "type": "array",
@@ -177,7 +237,7 @@
           "const": "ref"
         },
         "name": {
-          "$ref": "#/$defs/identifier"
+          "$ref": "#/$defs/name"
         },
         "fields": {
           "type": "array",
@@ -286,7 +346,7 @@
               "const": "ident"
             },
             "v": {
-              "$ref": "#/$defs/identifier"
+              "$ref": "#/$defs/name"
             },
             "span": {
               "$ref": "#/$defs/span"
@@ -306,7 +366,8 @@
               "const": "regex"
             },
             "v": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             },
             "flags": {
               "type": "string",
@@ -376,7 +437,8 @@
               "const": "num"
             },
             "v": {
-              "type": "number"
+              "type": "number",
+              "minimum": 0
             },
             "span": {
               "$ref": "#/$defs/span"
@@ -495,6 +557,9 @@
                   },
                   "v": {
                     "$ref": "#/$defs/expr"
+                  },
+                  "span": {
+                    "$ref": "#/$defs/span"
                   }
                 }
               }

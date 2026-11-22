@@ -5,8 +5,7 @@
   "error": {
     "code": "E_NOT_FOUND",
     "message": "the file does not exist",
-    "stage": "2",
-    "at": { "line": 1, "column": 6, "length": 22 },
+    "at": { "line": 1, "column": 6, "length": 22, "stage": "2" },
     "found": "/srv/app/src/missing.go",
     "location": { "path": "/srv/app/src/missing.go" },
     "candidates": [
