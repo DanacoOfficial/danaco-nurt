@@ -29,7 +29,8 @@ nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
 zstd = { workspace = true }
 lz4_flex = { workspace = true }
-liblzma = { workspace = true }
+lzma-rust2 = { workspace = true }
+siphasher = { workspace = true }
 quick-xml = { workspace = true }
 regex = { workspace = true }
 globset = { workspace = true }
@@ -42,3 +43,11 @@ indexmap = { workspace = true }
 [dev-dependencies]
 tempfile = { workspace = true }
 proptest = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-os-log = { workspace = true }
+block2 = { workspace = true }
+macos-unifiedlogs = { workspace = true }
+libc = { workspace = true }

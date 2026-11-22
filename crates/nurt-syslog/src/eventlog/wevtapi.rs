@@ -17,12 +17,11 @@ use std::sync::Mutex;
 
 use windows::Win32::Foundation::{
     ERROR_ACCESS_DENIED, ERROR_EVT_CHANNEL_NOT_FOUND, ERROR_EVT_INVALID_QUERY,
-    ERROR_EVT_UNRESOLVED_VALUE_INSERT, ERROR_INSUFFICIENT_BUFFER, ERROR_NO_MORE_ITEMS,
-    WIN32_ERROR,
+    ERROR_EVT_UNRESOLVED_VALUE_INSERT, ERROR_INSUFFICIENT_BUFFER, ERROR_NO_MORE_ITEMS, WIN32_ERROR,
 };
 use windows::Win32::System::EventLog::{
-    EVT_HANDLE, EvtClose, EvtFormatMessage, EvtFormatMessageEvent, EvtFormatMessageTask,
-    EvtNext, EvtNextChannelPath, EvtOpenChannelEnum, EvtOpenPublisherMetadata, EvtQuery,
+    EVT_HANDLE, EvtClose, EvtFormatMessage, EvtFormatMessageEvent, EvtFormatMessageTask, EvtNext,
+    EvtNextChannelPath, EvtOpenChannelEnum, EvtOpenPublisherMetadata, EvtQuery,
     EvtQueryChannelPath, EvtQueryReverseDirection, EvtRender, EvtRenderEventXml,
 };
 use windows::core::{HRESULT, PCWSTR};
@@ -94,7 +93,10 @@ impl WevtEvents {
             Ok(()) => {
                 let count = usize::try_from(returned).map_or(BATCH, |count| count.min(BATCH));
                 self.pending.extend(
-                    handles.iter().take(count).map(|&raw| EventHandle(EVT_HANDLE(raw))),
+                    handles
+                        .iter()
+                        .take(count)
+                        .map(|&raw| EventHandle(EVT_HANDLE(raw))),
                 );
                 self.finished = count == 0;
                 Ok(())
@@ -156,10 +158,9 @@ impl EventSource for WevtSource {
         let flags = EvtQueryChannelPath.0 | EvtQueryReverseDirection.0;
         // SAFETY: both strings are terminated by NUL and outlive the call; no
         // session handle selects the local computer.
-        let handle = unsafe {
-            EvtQuery(None, PCWSTR(path.as_ptr()), PCWSTR(query.as_ptr()), flags)
-        }
-        .map_err(|error| source_error(&error))?;
+        let handle =
+            unsafe { EvtQuery(None, PCWSTR(path.as_ptr()), PCWSTR(query.as_ptr()), flags) }
+                .map_err(|error| source_error(&error))?;
         Ok(WevtEvents {
             query: EventHandle(handle),
             pending: VecDeque::new(),
@@ -241,7 +242,15 @@ fn format_message(metadata: EVT_HANDLE, event: EVT_HANDLE, flags: u32) -> Option
     // SAFETY: `buffer` is a writable slice whose length is passed with it;
     // `used` is a valid location.
     let result = unsafe {
-        EvtFormatMessage(Some(metadata), Some(event), 0, None, flags, Some(&mut buffer), &mut used)
+        EvtFormatMessage(
+            Some(metadata),
+            Some(event),
+            0,
+            None,
+            flags,
+            Some(&mut buffer),
+            &mut used,
+        )
     };
     let formatted = match result {
         Ok(()) => true,
@@ -281,7 +290,12 @@ fn wide(text: &str) -> Vec<u16> {
 
 /// Text of the first `used` units of a buffer, up to the first NUL.
 fn from_wide(buffer: &[u16], used: u32) -> String {
-    let text = buffer.get(..units(used).min(buffer.len())).unwrap_or_default();
-    let end = text.iter().position(|&unit| unit == 0).unwrap_or(text.len());
+    let text = buffer
+        .get(..units(used).min(buffer.len()))
+        .unwrap_or_default();
+    let end = text
+        .iter()
+        .position(|&unit| unit == 0)
+        .unwrap_or(text.len());
     String::from_utf16_lossy(text.get(..end).unwrap_or_default())
 }

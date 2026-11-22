@@ -1,0 +1,36 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+[package]
+name = "nurt-syslog-fuzz"
+description = "Fuzz targets of the systemd journal file reader."
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+nurt-syslog = { path = ".." }
+nurt-contracts = { path = "../../nurt-contracts" }
+zstd = "0.14.4"
+lz4_flex = "0.14.2"
+lzma-rust2 = "0.25.0"
+
+[[bin]]
+name = "journal_file"
+path = "fuzz_targets/journal_file.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "journal_object"
+path = "fuzz_targets/journal_object.rs"
+test = false
+doc = false
+bench = false

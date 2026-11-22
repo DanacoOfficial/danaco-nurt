@@ -13,9 +13,9 @@ use std::borrow::Cow;
 
 use nurt_contracts::value::Instant;
 use quick_xml::Reader;
+use quick_xml::XmlVersion;
 use quick_xml::escape::resolve_predefined_entity;
 use quick_xml::events::{BytesStart, Event};
-use quick_xml::XmlVersion;
 
 /// Name of the field for an unnamed `Data` element, followed by its position
 /// among the unnamed elements, from 1.
@@ -205,7 +205,14 @@ impl Parser {
         Ok(())
     }
 
-    fn attribute(&mut self, section: Section, depth: usize, element: &str, key: &str, value: String) {
+    fn attribute(
+        &mut self,
+        section: Section,
+        depth: usize,
+        element: &str,
+        key: &str,
+        value: String,
+    ) {
         let event = &mut self.event;
         match (section, depth, element, key) {
             (Section::System, 3, "Provider", "Name") => event.provider = value,
@@ -290,9 +297,12 @@ impl Parser {
         if !self.stack.is_empty() {
             return Err(EventXmlError::Syntax("unclosed element".to_owned()));
         }
-        self.event.time_created =
-            self.time_created.ok_or(EventXmlError::Missing("TimeCreated/@SystemTime"))?;
-        self.event.record_id = self.record_id.ok_or(EventXmlError::Missing("EventRecordID"))?;
+        self.event.time_created = self
+            .time_created
+            .ok_or(EventXmlError::Missing("TimeCreated/@SystemTime"))?;
+        self.event.record_id = self
+            .record_id
+            .ok_or(EventXmlError::Missing("EventRecordID"))?;
         Ok(self.event)
     }
 }

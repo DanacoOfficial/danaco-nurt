@@ -51,9 +51,11 @@ const NAME_VALUE_BYTES: u64 = 512;
 ///
 /// let store = JournaldStore::new("/", LogLimits::default());
 /// let query = LogQuery::default();
-/// for event in store.query(&query)? {
-///     println!("{}", event?.message);
-/// }
+/// let messages = store
+///     .query(&query)?
+///     .map(|event| event.map(|event| event.message))
+///     .collect::<Result<Vec<_>, _>>()?;
+/// assert!(messages.len() <= 100);
 /// # Ok::<(), nurt_contracts::error::Error>(())
 /// ```
 #[derive(Debug, Clone)]
@@ -121,9 +123,17 @@ impl LogStore for JournaldStore {
 ///
 /// Returns the errors of [`LogQuery`] validation that depend on the store:
 /// `E_INVALID_VALUE` for a cursor of another store or a malformed unit.
-pub fn query_bytes<'a>(data: Vec<u8>, query: &'a LogQuery, limits: &LogLimits) -> Result<LogStream<'a>, Error> {
+pub fn query_bytes<'a>(
+    data: Vec<u8>,
+    query: &'a LogQuery,
+    limits: &LogLimits,
+) -> Result<LogStream<'a>, Error> {
     let shared = Arc::new(Shared::new(query, limits)?);
-    let stream = FileStream::open(Source::Memory(data), "<memory>".to_owned(), Arc::clone(&shared));
+    let stream = FileStream::open(
+        Source::Memory(data),
+        "<memory>".to_owned(),
+        Arc::clone(&shared),
+    );
     let merge = Merge::new(vec![MergeSource::eager(stream)], 1);
     Ok(finish(merge, shared))
 }
@@ -132,13 +142,15 @@ fn finish<'a>(merge: Merge<'a, JournalItem>, shared: Arc<Shared<'a>>) -> LogStre
     let notices = shared.notices.clone();
     let limit = shared.query.limit;
     let mut done = false;
-    let events = merge.map(|item| item.map(|item| item.event)).chain(std::iter::from_fn(move || {
-        if !done {
-            done = true;
-            shared.report_unknown_names();
-        }
-        None
-    }));
+    let events = merge
+        .map(|item| item.map(|item| item.event))
+        .chain(std::iter::from_fn(move || {
+            if !done {
+                done = true;
+                shared.report_unknown_names();
+            }
+            None
+        }));
     LogStream::new(events, notices, limit)
 }
 
@@ -179,7 +191,9 @@ fn select(discovery: Discovery, shared: &Shared<'_>) -> Result<Vec<Candidate>, E
             .iter()
             .any(|candidate| candidate.header.seqnum_id == *seqnum_id)
     {
-        shared.notices.add(LogNotice::new(NoticeCode::CursorApproximate));
+        shared
+            .notices
+            .add(LogNotice::new(NoticeCode::CursorApproximate));
     }
     Ok(candidates
         .into_iter()
@@ -187,7 +201,10 @@ fn select(discovery: Discovery, shared: &Shared<'_>) -> Result<Vec<Candidate>, E
         .collect())
 }
 
-fn open_path<'a>(path: PathBuf, shared: Arc<Shared<'a>>) -> Box<dyn Iterator<Item = Result<JournalItem, Error>> + Send + 'a> {
+fn open_path<'a>(
+    path: PathBuf,
+    shared: Arc<Shared<'a>>,
+) -> Box<dyn Iterator<Item = Result<JournalItem, Error>> + Send + 'a> {
     let name = path.display().to_string();
     match File::open(&path) {
         Ok(file) => Box::new(FileStream::open(Source::File(file), name, shared)),
@@ -205,11 +222,10 @@ fn micros_to_instant(micros: u64) -> Instant {
 
 /// Smallest whole number of microseconds not before `instant`.
 fn ceil_micros(instant: Instant) -> u64 {
-    let nanos = instant.as_unix_nanos();
-    if nanos <= 0 {
+    let Ok(nanos) = u64::try_from(instant.as_unix_nanos()) else {
         return 0;
-    }
-    u64::try_from(nanos.div_ceil(NANOS_PER_MICRO)).unwrap_or(u64::MAX)
+    };
+    nanos.div_ceil(NANOS_PER_MICRO.unsigned_abs())
 }
 
 /// State of one query shared by the streams of its files.
@@ -239,7 +255,11 @@ impl<'a> Shared<'a> {
         }
         Ok(Self {
             query,
-            unit: query.unit.as_ref().map(mapping::normalize_unit).transpose()?,
+            unit: query
+                .unit
+                .as_ref()
+                .map(mapping::normalize_unit)
+                .transpose()?,
             limits: limits.clone(),
             notices: Notices::new(),
             since: query.since.map(ceil_micros),
@@ -266,15 +286,19 @@ impl<'a> Shared<'a> {
 
     fn may_contain(&self, header: &Header) -> bool {
         if header.n_entries == 0
-            || self.since.is_some_and(|since| header.tail_entry_realtime < since)
-            || self.until.is_some_and(|until| header.head_entry_realtime >= until)
+            || self
+                .since
+                .is_some_and(|since| header.tail_entry_realtime < since)
+            || self
+                .until
+                .is_some_and(|until| header.head_entry_realtime >= until)
         {
             return false;
         }
         match &self.query.cursor {
-            Some(Cursor::Journal { seqnum_id, seqnum, .. }) => {
-                header.seqnum_id != *seqnum_id || header.head_entry_seqnum < *seqnum
-            }
+            Some(Cursor::Journal {
+                seqnum_id, seqnum, ..
+            }) => header.seqnum_id != *seqnum_id || header.head_entry_seqnum < *seqnum,
             _ => true,
         }
     }
@@ -299,13 +323,18 @@ impl<'a> Shared<'a> {
     fn report_unknown_names(&self) {
         let checks = [
             (self.unit.is_some(), &self.unit_seen, &self.unit_suggestions),
-            (self.query.source.is_some(), &self.source_seen, &self.source_suggestions),
+            (
+                self.query.source.is_some(),
+                &self.source_seen,
+                &self.source_suggestions,
+            ),
         ];
         for (given, seen, suggestions) in checks {
             if given && !seen.load(AtomicOrdering::Relaxed) {
                 let names = suggestions.lock().unwrap_or_else(PoisonError::into_inner);
                 let mut notice = LogNotice::new(NoticeCode::UnknownName);
-                notice.detail = (!names.is_empty()).then(|| names.iter().cloned().collect::<Vec<_>>().join(", "));
+                notice.detail = (!names.is_empty())
+                    .then(|| names.iter().cloned().collect::<Vec<_>>().join(", "));
                 self.notices.add(notice);
             }
         }
@@ -385,7 +414,11 @@ struct Plan {
 }
 
 impl<'a> FileStream<'a> {
-    fn open(source: Source, path: String, shared: Arc<Shared<'a>>) -> impl Iterator<Item = Result<JournalItem, Error>> + Send + 'a {
+    fn open(
+        source: Source,
+        path: String,
+        shared: Arc<Shared<'a>>,
+    ) -> impl Iterator<Item = Result<JournalItem, Error>> + Send + 'a {
         let opened = JournalFile::open(source, shared.cache_bytes()).and_then(|mut file| {
             if file.truncated() {
                 shared.skip(path.clone(), Fault::Truncated.class());
@@ -432,15 +465,21 @@ impl<'a> FileStream<'a> {
             return Ok(None);
         }
         let to_set = |condition: &Condition| {
-            condition
-                .as_ref()
-                .map(|datas| datas.iter().map(|data| data.offset).collect::<HashSet<u64>>())
+            condition.as_ref().map(|datas| {
+                datas
+                    .iter()
+                    .map(|data| data.offset)
+                    .collect::<HashSet<u64>>()
+            })
         };
         let (unit_set, source_set) = (to_set(&unit), to_set(&source));
         let weight = |condition: &Condition| {
-            condition
-                .as_ref()
-                .map(|datas| datas.iter().map(|data| data.n_entries).fold(0_u64, u64::saturating_add))
+            condition.as_ref().map(|datas| {
+                datas
+                    .iter()
+                    .map(|data| data.n_entries)
+                    .fold(0_u64, u64::saturating_add)
+            })
         };
         let leader = match (weight(&unit), weight(&source)) {
             (Some(left), Some(right)) if right < left => source,
@@ -507,7 +546,11 @@ impl<'a> FileStream<'a> {
     }
 
     fn admits_position(&self, entry: &EntryObject) -> bool {
-        if self.shared.until.is_some_and(|until| entry.realtime >= until) {
+        if self
+            .shared
+            .until
+            .is_some_and(|until| entry.realtime >= until)
+        {
             return false;
         }
         match &self.shared.query.cursor {
@@ -539,7 +582,11 @@ impl<'a> FileStream<'a> {
                 Err(Fault::Beyond) => continue,
                 Err(fault) => return Err(fault),
             };
-            if self.shared.since.is_some_and(|since| entry.realtime < since) {
+            if self
+                .shared
+                .since
+                .is_some_and(|since| entry.realtime < since)
+            {
                 return Ok(None);
             }
             if !self.admits_position(&entry) || !self.admits_items(&entry) {
@@ -607,7 +654,11 @@ fn values(file: &mut JournalFile, name: &str) -> Result<Vec<(DataObject, String)
         .collect())
 }
 
-fn unit_condition(file: &mut JournalFile, shared: &Shared<'_>, unit: &NameMatch) -> Result<Vec<DataObject>, Fault> {
+fn unit_condition(
+    file: &mut JournalFile,
+    shared: &Shared<'_>,
+    unit: &NameMatch,
+) -> Result<Vec<DataObject>, Fault> {
     let mut datas = Vec::new();
     match unit.literal() {
         Some(name) => {
@@ -627,7 +678,9 @@ fn unit_condition(file: &mut JournalFile, shared: &Shared<'_>, unit: &NameMatch)
         }
     }
     if datas.is_empty() {
-        let known = values(file, UNIT_FIELDS[0])?.into_iter().map(|(_, value)| value);
+        let known = values(file, UNIT_FIELDS[0])?
+            .into_iter()
+            .map(|(_, value)| value);
         shared.suggest(true, known);
     } else {
         shared.unit_seen.store(true, AtomicOrdering::Relaxed);
@@ -635,7 +688,11 @@ fn unit_condition(file: &mut JournalFile, shared: &Shared<'_>, unit: &NameMatch)
     Ok(datas)
 }
 
-fn source_condition(file: &mut JournalFile, shared: &Shared<'_>, source: &NameMatch) -> Result<Condition, Fault> {
+fn source_condition(
+    file: &mut JournalFile,
+    shared: &Shared<'_>,
+    source: &NameMatch,
+) -> Result<Condition, Fault> {
     if source.matches(UNKNOWN_SOURCE) {
         shared.source_seen.store(true, AtomicOrdering::Relaxed);
         return Ok(None);
@@ -655,11 +712,17 @@ fn source_condition(file: &mut JournalFile, shared: &Shared<'_>, source: &NameMa
     datas.extend(
         values(file, EXE_FIELD)?
             .into_iter()
-            .filter(|(_, value)| source.matches(&String::from_utf8_lossy(mapping::exe_name(value.as_bytes()))))
+            .filter(|(_, value)| {
+                source.matches(&String::from_utf8_lossy(mapping::exe_name(
+                    value.as_bytes(),
+                )))
+            })
             .map(|(data, _)| data),
     );
     if datas.is_empty() {
-        let known = values(file, SOURCE_FIELDS[0])?.into_iter().map(|(_, value)| value);
+        let known = values(file, SOURCE_FIELDS[0])?
+            .into_iter()
+            .map(|(_, value)| value);
         shared.suggest(false, known);
     } else {
         shared.source_seen.store(true, AtomicOrdering::Relaxed);

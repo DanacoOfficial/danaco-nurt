@@ -89,9 +89,7 @@ pub fn map_event(xml: &EventXml, formatted: Formatted, channel: &str) -> LogEven
         .and_then(|text| text.trim().parse().ok())
         .map_or(PRIORITY_INFO, level::priority);
     let unformatted = formatted.message.is_none();
-    let message = formatted
-        .message
-        .unwrap_or_else(|| raw_message(&xml.data));
+    let message = formatted.message.unwrap_or_else(|| raw_message(&xml.data));
     let cursor = Cursor::EventLog {
         channel: channel.clone(),
         record_id: xml.record_id,

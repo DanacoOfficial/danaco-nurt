@@ -73,6 +73,9 @@ pub fn xpath_condition(threshold: LogLevel) -> Option<String> {
         LogLevel::Debug => return None,
         _ => return Some(format!("(Level<{VERBOSE} or Level>{VERBOSE})")),
     };
-    let terms: Vec<String> = levels.iter().map(|level| format!("Level={level}")).collect();
+    let terms: Vec<String> = levels
+        .iter()
+        .map(|level| format!("Level={level}"))
+        .collect();
     Some(format!("({})", terms.join(" or ")))
 }

@@ -9,24 +9,15 @@
 //! keyed with the 16 bytes of the file identifier. The `xor_hash` of an
 //! entry always uses lookup3.
 
+use siphasher::sip::SipHasher24;
+
 const LOOKUP3_INIT: u32 = 0xdead_beef;
 const WORD: usize = 4;
 const BLOCK: usize = 12;
+const HALF_BITS: u32 = 32;
 
-const SIP_INIT: [u64; 4] = [
-    0x736f_6d65_7073_6575,
-    0x646f_7261_6e64_6f6d,
-    0x6c79_6765_6e65_7261,
-    0x7465_6462_7974_6573,
-];
-const SIP_FINAL_XOR: u64 = 0xff;
-const SIP_COMPRESSION_ROUNDS: usize = 2;
-const SIP_FINALIZATION_ROUNDS: usize = 4;
-const SIP_BLOCK: usize = 8;
-const LENGTH_SHIFT: u32 = 56;
-
-/// lookup3 `hashlittle2` of `data` with seeds `pc` and `pb`; returns the
-/// pair `(pc, pb)`.
+/// Computes the lookup3 `hashlittle2` of `data` with seeds `pc` and `pb`
+/// and returns the pair `(pc, pb)`.
 ///
 /// ```
 /// use nurt_syslog::journald::hash::hashlittle2;
@@ -65,7 +56,8 @@ pub fn hashlittle2(data: &[u8], pc: u32, pb: u32) -> (u32, u32) {
     (c, b)
 }
 
-/// 64-bit lookup3 hash used by journal files without `KEYED_HASH`.
+/// Computes the 64-bit lookup3 hash used by journal files without
+/// `KEYED_HASH`.
 ///
 /// ```
 /// use nurt_syslog::journald::hash::lookup3;
@@ -75,7 +67,7 @@ pub fn hashlittle2(data: &[u8], pc: u32, pb: u32) -> (u32, u32) {
 #[must_use]
 pub fn lookup3(data: &[u8]) -> u64 {
     let (high, low) = hashlittle2(data, 0, 0);
-    (u64::from(high) << 32) | u64::from(low)
+    (u64::from(high) << HALF_BITS) | u64::from(low)
 }
 
 fn words(block: &[u8; BLOCK]) -> [u32; 3] {
@@ -128,7 +120,7 @@ const fn final_mix(mut a: u32, mut b: u32, mut c: u32) -> (u32, u32, u32) {
 }
 
 /// SipHash-2-4 of `data` with a 16-byte key read as two little-endian
-/// words.
+/// words, the hash of journal files with `KEYED_HASH`.
 ///
 /// ```
 /// use nurt_syslog::journald::hash::siphash24;
@@ -138,57 +130,7 @@ const fn final_mix(mut a: u32, mut b: u32, mut c: u32) -> (u32, u32, u32) {
 /// ```
 #[must_use]
 pub fn siphash24(key: &[u8; 16], data: &[u8]) -> u64 {
-    let (halves, _) = key.as_chunks::<SIP_BLOCK>();
-    let mut k = [0_u64; 2];
-    for (slot, half) in k.iter_mut().zip(halves) {
-        *slot = u64::from_le_bytes(*half);
-    }
-    let mut v = [
-        k[0] ^ SIP_INIT[0],
-        k[1] ^ SIP_INIT[1],
-        k[0] ^ SIP_INIT[2],
-        k[1] ^ SIP_INIT[3],
-    ];
-    let (blocks, tail) = data.as_chunks::<SIP_BLOCK>();
-    for block in blocks {
-        let word = u64::from_le_bytes(*block);
-        v[3] ^= word;
-        for _ in 0..SIP_COMPRESSION_ROUNDS {
-            sip_round(&mut v);
-        }
-        v[0] ^= word;
-    }
-    let mut last = (data.len() as u64) << LENGTH_SHIFT;
-    for (index, byte) in tail.iter().enumerate() {
-        last |= u64::from(*byte) << (8 * index);
-    }
-    v[3] ^= last;
-    for _ in 0..SIP_COMPRESSION_ROUNDS {
-        sip_round(&mut v);
-    }
-    v[0] ^= last;
-    v[2] ^= SIP_FINAL_XOR;
-    for _ in 0..SIP_FINALIZATION_ROUNDS {
-        sip_round(&mut v);
-    }
-    v[0] ^ v[1] ^ v[2] ^ v[3]
-}
-
-const fn sip_round(v: &mut [u64; 4]) {
-    v[0] = v[0].wrapping_add(v[1]);
-    v[1] = v[1].rotate_left(13);
-    v[1] ^= v[0];
-    v[0] = v[0].rotate_left(32);
-    v[2] = v[2].wrapping_add(v[3]);
-    v[3] = v[3].rotate_left(16);
-    v[3] ^= v[2];
-    v[0] = v[0].wrapping_add(v[3]);
-    v[3] = v[3].rotate_left(21);
-    v[3] ^= v[0];
-    v[2] = v[2].wrapping_add(v[1]);
-    v[1] = v[1].rotate_left(17);
-    v[1] ^= v[2];
-    v[2] = v[2].rotate_left(32);
+    SipHasher24::new_with_key(key).hash(data)
 }
 
 #[cfg(test)]

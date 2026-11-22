@@ -17,7 +17,10 @@
 //! journal of the running system and exists on Linux only.
 
 #![forbid(unsafe_code)]
-#![deny(clippy::indexing_slicing, clippy::cast_possible_truncation)]
+#![cfg_attr(
+    not(test),
+    deny(clippy::indexing_slicing, clippy::cast_possible_truncation)
+)]
 
 mod discover;
 mod file;
@@ -43,8 +46,8 @@ enum Fault {
     /// A position lies beyond the read boundary, which happens for objects
     /// written after the file was opened.
     Beyond,
-    /// Reading failed.
-    Io(std::io::Error),
+    /// Reading failed for a reason other than the end of the file.
+    Io,
 }
 
 impl Fault {
@@ -54,7 +57,7 @@ impl Fault {
             Self::Truncated | Self::Beyond => "truncated",
             Self::Corrupt => "corrupt",
             Self::Unsupported => "unsupported_format",
-            Self::Io(_) => "io",
+            Self::Io => "io",
         }
     }
 }
@@ -64,7 +67,7 @@ impl From<std::io::Error> for Fault {
         if error.kind() == std::io::ErrorKind::UnexpectedEof {
             Self::Truncated
         } else {
-            Self::Io(error)
+            Self::Io
         }
     }
 }

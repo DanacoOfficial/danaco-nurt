@@ -3,13 +3,18 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Reader of the macOS unified log.
 //!
-//! Entries are read from a backend over the log store of the system, newest
-//! first, narrowed by a predicate built from the parameters of `logs`. Only
-//! log messages are returned. Activities and signposts are skipped, and
-//! messages the system reports as lost are counted. Every entry passes the
-//! final filter of the crate. The modules that build predicates, map levels
-//! and entries and continue from cursors do not call the operating system and
-//! are compiled on every platform.
+//! Entries are read from a backend over a log store, newest first, narrowed
+//! by a predicate built from the parameters of `logs`. Only log messages are
+//! returned. Activities and signposts are skipped, and messages the system
+//! reports as lost are counted. Every entry passes the final filter of the
+//! crate.
+//!
+//! On macOS two backends exist. `OsLogBackend` reads the local log store, or
+//! a `.logarchive` directory, through the `OSLog` framework. `ArchiveBackend`
+//! parses a `.logarchive` directory with the `macos-unifiedlogs` library and
+//! does not depend on the framework. The modules that build predicates, map
+//! levels, entries and archive records and continue from cursors do not call
+//! the operating system and are compiled on every platform.
 //!
 //! | Parameter of `logs` | Unified log |
 //! |---|---|
@@ -19,8 +24,18 @@
 //! | `since`, `until` | time of the entry |
 //! | `message` | composed message |
 
+pub mod archive;
 pub mod backend;
 pub mod entry;
 pub mod level;
+#[cfg(target_os = "macos")]
+mod logarchive;
+#[cfg(target_os = "macos")]
+mod oslog;
 pub mod predicate;
 pub mod store;
+
+#[cfg(target_os = "macos")]
+pub use logarchive::ArchiveBackend;
+#[cfg(target_os = "macos")]
+pub use oslog::{OsLogBackend, OsLogItems};

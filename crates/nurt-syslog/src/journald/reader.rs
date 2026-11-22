@@ -195,9 +195,14 @@ mod tests {
         let mut reader = reader(3 * BLOCK_SIZE as usize, 0);
         let offset = BLOCK_SIZE - 3;
         let bytes = reader.read(offset, 6).unwrap();
-        let expected: Vec<u8> = (offset..offset + 6).map(|index| (index % 251) as u8).collect();
+        let expected: Vec<u8> = (offset..offset + 6)
+            .map(|index| (index % 251) as u8)
+            .collect();
         assert_eq!(bytes, expected);
-        assert_eq!(reader.read_u32(0).unwrap(), u32::from_le_bytes([0, 1, 2, 3]));
+        assert_eq!(
+            reader.read_u32(0).unwrap(),
+            u32::from_le_bytes([0, 1, 2, 3])
+        );
         assert_eq!(
             reader.read_u64(8).unwrap(),
             u64::from_le_bytes([8, 9, 10, 11, 12, 13, 14, 15])

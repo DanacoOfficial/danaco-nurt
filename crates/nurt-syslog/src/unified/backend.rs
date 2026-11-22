@@ -1,10 +1,10 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Interface between the reader and the log store of the system.
+//! Interface between the reader and a log store of the unified log.
 //!
 //! [`UnifiedBackend`] is the only part of the reader that calls the operating
-//! system. Tests implement it over recorded entries.
+//! system or reads log files. Tests implement it over recorded entries.
 
 use nurt_contracts::value::Instant;
 
@@ -21,6 +21,27 @@ pub enum Requirement {
 }
 
 impl Requirement {
+    /// Permission missing when the local log store cannot be opened.
+    ///
+    /// Opening the local store requires root. A process that already runs
+    /// as root and is still refused lacks Full Disk Access.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nurt_syslog::unified::backend::Requirement;
+    /// assert_eq!(Requirement::for_local_store(false), Requirement::Root);
+    /// assert_eq!(Requirement::for_local_store(true), Requirement::FullDiskAccess);
+    /// ```
+    #[must_use]
+    pub const fn for_local_store(is_root: bool) -> Self {
+        if is_root {
+            Self::FullDiskAccess
+        } else {
+            Self::Root
+        }
+    }
+
     /// Value of the detail `required` of `E_PRIVILEGE`.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
@@ -49,7 +70,7 @@ pub enum BackendError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BackendItem {
     /// A log message.
-    Log(UnifiedEntry),
+    Log(Box<UnifiedEntry>),
     /// The system lost the given number of messages.
     Lost(u64),
     /// An activity, a signpost or another item that is not a log message.

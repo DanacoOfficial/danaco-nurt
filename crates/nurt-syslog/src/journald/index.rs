@@ -18,7 +18,6 @@ use super::object::DataObject;
 struct Span {
     offset: u64,
     start: u64,
-    count: u64,
 }
 
 /// Entries of one list, addressed by position.
@@ -44,7 +43,12 @@ impl EntryIndex {
         Self::build(file, inline, data.entry_array_offset, bound)
     }
 
-    fn build(file: &mut JournalFile, inline: Option<u64>, first: u64, bound: u64) -> Result<Self, Fault> {
+    fn build(
+        file: &mut JournalFile,
+        inline: Option<u64>,
+        first: u64,
+        bound: u64,
+    ) -> Result<Self, Fault> {
         let mut len = u64::from(inline.is_some());
         let mut spans = Vec::new();
         let mut offset = first;
@@ -62,7 +66,7 @@ impl EntryIndex {
                 Err(fault) => return Err(fault),
             };
             let count = capacity.min(remaining);
-            spans.push(Span { offset, start: len, count });
+            spans.push(Span { offset, start: len });
             len += count;
             remaining -= count;
             previous = offset;

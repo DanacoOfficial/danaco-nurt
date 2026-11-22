@@ -83,7 +83,9 @@ pub(super) fn discover(root: &Path) -> Result<Discovery, Error> {
                 continue;
             }
             Err(_) => {
-                discovery.skipped.push((directory.display().to_string(), "io"));
+                discovery
+                    .skipped
+                    .push((directory.display().to_string(), "io"));
                 continue;
             }
         };
@@ -128,7 +130,9 @@ fn inspect(path: PathBuf, machine_id: Option<Id128>, discovery: &mut Discovery) 
                 discovery.candidates.push(Candidate { path, header });
             }
         }
-        Err(fault) => discovery.skipped.push((path.display().to_string(), fault.class())),
+        Err(fault) => discovery
+            .skipped
+            .push((path.display().to_string(), fault.class())),
     }
 }
 

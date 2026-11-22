@@ -1,7 +1,12 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, reason = "test code")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
 
 //! Queries of the event log store over an event source of recorded events.
 
@@ -19,7 +24,7 @@ use nurt_syslog::limits::LogLimits;
 use nurt_syslog::query::{LogNotice, LogQuery, LogStore, NameMatch, NoticeCode};
 use regex::Regex;
 
-/// Start of the recorded events: 2026-11-21T10:00:00Z.
+/// Start of the recorded events: 2025-11-21T10:00:00Z.
 const BASE_SECONDS: i64 = 1_763_719_200;
 
 /// Recorded event: its XML and the record identifier the mock filters by.
@@ -56,7 +61,10 @@ impl MockSource {
 
 fn record_condition(xpath: &str, marker: &str) -> Option<u64> {
     let start = xpath.find(marker)? + marker.len();
-    let digits: String = xpath[start..].chars().take_while(char::is_ascii_digit).collect();
+    let digits: String = xpath[start..]
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect();
     digits.parse().ok()
 }
 
@@ -76,7 +84,11 @@ impl EventSource for MockSource {
         if let Some(failure) = &self.failure {
             return Err(failure.clone());
         }
-        if self.denied.iter().any(|name| name.eq_ignore_ascii_case(channel)) {
+        if self
+            .denied
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(channel))
+        {
             return Err(SourceError::AccessDenied);
         }
         let events = self
@@ -163,11 +175,14 @@ fn run(
 }
 
 fn query_error(store: &EventLogStore<MockSource>, query: &LogQuery) -> Error {
-    store.query(query).err().expect("query fails")
+    store.query(query).expect_err("query fails")
 }
 
 fn records(events: &[LogEvent]) -> Vec<String> {
-    events.iter().map(|event| event.cursor.to_string()).collect()
+    events
+        .iter()
+        .map(|event| event.cursor.to_string())
+        .collect()
 }
 
 fn name(text: &str) -> Option<NameMatch> {
@@ -196,7 +211,10 @@ fn eventlog_reverse_order_merge_channels() {
             "v1:w:System:10"
         ]
     );
-    let channels: Vec<String> = taken(&queries).into_iter().map(|(channel, _)| channel).collect();
+    let channels: Vec<String> = taken(&queries)
+        .into_iter()
+        .map(|(channel, _)| channel)
+        .collect();
     assert_eq!(channels, ["System", "Application"]);
 }
 
@@ -261,10 +279,13 @@ fn eventlog_final_filter_applies_to_every_parameter() {
 #[test]
 fn eventlog_unformatted_raw_message() {
     let mut source = two_channels();
+    source.messages.insert(
+        "Example-A".to_owned(),
+        "Example-A finished step.".to_owned(),
+    );
     source
-        .messages
-        .insert("Example-A".to_owned(), "Example-A finished step.".to_owned());
-    source.tasks.insert("Example-A".to_owned(), "Maintenance".to_owned());
+        .tasks
+        .insert("Example-A".to_owned(), "Maintenance".to_owned());
     let (store, _) = open_store(source);
     let (events, notices, _) = run(&store, &LogQuery::default());
     let formatted = &events[0];
@@ -306,7 +327,13 @@ fn eventlog_unknown_channel_candidates() {
 fn eventlog_unit_pattern_ignores_letter_case() {
     let source = two_channels().channel(
         "Microsoft-Windows-Example/Operational",
-        vec![event("Microsoft-Windows-Example/Operational", 3, 60, 4, "Example-C")],
+        vec![event(
+            "Microsoft-Windows-Example/Operational",
+            3,
+            60,
+            4,
+            "Example-C",
+        )],
     );
     let (store, _) = open_store(source);
     let query = LogQuery {
@@ -314,7 +341,10 @@ fn eventlog_unit_pattern_ignores_letter_case() {
         ..LogQuery::default()
     };
     let (events, _, _) = run(&store, &query);
-    assert_eq!(records(&events), ["v1:w:Microsoft-Windows-Example/Operational:3"]);
+    assert_eq!(
+        records(&events),
+        ["v1:w:Microsoft-Windows-Example/Operational:3"]
+    );
     let named = LogQuery {
         unit: name("system"),
         ..LogQuery::default()
@@ -380,9 +410,15 @@ fn eventlog_cursor_record_id() {
     assert_eq!(records(&page), ["v1:w:System:20", "v1:w:Application:6"]);
     assert!(notice(&notices, NoticeCode::CursorApproximate).is_none());
     let sent = taken(&queries);
-    assert_eq!(sent[0], ("Application".to_owned(), "*[System[EventRecordID=7]]".to_owned()));
+    assert_eq!(
+        sent[0],
+        (
+            "Application".to_owned(),
+            "*[System[EventRecordID=7]]".to_owned()
+        )
+    );
     assert_eq!(sent[1].0, "System");
-    assert!(sent[1].1.contains("@SystemTime<'2026-11-21T10:00:40.001Z'"));
+    assert!(sent[1].1.contains("@SystemTime<'2025-11-21T10:00:40.001Z'"));
     assert_eq!(sent[2].0, "Application");
     assert!(sent[2].1.ends_with("EventRecordID<7]]"));
 
@@ -445,7 +481,10 @@ fn logs_limit_reached_notable() {
     };
     let (events, notices, cursor) = run(&store, &limited);
     assert_eq!(events.len(), 2);
-    assert_eq!(notice(&notices, NoticeCode::LimitReached).unwrap().count, Some(2));
+    assert_eq!(
+        notice(&notices, NoticeCode::LimitReached).unwrap().count,
+        Some(2)
+    );
     assert!(cursor.is_some());
     let (events, notices, cursor) = run(&store, &LogQuery::default());
     assert_eq!(events.len(), 5);
@@ -506,7 +545,8 @@ fn eventlog_source_failures_map_to_error_codes() {
 
 #[test]
 fn eventlog_default_channel_missing_is_skipped() {
-    let source = MockSource::default().channel("System", vec![event("System", 1, 1, 4, "Example-A")]);
+    let source =
+        MockSource::default().channel("System", vec![event("System", 1, 1, 4, "Example-A")]);
     let (store, _) = open_store(source);
     let (events, _, _) = run(&store, &LogQuery::default());
     assert_eq!(records(&events), ["v1:w:System:1"]);

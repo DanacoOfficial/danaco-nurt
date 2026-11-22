@@ -25,7 +25,7 @@ use crate::query::{LogNotice, LogQuery, LogStore, LogStream, NameMatch, NoticeCo
 
 use super::backend::{BackendError, BackendItem, EntryRequest, Requirement, UnifiedBackend};
 use super::entry::UnifiedEntry;
-use super::predicate::predicate;
+use super::predicate::Predicate;
 
 /// Log store of the unified log.
 #[derive(Debug)]
@@ -39,6 +39,12 @@ impl<B: UnifiedBackend> UnifiedStore<B> {
     #[must_use]
     pub const fn new(backend: B, limits: LogLimits) -> Self {
         Self { backend, limits }
+    }
+
+    /// Backend of the store.
+    #[must_use]
+    pub const fn backend(&self) -> &B {
+        &self.backend
     }
 }
 
@@ -69,14 +75,17 @@ impl<B: UnifiedBackend> LogStore for UnifiedStore<B> {
             (until, start) => until.or(start),
         };
         let request = EntryRequest {
-            predicate: predicate(
+            predicate: Predicate::new(
                 query.unit.as_ref().and_then(NameMatch::literal),
                 query.source.as_ref().and_then(NameMatch::literal),
                 query.level,
             ),
             until,
         };
-        let items = self.backend.items(&request).map_err(|error| backend_error(&error))?;
+        let items = self
+            .backend
+            .items(&request)
+            .map_err(|error| backend_error(&error))?;
         let notices = Notices::new();
         let entries = Entries {
             items,
@@ -198,6 +207,5 @@ fn privilege_error(requirement: Requirement) -> Error {
             "reading the unified log requires Full Disk Access; grant it to the terminal application in System Settings, Privacy & Security"
         }
     };
-    Error::new(ErrorCode::Privilege, message)
-        .with_detail("required", json!(requirement.as_str()))
+    Error::new(ErrorCode::Privilege, message).with_detail("required", json!(requirement.as_str()))
 }

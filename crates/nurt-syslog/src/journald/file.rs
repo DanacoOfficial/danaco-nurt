@@ -47,7 +47,7 @@ impl JournalFile {
             limit = limit.min(header.header_size);
         } else if header.tail_object_offset < limit {
             let tail = header.tail_object_offset;
-            if tail % ALIGNMENT != 0 || tail < header.header_size {
+            if !tail.is_multiple_of(ALIGNMENT) || tail < header.header_size {
                 return Err(Fault::Corrupt);
             }
             let end = match reader.read(tail, OBJECT_HEADER_SIZE) {
@@ -69,8 +69,14 @@ impl JournalFile {
             header,
             truncated,
         };
-        let data_table = (file.header.data_hash_table_offset, file.header.data_hash_table_size);
-        let field_table = (file.header.field_hash_table_offset, file.header.field_hash_table_size);
+        let data_table = (
+            file.header.data_hash_table_offset,
+            file.header.data_hash_table_size,
+        );
+        let field_table = (
+            file.header.field_hash_table_offset,
+            file.header.field_hash_table_size,
+        );
         file.check_table(data_table, KIND_DATA_HASH_TABLE)?;
         file.check_table(field_table, KIND_FIELD_HASH_TABLE)?;
         Ok(file)
@@ -97,10 +103,12 @@ impl JournalFile {
     }
 
     fn check_table(&mut self, (offset, size): (u64, u64), kind: u8) -> Result<(), Fault> {
-        if size == 0 || size % HASH_ITEM_SIZE != 0 || offset % ALIGNMENT != 0 {
+        if size == 0 || !size.is_multiple_of(HASH_ITEM_SIZE) || !offset.is_multiple_of(ALIGNMENT) {
             return Err(Fault::Corrupt);
         }
-        let object = offset.checked_sub(OBJECT_HEADER_SIZE).ok_or(Fault::Corrupt)?;
+        let object = offset
+            .checked_sub(OBJECT_HEADER_SIZE)
+            .ok_or(Fault::Corrupt)?;
         let header = self.object_header(object, kind, OBJECT_HEADER_SIZE, u64::MAX)?;
         if header.size - OBJECT_HEADER_SIZE < size {
             return Err(Fault::Corrupt);
@@ -108,8 +116,14 @@ impl JournalFile {
         Ok(())
     }
 
-    fn object_header(&mut self, offset: u64, kind: u8, min: u64, max: u64) -> Result<ObjectHeader, Fault> {
-        if offset % ALIGNMENT != 0 || offset < self.header.header_size {
+    fn object_header(
+        &mut self,
+        offset: u64,
+        kind: u8,
+        min: u64,
+        max: u64,
+    ) -> Result<ObjectHeader, Fault> {
+        if !offset.is_multiple_of(ALIGNMENT) || offset < self.header.header_size {
             return Err(Fault::Corrupt);
         }
         let header = ObjectHeader::parse(&self.reader.read(offset, OBJECT_HEADER_SIZE)?)?;
@@ -126,9 +140,15 @@ impl JournalFile {
     /// DATA object at `offset`.
     pub(super) fn data(&mut self, offset: u64) -> Result<DataObject, Fault> {
         let compact = self.header.compact();
-        let min = if compact { DATA_MIN_COMPACT } else { DATA_MIN_REGULAR };
+        let min = if compact {
+            DATA_MIN_COMPACT
+        } else {
+            DATA_MIN_REGULAR
+        };
         let header = self.object_header(offset, KIND_DATA, min, u64::MAX)?;
-        let bytes = self.reader.read(offset, DataObject::HEADER_READ.min(header.size))?;
+        let bytes = self
+            .reader
+            .read(offset, DataObject::HEADER_READ.min(header.size))?;
         DataObject::parse(offset, header, &bytes, compact)
     }
 
@@ -154,7 +174,12 @@ impl JournalFile {
     /// ENTRY object at `offset`.
     pub(super) fn entry(&mut self, offset: u64) -> Result<EntryObject, Fault> {
         let compact = self.header.compact();
-        let header = self.object_header(offset, KIND_ENTRY, EntryObject::MIN_SIZE, EntryObject::max_size(compact))?;
+        let header = self.object_header(
+            offset,
+            KIND_ENTRY,
+            EntryObject::MIN_SIZE,
+            EntryObject::max_size(compact),
+        )?;
         let bytes = self.reader.read(offset, header.size)?;
         EntryObject::parse(offset, &bytes, compact)
     }
@@ -162,16 +187,23 @@ impl JournalFile {
     /// Reception time of the ENTRY object at `offset`.
     pub(super) fn entry_realtime(&mut self, offset: u64) -> Result<u64, Fault> {
         let compact = self.header.compact();
-        self.object_header(offset, KIND_ENTRY, EntryObject::MIN_SIZE, EntryObject::max_size(compact))?;
+        self.object_header(
+            offset,
+            KIND_ENTRY,
+            EntryObject::MIN_SIZE,
+            EntryObject::max_size(compact),
+        )?;
         self.reader.read_u64(offset + REALTIME_OFFSET)
     }
 
     /// Link to the next array and the capacity of the ENTRY_ARRAY at
     /// `offset`.
     pub(super) fn entry_array(&mut self, offset: u64) -> Result<(u64, u64), Fault> {
-        let header = self.object_header(offset, KIND_ENTRY_ARRAY, ENTRY_ARRAY_ITEMS_OFFSET, u64::MAX)?;
+        let header =
+            self.object_header(offset, KIND_ENTRY_ARRAY, ENTRY_ARRAY_ITEMS_OFFSET, u64::MAX)?;
         let next = self.reader.read_u64(offset + ENTRY_ARRAY_NEXT_OFFSET)?;
-        let capacity = (header.size - ENTRY_ARRAY_ITEMS_OFFSET) / array_item_size(self.header.compact());
+        let capacity =
+            (header.size - ENTRY_ARRAY_ITEMS_OFFSET) / array_item_size(self.header.compact());
         Ok((next, capacity))
     }
 
@@ -198,7 +230,10 @@ impl JournalFile {
     /// DATA object whose payload is `payload`, found through the hash table.
     pub(super) fn find_data(&mut self, payload: &[u8]) -> Result<Option<DataObject>, Fault> {
         let hash = self.header.hash(payload);
-        let table = (self.header.data_hash_table_offset, self.header.data_hash_table_size);
+        let table = (
+            self.header.data_hash_table_offset,
+            self.header.data_hash_table_size,
+        );
         let mut offset = self.bucket_head(table, hash)?;
         let mut steps = 0;
         while offset != 0 {
@@ -223,9 +258,16 @@ impl JournalFile {
     }
 
     /// DATA objects of the field `name`, with their payloads cut to `max`.
-    pub(super) fn field_data(&mut self, name: &[u8], max: u64) -> Result<Vec<(DataObject, Payload)>, Fault> {
+    pub(super) fn field_data(
+        &mut self,
+        name: &[u8],
+        max: u64,
+    ) -> Result<Vec<(DataObject, Payload)>, Fault> {
         let hash = self.header.hash(name);
-        let table = (self.header.field_hash_table_offset, self.header.field_hash_table_size);
+        let table = (
+            self.header.field_hash_table_offset,
+            self.header.field_hash_table_size,
+        );
         let mut offset = self.bucket_head(table, hash)?;
         let mut steps = 0;
         let mut head = 0;
@@ -234,7 +276,12 @@ impl JournalFile {
             if steps > self.max_steps {
                 return Err(Fault::Corrupt);
             }
-            let header = match self.object_header(offset, KIND_FIELD, FieldObject::MIN_SIZE, FieldObject::MAX_SIZE) {
+            let header = match self.object_header(
+                offset,
+                KIND_FIELD,
+                FieldObject::MIN_SIZE,
+                FieldObject::MAX_SIZE,
+            ) {
                 Ok(header) => header,
                 Err(Fault::Beyond) => break,
                 Err(fault) => return Err(fault),

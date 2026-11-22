@@ -7,13 +7,19 @@
 //! the FIELD and DATA hash tables as the first objects, DATA and FIELD
 //! objects linked into their hash chains, ENTRY objects linked into the
 //! global entry array chain and into the entry lists of their DATA objects.
-//! Entry arrays double in size. Every identifier and time comes from the
-//! options and the entries, so equal input gives equal bytes.
+//! Entry arrays double in size. As in journald, a payload is stored
+//! compressed only when compression makes it shorter, and the header flag
+//! follows the configured compression. Every identifier and time comes from
+//! the options and the entries, so equal input gives equal bytes.
 
-#![allow(dead_code, reason = "each test crate uses a different part of the writer")]
+#![allow(
+    dead_code,
+    unreachable_pub,
+    reason = "test crates and fuzz targets include the writer as a private module and each uses a different part of it"
+)]
 
 use std::collections::HashMap;
-use std::io::Read;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use nurt_syslog::journald::hash::{lookup3, siphash24};
@@ -41,6 +47,9 @@ const KIND_ENTRY_ARRAY: u8 = 6;
 const OBJECT_COMPRESSED_XZ: u8 = 1;
 const OBJECT_COMPRESSED_LZ4: u8 = 2;
 const OBJECT_COMPRESSED_ZSTD: u8 = 4;
+/// Preset 0 has a 256 KiB dictionary, close to the 1 MiB journald uses.
+const XZ_PRESET: u32 = 0;
+const ZSTD_LEVEL: i32 = 3;
 
 /// Machine identifier used by default.
 pub const MACHINE_ID: [u8; 16] = [0x5a; 16];
@@ -56,6 +65,18 @@ pub enum Compression {
     Lz4,
     /// Frame of the zstd format.
     Zstd,
+}
+
+impl Compression {
+    /// Incompatible header flag of the compression.
+    pub const fn flag(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::Xz => FLAG_XZ,
+            Self::Lz4 => FLAG_LZ4,
+            Self::Zstd => FLAG_ZSTD,
+        }
+    }
 }
 
 /// State byte of the header.
@@ -198,7 +219,6 @@ pub struct Writer {
     data_table: u64,
     data: HashMap<Vec<u8>, DataInfo>,
     fields: HashMap<Vec<u8>, u64>,
-    used_flags: u32,
     next_seqnum: u64,
     current: Snapshot,
     frozen: Option<Snapshot>,
@@ -215,14 +235,15 @@ impl Writer {
             data_table: 0,
             data: HashMap::new(),
             fields: HashMap::new(),
-            used_flags: 0,
             current: Snapshot::default(),
             frozen: None,
         };
         let field_size = 16 + writer.options.field_buckets * 16;
-        writer.field_table = writer.append(KIND_FIELD_HASH_TABLE, 0, &vec![0; field_size as usize - 16]) + 16;
+        writer.field_table =
+            writer.append(KIND_FIELD_HASH_TABLE, 0, &vec![0; field_size as usize - 16]) + 16;
         let data_size = 16 + writer.options.data_buckets * 16;
-        writer.data_table = writer.append(KIND_DATA_HASH_TABLE, 0, &vec![0; data_size as usize - 16]) + 16;
+        writer.data_table =
+            writer.append(KIND_DATA_HASH_TABLE, 0, &vec![0; data_size as usize - 16]) + 16;
         writer
     }
 
@@ -242,6 +263,21 @@ impl Writer {
         self.frozen = Some(self.current.clone());
     }
 
+    /// Offset of the DATA object with `payload`, once written.
+    pub fn data_offset(&self, payload: &[u8]) -> Option<u64> {
+        self.data.get(payload).map(|info| info.offset)
+    }
+
+    /// Offset of the last ENTRY object written.
+    pub fn last_entry_offset(&self) -> u64 {
+        self.current.tail_entry
+    }
+
+    /// Offset of the first array of the global entry index.
+    pub fn first_entry_array(&self) -> u64 {
+        self.current.global.first
+    }
+
     fn hash(&self, payload: &[u8]) -> u64 {
         if self.options.keyed_hash {
             siphash24(&self.options.file_id, payload)
@@ -255,7 +291,7 @@ impl Writer {
     }
 
     fn append(&mut self, kind: u8, flags: u8, body: &[u8]) -> u64 {
-        while self.buf.len() % 8 != 0 {
+        while !self.buf.len().is_multiple_of(8) {
             self.buf.push(0);
         }
         let offset = self.buf.len() as u64;
@@ -306,36 +342,44 @@ impl Writer {
         body.extend_from_slice(&[0; 16]);
         body.extend_from_slice(name);
         let offset = self.append(KIND_FIELD, 0, &body);
-        self.link_bucket(self.field_table, self.options.field_buckets, hash, offset, 24);
+        self.link_bucket(
+            self.field_table,
+            self.options.field_buckets,
+            hash,
+            offset,
+            24,
+        );
         self.fields.insert(name.to_vec(), offset);
         self.current.n_fields += 1;
         offset
     }
 
-    fn compress(&mut self, payload: &[u8]) -> (u8, Vec<u8>) {
+    fn compress(&self, payload: &[u8]) -> (u8, Vec<u8>) {
         if payload.len() < self.options.compress_threshold {
             return (0, payload.to_vec());
         }
-        match self.options.compression {
-            Compression::None => (0, payload.to_vec()),
-            Compression::Zstd => {
-                self.used_flags |= FLAG_ZSTD;
-                (OBJECT_COMPRESSED_ZSTD, zstd::encode_all(payload, 3).unwrap())
-            }
+        let (flag, stored) = match self.options.compression {
+            Compression::None => return (0, payload.to_vec()),
+            Compression::Zstd => (
+                OBJECT_COMPRESSED_ZSTD,
+                zstd::encode_all(payload, ZSTD_LEVEL).unwrap(),
+            ),
             Compression::Lz4 => {
-                self.used_flags |= FLAG_LZ4;
                 let mut stored = (payload.len() as u64).to_le_bytes().to_vec();
                 stored.extend(lz4_flex::block::compress(payload));
                 (OBJECT_COMPRESSED_LZ4, stored)
             }
             Compression::Xz => {
-                self.used_flags |= FLAG_XZ;
-                let mut stored = Vec::new();
-                liblzma::read::XzEncoder::new(payload, 6)
-                    .read_to_end(&mut stored)
-                    .unwrap();
-                (OBJECT_COMPRESSED_XZ, stored)
+                let options = lzma_rust2::XzOptions::with_preset(XZ_PRESET);
+                let mut encoder = lzma_rust2::XzWriter::new(Vec::new(), options).unwrap();
+                encoder.write_all(payload).unwrap();
+                (OBJECT_COMPRESSED_XZ, encoder.finish().unwrap())
             }
+        };
+        if stored.len() < payload.len() {
+            (flag, stored)
+        } else {
+            (0, payload.to_vec())
         }
     }
 
@@ -343,7 +387,10 @@ impl Writer {
         if let Some(info) = self.data.get(payload) {
             return (info.offset, info.hash);
         }
-        let name_end = payload.iter().position(|byte| *byte == b'=').unwrap_or(payload.len());
+        let name_end = payload
+            .iter()
+            .position(|byte| *byte == b'=')
+            .unwrap_or(payload.len());
         let field = self.field_object(&payload[..name_end]);
         let hash = self.hash(payload);
         let (flags, stored) = self.compress(payload);
@@ -468,11 +515,11 @@ impl Writer {
 
     /// Writes the header and returns the bytes of the file.
     pub fn finish(mut self) -> Vec<u8> {
-        while self.buf.len() % 8 != 0 {
+        while !self.buf.len().is_multiple_of(8) {
             self.buf.push(0);
         }
         let snapshot = self.frozen.clone().unwrap_or_else(|| self.current.clone());
-        let mut incompatible = self.used_flags | self.options.extra_incompatible;
+        let mut incompatible = self.options.compression.flag() | self.options.extra_incompatible;
         if self.options.keyed_hash {
             incompatible |= FLAG_KEYED_HASH;
         }
@@ -489,7 +536,7 @@ impl Writer {
         header[40..56].copy_from_slice(&self.options.machine_id);
         header[56..72].copy_from_slice(&snapshot.tail_boot);
         header[72..88].copy_from_slice(&self.options.seqnum_id);
-        let values: [(usize, u64); 23] = [
+        let values: [(usize, u64); 22] = [
             (88, HEADER_SIZE),
             (96, arena),
             (104, self.data_table),
@@ -512,13 +559,20 @@ impl Writer {
             (240, 0),
             (248, 0),
             (264, snapshot.tail_entry),
-            (256, 0),
         ];
         for (at, value) in values {
             header[at..at + 8].copy_from_slice(&value.to_le_bytes());
         }
-        header[256..260].copy_from_slice(&u32::try_from(snapshot.global.last).unwrap_or(0).to_le_bytes());
-        header[260..264].copy_from_slice(&u32::try_from(snapshot.global.used).unwrap_or(0).to_le_bytes());
+        header[256..260].copy_from_slice(
+            &u32::try_from(snapshot.global.last)
+                .unwrap_or(0)
+                .to_le_bytes(),
+        );
+        header[260..264].copy_from_slice(
+            &u32::try_from(snapshot.global.used)
+                .unwrap_or(0)
+                .to_le_bytes(),
+        );
         self.buf
     }
 }
@@ -528,7 +582,7 @@ impl Writer {
 pub fn sample_entries(count: u64, start: u64) -> Vec<Entry> {
     (0..count)
         .map(|index| {
-            let (unit, identifier) = if index % 2 == 0 {
+            let (unit, identifier) = if index.is_multiple_of(2) {
                 ("ssh.service", "sshd")
             } else {
                 ("cron.service", "cron")
@@ -553,7 +607,10 @@ pub fn sample_entries(count: u64, start: u64) -> Vec<Entry> {
 /// Creates a system root with `/etc/machine-id` and the journal files in
 /// `/var/log/journal/<machine-id>/`.
 pub fn system_root(root: &Path, files: &[(&str, Vec<u8>)]) -> PathBuf {
-    let machine = MACHINE_ID.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+    let machine = MACHINE_ID
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
     std::fs::create_dir_all(root.join("etc")).unwrap();
     std::fs::write(root.join("etc/machine-id"), format!("{machine}\n")).unwrap();
     let directory = root.join("var/log/journal").join(&machine);

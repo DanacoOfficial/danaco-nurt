@@ -46,6 +46,9 @@ const ENTRY_ITEM_COMPACT: u64 = 4;
 const MAX_ENTRY_ITEMS: u64 = 1 << 16;
 const ENTRY_ARRAY_ITEMS: u64 = 24;
 const LZ4_SIZE_PREFIX: usize = 8;
+/// Memory the XZ decoder may use, in KiB. journald compresses with small
+/// dictionaries; the bound stops a damaged header from requesting more.
+const XZ_MEMORY_LIMIT_KIB: u32 = 64 * 1024;
 
 /// Common header of an object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,8 +102,17 @@ impl DataObject {
     pub(super) const HEADER_READ: u64 = DATA_HEADER_READ;
 
     /// Parses the fixed part of a DATA object read at `offset`.
-    pub(super) fn parse(offset: u64, header: ObjectHeader, bytes: &[u8], compact: bool) -> Result<Self, Fault> {
-        let start = if compact { DATA_PAYLOAD_COMPACT } else { DATA_PAYLOAD_REGULAR };
+    pub(super) fn parse(
+        offset: u64,
+        header: ObjectHeader,
+        bytes: &[u8],
+        compact: bool,
+    ) -> Result<Self, Fault> {
+        let start = if compact {
+            DATA_PAYLOAD_COMPACT
+        } else {
+            DATA_PAYLOAD_REGULAR
+        };
         if header.kind != KIND_DATA || header.size < start {
             return Err(Fault::Corrupt);
         }
@@ -144,7 +156,10 @@ impl FieldObject {
     /// Parses a whole FIELD object.
     pub(super) fn parse(bytes: &[u8]) -> Result<Self, Fault> {
         let header = ObjectHeader::parse(bytes)?;
-        if header.kind != KIND_FIELD || header.size < FIELD_PAYLOAD || header.size - FIELD_PAYLOAD > MAX_FIELD_NAME {
+        if header.kind != KIND_FIELD
+            || header.size < FIELD_PAYLOAD
+            || header.size - FIELD_PAYLOAD > MAX_FIELD_NAME
+        {
             return Err(Fault::Corrupt);
         }
         let name = bytes
@@ -200,8 +215,13 @@ impl EntryObject {
         let count = (header.size - ENTRY_ITEMS) / item_size;
         let mut items = Vec::with_capacity(usize::try_from(count).map_err(|_| Fault::Corrupt)?);
         for index in 0..count {
-            let at = usize::try_from(ENTRY_ITEMS + index * item_size).map_err(|_| Fault::Corrupt)?;
-            let item = if compact { u64::from(le_u32(bytes, at)?) } else { le_u64(bytes, at)? };
+            let at =
+                usize::try_from(ENTRY_ITEMS + index * item_size).map_err(|_| Fault::Corrupt)?;
+            let item = if compact {
+                u64::from(le_u32(bytes, at)?)
+            } else {
+                le_u64(bytes, at)?
+            };
             items.push(item);
         }
         let boot = bytes.get(40..56).ok_or(Fault::Truncated)?;
@@ -219,7 +239,11 @@ impl EntryObject {
 
 /// Size of one item of an ENTRY object.
 pub(super) const fn entry_item_size(compact: bool) -> u64 {
-    if compact { ENTRY_ITEM_COMPACT } else { ENTRY_ITEM_REGULAR }
+    if compact {
+        ENTRY_ITEM_COMPACT
+    } else {
+        ENTRY_ITEM_REGULAR
+    }
 }
 
 /// Size of one item of an ENTRY_ARRAY object.
@@ -246,10 +270,15 @@ pub(super) fn decompress(flags: u8, stored: Vec<u8>, max: u64) -> Result<Payload
     match flags & (FLAG_COMPRESSED_XZ | FLAG_COMPRESSED_LZ4 | FLAG_COMPRESSED_ZSTD) {
         0 => Ok(cut(stored, limit)),
         FLAG_COMPRESSED_ZSTD => {
-            let decoder = zstd::stream::read::Decoder::new(stored.as_slice()).map_err(|_| Fault::Corrupt)?;
+            let decoder =
+                zstd::stream::read::Decoder::new(stored.as_slice()).map_err(|_| Fault::Corrupt)?;
             read_limited(decoder, limit)
         }
-        FLAG_COMPRESSED_XZ => read_limited(liblzma::read::XzDecoder::new(stored.as_slice()), limit),
+        FLAG_COMPRESSED_XZ => {
+            let decoder =
+                lzma_rust2::XzReader::new_mem_limit(stored.as_slice(), false, XZ_MEMORY_LIMIT_KIB);
+            read_limited(decoder, limit)
+        }
         FLAG_COMPRESSED_LZ4 => decompress_lz4(&stored, limit),
         _ => Err(Fault::Corrupt),
     }
@@ -264,7 +293,10 @@ fn cut(mut bytes: Vec<u8>, limit: usize) -> Payload {
 fn read_limited(reader: impl Read, limit: usize) -> Result<Payload, Fault> {
     let mut bytes = Vec::new();
     let take = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
-    reader.take(take).read_to_end(&mut bytes).map_err(|_| Fault::Corrupt)?;
+    reader
+        .take(take)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Fault::Corrupt)?;
     Ok(cut(bytes, limit))
 }
 
@@ -284,7 +316,8 @@ fn decompress_lz4(stored: &[u8], limit: usize) -> Result<Payload, Fault> {
     }
     let mut bytes = vec![0_u8; size];
     let block = stored.get(LZ4_SIZE_PREFIX..).ok_or(Fault::Corrupt)?;
-    let written = lz4_flex::block::decompress_into(block, &mut bytes).map_err(|_| Fault::Corrupt)?;
+    let written =
+        lz4_flex::block::decompress_into(block, &mut bytes).map_err(|_| Fault::Corrupt)?;
     if written != size {
         return Err(Fault::Corrupt);
     }
@@ -296,12 +329,16 @@ fn decompress_lz4(stored: &[u8], limit: usize) -> Result<Payload, Fault> {
 
 fn le_u64(bytes: &[u8], offset: usize) -> Result<u64, Fault> {
     let slice = bytes.get(offset..offset + 8).ok_or(Fault::Truncated)?;
-    Ok(u64::from_le_bytes(slice.try_into().map_err(|_| Fault::Truncated)?))
+    Ok(u64::from_le_bytes(
+        slice.try_into().map_err(|_| Fault::Truncated)?,
+    ))
 }
 
 fn le_u32(bytes: &[u8], offset: usize) -> Result<u32, Fault> {
     let slice = bytes.get(offset..offset + 4).ok_or(Fault::Truncated)?;
-    Ok(u32::from_le_bytes(slice.try_into().map_err(|_| Fault::Truncated)?))
+    Ok(u32::from_le_bytes(
+        slice.try_into().map_err(|_| Fault::Truncated)?,
+    ))
 }
 
 #[cfg(test)]
@@ -322,7 +359,12 @@ mod tests {
     #[test]
     fn decompresses_zstd_frame() {
         let stored = zstd::encode_all(TEXT, 3).unwrap();
-        assert_eq!(decompress(FLAG_COMPRESSED_ZSTD, stored.clone(), 1000).unwrap().bytes, TEXT);
+        assert_eq!(
+            decompress(FLAG_COMPRESSED_ZSTD, stored.clone(), 1000)
+                .unwrap()
+                .bytes,
+            TEXT
+        );
         let cut = decompress(FLAG_COMPRESSED_ZSTD, stored, 10).unwrap();
         assert_eq!(cut.bytes.len(), 10);
         assert!(cut.truncated);
@@ -330,22 +372,34 @@ mod tests {
 
     #[test]
     fn decompresses_xz_stream() {
-        let mut encoder = liblzma::write::XzEncoder::new(Vec::new(), 6);
+        let options = lzma_rust2::XzOptions::with_preset(6);
+        let mut encoder = lzma_rust2::XzWriter::new(Vec::new(), options).unwrap();
         encoder.write_all(TEXT).unwrap();
         let stored = encoder.finish().unwrap();
-        assert_eq!(decompress(FLAG_COMPRESSED_XZ, stored, 1000).unwrap().bytes, TEXT);
+        assert_eq!(
+            decompress(FLAG_COMPRESSED_XZ, stored, 1000).unwrap().bytes,
+            TEXT
+        );
     }
 
     #[test]
     fn decompresses_lz4_block_with_size_prefix() {
         let mut stored = (TEXT.len() as u64).to_le_bytes().to_vec();
         stored.extend(lz4_flex::block::compress(TEXT));
-        assert_eq!(decompress(FLAG_COMPRESSED_LZ4, stored.clone(), 1000).unwrap().bytes, TEXT);
+        assert_eq!(
+            decompress(FLAG_COMPRESSED_LZ4, stored.clone(), 1000)
+                .unwrap()
+                .bytes,
+            TEXT
+        );
         let over = decompress(FLAG_COMPRESSED_LZ4, stored.clone(), 5).unwrap();
         assert!(over.truncated && over.bytes.is_empty());
         let mut wrong = stored;
         wrong[0] = wrong[0].wrapping_add(1);
-        assert!(matches!(decompress(FLAG_COMPRESSED_LZ4, wrong, 1000), Err(Fault::Corrupt)));
+        assert!(matches!(
+            decompress(FLAG_COMPRESSED_LZ4, wrong, 1000),
+            Err(Fault::Corrupt)
+        ));
     }
 
     #[test]
@@ -373,7 +427,10 @@ mod tests {
         compact[8..16].copy_from_slice(&72_u64.to_le_bytes());
         compact[64..68].copy_from_slice(&800_u32.to_le_bytes());
         compact[68..72].copy_from_slice(&808_u32.to_le_bytes());
-        assert_eq!(EntryObject::parse(400, &compact, true).unwrap().items, [800, 808]);
+        assert_eq!(
+            EntryObject::parse(400, &compact, true).unwrap().items,
+            [800, 808]
+        );
         assert_eq!(EntryObject::max_size(true), 64 + 4 * 65_536);
     }
 

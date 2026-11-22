@@ -9,8 +9,8 @@
 //! parameters of `logs`, so a condition that cannot be expressed exactly is
 //! widened or left out, never narrowed.
 
-use nurt_contracts::value::Instant;
 use nurt_contracts::record::LogLevel;
+use nurt_contracts::value::Instant;
 
 use super::level;
 

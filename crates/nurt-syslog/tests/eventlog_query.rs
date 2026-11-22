@@ -1,7 +1,12 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, reason = "test code")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
 
 //! Building of XPath queries and parsing and mapping of event XML.
 
@@ -90,17 +95,32 @@ fn eventlog_xpath_record_bound_and_levels() {
         before_record: Some(12_345),
         ..XPathFilter::default()
     };
-    assert_eq!(filter.to_xpath(), "*[System[(Level=1) and EventRecordID<12345]]");
+    assert_eq!(
+        filter.to_xpath(),
+        "*[System[(Level=1) and EventRecordID<12345]]"
+    );
     assert_eq!(
         xpath_condition(LogLevel::Info).as_deref(),
         Some("(Level<5 or Level>5)")
     );
-    assert_eq!(XPathFilter::default().to_xpath(), "*[System[(Level<5 or Level>5)]]");
+    assert_eq!(
+        XPathFilter::default().to_xpath(),
+        "*[System[(Level<5 or Level>5)]]"
+    );
 }
 
 #[test]
 fn eventlog_level_maps_to_priority() {
-    let cases = [(0, 6), (1, 2), (2, 3), (3, 4), (4, 6), (5, 7), (16, 6), (255, 6)];
+    let cases = [
+        (0, 6),
+        (1, 2),
+        (2, 3),
+        (3, 4),
+        (4, 6),
+        (5, 7),
+        (16, 6),
+        (255, 6),
+    ];
     for (level, expected) in cases {
         assert_eq!(priority(level), expected, "Level {level}");
     }
@@ -163,10 +183,7 @@ fn eventlog_xml_user_data_leaves() {
 
 #[test]
 fn eventlog_xml_rejects_invalid_documents() {
-    assert_eq!(
-        EventXml::parse("<Other/>"),
-        Err(EventXmlError::NotAnEvent)
-    );
+    assert_eq!(EventXml::parse("<Other/>"), Err(EventXmlError::NotAnEvent));
     assert_eq!(EventXml::parse(""), Err(EventXmlError::NotAnEvent));
     assert_eq!(
         EventXml::parse("<Event><System><EventRecordID>1</EventRecordID></System></Event>"),
@@ -187,7 +204,10 @@ fn eventlog_xml_rejects_invalid_documents() {
         EventXml::parse("<Event><System>"),
         Err(EventXmlError::Syntax(_))
     ));
-    assert_eq!(EventXml::parse("<Event/><Event/>"), Err(EventXmlError::NotAnEvent));
+    assert_eq!(
+        EventXml::parse("<Event/><Event/>"),
+        Err(EventXmlError::NotAnEvent)
+    );
 }
 
 #[test]
@@ -268,7 +288,10 @@ fn eventlog_channel_candidates_rank_containment_then_distance() {
     .map(String::from)
     .to_vec();
     assert_eq!(nearest("Sytem", &available)[0], "System");
-    assert_eq!(nearest("EXAMPLE", &available)[0], "Microsoft-Windows-Example/Operational");
+    assert_eq!(
+        nearest("EXAMPLE", &available)[0],
+        "Microsoft-Windows-Example/Operational"
+    );
     assert_eq!(nearest("x", &available).len(), available.len());
     let many: Vec<String> = (0..20).map(|n| format!("Channel{n}")).collect();
     assert_eq!(nearest("Channel", &many).len(), 8);

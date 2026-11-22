@@ -12,7 +12,9 @@
 //! | `unit` | `subsystem`; an empty subsystem gives no unit |
 //! | `category` | `category` |
 //! | `pid`, `tid` | `processIdentifier`, `threadIdentifier` |
-//! | `fields` | `sender`, `activityIdentifier`, `formatString` |
+//! | `user` | effective user identifier, from log archives only |
+//! | `boot_id` | boot identifier, from log archives only |
+//! | `fields` | `sender`, `activityIdentifier`, `formatString`, `processUUID`, `senderUUID` |
 //! | `cursor` | `v1:m:<nanos>:<pid>:<tid>:<digest of the message>` |
 
 use nurt_contracts::value::Instant;
@@ -22,8 +24,9 @@ use crate::event::{LogEvent, StoreKind};
 
 use super::level::EntryLevel;
 
-const NANOS_PER_MICRO: f64 = 1_000.0;
+const NANOS_PER_MICRO: i64 = 1_000;
 const MICROS_PER_SECOND: f64 = 1_000_000.0;
+const NANOS_PER_SECOND: i64 = 1_000_000_000;
 
 /// Offset basis of the 64-bit FNV-1a hash.
 const FNV_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
@@ -55,6 +58,17 @@ pub struct UnifiedEntry {
     pub activity_id: Option<u64>,
     /// Format string of the message.
     pub format_string: Option<String>,
+    /// Effective user identifier of the process, in decimal.
+    pub user: Option<String>,
+    /// Boot identifier as 32 lowercase hexadecimal digits.
+    pub boot_id: Option<String>,
+    /// UUID of the main image of the process.
+    pub process_uuid: Option<String>,
+    /// UUID of the image that logged the message.
+    pub sender_uuid: Option<String>,
+    /// The format string of the message was not found and the message holds
+    /// the raw text of the entry.
+    pub unformatted: bool,
 }
 
 impl UnifiedEntry {
@@ -102,19 +116,27 @@ impl UnifiedEntry {
             StoreKind::UnifiedLog,
             self.cursor(),
         );
-        event.unit = self.subsystem.clone().filter(|subsystem| !subsystem.is_empty());
-        event.category = self.category.clone().filter(|category| !category.is_empty());
+        event.unit = non_empty(self.subsystem.as_deref());
+        event.category = non_empty(self.category.as_deref());
         event.pid = self.pid;
         event.tid = self.tid;
+        event.user.clone_from(&self.user);
+        event.boot_id.clone_from(&self.boot_id);
         let extra = [
-            ("sender", self.sender.clone()),
-            ("activityIdentifier", self.activity_id.map(|id| id.to_string())),
+            ("sender", non_empty(self.sender.as_deref())),
+            (
+                "activityIdentifier",
+                self.activity_id.map(|id| id.to_string()),
+            ),
             ("formatString", self.format_string.clone()),
+            ("processUUID", non_empty(self.process_uuid.as_deref())),
+            ("senderUUID", non_empty(self.sender_uuid.as_deref())),
         ];
         event.fields = extra
             .into_iter()
             .filter_map(|(name, value)| value.map(|value| (name.to_owned(), value)))
             .collect();
+        event.flags.unformatted = self.unformatted;
         event
     }
 
@@ -123,6 +145,10 @@ impl UnifiedEntry {
     pub fn is_at(&self, cursor: &Cursor) -> bool {
         self.cursor() == *cursor
     }
+}
+
+fn non_empty(text: Option<&str>) -> Option<String> {
+    text.filter(|text| !text.is_empty()).map(str::to_owned)
 }
 
 /// Digest of a message: the 64-bit FNV-1a hash of its UTF-8 bytes.
@@ -159,8 +185,47 @@ pub fn digest(message: &str) -> u64 {
 #[must_use]
 pub fn instant_from_unix_seconds(seconds: f64) -> Option<Instant> {
     let micros = (seconds * MICROS_PER_SECOND).round();
-    let nanos = micros * NANOS_PER_MICRO;
-    let nanos = (nanos.is_finite() && nanos >= i64::MIN as f64 && nanos < i64::MAX as f64)
-        .then_some(nanos as i64)?;
-    Some(Instant::from_unix_nanos(nanos))
+    let in_range = micros.is_finite() && micros >= i64::MIN as f64 && micros < i64::MAX as f64;
+    in_range
+        .then_some(micros as i64)?
+        .checked_mul(NANOS_PER_MICRO)
+        .map(Instant::from_unix_nanos)
+}
+
+/// Instant of a time in nanoseconds since the Unix epoch held in a double,
+/// rounded to whole nanoseconds.
+///
+/// The result is `None` for a value that is not finite or outside the range
+/// of [`Instant`].
+///
+/// # Examples
+///
+/// ```
+/// use nurt_syslog::unified::entry::instant_from_unix_nanos_f64;
+/// let instant = instant_from_unix_nanos_f64(1_500.4).unwrap();
+/// assert_eq!(instant.as_unix_nanos(), 1_500);
+/// assert_eq!(instant_from_unix_nanos_f64(f64::INFINITY), None);
+/// ```
+#[must_use]
+pub fn instant_from_unix_nanos_f64(nanos: f64) -> Option<Instant> {
+    let nanos = nanos.round();
+    (nanos.is_finite() && nanos >= i64::MIN as f64 && nanos < i64::MAX as f64)
+        .then(|| Instant::from_unix_nanos(nanos as i64))
+}
+
+/// Seconds since the Unix epoch of an instant, as `NSDate` takes them.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_contracts::value::Instant;
+/// use nurt_syslog::unified::entry::unix_seconds;
+/// assert_eq!(unix_seconds(Instant::from_unix_nanos(1_500_000_000)), 1.5);
+/// ```
+#[must_use]
+pub fn unix_seconds(instant: Instant) -> f64 {
+    let nanos = instant.as_unix_nanos();
+    let whole = nanos.div_euclid(NANOS_PER_SECOND);
+    let fraction = nanos.rem_euclid(NANOS_PER_SECOND);
+    whole as f64 + fraction as f64 / NANOS_PER_SECOND as f64
 }

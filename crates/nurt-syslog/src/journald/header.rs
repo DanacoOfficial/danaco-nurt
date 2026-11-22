@@ -52,6 +52,7 @@ const OFFSET_ENTRY_ARRAY: usize = 176;
 const OFFSET_HEAD_ENTRY_REALTIME: usize = 184;
 const OFFSET_TAIL_ENTRY_REALTIME: usize = 192;
 const ID_LEN: usize = 16;
+const HEADER_ALIGNMENT: u64 = 8;
 
 /// Parsed header of a journal file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -107,7 +108,7 @@ impl Header {
             return Err(Fault::Unsupported);
         }
         let header_size = le_u64(bytes, OFFSET_HEADER_SIZE)?;
-        if header_size < MIN_HEADER_SIZE || header_size % 8 != 0 {
+        if header_size < MIN_HEADER_SIZE || !header_size.is_multiple_of(HEADER_ALIGNMENT) {
             return Err(Fault::Unsupported);
         }
         if (bytes.len() as u64) < MIN_HEADER_SIZE {
@@ -190,13 +191,20 @@ mod tests {
 
     #[test]
     fn parses_known_flags_and_fields() {
-        let header = Header::parse(&header_bytes(272, INCOMPATIBLE_COMPACT | INCOMPATIBLE_KEYED_HASH)).unwrap();
+        let header = Header::parse(&header_bytes(
+            272,
+            INCOMPATIBLE_COMPACT | INCOMPATIBLE_KEYED_HASH,
+        ))
+        .unwrap();
         assert!(header.compact());
         assert_eq!(header.header_size, 272);
         assert_eq!(header.file_id.as_bytes()[0], 7);
         assert_eq!(header.tail_entry_realtime, 9);
         assert_eq!(header.declared_end(), Some(272));
-        assert_eq!(header.hash(b"MESSAGE=hello"), siphash24(header.file_id.as_bytes(), b"MESSAGE=hello"));
+        assert_eq!(
+            header.hash(b"MESSAGE=hello"),
+            siphash24(header.file_id.as_bytes(), b"MESSAGE=hello")
+        );
     }
 
     #[test]
@@ -208,7 +216,10 @@ mod tests {
 
     #[test]
     fn rejects_unknown_incompatible_flag() {
-        assert!(matches!(Header::parse(&header_bytes(272, 1 << 5)), Err(Fault::Unsupported)));
+        assert!(matches!(
+            Header::parse(&header_bytes(272, 1 << 5)),
+            Err(Fault::Unsupported)
+        ));
     }
 
     #[test]
@@ -216,8 +227,14 @@ mod tests {
         let mut bytes = header_bytes(272, 0);
         bytes[0] = b'X';
         assert!(matches!(Header::parse(&bytes), Err(Fault::Unsupported)));
-        assert!(matches!(Header::parse(&header_bytes(200, 0)), Err(Fault::Unsupported)));
-        assert!(matches!(Header::parse(&header_bytes(212, 0)), Err(Fault::Unsupported)));
+        assert!(matches!(
+            Header::parse(&header_bytes(200, 0)),
+            Err(Fault::Unsupported)
+        ));
+        assert!(matches!(
+            Header::parse(&header_bytes(212, 0)),
+            Err(Fault::Unsupported)
+        ));
     }
 
     #[test]
@@ -226,6 +243,9 @@ mod tests {
         for len in [0, 4, 8, 12, 100, 207] {
             assert!(Header::parse(&bytes[..len]).is_err(), "{len}");
         }
-        assert!(matches!(Header::parse(&bytes[..100]), Err(Fault::Truncated)));
+        assert!(matches!(
+            Header::parse(&bytes[..100]),
+            Err(Fault::Truncated)
+        ));
     }
 }

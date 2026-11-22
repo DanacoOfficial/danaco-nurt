@@ -245,7 +245,7 @@ fn channel_filter<'a>(
 /// An event that cannot be rendered or parsed is skipped with the notice
 /// `log_file_skipped` for the channel; the stream ends after an error of the
 /// query.
-struct ChannelEvents<'s, S: EventSource + 's> {
+struct ChannelEvents<'s, S: EventSource> {
     source: &'s S,
     channel: String,
     events: S::Events<'s>,

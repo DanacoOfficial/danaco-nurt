@@ -26,7 +26,8 @@ use crate::query::NameMatch;
 use super::object::{EntryObject, Payload};
 
 /// Fields whose values can become the `unit` of an event.
-pub(super) const UNIT_FIELDS: [&str; 4] = ["_SYSTEMD_UNIT", "_SYSTEMD_USER_UNIT", "UNIT", "USER_UNIT"];
+pub(super) const UNIT_FIELDS: [&str; 4] =
+    ["_SYSTEMD_UNIT", "_SYSTEMD_USER_UNIT", "UNIT", "USER_UNIT"];
 /// Fields whose values can become the `source` of an event, besides `_EXE`.
 pub(super) const SOURCE_FIELDS: [&str; 3] = ["SYSLOG_IDENTIFIER", "_COMM", "_TRANSPORT"];
 /// Field with the executable path; its file name can become the `source`.
@@ -104,7 +105,9 @@ pub(super) fn similar(wanted: &str, name: &str) -> bool {
     const PREFIX: usize = 3;
     let stem = wanted.split('.').next().unwrap_or(wanted);
     name.contains(stem)
-        || (stem.len() >= PREFIX && name.len() >= PREFIX && stem.get(..PREFIX) == name.get(..PREFIX))
+        || (stem.len() >= PREFIX
+            && name.len() >= PREFIX
+            && stem.get(..PREFIX) == name.get(..PREFIX))
 }
 
 /// Identity of the entry in its file.
@@ -117,14 +120,23 @@ pub(super) struct Origin {
 }
 
 /// Converts an entry and its fields into an event within the limits.
-pub(super) fn to_event(origin: Origin, entry: &EntryObject, fields: Vec<Field>, limits: &LogLimits) -> LogEvent {
+pub(super) fn to_event(
+    origin: Origin,
+    entry: &EntryObject,
+    fields: Vec<Field>,
+    limits: &LogLimits,
+) -> LogEvent {
     let first = |name: &str| fields.iter().find(|field| field.name == name);
-    let text = |name: &str| first(name).map(|field| String::from_utf8_lossy(&field.value).into_owned());
+    let text =
+        |name: &str| first(name).map(|field| String::from_utf8_lossy(&field.value).into_owned());
     let number = |name: &str| text(name).and_then(|value| value.parse::<u64>().ok());
     let source = first("SYSLOG_IDENTIFIER")
         .or_else(|| first("_COMM"))
         .map(|field| String::from_utf8_lossy(&field.value).into_owned())
-        .or_else(|| first(EXE_FIELD).map(|field| String::from_utf8_lossy(exe_name(&field.value)).into_owned()))
+        .or_else(|| {
+            first(EXE_FIELD)
+                .map(|field| String::from_utf8_lossy(exe_name(&field.value)).into_owned())
+        })
         .or_else(|| text("_TRANSPORT"))
         .unwrap_or_else(|| UNKNOWN_SOURCE.to_owned());
     let priority = text("PRIORITY")
@@ -172,7 +184,9 @@ fn unit_of(text: &impl Fn(&str) -> Option<String>) -> Option<String> {
     {
         return Some(unit);
     }
-    if systemd_unit.as_deref().is_some_and(|unit| unit.starts_with(USER_MANAGER_PREFIX))
+    if systemd_unit
+        .as_deref()
+        .is_some_and(|unit| unit.starts_with(USER_MANAGER_PREFIX))
         && let Some(unit) = text("USER_UNIT")
     {
         return Some(unit);
@@ -244,9 +258,22 @@ mod tests {
         assert_eq!(event.user.as_deref(), Some("0"));
         assert_eq!(event.host.as_deref(), Some("host"));
         assert_eq!(event.time.as_unix_nanos(), 1_500_000);
-        assert_eq!(event.boot_id.as_deref(), Some("abababababababababababababababab"));
+        assert_eq!(
+            event.boot_id.as_deref(),
+            Some("abababababababababababababababab")
+        );
         let names: Vec<_> = event.fields.iter().map(|(name, _)| name.as_str()).collect();
-        assert_eq!(names, ["PRIORITY", "SYSLOG_IDENTIFIER", "_SYSTEMD_UNIT", "TID", "_UID", "_TRANSPORT"]);
+        assert_eq!(
+            names,
+            [
+                "PRIORITY",
+                "SYSLOG_IDENTIFIER",
+                "_SYSTEMD_UNIT",
+                "TID",
+                "_UID",
+                "_TRANSPORT"
+            ]
+        );
         assert!(event.cursor.to_string().starts_with("v1:j:0101"));
     }
 
@@ -308,14 +335,22 @@ mod tests {
             truncated: false,
         };
         let split = Field::split(payload(b"A=b=c")).unwrap();
-        assert_eq!((split.name.as_str(), split.value.as_slice()), ("A", b"b=c".as_slice()));
+        assert_eq!(
+            (split.name.as_str(), split.value.as_slice()),
+            ("A", b"b=c".as_slice())
+        );
         assert!(Field::split(payload(b"=x")).is_none());
         assert!(Field::split(payload(b"novalue")).is_none());
     }
 
     #[test]
     fn normalizes_unit_names_like_journalctl() {
-        let normalize = |text: &str| normalize_unit(&NameMatch::parse(text).unwrap()).unwrap().as_str().to_owned();
+        let normalize = |text: &str| {
+            normalize_unit(&NameMatch::parse(text).unwrap())
+                .unwrap()
+                .as_str()
+                .to_owned()
+        };
         assert_eq!(normalize("ssh"), "ssh.service");
         assert_eq!(normalize("ssh.socket"), "ssh.socket");
         assert_eq!(normalize("ssh*"), "ssh*");
