@@ -1,0 +1,196 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "cat-1",
+  "corr_rev": "corr-1",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/a"
+              }
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "glob",
+                "v": "**"
+              }
+            },
+            {
+              "name": "type",
+              "value": {
+                "t": "enum",
+                "v": "file"
+              },
+              "default": true
+            },
+            {
+              "name": "depth",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "hidden",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "follow_links",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "gitignore",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "exclude",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "exclude_preset",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "fuzzy",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "case_sensitive",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "sort",
+              "value": {
+                "t": "enum",
+                "v": "path"
+              },
+              "default": true
+            },
+            {
+              "name": "order",
+              "value": {
+                "t": "enum",
+                "v": "asc"
+              },
+              "default": true
+            },
+            {
+              "name": "view",
+              "value": {
+                "t": "enum",
+                "v": "flat"
+              },
+              "default": true
+            }
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "assert",
+            "effect": "read",
+            "phase": "after",
+            "args": [
+              {
+                "name": "count",
+                "value": {
+                  "t": "range",
+                  "lo": 1,
+                  "hi": 1
+                }
+              },
+              {
+                "name": "paths",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "exit_code",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "all",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "any",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "empty",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "contains",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "if_match",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

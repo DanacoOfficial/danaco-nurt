@@ -5,10 +5,11 @@
 //! Stable error codes and the error structure of the language.
 //!
 //! Every error carries a stable code ([`ErrorCode`], written `E_UPPER_CASE`),
-//! a message and, where known, the execution stage, the position in the
-//! program, ready replacements of the program text and a help topic. Errors
-//! of the stages `parse` and `bind` have no effect on the world: they
-//! describe a mistake in the program and how to correct it.
+//! a message and, where known, the position of the error ([`At`]: the
+//! execution stage and the place in the program), ready replacements of the
+//! program text and a help topic. Errors of the stages `parse` and `bind` have
+//! no effect on the world: they describe a mistake in the program and how to
+//! correct it.
 //!
 //! The JSON form is the `error` member of the effect report; the list of
 //! codes is published in the schema `nurt-value/1` and in the specification
@@ -25,9 +26,11 @@
 //!     .with_fix("remove \"/home/user/build/old.log\"")
 //!     .with_help("commands");
 //! assert_eq!(error.to_string(), "E_UNKNOWN_COMMAND: unknown command `remvoe`");
+//! assert_eq!(error.stage(), Some(Stage::Bind));
 //! let json = serde_json::to_value(&error).unwrap();
 //! assert_eq!(json["code"], "E_UNKNOWN_COMMAND");
-//! assert_eq!(json["stage"], "1");
+//! assert_eq!(json["at"]["stage"], "1");
+//! assert_eq!(json["at"]["column"], 1);
 //! ```
 
 use std::borrow::Cow;
@@ -41,13 +44,14 @@ use serde::{Deserialize, Serialize};
 /// Result of an operation that fails with a language [`Error`].
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-/// Execution stage of a program.
+/// Execution stage of a program, in execution order.
 ///
-/// The JSON form is the stage number as text: `"0"` to `"7"` and `"5a"`.
+/// The JSON form is the stage number as text: `"0"` to `"7"` and `"5a"`. The
+/// executor uses the same type for its execution steps
+/// ([`crate::stage::ExecStep`]). The set of stages is fixed by the language.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
 )]
-#[non_exhaustive]
 pub enum Stage {
     /// `0`, parse: text to surface tree with form correction; no effect.
     #[serde(rename = "0")]
@@ -94,9 +98,9 @@ impl Stage {
         Stage::Report,
     ];
 
-    /// Stage number as text: `0` to `7` and `5a`.
+    /// Stage number as text: `0` to `7` and `5a`; the JSON form.
     #[must_use]
-    pub const fn number(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Parse => "0",
             Self::Bind => "1",
@@ -130,13 +134,23 @@ impl Stage {
     /// Whether errors of this stage leave the world unchanged.
     #[must_use]
     pub const fn is_before_effect(self) -> bool {
-        matches!(self, Self::Parse | Self::Bind | Self::Read | Self::Check | Self::Plan)
+        matches!(
+            self,
+            Self::Parse | Self::Bind | Self::Read | Self::Check | Self::Plan
+        )
+    }
+
+    /// Whether the executor may change the world in this stage: apply, and
+    /// verify, which rolls the effect back on failure.
+    #[must_use]
+    pub const fn changes_world(self) -> bool {
+        matches!(self, Self::Apply | Self::Verify)
     }
 }
 
 impl fmt::Display for Stage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.number())
+        f.write_str(self.as_str())
     }
 }
 
@@ -148,7 +162,7 @@ impl FromStr for Stage {
         Self::ALL
             .iter()
             .copied()
-            .find(|stage| stage.number() == text || stage.name() == text)
+            .find(|stage| stage.as_str() == text || stage.name() == text)
             .ok_or_else(|| UnknownName::new("stage", text))
     }
 }
@@ -378,6 +392,9 @@ error_codes! {
     UnknownValue = "E_UNKNOWN_VALUE", [Bind], Arg;
     /// A required parameter is missing.
     MissingParam = "E_MISSING_PARAM", [Bind], Arg;
+    /// Parameters that exclude each other were given together; `expected`
+    /// lists the admissible combinations.
+    ParamConflict = "E_PARAM_CONFLICT", [Bind], Arg;
     /// A value or a record stream has a type the place does not accept;
     /// `expected` lists the accepted types.
     Type = "E_TYPE", [Bind, Read], Arg;
@@ -566,6 +583,15 @@ error_codes! {
     GitProtocol = "E_GIT_PROTOCOL", [Apply], Ok;
     /// A feature of the repository is not supported.
     GitUnsupported = "E_GIT_UNSUPPORTED", [Read, Plan], Ok;
+    /// A hunk identifier is malformed or unknown, the hunk changed since it
+    /// was listed, or the selected lines cannot be applied.
+    GitHunk = "E_GIT_HUNK", [Plan, Apply], Ok;
+    /// A checkpoint has no saved index, or its content does not match after
+    /// a restore; the paths are listed.
+    GitCheckpoint = "E_GIT_CHECKPOINT", [Plan, Verify], Ok;
+    /// A worktree is unknown, is the main worktree, is locked or contains
+    /// the working directory.
+    GitWorktree = "E_GIT_WORKTREE", [Plan], Ok;
     /// An internal error; the report is complete up to this point.
     Internal = "E_INTERNAL", [Parse, Bind, Read, Check, Plan, Apply, After, Verify, Report], Internal;
 }
@@ -576,31 +602,68 @@ impl fmt::Display for ErrorCode {
     }
 }
 
-/// Position in the program text.
+/// Position of an error: the execution stage and the place in the program
+/// text.
 ///
 /// Lines and columns start at 1; columns and lengths count Unicode scalar
-/// values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+/// values. Errors raised while a stage runs (for example `E_STALE` in stage
+/// `5`) carry the stage without a place in the text.
+///
+/// ```
+/// use nurt_contracts::error::{At, Stage};
+///
+/// let at = At::new(2, 5, 3).with_stage(Stage::Bind);
+/// assert_eq!(
+///     serde_json::to_value(at).unwrap(),
+///     serde_json::json!({"line": 2, "column": 5, "length": 3, "stage": "1"})
+/// );
+/// assert_eq!(At::stage(Stage::After).line, None);
+/// ```
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct At {
     /// Line.
-    pub line: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<u32>,
     /// Column.
-    pub column: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub column: Option<u32>,
     /// Number of characters of the erroneous fragment.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub length: Option<u32>,
+    /// Execution stage in which the error occurred.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<Stage>,
 }
 
 impl At {
-    /// Position of a fragment of the given length.
+    /// Place of a fragment of the given length in the program text.
     #[must_use]
     pub const fn new(line: u32, column: u32, length: u32) -> Self {
         Self {
-            line,
-            column,
+            line: Some(line),
+            column: Some(column),
             length: Some(length),
+            stage: None,
         }
+    }
+
+    /// Position with a stage and no place in the program text.
+    #[must_use]
+    pub const fn stage(stage: Stage) -> Self {
+        Self {
+            line: None,
+            column: None,
+            length: None,
+            stage: Some(stage),
+        }
+    }
+
+    /// Sets the stage.
+    #[must_use]
+    pub const fn with_stage(mut self, stage: Stage) -> Self {
+        self.stage = Some(stage);
+        self
     }
 }
 
@@ -656,10 +719,7 @@ pub struct ErrorData {
     pub code: ErrorCode,
     /// Message in English, one or two sentences.
     pub message: String,
-    /// Stage in which the error occurred.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stage: Option<Stage>,
-    /// Position in the program.
+    /// Stage in which the error occurred and position in the program.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at: Option<At>,
     /// Position in a data file.
@@ -706,7 +766,10 @@ pub struct ErrorData {
     pub cause: Option<Error>,
 }
 
-#[expect(clippy::trivially_copy_pass_by_ref, reason = "serde passes fields by reference")]
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde passes fields by reference"
+)]
 const fn is_false(value: &bool) -> bool {
     !*value
 }
@@ -738,7 +801,6 @@ impl Error {
         Self(Box::new(ErrorData {
             code,
             message: message.into(),
-            stage: None,
             at: None,
             location: None,
             found: None,
@@ -774,17 +836,25 @@ impl Error {
         *self.0
     }
 
-    /// Sets the stage.
+    /// Stage in which the error occurred (`at.stage`).
+    #[must_use]
+    pub fn stage(&self) -> Option<Stage> {
+        self.0.at.and_then(|at| at.stage)
+    }
+
+    /// Sets the stage, keeping the place in the program.
     #[must_use]
     pub fn with_stage(mut self, stage: Stage) -> Self {
-        self.0.stage = Some(stage);
+        self.0.at = Some(self.0.at.unwrap_or_default().with_stage(stage));
         self
     }
 
-    /// Sets the position in the program.
+    /// Sets the place in the program; a stage already set is kept when `at`
+    /// has none.
     #[must_use]
     pub fn with_at(mut self, at: At) -> Self {
-        self.0.at = Some(at);
+        let stage = at.stage.or_else(|| self.stage());
+        self.0.at = Some(At { stage, ..at });
         self
     }
 

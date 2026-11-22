@@ -1,0 +1,2 @@
+run(["go", "test", "./..."], cwd: "/srv/app")
+|> assert(exit_code: 0)

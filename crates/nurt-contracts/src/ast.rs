@@ -66,8 +66,35 @@ pub const AST_MEDIA_TYPE_CBOR: &str = "application/vnd.nurt.ast+cbor; v=1";
 /// Prefix of an `ast_hash` value.
 pub const AST_HASH_PREFIX: &str = "sha256:";
 
-/// Free-form metadata of a tree document (session, source text, comments).
+/// Largest magnitude of an integer in a tree, 2^53 - 1.
 ///
+/// Larger integers are not represented exactly by canonical JSON (RFC 8785);
+/// a larger literal in program text is a lexical error.
+pub const MAX_SAFE_INTEGER: i64 = (1 << 53) - 1;
+
+/// Largest length of an identifier in bytes.
+pub const MAX_IDENTIFIER_LENGTH: usize = 64;
+
+/// Reserved words of the language.
+///
+/// A reserved word is not admissible as the name of a `let` result, as the
+/// name of a reference or as an `ident` node; it remains admissible as a
+/// parameter name and as a map key.
+pub const KEYWORDS: [&str; 8] = ["let", "true", "false", "null", "and", "or", "not", "in"];
+
+/// Node kinds of the surface tree: the admissible values of the member `"t"`.
+///
+/// A reader reports node kinds outside this list with `E_AST_VERSION`.
+pub const SURFACE_KINDS: [&str; 23] = [
+    "let", "pipeline", "stage", "ref", "text", "ident", "regex", "int", "num", "size", "dur",
+    "bool", "null", "key", "list", "map", "spread", "field", "call", "un", "bin", "range", "sub",
+];
+
+/// Free-form metadata of a tree document.
+///
+/// The members `source` (program text), `variant` (`a`, `b` or `c`) and
+/// `comments` (objects with `span` and `text`, the text without the leading
+/// `#`) have the meaning given in the schema; other members are preserved.
 /// Metadata is informative only and is excluded from `ast_hash`.
 pub type Meta = serde_json::Map<String, serde_json::Value>;
 
@@ -117,6 +144,9 @@ pub enum Statement {
 
 /// Named result: `let recent = find … |> filter …`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+// The enclosing tagged union adds the member `t`, so the struct schema stays open.
+#[schemars(extend("additionalProperties" = true))]
 pub struct Let {
     /// Name of the result, `[a-z][a-z0-9_]*`; referenced as `@name`.
     pub name: String,
@@ -134,6 +164,9 @@ pub struct Let {
 
 /// A pipeline: a head followed by stages joined with `|>`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+// The enclosing tagged union adds the member `t`, so the struct schema stays open.
+#[schemars(extend("additionalProperties" = true))]
 pub struct Pipeline {
     /// First element: a stage or a reference to a named result.
     pub head: Head,
@@ -162,6 +195,9 @@ pub enum Head {
 
 /// A command invocation: `filter size > 1mb`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+// The enclosing tagged union adds the member `t`, so the struct schema stays open.
+#[schemars(extend("additionalProperties" = true))]
 pub struct Stage {
     /// Command name as written after correction: identifiers joined by `.`
     /// (`find`, `git.status`).
@@ -189,6 +225,9 @@ pub struct Arg {
 
 /// Reference to a named result: `@recent`, `@recent.path`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+// The enclosing tagged union adds the member `t`, so the struct schema stays open.
+#[schemars(extend("additionalProperties" = true))]
 pub struct Ref {
     /// Name of the result, without `@`.
     pub name: String,
@@ -208,7 +247,7 @@ pub struct Ref {
 /// is a structured alternative to a key written as text, accepted from
 /// producers that build trees directly.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "t", rename_all = "snake_case")]
+#[serde(tag = "t", rename_all = "snake_case", deny_unknown_fields)]
 #[non_exhaustive]
 pub enum Expr {
     /// Reference to a named result.
@@ -397,11 +436,14 @@ pub struct MapEntry {
     pub k: String,
     /// Value.
     pub v: Expr,
+    /// Source range, from the key to the end of the value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub span: Option<Span>,
 }
 
 /// Segment of a structured key.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 #[non_exhaustive]
 pub enum KeySeg {
     /// Member name, `scripts`.

@@ -531,64 +531,74 @@
       }
     },
     "Change": {
-      "description": "One changed target.\n\nFor targets outside the file system, `path` holds an identifier of the\nform `<provider>:<name>` (for example `service:nginx`), the action is\n[`ChangeAction::State`] and `before` and `after` hold the states.",
+      "description": "Change of one file within an effect.",
       "type": "object",
       "properties": {
         "path": {
-          "description": "Path of the target in canonical form.",
-          "type": "string"
+          "description": "File.",
+          "$ref": "#/$defs/Path"
         },
         "action": {
-          "description": "Kind of change.",
+          "description": "Action.",
           "$ref": "#/$defs/ChangeAction"
         },
         "from": {
-          "description": "Previous path of a renamed target.",
-          "type": [
-            "string",
-            "null"
+          "description": "Previous path of a rename.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Path"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "to": {
+          "description": "New path of a move or a copy.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Path"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "size_before": {
-          "description": "Size before the change, in bytes.",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
+          "description": "Size before.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Size"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "size_after": {
-          "description": "Size after the change, in bytes.",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
+          "description": "Size after.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Size"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "hash_before": {
-          "description": "Content hash before the change.",
+          "description": "Hash before.",
           "type": [
             "string",
             "null"
           ]
         },
         "hash_after": {
-          "description": "Content hash after the change.",
+          "description": "Hash after.",
           "type": [
             "string",
             "null"
           ]
-        },
-        "replacements": {
-          "description": "Replacements made in the target.",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
         },
         "added": {
           "description": "Lines added.",
@@ -608,26 +618,127 @@
           "format": "uint64",
           "minimum": 0
         },
+        "replacements": {
+          "description": "Replacements made.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "flags": {
+          "description": "Notes about the change, for example `crlf_preserved`.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "encoding_before": {
+          "description": "Encoding before.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "encoding_after": {
+          "description": "Encoding after.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line_ending_before": {
+          "description": "Line endings before.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LineEnding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line_ending_after": {
+          "description": "Line endings after.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LineEnding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bom_before": {
+          "description": "Byte order mark before.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "bom_after": {
+          "description": "Byte order mark after.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "link_target": {
+          "description": "Target of a created link.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Path"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "store": {
+          "description": "How the previous content was kept.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "irreversible": {
+          "description": "Reason why the change cannot be undone, for example\n`no_space_for_copy`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Irreversible"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diff": {
+          "description": "Difference of the content.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Hunk"
+          }
+        },
         "before": {
-          "description": "State of a target outside the file system before the change.",
+          "description": "State before a change of the action `state`, for example\n`running`.",
           "type": [
             "string",
             "null"
           ]
         },
         "after": {
-          "description": "State of a target outside the file system after the change.",
+          "description": "State after a change of the action `state`.",
           "type": [
             "string",
             "null"
           ]
-        },
-        "flags": {
-          "description": "Additional markers of the change, for example `crlf` or `keys_created`.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       },
       "required": [
@@ -635,96 +746,340 @@
         "action"
       ]
     },
+    "Path": {
+      "description": "Path in canonical form, used for the path fields of typed records.\n\nCanonical form: `/` as separator, absolute, upper-case drive letter\n(`C:/Users/user`), UNC paths as `//server/share`, provider paths with a\nprefix (`registry:/HKCU/Software`, `env:/PATH`,\n`archive:/home/user/a.zip!/dir/file`). Normalisation is done by the\nlanguage implementation; this type only carries the text.",
+      "type": "string"
+    },
     "ChangeAction": {
-      "description": "Kind of change applied to a target.\n\n# Examples\n\n```\nuse nurt_contracts::report::ChangeAction;\n\nassert_eq!(ChangeAction::Modify.as_str(), \"modify\");\n```",
+      "description": "Action of a change of one file.",
       "oneOf": [
         {
-          "description": "The target was created.",
+          "description": "Created.",
           "type": "string",
           "const": "create"
         },
         {
-          "description": "The content of the target was changed.",
+          "description": "Content modified.",
           "type": "string",
           "const": "modify"
         },
         {
-          "description": "The target was deleted.",
+          "description": "Deleted.",
           "type": "string",
           "const": "delete"
         },
         {
-          "description": "The target was renamed or moved; `from` holds the previous path.",
+          "description": "Renamed or moved.",
           "type": "string",
           "const": "rename"
         },
         {
-          "description": "Mode, ownership or access control of the target was changed.",
+          "description": "Attributes changed.",
           "type": "string",
           "const": "attributes"
         },
         {
-          "description": "A link was created or changed.",
+          "description": "Link created.",
           "type": "string",
           "const": "link"
         },
         {
-          "description": "The target was truncated.",
+          "description": "Truncated or extended.",
           "type": "string",
           "const": "truncate"
         },
         {
-          "description": "The state of a target outside the file system (service, schedule,\npackage, repository reference) was changed; `before` and `after` hold\nthe states.",
+          "description": "State of a target outside the file system changed, for example a\nservice; `before` and `after` hold the states.",
           "type": "string",
           "const": "state"
         }
       ]
     },
+    "Size": {
+      "description": "Size in bytes.\n\nThe text form (`12.4kb`) belongs to the language implementation; the\nJSON form is the number of bytes.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "LineEnding": {
+      "description": "Line endings of a text.",
+      "oneOf": [
+        {
+          "description": "Line feed, `\\n`.",
+          "type": "string",
+          "const": "lf"
+        },
+        {
+          "description": "Carriage return and line feed, `\\r\\n`.",
+          "type": "string",
+          "const": "crlf"
+        },
+        {
+          "description": "Carriage return, `\\r`.",
+          "type": "string",
+          "const": "cr"
+        },
+        {
+          "description": "Several kinds of line endings.",
+          "type": "string",
+          "const": "mixed"
+        },
+        {
+          "description": "No line ending in the text.",
+          "type": "string",
+          "const": "none"
+        }
+      ]
+    },
+    "Irreversible": {
+      "description": "Reason why an effect is irreversible, reported in\n[`Report::irreversible`].\n\n# Examples\n\n```\nuse nurt_contracts::report::Irreversible;\n\nassert_eq!(Irreversible::RemoteRefUpdated.as_str(), \"remote_ref_updated\");\nassert_eq!(\n    \"previous_content_not_kept\".parse::<Irreversible>(),\n    Ok(Irreversible::PreviousContentNotKept)\n);\n```",
+      "oneOf": [
+        {
+          "description": "A program with an effect outside the local file system was run.",
+          "type": "string",
+          "const": "external_effect"
+        },
+        {
+          "description": "References of a remote repository were updated or fetched.",
+          "type": "string",
+          "const": "remote_ref_updated"
+        },
+        {
+          "description": "A network request that changes remote state was sent.",
+          "type": "string",
+          "const": "network"
+        },
+        {
+          "description": "A database was changed without a preserved copy.",
+          "type": "string",
+          "const": "database"
+        },
+        {
+          "description": "A process or job was stopped.",
+          "type": "string",
+          "const": "process_stopped"
+        },
+        {
+          "description": "The state of a system service was changed.",
+          "type": "string",
+          "const": "service_changed"
+        },
+        {
+          "description": "System packages were installed, removed or upgraded.",
+          "type": "string",
+          "const": "package_changed"
+        },
+        {
+          "description": "A program changed a file whose previous content was not preserved.",
+          "type": "string",
+          "const": "previous_content_not_kept"
+        },
+        {
+          "description": "There was no space for a copy of the previous content.",
+          "type": "string",
+          "const": "no_space_for_copy"
+        },
+        {
+          "description": "The journal is disabled or its space service is not running.",
+          "type": "string",
+          "const": "journal_inactive"
+        },
+        {
+          "description": "The target lies on a network volume without a journal.",
+          "type": "string",
+          "const": "network_volume"
+        },
+        {
+          "description": "The target lies on a removable volume without a journal.",
+          "type": "string",
+          "const": "removable_volume"
+        },
+        {
+          "description": "Journal entries were purged.",
+          "type": "string",
+          "const": "purged"
+        },
+        {
+          "description": "A special file (device, pipe, socket, pseudo file system) was written.",
+          "type": "string",
+          "const": "special_file"
+        },
+        {
+          "description": "The operation is larger than the limit for a single journal entry.",
+          "type": "string",
+          "const": "too_large_for_journal"
+        },
+        {
+          "description": "Preserved content of part of a bulk operation was released to free disk space.",
+          "type": "string",
+          "const": "released_for_space"
+        },
+        {
+          "description": "The kept output of a background job was removed together with the job.",
+          "type": "string",
+          "const": "job_output_removed"
+        },
+        {
+          "description": "The state of a running process was changed: it was suspended, resumed,\nsignalled or given another priority.",
+          "type": "string",
+          "const": "process_state_changed"
+        },
+        {
+          "description": "Journal entries of earlier operations expired because of this\noperation, for example when the journal limits were lowered.",
+          "type": "string",
+          "const": "journal_entries_expired"
+        },
+        {
+          "description": "The journal failed while recording the operation; the change was made\nwithout preserved previous content.",
+          "type": "string",
+          "const": "journal_error"
+        }
+      ]
+    },
     "Hunk": {
-      "description": "One hunk of a unified difference.",
+      "description": "Hunk of a unified difference.",
       "type": "object",
       "properties": {
         "path": {
-          "description": "Path of the changed file.",
-          "type": "string"
+          "description": "File after the change.",
+          "$ref": "#/$defs/Path"
         },
         "old_start": {
-          "description": "First line of the hunk before the change, from 1.",
+          "description": "First line before, from 1.",
           "type": "integer",
           "format": "uint64",
           "minimum": 0
         },
         "old_len": {
-          "description": "Number of lines of the hunk before the change.",
+          "description": "Number of lines before.",
           "type": "integer",
           "format": "uint64",
           "minimum": 0
         },
         "new_start": {
-          "description": "First line of the hunk after the change, from 1.",
+          "description": "First line after, from 1.",
           "type": "integer",
           "format": "uint64",
           "minimum": 0
         },
         "new_len": {
-          "description": "Number of lines of the hunk after the change.",
+          "description": "Number of lines after.",
           "type": "integer",
           "format": "uint64",
           "minimum": 0
         },
         "lines": {
-          "description": "Lines prefixed with `+` (added), `-` (removed) or a space (context).",
+          "description": "Lines with the prefixes `+`, `-` and space.",
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "header": {
-          "description": "Context heading of the hunk, for example the enclosing function.",
+        "id": {
+          "description": "Stable identifier, `path#number`.",
           "type": [
             "string",
             "null"
           ]
+        },
+        "header": {
+          "description": "Section heading after `@@`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "old_path": {
+          "description": "File before a rename.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Path"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "description": "Status of the file.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HunkStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "binary": {
+          "description": "Binary content.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "old_mode": {
+          "description": "Mode before.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "new_mode": {
+          "description": "Mode after.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ignore_whitespace": {
+          "description": "White space was ignored.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "fingerprint": {
+          "description": "First six hexadecimal digits of the SHA-256 hash of the hunk\nlines; part of the identifier `path#number:fingerprint`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "staged": {
+          "description": "The hunk is in the index (staged) rather than in the worktree.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "untracked": {
+          "description": "The hunk adds an untracked file.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "unit": {
+          "description": "Unit of the difference.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DiffUnit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "moved": {
+          "description": "Blocks of lines moved within the difference.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/MovedBlock"
+          }
         }
       },
       "required": [
@@ -733,6 +1088,90 @@
         "old_len",
         "new_start",
         "new_len",
+        "lines"
+      ]
+    },
+    "HunkStatus": {
+      "description": "Status of a file in a difference.",
+      "oneOf": [
+        {
+          "description": "Content changed.",
+          "type": "string",
+          "const": "modified"
+        },
+        {
+          "description": "File added.",
+          "type": "string",
+          "const": "added"
+        },
+        {
+          "description": "File deleted.",
+          "type": "string",
+          "const": "deleted"
+        },
+        {
+          "description": "File renamed.",
+          "type": "string",
+          "const": "renamed"
+        },
+        {
+          "description": "Binary file changed.",
+          "type": "string",
+          "const": "binary"
+        }
+      ]
+    },
+    "DiffUnit": {
+      "description": "Unit in which a difference compares content.",
+      "oneOf": [
+        {
+          "description": "Lines.",
+          "type": "string",
+          "const": "lines"
+        },
+        {
+          "description": "Words within lines.",
+          "type": "string",
+          "const": "words"
+        }
+      ]
+    },
+    "MovedBlock": {
+      "description": "Block of lines moved within a difference.",
+      "type": "object",
+      "properties": {
+        "from_path": {
+          "description": "File the lines were removed from.",
+          "$ref": "#/$defs/Path"
+        },
+        "from_line": {
+          "description": "First removed line, from 1.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "to_path": {
+          "description": "File the lines were added to.",
+          "$ref": "#/$defs/Path"
+        },
+        "to_line": {
+          "description": "First added line, from 1.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "lines": {
+          "description": "Number of lines.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "from_path",
+        "from_line",
+        "to_path",
+        "to_line",
         "lines"
       ]
     },
@@ -1572,12 +2011,6 @@
         }
       ]
     },
-    "Size": {
-      "description": "Size in bytes.\n\nThe text form (`12.4kb`) belongs to the language implementation; the\nJSON form is the number of bytes.",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0
-    },
     "Duration": {
       "description": "Signed duration in milliseconds.\n\nThe text form (`1h30m`) belongs to the language implementation; the JSON\nform is the number of milliseconds.",
       "type": "integer",
@@ -2167,6 +2600,36 @@
           "description": "A commit or tag was signed.",
           "type": "string",
           "const": "signed"
+        },
+        {
+          "description": "The amended commit is reachable from a remote-tracking branch.",
+          "type": "string",
+          "const": "amend_published"
+        },
+        {
+          "description": "A commit was created on a detached `HEAD`.",
+          "type": "string",
+          "const": "commit_detached_head"
+        },
+        {
+          "description": "A commit was created while a rebase, cherry-pick, revert or bisection\nis in progress.",
+          "type": "string",
+          "const": "operation_in_progress"
+        },
+        {
+          "description": "Files matched by `exclude` were skipped; `count` gives the number.",
+          "type": "string",
+          "const": "excluded"
+        },
+        {
+          "description": "Files were not reviewed: untracked files over the size limit, binary\nfiles or files over the count limit.",
+          "type": "string",
+          "const": "review_skipped"
+        },
+        {
+          "description": "A checkpoint was created without the index because the index has\nconflicts.",
+          "type": "string",
+          "const": "checkpoint_without_index"
         }
       ]
     },
@@ -2231,111 +2694,6 @@
         "reason"
       ]
     },
-    "Irreversible": {
-      "description": "Reason why an effect is irreversible, reported in\n[`Report::irreversible`].\n\n# Examples\n\n```\nuse nurt_contracts::report::Irreversible;\n\nassert_eq!(Irreversible::RemoteRefUpdated.as_str(), \"remote_ref_updated\");\nassert_eq!(\n    \"previous_content_not_kept\".parse::<Irreversible>(),\n    Ok(Irreversible::PreviousContentNotKept)\n);\n```",
-      "oneOf": [
-        {
-          "description": "A program with an effect outside the local file system was run.",
-          "type": "string",
-          "const": "external_effect"
-        },
-        {
-          "description": "References of a remote repository were updated or fetched.",
-          "type": "string",
-          "const": "remote_ref_updated"
-        },
-        {
-          "description": "A network request that changes remote state was sent.",
-          "type": "string",
-          "const": "network"
-        },
-        {
-          "description": "A database was changed without a preserved copy.",
-          "type": "string",
-          "const": "database"
-        },
-        {
-          "description": "A process or job was stopped.",
-          "type": "string",
-          "const": "process_stopped"
-        },
-        {
-          "description": "The state of a system service was changed.",
-          "type": "string",
-          "const": "service_changed"
-        },
-        {
-          "description": "System packages were installed, removed or upgraded.",
-          "type": "string",
-          "const": "package_changed"
-        },
-        {
-          "description": "A program changed a file whose previous content was not preserved.",
-          "type": "string",
-          "const": "previous_content_not_kept"
-        },
-        {
-          "description": "There was no space for a copy of the previous content.",
-          "type": "string",
-          "const": "no_space_for_copy"
-        },
-        {
-          "description": "The journal is disabled or its space service is not running.",
-          "type": "string",
-          "const": "journal_inactive"
-        },
-        {
-          "description": "The target lies on a network volume without a journal.",
-          "type": "string",
-          "const": "network_volume"
-        },
-        {
-          "description": "The target lies on a removable volume without a journal.",
-          "type": "string",
-          "const": "removable_volume"
-        },
-        {
-          "description": "Journal entries were purged.",
-          "type": "string",
-          "const": "purged"
-        },
-        {
-          "description": "A special file (device, pipe, socket, pseudo file system) was written.",
-          "type": "string",
-          "const": "special_file"
-        },
-        {
-          "description": "The operation is larger than the limit for a single journal entry.",
-          "type": "string",
-          "const": "too_large_for_journal"
-        },
-        {
-          "description": "Preserved content of part of a bulk operation was released to free disk space.",
-          "type": "string",
-          "const": "released_for_space"
-        },
-        {
-          "description": "The kept output of a background job was removed together with the job.",
-          "type": "string",
-          "const": "job_output_removed"
-        },
-        {
-          "description": "The state of a running process was changed: it was suspended, resumed,\nsignalled or given another priority.",
-          "type": "string",
-          "const": "process_state_changed"
-        },
-        {
-          "description": "Journal entries of earlier operations expired because of this\noperation, for example when the journal limits were lowered.",
-          "type": "string",
-          "const": "journal_entries_expired"
-        },
-        {
-          "description": "The journal failed while recording the operation; the change was made\nwithout preserved previous content.",
-          "type": "string",
-          "const": "journal_error"
-        }
-      ]
-    },
     "Error": {
       "$ref": "#/$defs/ErrorData"
     },
@@ -2351,19 +2709,8 @@
           "description": "Message in English, one or two sentences.",
           "type": "string"
         },
-        "stage": {
-          "description": "Stage in which the error occurred.",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Stage"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "at": {
-          "description": "Position in the program.",
+          "description": "Stage in which the error occurred and position in the program.",
           "anyOf": [
             {
               "$ref": "#/$defs/At"
@@ -2543,6 +2890,11 @@
           "description": "A required parameter is missing.",
           "type": "string",
           "const": "E_MISSING_PARAM"
+        },
+        {
+          "description": "Parameters that exclude each other were given together; `expected`\nlists the admissible combinations.",
+          "type": "string",
+          "const": "E_PARAM_CONFLICT"
         },
         {
           "description": "A value or a record stream has a type the place does not accept;\n`expected` lists the accepted types.",
@@ -2945,14 +3297,74 @@
           "const": "E_GIT_UNSUPPORTED"
         },
         {
+          "description": "A hunk identifier is malformed or unknown, the hunk changed since it\nwas listed, or the selected lines cannot be applied.",
+          "type": "string",
+          "const": "E_GIT_HUNK"
+        },
+        {
+          "description": "A checkpoint has no saved index, or its content does not match after\na restore; the paths are listed.",
+          "type": "string",
+          "const": "E_GIT_CHECKPOINT"
+        },
+        {
+          "description": "A worktree is unknown, is the main worktree, is locked or contains\nthe working directory.",
+          "type": "string",
+          "const": "E_GIT_WORKTREE"
+        },
+        {
           "description": "An internal error; the report is complete up to this point.",
           "type": "string",
           "const": "E_INTERNAL"
         }
       ]
     },
+    "At": {
+      "description": "Position of an error: the execution stage and the place in the program\ntext.\n\nLines and columns start at 1; columns and lengths count Unicode scalar\nvalues. Errors raised while a stage runs (for example `E_STALE` in stage\n`5`) carry the stage without a place in the text.\n\n```\nuse nurt_contracts::error::{At, Stage};\n\nlet at = At::new(2, 5, 3).with_stage(Stage::Bind);\nassert_eq!(\n    serde_json::to_value(at).unwrap(),\n    serde_json::json!({\"line\": 2, \"column\": 5, \"length\": 3, \"stage\": \"1\"})\n);\nassert_eq!(At::stage(Stage::After).line, None);\n```",
+      "type": "object",
+      "properties": {
+        "line": {
+          "description": "Line.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "column": {
+          "description": "Column.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "length": {
+          "description": "Number of characters of the erroneous fragment.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "stage": {
+          "description": "Execution stage in which the error occurred.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "Stage": {
-      "description": "Execution stage of a program.\n\nThe JSON form is the stage number as text: `\"0\"` to `\"7\"` and `\"5a\"`.",
+      "description": "Execution stage of a program, in execution order.\n\nThe JSON form is the stage number as text: `\"0\"` to `\"7\"` and `\"5a\"`. The\nexecutor uses the same type for its execution steps\n([`crate::stage::ExecStep`]). The set of stages is fixed by the language.",
       "oneOf": [
         {
           "description": "`0`, parse: text to surface tree with form correction; no effect.",
@@ -2999,38 +3411,6 @@
           "type": "string",
           "const": "7"
         }
-      ]
-    },
-    "At": {
-      "description": "Position in the program text.\n\nLines and columns start at 1; columns and lengths count Unicode scalar\nvalues.",
-      "type": "object",
-      "properties": {
-        "line": {
-          "description": "Line.",
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
-        },
-        "column": {
-          "description": "Column.",
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
-        },
-        "length": {
-          "description": "Number of characters of the erroneous fragment.",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint32",
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "line",
-        "column"
       ]
     },
     "Location": {

@@ -26,7 +26,7 @@ summary = "Symbol name, pattern or names; all symbols when omitted."
 [[command.param]]
 name = "path"
 type = "list<path>"
-default_note = "the base directory"
+default_from = "base"
 summary = "Files or directories to search."
 
 [[command.param]]
@@ -610,7 +610,7 @@ summary = "First line of the range, counted from 1."
 [[command.param]]
 name = "end_line"
 type = "int"
-default_note = "the value of line"
+default_from = "line"
 summary = "Last line of the range."
 
 [[command.param]]

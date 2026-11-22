@@ -1,0 +1,29 @@
+{
+  "nurt": "1.0",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "info",
+          "args": [
+            {
+              "value": {
+                "t": "spread",
+                "x": {
+                  "t": "ref",
+                  "name": "x",
+                  "fields": [
+                    "path"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "stages": []
+      }
+    ]
+  }
+}
