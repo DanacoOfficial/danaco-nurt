@@ -377,7 +377,7 @@ Hunk of a unified difference.
 | `id` | text | no | Stable identifier, `path#number`. |
 | `header` | text | no | Section heading after `@@`. |
 | `old_path` | path | no | File before a rename. |
-| `status` | enum(modified\|added\|deleted\|renamed\|binary) | no | Status of the file. |
+| `status` | enum(modified\|added\|deleted\|renamed\|binary\|copied) | no | Status of the file. |
 | `binary` | bool | no | Binary content. |
 | `old_mode` | text | no | Mode before. |
 | `new_mode` | text | no | Mode after. |
@@ -909,7 +909,7 @@ Test run.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `id` | text | yes | Identifier, for example `run-3`. |
-| `framework` | enum(bun\|vitest\|jest\|pytest\|go\|cargo\|custom) | yes | Framework. |
+| `framework` | enum(bun\|vitest\|jest\|pytest\|go\|cargo\|npm\|custom) | yes | Framework. |
 | `status` | enum(passed\|failed\|error\|timed_out\|no_tests) | yes | Outcome. |
 | `passed` | int | yes | Tests passed. |
 | `failed` | int | yes | Tests failed. |

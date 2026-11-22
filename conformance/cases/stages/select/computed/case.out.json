@@ -1,0 +1,4 @@
+{"records": [
+  {"kind": "map", "fields": {"path": {"t": "path", "v": "/home/user/project/src/main.rs"}, "large": {"t": "bool", "v": true}}},
+  {"kind": "map", "fields": {"path": {"t": "path", "v": "/home/user/project/README.md"}, "large": {"t": "bool", "v": false}}}
+]}

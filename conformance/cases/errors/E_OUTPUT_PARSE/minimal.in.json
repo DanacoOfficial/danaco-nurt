@@ -1,0 +1,10 @@
+{
+  "nurt": "1.0",
+  "status": "failed",
+  "kind": "replace",
+  "error": {
+    "code": "E_OUTPUT_PARSE",
+    "message": "conformance case",
+    "at": { "stage": "5" }
+  }
+}

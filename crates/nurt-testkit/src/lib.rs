@@ -10,12 +10,13 @@
 //! | Module | Content |
 //! |---|---|
 //! | [`vfs`] | in-memory file system implementing `Fs` and `FsWrite`, with fault injection |
-//! | [`journal`] | pass-through journal `NoopJournal`, `RecordingJournal`, test admission |
-//! | [`clock`] | virtual clock driven by the test |
+//! | [`journal`] | pass-through and restoring journals with a register of transactions, test admission |
+//! | [`clock`] | virtual clock driven by the test, local time by time zone rules |
 //! | [`host`] | host facts and a private environment |
-//! | [`services`] | service doubles for document, code, program and listing services |
+//! | [`services`] | service doubles, empty and with data, including scripted programs |
 //! | [`ctx`] | execution contexts assembled from the doubles |
-//! | [`golden`] | golden file runner with JSON value comparison and blessing |
+//! | [`snapshot`] | file tree snapshots in the `nurt-fs-snapshot/1` format |
+//! | [`golden`] | golden file and case directory runners with JSON comparison and blessing |
 //! | [`fixtures`] | journal requests and target declarations |
 //! | [`hash`] | SHA-256 of content |
 
@@ -30,4 +31,5 @@ pub mod hash;
 pub mod host;
 pub mod journal;
 pub mod services;
+pub mod snapshot;
 pub mod vfs;

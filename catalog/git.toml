@@ -248,7 +248,7 @@ reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["commit", "hunk"]
+output = ["commit", "hunk", "git_tag", "content"]
 summary = "Show commits with their changes, or the content of a file at a revision."
 
 [[command.param]]

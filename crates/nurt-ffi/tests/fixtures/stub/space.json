@@ -1,0 +1,6 @@
+{
+  "description": "Space of all volumes, none recorded.",
+  "function": "space",
+  "input": null,
+  "output": [{"volumes": []}]
+}
