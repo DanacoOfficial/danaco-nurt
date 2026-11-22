@@ -7,6 +7,7 @@
 //! nurt-docgen check --root DIR [--allow-missing-pages] [--core-tokens N] [--total-tokens N]
 //! nurt-docgen site --root DIR --out DIR [--version VERSION]
 //! nurt-docgen man --root DIR --out DIR --date YYYY-MM-DD [--version VERSION]
+//! nurt-docgen completions --root DIR --out DIR
 //! nurt-docgen cheatsheets --root DIR
 //! ```
 
@@ -17,13 +18,15 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use nurt_docgen::catalog::Catalog;
+use nurt_docgen::cli::{self, Tree};
 use nurt_docgen::error::DocgenError;
 use nurt_docgen::layout::Layout;
 use nurt_docgen::manpages::{self, ManOptions};
 use nurt_docgen::site;
 use nurt_docgen::tasks::{self, CheckOptions};
 
-const USAGE: &str = "usage: nurt-docgen <check|site|man|cheatsheets> --root DIR [options]";
+const USAGE: &str =
+    "usage: nurt-docgen <check|site|man|completions|cheatsheets> --root DIR [options]";
 
 #[derive(Default)]
 struct Args {
@@ -106,6 +109,14 @@ fn run(args: &Args) -> Result<Vec<String>, String> {
             };
             let count = manpages::build(&layout, &catalog, &out, &options).map_err(failed)?;
             println!("{count} manual pages written");
+            Ok(Vec::new())
+        }
+        "completions" => {
+            let out = require(args.out.clone(), "--out")?;
+            let tree = Tree::load(&layout).map_err(failed)?;
+            for name in cli::write_completions(&tree, &out).map_err(failed)? {
+                println!("{name} written");
+            }
             Ok(Vec::new())
         }
         "cheatsheets" => {

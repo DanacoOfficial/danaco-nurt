@@ -11,6 +11,7 @@ use std::process::Command;
 
 use nurt_docgen::catalog::{CORE_GROUP, Catalog};
 use nurt_docgen::check::CatalogChecker;
+use nurt_docgen::cli::{self, Tree};
 use nurt_docgen::cookbook::{load_cookbook, recipe_count};
 use nurt_docgen::html::check_structure;
 use nurt_docgen::layout::Layout;
@@ -142,7 +143,13 @@ fn manual_pages_exist_for_every_command_and_lint_when_mandoc_is_available() {
         date: "2026-01-01",
     };
     let count = manpages::build(&layout, &catalog, out.path(), &options).expect("man pages build");
-    assert_eq!(count, catalog.total() + 2);
+    let tree = Tree::load(&layout).expect("the table of subcommands loads");
+    let extra = tree
+        .subcommands()
+        .iter()
+        .filter(|s| catalog.command(&s.name).is_none())
+        .count();
+    assert_eq!(count, catalog.total() + 2 + extra);
     let program = std::fs::read_to_string(out.path().join("nurt.1")).expect("nurt.1 is readable");
     assert_eq!(
         manpages::name_line(&program).as_deref(),
@@ -173,4 +180,32 @@ fn manual_pages_exist_for_every_command_and_lint_when_mandoc_is_available() {
         return;
     };
     assert!(status.success());
+}
+
+#[test]
+fn every_subcommand_has_a_manual_page_and_completions() {
+    let layout = layout();
+    let catalog = catalog(&layout);
+    let tree = Tree::load(&layout).expect("the table of subcommands loads");
+    let man = tempfile::tempdir().expect("temporary directory");
+    let options = ManOptions {
+        version: "0.1.0",
+        date: "2026-01-01",
+    };
+    manpages::build(&layout, &catalog, man.path(), &options).expect("man pages build");
+    let completions = tempfile::tempdir().expect("temporary directory");
+    let scripts =
+        cli::write_completions(&tree, completions.path()).expect("completions are written");
+    assert_eq!(scripts.len(), cli::SHELLS.len());
+    for sub in tree.subcommands() {
+        let page = man.path().join(format!("nurt-{}.1", sub.name));
+        assert!(page.is_file(), "no manual page for {}", sub.name);
+        for script in &scripts {
+            let text =
+                std::fs::read_to_string(completions.path().join(script)).expect("script exists");
+            assert!(text.contains(&sub.name), "{script} lacks {}", sub.name);
+        }
+    }
+    let serve = std::fs::read_to_string(man.path().join("nurt-serve.1")).expect("serve page");
+    assert!(serve.contains(".SH Framing") || serve.contains(".SH FRAMING"));
 }

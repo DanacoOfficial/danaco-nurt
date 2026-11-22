@@ -62,6 +62,18 @@ impl Layout {
         self.root.join("spec")
     }
 
+    /// Directory of the reference documents, such as the serve protocol.
+    #[must_use]
+    pub fn reference(&self) -> PathBuf {
+        self.root.join("docs").join("reference")
+    }
+
+    /// Table of the subcommands of the `nurt` executable.
+    #[must_use]
+    pub fn cli_subcommands(&self) -> PathBuf {
+        self.root.join("tables").join("cli-subcommands.toml")
+    }
+
     /// Directory of the documentation tree.
     #[must_use]
     pub fn docs(&self) -> PathBuf {

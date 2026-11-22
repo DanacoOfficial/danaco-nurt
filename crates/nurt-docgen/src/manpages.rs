@@ -3,6 +3,10 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Manual pages: `nurt(1)`, `nurt-<command>(1)` and `nurt-commands(7)`.
 //!
+//! A subcommand of the executable has the page `nurt-<subcommand>(1)`, built
+//! from `tables/cli-subcommands.toml`. When a catalog command has the same
+//! name, the page of the command gets the section `COMMAND LINE` instead.
+//!
 //! The pages come from the sources of the site: the catalog, the command
 //! pages and the page `docs/site/command-line.md`. `nurt-docgen man` writes
 //! them into the directory given with `--out`; the repository keeps only the
@@ -13,6 +17,7 @@ use std::path::Path;
 use nurt_contracts::spec::StageSpec;
 
 use crate::catalog::Catalog;
+use crate::cli::{self, Tree, program_summary};
 use crate::error::{Result, read_text, write_text};
 use crate::layout::Layout;
 use crate::man::{ManHeader, escape, render_body, title_line};
@@ -21,9 +26,6 @@ use crate::page::{compose, load_page};
 
 /// Manual title shown in the page header.
 pub const MANUAL: &str = "Danaco Nurt";
-
-/// Description of the program in the NAME section of `nurt(1)`.
-pub const PROGRAM_SUMMARY: &str = "command shell and language where every change can be undone";
 
 /// Heading before which `nurt(1)` lists the command groups of the catalog.
 const SEE_ALSO_HEADING: &str = "\n## See also";
@@ -130,7 +132,7 @@ pub fn program_page(markdown: &str, catalog: &Catalog, options: &ManOptions<'_>)
         Some(at) => format!("{}\n{section}{}", &body[..at], &body[at..]),
         None => format!("{body}\n{section}"),
     };
-    page("nurt", 1, PROGRAM_SUMMARY, &body, options)
+    page("nurt", 1, &program_summary(), &body, options)
 }
 
 /// Returns the line of the NAME section of a manual page with the roff
@@ -176,6 +178,7 @@ pub fn build(
     options: &ManOptions<'_>,
 ) -> Result<usize> {
     let mut written = 0;
+    let tree = Tree::load(layout)?;
     let program = read_text(&layout.site().join("command-line.md"))?;
     write_text(
         &out.join("nurt.1"),
@@ -194,10 +197,25 @@ pub fn build(
             None
         };
         let composed = compose(spec, written_page.as_ref());
-        write_text(
-            &out.join(format!("nurt-{}.1", spec.name)),
-            &command_page(spec, &composed, options),
-        )?;
+        let mut text = command_page(spec, &composed, options);
+        if let Some(sub) = tree.subcommands().iter().find(|s| s.name == spec.name) {
+            text.push_str(&cli::command_line_section(sub)?);
+        }
+        write_text(&out.join(format!("nurt-{}.1", spec.name)), &text)?;
+        written += 1;
+    }
+    for sub in tree.subcommands() {
+        if catalog.command(&sub.name).is_some() {
+            continue;
+        }
+        let extra = if sub.name == "serve" {
+            let reference = layout.reference().join("serve-protocol.md");
+            Some(cli::reference_sections(&read_text(&reference)?))
+        } else {
+            None
+        };
+        let text = cli::subcommand_page(sub, extra.as_deref(), options)?;
+        write_text(&out.join(format!("nurt-{}.1", sub.name)), &text)?;
         written += 1;
     }
     Ok(written)

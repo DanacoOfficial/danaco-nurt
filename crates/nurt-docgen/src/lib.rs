@@ -16,6 +16,7 @@
 pub mod catalog;
 pub mod cheatsheet;
 pub mod check;
+pub mod cli;
 pub mod consistency;
 pub mod cookbook;
 pub mod error;

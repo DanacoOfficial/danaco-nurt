@@ -21,6 +21,9 @@ name = "nurt-docgen"
 path = "src/main.rs"
 
 [dependencies]
+clap = { workspace = true, features = ["string"] }
+clap_complete = { workspace = true }
+clap_mangen = { workspace = true }
 nurt-contracts = { workspace = true }
 pulldown-cmark = { workspace = true }
 serde = { workspace = true }
