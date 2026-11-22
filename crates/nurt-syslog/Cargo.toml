@@ -17,6 +17,28 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_System_EventLog",
+    "Win32_Security",
+] }
+
 [dependencies]
 nurt-contracts = { workspace = true }
 nurt-types = { workspace = true }
+zstd = { workspace = true }
+lz4_flex = { workspace = true }
+liblzma = { workspace = true }
+quick-xml = { workspace = true }
+regex = { workspace = true }
+globset = { workspace = true }
+jiff = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+indexmap = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }

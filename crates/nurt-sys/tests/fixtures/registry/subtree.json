@@ -1,0 +1,19 @@
+{
+  "format": "nurt-registry-subtree/1",
+  "view": "64",
+  "tree": {
+    "name": "Example",
+    "values": [
+      { "name": "Mode", "raw_type": 4, "data": "AQAAAA==" }
+    ],
+    "subkeys": [
+      {
+        "name": "Child",
+        "values": [
+          { "name": "", "raw_type": 1, "data": "eAAAAA==" }
+        ],
+        "subkeys": []
+      }
+    ]
+  }
+}

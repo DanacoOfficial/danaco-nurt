@@ -1,0 +1,22 @@
+system/org.example.backup = {
+	active count = 0
+	path = /Library/LaunchDaemons/org.example.backup.plist
+	type = LaunchDaemon
+	state = not running
+
+	program = /usr/local/bin/backup
+	arguments = {
+		/usr/local/bin/backup
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	domain = system
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 2
+	last exit code = (never exited)
+	last terminating signal = Terminated: 15
+}

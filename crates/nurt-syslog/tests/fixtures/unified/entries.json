@@ -1,0 +1,80 @@
+[
+  {
+    "date": 1763720130.25,
+    "level": 5,
+    "composedMessage": "database file is damaged",
+    "process": "exampled",
+    "processIdentifier": 411,
+    "threadIdentifier": 9001,
+    "subsystem": "com.example.store",
+    "category": "database",
+    "sender": "ExampleStore",
+    "activityIdentifier": 12,
+    "formatString": "database file is %{public}s"
+  },
+  {
+    "date": 1763720129.5,
+    "level": 4,
+    "composedMessage": "connection refused",
+    "process": "exampled",
+    "processIdentifier": 411,
+    "threadIdentifier": 9002,
+    "subsystem": "com.example.network",
+    "category": "client",
+    "sender": "ExampleNetwork",
+    "activityIdentifier": 0,
+    "formatString": "connection %{public}s"
+  },
+  {
+    "date": 1763720128.000001,
+    "level": 3,
+    "composedMessage": "started",
+    "process": "exampled",
+    "processIdentifier": 411,
+    "threadIdentifier": 9001,
+    "subsystem": "com.example.store",
+    "category": "",
+    "sender": "exampled",
+    "activityIdentifier": 0,
+    "formatString": "started"
+  },
+  {
+    "date": 1763720127.0,
+    "level": 2,
+    "composedMessage": "cache hit <private>",
+    "process": "examplehelper",
+    "processIdentifier": 512,
+    "threadIdentifier": 7,
+    "subsystem": "",
+    "category": "",
+    "sender": "examplehelper",
+    "activityIdentifier": 0,
+    "formatString": "cache hit %{private}s"
+  },
+  {
+    "date": 1763720126.0,
+    "level": 1,
+    "composedMessage": "state 3",
+    "process": "examplehelper",
+    "processIdentifier": 512,
+    "threadIdentifier": 7,
+    "subsystem": "com.example.helper",
+    "category": "state",
+    "sender": "examplehelper",
+    "activityIdentifier": 0,
+    "formatString": "state %d"
+  },
+  {
+    "date": 1763720125.0,
+    "level": 0,
+    "composedMessage": "level without value",
+    "process": "examplehelper",
+    "processIdentifier": 512,
+    "threadIdentifier": 7,
+    "subsystem": "com.example.helper",
+    "category": "state",
+    "sender": "examplehelper",
+    "activityIdentifier": 0,
+    "formatString": "level without value"
+  }
+]

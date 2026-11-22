@@ -1,0 +1,69 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+# Exit codes and messages of launchctl with the error codes they map to.
+# Prepared from the documented behavior of macOS 13 to 15; refresh on a macOS runner.
+
+[[case]]
+action = "print"
+domain = "system"
+exit = 113
+stderr = "Could not find service \"org.example.none\" in domain for system"
+code = "E_NOT_FOUND"
+
+[[case]]
+action = "kickstart"
+domain = "system"
+exit = 1
+stderr = "Could not kickstart service \"org.example.backup\": 1: Operation not permitted"
+code = "E_PRIVILEGE"
+
+[[case]]
+action = "bootout"
+domain = "system"
+path = "/System/Library/LaunchDaemons/com.apple.example.plist"
+exit = 150
+stderr = "Boot-out failed: 150: Operation not permitted while System Integrity Protection is engaged"
+code = "E_PERMISSION"
+
+[[case]]
+action = "kickstart"
+domain = "gui/501"
+exit = 1
+stderr = "Could not kickstart service \"org.example.agent\": 1: Operation not permitted"
+code = "E_PERMISSION"
+
+[[case]]
+action = "bootstrap"
+domain = "system"
+exit = 5
+stderr = "Bootstrap failed: 5: Input/output error"
+code = "ok"
+
+[[case]]
+action = "bootout"
+domain = "system"
+exit = 3
+stderr = "Boot-out failed: 3: No such process"
+code = "ok"
+
+[[case]]
+action = "kill"
+domain = "system"
+exit = 3
+stderr = "Could not kill service: 3: No such process"
+code = "ok"
+
+[[case]]
+action = "kickstart"
+domain = "system"
+exit = 5
+stderr = "Could not kickstart service: 5: Input/output error"
+code = "E_SERVICE"
+
+[[case]]
+action = "enable"
+domain = "system"
+exit = 0
+stderr = ""
+code = "ok"

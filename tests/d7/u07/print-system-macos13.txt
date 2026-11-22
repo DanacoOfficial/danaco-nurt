@@ -1,0 +1,44 @@
+system = {
+	type = system
+	handle = 0
+	active count = 597
+	service count = 397
+	maximum allowed shutdown time = 65 s
+	service stats = 0
+	creator = launchd[1]
+	creator euid = 0
+	auid = 0
+	security context = {
+		uid unset
+		asid = 0
+	}
+
+	bringup time = 102 ms
+	subdomains = {
+		pid/412
+	}
+
+	services = {
+		     412      -     com.openssh.sshd
+		       0      -     org.example.backup
+		       0     78     org.example.agentd
+		       0     -9     com.apple.example.killed
+	}
+
+	unmanaged processes = {
+		com.apple.xpc.launchd.unmanaged.loginwindow.98 = {
+			active count = 1
+		}
+	}
+
+	endpoints = {
+		       0      com.openssh.sshd.socket
+	}
+
+	disabled services = {
+		"com.apple.ftpd" => disabled
+		"com.openssh.sshd" => enabled
+	}
+
+	properties = uncorked | audit check done
+}

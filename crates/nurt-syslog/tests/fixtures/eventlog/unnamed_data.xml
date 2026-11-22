@@ -1,0 +1,4 @@
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Example-Disk'/><EventID Qualifiers='49156'>7</EventID><Level>2</Level><Task>0</Task><Keywords>0x80000000000000</Keywords><TimeCreated SystemTime='2026-11-21T10:16:00.0000000Z'/><EventRecordID>1002</EventRecordID><Channel>System</Channel><Computer>host.example.com</Computer><Security/></System><EventData><Data>\Device\Harddisk0\DR0</Data><Data>C:\Temp &amp; data &#x41;&lt;</Data><Binary>0300480001</Binary></EventData></Event>
