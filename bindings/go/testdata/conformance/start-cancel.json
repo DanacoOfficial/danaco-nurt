@@ -1,0 +1,6 @@
+{
+  "id": "start.cancel",
+  "class": "mandatory",
+  "call": { "method": "start", "args": { "program": "sleep", "cancel": true } },
+  "expect": { "invocation_error": "NURT_E_CANCELLED", "fields": { "report.status": "rolled_back" } }
+}

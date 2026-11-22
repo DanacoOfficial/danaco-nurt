@@ -1,0 +1,6 @@
+{
+  "id": "run.language_error",
+  "class": "mandatory",
+  "call": { "method": "run", "args": { "program": "error" } },
+  "expect": { "ok": false, "error_code": "E_SYNTAX", "fields": { "report.error.at.line": 1 } }
+}

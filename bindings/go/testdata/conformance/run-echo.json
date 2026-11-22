@@ -1,0 +1,10 @@
+{
+  "id": "run.echo",
+  "class": "mandatory",
+  "call": { "method": "run", "args": { "program": "info", "options": { "limit": 5 } } },
+  "expect": {
+    "ok": true,
+    "fields": { "report.status": "ok", "report.kind": "run", "rendered.format": "text" },
+    "text_contains": "\"limit\":5"
+  }
+}

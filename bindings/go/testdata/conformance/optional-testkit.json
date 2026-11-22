@@ -1,0 +1,6 @@
+{
+  "id": "optional.testkit",
+  "class": "optional:testkit",
+  "call": { "method": "info" },
+  "expect": { "fields": { "testkit": true } }
+}

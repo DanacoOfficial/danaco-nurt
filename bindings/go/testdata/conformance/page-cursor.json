@@ -1,0 +1,15 @@
+{
+  "id": "page.cursor",
+  "class": "mandatory",
+  "steps": [
+    {
+      "call": { "method": "run", "args": { "program": "paged" } },
+      "expect": { "ok": true },
+      "save": { "cursor": "report.next_cursor" }
+    },
+    {
+      "call": { "method": "page", "args": { "cursor": "${cursor}" } },
+      "expect": { "ok": true, "text_contains": "page c1" }
+    }
+  ]
+}

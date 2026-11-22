@@ -1,0 +1,153 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+name: go-binding
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bindings/go/**"
+      - "crates/nurt-ffi/**"
+      - "conformance/bindings/**"
+      - "spec/schemas/**"
+  pull_request:
+    paths:
+      - "bindings/go/**"
+      - "crates/nurt-ffi/**"
+      - "conformance/bindings/**"
+      - "spec/schemas/**"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: bindings/go
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: bindings/go/go.mod
+      - name: Formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Vet
+        run: go vet ./...
+      - name: Staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+      - name: License files match the repository
+        run: |
+          cmp LICENSE ../../LICENSE
+          cmp NOTICE ../../NOTICE
+      - name: Module version matches the workspace version
+        run: |
+          workspace=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' ../../Cargo.toml)
+          module=$(sed -n 's/^const Version = "\(.*\)"/\1/p' nurt.go)
+          test -n "$workspace" && test "$workspace" = "$module"
+      - name: Module has no dependencies
+        run: test -z "$(go list -m all | tail -n +2)"
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ["1.23", stable]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: bindings/go/go.mod
+      - name: Test
+        run: go test -race -count=1 -coverprofile=coverage.out ./...
+      - name: Coverage
+        shell: bash
+        run: go tool cover -func=coverage.out | tail -n 1
+
+  cross:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - linux/amd64
+          - linux/arm64
+          - linux/386
+          - darwin/amd64
+          - darwin/arm64
+          - windows/amd64
+          - windows/arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: bindings/go/go.mod
+      - name: Build without cgo
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          export GOOS="${{ matrix.target }}" && GOOS="${GOOS%/*}"
+          export GOARCH="${{ matrix.target }}" && GOARCH="${GOARCH#*/}"
+          go build ./... && go test -c -o /dev/null .
+
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: bindings/go/go.mod
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: Build nurt-conformance
+        working-directory: .
+        run: cargo build --locked --release -p nurt-conformance
+      - name: Run binding cases on fake-serve
+        env:
+          NURT_CONFORMANCE_BINDINGS: ${{ github.workspace }}/conformance/bindings
+        run: |
+          export NURT_TEST_COMMAND="[\"$GITHUB_WORKSPACE/target/release/nurt-conformance\",\"fake-serve\",\"--cases\",\"$GITHUB_WORKSPACE/conformance/bindings\"]"
+          go test -race -count=1 -run 'TestConformanceBindings' -v .
+
+  library:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: bindings/go/go.mod
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: Build the libnurt stub
+        working-directory: .
+        run: cargo build --locked --release -p nurt-ffi --features stub
+      - name: Register libnurt with pkg-config
+        working-directory: .
+        run: |
+          mkdir -p "$RUNNER_TEMP/pkgconfig"
+          cat > "$RUNNER_TEMP/pkgconfig/nurt.pc" <<PC
+          Name: nurt
+          Description: C interface of the Danaco Nurt library
+          Version: 0.1.0
+          Cflags: -I$GITHUB_WORKSPACE/crates/nurt-ffi/include
+          Libs: -L$GITHUB_WORKSPACE/target/release -lnurt
+          PC
+          echo "PKG_CONFIG_PATH=$RUNNER_TEMP/pkgconfig" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/target/release" >> "$GITHUB_ENV"
+      - name: Test with the library backend
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          go vet -tags nurt_cgo ./...
+          go test -tags nurt_cgo -race -count=1 ./...
