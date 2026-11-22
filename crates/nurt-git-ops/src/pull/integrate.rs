@@ -14,7 +14,6 @@
 use bstr::BString;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::{Expect, MutationTx};
-use nurt_contracts::report::{Irreversible, IrreversibleEntry};
 use nurt_contracts::stage::ExecCtx;
 use nurt_git::apply::{ApplyContext, StateFilePlan, apply_plan};
 use nurt_git::repo::GitRepo;
@@ -99,7 +98,7 @@ pub(crate) fn merge(
     plan.apply
         .state_files
         .extend(input.fetched.state_files.iter().cloned());
-    let result = apply_merge(tx, &apply_ctx, plan, Some(ctx)).map_err(Failure::Failed)?;
+    let result = apply_merge(tx, &apply_ctx, plan).map_err(Failure::Failed)?;
     if let Some(error) = result.conflict_error(input.label) {
         return Err(Failure::Failed(error));
     }
@@ -143,21 +142,10 @@ fn local_outcome(repo: &GitRepo, result: &MergeResult) -> LocalOutcome {
     let root = repo.root();
     let written: Vec<String> = result.report.written.iter().map(text).collect();
     let removed: Vec<String> = result.report.removed.iter().map(text).collect();
-    let irreversible = result
-        .drivers_run
-        .iter()
-        .map(|(name, path)| {
-            let mut marker = IrreversibleEntry::new(Irreversible::ExternalEffect);
-            marker.path = Some(text(path));
-            marker.detail = Some(format!("merge driver {name}"));
-            marker
-        })
-        .collect();
     LocalOutcome {
         effect: result.effect(root),
         changes: file_changes(root, &written, &removed),
         notable: result.notes.clone(),
-        irreversible,
     }
 }
 

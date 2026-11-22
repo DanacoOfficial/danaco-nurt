@@ -17,7 +17,7 @@ use bstr::{BStr, BString, ByteSlice};
 use gix::ObjectId;
 use nurt_contracts::error::Result;
 
-use crate::merge::{DriverMode, MergeLabels, MergeOptions, MergeOutcome, merge_trees};
+use crate::merge::{MergeLabels, MergeOptions, MergeOutcome, merge_trees};
 
 use super::error;
 use super::history::TodoItem;
@@ -323,7 +323,6 @@ impl<'r> Replay<'r> {
             progress.tree.as_ref(),
             commit.tree.as_ref(),
             &self.options_for(item.id, &commit),
-            DriverMode::Defer,
         )?;
         let blocked = self.guard.collisions(progress.tree, outcome.tree)?;
         if !blocked.is_empty() {

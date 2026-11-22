@@ -26,7 +26,7 @@ use nurt_git::repo::index::index_to_tree;
 
 use super::entries::{self, StashParts, plan_drop};
 use super::{StashAction, StashOutcome, StashRequest};
-use crate::merge::{DriverMode, MergeLabels, MergeOptions, MergeOutcome, merge_trees};
+use crate::merge::{MergeLabels, MergeOptions, MergeOutcome, merge_trees};
 use crate::reset::execute::{Change, ref_tx, state_write, touched};
 use crate::reset::ident::Identity;
 use crate::reset::index::{self, StatSources, entry_kind, merged_entry};
@@ -56,14 +56,7 @@ fn merge(
         ours: ours_label.to_owned(),
         theirs: THEIRS_LABEL.to_owned(),
     };
-    merge_trees(
-        repo.gix(),
-        &base,
-        &ours,
-        &theirs,
-        &options,
-        DriverMode::Defer,
-    )
+    merge_trees(repo.gix(), &base, &ours, &theirs, &options)
 }
 
 fn spec_text(position: Option<usize>, id: ObjectId) -> String {

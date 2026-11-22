@@ -15,7 +15,7 @@ use gix::ObjectId;
 use nurt_contracts::error::{Error, Result};
 use nurt_contracts::journal::{Expect, MutationTx};
 use nurt_contracts::record::{GitEffect, GitRefUpdate};
-use nurt_contracts::report::{Change, IrreversibleEntry, NotableEntry};
+use nurt_contracts::report::{Change, NotableEntry};
 use nurt_contracts::stage::ExecCtx;
 use nurt_git::apply::{ApplyPlan, RefPlan, StateFilePlan};
 use nurt_git::repo::GitRepo;
@@ -171,8 +171,6 @@ pub struct LocalOutcome {
     pub changes: Vec<Change>,
     /// Unusual effects.
     pub notable: Vec<NotableEntry>,
-    /// Effects outside the journal, such as merge driver programs.
-    pub irreversible: Vec<IrreversibleEntry>,
 }
 
 /// Failure of a rebase engine.

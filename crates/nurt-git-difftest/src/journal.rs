@@ -262,13 +262,33 @@ impl RecordingTx<'_> {
         };
         let path = abs.as_path().to_path_buf();
         let exists = fs::symlink_metadata(&path).is_ok();
-        if exists && matches!(spec.action, TargetAction::Create | TargetAction::CreateTree) {
+        if exists
+            && matches!(
+                spec.action,
+                TargetAction::Create | TargetAction::CreateTree | TargetAction::Link
+            )
+        {
             return Err(Error::new(
                 ErrorCode::Exists,
                 format!(
                     "`{}` exists, remove it or choose another name",
                     path.display()
                 ),
+            ));
+        }
+        if !exists
+            && matches!(
+                spec.action,
+                TargetAction::Delete
+                    | TargetAction::Replace
+                    | TargetAction::Rename { .. }
+                    | TargetAction::Attributes
+                    | TargetAction::Truncate
+            )
+        {
+            return Err(Error::new(
+                ErrorCode::NotFound,
+                format!("`{}` does not exist, check the path", path.display()),
             ));
         }
         let store = self.store_dir().join(index.to_string());
@@ -427,6 +447,16 @@ impl MutationTx for RecordingTx<'_> {
     fn stage(&mut self, target: TargetIndex) -> ContractResult<Box<dyn WriteHandle>> {
         self.ensure_open()?;
         let position = self.target(target)?;
+        if !matches!(
+            self.targets[position].spec.action,
+            TargetAction::Create | TargetAction::Modify | TargetAction::Replace
+        ) {
+            let error = self.journal.violation(format!(
+                "target {}: stage for a target that does not write content",
+                target.0
+            ));
+            return Err(self.fail_and_restore(error));
+        }
         let path = self.targets[position].path.clone();
         let dir = path.parent().unwrap_or(Path::new("/")).to_path_buf();
         self.create_parents(&dir).map_err(io_to_error(&dir))?;
@@ -715,41 +745,36 @@ fn matches_expect(path: &Path, expect: &Expect) -> Result<(), String> {
     }
 }
 
-/// Checks that a mutation matches the declared action.
+/// Checks that a mutation matches the declared action, by the table of the
+/// reference journal.
 fn check_mutation(action: &TargetAction, mutation: &Mutation) -> Result<(), String> {
-    let content = matches!(
+    let writes_content = matches!(
         mutation,
-        Mutation::CommitStaged
-            | Mutation::WriteBytes(_)
-            | Mutation::AppendBytes(_)
-            | Mutation::WriteAt { .. }
-            | Mutation::SetLength(_)
-            | Mutation::CopyFrom { .. }
+        Mutation::WriteBytes(_) | Mutation::CommitStaged | Mutation::CopyFrom { .. }
+    );
+    let creates_entry = matches!(
+        mutation,
+        Mutation::CreateDir { .. } | Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. }
     );
     let allowed = match action {
-        TargetAction::Create
-        | TargetAction::Modify
-        | TargetAction::Truncate
-        | TargetAction::Append => {
-            content
-                || matches!(
-                    mutation,
-                    Mutation::SetMeta(_) | Mutation::CreateDir { .. } | Mutation::CreateLink { .. }
-                )
-        }
-        TargetAction::Replace => content || !matches!(mutation, Mutation::Rename),
+        TargetAction::Create => writes_content || creates_entry,
         TargetAction::CreateTree => matches!(mutation, Mutation::CreateDir { .. }),
+        TargetAction::Modify => {
+            writes_content || matches!(mutation, Mutation::WriteAt { .. } | Mutation::SetLength(_))
+        }
+        TargetAction::Append => matches!(mutation, Mutation::AppendBytes(_)),
         TargetAction::Delete => matches!(mutation, Mutation::Remove),
+        TargetAction::Replace => {
+            writes_content || creates_entry || matches!(mutation, Mutation::Remove)
+        }
         TargetAction::Rename { .. } => matches!(mutation, Mutation::Rename),
         TargetAction::Attributes => matches!(mutation, Mutation::SetMeta(_)),
-        TargetAction::Link => {
-            matches!(
-                mutation,
-                Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. }
-            )
-        }
-        TargetAction::ExternalWrite => false,
-        _ => true,
+        TargetAction::Link => matches!(
+            mutation,
+            Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. }
+        ),
+        TargetAction::Truncate => matches!(mutation, Mutation::SetLength(_)),
+        _ => false,
     };
     if allowed {
         Ok(())
@@ -1117,26 +1142,26 @@ mod tests {
     }
 
     #[test]
-    fn follows_the_git_lock_file_protocol() {
+    fn replaces_a_file_through_a_staged_write_and_sets_attributes() {
         let (_dir, work, journal) = setup();
         fs::write(work.join("index"), b"v1").unwrap();
         let before = snapshot(&work).unwrap();
-        let lock = work.join("index.lock");
         let mut tx = Box::new(journal.begin(OpKind::command("git.stage")));
-        let rename = TargetAction::Rename {
-            to: AbsPath::new(work.join("index")).unwrap(),
-            replace: true,
-        };
-        tx.preserve(&[spec(&lock, TargetAction::Create), spec(&lock, rename)])
+        let mut modify = spec(&work.join("index"), TargetAction::Modify);
+        modify.expect = Expect::Hash(content_hash(b"v1"));
+        tx.preserve(&[modify, spec(&work.join("index"), TargetAction::Attributes)])
             .unwrap();
         let mut staged = tx.stage(TargetIndex(0)).unwrap();
         staged.write_all(b"v2").unwrap();
         drop(staged);
         tx.apply(TargetIndex(0), Mutation::CommitStaged).unwrap();
-        tx.apply(TargetIndex(1), Mutation::Rename).unwrap();
+        let mode = nurt_contracts::fs::MetaChange {
+            mode: Some(0o755),
+            ..Default::default()
+        };
+        tx.apply(TargetIndex(1), Mutation::SetMeta(mode)).unwrap();
         tx.commit().unwrap();
         assert_eq!(fs::read(work.join("index")).unwrap(), b"v2");
-        assert!(!lock.exists());
         assert!(
             undeclared_changes(&before, &snapshot(&work).unwrap(), &journal.declared()).is_empty()
         );

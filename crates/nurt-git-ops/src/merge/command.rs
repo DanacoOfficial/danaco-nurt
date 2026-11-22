@@ -11,9 +11,9 @@
 //! (local changes in the way, staged changes, an operation in progress,
 //! histories that cannot be fast-forwarded) fails during planning and
 //! changes nothing. [`apply_merge`] then writes the plan in one mutation
-//! transaction. Merge driver programs never run while planning; when the
-//! repository configures one for a conflicting path, [`apply_merge`]
-//! computes the merge again with the program before the first write.
+//! transaction. Merge driver programs configured in the repository never
+//! run; the built-in drivers merge the files and the paths are reported as
+//! `filter_not_applied`.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -24,8 +24,7 @@ use gix_index::entry::Stage;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::{ExemptWrite, Expect, MutationTx};
 use nurt_contracts::record::{GitConflict, GitEffect, GitEffectState, GitInProgress};
-use nurt_contracts::report::{Irreversible, IrreversibleEntry, Notable, NotableEntry};
-use nurt_contracts::stage::ExecCtx;
+use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::value::Path as RecordPath;
 use nurt_git::apply::{
     ApplyContext, ApplyPlan, ApplyReport, IndexPlan, RefPlan, RefTarget, ReflogLine, StateFilePlan,
@@ -34,7 +33,6 @@ use nurt_git::apply::{
 
 use super::abort::plan_reset_merge;
 use super::conflict::MergeConflict;
-use super::driver::DriverMode;
 use super::finish::{MergeCompletion, prepare_completion};
 use super::message::{
     Cleanup, clean_message, merge_message, reflog_fast_forward, reflog_merge,
@@ -243,18 +241,9 @@ pub struct MergePlan {
     pub notes: Vec<NotableEntry>,
     objects_written: bool,
     pending_objects: Vec<(gix_object::Kind, Vec<u8>)>,
-    drivers_run: Vec<(String, BString)>,
-    deferred: Option<Box<MergeRequest>>,
 }
 
 impl MergePlan {
-    /// Whether configured merge driver programs run when the plan is
-    /// applied with an execution context.
-    #[must_use]
-    pub fn runs_drivers(&self) -> bool {
-        self.deferred.is_some()
-    }
-
     fn new(state: GitEffectState, head: &Head) -> Self {
         Self {
             state,
@@ -268,8 +257,6 @@ impl MergePlan {
             notes: Vec::new(),
             objects_written: false,
             pending_objects: Vec::new(),
-            drivers_run: Vec::new(),
-            deferred: None,
         }
     }
 }
@@ -293,8 +280,6 @@ pub struct MergeResult {
     pub conflicts: Vec<MergeConflict>,
     /// Unusual effects of the merge.
     pub notes: Vec<NotableEntry>,
-    /// Merge driver programs that ran, by driver name and path.
-    pub drivers_run: Vec<(String, BString)>,
     /// Changes made.
     pub report: ApplyReport,
 }
@@ -394,7 +379,7 @@ impl MergeResult {
 /// read.
 pub fn plan_merge(ctx: &ApplyContext<'_>, request: &MergeRequest) -> Result<MergePlan> {
     match request.action {
-        MergeAction::Start => plan_start(ctx, request, DriverMode::Defer),
+        MergeAction::Start => plan_start(ctx, request),
         MergeAction::Continue => plan_continue(ctx, request),
         MergeAction::Abort => plan_abort(ctx, request),
     }
@@ -402,48 +387,20 @@ pub fn plan_merge(ctx: &ApplyContext<'_>, request: &MergeRequest) -> Result<Merg
 
 /// Executes `plan` in the transaction `tx`.
 ///
-/// When the plan defers merge driver programs and `exec` is given, the
-/// merge is computed again with the programs, through the program
-/// launching service of `exec`, before the first write; their effects are
-/// marked irreversible. Without `exec` the built-in result stays and the
-/// paths are reported as `filter_not_applied`.
-///
 /// # Errors
 ///
 /// Fails with the errors of [`apply_plan`] (`E_GIT_LOCKED`, `E_STALE` and
-/// the errors of the transaction) and, when the merge is computed again,
-/// with the errors of [`plan_merge`].
+/// the errors of the transaction).
 pub fn apply_merge(
     tx: &mut dyn MutationTx,
     ctx: &ApplyContext<'_>,
-    mut plan: MergePlan,
-    exec: Option<&ExecCtx>,
+    plan: MergePlan,
 ) -> Result<MergeResult> {
-    let deferred = plan.deferred.take();
-    let plan = match (deferred, exec) {
-        (Some(request), Some(exec)) => {
-            let mut again = plan_start(ctx, &request, DriverMode::Run(exec))?;
-            again.apply.refs.extend(extra_refs(&plan));
-            again.apply.state_files.extend(extra_states(&plan));
-            again
-        }
-        (Some(_), None) => {
-            plan.notes.push(not_run_note());
-            plan
-        }
-        (None, _) => plan,
-    };
     if plan.objects_written {
         tx.record_exempt(ExemptWrite::ObjectStore {
             repo: abs_path(ctx.repo().common_dir())?,
         });
         persist_objects(ctx.repo(), &plan.pending_objects)?;
-    }
-    for (name, path) in &plan.drivers_run {
-        let mut marker = IrreversibleEntry::new(Irreversible::ExternalEffect);
-        marker.path = Some(path.to_str_lossy().into_owned());
-        marker.detail = Some(format!("merge driver {name}"));
-        tx.mark_irreversible(marker);
     }
     let report = apply_plan(tx, ctx, plan.apply)?;
     Ok(MergeResult {
@@ -455,52 +412,8 @@ pub fn apply_merge(
         merge_head: plan.merge_head,
         conflicts: plan.conflicts,
         notes: plan.notes,
-        drivers_run: plan.drivers_run,
         report,
     })
-}
-
-/// Reference updates the caller added to a deferred plan beyond those of
-/// the merge itself.
-fn extra_refs(plan: &MergePlan) -> Vec<RefPlan> {
-    plan.apply
-        .refs
-        .iter()
-        .filter(|reference| {
-            reference.name != "HEAD" && Some(&reference.name) != plan.branch.as_ref()
-        })
-        .cloned()
-        .collect()
-}
-
-fn extra_states(plan: &MergePlan) -> Vec<StateFilePlan> {
-    plan.apply
-        .state_files
-        .iter()
-        .filter(|state| !is_merge_state(&state.path))
-        .cloned()
-        .collect()
-}
-
-fn is_merge_state(path: &str) -> bool {
-    [
-        StateFile::MergeHead,
-        StateFile::MergeMsg,
-        StateFile::MergeMode,
-        StateFile::AutoMerge,
-        StateFile::OrigHead,
-    ]
-    .iter()
-    .any(|file| file.file_name() == path)
-}
-
-fn not_run_note() -> NotableEntry {
-    let mut note = NotableEntry::new(Notable::FilterNotApplied);
-    note.detail = Some(
-        "a configured merge driver was not run because no execution context was given; the built-in text driver merged the files"
-            .to_owned(),
-    );
-    note
 }
 
 struct Head {
@@ -559,11 +472,7 @@ fn hex(id: ObjectId) -> String {
     id.to_hex().to_string()
 }
 
-fn plan_start(
-    ctx: &ApplyContext<'_>,
-    request: &MergeRequest,
-    drivers: DriverMode<'_>,
-) -> Result<MergePlan> {
+fn plan_start(ctx: &ApplyContext<'_>, request: &MergeRequest) -> Result<MergePlan> {
     let repo = ctx.repo();
     let target = request
         .target
@@ -599,7 +508,7 @@ fn plan_start(
         target,
         action: &action,
     };
-    plan_three_way(ctx, request, &sides, drivers)
+    plan_three_way(ctx, request, &sides)
 }
 
 fn refuse_in_progress(repo: &gix::Repository, label: &str) -> Result<()> {
@@ -750,12 +659,11 @@ fn plan_three_way(
     ctx: &ApplyContext<'_>,
     request: &MergeRequest,
     sides: &Sides<'_>,
-    drivers: DriverMode<'_>,
 ) -> Result<MergePlan> {
     let mut memory = ctx.repo().clone().with_object_memory();
     let mut plan = {
         let scratch = ApplyContext::open(&memory)?;
-        plan_three_way_in(&scratch, request, sides, drivers)?
+        plan_three_way_in(&scratch, request, sides)?
     };
     plan.pending_objects = memory
         .objects
@@ -783,26 +691,15 @@ fn plan_three_way_in(
     ctx: &ApplyContext<'_>,
     request: &MergeRequest,
     sides: &Sides<'_>,
-    drivers: DriverMode<'_>,
 ) -> Result<MergePlan> {
     let repo = ctx.repo();
     refuse_staged_changes(ctx, sides.head_tree, &request.repo)?;
     let options = merge_options(repo, request, sides.target)?;
-    let outcome = merge_commits(
-        repo,
-        sides.head_commit,
-        sides.target.commit,
-        &options,
-        drivers,
-    )?;
+    let outcome = merge_commits(repo, sides.head_commit, sides.target.commit, &options)?;
     let mut plan = MergePlan::new(GitEffectState::Completed, sides.head);
     plan.apply = plan_two_way(ctx, Some(&sides.head_tree), &outcome.tree)
         .map_err(|error| with_dirty_fixes(error, &request.repo))?;
     plan.notes.extend(outcome.notes.iter().cloned());
-    plan.drivers_run.clone_from(&outcome.drivers_run);
-    if !outcome.pending_drivers.is_empty() {
-        plan.deferred = Some(Box::new(request.clone()));
-    }
     plan.apply.state_files.push(write_state(
         StateFile::OrigHead,
         id_content(&sides.head_commit),

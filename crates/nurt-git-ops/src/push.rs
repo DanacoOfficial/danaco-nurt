@@ -40,7 +40,7 @@ use gix::protocol::transport::client::TransportWithoutIO;
 use gix::protocol::transport::client::blocking_io::Transport;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::AbsPath;
-use nurt_contracts::journal::{ExemptWrite, FileOp, MutationTx, apply_ops};
+use nurt_contracts::journal::{ExemptWrite, MutationTx};
 use nurt_contracts::record::{
     Change, ChangeAction, Effect, EffectStatus, GitEffect, GitEffectState, GitRefStatus,
     GitRefUpdate,
@@ -52,6 +52,8 @@ use nurt_contracts::stage::{
     RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput,
 };
 use nurt_contracts::value::{self, Record, Value};
+use nurt_git::repo::config as git_config;
+use nurt_git::repo::env::GitEnv;
 use nurt_git_transport::connect::{self, Direction, TransportOptions, UrlRewrites};
 use nurt_git_transport::credentials::{
     CredentialOptions, Credentials, EnvLookup, StoreUpdate, bearer_token,
@@ -62,7 +64,7 @@ use nurt_git_transport::local::receive::{
 };
 use nurt_git_transport::send_pack::{
     self, Advertisement, FilePlan, Identity, LogPolicy, PackSummary, PushReport, RefCommand,
-    RefEdit, RefStatus, RejectReason, SendOptions, SendOutcome,
+    RefEdit, RefStatus, RejectReason, SendOptions, SendOutcome, plan_ref_edits_in,
 };
 use nurt_git_transport::ssh::SshOptions;
 
@@ -314,10 +316,10 @@ struct Upstream {
 
 /// A planned push: the classified updates and the target, computed
 /// without changing anything.
-#[derive(Debug)]
 pub struct PlannedPush {
     root: PathBuf,
     git_dir: PathBuf,
+    common_dir: PathBuf,
     remote: String,
     url: String,
     target: Target,
@@ -330,6 +332,28 @@ pub struct PlannedPush {
     hooks: bool,
     atomic: bool,
     hash: gix::hash::Kind,
+}
+
+impl std::fmt::Debug for PlannedPush {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlannedPush")
+            .field("root", &self.root)
+            .field("git_dir", &self.git_dir)
+            .field("common_dir", &self.common_dir)
+            .field("remote", &self.remote)
+            .field("url", &redact_url(&self.url))
+            .field("target", &self.target)
+            .field("network", &self.network)
+            .field("notes", &self.notes)
+            .field("updates", &self.updates)
+            .field("objects", &self.objects)
+            .field("upstream", &self.upstream)
+            .field("pre_push", &self.pre_push)
+            .field("hooks", &self.hooks)
+            .field("atomic", &self.atomic)
+            .field("hash", &self.hash)
+            .finish()
+    }
 }
 
 /// Services used while a push runs.
@@ -386,6 +410,9 @@ pub struct NetworkOptions {
     pub env: BTreeMap<String, String>,
     /// SSH settings; without them SSH addresses fail with `E_INTERNAL`.
     pub ssh: Option<SshOptions>,
+    /// Environment that locates the system and global `git` configuration;
+    /// without it only the configuration of the repository is read.
+    pub git_env: Option<GitEnv>,
 }
 
 impl std::fmt::Debug for NetworkOptions {
@@ -393,6 +420,7 @@ impl std::fmt::Debug for NetworkOptions {
         f.debug_struct("NetworkOptions")
             .field("env", &self.env.keys().collect::<Vec<_>>())
             .field("ssh", &self.ssh.is_some())
+            .field("git_env", &self.git_env.is_some())
             .finish()
     }
 }
@@ -411,6 +439,7 @@ impl NetworkOptions {
         Self {
             env,
             ssh: Some(SshOptions::from_ctx(ctx)),
+            git_env: Some(GitEnv::from_host(ctx.host())),
         }
     }
 
@@ -627,7 +656,7 @@ struct Spec {
 }
 
 /// Where the remote repository is.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 enum Target {
     /// Repository on the local file system, served in process.
     Local(PathBuf),
@@ -635,13 +664,37 @@ enum Target {
     Network(String),
 }
 
-/// Remote of a push.
-#[derive(Debug)]
+impl std::fmt::Debug for Target {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Local(path) => f.debug_tuple("Local").field(path).finish(),
+            Self::Network(address) => f
+                .debug_tuple("Network")
+                .field(&redact_url(address))
+                .finish(),
+        }
+    }
+}
+
+/// Remote of a push. `name` never holds credentials: for an address passed
+/// instead of a remote name it is the address without user name and
+/// password.
 struct Remote {
     name: String,
     url: String,
     target: Target,
     fetch: Vec<String>,
+}
+
+impl std::fmt::Debug for Remote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Remote")
+            .field("name", &self.name)
+            .field("url", &redact_url(&self.url))
+            .field("target", &self.target)
+            .field("fetch", &self.fetch)
+            .finish()
+    }
 }
 
 /// Plans a push from the repository containing `path`.
@@ -664,8 +717,16 @@ pub fn plan_push(
     request: &PushRequest,
     network: &NetworkOptions,
 ) -> Result<PlannedPush> {
-    let repo = open_local(path)?;
+    if request.set_upstream && redact_url(&request.remote) != request.remote {
+        return Err(Error::new(
+            ErrorCode::InvalidValue,
+            "set_upstream does not accept an address with credentials; use a configured remote name",
+        )
+        .with_problem("credentials_in_address"));
+    }
+    let repo = open_local(path, network.git_env.as_ref())?;
     let git_dir = repo.git_dir().to_path_buf();
+    let common_dir = common_dir_of(&repo);
     let root = repo.workdir().unwrap_or(&git_dir).to_path_buf();
     let remote = resolve_remote(&repo, &root, &request.remote)?;
     let (advertisement, notes) = read_advertisement(&repo, &remote, network)?;
@@ -679,7 +740,7 @@ pub fn plan_push(
     for spec in &specs {
         let tracking_ref = tracking_name(&remote.fetch, &spec.remote_ref);
         let tracking = match &tracking_ref {
-            Some(name) => send_pack::read_ref(&git_dir, name.as_bytes())?,
+            Some(name) => send_pack::read_ref(&common_dir, name.as_bytes())?,
             None => None,
         };
         let expected = match (&request.force_with_lease, request.force) {
@@ -709,9 +770,10 @@ pub fn plan_push(
         .then(|| upstream_of(&specs, &request.remote))
         .flatten();
     Ok(PlannedPush {
-        pre_push: pre_push_hook(&repo, &git_dir),
+        pre_push: pre_push_hook(&repo, &common_dir),
         root,
         git_dir,
+        common_dir,
         remote: remote.name,
         url: remote.url,
         target: remote.target,
@@ -726,9 +788,15 @@ pub fn plan_push(
     })
 }
 
-fn open_local(path: &Path) -> Result<gix::Repository> {
+/// Opens the repository containing `path`. With `env` the system and global
+/// configuration is read as `git` reads it, so `url.*.insteadOf`, `http.*`,
+/// `credential.*` and `user.*` apply.
+fn open_local(path: &Path, env: Option<&GitEnv>) -> Result<gix::Repository> {
     for dir in path.ancestors() {
-        if let Ok(repo) = gix::open_opts(dir, gix::open::Options::isolated()) {
+        if let Ok(mut repo) = gix::open_opts(dir, nurt_git::repo::open_options()) {
+            if let Some(env) = env {
+                apply_outer_config(&mut repo, env)?;
+            }
             return Ok(repo);
         }
     }
@@ -739,6 +807,30 @@ fn open_local(path: &Path) -> Result<gix::Repository> {
             path.display()
         ),
     ))
+}
+
+fn apply_outer_config(repo: &mut gix::Repository, env: &GitEnv) -> Result<()> {
+    let head = repo.head_name().ok().flatten();
+    let outer =
+        git_config::load_outer_layers(env, repo.git_dir(), head.as_ref().map(AsRef::as_ref))?;
+    let plan = {
+        let local = repo.config_snapshot();
+        git_config::merge_overrides(&local, &outer, env)
+    };
+    plan.apply(repo)
+}
+
+/// Directory that holds references, `packed-refs`, reflogs other than
+/// `HEAD`, the configuration and the hooks; it differs from the repository
+/// directory in a linked working tree.
+fn common_dir_of(repo: &gix::Repository) -> PathBuf {
+    let git_dir = repo.git_dir();
+    let common = repo.common_dir();
+    if common == git_dir {
+        return git_dir.to_path_buf();
+    }
+    let joined = git_dir.join(common);
+    std::fs::canonicalize(&joined).unwrap_or(joined)
 }
 
 fn resolve_remote(repo: &gix::Repository, root: &Path, remote: &str) -> Result<Remote> {
@@ -780,7 +872,7 @@ fn resolve_remote(repo: &gix::Repository, root: &Path, remote: &str) -> Result<R
         Target::Network(parsed.to_bstring().to_str_lossy().into_owned())
     };
     Ok(Remote {
-        name: remote.to_owned(),
+        name: redact_url(remote),
         url,
         target,
         fetch,
@@ -922,12 +1014,28 @@ impl NetworkConnection {
         notable
     }
 
-    fn store_credentials(&self, tx: &mut dyn MutationTx) -> Result<()> {
+    fn store_plan(&self) -> Result<Option<FilePlan>> {
         match &self.credentials {
-            Some(credentials) => write_store_updates(tx, &credentials.report().store_updates),
-            None => Ok(()),
+            Some(credentials) => store_plan(&credentials.report().store_updates),
+            None => Ok(None),
         }
     }
+}
+
+/// Plan that stores the files changed by the credential lookup. A file that
+/// does not exist yet is not created, because `git credential-store`
+/// creates it with mode 0600 and a journaled write of a new file does not
+/// set the mode.
+fn store_plan(updates: &[StoreUpdate]) -> Result<Option<FilePlan>> {
+    let mut plan = FilePlan::new();
+    for update in updates.iter().filter(|update| update.existed) {
+        if std::fs::read(&update.path).is_ok_and(|current| current == update.contents) {
+            continue;
+        }
+        let parent = update.path.parent().unwrap_or(&update.path);
+        plan.replace_locked(parent, &update.path, update.contents.clone())?;
+    }
+    Ok((!plan.is_empty()).then_some(plan))
 }
 
 /// HTTP status behind a transport error that refused the request.
@@ -974,33 +1082,6 @@ fn remote_updated(address: &str, count: usize) -> IrreversibleEntry {
         detail: Some(redact_url(address)),
         ..IrreversibleEntry::new(Irreversible::RemoteRefUpdated)
     }
-}
-
-/// Writes the `store` files changed by the credential lookup. A file that
-/// does not exist yet is not created, because `git credential-store`
-/// creates it with mode 0600 and a journaled write of a new file does not
-/// set the mode.
-fn write_store_updates(tx: &mut dyn MutationTx, updates: &[StoreUpdate]) -> Result<()> {
-    let mut ops = Vec::new();
-    for update in updates.iter().filter(|update| update.existed) {
-        if std::fs::read(&update.path).is_ok_and(|current| current == update.contents) {
-            continue;
-        }
-        let path = AbsPath::new(&update.path).map_err(|_| {
-            Error::new(
-                ErrorCode::Io,
-                format!(
-                    "the credential file `{}` is not an absolute path; set HOME to an absolute directory",
-                    update.path.display()
-                ),
-            )
-        })?;
-        ops.push(FileOp::write(path, update.contents.clone()));
-    }
-    if !ops.is_empty() {
-        apply_ops(tx, ops)?;
-    }
-    Ok(())
 }
 
 fn specs(
@@ -1290,15 +1371,15 @@ fn upstream_of(specs: &[Spec], remote: &str) -> Option<Upstream> {
     })
 }
 
-fn pre_push_hook(repo: &gix::Repository, git_dir: &Path) -> Option<PathBuf> {
+fn pre_push_hook(repo: &gix::Repository, common_dir: &Path) -> Option<PathBuf> {
     let config = repo.config_snapshot();
     let dir = config
         .trusted_path("core.hooksPath")
         .ok()
         .flatten()
         .map_or_else(
-            || git_dir.join("hooks"),
-            |path| repo.workdir().unwrap_or(git_dir).join(path),
+            || common_dir.join("hooks"),
+            |path| repo.workdir().unwrap_or(common_dir).join(path),
         );
     let hook = dir.join("pre-push");
     is_executable(&hook).then_some(hook)
@@ -1325,6 +1406,7 @@ fn is_executable(path: &Path) -> bool {
 /// Changes of the local repository that follow the accepted updates.
 struct LocalRefs {
     git_dir: PathBuf,
+    common_dir: PathBuf,
     identity: Identity,
     policy: LogPolicy,
     updates: Vec<RefUpdate>,
@@ -1349,7 +1431,7 @@ impl LocalRefs {
             let Some(tracking) = &update.tracking_ref else {
                 continue;
             };
-            let current = send_pack::read_ref(&self.git_dir, tracking.as_bytes())?;
+            let current = send_pack::read_ref(&self.common_dir, tracking.as_bytes())?;
             let target = match update.status {
                 GitRefStatus::Deleted => None,
                 _ => update.new,
@@ -1364,7 +1446,8 @@ impl LocalRefs {
             }
         }
         let mut plan = FilePlan::new();
-        send_pack::plan_ref_edits(
+        plan_ref_edits_in(
+            &self.common_dir,
             &self.git_dir,
             &edits,
             &self.identity,
@@ -1378,14 +1461,14 @@ impl LocalRefs {
             })
         });
         if let Some(upstream) = upstream {
-            plan_upstream(&self.git_dir, upstream, &mut plan)?;
+            plan_upstream(&self.common_dir, upstream, &mut plan)?;
         }
         Ok((plan, upstream.is_some()))
     }
 }
 
-fn plan_upstream(git_dir: &Path, upstream: &Upstream, plan: &mut FilePlan) -> Result<()> {
-    let path = git_dir.join("config");
+fn plan_upstream(common_dir: &Path, upstream: &Upstream, plan: &mut FilePlan) -> Result<()> {
+    let path = common_dir.join("config");
     let bytes = std::fs::read(&path).map_err(|error| {
         Error::new(
             ErrorCode::Io,
@@ -1394,7 +1477,7 @@ fn plan_upstream(git_dir: &Path, upstream: &Upstream, plan: &mut FilePlan) -> Re
     })?;
     let updated = set_upstream_config(&bytes, &upstream.branch, &upstream.remote, &upstream.merge);
     if updated != bytes {
-        plan.replace_locked(git_dir, &path, updated)?;
+        plan.replace_locked(common_dir, &path, updated)?;
     }
     Ok(())
 }
@@ -1403,7 +1486,7 @@ fn plan_upstream(git_dir: &Path, upstream: &Upstream, plan: &mut FilePlan) -> Re
 /// a configuration file; existing values are replaced in place and missing
 /// keys are added at the end of the section, as `git config` does.
 fn set_upstream_config(text: &[u8], branch: &str, remote: &str, merge: &str) -> Vec<u8> {
-    let header = format!("[branch \"{branch}\"]");
+    let header = format!("[branch \"{}\"]", escape_subsection(branch));
     let wanted = [
         ("remote", config_value(remote)),
         ("merge", config_value(merge)),
@@ -1448,6 +1531,12 @@ fn set_upstream_config(text: &[u8], branch: &str, remote: &str, merge: &str) -> 
     out
 }
 
+/// Escapes a section subname as `git config` does: `\` and `"` get a
+/// backslash.
+fn escape_subsection(name: &str) -> String {
+    name.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 fn config_key(line: &[u8]) -> Option<&'static str> {
     let key = line.split_str(b"=").next()?.trim().to_ascii_lowercase();
     match key.as_slice() {
@@ -1465,25 +1554,30 @@ fn config_value(value: &str) -> String {
     }
 }
 
-/// Sink of the reference changes accepted by a local remote: the changes of
-/// the remote, the remote-tracking references and the upstream
-/// configuration are declared in one call of the transaction.
+/// Sink of the reference changes accepted by the remote: the changes of a
+/// local remote, the remote-tracking references, the upstream configuration
+/// and the credential files are declared in one call of the transaction.
 struct PushSink<'t> {
     tx: &'t mut dyn MutationTx,
     local: LocalRefs,
     applied: bool,
     upstream_set: bool,
     changed: Vec<PathBuf>,
+    store: Option<FilePlan>,
+    remote_updated: usize,
 }
 
 impl PushSink<'_> {
     fn apply_plans(&mut self, remote: Option<&FilePlan>, accepted: &[BString]) -> Result<()> {
         let (local, upstream_set) = self.local.plan(accepted)?;
-        let mut plans = Vec::with_capacity(2);
+        let store = self.store.take();
+        let mut plans = Vec::with_capacity(3);
         plans.extend(remote);
         plans.push(&local);
+        let repository_plans = plans.len();
+        plans.extend(store.as_ref());
         send_pack::preserve_and_apply(&mut *self.tx, &plans)?;
-        for plan in plans {
+        for plan in &plans[..repository_plans] {
             self.changed.extend(plan.changed_files());
         }
         self.applied = true;
@@ -1557,6 +1651,11 @@ impl PlannedPush {
     /// Runs the `pre-push` hook, sends the updates and moves the
     /// remote-tracking references through `tx`.
     ///
+    /// Every target of the transaction is declared before the first change.
+    /// When a step fails after updates were sent to a remote that is not on
+    /// the local file system, the error has `effect_applied` set and lists
+    /// the references sent in its details.
+    ///
     /// # Errors
     ///
     /// Fails with `E_GIT_HOOK` when the `pre-push` hook declines,
@@ -1566,22 +1665,17 @@ impl PlannedPush {
     /// transaction back. Rejected updates are not errors here; see
     /// [`PushOutcome::check`].
     pub fn apply(self, tx: &mut dyn MutationTx, context: &PushContext<'_>) -> Result<PushOutcome> {
-        let mut repo = open_local(&self.root)?;
+        let mut repo = open_local(&self.root, self.network.git_env.as_ref())?;
         repo.objects.prevent_pack_unload();
         let hooks_skipped = self.run_pre_push(context)?;
         let mut outcome = self.preview();
         outcome.hooks_skipped = hooks_skipped;
         outcome.upstream = None;
-        let commands: Vec<RefCommand> = self
-            .updates
-            .iter()
-            .filter(|update| update.is_sent())
-            .map(|update| update.command(self.hash))
-            .collect();
         let mut sink = PushSink {
             tx,
             local: LocalRefs {
                 git_dir: self.git_dir.clone(),
+                common_dir: self.common_dir.clone(),
                 identity: context.identity.clone(),
                 policy: LogPolicy::of(&repo),
                 updates: self.updates.clone(),
@@ -1590,14 +1684,33 @@ impl PlannedPush {
             applied: false,
             upstream_set: false,
             changed: Vec::new(),
+            store: None,
+            remote_updated: 0,
         };
+        self.execute(&repo, &mut sink, context, outcome)
+            .map_err(|error| self.with_remote_effect(error, sink.remote_updated))
+    }
+
+    fn execute(
+        &self,
+        repo: &gix::Repository,
+        sink: &mut PushSink<'_>,
+        context: &PushContext<'_>,
+        mut outcome: PushOutcome,
+    ) -> Result<PushOutcome> {
+        let commands: Vec<RefCommand> = self
+            .updates
+            .iter()
+            .filter(|update| update.is_sent())
+            .map(|update| update.command(self.hash))
+            .collect();
         if !commands.is_empty() {
             let sent = match &self.target {
                 Target::Local(path) => {
-                    self.transfer_local(&repo, path, &commands, &mut sink, context, &mut outcome)?
+                    self.transfer_local(repo, path, &commands, sink, context, &mut outcome)?
                 }
                 Target::Network(address) => {
-                    self.transfer_network(&repo, address, &commands, &mut sink, &mut outcome)?
+                    self.transfer_network(repo, address, &commands, sink, &mut outcome)?
                 }
             };
             merge_report(&mut outcome.updates, sent.report.as_ref());
@@ -1620,8 +1733,31 @@ impl PlannedPush {
         if sink.upstream_set {
             outcome.upstream = self.preview().upstream;
         }
-        outcome.changed_files = sink.changed;
+        outcome.changed_files = std::mem::take(&mut sink.changed);
         Ok(outcome)
+    }
+
+    /// Marks an error raised after updates reached a remote outside the
+    /// local file system: the remote keeps them although the transaction is
+    /// rolled back.
+    fn with_remote_effect(&self, mut error: Error, sent: usize) -> Error {
+        let Target::Network(address) = &self.target else {
+            return error;
+        };
+        if sent == 0 {
+            return error;
+        }
+        let refs: Vec<&str> = self
+            .updates
+            .iter()
+            .filter(|update| update.is_sent())
+            .map(|update| update.remote_ref.as_str())
+            .collect();
+        error = error
+            .with_detail("remote", serde_json::Value::from(redact_url(address)))
+            .with_detail("remote_refs_sent", serde_json::Value::from(refs));
+        error.effect_applied = true;
+        error
     }
 
     fn run_pre_push(&self, context: &PushContext<'_>) -> Result<bool> {
@@ -1636,7 +1772,7 @@ impl PlannedPush {
             _ => return Ok(true),
         };
         let stdin = pre_push_input(&self.updates, self.hash);
-        let args = vec![self.remote.clone(), self.url.clone()];
+        let args = vec![self.remote.clone(), redact_url(&self.url)];
         let output =
             ProcessHooks::new(host, context.cancel).run(hook, &args, &stdin, &self.root, &[])?;
         if output.success {
@@ -1701,9 +1837,10 @@ impl PlannedPush {
         Ok(sent)
     }
 
-    /// Sends the updates over HTTP or SSH. Updates the remote may have
-    /// applied are marked irreversible, including those of a request that
-    /// failed after it was sent.
+    /// Sends the updates over HTTP or SSH. The local changes that follow are
+    /// checked for locks and names before anything is sent. Updates the
+    /// remote may have applied are marked irreversible, including those of a
+    /// request that failed after it was sent.
     fn transfer_network(
         &self,
         repo: &gix::Repository,
@@ -1714,6 +1851,12 @@ impl PlannedPush {
     ) -> Result<SendOutcome> {
         let mut connection = NetworkConnection::open(repo, &self.remote, address, &self.network)?;
         let advertisement = connection.discover()?;
+        let store = connection.store_plan()?;
+        let names: Vec<BString> = commands
+            .iter()
+            .map(|command| command.name.clone())
+            .collect();
+        sink.local.plan(&names)?;
         let sent = send_pack::send(
             connection.transport.as_mut(),
             repo,
@@ -1739,10 +1882,11 @@ impl PlannedPush {
         };
         if accepted > 0 {
             sink.tx.mark_irreversible(remote_updated(address, accepted));
+            sink.remote_updated = accepted;
         }
         outcome.transport_notable = connection.notable();
         if sent.is_ok() {
-            connection.store_credentials(&mut *sink.tx)?;
+            sink.store = store;
         }
         sent
     }
@@ -1887,7 +2031,10 @@ impl EffectStage for PushCommand {
         let planned = plan
             .take_state::<PlannedPush>()
             .ok_or_else(|| Error::new(ErrorCode::Internal, "the plan of git.push is missing"))?;
-        let identity = identity_of(ctx, &open_local(&planned.root)?);
+        let identity = identity_of(
+            ctx,
+            &open_local(&planned.root, planned.network.git_env.as_ref())?,
+        );
         let context = PushContext {
             identity,
             host: ctx.process(),
@@ -2027,6 +2174,45 @@ mod tests {
         );
         assert_eq!(outcome.state(), GitEffectState::UpToDate);
         assert!(tx.targets().is_empty());
+    }
+
+    #[test]
+    fn writes_tracking_refs_and_upstream_to_the_common_directory_of_a_linked_worktree() {
+        let remote = Fixture::bare();
+        let local = linked(&remote);
+        let tip = local.commit("main", &[("a.txt", "one\n")], &[]);
+        let admin = local.git_dir().join("worktrees").join("wt");
+        let work = local.root().with_file_name("wt");
+        std::fs::create_dir_all(&admin).unwrap();
+        std::fs::create_dir_all(&work).unwrap();
+        std::fs::write(work.join(".git"), format!("gitdir: {}\n", admin.display())).unwrap();
+        std::fs::write(
+            admin.join("gitdir"),
+            format!("{}\n", work.join(".git").display()),
+        )
+        .unwrap();
+        std::fs::write(admin.join("commondir"), "../..\n").unwrap();
+        std::fs::write(admin.join("HEAD"), "ref: refs/heads/main\n").unwrap();
+        let mut request = PushRequest::new("main");
+        request.set_upstream = true;
+        let host = ScriptHost::default();
+        let cancel = CancelToken::new();
+        let context = PushContext {
+            identity: identity(),
+            host: Some(&host),
+            cancel: &cancel,
+        };
+        let mut tx = RecordingTx::new();
+        let outcome = plan_push(&work, &request)
+            .and_then(|planned| planned.apply(&mut tx, &context))
+            .unwrap();
+        assert_eq!(remote.ref_value("refs/heads/main"), Some(tip));
+        assert_eq!(local.ref_value("refs/remotes/origin/main"), Some(tip));
+        assert_eq!(outcome.upstream.as_deref(), Some("origin/main"));
+        assert!(!admin.join("refs").exists());
+        assert!(!admin.join("config").exists());
+        let config = std::fs::read_to_string(local.git_dir().join("config")).unwrap();
+        assert!(config.contains("[branch \"main\"]"));
     }
 
     #[test]
@@ -2386,6 +2572,55 @@ mod tests {
             String::from_utf8(replaced).unwrap(),
             "[branch \"main\"]\n\tmerge = refs/heads/main\n\trebase = true\n\tremote = \"my remote\"\n[core]\n\tbare = false\n"
         );
+    }
+
+    #[test]
+    fn escapes_quotes_in_the_branch_section_name() {
+        let injected = "a\"]pushRemote=https://h/r.git";
+        let text = set_upstream_config(b"", injected, "origin", "refs/heads/a");
+        let text = String::from_utf8(text).unwrap();
+        assert!(text.starts_with("[branch \"a\\\"]pushRemote=https://h/r.git\"]\n"));
+        let again = set_upstream_config(text.as_bytes(), injected, "other", "refs/heads/a");
+        assert_eq!(
+            String::from_utf8(again).unwrap().matches("[branch").count(),
+            1
+        );
+        assert_eq!(escape_subsection("a\\b"), "a\\\\b");
+    }
+
+    #[test]
+    fn keeps_credentials_of_an_address_out_of_the_remote_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = gix::init(dir.path()).unwrap();
+        let address = "https://user:secret@127.0.0.1:1/r.git";
+        let remote = resolve_remote(&repo, dir.path(), address).unwrap();
+        assert_eq!(remote.name, "https://127.0.0.1:1/r.git");
+        assert!(!format!("{remote:?}").contains("secret"));
+    }
+
+    #[test]
+    fn rejects_set_upstream_with_an_address_holding_credentials() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut request = PushRequest::new("main");
+        request.remote = "https://user:secret@127.0.0.1:1/r.git".to_owned();
+        request.set_upstream = true;
+        let error = plan_push(dir.path(), &request).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert!(!error.message.contains("secret"));
+    }
+
+    #[test]
+    fn redacts_credentials_in_debug_output_of_remote_types() {
+        let address = "https://user:secret@example.com/r.git";
+        let remote = Remote {
+            name: redact_url(address),
+            url: address.to_owned(),
+            target: Target::Network(address.to_owned()),
+            fetch: Vec::new(),
+        };
+        let text = format!("{remote:?}");
+        assert!(!text.contains("secret"));
+        assert!(text.contains("https://example.com/r.git"));
     }
 
     #[test]

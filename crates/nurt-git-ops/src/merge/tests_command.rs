@@ -206,7 +206,7 @@ impl Repo {
         let ctx = ApplyContext::open(self.gix())?;
         let plan = plan_merge(&ctx, request)?;
         let mut tx = self.journal.begin();
-        let result = apply_merge(&mut tx, &ctx, plan, None)?;
+        let result = apply_merge(&mut tx, &ctx, plan)?;
         Box::new(tx).commit()?;
         Ok(result)
     }

@@ -56,9 +56,16 @@ paths that the merge did not touch are kept.
 Every check that can refuse a merge runs before the first change: an
 operation in progress, unresolved paths, staged changes (for a three-way
 merge), local changes and untracked files in the way of the result.
-Configured merge drivers (`merge.<name>.driver`) run as user programs
-through the program launching service when the merge is applied; their
-effects are marked irreversible.
+Configured merge drivers (`merge.<name>.driver`) are not run. The built-in
+text driver merges the file and the path is reported as
+`filter_not_applied`.
+
+Directory renames are applied as with `merge.directoryRenames=true`: a path
+added on one side in a directory that the other side renamed is moved to
+the renamed directory and the merge stays clean. Git, with its default
+`merge.directoryRenames=conflict`, performs the same move and additionally
+reports a `file location` conflict, leaving the moved path at stage 3 or 2.
+The `merge.directoryRenames` setting is not read.
 
 ## Parameters
 

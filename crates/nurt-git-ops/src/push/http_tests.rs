@@ -286,6 +286,7 @@ fn asks_for_credentials_and_never_sends_them_over_plain_http() {
     let network = NetworkOptions {
         env: BTreeMap::from([("NURT_GIT_TOKEN".to_owned(), "secret-token".to_owned())]),
         ssh: None,
+        git_env: None,
     };
     let (outcome, _) = push(&local, &PushRequest::new("main"), &network);
     let error = outcome.unwrap_err();
@@ -380,7 +381,8 @@ fn writes_changed_credential_stores_only() {
         },
     ];
     let mut tx = RecordingTx::new();
-    write_store_updates(&mut tx, &updates).unwrap();
+    let plan = store_plan(&updates).unwrap().unwrap();
+    send_pack::preserve_and_apply(&mut tx, &[&plan]).unwrap();
     assert_eq!(tx.targets().len(), 1);
     assert_eq!(
         std::fs::read(&existing).unwrap(),
