@@ -22,10 +22,31 @@ pub(crate) fn is_habit(table: &BashTable, tokens: &[PosixToken]) -> bool {
     let Some(first) = first_command_word(tokens) else {
         return false;
     };
-    if !table.is_habit(&first.raw) || has_nurt_notation(tokens) {
+    if has_nurt_notation(tokens) {
         return false;
     }
+    if !table.is_habit(&first.raw) {
+        return starts_with_assignment(tokens);
+    }
     table.is_shell_only(&first.raw) || has_shell_feature(tokens)
+}
+
+/// Whether the statement starts with a habit word and shows no Nurt
+/// notation, whatever else it shows. The caller uses this for a first word
+/// that has no meaning in Nurt (`touch`, `gzip`), where no features are needed
+/// to tell that the statement is written for a shell.
+pub(crate) fn is_habit_by_word(table: &BashTable, tokens: &[PosixToken]) -> bool {
+    first_command_word(tokens)
+        .is_some_and(|first| table.is_habit(&first.raw) && !has_nurt_notation(tokens))
+}
+
+/// An assignment before the program (`CI=1 npm test`) exists only in the
+/// shell, so the program that follows it may be any program.
+fn starts_with_assignment(tokens: &[PosixToken]) -> bool {
+    tokens.iter().find_map(|token| match &token.kind {
+        PosixTokenKind::Word(word) => Some(is_assignment(word)),
+        _ => None,
+    }) == Some(true)
 }
 
 /// First word that is not an assignment.
@@ -197,7 +218,9 @@ mod tests {
     #[test]
     fn assignment_before_a_habit_word() {
         assert!(habit("LC_ALL=C sort /a"));
-        assert!(!habit("LC_ALL=C make"));
+        assert!(habit("LC_ALL=C make"));
+        assert!(habit("CI=1 npm test"));
+        assert!(!habit("CI=1"));
     }
 
     #[test]

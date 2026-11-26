@@ -1,12 +1,11 @@
 ---
 title: Nurt for PowerShell users
 ---
-<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
-<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
-<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Nurt for PowerShell users
 
-Every row pairs a PowerShell command with its form in Nurt. The last column states whether Nurt corrects the habit automatically or rejects it with an error that carries the fix.
+Every row pairs a PowerShell command with its form in Nurt. The last column states whether Nurt corrects the habit automatically, rejects it with an error that carries the fix, or rejects it with an error that carries no program and asks for the program of the row.
+
+The paths are those of a Windows host, and the call parameter `base` is `C:/Users/user`.
 
 ## Files and directories
 
@@ -28,7 +27,7 @@ Every row pairs a PowerShell command with its form in Nurt. The last column stat
 | P03 | `Get-Content C:\Users\user\a.log -Tail 20` | `read "C:/Users/user/a.log" last: 20` | corrected automatically |
 | P05 | `Select-String -Pattern todo -Path C:\Users\user\app\a.go` | `search /todo/ "C:/Users/user/app/a.go" case_sensitive: false` | corrected automatically: Select-String ignores letter case by default, so the pattern is case-insensitive |
 | P21 | `Get-FileHash C:\Users\user\a.zip -Algorithm SHA256` | `hash "C:/Users/user/a.zip" algorithm: sha256` | corrected automatically |
-| P20 | `Compare-Object (Get-Content a.txt) (Get-Content b.txt)` | `diff "C:/Users/user/a.txt" "C:/Users/user/b.txt"` | error with fix: only files are compared; the fix names both files |
+| P20 | `Compare-Object (Get-Content a.txt) (Get-Content b.txt)` | `diff "C:/Users/user/a.txt" "C:/Users/user/b.txt"` | corrected automatically: only files are compared; relative paths are resolved against the call parameter base |
 
 ## Writing text
 
@@ -51,7 +50,7 @@ Every row pairs a PowerShell command with its form in Nurt. The last column stat
 | P16 | `Get-Process \| Select-Object -First 5` | `processes \|> first 5` | corrected automatically |
 | P17 | `Get-Process \| Sort-Object WorkingSet -Descending` | `processes \|> sort memory order: desc` | corrected automatically |
 | P18 | `Get-Process \| Measure-Object` | `processes \|> count` | corrected automatically |
-| P19 | `Get-Process \| ForEach-Object { Write-Host $_.Name }` | `processes \|> select name` | error with fix: loops are replaced by pipelines; the fix selects the field |
+| P19 | `Get-Process \| ForEach-Object { Write-Host $_.Name }` | `processes \|> select name` | error without fix: loops are replaced by pipelines; write the pipeline that selects the field |
 
 ## Processes and services
 
@@ -84,5 +83,5 @@ Every row pairs a PowerShell command with its form in Nurt. The last column stat
 | Rule | PowerShell | Nurt | Result |
 |---|---|---|---|
 | P26 | `Start-Sleep -Seconds 5` | `sleep 5s` | corrected automatically |
-| P30 | `Set-Location C:\Users\user\app` | `run ["make"] cwd: "C:/Users/user/app"` | error with fix: there is no current directory; the fix passes the directory as cwd or base |
-| P42 | `Invoke-Expression $command` | `run ["pwsh", "-Command", "Get-Date"] cwd: "C:/Users/user"` | error with fix: the language has no eval; the fix runs the program explicitly |
+| P30 | `Set-Location C:\Users\user\app` | `run ["make"] cwd: "C:/Users/user/app"` | error without fix: there is no current directory; pass the directory of the next program as cwd or base |
+| P42 | `Invoke-Expression $command` | `run ["pwsh", "-Command", "Get-Date"] cwd: "C:/Users/user"` | error without fix: the language has no eval; run the program explicitly |

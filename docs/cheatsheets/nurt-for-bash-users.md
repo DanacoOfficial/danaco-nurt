@@ -1,12 +1,11 @@
 ---
 title: Nurt for bash users
 ---
-<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
-<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
-<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Nurt for bash users
 
-Every row pairs a Bash command with its form in Nurt. The last column states whether Nurt corrects the habit automatically or rejects it with an error that carries the fix.
+Every row pairs a Bash command with its form in Nurt. The last column states whether Nurt corrects the habit automatically, rejects it with an error that carries the fix, or rejects it with an error that carries no program and asks for the program of the row.
+
+The paths are those of a Linux host, and the call parameter `base` is `/home/user/app`.
 
 ## Files and directories
 
@@ -65,10 +64,10 @@ Every row pairs a Bash command with its form in Nurt. The last column states whe
 
 | Rule | Bash | Nurt | Result |
 |---|---|---|---|
-| B29 | `npm run build &` | `run ["npm", "run", "build"] cwd: "/home/user/app" background: true` | error with fix: there is no current directory; the fix passes the directory as cwd or base |
+| B29 | `npm run build &` | `run ["npm", "run", "build"] cwd: "/home/user/app" background: true` | error without fix: `&` is not part of the language; write the program with background: true and the directory as cwd |
 | B30 | `timeout 60 make test` | `run ["make", "test"] cwd: "/home/user/app" timeout: 60s` | error with fix: there is no current directory; the fix passes the directory as cwd or base |
 | B20 | `cd /home/user/app && make` | `run ["make"] cwd: "/home/user/app"` | corrected automatically: only a change to an absolute directory in the same line is converted |
-| B31 | `CI=1 npm test` | `run ["npm", "test"] cwd: "/home/user/app" env: {CI: "1"}` | error with fix: there is no current directory; the fix passes the directory as cwd or base |
+| B31 | `CI=1 npm test` | `run ["npm", "test"] cwd: "/home/user/app" env: {"CI": "1"}` | error with fix: there is no current directory; the fix passes the directory as cwd or base |
 
 ## Network
 
@@ -94,6 +93,6 @@ Every row pairs a Bash command with its form in Nurt. The last column states whe
 
 | Rule | Bash | Nurt | Result |
 |---|---|---|---|
-| B22 | `mkdir /home/user/out && cp /home/user/a.txt /home/user/out` | `create "/home/user/out" type: directory` | error with fix: two changing commands are not run in one program; the fix is one call per change |
-| B25 | `rm -rf "$BUILD"/*` | `find "/home/user/app/build" glob: "*" depth: 1 \|> remove` | error with fix: there are no variables in text; the fix names the directory |
+| B22 | `mkdir /home/user/out && cp /home/user/a.txt /home/user/out` | `create "/home/user/out" type: directory parents: false` | error with fix: two changing commands are not run in one program; the fix is one call per change, this is the first |
+| B25 | `rm -rf "$BUILD"/*` | `find "/home/user/app/build" glob: "*" depth: 1 \|> remove` | error without fix: there are no variables in text; write the directory |
 | B28 | `sudo systemctl restart nginx` | `services name: "nginx" \|> restart` | error with fix: the language has no privilege elevation |

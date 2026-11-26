@@ -14,11 +14,15 @@
 //! trailing separator is removed except at a root. The letter case of path
 //! segments is never changed.
 
-use nurt_contracts::ast::Expr;
+use std::ops::Range;
+
+use nurt_contracts::ast::{Expr, Span};
 use nurt_contracts::error::{At, Error, ErrorCode, Stage};
 use nurt_contracts::report::TextPosition;
+use nurt_syntax::lex::unknown_escape_texts;
 
 use super::literal::{regex_literal, text_literal};
+use super::locate::{Locator, offset_of};
 use super::rules::Rule;
 use crate::record::{Correction, CorrectionKind};
 
@@ -330,19 +334,23 @@ fn split_root(path: &str) -> (&str, &str) {
     }
 }
 
-/// Reads a text with unknown escapes according to its place (`L24`, class P).
+/// Reads a text with escapes that change a pattern or a path according to its
+/// place (`L24`, class P).
 ///
 /// The literal is passed as written, including quotes, for example
 /// `"\d+"` or `"C:\temp"`. In a regular expression place the characters
-/// between the quotes become the pattern; in a path place they become the
-/// path, so that backslashes read as separators. The characters of the source
-/// are kept in both cases. Returns `Ok(None)` when the literal has no escape
-/// that needs another reading.
+/// between the quotes become the pattern when an escape is unknown; in a path
+/// place they become the path when the text is written as a Windows path
+/// (`C:\`, `\\server`, `.\`) and has an unknown escape or one that makes a
+/// control character (`\t`, `\n`), so that backslashes read as separators.
+/// The characters of the source are kept in both cases. Returns `Ok(None)`
+/// when the literal has no escape that needs another reading.
 ///
 /// # Errors
 ///
-/// `E_ESCAPE` in a text place, with the literal rewritten as raw text in
-/// `fix`.
+/// `E_ESCAPE` for an unknown escape in a text place, and in a path place when
+/// the text is not written as a Windows path, with the literal rewritten as
+/// raw text in `fix`.
 ///
 /// # Examples
 ///
@@ -370,15 +378,187 @@ pub fn reinterpret_escapes(
     let escapes = Escapes::of(content);
     match place {
         EscapePlace::Regex if escapes.unknown => Ok(Some(regex_fix(content, written, at))),
-        EscapePlace::Path if escapes.unknown || escapes.control => {
+        EscapePlace::Path
+            if looks_like_windows_path(content) && (escapes.unknown || escapes.control) =>
+        {
             if escapes.quote {
                 return Ok(None);
             }
             Ok(Some(path_fix(content, written, at)))
         }
-        EscapePlace::Text if escapes.unknown => Err(escape_error(content, written, at)),
+        EscapePlace::Path | EscapePlace::Text if escapes.unknown => {
+            Err(escape_error(content, written, at))
+        }
         _ => Ok(None),
     }
+}
+
+/// Whether a text starts like a Windows path: a drive letter with `:\`, a UNC
+/// prefix `\\` or a relative `.\`.
+fn looks_like_windows_path(content: &str) -> bool {
+    let bytes = content.as_bytes();
+    let drive = bytes.first().is_some_and(u8::is_ascii_alphabetic)
+        && bytes.get(1) == Some(&b':')
+        && bytes.get(2) == Some(&b'\\');
+    drive || content.starts_with("\\\\") || content.starts_with(".\\")
+}
+
+/// A text literal of a program that has an escape the language does not have.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EscapedText {
+    /// Position of the literal in the program text.
+    pub at: TextPosition,
+    /// The literal as written, quotes included.
+    pub written: String,
+    range: Range<usize>,
+}
+
+/// The text literals of a program text that have an escape the language does
+/// not have, in the order of the text.
+///
+/// A program that holds one does not parse strictly (`E_ESCAPE`); the parser
+/// that keeps such a text leaves its reading to the place of the literal, see
+/// [`reinterpret_escapes`].
+///
+/// # Examples
+///
+/// ```
+/// use nurt_correct::lexical::paths::escaped_texts;
+///
+/// let texts = escaped_texts(r#"search "\d+" "/srv""#);
+/// assert_eq!(texts.len(), 1);
+/// assert_eq!(texts[0].written, r#""\d+""#);
+/// assert_eq!((texts[0].at.line, texts[0].at.column), (1, 8));
+/// ```
+#[must_use]
+pub fn escaped_texts(source: &str) -> Vec<EscapedText> {
+    let locator = Locator::identity(source);
+    unknown_escape_texts(source)
+        .into_iter()
+        .filter_map(|range| {
+            Some(EscapedText {
+                at: locator.at(range.clone()),
+                written: source.get(range.clone())?.to_owned(),
+                range,
+            })
+        })
+        .collect()
+}
+
+/// The text literal at the span of a node of the tree, as written in the
+/// program text the tree was read from; `None` when the span is not a text
+/// literal of that text.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_contracts::ast::Span;
+/// use nurt_correct::lexical::paths::written_literal;
+///
+/// let span = Span { line: 1, column: 8, end_line: 1, end_column: 13 };
+/// assert_eq!(written_literal(r#"search "\d+" "/srv""#, span), Some(r#""\d+""#));
+/// ```
+#[must_use]
+pub fn written_literal(source: &str, span: Span) -> Option<&str> {
+    let start = offset_of(source, span.line, span.column);
+    let end = offset_of(source, span.end_line, span.end_column);
+    source
+        .get(start..end)
+        .filter(|text| text.len() >= 2 && text.starts_with('"') && text.ends_with('"'))
+}
+
+/// Reads the text literal at the span of a node of the tree according to its
+/// place, as [`reinterpret_escapes`] does for a literal as written.
+///
+/// The error is [`escape_error_in`]: the whole program as a fix.
+///
+/// # Errors
+///
+/// `E_ESCAPE`, see [`reinterpret_escapes`].
+///
+/// # Examples
+///
+/// ```
+/// use nurt_contracts::ast::Span;
+/// use nurt_correct::lexical::paths::{EscapePlace, read_escapes_at};
+///
+/// let source = r#"search "\d+" "/srv""#;
+/// let span = Span { line: 1, column: 8, end_line: 1, end_column: 13 };
+/// assert!(read_escapes_at(source, span, EscapePlace::Regex)?.is_some());
+/// let error = read_escapes_at(source, span, EscapePlace::Text).unwrap_err();
+/// assert_eq!(error.data().fix, [r#"search r"\d+" "/srv""#]);
+/// # Ok::<(), nurt_contracts::error::Error>(())
+/// ```
+pub fn read_escapes_at(
+    source: &str,
+    span: Span,
+    place: EscapePlace,
+) -> Result<Option<LiteralFix>, Error> {
+    let Some(written) = written_literal(source, span) else {
+        return Ok(None);
+    };
+    let at = TextPosition {
+        line: span.line,
+        column: span.column,
+        length: None,
+    };
+    match reinterpret_escapes(written, place, at) {
+        Err(error) => Err(escaped_texts(source)
+            .iter()
+            .find(|text| (text.at.line, text.at.column) == (span.line, span.column))
+            .map_or(error, |text| escape_error_in(source, text))),
+        other => other,
+    }
+}
+
+/// `E_ESCAPE` for a text literal that no place of the program reads in
+/// another way, with the programs that write it as raw text, or as a path
+/// with `/` when it is written as a Windows path, in `fix`.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_correct::lexical::paths::{escape_error_in, escaped_texts};
+///
+/// let source = r#"write "/srv/a.txt" "a\d" mode: append"#;
+/// let texts = escaped_texts(source);
+/// let error = escape_error_in(source, &texts[0]);
+/// assert_eq!(error.data().fix, [r#"write "/srv/a.txt" r"a\d" mode: append"#]);
+/// ```
+#[must_use]
+pub fn escape_error_in(source: &str, text: &EscapedText) -> Error {
+    let content = text
+        .written
+        .get(1..text.written.len() - 1)
+        .unwrap_or_default();
+    let program = |literal: &str| {
+        format!(
+            "{}{literal}{}",
+            source.get(..text.range.start).unwrap_or_default(),
+            source.get(text.range.end..).unwrap_or_default()
+        )
+    };
+    let raw = text_literal(content);
+    let mut error = Error::new(
+        ErrorCode::Escape,
+        format!(
+            "unknown escape in text {}; write it as raw text {raw}",
+            text.written
+        ),
+    )
+    .with_stage(Stage::Parse)
+    .with_at(to_at(text.at))
+    .with_found(text.written.clone())
+    .with_problem("unknown_escape")
+    .with_help("text");
+    if !content.contains("\\\"") {
+        error = error.with_fix(program(&raw));
+    }
+    if looks_like_windows_path(content) {
+        let slashed = text_literal(&canonical_path(content));
+        error = error.with_fix(program(&slashed));
+    }
+    error
 }
 
 /// Kinds of escapes found in the characters between the quotes of a text.
@@ -702,6 +882,74 @@ mod tests {
             error.map(|error| error.fix.clone()),
             Some(vec![r#"r"\d+""#.to_owned()])
         );
+    }
+
+    #[test]
+    fn control_escapes_change_only_a_path_written_like_a_windows_path() {
+        let to = |written| {
+            reinterpret_escapes(written, EscapePlace::Path, AT)
+                .ok()
+                .flatten()
+                .map(|fix| fix.correction.to)
+        };
+        assert_eq!(
+            to(r#""C:\temp\new.txt""#).as_deref(),
+            Some(r#"r"C:\temp\new.txt""#)
+        );
+        assert_eq!(
+            to(r#""\\server\tmp""#).as_deref(),
+            Some(r#"r"\\server\tmp""#)
+        );
+        assert_eq!(to(r#"".\new\t""#).as_deref(), Some(r#"r".\new\t""#));
+        assert_eq!(to(r#""/srv/a\nb""#), None);
+        assert_eq!(to(r#""a\tb""#), None);
+    }
+
+    #[test]
+    fn unknown_escape_in_a_path_that_is_not_a_windows_path_is_an_escape_error() {
+        let error = reinterpret_escapes(r#""src\q""#, EscapePlace::Path, AT).err();
+        assert_eq!(error.as_ref().map(Error::code), Some(ErrorCode::Escape));
+        assert_eq!(
+            error.map(|error| error.fix.clone()),
+            Some(vec![r#"r"src\q""#.to_owned()])
+        );
+    }
+
+    #[test]
+    fn finds_the_texts_with_unknown_escapes_and_fixes_their_programs() {
+        let source = "write \"/srv/a.txt\" \"a\\d\" mode: append\nlist \"C:\\proj\\q\"";
+        let texts = escaped_texts(source);
+        let written: Vec<&str> = texts.iter().map(|text| text.written.as_str()).collect();
+        assert_eq!(written, ["\"a\\d\"", "\"C:\\proj\\q\""]);
+        assert_eq!((texts[1].at.line, texts[1].at.column), (2, 6));
+        let first = escape_error_in(source, &texts[0]);
+        assert_eq!(first.code(), ErrorCode::Escape);
+        assert_eq!(
+            first.data().fix,
+            ["write \"/srv/a.txt\" r\"a\\d\" mode: append\nlist \"C:\\proj\\q\""]
+        );
+        let second = escape_error_in(source, &texts[1]);
+        assert_eq!(
+            second.data().fix,
+            [
+                "write \"/srv/a.txt\" \"a\\d\" mode: append\nlist r\"C:\\proj\\q\"",
+                "write \"/srv/a.txt\" \"a\\d\" mode: append\nlist \"C:/proj/q\""
+            ]
+        );
+    }
+
+    #[test]
+    fn reads_the_literal_at_a_span() {
+        let source = "list \"a\"\nfind \"é\\d\"";
+        let span = |line, column, end_column| Span {
+            line,
+            column,
+            end_line: line,
+            end_column,
+        };
+        assert_eq!(written_literal(source, span(1, 6, 9)), Some("\"a\""));
+        assert_eq!(written_literal(source, span(2, 6, 11)), Some("\"é\\d\""));
+        assert_eq!(written_literal(source, span(1, 1, 5)), None);
     }
 
     #[test]

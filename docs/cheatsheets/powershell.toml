@@ -4,6 +4,8 @@
 format = "nurt-correction-table/1"
 shell = "powershell"
 title = "Nurt for PowerShell users"
+host = "windows"
+base = "C:/Users/user"
 
 [[entry]]
 id = "P01"
@@ -95,8 +97,8 @@ id = "P20"
 topic = "Reading and searching text"
 habit = "Compare-Object (Get-Content a.txt) (Get-Content b.txt)"
 canonical = 'diff "C:/Users/user/a.txt" "C:/Users/user/b.txt"'
-outcome = "error"
-note = "only files are compared; the fix names both files"
+outcome = "corrected"
+note = "only files are compared; relative paths are resolved against the call parameter base"
 
 [[entry]]
 id = "P12"
@@ -145,8 +147,9 @@ id = "P19"
 topic = "Pipelines"
 habit = "Get-Process | ForEach-Object { Write-Host $_.Name }"
 canonical = 'processes |> select name'
-outcome = "error"
-note = "loops are replaced by pipelines; the fix selects the field"
+outcome = "rejected"
+code = "E_UNCORRECTABLE"
+note = "loops are replaced by pipelines; write the pipeline that selects the field"
 
 [[entry]]
 id = "P22"
@@ -237,13 +240,15 @@ id = "P30"
 topic = "Other"
 habit = "Set-Location C:\\Users\\user\\app"
 canonical = 'run ["make"] cwd: "C:/Users/user/app"'
-outcome = "error"
-note = "there is no current directory; the fix passes the directory as cwd or base"
+outcome = "rejected"
+code = "E_UNCORRECTABLE"
+note = "there is no current directory; pass the directory of the next program as cwd or base"
 
 [[entry]]
 id = "P42"
 topic = "Other"
 habit = "Invoke-Expression $command"
 canonical = 'run ["pwsh", "-Command", "Get-Date"] cwd: "C:/Users/user"'
-outcome = "error"
-note = "the language has no eval; the fix runs the program explicitly"
+outcome = "rejected"
+code = "E_UNCORRECTABLE"
+note = "the language has no eval; run the program explicitly"

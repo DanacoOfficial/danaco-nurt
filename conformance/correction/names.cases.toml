@@ -8,13 +8,13 @@ id = "correction/names/l01-remove-transposed"
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = "A changing command name one transposition away is corrected; the target is unchanged."
+summary = "A changing command name one transposition away is not corrected; the corrected program is the candidate."
 method = "correct"
 program = 'remvoe "/home/user/app/build/old.log"'
 
-[case.expect]
-program = 'remove "/home/user/app/build/old.log"'
-corrections = [{ rule = "L01", class = "F", from = "remvoe", to = "remove" }]
+[case.expect.error]
+code = "E_AMBIGUOUS"
+candidates = [{ program = 'remove "/home/user/app/build/old.log"' }]
 
 [[case]]
 id = "correction/names/l01-find-transposed"

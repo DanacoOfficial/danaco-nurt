@@ -692,6 +692,12 @@ fn canonical(program: &str, rule: &str, class: &str) -> Value {
     json!({ "canonical": program, "rules": [rule], "class": class })
 }
 
+/// Reaction to a misspelt name of a command that changes the world: the
+/// program does not run and the corrected program is the only candidate.
+fn ambiguous(program: &str) -> Value {
+    json!({ "error": "E_AMBIGUOUS", "candidates": [program] })
+}
+
 fn replace(program: &str, token: &Token, text: &str) -> String {
     format!("{}{text}{}", &program[..token.start], &program[token.end..])
 }
@@ -745,6 +751,11 @@ impl Generator<'_> {
             _ => "V01",
         };
         let expect = match verdict {
+            Verdict::Fuzzy(name)
+                if name == word && kind == "command" && self.world.effecting(word) =>
+            {
+                ambiguous(program)
+            }
             Verdict::Fuzzy(name) if name == word => canonical(program, rule, "F"),
             Verdict::Prefix(name) if name == word => canonical(program, "L05", "F"),
             Verdict::None => json!({ "error": unknown }),
@@ -1204,7 +1215,7 @@ fn generate(world: &World) -> String {
             "variant": "a",
             "expect": case.expect,
             "program_kind": program_kind(world, &program),
-            "intent": "unambiguous",
+            "intent": if case.expect["error"] == "E_AMBIGUOUS" { "ambiguous" } else { "unambiguous" },
             "source": "generated",
             "mutation": mutation,
             "note": format!("Generated from {seed}."),
@@ -1298,6 +1309,13 @@ fn check_name_case(tally: &mut Tally, id: &str, expect: &Value, mutation: &Value
     let intended = mutation["from"].as_str().unwrap_or_default();
     let expected_rule = expect["rules"][0].as_str();
     match (found, expected_rule) {
+        (Match::Corrected(correction), None)
+            if expect["error"] == "E_AMBIGUOUS"
+                && correction.to == intended
+                && correction.effecting =>
+        {
+            tally.corrected += 1;
+        }
         (Match::Corrected(correction), Some(rule))
             if correction.to == intended && correction.rule.to_string() == rule =>
         {

@@ -60,78 +60,78 @@ id = 'correction/generated/command-typos/analyze-check/aanlyze-check'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name aanlyze.check is one edit from analyze.check and from no other name.'
+summary = 'The command name aanlyze.check is one edit from the changing command analyze.check; the correction is offered, not applied.'
 method = "correct"
 program = 'aanlyze.check "/home/user/app"'
 
-[case.expect]
-program = 'analyze.check "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'aanlyze.check', to = 'analyze.check' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'analyze.check "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/analyze-check/anlayze-check'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name anlayze.check is one edit from analyze.check and from no other name.'
+summary = 'The command name anlayze.check is one edit from the changing command analyze.check; the correction is offered, not applied.'
 method = "correct"
 program = 'anlayze.check "/home/user/app"'
 
-[case.expect]
-program = 'analyze.check "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'anlayze.check', to = 'analyze.check' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'analyze.check "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/analyze-check/anaylze-check'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name anaylze.check is one edit from analyze.check and from no other name.'
+summary = 'The command name anaylze.check is one edit from the changing command analyze.check; the correction is offered, not applied.'
 method = "correct"
 program = 'anaylze.check "/home/user/app"'
 
-[case.expect]
-program = 'analyze.check "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'anaylze.check', to = 'analyze.check' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'analyze.check "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/analyze-format/aanlyze-format'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name aanlyze.format is one edit from analyze.format and from no other name.'
+summary = 'The command name aanlyze.format is one edit from the changing command analyze.format; the correction is offered, not applied.'
 method = "correct"
 program = 'aanlyze.format "/home/user/app/src"'
 
-[case.expect]
-program = 'analyze.format "/home/user/app/src"'
-corrections = [{ rule = 'L01', class = 'F', from = 'aanlyze.format', to = 'analyze.format' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'analyze.format "/home/user/app/src"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/analyze-format/anlayze-format'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name anlayze.format is one edit from analyze.format and from no other name.'
+summary = 'The command name anlayze.format is one edit from the changing command analyze.format; the correction is offered, not applied.'
 method = "correct"
 program = 'anlayze.format "/home/user/app/src"'
 
-[case.expect]
-program = 'analyze.format "/home/user/app/src"'
-corrections = [{ rule = 'L01', class = 'F', from = 'anlayze.format', to = 'analyze.format' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'analyze.format "/home/user/app/src"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/analyze-format/anaylze-format'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name anaylze.format is one edit from analyze.format and from no other name.'
+summary = 'The command name anaylze.format is one edit from the changing command analyze.format; the correction is offered, not applied.'
 method = "correct"
 program = 'anaylze.format "/home/user/app/src"'
 
-[case.expect]
-program = 'analyze.format "/home/user/app/src"'
-corrections = [{ rule = 'L01', class = 'F', from = 'anaylze.format', to = 'analyze.format' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'analyze.format "/home/user/app/src"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/analyze-show/aanlyze-show'
@@ -242,78 +242,78 @@ id = 'correction/generated/command-typos/archive-create/acrhive-create'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name acrhive.create is one edit from archive.create and from no other name.'
+summary = 'The command name acrhive.create is one edit from the changing command archive.create; the correction is offered, not applied.'
 method = "correct"
 program = 'find "/home/user/app" |> acrhive.create "/home/user/a.zip"'
 
-[case.expect]
-program = 'find "/home/user/app" |> archive.create "/home/user/a.zip"'
-corrections = [{ rule = 'L01', class = 'F', from = 'acrhive.create', to = 'archive.create' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'find "/home/user/app" |> archive.create "/home/user/a.zip"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/archive-create/arhcive-create'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name arhcive.create is one edit from archive.create and from no other name.'
+summary = 'The command name arhcive.create is one edit from the changing command archive.create; the correction is offered, not applied.'
 method = "correct"
 program = 'find "/home/user/app" |> arhcive.create "/home/user/a.zip"'
 
-[case.expect]
-program = 'find "/home/user/app" |> archive.create "/home/user/a.zip"'
-corrections = [{ rule = 'L01', class = 'F', from = 'arhcive.create', to = 'archive.create' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'find "/home/user/app" |> archive.create "/home/user/a.zip"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/archive-create/arcihve-create'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name arcihve.create is one edit from archive.create and from no other name.'
+summary = 'The command name arcihve.create is one edit from the changing command archive.create; the correction is offered, not applied.'
 method = "correct"
 program = 'find "/home/user/app" |> arcihve.create "/home/user/a.zip"'
 
-[case.expect]
-program = 'find "/home/user/app" |> archive.create "/home/user/a.zip"'
-corrections = [{ rule = 'L01', class = 'F', from = 'arcihve.create', to = 'archive.create' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'find "/home/user/app" |> archive.create "/home/user/a.zip"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/archive-extract/acrhive-extract'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name acrhive.extract is one edit from archive.extract and from no other name.'
+summary = 'The command name acrhive.extract is one edit from the changing command archive.extract; the correction is offered, not applied.'
 method = "correct"
 program = 'acrhive.extract "/home/user/app/a.zip" into: "/home/user/out"'
 
-[case.expect]
-program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out"'
-corrections = [{ rule = 'L01', class = 'F', from = 'acrhive.extract', to = 'archive.extract' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/archive-extract/arhcive-extract'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name arhcive.extract is one edit from archive.extract and from no other name.'
+summary = 'The command name arhcive.extract is one edit from the changing command archive.extract; the correction is offered, not applied.'
 method = "correct"
 program = 'arhcive.extract "/home/user/app/a.zip" into: "/home/user/out"'
 
-[case.expect]
-program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out"'
-corrections = [{ rule = 'L01', class = 'F', from = 'arhcive.extract', to = 'archive.extract' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/archive-extract/arcihve-extract'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name arcihve.extract is one edit from archive.extract and from no other name.'
+summary = 'The command name arcihve.extract is one edit from the changing command archive.extract; the correction is offered, not applied.'
 method = "correct"
 program = 'arcihve.extract "/home/user/app/a.zip" into: "/home/user/out"'
 
-[case.expect]
-program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out"'
-corrections = [{ rule = 'L01', class = 'F', from = 'arcihve.extract', to = 'archive.extract' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'archive.extract "/home/user/app/a.zip" into: "/home/user/out"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/archive-list/acrhive-list'
@@ -411,39 +411,39 @@ id = 'correction/generated/command-typos/attributes/atrtibutes'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name atrtibutes is one edit from attributes and from no other name.'
+summary = 'The command name atrtibutes is one edit from the changing command attributes; the correction is offered, not applied.'
 method = "correct"
 program = 'atrtibutes "/home/user/app/run.sh" mode: "0755"'
 
-[case.expect]
-program = 'attributes "/home/user/app/run.sh" mode: "0755"'
-corrections = [{ rule = 'L01', class = 'F', from = 'atrtibutes', to = 'attributes' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'attributes "/home/user/app/run.sh" mode: "0755"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/attributes/attirbutes'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name attirbutes is one edit from attributes and from no other name.'
+summary = 'The command name attirbutes is one edit from the changing command attributes; the correction is offered, not applied.'
 method = "correct"
 program = 'attirbutes "/home/user/app/run.sh" mode: "0755"'
 
-[case.expect]
-program = 'attributes "/home/user/app/run.sh" mode: "0755"'
-corrections = [{ rule = 'L01', class = 'F', from = 'attirbutes', to = 'attributes' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'attributes "/home/user/app/run.sh" mode: "0755"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/attributes/attrbiutes'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name attrbiutes is one edit from attributes and from no other name.'
+summary = 'The command name attrbiutes is one edit from the changing command attributes; the correction is offered, not applied.'
 method = "correct"
 program = 'attrbiutes "/home/user/app/run.sh" mode: "0755"'
 
-[case.expect]
-program = 'attributes "/home/user/app/run.sh" mode: "0755"'
-corrections = [{ rule = 'L01', class = 'F', from = 'attrbiutes', to = 'attributes' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'attributes "/home/user/app/run.sh" mode: "0755"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/code-actions/cdoe-actions'
@@ -970,39 +970,39 @@ id = 'correction/generated/command-typos/code-rename/cdoe-rename'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name cdoe.rename is one edit from code.rename and from no other name.'
+summary = 'The command name cdoe.rename is one edit from the changing command code.rename; the correction is offered, not applied.'
 method = "correct"
 program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> cdoe.rename "newName"'
 
-[case.expect]
-program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName"'
-corrections = [{ rule = 'L01', class = 'F', from = 'cdoe.rename', to = 'code.rename' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/code-rename/coed-rename'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name coed.rename is one edit from code.rename and from no other name.'
+summary = 'The command name coed.rename is one edit from the changing command code.rename; the correction is offered, not applied.'
 method = "correct"
 program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> coed.rename "newName"'
 
-[case.expect]
-program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName"'
-corrections = [{ rule = 'L01', class = 'F', from = 'coed.rename', to = 'code.rename' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/code-rename/code-ername'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name code.ername is one edit from code.rename and from no other name.'
+summary = 'The command name code.ername is one edit from the changing command code.rename; the correction is offered, not applied.'
 method = "correct"
 program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.ername "newName"'
 
-[case.expect]
-program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName"'
-corrections = [{ rule = 'L01', class = 'F', from = 'code.ername', to = 'code.rename' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'code.symbols "oldName" path: ["/home/user/app/src"] kind: function |> code.rename "newName"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/code-symbols/cdoe-symbols'
@@ -1113,117 +1113,117 @@ id = 'correction/generated/command-typos/compress/cmopress'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name cmopress is one edit from compress and from no other name.'
+summary = 'The command name cmopress is one edit from the changing command compress; the correction is offered, not applied.'
 method = "correct"
 program = 'cmopress "/home/user/app/a.log"'
 
-[case.expect]
-program = 'compress "/home/user/app/a.log"'
-corrections = [{ rule = 'L01', class = 'F', from = 'cmopress', to = 'compress' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'compress "/home/user/app/a.log"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/compress/copmress'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name copmress is one edit from compress and from no other name.'
+summary = 'The command name copmress is one edit from the changing command compress; the correction is offered, not applied.'
 method = "correct"
 program = 'copmress "/home/user/app/a.log"'
 
-[case.expect]
-program = 'compress "/home/user/app/a.log"'
-corrections = [{ rule = 'L01', class = 'F', from = 'copmress', to = 'compress' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'compress "/home/user/app/a.log"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/compress/comrpess'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name comrpess is one edit from compress and from no other name.'
+summary = 'The command name comrpess is one edit from the changing command compress; the correction is offered, not applied.'
 method = "correct"
 program = 'comrpess "/home/user/app/a.log"'
 
-[case.expect]
-program = 'compress "/home/user/app/a.log"'
-corrections = [{ rule = 'L01', class = 'F', from = 'comrpess', to = 'compress' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'compress "/home/user/app/a.log"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/convert/cnovert'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name cnovert is one edit from convert and from no other name.'
+summary = 'The command name cnovert is one edit from the changing command convert; the correction is offered, not applied.'
 method = "correct"
 program = 'cnovert "/home/user/app/a.txt" line_ending: lf'
 
-[case.expect]
-program = 'convert "/home/user/app/a.txt" line_ending: lf'
-corrections = [{ rule = 'L01', class = 'F', from = 'cnovert', to = 'convert' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'convert "/home/user/app/a.txt" line_ending: lf' }]
 
 [[case]]
 id = 'correction/generated/command-typos/convert/covnert'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name covnert is one edit from convert and from no other name.'
+summary = 'The command name covnert is one edit from the changing command convert; the correction is offered, not applied.'
 method = "correct"
 program = 'covnert "/home/user/app/a.txt" line_ending: lf'
 
-[case.expect]
-program = 'convert "/home/user/app/a.txt" line_ending: lf'
-corrections = [{ rule = 'L01', class = 'F', from = 'covnert', to = 'convert' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'convert "/home/user/app/a.txt" line_ending: lf' }]
 
 [[case]]
 id = 'correction/generated/command-typos/convert/conevrt'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name conevrt is one edit from convert and from no other name.'
+summary = 'The command name conevrt is one edit from the changing command convert; the correction is offered, not applied.'
 method = "correct"
 program = 'conevrt "/home/user/app/a.txt" line_ending: lf'
 
-[case.expect]
-program = 'convert "/home/user/app/a.txt" line_ending: lf'
-corrections = [{ rule = 'L01', class = 'F', from = 'conevrt', to = 'convert' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'convert "/home/user/app/a.txt" line_ending: lf' }]
 
 [[case]]
 id = 'correction/generated/command-typos/copy/cpoy'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name cpoy is one edit from copy and from no other name.'
+summary = 'The command name cpoy is one edit from the changing command copy; the correction is offered, not applied.'
 method = "correct"
 program = 'cpoy "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
 
-[case.expect]
-program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'cpoy', to = 'copy' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/copy/coyp'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name coyp is one edit from copy and from no other name.'
+summary = 'The command name coyp is one edit from the changing command copy; the correction is offered, not applied.'
 method = "correct"
 program = 'coyp "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
 
-[case.expect]
-program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'coyp', to = 'copy' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/copy/coy'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name coy is one edit from copy and from no other name.'
+summary = 'The command name coy is one edit from the changing command copy; the correction is offered, not applied.'
 method = "correct"
 program = 'coy "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
 
-[case.expect]
-program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'coy', to = 'copy' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'copy "/home/user/app/a.txt" to: "/home/user/app/b.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/count/cuont'
@@ -1269,78 +1269,78 @@ id = 'correction/generated/command-typos/create/cerate'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name cerate is one edit from create and from no other name.'
+summary = 'The command name cerate is one edit from the changing command create; the correction is offered, not applied.'
 method = "correct"
 program = 'cerate "/home/user/app/out" type: directory'
 
-[case.expect]
-program = 'create "/home/user/app/out" type: directory'
-corrections = [{ rule = 'L01', class = 'F', from = 'cerate', to = 'create' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'create "/home/user/app/out" type: directory' }]
 
 [[case]]
 id = 'correction/generated/command-typos/create/craete'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name craete is one edit from create and from no other name.'
+summary = 'The command name craete is one edit from the changing command create; the correction is offered, not applied.'
 method = "correct"
 program = 'craete "/home/user/app/out" type: directory'
 
-[case.expect]
-program = 'create "/home/user/app/out" type: directory'
-corrections = [{ rule = 'L01', class = 'F', from = 'craete', to = 'create' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'create "/home/user/app/out" type: directory' }]
 
 [[case]]
 id = 'correction/generated/command-typos/create/cretae'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name cretae is one edit from create and from no other name.'
+summary = 'The command name cretae is one edit from the changing command create; the correction is offered, not applied.'
 method = "correct"
 program = 'cretae "/home/user/app/out" type: directory'
 
-[case.expect]
-program = 'create "/home/user/app/out" type: directory'
-corrections = [{ rule = 'L01', class = 'F', from = 'cretae', to = 'create' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'create "/home/user/app/out" type: directory' }]
 
 [[case]]
 id = 'correction/generated/command-typos/decompress/dceompress'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name dceompress is one edit from decompress and from no other name.'
+summary = 'The command name dceompress is one edit from the changing command decompress; the correction is offered, not applied.'
 method = "correct"
 program = 'dceompress "/home/user/app/a.log.gz"'
 
-[case.expect]
-program = 'decompress "/home/user/app/a.log.gz"'
-corrections = [{ rule = 'L01', class = 'F', from = 'dceompress', to = 'decompress' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'decompress "/home/user/app/a.log.gz"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/decompress/deocmpress'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name deocmpress is one edit from decompress and from no other name.'
+summary = 'The command name deocmpress is one edit from the changing command decompress; the correction is offered, not applied.'
 method = "correct"
 program = 'deocmpress "/home/user/app/a.log.gz"'
 
-[case.expect]
-program = 'decompress "/home/user/app/a.log.gz"'
-corrections = [{ rule = 'L01', class = 'F', from = 'deocmpress', to = 'decompress' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'decompress "/home/user/app/a.log.gz"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/decompress/decmopress'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name decmopress is one edit from decompress and from no other name.'
+summary = 'The command name decmopress is one edit from the changing command decompress; the correction is offered, not applied.'
 method = "correct"
 program = 'decmopress "/home/user/app/a.log.gz"'
 
-[case.expect]
-program = 'decompress "/home/user/app/a.log.gz"'
-corrections = [{ rule = 'L01', class = 'F', from = 'decmopress', to = 'decompress' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'decompress "/home/user/app/a.log.gz"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/describe/dsecribe'
@@ -1438,39 +1438,39 @@ id = 'correction/generated/command-typos/disable/dsiable'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name dsiable is one edit from disable and from no other name.'
+summary = 'The command name dsiable is one edit from the changing command disable; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> dsiable'
 
-[case.expect]
-program = 'services name: "nginx" |> disable'
-corrections = [{ rule = 'L01', class = 'F', from = 'dsiable', to = 'disable' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> disable' }]
 
 [[case]]
 id = 'correction/generated/command-typos/disable/diasble'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name diasble is one edit from disable and from no other name.'
+summary = 'The command name diasble is one edit from the changing command disable; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> diasble'
 
-[case.expect]
-program = 'services name: "nginx" |> disable'
-corrections = [{ rule = 'L01', class = 'F', from = 'diasble', to = 'disable' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> disable' }]
 
 [[case]]
 id = 'correction/generated/command-typos/disable/disbale'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name disbale is one edit from disable and from no other name.'
+summary = 'The command name disbale is one edit from the changing command disable; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> disbale'
 
-[case.expect]
-program = 'services name: "nginx" |> disable'
-corrections = [{ rule = 'L01', class = 'F', from = 'disbale', to = 'disable' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> disable' }]
 
 [[case]]
 id = 'correction/generated/command-typos/disks/dsiks'
@@ -1568,78 +1568,78 @@ id = 'correction/generated/command-typos/edit/eidt'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name eidt is one edit from edit and from no other name.'
+summary = 'The command name eidt is one edit from the changing command edit; the correction is offered, not applied.'
 method = "correct"
 program = 'eidt "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}]'
 
-[case.expect]
-program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}]'
-corrections = [{ rule = 'L01', class = 'F', from = 'eidt', to = 'edit' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/edit/edti'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name edti is one edit from edit and from no other name.'
+summary = 'The command name edti is one edit from the changing command edit; the correction is offered, not applied.'
 method = "correct"
 program = 'edti "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}]'
 
-[case.expect]
-program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}]'
-corrections = [{ rule = 'L01', class = 'F', from = 'edti', to = 'edit' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/edit/eit'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name eit is one edit from edit and from no other name.'
+summary = 'The command name eit is one edit from the changing command edit; the correction is offered, not applied.'
 method = "correct"
 program = 'eit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}]'
 
-[case.expect]
-program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}]'
-corrections = [{ rule = 'L01', class = 'F', from = 'eit', to = 'edit' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'edit "/home/user/app/a.txt" changes: [{replace: "a", with: "b"}]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/enable/eanble'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name eanble is one edit from enable and from no other name.'
+summary = 'The command name eanble is one edit from the changing command enable; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> eanble'
 
-[case.expect]
-program = 'services name: "nginx" |> enable'
-corrections = [{ rule = 'L01', class = 'F', from = 'eanble', to = 'enable' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> enable' }]
 
 [[case]]
 id = 'correction/generated/command-typos/enable/enbale'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name enbale is one edit from enable and from no other name.'
+summary = 'The command name enbale is one edit from the changing command enable; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> enbale'
 
-[case.expect]
-program = 'services name: "nginx" |> enable'
-corrections = [{ rule = 'L01', class = 'F', from = 'enbale', to = 'enable' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> enable' }]
 
 [[case]]
 id = 'correction/generated/command-typos/enable/enalbe'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name enalbe is one edit from enable and from no other name.'
+summary = 'The command name enalbe is one edit from the changing command enable; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> enalbe'
 
-[case.expect]
-program = 'services name: "nginx" |> enable'
-corrections = [{ rule = 'L01', class = 'F', from = 'enalbe', to = 'enable' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> enable' }]
 
 [[case]]
 id = 'correction/generated/command-typos/environment/evnironment'
@@ -1919,156 +1919,156 @@ id = 'correction/generated/command-typos/git-branch/gti-branch'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.branch is one edit from git.branch and from no other name.'
+summary = 'The command name gti.branch is one edit from the changing command git.branch; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.branch "/home/user/app"'
 
-[case.expect]
-program = 'git.branch "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.branch', to = 'git.branch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.branch "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-branch/git-rbanch'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.rbanch is one edit from git.branch and from no other name.'
+summary = 'The command name git.rbanch is one edit from the changing command git.branch; the correction is offered, not applied.'
 method = "correct"
 program = 'git.rbanch "/home/user/app"'
 
-[case.expect]
-program = 'git.branch "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.rbanch', to = 'git.branch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.branch "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-branch/git-barnch'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.barnch is one edit from git.branch and from no other name.'
+summary = 'The command name git.barnch is one edit from the changing command git.branch; the correction is offered, not applied.'
 method = "correct"
 program = 'git.barnch "/home/user/app"'
 
-[case.expect]
-program = 'git.branch "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.barnch', to = 'git.branch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.branch "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-checkpoint/gti-checkpoint'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.checkpoint is one edit from git.checkpoint and from no other name.'
+summary = 'The command name gti.checkpoint is one edit from the changing command git.checkpoint; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.checkpoint "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.checkpoint "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.checkpoint', to = 'git.checkpoint' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.checkpoint "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-checkpoint/git-hceckpoint'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.hceckpoint is one edit from git.checkpoint and from no other name.'
+summary = 'The command name git.hceckpoint is one edit from the changing command git.checkpoint; the correction is offered, not applied.'
 method = "correct"
 program = 'git.hceckpoint "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.checkpoint "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.hceckpoint', to = 'git.checkpoint' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.checkpoint "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-checkpoint/git-cehckpoint'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.cehckpoint is one edit from git.checkpoint and from no other name.'
+summary = 'The command name git.cehckpoint is one edit from the changing command git.checkpoint; the correction is offered, not applied.'
 method = "correct"
 program = 'git.cehckpoint "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.checkpoint "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.cehckpoint', to = 'git.checkpoint' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.checkpoint "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-clone/gti-clone'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.clone is one edit from git.clone and from no other name.'
+summary = 'The command name gti.clone is one edit from the changing command git.clone; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.clone "https://example.com/repo.git" "/home/user/repo"'
 
-[case.expect]
-program = 'git.clone "https://example.com/repo.git" "/home/user/repo"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.clone', to = 'git.clone' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.clone "https://example.com/repo.git" "/home/user/repo"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-clone/git-lcone'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.lcone is one edit from git.clone and from no other name.'
+summary = 'The command name git.lcone is one edit from the changing command git.clone; the correction is offered, not applied.'
 method = "correct"
 program = 'git.lcone "https://example.com/repo.git" "/home/user/repo"'
 
-[case.expect]
-program = 'git.clone "https://example.com/repo.git" "/home/user/repo"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.lcone', to = 'git.clone' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.clone "https://example.com/repo.git" "/home/user/repo"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-clone/git-colne'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.colne is one edit from git.clone and from no other name.'
+summary = 'The command name git.colne is one edit from the changing command git.clone; the correction is offered, not applied.'
 method = "correct"
 program = 'git.colne "https://example.com/repo.git" "/home/user/repo"'
 
-[case.expect]
-program = 'git.clone "https://example.com/repo.git" "/home/user/repo"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.colne', to = 'git.clone' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.clone "https://example.com/repo.git" "/home/user/repo"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-commit/gti-commit'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.commit is one edit from git.commit and from no other name.'
+summary = 'The command name gti.commit is one edit from the changing command git.commit; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.commit "/home/user/app" message: "fix: parser"'
 
-[case.expect]
-program = 'git.commit "/home/user/app" message: "fix: parser"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.commit', to = 'git.commit' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.commit "/home/user/app" message: "fix: parser"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-commit/git-ocmmit'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.ocmmit is one edit from git.commit and from no other name.'
+summary = 'The command name git.ocmmit is one edit from the changing command git.commit; the correction is offered, not applied.'
 method = "correct"
 program = 'git.ocmmit "/home/user/app" message: "fix: parser"'
 
-[case.expect]
-program = 'git.commit "/home/user/app" message: "fix: parser"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.ocmmit', to = 'git.commit' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.commit "/home/user/app" message: "fix: parser"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-commit/git-cmomit'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.cmomit is one edit from git.commit and from no other name.'
+summary = 'The command name git.cmomit is one edit from the changing command git.commit; the correction is offered, not applied.'
 method = "correct"
 program = 'git.cmomit "/home/user/app" message: "fix: parser"'
 
-[case.expect]
-program = 'git.commit "/home/user/app" message: "fix: parser"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.cmomit', to = 'git.commit' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.commit "/home/user/app" message: "fix: parser"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-diff/gti-diff'
@@ -2127,39 +2127,39 @@ id = 'correction/generated/command-typos/git-fetch/gti-fetch'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.fetch is one edit from git.fetch and from no other name.'
+summary = 'The command name gti.fetch is one edit from the changing command git.fetch; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.fetch "/home/user/app"'
 
-[case.expect]
-program = 'git.fetch "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.fetch', to = 'git.fetch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.fetch "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-fetch/git-eftch'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.eftch is one edit from git.fetch and from no other name.'
+summary = 'The command name git.eftch is one edit from the changing command git.fetch; the correction is offered, not applied.'
 method = "correct"
 program = 'git.eftch "/home/user/app"'
 
-[case.expect]
-program = 'git.fetch "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.eftch', to = 'git.fetch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.fetch "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-fetch/git-ftech'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.ftech is one edit from git.fetch and from no other name.'
+summary = 'The command name git.ftech is one edit from the changing command git.fetch; the correction is offered, not applied.'
 method = "correct"
 program = 'git.ftech "/home/user/app"'
 
-[case.expect]
-program = 'git.fetch "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.ftech', to = 'git.fetch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.fetch "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-log/gti-log'
@@ -2205,234 +2205,234 @@ id = 'correction/generated/command-typos/git-merge/gti-merge'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.merge is one edit from git.merge and from no other name.'
+summary = 'The command name gti.merge is one edit from the changing command git.merge; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.merge "/home/user/app" branch: "feature"'
 
-[case.expect]
-program = 'git.merge "/home/user/app" branch: "feature"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.merge', to = 'git.merge' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.merge "/home/user/app" branch: "feature"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-merge/git-emrge'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.emrge is one edit from git.merge and from no other name.'
+summary = 'The command name git.emrge is one edit from the changing command git.merge; the correction is offered, not applied.'
 method = "correct"
 program = 'git.emrge "/home/user/app" branch: "feature"'
 
-[case.expect]
-program = 'git.merge "/home/user/app" branch: "feature"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.emrge', to = 'git.merge' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.merge "/home/user/app" branch: "feature"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-merge/git-mrege'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.mrege is one edit from git.merge and from no other name.'
+summary = 'The command name git.mrege is one edit from the changing command git.merge; the correction is offered, not applied.'
 method = "correct"
 program = 'git.mrege "/home/user/app" branch: "feature"'
 
-[case.expect]
-program = 'git.merge "/home/user/app" branch: "feature"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.mrege', to = 'git.merge' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.merge "/home/user/app" branch: "feature"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-pull/gti-pull'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.pull is one edit from git.pull and from no other name.'
+summary = 'The command name gti.pull is one edit from the changing command git.pull; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.pull "/home/user/app"'
 
-[case.expect]
-program = 'git.pull "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.pull', to = 'git.pull' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.pull "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-pull/git-upll'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.upll is one edit from git.pull and from no other name.'
+summary = 'The command name git.upll is one edit from the changing command git.pull; the correction is offered, not applied.'
 method = "correct"
 program = 'git.upll "/home/user/app"'
 
-[case.expect]
-program = 'git.pull "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.upll', to = 'git.pull' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.pull "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-pull/git-plul'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.plul is one edit from git.pull and from no other name.'
+summary = 'The command name git.plul is one edit from the changing command git.pull; the correction is offered, not applied.'
 method = "correct"
 program = 'git.plul "/home/user/app"'
 
-[case.expect]
-program = 'git.pull "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.plul', to = 'git.pull' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.pull "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-push/gti-push'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.push is one edit from git.push and from no other name.'
+summary = 'The command name gti.push is one edit from the changing command git.push; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.push "/home/user/app" branch: "main"'
 
-[case.expect]
-program = 'git.push "/home/user/app" branch: "main"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.push', to = 'git.push' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.push "/home/user/app" branch: "main"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-push/git-upsh'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.upsh is one edit from git.push and from no other name.'
+summary = 'The command name git.upsh is one edit from the changing command git.push; the correction is offered, not applied.'
 method = "correct"
 program = 'git.upsh "/home/user/app" branch: "main"'
 
-[case.expect]
-program = 'git.push "/home/user/app" branch: "main"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.upsh', to = 'git.push' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.push "/home/user/app" branch: "main"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-push/git-psuh'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.psuh is one edit from git.push and from no other name.'
+summary = 'The command name git.psuh is one edit from the changing command git.push; the correction is offered, not applied.'
 method = "correct"
 program = 'git.psuh "/home/user/app" branch: "main"'
 
-[case.expect]
-program = 'git.push "/home/user/app" branch: "main"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.psuh', to = 'git.push' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.push "/home/user/app" branch: "main"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-rebase/gti-rebase'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.rebase is one edit from git.rebase and from no other name.'
+summary = 'The command name gti.rebase is one edit from the changing command git.rebase; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.rebase "/home/user/app" onto: "main"'
 
-[case.expect]
-program = 'git.rebase "/home/user/app" onto: "main"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.rebase', to = 'git.rebase' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.rebase "/home/user/app" onto: "main"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-rebase/git-erbase'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.erbase is one edit from git.rebase and from no other name.'
+summary = 'The command name git.erbase is one edit from the changing command git.rebase; the correction is offered, not applied.'
 method = "correct"
 program = 'git.erbase "/home/user/app" onto: "main"'
 
-[case.expect]
-program = 'git.rebase "/home/user/app" onto: "main"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.erbase', to = 'git.rebase' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.rebase "/home/user/app" onto: "main"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-rebase/git-rbease'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.rbease is one edit from git.rebase and from no other name.'
+summary = 'The command name git.rbease is one edit from the changing command git.rebase; the correction is offered, not applied.'
 method = "correct"
 program = 'git.rbease "/home/user/app" onto: "main"'
 
-[case.expect]
-program = 'git.rebase "/home/user/app" onto: "main"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.rbease', to = 'git.rebase' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.rebase "/home/user/app" onto: "main"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-reset/gti-reset'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.reset is one edit from git.reset and from no other name.'
+summary = 'The command name gti.reset is one edit from the changing command git.reset; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.reset "/home/user/app" revision: "HEAD~1"'
 
-[case.expect]
-program = 'git.reset "/home/user/app" revision: "HEAD~1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.reset', to = 'git.reset' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.reset "/home/user/app" revision: "HEAD~1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-reset/git-erset'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.erset is one edit from git.reset and from no other name.'
+summary = 'The command name git.erset is one edit from the changing command git.reset; the correction is offered, not applied.'
 method = "correct"
 program = 'git.erset "/home/user/app" revision: "HEAD~1"'
 
-[case.expect]
-program = 'git.reset "/home/user/app" revision: "HEAD~1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.erset', to = 'git.reset' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.reset "/home/user/app" revision: "HEAD~1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-reset/git-rseet'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.rseet is one edit from git.reset and from no other name.'
+summary = 'The command name git.rseet is one edit from the changing command git.reset; the correction is offered, not applied.'
 method = "correct"
 program = 'git.rseet "/home/user/app" revision: "HEAD~1"'
 
-[case.expect]
-program = 'git.reset "/home/user/app" revision: "HEAD~1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.rseet', to = 'git.reset' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.reset "/home/user/app" revision: "HEAD~1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-restore/gti-restore'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.restore is one edit from git.restore and from no other name.'
+summary = 'The command name gti.restore is one edit from the changing command git.restore; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.restore "/home/user/app" paths: ["/home/user/app/a.txt"]'
 
-[case.expect]
-program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.restore', to = 'git.restore' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-restore/git-erstore'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.erstore is one edit from git.restore and from no other name.'
+summary = 'The command name git.erstore is one edit from the changing command git.restore; the correction is offered, not applied.'
 method = "correct"
 program = 'git.erstore "/home/user/app" paths: ["/home/user/app/a.txt"]'
 
-[case.expect]
-program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.erstore', to = 'git.restore' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-restore/git-rsetore'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.rsetore is one edit from git.restore and from no other name.'
+summary = 'The command name git.rsetore is one edit from the changing command git.restore; the correction is offered, not applied.'
 method = "correct"
 program = 'git.rsetore "/home/user/app" paths: ["/home/user/app/a.txt"]'
 
-[case.expect]
-program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.rsetore', to = 'git.restore' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.restore "/home/user/app" paths: ["/home/user/app/a.txt"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-review/gti-review'
@@ -2543,78 +2543,78 @@ id = 'correction/generated/command-typos/git-stage/gti-stage'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.stage is one edit from git.stage and from no other name.'
+summary = 'The command name gti.stage is one edit from the changing command git.stage; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.stage "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.stage "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.stage', to = 'git.stage' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.stage "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-stage/git-tsage'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.tsage is one edit from git.stage and from no other name.'
+summary = 'The command name git.tsage is one edit from the changing command git.stage; the correction is offered, not applied.'
 method = "correct"
 program = 'git.tsage "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.stage "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.tsage', to = 'git.stage' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.stage "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-stage/git-satge'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.satge is one edit from git.stage and from no other name.'
+summary = 'The command name git.satge is one edit from the changing command git.stage; the correction is offered, not applied.'
 method = "correct"
 program = 'git.satge "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.stage "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.satge', to = 'git.stage' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.stage "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-stash/gti-stash'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.stash is one edit from git.stash and from no other name.'
+summary = 'The command name gti.stash is one edit from the changing command git.stash; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.stash "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.stash "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.stash', to = 'git.stash' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.stash "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-stash/git-tsash'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.tsash is one edit from git.stash and from no other name.'
+summary = 'The command name git.tsash is one edit from the changing command git.stash; the correction is offered, not applied.'
 method = "correct"
 program = 'git.tsash "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.stash "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.tsash', to = 'git.stash' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.stash "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-stash/git-satsh'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.satsh is one edit from git.stash and from no other name.'
+summary = 'The command name git.satsh is one edit from the changing command git.stash; the correction is offered, not applied.'
 method = "correct"
 program = 'git.satsh "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.stash "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.satsh', to = 'git.stash' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.stash "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-status/gti-status'
@@ -2673,117 +2673,117 @@ id = 'correction/generated/command-typos/git-switch/gti-switch'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.switch is one edit from git.switch and from no other name.'
+summary = 'The command name gti.switch is one edit from the changing command git.switch; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.switch "/home/user/app" branch: "main"'
 
-[case.expect]
-program = 'git.switch "/home/user/app" branch: "main"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.switch', to = 'git.switch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.switch "/home/user/app" branch: "main"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-switch/git-wsitch'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.wsitch is one edit from git.switch and from no other name.'
+summary = 'The command name git.wsitch is one edit from the changing command git.switch; the correction is offered, not applied.'
 method = "correct"
 program = 'git.wsitch "/home/user/app" branch: "main"'
 
-[case.expect]
-program = 'git.switch "/home/user/app" branch: "main"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.wsitch', to = 'git.switch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.switch "/home/user/app" branch: "main"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-switch/git-siwtch'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.siwtch is one edit from git.switch and from no other name.'
+summary = 'The command name git.siwtch is one edit from the changing command git.switch; the correction is offered, not applied.'
 method = "correct"
 program = 'git.siwtch "/home/user/app" branch: "main"'
 
-[case.expect]
-program = 'git.switch "/home/user/app" branch: "main"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.siwtch', to = 'git.switch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.switch "/home/user/app" branch: "main"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-tag/gti-tag'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.tag is one edit from git.tag and from no other name.'
+summary = 'The command name gti.tag is one edit from the changing command git.tag; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.tag "/home/user/app"'
 
-[case.expect]
-program = 'git.tag "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.tag', to = 'git.tag' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.tag "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-tag/git-atg'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.atg is one edit from git.tag and from no other name.'
+summary = 'The command name git.atg is one edit from the changing command git.tag; the correction is offered, not applied.'
 method = "correct"
 program = 'git.atg "/home/user/app"'
 
-[case.expect]
-program = 'git.tag "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.atg', to = 'git.tag' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.tag "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-tag/git-tga'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.tga is one edit from git.tag and from no other name.'
+summary = 'The command name git.tga is one edit from the changing command git.tag; the correction is offered, not applied.'
 method = "correct"
 program = 'git.tga "/home/user/app"'
 
-[case.expect]
-program = 'git.tag "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.tga', to = 'git.tag' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.tag "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-worktree/gti-worktree'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name gti.worktree is one edit from git.worktree and from no other name.'
+summary = 'The command name gti.worktree is one edit from the changing command git.worktree; the correction is offered, not applied.'
 method = "correct"
 program = 'gti.worktree "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.worktree "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'gti.worktree', to = 'git.worktree' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.worktree "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-worktree/git-owrktree'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.owrktree is one edit from git.worktree and from no other name.'
+summary = 'The command name git.owrktree is one edit from the changing command git.worktree; the correction is offered, not applied.'
 method = "correct"
 program = 'git.owrktree "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.worktree "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.owrktree', to = 'git.worktree' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.worktree "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/git-worktree/git-wroktree'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name git.wroktree is one edit from git.worktree and from no other name.'
+summary = 'The command name git.wroktree is one edit from the changing command git.worktree; the correction is offered, not applied.'
 method = "correct"
 program = 'git.wroktree "/home/user/app" action: list'
 
-[case.expect]
-program = 'git.worktree "/home/user/app" action: list'
-corrections = [{ rule = 'L01', class = 'F', from = 'git.wroktree', to = 'git.worktree' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'git.worktree "/home/user/app" action: list' }]
 
 [[case]]
 id = 'correction/generated/command-typos/group/gorup'
@@ -2985,78 +2985,78 @@ id = 'correction/generated/command-typos/http-download/htpt-download'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name htpt.download is one edit from http.download and from no other name.'
+summary = 'The command name htpt.download is one edit from the changing command http.download; the correction is offered, not applied.'
 method = "correct"
 program = 'htpt.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"'
 
-[case.expect]
-program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"'
-corrections = [{ rule = 'L01', class = 'F', from = 'htpt.download', to = 'http.download' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/http-download/http-odwnload'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name http.odwnload is one edit from http.download and from no other name.'
+summary = 'The command name http.odwnload is one edit from the changing command http.download; the correction is offered, not applied.'
 method = "correct"
 program = 'http.odwnload "https://example.com/a.tar.gz" "/home/user/a.tar.gz"'
 
-[case.expect]
-program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"'
-corrections = [{ rule = 'L01', class = 'F', from = 'http.odwnload', to = 'http.download' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/http-download/http-dwonload'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name http.dwonload is one edit from http.download and from no other name.'
+summary = 'The command name http.dwonload is one edit from the changing command http.download; the correction is offered, not applied.'
 method = "correct"
 program = 'http.dwonload "https://example.com/a.tar.gz" "/home/user/a.tar.gz"'
 
-[case.expect]
-program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"'
-corrections = [{ rule = 'L01', class = 'F', from = 'http.dwonload', to = 'http.download' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/http-request/htpt-request'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name htpt.request is one edit from http.request and from no other name.'
+summary = 'The command name htpt.request is one edit from the changing command http.request; the correction is offered, not applied.'
 method = "correct"
 program = 'htpt.request "https://example.com/api"'
 
-[case.expect]
-program = 'http.request "https://example.com/api"'
-corrections = [{ rule = 'L01', class = 'F', from = 'htpt.request', to = 'http.request' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'http.request "https://example.com/api"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/http-request/http-erquest'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name http.erquest is one edit from http.request and from no other name.'
+summary = 'The command name http.erquest is one edit from the changing command http.request; the correction is offered, not applied.'
 method = "correct"
 program = 'http.erquest "https://example.com/api"'
 
-[case.expect]
-program = 'http.request "https://example.com/api"'
-corrections = [{ rule = 'L01', class = 'F', from = 'http.erquest', to = 'http.request' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'http.request "https://example.com/api"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/http-request/http-rqeuest'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name http.rqeuest is one edit from http.request and from no other name.'
+summary = 'The command name http.rqeuest is one edit from the changing command http.request; the correction is offered, not applied.'
 method = "correct"
 program = 'http.rqeuest "https://example.com/api"'
 
-[case.expect]
-program = 'http.request "https://example.com/api"'
-corrections = [{ rule = 'L01', class = 'F', from = 'http.rqeuest', to = 'http.request' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'http.request "https://example.com/api"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/info/ifno'
@@ -3102,39 +3102,39 @@ id = 'correction/generated/command-typos/insert/isnert'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name isnert is one edit from insert and from no other name.'
+summary = 'The command name isnert is one edit from the changing command insert; the correction is offered, not applied.'
 method = "correct"
 program = 'isnert "x" in: "/home/user/app/a.txt" line: 1'
 
-[case.expect]
-program = 'insert "x" in: "/home/user/app/a.txt" line: 1'
-corrections = [{ rule = 'L01', class = 'F', from = 'isnert', to = 'insert' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'insert "x" in: "/home/user/app/a.txt" line: 1' }]
 
 [[case]]
 id = 'correction/generated/command-typos/insert/inesrt'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name inesrt is one edit from insert and from no other name.'
+summary = 'The command name inesrt is one edit from the changing command insert; the correction is offered, not applied.'
 method = "correct"
 program = 'inesrt "x" in: "/home/user/app/a.txt" line: 1'
 
-[case.expect]
-program = 'insert "x" in: "/home/user/app/a.txt" line: 1'
-corrections = [{ rule = 'L01', class = 'F', from = 'inesrt', to = 'insert' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'insert "x" in: "/home/user/app/a.txt" line: 1' }]
 
 [[case]]
 id = 'correction/generated/command-typos/insert/insret'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name insret is one edit from insert and from no other name.'
+summary = 'The command name insret is one edit from the changing command insert; the correction is offered, not applied.'
 method = "correct"
 program = 'insret "x" in: "/home/user/app/a.txt" line: 1'
 
-[case.expect]
-program = 'insert "x" in: "/home/user/app/a.txt" line: 1'
-corrections = [{ rule = 'L01', class = 'F', from = 'insret', to = 'insert' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'insert "x" in: "/home/user/app/a.txt" line: 1' }]
 
 [[case]]
 id = 'correction/generated/command-typos/jobs/jbos'
@@ -3180,117 +3180,117 @@ id = 'correction/generated/command-typos/journal-limits/juornal-limits'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name juornal.limits is one edit from journal.limits and from no other name.'
+summary = 'The command name juornal.limits is one edit from the changing command journal.limits; the correction is offered, not applied.'
 method = "correct"
 program = 'juornal.limits'
 
-[case.expect]
-program = 'journal.limits'
-corrections = [{ rule = 'L01', class = 'F', from = 'juornal.limits', to = 'journal.limits' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'journal.limits' }]
 
 [[case]]
 id = 'correction/generated/command-typos/journal-limits/jorunal-limits'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name jorunal.limits is one edit from journal.limits and from no other name.'
+summary = 'The command name jorunal.limits is one edit from the changing command journal.limits; the correction is offered, not applied.'
 method = "correct"
 program = 'jorunal.limits'
 
-[case.expect]
-program = 'journal.limits'
-corrections = [{ rule = 'L01', class = 'F', from = 'jorunal.limits', to = 'journal.limits' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'journal.limits' }]
 
 [[case]]
 id = 'correction/generated/command-typos/journal-limits/jounral-limits'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name jounral.limits is one edit from journal.limits and from no other name.'
+summary = 'The command name jounral.limits is one edit from the changing command journal.limits; the correction is offered, not applied.'
 method = "correct"
 program = 'jounral.limits'
 
-[case.expect]
-program = 'journal.limits'
-corrections = [{ rule = 'L01', class = 'F', from = 'jounral.limits', to = 'journal.limits' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'journal.limits' }]
 
 [[case]]
 id = 'correction/generated/command-typos/journal-pin/juornal-pin'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name juornal.pin is one edit from journal.pin and from no other name.'
+summary = 'The command name juornal.pin is one edit from the changing command journal.pin; the correction is offered, not applied.'
 method = "correct"
 program = 'juornal.pin 3'
 
-[case.expect]
-program = 'journal.pin 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'juornal.pin', to = 'journal.pin' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'journal.pin 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/journal-pin/jorunal-pin'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name jorunal.pin is one edit from journal.pin and from no other name.'
+summary = 'The command name jorunal.pin is one edit from the changing command journal.pin; the correction is offered, not applied.'
 method = "correct"
 program = 'jorunal.pin 3'
 
-[case.expect]
-program = 'journal.pin 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'jorunal.pin', to = 'journal.pin' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'journal.pin 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/journal-pin/jounral-pin'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name jounral.pin is one edit from journal.pin and from no other name.'
+summary = 'The command name jounral.pin is one edit from the changing command journal.pin; the correction is offered, not applied.'
 method = "correct"
 program = 'jounral.pin 3'
 
-[case.expect]
-program = 'journal.pin 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'jounral.pin', to = 'journal.pin' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'journal.pin 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/journal-purge/juornal-purge'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name juornal.purge is one edit from journal.purge and from no other name.'
+summary = 'The command name juornal.purge is one edit from the changing command journal.purge; the correction is offered, not applied.'
 method = "correct"
 program = 'juornal.purge up_to: 3'
 
-[case.expect]
-program = 'journal.purge up_to: 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'juornal.purge', to = 'journal.purge' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'journal.purge up_to: 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/journal-purge/jorunal-purge'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name jorunal.purge is one edit from journal.purge and from no other name.'
+summary = 'The command name jorunal.purge is one edit from the changing command journal.purge; the correction is offered, not applied.'
 method = "correct"
 program = 'jorunal.purge up_to: 3'
 
-[case.expect]
-program = 'journal.purge up_to: 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'jorunal.purge', to = 'journal.purge' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'journal.purge up_to: 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/journal-purge/jounral-purge'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name jounral.purge is one edit from journal.purge and from no other name.'
+summary = 'The command name jounral.purge is one edit from the changing command journal.purge; the correction is offered, not applied.'
 method = "correct"
 program = 'jounral.purge up_to: 3'
 
-[case.expect]
-program = 'journal.purge up_to: 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'jounral.purge', to = 'journal.purge' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'journal.purge up_to: 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/journal-space/juornal-space'
@@ -3557,39 +3557,39 @@ id = 'correction/generated/command-typos/move/mvoe'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name mvoe is one edit from move and from no other name.'
+summary = 'The command name mvoe is one edit from the changing command move; the correction is offered, not applied.'
 method = "correct"
 program = 'mvoe "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
 
-[case.expect]
-program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'mvoe', to = 'move' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/move/moev'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name moev is one edit from move and from no other name.'
+summary = 'The command name moev is one edit from the changing command move; the correction is offered, not applied.'
 method = "correct"
 program = 'moev "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
 
-[case.expect]
-program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'moev', to = 'move' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/move/moe'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name moe is one edit from move and from no other name.'
+summary = 'The command name moe is one edit from the changing command move; the correction is offered, not applied.'
 method = "correct"
 program = 'moe "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
 
-[case.expect]
-program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'moe', to = 'move' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'move "/home/user/app/a.txt" to: "/home/user/app/b.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/network-interfaces/ntework-interfaces'
@@ -3804,351 +3804,351 @@ id = 'correction/generated/command-typos/notebook-clear-outputs/ntoebook-clear-o
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ntoebook.clear_outputs is one edit from notebook.clear_outputs and from no other name.'
+summary = 'The command name ntoebook.clear_outputs is one edit from the changing command notebook.clear_outputs; the correction is offered, not applied.'
 method = "correct"
 program = 'ntoebook.clear_outputs "/home/user/app/a.ipynb"'
 
-[case.expect]
-program = 'notebook.clear_outputs "/home/user/app/a.ipynb"'
-corrections = [{ rule = 'L01', class = 'F', from = 'ntoebook.clear_outputs', to = 'notebook.clear_outputs' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.clear_outputs "/home/user/app/a.ipynb"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-clear-outputs/noetbook-clear-outputs'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name noetbook.clear_outputs is one edit from notebook.clear_outputs and from no other name.'
+summary = 'The command name noetbook.clear_outputs is one edit from the changing command notebook.clear_outputs; the correction is offered, not applied.'
 method = "correct"
 program = 'noetbook.clear_outputs "/home/user/app/a.ipynb"'
 
-[case.expect]
-program = 'notebook.clear_outputs "/home/user/app/a.ipynb"'
-corrections = [{ rule = 'L01', class = 'F', from = 'noetbook.clear_outputs', to = 'notebook.clear_outputs' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.clear_outputs "/home/user/app/a.ipynb"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-clear-outputs/notbeook-clear-outputs'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name notbeook.clear_outputs is one edit from notebook.clear_outputs and from no other name.'
+summary = 'The command name notbeook.clear_outputs is one edit from the changing command notebook.clear_outputs; the correction is offered, not applied.'
 method = "correct"
 program = 'notbeook.clear_outputs "/home/user/app/a.ipynb"'
 
-[case.expect]
-program = 'notebook.clear_outputs "/home/user/app/a.ipynb"'
-corrections = [{ rule = 'L01', class = 'F', from = 'notbeook.clear_outputs', to = 'notebook.clear_outputs' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.clear_outputs "/home/user/app/a.ipynb"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-copy/ntoebook-copy'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ntoebook.copy is one edit from notebook.copy and from no other name.'
+summary = 'The command name ntoebook.copy is one edit from the changing command notebook.copy; the correction is offered, not applied.'
 method = "correct"
 program = 'ntoebook.copy "/home/user/app/a.ipynb" from: 1 to: 2'
 
-[case.expect]
-program = 'notebook.copy "/home/user/app/a.ipynb" from: 1 to: 2'
-corrections = [{ rule = 'L01', class = 'F', from = 'ntoebook.copy', to = 'notebook.copy' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.copy "/home/user/app/a.ipynb" from: 1 to: 2' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-copy/noetbook-copy'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name noetbook.copy is one edit from notebook.copy and from no other name.'
+summary = 'The command name noetbook.copy is one edit from the changing command notebook.copy; the correction is offered, not applied.'
 method = "correct"
 program = 'noetbook.copy "/home/user/app/a.ipynb" from: 1 to: 2'
 
-[case.expect]
-program = 'notebook.copy "/home/user/app/a.ipynb" from: 1 to: 2'
-corrections = [{ rule = 'L01', class = 'F', from = 'noetbook.copy', to = 'notebook.copy' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.copy "/home/user/app/a.ipynb" from: 1 to: 2' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-copy/notbeook-copy'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name notbeook.copy is one edit from notebook.copy and from no other name.'
+summary = 'The command name notbeook.copy is one edit from the changing command notebook.copy; the correction is offered, not applied.'
 method = "correct"
 program = 'notbeook.copy "/home/user/app/a.ipynb" from: 1 to: 2'
 
-[case.expect]
-program = 'notebook.copy "/home/user/app/a.ipynb" from: 1 to: 2'
-corrections = [{ rule = 'L01', class = 'F', from = 'notbeook.copy', to = 'notebook.copy' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.copy "/home/user/app/a.ipynb" from: 1 to: 2' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-export/ntoebook-export'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ntoebook.export is one edit from notebook.export and from no other name.'
+summary = 'The command name ntoebook.export is one edit from the changing command notebook.export; the correction is offered, not applied.'
 method = "correct"
 program = 'ntoebook.export "/home/user/app/a.ipynb" to: "/home/user/app/a.py" format: script'
 
-[case.expect]
-program = 'notebook.export "/home/user/app/a.ipynb" to: "/home/user/app/a.py" format: script'
-corrections = [{ rule = 'L01', class = 'F', from = 'ntoebook.export', to = 'notebook.export' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.export "/home/user/app/a.ipynb" to: "/home/user/app/a.py" format: script' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-export/noetbook-export'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name noetbook.export is one edit from notebook.export and from no other name.'
+summary = 'The command name noetbook.export is one edit from the changing command notebook.export; the correction is offered, not applied.'
 method = "correct"
 program = 'noetbook.export "/home/user/app/a.ipynb" to: "/home/user/app/a.py" format: script'
 
-[case.expect]
-program = 'notebook.export "/home/user/app/a.ipynb" to: "/home/user/app/a.py" format: script'
-corrections = [{ rule = 'L01', class = 'F', from = 'noetbook.export', to = 'notebook.export' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.export "/home/user/app/a.ipynb" to: "/home/user/app/a.py" format: script' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-export/notbeook-export'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name notbeook.export is one edit from notebook.export and from no other name.'
+summary = 'The command name notbeook.export is one edit from the changing command notebook.export; the correction is offered, not applied.'
 method = "correct"
 program = 'notbeook.export "/home/user/app/a.ipynb" to: "/home/user/app/a.py" format: script'
 
-[case.expect]
-program = 'notebook.export "/home/user/app/a.ipynb" to: "/home/user/app/a.py" format: script'
-corrections = [{ rule = 'L01', class = 'F', from = 'notbeook.export', to = 'notebook.export' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.export "/home/user/app/a.ipynb" to: "/home/user/app/a.py" format: script' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-insert/ntoebook-insert'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ntoebook.insert is one edit from notebook.insert and from no other name.'
+summary = 'The command name ntoebook.insert is one edit from the changing command notebook.insert; the correction is offered, not applied.'
 method = "correct"
 program = 'ntoebook.insert "/home/user/app/a.ipynb" index: 1 cell_type: code source: "print(1)"'
 
-[case.expect]
-program = 'notebook.insert "/home/user/app/a.ipynb" index: 1 cell_type: code source: "print(1)"'
-corrections = [{ rule = 'L01', class = 'F', from = 'ntoebook.insert', to = 'notebook.insert' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.insert "/home/user/app/a.ipynb" index: 1 cell_type: code source: "print(1)"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-insert/noetbook-insert'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name noetbook.insert is one edit from notebook.insert and from no other name.'
+summary = 'The command name noetbook.insert is one edit from the changing command notebook.insert; the correction is offered, not applied.'
 method = "correct"
 program = 'noetbook.insert "/home/user/app/a.ipynb" index: 1 cell_type: code source: "print(1)"'
 
-[case.expect]
-program = 'notebook.insert "/home/user/app/a.ipynb" index: 1 cell_type: code source: "print(1)"'
-corrections = [{ rule = 'L01', class = 'F', from = 'noetbook.insert', to = 'notebook.insert' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.insert "/home/user/app/a.ipynb" index: 1 cell_type: code source: "print(1)"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-insert/notbeook-insert'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name notbeook.insert is one edit from notebook.insert and from no other name.'
+summary = 'The command name notbeook.insert is one edit from the changing command notebook.insert; the correction is offered, not applied.'
 method = "correct"
 program = 'notbeook.insert "/home/user/app/a.ipynb" index: 1 cell_type: code source: "print(1)"'
 
-[case.expect]
-program = 'notebook.insert "/home/user/app/a.ipynb" index: 1 cell_type: code source: "print(1)"'
-corrections = [{ rule = 'L01', class = 'F', from = 'notbeook.insert', to = 'notebook.insert' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.insert "/home/user/app/a.ipynb" index: 1 cell_type: code source: "print(1)"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-move/ntoebook-move'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ntoebook.move is one edit from notebook.move and from no other name.'
+summary = 'The command name ntoebook.move is one edit from the changing command notebook.move; the correction is offered, not applied.'
 method = "correct"
 program = 'ntoebook.move "/home/user/app/a.ipynb" from: 1 to: 2'
 
-[case.expect]
-program = 'notebook.move "/home/user/app/a.ipynb" from: 1 to: 2'
-corrections = [{ rule = 'L01', class = 'F', from = 'ntoebook.move', to = 'notebook.move' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.move "/home/user/app/a.ipynb" from: 1 to: 2' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-move/noetbook-move'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name noetbook.move is one edit from notebook.move and from no other name.'
+summary = 'The command name noetbook.move is one edit from the changing command notebook.move; the correction is offered, not applied.'
 method = "correct"
 program = 'noetbook.move "/home/user/app/a.ipynb" from: 1 to: 2'
 
-[case.expect]
-program = 'notebook.move "/home/user/app/a.ipynb" from: 1 to: 2'
-corrections = [{ rule = 'L01', class = 'F', from = 'noetbook.move', to = 'notebook.move' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.move "/home/user/app/a.ipynb" from: 1 to: 2' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-move/notbeook-move'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name notbeook.move is one edit from notebook.move and from no other name.'
+summary = 'The command name notbeook.move is one edit from the changing command notebook.move; the correction is offered, not applied.'
 method = "correct"
 program = 'notbeook.move "/home/user/app/a.ipynb" from: 1 to: 2'
 
-[case.expect]
-program = 'notebook.move "/home/user/app/a.ipynb" from: 1 to: 2'
-corrections = [{ rule = 'L01', class = 'F', from = 'notbeook.move', to = 'notebook.move' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.move "/home/user/app/a.ipynb" from: 1 to: 2' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-normalize/ntoebook-normalize'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ntoebook.normalize is one edit from notebook.normalize and from no other name.'
+summary = 'The command name ntoebook.normalize is one edit from the changing command notebook.normalize; the correction is offered, not applied.'
 method = "correct"
 program = 'ntoebook.normalize "/home/user/app/a.ipynb"'
 
-[case.expect]
-program = 'notebook.normalize "/home/user/app/a.ipynb"'
-corrections = [{ rule = 'L01', class = 'F', from = 'ntoebook.normalize', to = 'notebook.normalize' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.normalize "/home/user/app/a.ipynb"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-normalize/noetbook-normalize'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name noetbook.normalize is one edit from notebook.normalize and from no other name.'
+summary = 'The command name noetbook.normalize is one edit from the changing command notebook.normalize; the correction is offered, not applied.'
 method = "correct"
 program = 'noetbook.normalize "/home/user/app/a.ipynb"'
 
-[case.expect]
-program = 'notebook.normalize "/home/user/app/a.ipynb"'
-corrections = [{ rule = 'L01', class = 'F', from = 'noetbook.normalize', to = 'notebook.normalize' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.normalize "/home/user/app/a.ipynb"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-normalize/notbeook-normalize'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name notbeook.normalize is one edit from notebook.normalize and from no other name.'
+summary = 'The command name notbeook.normalize is one edit from the changing command notebook.normalize; the correction is offered, not applied.'
 method = "correct"
 program = 'notbeook.normalize "/home/user/app/a.ipynb"'
 
-[case.expect]
-program = 'notebook.normalize "/home/user/app/a.ipynb"'
-corrections = [{ rule = 'L01', class = 'F', from = 'notbeook.normalize', to = 'notebook.normalize' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.normalize "/home/user/app/a.ipynb"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-ops/ntoebook-ops'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ntoebook.ops is one edit from notebook.ops and from no other name.'
+summary = 'The command name ntoebook.ops is one edit from the changing command notebook.ops; the correction is offered, not applied.'
 method = "correct"
 program = 'ntoebook.ops "/home/user/app/a.ipynb" changes: [{op: "remove", index: 2}]'
 
-[case.expect]
-program = 'notebook.ops "/home/user/app/a.ipynb" changes: [{op: "remove", index: 2}]'
-corrections = [{ rule = 'L01', class = 'F', from = 'ntoebook.ops', to = 'notebook.ops' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.ops "/home/user/app/a.ipynb" changes: [{op: "remove", index: 2}]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-ops/noetbook-ops'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name noetbook.ops is one edit from notebook.ops and from no other name.'
+summary = 'The command name noetbook.ops is one edit from the changing command notebook.ops; the correction is offered, not applied.'
 method = "correct"
 program = 'noetbook.ops "/home/user/app/a.ipynb" changes: [{op: "remove", index: 2}]'
 
-[case.expect]
-program = 'notebook.ops "/home/user/app/a.ipynb" changes: [{op: "remove", index: 2}]'
-corrections = [{ rule = 'L01', class = 'F', from = 'noetbook.ops', to = 'notebook.ops' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.ops "/home/user/app/a.ipynb" changes: [{op: "remove", index: 2}]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-ops/notbeook-ops'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name notbeook.ops is one edit from notebook.ops and from no other name.'
+summary = 'The command name notbeook.ops is one edit from the changing command notebook.ops; the correction is offered, not applied.'
 method = "correct"
 program = 'notbeook.ops "/home/user/app/a.ipynb" changes: [{op: "remove", index: 2}]'
 
-[case.expect]
-program = 'notebook.ops "/home/user/app/a.ipynb" changes: [{op: "remove", index: 2}]'
-corrections = [{ rule = 'L01', class = 'F', from = 'notbeook.ops', to = 'notebook.ops' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.ops "/home/user/app/a.ipynb" changes: [{op: "remove", index: 2}]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-remove/ntoebook-remove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ntoebook.remove is one edit from notebook.remove and from no other name.'
+summary = 'The command name ntoebook.remove is one edit from the changing command notebook.remove; the correction is offered, not applied.'
 method = "correct"
 program = 'ntoebook.remove "/home/user/app/a.ipynb" index: 2'
 
-[case.expect]
-program = 'notebook.remove "/home/user/app/a.ipynb" index: 2'
-corrections = [{ rule = 'L01', class = 'F', from = 'ntoebook.remove', to = 'notebook.remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.remove "/home/user/app/a.ipynb" index: 2' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-remove/noetbook-remove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name noetbook.remove is one edit from notebook.remove and from no other name.'
+summary = 'The command name noetbook.remove is one edit from the changing command notebook.remove; the correction is offered, not applied.'
 method = "correct"
 program = 'noetbook.remove "/home/user/app/a.ipynb" index: 2'
 
-[case.expect]
-program = 'notebook.remove "/home/user/app/a.ipynb" index: 2'
-corrections = [{ rule = 'L01', class = 'F', from = 'noetbook.remove', to = 'notebook.remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.remove "/home/user/app/a.ipynb" index: 2' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-remove/notbeook-remove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name notbeook.remove is one edit from notebook.remove and from no other name.'
+summary = 'The command name notbeook.remove is one edit from the changing command notebook.remove; the correction is offered, not applied.'
 method = "correct"
 program = 'notbeook.remove "/home/user/app/a.ipynb" index: 2'
 
-[case.expect]
-program = 'notebook.remove "/home/user/app/a.ipynb" index: 2'
-corrections = [{ rule = 'L01', class = 'F', from = 'notbeook.remove', to = 'notebook.remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.remove "/home/user/app/a.ipynb" index: 2' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-replace/ntoebook-replace'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ntoebook.replace is one edit from notebook.replace and from no other name.'
+summary = 'The command name ntoebook.replace is one edit from the changing command notebook.replace; the correction is offered, not applied.'
 method = "correct"
 program = 'ntoebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)"'
 
-[case.expect]
-program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)"'
-corrections = [{ rule = 'L01', class = 'F', from = 'ntoebook.replace', to = 'notebook.replace' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-replace/noetbook-replace'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name noetbook.replace is one edit from notebook.replace and from no other name.'
+summary = 'The command name noetbook.replace is one edit from the changing command notebook.replace; the correction is offered, not applied.'
 method = "correct"
 program = 'noetbook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)"'
 
-[case.expect]
-program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)"'
-corrections = [{ rule = 'L01', class = 'F', from = 'noetbook.replace', to = 'notebook.replace' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/notebook-replace/notbeook-replace'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name notbeook.replace is one edit from notebook.replace and from no other name.'
+summary = 'The command name notbeook.replace is one edit from the changing command notebook.replace; the correction is offered, not applied.'
 method = "correct"
 program = 'notbeook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)"'
 
-[case.expect]
-program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)"'
-corrections = [{ rule = 'L01', class = 'F', from = 'notbeook.replace', to = 'notebook.replace' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'notebook.replace "/home/user/app/a.ipynb" index: 1 source: "print(2)"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/open-files/oepn-files'
@@ -4207,39 +4207,39 @@ id = 'correction/generated/command-typos/package-install/pcakage-install'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pcakage.install is one edit from package.install and from no other name.'
+summary = 'The command name pcakage.install is one edit from the changing command package.install; the correction is offered, not applied.'
 method = "correct"
 program = 'pcakage.install ["curl"]'
 
-[case.expect]
-program = 'package.install ["curl"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'pcakage.install', to = 'package.install' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'package.install ["curl"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/package-install/pakcage-install'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pakcage.install is one edit from package.install and from no other name.'
+summary = 'The command name pakcage.install is one edit from the changing command package.install; the correction is offered, not applied.'
 method = "correct"
 program = 'pakcage.install ["curl"]'
 
-[case.expect]
-program = 'package.install ["curl"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'pakcage.install', to = 'package.install' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'package.install ["curl"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/package-install/pacakge-install'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pacakge.install is one edit from package.install and from no other name.'
+summary = 'The command name pacakge.install is one edit from the changing command package.install; the correction is offered, not applied.'
 method = "correct"
 program = 'pacakge.install ["curl"]'
 
-[case.expect]
-program = 'package.install ["curl"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'pacakge.install', to = 'package.install' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'package.install ["curl"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/package-list/pcakage-list'
@@ -4298,39 +4298,39 @@ id = 'correction/generated/command-typos/package-remove/pcakage-remove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pcakage.remove is one edit from package.remove and from no other name.'
+summary = 'The command name pcakage.remove is one edit from the changing command package.remove; the correction is offered, not applied.'
 method = "correct"
 program = 'pcakage.remove ["curl"]'
 
-[case.expect]
-program = 'package.remove ["curl"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'pcakage.remove', to = 'package.remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'package.remove ["curl"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/package-remove/pakcage-remove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pakcage.remove is one edit from package.remove and from no other name.'
+summary = 'The command name pakcage.remove is one edit from the changing command package.remove; the correction is offered, not applied.'
 method = "correct"
 program = 'pakcage.remove ["curl"]'
 
-[case.expect]
-program = 'package.remove ["curl"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'pakcage.remove', to = 'package.remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'package.remove ["curl"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/package-remove/pacakge-remove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pacakge.remove is one edit from package.remove and from no other name.'
+summary = 'The command name pacakge.remove is one edit from the changing command package.remove; the correction is offered, not applied.'
 method = "correct"
 program = 'pacakge.remove ["curl"]'
 
-[case.expect]
-program = 'package.remove ["curl"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'pacakge.remove', to = 'package.remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'package.remove ["curl"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/package-search/pcakage-search'
@@ -4389,39 +4389,39 @@ id = 'correction/generated/command-typos/package-upgrade/pcakage-upgrade'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pcakage.upgrade is one edit from package.upgrade and from no other name.'
+summary = 'The command name pcakage.upgrade is one edit from the changing command package.upgrade; the correction is offered, not applied.'
 method = "correct"
 program = 'pcakage.upgrade'
 
-[case.expect]
-program = 'package.upgrade'
-corrections = [{ rule = 'L01', class = 'F', from = 'pcakage.upgrade', to = 'package.upgrade' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'package.upgrade' }]
 
 [[case]]
 id = 'correction/generated/command-typos/package-upgrade/pakcage-upgrade'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pakcage.upgrade is one edit from package.upgrade and from no other name.'
+summary = 'The command name pakcage.upgrade is one edit from the changing command package.upgrade; the correction is offered, not applied.'
 method = "correct"
 program = 'pakcage.upgrade'
 
-[case.expect]
-program = 'package.upgrade'
-corrections = [{ rule = 'L01', class = 'F', from = 'pakcage.upgrade', to = 'package.upgrade' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'package.upgrade' }]
 
 [[case]]
 id = 'correction/generated/command-typos/package-upgrade/pacakge-upgrade'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pacakge.upgrade is one edit from package.upgrade and from no other name.'
+summary = 'The command name pacakge.upgrade is one edit from the changing command package.upgrade; the correction is offered, not applied.'
 method = "correct"
 program = 'pacakge.upgrade'
 
-[case.expect]
-program = 'package.upgrade'
-corrections = [{ rule = 'L01', class = 'F', from = 'pacakge.upgrade', to = 'package.upgrade' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'package.upgrade' }]
 
 [[case]]
 id = 'correction/generated/command-typos/parse/pasre'
@@ -4467,39 +4467,39 @@ id = 'correction/generated/command-typos/patch/ptach'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ptach is one edit from patch and from no other name.'
+summary = 'The command name ptach is one edit from the changing command patch; the correction is offered, not applied.'
 method = "correct"
 program = 'ptach from: "/home/user/app/fix.diff" root: "/home/user/app"'
 
-[case.expect]
-program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'ptach', to = 'patch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/patch/pacth'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pacth is one edit from patch and from no other name.'
+summary = 'The command name pacth is one edit from the changing command patch; the correction is offered, not applied.'
 method = "correct"
 program = 'pacth from: "/home/user/app/fix.diff" root: "/home/user/app"'
 
-[case.expect]
-program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'pacth', to = 'patch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/patch/pathc'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name pathc is one edit from patch and from no other name.'
+summary = 'The command name pathc is one edit from the changing command patch; the correction is offered, not applied.'
 method = "correct"
 program = 'pathc from: "/home/user/app/fix.diff" root: "/home/user/app"'
 
-[case.expect]
-program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'pathc', to = 'patch' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'patch from: "/home/user/app/fix.diff" root: "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/ports/prots'
@@ -4883,312 +4883,312 @@ id = 'correction/generated/command-typos/redo/rdeo'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name rdeo is one edit from redo and from no other name.'
+summary = 'The command name rdeo is one edit from the changing command redo; the correction is offered, not applied.'
 method = "correct"
 program = 'rdeo 3'
 
-[case.expect]
-program = 'redo 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'rdeo', to = 'redo' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'redo 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/redo/rdo'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name rdo is one edit from redo and from no other name.'
+summary = 'The command name rdo is one edit from the changing command redo; the correction is offered, not applied.'
 method = "correct"
 program = 'rdo 3'
 
-[case.expect]
-program = 'redo 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'rdo', to = 'redo' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'redo 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/redo/reo'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name reo is one edit from redo and from no other name.'
+summary = 'The command name reo is one edit from the changing command redo; the correction is offered, not applied.'
 method = "correct"
 program = 'reo 3'
 
-[case.expect]
-program = 'redo 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'reo', to = 'redo' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'redo 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/remove/rmeove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name rmeove is one edit from remove and from no other name.'
+summary = 'The command name rmeove is one edit from the changing command remove; the correction is offered, not applied.'
 method = "correct"
 program = 'rmeove "/home/user/app/a.txt"'
 
-[case.expect]
-program = 'remove "/home/user/app/a.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'rmeove', to = 'remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'remove "/home/user/app/a.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/remove/reomve'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name reomve is one edit from remove and from no other name.'
+summary = 'The command name reomve is one edit from the changing command remove; the correction is offered, not applied.'
 method = "correct"
 program = 'reomve "/home/user/app/a.txt"'
 
-[case.expect]
-program = 'remove "/home/user/app/a.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'reomve', to = 'remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'remove "/home/user/app/a.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/remove/remvoe'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name remvoe is one edit from remove and from no other name.'
+summary = 'The command name remvoe is one edit from the changing command remove; the correction is offered, not applied.'
 method = "correct"
 program = 'remvoe "/home/user/app/a.txt"'
 
-[case.expect]
-program = 'remove "/home/user/app/a.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'remvoe', to = 'remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'remove "/home/user/app/a.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/rename/rneame'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name rneame is one edit from rename and from no other name.'
+summary = 'The command name rneame is one edit from the changing command rename; the correction is offered, not applied.'
 method = "correct"
 program = 'rneame path: "/home/user/app/a.txt" to: "b.txt"'
 
-[case.expect]
-program = 'rename path: "/home/user/app/a.txt" to: "b.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'rneame', to = 'rename' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'rename path: "/home/user/app/a.txt" to: "b.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/rename/reanme'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name reanme is one edit from rename and from no other name.'
+summary = 'The command name reanme is one edit from the changing command rename; the correction is offered, not applied.'
 method = "correct"
 program = 'reanme path: "/home/user/app/a.txt" to: "b.txt"'
 
-[case.expect]
-program = 'rename path: "/home/user/app/a.txt" to: "b.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'reanme', to = 'rename' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'rename path: "/home/user/app/a.txt" to: "b.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/rename/renmae'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name renmae is one edit from rename and from no other name.'
+summary = 'The command name renmae is one edit from the changing command rename; the correction is offered, not applied.'
 method = "correct"
 program = 'renmae path: "/home/user/app/a.txt" to: "b.txt"'
 
-[case.expect]
-program = 'rename path: "/home/user/app/a.txt" to: "b.txt"'
-corrections = [{ rule = 'L01', class = 'F', from = 'renmae', to = 'rename' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'rename path: "/home/user/app/a.txt" to: "b.txt"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/replace/rpelace'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name rpelace is one edit from replace and from no other name.'
+summary = 'The command name rpelace is one edit from the changing command replace; the correction is offered, not applied.'
 method = "correct"
 program = 'rpelace "a" "b" in: ["/home/user/app/a.txt"]'
 
-[case.expect]
-program = 'replace "a" "b" in: ["/home/user/app/a.txt"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'rpelace', to = 'replace' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'replace "a" "b" in: ["/home/user/app/a.txt"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/replace/relpace'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name relpace is one edit from replace and from no other name.'
+summary = 'The command name relpace is one edit from the changing command replace; the correction is offered, not applied.'
 method = "correct"
 program = 'relpace "a" "b" in: ["/home/user/app/a.txt"]'
 
-[case.expect]
-program = 'replace "a" "b" in: ["/home/user/app/a.txt"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'relpace', to = 'replace' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'replace "a" "b" in: ["/home/user/app/a.txt"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/replace/repalce'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name repalce is one edit from replace and from no other name.'
+summary = 'The command name repalce is one edit from the changing command replace; the correction is offered, not applied.'
 method = "correct"
 program = 'repalce "a" "b" in: ["/home/user/app/a.txt"]'
 
-[case.expect]
-program = 'replace "a" "b" in: ["/home/user/app/a.txt"]'
-corrections = [{ rule = 'L01', class = 'F', from = 'repalce', to = 'replace' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'replace "a" "b" in: ["/home/user/app/a.txt"]' }]
 
 [[case]]
 id = 'correction/generated/command-typos/restart/rsetart'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name rsetart is one edit from restart and from no other name.'
+summary = 'The command name rsetart is one edit from the changing command restart; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> rsetart'
 
-[case.expect]
-program = 'services name: "nginx" |> restart'
-corrections = [{ rule = 'L01', class = 'F', from = 'rsetart', to = 'restart' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> restart' }]
 
 [[case]]
 id = 'correction/generated/command-typos/restart/retsart'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name retsart is one edit from restart and from no other name.'
+summary = 'The command name retsart is one edit from the changing command restart; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> retsart'
 
-[case.expect]
-program = 'services name: "nginx" |> restart'
-corrections = [{ rule = 'L01', class = 'F', from = 'retsart', to = 'restart' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> restart' }]
 
 [[case]]
 id = 'correction/generated/command-typos/restart/resatrt'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name resatrt is one edit from restart and from no other name.'
+summary = 'The command name resatrt is one edit from the changing command restart; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> resatrt'
 
-[case.expect]
-program = 'services name: "nginx" |> restart'
-corrections = [{ rule = 'L01', class = 'F', from = 'resatrt', to = 'restart' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> restart' }]
 
 [[case]]
 id = 'correction/generated/command-typos/resume/rseume'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name rseume is one edit from resume and from no other name.'
+summary = 'The command name rseume is one edit from the changing command resume; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> rseume'
 
-[case.expect]
-program = 'jobs "j1" |> resume'
-corrections = [{ rule = 'L01', class = 'F', from = 'rseume', to = 'resume' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> resume' }]
 
 [[case]]
 id = 'correction/generated/command-typos/resume/reusme'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name reusme is one edit from resume and from no other name.'
+summary = 'The command name reusme is one edit from the changing command resume; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> reusme'
 
-[case.expect]
-program = 'jobs "j1" |> resume'
-corrections = [{ rule = 'L01', class = 'F', from = 'reusme', to = 'resume' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> resume' }]
 
 [[case]]
 id = 'correction/generated/command-typos/resume/resmue'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name resmue is one edit from resume and from no other name.'
+summary = 'The command name resmue is one edit from the changing command resume; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> resmue'
 
-[case.expect]
-program = 'jobs "j1" |> resume'
-corrections = [{ rule = 'L01', class = 'F', from = 'resmue', to = 'resume' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> resume' }]
 
 [[case]]
 id = 'correction/generated/command-typos/retry/rtery'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name rtery is one edit from retry and from no other name.'
+summary = 'The command name rtery is one edit from the changing command retry; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> rtery'
 
-[case.expect]
-program = 'jobs "j1" |> retry'
-corrections = [{ rule = 'L01', class = 'F', from = 'rtery', to = 'retry' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> retry' }]
 
 [[case]]
 id = 'correction/generated/command-typos/retry/rerty'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name rerty is one edit from retry and from no other name.'
+summary = 'The command name rerty is one edit from the changing command retry; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> rerty'
 
-[case.expect]
-program = 'jobs "j1" |> retry'
-corrections = [{ rule = 'L01', class = 'F', from = 'rerty', to = 'retry' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> retry' }]
 
 [[case]]
 id = 'correction/generated/command-typos/retry/retyr'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name retyr is one edit from retry and from no other name.'
+summary = 'The command name retyr is one edit from the changing command retry; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> retyr'
 
-[case.expect]
-program = 'jobs "j1" |> retry'
-corrections = [{ rule = 'L01', class = 'F', from = 'retyr', to = 'retry' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> retry' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-create/shcedule-create'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name shcedule.create is one edit from schedule.create and from no other name.'
+summary = 'The command name shcedule.create is one edit from the changing command schedule.create; the correction is offered, not applied.'
 method = "correct"
 program = 'shcedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app")'
 
-[case.expect]
-program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app")'
-corrections = [{ rule = 'L01', class = 'F', from = 'shcedule.create', to = 'schedule.create' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app")' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-create/scehdule-create'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name scehdule.create is one edit from schedule.create and from no other name.'
+summary = 'The command name scehdule.create is one edit from the changing command schedule.create; the correction is offered, not applied.'
 method = "correct"
 program = 'scehdule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app")'
 
-[case.expect]
-program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app")'
-corrections = [{ rule = 'L01', class = 'F', from = 'scehdule.create', to = 'schedule.create' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app")' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-create/schdeule-create'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name schdeule.create is one edit from schedule.create and from no other name.'
+summary = 'The command name schdeule.create is one edit from the changing command schedule.create; the correction is offered, not applied.'
 method = "correct"
 program = 'schdeule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app")'
 
-[case.expect]
-program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app")'
-corrections = [{ rule = 'L01', class = 'F', from = 'schdeule.create', to = 'schedule.create' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.create "backup" every: 1h action: (run ["make", "backup"] cwd: "/home/user/app")' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-history/shcedule-history'
@@ -5299,156 +5299,156 @@ id = 'correction/generated/command-typos/schedule-pause/shcedule-pause'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name shcedule.pause is one edit from schedule.pause and from no other name.'
+summary = 'The command name shcedule.pause is one edit from the changing command schedule.pause; the correction is offered, not applied.'
 method = "correct"
 program = 'shcedule.pause "s1"'
 
-[case.expect]
-program = 'schedule.pause "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'shcedule.pause', to = 'schedule.pause' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.pause "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-pause/scehdule-pause'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name scehdule.pause is one edit from schedule.pause and from no other name.'
+summary = 'The command name scehdule.pause is one edit from the changing command schedule.pause; the correction is offered, not applied.'
 method = "correct"
 program = 'scehdule.pause "s1"'
 
-[case.expect]
-program = 'schedule.pause "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'scehdule.pause', to = 'schedule.pause' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.pause "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-pause/schdeule-pause'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name schdeule.pause is one edit from schedule.pause and from no other name.'
+summary = 'The command name schdeule.pause is one edit from the changing command schedule.pause; the correction is offered, not applied.'
 method = "correct"
 program = 'schdeule.pause "s1"'
 
-[case.expect]
-program = 'schedule.pause "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'schdeule.pause', to = 'schedule.pause' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.pause "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-remove/shcedule-remove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name shcedule.remove is one edit from schedule.remove and from no other name.'
+summary = 'The command name shcedule.remove is one edit from the changing command schedule.remove; the correction is offered, not applied.'
 method = "correct"
 program = 'shcedule.remove "s1"'
 
-[case.expect]
-program = 'schedule.remove "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'shcedule.remove', to = 'schedule.remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.remove "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-remove/scehdule-remove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name scehdule.remove is one edit from schedule.remove and from no other name.'
+summary = 'The command name scehdule.remove is one edit from the changing command schedule.remove; the correction is offered, not applied.'
 method = "correct"
 program = 'scehdule.remove "s1"'
 
-[case.expect]
-program = 'schedule.remove "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'scehdule.remove', to = 'schedule.remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.remove "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-remove/schdeule-remove'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name schdeule.remove is one edit from schedule.remove and from no other name.'
+summary = 'The command name schdeule.remove is one edit from the changing command schedule.remove; the correction is offered, not applied.'
 method = "correct"
 program = 'schdeule.remove "s1"'
 
-[case.expect]
-program = 'schedule.remove "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'schdeule.remove', to = 'schedule.remove' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.remove "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-resume/shcedule-resume'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name shcedule.resume is one edit from schedule.resume and from no other name.'
+summary = 'The command name shcedule.resume is one edit from the changing command schedule.resume; the correction is offered, not applied.'
 method = "correct"
 program = 'shcedule.resume "s1"'
 
-[case.expect]
-program = 'schedule.resume "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'shcedule.resume', to = 'schedule.resume' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.resume "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-resume/scehdule-resume'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name scehdule.resume is one edit from schedule.resume and from no other name.'
+summary = 'The command name scehdule.resume is one edit from the changing command schedule.resume; the correction is offered, not applied.'
 method = "correct"
 program = 'scehdule.resume "s1"'
 
-[case.expect]
-program = 'schedule.resume "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'scehdule.resume', to = 'schedule.resume' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.resume "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-resume/schdeule-resume'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name schdeule.resume is one edit from schedule.resume and from no other name.'
+summary = 'The command name schdeule.resume is one edit from the changing command schedule.resume; the correction is offered, not applied.'
 method = "correct"
 program = 'schdeule.resume "s1"'
 
-[case.expect]
-program = 'schedule.resume "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'schdeule.resume', to = 'schedule.resume' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.resume "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-run/shcedule-run'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name shcedule.run is one edit from schedule.run and from no other name.'
+summary = 'The command name shcedule.run is one edit from the changing command schedule.run; the correction is offered, not applied.'
 method = "correct"
 program = 'shcedule.run "s1"'
 
-[case.expect]
-program = 'schedule.run "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'shcedule.run', to = 'schedule.run' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.run "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-run/scehdule-run'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name scehdule.run is one edit from schedule.run and from no other name.'
+summary = 'The command name scehdule.run is one edit from the changing command schedule.run; the correction is offered, not applied.'
 method = "correct"
 program = 'scehdule.run "s1"'
 
-[case.expect]
-program = 'schedule.run "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'scehdule.run', to = 'schedule.run' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.run "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/schedule-run/schdeule-run'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name schdeule.run is one edit from schedule.run and from no other name.'
+summary = 'The command name schdeule.run is one edit from the changing command schedule.run; the correction is offered, not applied.'
 method = "correct"
 program = 'schdeule.run "s1"'
 
-[case.expect]
-program = 'schedule.run "s1"'
-corrections = [{ rule = 'L01', class = 'F', from = 'schdeule.run', to = 'schedule.run' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'schedule.run "s1"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/search/saerch'
@@ -5624,39 +5624,39 @@ id = 'correction/generated/command-typos/sleep/selep'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name selep is one edit from sleep and from no other name.'
+summary = 'The command name selep is one edit from the changing command sleep; the correction is offered, not applied.'
 method = "correct"
 program = 'selep 1s'
 
-[case.expect]
-program = 'sleep 1s'
-corrections = [{ rule = 'L01', class = 'F', from = 'selep', to = 'sleep' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'sleep 1s' }]
 
 [[case]]
 id = 'correction/generated/command-typos/sleep/slepe'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name slepe is one edit from sleep and from no other name.'
+summary = 'The command name slepe is one edit from the changing command sleep; the correction is offered, not applied.'
 method = "correct"
 program = 'slepe 1s'
 
-[case.expect]
-program = 'sleep 1s'
-corrections = [{ rule = 'L01', class = 'F', from = 'slepe', to = 'sleep' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'sleep 1s' }]
 
 [[case]]
 id = 'correction/generated/command-typos/sleep/seep'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name seep is one edit from sleep and from no other name.'
+summary = 'The command name seep is one edit from the changing command sleep; the correction is offered, not applied.'
 method = "correct"
 program = 'seep 1s'
 
-[case.expect]
-program = 'sleep 1s'
-corrections = [{ rule = 'L01', class = 'F', from = 'seep', to = 'sleep' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'sleep 1s' }]
 
 [[case]]
 id = 'correction/generated/command-typos/sort/srot'
@@ -5741,78 +5741,78 @@ id = 'correction/generated/command-typos/start/satrt'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name satrt is one edit from start and from no other name.'
+summary = 'The command name satrt is one edit from the changing command start; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> satrt'
 
-[case.expect]
-program = 'services name: "nginx" |> start'
-corrections = [{ rule = 'L01', class = 'F', from = 'satrt', to = 'start' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> start' }]
 
 [[case]]
 id = 'correction/generated/command-typos/start/sttart'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name sttart is one edit from start and from no other name.'
+summary = 'The command name sttart is one edit from the changing command start; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> sttart'
 
-[case.expect]
-program = 'services name: "nginx" |> start'
-corrections = [{ rule = 'L01', class = 'F', from = 'sttart', to = 'start' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> start' }]
 
 [[case]]
 id = 'correction/generated/command-typos/start/staart'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name staart is one edit from start and from no other name.'
+summary = 'The command name staart is one edit from the changing command start; the correction is offered, not applied.'
 method = "correct"
 program = 'services name: "nginx" |> staart'
 
-[case.expect]
-program = 'services name: "nginx" |> start'
-corrections = [{ rule = 'L01', class = 'F', from = 'staart', to = 'start' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'services name: "nginx" |> start' }]
 
 [[case]]
 id = 'correction/generated/command-typos/stop/sotp'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name sotp is one edit from stop and from no other name.'
+summary = 'The command name sotp is one edit from the changing command stop; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> sotp'
 
-[case.expect]
-program = 'jobs "j1" |> stop'
-corrections = [{ rule = 'L01', class = 'F', from = 'sotp', to = 'stop' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> stop' }]
 
 [[case]]
 id = 'correction/generated/command-typos/stop/stpo'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name stpo is one edit from stop and from no other name.'
+summary = 'The command name stpo is one edit from the changing command stop; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> stpo'
 
-[case.expect]
-program = 'jobs "j1" |> stop'
-corrections = [{ rule = 'L01', class = 'F', from = 'stpo', to = 'stop' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> stop' }]
 
 [[case]]
 id = 'correction/generated/command-typos/stop/sop'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name sop is one edit from stop and from no other name.'
+summary = 'The command name sop is one edit from the changing command stop; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> sop'
 
-[case.expect]
-program = 'jobs "j1" |> stop'
-corrections = [{ rule = 'L01', class = 'F', from = 'sop', to = 'stop' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> stop' }]
 
 [[case]]
 id = 'correction/generated/command-typos/summarize/smumarize'
@@ -5871,78 +5871,78 @@ id = 'correction/generated/command-typos/suspend/ssupend'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name ssupend is one edit from suspend and from no other name.'
+summary = 'The command name ssupend is one edit from the changing command suspend; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> ssupend'
 
-[case.expect]
-program = 'jobs "j1" |> suspend'
-corrections = [{ rule = 'L01', class = 'F', from = 'ssupend', to = 'suspend' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> suspend' }]
 
 [[case]]
 id = 'correction/generated/command-typos/suspend/supsend'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name supsend is one edit from suspend and from no other name.'
+summary = 'The command name supsend is one edit from the changing command suspend; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> supsend'
 
-[case.expect]
-program = 'jobs "j1" |> suspend'
-corrections = [{ rule = 'L01', class = 'F', from = 'supsend', to = 'suspend' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> suspend' }]
 
 [[case]]
 id = 'correction/generated/command-typos/suspend/susepnd'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name susepnd is one edit from suspend and from no other name.'
+summary = 'The command name susepnd is one edit from the changing command suspend; the correction is offered, not applied.'
 method = "correct"
 program = 'jobs "j1" |> susepnd'
 
-[case.expect]
-program = 'jobs "j1" |> suspend'
-corrections = [{ rule = 'L01', class = 'F', from = 'susepnd', to = 'suspend' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'jobs "j1" |> suspend' }]
 
 [[case]]
 id = 'correction/generated/command-typos/test-failed/tset-failed'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name tset.failed is one edit from test.failed and from no other name.'
+summary = 'The command name tset.failed is one edit from the changing command test.failed; the correction is offered, not applied.'
 method = "correct"
 program = 'tset.failed'
 
-[case.expect]
-program = 'test.failed'
-corrections = [{ rule = 'L01', class = 'F', from = 'tset.failed', to = 'test.failed' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'test.failed' }]
 
 [[case]]
 id = 'correction/generated/command-typos/test-failed/tets-failed'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name tets.failed is one edit from test.failed and from no other name.'
+summary = 'The command name tets.failed is one edit from the changing command test.failed; the correction is offered, not applied.'
 method = "correct"
 program = 'tets.failed'
 
-[case.expect]
-program = 'test.failed'
-corrections = [{ rule = 'L01', class = 'F', from = 'tets.failed', to = 'test.failed' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'test.failed' }]
 
 [[case]]
 id = 'correction/generated/command-typos/test-failed/test-afiled'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name test.afiled is one edit from test.failed and from no other name.'
+summary = 'The command name test.afiled is one edit from the changing command test.failed; the correction is offered, not applied.'
 method = "correct"
 program = 'test.afiled'
 
-[case.expect]
-program = 'test.failed'
-corrections = [{ rule = 'L01', class = 'F', from = 'test.afiled', to = 'test.failed' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'test.failed' }]
 
 [[case]]
 id = 'correction/generated/command-typos/test-list/tset-list'
@@ -6001,39 +6001,39 @@ id = 'correction/generated/command-typos/test-run/tset-run'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name tset.run is one edit from test.run and from no other name.'
+summary = 'The command name tset.run is one edit from the changing command test.run; the correction is offered, not applied.'
 method = "correct"
 program = 'tset.run "/home/user/app"'
 
-[case.expect]
-program = 'test.run "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'tset.run', to = 'test.run' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'test.run "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/test-run/tets-run'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name tets.run is one edit from test.run and from no other name.'
+summary = 'The command name tets.run is one edit from the changing command test.run; the correction is offered, not applied.'
 method = "correct"
 program = 'tets.run "/home/user/app"'
 
-[case.expect]
-program = 'test.run "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'tets.run', to = 'test.run' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'test.run "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/test-run/test-urn'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name test.urn is one edit from test.run and from no other name.'
+summary = 'The command name test.urn is one edit from the changing command test.run; the correction is offered, not applied.'
 method = "correct"
 program = 'test.urn "/home/user/app"'
 
-[case.expect]
-program = 'test.run "/home/user/app"'
-corrections = [{ rule = 'L01', class = 'F', from = 'test.urn', to = 'test.run' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'test.run "/home/user/app"' }]
 
 [[case]]
 id = 'correction/generated/command-typos/test-show/tset-show'
@@ -6092,39 +6092,39 @@ id = 'correction/generated/command-typos/undo/udno'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name udno is one edit from undo and from no other name.'
+summary = 'The command name udno is one edit from the changing command undo; the correction is offered, not applied.'
 method = "correct"
 program = 'udno 3'
 
-[case.expect]
-program = 'undo 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'udno', to = 'undo' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'undo 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/undo/unod'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name unod is one edit from undo and from no other name.'
+summary = 'The command name unod is one edit from the changing command undo; the correction is offered, not applied.'
 method = "correct"
 program = 'unod 3'
 
-[case.expect]
-program = 'undo 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'unod', to = 'undo' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'undo 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/undo/uno'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name uno is one edit from undo and from no other name.'
+summary = 'The command name uno is one edit from the changing command undo; the correction is offered, not applied.'
 method = "correct"
 program = 'uno 3'
 
-[case.expect]
-program = 'undo 3'
-corrections = [{ rule = 'L01', class = 'F', from = 'uno', to = 'undo' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = 'undo 3' }]
 
 [[case]]
 id = 'correction/generated/command-typos/verify/vreify'
@@ -6226,36 +6226,36 @@ id = 'correction/generated/command-typos/write/wirte'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name wirte is one edit from write and from no other name.'
+summary = 'The command name wirte is one edit from the changing command write; the correction is offered, not applied.'
 method = "correct"
 program = "wirte \"/home/user/app/a.txt\" \"x\\n\" mode: create"
 
-[case.expect]
-program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create"
-corrections = [{ rule = 'L01', class = 'F', from = 'wirte', to = 'write' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create" }]
 
 [[case]]
 id = 'correction/generated/command-typos/write/wrtie'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name wrtie is one edit from write and from no other name.'
+summary = 'The command name wrtie is one edit from the changing command write; the correction is offered, not applied.'
 method = "correct"
 program = "wrtie \"/home/user/app/a.txt\" \"x\\n\" mode: create"
 
-[case.expect]
-program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create"
-corrections = [{ rule = 'L01', class = 'F', from = 'wrtie', to = 'write' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create" }]
 
 [[case]]
 id = 'correction/generated/command-typos/write/wriet'
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = 'The command name wriet is one edit from write and from no other name.'
+summary = 'The command name wriet is one edit from the changing command write; the correction is offered, not applied.'
 method = "correct"
 program = "wriet \"/home/user/app/a.txt\" \"x\\n\" mode: create"
 
-[case.expect]
-program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create"
-corrections = [{ rule = 'L01', class = 'F', from = 'wriet', to = 'write' }]
+[case.expect.error]
+code = 'E_AMBIGUOUS'
+candidates = [{ program = "write \"/home/user/app/a.txt\" \"x\\n\" mode: create" }]

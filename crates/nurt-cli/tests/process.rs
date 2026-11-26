@@ -596,3 +596,125 @@ fn argument_that_is_not_utf8_is_a_usage_error() {
     assert_eq!(output.status.code(), Some(2));
     assert!(stderr(&output).contains("not valid UTF-8"));
 }
+
+fn combined(output: &Output) -> String {
+    format!("{}{}", stdout(output), stderr(output))
+}
+
+#[test]
+fn check_translates_a_bash_habit_that_reads_as_a_nurt_program() {
+    let removed = nurt(&["check", "-e", "rm -rf /srv/app/build"], "");
+    assert_eq!(removed.status.code(), Some(0), "{}", combined(&removed));
+    let text = stdout(&removed);
+    assert!(text.contains("corrections: 2"), "{text}");
+    assert!(text.contains("paths: [\"/srv/app/build\"]"), "{text}");
+    let fetched = nurt(&["check", "-e", "curl -s https://example.com/health"], "");
+    assert_eq!(fetched.status.code(), Some(0), "{}", combined(&fetched));
+    let text = stdout(&fetched);
+    assert!(text.contains("corrections: 1"), "{text}");
+    assert!(text.contains("\"command\":\"http.request\""), "{text}");
+}
+
+#[test]
+fn a_misspelt_changing_command_is_offered_and_not_run() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("a.txt");
+    std::fs::write(&file, "x").unwrap();
+    let program = format!("remvoe \"{}\"", file.display());
+    let output = nurt(&[&program], "");
+    assert_eq!(output.status.code(), Some(1), "{}", combined(&output));
+    let text = combined(&output);
+    assert!(text.contains("E_AMBIGUOUS"), "{text}");
+    assert!(
+        text.contains(&format!("remove \"{}\"", file.display())),
+        "{text}"
+    );
+    assert!(file.exists());
+    let checked = nurt(&["check", "-e", &program], "");
+    assert!(combined(&checked).contains("E_AMBIGUOUS"));
+}
+
+#[test]
+fn a_misspelt_reading_command_is_corrected_and_run() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.txt"), "x").unwrap();
+    let program = format!("lsit \"{}\"", dir.path().display());
+    let output = nurt(&[&program], "");
+    assert_eq!(output.status.code(), Some(0), "{}", combined(&output));
+    assert!(
+        stdout(&output).contains("corrected: 1"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
+fn a_text_with_an_unknown_escape_is_read_as_a_regular_expression_or_rejected_with_a_fix() {
+    let read = nurt(&["check", "-e", "search \"\\d+\" \"/srv\""], "");
+    assert_eq!(read.status.code(), Some(0), "{}", combined(&read));
+    assert!(
+        stdout(&read).contains("corrections: 1"),
+        "{}",
+        stdout(&read)
+    );
+    let write = nurt(
+        &["check", "-e", "write \"/srv/a.txt\" \"a\\d\" mode: append"],
+        "",
+    );
+    assert_eq!(write.status.code(), Some(1), "{}", combined(&write));
+    let text = combined(&write);
+    assert!(text.contains("E_ESCAPE"), "{text}");
+    assert!(
+        text.contains("write \"/srv/a.txt\" r\"a\\d\" mode: append"),
+        "{text}"
+    );
+}
+
+#[cfg(feature = "mcp")]
+#[test]
+fn mcp_tool_offers_a_misspelt_changing_command_and_runs_a_misspelt_reading_command() {
+    let home = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("a.txt");
+    std::fs::write(&file, "x").unwrap();
+    let mut child = command(&["mcp", "--stdio"], home.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut input = child.stdin.take().unwrap();
+    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    let initialize = serde_json::json!({
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1.0.0"}
+        }
+    });
+    writeln!(input, "{initialize}").unwrap();
+    reply_of(&mut lines, 1);
+    writeln!(
+        input,
+        r#"{{"jsonrpc":"2.0","method":"notifications/initialized"}}"#
+    )
+    .unwrap();
+    let call = |id: u64, program: String| {
+        serde_json::json!({
+            "jsonrpc": "2.0", "id": id, "method": "tools/call",
+            "params": {"name": "nurt", "arguments": {"program": program}}
+        })
+    };
+    writeln!(input, "{}", call(2, format!("remvoe \"{}\"", file.display()))).unwrap();
+    writeln!(input, "{}", call(3, format!("lsit \"{}\"", dir.path().display()))).unwrap();
+    input.flush().unwrap();
+    let offered = reply_of(&mut lines, 2).to_string();
+    assert!(offered.contains("E_AMBIGUOUS"), "{offered}");
+    let corrected = reply_of(&mut lines, 3).to_string();
+    assert!(!corrected.contains("E_AMBIGUOUS"), "{corrected}");
+    assert!(corrected.contains("a.txt"), "{corrected}");
+    assert!(file.exists());
+    drop(input);
+    assert_eq!(child.wait().unwrap().code(), Some(0));
+}

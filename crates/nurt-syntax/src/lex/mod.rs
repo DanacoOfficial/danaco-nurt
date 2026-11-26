@@ -58,7 +58,9 @@ pub use self::number::{
     duration_ms, parse_duration, parse_int, parse_number, parse_size, size_bytes,
 };
 pub use self::regex::decode_regex;
-pub use self::text::{decode_raw, decode_text, invalid_escapes};
+pub use self::text::{
+    decode_raw, decode_text, decode_text_keeping_unknown_escapes, invalid_escapes,
+};
 pub use self::token::{
     Comment, ForeignKind, Glued, KEYWORDS, LexContext, LexOptions, MAX_IDENTIFIER_LEN,
     MAX_SAFE_INTEGER, Token, TokenKind,
@@ -101,6 +103,9 @@ pub struct Checkpoint {
 pub struct Lexer<'a> {
     text: &'a str,
     options: LexOptions,
+    /// Whether a text with escapes that the language does not have is a
+    /// text token instead of an `E_ESCAPE` error.
+    unknown_escapes_kept: bool,
     position: usize,
     cursor: Cursor,
     /// Number of open brackets; line breaks inside brackets are skipped.
@@ -129,6 +134,15 @@ struct Trivia {
 }
 
 impl<'a> Lexer<'a> {
+    /// Makes the lexer read a text with escapes that the language does not
+    /// have (`\d`) as a text token whose value keeps the characters of the
+    /// escape; an invalid `\u` escape stays an error.
+    #[must_use]
+    pub fn keeping_unknown_escapes(mut self) -> Self {
+        self.unknown_escapes_kept = true;
+        self
+    }
+
     /// Lexer of `text`. A byte order mark at the start is skipped and not
     /// counted in columns; a first line that starts with `#!` is skipped.
     #[must_use]
@@ -149,6 +163,7 @@ impl<'a> Lexer<'a> {
         Self {
             text,
             options,
+            unknown_escapes_kept: false,
             position,
             cursor: Cursor::START.after(text.get(content_start..position).unwrap_or_default()),
             depth: 0,
@@ -421,7 +436,7 @@ impl<'a> Lexer<'a> {
             return Ok(Lexeme::new(start, TokenKind::Eof));
         };
         match first {
-            b'"' => text::scan_text(self.text, start),
+            b'"' => text::scan_text(self.text, start, self.unknown_escapes_kept),
             b'/' => self.scan_slash(start, context, space_before),
             b'0'..=b'9' => number::scan_number(self.text, start),
             // Letters glued to a number belong to the number, so `1r"q"` is a
@@ -730,6 +745,45 @@ pub fn tokenize(text: &str, options: LexOptions) -> Result<Vec<Token>, LexError>
             return Ok(tokens);
         }
     }
+}
+
+/// Byte ranges of the text literals of `text` that have an escape the
+/// language does not have, such as `"\d+"`, in the order of the text.
+///
+/// The literals are found in the token stream of [`tokenize`]; the search
+/// ends at the first token that is not valid for another reason.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_syntax::lex::unknown_escape_texts;
+///
+/// let text = r#"search "\d+" "/srv\n" "C:\proj""#;
+/// let found: Vec<&str> = unknown_escape_texts(text)
+///     .into_iter()
+///     .map(|range| &text[range])
+///     .collect();
+/// assert_eq!(found, [r#""\d+""#, r#""C:\proj""#]);
+/// ```
+#[must_use]
+pub fn unknown_escape_texts(text: &str) -> Vec<Range<usize>> {
+    let mut lexer = Lexer::new(text, LexOptions::default()).keeping_unknown_escapes();
+    let mut found = Vec::new();
+    let mut context = LexContext::Value;
+    while let Ok(token) = lexer.next(context) {
+        context = context_after(&token.kind);
+        if token.kind == TokenKind::Eof {
+            break;
+        }
+        if token.kind == TokenKind::Text
+            && text
+                .get(token.range.clone())
+                .is_some_and(text::has_unknown_escape)
+        {
+            found.push(token.range);
+        }
+    }
+    found
 }
 
 /// Context of the token after a token of `kind`.

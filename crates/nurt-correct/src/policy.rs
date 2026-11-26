@@ -7,7 +7,7 @@
 //! |---|---|---|
 //! | C | apply, show | apply, show |
 //! | S | apply, show | apply when the structure is unambiguous and literal bytes are unchanged; otherwise `E_AMBIGUOUS` |
-//! | F | apply, show | apply when the name is not an effecting stage, or at distance 1 when the whole program binds and type-checks; otherwise `E_AMBIGUOUS` |
+//! | F | apply, show | apply when the name is not an effecting stage; the name of an effecting stage is not applied: `E_AMBIGUOUS` with the corrected program as the candidate |
 //! | P | apply the fixed-priority interpretation, show at most three alternatives | do not apply: `E_AMBIGUOUS` with ranked candidates |
 //!
 //! The number of corrections of one program is limited by [`Budget`]; a
@@ -28,7 +28,7 @@ use nurt_contracts::spec::StageSpec;
 
 pub use nurt_contracts::report::CorrectionClass as Class;
 
-use crate::distance::{EFFECTING_MAX_DISTANCE, fold};
+use crate::distance::fold;
 use crate::record::{Correction, CorrectionKind, RuleId};
 use crate::tables::Tables;
 use crate::types::{self, Outcome, Written};
@@ -128,8 +128,6 @@ pub struct Facts {
     pub literals_unchanged: bool,
     /// The corrected name is the name of an effecting stage (class F).
     pub effecting_name: bool,
-    /// Edit distance of a fuzzy name correction (class F).
-    pub distance: usize,
 }
 
 impl Facts {
@@ -144,9 +142,8 @@ impl Facts {
 
     /// Facts of a fuzzy name correction.
     #[must_use]
-    pub fn fuzzy(mut self, effecting_name: bool, distance: usize) -> Self {
+    pub fn fuzzy(mut self, effecting_name: bool) -> Self {
         self.effecting_name = effecting_name;
-        self.distance = distance;
         self
     }
 
@@ -166,7 +163,6 @@ impl Default for Facts {
             structure_unambiguous: true,
             literals_unchanged: true,
             effecting_name: false,
-            distance: 0,
         }
     }
 }
@@ -179,9 +175,6 @@ pub enum Decision {
     /// Apply the fixed-priority interpretation, show it and list at most
     /// [`MAX_ALTERNATIVES`] alternatives.
     ApplyWithAlternatives,
-    /// Apply only when the whole corrected program binds and type-checks;
-    /// otherwise treat as [`Decision::Ambiguous`].
-    ApplyIfProgramChecks,
     /// Do not run; return `E_AMBIGUOUS` with ranked candidates.
     Ambiguous,
     /// Correction is disabled; report the original error.
@@ -199,8 +192,8 @@ pub enum Decision {
 /// let facts = Facts::default();
 /// assert_eq!(decide(Class::Probable, ProgramKind::Read, &facts), Decision::ApplyWithAlternatives);
 /// assert_eq!(decide(Class::Probable, ProgramKind::Effect, &facts), Decision::Ambiguous);
-/// let renamed = facts.fuzzy(true, 1);
-/// assert_eq!(decide(Class::Fuzzy, ProgramKind::Effect, &renamed), Decision::ApplyIfProgramChecks);
+/// let renamed = facts.fuzzy(true);
+/// assert_eq!(decide(Class::Fuzzy, ProgramKind::Effect, &renamed), Decision::Ambiguous);
 /// ```
 #[must_use]
 pub fn decide(class: Class, program: ProgramKind, facts: &Facts) -> Decision {
@@ -208,6 +201,7 @@ pub fn decide(class: Class, program: ProgramKind, facts: &Facts) -> Decision {
         return Decision::Disabled;
     }
     match (class, program) {
+        (Class::Fuzzy, _) if facts.effecting_name => Decision::Ambiguous,
         (Class::Certain, _) | (Class::Structural | Class::Fuzzy, ProgramKind::Read) => {
             Decision::Apply
         }
@@ -219,15 +213,7 @@ pub fn decide(class: Class, program: ProgramKind, facts: &Facts) -> Decision {
                 Decision::Ambiguous
             }
         }
-        (Class::Fuzzy, ProgramKind::Effect) => {
-            if !facts.effecting_name {
-                Decision::Apply
-            } else if facts.distance == EFFECTING_MAX_DISTANCE {
-                Decision::ApplyIfProgramChecks
-            } else {
-                Decision::Ambiguous
-            }
-        }
+        (Class::Fuzzy, ProgramKind::Effect) => Decision::Apply,
         _ => Decision::Ambiguous,
     }
 }
@@ -1044,24 +1030,18 @@ mod tests {
     }
 
     #[test]
-    fn limits_fuzzy_names_of_effecting_stages() {
+    fn never_applies_fuzzy_names_of_effecting_stages() {
         let facts = Facts::default();
-        assert_eq!(
-            decide(Class::Fuzzy, READ, &facts.fuzzy(true, 2)),
-            Decision::Apply
-        );
-        assert_eq!(
-            decide(Class::Fuzzy, EFFECT, &facts.fuzzy(false, 2)),
-            Decision::Apply
-        );
-        assert_eq!(
-            decide(Class::Fuzzy, EFFECT, &facts.fuzzy(true, 1)),
-            Decision::ApplyIfProgramChecks
-        );
-        assert_eq!(
-            decide(Class::Fuzzy, EFFECT, &facts.fuzzy(true, 2)),
-            Decision::Ambiguous
-        );
+        for program in [READ, EFFECT] {
+            assert_eq!(
+                decide(Class::Fuzzy, program, &facts.fuzzy(false)),
+                Decision::Apply
+            );
+            assert_eq!(
+                decide(Class::Fuzzy, program, &facts.fuzzy(true)),
+                Decision::Ambiguous
+            );
+        }
     }
 
     #[test]
