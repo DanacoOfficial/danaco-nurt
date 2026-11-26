@@ -243,3 +243,91 @@ pub(crate) fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
     registrar.register(Arc::new(Help::new()?))?;
     registrar.register(Arc::new(Describe))
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_testkit::ctx::TestContext;
+
+    use super::*;
+
+    fn described(input: Vec<Record>) -> Vec<FieldInfo> {
+        let ctx = TestContext::new().ctx();
+        let args = BoundArgs::new("describe");
+        let stage = Describe;
+        let output = stage
+            .execute(
+                &args,
+                StageInput::records(RecordStream::from_records(input)),
+                &ctx,
+            )
+            .unwrap();
+        let StageData::Records(stream) = output.data else {
+            panic!("records expected");
+        };
+        stream
+            .map(|item| FieldInfo::try_from(item.unwrap()).unwrap())
+            .collect()
+    }
+
+    fn map(fields: &[(&str, Value)]) -> Record {
+        fields
+            .iter()
+            .fold(Record::new(RecordKind::Map), |record, (name, value)| {
+                record.with(*name, value.clone())
+            })
+    }
+
+    #[test]
+    fn describe_lists_the_fields_in_the_order_of_their_first_appearance() {
+        let rows = described(vec![
+            map(&[("size", Value::Int(3)), ("name", Value::from("ą"))]),
+            map(&[("owner", Value::from("ż")), ("size", Value::Int(4))]),
+        ]);
+        let names: Vec<&str> = rows.iter().map(|row| row.field.as_str()).collect();
+        assert_eq!(names, ["size", "name", "owner"]);
+        assert_eq!(rows[0].kind, "int");
+        assert_eq!(rows[1].kind, "text");
+    }
+
+    #[test]
+    fn describe_marks_a_field_required_only_when_every_record_has_it() {
+        let rows = described(vec![
+            map(&[("a", Value::Int(1)), ("b", Value::Int(2))]),
+            map(&[("a", Value::Int(3))]),
+        ]);
+        assert_eq!(rows[0].required, Some(true));
+        assert_eq!(rows[0].records, Some(2));
+        assert_eq!(rows[1].required, Some(false));
+        assert_eq!(rows[1].records, Some(1));
+    }
+
+    #[test]
+    fn describe_takes_the_type_and_example_from_the_first_value_other_than_null() {
+        let rows = described(vec![
+            map(&[("a", Value::Null)]),
+            map(&[("a", Value::from("x"))]),
+            map(&[("a", Value::Int(5))]),
+        ]);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].kind, "text");
+        assert_eq!(rows[0].example, Some(Value::from("x")));
+        assert_eq!(rows[0].records, Some(3));
+    }
+
+    #[test]
+    fn describe_of_an_empty_stream_lists_nothing() {
+        assert!(described(Vec::new()).is_empty());
+    }
+
+    #[test]
+    fn describe_of_a_single_value_is_a_type_error() {
+        let ctx = TestContext::new().ctx();
+        let args = BoundArgs::new("describe");
+        let stage = Describe;
+        let error = stage
+            .execute(&args, StageInput::value(Value::Int(1)), &ctx)
+            .err()
+            .unwrap();
+        assert_eq!(error.code, ErrorCode::Type);
+    }
+}

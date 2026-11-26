@@ -959,6 +959,97 @@ fn verify_returns_the_error_of_the_check() {
     assert_eq!(error.code(), ErrorCode::Assert);
 }
 
+fn durations(millis: &[i64]) -> Vec<Record> {
+    millis
+        .iter()
+        .map(|value| {
+            Record::new(RecordKind::Map).with("d", Value::Duration(Duration::from_millis(*value)))
+        })
+        .collect()
+}
+
+#[test]
+fn summarize_sums_durations_and_rounds_their_average_to_the_nearest_unit() {
+    let summary = records_of(&Summarize, &args_fields(&["d"]), durations(&[1, 2]));
+    assert_eq!(
+        summary[0].get("sum"),
+        Some(&Value::Duration(Duration::from_millis(3)))
+    );
+    assert_eq!(
+        summary[0].get("average"),
+        Some(&Value::Duration(Duration::from_millis(2)))
+    );
+    let summary = records_of(&Summarize, &args_fields(&["d"]), durations(&[1, 1, 2]));
+    assert_eq!(
+        summary[0].get("average"),
+        Some(&Value::Duration(Duration::from_millis(1)))
+    );
+}
+
+#[test]
+fn summarize_sum_of_integers_beyond_the_integer_range_is_a_number() {
+    let records = vec![
+        Record::new(RecordKind::Map).with("n", Value::Int(i64::MAX)),
+        Record::new(RecordKind::Map).with("n", Value::Int(i64::MAX)),
+    ];
+    let summary = records_of(&Summarize, &args_fields(&["n"]), records);
+    assert_eq!(summary[0].get("count"), Some(&Value::Int(2)));
+    assert_eq!(
+        summary[0].get("sum"),
+        Some(&Value::Number(2.0 * i64::MAX as f64))
+    );
+}
+
+#[test]
+fn last_zero_keeps_nothing_and_first_beyond_the_input_keeps_everything() {
+    let none = args("last", &[("count", value(0))]);
+    assert!(records_of(&Last, &none, files()).is_empty());
+    let all = args("first", &[("count", value(10))]);
+    assert_eq!(records_of(&First, &all, files()).len(), 4);
+}
+
+#[test]
+fn select_reads_inside_a_field_and_names_the_column_by_its_last_segment() {
+    let mut meta = nurt_contracts::value::Fields::new();
+    meta.insert("owner".to_owned(), Value::from("ada"));
+    let record = Record::new(RecordKind::Entry).with("meta", Value::Map(meta));
+    let nested = BoundExpr::Field {
+        name: "owner".to_owned(),
+        of: Some(Box::new(field("meta"))),
+    };
+    let args = args("select", &[("fields", expr(nested))]);
+    let selected = records_of(&Select, &args, vec![record]);
+    assert_eq!(selected[0].kind, RecordKind::Map);
+    assert_eq!(selected[0].get("owner"), Some(&Value::from("ada")));
+}
+
+#[test]
+fn parse_numbers_the_lines_of_content_with_crlf_and_multibyte_text() {
+    let args = args(
+        "parse",
+        &[("pattern", pattern(r"(?<key>\w+)=(?<value>\d+)"))],
+    );
+    let content = Record::new(RecordKind::Content)
+        .with("path", Value::Path("/etc/ą.conf".to_owned()))
+        .with("text", Value::from("ąć=1\r\nżź=2\r\n"));
+    let rows = records_of(&Parse, &args, vec![content]);
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].get("no"), Some(&Value::Int(1)));
+    assert_eq!(rows[1].get("no"), Some(&Value::Int(2)));
+    assert_eq!(cells(&rows[1]).get("key"), Some(&Value::from("żź")));
+    assert_eq!(cells(&rows[1]).get("value"), Some(&Value::from("2")));
+}
+
+#[test]
+fn split_cuts_at_a_multibyte_delimiter_and_keeps_the_empty_tail() {
+    let args = args("split", &[("delimiter", value("→"))]);
+    let rows = records_of(&Split, &args, vec![line("/a", 1, "ą→ę→")]);
+    let names: Vec<&str> = cells(&rows[0]).keys().map(String::as_str).collect();
+    assert_eq!(names, ["c1", "c2", "c3"]);
+    assert_eq!(cells(&rows[0]).get("c1"), Some(&Value::from("ą")));
+    assert_eq!(cells(&rows[0]).get("c3"), Some(&Value::from("")));
+}
+
 #[test]
 fn verify_needs_a_pipeline_and_a_runner() {
     let missing = args("verify", &[]);

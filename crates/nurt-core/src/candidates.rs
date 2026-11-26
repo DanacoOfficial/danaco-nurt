@@ -280,6 +280,34 @@ mod tests {
     }
 
     #[test]
+    fn a_new_offer_of_a_session_replaces_the_earlier_one() {
+        let store = CandidateStore::new(TTL, None);
+        let mut first = ambiguous();
+        store.register(None, &mut first, at(0)).unwrap();
+        let mut second = Error::new(ErrorCode::Uncorrectable, "no safe correction")
+            .with_candidate(candidate(1, "list \"/srv\""));
+        store.register(None, &mut second, at(1)).unwrap();
+        assert_eq!(
+            store.accept(None, "c1", at(2)).unwrap().program,
+            "list \"/srv\""
+        );
+        assert!(store.accept(None, "c2", at(2)).is_err());
+    }
+
+    #[test]
+    fn an_offer_ends_with_its_lifetime_in_every_session() {
+        let store = CandidateStore::new(TTL, None);
+        let named = SessionId::new("s-ż").unwrap();
+        let mut error = ambiguous();
+        store.register(Some(&named), &mut error, at(0)).unwrap();
+        assert!(store.accept(Some(&named), "c1", at(599)).is_ok());
+        assert_eq!(
+            store.accept(Some(&named), "c1", at(600)).unwrap_err().code,
+            ErrorCode::ExpiredCandidate
+        );
+    }
+
+    #[test]
     fn errors_without_candidates_are_unchanged() {
         let store = CandidateStore::new(TTL, None);
         let mut error = Error::new(ErrorCode::Syntax, "unclosed list");

@@ -349,6 +349,39 @@ mod tests {
     }
 
     #[test]
+    fn timeout_of_the_environment_wins_over_the_request_option() {
+        let options = RequestOptions {
+            timeout: Some("soon".to_owned()),
+            ..RequestOptions::default()
+        };
+        let env = env()
+            .with_options(Arc::new(options))
+            .with_timeout(Duration::from_secs(5));
+        assert_eq!(
+            env.resolved_timeout().unwrap(),
+            Some(Duration::from_secs(5))
+        );
+    }
+
+    #[test]
+    fn zero_threads_are_raised_to_one() {
+        let mut config = Config::default();
+        config.limits.threads = Some(0);
+        let env = env().with_config(Arc::new(config));
+        assert_eq!(env.limits().threads, 1);
+    }
+
+    #[test]
+    fn preview_follows_the_request_option() {
+        assert!(!env().preview());
+        let options = RequestOptions {
+            preview: Some(true),
+            ..RequestOptions::default()
+        };
+        assert!(env().with_options(Arc::new(options)).preview());
+    }
+
+    #[test]
     fn limits_follow_the_configuration() {
         let mut config = Config::default();
         config.limits.max_records = 7;

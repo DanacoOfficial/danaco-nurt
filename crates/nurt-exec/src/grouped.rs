@@ -412,6 +412,30 @@ mod tests {
     }
 
     #[test]
+    fn waiting_returns_at_once_when_the_condition_holds() {
+        let turns = Turns::new(2);
+        turns
+            .wait_until(|progress| progress.iter().all(|state| *state == Progress::Preserving))
+            .unwrap();
+        assert_eq!(turns.first_failure(), None);
+    }
+
+    #[test]
+    fn merge_joins_the_changes_and_flags_of_all_groups() {
+        use nurt_contracts::record::{Change, ChangeAction};
+
+        let mut first = EffectOutcome::new(StageOutput::none());
+        first.changes.push(Change::new("/a", ChangeAction::Modify));
+        let mut second = EffectOutcome::new(StageOutput::none());
+        second.changes.push(Change::new("/b", ChangeAction::Delete));
+        second.detached = true;
+        let merged = merge(vec![Ok(first), Ok(second)], None).unwrap();
+        assert_eq!(merged.changes.len(), 2);
+        assert_eq!(merged.changes[1].path.as_str(), "/b");
+        assert!(merged.detached);
+    }
+
+    #[test]
     fn merge_prefers_the_error_of_the_first_failed_group() {
         let results: Vec<Result<EffectOutcome<'_>>> = vec![
             Err(Error::new(ErrorCode::Cancelled, "aborted")),

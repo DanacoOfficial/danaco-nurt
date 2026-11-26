@@ -25,7 +25,7 @@ use std::time::Duration;
 use nurt_contracts::config::DurationSetting;
 use nurt_contracts::env::WallTime;
 use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::report::Report;
+use nurt_contracts::report::{Report, ReportStatus};
 use serde::{Deserialize, Serialize};
 
 use crate::state::{read_optional, sha256_hex, write_atomic};
@@ -155,6 +155,7 @@ impl CursorStore {
         {
             let _ = write_atomic(&dir.join(format!("{entry}.{ENTRY_EXTENSION}")), &bytes);
         }
+        self.evict_expired(now);
         self.lock().insert(entry, Arc::new(stored));
         page
     }
@@ -174,7 +175,9 @@ impl CursorStore {
             .filter(|stored| stored.program.starts_with(parsed.program))
             .ok_or_else(|| self.unknown(cursor, None))?;
         if stored.expires <= now {
-            let fix = stored.text.clone().filter(|_| stored.report.op.is_none());
+            let fix = stored.text.clone().filter(|_| {
+                stored.report.op.is_none() && stored.report.status != ReportStatus::Planned
+            });
             return Err(self.unknown(cursor, fix));
         }
         if parsed.offset > item_count(&stored.report) {
@@ -212,6 +215,28 @@ impl CursorStore {
             }
         }
         removed
+    }
+
+    /// Drops the results expired at `now` that this process holds, so that a
+    /// long-running engine does not keep every result it ever paged.
+    fn evict_expired(&self, now: WallTime) {
+        let expired: Vec<String> = {
+            let mut memory = self.lock();
+            let entries: Vec<String> = memory
+                .iter()
+                .filter(|(_, stored)| stored.expires <= now)
+                .map(|(entry, _)| entry.clone())
+                .collect();
+            for entry in &entries {
+                memory.remove(entry);
+            }
+            entries
+        };
+        if let Some(dir) = &self.dir {
+            for entry in expired {
+                let _ = fs::remove_file(dir.join(format!("{entry}.{ENTRY_EXTENSION}")));
+            }
+        }
     }
 
     fn lock(&self) -> MutexGuard<'_, HashMap<String, Arc<StoredResult>>> {
@@ -496,6 +521,64 @@ mod tests {
                 .page(&cursor, 1, at(5))
                 .is_err()
         );
+    }
+
+    #[test]
+    fn expired_cursor_of_a_preview_has_no_fix() {
+        let store = CursorStore::new(None, TTL);
+        let mut report = changes(4);
+        report.status = ReportStatus::Planned;
+        report.op = None;
+        let cursor = store
+            .first_page(report, 2, &program(), at(0))
+            .next_cursor
+            .unwrap();
+        assert!(store.page(&cursor, 2, at(3600)).unwrap_err().fix.is_empty());
+    }
+
+    #[test]
+    fn adding_a_result_drops_the_expired_ones_from_memory_and_disk() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = CursorStore::new(Some(temp.path().to_path_buf()), TTL);
+        store.first_page(records(3), 1, &program(), at(0));
+        store.first_page(records(3), 1, &program(), at(TTL.as_secs()));
+        let files = fs::read_dir(temp.path().join(CURSOR_DIR)).unwrap().count();
+        assert_eq!(files, 1);
+        assert_eq!(store.sweep(at(TTL.as_secs())), 0);
+    }
+
+    #[test]
+    fn every_record_is_listed_once_across_the_pages() {
+        let store = CursorStore::new(None, TTL);
+        let mut page = store.first_page(records(7), 3, &program(), at(0));
+        let mut sizes = vec![page.records.as_ref().unwrap().rows.len()];
+        while let Some(cursor) = page.next_cursor.clone() {
+            page = store.page(&cursor, 3, at(1)).unwrap();
+            sizes.push(page.records.as_ref().unwrap().rows.len());
+        }
+        assert_eq!(sizes, [3, 3, 1]);
+    }
+
+    #[test]
+    fn page_size_below_one_is_raised_to_one() {
+        let store = CursorStore::new(None, TTL);
+        let first = store.first_page(records(3), 0, &program(), at(0));
+        assert_eq!(first.records.unwrap().rows.len(), 1);
+    }
+
+    #[test]
+    fn cursor_at_the_end_gives_an_empty_page_and_beyond_it_is_malformed() {
+        let store = CursorStore::new(None, TTL);
+        let cursor = store
+            .first_page(records(3), 2, &program(), at(0))
+            .next_cursor
+            .unwrap();
+        let stem = cursor.rsplit_once('-').unwrap().0.to_owned();
+        let page = store.page(&format!("{stem}-3"), 2, at(1)).unwrap();
+        assert!(page.records.unwrap().rows.is_empty());
+        assert!(page.next_cursor.is_none());
+        let error = store.page(&format!("{stem}-4"), 2, at(1)).unwrap_err();
+        assert!(error.message.starts_with("malformed"));
     }
 
     #[test]
