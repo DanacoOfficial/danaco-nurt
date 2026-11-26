@@ -132,7 +132,10 @@ pub(crate) fn exec_record(request: &RunRequest, result: &RunResult, platform: Pl
         failed_batches: None,
         env_keys: (!request.env_keys.is_empty()).then(|| request.env_keys.clone()),
         job: result.job.clone(),
-        diagnostics: output.diagnostics.clone(),
+        diagnostics: output
+            .diagnostics
+            .clone()
+            .filter(|found| !found.first.is_empty()),
         digest: digest(request, result),
         read_hint: output.read_hint.clone(),
     }

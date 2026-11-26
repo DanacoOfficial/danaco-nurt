@@ -23,19 +23,21 @@ struct Patterns {
     count: Regex,
 }
 
-fn patterns() -> &'static Patterns {
-    static PATTERNS: OnceLock<Patterns> = OnceLock::new();
-    PATTERNS.get_or_init(|| {
-        let compile = |source: &str| Regex::new(source).expect("pytest pattern is valid");
-        Patterns {
-            result: compile(r"^(FAILED|ERROR) (\S+?)(?:::(\S+))?(?: - (.*))?$"),
-            header: compile(r"^_{2,} (?:ERROR collecting )?(.+?) _{2,}$"),
-            location: compile(r"^(\S+\.py):(\d+): (\S.*)$"),
-            detail: compile(r"^E\s+(\S.*)$"),
-            summary: compile(r"^(?:=+ )?((?:\d+ [a-z]+(?:, )?)+) in [\d.]+s"),
-            count: compile(r"(\d+) (failed|errors?|warnings?)"),
-        }
-    })
+/// The patterns; `None` when one does not compile, which the tests rule out.
+fn patterns() -> Option<&'static Patterns> {
+    static PATTERNS: OnceLock<Option<Patterns>> = OnceLock::new();
+    PATTERNS
+        .get_or_init(|| {
+            Some(Patterns {
+                result: Regex::new(r"^(FAILED|ERROR) (\S+?)(?:::(\S+))?(?: - (.*))?$").ok()?,
+                header: Regex::new(r"^_{2,} (?:ERROR collecting )?(.+?) _{2,}$").ok()?,
+                location: Regex::new(r"^(\S+\.py):(\d+): (\S.*)$").ok()?,
+                detail: Regex::new(r"^E\s+(\S.*)$").ok()?,
+                summary: Regex::new(r"^(?:=+ )?((?:\d+ [a-z]+(?:, )?)+) in [\d.]+s").ok()?,
+                count: Regex::new(r"(\d+) (failed|errors?|warnings?)").ok()?,
+            })
+        })
+        .as_ref()
 }
 
 /// Where and why a test failed, from its traceback.
@@ -57,7 +59,9 @@ pub(super) struct State {
 
 /// Takes one line; returns whether it belongs to the format.
 pub(super) fn observe(state: &mut State, tally: &mut Tally, line: &str) -> bool {
-    let patterns = patterns();
+    let Some(patterns) = patterns() else {
+        return false;
+    };
     if let Some(found) = patterns.result.captures(line) {
         let path = found[2].to_owned();
         let name = found.get(3).map_or_else(

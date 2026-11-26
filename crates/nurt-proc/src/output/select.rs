@@ -418,29 +418,7 @@ pub(super) fn respond(
         observers.extend(observer);
         detected.push((source, encoding, scan.length));
     }
-    let mut diagnostics = collector.and_then(Collector::finish);
-    let diagnosed = failed
-        && view.show == ShowMode::Auto
-        && view.filter.is_none()
-        && diagnostics.as_ref().is_some_and(|found| found.errors > 0);
-    let mut shown: Vec<(OutputStream, PathBuf, OutputShownText)> = held
-        .into_iter()
-        .map(|held| {
-            let text = match held.binary {
-                Some((bytes, lines)) => OutputShownText::Binary { bytes, lines },
-                None => held.pipeline.finish(diagnosed),
-            };
-            (held.stream, held.path, text)
-        })
-        .collect();
-    if diagnosed {
-        for (_, _, text) in &mut shown {
-            if let OutputShownText::Lines { window, .. } = text {
-                window.keep_last(DIAGNOSED_TAIL_LINES);
-            }
-        }
-    }
-    fit_budget(view, diagnostics.as_mut(), &mut shown);
+    let (shown, diagnostics) = shape(view, failed, collector, held);
     let cuts = cuts_of(&shown);
     shortened = shortened.max(cuts.iter().map(|cut| cut.cut_lines).sum::<u64>());
     for (stream, _, text) in shown {
@@ -457,6 +435,52 @@ pub(super) fn respond(
         .then(|| read_hint(&cuts))
         .flatten();
     Ok(output)
+}
+
+/// Text shown of each stream with its output file.
+type Shown = Vec<(OutputStream, PathBuf, OutputShownText)>;
+
+/// The text and the errors found once every stream is read, within the byte
+/// budget. After a failure of long output with errors of a known tool the
+/// text keeps only the last lines, because the errors come with their file
+/// and line; a short output already holds them, so they are left out.
+fn shape(
+    view: &OutputView,
+    failed: bool,
+    collector: Option<Collector>,
+    held: Vec<Held<'_>>,
+) -> (Shown, Option<ExecDiagnostics>) {
+    let mut diagnostics = collector.and_then(Collector::finish);
+    let long = held
+        .iter()
+        .any(|held| held.pipeline.scanned > SHORT_OUTPUT_LINES);
+    let diagnosed = failed
+        && long
+        && view.show == ShowMode::Auto
+        && view.filter.is_none()
+        && diagnostics.as_ref().is_some_and(|found| found.errors > 0);
+    if failed && !diagnosed {
+        diagnostics = None;
+    }
+    let mut shown: Shown = held
+        .into_iter()
+        .map(|held| {
+            let text = match held.binary {
+                Some((bytes, lines)) => OutputShownText::Binary { bytes, lines },
+                None => held.pipeline.finish(diagnosed),
+            };
+            (held.stream, held.path, text)
+        })
+        .collect();
+    for (_, _, text) in &mut shown {
+        if let OutputShownText::Lines { window, .. } = text
+            && diagnosed
+        {
+            window.keep_last(DIAGNOSED_TAIL_LINES);
+        }
+    }
+    fit_budget(view, diagnostics.as_mut(), &mut shown);
+    (shown, diagnostics)
 }
 
 /// Shares the byte budget of `view` among the errors found and the text of

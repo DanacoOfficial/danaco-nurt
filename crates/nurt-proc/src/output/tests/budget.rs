@@ -249,16 +249,27 @@ fn a_successful_run_still_counts_the_findings_of_a_known_tool() {
     );
 }
 
+const PYTEST_FAILURE: &str = "..F.\n=== FAILURES ===\n___ test_bad ___\n\n    def test_bad():\n>       assert 1 == 2\nE       assert 1 == 2\n\ntest_fx.py:64: AssertionError\n=== short test summary info ===\nFAILED test_fx.py::test_bad - assert 1 == 2\n=== 1 failed, 3 passed in 0.17s ===\n";
+
 #[test]
 fn a_failed_pytest_run_reports_the_failure_with_file_and_line() {
     let bench = Bench::new();
-    let text = "..F.\n=== FAILURES ===\n___ test_bad ___\n\n    def test_bad():\n>       assert 1 == 2\nE       assert 1 == 2\n\ntest_fx.py:64: AssertionError\n=== short test summary info ===\nFAILED test_fx.py::test_bad - assert 1 == 2\n=== 1 failed, 3 passed in 0.17s ===\n";
+    let text = "tests/test_fx.py::test_ok PASSED\n".repeat(30) + PYTEST_FAILURE;
     let store = bench.finished("pytest", text.as_bytes(), b"");
     let out = store.render(&budgeted(4096), Some(1)).unwrap();
     let found = out.diagnostics.unwrap();
     assert_eq!((found.tool.as_str(), found.errors), ("pytest", 1));
     assert_eq!(found.first[0].file.as_deref(), Some("test_fx.py"));
     assert_eq!(found.first[0].line, Some(64));
+}
+
+#[test]
+fn a_short_failed_output_is_shown_whole_without_diagnostics() {
+    let bench = Bench::new();
+    let store = bench.finished("pytest-short", PYTEST_FAILURE.as_bytes(), b"");
+    let out = store.render(&budgeted(4096), Some(1)).unwrap();
+    assert_eq!(out.diagnostics, None);
+    assert_eq!(out.stdout.lines().count(), 12);
 }
 
 #[test]

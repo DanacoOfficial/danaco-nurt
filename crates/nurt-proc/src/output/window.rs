@@ -209,55 +209,79 @@ fn separator_bytes(grouped: bool, earlier: u64, later: u64) -> usize {
     }
 }
 
-/// Shares `budget` bytes among the windows: the last lines of the streams in
-/// the order of `tails` come first, then the first lines of the streams in
-/// the order of `heads`. A window whose text fits is left unchanged.
-pub(super) fn allocate(windows: &mut [Window], budget: usize, tails: &[usize], heads: &[usize]) {
-    let total: usize = windows.iter().map(|window| window.text().len()).sum();
-    if total <= budget {
-        return;
+/// The lines of the streams and what the budget lets each keep.
+struct Share {
+    /// The first lines followed by the last lines of each stream.
+    lines: Vec<Vec<ShownLine>>,
+    /// Position in `lines` where the lines left out lay, per stream.
+    gaps: Vec<Option<usize>>,
+    grouped: Vec<bool>,
+    end_keep: Vec<usize>,
+    start_keep: Vec<usize>,
+    /// Bytes the last kept line is clipped to, per stream.
+    clipped: Vec<Option<usize>>,
+    left: usize,
+}
+
+impl Share {
+    fn new(windows: &mut [Window], budget: usize) -> Self {
+        let mut lines = Vec::new();
+        let mut gaps = Vec::new();
+        for window in windows.iter_mut() {
+            gaps.push((window.omitted() > 0).then_some(window.head.len()));
+            let mut all = std::mem::take(&mut window.head);
+            all.append(&mut window.tail);
+            lines.push(all);
+        }
+        Self {
+            lines,
+            gaps,
+            grouped: windows.iter().map(|window| window.grouped).collect(),
+            end_keep: vec![0; windows.len()],
+            start_keep: vec![0; windows.len()],
+            clipped: vec![None; windows.len()],
+            left: budget,
+        }
     }
-    let mut left = budget;
-    let mut all: Vec<Vec<ShownLine>> = Vec::new();
-    let mut gaps: Vec<Option<usize>> = Vec::new();
-    for window in windows.iter_mut() {
-        gaps.push((window.omitted() > 0).then_some(window.head.len()));
-        let mut lines = std::mem::take(&mut window.head);
-        lines.append(&mut window.tail);
-        all.push(lines);
-    }
-    let mut end_keep = vec![0usize; windows.len()];
-    let mut start_keep = vec![0usize; windows.len()];
-    let mut clipped: Vec<Option<usize>> = vec![None; windows.len()];
-    for &at in tails {
-        let lines = &all[at];
-        let floor = gaps[at].unwrap_or(0);
+
+    /// Keeps the last lines of stream `at` that fit; when not even one does,
+    /// the last line is clipped to what is left.
+    fn keep_end(&mut self, at: usize) {
+        let lines = &self.lines[at];
+        let floor = self.gaps[at].unwrap_or(0);
         let mut kept = 0;
         for position in (floor..lines.len()).rev() {
-            let later = (kept > 0).then(|| lines[position + 1].index);
-            let separator = later.map_or(0, |later| {
-                separator_bytes(windows[at].grouped, lines[position].index, later)
-            });
+            let separator = if kept > 0 {
+                separator_bytes(
+                    self.grouped[at],
+                    lines[position].index,
+                    lines[position + 1].index,
+                )
+            } else {
+                0
+            };
             let cost = lines[position].text.len() + 1 + separator;
-            if cost > left {
+            if cost > self.left {
                 break;
             }
-            left -= cost;
+            self.left -= cost;
             kept += 1;
         }
-        if kept == 0 && lines.len() > floor && left >= MIN_CLIP_BYTES {
-            clipped[at] = Some(left - 1);
-            left = 0;
+        if kept == 0 && lines.len() > floor && self.left >= MIN_CLIP_BYTES {
+            self.clipped[at] = Some(self.left - 1);
+            self.left = 0;
             kept = 1;
         }
-        end_keep[at] = kept;
+        self.end_keep[at] = kept;
     }
-    for &at in heads {
-        let lines = &all[at];
-        let ceiling = gaps[at]
+
+    /// Keeps the first lines of stream `at` that fit before its last lines.
+    fn keep_start(&mut self, at: usize) {
+        let lines = &self.lines[at];
+        let ceiling = self.gaps[at]
             .unwrap_or(lines.len())
-            .min(lines.len() - end_keep[at]);
-        let mut reserve = if end_keep[at] > 0 {
+            .min(lines.len() - self.end_keep[at]);
+        let mut reserve = if self.end_keep[at] > 0 {
             OMITTED_MARK_BYTES
         } else {
             0
@@ -266,7 +290,7 @@ pub(super) fn allocate(windows: &mut [Window], budget: usize, tails: &[usize], h
         for position in 0..ceiling {
             let separator = if position > 0 {
                 separator_bytes(
-                    windows[at].grouped,
+                    self.grouped[at],
                     lines[position - 1].index,
                     lines[position].index,
                 )
@@ -274,37 +298,59 @@ pub(super) fn allocate(windows: &mut [Window], budget: usize, tails: &[usize], h
                 0
             };
             let cost = lines[position].text.len() + 1 + separator + reserve;
-            if cost > left {
+            if cost > self.left {
                 break;
             }
-            left -= cost;
+            self.left -= cost;
             reserve = 0;
             kept += 1;
         }
-        start_keep[at] = kept;
+        self.start_keep[at] = kept;
     }
-    for (at, window) in windows.iter_mut().enumerate() {
-        let lines = std::mem::take(&mut all[at]);
-        let everything = start_keep[at] + end_keep[at] >= lines.len();
+
+    /// Puts the lines kept of stream `at` back into its window.
+    fn restore(&mut self, at: usize, window: &mut Window) {
+        let lines = std::mem::take(&mut self.lines[at]);
+        let everything = self.start_keep[at] + self.end_keep[at] >= lines.len();
         let split = if everything {
-            gaps[at].unwrap_or(lines.len())
+            self.gaps[at].unwrap_or(lines.len())
         } else {
-            start_keep[at]
+            self.start_keep[at]
         };
         let mut head = lines;
         let mut tail = head.split_off(split);
         if !everything {
-            head.truncate(start_keep[at]);
-            let drop = tail.len() - end_keep[at];
+            head.truncate(self.start_keep[at]);
+            let drop = tail.len() - self.end_keep[at];
             tail.drain(..drop);
         }
-        if let (Some(limit), Some(last)) = (clipped[at], tail.last_mut().or(head.last_mut())) {
+        if let (Some(limit), Some(last)) = (self.clipped[at], tail.last_mut().or(head.last_mut())) {
             last.text = clip_to_bytes(&last.text, limit);
             window.cut_lines += 1;
             window.first_cut.get_or_insert(last.raw_start);
         }
         window.head = head;
         window.tail = tail;
+    }
+}
+
+/// Shares `budget` bytes among the windows: the last lines of the streams in
+/// the order of `tails` come first, then the first lines of the streams in
+/// the order of `heads`. A window whose text fits is left unchanged.
+pub(super) fn allocate(windows: &mut [Window], budget: usize, tails: &[usize], heads: &[usize]) {
+    let total: usize = windows.iter().map(|window| window.text().len()).sum();
+    if total <= budget {
+        return;
+    }
+    let mut share = Share::new(windows, budget);
+    for &at in tails {
+        share.keep_end(at);
+    }
+    for &at in heads {
+        share.keep_start(at);
+    }
+    for (at, window) in windows.iter_mut().enumerate() {
+        share.restore(at, window);
     }
 }
 

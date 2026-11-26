@@ -18,17 +18,19 @@ struct Patterns {
     step: Regex,
 }
 
-fn patterns() -> &'static Patterns {
-    static PATTERNS: OnceLock<Patterns> = OnceLock::new();
-    PATTERNS.get_or_init(|| {
-        let compile = |source: &str| Regex::new(source).expect("cargo pattern is valid");
-        Patterns {
-            head: compile(r"^(error|warning)(?:\[([A-Za-z]\d+)\])?: (.+)$"),
-            location: compile(r"^\s*--> (.+?):(\d+):(\d+)\s*$"),
-            finished: compile(r"^\s+Finished `?\w+`? "),
-            step: compile(r"^\s+(?:Compiling|Checking) \S+ v\d"),
-        }
-    })
+/// The patterns; `None` when one does not compile, which the tests rule out.
+fn patterns() -> Option<&'static Patterns> {
+    static PATTERNS: OnceLock<Option<Patterns>> = OnceLock::new();
+    PATTERNS
+        .get_or_init(|| {
+            Some(Patterns {
+                head: Regex::new(r"^(error|warning)(?:\[([A-Za-z]\d+)\])?: (.+)$").ok()?,
+                location: Regex::new(r"^\s*--> (.+?):(\d+):(\d+)\s*$").ok()?,
+                finished: Regex::new(r"^\s+Finished `?\w+`? ").ok()?,
+                step: Regex::new(r"^\s+(?:Compiling|Checking) \S+ v\d").ok()?,
+            })
+        })
+        .as_ref()
 }
 
 /// Error or warning waiting for its `-->` line.
@@ -54,7 +56,9 @@ pub(super) struct State {
 
 /// Takes one line; returns whether it belongs to the format.
 pub(super) fn observe(state: &mut State, tally: &mut Tally, line: &str) -> bool {
-    let patterns = patterns();
+    let Some(patterns) = patterns() else {
+        return false;
+    };
     if let Some(found) = patterns.location.captures(line) {
         state.evidence = true;
         if let Some(pending) = state.pending.take() {

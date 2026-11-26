@@ -504,6 +504,9 @@ Result of a finished run of a program.
 | `failed_batches` | int | no | Number of failed batches. |
 | `env_keys` | list<text> | no | Names of the environment variables set explicitly. |
 | `job` | text | no | Job identifier when the run continued in the background. |
+| `diagnostics` | object [`ExecDiagnostics`](#execdiagnostics) | no | Errors and warnings of a recognised tool. |
+| `digest` | text | no | One line about a successful run: exit code, time, lines and bytes. |
+| `read_hint` | text | no | Sentence with the commands that read what the response leaves out from the output file. |
 
 ### job
 
@@ -1532,6 +1535,31 @@ How much of the output of a run is shown.
 |---|---|---|---|
 | `stdout` | object [`OutputShown`](#outputshown) | no | Standard output. |
 | `stderr` | object [`OutputShown`](#outputshown) | no | Standard error. |
+
+### ExecDiagnostic
+
+Error found in the output of a known tool; every field is one line.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `file` | text | no | File named by the tool. |
+| `line` | int | no | Line, from 1. |
+| `col` | int | no | Column, from 1. |
+| `code` | text | no | Code of the error, for example `E0308` or `TS2322`. |
+| `message` | text | yes | Message. |
+| `severity` | enum(error\|warning\|info\|hint) | yes | Severity. |
+| `count` | int | no | Places the same error was reported at, when more than one. |
+
+### ExecDiagnostics
+
+Errors and warnings found in the output of a known tool.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `tool` | text | yes | Tool whose format was recognised: `cargo`, `pytest`, `tsc`, `gcc` (gcc or clang) or `go`. |
+| `errors` | int | yes | Number of errors in the output. |
+| `warnings` | int | yes | Number of warnings in the output. |
+| `first` | list<object [`ExecDiagnostic`](#execdiagnostic)> | yes | The first distinct errors, at most 10. |
 
 ### Progress
 
