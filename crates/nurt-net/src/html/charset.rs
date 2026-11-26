@@ -96,7 +96,10 @@ fn meta_charset(bytes: &[u8]) -> Option<&'static Encoding> {
     let mut rest = text.as_str();
     while let Some(position) = rest.find("charset") {
         rest = &rest[position + "charset".len()..];
-        let value = rest.trim_start().strip_prefix('=')?.trim_start();
+        let Some(value) = rest.trim_start().strip_prefix('=') else {
+            continue;
+        };
+        let value = value.trim_start();
         let value = value.trim_start_matches(['"', '\'']);
         let end = value
             .find(|c: char| matches!(c, '"' | '\'' | ';' | '>' | '/') || c.is_whitespace())
@@ -159,6 +162,14 @@ mod tests {
                 .text,
             "\u{105}"
         );
+    }
+
+    #[test]
+    fn meta_declaration_after_the_word_charset_in_the_text_is_found() {
+        let bytes = b"<title>charset guide</title><meta charset=\"windows-1250\"><p>\xb9";
+        let decoded = decode(bytes, None, None, true).unwrap();
+        assert_eq!(decoded.charset, "windows-1250");
+        assert!(decoded.text.ends_with('\u{105}'));
     }
 
     #[test]
