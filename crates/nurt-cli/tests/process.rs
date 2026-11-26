@@ -140,6 +140,41 @@ fn doctor_succeeds_on_a_clean_state_directory() {
     assert!(stdout(&output).contains("state directory"));
 }
 
+#[test]
+fn doctor_lists_the_features_of_the_linked_components() {
+    let output = nurt(&["doctor"], "");
+    let text = stdout(&output);
+    let row = text
+        .lines()
+        .find(|line| line.trim_start().starts_with("features"))
+        .unwrap();
+    for (feature, linked) in [
+        ("mcp", cfg!(feature = "mcp")),
+        ("lsp", cfg!(feature = "lsp")),
+        ("migrate", cfg!(feature = "migrate")),
+        ("service", cfg!(feature = "service")),
+        ("journal", cfg!(feature = "journal")),
+    ] {
+        assert_eq!(row.contains(feature), linked, "{feature}: {row}");
+    }
+}
+
+#[cfg(feature = "mcp")]
+#[test]
+fn mcp_server_ends_at_the_end_of_the_input() {
+    let output = nurt(&["mcp", "--stdio"], "");
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(output.stdout.is_empty());
+}
+
+#[cfg(feature = "lsp")]
+#[test]
+fn language_server_ends_at_the_end_of_the_input() {
+    let output = nurt(&["lsp"], "");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+}
+
 fn assert_no_banner(output: &Output) {
     for text in [stdout(output), stderr(output)] {
         assert!(!text.contains("Copyright"), "{text}");
