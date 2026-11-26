@@ -150,6 +150,10 @@ work-marker crates/nurt-verify/src/test/tests.rs
 work-marker crates/nurt-verify/tests/*
 work-marker tests/d1/correction/*
 
+# Test input: the command line `grep -n 'TODO:'` is the input of a test of the
+# translation of shell habits; the marker is data, not unfinished work.
+work-marker crates/nurt-correct/src/bash/detect.rs
+
 # Test input: Rust source text that contains the attribute as data.
 allow-attribute crates/nurt-sys/tests/d7_static.rs
 
