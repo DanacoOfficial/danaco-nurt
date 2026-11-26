@@ -903,13 +903,22 @@ fn common_dir(repo: &gix::Repository) -> PathBuf {
 }
 
 /// Directory of the main working tree and whether the repository is bare.
+///
+/// A repository directory that is not named `.git` belongs to the main
+/// working tree when the repository was opened from it, as with a separate
+/// git directory or a submodule.
 fn main_worktree(repo: &gix::Repository) -> (PathBuf, bool) {
     let common = common_dir(repo);
     match common.parent() {
         Some(parent) if common.file_name().is_some_and(|name| name == DOT_GIT) => {
             (parent.to_path_buf(), false)
         }
-        _ => (common.to_path_buf(), true),
+        _ => match repo.workdir() {
+            Some(workdir) if repo.git_dir() == repo.common_dir() => {
+                (absolute_target(workdir, Path::new("")), false)
+            }
+            _ => (common.to_path_buf(), true),
+        },
     }
 }
 
@@ -1457,6 +1466,25 @@ mod tests {
         let from_linked = list(&locked).unwrap();
         assert_eq!(from_linked.len(), 3);
         assert_eq!(from_linked[0].path.as_str(), display_path(&fixture.root));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn main_working_tree_with_a_separate_git_directory_is_not_bare() {
+        let fixture = Fixture::new(&[("a.txt", "a\n")]);
+        let separate = fixture.base().join("separate.git");
+        std::fs::rename(fixture.root.join(".git"), &separate).unwrap();
+        std::fs::write(
+            fixture.root.join(".git"),
+            format!("gitdir: {}\n", separate.display()),
+        )
+        .unwrap();
+        let records = list(&fixture.root).unwrap();
+        assert_eq!(records.len(), 1);
+        assert!(records[0].main);
+        assert!(!records[0].bare);
+        assert_eq!(records[0].path.as_str(), display_path(&fixture.root));
+        assert_eq!(records[0].branch.as_deref(), Some("main"));
     }
 
     #[test]
