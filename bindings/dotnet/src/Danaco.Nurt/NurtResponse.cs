@@ -2,6 +2,7 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 
+using System.Collections.Generic;
 using System.Text.Json;
 
 namespace Danaco.Nurt;
@@ -21,12 +22,31 @@ public sealed class NurtResponse
         Raw = raw;
         Element = element;
         Report = Report.Read(element);
+        List<Report> reports = [];
+        if (JsonRead.Property(element, "reports") is { ValueKind: JsonValueKind.Array } items)
+        {
+            foreach (JsonElement item in items.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.Object)
+                {
+                    reports.Add(new Report(item));
+                }
+            }
+        }
+
+        Reports = reports;
         JsonElement? rendered = JsonRead.Property(element, "rendered");
         Text = rendered is { ValueKind: JsonValueKind.Object } value ? JsonRead.String(value, "text") : null;
     }
 
     /// <summary>Effect report of the program.</summary>
     public Report Report { get; }
+
+    /// <summary>
+    /// Reports of the pipelines of a script that ran several operations, in program order; empty for a
+    /// program with a single operation. They are not paged and carry no cursor.
+    /// </summary>
+    public IReadOnlyList<Report> Reports { get; }
 
     /// <summary>Text rendered from the report; <see langword="null"/> for the format <see cref="OutputFormat.Json"/>.</summary>
     public string? Text { get; }

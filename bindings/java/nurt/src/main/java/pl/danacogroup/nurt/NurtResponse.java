@@ -3,7 +3,9 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 package pl.danacogroup.nurt;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,6 +70,29 @@ public final class NurtResponse {
      */
     public Map<String, Object> report() {
         return report;
+    }
+
+    /**
+     * The reports of the pipelines of a script that ran several operations, in
+     * program order. The list is empty for a program with a single operation,
+     * whose {@link #report()} holds its records. The reports are not paged and
+     * carry no cursor.
+     *
+     * @return the reports, read-only
+     */
+    public List<Map<String, Object>> reports() {
+        Object items = value.get("reports");
+        if (!(items instanceof List<?> list)) {
+            return List.of();
+        }
+        List<Map<String, Object>> reports = new ArrayList<>(list.size());
+        for (Object item : list) {
+            Map<String, Object> object = Json.object(item);
+            if (object != null) {
+                reports.add(Collections.unmodifiableMap(object));
+            }
+        }
+        return Collections.unmodifiableList(reports);
     }
 
     /**
