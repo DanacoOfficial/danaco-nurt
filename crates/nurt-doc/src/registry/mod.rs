@@ -570,3 +570,160 @@ fn best_sniffed(
     }
     best.map(|(_, id)| id)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Stub {
+        id: &'static str,
+        extensions: &'static [&'static str],
+        names: &'static [&'static str],
+        confidence: Confidence,
+    }
+
+    impl DocFormat for Stub {
+        fn id(&self) -> DocFormatId {
+            DocFormatId::new(self.id).unwrap()
+        }
+
+        fn extensions(&self) -> &[&'static str] {
+            self.extensions
+        }
+
+        fn file_names(&self) -> &[&'static str] {
+            self.names
+        }
+
+        fn sniff(&self, _content: &[u8]) -> Confidence {
+            self.confidence
+        }
+
+        fn open(&self, _content: Vec<u8>, _options: &DocOptions) -> Result<Box<dyn DocHandle>> {
+            Err(Error::new(ErrorCode::DocParse, "the stub opens nothing"))
+        }
+    }
+
+    fn stub(
+        id: &'static str,
+        extensions: &'static [&'static str],
+        names: &'static [&'static str],
+        confidence: Confidence,
+    ) -> Box<dyn DocFormat> {
+        Box::new(Stub {
+            id,
+            extensions,
+            names,
+            confidence,
+        })
+    }
+
+    fn id(name: &str) -> Option<DocFormatId> {
+        Some(DocFormatId::new(name).unwrap())
+    }
+
+    #[test]
+    fn glob_matches_exact_names_and_one_wildcard() {
+        assert!(glob("cargo.lock", "cargo.lock"));
+        assert!(!glob("cargo.lock", "cargo.lock2"));
+        assert!(glob(".env.*", ".env.local"));
+        assert!(glob(".env.*", ".env."));
+        assert!(!glob(".env.*", ".env"));
+        assert!(glob("*.json", "a.json"));
+        assert!(!glob("a*a", "a"));
+        assert!(glob("a*a", "aa"));
+    }
+
+    #[test]
+    fn file_name_patterns_win_by_the_number_of_components() {
+        let registry = Registry::with([
+            stub("json", &["json"], &[], Confidence::Medium),
+            stub("vscode", &[], &[".vscode/*.json"], Confidence::None),
+        ]);
+        let path = Path::new("/home/u/project/.VSCode/Settings.json");
+        assert_eq!(registry.detect(Some(path), b"{}"), id("vscode"));
+        let other = Path::new("/home/u/project/a.json");
+        assert_eq!(registry.detect(Some(other), b"{}"), id("json"));
+    }
+
+    #[test]
+    fn extension_candidates_are_ranked_by_content() {
+        let registry = Registry::with([
+            stub("one", &["cfg"], &[], Confidence::Low),
+            stub("two", &["cfg"], &[], Confidence::High),
+            stub("three", &["cfg"], &[], Confidence::High),
+        ]);
+        let path = Path::new("x.CFG");
+        assert_eq!(registry.detect(Some(path), b""), id("two"));
+        let alone = Registry::with([stub("one", &["cfg"], &[], Confidence::None)]);
+        assert_eq!(alone.detect(Some(path), b""), id("one"));
+    }
+
+    #[test]
+    fn content_alone_needs_at_least_medium_confidence() {
+        let low = Registry::with([stub("low", &[], &[], Confidence::Low)]);
+        assert_eq!(low.detect(None, b"x"), None);
+        let medium = Registry::with([stub("medium", &[], &[], Confidence::Medium)]);
+        assert_eq!(medium.detect(None, b"x"), id("medium"));
+    }
+
+    #[test]
+    fn resolving_a_format_reports_unknown_and_undetected() {
+        let registry = Registry::with([stub("one", &["cfg"], &[], Confidence::High)]);
+        let error = registry.resolve_format(Some("two"), None, b"").unwrap_err();
+        assert_eq!(error.code, ErrorCode::UnknownValue);
+        assert!(error.message.contains("one"), "{}", error.message);
+        let error = Registry::new().resolve_format(None, None, b"").unwrap_err();
+        assert_eq!(error.code, ErrorCode::Format);
+        let found = registry.resolve_format(Some("one"), None, b"").unwrap();
+        assert_eq!(Some(found), id("one"));
+    }
+
+    #[test]
+    fn registering_an_identifier_again_replaces_the_format() {
+        let mut registry = Registry::new();
+        registry.register(stub("one", &["a"], &[], Confidence::None));
+        registry.register(stub("one", &["b"], &[], Confidence::None));
+        let infos = registry.infos();
+        assert_eq!(infos.len(), 1);
+        assert_eq!(infos[0].extensions, ["b"]);
+    }
+
+    #[test]
+    fn documents_larger_than_the_limit_are_refused_before_opening() {
+        let format = stub("one", &[], &[], Confidence::None);
+        let options = DocOptions {
+            max_bytes: 4,
+            ..DocOptions::default()
+        };
+        let error = open_with(format.as_ref(), b"12345", &options).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Limit);
+        let error = open_with(format.as_ref(), b"1234", &options).unwrap_err();
+        assert_eq!(error.code, ErrorCode::DocParse);
+    }
+
+    #[test]
+    fn invalid_text_is_reported_as_an_encoding_error() {
+        let format = stub("one", &[], &[], Confidence::None);
+        let error = open_with(format.as_ref(), b"a\xFF", &DocOptions::default()).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Encoding);
+    }
+
+    #[test]
+    fn issue_of_reads_the_position_from_the_details() {
+        let error = Error::new(ErrorCode::DocParse, "bad")
+            .with_detail("line", 3.into())
+            .with_detail("column", 5.into())
+            .with_detail("byte", 17.into());
+        let issue = issue_of(&error);
+        assert_eq!((issue.span.start.line, issue.span.start.column), (3, 5));
+        assert_eq!(issue.span.bytes, ByteRange::new(17, 17));
+        let plain = issue_of(&Error::new(ErrorCode::DocParse, "bad"));
+        assert_eq!((plain.span.start.line, plain.span.start.column), (1, 1));
+    }
+
+    #[test]
+    fn external_xml_entities_are_never_enabled() {
+        assert!(!DocOptions::default().xml_external_entities());
+    }
+}
