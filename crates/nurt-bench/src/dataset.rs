@@ -434,10 +434,23 @@ pub fn from_runs(root: &Path, tasks: &[TaskFile], fixtures: &Path) -> Result<Vec
 /// the first.
 #[must_use]
 pub fn deduplicate(candidates: Vec<Candidate>) -> Vec<Candidate> {
-    let mut seen = BTreeSet::new();
+    // The identifier hashes the text before it is trimmed and is kept as it
+    // was published, so pairs are also compared by their trimmed text.
+    let mut ids = BTreeSet::new();
+    let mut texts = BTreeSet::new();
     candidates
         .into_iter()
-        .filter(|candidate| seen.insert(candidate.pair.id.clone()))
+        .filter(|candidate| {
+            let pair = &candidate.pair;
+            let text = (
+                format!("{:?}", pair.input_kind),
+                pair.input.clone(),
+                pair.program.clone(),
+            );
+            let new_id = ids.insert(pair.id.clone());
+            let new_text = texts.insert(text);
+            new_id && new_text
+        })
         .collect()
 }
 
@@ -636,7 +649,7 @@ pub fn validate(validator: &mut dyn Validator, candidate: &Candidate) -> Result<
         }
         None if matches!(
             pair.validation.status.as_deref(),
-            Some("failed" | "rolled_back")
+            Some("failed" | "rolled_back" | "partial")
         ) =>
         {
             pair.validation.rejected = Some("run: failed".to_owned());
@@ -702,6 +715,20 @@ pub fn build(
 ) -> Result<DatasetSummary> {
     let candidates = deduplicate(candidates);
     fs::create_dir_all(out).map_err(|error| BenchError::io(out, error))?;
+    // The files of the other mode are removed, so that a rebuild never
+    // leaves output of an earlier run next to the new summary.
+    let stale: &[&str] = if validator.is_some() {
+        &["candidates.jsonl"]
+    } else {
+        &["pairs.jsonl", "rejected.jsonl", "unvalidated.jsonl"]
+    };
+    for name in stale {
+        match fs::remove_file(out.join(name)) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(BenchError::io(&out.join(name), error)),
+        }
+    }
     let mut summary = DatasetSummary {
         validated: validator.is_some(),
         ..DatasetSummary::default()
@@ -812,6 +839,65 @@ mod tests {
             ]
         );
         assert!(candidates.iter().all(|c| c.pair.origin == "edit-001"));
+    }
+
+    #[test]
+    fn pairs_that_differ_only_in_white_space_are_one_pair_and_stale_files_go() {
+        let first = candidate(
+            Source::Docs,
+            "a",
+            InputKind::Nl,
+            "Find files",
+            "find \".\"",
+            None,
+        );
+        let second = candidate(
+            Source::Habit,
+            "b",
+            InputKind::Nl,
+            "Find files \n",
+            "find \".\"\n",
+            None,
+        );
+        assert_ne!(first.pair.id, second.pair.id);
+        assert_eq!(deduplicate(vec![first.clone(), second]).len(), 1);
+        let dir = tempfile::tempdir().unwrap();
+        build(vec![first.clone()], None, dir.path()).unwrap();
+        assert!(dir.path().join("candidates.jsonl").is_file());
+        for name in ["pairs.jsonl", "rejected.jsonl", "unvalidated.jsonl"] {
+            fs::write(dir.path().join(name), "old\n").unwrap();
+        }
+        build(vec![first], None, dir.path()).unwrap();
+        for name in ["pairs.jsonl", "rejected.jsonl", "unvalidated.jsonl"] {
+            assert!(!dir.path().join(name).exists(), "{name}");
+        }
+    }
+
+    struct Fixed(Outcome);
+
+    impl Validator for Fixed {
+        fn check(&mut self, _request: &Request) -> Result<Outcome> {
+            Ok(Outcome::default())
+        }
+
+        fn run(&mut self, _request: &Request) -> Result<Outcome> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[test]
+    fn a_partial_execution_is_not_an_executed_pair() {
+        for (status, executed) in [("ok", true), ("partial", false), ("failed", false)] {
+            let mut pair = candidate(Source::Docs, "a", InputKind::Nl, "Find", "find", None);
+            pair.tree = Some(Tree::default());
+            let mut validator = Fixed(Outcome {
+                status: Some(status.to_owned()),
+                ..Outcome::default()
+            });
+            let checked = validate(&mut validator, &pair).unwrap();
+            assert_eq!(checked.validation.executed, executed, "{status}");
+            assert_eq!(checked.validation.rejected.is_some(), !executed, "{status}");
+        }
     }
 
     #[test]
