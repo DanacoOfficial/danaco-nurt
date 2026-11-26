@@ -16,6 +16,7 @@ use nurt_contracts::report::{
     Notable, NotableEntry, REPORT_VERSION, Report, ReportStatus, ReportViolation, Severity,
     Targets, UnknownCode, is_ast_hash, is_supported_version,
 };
+use nurt_contracts::value::{Record, RecordKind};
 use serde::Serialize;
 
 fn check_codes<T>(all: &[T], as_str: fn(T) -> &'static str)
@@ -439,4 +440,300 @@ fn helpers() {
         changes: 1,
     };
     assert!(violation.to_string().contains("3"));
+}
+
+#[test]
+fn rename_gives_the_previous_path_in_from() {
+    // The shape of the golden `change` record of a rename: `path` is the
+    // target after the change, `from` the previous path and `to` the new path.
+    let mut report = ok_report();
+    let mut change = Change::new("/srv/app/new/name.txt", ChangeAction::Rename);
+    change.from = Some("/srv/app/old/name.txt".into());
+    change.to = Some("/srv/app/new/name.txt".into());
+    report.changes.push(change);
+    assert!(report.validate().is_ok());
+}
+
+#[test]
+fn rename_that_names_only_the_destination_is_rejected() {
+    let mut report = ok_report();
+    let mut change = Change::new("/d/a.txt", ChangeAction::Rename);
+    change.to = Some("/d/b.txt".into());
+    report.changes.push(change);
+    let violation = report.validate().unwrap_err();
+    assert_eq!(
+        violation,
+        ReportViolation::RenameWithoutFrom {
+            path: "/d/a.txt".to_owned()
+        }
+    );
+    assert_eq!(
+        violation.to_string(),
+        "the rename of `/d/a.txt` does not give the previous path"
+    );
+}
+
+#[test]
+fn the_first_rename_without_from_is_named() {
+    let mut report = ok_report();
+    let mut complete = Change::new("/d/b.txt", ChangeAction::Rename);
+    complete.from = Some("/d/a.txt".into());
+    report.changes.push(complete);
+    report
+        .changes
+        .push(Change::new("/d/c.txt", ChangeAction::Modify));
+    report
+        .changes
+        .push(Change::new("/d/e.txt", ChangeAction::Rename));
+    report
+        .changes
+        .push(Change::new("/d/f.txt", ChangeAction::Rename));
+    assert_eq!(
+        report.validate(),
+        Err(ReportViolation::RenameWithoutFrom {
+            path: "/d/e.txt".to_owned()
+        })
+    );
+}
+
+#[test]
+fn rename_violation_keeps_multi_byte_paths() {
+    let path = "/srv/\u{105}\u{15b}\u{107}/\u{65e5}\u{672c}.txt";
+    let mut report = ok_report();
+    report.changes.push(Change::new(path, ChangeAction::Rename));
+    let violation = report.validate().unwrap_err();
+    assert!(violation.to_string().contains(path), "{violation}");
+}
+
+#[test]
+fn from_is_required_only_for_renames() {
+    let mut report = ok_report();
+    for action in ChangeAction::ALL {
+        if *action != ChangeAction::Rename {
+            report.changes.push(Change::new("/srv/app/a.go", *action));
+        }
+    }
+    assert!(!report.changes.is_empty());
+    assert!(report.validate().is_ok());
+}
+
+#[test]
+fn rolled_back_partial_running_and_planned_reports_with_their_members_are_valid() {
+    let mut report = Report::new(ReportStatus::RolledBack, "replace");
+    report.error = Some(sample_error("E_ROLLED_BACK"));
+    assert!(report.validate().is_ok());
+
+    let mut report = Report::new(ReportStatus::Partial, "undo");
+    report.op = Some(25);
+    report.error = Some(sample_error("E_JOURNAL_PARTIAL"));
+    assert!(report.validate().is_ok());
+
+    let mut report = Report::new(ReportStatus::Running, "run");
+    report.job = Some(Record::new(RecordKind::Job));
+    assert!(report.validate().is_ok());
+
+    let report = Report::new(ReportStatus::Planned, "remove");
+    assert!(report.validate().is_ok());
+}
+
+#[test]
+fn listed_is_compared_with_the_changes_of_the_page() {
+    let mut report = ok_report();
+    report.targets = Some(Targets {
+        count: 1,
+        listed: Some(0),
+        ..Targets::default()
+    });
+    assert!(report.validate().is_ok());
+
+    report.targets = Some(Targets {
+        count: 1,
+        listed: Some(u64::MAX),
+        ..Targets::default()
+    });
+    assert_eq!(
+        report.validate(),
+        Err(ReportViolation::ListedMismatch {
+            listed: u64::MAX,
+            changes: 0
+        })
+    );
+}
+
+#[test]
+fn hunk_lines_need_a_prefix_even_when_empty() {
+    let mut report = ok_report();
+    report.diff.push(Hunk {
+        path: "/srv/app/a.go".into(),
+        lines: vec![" context".to_owned(), String::new()],
+        ..Hunk::default()
+    });
+    assert_eq!(
+        report.validate(),
+        Err(ReportViolation::InvalidHunkLine {
+            path: "/srv/app/a.go".to_owned(),
+            line: 1
+        })
+    );
+}
+
+#[test]
+fn violations_describe_the_broken_rule() {
+    let cases = [
+        (
+            ReportViolation::UnsupportedVersion {
+                found: "2.0".to_owned(),
+            },
+            "unsupported report version `2.0`",
+        ),
+        (ReportViolation::EmptyKind, "the operation kind is empty"),
+        (ReportViolation::ZeroOp, "operation numbers start at 1"),
+        (
+            ReportViolation::InvalidAstHash {
+                found: "sha256:x".to_owned(),
+            },
+            "invalid syntax tree hash `sha256:x`",
+        ),
+        (
+            ReportViolation::EmptyResultFile,
+            "the result file path is empty",
+        ),
+        (
+            ReportViolation::EmptyCursor,
+            "the cursor of the next page is empty",
+        ),
+        (
+            ReportViolation::MissingError {
+                status: ReportStatus::RolledBack,
+            },
+            "status `rolled_back` must carry an error",
+        ),
+        (
+            ReportViolation::OpInPreview,
+            "a preview report must not carry an operation number",
+        ),
+        (
+            ReportViolation::MissingJob,
+            "status `running` must carry a job",
+        ),
+        (
+            ReportViolation::MissingOp {
+                status: ReportStatus::Partial,
+            },
+            "status `partial` must carry an operation number",
+        ),
+        (
+            ReportViolation::PartialWithoutRemainder,
+            "must list irreversible effects or an error",
+        ),
+        (
+            ReportViolation::RanWithoutCorrections,
+            "present without corrections",
+        ),
+        (
+            ReportViolation::InvalidCorrectionRule {
+                rule: "X1".to_owned(),
+            },
+            "invalid correction rule identifier `X1`",
+        ),
+        (
+            ReportViolation::InvalidHunkLine {
+                path: "/a".to_owned(),
+                line: 2,
+            },
+            "line 2 of a hunk of `/a`",
+        ),
+        (
+            ReportViolation::NotableOrder { index: 3 },
+            "notable entry 3",
+        ),
+    ];
+    for (violation, fragment) in cases {
+        assert!(
+            violation.to_string().contains(fragment),
+            "{violation:?}: {violation}"
+        );
+    }
+}
+
+#[test]
+fn version_and_hash_checks_reject_near_misses() {
+    for version in [
+        "",
+        "1.",
+        "1",
+        "1.x",
+        "1.0 ",
+        " 1.0",
+        "10.0",
+        "1.0.0",
+        "1.-1",
+        "1.\u{663}",
+    ] {
+        assert!(!is_supported_version(version), "{version:?}");
+    }
+    for version in ["1.0", "1.00", "1.12345678901234567890"] {
+        assert!(is_supported_version(version), "{version:?}");
+    }
+
+    let digits = "0123456789abcdef".repeat(4);
+    assert!(is_ast_hash(&format!("sha256:{digits}")));
+    for hash in [
+        String::new(),
+        "sha256:".to_owned(),
+        format!("sha256:{}", "a".repeat(63)),
+        format!("sha256:{}", "a".repeat(65)),
+        format!("sha256:{}", "\u{e9}".repeat(32)),
+        format!("SHA256:{digits}"),
+        format!(" sha256:{digits}"),
+        format!("sha256:{}", digits.to_uppercase()),
+    ] {
+        assert!(!is_ast_hash(&hash), "{hash:?}");
+    }
+}
+
+#[test]
+fn rule_identifiers_have_one_letter_and_two_digits() {
+    for rule in ["L00", "T99", "V10", "B01", "P42"] {
+        assert!(Correction::is_rule_id(rule), "{rule}");
+    }
+    for rule in [
+        "", "L", "L0", "L001", "L0a", "l01", "Q01", "L\u{e9}1", "01L",
+    ] {
+        assert!(!Correction::is_rule_id(rule), "{rule:?}");
+    }
+}
+
+#[test]
+fn sorting_notable_entries_keeps_the_order_of_equal_severity() {
+    let mut report = ok_report();
+    for code in [
+        Notable::ManyPerFile,
+        Notable::DeleteTree,
+        Notable::SystemPath,
+        Notable::TargetCountHigh,
+    ] {
+        report.notable.push(NotableEntry::new(code));
+    }
+    report.sort_notable();
+    let order: Vec<Notable> = report.notable.iter().map(|entry| entry.code).collect();
+    assert_eq!(
+        order,
+        [
+            Notable::SystemPath,
+            Notable::ManyPerFile,
+            Notable::DeleteTree,
+            Notable::TargetCountHigh
+        ]
+    );
+    assert!(report.validate().is_ok());
+}
+
+#[test]
+fn a_report_has_more_pages_while_it_carries_a_cursor() {
+    let mut report = ok_report();
+    assert!(!report.has_more());
+    report.next_cursor = Some("c_91fe".to_owned());
+    assert!(report.has_more());
+    assert!(report.validate().is_ok());
 }

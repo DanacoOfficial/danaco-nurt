@@ -165,6 +165,7 @@ impl Change {
                 let whole_word = fields.flag("whole_word")?;
                 let find = map
                     .get("find")
+                    .filter(|value| !value.is_null())
                     .map(|value| patterns(value, whole_word))
                     .transpose()?;
                 Ok(Self::Replace {
@@ -478,6 +479,33 @@ mod tests {
         assert!(parse(json!({"action": "move", "index": "1", "to": 2})).is_err());
         assert!(parse(json!({"index": 1})).is_err());
         assert!(parse(json!({"action": "replace", "index": 1, "find": 5, "with": ""})).is_err());
+    }
+
+    #[test]
+    fn null_find_is_absent_like_every_other_null_field() {
+        let change = parse(json!({
+            "action": "replace", "index": 1, "source": "x", "find": null, "with": null
+        }))
+        .unwrap();
+        assert!(matches!(
+            change,
+            Change::Replace {
+                find: None,
+                with: None,
+                source: Some(_),
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn rejects_conflicting_and_mistyped_selectors() {
+        assert!(parse(json!({"action": "insert", "index": 1, "after_id": "a", "cell_type": "code", "source": "x"})).is_err());
+        assert!(parse(json!({"action": "remove", "index": 1, "id": "a"})).is_err());
+        assert!(parse(json!({"action": "remove", "index": 1.5})).is_err());
+        assert!(parse(json!({"action": "remove", "id": [1]})).is_err());
+        assert!(parse(json!({"action": "insert", "cell_type": "heading", "source": "x"})).is_err());
+        assert!(parse(json!({"action": "replace", "index": 1, "reset_outputs": "yes"})).is_err());
     }
 
     #[test]
