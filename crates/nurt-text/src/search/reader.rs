@@ -10,6 +10,7 @@
 use std::io;
 use std::mem;
 use std::ops::ControlFlow;
+use std::sync::{Mutex, PoisonError};
 
 use grep_regex::RegexMatcher;
 use grep_searcher::{
@@ -17,10 +18,10 @@ use grep_searcher::{
     SinkMatch,
 };
 
-use super::Searcher;
 use super::emit::Emitter;
 use super::hit::{ContextLine, Hit, Match, Summary};
 use super::scan::{Locator, Scanner};
+use super::{SearchOptions, Searcher};
 
 /// Line copied out of the buffer of the line searcher.
 #[derive(Debug)]
@@ -34,8 +35,13 @@ struct OwnedLine {
 
 impl OwnedLine {
     fn new(line: Option<u64>, start: u64, bytes: &[u8]) -> Self {
-        let bytes = bytes.strip_suffix(b"\n").unwrap_or(bytes);
-        let bytes = bytes.strip_suffix(b"\r").unwrap_or(bytes);
+        // A `\r` belongs to the line ending only before a `\n`; the search of
+        // a slice reads the last line of a text without a line ending the
+        // same way, so that both give the same hits.
+        let bytes = match bytes.strip_suffix(b"\n") {
+            Some(ended) => ended.strip_suffix(b"\r").unwrap_or(ended),
+            None => bytes,
+        };
         let mut owned = Vec::with_capacity(bytes.len() + 1);
         owned.extend_from_slice(bytes);
         owned.push(b'\n');
@@ -258,6 +264,45 @@ where
     }
 }
 
+/// Idle line searchers of a [`Searcher`].
+///
+/// A line searcher owns the buffers it reads a file into, and its
+/// configuration depends on the options of the search only. Building one
+/// for every file of a large tree allocates and configures it again and
+/// again, so a search takes an idle one and gives it back when the file is
+/// done; searches on several threads take one each.
+#[derive(Debug, Default)]
+pub(super) struct LinePool(Mutex<Vec<LineSearcher>>);
+
+impl LinePool {
+    fn take(&self, options: &SearchOptions) -> LineSearcher {
+        let idle = self.0.lock().unwrap_or_else(PoisonError::into_inner).pop();
+        idle.unwrap_or_else(|| {
+            SearcherBuilder::new()
+                .line_number(true)
+                .invert_match(options.invert)
+                .before_context(options.before)
+                .after_context(options.after)
+                .bom_sniffing(false)
+                .binary_detection(BinaryDetection::none())
+                .build()
+        })
+    }
+
+    fn give_back(&self, line_searcher: LineSearcher) {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(line_searcher);
+    }
+
+    /// Number of idle line searchers.
+    #[cfg(test)]
+    pub(super) fn idle(&self) -> usize {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).len()
+    }
+}
+
 /// Searches `reader` with the line filter `matcher` and passes each hit to
 /// `sink`.
 pub(super) fn search<R, F>(
@@ -271,14 +316,7 @@ where
     F: FnMut(&Hit<'_>) -> ControlFlow<()>,
 {
     let options = &searcher.options;
-    let mut line_searcher = SearcherBuilder::new()
-        .line_number(true)
-        .invert_match(options.invert)
-        .before_context(options.before)
-        .after_context(options.after)
-        .bom_sniffing(false)
-        .binary_detection(BinaryDetection::none())
-        .build();
+    let mut line_searcher = searcher.line_pool.take(options);
     let mut line_sink = LineSink {
         searcher,
         emitter: Emitter::new(options, searcher.set.len(), sink),
@@ -288,7 +326,9 @@ where
         stopped: false,
         backtrack_limit_hits: 0,
     };
-    line_searcher.search_reader(matcher, reader, &mut line_sink)?;
+    let searched = line_searcher.search_reader(matcher, reader, &mut line_sink);
+    searcher.line_pool.give_back(line_searcher);
+    searched?;
     line_sink.flush();
     Ok(line_sink.emitter.finish(line_sink.backtrack_limit_hits))
 }

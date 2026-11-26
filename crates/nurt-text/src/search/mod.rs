@@ -232,6 +232,7 @@ impl SearchOptions {
 pub struct Searcher {
     set: PatternSet,
     options: SearchOptions,
+    line_pool: reader::LinePool,
 }
 
 impl Searcher {
@@ -268,6 +269,7 @@ impl Searcher {
         Ok(Self {
             set: PatternSet::new(patterns, settings)?,
             options,
+            line_pool: reader::LinePool::default(),
         })
     }
 
