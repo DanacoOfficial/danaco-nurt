@@ -1128,7 +1128,9 @@ pub trait FsWrite: Fs {
     /// # Errors
     ///
     /// Fails with [`FsErrorKind::NotFound`], [`FsErrorKind::PermissionDenied`]
-    /// or [`FsErrorKind::InUse`].
+    /// or [`FsErrorKind::InUse`], and with [`FsErrorKind::Loop`] when `path`
+    /// is a symbolic link: the link is not followed. `truncate` refuses a link
+    /// the same way.
     fn open_in_place(&self, scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>>;
 
     /// Opens an alternate data stream for writing.

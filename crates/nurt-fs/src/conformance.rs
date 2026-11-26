@@ -135,7 +135,7 @@ pub fn run(fs: &dyn FsWrite, root: &AbsPath, scope: &TxScope) -> Report {
 /// | `fs-conf-exchange` | names exchanged |
 /// | `fs-conf-replace-with-backup` | new content under the target, old content under the backup |
 /// | `fs-conf-hard-link` | link count and shared identity |
-/// | `fs-conf-open-in-place` | same identity, every name sees the new content |
+/// | `fs-conf-open-in-place` | same identity, every name sees the new content, `Loop` for a link (also for `truncate`) |
 /// | `fs-conf-handle-follows-inode` | open handles keep referring to the renamed file |
 /// | `fs-conf-clone-file` | independent copy with equal content |
 /// | `fs-conf-copy-file` | content, copied byte count, `Exists` |
@@ -533,7 +533,19 @@ fn check_open_in_place(ctx: &Ctx<'_>) -> Check {
     ensure(
         after == identity,
         "writing in place changed the file identity",
-    )
+    )?;
+    let link = ctx.link(first.as_path(), "write-link", LinkKind::SymlinkFile)?;
+    expect_kind(
+        ctx.fs.open_in_place(ctx.scope, &link),
+        FsErrorKind::Loop,
+        "opening a symbolic link in place",
+    )?;
+    expect_kind(
+        ctx.fs.truncate(ctx.scope, &link, 0),
+        FsErrorKind::Loop,
+        "truncating through a symbolic link",
+    )?;
+    ctx.content_is(&first, b"next", "target of a refused write through a link")
 }
 
 fn check_handle_follows_inode(ctx: &Ctx<'_>) -> Check {
