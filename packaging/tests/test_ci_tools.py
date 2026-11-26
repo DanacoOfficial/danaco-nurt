@@ -168,6 +168,17 @@ class WorkflowCopiesTest(unittest.TestCase):
         for number in commits:
             self.assertIn("git diff --cached --quiet", lines[number - 1])
 
+    def test_binding_workflows_name_the_library_the_ffi_crate_builds(self):
+        # The crate nurt-ffi has no [lib] name, so cargo builds libnurt_ffi.
+        manifest = (support.PACKAGING.parent / "crates" / "nurt-ffi" / "Cargo.toml").read_text(encoding="utf-8")
+        self.assertNotIn("[lib]\nname", manifest)
+        for language in ("go", "dotnet", "java"):
+            text = (support.PACKAGING.parent / "bindings" / language / "ci" / "workflow.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertNotIn("target/release/libnurt.so", text, language)
+            self.assertNotRegex(text, r"target/release -lnurt\s*$", language)
+
     def test_rpm_build_takes_its_times_from_source_date_epoch(self):
         text = (support.PACKAGING / "ci" / "packaging.yml").read_text(encoding="utf-8")
         self.assertIn('--define "use_source_date_epoch_as_buildtime 1"', text)
