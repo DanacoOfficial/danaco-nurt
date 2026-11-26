@@ -1636,7 +1636,8 @@ mod tests {
         assert_eq!(name("zażółć"), "zażółć");
         assert_eq!(name("a...b"), "a.b");
         assert_eq!(name("..lead"), "-lead");
-        assert_eq!(name("x~y^z:w?v*u[t\\s"), "x-y-z-w-v-u-t-s");
+        assert_eq!(name("x~y^z:w?v*u[t"), "x-y-z-w-v-u-t");
+        assert_eq!(name("tab\tx"), "tab-x");
         assert_eq!(name("a@{b"), "a@-b");
         assert_eq!(name("z.lock.lock"), "z");
         assert_eq!(name("ends."), "ends.");
