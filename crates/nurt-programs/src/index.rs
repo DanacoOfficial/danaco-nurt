@@ -575,12 +575,23 @@ impl ProgramIndex {
     }
 }
 
+/// Entry that names another program as its main one, kept until every
+/// provider has been added.
+struct PendingAlias {
+    target: String,
+    kind: AliasKind,
+    source: SourceKind,
+    id: SourceId,
+    rank: usize,
+    raw: RawProgram,
+}
+
 struct Builder<'a> {
     env: &'a HostEnv,
     cards: Vec<Card>,
     by_key: HashMap<String, usize>,
     aliases: HashMap<String, (usize, AliasKind)>,
-    pending_aliases: Vec<(String, String, AliasKind)>,
+    pending_aliases: Vec<PendingAlias>,
     files: HashMap<String, PackageRef>,
     packages: HashMap<PackageRef, RawPackage>,
     guides: Vec<IndexGuide>,
@@ -708,8 +719,14 @@ impl<'a> Builder<'a> {
             self.linked_guides.insert(guide.name.clone());
         }
         if let (Some(target), Some(alias_kind)) = (&raw.alias_of, raw.alias_kind) {
-            self.pending_aliases
-                .push((raw.name.clone(), target.clone(), alias_kind));
+            self.pending_aliases.push(PendingAlias {
+                target: target.clone(),
+                kind: alias_kind,
+                source: kind,
+                id: id.clone(),
+                rank,
+                raw: raw.clone(),
+            });
             return;
         }
         let executable = raw
@@ -812,21 +829,25 @@ impl<'a> Builder<'a> {
     }
 
     fn resolve_aliases(&mut self) {
-        for (name, target, kind) in std::mem::take(&mut self.pending_aliases) {
+        for pending in std::mem::take(&mut self.pending_aliases) {
+            let name = pending.raw.name.clone();
             let key = self.env.name_key(&name);
             if self.by_key.contains_key(&key) {
                 continue;
             }
-            match self.find(&target) {
+            match self.find(&pending.target) {
                 Some(index) => {
-                    self.aliases.insert(key, (index, kind));
+                    self.aliases.insert(key, (index, pending.kind));
                     let card = &mut self.cards[index];
                     if !card.aliases.iter().any(|alias| alias.name == name) {
-                        card.aliases.push(RawAlias::new(name, kind));
+                        card.aliases.push(RawAlias::new(name, pending.kind));
                     }
                 }
                 None => {
-                    self.new_card(&name, EntryKind::Program, usize::MAX);
+                    let mut raw = pending.raw;
+                    raw.alias_of = None;
+                    raw.alias_kind = None;
+                    self.add_program(pending.source, &pending.id, &raw, pending.rank);
                 }
             }
         }

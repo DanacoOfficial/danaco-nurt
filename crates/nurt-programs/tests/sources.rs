@@ -28,7 +28,7 @@ use std::time::{Duration, SystemTime};
 use nurt_contracts::env::Os;
 use nurt_programs::index::{IndexOptions, ProgramIndex, cache_path};
 use nurt_programs::model::{
-    DetailWant, EntryKey, EntryKind, LocalizedText, RawProgram, SourceData,
+    AliasKind, DetailWant, EntryKey, EntryKind, LocalizedText, RawProgram, SourceData,
 };
 use nurt_programs::source::{
     Deadline, HostEnv, ProgramSource, SourceErrorKind, SourceId, SourceKind, SourceRegistry,
@@ -846,4 +846,54 @@ fn process_cache_keeps_the_index_until_the_environment_changes() {
     let third = cache.get(&registry, &narrowed, &options, &clock);
     assert!(!Arc::ptr_eq(&first, &third));
     assert!(third.resolve("tool").is_none());
+}
+
+fn shim(name: &str, target: &str) -> RawProgram {
+    let mut raw = RawProgram::new(name);
+    raw.alias_of = Some(target.to_owned());
+    raw.alias_kind = Some(AliasKind::Shim);
+    raw.path = Some(format!("/usr/local/bin/{name}"));
+    raw.version = Some("10.2.0".to_owned());
+    raw.summary = Some(LocalizedText::in_lang("Finds files.", "en"));
+    raw
+}
+
+#[test]
+fn alias_entry_without_a_known_target_keeps_its_own_data() {
+    let fixture = Fixture::new();
+    let index = load_index(
+        &fixture,
+        vec![Arc::new(static_source(
+            "shims",
+            SourceKind::Package,
+            vec![shim("fdx", "fd")],
+        ))],
+        None,
+    );
+    let (position, alias) = index.resolve("fdx").unwrap();
+    assert_eq!(alias, None);
+    let card = index.card(position).unwrap();
+    assert_eq!(card.path.as_deref(), Some("/usr/local/bin/fdx"));
+    assert_eq!(card.version.as_deref(), Some("10.2.0"));
+    assert_eq!(card.summary.text, "Finds files.");
+    assert!(card.installed);
+}
+
+#[test]
+fn alias_entry_with_a_known_target_resolves_to_the_target() {
+    let fixture = Fixture::new();
+    let mut target = RawProgram::new("fd");
+    target.path = Some("/usr/local/bin/fd".to_owned());
+    let index = load_index(
+        &fixture,
+        vec![Arc::new(static_source(
+            "shims",
+            SourceKind::Package,
+            vec![shim("fdx", "fd"), target],
+        ))],
+        None,
+    );
+    let (position, alias) = index.resolve("fdx").unwrap();
+    assert_eq!(alias, Some(AliasKind::Shim));
+    assert_eq!(index.card(position).unwrap().name, "fd");
 }
