@@ -450,17 +450,25 @@ impl<'a> LocalAnalysis<'a> {
         }
     }
 
+    /// Index of the innermost scope that contains the bytes `start..end`.
+    ///
+    /// Scopes are sorted by start and nest like syntax nodes, so the last
+    /// scope that starts at or before `start` either contains the bytes or
+    /// has the innermost containing scope among its ancestors.
     fn innermost_scope(&self, start: u64, end: u64, exclude_same: bool) -> usize {
-        self.scopes
-            .iter()
-            .enumerate()
-            .filter(|(_, scope)| {
-                scope.bytes.start <= start
-                    && end <= scope.bytes.end
-                    && !(exclude_same && scope.bytes.start == start && scope.bytes.end == end)
-            })
-            .min_by_key(|(_, scope)| scope.bytes.len())
-            .map_or(0, |(index, _)| index)
+        let upper = self
+            .scopes
+            .partition_point(|scope| scope.bytes.start <= start);
+        let mut current = upper.checked_sub(1);
+        while let Some(index) = current {
+            let scope = &self.scopes[index];
+            let same = scope.bytes.start == start && scope.bytes.end == end;
+            if end <= scope.bytes.end && !(exclude_same && same) {
+                return index;
+            }
+            current = scope.parent;
+        }
+        0
     }
 
     fn collect_occurrences(&mut self, parsed: &ParsedSource<'_>) {
@@ -893,6 +901,68 @@ mod tests {
             (found[0].span.start.line, found[0].span.start.column),
             (2, 11)
         );
+    }
+
+    fn brute_force_scope(
+        analysis: &LocalAnalysis<'_>,
+        start: u64,
+        end: u64,
+        exclude_same: bool,
+    ) -> usize {
+        analysis
+            .scopes
+            .iter()
+            .enumerate()
+            .filter(|(_, scope)| {
+                scope.bytes.start <= start
+                    && end <= scope.bytes.end
+                    && !(exclude_same && scope.bytes.start == start && scope.bytes.end == end)
+            })
+            .min_by_key(|(_, scope)| scope.bytes.len())
+            .map_or(0, |(index, _)| index)
+    }
+
+    #[test]
+    fn innermost_scope_agrees_with_a_scan_of_every_scope() {
+        let sources = [
+            (
+                "rust",
+                "fn a(x: u32) { let y = x; { let z = y; for i in 0..z { let w = i; } } }\nfn b() { let c = |q| q + 1; c(2); }\nmod m { fn n() { match 1 { k => k, } } }\n",
+            ),
+            (
+                "python",
+                "def f(a):\n    def g(b):\n        return [c for c in b]\n    return g(a)\n\nclass K:\n    def m(self): pass\n",
+            ),
+            (
+                "typescript",
+                "function f(a: number) { const g = (b: number) => { return b + a; }; if (a) { let d = 1; } }\nclass C { m(x: number) { return x; } }\n",
+            ),
+        ];
+        for (language, source) in sources {
+            let analysis = analysis(language, source);
+            assert!(analysis.scopes().len() > 3, "{language}");
+            for occurrence in analysis.occurrences() {
+                let (start, end) = (occurrence.span.bytes.start, occurrence.span.bytes.end);
+                for exclude_same in [false, true] {
+                    assert_eq!(
+                        analysis.innermost_scope(start, end, exclude_same),
+                        brute_force_scope(&analysis, start, end, exclude_same),
+                        "{language} {} @{start}",
+                        occurrence.name
+                    );
+                }
+            }
+            for scope in analysis.scopes() {
+                let (start, end) = (scope.bytes.start, scope.bytes.end);
+                for exclude_same in [false, true] {
+                    assert_eq!(
+                        analysis.innermost_scope(start, end, exclude_same),
+                        brute_force_scope(&analysis, start, end, exclude_same),
+                        "{language} scope {start}..{end}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]
