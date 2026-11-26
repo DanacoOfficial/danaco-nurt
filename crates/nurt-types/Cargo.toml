@@ -19,7 +19,6 @@ workspace = true
 
 [dependencies]
 nurt-contracts = { workspace = true }
-camino = { workspace = true }
 fastrand = { workspace = true }
 jiff = { workspace = true }
 regex = { workspace = true }

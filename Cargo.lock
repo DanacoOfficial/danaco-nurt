@@ -6077,7 +6077,6 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "nurt-contracts",
- "nurt-types",
  "serde",
  "serde_json",
  "serde_json_canonicalizer",
@@ -7017,7 +7016,6 @@ dependencies = [
 name = "nurt-types"
 version = "0.1.0"
 dependencies = [
- "camino",
  "fastrand",
  "jiff 1.0.2",
  "nurt-contracts",
