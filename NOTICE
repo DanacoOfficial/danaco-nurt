@@ -23,3 +23,9 @@ of the product and reproducing the content of this NOTICE file.
 
 This product includes third-party components distributed under their own
 licenses. The license of each component is recorded in its package metadata.
+
+The crate crates/nurt-pdf-extract contains the source of pdf-extract 0.12.1,
+https://github.com/jrmuizel/pdf-extract, Copyright (c) Jeff Muizelaar and the
+contributors of pdf-extract, distributed under the MIT license. The license
+text is in crates/nurt-pdf-extract/LICENSE-MIT. The source was changed to use
+lopdf 0.47 instead of lopdf 0.42.
