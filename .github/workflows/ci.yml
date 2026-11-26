@@ -132,6 +132,12 @@ jobs:
           fi
       - name: Run documentation tests
         run: cargo test --workspace --doc --locked
+      - name: Run the differential tests of the file commands
+        # The tests compare the commands with the programs of the system and
+        # skip a program that is not installed; the cargo feature is off in
+        # the other steps.
+        if: runner.os == 'Linux'
+        run: cargo test -p nurt-files --features differential --locked --no-fail-fast --test 'differential_*'
 
   coverage:
     name: Coverage

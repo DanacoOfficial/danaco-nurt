@@ -283,6 +283,12 @@ class WorkflowSupplyChainTest(unittest.TestCase):
                 self.assertNotIn("--no-tests=warn", line)
                 self.assertIn("--no-tests=fail", line)
 
+    def test_the_differential_tests_of_the_file_commands_run_in_the_ci(self):
+        text = (self.ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("-p nurt-files --features differential", text)
+        manifest = (self.ROOT / "crates" / "nurt-files" / "Cargo.toml").read_text(encoding="utf-8")
+        self.assertRegex(manifest, r"(?m)^differential = \[\]")
+
     def test_base_images_of_the_container_scenarios_are_named_by_digest(self):
         text = (self.ROOT / "integrations" / "devcontainer" / "test" / "nurt" / "scenarios.json").read_text(
             encoding="utf-8"
