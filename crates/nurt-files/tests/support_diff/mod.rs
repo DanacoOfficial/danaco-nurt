@@ -70,14 +70,27 @@ pub(crate) fn locate(program: &str) -> Option<PathBuf> {
     which::which(program).ok()
 }
 
+/// Variable that makes a missing reference program a failure instead of a
+/// skipped test; a continuous integration run sets it to `1`, so that a test
+/// that compares nothing cannot pass.
+pub(crate) const REQUIRE_VARIABLE: &str = "NURT_REQUIRE_REFERENCE_PROGRAMS";
+
 /// Finds `program` in `PATH` or reports that the test is skipped.
 ///
-/// A test calls this first and returns when the result is `None`.
+/// A test calls this first and returns when the result is `None`. With the
+/// variable [`REQUIRE_VARIABLE`] set to `1` a missing program fails the test.
+pub(crate) fn require(program: &str) -> Option<PathBuf> {
+    let strict = std::env::var(REQUIRE_VARIABLE).is_ok_and(|value| value == "1");
+    require_with(program, strict)
+}
+
+/// [`require`] with the strictness given.
 // Skipped tests report through standard error because the test output is the only channel.
 #[allow(clippy::print_stderr)]
-pub(crate) fn require(program: &str) -> Option<PathBuf> {
+pub(crate) fn require_with(program: &str, strict: bool) -> Option<PathBuf> {
     let found = locate(program);
     if found.is_none() {
+        assert!(!strict, "program `{program}` not found in PATH");
         eprintln!("skipped: program `{program}` not found in PATH");
     }
     found

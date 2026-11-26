@@ -85,7 +85,7 @@ mod programs {
     use std::time::Duration;
 
     use super::{DiffError, assert_same, normalize_paths};
-    use crate::support_diff::{locate, require, run};
+    use crate::support_diff::{locate, require, require_with, run};
 
     const LIMIT: Duration = Duration::from_secs(10);
 
@@ -97,7 +97,19 @@ mod programs {
 
     #[test]
     fn skips_when_the_program_is_missing() {
-        assert!(require("nurt-no-such-program").is_none());
+        assert!(require_with("nurt-no-such-program", false).is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "not found in PATH")]
+    fn fails_when_a_missing_program_is_required() {
+        let _ = require_with("nurt-no-such-program", true);
+    }
+
+    #[test]
+    fn a_present_program_is_found_in_either_mode() {
+        assert!(require_with("sh", true).is_some());
+        assert!(require_with("sh", false).is_some());
     }
 
     #[test]
