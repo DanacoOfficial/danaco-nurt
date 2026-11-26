@@ -191,7 +191,7 @@ pub(crate) fn verify_expect(path: &Path, expect: &Expect) -> Result<()> {
 /// files compare to index entries.
 pub(crate) struct Worktree<'r> {
     pub(crate) root: PathBuf,
-    pub(crate) caps: gix::fs::Capabilities,
+    pub(crate) caps: gix_fs::Capabilities,
     repo: &'r gix::Repository,
     stat_options: gix_index::entry::stat::Options,
     index_timestamp: (i64, u32),

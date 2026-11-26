@@ -86,7 +86,7 @@ impl Fixture {
     #[allow(clippy::disallowed_methods)]
     pub(crate) fn save_index(&self, index: &mut gix::index::File) {
         index
-            .write(gix::index::write::Options::default())
+            .write(gix::index::write::Options::default(), Default::default())
             .expect("write index");
     }
 

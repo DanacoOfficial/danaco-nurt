@@ -990,7 +990,7 @@ impl NetworkConnection {
         let Ok(Some(answer)) = authenticate(Action::get_for_url(url)) else {
             return Err(credentials.error(Some(HTTP_UNAUTHORIZED)));
         };
-        if self.transport.set_identity(answer.identity).is_err() {
+        if self.transport.set_credentials(answer.credentials).is_err() {
             return Err(credentials.error(Some(HTTP_UNAUTHORIZED)));
         }
         let second = send_pack::discover(self.transport.as_mut());

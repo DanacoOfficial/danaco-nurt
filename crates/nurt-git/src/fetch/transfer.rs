@@ -387,6 +387,7 @@ impl Exchange<'_> {
             index_version: gix::odb::pack::index::Version::V2,
             alloc_limit_bytes: None,
             compression: gix::zlib::Compression::default(),
+            shared_repository_permissions: gix_fs::SharedPermissions::Umask,
         };
         let pack_dir = &self.pack_dir;
         gix::protocol::fetch(
@@ -427,6 +428,7 @@ impl Exchange<'_> {
                 shallow: self.shallow,
                 tags: self.tags,
                 reject_shallow_remote: false,
+                shared_repository_permissions: gix_fs::SharedPermissions::Umask,
             },
         )?;
         if session.handshake.server_protocol_version == Protocol::V2 {

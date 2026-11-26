@@ -690,7 +690,7 @@ fn two_way_keeps_skip_worktree_of_changed_entry_without_writing_it() {
         reason = "test fixtures prepare the index directly, outside a transaction"
     )]
     index
-        .write(gix_index::write::Options::default())
+        .write(gix_index::write::Options::default(), Default::default())
         .expect("write index");
     std::fs::remove_dir_all(dir.path().join("other")).expect("remove");
     switch(&repo, &journal, old, new);
@@ -767,7 +767,7 @@ fn make_unmerged(repo: &gix::Repository, path: &str) {
         reason = "test fixtures prepare the index directly, outside a transaction"
     )]
     index
-        .write(gix_index::write::Options::default())
+        .write(gix_index::write::Options::default(), Default::default())
         .expect("write index");
 }
 

@@ -209,7 +209,7 @@ impl Declared {
     fn new(
         ctx: &ApplyContext<'_>,
         plan: &ApplyPlan,
-        caps: &gix::fs::Capabilities,
+        caps: &gix_fs::Capabilities,
         targets: &mut Targets,
     ) -> Result<Self> {
         let index = match &plan.index {
@@ -261,7 +261,7 @@ impl Declared {
     }
 }
 
-fn target_action(action: EntryAction, caps: &gix::fs::Capabilities) -> TargetAction {
+fn target_action(action: EntryAction, caps: &gix_fs::Capabilities) -> TargetAction {
     match action {
         EntryAction::Create | EntryAction::Mkdir => TargetAction::Create,
         EntryAction::Modify => TargetAction::Modify,
@@ -392,7 +392,7 @@ struct Run<'t, 'c, 'r> {
     index_of: Vec<TargetIndex>,
     report: ApplyReport,
     filters: Filters<'r>,
-    caps: gix::fs::Capabilities,
+    caps: gix_fs::Capabilities,
     buf: Vec<u8>,
 }
 
@@ -651,7 +651,7 @@ pub(crate) fn is_empty_dir(path: &Path) -> bool {
 /// Permission bits `path` needs to get the executable state `executable`;
 /// `None` when it has them or the file system has no executable bit.
 #[cfg(unix)]
-fn mode_change(path: &Path, executable: bool, caps: &gix::fs::Capabilities) -> Result<Option<u32>> {
+fn mode_change(path: &Path, executable: bool, caps: &gix_fs::Capabilities) -> Result<Option<u32>> {
     if !caps.executable_bit {
         return Ok(None);
     }
@@ -665,7 +665,7 @@ fn mode_change(path: &Path, executable: bool, caps: &gix::fs::Capabilities) -> R
 fn mode_change(
     _path: &Path,
     _executable: bool,
-    _caps: &gix::fs::Capabilities,
+    _caps: &gix_fs::Capabilities,
 ) -> Result<Option<u32>> {
     Ok(None)
 }

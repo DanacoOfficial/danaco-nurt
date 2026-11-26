@@ -477,13 +477,13 @@ impl Credentials {
         let next = NextAction::from(
             query.context(Some(found.username.as_str()), Some(found.password.expose())),
         );
-        let identity = gix_sec::identity::Account {
+        let credentials = gix_sec::identity::Credentials::UsernamePassword {
             username: found.username,
             password: found.password.expose().to_owned(),
             oauth_refresh_token: None,
         };
         state.source = Some(found.source);
-        Ok(Some(Outcome { identity, next }))
+        Ok(Some(Outcome { credentials, next }))
     }
 
     fn lookup(&self, state: &mut CredentialReport, query: &Query) -> Option<Found> {
@@ -1084,7 +1084,14 @@ mod tests {
 
     fn identity(outcome: gix::error::Result<Option<Outcome>>) -> (String, String) {
         let outcome = outcome.expect("credentials").expect("outcome");
-        (outcome.identity.username, outcome.identity.password)
+        match outcome.credentials {
+            gix_sec::identity::Credentials::UsernamePassword {
+                username, password, ..
+            } => (username, password),
+            gix_sec::identity::Credentials::Encoded { .. } => {
+                panic!("expected a username and a password")
+            }
+        }
     }
 
     #[derive(Default)]

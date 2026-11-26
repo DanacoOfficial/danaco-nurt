@@ -12,13 +12,12 @@ use gix_hash::ObjectId;
 use gix_merge::blob::builtin_driver::binary::ResolveWith;
 use gix_merge::blob::builtin_driver::text;
 use gix_merge::tree::TreatAsUnresolved;
-use gix_merge::tree::apply_index_entries::RemovalMode;
+use gix_merge::tree::{Context, DirectoryRenames};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::report::NotableEntry;
 
 use super::conflict::{self, MergeConflict};
 use super::driver::{self, ExternalDriver};
-use super::layout;
 
 /// Marker size of Git when neither the `conflict-marker-size` attribute
 /// nor the caller sets one.
@@ -222,6 +221,7 @@ impl MergeOptions {
             Favor::Theirs => ResolveWith::Theirs,
         });
         gix_merge::tree::Options {
+            directory_renames: DirectoryRenames::Enabled,
             rewrites: self.renames,
             blob_merge: gix_merge::blob::platform::merge::Options {
                 is_virtual_ancestor: false,
@@ -349,6 +349,7 @@ pub fn merge_trees(
         &mut gix_diff::tree::State::default(),
         &mut diff_cache,
         &mut platform,
+        Context::default(),
         options.tree_options(),
     )
     .map_err(revision_error("merge the trees"))?;
@@ -411,6 +412,7 @@ pub fn merge_commits(
         &mut platform,
         repo,
         &mut abbreviate,
+        Context::default(),
         gix_merge::commit::Options {
             allow_missing_merge_base: options.allow_unrelated,
             tree_merge: options.tree_options(),
@@ -488,26 +490,19 @@ fn finish(
     options: &MergeOptions,
 ) -> Result<MergeOutcome> {
     let notes = driver::unrun_notes(repo, &outcome, options)?;
-    let fixes = layout::plan(
-        &outcome.conflicts,
-        &outcome.tree,
-        &options.labels.ours,
-        &options.labels.theirs,
-    );
-    layout::apply_to_tree(&mut outcome.tree, &fixes)?;
     let tree = outcome
         .tree
         .write(|tree| repo.write_object(tree).map(gix::Id::detach))
         .map_err(io_error("write the merged tree"))?;
-    let mut index = gix_index::State::from_tree(&tree, &repo.objects, Default::default())
+    let index = outcome
+        .index
+        .to_index(
+            TreatAsUnresolved::git(),
+            None,
+            &repo.objects,
+            Default::default(),
+        )
         .map_err(revision_error("read the merged tree"))?;
-    gix_merge::tree::apply_index_entries(
-        &outcome.conflicts,
-        TreatAsUnresolved::git(),
-        &mut index,
-        RemovalMode::Prune,
-    );
-    layout::apply_to_index(&mut index, &fixes);
     let conflicts = conflict::collect(&index, &outcome.conflicts);
     Ok(MergeOutcome {
         tree,
