@@ -261,8 +261,9 @@ impl YamlDoc {
             return Ok(vec![key.clone()]);
         }
         let mut keys: Vec<KeyPath> = Vec::new();
+        let mut seen: HashSet<String> = HashSet::new();
         for resolved in self.tree.resolve(key, &SEMANTICS)? {
-            if !keys.contains(&resolved.key) {
+            if seen.insert(resolved.key.to_string()) {
                 keys.push(resolved.key);
             }
         }

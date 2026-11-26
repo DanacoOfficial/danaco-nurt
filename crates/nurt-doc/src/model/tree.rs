@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+use std::collections::HashMap;
 use std::ops::Index;
 
 use nurt_contracts::keypath::{DocSelector, KeyPath, KeySegment};
@@ -257,6 +258,9 @@ pub struct DocNode {
     pub(crate) member_slot: usize,
     /// Number of selectable members among the children added so far.
     pub(crate) member_total: usize,
+    /// Position of the node among the selectable siblings that share its name
+    /// and the number of such siblings, set when the tree is finished.
+    pub(crate) same_name: (usize, usize),
 }
 
 /// Builder of a [`DocTree`]; nodes are added parent first.
@@ -314,6 +318,7 @@ impl<'a> TreeBuilder<'a> {
             children: Vec::new(),
             member_slot,
             member_total: 0,
+            same_name: (0, 1),
         });
         match parent {
             Some(parent) => self.nodes[parent.index()].children.push(id),
@@ -347,6 +352,29 @@ impl<'a> TreeBuilder<'a> {
         for node in &mut self.nodes {
             node.start = lines.position(self.text, node.value_span.start);
             node.end = lines.position(self.text, node.value_span.end);
+        }
+        for parent in 0..self.nodes.len() {
+            let mut groups: HashMap<&str, Vec<usize>> = HashMap::new();
+            for child in &self.nodes[parent].children {
+                let node = &self.nodes[child.index()];
+                if node.kind != NodeKind::Comment
+                    && let Some(name) = node.name.as_deref()
+                {
+                    groups.entry(name).or_default().push(child.index());
+                }
+            }
+            let ranks: Vec<(usize, (usize, usize))> = groups
+                .values()
+                .flat_map(|group| {
+                    group
+                        .iter()
+                        .enumerate()
+                        .map(|(rank, index)| (*index, (rank, group.len())))
+                })
+                .collect();
+            for (index, same_name) in ranks {
+                self.nodes[index].same_name = same_name;
+            }
         }
         DocTree {
             nodes: self.nodes,
@@ -498,13 +526,9 @@ impl DocTree {
             }
             (_, Some(name)) => {
                 if semantics.repeated() == Repeated::Conflict {
-                    let same: Vec<NodeId> = self
-                        .members(parent)
-                        .filter(|member| self[*member].name.as_deref() == Some(name))
-                        .collect();
-                    if same.len() > 1 {
-                        let position = same.iter().position(|member| *member == child);
-                        reversed.push(KeySegment::Index(to_index(position.unwrap_or_default())));
+                    let (position, total) = self[child].same_name;
+                    if total > 1 {
+                        reversed.push(KeySegment::Index(to_index(position)));
                     }
                 }
                 if semantics.flat_keys() && name.split('.').all(|part| !part.is_empty()) {
@@ -738,5 +762,36 @@ mod tests {
             "dep"
         );
         assert_eq!(tree.document_of(second), Some(0));
+    }
+
+    /// Time of the paths of all members of a container with `count` members
+    /// that share one name, under the semantics that index repeated names.
+    fn conflict_paths_time(count: usize) -> std::time::Duration {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        let ids: Vec<NodeId> = (0..count)
+            .map(|_| builder.node(Some(root), spec(NodeKind::Scalar).with_name("dep")))
+            .collect();
+        let tree = builder.finish();
+        let start = std::time::Instant::now();
+        for (position, id) in ids.iter().enumerate() {
+            assert_eq!(
+                tree.path_of(*id, &MapSemantics::CONFLICT).to_string(),
+                format!("dep[{position}]")
+            );
+        }
+        start.elapsed()
+    }
+
+    #[test]
+    fn the_paths_of_repeated_names_cost_time_proportional_to_their_number() {
+        let fastest = |count: usize| (0..3).map(|_| conflict_paths_time(count)).min().unwrap();
+        let small = fastest(2_000);
+        let large = fastest(8_000);
+        let ratio = large.as_secs_f64() / small.as_secs_f64().max(1e-4);
+        assert!(
+            ratio < 9.0,
+            "{small:?} for 2000, {large:?} for 8000: ratio {ratio:.1}"
+        );
     }
 }
