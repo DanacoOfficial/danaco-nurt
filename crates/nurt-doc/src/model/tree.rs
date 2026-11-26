@@ -532,6 +532,7 @@ impl DocTree {
         let Some(node) = self.get(target) else {
             return Value::Null;
         };
+        let chain = chain + usize::from(target != id);
         if chain > MAX_ALIAS_CHAIN {
             return Value::Null;
         }
@@ -541,7 +542,7 @@ impl DocTree {
             NodeKind::List => {
                 let items = if expand {
                     self.members(target)
-                        .map(|member| self.value_at(member, semantics, inner, chain + 1))
+                        .map(|member| self.value_at(member, semantics, inner, chain))
                         .collect()
                 } else {
                     Vec::new()
@@ -575,7 +576,7 @@ impl DocTree {
                 .name
                 .clone()
                 .unwrap_or_else(|| position.to_string());
-            let value = self.value_at(member, semantics, depth, chain + 1);
+            let value = self.value_at(member, semantics, depth, chain);
             match (semantics.repeated(), fields.get_mut(&name)) {
                 (Repeated::Conflict, Some(existing)) => {
                     if repeated.contains(&name) {
@@ -599,4 +600,110 @@ impl DocTree {
 
 fn to_index(position: usize) -> i64 {
     i64::try_from(position).unwrap_or(i64::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::MapSemantics;
+
+    fn spec(kind: NodeKind) -> NodeSpec {
+        NodeSpec::new(kind, Span::new(0, 0))
+    }
+
+    #[test]
+    fn value_of_keeps_documents_nested_deeper_than_the_alias_chain_limit() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        let mut parent = root;
+        for _ in 0..(MAX_ALIAS_CHAIN * 2) {
+            parent = builder.node(Some(parent), spec(NodeKind::Map).with_name("k"));
+        }
+        builder.node(
+            Some(parent),
+            spec(NodeKind::Scalar)
+                .with_name("leaf")
+                .with_value(Value::Int(1)),
+        );
+        let tree = builder.finish();
+        let value = tree.value_of(root, &MapSemantics::LAST_WINS, None);
+        let mut current = &value;
+        for _ in 0..(MAX_ALIAS_CHAIN * 2) {
+            current = current.get("k").unwrap();
+        }
+        assert_eq!(current.get("leaf"), Some(&Value::Int(1)));
+    }
+
+    #[test]
+    fn value_of_follows_aliases_and_stops_at_a_cycle() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        let target = builder.node(
+            Some(root),
+            spec(NodeKind::Scalar)
+                .with_name("a")
+                .with_value(Value::Int(7)),
+        );
+        let alias = builder.node(Some(root), spec(NodeKind::Scalar).with_name("b"));
+        builder.set_alias(alias, target);
+        let first = builder.node(Some(root), spec(NodeKind::Scalar).with_name("c"));
+        let second = builder.node(Some(root), spec(NodeKind::Scalar).with_name("d"));
+        builder.set_alias(first, second);
+        builder.set_alias(second, first);
+        let tree = builder.finish();
+        let value = tree.value_of(root, &MapSemantics::LAST_WINS, None);
+        assert_eq!(value.get("b"), Some(&Value::Int(7)));
+        assert!(value.get("c").is_some());
+    }
+
+    #[test]
+    fn repeated_names_form_a_list_only_under_conflict_semantics() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        for number in [1, 2] {
+            builder.node(
+                Some(root),
+                spec(NodeKind::Scalar)
+                    .with_name("dep")
+                    .with_value(Value::Int(number)),
+            );
+        }
+        let tree = builder.finish();
+        let last = tree.value_of(root, &MapSemantics::LAST_WINS, None);
+        assert_eq!(last.get("dep"), Some(&Value::Int(2)));
+        let group = tree.value_of(root, &MapSemantics::CONFLICT, None);
+        assert_eq!(
+            group.get("dep"),
+            Some(&Value::List(vec![Value::Int(1), Value::Int(2)]))
+        );
+    }
+
+    #[test]
+    fn depth_limit_returns_empty_containers_below_it() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        let inner = builder.node(Some(root), spec(NodeKind::List).with_name("l"));
+        builder.node(Some(inner), spec(NodeKind::Scalar).with_value(Value::Int(1)));
+        let tree = builder.finish();
+        let value = tree.value_of(root, &MapSemantics::LAST_WINS, Some(1));
+        assert_eq!(value.get("l"), Some(&Value::List(Vec::new())));
+    }
+
+    #[test]
+    fn path_of_names_members_and_indexes_repeated_names() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        let first = builder.node(Some(root), spec(NodeKind::Scalar).with_name("dep"));
+        let second = builder.node(Some(root), spec(NodeKind::Scalar).with_name("dep"));
+        let tree = builder.finish();
+        assert_eq!(
+            tree.path_of(second, &MapSemantics::CONFLICT).to_string(),
+            "dep[1]"
+        );
+        assert_eq!(
+            tree.path_of(first, &MapSemantics::LAST_WINS).to_string(),
+            "dep"
+        );
+        assert_eq!(tree.document_of(second), Some(0));
+    }
 }

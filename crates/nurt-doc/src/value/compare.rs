@@ -34,7 +34,49 @@ pub fn compare_numbers(left: &Value, right: &Value) -> Option<Ordering> {
     if let (Some(left), Some(right)) = (exact_integer(left), exact_integer(right)) {
         return Some(left.cmp(&right));
     }
+    if let (Some(left), Some(right)) = (integer_digits(left), integer_digits(right)) {
+        return Some(compare_digits(&left, &right));
+    }
     as_float(left)?.partial_cmp(&as_float(right)?)
+}
+
+/// Sign and decimal digits without leading zeros of an integer of any size;
+/// zero is positive.
+fn integer_digits(value: &Value) -> Option<(bool, String)> {
+    let text = match value {
+        Value::Int(number) => number.to_string(),
+        Value::BigInt(digits) => digits.clone(),
+        Value::Decimal(lexeme) => lexeme.replace('_', ""),
+        _ => return None,
+    };
+    let (negative, unsigned) = match text.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, text.strip_prefix('+').unwrap_or(&text)),
+    };
+    if unsigned.is_empty() || !unsigned.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let magnitude = unsigned.trim_start_matches('0');
+    if magnitude.is_empty() {
+        Some((false, "0".to_owned()))
+    } else {
+        Some((negative, magnitude.to_owned()))
+    }
+}
+
+fn compare_digits(left: &(bool, String), right: &(bool, String)) -> Ordering {
+    match (left.0, right.0) {
+        (false, true) => Ordering::Greater,
+        (true, false) => Ordering::Less,
+        (negative, _) => {
+            let magnitude = left
+                .1
+                .len()
+                .cmp(&right.1.len())
+                .then_with(|| left.1.cmp(&right.1));
+            if negative { magnitude.reverse() } else { magnitude }
+        }
+    }
 }
 
 /// Returns `true` when two document values mean the same.
@@ -177,5 +219,93 @@ fn as_float(value: &Value) -> Option<f64> {
             .parse()
             .ok(),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn big(text: &str) -> Value {
+        Value::BigInt(text.to_owned())
+    }
+
+    #[test]
+    fn integers_beyond_128_bits_are_compared_digit_by_digit() {
+        let low = big(&format!("1{}", "0".repeat(40)));
+        let high = big(&format!("1{}1", "0".repeat(39)));
+        assert_eq!(compare_numbers(&low, &high), Some(Ordering::Less));
+        assert_eq!(compare_numbers(&high, &low), Some(Ordering::Greater));
+        assert_eq!(compare_numbers(&low, &low.clone()), Some(Ordering::Equal));
+        assert!(!equivalent(&low, &high));
+    }
+
+    #[test]
+    fn integers_beyond_the_range_of_a_float_stay_distinct() {
+        let first = big(&format!("1{}", "0".repeat(400)));
+        let second = big(&format!("2{}", "0".repeat(400)));
+        assert_eq!(compare_numbers(&first, &second), Some(Ordering::Less));
+        assert!(!equivalent(&first, &second));
+        assert!(equivalent(&first, &first.clone()));
+    }
+
+    #[test]
+    fn negative_and_mixed_representations_order_correctly() {
+        let negative = big(&format!("-1{}", "0".repeat(40)));
+        let smaller = big(&format!("-2{}", "0".repeat(40)));
+        assert_eq!(compare_numbers(&smaller, &negative), Some(Ordering::Less));
+        assert_eq!(
+            compare_numbers(&negative, &Value::Int(5)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            compare_numbers(&Value::Int(5), &negative),
+            Some(Ordering::Greater)
+        );
+        let decimal = Value::Decimal("9".repeat(45));
+        let nines = big(&"9".repeat(45));
+        assert!(equivalent(&decimal, &nines));
+        assert!(!equivalent(&decimal, &big(&format!("{}8", "9".repeat(44)))));
+    }
+
+    #[test]
+    fn numbers_compare_by_value_in_any_representation() {
+        assert!(equivalent(&Value::Int(1), &Value::Number(1.0)));
+        assert!(equivalent(
+            &Value::Decimal("1_000".to_owned()),
+            &Value::Int(1000)
+        ));
+        assert!(equivalent(
+            &Value::Decimal("1.10".to_owned()),
+            &Value::Number(1.1)
+        ));
+        assert!(equivalent(
+            &Value::Decimal(".nan".to_owned()),
+            &Value::Number(f64::NAN)
+        ));
+        assert!(!equivalent(&Value::Int(2), &Value::Text("2".to_owned())));
+        assert_eq!(compare_numbers(&Value::Int(1), &Value::Text("1".to_owned())), None);
+    }
+
+    #[test]
+    fn first_difference_names_the_member_and_the_index() {
+        let left = Value::from_plain_json(serde_json::json!({"a": [1, {"b": 2}], "c": 1}));
+        let right = Value::from_plain_json(serde_json::json!({"a": [1, {"b": 3}], "c": 1}));
+        let path = first_difference(&left, &right).map(|key| key.to_string());
+        assert_eq!(path.as_deref(), Some("a[1].b"));
+        let extra = Value::from_plain_json(serde_json::json!({"a": [1, {"b": 2}], "c": 1, "d": 0}));
+        let path = first_difference(&left, &extra).map(|key| key.to_string());
+        assert_eq!(path.as_deref(), Some("d"));
+        assert_eq!(first_difference(&left, &left.clone()), None);
+    }
+
+    #[test]
+    fn map_order_does_not_matter_but_list_order_does() {
+        let left = Value::from_plain_json(serde_json::json!({"a": 1, "b": 2}));
+        let right = Value::from_plain_json(serde_json::json!({"b": 2, "a": 1}));
+        assert!(equivalent(&left, &right));
+        let first = Value::from_plain_json(serde_json::json!([1, 2]));
+        let second = Value::from_plain_json(serde_json::json!([2, 1]));
+        assert!(!equivalent(&first, &second));
     }
 }

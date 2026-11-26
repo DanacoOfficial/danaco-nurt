@@ -95,10 +95,26 @@ fn render_float(number: f64, syntax: Syntax) -> String {
 /// Integer value of the digits, falling back to the decimal text when the
 /// number does not fit 64 bits.
 fn integer(negative: bool, digits: &str, radix: u32) -> Option<Value> {
-    let magnitude = u128::from_str_radix(digits, radix).ok()?;
-    let signed = i128::try_from(magnitude).ok()?;
+    let Some(signed) = u128::from_str_radix(digits, radix)
+        .ok()
+        .and_then(|magnitude| i128::try_from(magnitude).ok())
+    else {
+        return big_integer(negative, digits, radix);
+    };
     let signed = if negative { -signed } else { signed };
     Some(i64::try_from(signed).map_or_else(|_| Value::BigInt(signed.to_string()), Value::Int))
+}
+
+/// Decimal integer that does not fit 128 bits, as its digits.
+fn big_integer(negative: bool, digits: &str, radix: u32) -> Option<Value> {
+    if radix != DECIMAL || !all_digits(digits, DECIMAL) {
+        return None;
+    }
+    let sign = if negative { "-" } else { "" };
+    Some(Value::BigInt(format!(
+        "{sign}{}",
+        digits.trim_start_matches('0')
+    )))
 }
 
 /// Value of a lexeme with a fraction or exponent; `text` is the lexeme
@@ -249,4 +265,128 @@ fn sexagesimal(negative: bool, plain: &str) -> Option<Value> {
     }
     let signed = if negative { -total } else { total };
     Some(i64::try_from(signed).map_or_else(|_| Value::BigInt(signed.to_string()), Value::Int))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const HUGE: &str = "123456789012345678901234567890123456789012345";
+
+    #[test]
+    fn integers_beyond_128_bits_keep_their_digits() {
+        let negative = format!("-{HUGE}");
+        for syntax in [
+            Syntax::Json,
+            Syntax::Toml,
+            Syntax::Yaml11,
+            Syntax::Yaml12,
+        ] {
+            assert_eq!(
+                parse_number(HUGE, syntax),
+                Some(Value::BigInt(HUGE.to_owned())),
+                "{syntax:?}"
+            );
+            assert_eq!(
+                parse_number(&negative, syntax),
+                Some(Value::BigInt(negative.clone())),
+                "{syntax:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn integers_between_64_and_128_bits_become_big_integers() {
+        assert_eq!(
+            parse_number("18446744073709551616", Syntax::Json),
+            Some(Value::BigInt("18446744073709551616".to_owned()))
+        );
+        assert_eq!(
+            parse_number("-9223372036854775809", Syntax::Json),
+            Some(Value::BigInt("-9223372036854775809".to_owned()))
+        );
+        assert_eq!(
+            parse_number("9223372036854775807", Syntax::Json),
+            Some(Value::Int(i64::MAX))
+        );
+        assert_eq!(
+            parse_number("-9223372036854775808", Syntax::Json),
+            Some(Value::Int(i64::MIN))
+        );
+    }
+
+    #[test]
+    fn huge_hexadecimal_and_malformed_integers_are_not_numbers() {
+        assert_eq!(parse_number(&format!("0x{HUGE}{HUGE}"), Syntax::Toml), None);
+        assert_eq!(parse_number("12a", Syntax::Yaml12), None);
+        assert_eq!(parse_number("", Syntax::Json), None);
+        assert_eq!(parse_number("-", Syntax::Json), None);
+    }
+
+    #[test]
+    fn json_rejects_leading_zeros_and_bad_exponents() {
+        for lexeme in ["01", "1.", ".5", "1e", "1e+-5", "+1", "1.5.2", "0x10"] {
+            assert_eq!(parse_number(lexeme, Syntax::Json), None, "{lexeme}");
+        }
+        assert_eq!(
+            parse_number("1.5e3", Syntax::Json),
+            Some(Value::Decimal("1.5e3".to_owned()))
+        );
+        assert_eq!(
+            parse_number("1e400", Syntax::Json),
+            Some(Value::Decimal("1e400".to_owned()))
+        );
+    }
+
+    #[test]
+    fn yaml_versions_type_octal_and_sexagesimal_numbers() {
+        assert_eq!(parse_number("0755", Syntax::Yaml11), Some(Value::Int(493)));
+        assert_eq!(parse_number("0755", Syntax::Yaml12), Some(Value::Int(755)));
+        assert_eq!(parse_number("09", Syntax::Yaml11), None);
+        assert_eq!(parse_number("-1:30", Syntax::Yaml11), Some(Value::Int(-90)));
+        assert_eq!(parse_number("1:30", Syntax::Yaml12), None);
+        assert_eq!(
+            parse_number(".inf", Syntax::Yaml12),
+            Some(Value::Decimal(".inf".to_owned()))
+        );
+    }
+
+    #[test]
+    fn toml_numbers_follow_the_underscore_rules() {
+        assert_eq!(parse_number("1_000", Syntax::Toml), Some(Value::Int(1000)));
+        assert_eq!(parse_number("1__0", Syntax::Toml), None);
+        assert_eq!(parse_number("_1", Syntax::Toml), None);
+        assert_eq!(parse_number("-0x1F", Syntax::Toml), None);
+        assert_eq!(parse_number("0b101", Syntax::Toml), Some(Value::Int(5)));
+        assert_eq!(parse_number("007", Syntax::Toml), None);
+        assert_eq!(
+            parse_number("-inf", Syntax::Toml),
+            Some(Value::Decimal("-inf".to_owned()))
+        );
+    }
+
+    #[test]
+    fn rendering_keeps_a_fraction_or_exponent() {
+        assert_eq!(
+            render_scalar(&Value::Number(2.0), Syntax::Yaml11).as_deref(),
+            Some("2.0")
+        );
+        assert_eq!(
+            render_scalar(&Value::Number(1e16), Syntax::Yaml11).as_deref(),
+            Some("1.0e+16")
+        );
+        assert_eq!(
+            render_scalar(&Value::Number(1e-7), Syntax::Yaml11).as_deref(),
+            Some("1.0e-7")
+        );
+        assert_eq!(render_scalar(&Value::Number(f64::NAN), Syntax::Json), None);
+        assert_eq!(
+            render_scalar(&Value::Decimal("1.10".to_owned()), Syntax::Json).as_deref(),
+            Some("1.10")
+        );
+        assert_eq!(
+            render_scalar(&Value::Decimal("not a number".to_owned()), Syntax::Json),
+            None
+        );
+    }
 }

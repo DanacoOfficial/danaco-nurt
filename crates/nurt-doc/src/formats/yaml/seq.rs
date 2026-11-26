@@ -26,7 +26,7 @@ use super::anchor::Anchors;
 use super::comment::Comments;
 use super::model::{CollectionStyle, NodeId, NodeKind, SequenceNode, YamlModel};
 use super::multidoc;
-use super::scalar::{format_float, is_plain_safe, key_text, literal_block, quote_double};
+use super::scalar::{date_text, format_float, is_plain_safe, key_text, literal_block, quote_double};
 
 use crate::edit::ByteEdit;
 use crate::model::{Span, key_conflict, key_not_found};
@@ -586,7 +586,7 @@ fn scalar_text(value: &Value, flow: bool) -> String {
         Value::BigInt(text) | Value::Decimal(text) => text.clone(),
         Value::Number(number) => format_float(*number),
         Value::Text(text) => plain_or_quoted(text, flow),
-        Value::Date(date) => date.text.clone(),
+        Value::Date(date) => date_text(date),
         Value::Bytes(bytes) => format!("!!binary {}", bytes.to_base64()),
         Value::List(_) | Value::Map(_) | Value::Record(_) => flow_text(value),
         other => plain_or_quoted(&serialized_text(other), flow),
@@ -844,5 +844,59 @@ mod tests {
         assert_eq!(scalar_text(&date, false), "2026-11-21");
         let path = Value::Path("conf/app.yaml".to_owned());
         assert_eq!(scalar_text(&path, false), "conf/app.yaml");
+    }
+
+    #[test]
+    fn quotes_a_date_that_a_yaml_reader_would_type_as_a_number() {
+        let clock = Value::Date(Date {
+            kind: DateKind::LocalDate,
+            text: "07:32:00".to_owned(),
+        });
+        assert_eq!(scalar_text(&clock, false), "\"07:32:00\"");
+        assert_eq!(flow_text(&clock), "\"07:32:00\"");
+    }
+
+    #[test]
+    fn appends_to_block_lists_with_the_dash_column_of_the_siblings() {
+        let appended = append_to(
+            "list:\n    - a\n    - b # last\nz: 1\n",
+            |model| value_node(model, "list"),
+            &text("c"),
+        );
+        assert_eq!(appended, "list:\n    - a\n    - b # last\n    - c\nz: 1\n");
+    }
+
+    #[test]
+    fn removes_items_of_flow_and_block_lists() {
+        let source = "l: [a, b, c]\nm:\n  - x\n  - y\n";
+        let model = parse(source);
+        let flow = plan_remove(&model, value_node(&model, "l"), -1, &key("l[-1]")).unwrap();
+        let out = crate::edit::apply(source.as_bytes(), &flow.edits).unwrap();
+        assert_eq!(String::from_utf8(out.bytes).unwrap(), "l: [a, b]\nm:\n  - x\n  - y\n");
+        let block = plan_remove(&model, value_node(&model, "m"), 0, &key("m[0]")).unwrap();
+        let out = crate::edit::apply(source.as_bytes(), &block.edits).unwrap();
+        assert_eq!(String::from_utf8(out.bytes).unwrap(), "l: [a, b, c]\nm:\n  - y\n");
+    }
+
+    #[test]
+    fn index_equal_to_the_length_appends_and_larger_index_conflicts() {
+        let model = parse("l: [a, b]\n");
+        let list = value_node(&model, "l");
+        assert_eq!(
+            index_target(&model, list, 2, &key("l[2]")).unwrap(),
+            IndexTarget::Append
+        );
+        assert!(matches!(
+            index_target(&model, list, -2, &key("l[-2]")).unwrap(),
+            IndexTarget::Item(_)
+        ));
+        assert_eq!(
+            index_target(&model, list, 3, &key("l[3]")).unwrap_err().code,
+            ErrorCode::KeyConflict
+        );
+        assert_eq!(
+            index_target(&model, list, i64::MIN, &key("l[0]")).unwrap_err().code,
+            ErrorCode::KeyNotFound
+        );
     }
 }

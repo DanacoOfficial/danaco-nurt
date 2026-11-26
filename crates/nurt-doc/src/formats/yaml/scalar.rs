@@ -366,7 +366,9 @@ fn decimal_text(lexeme: &str) -> Result<String> {
     }
 }
 
-fn date_text(date: &Date) -> String {
+/// Text of a date value: the date as written when a YAML 1.1 reader types it
+/// as a timestamp, a double-quoted scalar otherwise.
+pub(crate) fn date_text(date: &Date) -> String {
     if yaml_plain_kind(&date.text, YamlVersion::V1_1) == PlainKind::Timestamp {
         date.text.clone()
     } else {

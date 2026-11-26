@@ -355,6 +355,10 @@ fn is_pubid_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || " \r\n-'()+,./:=?;!*#@$_%".contains(c)
 }
 
+/// Deepest nesting of groups in a content model; the group grammar is parsed
+/// recursively, and this bound keeps untrusted input within the thread stack.
+const MAX_GROUP_DEPTH: usize = 64;
+
 const ATTRIBUTE_TYPES: [(&str, AttributeType); 8] = [
     ("CDATA", AttributeType::CData),
     ("IDREFS", AttributeType::IdRefs),
@@ -371,6 +375,7 @@ struct Parser<'a> {
     pos: usize,
     base: usize,
     processing: bool,
+    depth: usize,
     dtd: Dtd,
 }
 
@@ -381,6 +386,7 @@ impl<'a> Parser<'a> {
             pos: 0,
             base,
             processing: true,
+            depth: 0,
             dtd: Dtd {
                 root: String::new(),
                 external_id: None,
@@ -810,7 +816,19 @@ impl<'a> Parser<'a> {
             if self.rest().starts_with("#PCDATA") {
                 return Err(self.error("`#PCDATA` is allowed only first in the outer group"));
             }
-            return self.children_group();
+            if self.depth >= MAX_GROUP_DEPTH {
+                return Err(Error::new(
+                    ErrorCode::Limit,
+                    format!(
+                        "content model groups are nested deeper than {MAX_GROUP_DEPTH} levels; flatten the content model"
+                    ),
+                )
+                .with_location(byte_location(self.base + self.pos)));
+            }
+            self.depth += 1;
+            let group = self.children_group();
+            self.depth -= 1;
+            return group;
         }
         self.name("in the content model")?;
         self.content_modifier();
@@ -951,5 +969,84 @@ impl<'a> Parser<'a> {
             format!("entity `{name}` must be declared before the attribute default that uses it"),
             at,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn element_declaration(model: &str) -> String {
+        format!("<!DOCTYPE a [<!ELEMENT a {model}>]>")
+    }
+
+    #[test]
+    fn nested_content_model_groups_up_to_the_limit_are_accepted() {
+        let depth = MAX_GROUP_DEPTH + 1;
+        let model = format!("{}b{}", "(".repeat(depth), ")".repeat(depth));
+        assert!(Dtd::parse(&element_declaration(&model), 0, false).is_ok());
+    }
+
+    #[test]
+    fn content_model_groups_nested_beyond_the_limit_report_a_limit_error() {
+        let depth = MAX_GROUP_DEPTH + 2;
+        let model = format!("{}b{}", "(".repeat(depth), ")".repeat(depth));
+        let error = Dtd::parse(&element_declaration(&model), 0, false).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Limit);
+    }
+
+    #[test]
+    fn unclosed_deep_content_model_does_not_exhaust_the_stack() {
+        let model = "(".repeat(200_000);
+        let error = Dtd::parse(&element_declaration(&model), 0, false).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Limit);
+    }
+
+    #[test]
+    fn first_entity_declaration_is_binding() {
+        let dtd = Dtd::parse(
+            r#"<!DOCTYPE a [<!ENTITY e "one"><!ENTITY e "two">]>"#,
+            0,
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            dtd.entity("e").unwrap().definition,
+            EntityDefinition::Internal("one".to_owned())
+        );
+        assert_eq!(dtd.entities().len(), 1);
+    }
+
+    #[test]
+    fn external_entity_is_recorded_but_never_read() {
+        let dtd = Dtd::parse(
+            r#"<!DOCTYPE a [<!ENTITY x SYSTEM "file:///etc/passwd">]>"#,
+            0,
+            false,
+        )
+        .unwrap();
+        assert!(matches!(
+            dtd.entity("x").unwrap().definition,
+            EntityDefinition::External(_)
+        ));
+    }
+
+    #[test]
+    fn declarations_after_a_parameter_reference_are_ignored_unless_standalone() {
+        let text = r#"<!DOCTYPE a [%p;<!ENTITY e "v">]>"#;
+        let dtd = Dtd::parse(text, 0, false).unwrap();
+        assert!(dtd.entity("e").is_none());
+        assert!(dtd.has_unread_declarations());
+        assert!(Dtd::parse(text, 0, true).unwrap().entity("e").is_some());
+    }
+
+    #[test]
+    fn edit_guard_allows_insertions_at_both_ends_only() {
+        let guard = |range: Range<usize>| guard_doctype_edit(&(10..20), &range);
+        assert!(guard(10..10).is_ok());
+        assert!(guard(20..20).is_ok());
+        assert!(guard(15..15).is_err());
+        assert!(guard(0..10).is_ok());
+        assert!(guard(19..25).is_err());
     }
 }
