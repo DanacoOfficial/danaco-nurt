@@ -464,7 +464,7 @@ fn tolerant_regex(text: &str, whitespace: Whitespace) -> String {
         .map(|line| match whitespace {
             Whitespace::Exact => escape(line),
             Whitespace::Trailing => format!("{}{BLANKS}", escape(line.trim_end())),
-            Whitespace::Indent => format!("{BLANKS}{}", escape(line.trim_start())),
+            Whitespace::Indent => format!("{BLANKS}{}{BLANKS}", escape(line.trim())),
             Whitespace::Normalize => {
                 let words: Vec<String> = line.split_whitespace().map(escape).collect();
                 format!("{BLANKS}{}{BLANKS}", words.join("[ \\t]+"))
@@ -2074,8 +2074,8 @@ mod tests {
             "x = 1[ \\t]*"
         );
         assert_eq!(
-            tolerant_regex("  call()", Whitespace::Indent),
-            "[ \\t]*call\\(\\)"
+            tolerant_regex("  call()  ", Whitespace::Indent),
+            "[ \\t]*call\\(\\)[ \\t]*"
         );
         assert_eq!(
             tolerant_regex(" a   b ", Whitespace::Normalize),
@@ -2083,7 +2083,7 @@ mod tests {
         );
         assert_eq!(
             tolerant_regex("a\r\nb", Whitespace::Indent),
-            "[ \\t]*a\\r?\\n[ \\t]*b"
+            "[ \\t]*a[ \\t]*\\r?\\n[ \\t]*b[ \\t]*"
         );
     }
 

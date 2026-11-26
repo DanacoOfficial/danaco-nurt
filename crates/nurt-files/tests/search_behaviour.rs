@@ -266,6 +266,18 @@ fn literals_with_line_breaks_match_across_lines() {
 }
 
 #[test]
+fn indent_tolerance_also_ignores_trailing_blanks_like_replace() {
+    let test = tree(&[("/t/a.rs", b"fn f() {\n\tlet a = 1;   \n}\n")]);
+    let found = found(
+        &test.ctx(),
+        text("    let a = 1;\n"),
+        "/t",
+        vec![("whitespace", choice("indent"))],
+    );
+    assert_eq!(positions(&found), [(2, 1)]);
+}
+
+#[test]
 fn context_stops_at_the_file_boundaries() {
     let test = tree(&[("/t/a.txt", b"m\nx\n")]);
     let with_context = found(
