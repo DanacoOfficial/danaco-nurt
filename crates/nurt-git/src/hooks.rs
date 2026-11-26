@@ -385,6 +385,86 @@ mod tests {
     }
 
     #[test]
+    fn relative_hooks_path_is_resolved_against_the_directory_hooks_run_in() {
+        let dir = HookDir::new(
+            Path::new("/r/.git"),
+            Some(Path::new("/r")),
+            Some(".githooks"),
+            Some(Path::new("/home/user")),
+        );
+        assert_eq!(dir.dir(), Path::new("/r/.githooks"));
+        let bare = HookDir::new(Path::new("/srv/r.git"), None, Some("custom"), None);
+        assert_eq!(bare.dir(), Path::new("/srv/r.git/custom"));
+        let no_home = HookDir::new(
+            Path::new("/r/.git"),
+            Some(Path::new("/r")),
+            Some("~/h"),
+            None,
+        );
+        assert_eq!(no_home.dir(), Path::new("/r/~/h"));
+    }
+
+    #[test]
+    fn hook_in_a_directory_with_spaces_is_found_and_run_by_its_full_path() {
+        let temp = tempfile::tempdir().unwrap();
+        let workdir = temp.path().join("my repo");
+        let common = workdir.join(".git");
+        write_hook(&common.join("hooks"), Hook::PostCommit, true);
+        let dir = HookDir::new(&common, Some(workdir.as_path()), None, None);
+        assert!(dir.has_any(&[Hook::PreCommit, Hook::PostCommit]));
+        let host = ScriptedHost::exiting(0);
+        let request = HookRequest::new(Hook::PostCommit, Duration::from_secs(1));
+        let ran = run(&host, &dir, request, &CancelToken::new())
+            .unwrap()
+            .unwrap();
+        assert_eq!(ran.program, common.join("hooks").join("post-commit"));
+        let seen = host.seen.lock().unwrap();
+        assert_eq!(seen[0].program, ran.program.display().to_string());
+        assert_eq!(seen[0].cwd, workdir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn directory_named_like_a_hook_is_not_a_hook() {
+        let temp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(temp.path().join("hooks").join("pre-commit")).unwrap();
+        let dir = HookDir::new(temp.path(), Some(temp.path()), None, None);
+        assert!(dir.find(Hook::PreCommit).is_none());
+    }
+
+    #[test]
+    fn failure_without_exit_code_or_signal_is_reported_as_abnormal() {
+        let run = HookRun {
+            hook: Hook::PrePush,
+            program: PathBuf::from("h"),
+            outcome: ProgramOutcome::default(),
+        };
+        assert!(!run.succeeded());
+        let error = run.into_result(None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::GitHook);
+        assert!(error.data().message.contains("ended abnormally"));
+    }
+
+    #[test]
+    fn only_the_last_lines_of_standard_error_are_kept() {
+        let stderr: String = (1..=30).map(|number| format!("line {number}\n")).collect();
+        let run = HookRun {
+            hook: Hook::PreCommit,
+            program: PathBuf::from("h"),
+            outcome: ProgramOutcome {
+                exit_code: Some(2),
+                stderr: stderr.into_bytes(),
+                ..ProgramOutcome::default()
+            },
+        };
+        let error = run.into_result(None).unwrap_err();
+        let sample = error.data().sample.clone();
+        assert_eq!(sample.len(), ERROR_SAMPLE_LINES);
+        assert_eq!(sample[0], "line 11");
+        assert_eq!(sample[ERROR_SAMPLE_LINES - 1], "line 30");
+    }
+
+    #[test]
     fn missing_hook_is_not_run() {
         let temp = tempfile::tempdir().unwrap();
         let dir = HookDir::new(temp.path(), Some(temp.path()), None, None);
