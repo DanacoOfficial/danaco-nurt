@@ -362,6 +362,14 @@ class LibraryBackendTest(BackendContract, unittest.TestCase):
         self.assertIsNone(checked.bound)
         self.assertFalse(checked.ok)
 
+    def test_language_error_has_the_form_of_the_response_of_the_server(self) -> None:
+        for raw, kind in ((self.nurt.parse("fail").raw, "parse"), (self.nurt.check("fail").raw, "check")):
+            with self.subTest(kind=kind):
+                self.assertEqual(set(raw), {"nurt", "report"})
+                report = raw["report"]
+                self.assertEqual((report["status"], report["kind"]), ("failed", kind))
+                self.assertEqual(report["error"]["code"], "E_SYNTAX")
+
     def test_history_text_is_the_json_text_of_the_query(self) -> None:
         self.assertEqual(self.nurt.history('{"limit":2}')["received"], '{"limit":2}')
         self.assertEqual(self.nurt.history({"limit": 2})["received"], '{"limit":2}')

@@ -20,6 +20,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Set, 
 
 from ._backend import Backend, Diagnostics, EventSink, ExecutionHandle, Json
 from ._errors import NurtCancelledError, NurtError, NurtTimeoutError, error_for_status
+from ._response import failure_response, query_result
 
 ABI_MAJOR = 1
 """Major version of the C interface required by this module."""
@@ -247,6 +248,14 @@ def _object(data: bytes, name: str) -> Json:
     if not isinstance(value, dict):
         raise NurtError("NURT_E_INTERNAL", f"{name} returned JSON that is not an object")
     return value
+
+
+def _failed(document: Json, kind: str) -> Json:
+    """Response of the language error of a document ``{"error": ...}``; any other document is returned."""
+    error = document.get("error")
+    if isinstance(error, dict) and len(document) == 1:
+        return failure_response(kind, error)
+    return document
 
 
 def _diagnostics(data: bytes, name: str) -> Tuple[Diagnostics, Optional[Json]]:
@@ -480,19 +489,19 @@ class LibraryBackend(Backend):
 
     def check(self, request: Mapping[str, Any]) -> Json:
         bound, diagnostics = self._call("nurt_check", (self._request(request),), 2)
-        result = dict(_document(bound, "nurt_check") or {})
-        result["diagnostics"], error = _diagnostics(diagnostics, "nurt_check")
+        items, error = _diagnostics(diagnostics, "nurt_check")
         if error is not None:
-            result["error"] = error
+            return failure_response("check", error)
+        result = dict(_document(bound, "nurt_check") or {})
+        result["diagnostics"] = items
         return result
 
     def parse(self, program: str, variant: str) -> Json:
         ast, diagnostics = self._call("nurt_parse", (_text(program), VARIANTS[variant]), 2)
-        result: Json = {"ast": _document(ast, "nurt_parse")}
-        result["diagnostics"], error = _diagnostics(diagnostics, "nurt_parse")
+        items, error = _diagnostics(diagnostics, "nurt_parse")
         if error is not None:
-            result["error"] = error
-        return result
+            return failure_response("parse", error)
+        return {"ast": _document(ast, "nurt_parse"), "diagnostics": items}
 
     def print(self, ast: Mapping[str, Any], variant: str) -> str:
         (text,) = self._call("nurt_print", (_encode(ast), VARIANTS[variant]), 1)
@@ -500,7 +509,7 @@ class LibraryBackend(Backend):
 
     def correct(self, program: str, variant: str) -> Json:
         (data,) = self._call("nurt_correct", (_text(program), VARIANTS[variant]), 1)
-        return _object(data, "nurt_correct")
+        return _failed(_object(data, "nurt_correct"), "correct")
 
     def page(self, cursor: str, limit: Optional[int]) -> Json:
         (data,) = self._call("nurt_page", (_text(cursor), limit or 0), 1)
@@ -520,7 +529,7 @@ class LibraryBackend(Backend):
     def catalog(self, what: Optional[Mapping[str, Any]]) -> Json:
         selector = None if what is None else _encode(what)
         (data,) = self._call("nurt_catalog", (selector,), 1)
-        return _object(data, "nurt_catalog")
+        return query_result(_failed(_object(data, "nurt_catalog"), "catalog"))
 
     def schema(self, which: str) -> Json:
         (data,) = self.library.call("nurt_schema", (_text(which),), 1, None)
@@ -530,11 +539,11 @@ class LibraryBackend(Backend):
         # A text is the JSON text of the query; an encoded text would be taken for no query at all.
         selector = None if query is None else _text(query) if isinstance(query, str) else _encode(query)
         (data,) = self._call("nurt_history", (selector,), 1)
-        return _object(data, "nurt_history")
+        return query_result(_failed(_object(data, "nurt_history"), "history"))
 
     def space(self, volume: Optional[str]) -> Json:
         (data,) = self._call("nurt_space", (_text(volume),), 1)
-        return _object(data, "nurt_space")
+        return query_result(_failed(_object(data, "nurt_space"), "space"))
 
     def info(self) -> Json:
         (data,) = self.library.call("nurt_info", (), 1, None)

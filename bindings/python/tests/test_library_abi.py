@@ -18,9 +18,10 @@ from typing import Any, Callable, Dict, List
 
 import support
 
-from nurt import Nurt, NurtError
+from nurt import Nurt, NurtError, NurtLanguageError
 from nurt._errors import STATUS_CODES
-from nurt._library import SIGNATURES, _diagnostics, _document, _encode, _text
+from nurt._library import SIGNATURES, _diagnostics, _document, _encode, _failed, _text
+from nurt._response import failure_response, query_result
 
 COLUMNS = ("OK", "TIMEOUT", "CANCELLED", "ARG", "ABI", "IO", "INTERNAL")
 
@@ -139,6 +140,21 @@ class HelperTest(unittest.TestCase):
         self.assertEqual(_diagnostics(b'[{"message":"m"}]', "x"), ([{"message": "m"}], None))
         with self.assertRaises(NurtError):
             _diagnostics(b"{", "x")
+
+    def test_document_of_a_language_error_becomes_the_response_of_the_server(self) -> None:
+        error = {"code": "E_PATH_RELATIVE", "message": "relative"}
+        failed = _failed({"error": error}, "space")
+        self.assertEqual(failed, {"nurt": "1.0", "report": {"nurt": "1.0", "status": "failed", "kind": "space", "error": error}})
+        self.assertEqual(_failed({"volumes": []}, "space"), {"volumes": []})
+        self.assertEqual(_failed({"error": error, "program": "x"}, "correct"), {"error": error, "program": "x"})
+        with self.assertRaises(NurtLanguageError) as caught:
+            query_result(failed)
+        self.assertEqual(caught.exception.code, "E_PATH_RELATIVE")
+        unknown = failure_response("catalog", {"code": "E_UNKNOWN_VALUE", "message": "no such group"})
+        with self.assertRaises(NurtError) as argument:
+            query_result(unknown)
+        self.assertEqual(argument.exception.status, "NURT_E_ARG")
+        self.assertEqual(query_result({"volumes": []}), {"volumes": []})
 
     def test_first_document_is_null_after_a_language_error(self) -> None:
         self.assertIsNone(_document(b"null", "x"))
