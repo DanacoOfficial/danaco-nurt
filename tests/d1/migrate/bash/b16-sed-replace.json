@@ -34,7 +34,7 @@
       ],
       "assumptions": [],
       "fix": [],
-      "output": "replace /\\/usr\\/local/ \"/opt\" in: [\"/etc/app.conf\"] occurrence: 1"
+      "output": "replace /^(.*?)(\\/usr\\/local)/ \"${1}/opt\" in: [\"/etc/app.conf\"]"
     }
   ]
 }

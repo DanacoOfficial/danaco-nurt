@@ -17,6 +17,11 @@ use super::syntax::{Located, Simple};
 use super::table::CommandEntry;
 use super::template::{Bindings, Bound};
 
+/// Capture groups that the anchoring of a pattern to the first match of a
+/// line puts before the groups of the pattern: the text before the match and
+/// the match.
+const ANCHOR_GROUPS: u32 = 2;
+
 /// Line address of a `p` or `d` command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Address {
@@ -134,25 +139,34 @@ pub(crate) fn translate(
             occurrence,
             ignore_case,
         } => {
+            // Without `g` sed replaces the first match of every line, which
+            // `replace` has no parameter for: `occurrence` counts in the whole
+            // file. The pattern is anchored to the first match of a line
+            // instead, and the template restores the text before the match.
+            // A later occurrence has no such form.
+            let anchored = !global;
+            if anchored && occurrence.is_some_and(|number| number != 1) {
+                return Err(unsupported());
+            }
             let found = readings(&pattern)?;
+            let found = if anchored {
+                anchor_readings(found).ok_or_else(unsupported)?
+            } else {
+                found
+            };
+            let template = if anchored {
+                format!("${{1}}{}", template_text(&replacement, ANCHOR_GROUPS))
+            } else {
+                template_text(&replacement, 0)
+            };
             bindings.set(
                 "with",
                 vec![Bound::Node(Expr::Text {
-                    v: template_text(&replacement),
+                    v: template,
                     span: Some(script_word.span),
                 })],
             );
             let mut extra = Vec::new();
-            if !global {
-                bindings.set(
-                    "occurrence",
-                    vec![Bound::Node(Expr::Int {
-                        v: occurrence.unwrap_or(1),
-                        span: None,
-                    })],
-                );
-                extra.push("occurrence");
-            }
             if ignore_case {
                 extra.push("ignore_case");
             }
@@ -479,25 +493,66 @@ fn supported_replacement(replacement: &str) -> bool {
     true
 }
 
+/// Pattern anchored to the first match of a line, `^(.*?)(PATTERN)`, in
+/// every reading; `None` when a reading has a back-reference, which the two
+/// added groups would renumber. Readings that became equal, such as a
+/// literal and its escaped regular expression, are kept once.
+fn anchor_readings(mut found: Readings) -> Option<Readings> {
+    for reading in &mut found.items {
+        let (pattern, flags, span) = match &reading.expr {
+            Expr::Text { v, span } => (regex::escape(v), String::new(), *span),
+            Expr::Regex { v, flags, span } if !has_back_reference(v) => {
+                (v.clone(), flags.clone(), *span)
+            }
+            _ => return None,
+        };
+        reading.expr = Expr::Regex {
+            v: format!("^(.*?)({pattern})"),
+            flags,
+            span,
+        };
+    }
+    let mut unique: Vec<pattern::Reading> = Vec::new();
+    for reading in found.items {
+        if !unique.iter().any(|known| known.expr == reading.expr) {
+            unique.push(reading);
+        }
+    }
+    found.probable = found.probable && unique.len() > 1;
+    found.items = unique;
+    Some(found)
+}
+
+/// Whether a regular expression has a back-reference such as `\1`.
+fn has_back_reference(pattern: &str) -> bool {
+    let mut chars = pattern.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' && chars.next().is_some_and(|next| matches!(next, '1'..='9')) {
+            return true;
+        }
+    }
+    false
+}
+
 /// Translates a `sed` replacement into a replacement template: `&` is the
-/// whole match `$0`, `\N` a group `$N`, and a literal `$` is written `$$`.
-fn template_text(replacement: &str) -> String {
+/// whole match, `\N` a group, and a literal `$` is written `$$`. The numbers
+/// of the groups are `shift` higher than in the script.
+fn template_text(replacement: &str, shift: u32) -> String {
     let chars: Vec<char> = replacement.chars().collect();
     let mut out = String::new();
     let mut index = 0;
-    let group = |out: &mut String, number: char, next: Option<&char>| {
+    let group = |out: &mut String, number: u32, next: Option<&char>| {
         let attached = next.is_some_and(|c| c.is_ascii_alphanumeric() || *c == '_');
-        if attached {
+        if attached || number > 9 {
             out.push_str(&format!("${{{number}}}"));
         } else {
-            out.push('$');
-            out.push(number);
+            out.push_str(&format!("${number}"));
         }
     };
     while let Some(&c) = chars.get(index) {
         index += 1;
         match c {
-            '&' => group(&mut out, '0', chars.get(index)),
+            '&' => group(&mut out, shift, chars.get(index)),
             '$' => out.push_str("$$"),
             '\\' => {
                 let Some(&next) = chars.get(index) else {
@@ -506,7 +561,10 @@ fn template_text(replacement: &str) -> String {
                 };
                 index += 1;
                 match next {
-                    d if d.is_ascii_digit() => group(&mut out, d, chars.get(index)),
+                    d if d.is_ascii_digit() => {
+                        let number = d.to_digit(10).map_or(shift, |digit| digit + shift);
+                        group(&mut out, number, chars.get(index));
+                    }
                     'n' => out.push('\n'),
                     't' => out.push('\t'),
                     other => out.push(other),
@@ -574,14 +632,58 @@ mod tests {
 
     #[test]
     fn replacement_templates() {
-        assert_eq!(template_text("[&]"), "[$0]");
-        assert_eq!(template_text(r"\1x"), "${1}x");
-        assert_eq!(template_text(r"\2-"), "$2-");
-        assert_eq!(template_text("$5"), "$$5");
-        assert_eq!(template_text(r"a\&b\n"), "a&b\n");
-        assert_eq!(template_text("&x"), "${0}x");
-        assert_eq!(template_text("x\\"), "x\\");
-        assert_eq!(template_text(r"a\tb"), "a\tb");
+        assert_eq!(template_text("[&]", 0), "[$0]");
+        assert_eq!(template_text(r"\1x", 0), "${1}x");
+        assert_eq!(template_text(r"\2-", 0), "$2-");
+        assert_eq!(template_text("$5", 0), "$$5");
+        assert_eq!(template_text(r"a\&b\n", 0), "a&b\n");
+        assert_eq!(template_text("&x", 0), "${0}x");
+        assert_eq!(template_text("x\\", 0), "x\\");
+        assert_eq!(template_text(r"a\tb", 0), "a\tb");
+    }
+
+    #[test]
+    fn templates_of_an_anchored_pattern_count_the_added_groups() {
+        assert_eq!(template_text("[&]", ANCHOR_GROUPS), "[$2]");
+        assert_eq!(template_text(r"\1x", ANCHOR_GROUPS), "${3}x");
+        assert_eq!(template_text(r"\8-", ANCHOR_GROUPS), "${10}-");
+    }
+
+    #[test]
+    fn anchoring_escapes_a_literal_and_refuses_back_references() {
+        let literal = Readings {
+            items: vec![pattern::Reading {
+                expr: Expr::Text {
+                    v: "a.b".to_owned(),
+                    span: None,
+                },
+                why: "pattern_literal",
+            }],
+            probable: false,
+        };
+        let anchored = anchor_readings(literal).expect("a literal can be anchored");
+        assert_eq!(
+            anchored.items[0].expr,
+            Expr::Regex {
+                v: r"^(.*?)(a\.b)".to_owned(),
+                flags: String::new(),
+                span: None
+            }
+        );
+        let reference = Readings {
+            items: vec![pattern::Reading {
+                expr: Expr::Regex {
+                    v: r"(a)\1".to_owned(),
+                    flags: String::new(),
+                    span: None,
+                },
+                why: "pattern_extended",
+            }],
+            probable: false,
+        };
+        assert!(anchor_readings(reference).is_none());
+        assert!(has_back_reference(r"(a)\1"));
+        assert!(!has_back_reference(r"a\\1"));
     }
 
     #[test]
@@ -614,7 +716,7 @@ mod tests {
         );
         assert_eq!(parse_script("s"), None);
         assert_eq!(parse_script(""), None);
-        assert_eq!(template_text("zażółć&"), "zażółć$0");
+        assert_eq!(template_text("zażółć&", 0), "zażółć$0");
     }
 
     #[test]

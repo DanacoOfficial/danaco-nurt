@@ -9,4 +9,4 @@
 # translated: B16, L21
 replace /oldName/ "newName" in: ["/srv/app/main.go"]
 # translated: B16, L21
-replace /\/usr\/local/ "/opt" in: ["/etc/app.conf"] occurrence: 1
+replace /^(.*?)(\/usr\/local)/ "${1}/opt" in: ["/etc/app.conf"]
