@@ -3473,14 +3473,18 @@ mod tests {
                     &format!("vol-a/bulk/f{index}.txt"),
                     format!("old {index}\n").as_bytes(),
                 );
-                let mut permissions = std::fs::metadata(path.as_path()).unwrap().permissions();
-                std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o640);
-                std::fs::set_permissions(path.as_path(), permissions).unwrap();
+                #[cfg(unix)]
+                {
+                    let mut permissions = std::fs::metadata(path.as_path()).unwrap().permissions();
+                    std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o640);
+                    std::fs::set_permissions(path.as_path(), permissions).unwrap();
+                }
                 path
             })
             .collect()
     }
 
+    #[cfg(unix)]
     fn mode_of(path: &AbsPath) -> u32 {
         std::os::unix::fs::PermissionsExt::mode(
             &std::fs::metadata(path.as_path()).unwrap().permissions(),
@@ -3511,6 +3515,7 @@ mod tests {
         let op = handle.op.unwrap();
         for (index, path) in paths.iter().enumerate() {
             assert_eq!(env.read(path), format!("new {index}\n").as_bytes());
+            #[cfg(unix)]
             assert_eq!(mode_of(path), 0o640);
         }
         let entry = env.layout(0).entry(op).unwrap();
@@ -3558,6 +3563,7 @@ mod tests {
         tx.rollback(RollbackReason::ValidateFailed).unwrap();
         for (index, path) in paths.iter().enumerate() {
             assert_eq!(env.read(path), format!("old {index}\n").as_bytes());
+            #[cfg(unix)]
             assert_eq!(mode_of(path), 0o640);
         }
         assert_eq!(env.state(0, 1).state, EntryState::Undone);

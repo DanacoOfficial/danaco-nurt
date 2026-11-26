@@ -352,6 +352,7 @@ pub fn decompress_reader<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use nurt_contracts::env::Os;
 
     #[test]

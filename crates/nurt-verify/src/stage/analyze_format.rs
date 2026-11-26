@@ -222,7 +222,9 @@ impl EffectStage for Format {
 
 #[cfg(test)]
 mod tests {
-    use super::{fresh_scratch, in_scope};
+    #[cfg(unix)]
+    use super::fresh_scratch;
+    use super::in_scope;
 
     #[cfg(unix)]
     #[test]
