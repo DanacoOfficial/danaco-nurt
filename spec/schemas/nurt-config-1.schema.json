@@ -652,7 +652,7 @@
           "default": 1
         },
         "spool_max": {
-          "description": "Key `run.spool_max`: largest output kept per program; more output is\nreported. Default `1gib`.",
+          "description": "Key `run.spool_max`: largest output kept per program: its first part\nand, up to a quarter of the limit (at most 64 MiB), its last part; the\nbytes between them are omitted, marked in the file and reported.\n`unlimited` keeps everything. Default `1gib`.",
           "$ref": "#/$defs/ByteLimit",
           "default": "1gib"
         },

@@ -50,7 +50,10 @@ fn resident_bytes() -> u64 {
 fn output_spool_large_keeps_memory_flat() {
     const LINE_BYTES: usize = 4096;
     const CHUNK_LINES: usize = 256;
-    let bench = Bench::new();
+    // The memory of a spool without a limit does not grow with the output.
+    let mut config = Config::default();
+    config.run.spool_max = ByteLimit::Unlimited;
+    let bench = Bench::with_config(config);
     let store = bench.create("large", false);
     let mut line = vec![b'x'; LINE_BYTES - 1];
     line.push(b'\n');
@@ -121,24 +124,118 @@ fn hashes_all_bytes_in_arrival_order() {
     assert_eq!(error.code(), ErrorCode::Internal);
 }
 
-#[test]
-fn counts_output_beyond_spool_limit_without_keeping_it() {
+fn limited(bytes: u64) -> Bench {
     let mut config = Config::default();
-    config.run.spool_max = ByteLimit::Bytes(SizeSetting::from_bytes(10));
-    let bench = Bench::with_config(config);
-    let store = bench.finished("limit", b"0123456\n89abcdef\nlast\n", b"");
+    config.run.spool_max = ByteLimit::Bytes(SizeSetting::from_bytes(bytes));
+    Bench::with_config(config)
+}
+
+fn file_text(out: &crate::iface::RenderedOutput) -> String {
+    let path = out
+        .stdout_file
+        .as_ref()
+        .or(out.output_file.as_ref())
+        .unwrap();
+    std::fs::read_to_string(path).unwrap()
+}
+
+#[test]
+fn output_beyond_the_spool_limit_keeps_the_start_and_the_end() {
+    // Limit 40: a head of 30 bytes and, per stream file, a tail of 5 bytes.
+    let bench = limited(40);
+    let output = "aaaaaaaaa\n".repeat(10);
+    let store = bench.finished("limit", output.as_bytes(), b"");
     let out = store.render(&view(), Some(0)).unwrap();
-    assert_eq!(out.stdout_bytes, 22);
-    assert_eq!(out.stdout_lines, 3);
-    assert_eq!(out.stdout, "0123456\n89");
-    let file = out.stdout_file.unwrap();
-    assert_eq!(std::fs::metadata(file).unwrap().len(), 10);
+    assert_eq!(out.stdout_bytes, 100);
+    assert_eq!(out.stdout_lines, 10);
+    assert_eq!(
+        file_text(&out),
+        format!(
+            "{}[... 65 bytes omitted ...]\naaaa\n",
+            "aaaaaaaaa\n".repeat(3)
+        )
+    );
     let note = out
         .notes
         .iter()
         .find(|note| note.code == Notable::SpoolLimit)
         .unwrap();
-    assert_eq!(note.count, Some(12));
+    assert_eq!(note.count, Some(65));
+    let expected: String = Sha256::digest(output.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    assert_eq!(
+        out.output_sha256,
+        Some(expected),
+        "the hash covers the omitted bytes"
+    );
+}
+
+#[test]
+fn a_cut_in_the_middle_of_a_line_is_marked_on_a_line_of_its_own() {
+    // Limit 8: a head of 6 bytes and a tail of 2 bytes of the merged file.
+    let bench = limited(8);
+    let store = bench.create("cut", true);
+    store.write(OutputStream::Stdout, b"abcdefghij").unwrap();
+    store.finish(OutputStream::Stdout).unwrap();
+    store.finish(OutputStream::Stderr).unwrap();
+    let out = store.render(&view(), Some(0)).unwrap();
+    assert_eq!(file_text(&out), "abcdef\n[... 2 bytes omitted ...]\nij");
+}
+
+#[test]
+fn output_that_fits_in_the_head_and_the_tail_is_kept_whole() {
+    // Limit 40, merged: a head of 30 bytes and a tail of 10 bytes.
+    let bench = limited(40);
+    let store = bench.create("fits", true);
+    let output = "0123456789".repeat(3) + "abcdef";
+    store
+        .write(OutputStream::Stdout, output.as_bytes())
+        .unwrap();
+    store.finish(OutputStream::Stdout).unwrap();
+    store.finish(OutputStream::Stderr).unwrap();
+    let out = store.render(&view(), Some(0)).unwrap();
+    assert_eq!(file_text(&out), output);
+    assert!(
+        out.notes
+            .iter()
+            .all(|note| note.code != Notable::SpoolLimit)
+    );
+}
+
+#[test]
+fn without_a_limit_the_whole_output_is_kept() {
+    let mut config = Config::default();
+    config.run.spool_max = ByteLimit::Unlimited;
+    let bench = Bench::with_config(config);
+    let output = "aaaaaaaaa\n".repeat(1000);
+    let store = bench.finished("unlimited", output.as_bytes(), b"");
+    let out = store.render(&view(), Some(0)).unwrap();
+    assert_eq!(file_text(&out), output);
+    assert!(
+        out.notes
+            .iter()
+            .all(|note| note.code != Notable::SpoolLimit)
+    );
+}
+
+#[test]
+fn the_tail_of_a_limit_is_a_quarter_of_it_and_at_most_64_mib() {
+    use super::super::spool::Keep;
+    assert_eq!(Keep::of(Some(40), true), Keep { head: 30, tail: 10 });
+    assert_eq!(Keep::of(Some(40), false), Keep { head: 30, tail: 5 });
+    let gib = 1024 * 1024 * 1024;
+    let mib = 1024 * 1024;
+    assert_eq!(
+        Keep::of(Some(gib), true),
+        Keep {
+            head: gib - 64 * mib,
+            tail: 64 * mib as usize
+        }
+    );
+    assert_eq!(Keep::of(Some(0), true), Keep { head: 0, tail: 0 });
+    assert_eq!(Keep::of(None, true).head, u64::MAX);
 }
 
 #[test]
