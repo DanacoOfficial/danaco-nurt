@@ -48,7 +48,7 @@
       "patterns": [
         {
           "name": "constant.character.escape.nurt",
-          "match": "\\\\(?:[\\\\\"nrt0]|u\\{[0-9A-Fa-f]+\\})"
+          "match": "\\\\(?:[\\\\\"nrt0]|u\\{[0-9A-Fa-f]{1,6}\\})"
         },
         {
           "name": "invalid.illegal.escape.nurt",
@@ -102,15 +102,15 @@
       "name": "variable.other.reference.nurt"
     },
     "size": {
-      "match": "(?<![\\w.])[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?(?:kib|mib|gib|tib|kb|mb|gb|tb|b)\\b",
+      "match": "(?:(?<![\\w.])|(?<=\\.\\.))[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?(?:kib|mib|gib|tib|kb|mb|gb|tb|b)\\b",
       "name": "constant.numeric.size.nurt"
     },
     "duration": {
-      "match": "(?<![\\w.])(?:[0-9][0-9_]*(?:ms|s|m|h|d|w))+\\b",
+      "match": "(?:(?<![\\w.])|(?<=\\.\\.))(?:[0-9][0-9_]*(?:ms|s|m|h|d|w))+\\b",
       "name": "constant.numeric.duration.nurt"
     },
     "number": {
-      "match": "(?:(?<![^\\s(\\[{,:=<>~!+*/|])-)?(?<![\\w.])(?:0[xX][0-9A-Fa-f_]+|[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?)\\b",
+      "match": "(?:(?<![^\\s(\\[{,:=<>~!+*/|])-)?(?:(?<![\\w.])|(?<=\\.\\.))(?:0x[0-9A-Fa-f_]+|[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?)\\b",
       "name": "constant.numeric.nurt"
     },
     "keyword": {
