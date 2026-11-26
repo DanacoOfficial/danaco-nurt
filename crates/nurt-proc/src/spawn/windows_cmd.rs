@@ -77,7 +77,7 @@ pub(crate) fn command_line(script: &str, args: &[String]) -> Result<String, ArgP
     }
     let mut line = String::from(INTERPRETER_PREFIX);
     line.push('"');
-    line.push_str(script);
+    line.push_str(&script.replace('%', &format!("{PERCENT_GUARD}%")));
     line.push('"');
     for (position, arg) in args.iter().enumerate() {
         line.push(' ');
@@ -219,6 +219,14 @@ mod tests {
                 r#"cmd.exe /e:ON /v:OFF /d /c ""C:\Tools\build.cmd" release "a b" "x&y"""#
                     .to_owned()
             )
+        );
+    }
+
+    #[test]
+    fn a_percent_sign_in_the_script_path_is_not_expanded() {
+        assert_eq!(
+            command_line(r"C:\100%\run.bat", &[]),
+            Ok(r#"cmd.exe /e:ON /v:OFF /d /c ""C:\100%%cd:~,%\run.bat"""#.to_owned())
         );
     }
 
