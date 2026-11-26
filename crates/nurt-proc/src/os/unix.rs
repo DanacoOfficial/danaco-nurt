@@ -80,7 +80,7 @@ pub(crate) fn signal_name(number: c_int) -> Signal {
 }
 
 /// Number of a named signal.
-fn signal_number(signal: Signal) -> Result<c_int> {
+pub(super) fn signal_number(signal: Signal) -> Result<c_int> {
     SIGNALS
         .iter()
         .find(|(name, _)| *name == signal)
@@ -574,5 +574,75 @@ mod tests {
         let membership = Membership::prepare(&limits);
         let setup = ChildSetup::new(&limits, &membership);
         assert_eq!(setup.cpu_seconds, Some((1, 3)));
+    }
+
+    #[test]
+    fn processor_limit_of_zero_still_allows_one_second_and_the_grace_time() {
+        let limits = ProcessLimits {
+            timeout: None,
+            idle_timeout: None,
+            kill_grace: Duration::ZERO,
+            max_cpu: Some(Duration::ZERO),
+            max_memory: None,
+            priority: Priority::Normal,
+        };
+        let membership = Membership::prepare(&limits);
+        let setup = ChildSetup::new(&limits, &membership);
+        assert_eq!(setup.cpu_seconds, Some((1, 2)));
+    }
+
+    #[test]
+    fn the_address_space_limit_saturates() {
+        let limits = ProcessLimits {
+            timeout: None,
+            idle_timeout: None,
+            kill_grace: Duration::from_secs(1),
+            max_cpu: None,
+            max_memory: Some(u64::MAX),
+            priority: Priority::Normal,
+        };
+        let membership = Membership::prepare(&limits);
+        let setup = ChildSetup::new(&limits, &membership);
+        if membership.enforces_memory() {
+            assert_eq!(setup.address_space, None);
+        } else {
+            assert_eq!(setup.address_space, Some(to_rlim(u64::MAX)));
+        }
+    }
+
+    #[test]
+    fn resource_values_of_the_system_are_converted_without_overflow() {
+        let time = |tv_sec, tv_usec| timeval(libc::timeval { tv_sec, tv_usec });
+        assert_eq!(time(3, 500_000), Duration::from_millis(3500));
+        assert_eq!(time(0, 0), Duration::ZERO);
+        assert_eq!(time(-1, -1), Duration::ZERO);
+        assert_eq!(max_rss_bytes(-1), 0);
+        assert_eq!(max_rss_bytes(0), 0);
+        if cfg!(target_os = "macos") {
+            assert_eq!(max_rss_bytes(4096), 4096);
+        } else {
+            assert_eq!(max_rss_bytes(4), 4096);
+            assert_eq!(max_rss_bytes(libc::c_long::MAX), u64::MAX);
+        }
+    }
+
+    #[test]
+    fn exit_status_decodes_largest_codes_and_signals_without_a_common_name() {
+        assert_eq!(decode_status(0), Exit::Code(0));
+        assert_eq!(decode_status(255 << 8), Exit::Code(255));
+        assert_eq!(
+            decode_status(libc::SIGKILL),
+            Exit::Signal {
+                signal: Signal::Kill,
+                number: Some(libc::SIGKILL)
+            }
+        );
+        assert_eq!(
+            decode_status(libc::SIGUSR1),
+            Exit::Signal {
+                signal: Signal::Other,
+                number: Some(libc::SIGUSR1)
+            }
+        );
     }
 }
