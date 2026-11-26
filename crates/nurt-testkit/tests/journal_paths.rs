@@ -206,6 +206,27 @@ fn rollback_restores_directories_links_and_attributes() {
 }
 
 #[test]
+fn a_directory_without_write_permission_is_restored_with_its_children() {
+    let (fs, journal) = keeping();
+    let dir = path("/w/locked");
+    let inner = path("/w/locked/a.txt");
+    fs.write_file(&inner, b"inner").unwrap();
+    fs.set_mode(&dir, 0o555).unwrap();
+
+    let mut tx = journal.begin(begin_request("clean"));
+    tx.preserve(&[fs_target(&dir, TargetAction::Delete)])
+        .unwrap();
+    tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
+    let report = tx.rollback(RollbackReason::TargetFailed).unwrap();
+    assert!(report.failed.is_empty());
+    assert_eq!(fs.read_file(&inner).unwrap(), b"inner");
+    assert_eq!(
+        fs.metadata(&dir, Follow::NoFollow).unwrap().mode & 0o777,
+        0o555
+    );
+}
+
+#[test]
 fn special_files_are_not_kept_and_cannot_be_restored() {
     let (fs, journal) = keeping();
     let fifo = path("/w/pipe");
