@@ -179,7 +179,7 @@ pub fn shim_application(text: &str) -> Option<String> {
                 .get(index + 2)
                 .is_some_and(|part| part.eq_ignore_ascii_case("current"))
         })
-        .or_else(|| (0..parts.len()).filter(is_apps).next_back())?;
+        .or_else(|| (0..parts.len()).rfind(is_apps))?;
     parts.get(at + 1).map(|app| (*app).to_owned())
 }
 
