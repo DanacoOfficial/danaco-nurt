@@ -256,12 +256,22 @@ pub(super) fn allocate(windows: &mut [Window], budget: usize, tails: &[usize], h
     }
     for &at in heads {
         let lines = &all[at];
-        let ceiling = gaps[at].unwrap_or(lines.len()).min(lines.len() - end_keep[at]);
-        let mut reserve = if end_keep[at] > 0 { OMITTED_MARK_BYTES } else { 0 };
+        let ceiling = gaps[at]
+            .unwrap_or(lines.len())
+            .min(lines.len() - end_keep[at]);
+        let mut reserve = if end_keep[at] > 0 {
+            OMITTED_MARK_BYTES
+        } else {
+            0
+        };
         let mut kept = 0;
         for position in 0..ceiling {
             let separator = if position > 0 {
-                separator_bytes(windows[at].grouped, lines[position - 1].index, lines[position].index)
+                separator_bytes(
+                    windows[at].grouped,
+                    lines[position - 1].index,
+                    lines[position].index,
+                )
             } else {
                 0
             };

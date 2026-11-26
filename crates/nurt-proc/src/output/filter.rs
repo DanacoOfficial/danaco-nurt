@@ -254,13 +254,55 @@ fn alternation(patterns: &[&str]) -> std::result::Result<regex::Regex, String> {
     regex::Regex::new(&format!("(?i){joined}")).map_err(|error| error.to_string())
 }
 
-/// Collapses runs of identical consecutive non-empty lines into one line
-/// followed by a space, the multiplication sign U+00D7 and the count in
-/// parentheses, for example `ok (` U+00D7 `3)`.
+/// First words of lines that report one step of a long job, such as
+/// `Compiling serde v1.0.1`; consecutive lines starting with the same word
+/// are collapsed even when the names and versions after it differ.
+const STEP_WORDS: &[&str] = &[
+    "Compiling",
+    "Checking",
+    "Fresh",
+    "Downloading",
+    "Downloaded",
+    "Documenting",
+    "Updating",
+    "Installing",
+    "Collecting",
+    "Building",
+    "Unpacking",
+    "Extracting",
+    "Fetching",
+    "Linking",
+    "Packaging",
+    "Locking",
+    "Resolving",
+    "Preparing",
+    "Get:",
+    "Hit:",
+    "Ign:",
+];
+
+/// A line that stands for `raw` consecutive lines of the output.
+pub(super) type Collapsed = (String, u64);
+
+/// Collapses runs of consecutive non-empty lines that are identical, or that
+/// differ only in numbers, versions and the names after a step word, into
+/// the first line of the run followed by a space, the multiplication sign
+/// U+00D7 and the count in parentheses, for example `ok (` U+00D7 `3)`.
+///
+/// Lines that report an error are collapsed only when identical, so that
+/// distinct errors stay visible.
 #[derive(Debug, Default)]
 pub(super) struct Dedupe {
     enabled: bool,
-    pending: Option<(String, u64)>,
+    errors: Option<&'static ErrorLines>,
+    pending: Option<Pending>,
+}
+
+#[derive(Debug)]
+struct Pending {
+    text: String,
+    pattern: Option<String>,
+    count: u64,
 }
 
 impl Dedupe {
@@ -268,33 +310,86 @@ impl Dedupe {
     pub(super) fn new(enabled: bool) -> Self {
         Self {
             enabled,
+            errors: None,
             pending: None,
         }
     }
 
-    /// Takes the next line and returns the line that is complete, if any.
-    pub(super) fn push(&mut self, text: String) -> Option<String> {
+    /// Keeps lines that match the error patterns out of the collapsing of
+    /// similar lines.
+    pub(super) fn with_errors(mut self, errors: &'static ErrorLines) -> Self {
+        self.errors = Some(errors);
+        self
+    }
+
+    /// Takes the next line and returns the line that is complete with the
+    /// number of lines it stands for, if any.
+    pub(super) fn push(&mut self, text: String) -> Option<Collapsed> {
         if !self.enabled {
-            return Some(text);
+            return Some((text, 1));
         }
-        if let Some((pending, count)) = &mut self.pending
-            && *pending == text
+        let pattern = self.pattern(&text);
+        if let Some(pending) = &mut self.pending
             && !text.is_empty()
+            && (pending.text == text || (pattern.is_some() && pending.pattern == pattern))
         {
-            *count += 1;
+            pending.count += 1;
             return None;
         }
         self.pending
-            .replace((text, 1))
-            .map(|(line, count)| collapsed(line, count))
+            .replace(Pending {
+                text,
+                pattern,
+                count: 1,
+            })
+            .map(Pending::collapse)
     }
 
     /// Returns the last held line.
-    pub(super) fn finish(&mut self) -> Option<String> {
-        self.pending
-            .take()
-            .map(|(line, count)| collapsed(line, count))
+    pub(super) fn finish(&mut self) -> Option<Collapsed> {
+        self.pending.take().map(Pending::collapse)
     }
+
+    fn pattern(&self, text: &str) -> Option<String> {
+        if self.errors.is_some_and(|errors| errors.is_error(text)) {
+            return None;
+        }
+        similarity_pattern(text)
+    }
+}
+
+impl Pending {
+    fn collapse(self) -> Collapsed {
+        (collapsed(self.text, self.count), self.count)
+    }
+}
+
+/// Form of a line in which similar lines are equal: the step word of a
+/// progress line, or the line with every number replaced by `#`. `None` for
+/// lines without a step word or a digit.
+fn similarity_pattern(text: &str) -> Option<String> {
+    let trimmed = text.trim_start();
+    let word = trimmed.split_whitespace().next()?;
+    if STEP_WORDS.contains(&word) {
+        return Some(format!("step {word}"));
+    }
+    if !text.bytes().any(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let mut pattern = String::with_capacity(text.len());
+    let mut in_number = false;
+    for character in text.chars() {
+        if character.is_ascii_digit() {
+            if !in_number {
+                pattern.push('#');
+            }
+            in_number = true;
+        } else {
+            in_number = false;
+            pattern.push(character);
+        }
+    }
+    pattern.chars().any(char::is_alphabetic).then_some(pattern)
 }
 
 fn collapsed(line: String, count: u64) -> String {
@@ -389,22 +484,91 @@ mod tests {
         assert!(ErrorLines::parse("+ (").is_err());
     }
 
-    #[test]
-    fn collapses_repeated_lines_with_counter() {
-        let mut dedupe = Dedupe::new(true);
+    fn collapse_all(mut dedupe: Dedupe, lines: &[&str]) -> Vec<Collapsed> {
         let mut out = Vec::new();
-        for line in ["a", "a", "a", "", "", "b"] {
-            out.extend(dedupe.push(line.to_owned()));
+        for line in lines {
+            out.extend(dedupe.push((*line).to_owned()));
         }
         out.extend(dedupe.finish());
-        assert_eq!(out, ["a (\u{d7}3)", "", "", "b"]);
+        out
+    }
+
+    fn texts(collapsed: &[Collapsed]) -> Vec<&str> {
+        collapsed.iter().map(|(text, _)| text.as_str()).collect()
+    }
+
+    #[test]
+    fn collapses_repeated_lines_with_counter() {
+        let out = collapse_all(Dedupe::new(true), &["a", "a", "a", "", "", "b"]);
+        assert_eq!(texts(&out), ["a (\u{d7}3)", "", "", "b"]);
+        assert_eq!(
+            out.iter().map(|(_, raw)| *raw).collect::<Vec<_>>(),
+            [3, 1, 1, 1]
+        );
     }
 
     #[test]
     fn passes_lines_when_collapsing_is_off() {
         let mut dedupe = Dedupe::new(false);
-        assert_eq!(dedupe.push("a".to_owned()), Some("a".to_owned()));
-        assert_eq!(dedupe.push("a".to_owned()), Some("a".to_owned()));
+        assert_eq!(dedupe.push("a".to_owned()), Some(("a".to_owned(), 1)));
+        assert_eq!(dedupe.push("a".to_owned()), Some(("a".to_owned(), 1)));
         assert_eq!(dedupe.finish(), None);
+    }
+
+    #[test]
+    fn collapses_lines_that_differ_only_in_numbers_and_versions() {
+        let out = collapse_all(
+            Dedupe::new(true),
+            &[
+                "test 1 ok in 0.3s",
+                "test 2 ok in 1.7s",
+                "test 3 ok in 0.1s",
+                "done",
+            ],
+        );
+        assert_eq!(texts(&out), ["test 1 ok in 0.3s (\u{d7}3)", "done"]);
+    }
+
+    #[test]
+    fn collapses_step_lines_with_different_names() {
+        let out = collapse_all(
+            Dedupe::new(true),
+            &[
+                "   Compiling serde v1.0.200",
+                "   Compiling tokio v1.38.0 (/src/tokio)",
+                "   Compiling regex-syntax v0.8.4",
+                "    Finished `dev` profile",
+            ],
+        );
+        assert_eq!(
+            texts(&out),
+            [
+                "   Compiling serde v1.0.200 (\u{d7}3)",
+                "    Finished `dev` profile"
+            ]
+        );
+    }
+
+    #[test]
+    fn does_not_collapse_bare_counters_or_distinct_lines_without_numbers() {
+        let out = collapse_all(Dedupe::new(true), &["1", "2", "3", "alpha", "beta"]);
+        assert_eq!(texts(&out), ["1", "2", "3", "alpha", "beta"]);
+    }
+
+    #[test]
+    fn collapses_error_lines_only_when_identical() {
+        let errors = ErrorLines::builtin().unwrap();
+        let out = collapse_all(
+            Dedupe::new(true).with_errors(errors),
+            &[
+                "error: file 1 failed",
+                "error: file 2 failed",
+                "error: file 2 failed",
+            ],
+        );
+        assert_eq!(
+            texts(&out),
+            ["error: file 1 failed", "error: file 2 failed (\u{d7}2)"]
+        );
     }
 }

@@ -15,7 +15,8 @@ use std::time::Duration;
 
 use nurt_contracts::env::WallTime;
 use nurt_contracts::record::{
-    Change, ExecDiagnostics, ExecShown, KilledBy, Launcher, LimitHit, Preimage, Progress, Signal, Tracking,
+    Change, ExecDiagnostics, ExecShown, KilledBy, Launcher, LimitHit, Preimage, Progress, Signal,
+    Tracking,
 };
 use nurt_contracts::report::NotableEntry;
 use serde::{Deserialize, Serialize};

@@ -7,23 +7,30 @@
 //! cleaning, the `summary` and `progress` patterns, collapsing of repeated
 //! lines (`dedupe`), line selection (`filter` with `context`, or the error
 //! lines of `show: errors` and of `show: auto` after a failure) and the
-//! `head` and `tail` limits. `quiet_on_success` and `show: none` leave the
-//! text out and keep the counters, summary lines and progress.
+//! `head` and `tail` limits. The text of all streams together then shares
+//! the byte budget `max_bytes`: the errors found in the output of a known
+//! tool come first, then the end of standard error, the end of standard
+//! output and the beginning of the output. `quiet_on_success` and `show:
+//! none` leave the text out and keep the counters, summary lines and
+//! progress.
 
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::Read;
+use std::path::PathBuf;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::record::OutputShown;
+use nurt_contracts::record::{ExecDiagnostics, OutputShown};
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::OutputStream;
 
 use super::cursor::{Cursor, LineReader, Position};
 use super::decode::{self, DETECT_SAMPLE_BYTES, LineUnit, TextEncoding};
 use super::filter::{Dedupe, ErrorLines, Pattern, clean_line};
+use super::formats::{Collector, MAX_ERRORS_LISTED, entry_bytes};
 use super::progress::{self, Observer, Watch};
 use super::spool::{Snapshot, Source, io_error};
+use super::window::{HeadTail, ShownLine, Window, allocate};
 use crate::iface::{OutputView, RenderedOutput, ShowMode};
 
 /// Lines of a stream that `show: auto` returns whole after a failure;
@@ -39,11 +46,9 @@ const SUMMARY_TAIL_LINES: usize = 5;
 /// Bytes of one stream read by one incremental read.
 const READ_BUDGET_BYTES: u64 = 1024 * 1024;
 
-/// Line standing for the lines left out between the head and the tail.
-const OMITTED_MARK: &str = "...";
-
-/// Line separating groups of selected lines that are not adjacent.
-const GROUP_SEPARATOR: &str = "--";
+/// Last lines kept of a failed run whose errors were found in its output;
+/// the errors themselves come with the diagnostics.
+const DIAGNOSED_TAIL_LINES: usize = 10;
 
 /// What a response covers.
 #[derive(Debug, Clone, Copy)]
@@ -75,107 +80,6 @@ enum Lines {
     AutoFailure,
     /// The last lines.
     Summary,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ShownLine {
-    index: u64,
-    text: String,
-}
-
-/// First and last lines of a sequence of unknown length.
-#[derive(Debug)]
-struct HeadTail {
-    head_limit: usize,
-    tail_limit: usize,
-    head: Vec<ShownLine>,
-    tail: VecDeque<ShownLine>,
-    total: u64,
-}
-
-impl HeadTail {
-    fn new(head_limit: usize, tail_limit: usize) -> Self {
-        Self {
-            head_limit,
-            tail_limit,
-            head: Vec::new(),
-            tail: VecDeque::new(),
-            total: 0,
-        }
-    }
-
-    fn push(&mut self, line: ShownLine) {
-        self.total += 1;
-        if self.head.len() < self.head_limit {
-            self.head.push(line);
-        } else if self.tail_limit > 0 {
-            if self.tail.len() == self.tail_limit {
-                self.tail.pop_front();
-            }
-            self.tail.push_back(line);
-        }
-    }
-
-    fn finish(self, grouped: bool) -> Window {
-        Window {
-            head: self.head,
-            tail: self.tail.into(),
-            total: self.total,
-            grouped,
-        }
-    }
-}
-
-/// Lines kept for one stream.
-#[derive(Debug, Default)]
-struct Window {
-    head: Vec<ShownLine>,
-    tail: Vec<ShownLine>,
-    total: u64,
-    grouped: bool,
-}
-
-impl Window {
-    fn omitted(&self) -> u64 {
-        self.total - (self.head.len() + self.tail.len()) as u64
-    }
-
-    /// Text of the kept lines without blank lines at the start and the end;
-    /// lines left out between the head and the tail are marked.
-    fn text(&self) -> String {
-        let mut items: Vec<Option<&ShownLine>> = self.head.iter().map(Some).collect();
-        if self.omitted() > 0 && !self.head.is_empty() && !self.tail.is_empty() {
-            items.push(None);
-        }
-        items.extend(self.tail.iter().map(Some));
-        let blank = |item: &Option<&ShownLine>| item.is_some_and(|line| line.text.is_empty());
-        let start = items
-            .iter()
-            .position(|item| !blank(item))
-            .unwrap_or(items.len());
-        let end = items
-            .iter()
-            .rposition(|item| !blank(item))
-            .map_or(start, |last| last + 1);
-        let mut parts: Vec<&str> = Vec::new();
-        let mut previous: Option<u64> = None;
-        for item in &items[start..end] {
-            match item {
-                None => {
-                    parts.push(OMITTED_MARK);
-                    previous = None;
-                }
-                Some(line) => {
-                    if self.grouped && previous.is_some_and(|index| line.index > index + 1) {
-                        parts.push(GROUP_SEPARATOR);
-                    }
-                    parts.push(&line.text);
-                    previous = Some(line.index);
-                }
-            }
-        }
-        parts.join("\n")
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -245,6 +149,7 @@ struct Pipeline<'a> {
     select: Option<ContextSelect<'a>>,
     scanned: u64,
     emitted: u64,
+    raw_emitted: u64,
 }
 
 impl<'a> Pipeline<'a> {
@@ -279,27 +184,31 @@ impl<'a> Pipeline<'a> {
         };
         Self {
             lines,
-            dedupe: Dedupe::new(view.dedupe),
+            dedupe: Dedupe::new(view.dedupe).with_errors(matchers.errors),
             plain,
             select,
             scanned: 0,
             emitted: 0,
+            raw_emitted: 0,
         }
     }
 
     fn push(&mut self, text: String) {
         self.scanned += 1;
-        if let Some(line) = self.dedupe.push(text) {
-            self.emit(line);
+        if let Some((line, raw)) = self.dedupe.push(text) {
+            self.emit(line, raw);
         }
     }
 
-    fn emit(&mut self, text: String) {
+    fn emit(&mut self, text: String, raw: u64) {
         let line = ShownLine {
             index: self.emitted,
             text,
+            raw_start: self.raw_emitted + 1,
+            raw_len: raw,
         };
         self.emitted += 1;
+        self.raw_emitted += raw;
         match (&mut self.select, &mut self.plain) {
             (Some(select), Some(plain)) => {
                 select.push(line.clone());
@@ -311,39 +220,47 @@ impl<'a> Pipeline<'a> {
         }
     }
 
-    fn finish(mut self) -> OutputShownText {
-        if let Some(line) = self.dedupe.finish() {
-            self.emit(line);
+    /// The lines kept; with `prefer_plain` the plain first and last lines
+    /// replace the error lines selected after a failure.
+    fn finish(mut self, prefer_plain: bool) -> OutputShownText {
+        if let Some((line, raw)) = self.dedupe.finish() {
+            self.emit(line, raw);
         }
         let hits = self.select.as_ref().map_or(0, |select| select.hits);
         let selected = match self.lines {
             Lines::Filter => true,
             Lines::Errors => hits > 0,
-            Lines::AutoFailure => hits > 0 && self.emitted > SHORT_OUTPUT_LINES,
+            Lines::AutoFailure => hits > 0 && self.emitted > SHORT_OUTPUT_LINES && !prefer_plain,
             Lines::Plain | Lines::Summary => false,
         };
-        let window = if selected {
+        let mut window = if selected {
             self.select.map(|select| select.out.finish(true))
         } else {
             self.plain.map(|plain| plain.finish(false))
         }
         .unwrap_or_default();
-        OutputShownText {
-            text: window.text(),
-            shown: OutputShown {
-                head: window.head.len() as u64,
-                tail: window.tail.len() as u64,
-                omitted_lines: window.omitted(),
-                filtered: self.scanned - window.total,
-            },
+        window.raw_total = self.scanned;
+        window.cut_long_lines();
+        OutputShownText::Lines {
+            filtered: self.scanned - window.total,
+            selected_by_errors: selected && self.lines != Lines::Filter,
+            window,
         }
     }
 }
 
-/// Text and description of what is shown of one stream.
-struct OutputShownText {
-    text: String,
-    shown: OutputShown,
+/// What is shown of one stream.
+enum OutputShownText {
+    /// Lines of text.
+    Lines {
+        window: Window,
+        /// Lines removed by the filters.
+        filtered: u64,
+        /// The lines are the error lines selected by Nurt, not by `filter`.
+        selected_by_errors: bool,
+    },
+    /// A stream that is not text, with its bytes and lines.
+    Binary { bytes: u64, lines: u64 },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -400,6 +317,18 @@ struct Scan {
     shortened: u64,
 }
 
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+/// A stream whose lines are being processed for the response.
+struct Held<'a> {
+    stream: OutputStream,
+    path: PathBuf,
+    pipeline: Pipeline<'a>,
+    /// Bytes and lines of a stream that is not text.
+    binary: Option<(u64, u64)>,
+}
+
 /// Builds the response for `mode` from the spool state `snapshot`.
 ///
 /// # Errors
@@ -417,11 +346,15 @@ pub(super) fn respond(
         Mode::Since { from: Some(cursor) } => cursor,
         Mode::Since { from: None } | Mode::Whole { .. } => Cursor::default(),
     };
+    let failed = matches!(mode, Mode::Whole { exit_code } if exit_code != Some(0));
+    let mut collector = (matches!(mode, Mode::Whole { .. }) && view.show == ShowMode::Auto)
+        .then(Collector::default);
     let mut output = base_output(snapshot);
     let mut cursor = start;
     let mut observers: Vec<Observer<'_>> = Vec::new();
     let mut detected = Vec::new();
     let mut shortened = 0;
+    let mut held: Vec<Held<'_>> = Vec::new();
     for source in &snapshot.sources {
         let from = start.position(source.stream);
         let encoding = match compiled.encoding {
@@ -446,8 +379,11 @@ pub(super) fn respond(
             from,
             encoding,
             budget,
-            pipeline.as_mut(),
-            observer.as_mut(),
+            Sinks {
+                pipeline: pipeline.as_mut(),
+                observer: observer.as_mut(),
+                collector: collector.as_mut(),
+            },
         )?;
         // A stream left out by `show` keeps its position, so that a later
         // read of that stream starts where the previous read of it ended.
@@ -471,15 +407,44 @@ pub(super) fn respond(
             set_lines(&mut output, source.stream, scan.end.line);
         }
         if let Some(pipeline) = pipeline {
-            let shown = if encoding == TextEncoding::Binary {
-                binary_text(scan.end.offset - from.offset, scan.end.line - from.line)
-            } else {
-                pipeline.finish()
-            };
-            place(&mut output, source.stream, shown);
+            held.push(Held {
+                stream: source.stream,
+                path: source.path.clone(),
+                pipeline,
+                binary: (encoding == TextEncoding::Binary)
+                    .then(|| (scan.end.offset - from.offset, scan.end.line - from.line)),
+            });
         }
         observers.extend(observer);
         detected.push((source, encoding, scan.length));
+    }
+    let mut diagnostics = collector.and_then(Collector::finish);
+    let diagnosed = failed
+        && view.show == ShowMode::Auto
+        && view.filter.is_none()
+        && diagnostics.as_ref().is_some_and(|found| found.errors > 0);
+    let mut shown: Vec<(OutputStream, PathBuf, OutputShownText)> = held
+        .into_iter()
+        .map(|held| {
+            let text = match held.binary {
+                Some((bytes, lines)) => OutputShownText::Binary { bytes, lines },
+                None => held.pipeline.finish(diagnosed),
+            };
+            (held.stream, held.path, text)
+        })
+        .collect();
+    if diagnosed {
+        for (_, _, text) in &mut shown {
+            if let OutputShownText::Lines { window, .. } = text {
+                window.keep_last(DIAGNOSED_TAIL_LINES);
+            }
+        }
+    }
+    fit_budget(view, diagnostics.as_mut(), &mut shown);
+    let cuts = cuts_of(&shown);
+    shortened += cuts.iter().map(|cut| cut.cut_lines).sum::<u64>();
+    for (stream, _, text) in shown {
+        place(&mut output, stream, text);
     }
     let findings = progress::combine(observers);
     output.summary_lines = findings.summary_lines;
@@ -487,7 +452,146 @@ pub(super) fn respond(
     output.decoded_as = decoded_as(&detected, compiled.encoding);
     output.notes = notes(snapshot, &detected, shortened);
     output.output_cursor = Some(cursor.encode(&snapshot.tag));
+    output.diagnostics = diagnostics;
+    output.read_hint = matches!(mode, Mode::Whole { .. })
+        .then(|| read_hint(&cuts))
+        .flatten();
     Ok(output)
+}
+
+/// Shares the byte budget of `view` among the errors found and the text of
+/// the streams: the errors first, then the end of standard error, the end of
+/// standard output, and the beginning of the output last.
+fn fit_budget(
+    view: &OutputView,
+    diagnostics: Option<&mut ExecDiagnostics>,
+    shown: &mut [(OutputStream, PathBuf, OutputShownText)],
+) {
+    if view.max_bytes == 0 {
+        return;
+    }
+    let mut left = usize::try_from(view.max_bytes).unwrap_or(usize::MAX);
+    if let Some(found) = diagnostics {
+        let mut used = 0;
+        let mut keep = 0;
+        for entry in found.first.iter().take(MAX_ERRORS_LISTED) {
+            used += entry_bytes(entry);
+            if used > left {
+                break;
+            }
+            keep += 1;
+        }
+        found.first.truncate(keep);
+        left -= used
+            .min(left)
+            .min(found.first.iter().map(entry_bytes).sum());
+    }
+    let mut slots: Vec<usize> = Vec::new();
+    let mut windows: Vec<Window> = Vec::new();
+    for (at, (_, _, text)) in shown.iter_mut().enumerate() {
+        if let OutputShownText::Lines { window, .. } = text {
+            slots.push(at);
+            windows.push(std::mem::take(window));
+        }
+    }
+    let order = |first: OutputStream| -> Vec<usize> {
+        let mut order: Vec<usize> = (0..windows.len()).collect();
+        order.sort_by_key(|&index| shown[slots[index]].0 != first);
+        order
+    };
+    let tails = order(OutputStream::Stderr);
+    let heads = order(OutputStream::Stdout);
+    allocate(&mut windows, left, &tails, &heads);
+    for (slot, mut window) in slots.into_iter().zip(windows) {
+        if let OutputShownText::Lines { window: target, .. } = &mut shown[slot].2 {
+            std::mem::swap(target, &mut window);
+        }
+    }
+}
+
+/// A stream whose response leaves lines out or cuts lines.
+struct Cut {
+    label: &'static str,
+    path: PathBuf,
+    omitted: u64,
+    total: u64,
+    cut_lines: u64,
+    range: Option<(u64, u64)>,
+}
+
+fn cuts_of(shown: &[(OutputStream, PathBuf, OutputShownText)]) -> Vec<Cut> {
+    let merged = shown.len() == 1;
+    shown
+        .iter()
+        .filter_map(|(stream, path, text)| {
+            let OutputShownText::Lines {
+                window,
+                filtered,
+                selected_by_errors,
+            } = text
+            else {
+                return None;
+            };
+            let left_out = window.omitted() > 0
+                || window.cut_lines > 0
+                || (*selected_by_errors && *filtered > 0);
+            left_out.then(|| Cut {
+                label: match (merged, stream) {
+                    (true, _) => "output",
+                    (false, OutputStream::Stdout) => "stdout",
+                    (false, OutputStream::Stderr) => "stderr",
+                },
+                path: path.clone(),
+                omitted: window.omitted(),
+                total: window.raw_total,
+                cut_lines: window.cut_lines,
+                range: window
+                    .unseen_range()
+                    .or_else(|| window.first_cut.map(|line| (line, line)))
+                    .or((window.raw_total > 0).then_some((1, window.raw_total))),
+            })
+        })
+        .collect()
+}
+
+/// Pattern the filter variant of the read hint searches for.
+const HINT_FILTER: &str = "error|FAILED";
+
+/// One sentence with the Nurt commands that read the lines a response leaves
+/// out from the output file, without running the program again.
+fn read_hint(cuts: &[Cut]) -> Option<String> {
+    if cuts.is_empty() {
+        return None;
+    }
+    let quote = |path: &std::path::Path| {
+        let text = path.display().to_string();
+        format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
+    };
+    let parts: Vec<String> = cuts
+        .iter()
+        .map(|cut| {
+            let path = quote(&cut.path);
+            let (from, to) = cut.range.unwrap_or((1, cut.total.max(1)));
+            let detail = match (cut.omitted, cut.cut_lines) {
+                (0, lines) => format!("{lines} long lines cut"),
+                (omitted, 0) => format!("{omitted} of {} lines left out", cut.total),
+                (omitted, lines) => {
+                    format!(
+                        "{omitted} of {} lines left out, {lines} long lines cut",
+                        cut.total
+                    )
+                }
+            };
+            format!(
+                "{} ({detail}): read {path} lines: {from}..{to} or search /{HINT_FILTER}/ {path}",
+                cut.label
+            )
+        })
+        .collect();
+    Some(format!(
+        "Output cut; read the rest from the output file without running the program again: {}.",
+        parts.join("; ")
+    ))
 }
 
 fn base_output(snapshot: &Snapshot) -> RenderedOutput {
@@ -524,31 +628,41 @@ fn set_lines(output: &mut RenderedOutput, stream: OutputStream, lines: u64) {
 }
 
 fn place(output: &mut RenderedOutput, stream: OutputStream, shown: OutputShownText) {
+    let (text, description) = match shown {
+        OutputShownText::Lines {
+            window, filtered, ..
+        } => (
+            window.text(),
+            OutputShown {
+                head: window.head.len() as u64,
+                tail: window.tail.len() as u64,
+                omitted_lines: window.omitted(),
+                filtered,
+            },
+        ),
+        OutputShownText::Binary { bytes, lines } => (
+            if bytes > 0 {
+                format!("binary output, {bytes} bytes")
+            } else {
+                String::new()
+            },
+            OutputShown {
+                head: 0,
+                tail: 0,
+                omitted_lines: lines,
+                filtered: 0,
+            },
+        ),
+    };
     match stream {
         OutputStream::Stdout => {
-            output.stdout = shown.text;
-            output.shown.stdout = Some(shown.shown);
+            output.stdout = text;
+            output.shown.stdout = Some(description);
         }
         OutputStream::Stderr => {
-            output.stderr = shown.text;
-            output.shown.stderr = Some(shown.shown);
+            output.stderr = text;
+            output.shown.stderr = Some(description);
         }
-    }
-}
-
-fn binary_text(bytes: u64, lines: u64) -> OutputShownText {
-    OutputShownText {
-        text: if bytes > 0 {
-            format!("binary output, {bytes} bytes")
-        } else {
-            String::new()
-        },
-        shown: OutputShown {
-            head: 0,
-            tail: 0,
-            omitted_lines: lines,
-            filtered: 0,
-        },
     }
 }
 
@@ -579,6 +693,7 @@ fn plan(snapshot: &Snapshot, view: &OutputView, mode: Mode, stream: OutputStream
         (_, ShowMode::Summary, _) => return Some(Lines::Summary),
         (_, ShowMode::Errors, OutputStream::Stdout) => Lines::Errors,
         (_, ShowMode::Auto, _) if failed => Lines::AutoFailure,
+        (_, ShowMode::Auto, _) if view.compact => return Some(Lines::Summary),
         _ => Lines::Plain,
     };
     Some(if view.filter.is_some() {
@@ -631,16 +746,27 @@ fn detect_file(source: &Source) -> Result<TextEncoding> {
     Ok(decode::detect(&sample, whole))
 }
 
+/// Receivers of the cleaned lines of one stream.
+struct Sinks<'s, 'a> {
+    pipeline: Option<&'s mut Pipeline<'a>>,
+    observer: Option<&'s mut Observer<'a>>,
+    collector: Option<&'s mut Collector>,
+}
+
 /// Reads the lines of `source` from `from`, up to `budget` bytes, into the
-/// pipeline and the observer.
+/// pipeline, the observer and the collector of errors.
 fn scan(
     source: &Source,
     from: Position,
     encoding: TextEncoding,
     budget: Option<u64>,
-    mut pipeline: Option<&mut Pipeline<'_>>,
-    mut observer: Option<&mut Observer<'_>>,
+    sinks: Sinks<'_, '_>,
 ) -> Result<Scan> {
+    let Sinks {
+        mut pipeline,
+        mut observer,
+        mut collector,
+    } = sinks;
     let read_error = |error: std::io::Error| io_error("read", &source.path, &error);
     let length = std::fs::metadata(&source.path).map_err(read_error)?.len();
     if from.offset > length {
@@ -649,7 +775,8 @@ fn scan(
             "since: the cursor points past the end of the output; read again without since",
         ));
     }
-    let keep = encoding != TextEncoding::Binary && (pipeline.is_some() || observer.is_some());
+    let keep = encoding != TextEncoding::Binary
+        && (pipeline.is_some() || observer.is_some() || collector.is_some());
     let mut reader =
         LineReader::open(&source.path, from, encoding.unit(), source.ended).map_err(read_error)?;
     let mut shortened = 0;
@@ -664,6 +791,9 @@ fn scan(
         let text = clean_line(&encoding.decode(&line.bytes));
         if let Some(observer) = observer.as_mut() {
             observer.observe(&text);
+        }
+        if let Some(collector) = collector.as_mut() {
+            collector.observe(&text);
         }
         if let Some(pipeline) = pipeline.as_mut() {
             pipeline.push(text);

@@ -129,9 +129,15 @@ impl Collector {
         if line.is_empty() {
             return;
         }
-        let _ = cargo::observe(&mut self.cargo, &mut self.tallies[Tool::Cargo.index()], line)
-            || pytest::observe(&mut self.pytest, &mut self.tallies[Tool::Pytest.index()], line)
-            || tsc::observe(&mut self.tallies[Tool::Tsc.index()], line)
+        let _ = cargo::observe(
+            &mut self.cargo,
+            &mut self.tallies[Tool::Cargo.index()],
+            line,
+        ) || pytest::observe(
+            &mut self.pytest,
+            &mut self.tallies[Tool::Pytest.index()],
+            line,
+        ) || tsc::observe(&mut self.tallies[Tool::Tsc.index()], line)
             || gcc::observe(&mut self.tallies[Tool::Gcc.index()], line)
             || go::observe(&mut self.tallies[Tool::Go.index()], line);
     }

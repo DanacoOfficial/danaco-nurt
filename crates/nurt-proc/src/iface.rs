@@ -19,7 +19,8 @@ use nurt_contracts::env::WallTime;
 use nurt_contracts::error::Result;
 use nurt_contracts::journal::MutationTx;
 use nurt_contracts::record::{
-    Change, ExecDiagnostics, ExecShown, Job, KilledBy, Launcher, LimitHit, Preimage, Progress, Signal, Tracking,
+    Change, ExecDiagnostics, ExecShown, Job, KilledBy, Launcher, LimitHit, Preimage, Progress,
+    Signal, Tracking,
 };
 use nurt_contracts::report::NotableEntry;
 use nurt_contracts::stage::{CancelToken, ExecCtx, OutputStream};
