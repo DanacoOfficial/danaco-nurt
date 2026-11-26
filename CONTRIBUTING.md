@@ -168,6 +168,16 @@ bash tools/ci/check-commits.sh origin/main..HEAD
 `tools/ci/repo-hygiene.sh --list` lists the checks of repository content,
 language and style, and file headers.
 
+Property tests (`proptest`) generate a few hundred cases per property in a
+regular run, so that every test of `nurt-syntax` takes less than 30 seconds in a
+debug build. The scheduled nightly run of `ci.yml` sets `NURT_PROPTEST_FULL=1`
+and generates the full number of cases (100 000 for most properties).
+`PROPTEST_CASES=<n>` overrides the number in both runs:
+
+```sh
+NURT_PROPTEST_FULL=1 cargo nextest run -p nurt-syntax -E 'binary(cbor_roundtrip) or binary(roundtrip_print)'
+```
+
 Test coverage is measured with
 [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov). The minimum line
 coverage is 80% for the workspace and 90% for the crates `nurt-contracts`,
