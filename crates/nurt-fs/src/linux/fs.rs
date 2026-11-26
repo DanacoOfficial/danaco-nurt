@@ -532,20 +532,20 @@ impl FsWrite for LinuxFs {
             NEW_FILE_MODE,
             OP,
         )?;
-        let deadline = Instant::now() + timeout;
+        let deadline = Instant::now().checked_add(timeout);
         let mut pause = LOCK_FIRST_PAUSE;
         loop {
             match retry(|| rustix::fs::flock(&fd, FlockOperation::NonBlockingLockExclusive)) {
                 Ok(()) => return Ok(Box::new(LinuxFileLock::new(fd, path.clone()))),
                 Err(Errno::WOULDBLOCK) => {
                     let now = Instant::now();
-                    if now >= deadline {
+                    if deadline.is_some_and(|deadline| now >= deadline) {
                         let mut error =
                             kind_error(FsErrorKind::InUse, Errno::WOULDBLOCK, OP, path.as_path());
                         error.holders = self.holders(path).unwrap_or_default();
                         return Err(error);
                     }
-                    thread::sleep(pause.min(deadline - now));
+                    thread::sleep(deadline.map_or(pause, |deadline| pause.min(deadline - now)));
                     pause = (pause * 2).min(LOCK_MAX_PAUSE);
                 }
                 Err(errno) => return Err(sys_error(errno, OP, path.as_path())),
