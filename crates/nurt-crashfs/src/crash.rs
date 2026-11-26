@@ -2450,6 +2450,7 @@ mod tests {
         AbsPath::new(if cfg!(windows) { "C:\\vol" } else { "/vol" }).unwrap()
     }
 
+    #[allow(clippy::disallowed_methods)] // the test builds a transaction scope as the journal does
     fn scope() -> TxScope {
         TxScope::new_for_journal(OpId(1), ScopePurpose::Maintenance)
     }

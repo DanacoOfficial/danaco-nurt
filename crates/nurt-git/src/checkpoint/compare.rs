@@ -562,9 +562,9 @@ mod tests {
     #[test]
     fn grouping_with_the_largest_context_does_not_overflow() {
         let changes = [(0..1, 0..1), (10..11, 10..11)];
-        assert_eq!(group_changes(&changes, u32::MAX), [0..2]);
+        assert_eq!(group_changes(&changes, u32::MAX), vec![0..2]);
         assert_eq!(group_changes(&changes, 4), [0..1, 1..2]);
-        assert_eq!(group_changes(&changes, 5), [0..2]);
+        assert_eq!(group_changes(&changes, 5), vec![0..2]);
     }
 
     #[test]

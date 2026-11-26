@@ -566,7 +566,10 @@ mod tests {
         assert_eq!(modified.hash_before, Some(ContentHash([1; 32]).to_string()));
         assert_eq!(modified.hash_after, Some(ContentHash([2; 32]).to_string()));
         assert_eq!(modified.to, None);
+    }
 
+    #[test]
+    fn restored_items_are_reported_with_the_paths_of_a_creation_a_rename_and_a_delete() {
         let created = change(&outcome_of("/d/ñüé", TargetAction::CreateTree), None);
         assert_eq!(created.action, ChangeAction::Create);
         assert_eq!(created.path, Path::from("/d/ñüé"));
