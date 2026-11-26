@@ -246,6 +246,7 @@ pub(crate) fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use nurt_contracts::value::RecordKind;
     use nurt_testkit::ctx::TestContext;
 
     use super::*;
