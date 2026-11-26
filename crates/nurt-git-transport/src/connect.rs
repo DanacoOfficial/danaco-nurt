@@ -171,18 +171,36 @@ impl TransportOptions {
     }
 }
 
+/// Name of the remote helper in an address of the form `<name>::<address>`,
+/// which `git` runs as the program `git-remote-<name>`.
+fn remote_helper(address: &str) -> Option<&str> {
+    let end = address
+        .find(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')))
+        .unwrap_or(address.len());
+    let name = &address[..end];
+    (name.starts_with(|c: char| c.is_ascii_alphanumeric()) && address[end..].starts_with("::"))
+        .then_some(name)
+}
+
 /// Address after the rewrite rules of `options`, parsed.
 ///
 /// # Errors
 ///
 /// Fails with `E_INVALID_VALUE` (problem `invalid_url`) when the address
-/// cannot be parsed.
+/// cannot be parsed and with `E_GIT_UNSUPPORTED` (problem
+/// `unsupported_transport`) for an address of the form `<name>::<address>`.
 pub fn resolve_url(
     url: &str,
     direction: Direction,
     options: &TransportOptions,
 ) -> Result<gix_url::Url, Error> {
     let rewritten = options.rewrites.rewrite(url, direction);
+    if let Some(helper) = remote_helper(&rewritten) {
+        return Err(unsupported(
+            &format!("{helper}::"),
+            "the transport starts a program; use https://, ssh:// or a local path",
+        ));
+    }
     gix_url::parse(rewritten.as_str()).map_err(|failure| {
         Error::new(
             ErrorCode::InvalidValue,
@@ -371,6 +389,42 @@ mod tests {
             .unwrap();
         assert_eq!(error.code, ErrorCode::GitUnsupported);
         assert_eq!(error.problem.as_deref(), Some("unsupported_transport"));
+    }
+
+    #[test]
+    fn remote_helper_addresses_are_unsupported() {
+        for address in [
+            "ext::sh -c 'echo x' %S",
+            "fd::17",
+            "ext::ssh -o ProxyCommand=x host",
+        ] {
+            let error = connect(address, Direction::Fetch, &options())
+                .err()
+                .unwrap();
+            assert_eq!(error.code, ErrorCode::GitUnsupported, "{address}");
+            assert_eq!(error.problem.as_deref(), Some("unsupported_transport"));
+        }
+        let mut rewrites = UrlRewrites::default();
+        rewrites.add("ext::sh -c x ", "safe:");
+        let error = resolve_url(
+            "safe:repo",
+            Direction::Fetch,
+            &options().with_rewrites(rewrites),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::GitUnsupported);
+    }
+
+    #[test]
+    fn finds_the_name_of_a_remote_helper_only_before_double_colon() {
+        assert_eq!(remote_helper("ext::cmd"), Some("ext"));
+        assert_eq!(remote_helper("git+x.y-z::addr"), Some("git+x.y-z"));
+        assert_eq!(remote_helper("host:path"), None);
+        assert_eq!(remote_helper("user@host::path"), None);
+        assert_eq!(remote_helper("::x"), None);
+        assert_eq!(remote_helper("https://example.com/r.git"), None);
+        assert_eq!(remote_helper("/srv/repo"), None);
+        assert_eq!(remote_helper(""), None);
     }
 
     #[test]
