@@ -166,7 +166,21 @@ fn plain_formats_keep_defaults_ranges_patterns_and_enumerations() {
         assert_eq!(properties["preview"]["type"], "boolean");
         assert_eq!(properties["base"]["type"], "string");
         assert_eq!(properties["save_to"]["type"], "string");
-        assert_eq!(properties["fields"]["type"], "array");
+    }
+}
+
+#[test]
+fn plain_formats_keep_list_and_enumeration_members_and_omit_envelope_members() {
+    for format in [
+        ToolFormat::Anthropic,
+        ToolFormat::OpenAiChat,
+        ToolFormat::OpenAiResponses,
+        ToolFormat::Mcp,
+        ToolFormat::JsonSchema,
+    ] {
+        let schema = schema_of(format);
+        let properties = &schema["properties"];
+        assert_eq!(properties["fields"]["type"], "array", "{format}");
         assert_eq!(properties["fields"]["items"]["type"], "string");
         assert_eq!(
             properties["verbosity"]["enum"],

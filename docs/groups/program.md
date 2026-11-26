@@ -112,7 +112,7 @@ three systems and a source that does not exist on the system is skipped.
 
 | Command | Marker | Condition |
 |---|---|---|
-| `program.describe` | [U] | runs the program once with `--help`, within a time limit, when no other description is available |
+| `program.describe` | [U] | runs the program once with `--help`, within a time limit, when `help` is used |
 
 The time limit of reading the help is the setting `programs.help_timeout`
 (default `3s`). No other command of the group starts a program, and the

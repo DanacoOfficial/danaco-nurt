@@ -162,10 +162,15 @@ impl Loop<'_, '_> {
                 seed: self.setup.seed,
             };
             let called = Instant::now();
+            self.model.set_time_limit(self.remaining());
             let response = match self.model.complete(&request) {
                 Ok(response) => response,
                 Err(error) => {
-                    self.fail(error.to_string());
+                    if self.remaining().is_zero() {
+                        self.result.outcome = Outcome::TimeLimit;
+                    } else {
+                        self.fail(error.to_string());
+                    }
                     break;
                 }
             };
@@ -238,8 +243,8 @@ mod tests {
     use super::*;
     use crate::condition::Condition;
     use crate::error::BenchError;
-    use crate::model::RunKey;
     use crate::model::mock::MockModel;
+    use crate::model::{ChatResponse, RunKey};
     use crate::tool::ToolOutcome;
 
     struct EchoTool {
@@ -357,6 +362,64 @@ mod tests {
         assert_eq!(result.outcome, Outcome::StepLimit);
         assert_eq!(result.steps, 3);
         assert_eq!(result.tool_calls, 3);
+    }
+
+    /// Model that notes the time limit it was given and then fails after the
+    /// time of the run has passed.
+    struct SlowModel {
+        limits: Vec<Duration>,
+    }
+
+    impl ModelClient for SlowModel {
+        fn complete(&mut self, _request: &ChatRequest<'_>) -> Result<ChatResponse> {
+            std::thread::sleep(Duration::from_millis(1200));
+            Err(BenchError::Provider {
+                provider: "slow".into(),
+                message: "timed out".into(),
+                retryable: true,
+            })
+        }
+
+        fn count_tokens(&mut self, _text: &str) -> Result<Option<u64>> {
+            Ok(None)
+        }
+
+        fn set_time_limit(&mut self, remaining: Duration) {
+            self.limits.push(remaining);
+        }
+    }
+
+    #[test]
+    fn gives_the_model_the_time_left_and_reports_a_call_that_outlasts_it_as_the_time_limit() {
+        let tool_spec = ToolSpec {
+            name: "bash".into(),
+            description: "Runs commands.".into(),
+            input_schema: json!({}),
+        };
+        let mut model = SlowModel { limits: Vec::new() };
+        let mut tool = EchoTool { fail_on: None };
+        let result = run_agent(
+            AgentSetup {
+                system: "System.",
+                tool: &tool_spec,
+                task: "Do it.",
+                limits: Limits {
+                    steps: 3,
+                    seconds: 1,
+                },
+                seed: 1,
+                max_output_chars: 100,
+            },
+            &mut model,
+            &mut tool,
+            &mut |_| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(model.limits.len(), 1);
+        assert!(model.limits[0] <= Duration::from_secs(1));
+        assert!(!model.limits[0].is_zero());
+        assert_eq!(result.outcome, Outcome::TimeLimit);
+        assert_eq!(result.error, None);
     }
 
     #[test]

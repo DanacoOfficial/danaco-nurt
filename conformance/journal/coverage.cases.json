@@ -1120,7 +1120,8 @@
           }
         },
         {
-          "program": "remove \"registry:/HKCU/Software/NurtConformance\""
+          "program": "remove \"registry:/HKCU/Software/NurtConformance\"",
+          "setup_only": true
         }
       ]
     },
@@ -1330,7 +1331,8 @@
           }
         },
         {
-          "program": "remove \"registry:/HKCU/Software/NurtConformance\""
+          "program": "remove \"registry:/HKCU/Software/NurtConformance\"",
+          "setup_only": true
         }
       ]
     },
@@ -1644,7 +1646,8 @@
           }
         },
         {
-          "program": "remove \"registry:/HKCU/Software/NurtConformance\""
+          "program": "remove \"registry:/HKCU/Software/NurtConformance\"",
+          "setup_only": true
         }
       ]
     },
@@ -3985,7 +3988,8 @@
           }
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> stop signal: kill"
+          "program": "jobs \"${step1/report/job/id}\" |> stop signal: kill",
+          "setup_only": true
         }
       ]
     },
@@ -4022,7 +4026,8 @@
           }
         },
         {
-          "program": "jobs \"${step1/report/job/id}\" |> stop signal: kill"
+          "program": "jobs \"${step1/report/job/id}\" |> stop signal: kill",
+          "setup_only": true
         }
       ]
     },

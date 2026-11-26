@@ -193,7 +193,7 @@ impl ChocoSource {
         data: &mut SourceData,
     ) -> Option<(Nuspec, Vec<String>)> {
         let path = lib.join(id).join(format!("{id}{NUSPEC_EXTENSION}"));
-        let text = std::fs::read_to_string(env.sys_path(&path)).ok()?;
+        let text = super::read_lossy(&env.sys_path(&path))?;
         match parse_nuspec(&text) {
             Ok(nuspec) => {
                 let tools = executables_below(&env.sys_path(lib.join(id).join("tools")));

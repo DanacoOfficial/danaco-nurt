@@ -227,26 +227,6 @@ fn crashed(tool: Tool) -> ToolReport {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_panicked_check_is_a_failed_check_with_a_note() {
-        let report = crashed(Tool::Eslint);
-        assert!(matches!(report.check.status, CheckStatus::Failed));
-        assert_eq!(report.check.tool.as_deref(), Some("eslint"));
-        assert_eq!(report.check.check, FindingKind::Lint.to_string());
-        assert!(report.findings.is_empty());
-        let note = report.note.unwrap();
-        assert!(
-            note.detail
-                .unwrap()
-                .contains("eslint: the check ended in a panic")
-        );
-    }
-}
-
 fn status_only(kind: FindingKind, tool: Option<&str>, status: CheckStatus) -> AnalysisCheck {
     AnalysisCheck {
         check: kind.to_string(),
@@ -407,4 +387,24 @@ pub(crate) fn perform(
         findings: ordered,
         notes,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_panicked_check_is_a_failed_check_with_a_note() {
+        let report = crashed(Tool::Eslint);
+        assert!(matches!(report.check.status, CheckStatus::Failed));
+        assert_eq!(report.check.tool.as_deref(), Some("eslint"));
+        assert_eq!(report.check.check, FindingKind::Lint.to_string());
+        assert!(report.findings.is_empty());
+        let note = report.note.unwrap();
+        assert!(
+            note.detail
+                .unwrap()
+                .contains("eslint: the check ended in a panic")
+        );
+    }
 }

@@ -124,7 +124,7 @@ pub fn check_expansion(model: &YamlModel) -> Result<()> {
         }
     }
     for (index, document) in model.documents().iter().enumerate() {
-        let size = expanded_size(model, &anchors, document.root, total, &mut sizes, &mut open)?;
+        let size = expanded_size(model, anchors, document.root, total, &mut sizes, &mut open)?;
         let written = own.get(index).copied().unwrap_or_default();
         if size.saturating_sub(written) > ALIAS_EXPANSION_LIMIT {
             return Err(expansion_error(index));
@@ -311,7 +311,7 @@ pub fn shared_by(model: &YamlModel, node: NodeId) -> Vec<KeyPath> {
                     {
                         continue;
                     }
-                    if let Some(path) = visible_path(model, &anchors, alias, &relative) {
+                    if let Some(path) = visible_path(model, anchors, alias, &relative) {
                         paths.push(path);
                         pending.push((alias, relative.clone()));
                     }
@@ -320,7 +320,7 @@ pub fn shared_by(model: &YamlModel, node: NodeId) -> Vec<KeyPath> {
             let Some(parent) = model.parent(current) else {
                 break;
             };
-            match segment_in(model, &anchors, parent, current) {
+            match segment_in(model, anchors, parent, current) {
                 Some(segment) => relative.insert(0, segment),
                 None => break,
             }

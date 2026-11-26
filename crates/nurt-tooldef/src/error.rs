@@ -33,6 +33,17 @@ pub enum ToolDefError {
     /// The catalog version is empty.
     #[error("catalog version is empty; pass the version of the command catalog or omit it")]
     EmptyCatalogVersion,
+    /// The assembled description is longer than the limit given by the
+    /// caller.
+    #[error(
+        "tool description has {chars} characters, above the limit of {limit}; select fewer groups or shorten the group descriptions"
+    )]
+    DescriptionTooLong {
+        /// Characters of the assembled description.
+        chars: usize,
+        /// Limit given by the caller.
+        limit: usize,
+    },
     /// The name of a tool format is not known.
     #[error("unknown tool format `{name}`; expected one of {expected}")]
     UnknownFormat {

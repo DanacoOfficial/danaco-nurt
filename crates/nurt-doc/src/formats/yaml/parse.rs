@@ -1381,6 +1381,29 @@ mod tests {
     }
 
     #[test]
+    fn deep_collections_neither_overflow_a_small_stack_nor_abort_the_parser() {
+        // The default stack of a test thread is 2 MiB. The backend refuses a
+        // document nested to `MAX_DEPTH` with its own recursion limit, which
+        // is lower than `MAX_DEPTH`; the result is an error, not a crash.
+        let nested = |depth: usize| format!("{}1{}", "[".repeat(depth), "]".repeat(depth));
+        let parse_on_small_stack = |text: String| {
+            std::thread::Builder::new()
+                .stack_size(2 << 20)
+                .spawn(move || YamlModel::parse(&text).map(|model| model.documents().len()))
+                .unwrap()
+                .join()
+                .expect("the parser must not overflow a 2 MiB stack")
+        };
+        assert_eq!(parse_on_small_stack(nested(200)).unwrap(), 1);
+        assert_eq!(
+            parse_on_small_stack(nested(backend_saphyr::MAX_DEPTH))
+                .unwrap_err()
+                .code(),
+            ErrorCode::DocParse
+        );
+    }
+
+    #[test]
     fn rejects_collections_nested_beyond_the_limit() {
         let depth = backend_saphyr::MAX_DEPTH + 1;
         let text = format!("{}1{}", "[".repeat(depth), "]".repeat(depth));

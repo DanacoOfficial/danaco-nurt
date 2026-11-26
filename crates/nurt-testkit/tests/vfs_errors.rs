@@ -277,6 +277,42 @@ fn rename_validates_both_ends() {
 }
 
 #[test]
+fn rename_without_the_noreplace_feature_refuses_that_mode() {
+    let fs = fs_with(features(|f| f.rename_noreplace = false));
+    let scope = scope();
+    fs.write_file(&path("/w/a"), b"a").unwrap();
+    assert_eq!(
+        kind(fs.rename(&scope, &path("/w/a"), &path("/w/b"), RenameMode::NoReplace)),
+        FsErrorKind::Unsupported
+    );
+    fs.rename(&scope, &path("/w/a"), &path("/w/b"), RenameMode::Replace)
+        .unwrap();
+}
+
+#[test]
+fn renaming_a_file_onto_another_name_of_the_same_inode_changes_nothing() {
+    let fs = VirtualFs::default();
+    let scope = scope();
+    fs.write_file(&path("/w/a"), b"a").unwrap();
+    fs.hard_link(&scope, &path("/w/a"), &path("/w/b")).unwrap();
+    fs.rename(&scope, &path("/w/a"), &path("/w/b"), RenameMode::Replace)
+        .unwrap();
+    assert_eq!(fs.read_file(&path("/w/a")).unwrap(), b"a");
+    assert_eq!(fs.read_file(&path("/w/b")).unwrap(), b"a");
+}
+
+#[test]
+fn hashing_a_special_file_is_refused() {
+    let fs = VirtualFs::default();
+    fs.create_dir_all(&path("/w")).unwrap();
+    fs.create_special(&path("/w/pipe")).unwrap();
+    assert_eq!(
+        kind(fs.content_hash(&path("/w/pipe"))),
+        FsErrorKind::Unsupported
+    );
+}
+
+#[test]
 fn rename_across_volumes_is_cross_device() {
     let fs = VirtualFs::default();
     let scope = scope();
@@ -443,6 +479,35 @@ fn links_and_copies_validate_their_arguments() {
     assert_eq!(
         kind(none.clone_file(&scope, &path("/w/a"), &path("/w/c"))),
         FsErrorKind::Unsupported
+    );
+}
+
+#[test]
+fn a_clone_keeps_the_mode_but_not_the_extended_attributes() {
+    let scope = scope();
+    let fs = fs_with(features(|f| f.reflink = true));
+    fs.write_file(&path("/w/a"), b"a").unwrap();
+    fs.set_mode(&path("/w/a"), 0o640).unwrap();
+    let with_xattr = MetaChange {
+        set_xattrs: vec![Xattr {
+            name: "user.k".into(),
+            value: b"v".to_vec(),
+        }],
+        ..MetaChange::default()
+    };
+    fs.set_meta(&scope, &path("/w/a"), &with_xattr).unwrap();
+    fs.clone_file(&scope, &path("/w/a"), &path("/w/c")).unwrap();
+    let meta = fs
+        .extended_metadata(&path("/w/c"), Follow::NoFollow)
+        .unwrap();
+    assert_eq!(meta.basic.mode & 0o777, 0o640);
+    assert!(meta.xattrs.is_empty());
+    assert_eq!(
+        fs.extended_metadata(&path("/w/a"), Follow::NoFollow)
+            .unwrap()
+            .xattrs
+            .len(),
+        1
     );
 }
 

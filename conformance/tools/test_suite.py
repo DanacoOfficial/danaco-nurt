@@ -37,7 +37,7 @@ HEADER_KEYS = {
 STEP_KEYS = {
     "method", "program", "program_file", "variant", "options", "params", "expect",
     "expect_at", "match", "expect_error", "validate", "fs_after", "absent", "events",
-    "events_match", "second_volume_after",
+    "events_match", "second_volume_after", "setup_only",
 }
 DIRECTORIES = {"exec": "exec", "journal": "journal", "correction": "correction", "parity": "parity"}
 

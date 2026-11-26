@@ -194,6 +194,11 @@ pub trait ModelClient: Send {
     ///
     /// Returns an error when the provider fails.
     fn count_tokens(&mut self, text: &str) -> Result<Option<u64>>;
+
+    /// Limits the calls that follow to the time `remaining` of the run, so
+    /// that a call with its repeated attempts and pauses does not outlast it.
+    /// A client that makes no network calls ignores the limit.
+    fn set_time_limit(&mut self, _remaining: Duration) {}
 }
 
 /// Identification of a run, used by the mock model to select its script.
@@ -296,6 +301,12 @@ pub struct ModelConfig {
     pub retry_delay_ms: u64,
 }
 
+/// Longest time limit of one request, in seconds.
+const MAX_TIMEOUT_SECONDS: u64 = 3600;
+
+/// Largest number of repeated attempts of one request.
+const MAX_RETRIES: u32 = 10;
+
 const fn default_timeout_seconds() -> u64 {
     300
 }
@@ -342,6 +353,17 @@ impl ModelConfig {
         }
         if !(0.0..=2.0).contains(&self.temperature) {
             return Err("temperature must be between 0 and 2".to_owned());
+        }
+        if self.max_output_tokens == 0 {
+            return Err("max_output_tokens must be at least 1".to_owned());
+        }
+        if !(1..=MAX_TIMEOUT_SECONDS).contains(&self.timeout_seconds) {
+            return Err(format!(
+                "timeout_seconds must be between 1 and {MAX_TIMEOUT_SECONDS}"
+            ));
+        }
+        if self.retries > MAX_RETRIES {
+            return Err(format!("retries must not exceed {MAX_RETRIES}"));
         }
         Ok(())
     }
@@ -515,6 +537,30 @@ mod tests {
         hot.temperature = 3.0;
         assert!(hot.validate().is_err());
         assert!(config("mock", "https://example.com").validate().is_err());
+    }
+
+    #[test]
+    fn rejects_limits_that_cannot_work() {
+        let mut no_output = config("anthropic", "https://example.com");
+        no_output.max_output_tokens = 0;
+        assert!(
+            no_output
+                .validate()
+                .unwrap_err()
+                .contains("max_output_tokens")
+        );
+        let mut no_time = config("anthropic", "https://example.com");
+        no_time.timeout_seconds = 0;
+        assert!(no_time.validate().unwrap_err().contains("timeout_seconds"));
+        no_time.timeout_seconds = MAX_TIMEOUT_SECONDS + 1;
+        assert!(no_time.validate().is_err());
+        no_time.timeout_seconds = MAX_TIMEOUT_SECONDS;
+        assert!(no_time.validate().is_ok());
+        let mut many = config("anthropic", "https://example.com");
+        many.retries = MAX_RETRIES + 1;
+        assert!(many.validate().unwrap_err().contains("retries"));
+        many.retries = MAX_RETRIES;
+        assert!(many.validate().is_ok());
     }
 
     #[test]

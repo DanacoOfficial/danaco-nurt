@@ -1337,12 +1337,23 @@ impl CodeService for StaticCodeService {
     fn render_template(&self, found: &SyntaxMatch, template: &str) -> Result<String> {
         let mut captures: Vec<_> = found.captures.iter().collect();
         captures.sort_by_key(|capture| std::cmp::Reverse(capture.name.len()));
-        let mut out = template.to_owned();
-        for capture in &captures {
-            out = out.replace(&format!("$$${}", capture.name), &capture.text);
-        }
-        for capture in &captures {
-            out = out.replace(&format!("${}", capture.name), &capture.text);
+        let mut out = String::with_capacity(template.len());
+        let mut rest = template;
+        while !rest.is_empty() {
+            let found = ["$$$", "$"].into_iter().find_map(|sigil| {
+                let after = rest.strip_prefix(sigil)?;
+                captures
+                    .iter()
+                    .find(|capture| after.starts_with(capture.name.as_str()))
+                    .map(|capture| (sigil.len() + capture.name.len(), capture.text.as_str()))
+            });
+            if let Some((length, text)) = found {
+                out.push_str(text);
+                rest = &rest[length..];
+            } else if let Some(character) = rest.chars().next() {
+                out.push(character);
+                rest = &rest[character.len_utf8()..];
+            }
         }
         Ok(out)
     }
@@ -1909,6 +1920,13 @@ mod tests {
         assert_eq!(
             code.render_template(&found, "g($$$XS, $X)").unwrap(),
             "g(b, c, a)"
+        );
+        let mut literal = found.clone();
+        literal.captures[1].text = "$X".to_owned();
+        assert_eq!(
+            code.render_template(&literal, "g($$$XS, $X)").unwrap(),
+            "g($X, a)",
+            "the text of a capture is not scanned for further captures"
         );
         let python = LanguageId::new("python").unwrap();
         assert_eq!(

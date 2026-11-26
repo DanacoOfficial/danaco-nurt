@@ -119,31 +119,49 @@ pub fn refusal(env: &HostEnv, path: &Path, patterns: &[String]) -> Option<String
     let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
         return Some("the file name is missing or not valid Unicode".to_owned());
     };
-    let name = env
-        .command_name(file_name)
-        .unwrap_or_else(|| file_name.to_owned())
-        .to_lowercase();
-    if REFUSED_PROGRAMS.contains(&name.as_str())
-        || REFUSED_PREFIXES
-            .iter()
-            .any(|prefix| name.starts_with(prefix))
-    {
-        return Some(format!("{name} has effects outside the computer"));
-    }
-    let configured = patterns.iter().any(|pattern| {
-        pattern.split_whitespace().next().is_some_and(|first| {
-            first
-                .split('|')
-                .any(|item| item == "*" || item.eq_ignore_ascii_case(&name))
-        })
-    });
-    if configured {
-        return Some(format!("{name} matches run.irreversible_patterns"));
+    let name = command_name_of(env, file_name);
+    // A link under another name starts the program it points to, so the
+    // refusals apply to the name of the target as well.
+    let target_name = std::fs::canonicalize(env.sys_path(path))
+        .ok()
+        .and_then(|real| {
+            let target = real
+                .file_name()?
+                .to_str()
+                .map(|text| command_name_of(env, text))?;
+            (target != name).then_some(target)
+        });
+    for name in std::iter::once(&name).chain(target_name.as_ref()) {
+        if REFUSED_PROGRAMS.contains(&name.as_str())
+            || REFUSED_PREFIXES
+                .iter()
+                .any(|prefix| name.starts_with(prefix))
+        {
+            return Some(format!("{name} has effects outside the computer"));
+        }
+        let configured = patterns.iter().any(|pattern| {
+            pattern.split_whitespace().next().is_some_and(|first| {
+                first
+                    .split('|')
+                    .any(|item| item == "*" || item.eq_ignore_ascii_case(name))
+            })
+        });
+        if configured {
+            return Some(format!("{name} matches run.irreversible_patterns"));
+        }
     }
     if !in_search_path(env, path) {
         return Some("the file is not in the search path".to_owned());
     }
     executable_format(env, path).err()
+}
+
+/// Lower-case command name of a file name, without the executable extension
+/// of the host.
+fn command_name_of(env: &HostEnv, file_name: &str) -> String {
+    env.command_name(file_name)
+        .unwrap_or_else(|| file_name.to_owned())
+        .to_lowercase()
 }
 
 fn in_search_path(env: &HostEnv, path: &Path) -> bool {
@@ -425,6 +443,22 @@ mod tests {
         let path = first.0.clone();
         drop(first);
         assert!(!path.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_link_that_points_to_a_listed_program() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("shutdown");
+        std::fs::write(&target, b"#!/bin/sh\n").unwrap();
+        let link = dir.path().join("harmless");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        let env = HostEnv::new(Os::Linux).with_var("PATH", dir.path().to_str().unwrap());
+        let reason = refusal(&env, &link, &[]).unwrap();
+        assert!(reason.contains("shutdown"), "{reason}");
+        let patterns = vec!["shutdown".to_owned()];
+        let reason = refusal(&env, &link, &patterns).unwrap();
+        assert!(reason.contains("shutdown"), "{reason}");
     }
 
     #[test]

@@ -383,25 +383,41 @@ fn pages(env: &HostEnv, dir: &Path) -> Vec<Page> {
     out
 }
 
+/// The relative path of a `.so` redirect with its `.` and `..` components
+/// resolved, or `None` when it is absolute or climbs above its start. A
+/// redirect such as `man1/../man7/x` stays in the manual directory.
+fn normalized_below(target: &str) -> Option<PathBuf> {
+    let mut parts: Vec<&std::ffi::OsStr> = Vec::new();
+    for part in Path::new(target).components() {
+        match part {
+            Component::Normal(name) => parts.push(name),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                parts.pop()?;
+            }
+            Component::RootDir | Component::Prefix(_) => return None,
+        }
+    }
+    Some(parts.into_iter().collect())
+}
+
 /// Decoded text of the start of a page, following one `.so` redirect.
 fn read_page(env: &HostEnv, id: &SourceId, path: &Path, dir: &Path) -> Result<String, SourceError> {
     let text = read_page_file(env, id, path)?;
     match redirect(&text) {
         Some(target) => {
-            let stays_below_dir = Path::new(&target)
-                .components()
-                .all(|part| matches!(part, Component::Normal(_) | Component::CurDir));
-            if !stays_below_dir {
+            let Some(target) = normalized_below(&target) else {
                 return Err(SourceError::new(
                     id,
                     SourceErrorKind::Corrupt,
                     "page redirect leaves the manual directory",
                 )
                 .at(path.display().to_string()));
-            }
+            };
             let target = target
-                .strip_suffix(".gz")
-                .map_or(target.clone(), str::to_owned);
+                .to_str()
+                .and_then(|text| text.strip_suffix(".gz"))
+                .map_or(target.clone(), PathBuf::from);
             let base = dir.join(&target);
             let candidates = [
                 base.clone(),
@@ -610,6 +626,7 @@ mod tests {
         std::fs::write(man1.join("up.1"), ".so ../../../../secret.1\n").unwrap();
         std::fs::write(man1.join("abs.1"), ".so /secret.1\n").unwrap();
         std::fs::write(man1.join("ok.1"), ".so man1/target.1\n").unwrap();
+        std::fs::write(man1.join("around.1"), ".so man1/../man1/target.1\n").unwrap();
         std::fs::write(man1.join("target.1"), ".SH NAME\ntarget \\- real page\n").unwrap();
         std::fs::write(
             root.path().join("secret.1"),
@@ -623,8 +640,16 @@ mod tests {
             let error = read_page(&env, &id, &dir.join("man1").join(page), dir).unwrap_err();
             assert_eq!(error.kind, SourceErrorKind::Corrupt, "{page}");
         }
-        let text = read_page(&env, &id, &dir.join("man1/ok.1"), dir).unwrap();
-        assert!(text.contains("real page"));
+        for page in ["ok.1", "around.1"] {
+            let text = read_page(&env, &id, &dir.join("man1").join(page), dir).unwrap();
+            assert!(text.contains("real page"), "{page}");
+        }
+        assert!(normalized_below("a/../../x").is_none());
+        assert!(normalized_below("/x").is_none());
+        assert_eq!(
+            normalized_below("man1/../man7/./x").unwrap(),
+            Path::new("man7/x")
+        );
     }
 
     #[test]

@@ -1075,6 +1075,33 @@ fn macapp_strings_in_utf8_and_big_endian() {
 }
 
 #[test]
+fn choco_and_scoop_read_files_with_damaged_bytes_lossily() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let choco = "c/ProgramData/chocolatey";
+    let mut nuspec = b"<package><metadata><id>tool</id><version>1.0</version><summary>caf".to_vec();
+    nuspec.extend_from_slice(&[0xff, 0xfe]);
+    nuspec.extend_from_slice(b"</summary></metadata></package>");
+    write(root, &format!("{choco}/lib/tool/tool.nuspec"), nuspec);
+    write(root, &format!("{choco}/lib/tool/tools/tool.exe"), "MZ");
+    write(root, &format!("{choco}/bin/tool.exe"), "MZ");
+    let data = load(&ChocoSource::new(), &windows_env(root));
+    assert_eq!(program(&data, "tool").version.as_deref(), Some("1.0"));
+
+    let scoop = "c/Users/user/scoop";
+    let mut manifest = br#"{"version":"2.0","description":"na"#.to_vec();
+    manifest.extend_from_slice(&[0xff]);
+    manifest.extend_from_slice(br#"ve"}"#);
+    write(
+        root,
+        &format!("{scoop}/apps/tool/current/manifest.json"),
+        manifest,
+    );
+    let data = load(&ScoopSource::new(), &windows_env(root));
+    assert_eq!(package(&data, "tool").version.as_deref(), Some("2.0"));
+}
+
+#[test]
 fn brew_prefers_the_linked_version_over_the_highest_one() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();

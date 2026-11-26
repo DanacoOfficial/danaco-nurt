@@ -3,9 +3,13 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Datasheet: nurt-bench pairs
 
-Data set of pairs "task → Danaco Nurt program", format `nurt-bench-pair/1`
-(schema [`../protocol/schema/nurt-bench-pair-1.schema.json`](../protocol/schema/nurt-bench-pair-1.schema.json)),
-produced by `nurt-bench pairs`.
+Data set of pairs "task → Danaco Nurt program", format `nurt-bench-pair/2`
+(schema [`../protocol/schema/nurt-bench-pair-2.schema.json`](../protocol/schema/nurt-bench-pair-2.schema.json)),
+produced by `nurt-bench pairs`. The identifier of a pair in format 2 is the
+first 16 hexadecimal digits of the SHA-256 of the input kind, and the trimmed
+input and program, each preceded by its length in bytes. Format 1 (schema
+`nurt-bench-pair-1.schema.json`) hashed the texts before trimming and without
+lengths; its identifiers are not comparable with those of format 2.
 
 ## Version
 

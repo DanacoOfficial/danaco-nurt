@@ -26,7 +26,7 @@ The record merges every provider that knows the program: path and alternatives f
 
 With a list of names the command emits one record per name that exists and reports the others as warnings; it fails with `E_NOT_FOUND` only when no name exists. `section` selects one section of the guide by heading, `query` the sections of the guide that match its words, and `include_guide: false` leaves the guide out. When `unchanged_since` equals the `etag` of the record, the record carries `unchanged: true` and nothing else of the description. `source` restricts the lookup to the listed sources, named as in `program.catalog`.
 
-The help text of a program is never read on its own: `program.describe` starts no program unless the help text is requested explicitly by the embedding application.
+The help text of a program is never read on its own: `program.describe` starts no program unless `help: true` is given. The program then runs once with `--help` within the time limit `programs.help_timeout`, and its output is returned in the field `help`.
 
 ## Parameters
 
@@ -38,6 +38,7 @@ The help text of a program is never read on its own: `program.describe` starts n
 | `query` | `text` | none | Return only the sections of the guide that match these keywords. |
 | `unchanged_since` | `text` | none | Etag of an earlier record; an unchanged program returns only unchanged. |
 | `source` | `text \| list<text>` | none | Only programs from these sources. |
+| `help` | `bool` | `false` | Run the program once with --help and return its output in the field help. |
 
 ## Input and output
 
@@ -55,7 +56,7 @@ The record carries the fields of `program_card` and, when they apply, `kind`, `e
 | Effect | `read` |
 | Reversibility | `read` |
 | Implementation | `builtin` |
-| External use | `user_program`; Runs the program once with --help, with a time limit, when no other description is available. |
+| External use | `user_program`; used when `help` is given; Runs the program once with --help, with a time limit, to read its help text. |
 
 ## Examples
 

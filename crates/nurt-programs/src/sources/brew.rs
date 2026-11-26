@@ -339,11 +339,12 @@ impl Reader<'_> {
     }
 
     /// Text of a file given as a host path; `None` when the file cannot be
-    /// read, is larger than `limit` bytes or is not UTF-8.
+    /// read or is larger than `limit` bytes; bytes that are not UTF-8 are
+    /// replaced.
     fn read_text(&self, host: &Path, limit: u64) -> Option<String> {
         let (bytes, complete) = read_prefix(self.env, self.id, host, limit).ok()?;
         if complete {
-            String::from_utf8(bytes).ok()
+            Some(String::from_utf8_lossy(&bytes).into_owned())
         } else {
             None
         }
