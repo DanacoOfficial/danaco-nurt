@@ -1581,7 +1581,7 @@ fn effect_kind_of(bound: &BoundDocument) -> Option<EffectKind> {
                 .find(|stage| stage.phase.is_effect())
                 .map(|stage| stage.effect)
         })
-        .last()
+        .next_back()
 }
 
 /// Inputs of one program execution.

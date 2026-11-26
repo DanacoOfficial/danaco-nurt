@@ -65,6 +65,9 @@ their own version numbers, described in the specification.
 
 ### Changed
 
+- `run.spool_max` defaults to `1gib` instead of `unlimited`: a program that
+  writes without end no longer fills the disk; output beyond the limit is
+  counted, hashed and reported with the `spool_limit` note.
 - Journal: an operation with many small files (a `replace` over thousands of
   files and its `undo`) is several times faster and its entry is proportional to
   the changed content. In a `preserve` call with at least 64 targets the

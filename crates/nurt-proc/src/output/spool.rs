@@ -11,7 +11,7 @@
 //! ends. Bytes are written to the files as they arrive, without buffering,
 //! so readers see every complete line at once.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -39,6 +39,10 @@ const MAX_ID_LENGTH: usize = 128;
 /// `output.spool_ttl` is shorter; it covers runs of processes that ended
 /// abnormally.
 const ABANDONED_SPOOL_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+
+/// Largest part of `run.spool_max` kept from the end of the output. It is
+/// held in memory until the stream ends, so it bounds the memory of a spool.
+const MAX_TAIL_BYTES: u64 = 64 * 1024 * 1024;
 
 /// Size of the buffer used to count lines of a file.
 const COUNT_BUFFER_BYTES: usize = 64 * 1024;
@@ -305,12 +309,62 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
+/// Last bytes of a stream that did not fit in the head of the spool.
+#[derive(Default)]
+struct Tail {
+    bytes: VecDeque<u8>,
+    /// Bytes pushed out of the tail, which are in neither part of the file.
+    omitted: u64,
+}
+
+impl Tail {
+    /// Appends `bytes` and keeps the last `capacity` bytes; returns the number
+    /// of bytes this call pushed out.
+    fn push(&mut self, bytes: &[u8], capacity: usize) -> u64 {
+        self.bytes.extend(bytes);
+        let over = self.bytes.len().saturating_sub(capacity);
+        self.bytes.drain(..over);
+        self.omitted += over as u64;
+        over as u64
+    }
+}
+
+/// Parts of the output of a program that are kept when `run.spool_max` is
+/// reached: the first `head` bytes of the program and, per file, the last
+/// `tail` bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct Keep {
+    pub(super) head: u64,
+    pub(super) tail: usize,
+}
+
+impl Keep {
+    /// A quarter of the limit, at most [`MAX_TAIL_BYTES`], is kept from the
+    /// end, shared by the files of the spool; the rest is the head.
+    pub(super) fn of(limit: Option<u64>, merged: bool) -> Self {
+        let Some(limit) = limit else {
+            return Self {
+                head: u64::MAX,
+                tail: 0,
+            };
+        };
+        let tail = (limit / 4).min(MAX_TAIL_BYTES);
+        let files = if merged { 1 } else { 2 };
+        Self {
+            head: limit - tail,
+            tail: usize::try_from(tail / files).unwrap_or(usize::MAX),
+        }
+    }
+}
+
 /// Writing side of a spool.
 struct Writer {
     files: [Option<File>; 2],
     meta: Meta,
     stored: u64,
     hasher: Sha256,
+    tails: [Tail; 2],
+    last_kept: [Option<u8>; 2],
 }
 
 /// Captured output of one run.
@@ -318,7 +372,7 @@ pub(super) struct Spool {
     paths: SpoolPaths,
     merged: bool,
     tag: String,
-    limit: Option<u64>,
+    keep: Keep,
     head: u32,
     tail: u32,
     ctx: ExecCtx,
@@ -350,6 +404,8 @@ impl Spool {
             meta,
             stored: 0,
             hasher: Sha256::new(),
+            tails: [Tail::default(), Tail::default()],
+            last_kept: [None, None],
         };
         Ok(Self::with(ctx, paths, merged, limit, Some(writer)))
     }
@@ -407,13 +463,37 @@ impl Spool {
             tag: spool_tag(&paths.id),
             paths,
             merged,
-            limit,
+            keep: Keep::of(limit, merged),
             head: output.head,
             tail: output.tail,
             ctx: ctx.clone(),
             writer: writer.map(Mutex::new),
             activity: AtomicU64::new(0),
         }
+    }
+
+    /// Appends the held-back end of the output to the file of `slot`, after
+    /// a line that says how many bytes lie between it and the head.
+    fn seal(&self, writer: &mut Writer, slot: usize) -> Result<()> {
+        let tail = std::mem::take(&mut writer.tails[slot]);
+        if tail.bytes.is_empty() && tail.omitted == 0 {
+            return Ok(());
+        }
+        let mut text: Vec<u8> = Vec::with_capacity(tail.bytes.len() + 64);
+        if tail.omitted > 0 {
+            if writer.last_kept[slot].is_some_and(|byte| byte != b'\n') {
+                text.push(b'\n');
+            }
+            text.extend(format!("[... {} bytes omitted ...]\n", tail.omitted).bytes());
+        }
+        let (front, back) = tail.bytes.as_slices();
+        text.extend_from_slice(front);
+        text.extend_from_slice(back);
+        if let Some(file) = writer.files[slot].as_mut() {
+            file.write_all(&text)
+                .map_err(|error| io_error("write", &self.file_path(slot), &error))?;
+        }
+        Ok(())
     }
 
     fn file_path(&self, slot: usize) -> PathBuf {
@@ -487,7 +567,10 @@ impl Spool {
 impl OutputSink for Spool {
     /// Appends `bytes` to the spool file of `stream`, or to the merged file.
     ///
-    /// Bytes beyond `run.spool_max` are counted and hashed but not kept.
+    /// The first bytes of the program are written at once. Beyond the head
+    /// allowed by `run.spool_max` the last bytes are held back and written to
+    /// the end of the file when the stream ends; the bytes between them are
+    /// counted and hashed but not kept.
     fn write(&self, stream: OutputStream, bytes: &[u8]) -> Result<()> {
         if bytes.is_empty() {
             return Ok(());
@@ -509,9 +592,7 @@ impl OutputSink for Spool {
         }
         writer.meta.counters[slot].add(bytes);
         writer.hasher.update(bytes);
-        let room = self
-            .limit
-            .map_or(u64::MAX, |limit| limit.saturating_sub(writer.stored));
+        let room = self.keep.head.saturating_sub(writer.stored);
         let keep = usize::try_from(room).unwrap_or(usize::MAX).min(bytes.len());
         let file_slot = if self.merged { 0 } else { slot };
         if keep > 0
@@ -519,9 +600,13 @@ impl OutputSink for Spool {
         {
             file.write_all(&bytes[..keep])
                 .map_err(|error| io_error("write", &self.file_path(file_slot), &error))?;
+            writer.last_kept[file_slot] = Some(bytes[keep - 1]);
         }
         writer.stored += keep as u64;
-        writer.meta.dropped += (bytes.len() - keep) as u64;
+        if keep < bytes.len() {
+            let pushed_out = writer.tails[file_slot].push(&bytes[keep..], self.keep.tail);
+            writer.meta.dropped += pushed_out;
+        }
         Ok(())
     }
 
@@ -535,9 +620,13 @@ impl OutputSink for Spool {
         }
         writer.meta.ended[slot] = true;
         if !self.merged {
+            self.seal(&mut writer, slot)?;
             writer.files[slot] = None;
         }
         if writer.meta.is_complete() {
+            if self.merged {
+                self.seal(&mut writer, 0)?;
+            }
             writer.files = [None, None];
             writer.meta.sha256 = Some(hex(&writer.hasher.clone().finalize()));
             write_meta(&self.paths.meta(), &writer.meta)?;

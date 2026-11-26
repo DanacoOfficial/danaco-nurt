@@ -1094,10 +1094,7 @@ mod tests {
     #[expect(clippy::cognitive_complexity, reason = "one scenario with many checks")]
     fn an_entry_reports_the_metrics_hash_and_items_of_its_manifest() {
         use nurt_contracts::journal::{SessionId, TargetIndex};
-        use nurt_contracts::report::Irreversible;
-
         let mut manifest = crate::manifest::tests::sample();
-        manifest.targets[0].irreversible = Some(Irreversible::JournalError);
         let digest = manifest.seal().unwrap();
         let states = Items {
             items: vec![ItemState {
@@ -1121,15 +1118,29 @@ mod tests {
         assert_eq!(entry.items[0].undone_by, Some(OpId(40)));
         assert!(!entry.items[0].is_restorable());
         assert!(!entry.items[0].is_in_effect());
+        assert!(entry.in_session(None));
+        assert!(entry.in_session(Some(&SessionId("s-1".to_owned()))));
+        assert!(!entry.in_session(Some(&SessionId("other".to_owned()))));
+    }
+
+    #[test]
+    fn an_entry_reports_irreversible_targets_of_its_manifest() {
+        use nurt_contracts::report::Irreversible;
+
+        let mut manifest = crate::manifest::tests::sample();
+        manifest.targets[0].irreversible = Some(Irreversible::JournalError);
+        let entry = JournalEntry::from_parts(&[(
+            manifest,
+            StateRecord::new(EntryState::Committed),
+            Items { items: Vec::new() },
+        )])
+        .unwrap();
         assert_eq!(entry.irreversible.len(), 1);
         assert_eq!(entry.irreversible[0].reason, Irreversible::JournalError);
         assert_eq!(
             entry.irreversible[0].path.as_deref(),
             Some("/srv/app/src/a.go")
         );
-        assert!(entry.in_session(None));
-        assert!(entry.in_session(Some(&SessionId("s-1".to_owned()))));
-        assert!(!entry.in_session(Some(&SessionId("other".to_owned()))));
     }
 
     #[test]
