@@ -1292,8 +1292,21 @@ impl Entry<'_> {
             return self.mark_corrupt();
         }
         self.write_state(StateRecord::new(EntryState::Committed))?;
+        if self.made_by_another_account(manifest) {
+            return Ok(EntryResult::Unresolved);
+        }
         self.ensure_index_row(manifest)?;
         self.finish(EntryResult::RolledForward)
+    }
+
+    /// Whether another account than the one of this process made the entry.
+    /// The row of such an entry belongs to the index of that account, whose
+    /// recovery appends it; the marker stays until then.
+    fn made_by_another_account(&self, manifest: &Manifest) -> bool {
+        manifest
+            .account
+            .as_deref()
+            .is_some_and(|recorded| recorded != self.ctx.state.account_id())
     }
 
     /// Checks a committed or partial entry with a marker: reconciles item
@@ -1308,6 +1321,9 @@ impl Entry<'_> {
         // the next pass repeats it.
         if is_undo_entry(&manifest) && undo::apply_source_updates(self.ctx, &manifest).is_err() {
             return Ok(EntryResult::SourcesPending);
+        }
+        if self.made_by_another_account(&manifest) {
+            return Ok(EntryResult::Unresolved);
         }
         let appended = self.ensure_index_row(&manifest)?;
         self.finish(EntryResult::Settled {
@@ -2519,6 +2535,7 @@ mod pass_tests {
             },
             kind: OpKind::command("write"),
             session: None,
+            account: None,
             ast_hash: manifest::hash_bytes(b"program"),
             ast: serde_json::json!({}),
             corrections: Vec::new(),
@@ -3137,6 +3154,27 @@ mod pass_tests {
             vec![1, 3, 2]
         );
         assert_eq!(rows[2].digest(), Some(unindexed_digest));
+    }
+
+    #[test]
+    fn index_row_of_an_entry_of_another_account_is_left_to_that_account() {
+        let world = World::new();
+        let index = world.ctx.state.index().unwrap();
+        let part = world.part(0);
+        let mut foreign = entry_of(1, Vec::new(), vec![part.clone()]);
+        foreign.account = Some("/home/other/.local/state/nurt".to_owned());
+        world.write_entry(0, foreign, StateRecord::new(EntryState::Committed), true);
+        let mut own = entry_of(2, Vec::new(), vec![part]);
+        own.account = Some(world.ctx.state.account_id());
+        world.write_entry(0, own, StateRecord::new(EntryState::Committed), true);
+
+        let outcome = recover_detailed(&world.ctx).unwrap();
+        assert_eq!(outcome.index_appended, vec![OpId(2)]);
+        assert_eq!(outcome.unresolved, vec![OpId(1)]);
+        assert!(world.marked(0, 1));
+        assert!(!world.marked(0, 2));
+        let rows = manifest::read_index(&*world.fs, &index).unwrap();
+        assert_eq!(rows.iter().map(|row| row.op.0).collect::<Vec<_>>(), [2]);
     }
 
     fn tamper_manifest(world: &World, op: u64) {

@@ -624,6 +624,7 @@ impl<'a> Tx<'a> {
             time_basis: self.stamp.clone(),
             kind: self.request.kind.clone(),
             session: self.request.session.clone(),
+            account: Some(self.ctx.state.account_id()),
             ast_hash: self.ast_hash,
             ast: self.ast.clone(),
             corrections: self.request.corrections.clone(),

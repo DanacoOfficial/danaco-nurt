@@ -2263,6 +2263,7 @@ pub(crate) mod testkit {
                 time: WallTime::from_unix_nanos(self.now),
                 kind,
                 session,
+                account: None,
                 state: EntryState::Committed,
                 bulk: items.len() > 1,
                 volumes,
@@ -4186,6 +4187,7 @@ mod tests {
             },
             kind: OpKind::undo(),
             session: None,
+            account: None,
             ast_hash: hash_of(b"program"),
             ast: serde_json::Value::Null,
             corrections: Vec::new(),
@@ -5350,6 +5352,7 @@ mod journal_ctx_tests {
         let tombstone = Tombstone {
             op: OpId(op.0 + 1),
             time: nurt_contracts::env::Clock::now(&*world.ctx.clock),
+            account: None,
             kind: OpKind::command("remove"),
             files: 3,
             bytes: 10,
@@ -5367,6 +5370,34 @@ mod journal_ctx_tests {
         assert_eq!(records[0].files, 3);
         let error = undo(&world.ctx, &select(UndoSelector::Op(OpId(op.0 + 1)))).unwrap_err();
         assert_eq!(error.code, ErrorCode::JournalExpired);
+    }
+
+    #[test]
+    fn history_lists_the_tombstones_of_the_account_and_of_no_account_only() {
+        let world = World::new();
+        let op = world.run(vec![FileOp::create(abs("/a/x"), b"x".to_vec())]);
+        let tombstone = |number: u64, account: Option<String>| Tombstone {
+            op: OpId(number),
+            time: nurt_contracts::env::Clock::now(&*world.ctx.clock),
+            account,
+            kind: OpKind::command("remove"),
+            files: 1,
+            bytes: 1,
+            irreversible: Vec::new(),
+            state: EntryState::Expired,
+            reason: ExpiryReason::Ops,
+        };
+        let store = CtxStore(&world.ctx);
+        let mine = Some(world.ctx.state.account_id());
+        let theirs = Some("/home/other/.local/state/nurt".to_owned());
+        tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 1, mine)).unwrap();
+        tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 2, theirs)).unwrap();
+        tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 3, None)).unwrap();
+        let records = history(&world.ctx, &HistoryQuery::default()).unwrap();
+        assert_eq!(
+            records.iter().map(|r| r.id).collect::<Vec<_>>(),
+            [op.0 + 3, op.0 + 1, op.0]
+        );
     }
 
     #[test]

@@ -92,6 +92,9 @@ pub(crate) struct JournalEntry {
     pub(crate) kind: OpKind,
     /// Session of the request that created the entry.
     pub(crate) session: Option<SessionId>,
+    /// Account that made the operation; `None` for entries written before the
+    /// account was recorded.
+    pub(crate) account: Option<String>,
     /// Persistent state.
     pub(crate) state: EntryState,
     /// Bulk operation.
@@ -136,6 +139,15 @@ impl JournalEntry {
     /// Whether the entry records an undo.
     pub(crate) fn is_undo(&self) -> bool {
         self.kind == OpKind::undo()
+    }
+
+    /// Whether another account than `account` made the entry. The journal
+    /// directory of a volume is shared by all accounts; entries that record no
+    /// account belong to every account.
+    pub(crate) fn is_foreign_to(&self, account: &str) -> bool {
+        self.account
+            .as_deref()
+            .is_some_and(|recorded| recorded != account)
     }
 
     /// Whether the entry belongs to the session; without a session every
@@ -206,6 +218,7 @@ impl JournalEntry {
             time: first.time,
             kind: first.kind.clone(),
             session: first.session.clone(),
+            account: first.account.clone(),
             state: merged_state(parts.iter().map(|(_, state, _)| state.state)),
             bulk: first.bulk,
             volumes: first.parts.iter().map(|part| part.vol.clone()).collect(),
@@ -425,12 +438,15 @@ impl EntrySource for JournalCtx {
             .into_iter()
             .map(|part| (part.manifest, part.state, part.items))
             .collect();
-        Ok(JournalEntry::from_parts(&joined).map(|mut entry| {
-            if damaged {
-                entry.state = EntryState::Corrupt;
-            }
-            entry
-        }))
+        let account = self.state.account_id();
+        Ok(JournalEntry::from_parts(&joined)
+            .filter(|entry| !entry.is_foreign_to(&account))
+            .map(|mut entry| {
+                if damaged {
+                    entry.state = EntryState::Corrupt;
+                }
+                entry
+            }))
     }
 
     fn pins(&self) -> Result<PinSet> {
@@ -452,11 +468,19 @@ fn tombstone_entry(ctx: &JournalCtx, op: OpId) -> Result<Option<JournalEntry>> {
     for journal in ctx.active_journals() {
         let mount = ctx.fs.volume(journal.root())?.mount;
         if let Some(found) = tomb::read(&store, &mount, op)? {
+            if found
+                .account
+                .as_deref()
+                .is_some_and(|recorded| recorded != ctx.state.account_id())
+            {
+                continue;
+            }
             return Ok(Some(JournalEntry {
                 op,
                 time: found.time,
                 kind: found.kind,
                 session: None,
+                account: found.account,
                 state: found.state,
                 bulk: found.files > 1,
                 volumes: Vec::new(),
@@ -493,6 +517,7 @@ fn corrupt_from_index(ctx: &JournalCtx, op: OpId) -> Result<Option<JournalEntry>
             time: row.time,
             kind: row.kind,
             session: row.session,
+            account: None,
             state: EntryState::Corrupt,
             bulk: row.bulk,
             volumes: row.parts.into_iter().map(|part| part.vol).collect(),

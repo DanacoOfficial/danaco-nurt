@@ -91,6 +91,11 @@ pub struct Manifest {
     /// Session of the operation.
     #[serde(default)]
     pub session: Option<SessionId>,
+    /// Account that made the operation (`StateLayout::account_id`). Absent
+    /// in entries written before the field existed; every account sees such
+    /// entries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
     /// Hash of the canonical bound program.
     pub ast_hash: ContentHash,
     /// Bound program, stored verbatim.
@@ -1141,6 +1146,7 @@ pub(crate) mod tests {
             },
             kind: OpKind::with_action("write", "overwrite"),
             session: Some(SessionId("s-1".to_owned())),
+            account: None,
             ast_hash: hash_bytes(b"program"),
             ast: serde_json::json!({"nurt": "1.0", "program": {"statements": []}}),
             corrections: Vec::new(),
