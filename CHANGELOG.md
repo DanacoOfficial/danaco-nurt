@@ -95,6 +95,13 @@ their own version numbers, described in the specification.
   A cut response carries `read_hint`, a sentence with `read` and `search`
   commands that read the rest from the output file. Pass `dedupe: false`,
   `max_bytes: 0` or `head` and `tail` to get the earlier behaviour.
+- Linux: the executable and the library link liblzma statically; the only
+  shared libraries are `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` and the
+  dynamic loader, so the program runs on a system without `liblzma.so.5`. The
+  `.deb` package no longer depends on `liblzma5`.
+- `nurt-service` compiles for the target `x86_64-unknown-linux-musl`
+  (`sched_param` and `pthread_t` differ from glibc), and the release procedure
+  builds the static musl archive `nurt-<version>-x86_64-unknown-linux-musl`.
 
 ## [0.1.0] - 2026-11-22
 

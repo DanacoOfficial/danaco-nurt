@@ -214,10 +214,11 @@ class DependencyStatementTest(unittest.TestCase):
         readme = (support.PACKAGING.parent / "README.md").read_text(encoding="utf-8")
         self.assertNotIn("without runtime dependencies", readme)
         build = (support.PACKAGING / "deb" / "build-deb.sh").read_text(encoding="utf-8")
-        for library in ("libc.so.6", "libgcc_s.so.1", "liblzma.so.5"):
+        for library in ("libc.so.6", "libgcc_s.so.1"):
             self.assertIn(library, readme)
-        for package in ("libgcc-s1", "liblzma5"):
-            self.assertIn(package, build)
+        self.assertNotIn("liblzma", readme)
+        self.assertIn("libgcc-s1", build)
+        self.assertNotIn("liblzma5", build)
 
 
 class WorkflowSupplyChainTest(unittest.TestCase):

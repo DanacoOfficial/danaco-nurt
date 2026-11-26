@@ -49,6 +49,17 @@ class VersionTest(unittest.TestCase):
         digests = render.parse_checksums(checksums_text("1.2.3-rc.1"))
         self.assertEqual(render.version_from_checksums(digests), "1.2.3-rc.1")
 
+    def test_library_archives_name_the_same_version(self):
+        text = checksums_text("1.2.3", targets=support.TARGETS[:1]) + (
+            f"{DIGEST}  nurt-lib-1.2.3-{support.TARGETS[0]}.tar.gz\n"
+        )
+        self.assertEqual(render.version_from_checksums(render.parse_checksums(text)), "1.2.3")
+        text = f"{DIGEST}  nurt-lib-1.2.3-{support.TARGETS[0]}.tar.gz\n" + checksums_text(
+            "1.2.4", targets=support.TARGETS[:1], source=False
+        )
+        with self.assertRaises(render.RenderError):
+            render.version_from_checksums(render.parse_checksums(text))
+
     def test_rejects_mixed_versions(self):
         text = checksums_text("1.0.0", targets=support.TARGETS[:1]) + checksums_text(
             "1.0.1", targets=support.TARGETS[:1], source=False
@@ -90,6 +101,18 @@ class RenderTextTest(unittest.TestCase):
     def test_substitutes_version_and_digest(self):
         out = self.render("v@VERSION@ @SHA256:x86_64-pc-windows-msvc@")
         self.assertEqual(out, f"v1.0.0 {DIGEST}")
+
+    def test_library_placeholder_reads_the_digest_of_the_library_archive(self):
+        other = "cd" * 32
+        digests = dict(self.digests)
+        digests["nurt-lib-1.0.0-x86_64-unknown-linux-gnu.tar.gz"] = other
+        text = render.render_text(
+            "@SHA256:lib-x86_64-unknown-linux-gnu@ @SHA256:x86_64-unknown-linux-gnu@",
+            self.values, digests, "1.0.0", "template",
+        )
+        self.assertEqual(text, f"{other} {DIGEST}")
+        with self.assertRaises(render.RenderError):
+            self.render("@SHA256:lib-x86_64-unknown-linux-gnu@")
 
     def test_expands_description_placeholder(self):
         text = render.render_text("@DESCRIPTION@", {"DESCRIPTION": "text"}, {}, "1.0.0", "t")

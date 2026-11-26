@@ -10,6 +10,7 @@ Summary:        @DESCRIPTION@
 License:        Apache-2.0
 URL:            https://nurt.danaco-group.pl
 Source0:        %{release_url}/nurt-@VERSION@-%{target_triple}.tar.gz
+Source1:        %{release_url}/nurt-lib-@VERSION@-%{target_triple}.tar.gz
 ExclusiveArch:  x86_64 aarch64
 AutoProv:       no
 
@@ -36,6 +37,8 @@ file of the libnurt C interface.
 
 %prep
 %setup -q -n nurt-@VERSION@-%{target_triple}
+mkdir lib
+tar -xzf %{SOURCE1} -C lib --strip-components=1
 
 %build
 
@@ -68,14 +71,14 @@ if [ -d service ]; then
     cp -R service/. %{buildroot}%{_datadir}/nurt/service/
     echo %{_datadir}/nurt >> nurt.files
 fi
-install -D -m 0755 libnurt.so.1 %{buildroot}%{_libdir}/libnurt.so.1
+install -D -m 0755 lib/libnurt.so.1 %{buildroot}%{_libdir}/libnurt.so.1
 ln -s libnurt.so.1 %{buildroot}%{_libdir}/libnurt.so
-install -D -m 0644 nurt.h %{buildroot}%{_includedir}/nurt.h
+install -D -m 0644 lib/nurt.h %{buildroot}%{_includedir}/nurt.h
 install -d %{buildroot}%{_libdir}/pkgconfig
 sed -e 's|^prefix=.*|prefix=%{_prefix}|' \
     -e 's|^libdir=.*|libdir=%{_libdir}|' \
     -e 's|^includedir=.*|includedir=%{_includedir}|' \
-    nurt.pc > %{buildroot}%{_libdir}/pkgconfig/nurt.pc
+    lib/nurt.pc > %{buildroot}%{_libdir}/pkgconfig/nurt.pc
 
 %check
 ./nurt version | head -n 1 | grep -q '^nurt [0-9]'

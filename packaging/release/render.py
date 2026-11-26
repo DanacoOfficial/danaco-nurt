@@ -21,7 +21,9 @@ Placeholders:
   @DESCRIPTION@      product description, the constant TAGLINE of
                      crates/nurt-contracts/src/product.rs
   @SHA256:<name>@    SHA-256 of the release file "nurt-<version>-<name>.tar.gz"
-                     or "nurt-<version>-<name>.zip", read from checksums.txt
+                     or "nurt-<version>-<name>.zip", read from checksums.txt;
+                     the name "lib-<target>" selects the library archive
+                     "nurt-lib-<version>-<target>"
 
 The checksums file has the format of "sha256sum": a hexadecimal digest, two
 characters of separation and a file name per line.
@@ -42,6 +44,9 @@ from pathlib import Path
 TEMPLATE_SUFFIX = ".in"
 PRODUCT = "nurt"
 ARCHIVE_SUFFIXES = (".tar.gz", ".zip")
+# A placeholder target name that starts with this prefix names the library
+# archive nurt-lib-<version>-<target> instead of the program archive.
+LIBRARY_PREFIX = "lib-"
 
 SEMVER = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
@@ -76,7 +81,7 @@ def parse_checksums(text):
 def version_from_checksums(digests):
     """Return the single release version named by the archive file names."""
     pattern = re.compile(
-        r"^" + PRODUCT + r"-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+?)?)-"
+        r"^" + PRODUCT + r"-(?:lib-)?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+?)?)-"
         r"(?:(?:x86_64|aarch64)-[A-Za-z0-9_.-]+|source)(?:\.tar\.gz|\.zip)$"
     )
     versions = set()
@@ -132,9 +137,12 @@ def release_values(version, epoch, description):
 
 def lookup_digest(digests, version, name):
     """Return the digest of the release archive identified by a target name."""
+    product = PRODUCT
+    if name.startswith(LIBRARY_PREFIX):
+        product, name = f"{PRODUCT}-lib", name[len(LIBRARY_PREFIX):]
     found = [
         digests[candidate]
-        for candidate in (f"{PRODUCT}-{version}-{name}{suffix}" for suffix in ARCHIVE_SUFFIXES)
+        for candidate in (f"{product}-{version}-{name}{suffix}" for suffix in ARCHIVE_SUFFIXES)
         if candidate in digests
     ]
     if not found:

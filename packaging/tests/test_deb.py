@@ -73,8 +73,9 @@ class DebBuildTest(unittest.TestCase):
     def test_command_package_depends_on_the_shared_libraries_it_links(self):
         nurt = next(p for p in self.build() if p.name.startswith("nurt_"))
         depends = self.field(nurt, "Depends")
-        for library in ("libc6", "libgcc-s1", "liblzma5"):
+        for library in ("libc6", "libgcc-s1"):
             self.assertIn(library, depends)
+        self.assertNotIn("liblzma", depends)
 
     def test_command_package_description_is_the_product_tagline(self):
         nurt = next(p for p in self.build() if p.name.startswith("nurt_"))
@@ -144,6 +145,38 @@ class DebBuildTest(unittest.TestCase):
         )
         names = [path.name for path in self.build(artifact=archive)]
         self.assertEqual(len(names), 3)
+
+    def test_library_packages_are_built_from_the_library_archive(self):
+        program = self.root / "program"
+        program.mkdir()
+        support.write_executable(program / "nurt", support.MOCK_EXECUTABLE)
+        (program / "NOTICE").write_text("Danaco Nurt\n", encoding="utf-8")
+        library = self.root / "library"
+        library.mkdir()
+        for name in ("libnurt.so.1", "nurt.h"):
+            (library / name).write_bytes((self.artifact / name).read_bytes())
+        (library / "nurt.pc").write_text(support.MOCK_PKG_CONFIG, encoding="utf-8")
+        result = subprocess.run(
+            ["sh", str(BUILD), "--artifact", str(program), "--lib-artifact", str(library),
+             "--version", support.VERSION, "--arch", "amd64", "--output", str(self.root / "split")],
+            capture_output=True, text=True, env=support.clean_environment(SOURCE_DATE_EPOCH=EPOCH), check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        packages = {path.name.split("_")[0]: path for path in (self.root / "split").glob("*.deb")}
+        self.assertEqual(set(packages), {"nurt", "libnurt1", "libnurt-dev"})
+        self.assertIn("./usr/lib/x86_64-linux-gnu/libnurt.so.1", self.contents(packages["libnurt1"]))
+
+    def test_rejects_a_library_archive_without_library(self):
+        library = self.root / "library"
+        library.mkdir()
+        (library / "nurt.h").write_text("/* header */\n", encoding="utf-8")
+        result = subprocess.run(
+            ["sh", str(BUILD), "--artifact", str(self.artifact), "--lib-artifact", str(library),
+             "--version", support.VERSION, "--arch", "amd64", "--output", str(self.root / "out")],
+            capture_output=True, text=True, env=support.clean_environment(SOURCE_DATE_EPOCH=EPOCH), check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("lacks libnurt.so.1", result.stderr)
 
     def test_rejects_artifact_without_library(self):
         (self.artifact / "libnurt.so.1").unlink()
