@@ -1906,6 +1906,10 @@ impl Tx<'_> {
 
 impl Tx<'_> {
     /// Writes new content (step 5).
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "one linear protocol of stage, flush, check and switch"
+    )]
     fn write(&mut self, position: usize, content: Content) -> Result<Applied> {
         let ctx = self.ctx;
         let fs = ctx.fs.as_ref();
@@ -2053,12 +2057,10 @@ impl Tx<'_> {
             return Ok(());
         }
         let unsynced = std::mem::take(&mut self.unsynced);
-        let flushed = self
-            .ctx
+        self.ctx
             .fs
             .sync_paths(&self.scope(), &unsynced.files, &unsynced.dirs)
-            .map_err(Error::from);
-        flushed
+            .map_err(Error::from)
     }
 
     /// Metadata the new content of a target receives before it is switched
@@ -3401,6 +3403,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::cognitive_complexity, reason = "one scenario with many checks")]
     fn bulk_overwrite_keeps_small_previous_content_in_a_packed_manifest() {
         let env = Env::new();
         let count = manifest::PACKED_MIN_TARGETS + 4;
