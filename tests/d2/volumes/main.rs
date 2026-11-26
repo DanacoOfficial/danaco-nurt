@@ -35,6 +35,7 @@ mod harness;
 
 use std::fs;
 
+use nurt_contracts::config::{SizeOrPercent, SizeSetting};
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::{
     Expect, InactiveReason, JournalNotable, Mutation, MutationTx, OpHandle, PreserveMode,
@@ -49,11 +50,18 @@ use harness::snapshot::TreeSnapshot;
 /// Size of the file whose copy does not fit on a 64 MiB volume.
 const LARGE_FILE: usize = 40 << 20;
 
+/// Space reserve of the prepared volumes. The default reserve is at least
+/// 5 GiB, which exceeds the free space of every prepared volume and would
+/// make admission skip the preservation of every change.
+const RESERVE_MIB: u64 = 1;
+
 fn fixture_on(variable: &str) -> Fixture {
-    Fixture::open(FixtureOptions {
+    let mut options = FixtureOptions {
         mounted: vec![mounted_dir(variable)],
         ..FixtureOptions::default()
-    })
+    };
+    options.space.reserve = SizeOrPercent::Size(SizeSetting::from_mib(RESERVE_MIB));
+    Fixture::open(options)
 }
 
 fn single(
@@ -89,8 +97,9 @@ fn overwrite_round_trips(fixture: &Fixture, accepted: &[PreserveMode]) {
     let mode = handle.targets[0].mode;
     assert!(
         accepted.contains(&mode),
-        "overwrite kept by {}",
-        mode.as_str()
+        "overwrite kept by {} (irreversible: {:?})",
+        mode.as_str(),
+        handle.targets[0].irreversible
     );
     let after = fixture.snapshot();
     let undone = fixture
@@ -182,7 +191,8 @@ fn overlay_lower_layer_directory_is_removed_by_copy_and_restored() {
     assert_eq!(
         target.mode,
         PreserveMode::Copy,
-        "a rename across layers fails, the journal copies"
+        "a rename across layers fails, the journal copies (irreversible: {:?})",
+        target.irreversible
     );
     assert!(
         target
