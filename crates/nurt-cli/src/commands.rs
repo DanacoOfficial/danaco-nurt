@@ -10,7 +10,9 @@ use serde_json::Value as Json;
 
 use crate::EngineSource;
 use crate::app::{CliError, Context, Io};
-use crate::args::{self, AST_FLAGS, CHECK_FLAGS, EXEC_FLAGS, FMT_FLAGS, Flags, SCRIPT_FLAGS};
+use crate::args::{
+    self, AST_FLAGS, CHECK_FLAGS, EXEC_FLAGS, FMT_FLAGS, Flags, SCHEMA_FLAGS, SCRIPT_FLAGS,
+};
 use crate::doctor;
 use crate::exit;
 use crate::integrations;
@@ -163,11 +165,49 @@ fn source_text(flags: &Flags, words: &[String], io: &mut Io<'_>) -> Result<Strin
     }
 }
 
+/// Turns the outcome of a command with the explicit format `json` into a
+/// document: a language error becomes `{"error": {...}}`, with
+/// `"diagnostics": []` in front for `check`, written to the standard output
+/// with the exit code the error has on the standard error output. Other
+/// failures and every other format keep their form.
+fn json_errors(
+    outcome: Result<u8, CliError>,
+    format: Option<OutputFormat>,
+    diagnostics: bool,
+    io: &mut Io<'_>,
+) -> Result<u8, CliError> {
+    let Err(CliError::Language(error)) = outcome else {
+        return outcome;
+    };
+    if format != Some(OutputFormat::Json) {
+        return Err(CliError::Language(error));
+    }
+    let document = if diagnostics {
+        serde_json::json!({ "diagnostics": [], "error": error })
+    } else {
+        serde_json::json!({ "error": error })
+    };
+    let json = serde_json::to_string_pretty(&document)
+        .map_err(|error| CliError::Failure(format!("cannot encode the result: {error}")))?;
+    writeln!(io.out, "{json}")?;
+    Ok(exit::for_error_code(error.code))
+}
+
 fn check(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {
     let (flags, words) = args::parse_flags(args, CHECK_FLAGS, true)?;
     let text = source_text(&flags, &words, io)?;
+    let outcome = check_program(&flags, text, io, source);
+    json_errors(outcome, flags.format, true, io)
+}
+
+fn check_program(
+    flags: &Flags,
+    text: String,
+    io: &mut Io<'_>,
+    source: &dyn EngineSource,
+) -> Result<u8, CliError> {
     let context = Context::open(io.terminal, source)?;
-    let request = program_request(text, &flags);
+    let request = program_request(text, flags);
     let report = context.engine.check(&request)?;
     if flags.format == Some(OutputFormat::Json) {
         let json = serde_json::to_string_pretty(&report)
@@ -195,12 +235,22 @@ fn fmt(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8
     let (flags, words) = args::parse_flags(args, FMT_FLAGS, true)?;
     let path = single("fmt", "one file", &words)?;
     let text = read_text(&path, io)?;
+    let outcome = format_program(&flags, &text, io, source);
+    json_errors(outcome, flags.format, false, io)
+}
+
+fn format_program(
+    flags: &Flags,
+    text: &str,
+    io: &mut Io<'_>,
+    source: &dyn EngineSource,
+) -> Result<u8, CliError> {
     let context = Context::open(io.terminal, source)?;
     // The text is read in the requested variant; a text that is not in it is
     // read in the configured variant and printed in the requested one.
-    let tree = match context.engine.parse(&text, flags.variant) {
+    let tree = match context.engine.parse(text, flags.variant) {
         Err(first) if flags.variant.is_some() => {
-            context.engine.parse(&text, None).map_err(|_| first)?
+            context.engine.parse(text, None).map_err(|_| first)?
         }
         other => other?,
     };
@@ -251,8 +301,19 @@ fn ast(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8
     } else {
         input
     };
+    let outcome = convert_tree(&text, from, to, io, source);
+    json_errors(outcome, flags.format, false, io)
+}
+
+fn convert_tree(
+    text: &str,
+    from: Notation,
+    to: Notation,
+    io: &mut Io<'_>,
+    source: &dyn EngineSource,
+) -> Result<u8, CliError> {
     let context = Context::open(io.terminal, source)?;
-    let tree = read_tree(&text, from, &context)?;
+    let tree = read_tree(text, from, &context)?;
     match to {
         Notation::Variant(variant) => {
             let printed = context.engine.print(&tree, Some(variant))?;
@@ -274,13 +335,19 @@ fn ast(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8
 }
 
 fn schema(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {
+    let (flags, words) = args::parse_flags(args, SCHEMA_FLAGS, true)?;
     let name = single(
         "schema",
         "a name: ast, bound, report, request, config or tool",
-        args,
+        &words,
     )?;
+    let outcome = print_schema(&name, io, source);
+    json_errors(outcome, flags.format, false, io)
+}
+
+fn print_schema(name: &str, io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {
     let context = Context::open(io.terminal, source)?;
-    let schema = context.engine.schema(&name)?;
+    let schema = context.engine.schema(name)?;
     writeln!(io.out, "{}", schema.trim_end())?;
     Ok(exit::SUCCESS)
 }

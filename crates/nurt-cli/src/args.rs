@@ -37,10 +37,13 @@ pub const SCRIPT_FLAGS: &[&str] = &["--preview", "--json", "--format", "--limit"
 pub const CHECK_FLAGS: &[&str] = &["-e", "--variant", "--json", "--format"];
 
 /// Options of `fmt`.
-pub const FMT_FLAGS: &[&str] = &["--variant"];
+pub const FMT_FLAGS: &[&str] = &["--variant", "--json", "--format"];
 
 /// Options of `ast`.
-pub const AST_FLAGS: &[&str] = &["--from", "--to"];
+pub const AST_FLAGS: &[&str] = &["--from", "--to", "--json", "--format"];
+
+/// Options of `schema`.
+pub const SCHEMA_FLAGS: &[&str] = &["--json", "--format"];
 
 /// How the command line is interpreted.
 #[derive(Debug, Clone, PartialEq, Eq)]

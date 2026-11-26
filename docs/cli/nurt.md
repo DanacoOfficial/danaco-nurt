@@ -27,7 +27,7 @@ The options of a program (`--variant`, `--preview`, `--json`, `--format`, `--lim
 
 ## Output and colour
 
-The result is written to the standard output in the requested format. Errors of the command line are written to the standard error output. Colours follow `output.color` (`NURT_COLOR`): with `auto`, only a terminal is coloured and the variable `NO_COLOR` disables colours. The banner of an interactive session is written only to an interactive terminal.
+The result is written to the standard output in the requested format. Errors of the command line are written to the standard error output. A language error of `check`, `fmt`, `ast` and `schema` is written to the standard error output as text, except with an explicit `--format json` or `--json`: then it is a JSON document on the standard output (`{"error": {...}}`, and `{"diagnostics": [], "error": {...}}` for `check`, as in `docs/reference/c-abi.md`), the standard error output stays empty and the exit code is the one the error has in the text form. Errors that are not language errors, such as an invalid option or an unreadable file, are always written to the standard error output as text. Colours follow `output.color` (`NURT_COLOR`): with `auto`, only a terminal is coloured and the variable `NO_COLOR` disables colours. The banner of an interactive session is written only to an interactive terminal.
 
 ## Build features
 
@@ -138,7 +138,7 @@ nurt check <file | -e program> [--variant a|b|c] [--json | --format F]
 | `file` | path or `-` | none | Program file; `-` is the standard input. |
 | `-e` | text | none | Program text given on the command line. |
 
-Result: `ok`, the number of corrections and the summary of the check; with `--json`, the check document. Errors: a language error is written to the standard error output.
+Result: `ok`, the number of corrections and the summary of the check; with `--json`, the check document. Errors: a language error is written to the standard error output; with `--json` or `--format json` it is the document `{"diagnostics": [], "error": {...}}` on the standard output, with the same exit code. The check reports the errors of the program that the run would report at the binding of its stages, among them `E_INVALID_VALUE` and `E_TYPE` for a literal compared with a field of a known type (`filter size > "abc"`), at the position of the literal.
 
 Example:
 
@@ -153,10 +153,10 @@ Prints a program in canonical form.
 Syntax:
 
 ```
-nurt fmt <file | -> [--variant a|b|c]
+nurt fmt <file | -> [--variant a|b|c] [--json | --format F]
 ```
 
-Result: the program text in the given variant, by default the configured variant.
+Result: the program text in the given variant, by default the configured variant. Errors: a language error is written as described in "Output and colour"; the successful result is the program text in every format.
 
 Example:
 
@@ -171,16 +171,17 @@ Converts a syntax tree between notations.
 Syntax:
 
 ```
-nurt ast [--from a|b|c|json] [--to json|cbor|a|b|c] <input | ->
+nurt ast [--from a|b|c|json] [--to json|cbor|a|b|c] [--json | --format F] <input | ->
 ```
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
 | `--from` | `a`, `b`, `c`, `json` | `json` | Notation of the input. |
 | `--to` | `json`, `cbor`, `a`, `b`, `c` | `json` | Notation of the output. |
+| `--json`, `--format` | flag, `text`, `json`, `markdown`, `compact` | `text` | With `json`, a language error is a JSON document. |
 | `input` | text or `-` | none | The input text; `-` is the standard input. |
 
-Result: the tree in the requested notation; `cbor` is binary.
+Result: the tree in the requested notation; `cbor` is binary. The format only selects the form of a language error, as described in "Output and colour"; the notation of a successful result is selected by `--to`.
 
 Example:
 
@@ -195,10 +196,10 @@ Prints a published JSON Schema.
 Syntax:
 
 ```
-nurt schema ast|bound|report|request|config|tool
+nurt schema ast|bound|report|request|config|tool [--json | --format F]
 ```
 
-Errors: an unknown name is `E_UNKNOWN_VALUE` with the known names.
+Errors: an unknown name is `E_UNKNOWN_VALUE` with the known names; with `--json` or `--format json` it is written as a JSON document on the standard output, as described in "Output and colour".
 
 Example:
 

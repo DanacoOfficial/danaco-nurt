@@ -104,6 +104,129 @@ fn check_with_the_front_end_accepts_a_valid_program() {
     assert!(!stderr(&output).contains("E_UNSUPPORTED"));
 }
 
+const SIZE_AGAINST_TEXT: &str = "find \"/tmp\" |> filter size > \"abc\"";
+
+/// The document written to the standard output, and the exit code.
+fn json_outcome(args: &[&str], stdin: &str) -> (serde_json::Value, Option<i32>) {
+    let output = nurt(args, stdin);
+    assert_eq!(stderr(&output), "", "{args:?}");
+    (
+        serde_json::from_str(&stdout(&output)).unwrap(),
+        output.status.code(),
+    )
+}
+
+#[test]
+fn check_rejects_a_literal_that_is_not_a_value_of_the_field() {
+    let output = nurt(&["check", "-e", SIZE_AGAINST_TEXT], "");
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(stdout(&output), "");
+    assert!(stderr(&output).contains("E_INVALID_VALUE"));
+    assert!(stderr(&output).contains("invalid size `abc`"));
+}
+
+#[test]
+fn running_reports_the_error_of_check_before_it_reads_anything() {
+    let (checked, _) = json_outcome(&["check", "--json", "-e", SIZE_AGAINST_TEXT], "");
+    let (response, code) = json_outcome(&["exec", "--json", SIZE_AGAINST_TEXT], "");
+    assert_eq!(code, Some(1));
+    let error = &response["report"]["error"];
+    for member in ["code", "message", "found", "expected"] {
+        assert_eq!(error[member], checked["error"][member], "{member}");
+    }
+    assert_eq!(error["at"]["line"], checked["error"]["at"]["line"]);
+    assert_eq!(error["at"]["column"], checked["error"]["at"]["column"]);
+    assert_eq!(error["at"]["stage"], "1");
+}
+
+#[test]
+fn check_with_json_writes_a_language_error_as_a_document() {
+    let text = nurt(&["check", "-e", SIZE_AGAINST_TEXT], "");
+    let (document, code) =
+        json_outcome(&["check", "--format", "json", "-e", SIZE_AGAINST_TEXT], "");
+    assert_eq!(code, text.status.code());
+    assert_eq!(document["diagnostics"], serde_json::json!([]));
+    let error = &document["error"];
+    assert_eq!(error["code"], "E_INVALID_VALUE");
+    assert_eq!(error["expected"], serde_json::json!(["size"]));
+    assert_eq!(error["found"], "abc");
+    assert_eq!(error["at"]["line"], 1);
+    assert_eq!(error["at"]["column"], 30);
+    let (short, _) = json_outcome(&["check", "--json", "-e", SIZE_AGAINST_TEXT], "");
+    assert_eq!(short, document);
+}
+
+#[test]
+fn check_with_json_writes_a_syntax_error_as_a_document() {
+    let (document, code) = json_outcome(&["check", "--json", "-"], "find \"/srv\" |>\n");
+    assert_eq!(code, Some(1));
+    assert_eq!(document["diagnostics"], serde_json::json!([]));
+    assert!(document["error"]["code"].as_str().is_some());
+}
+
+#[test]
+fn check_with_json_writes_the_check_document_of_a_valid_program() {
+    let (document, code) = json_outcome(&["check", "--json", "-e", "find \"/srv\""], "");
+    assert_eq!(code, Some(0));
+    assert_eq!(document["effect"], "read");
+    assert!(document.get("error").is_none());
+}
+
+#[test]
+fn failures_that_are_not_language_errors_stay_on_the_error_output() {
+    let output = nurt(&["check", "--json", "/no/such/program.nurt"], "");
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(stdout(&output), "");
+    assert!(stderr(&output).contains("cannot read"));
+    let output = nurt(&["check", "--format", "xml", "-e", "find \"/srv\""], "");
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(stdout(&output), "");
+}
+
+#[test]
+fn fmt_ast_and_schema_with_json_write_a_language_error_as_a_document() {
+    let invalid = "find \"/srv\" |>\n";
+    let cases: [(&[&str], &str); 3] = [
+        (&["fmt", "--format", "json", "-"], invalid),
+        (&["ast", "--format", "json", "--from", "a", "-"], invalid),
+        (&["schema", "--json", "nothing"], ""),
+    ];
+    for (args, stdin) in cases {
+        let plain: Vec<&str> = args
+            .iter()
+            .copied()
+            .filter(|arg| !matches!(*arg, "--json" | "--format" | "json"))
+            .collect();
+        let text = nurt(&plain, stdin);
+        assert_eq!(stdout(&text), "", "{args:?}");
+        let (document, code) = json_outcome(args, stdin);
+        assert_eq!(code, text.status.code(), "{args:?}");
+        assert!(document["error"]["code"].as_str().is_some(), "{args:?}");
+        assert!(document.get("diagnostics").is_none(), "{args:?}");
+    }
+}
+
+#[test]
+fn fmt_ast_and_schema_with_json_keep_their_output_on_success() {
+    for (args, stdin) in [
+        (&["fmt", "--json", "-"][..], "find \"/srv\"\n"),
+        (
+            &["ast", "--json", "--from", "a", "-"][..],
+            "find \"/srv\"\n",
+        ),
+        (&["schema", "--format", "json", "request"][..], ""),
+    ] {
+        let plain: Vec<&str> = args
+            .iter()
+            .copied()
+            .filter(|arg| !matches!(*arg, "--json" | "--format" | "json"))
+            .collect();
+        let json = nurt(args, stdin);
+        assert_eq!(json.status.code(), Some(0), "{args:?}");
+        assert_eq!(stdout(&json), stdout(&nurt(&plain, stdin)), "{args:?}");
+    }
+}
+
 #[test]
 fn unavailable_subcommands_fail_with_a_message() {
     for args in [
