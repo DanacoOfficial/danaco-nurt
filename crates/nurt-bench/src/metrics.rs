@@ -239,11 +239,11 @@ impl RunMeasures {
                 _ => None,
             })
             .collect();
-        let description_tokens = groups
-            .iter()
-            .try_fold(header.tool.description_tokens?, |total, group| {
-                group.tokens.map(|tokens| total + tokens)
-            });
+        let description_tokens = header.tool.description_tokens.and_then(|core| {
+            groups.iter().try_fold(core, |total, group| {
+                group.tokens.map(|tokens| total.saturating_add(tokens))
+            })
+        });
         let nurt_calls: Vec<&NurtCall> =
             tools.iter().filter_map(|tool| tool.nurt.as_ref()).collect();
         let retries = tools.windows(2).filter(|pair| pair[0].is_error).count();
@@ -366,6 +366,42 @@ mod tests {
         assert_eq!(measures.description_tokens, Some(3));
         assert!(RunMeasures::from_events(&events[..3]).is_none());
         assert!(RunMeasures::from_events(&events[1..]).is_none());
+    }
+
+    #[test]
+    fn a_provider_without_token_counts_still_gives_measures() {
+        let mut uncounted = header(Condition::NurtGroups);
+        uncounted.tool.description_tokens = None;
+        let events = vec![
+            Event::Run(Box::new(uncounted)),
+            Event::Group(GroupEvent {
+                step: 1,
+                group: "git".into(),
+                chars: 100,
+                tokens: Some(30),
+            }),
+            oracle(&[]),
+            end_event(Outcome::Answered),
+        ];
+        let measures = RunMeasures::from_events(&events).unwrap();
+        assert_eq!(measures.description_tokens, None);
+        assert_eq!(measures.description_chars, 110);
+        assert!(measures.passed);
+
+        let mut partial = header(Condition::NurtGroups);
+        partial.tool.description_tokens = Some(3);
+        let events = vec![
+            Event::Run(Box::new(partial)),
+            Event::Group(GroupEvent {
+                step: 1,
+                group: "git".into(),
+                chars: 100,
+                tokens: None,
+            }),
+            end_event(Outcome::Answered),
+        ];
+        let measures = RunMeasures::from_events(&events).unwrap();
+        assert_eq!(measures.description_tokens, None);
     }
 
     #[test]
