@@ -1056,3 +1056,38 @@ fn corrupt_source_warns_not_fails() {
     );
     assert_eq!(SourceKind::Package.as_str(), "package");
 }
+
+#[cfg(unix)]
+#[test]
+fn find_versions_only_for_located_programs() {
+    let fixture = Fixture::new();
+    fixture.executable("/usr/bin/present");
+    let mut absent = program("absent", "system", "Not installed here.", &[]);
+    absent.version = Some("26.07".to_owned());
+    let mut present = program("present", "system", "Installed here.", &[]);
+    present.version = Some("1.0".to_owned());
+    let catalog = StaticSource::catalog(
+        "versions",
+        SourceData {
+            programs: vec![absent, present],
+            ..SourceData::default()
+        },
+    );
+    let setup = fixture.setup(vec![Arc::new(catalog)]);
+    let records = run(
+        &setup,
+        &fixture.ctx(),
+        args(
+            FIND,
+            &[
+                ("name", texts(&["absent", "present"])),
+                ("versions", Value::Bool(true)),
+            ],
+        ),
+    )
+    .unwrap();
+    assert_eq!(field(&records[0], "found").as_deref(), Some("false"));
+    assert!(records[0].get("version").is_none());
+    assert!(records[0].get("version_source").is_none());
+    assert_eq!(field(&records[1], "version").as_deref(), Some("1.0"));
+}

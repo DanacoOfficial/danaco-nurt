@@ -766,15 +766,21 @@ impl HostEnv {
 
     /// Directories of `PATH` in resolution order, as host paths. Relative
     /// entries are dropped: they depend on the working directory, and
-    /// Windows never searches the current directory for this purpose.
+    /// Windows never searches the current directory for this purpose. A
+    /// directory whose name is not valid Unicode is kept with replacement
+    /// characters, so that it does not hide the other directories.
     #[must_use]
     pub fn path_dirs(&self) -> Vec<PathBuf> {
-        let Some(list) = self.var_text("PATH") else {
-            return Vec::new();
-        };
+        let list = self.var("PATH").map(OsStr::to_string_lossy);
         let mut dirs: Vec<PathBuf> = Vec::new();
-        for dir in self.split_paths(list) {
-            if self.is_absolute(&dir) && !dirs.contains(&dir) {
+        let mut keys: Vec<String> = Vec::new();
+        for dir in self.split_paths(list.as_deref().unwrap_or_default()) {
+            if !self.is_absolute(&dir) {
+                continue;
+            }
+            let key = self.name_key(dir.to_string_lossy().trim_end_matches(['/', '\\']));
+            if !keys.contains(&key) {
+                keys.push(key);
                 dirs.push(dir);
             }
         }
@@ -1239,5 +1245,40 @@ impl fmt::Debug for SourceRegistry {
         f.debug_list()
             .entries(self.sources.iter().map(|source| source.id().as_str()))
             .finish()
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::os::unix::ffi::OsStringExt;
+
+    use super::*;
+
+    #[test]
+    fn path_dirs_keep_other_directories_when_one_name_is_not_unicode() {
+        let list = OsString::from_vec(b"/usr/bin:/opt/\xff:/bin".to_vec());
+        let env = HostEnv::new(Os::Linux).with_var("PATH", list);
+        let dirs = env.path_dirs();
+        assert!(dirs.contains(&PathBuf::from("/usr/bin")));
+        assert!(dirs.contains(&PathBuf::from("/bin")));
+        assert_eq!(dirs.len(), 3);
+    }
+
+    #[test]
+    fn path_dirs_of_windows_ignore_case_and_trailing_separator() {
+        let list = "C:\\Windows\\System32;c:\\WINDOWS\\system32\\;;relative\\bin;D:\\Tools";
+        let env = HostEnv::new(Os::Windows).with_var("Path", list);
+        assert_eq!(
+            env.path_dirs(),
+            vec![
+                PathBuf::from("C:\\Windows\\System32"),
+                PathBuf::from("D:\\Tools")
+            ]
+        );
+        let linux = HostEnv::new(Os::Linux).with_var("PATH", "/usr/bin:/usr/bin/:/USR/bin");
+        assert_eq!(
+            linux.path_dirs(),
+            vec![PathBuf::from("/usr/bin"), PathBuf::from("/USR/bin")]
+        );
     }
 }
