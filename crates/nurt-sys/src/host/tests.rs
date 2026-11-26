@@ -412,7 +412,12 @@ fn param(
 fn catalog_signatures_match_frozen() {
     use crate::{accounts, environment, open_files};
 
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog/system.toml");
+    let path = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../catalog/system.toml");
     let catalog: toml::Value = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let expected = [
         (

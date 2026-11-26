@@ -797,7 +797,12 @@ mod tests {
     ];
 
     fn catalog() -> BTreeMap<String, CatalogParams> {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog");
+        let dir = std::path::Path::new(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join("../../catalog");
         let mut commands = BTreeMap::new();
         for file in std::fs::read_dir(&dir).unwrap() {
             let path = file.unwrap().path();

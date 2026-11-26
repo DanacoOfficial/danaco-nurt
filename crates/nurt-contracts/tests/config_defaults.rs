@@ -25,9 +25,13 @@ use serde_json::{Map, Value};
 const SCHEMA_ID: &str = "https://nurt.danaco-group.pl/schema/nurt-config-1.schema.json";
 
 fn spec(path: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../spec")
-        .join(path)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec")
+    .join(path)
 }
 
 fn read(path: &Path) -> String {

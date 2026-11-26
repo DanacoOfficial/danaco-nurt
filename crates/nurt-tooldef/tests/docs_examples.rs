@@ -30,7 +30,12 @@ struct Example {
 }
 
 fn guide_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/integrators")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../docs/integrators")
 }
 
 fn file_name(name: &str) -> String {

@@ -286,7 +286,12 @@ mod tests {
 
     #[test]
     fn tree_hash_matches_the_golden_files() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/ast");
+        let dir = std::path::Path::new(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join("../../spec/golden/ast");
         let mut checked = 0;
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();

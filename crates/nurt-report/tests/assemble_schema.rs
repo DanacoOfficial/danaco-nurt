@@ -458,7 +458,12 @@ fn validator_rejects_reports_that_break_the_schema() {
 #[test]
 fn published_golden_reports_pass_the_validator() {
     let schema = Schema::report();
-    let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/report");
+    let directory = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/report");
     let mut checked = 0;
     for entry in std::fs::read_dir(&directory).unwrap() {
         let path = entry.unwrap().path();

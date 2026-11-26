@@ -30,7 +30,12 @@ const LARGE_RUNS: u32 = 5;
 
 /// Golden task programs joined until the text reaches `bytes`.
 fn corpus(bytes: usize) -> String {
-    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/ast");
+    let directory = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/ast");
     let mut paths: Vec<_> = fs::read_dir(directory)
         .unwrap()
         .map(|entry| entry.unwrap().path())

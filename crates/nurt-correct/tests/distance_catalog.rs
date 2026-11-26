@@ -29,7 +29,12 @@ struct Command {
 }
 
 fn catalog() -> Vec<Command> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../catalog");
+    let root = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../catalog");
     let mut files: Vec<PathBuf> = std::fs::read_dir(&root)
         .unwrap()
         .map(|entry| entry.unwrap().path())

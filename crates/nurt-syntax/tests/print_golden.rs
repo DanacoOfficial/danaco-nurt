@@ -29,7 +29,12 @@ const MIN_PROGRAM_TREES: usize = 64;
 const C_TREE_SUFFIX: &str = ".c.json";
 
 fn workspace() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn spec_trees(prefixes: &[&str]) -> Vec<PathBuf> {

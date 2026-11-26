@@ -812,7 +812,12 @@ fn stage_is_a_source_of_log_events() {
 
 /// Parameters of `logs` in `catalog/system.toml` as `(name, type, default)`.
 fn catalog_parameters() -> Vec<(String, String, Option<String>)> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/system.toml");
+    let path = format!(
+        "{}/../../catalog/system.toml",
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+    );
     let catalog = fs::read_to_string(path).unwrap();
     let mut command = String::new();
     let mut in_param = false;

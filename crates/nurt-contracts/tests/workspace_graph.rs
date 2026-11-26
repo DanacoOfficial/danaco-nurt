@@ -21,7 +21,12 @@ const VENDORED: [&str; 1] = ["jaq-json"];
 const FACADE: &str = "nurt";
 
 fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn read_toml(path: &Path) -> Table {

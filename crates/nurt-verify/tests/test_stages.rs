@@ -25,9 +25,13 @@ fn go_report() -> String {
 }
 
 fn corpus(relative: &str) -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/data/test")
-        .join(relative);
+    let path = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/data/test")
+    .join(relative);
     std::fs::read_to_string(path).unwrap()
 }
 

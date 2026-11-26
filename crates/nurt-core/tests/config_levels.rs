@@ -21,7 +21,12 @@ use tempfile::TempDir;
 const LEVELS: [ConfigLevel; 7] = ConfigLevel::ALL;
 
 fn golden_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/config")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/config")
 }
 
 fn journal_values(level: usize) -> (String, String, String) {

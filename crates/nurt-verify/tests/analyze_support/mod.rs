@@ -90,9 +90,13 @@ pub(crate) fn fixture_path() -> PathBuf {
 }
 
 fn compile_fixture() -> PathBuf {
-    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("examples")
-        .join(format!("{FIXTURE}.rs"));
+    let source = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("examples")
+    .join(format!("{FIXTURE}.rs"));
     let dir = std::env::temp_dir().join(format!("nurt-verify-{FIXTURE}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let output = dir.join(format!("{FIXTURE}{}", std::env::consts::EXE_SUFFIX));

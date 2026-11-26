@@ -356,6 +356,15 @@ fn channel_carries_no_expiry(channel: Channel) {
     }
     fixture.clock.advance(AGE + support::MINUTE);
     fixture.journal.sweep().expect("expired entries are swept");
+    // A purge is the event that writes the audit log of retention.
+    let purged = support::small_write(&fixture, 3);
+    fixture
+        .journal
+        .purge(&nurt_contracts::journal::PurgeRequest {
+            volume: None,
+            selector: nurt_contracts::journal::PurgeSelector::Ids(vec![purged]),
+        })
+        .expect("entry is purged");
     let deadlines = deadlines(&fixture);
     assert_no_expiry(channel.name(), &fixture.channel(channel), &deadlines);
 }

@@ -106,7 +106,12 @@ fn commands() -> nurt_contracts::error::Result<CommandTable> {
 fn main() -> ExitCode {
     let args = Args::parse(std::env::args().skip(1));
     let mut out = std::io::stdout().lock();
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scenarios");
+    let root = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("scenarios");
     let (scenarios, errors) = match load_all(&root) {
         Ok(loaded) => loaded,
         Err(error) => {

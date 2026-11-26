@@ -15,7 +15,12 @@ use std::path::{Path, PathBuf};
 use nurt_contracts::spec::{CATALOG_SCHEMA_ID, CatalogFile};
 
 fn schema_path() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/schemas/nurt-catalog-1.schema.json")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/schemas/nurt-catalog-1.schema.json")
 }
 
 fn generated_schema() -> serde_json::Value {

@@ -37,9 +37,13 @@ const OPERATIONS: usize = 5;
 const MIN_FILES: usize = 300;
 
 fn data_dir(relative: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d5")
-        .join(relative)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5")
+    .join(relative)
 }
 
 fn corpus() -> Vec<(String, String)> {

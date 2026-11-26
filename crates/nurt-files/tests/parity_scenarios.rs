@@ -19,7 +19,12 @@ const SOURCE_CASES: u32 = 293;
 const SOURCE_FILES: usize = 17;
 
 fn data_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/parity")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/parity")
 }
 
 fn model() -> Model {

@@ -21,7 +21,12 @@ const KEYWORDS: [&str; 8] = ["let", "true", "false", "null", "and", "or", "not",
 
 /// Directory of the golden surface trees of the specification.
 pub(crate) fn golden_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/ast")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/ast")
 }
 
 /// Golden programs of variant A whose file name starts with one of

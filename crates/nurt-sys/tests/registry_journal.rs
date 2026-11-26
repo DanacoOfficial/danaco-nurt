@@ -755,7 +755,12 @@ fn subtree_document_matches_fixture() {
     let snapshot = provider.snapshot(&example.to_provider_key()).unwrap();
     let actual: serde_json::Value = serde_json::from_slice(&snapshot.subtree.unwrap()).unwrap();
     let fixture = std::fs::read(
-        StdPath::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/registry/subtree.json"),
+        StdPath::new(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join("tests/fixtures/registry/subtree.json"),
     )
     .unwrap();
     let expected: serde_json::Value = serde_json::from_slice(&fixture).unwrap();
@@ -764,7 +769,12 @@ fn subtree_document_matches_fixture() {
 
 #[test]
 fn catalog_signatures_match_frozen() {
-    let root = StdPath::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog");
+    let root = StdPath::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../catalog");
     let core = command_table(&root.join("core.toml"));
     let write = &core["write"];
     let value_type = param(write, "value_type");

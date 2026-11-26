@@ -428,7 +428,12 @@ fn catalog() -> &'static BTreeMap<String, StageSpec> {
     CATALOG.get_or_init(|| {
         let mut commands = BTreeMap::new();
         for name in ["journal.toml", "core.toml"] {
-            let file = format!("{}/../../catalog/{name}", env!("CARGO_MANIFEST_DIR"));
+            let file = format!(
+                "{}/../../catalog/{name}",
+                std::env::var("CARGO_MANIFEST_DIR")
+                    .as_deref()
+                    .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+            );
             let text = std::fs::read_to_string(file).unwrap();
             let document: toml_edit::DocumentMut = text.parse().unwrap();
             let mut catalog: CatalogFile =

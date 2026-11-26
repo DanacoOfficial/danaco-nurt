@@ -44,7 +44,12 @@ const COMMON_SETS: [(&str, ScriptLanguage); 2] = [
 type Start = (u32, u32);
 
 fn data_directory() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join(DATA_DIRECTORY)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join(DATA_DIRECTORY)
 }
 
 /// Starts of the statements and list parts found by the grammar.

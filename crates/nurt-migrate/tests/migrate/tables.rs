@@ -94,9 +94,13 @@ fn run_with(source: &str, language: ScriptLanguage, translator: &TableTranslator
 
 fn table(file: &str) -> String {
     read(
-        &Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(TABLE_DIRECTORY)
-            .join(file),
+        &Path::new(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join(TABLE_DIRECTORY)
+        .join(file),
     )
 }
 

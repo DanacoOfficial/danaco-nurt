@@ -157,7 +157,12 @@ fn assert_only_named_arguments(document: &AstDocument) {
 }
 
 fn reference_texts() -> Vec<String> {
-    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d1/golden/ast/c");
+    let directory = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d1/golden/ast/c");
     let mut paths: Vec<_> = fs::read_dir(&directory)
         .expect("variant C golden directory exists")
         .map(|entry| entry.expect("directory entry").path())

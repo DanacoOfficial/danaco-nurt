@@ -22,9 +22,13 @@ use nurt_syslog::eventlog::xml::{EventXml, EventXmlError};
 use nurt_syslog::eventlog::xpath::{XPathFilter, literal};
 
 fn fixture(name: &str) -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/eventlog")
-        .join(name);
+    let path = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/fixtures/eventlog")
+    .join(name);
     fs::read_to_string(path).unwrap()
 }
 

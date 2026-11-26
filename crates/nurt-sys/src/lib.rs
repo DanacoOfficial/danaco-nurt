@@ -92,7 +92,12 @@ mod tests {
     fn catalog_commands() -> BTreeSet<String> {
         let mut names = BTreeSet::new();
         for file in CATALOG_FILES {
-            let path = format!("{}/../../catalog/{file}", env!("CARGO_MANIFEST_DIR"));
+            let path = format!(
+                "{}/../../catalog/{file}",
+                std::env::var("CARGO_MANIFEST_DIR")
+                    .as_deref()
+                    .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+            );
             let table: toml::Table = std::fs::read_to_string(path).unwrap().parse().unwrap();
             for command in table["command"].as_array().unwrap() {
                 let name = command["name"].as_str().unwrap();

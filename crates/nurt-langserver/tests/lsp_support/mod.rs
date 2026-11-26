@@ -30,7 +30,12 @@ const CATALOG_INDEX: &str = "_index.toml";
 
 /// Root of the workspace.
 pub(crate) fn workspace() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 /// Paths of the catalog files of the workspace, without the index, in name

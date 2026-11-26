@@ -43,7 +43,12 @@ const KNOWN_DIFFERENCES: &[(&str, &str)] = &[
 ];
 
 fn data_file() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/query/differential.json")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/query/differential.json")
 }
 
 fn load() -> Json {

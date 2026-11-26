@@ -472,6 +472,18 @@ impl DtdEntities {
         };
         let mut rest = replacement;
         while let Some(index) = rest.find('&') {
+            if matches!(context, Context::Text)
+                && let Some(section) = rest[..index].rfind("<![CDATA[")
+                && !rest[section..index].contains("]]>")
+            {
+                // The ampersand is data inside a CDATA section, not a reference.
+                let end = rest[index..]
+                    .find("]]>")
+                    .map_or(rest.len(), |close| index + close + 3);
+                expansion.source.push_str(&rest[..end]);
+                rest = &rest[end..];
+                continue;
+            }
             expansion.source.push_str(&rest[..index]);
             rest = &rest[index..];
             let Some((reference, len)) = reference_at(rest) else {

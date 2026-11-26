@@ -69,7 +69,12 @@ const AUDIENCE_SUFFIX: &str = "built for people and AI agents";
 const PLATFORMS_SENTENCE: &str = "One tool for Linux, Windows and macOS.";
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn lowercase_first(text: &str) -> String {

@@ -40,7 +40,12 @@ const REQUIRED: [&str; 7] = [
 type CorpusFile = (PathBuf, Vec<Value>);
 
 fn corpus_files() -> Result<Vec<CorpusFile>, String> {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/d1/correction/bash");
+    let dir = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d1/correction/bash");
     let mut paths = Vec::new();
     for entry in fs::read_dir(&dir).map_err(|error| format!("{}: {error}", dir.display()))? {
         let path = entry.map_err(|error| error.to_string())?.path();

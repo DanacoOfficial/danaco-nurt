@@ -322,7 +322,12 @@ mod tests {
     }
 
     fn frozen_entry() -> toml::Value {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/admin.toml");
+        let path = format!(
+            "{}/../../catalog/admin.toml",
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+        );
         let text = std::fs::read_to_string(path).unwrap();
         let catalog: toml::Table = text.parse().unwrap();
         catalog["command"]

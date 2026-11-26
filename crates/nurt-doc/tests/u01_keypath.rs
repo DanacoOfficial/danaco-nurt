@@ -27,8 +27,12 @@ const PROPERTY_CASES: u32 = 2_000;
 const PROPERTY_SEED: u64 = 0x6E75_7274;
 
 fn vectors() -> DocumentMut {
-    let path =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/data/u01/keypath.toml");
+    let path = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/data/u01/keypath.toml");
     std::fs::read_to_string(&path)
         .expect("vector file is readable")
         .parse()

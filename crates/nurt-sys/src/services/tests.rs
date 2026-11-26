@@ -731,7 +731,12 @@ type Param = (
 
 #[test]
 fn catalog_signatures_match_frozen() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/admin.toml");
+    let path = format!(
+        "{}/../../catalog/admin.toml",
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+    );
     let catalog: toml::Table = std::fs::read_to_string(path).unwrap().parse().unwrap();
     let wait: &[Param] = &[(PARAM_WAIT, "duration", Some("10s"), None)];
     let expected: [(&str, &[Param], &str, &str); 5] = [

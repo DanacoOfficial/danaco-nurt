@@ -17,7 +17,12 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 fn workspace() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn golden(directory: &str) -> Vec<PathBuf> {

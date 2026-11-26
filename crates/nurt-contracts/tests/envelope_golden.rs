@@ -19,7 +19,12 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 fn spec_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec")
 }
 
 fn read_json(path: &Path) -> Value {

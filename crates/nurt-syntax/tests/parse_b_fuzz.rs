@@ -81,7 +81,12 @@ impl Sequence {
 }
 
 fn golden_programs() -> Vec<Vec<char>> {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d1/golden/ast/b");
+    let dir = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d1/golden/ast/b");
     let mut paths: Vec<_> = fs::read_dir(dir)
         .unwrap()
         .map(|entry| entry.unwrap().path())

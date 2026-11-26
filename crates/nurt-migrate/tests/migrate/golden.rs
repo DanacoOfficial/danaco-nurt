@@ -22,7 +22,12 @@ const REGENERATE_VARIABLE: &str = "NURT_REGENERATE_MIGRATE";
 const DATA_DIRECTORY: &str = "../../tests/d1/migrate";
 
 pub(crate) fn data_directory() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join(DATA_DIRECTORY)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join(DATA_DIRECTORY)
 }
 
 fn regenerate() -> bool {

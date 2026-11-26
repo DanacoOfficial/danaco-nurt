@@ -37,9 +37,13 @@ pub(crate) const ROOT: &str = "/repo";
 
 /// Directory of the corpus of one kind (`symbols`, `outline`, `local`).
 pub(crate) fn corpus_dir(kind: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d5/code")
-        .join(kind)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/code")
+    .join(kind)
 }
 
 /// Text form of a symbol in the corpus snapshots: indentation by depth,

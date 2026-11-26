@@ -1029,7 +1029,12 @@ fn launchd_rejects_labels_that_are_not_labels() {
 
 #[test]
 fn launchd_stage_spec_external_marks_launchctl_x() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/admin.toml");
+    let path = format!(
+        "{}/../../catalog/admin.toml",
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+    );
     let catalog: toml::Table = std::fs::read_to_string(path).unwrap().parse().unwrap();
     let commands = catalog["command"].as_array().unwrap();
     for name in ["services", "start", "restart", "enable", "disable"] {

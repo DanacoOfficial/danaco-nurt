@@ -17,10 +17,14 @@ use super::{Bench, view};
 use crate::iface::{OutputView, ShowMode};
 
 fn corpus_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("data")
-        .join("output")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests")
+    .join("data")
+    .join("output")
 }
 
 fn text(value: &Value) -> Option<String> {

@@ -698,7 +698,12 @@ mod tests {
     fn implementations_that_do_not_start_are_errors() {
         let options = RunOptions {
             command: "no-such-program-of-the-suite".to_owned(),
-            cases: Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance"),
+            cases: Path::new(
+                std::env::var("CARGO_MANIFEST_DIR")
+                    .as_deref()
+                    .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+            )
+            .join("../../conformance"),
             filters: Vec::new(),
             kinds: Vec::new(),
             jobs: 1,

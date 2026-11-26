@@ -18,7 +18,12 @@ const POLISH_LETTERS: [char; 18] = [
 ];
 
 fn repository_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn files(directory: &Path, out: &mut Vec<PathBuf>) {
@@ -37,7 +42,10 @@ fn files(directory: &Path, out: &mut Vec<PathBuf>) {
 /// Files checked: the modules, the integration tests and the corpus of the
 /// lexical rules. This file is left out because it spells the patterns.
 fn checked_files() -> Vec<PathBuf> {
-    let crate_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let crate_root = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_owned()),
+    );
     let mut out = Vec::new();
     files(&crate_root.join("src/normalize"), &mut out);
     files(&crate_root.join("src/lexical"), &mut out);

@@ -49,7 +49,12 @@ const TABLE_TEXT: &str = include_str!("../tables/powershell.toml");
 const HABITS_TEXT: &str = include_str!("../tables/habits_powershell.toml");
 
 fn workspace() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn corpus_files() -> Loaded<Vec<PathBuf>> {

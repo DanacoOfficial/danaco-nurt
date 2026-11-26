@@ -386,7 +386,12 @@ fn macos_argument_area_decodes_arguments() {
 
 #[test]
 fn catalog_signatures_match_frozen() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/system.toml");
+    let path = format!(
+        "{}/../../catalog/system.toml",
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+    );
     let catalog: CatalogFile = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     // Name, type and default of a parameter.
     type Param = (&'static str, &'static str, Option<&'static str>);

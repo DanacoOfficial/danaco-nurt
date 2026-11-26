@@ -35,9 +35,13 @@ const NANOS_PER_SECOND: i64 = 1_000_000_000;
 const TEN_MINUTES: Duration = Duration::from_secs(600);
 
 fn golden(name: &str) -> BoundDocument {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../spec/golden/bound")
-        .join(format!("{name}.json"));
+    let path = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/bound")
+    .join(format!("{name}.json"));
     let text = std::fs::read_to_string(path).unwrap();
     serde_json::from_str(&text).unwrap()
 }
