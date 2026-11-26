@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! HTML renderer for the Markdown tree.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::markdown::{Block, Document, Inline, plain_text};
 
@@ -90,6 +90,9 @@ struct Renderer<'a> {
     out: String,
     headings: Vec<HeadingRef>,
     used_ids: HashMap<String, usize>,
+    /// Every identifier handed out; the suffix of a repeated heading must not
+    /// repeat the identifier of another heading.
+    taken_ids: HashSet<String>,
 }
 
 /// Renders a document to HTML.
@@ -103,6 +106,7 @@ pub fn render(document: &Document, rewrite: &dyn Fn(&str) -> String) -> Rendered
         out: String::new(),
         headings: Vec::new(),
         used_ids: HashMap::new(),
+        taken_ids: HashSet::new(),
     };
     renderer.blocks(&document.blocks, false);
     Rendered {
@@ -118,11 +122,16 @@ impl Renderer<'_> {
             slug => slug,
         };
         let count = self.used_ids.entry(base.clone()).or_insert(0);
-        *count += 1;
-        if *count == 1 {
-            base
-        } else {
-            format!("{base}-{count}")
+        loop {
+            *count += 1;
+            let id = if *count == 1 {
+                base.clone()
+            } else {
+                format!("{base}-{count}")
+            };
+            if self.taken_ids.insert(id.clone()) {
+                return id;
+            }
         }
     }
 
@@ -371,6 +380,25 @@ mod tests {
     fn slugifies_heading_text() {
         assert_eq!(slugify("Input and output"), "input-and-output");
         assert_eq!(slugify("`git.status` (1)"), "git-status-1");
+    }
+
+    #[test]
+    fn a_suffixed_id_never_repeats_the_id_of_another_heading() {
+        let ids = |source: &str| -> Vec<String> {
+            html_of(source)
+                .headings
+                .into_iter()
+                .map(|heading| heading.id)
+                .collect()
+        };
+        assert_eq!(
+            ids("## Same\n\n## Same 2\n\n## Same\n"),
+            ["same", "same-2", "same-3"]
+        );
+        assert_eq!(
+            ids("## Same\n\n## Same\n\n## Same 2\n"),
+            ["same", "same-2", "same-2-2"]
+        );
     }
 
     #[test]
