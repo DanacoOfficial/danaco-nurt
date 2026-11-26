@@ -5,6 +5,7 @@ Documentation=https://github.com/DanacoOfficial/nurt
 [Service]
 Type=simple
 ExecStart=/opt/nurt/bin/nurt service run
+Environment="HOME=/home/dev"
 Restart=on-failure
 RestartSec=5
 

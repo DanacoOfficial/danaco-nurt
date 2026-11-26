@@ -405,18 +405,73 @@ fn unsupported() -> Error {
     )
 }
 
-/// Program file of the running process, canonical and without the Windows
-/// verbatim prefix.
+/// Program file the service manager starts: the path the running process was
+/// invoked by, when it names the running program, otherwise the canonical
+/// file of the process, without the Windows verbatim prefix.
+///
+/// The canonical file lies in the directory of one version, so a service
+/// started from it keeps running that version after the program is updated
+/// through a link such as a `current` directory or a `bin` link.
 fn current_executable() -> Result<PathBuf, Error> {
     let executable = std::env::current_exe()
         .and_then(fs::canonicalize)
+        .map(strip_verbatim)
         .map_err(|error| {
             Error::new(
                 ErrorCode::Io,
                 format!("cannot locate the running program: {error}"),
             )
         })?;
-    Ok(strip_verbatim(executable))
+    #[cfg(unix)]
+    if let Some(invoked) = invoked_executable(&executable) {
+        return Ok(invoked);
+    }
+    Ok(executable)
+}
+
+/// The path of this process's invocation, see [`invocation_path`].
+#[cfg(unix)]
+fn invoked_executable(running: &Path) -> Option<PathBuf> {
+    let name = std::env::args_os().next()?;
+    let cwd = std::env::current_dir().ok()?;
+    let search = std::env::var_os("PATH");
+    invocation_path(Path::new(&name), search.as_deref(), &cwd, running)
+}
+
+/// Absolute path, with links kept, by which the program `running` was
+/// started as `name`: a name with a directory part is taken relative to
+/// `cwd`, a bare name is looked up in `search` like a shell does. `None`
+/// when the name is not found, contains `..` (which would depend on links) or
+/// names another file than `running`.
+#[cfg(unix)]
+fn invocation_path(
+    name: &Path,
+    search: Option<&std::ffi::OsStr>,
+    cwd: &Path,
+    running: &Path,
+) -> Option<PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::Component;
+
+    let found = if name.components().count() > 1 {
+        cwd.join(name)
+    } else {
+        std::env::split_paths(search?)
+            .map(|dir| cwd.join(dir).join(name))
+            .find(|file| {
+                fs::metadata(file)
+                    .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+            })?
+    };
+    let mut clean = PathBuf::new();
+    for component in found.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => return None,
+            other => clean.push(other),
+        }
+    }
+    (fs::canonicalize(&clean).ok()? == running).then_some(clean)
 }
 
 fn strip_verbatim(path: PathBuf) -> PathBuf {
@@ -518,6 +573,116 @@ pub(crate) fn remove_files(files: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    mod invocation {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+
+        use super::*;
+
+        /// A program in a version directory, reached through a link in `bin`.
+        struct Release {
+            _dir: tempfile::TempDir,
+            base: PathBuf,
+            running: PathBuf,
+        }
+
+        fn release() -> Release {
+            let dir = tempfile::tempdir().unwrap();
+            let base = fs::canonicalize(dir.path()).unwrap();
+            let version = base.join("releases/1.0");
+            fs::create_dir_all(&version).unwrap();
+            fs::create_dir_all(base.join("bin")).unwrap();
+            let program = version.join("nurt");
+            fs::write(&program, "program").unwrap();
+            fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+            symlink(&program, base.join("bin/nurt")).unwrap();
+            Release {
+                _dir: dir,
+                running: program,
+                base,
+            }
+        }
+
+        #[test]
+        fn a_bare_name_is_looked_up_in_the_search_path_and_keeps_the_link() {
+            let release = release();
+            let search =
+                std::env::join_paths([release.base.join("missing"), release.base.join("bin")])
+                    .unwrap();
+            assert_eq!(
+                invocation_path(
+                    Path::new("nurt"),
+                    Some(&search),
+                    Path::new("/"),
+                    &release.running
+                ),
+                Some(release.base.join("bin/nurt"))
+            );
+        }
+
+        #[test]
+        fn a_name_with_a_directory_part_is_taken_from_the_working_directory() {
+            let release = release();
+            let bin = release.base.join("bin");
+            for (name, cwd) in [
+                ("bin/nurt", release.base.clone()),
+                ("./nurt", bin.clone()),
+                (release.base.join("bin/nurt").to_str().unwrap(), bin),
+            ] {
+                assert_eq!(
+                    invocation_path(Path::new(name), None, &cwd, &release.running),
+                    Some(release.base.join("bin/nurt")),
+                    "{name}"
+                );
+            }
+        }
+
+        #[test]
+        fn a_path_that_does_not_name_the_running_program_is_refused() {
+            let release = release();
+            let other = release.base.join("bin/other");
+            fs::write(&other, "another program").unwrap();
+            fs::set_permissions(&other, fs::Permissions::from_mode(0o755)).unwrap();
+            let search = release.base.join("bin");
+            let search = search.as_os_str();
+            let cwd = release.base.as_path();
+            assert_eq!(
+                invocation_path(Path::new("other"), Some(search), cwd, &release.running),
+                None
+            );
+            assert_eq!(
+                invocation_path(Path::new("absent"), Some(search), cwd, &release.running),
+                None
+            );
+            assert_eq!(
+                invocation_path(Path::new("bin/../bin/nurt"), None, cwd, &release.running),
+                None
+            );
+            assert_eq!(
+                invocation_path(Path::new("nurt"), None, cwd, &release.running),
+                None
+            );
+        }
+
+        #[test]
+        fn a_file_without_execute_permission_is_skipped_in_the_search_path() {
+            let release = release();
+            let plain = release.base.join("plain");
+            fs::create_dir_all(&plain).unwrap();
+            fs::write(plain.join("nurt"), "not executable").unwrap();
+            let search = std::env::join_paths([plain, release.base.join("bin")]).unwrap();
+            assert_eq!(
+                invocation_path(
+                    Path::new("nurt"),
+                    Some(&search),
+                    &release.base,
+                    &release.running
+                ),
+                Some(release.base.join("bin/nurt"))
+            );
+        }
+    }
 
     #[test]
     fn uninstall_removes_only_manifest_files() {

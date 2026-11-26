@@ -19,6 +19,7 @@ use crate::integrations;
 use crate::output;
 use crate::repl;
 use crate::text;
+use crate::tool_definition::{self, ToolOptions};
 
 /// Runs the subcommand `name` with the arguments that follow it.
 ///
@@ -335,6 +336,17 @@ fn convert_tree(
 }
 
 fn schema(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {
+    if let [name, options @ ..] = args
+        && name == "tool"
+        && !options.is_empty()
+        && !selects_error_format_only(options)
+    {
+        let options = ToolOptions::parse(options)?;
+        let context = Context::open(io.terminal, source)?;
+        let definition = tool_definition::render(&context.engine, &options)?;
+        writeln!(io.out, "{definition}")?;
+        return Ok(exit::SUCCESS);
+    }
     let (flags, words) = args::parse_flags(args, SCHEMA_FLAGS, true)?;
     let name = single(
         "schema",
@@ -343,6 +355,28 @@ fn schema(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result
     )?;
     let outcome = print_schema(&name, io, source);
     json_errors(outcome, flags.format, false, io)
+}
+
+/// Whether the options after `schema tool` only choose the form of an error
+/// (`--json`, `--format json` or `--format text`); any other option asks for
+/// a rendered tool definition, whose `--format` names the definition format.
+fn selects_error_format_only(options: &[String]) -> bool {
+    let mut words = options.iter().map(String::as_str);
+    while let Some(word) = words.next() {
+        let value = match word.split_once('=') {
+            Some(("--format", value)) => value,
+            _ if word == "--json" => continue,
+            _ if word == "--format" => match words.next() {
+                Some(value) => value,
+                None => return false,
+            },
+            _ => return false,
+        };
+        if value != "json" && value != "text" {
+            return false;
+        }
+    }
+    true
 }
 
 fn print_schema(name: &str, io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {

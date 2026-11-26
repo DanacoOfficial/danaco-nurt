@@ -109,6 +109,39 @@ fn script_mode_drops_the_strict_mode_of_the_shell_and_names_the_stop_rule() {
 }
 
 #[test]
+fn script_mode_accepts_a_strict_mode_line_that_stands_alone() {
+    for strict in [
+        "set -e",
+        "set -u",
+        "set -o pipefail",
+        "set -eu",
+        "set -euo pipefail",
+        "set -e -u -o pipefail",
+    ] {
+        let translation = translate_with(strict, &SCRIPT)
+            .expect("a script")
+            .unwrap_or_else(|error| panic!("{strict}: {error:?}"));
+        assert_eq!(translation.text(), "", "{strict}");
+        assert!(
+            translation.assumptions.iter().any(|a| a.rule == "B22"),
+            "{strict}"
+        );
+    }
+    for other in ["set -x", "set -o noclobber", "set -eo", "set -e foo", "set"] {
+        let error = translate_with(other, &SCRIPT)
+            .expect("a script")
+            .expect_err(other);
+        assert_eq!(error.code(), ErrorCode::Uncorrectable, "{other}");
+    }
+}
+
+#[test]
+fn a_strict_mode_line_alone_is_no_program_outside_a_script() {
+    let outcome = translate_with("set -euo pipefail", &TranslateContext::default());
+    assert!(outcome.is_none_or(|result| result.is_err()));
+}
+
+#[test]
 fn script_mode_keeps_the_directory_of_cd_for_later_lines() {
     let input = "cd /srv/app\nmake\nmake install";
     let translation = translate_with(input, &SCRIPT)

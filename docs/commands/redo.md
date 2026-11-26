@@ -19,7 +19,8 @@ redo [<id>]
 ## Description
 
 `redo` applies again the changes reversed by an undo. `id` is the number of
-the undo operation, as listed by `history`; without it the latest available
+the undo operation, as listed by `history` (written `op: N` or `operation: N`,
+it is corrected to `id: N` as for `undo`); without it the latest available
 undo of the session (of the account without a session) is selected.
 
 The undo operation is reversed as a whole. For an undo of one file

@@ -34,6 +34,7 @@ struct State {
     calls: Arc<Mutex<Vec<String>>>,
     linger: Arc<AtomicBool>,
     policy: LingerPolicy,
+    unit_path: Vec<String>,
 }
 
 impl State {
@@ -92,6 +93,11 @@ impl Systemd {
     fn get_default_target(&self) -> String {
         DEFAULT_TARGET.to_owned()
     }
+
+    #[zbus(property)]
+    fn unit_path(&self) -> Vec<String> {
+        self.0.unit_path.clone()
+    }
 }
 
 fn job_path() -> OwnedObjectPath {
@@ -138,13 +144,20 @@ pub(crate) struct FakeSystem {
 }
 
 impl FakeSystem {
-    /// Server whose `SetUserLinger` follows the policy.
+    /// Server whose `SetUserLinger` follows the policy and whose manager
+    /// reports no `UnitPath`.
     pub(crate) fn start(policy: LingerPolicy) -> Self {
+        Self::start_with_unit_path(policy, Vec::new())
+    }
+
+    /// Server whose manager reports `unit_path` as its `UnitPath`.
+    pub(crate) fn start_with_unit_path(policy: LingerPolicy, unit_path: Vec<String>) -> Self {
         Self {
             state: State {
                 calls: Arc::default(),
                 linger: Arc::default(),
                 policy,
+                unit_path,
             },
             servers: Mutex::new(Vec::new()),
         }

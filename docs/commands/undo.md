@@ -36,6 +36,10 @@ An undo of an undo is applied again with `redo`; the default selection never
 picks an undo. Operations of other sessions inside a `to` range are skipped
 and listed in `skipped` unless `all_sessions` is true.
 
+Reports name the operation `op`, while the parameter that selects it is `id`.
+A call written `undo op: N` or `undo operation: N` is corrected to `undo id: N`
+(rule L06) and runs; the correction is listed in the result.
+
 Before anything is written, every item of the whole selection is compared
 with the state the journal recorded after the operation: content hash, kind,
 size and permission bits, absence of deleted entries, the content preserved

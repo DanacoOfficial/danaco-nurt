@@ -191,20 +191,24 @@ nurt ast --from a --to json 'find "/srv"'
 
 ## `schema`
 
-Prints a published JSON Schema.
+Prints a published JSON Schema, or the definition of the `nurt` tool for an AI platform.
 
 Syntax:
 
 ```
-nurt schema ast|bound|report|request|config|tool [--json | --format F]
+nurt schema ast|bound|report|request|config|tool [--json | --format json|text]
+nurt schema tool [--format <format>] [--language en|pl] [--groups core|all|<group>,<group>...]
 ```
 
-Errors: an unknown name is `E_UNKNOWN_VALUE` with the known names; with `--json` or `--format json` it is written as a JSON document on the standard output, as described in "Output and colour".
+`nurt schema tool` without options prints the published schema `nurt-tool/1`, the schema of the neutral definition. With at least one option other than `--json`, `--format json` or `--format text` it prints the definition of the tool, rendered from the description texts and the revision of the command catalog of the installed engine: `--format` selects the platform (`anthropic`, `openai`, `openai-strict`, `openai-responses`, `openai-responses-strict`, `gemini`, `mcp` or `json-schema`; default `json-schema`), `--language` the language of the description (default `en`) and `--groups` the command groups described besides the core group (default `core`). The formats, the arguments of the tool and the rules per platform are in [Tool definition](../integrators/tool-definition.md).
 
-Example:
+Errors: an unknown name, format, language or group is `E_UNKNOWN_VALUE` with the known values; an unknown option or a missing value is a usage error. With `--json` or `--format json` an unknown name is written as a JSON document on the standard output, as described in "Output and colour".
+
+Examples:
 
 ```
 nurt schema report
+nurt schema tool --format anthropic
 ```
 
 ## `catalog`

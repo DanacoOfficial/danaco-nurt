@@ -47,9 +47,13 @@ the manifest.
 
 | System | Mode `user` | Mode `system` |
 |---|---|---|
-| Linux | systemd user unit `nurt-service.service` in `$XDG_CONFIG_HOME/systemd/user` | systemd unit `/etc/systemd/system/nurt-service.service` with `User=` and `Group=` of the service account |
+| Linux | systemd user unit `nurt-service.service` in the unit directory of the user manager | systemd unit `/etc/systemd/system/nurt-service.service` with `User=` and `Group=` of the service account |
 | macOS | launchd agent `nurt.service` in `$HOME/Library/LaunchAgents` | launchd daemon `/Library/LaunchDaemons/nurt.service.plist` with `UserName` |
 | Windows | task `Nurt Service` of the Task Scheduler, started at logon | service `NurtService` of the service control manager, started at boot |
+
+In mode `user` on Linux the unit file is written to the directory that the systemd user manager itself reads: the first directory `user` inside a directory `systemd` of the property `UnitPath` of the manager (read over D-Bus) outside `/etc`, `/run`, `/usr` and `/lib`, the roots of the directories of the system, of the runtime and of the vendors. The manager may run with another `HOME` than the account that runs `install`, and a unit written under the `HOME` of the installing session would be invisible to it (`NoSuchUnit`). Only when the manager cannot be reached or reports no such directory, the unit is written to `$XDG_CONFIG_HOME/systemd/user` (by default `$HOME/.config/systemd/user`). The unit carries `Environment="HOME=<home>"`, and `Environment="XDG_STATE_HOME=<dir>"` when the installing session sets it, so that the service uses the state directory its clients use, whatever `HOME` the manager has.
+
+`ExecStart` names the program by the path it was started with (`nurt` found in `PATH`, a relative path made absolute, an absolute path), with links kept, as long as that path leads to the running program; a link such as `current` or `bin/nurt` thus keeps pointing at the installed version after an update. Only when the path cannot be determined or leads to another file, the resolved file of the running process is written. The path stays in the manifest as `executable`.
 
 Without `--mode` the mode is chosen from the host. An account without
 administrator rights gets mode `user`. With administrator rights, a host
