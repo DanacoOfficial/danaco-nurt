@@ -336,6 +336,17 @@ mod tests {
     }
 
     #[test]
+    fn rewrites_prefixes_with_multibyte_characters() {
+        let mut rewrites = UrlRewrites::default();
+        rewrites.add("https://example.com/", "zażółć:");
+        assert_eq!(
+            rewrites.rewrite("zażółć:żółw", Direction::Fetch),
+            "https://example.com/żółw"
+        );
+        assert_eq!(rewrites.rewrite("zażół", Direction::Fetch), "zażół");
+    }
+
+    #[test]
     fn push_rules_apply_only_to_pushes_and_take_precedence() {
         let mut rewrites = UrlRewrites::default();
         rewrites.add("https://mirror.example/", "https://origin.example/");

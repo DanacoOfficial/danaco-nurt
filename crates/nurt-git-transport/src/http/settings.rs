@@ -640,6 +640,18 @@ mod tests {
     }
 
     #[test]
+    fn matches_hosts_against_no_proxy_lists() {
+        assert!(no_proxy_matches(
+            "localhost, .example.com",
+            "git.example.com"
+        ));
+        assert!(no_proxy_matches("example.com", "EXAMPLE.com"));
+        assert!(no_proxy_matches("::1", "[::1]"));
+        assert!(!no_proxy_matches("example.com", "notexample.com"));
+        assert!(!no_proxy_matches("", "example.com"));
+    }
+
+    #[test]
     fn parses_sizes_with_suffixes() {
         assert_eq!(parse_size("3k"), Some(3072));
         assert_eq!(parse_size("1G"), Some(1 << 30));
