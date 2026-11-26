@@ -315,6 +315,7 @@ impl Native {
             .name(RESPONSE_THREAD_NAME.to_owned())
             .spawn(move || sink(Message::Response(guarded(|| finish(&waiting, None)))))
             .map_err(|error| {
+                handle.cancel();
                 Failure::internal(format!("cannot start the response thread: {error}"))
             })?;
         Ok(handle)
