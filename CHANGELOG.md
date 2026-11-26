@@ -84,7 +84,7 @@ their own version numbers, described in the specification.
   fits in `max_bytes` (new parameter, key `output.max_bytes`, 4096 bytes, `0`
   is no limit), filled with the errors found, the end of standard error, the
   end of standard output and the beginning; a line longer than 400 characters
-  is cut and ends with `… [+N znaków]`. `dedupe` is on by default and also
+  is cut and ends with `… [+N characters]`. `dedupe` is on by default and also
   collapses lines that differ only in numbers, versions or the names after
   `Compiling` and similar words. After exit code 0, `show: auto` returns the
   last 5 lines and the field `digest` instead of the first 20 and last 40
