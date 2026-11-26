@@ -43,6 +43,18 @@ class RepoHygieneArgumentsTest(unittest.TestCase):
         result = self.run_script("--only", "no-such-check")
         self.assertEqual(result.returncode, 2)
 
+    def test_rejects_an_additional_pattern_that_is_not_a_regular_expression(self):
+        result = subprocess.run(
+            ["bash", str(REPO_HYGIENE), "--only", "external-pattern"],
+            capture_output=True,
+            text=True,
+            env=support.clean_environment(NURT_HYGIENE_PATTERNS="secret(unclosed"),
+            check=False,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("not a valid extended regular expression", result.stderr)
+        self.assertNotIn("secret", result.stderr)
+
     def test_lists_the_checks(self):
         result = self.run_script("--list")
         self.assertEqual(result.returncode, 0)
