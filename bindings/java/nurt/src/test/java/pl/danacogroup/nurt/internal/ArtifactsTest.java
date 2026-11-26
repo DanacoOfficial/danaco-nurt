@@ -5,6 +5,7 @@ package pl.danacogroup.nurt.internal;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -130,6 +131,26 @@ class ArtifactsTest {
         NurtCallException error = assertThrows(NurtCallException.class,
                 () -> Artifacts.locate(null, null, null, loader, "nurt-unsigned", true));
         assertEquals(NurtCallException.Kind.IO, error.kind());
+    }
+
+    @Test
+    void discardRemovesTheExtractedFileAndItsDirectory() throws IOException {
+        Path directory = Files.createDirectory(temp.resolve("nurt-extracted"));
+        Path target = Files.write(directory.resolve("nurt"), CONTENT);
+        Artifacts.discard(target);
+        assertFalse(Files.exists(target));
+        assertFalse(Files.exists(directory));
+        Artifacts.discard(target);
+    }
+
+    @Test
+    void discardKeepsADirectoryThatHoldsOtherFiles() throws IOException {
+        Path directory = Files.createDirectory(temp.resolve("nurt-shared"));
+        Path target = Files.write(directory.resolve("nurt"), CONTENT);
+        Path other = Files.write(directory.resolve("other"), CONTENT);
+        Artifacts.discard(target);
+        assertFalse(Files.exists(target));
+        assertTrue(Files.exists(other));
     }
 
     @Test

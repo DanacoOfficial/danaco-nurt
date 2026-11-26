@@ -101,6 +101,17 @@ class RequestResponseTest {
     }
 
     @Test
+    void stageIsReadFromThePositionOfTheError() {
+        NurtResponse response = NurtResponse.parse("{\"nurt\":\"1.0\",\"report\":{\"status\":\"failed\",\"error\":{"
+                + "\"code\":\"E_SYNTAX\",\"message\":\"unclosed list\","
+                + "\"at\":{\"line\":1,\"column\":2,\"length\":3,\"stage\":\"5a\"}}}}");
+        assertEquals(Optional.of("5a"), response.error().orElseThrow().stage());
+        NurtResponse without = NurtResponse.parse("{\"nurt\":\"1.0\",\"report\":{\"status\":\"failed\",\"error\":{"
+                + "\"code\":\"E_SYNTAX\",\"message\":\"m\"}}}");
+        assertTrue(without.error().orElseThrow().stage().isEmpty());
+    }
+
+    @Test
     void eventExposesTypeSequenceAndJob() {
         NurtEvent event = new NurtEvent(Json.object(Json.parse("{\"t\":\"job.progress\",\"seq\":4,\"id\":\"j-2\"}")));
         assertEquals("job.progress", event.kind());

@@ -230,6 +230,20 @@ public final class ProcessBackend implements Backend {
         return new NurtCallException(kind, "nurt serve: " + message + " (code " + code + ")");
     }
 
+    /**
+     * Response of a cancelled {@code run}: the server answers it with the error
+     * {@code NURT_E_CANCELLED} whose {@code data.response} is the response of
+     * the cancelled execution.
+     *
+     * @param error the error object
+     * @return the response, or {@code null} for another error
+     */
+    static Map<String, Object> cancelledResponse(Object error) {
+        boolean cancelled = Json.member(error, "code") instanceof Number number
+                && number.longValue() == APPLICATION_ERROR_BASE - CallStatus.CANCELLED.code();
+        return cancelled ? Json.object(Json.member(Json.member(error, "data"), "response")) : null;
+    }
+
     static Long requestId(Object value) {
         if (value instanceof Long number && number >= 0) {
             return number;
@@ -510,7 +524,12 @@ public final class ProcessBackend implements Backend {
             }
             Object error = Json.member(message, "error");
             if (error != null) {
-                target.future.completeExceptionally(rpcError(error));
+                Map<String, Object> cancelled = cancelledResponse(error);
+                if (cancelled != null) {
+                    target.future.complete(cancelled);
+                } else {
+                    target.future.completeExceptionally(rpcError(error));
+                }
             } else {
                 target.future.complete(Json.member(message, "result"));
             }

@@ -199,13 +199,33 @@ public final class Artifacts {
             if (executable && !target.toFile().setExecutable(true, true)) {
                 throw new IOException("cannot mark " + target + " executable");
             }
-            target.toFile().deleteOnExit();
-            directory.toFile().deleteOnExit();
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> discard(target), "nurt-artifact-cleanup"));
             EXTRACTED.put(resource, target);
             return Optional.of(target);
         } catch (IOException e) {
             throw new NurtCallException(NurtCallException.Kind.IO,
                     "cannot extract bundled " + resource + ": " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Removes an extracted artifact and the temporary directory that held it;
+     * the file goes first, because a directory is removed only when empty.
+     * A file that cannot be removed, for example a library still loaded on
+     * Windows, is left in place.
+     *
+     * @param target the extracted file
+     */
+    static void discard(Path target) {
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException e) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(target.getParent());
+        } catch (IOException e) {
+            return;
         }
     }
 
