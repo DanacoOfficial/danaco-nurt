@@ -44,7 +44,7 @@ impl Pair {
         local.set_ref("refs/remotes/origin/main", base);
         local.config(&format!(
             "[remote \"origin\"]\n\turl = {}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n[user]\n\tname = Puller\n\temail = puller@example.com\n[branch \"main\"]\n\tremote = origin\n\tmerge = refs/heads/main\n",
-            remote.root().display()
+            remote.root().display().to_string().replace('\\', "\\\\")
         ));
         local.checkout(tip);
         Self {

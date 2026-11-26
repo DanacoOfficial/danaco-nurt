@@ -408,7 +408,8 @@ impl Environment {
 fn linked(url: &str) -> Fixture {
     let local = Fixture::new();
     local.config(&format!(
-        "[remote \"origin\"]\n\turl = {url}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n"
+        "[remote \"origin\"]\n\turl = {}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n",
+        url.replace('\\', "\\\\")
     ));
     local
 }
