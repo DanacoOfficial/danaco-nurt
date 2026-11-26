@@ -85,7 +85,7 @@ impl Membership {
 
     /// Ends every process of the cgroup, including processes that left the
     /// process group.
-    pub(super) fn kill(&self) {
+    pub(super) fn kill(&self, _root: Option<libc::pid_t>) {
         if let Some(cgroup) = &self.cgroup {
             cgroup.kill();
         }
@@ -425,7 +425,7 @@ mod tests {
         assert_eq!(membership.join_descriptor(), None);
         assert_eq!(membership.limit_hit(), None);
         assert_eq!(membership.cpu_time(), None);
-        membership.kill();
+        membership.kill(None);
         membership.release();
     }
 }

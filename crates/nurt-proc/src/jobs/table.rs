@@ -13,7 +13,15 @@
 //! | `<id>.lock` | locked by the process that supervises the job |
 //! | `<id>.control/` | control requests to the supervising process and replies |
 //! | `host.lock` | locked by the detached supervisor |
-//! | `inbox/` | start requests to the detached supervisor and replies |
+//! | `inbox/` | start requests `<name>.request.json` to the detached supervisor, its replies `<name>.reply.json` and, when the client cancels its call after the supervisor took the request, the cancel notice `<name>.cancel.json` |
+//!
+//! The supervisor owns a start request once it has removed the file. From
+//! then on the client can no longer withdraw the request, so it writes the
+//! cancel notice with the name of the request; the supervisor cancels the
+//! preparation of the run (change detection scan, spool, start of the program)
+//! and answers the request with the error of the cancellation. After the
+//! reply the client removes a notice that is left. A program that has started
+//! is cancelled by a control request instead.
 //!
 //! Files are replaced atomically by renaming a complete temporary file, so
 //! readers in other processes never see a partial file and need no lock. A

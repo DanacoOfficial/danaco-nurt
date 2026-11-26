@@ -121,6 +121,37 @@ fn describes_one_file() {
 }
 
 #[test]
+fn the_etag_follows_the_content_of_the_file() {
+    let test = home();
+    let path = abs("/home/user/notes.txt");
+    let etag_of = |test: &TestContext| {
+        run(test, &call(&["/home/user/notes.txt"], &[]))
+            .remove(0)
+            .etag
+            .expect("an existing file has an etag")
+    };
+    let first = etag_of(&test);
+    assert_eq!(
+        etag_of(&test),
+        first,
+        "the etag of unchanged content is stable"
+    );
+    // The etag is made of the size and the modification time: a write of
+    // the same size changes it through the time, a write of another size
+    // through the size.
+    let same_size = NOTES.to_ascii_uppercase();
+    assert_eq!(same_size.len(), NOTES.len());
+    test.clock().advance(std::time::Duration::from_secs(5));
+    test.fs().write_file(&path, &same_size).unwrap();
+    let second = etag_of(&test);
+    assert_ne!(second, first, "the etag did not change with a later write");
+    test.fs().write_file(&path, b"longer content\n").unwrap();
+    let third = etag_of(&test);
+    assert_ne!(third, second, "the etag did not change with the size");
+    assert_ne!(third, first);
+}
+
+#[test]
 fn reports_a_missing_path_without_an_error() {
     // The example program is `info "/home/user/notes.txt" "/home/user/draft.txt"`.
     let test = home();

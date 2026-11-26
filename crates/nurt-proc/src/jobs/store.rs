@@ -4,6 +4,7 @@
 //! Operations on jobs used by the commands `jobs`, `stop`, `suspend`,
 //! `resume`, `retry` and `remove`.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
@@ -251,7 +252,7 @@ impl<'a> JobStore<'a> {
                 ),
             ));
         };
-        request.spawn.env = input.env;
+        request.spawn.env = Arc::from(input.env);
         request.spawn.stdin = input.stdin;
         if let Some(timeout) = timeout {
             request.spawn.limits.timeout = Some(timeout);

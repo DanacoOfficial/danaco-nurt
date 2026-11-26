@@ -130,13 +130,16 @@ impl Report {
             .count()
     }
 
-    /// Status in the vocabulary of the scenarios.
+    /// Status in the vocabulary of the scenarios. A program that failed
+    /// without applying anything is `failed`; only a run that applied a part
+    /// of its effect and reverted it is `rolled_back`.
     fn status_word(&self) -> &'static str {
         match self.status.as_str() {
             STATUS_PLANNED => "previewed",
             STATUS_OK if self.notable.iter().any(|code| code == "unchanged") => "unchanged",
             STATUS_OK => "applied",
-            _ => "rolled_back",
+            STATUS_ROLLED_BACK => "rolled_back",
+            _ => "failed",
         }
     }
 }
@@ -349,21 +352,15 @@ fn navigate(value: Json, rest: &[Seg]) -> Json {
 }
 
 /// Error codes of the previous implementation and the codes of the contract
-/// that stand for them.
+/// that stand for them. `E_ARGUMENT` stands for the three codes the scenarios
+/// observe for argument errors; another code must be added here together
+/// with the scenario that needs it.
 const ERROR_ALIASES: [(&str, &[&str]); 4] = [
     ("E_RANGE", &["E_OUT_OF_RANGE"]),
     ("E_EXPECT", &["E_ASSERT"]),
     (
         "E_ARGUMENT",
-        &[
-            "E_ARG",
-            "E_ARITY",
-            "E_MISSING_PARAM",
-            "E_INVALID_VALUE",
-            "E_PARAM_CONFLICT",
-            "E_TYPE",
-            "E_UNKNOWN_VALUE",
-        ],
+        &["E_ARG", "E_INVALID_VALUE", "E_MISSING_PARAM"],
     ),
     (
         "E_SYNTAX",
@@ -447,9 +444,16 @@ pub(crate) fn check_field(
         Comparison::Value if field == "notable" && expected.is_string() => {
             contains(&actual, expected)
         }
-        Comparison::Value => same(expected, &actual),
+        // An omitted member equals an empty expectation only when the
+        // record that would hold it exists.
+        Comparison::Value => {
+            same(expected, &actual)
+                && !(actual.is_null() && !expected.is_null() && parent_missing(report, field))
+        }
         Comparison::Contains => contains(&actual, expected),
-        Comparison::Excludes => !contains(&actual, expected),
+        // A field that does not exist excludes nothing; a misspelled path
+        // must not pass.
+        Comparison::Excludes => !actual.is_null() && !contains(&actual, expected),
     };
     if ok {
         Ok(())
@@ -462,6 +466,14 @@ pub(crate) fn check_field(
         }
         Err(Ok(message))
     }
+}
+
+/// Whether the record or object that holds the last member of `field` does
+/// not exist in the report.
+fn parent_missing(report: &Report, field: &str) -> bool {
+    field
+        .rsplit_once('.')
+        .is_some_and(|(parent, _)| resolve(report, parent).is_ok_and(|value| value.is_null()))
 }
 
 fn error_code_matches(expected: &Json, actual: &Json) -> bool {

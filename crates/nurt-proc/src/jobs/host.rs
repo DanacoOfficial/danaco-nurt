@@ -15,7 +15,7 @@ use nurt_contracts::stage::ExecCtx;
 use serde::{Deserialize, Serialize};
 
 use super::SupervisorCommand;
-use super::control::{self, ControlAction, request_name, request_order, withdraw};
+use super::control::{self, request_name, request_order, withdraw};
 use super::events::{self, OutputEvents};
 use super::record::with_elapsed;
 use super::runner::{self, Launch, POLL_INTERVAL};
@@ -32,6 +32,36 @@ const RELAUNCH_AFTER: Duration = Duration::from_secs(3);
 
 const REQUEST_SUFFIX: &str = ".request.json";
 const REPLY_SUFFIX: &str = ".reply.json";
+const CANCEL_SUFFIX: &str = ".cancel.json";
+
+/// Notice of a client that cancelled its call after the supervisor took the
+/// start request and before the program started. The supervisor cancels the
+/// preparation of the run named by the file.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct CancelNotice {
+    /// Format version.
+    pub(crate) protocol: u32,
+}
+
+/// Removes the cancel notices left in the inbox by clients that ended before
+/// they removed them. A supervisor that has just taken the lock serves no
+/// request yet, so every notice it finds belongs to a request that was
+/// answered or lost.
+pub(crate) fn remove_cancel_notices(table: &JobTable) {
+    let Ok(entries) = fs::read_dir(table.inbox()) else {
+        return;
+    };
+    for entry in entries.filter_map(|entry| entry.ok()) {
+        if entry.file_name().to_string_lossy().ends_with(CANCEL_SUFFIX) {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
+}
+
+/// Path of the cancel notice of start request `name`.
+pub(crate) fn cancel_notice_path(table: &JobTable, name: &str) -> std::path::PathBuf {
+    table.inbox().join(format!("{name}{CANCEL_SUFFIX}"))
+}
 
 /// Runs supervised by threads of this process.
 pub(crate) struct LocalHost {
@@ -161,6 +191,8 @@ impl DetachedHost {
         let name = request_name();
         let request_path = table.inbox().join(format!("{name}{REQUEST_SUFFIX}"));
         let reply_path = table.inbox().join(format!("{name}{REPLY_SUFFIX}"));
+        let notice_path = cancel_notice_path(table, &name);
+        let mut notified = false;
         let request = StartRequest {
             protocol: PROTOCOL,
             command_name: launch.command_name,
@@ -176,12 +208,18 @@ impl DetachedHost {
         loop {
             if let Some(reply) = read_json::<StartReply>(&reply_path)? {
                 remove_file(&reply_path)?;
+                if notified {
+                    remove_file(&notice_path)?;
+                }
                 return match reply {
                     StartReply::Started(id) => Ok(id),
                     StartReply::Failed(error) => Err(error),
                 };
             }
             if unanswered {
+                if notified {
+                    remove_file(&notice_path)?;
+                }
                 return Err(Error::new(
                     ErrorCode::Spawn,
                     "the job supervisor took the run and did not answer; read the jobs with `jobs`",
@@ -201,6 +239,13 @@ impl DetachedHost {
                 // program is not abandoned: `follow` cancels it when the
                 // call is cancelled.
                 answer_by = Some(Instant::now() + START_TIMEOUT);
+            }
+            if answer_by.is_some() && cancelled.is_err() && !notified {
+                // The supervisor owns the request, so the withdrawal cannot
+                // stop it; the notice reaches the preparation of the run
+                // before the program exists.
+                write_json(&notice_path, &CancelNotice { protocol: PROTOCOL }, true)?;
+                notified = true;
             }
             if let Some(deadline) = answer_by {
                 unanswered = Instant::now() >= deadline || !table.host_running()?;
@@ -266,7 +311,7 @@ impl DetachedHost {
             }
             if !cancel_sent && ctx.cancel().is_cancelled() {
                 cancel_sent = true;
-                control::post(table, id, ControlAction::Cancel)?;
+                control::cancel(table, id)?;
             }
             std::thread::sleep(POLL_INTERVAL);
         }

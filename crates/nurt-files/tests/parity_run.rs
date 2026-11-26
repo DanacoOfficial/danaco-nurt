@@ -492,10 +492,60 @@ fn a_missing_member_equals_only_an_empty_expectation() {
 }
 
 #[test]
+fn a_field_of_a_record_that_does_not_exist_is_not_an_empty_value() {
+    let none = Report {
+        status: "ok".into(),
+        ..Report::default()
+    };
+    // No entry exists, so its member is not "empty": it is absent.
+    assert!(check_field(&none, "entries[0].path", Comparison::Value, &json!("")).is_err());
+    assert!(check_field(&none, "entries[0].size", Comparison::Value, &json!(0)).is_err());
+    assert!(check_field(&none, "effect.change.added", Comparison::Value, &json!(0)).is_err());
+    let one = report_with(vec![Item::Record("entry".into(), json!({ "path": "a" }))]);
+    // The entry exists and omits the member, as the report omits empty ones.
+    assert_eq!(
+        check_field(&one, "entries[0].size", Comparison::Value, &json!(0)),
+        Ok(())
+    );
+    assert!(check_field(&one, "entries[0].size", Comparison::Value, &json!(5)).is_err());
+}
+
+#[test]
+fn excluding_a_value_needs_a_field_that_exists() {
+    let listing = report_with(vec![Item::Record("entry".into(), json!({ "path": "a" }))]);
+    assert_eq!(
+        check_field(
+            &listing,
+            "entries[*].path",
+            Comparison::Excludes,
+            &json!("b")
+        ),
+        Ok(())
+    );
+    assert!(
+        check_field(
+            &listing,
+            "entries[*].path",
+            Comparison::Excludes,
+            &json!("a")
+        )
+        .is_err()
+    );
+    let failed = Report {
+        status: "failed".into(),
+        ..Report::default()
+    };
+    assert!(
+        check_field(&failed, "error.code", Comparison::Excludes, &json!("E_X")).is_err(),
+        "no error exists, so a misspelled path cannot pass"
+    );
+}
+
+#[test]
 fn error_codes_of_the_previous_vocabulary_stand_only_for_their_listed_codes() {
     let failed = Report {
         status: "failed".into(),
-        error: Some(json!({ "code": "E_TYPE", "message": "wrong type" })),
+        error: Some(json!({ "code": "E_INVALID_VALUE", "message": "bad value" })),
         ..Report::default()
     };
     assert_eq!(
@@ -507,6 +557,28 @@ fn error_codes_of_the_previous_vocabulary_stand_only_for_their_listed_codes() {
         ),
         Ok(())
     );
+    for other in [
+        "E_TYPE",
+        "E_ARITY",
+        "E_PARAM_CONFLICT",
+        "E_UNKNOWN_VALUE",
+        "E_IO",
+    ] {
+        let other = Report {
+            error: Some(json!({ "code": other, "message": "other" })),
+            ..failed.clone()
+        };
+        assert!(
+            check_field(
+                &other,
+                "error.code",
+                Comparison::Value,
+                &json!("E_ARGUMENT")
+            )
+            .is_err(),
+            "{other:?} stands for E_ARGUMENT"
+        );
+    }
     assert!(check_field(&failed, "error.code", Comparison::Value, &json!("E_RANGE")).is_err());
     assert!(check_field(&failed, "error.code", Comparison::Value, &json!("E_SYNTAX")).is_err());
 }
@@ -519,6 +591,15 @@ fn comparisons_follow_the_report_conventions() {
     assert!(same(&json!(false), &Json::Null));
     assert!(same(&json!(2), &json!(["a", "b"])));
     assert!(same(&json!(1), &json!(1.0)));
+    assert_failed_report_comparisons();
+    let listing = report_with(vec![Item::Record(
+        "entry".into(),
+        json!({ "path": "src/a.ts" }),
+    )]);
+    assert_listing_comparisons(listing);
+}
+
+fn assert_failed_report_comparisons() {
     let failed = Report {
         status: "failed".into(),
         error: Some(json!({ "code": "E_OUT_OF_RANGE", "message": "line 99 is past the end" })),
@@ -539,19 +620,29 @@ fn comparisons_follow_the_report_conventions() {
         ),
         Ok(())
     );
-    assert_eq!(
-        check_field(
-            &failed,
-            "effect.status",
-            Comparison::Value,
-            &json!("rolled_back")
-        ),
-        Ok(())
-    );
-    let listing = report_with(vec![Item::Record(
-        "entry".into(),
-        json!({ "path": "src/a.ts" }),
-    )]);
+}
+
+#[test]
+fn a_failure_without_a_rollback_is_not_a_rollback() {
+    let failed = Report {
+        status: "failed".into(),
+        error: Some(json!({ "code": "E_OUT_OF_RANGE", "message": "line 99 is past the end" })),
+        ..Report::default()
+    };
+    let status = |report: &Report, word: &str| {
+        check_field(report, "effect.status", Comparison::Value, &json!(word))
+    };
+    assert_eq!(status(&failed, "failed"), Ok(()));
+    assert!(status(&failed, "rolled_back").is_err());
+    let reverted = Report {
+        status: "rolled_back".into(),
+        ..failed.clone()
+    };
+    assert_eq!(status(&reverted, "rolled_back"), Ok(()));
+    assert!(status(&reverted, "failed").is_err());
+}
+
+fn assert_listing_comparisons(listing: Report) {
     assert_eq!(
         check_field(
             &listing,
