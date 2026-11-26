@@ -135,7 +135,7 @@ impl Bound {
             self.halt(Stop::Entries);
             return true;
         }
-        count % CHECK_INTERVAL == 0 && self.check()
+        count.is_multiple_of(CHECK_INTERVAL) && self.check()
     }
 }
 
@@ -277,6 +277,22 @@ struct Queue {
     active: usize,
 }
 
+/// A directory taken from the queue that is being listed. When the listing
+/// panics, the guard ends the directory with no subdirectories; otherwise the
+/// other threads would wait for it for ever.
+struct ActiveDirectory<'w, 'a> {
+    work: &'w Work<'a>,
+    listed: bool,
+}
+
+impl Drop for ActiveDirectory<'_, '_> {
+    fn drop(&mut self) {
+        if !self.listed {
+            self.work.done(Vec::new());
+        }
+    }
+}
+
 struct Work<'a> {
     fs: &'a dyn Fs,
     scope: Scope<'a>,
@@ -313,7 +329,13 @@ impl Work<'_> {
     fn run(&self) -> Scanned {
         let mut scanned = Scanned::default();
         while let Some((dir, volume)) = self.next() {
+            let mut active = ActiveDirectory {
+                work: self,
+                listed: false,
+            };
             let found = self.list(&dir, volume, &mut scanned);
+            active.listed = true;
+            drop(active);
             self.done(found);
         }
         scanned

@@ -178,7 +178,13 @@ impl Tracker {
             spec.preimage && run.preimage == PreimageMode::Auto && exact.is_none();
         let mut explicit_paths = absolute(&spec.preserve)?;
         explicit_paths.extend(exact.iter().flatten().cloned());
-        let explicit = files_under(fs, &explicit_paths, &ignore);
+        let listing = Bound::new(ScanLimits::UNLIMITED, deadline, ctx.cancel().clone());
+        let explicit = files_under(fs, &explicit_paths, &ignore, &listing);
+        match listing.stopped() {
+            Some(Stop::Cancelled) => return Err(cancelled(ctx)),
+            Some(_) => return Err(timed_out("while the files to keep were listed")),
+            None => {}
+        }
         let watched = if preimage_enabled {
             watched_files(&scanned.entries, scope, &run.preimage_exclude)
         } else {
@@ -290,8 +296,9 @@ fn roots(mode: TrackMode, watch: &[AbsPath], exact: Option<&[AbsPath]>) -> Vec<A
     roots
 }
 
-/// Regular files at or below `paths`.
-fn files_under(fs: &dyn Fs, paths: &[AbsPath], ignore: &[String]) -> Vec<Candidate> {
+/// Regular files at or below `paths`; the listing ends early when `bound`
+/// stops it, which the caller reads from the bound.
+fn files_under(fs: &dyn Fs, paths: &[AbsPath], ignore: &[String], bound: &Bound) -> Vec<Candidate> {
     let mut files: Vec<Candidate> = paths
         .iter()
         .flat_map(|path| {
@@ -302,7 +309,7 @@ fn files_under(fs: &dyn Fs, paths: &[AbsPath], ignore: &[String]) -> Vec<Candida
                     roots: &roots,
                     ignore,
                     hash: false,
-                    bound: None,
+                    bound: Some(bound),
                 },
             )
             .entries
