@@ -8,6 +8,7 @@
 
 mod behavior;
 mod binding;
+mod foreign_text;
 mod golden;
 mod language;
 mod mock;
