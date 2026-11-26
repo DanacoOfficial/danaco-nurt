@@ -977,9 +977,12 @@ fn code_action(
             command: Some(command.to_owned()),
         });
     }
-    let edit = item
-        .get("edit")
-        .and_then(|edit| workspace_change(edit, unit, text_of).ok());
+    // An action whose edit cannot be converted is left out: listed without
+    // its edit it would claim a fix that changes nothing.
+    let edit = match item.get("edit") {
+        Some(edit) => Some(workspace_change(edit, unit, text_of).ok()?),
+        None => None,
+    };
     Some(CodeActionInfo {
         title,
         kind: item.get("kind").and_then(Value::as_str).map(str::to_owned),
@@ -1215,6 +1218,15 @@ mod tests {
         assert!(full.preferred);
         assert_eq!(full.command.as_deref(), Some("cmd"));
         assert!(code_action(&json!({"command": "c"}), PositionUnit::Utf16, &no_text).is_none());
+    }
+
+    #[test]
+    fn an_action_with_an_edit_that_cannot_be_converted_is_left_out() {
+        let no_text = |_: &Path| None;
+        let action = json!({"title": "t", "edit": {"changes": {"untitled:1": [
+            {"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}}, "newText": "x"}
+        ]}}});
+        assert!(code_action(&action, PositionUnit::Utf16, &no_text).is_none());
     }
 
     #[test]
