@@ -103,6 +103,14 @@ class PackTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("NOTICE", result.stderr)
 
+    def test_library_is_packed_for_glibc_targets_only(self):
+        for target in ("x86_64-pc-windows-msvc", "aarch64-apple-darwin", "x86_64-unknown-linux-musl"):
+            result = self.pack(target, self.root / "out", "--library", str(self.library))
+            self.assertEqual(result.returncode, 1, target)
+            self.assertIn("glibc targets only", result.stderr)
+        result = self.pack("x86_64-unknown-linux-gnu", self.root / "out", "--library", str(self.library))
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_rejects_a_source_date_epoch_that_is_not_a_number(self):
         for value in ("yesterday", "-5", ""):
             environment = dict(os.environ, SOURCE_DATE_EPOCH=value)

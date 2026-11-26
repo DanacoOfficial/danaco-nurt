@@ -87,6 +87,10 @@ def collect(arguments):
             raise PackError(f"{source} does not exist")
         entries[text] = source
     if arguments.library is not None:
+        if not arguments.target.endswith("-unknown-linux-gnu"):
+            raise PackError(
+                f"--library is stored as libnurt.so.1 and belongs to glibc targets only, not {arguments.target}"
+            )
         header = arguments.root / HEADER
         if not header.is_file():
             raise PackError(f"{header} does not exist")
