@@ -3,4 +3,4 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 """Version of the package, equal to the version of Danaco Nurt."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

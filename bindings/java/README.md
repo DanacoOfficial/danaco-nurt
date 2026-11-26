@@ -13,7 +13,7 @@ The artifact `pl.danaco-group:nurt` runs `nurt serve --stdio` as a child process
 <dependency>
   <groupId>pl.danaco-group</groupId>
   <artifactId>nurt</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
 </dependency>
 ```
 

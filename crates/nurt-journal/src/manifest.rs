@@ -2057,7 +2057,6 @@ pub(crate) mod tests {
         assert!(!serde_json::to_string(&record).unwrap().contains("inline"));
     }
 
-
     #[cfg(unix)]
     #[test]
     fn tree_listing_reads_names_that_are_not_valid_unicode_by_their_bytes() {

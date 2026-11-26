@@ -1,6 +1,6 @@
 {
   "name": "nurt",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Command shell and language where every change can be undone",
   "keywords": [
     "nurt",
@@ -59,14 +59,14 @@
     "prepack": "node scripts/prepare-pack.mjs"
   },
   "optionalDependencies": {
-    "nurt-darwin-arm64": "0.1.0",
-    "nurt-darwin-x64": "0.1.0",
-    "nurt-linux-arm64-gnu": "0.1.0",
-    "nurt-linux-arm64-musl": "0.1.0",
-    "nurt-linux-x64-gnu": "0.1.0",
-    "nurt-linux-x64-musl": "0.1.0",
-    "nurt-win32-arm64": "0.1.0",
-    "nurt-win32-x64": "0.1.0"
+    "nurt-darwin-arm64": "0.1.1",
+    "nurt-darwin-x64": "0.1.1",
+    "nurt-linux-arm64-gnu": "0.1.1",
+    "nurt-linux-arm64-musl": "0.1.1",
+    "nurt-linux-x64-gnu": "0.1.1",
+    "nurt-linux-x64-musl": "0.1.1",
+    "nurt-win32-arm64": "0.1.1",
+    "nurt-win32-x64": "0.1.1"
   },
   "devDependencies": {
     "@types/node": "18.19.50",

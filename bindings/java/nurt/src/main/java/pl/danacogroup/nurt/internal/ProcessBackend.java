@@ -64,7 +64,7 @@ public final class ProcessBackend implements Backend {
     static final Duration SHUTDOWN_GRACE = Duration.ofSeconds(5);
 
     private static final String CLIENT_NAME = "pl.danaco-group:nurt";
-    private static final String CLIENT_VERSION = "0.1.0";
+    private static final String CLIENT_VERSION = "0.1.1";
 
     private final List<String> command;
     private final Map<String, String> environment;

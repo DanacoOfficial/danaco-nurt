@@ -12,7 +12,7 @@ import (
 
 // Version is the version of this module. It equals the version of the nurt
 // release the module is published with.
-const Version = "0.1.0"
+const Version = "0.1.1"
 
 // Backend selects how the client reaches Danaco Nurt.
 type Backend string

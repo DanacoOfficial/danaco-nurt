@@ -13,6 +13,8 @@ their own version numbers, described in the specification.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-26
+
 ### Security
 
 - The Git library `gix` and its sub-crates are updated to the 0.91 generation,
@@ -38,6 +40,26 @@ their own version numbers, described in the specification.
   through `macos-unifiedlogs` and `russh-util` (RUSTSEC-2026-0543), for which
   `deny.toml` records the reason.
 - The lock files of the fuzz targets are regenerated.
+
+### Fixed
+
+- The code review of 0.1.0 corrected the defects found in every crate of the
+  workspace, the bindings, the packaging and the documentation; the main ones:
+  - requests of `nurt serve` resolve relative paths against `options.base`;
+  - the journal of a volume shared by several accounts gives each operation
+    a number of its own, and history shows the entries of the account only;
+  - `check` reports the types of fields, `in`, arithmetic and the arguments of
+    functions;
+  - a corrected name of a changing command is offered as a candidate
+    (`E_AMBIGUOUS`) and is not applied by itself;
+  - paths that are not valid Unicode keep their native bytes beside their
+    display form in reports and journal records, and report values stay on
+    one line in the text views;
+  - `registry:` paths are accepted by the file commands on Windows;
+  - `nurt fmt` keeps the comments of the program;
+  - `nurt schema tool` prints the tool definition for the platforms of the
+    integrators, as documented;
+  - `service install` writes the user unit where the service manager reads it.
 
 ### Changed
 
@@ -131,5 +153,6 @@ First release.
   the publisher as unverified until a certificate of a public authority replaces
   it.
 
-[Unreleased]: https://github.com/DanacoOfficial/nurt/compare/v0.1.0...main
+[Unreleased]: https://github.com/DanacoOfficial/nurt/compare/v0.1.1...main
+[0.1.1]: https://github.com/DanacoOfficial/nurt/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/DanacoOfficial/nurt/releases/tag/v0.1.0

@@ -12,7 +12,7 @@
     <Company>Danaco Holding Group Sp. z o.o.</Company>
     <Product>Danaco Nurt</Product>
     <Copyright>Copyright 2026 Danaco Holding Group Sp. z o.o.</Copyright>
-    <Version Condition="'$(Version)' == ''">0.1.0</Version>
+    <Version Condition="'$(Version)' == ''">0.1.1</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
