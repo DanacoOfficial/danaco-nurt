@@ -404,7 +404,13 @@ fn reflog_message(repo: &gix::Repository, id: ObjectId) -> Result<BString> {
     let object = repo.find_object(id).map_err(read_error)?;
     let short = id.to_hex_with_len(ABBREV_DIGITS).to_string();
     if object.kind != gix_object::Kind::Commit {
-        return Ok(format!("tag: tagging {short} ({})", object.kind).into());
+        let what = match object.kind {
+            gix_object::Kind::Tree => "tree",
+            gix_object::Kind::Blob => "blob",
+            gix_object::Kind::Tag => "other tag",
+            gix_object::Kind::Commit => "commit",
+        };
+        return Ok(format!("tag: tagging {short} ({what} object)").into());
     }
     let commit = object.into_commit();
     let subject = commit
@@ -417,10 +423,9 @@ fn reflog_message(repo: &gix::Repository, id: ObjectId) -> Result<BString> {
     Ok(format!("tag: tagging {short} ({subject}, {})", short_date(&time)).into())
 }
 
-/// `YYYY-MM-DD` of a time in its own offset.
+/// `YYYY-MM-DD` of a time in UTC, as `git tag` writes it to the reflog.
 fn short_date(time: &gix_date::Time) -> String {
-    let local = time.seconds + i64::from(time.offset);
-    let days = local.div_euclid(SECONDS_PER_DAY);
+    let days = time.seconds.div_euclid(SECONDS_PER_DAY);
     let (year, month, day) = civil_from_days(days);
     format!("{year:04}-{month:02}-{day:02}")
 }
@@ -482,7 +487,7 @@ mod tests {
     }
 
     #[test]
-    fn short_date_uses_the_offset_of_the_time() {
+    fn short_date_is_the_utc_date_whatever_the_offset() {
         let time = gix_date::Time {
             seconds: 1_700_000_000,
             offset: 0,
@@ -492,7 +497,12 @@ mod tests {
             seconds: 1_700_000_000,
             offset: 7200,
         };
-        assert_eq!(short_date(&east), "2023-11-15");
+        assert_eq!(short_date(&east), "2023-11-14");
+        let west = gix_date::Time {
+            seconds: 1_700_000_000 + 2 * 3600,
+            offset: -3 * 3600,
+        };
+        assert_eq!(short_date(&west), "2023-11-15");
         assert_eq!(civil_from_days(0), (1970, 1, 1));
         assert_eq!(civil_from_days(-1), (1969, 12, 31));
     }
@@ -552,6 +562,33 @@ mod tests {
         assert_eq!(tags[0].target, head.to_string());
         assert_eq!(tags[0].message.as_deref(), Some("release\n\nnotes\n"));
         assert!(tags[0].time.is_some());
+    }
+
+    #[test]
+    fn tags_are_listed_in_byte_order_of_their_names() {
+        let repo = TestRepo::new();
+        repo.commit("first");
+        for name in ["v1.2", "v1.10", "Z", "a", "é"] {
+            let plan = plan_create(
+                &repo.open(),
+                NewTag {
+                    name,
+                    revision: "HEAD",
+                    message: None,
+                    tagger: repo.signature(),
+                    sign: None,
+                    signing: None,
+                },
+            )
+            .unwrap();
+            repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
+        }
+        let names: Vec<String> = list(&repo.open())
+            .unwrap()
+            .into_iter()
+            .map(|tag| tag.name)
+            .collect();
+        assert_eq!(names, ["Z", "a", "v1.10", "v1.2", "é"]);
     }
 
     #[test]
@@ -701,6 +738,34 @@ mod tests {
         );
         let error = plan_delete(&repo.open(), "none", repo.signature()).unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("missing"));
+    }
+
+    #[test]
+    fn reflog_message_of_a_tag_of_a_tree_names_the_kind_of_object_like_git() {
+        let repo = TestRepo::new();
+        repo.commit("first");
+        repo.append_config("[core]\n\tlogAllRefUpdates = always\n");
+        let opened = repo.open();
+        let tree = opened.rev_parse_single("HEAD^{tree}").unwrap().detach();
+        let plan = plan_create(
+            &opened,
+            NewTag {
+                name: "of-tree",
+                revision: "HEAD^{tree}",
+                message: None,
+                tagger: repo.signature(),
+                sign: None,
+                signing: None,
+            },
+        )
+        .unwrap();
+        repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
+        let log = repo.read("logs/refs/tags/of-tree");
+        let short = &tree.to_string()[..ABBREV_DIGITS];
+        assert!(
+            log.ends_with(&format!("\ttag: tagging {short} (tree object)\n")),
+            "{log}"
+        );
     }
 
     #[test]

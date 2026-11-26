@@ -149,7 +149,7 @@ impl GitQueryService for RepoQueries {
             }
             end += offset + 1;
         }
-        let is_dir = repo.root().join(relative.to_str_lossy().as_ref()).is_dir();
+        let is_dir = worktree_file(repo.root(), relative.as_bstr()).is_dir();
         is_excluded(&mut excludes, relative.as_bstr(), is_dir)
     }
 
@@ -365,7 +365,7 @@ fn compare_worktree(
         if *mode == MODE_COMMIT {
             continue;
         }
-        let full = root.join(path.to_str_lossy().as_ref());
+        let full = worktree_file(root, path.as_bstr());
         let meta = std::fs::symlink_metadata(&full).ok();
         let change = match &meta {
             None => GitChange::Deleted,
@@ -401,6 +401,15 @@ fn compare_worktree(
         }
     }
     Ok(())
+}
+
+/// Path of the file `path` of the working tree `root`, with the bytes of the
+/// name kept as they are on systems that allow it.
+fn worktree_file(root: &Path, path: &BStr) -> PathBuf {
+    match gix_path::from_bstr(path) {
+        Ok(native) => root.join(&*native),
+        Err(_) => root.join(path.to_str_lossy().as_ref()),
+    }
 }
 
 fn modified_seconds(meta: &Option<std::fs::Metadata>) -> Option<u64> {
@@ -445,6 +454,16 @@ fn is_executable(_meta: &std::fs::Metadata) -> bool {
     false
 }
 
+/// Content of a symbolic link as Git stores it: the bytes of its target, with
+/// `/` separators on Windows only.
+fn link_content(target: &Path) -> Result<Vec<u8>> {
+    let bytes = gix::path::into_bstr(target)
+        .map_err(|failure| error::from_gix("read a link target", &failure))?;
+    Ok(gix::path::to_unix_separators_on_windows(bytes)
+        .into_owned()
+        .into())
+}
+
 fn content_change(
     repo: &GitRepo,
     filters: &mut Filters<'_>,
@@ -455,7 +474,7 @@ fn content_change(
 ) -> Result<GitChange> {
     let content = if meta.file_type().is_symlink() {
         let target = std::fs::read_link(full).map_err(|failure| error::io(full, &failure))?;
-        target.to_string_lossy().replace('\\', "/").into_bytes()
+        link_content(&target)?
     } else {
         let bytes = std::fs::read(full).map_err(|failure| error::io(full, &failure))?;
         filters.to_git(path, &bytes)?
@@ -516,7 +535,7 @@ fn untracked(
     let mut found = Vec::new();
     let mut pending = vec![BString::default()];
     while let Some(dir) = pending.pop() {
-        let full = root.join(dir.to_str_lossy().as_ref());
+        let full = worktree_file(root, dir.as_bstr());
         let entries = std::fs::read_dir(&full).map_err(|failure| error::io(&full, &failure))?;
         for entry in entries {
             let entry = entry.map_err(|failure| error::io(&full, &failure))?;
@@ -565,9 +584,7 @@ fn descend(
     {
         return Ok(true);
     }
-    if repo
-        .root()
-        .join(dir.to_str_lossy().as_ref())
+    if worktree_file(repo.root(), dir.as_bstr())
         .join(DOT_GIT)
         .exists()
     {
@@ -814,6 +831,40 @@ mod tests {
                 .changed_files(fixture.path(), None)
                 .unwrap()
                 .is_empty()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn link_content_keeps_backslashes_and_non_utf8_bytes_of_the_target() {
+        use std::os::unix::ffi::OsStrExt;
+        assert_eq!(link_content(Path::new("a\\b/c")).unwrap(), b"a\\b/c");
+        let target = std::ffi::OsStr::from_bytes(b"t\xffx");
+        assert_eq!(link_content(Path::new(target)).unwrap(), b"t\xffx");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn worktree_file_keeps_the_bytes_of_a_non_utf8_name() {
+        use std::os::unix::ffi::OsStrExt;
+        let path = worktree_file(Path::new("/r"), b"d\xffir/f".as_bstr());
+        assert_eq!(path.as_os_str().as_bytes(), b"/r/d\xffir/f");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn untracked_files_below_a_non_utf8_directory_are_listed() {
+        use std::os::unix::ffi::OsStrExt;
+        let fixture = fixture();
+        let directory = fixture
+            .path()
+            .join(std::ffi::OsStr::from_bytes(b"d\xffir"));
+        std::fs::create_dir(&directory).unwrap();
+        std::fs::write(directory.join("f.txt"), "x\n").unwrap();
+        let statuses = queries().status(fixture.path(), &[]).unwrap();
+        assert_eq!(
+            status_of(&statuses, "d\u{fffd}ir/f.txt"),
+            (GitChange::Unmodified, GitChange::Untracked)
         );
     }
 
