@@ -1083,6 +1083,9 @@ impl Generator<'_> {
                     && inner.len() > 1
                     && !inner.contains([' ', '*', '?'])
                     && !inner.ends_with('/')
+                    // The target of a link is text: a link may point to a
+                    // relative path, so path rules do not apply to it.
+                    && !program[..token.start].trim_end().ends_with("target:")
             })
             .collect();
         if paths.is_empty() {
