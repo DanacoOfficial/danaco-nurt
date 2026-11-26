@@ -23,7 +23,7 @@ use nurt_contracts::stage::{
     BoundArgs, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, StageDescriptor,
     StageImpl, StageInput,
 };
-use nurt_contracts::value::{Record, RecordKind, Value};
+use nurt_contracts::value::{Record, RecordKind, Size, Value};
 use serde_json::Value as Json;
 
 use super::conflict::{
@@ -101,6 +101,7 @@ impl Summary {
 #[derive(Debug)]
 struct RemoveState {
     steps: Vec<Step>,
+    tree_bytes: Vec<(usize, u64)>,
     edits: Vec<TextEdit>,
     summary: Summary,
 }
@@ -121,6 +122,7 @@ impl EffectStage for Remove {
             ctx,
             on_missing,
             steps: Vec::new(),
+            tree_bytes: Vec::new(),
             removed: Vec::new(),
             edits: Vec::new(),
             edit_changes: Vec::new(),
@@ -152,7 +154,12 @@ impl EffectStage for Remove {
             let (step, _) = edit.step(&file)?;
             steps.push(step);
         }
-        let changes = run_steps(tx, steps, fs)?;
+        let mut changes = run_steps(tx, steps, fs)?;
+        for (index, bytes) in &state.tree_bytes {
+            if let Some(change) = changes.get_mut(*index) {
+                change.size_before = Some(Size::from_bytes(*bytes));
+            }
+        }
         let output = effect_output(COMMAND, tx, &changes, &plan.notable, &state.summary.pairs());
         let mut outcome = EffectOutcome::new(output);
         outcome.changes = changes;
@@ -202,6 +209,7 @@ struct Planner<'a> {
     ctx: &'a ExecCtx,
     on_missing: OnMissing,
     steps: Vec<Step>,
+    tree_bytes: Vec<(usize, u64)>,
     removed: Vec<AbsPath>,
     edits: Vec<TextEdit>,
     edit_changes: Vec<Step>,
@@ -266,6 +274,9 @@ impl Planner<'_> {
             change.flags = Some(vec![TREE_FLAG.to_owned()]);
             step = step.with_detail(change);
         }
+        if meta.kind == FileKind::Directory {
+            self.tree_bytes.push((self.steps.len(), bytes));
+        }
         self.steps.push(step);
         self.removed.push(path.clone());
         Ok(())
@@ -317,6 +328,7 @@ impl Planner<'_> {
             .collect();
         let mut plan = EffectPlan::new().with_state(RemoveState {
             steps: self.steps,
+            tree_bytes: self.tree_bytes,
             edits: self.edits,
             summary: self.summary,
         });
@@ -469,8 +481,12 @@ impl TextEdit {
             .last()
             .is_some_and(|line| usize::try_from(*line).is_ok_and(|line| line == starts.len()));
         if open_end && last_removed {
-            let trimmed = result.trim_end_matches(['\n', '\r']).len();
-            result.truncate(trimmed);
+            let ending = if result.ends_with("\r\n") {
+                2
+            } else {
+                usize::from(result.ends_with(['\n', '\r']))
+            };
+            result.truncate(result.len() - ending);
         }
         let counts = Counts {
             lines: count(self.lines.len()),
@@ -712,6 +728,77 @@ mod tests {
         assert_eq!(edit.apply("a\n").unwrap_err().code(), ErrorCode::Stale);
         assert_eq!(line_starts("a\r\nb\rc\n"), [0, 3, 5]);
         assert!(line_starts("").is_empty());
+    }
+
+    #[test]
+    fn removing_the_last_open_line_keeps_the_blank_lines_before_it() {
+        let edit = TextEdit {
+            path: abs("/a"),
+            etag: None,
+            lines: BTreeSet::from([3]),
+            matches: Vec::new(),
+        };
+        assert_eq!(edit.apply("a\n\nc").unwrap().0, "a\n");
+        assert_eq!(edit.apply("a\r\n\r\nc").unwrap().0, "a\r\n");
+    }
+
+    #[test]
+    fn line_numbers_below_one_are_rejected() {
+        let test = TestContext::new();
+        let path = file(&test, "/data/a.txt", b"one\n");
+        for no in [0, -1] {
+            let records = vec![line(&test, &path, no)];
+            let error = run(&Remove, &test, &BoundArgs::new(COMMAND), Some(records)).unwrap_err();
+            assert_eq!(error.code(), ErrorCode::Type);
+        }
+        assert_untouched(&test);
+    }
+
+    #[test]
+    fn a_removed_directory_reports_the_bytes_of_its_content_as_planned() {
+        let test = TestContext::new();
+        file(&test, "/data/tree/x.txt", b"1");
+        let tree = abs("/data/tree");
+        let run = run(&Remove, &test, &args(&[&tree]), None).unwrap();
+        assert_eq!(run.planned[0].size_before, Some(Size::from_bytes(1)));
+        assert_eq!(run.changes[0].size_before, run.planned[0].size_before);
+    }
+
+    #[test]
+    fn an_empty_directory_is_removed_with_zero_bytes() {
+        let test = TestContext::new();
+        let empty = dir(&test, "/data/empty");
+        let run = run(&Remove, &test, &args(&[&empty]), None).unwrap();
+        assert!(!test.fs().exists(&empty));
+        assert_eq!(run.summary("directories"), Some(1));
+        assert_eq!(run.summary("bytes"), Some(0));
+        assert_eq!(run.planned[0].flags, None);
+        assert_eq!(run.changes[0].size_before, Some(Size::from_bytes(0)));
+    }
+
+    #[test]
+    fn match_records_need_a_text() {
+        let test = TestContext::new();
+        let path = file(&test, "/data/a.txt", b"foo\n");
+        let record = Record::new(RecordKind::Match)
+            .with("path", Value::Path(path.to_language_string()))
+            .with("no", Value::Int(1))
+            .with("column", Value::Int(1))
+            .with("etag", etag_of(&test, &path));
+        let error = run(&Remove, &test, &BoundArgs::new(COMMAND), Some(vec![record])).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Type);
+        assert_untouched(&test);
+    }
+
+    #[test]
+    fn a_match_that_is_no_longer_at_its_column_is_stale() {
+        let test = TestContext::new();
+        let path = file(&test, "/data/a.txt", b"foo bar\n");
+        let records = vec![found(&test, &path, 1, 2, "foo")];
+        let error = run(&Remove, &test, &BoundArgs::new(COMMAND), Some(records)).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"foo bar\n");
+        assert_untouched(&test);
     }
 
     #[test]
