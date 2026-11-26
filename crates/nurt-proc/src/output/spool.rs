@@ -259,10 +259,16 @@ fn write_meta(path: &Path, meta: &Meta) -> Result<()> {
     let staged = PathBuf::from(staged);
     let _ = fs::remove_file(&staged);
     let mut file = private_file(&staged)?;
-    file.write_all(&text)
-        .map_err(|error| io_error("write", &staged, &error))?;
+    let written = file
+        .write_all(&text)
+        .map_err(|error| io_error("write", &staged, &error));
     drop(file);
-    fs::rename(&staged, path).map_err(|error| io_error("write", path, &error))
+    let stored = written
+        .and_then(|()| fs::rename(&staged, path).map_err(|error| io_error("write", path, &error)));
+    if stored.is_err() {
+        let _ = fs::remove_file(&staged);
+    }
+    stored
 }
 
 fn read_meta(path: &Path) -> Result<Meta> {
@@ -321,20 +327,20 @@ pub(super) struct Spool {
 }
 
 impl Spool {
+    /// Creates the files of a spool; the files created before a failure are
+    /// removed, files of another run with the same name are not touched.
     fn create(ctx: &ExecCtx, paths: SpoolPaths, merged: bool) -> Result<Self> {
-        let files = if merged {
-            [Some(private_file(&paths.merged())?), None]
-        } else {
-            [
-                Some(private_file(&paths.stdout())?),
-                Some(private_file(&paths.stderr())?),
-            ]
+        let mut created: Vec<PathBuf> = Vec::new();
+        let opened = Self::create_files(&paths, merged, &mut created);
+        let (files, meta) = match opened {
+            Ok(opened) => opened,
+            Err(error) => {
+                for path in &created {
+                    let _ = fs::remove_file(path);
+                }
+                return Err(error);
+            }
         };
-        let meta = Meta {
-            merged,
-            ..Meta::default()
-        };
-        write_meta(&paths.meta(), &meta)?;
         let limit = match ctx.config().run.spool_max {
             ByteLimit::Bytes(size) => Some(size.bytes()),
             ByteLimit::Unlimited => None,
@@ -346,6 +352,30 @@ impl Spool {
             hasher: Sha256::new(),
         };
         Ok(Self::with(ctx, paths, merged, limit, Some(writer)))
+    }
+
+    fn create_files(
+        paths: &SpoolPaths,
+        merged: bool,
+        created: &mut Vec<PathBuf>,
+    ) -> Result<([Option<File>; 2], Meta)> {
+        let mut open = |path: PathBuf| {
+            let file = private_file(&path)?;
+            created.push(path);
+            Ok::<File, Error>(file)
+        };
+        let files = if merged {
+            [Some(open(paths.merged())?), None]
+        } else {
+            [Some(open(paths.stdout())?), Some(open(paths.stderr())?)]
+        };
+        let meta = Meta {
+            merged,
+            ..Meta::default()
+        };
+        created.push(paths.meta());
+        write_meta(&paths.meta(), &meta)?;
+        Ok((files, meta))
     }
 
     fn open(ctx: &ExecCtx, paths: SpoolPaths) -> Result<Self> {
@@ -623,7 +653,6 @@ fn remove_expired(ctx: &ExecCtx, dir: &Path, live: &HashMap<PathBuf, Weak<Spool>
 }
 
 fn is_expired(paths: &SpoolPaths, now: SystemTime, ttl: Duration) -> bool {
-    let complete = read_meta(&paths.meta()).is_ok_and(|meta| meta.is_complete());
     let newest = paths
         .streams()
         .iter()
@@ -634,6 +663,12 @@ fn is_expired(paths: &SpoolPaths, now: SystemTime, ttl: Duration) -> bool {
         return false;
     };
     let age = now.duration_since(newest).unwrap_or_default();
+    if age <= ttl {
+        // No spool is removed before `ttl`; the record of a recent spool is
+        // not read.
+        return false;
+    }
+    let complete = read_meta(&paths.meta()).is_ok_and(|meta| meta.is_complete());
     let limit = if complete {
         ttl
     } else {

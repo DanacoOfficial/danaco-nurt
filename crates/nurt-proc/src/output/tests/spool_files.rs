@@ -245,6 +245,19 @@ fn removes_expired_spools_when_a_run_starts() {
     drop(stalled);
 }
 
+#[test]
+fn a_spool_whose_record_cannot_be_written_leaves_no_stream_files() {
+    let bench = Bench::new();
+    std::fs::create_dir_all(bench.spool_dir().join("broken.json").join("keep")).unwrap();
+    let error = bench.factory.create(&bench.ctx, "broken", false).err();
+    assert!(error.is_some());
+    let leftovers: Vec<String> = std::fs::read_dir(bench.spool_dir())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(leftovers, ["broken.json"]);
+}
+
 #[cfg(unix)]
 #[test]
 fn creates_files_readable_by_the_account_only() {
