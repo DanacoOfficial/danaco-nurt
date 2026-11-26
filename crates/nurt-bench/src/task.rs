@@ -295,10 +295,14 @@ pub fn load_tasks(root: &Path) -> Result<Vec<TaskFile>> {
 fn collect_json(directory: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     let listing = fs::read_dir(directory).map_err(|error| BenchError::io(directory, error))?;
     for item in listing {
-        let path = item
-            .map_err(|error| BenchError::io(directory, error))?
-            .path();
-        if path.is_dir() {
+        let item = item.map_err(|error| BenchError::io(directory, error))?;
+        let path = item.path();
+        // A link to a directory is not followed, so that a cycle ends.
+        let is_directory = item
+            .file_type()
+            .map_err(|error| BenchError::io(&path, error))?
+            .is_dir();
+        if is_directory {
             collect_json(&path, files)?;
         } else if path
             .extension()
@@ -428,6 +432,20 @@ pub(crate) mod tests {
         let tasks = load_tasks(dir.path()).unwrap();
         let ids: Vec<&str> = tasks.iter().map(|t| t.task.id.as_str()).collect();
         assert_eq!(ids, ["edit-001", "edit-002"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_to_a_directory_is_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join("edit-001.json"),
+            task_document("edit-001").to_string(),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(dir.path(), dir.path().join("loop")).unwrap();
+        let tasks = load_tasks(dir.path()).unwrap();
+        assert_eq!(tasks.len(), 1);
     }
 
     #[test]

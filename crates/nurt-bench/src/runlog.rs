@@ -350,10 +350,14 @@ pub fn find_logs(root: &Path) -> Result<Vec<PathBuf>> {
         let listing =
             fs::read_dir(&directory).map_err(|error| BenchError::io(&directory, error))?;
         for item in listing {
-            let path = item
-                .map_err(|error| BenchError::io(&directory, error))?
-                .path();
-            if path.is_dir() {
+            let item = item.map_err(|error| BenchError::io(&directory, error))?;
+            let path = item.path();
+            // A link to a directory is not followed, so that a cycle ends.
+            let is_directory = item
+                .file_type()
+                .map_err(|error| BenchError::io(&path, error))?
+                .is_dir();
+            if is_directory {
                 pending.push(path);
             } else if path
                 .extension()
@@ -471,7 +475,12 @@ pub(crate) mod tests {
         let events = read(&path).unwrap();
         assert_eq!(events.len(), 3);
         assert!(matches!(&events[0], Event::Run(h) if h.condition == Condition::Bash));
-        assert_eq!(find_logs(dir.path()).unwrap(), vec![path]);
+        assert_eq!(find_logs(dir.path()).unwrap(), vec![path.clone()]);
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(dir.path(), dir.path().join("loop")).unwrap();
+            assert_eq!(find_logs(dir.path()).unwrap(), vec![path]);
+        }
     }
 
     #[test]
