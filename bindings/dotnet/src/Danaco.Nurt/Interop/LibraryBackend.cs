@@ -270,7 +270,10 @@ internal sealed class LibraryBackend : IBackend
                 NativeCall.Check(NativeMethods.Parse(_engine, pointer, variant, &ast, &diagnostics), "nurt_parse");
             }
 
-            return new ParseResult(ast.ReadJson("nurt_parse tree"), diagnostics.ReadJson("nurt_parse diagnostics"), null);
+            return new ParseResult(
+                JsonRead.WithoutNull(ast.ReadJson("nurt_parse tree")),
+                JsonRead.WithoutNull(diagnostics.ReadJson("nurt_parse diagnostics")),
+                null);
         }
         finally
         {

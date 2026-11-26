@@ -20,7 +20,7 @@ namespace Danaco.Nurt;
 /// <summary>
 /// One child process <c>nurt serve --stdio</c> and the JSON-RPC 2.0 session over its
 /// standard streams: one message per line (NDJSON), requests matched to responses by
-/// identifier, notifications <c>nurt/event</c> routed to executions by <c>request_id</c>.
+/// identifier, notifications <c>nurt/event</c> routed to executions by their member <c>request</c>.
 /// </summary>
 [SuppressMessage(
     "Design",
@@ -381,7 +381,14 @@ internal sealed class RpcConnection
                 call.ReleaseSlot();
                 if (JsonRead.Property(message, "error") is { ValueKind: JsonValueKind.Object } error)
                 {
-                    call.Source.TrySetException(RpcErrors.ToException(error, call.Method));
+                    if (RpcErrors.CancelledResponse(error) is { } cancelled)
+                    {
+                        call.Source.TrySetResult(cancelled);
+                    }
+                    else
+                    {
+                        call.Source.TrySetException(RpcErrors.ToException(error, call.Method));
+                    }
                 }
                 else
                 {
@@ -401,7 +408,7 @@ internal sealed class RpcConnection
 
     private void Route(JsonElement parameters)
     {
-        if (JsonRead.Int64(parameters, "request_id") is not { } requestId
+        if (RpcErrors.RequestIdOf(parameters) is not { } requestId
             || !_routes.TryGetValue(requestId, out EventQueue? events))
         {
             return;

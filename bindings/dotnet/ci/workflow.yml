@@ -87,7 +87,7 @@ jobs:
           cargo build --locked --release -p nurt-conformance
       - name: Test the library backend and the binding cases on both backends
         env:
-          NURT_TEST_LIBRARY: ${{ github.workspace }}/target/release/libnurt.so
+          NURT_TEST_LIBRARY: ${{ github.workspace }}/target/release/libnurt_ffi.so
           NURT_TEST_SERVE: ${{ github.workspace }}/target/release/nurt-conformance
           NURT_TEST_SERVE_ARGS: fake-serve --cases ${{ github.workspace }}/conformance/bindings
         run: dotnet test Danaco.Nurt.sln -c Release --logger "console;verbosity=normal"
