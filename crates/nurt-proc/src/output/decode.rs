@@ -174,7 +174,7 @@ fn from_encoding(encoding: &'static Encoding) -> TextEncoding {
 /// Detects the encoding of a stream from the first bytes; `complete` tells
 /// whether `sample` holds the whole stream.
 pub(super) fn detect(sample: &[u8], complete: bool) -> TextEncoding {
-    if let Some(encoding) = by_byte_order_mark(sample) {
+    if let Some(encoding) = by_byte_order_mark(sample, complete) {
         return encoding;
     }
     if let Some(encoding) = by_zero_bytes(sample) {
@@ -189,13 +189,38 @@ pub(super) fn detect(sample: &[u8], complete: bool) -> TextEncoding {
     legacy(sample, complete)
 }
 
-fn by_byte_order_mark(sample: &[u8]) -> Option<TextEncoding> {
+/// A byte order mark names the encoding only when the bytes after it are
+/// text in that encoding: binary data may begin with `ff fe` as well.
+fn by_byte_order_mark(sample: &[u8], complete: bool) -> Option<TextEncoding> {
     match sample {
         [0xef, 0xbb, 0xbf, ..] => Some(TextEncoding::Utf8),
-        [0xff, 0xfe, ..] => Some(TextEncoding::Utf16Le),
-        [0xfe, 0xff, ..] => Some(TextEncoding::Utf16Be),
+        [0xff, 0xfe, rest @ ..] => {
+            plausible_utf16(encoding_rs::UTF_16LE, rest, complete).then_some(TextEncoding::Utf16Le)
+        }
+        [0xfe, 0xff, rest @ ..] => {
+            plausible_utf16(encoding_rs::UTF_16BE, rest, complete).then_some(TextEncoding::Utf16Be)
+        }
         _ => None,
     }
+}
+
+/// Whether `bytes` decode as UTF-16 without unpaired surrogates and without
+/// the control characters of binary data. A sample that is not the whole
+/// stream may end inside a code unit or a surrogate pair.
+fn plausible_utf16(encoding: &'static Encoding, bytes: &[u8], complete: bool) -> bool {
+    if complete && !bytes.len().is_multiple_of(2) {
+        return false;
+    }
+    let whole = &bytes[..bytes.len() & !1];
+    let decoded = encoding
+        .decode_without_bom_handling_and_without_replacement(whole)
+        .or_else(|| {
+            let trimmed = whole.get(..whole.len().saturating_sub(2))?;
+            (!complete)
+                .then(|| encoding.decode_without_bom_handling_and_without_replacement(trimmed))
+                .flatten()
+        });
+    decoded.is_some_and(|text| control_percent(text.as_bytes()) <= BINARY_CONTROL_PERCENT)
 }
 
 fn by_zero_bytes(sample: &[u8]) -> Option<TextEncoding> {
@@ -362,6 +387,20 @@ mod tests {
         );
         assert_eq!(TextEncoding::Utf16Le.decode(&utf16(POLISH, true)), POLISH);
         assert_eq!(TextEncoding::Utf16Be.decode(&utf16(POLISH, false)), POLISH);
+    }
+
+    #[test]
+    fn a_byte_order_mark_does_not_make_binary_data_utf16() {
+        let lone_surrogate = [0xff, 0xfe, 0x00, 0xd8, 0x41, 0x00];
+        assert_eq!(detect(&lone_surrogate, true), TextEncoding::Binary);
+        assert_ne!(
+            detect(&[0xff, 0xfe, b'a', b'b', b'c'], true),
+            TextEncoding::Utf16Le
+        );
+        let mut cut = vec![0xff, 0xfe];
+        cut.extend(utf16("a😀", true));
+        cut.truncate(cut.len() - 2);
+        assert_eq!(detect(&cut, false), TextEncoding::Utf16Le);
     }
 
     #[test]
