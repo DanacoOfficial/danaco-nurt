@@ -487,7 +487,7 @@ impl<'a> Reader<'a> {
             major::TEXT => self.text(head).map(|text| Some(Value::String(text))),
             major::ARRAY => {
                 let remaining = self.container_length(head, MIN_ELEMENT_SIZE)?;
-                let capacity = Self::capacity(remaining);
+                let capacity = Self::capacity(remaining, self.remaining());
                 self.stack.push(Frame::Array {
                     items: Vec::with_capacity(capacity),
                     remaining,
@@ -509,14 +509,19 @@ impl<'a> Reader<'a> {
         }
     }
 
-    /// Room reserved for a container of `remaining` elements. The count comes
-    /// from the input, and a container that only claims many elements must
-    /// not reserve memory for all of them at each of 128 levels of nesting.
-    fn capacity(remaining: Option<u64>) -> usize {
+    /// Room reserved for a container of `remaining` elements, given `input_left`
+    /// unread bytes. The count comes from the input, and a container that only
+    /// claims many elements must not reserve memory for all of them at each of
+    /// [`MAX_DEPTH`] levels of nesting: the share of the unread input for one
+    /// level bounds the reservation, so the memory reserved by headers stays
+    /// proportional to the input size.
+    fn capacity(remaining: Option<u64>, input_left: u64) -> usize {
+        let share = usize::try_from(input_left / MAX_DEPTH as u64).unwrap_or(usize::MAX);
         remaining
             .and_then(|count| usize::try_from(count).ok())
             .unwrap_or_default()
             .min(MAX_RESERVED_ELEMENTS)
+            .min(share)
     }
 
     /// Returns the number of elements of a container; rejects a length that
@@ -691,12 +696,38 @@ mod tests {
 
     #[test]
     fn reserves_room_only_up_to_the_limit() {
-        assert_eq!(Reader::capacity(None), 0);
-        assert_eq!(Reader::capacity(Some(5)), 5);
+        let plenty = u64::MAX;
+        assert_eq!(Reader::capacity(None, plenty), 0);
+        assert_eq!(Reader::capacity(Some(5), plenty), 5);
         assert_eq!(
-            Reader::capacity(Some(MAX_RESERVED_ELEMENTS as u64 + 1)),
+            Reader::capacity(Some(MAX_RESERVED_ELEMENTS as u64 + 1), plenty),
             MAX_RESERVED_ELEMENTS
         );
-        assert_eq!(Reader::capacity(Some(u64::MAX)), MAX_RESERVED_ELEMENTS);
+        assert_eq!(
+            Reader::capacity(Some(u64::MAX), plenty),
+            MAX_RESERVED_ELEMENTS
+        );
+    }
+
+    #[test]
+    fn reservation_is_bounded_by_the_unread_input() {
+        let depth = MAX_DEPTH as u64;
+        assert_eq!(Reader::capacity(Some(1000), 0), 0);
+        assert_eq!(Reader::capacity(Some(1000), depth - 1), 0);
+        assert_eq!(Reader::capacity(Some(1000), depth * 7), 7);
+        assert_eq!(Reader::capacity(Some(3), depth * 7), 3);
+    }
+
+    #[test]
+    fn nested_headers_reserve_memory_proportional_to_the_input() {
+        // Every level claims all remaining bytes as elements; the sum of the
+        // reservations over the levels must stay within the input size.
+        let mut input_left = 1024_u64;
+        let mut reserved = 0_usize;
+        for _ in 0..MAX_DEPTH {
+            reserved += Reader::capacity(Some(input_left), input_left);
+            input_left -= 1;
+        }
+        assert!(reserved as u64 <= 1024);
     }
 }
