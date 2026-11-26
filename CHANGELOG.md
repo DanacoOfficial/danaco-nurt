@@ -73,6 +73,10 @@ their own version numbers, described in the specification.
   once per directory. Manifests of operations with at least 256 targets have
   format version 2 (packed target records, same digest rule); journals written
   by 0.1.0 are read unchanged, and a reader of version 1 rejects version 2.
+- Linux: the executable and the library link liblzma statically; the only
+  shared libraries are `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` and the
+  dynamic loader, so the program runs on a system without `liblzma.so.5`. The
+  `.deb` package no longer depends on `liblzma5`.
 
 ## [0.1.0] - 2026-11-22
 

@@ -176,7 +176,7 @@ write_control nurt "$nurt_dir" \
     "Section: utils" \
     "Priority: optional" \
     "Multi-Arch: foreign" \
-    "Depends: libc6 (>= 2.17), libgcc-s1, liblzma5" \
+    "Depends: libc6 (>= 2.17), libgcc-s1" \
     "Description: $summary" \
     " Danaco Nurt is a command shell with its own command language. The" \
     " program is a single executable."

@@ -73,8 +73,9 @@ class DebBuildTest(unittest.TestCase):
     def test_command_package_depends_on_the_shared_libraries_it_links(self):
         nurt = next(p for p in self.build() if p.name.startswith("nurt_"))
         depends = self.field(nurt, "Depends")
-        for library in ("libc6", "libgcc-s1", "liblzma5"):
+        for library in ("libc6", "libgcc-s1"):
             self.assertIn(library, depends)
+        self.assertNotIn("liblzma", depends)
 
     def test_command_package_description_is_the_product_tagline(self):
         nurt = next(p for p in self.build() if p.name.startswith("nurt_"))
