@@ -137,7 +137,12 @@ pub(crate) fn decode(
         tool_calls,
         usage: Usage {
             input: usage["promptTokenCount"].as_u64().unwrap_or_default(),
-            output: usage["candidatesTokenCount"].as_u64().unwrap_or_default(),
+            // Thinking tokens are billed as output but are not part of the
+            // candidates.
+            output: usage["candidatesTokenCount"]
+                .as_u64()
+                .unwrap_or_default()
+                .saturating_add(usage["thoughtsTokenCount"].as_u64().unwrap_or_default()),
         },
         stop,
     })
@@ -246,6 +251,27 @@ mod tests {
             "pwsh"
         );
         assert_eq!(log[1].path, "/v1beta/models/m-1:countTokens");
+    }
+
+    #[test]
+    fn thinking_tokens_count_as_output() {
+        let mut calls = 0;
+        let reply = json!({
+            "candidates": [{"content": {"parts": [{"text": "x"}]}, "finishReason": "STOP"}],
+            "usageMetadata": {
+                "promptTokenCount": 10,
+                "candidatesTokenCount": 5,
+                "thoughtsTokenCount": 40
+            }
+        });
+        let usage = decode(&reply, &mut calls).unwrap().usage;
+        assert_eq!(
+            usage,
+            Usage {
+                input: 10,
+                output: 45
+            }
+        );
     }
 
     #[test]
