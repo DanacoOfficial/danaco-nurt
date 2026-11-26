@@ -848,6 +848,89 @@ fn file_without_syntax_support_needs_a_server() {
     assert_eq!(error.code(), ErrorCode::UnsupportedLanguage);
 }
 
+fn config_with_max_files(max: u32) -> Config {
+    let mut config = Config::default();
+    config.code.index_max_files = max;
+    config
+}
+
+#[test]
+fn syntax_rename_notes_that_the_file_listing_was_cut() {
+    let fixture = fixture();
+    write(&fixture.root.join("c.py"), "from a import total\n");
+    let plan = preview(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        &context(config_with_max_files(2)),
+    )
+    .unwrap();
+    let cut = plan
+        .notable
+        .iter()
+        .find(|entry| entry.code == Notable::RenameIncomplete)
+        .expect("a rename_incomplete note");
+    assert!(
+        cut.detail
+            .as_deref()
+            .unwrap()
+            .contains("code.index_max_files (2)")
+    );
+    assert_eq!(edits(&plan).len(), 3);
+}
+
+#[test]
+fn syntax_rename_within_the_file_limit_has_no_listing_note() {
+    let fixture = fixture();
+    let plan = preview(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        &context(config_with_max_files(2)),
+    )
+    .unwrap();
+    assert!(!codes(&plan).contains(&Notable::RenameIncomplete));
+    assert_eq!(edits(&plan).len(), 3);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn syntax_rename_reaches_files_whose_names_are_not_utf8() {
+    use std::os::unix::ffi::OsStrExt;
+
+    let fixture = fixture();
+    let odd = fixture
+        .root
+        .join(std::ffi::OsStr::from_bytes(b"caf\xe9.py"));
+    std::fs::write(&odd, "from a import total\n").unwrap();
+    execute(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        StageInput::none(),
+        &context(Config::default()),
+        &log(),
+    )
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&odd).unwrap(),
+        "from a import sum_all\n"
+    );
+}
+
+#[test]
+fn file_that_is_not_utf8_is_left_alone_by_a_syntax_rename() {
+    let fixture = fixture();
+    std::fs::write(fixture.root.join("legacy.py"), b"# total \xe9\n").unwrap();
+    let outcome = execute(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        StageInput::none(),
+        &context(Config::default()),
+        &log(),
+    )
+    .unwrap();
+    assert_eq!(outcome.changes.len(), 2);
+    assert_eq!(std::fs::read(fixture.root.join("legacy.py")).unwrap(), b"# total \xe9\n");
+}
+
 trait EffectAccess {
     fn as_effect_stage(&self) -> &dyn nurt_contracts::stage::EffectStage;
 }
