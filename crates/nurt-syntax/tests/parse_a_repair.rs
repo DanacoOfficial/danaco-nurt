@@ -16,6 +16,7 @@ use std::cell::{Cell, RefCell};
 
 use nurt_contracts::ast::strip_for_hash;
 use nurt_syntax::lex::{ForeignKind, Token, TokenKind};
+use nurt_syntax::parse::repair::MAX_REPAIRS_PER_PROGRAM;
 use nurt_syntax::parse::{
     Failure, NoRepair, ParseOptions, Repair, RepairPolicy, Variant, parse, parse_tolerant,
 };
@@ -149,6 +150,17 @@ fn replaces_foreign_pipes_and_maps_positions_to_the_original_text() {
             .iter()
             .all(|r| r.from == "|" && r.to == "|>")
     );
+}
+
+#[test]
+fn applies_at_most_the_repairs_of_the_program_limit() {
+    let line = "a | b\n";
+    let within = line.repeat(MAX_REPAIRS_PER_PROGRAM);
+    let repaired = tolerant(&within, &PipeToOperator).expect("repaired");
+    assert_eq!(repaired.repairs.len(), MAX_REPAIRS_PER_PROGRAM);
+    let beyond = line.repeat(MAX_REPAIRS_PER_PROGRAM + 1);
+    let error = tolerant(&beyond, &PipeToOperator).expect_err("one repair too many");
+    assert_eq!(error, parse_a(&beyond).expect_err("invalid"));
 }
 
 #[test]

@@ -386,6 +386,18 @@ mod shared_grammar {
 }
 
 #[test]
+fn locates_an_invalid_escape_by_scalar_value_columns_and_lines() {
+    let error = error_of("find \"żółw\\q\"");
+    assert_eq!(error.code, ErrorCode::Escape);
+    let at = error.at.expect("position");
+    assert_eq!((at.line, at.column, at.length), (Some(1), Some(11), Some(2)));
+    let error = error_of("find \"ab\ncd\\q\"");
+    assert_eq!(error.code, ErrorCode::Escape);
+    let at = error.at.expect("position");
+    assert_eq!((at.line, at.column, at.length), (Some(2), Some(3), Some(2)));
+}
+
+#[test]
 fn passes_lexical_errors_through() {
     let error = error_of("find '/a'");
     assert_eq!(error.code, ErrorCode::Lexical);
