@@ -18,6 +18,7 @@ use std::panic::{self, AssertUnwindSafe};
 #[cfg(feature = "stub")]
 use std::path::Path;
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{Scope, ScopedJoinHandle};
@@ -169,7 +170,10 @@ impl fmt::Debug for ServeOptions {
 ///
 /// The exit code is [`ExitCode::SUCCESS`] after `shutdown` or the end of the
 /// input, and [`ExitCode::FAILURE`] when the input cannot be read, its
-/// framing is broken, or the output cannot be written.
+/// framing is broken, or the output cannot be written. A failed write ends
+/// the connection at once: the requests in flight are cancelled and the
+/// server reads no further message, so it does not wait for the end of the
+/// input.
 ///
 /// # Examples
 ///
@@ -210,13 +214,16 @@ pub fn run(options: ServeOptions, input: impl BufRead, output: impl Write + Send
     let (sender, receiver) = mpsc::channel();
     let shared = Mutex::new(Inflight::default());
     let framing = options.framing;
+    let output_failed = AtomicBool::new(false);
     std::thread::scope(|scope| {
-        let writer = scope.spawn(move || write_messages(output, framing, receiver));
+        let failed = &output_failed;
+        let writer = scope.spawn(move || write_messages(output, framing, receiver, failed));
         let mut connection = Connection {
             options: &options,
             scope,
             sender,
             shared: &shared,
+            output_failed: &output_failed,
             workers: Vec::new(),
             initialized: None,
         };
@@ -232,15 +239,22 @@ pub fn run(options: ServeOptions, input: impl BufRead, output: impl Write + Send
 }
 
 /// Writes every message received from the connection until all senders are
-/// gone.
+/// gone. A failed write raises `failed` before the error is returned, so the
+/// reading thread stops at its next step.
 fn write_messages(
     mut output: impl Write,
     framing: Framing,
     receiver: Receiver<Value>,
+    failed: &AtomicBool,
 ) -> io::Result<()> {
     for message in receiver {
-        let body = serde_json::to_vec(&message).map_err(io::Error::other)?;
-        framing::write_frame(&mut output, framing, &body)?;
+        let written = serde_json::to_vec(&message)
+            .map_err(io::Error::other)
+            .and_then(|body| framing::write_frame(&mut output, framing, &body));
+        if let Err(error) = written {
+            failed.store(true, Ordering::Release);
+            return Err(error);
+        }
     }
     Ok(())
 }
@@ -256,6 +270,8 @@ enum End {
     InputFailed,
     /// The framing of the input is broken.
     Framing,
+    /// The output could not be written.
+    OutputFailed,
 }
 
 impl End {
@@ -318,6 +334,7 @@ struct Connection<'scope, 'env> {
     scope: &'scope Scope<'scope, 'env>,
     sender: Sender<Value>,
     shared: &'env Mutex<Inflight>,
+    output_failed: &'env AtomicBool,
     workers: Vec<ScopedJoinHandle<'scope, ()>>,
     initialized: Option<Session>,
 }
@@ -326,10 +343,16 @@ impl<'scope, 'env> Connection<'scope, 'env> {
     fn serve(&mut self, mut input: impl BufRead) -> End {
         let limit = self.options.max_message_bytes;
         loop {
+            if self.output_failed.load(Ordering::Acquire) {
+                return End::OutputFailed;
+            }
             let frame = match framing::read_frame(&mut input, self.options.framing, limit) {
                 Ok(frame) => frame,
                 Err(_) => return End::InputFailed,
             };
+            if self.output_failed.load(Ordering::Acquire) {
+                return End::OutputFailed;
+            }
             match frame {
                 Frame::End => return End::Input,
                 Frame::TooLarge => self.send(protocol::error_message(
@@ -550,6 +573,11 @@ impl<'scope, 'env> Connection<'scope, 'env> {
 
     /// Waits for the requests in flight and answers `shutdown`.
     fn finish(mut self, end: &End) {
+        if matches!(end, End::OutputFailed) {
+            for token in self.lock().tokens.values() {
+                token.cancel(CancelReason::Shutdown);
+            }
+        }
         for worker in self.workers.drain(..) {
             // The thread of a request catches the panics of the engine.
             let _ = worker.join();
@@ -606,7 +634,9 @@ fn panicked(payload: &(dyn Any + Send)) -> RpcError {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::io::Read;
+    use std::sync::Condvar;
+    use std::sync::atomic::AtomicUsize;
 
     use super::*;
 
@@ -836,6 +866,101 @@ mod tests {
         assert!(reply_to(&messages, 2)["error"].is_object());
         assert_eq!(reply_to(&messages, 3)["result"], json!({"slow": "done"}));
         assert_eq!(reply_to(&messages, 5)["result"], json!({"text": "help"}));
+    }
+
+    /// Moment at which the output of a connection has been given up.
+    #[derive(Default)]
+    struct OutputGone {
+        gone: Mutex<bool>,
+        changed: Condvar,
+    }
+
+    impl OutputGone {
+        fn announce(&self) {
+            *self.gone.lock().unwrap() = true;
+            self.changed.notify_all();
+        }
+
+        fn wait(&self) {
+            let guard = self.gone.lock().unwrap();
+            let (_guard, outcome) = self
+                .changed
+                .wait_timeout_while(guard, RELEASE_LIMIT, |gone| !*gone)
+                .unwrap();
+            assert!(!outcome.timed_out(), "the output was never given up");
+        }
+    }
+
+    /// Output whose every write fails; the writer thread drops it after the
+    /// failure has been recorded.
+    struct BrokenOutput(Arc<OutputGone>);
+
+    impl Write for BrokenOutput {
+        fn write(&mut self, _bytes: &[u8]) -> io::Result<usize> {
+            Err(io::Error::other("the reader of the output is gone"))
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl Drop for BrokenOutput {
+        fn drop(&mut self) {
+            self.0.announce();
+        }
+    }
+
+    /// Input that hands out one line per read and holds back every line from
+    /// the third on until the output has been given up.
+    struct GatedInput {
+        lines: Vec<Vec<u8>>,
+        next: usize,
+        gate: Arc<OutputGone>,
+        reads: Arc<AtomicUsize>,
+    }
+
+    impl Read for GatedInput {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            self.reads.fetch_add(1, Ordering::SeqCst);
+            let Some(line) = self.lines.get(self.next) else {
+                return Ok(0);
+            };
+            if self.next >= 2 {
+                self.gate.wait();
+            }
+            self.next += 1;
+            buffer[..line.len()].copy_from_slice(line);
+            Ok(line.len())
+        }
+    }
+
+    #[test]
+    fn a_failed_write_ends_the_connection_without_reading_the_input_to_its_end() {
+        let gate = Arc::new(OutputGone::default());
+        let reads = Arc::new(AtomicUsize::new(0));
+        let lines = [
+            initialize_message(),
+            call_message(2, "run", json!({"nurt": "1.0", "program": "count"})),
+            call_message(3, "help", json!({})),
+            call_message(4, "help", json!({})),
+            call_message(5, "help", json!({})),
+        ]
+        .map(|message| format!("{message}\n").into_bytes())
+        .to_vec();
+        let input = GatedInput {
+            lines,
+            next: 0,
+            gate: gate.clone(),
+            reads: reads.clone(),
+        };
+        let options = ServeOptions::with_backend(Box::new(SlowBackend::new()));
+        let code = run(options, io::BufReader::new(input), BrokenOutput(gate));
+        assert_eq!(format!("{code:?}"), format!("{:?}", ExitCode::FAILURE));
+        assert!(
+            reads.load(Ordering::SeqCst) <= 3,
+            "the server kept reading after the failed write"
+        );
     }
 
     struct NoBackend;
