@@ -1,0 +1,1984 @@
+{
+  "generator": "build/render/nurt_render_scene.py via run_renders.py",
+  "blender": "5.2.1 LTS",
+  "engine": "Cycles, CPU, OpenImageDenoise",
+  "total_render_seconds": 938.5,
+  "mark": {
+    "source": "identity.json mark.paths_main",
+    "extrusion_mm": 8.0,
+    "bevel_mm": 0.6,
+    "bevel_segments": 3,
+    "scale": "1 grid unit = 1 mm",
+    "note": "silver uses base colour #9BA3AE (darker steel) on the light ground"
+  },
+  "renders": {
+    "render-hero-front.png": {
+      "shot": "front",
+      "mode": "dark",
+      "file": "render-hero-front.png",
+      "blender": "5.2.1 LTS",
+      "engine": "Cycles (CPU)",
+      "resolution": [
+        2560,
+        1440
+      ],
+      "samples": 192,
+      "adaptive_threshold": 0.009999999776482582,
+      "denoiser": "OpenImageDenoise",
+      "threads": 12,
+      "render_seconds": 199.5,
+      "colour_transform": "Khronos PBR Neutral",
+      "camera": {
+        "lens_mm": 120.0,
+        "f_stop": 11.0,
+        "sensor_width_mm": 36.0,
+        "distance_mm": 900.0,
+        "elevation_deg": 8.0,
+        "location_mm": [
+          0.0,
+          -891.2,
+          162.3
+        ],
+        "target_mm": [
+          0.0,
+          0.0,
+          37.0
+        ],
+        "focus_distance_mm": 900.0,
+        "dof": true
+      },
+      "mark": {
+        "depth_mm": 8.0,
+        "bevel_mm": 0.6,
+        "bevel_segments": 3,
+        "yaw_deg": 10.0,
+        "scale": "1 grid unit = 1 mm",
+        "height_above_floor_mm": 3.0
+      },
+      "materials": {
+        "silver_brushed": {
+          "base_colour": "#D6DAE0",
+          "metallic": 1.0,
+          "roughness": 0.32,
+          "roughness_variation": 0.05,
+          "anisotropy": 0.7,
+          "anisotropic_rotation": 0.0,
+          "tangent": "(1, 0, 0), brushing along the horizontal axis",
+          "brush_texture": "noise stretched 37 x along X, bump 0.10",
+          "specular_tint": [
+            0.97,
+            0.985,
+            1.0
+          ]
+        },
+        "gold_champagne": {
+          "base_colour": "#C9A15A",
+          "metallic": 1.0,
+          "roughness": 0.2,
+          "roughness_variation": 0.02,
+          "anisotropy": 0.0,
+          "specular_tint": [
+            1.0,
+            0.96,
+            0.86
+          ]
+        },
+        "ground": "graphite #0C0D0F, roughness 0.22, coat 0.9 (coat roughness 0.10), backdrop wall #17191C"
+      },
+      "lights": [
+        {
+          "name": "softbox_strip_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -118,
+            -32,
+            46
+          ],
+          "size_mm": [
+            26,
+            170
+          ],
+          "emission_strength": 7.0,
+          "colour_linear": [
+            0.93,
+            0.97,
+            1.0
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.35
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.55
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_strip_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            118,
+            -22,
+            44
+          ],
+          "size_mm": [
+            26,
+            170
+          ],
+          "emission_strength": 6.3,
+          "colour_linear": [
+            1.0,
+            0.95,
+            0.86
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.35
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.55
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_top",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -45,
+            150
+          ],
+          "size_mm": [
+            170,
+            95
+          ],
+          "emission_strength": 3.0,
+          "colour_linear": [
+            1.0,
+            0.98,
+            0.95
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.3
+            ],
+            [
+              0.55,
+              1.0
+            ],
+            [
+              1.0,
+              0.8
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "rim_back_left",
+          "kind": "area_light",
+          "position_mm": [
+            -78,
+            130,
+            78
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "size_mm": [
+            16,
+            90
+          ],
+          "radiance": 10.0,
+          "power_w": 0.04524,
+          "colour": [
+            0.9,
+            0.95,
+            1.0
+          ],
+          "spread_deg": 90.0
+        },
+        {
+          "name": "rim_back_right",
+          "kind": "area_light",
+          "position_mm": [
+            78,
+            130,
+            78
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "size_mm": [
+            16,
+            90
+          ],
+          "radiance": 8.5,
+          "power_w": 0.03845,
+          "colour": [
+            1.0,
+            0.92,
+            0.8
+          ],
+          "spread_deg": 90.0
+        },
+        {
+          "name": "reflector_front_silver",
+          "kind": "emissive_card",
+          "position_mm": [
+            -53.16,
+            -120,
+            52
+          ],
+          "size_mm": [
+            193.6764303759474,
+            150
+          ],
+          "emission_strength": 2.7,
+          "colour_linear": [
+            1.0,
+            0.99,
+            0.97
+          ],
+          "aim_mm": [
+            -53.16,
+            0,
+            52
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.1,
+              0.2
+            ],
+            [
+              0.35,
+              0.35
+            ],
+            [
+              0.55,
+              0.6
+            ],
+            [
+              0.72,
+              1.0
+            ],
+            [
+              0.95,
+              0.9
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "reflector_front_gold",
+          "kind": "emissive_card",
+          "position_mm": [
+            128.68,
+            -120,
+            52
+          ],
+          "size_mm": [
+            170,
+            150
+          ],
+          "emission_strength": 2.0,
+          "colour_linear": [
+            1.0,
+            0.99,
+            0.96
+          ],
+          "aim_mm": [
+            128.68,
+            0,
+            52
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.1,
+              0.2
+            ],
+            [
+              0.35,
+              0.35
+            ],
+            [
+              0.55,
+              0.6
+            ],
+            [
+              0.72,
+              1.0
+            ],
+            [
+              0.95,
+              0.9
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "bevel_light_top_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -105,
+            -20,
+            175
+          ],
+          "size_mm": [
+            90,
+            34
+          ],
+          "emission_strength": 6.0,
+          "colour_linear": [
+            0.95,
+            0.98,
+            1.0
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "bevel_light_top_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            105,
+            -20,
+            175
+          ],
+          "size_mm": [
+            90,
+            34
+          ],
+          "emission_strength": 6.0,
+          "colour_linear": [
+            1.0,
+            0.98,
+            0.94
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "bevel_light_floor_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -60,
+            -15,
+            1.0
+          ],
+          "size_mm": [
+            90,
+            40
+          ],
+          "emission_strength": 3.5999999999999996,
+          "colour_linear": [
+            0.95,
+            0.98,
+            1.0
+          ],
+          "aim_mm": null,
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ],
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "bevel_light_floor_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            60,
+            -15,
+            1.0
+          ],
+          "size_mm": [
+            90,
+            40
+          ],
+          "emission_strength": 3.5999999999999996,
+          "colour_linear": [
+            1.0,
+            0.98,
+            0.94
+          ],
+          "aim_mm": null,
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ],
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "backdrop_wash",
+          "kind": "spot",
+          "position_mm": [
+            0,
+            -350,
+            520
+          ],
+          "aim_mm": [
+            0,
+            380,
+            110
+          ],
+          "power_w": 140.0,
+          "cone_deg": 38.0,
+          "blend": 1.0,
+          "colour": [
+            1.0,
+            0.97,
+            0.93
+          ],
+          "radius_mm": 59.99999865889549
+        },
+        {
+          "name": "floor_pool",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            60,
+            160
+          ],
+          "size_mm": [
+            300,
+            200
+          ],
+          "emission_strength": 0.9,
+          "colour_linear": [
+            1.0,
+            0.95,
+            0.88
+          ],
+          "aim_mm": [
+            0,
+            20,
+            0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        }
+      ],
+      "world": {
+        "file": "photo_studio_01_2k.hdr",
+        "strength": 0.25,
+        "rotation_deg": 200.0,
+        "licence": "CC0 (Poly Haven)"
+      }
+    },
+    "render-hero-angle.png": {
+      "shot": "angle",
+      "mode": "dark",
+      "file": "render-hero-angle.png",
+      "blender": "5.2.1 LTS",
+      "engine": "Cycles (CPU)",
+      "resolution": [
+        2560,
+        1440
+      ],
+      "samples": 128,
+      "adaptive_threshold": 0.009999999776482582,
+      "denoiser": "OpenImageDenoise",
+      "threads": 12,
+      "render_seconds": 161.0,
+      "colour_transform": "Khronos PBR Neutral",
+      "camera": {
+        "lens_mm": 100.0,
+        "f_stop": 2.8,
+        "sensor_width_mm": 36.0,
+        "distance_mm": 527.8,
+        "elevation_deg": 11.0,
+        "location_mm": [
+          0.0,
+          -518.1,
+          138.7
+        ],
+        "target_mm": [
+          0.0,
+          0.0,
+          38.0
+        ],
+        "focus_distance_mm": 504.6,
+        "dof": true
+      },
+      "mark": {
+        "depth_mm": 8.0,
+        "bevel_mm": 0.6,
+        "bevel_segments": 3,
+        "yaw_deg": 32.0,
+        "scale": "1 grid unit = 1 mm",
+        "height_above_floor_mm": 3.0
+      },
+      "materials": {
+        "silver_brushed": {
+          "base_colour": "#FAFBFC",
+          "metallic": 1.0,
+          "roughness": 0.32,
+          "roughness_variation": 0.05,
+          "anisotropy": 0.7,
+          "anisotropic_rotation": 0.0,
+          "tangent": "(1, 0, 0), brushing along the horizontal axis",
+          "brush_texture": "noise stretched 37 x along X, bump 0.10",
+          "specular_tint": [
+            0.97,
+            0.985,
+            1.0
+          ]
+        },
+        "gold_champagne": {
+          "base_colour": "#A07A3A",
+          "metallic": 1.0,
+          "roughness": 0.2,
+          "roughness_variation": 0.02,
+          "anisotropy": 0.0,
+          "specular_tint": [
+            1.0,
+            0.96,
+            0.86
+          ]
+        },
+        "ground": "graphite #0C0D0F, roughness 0.22, coat 0.9 (coat roughness 0.10), backdrop wall #17191C"
+      },
+      "lights": [
+        {
+          "name": "softbox_strip_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -118,
+            -32,
+            46
+          ],
+          "size_mm": [
+            26,
+            170
+          ],
+          "emission_strength": 7.0,
+          "colour_linear": [
+            0.93,
+            0.97,
+            1.0
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.35
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.55
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_strip_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            118,
+            -22,
+            44
+          ],
+          "size_mm": [
+            26,
+            170
+          ],
+          "emission_strength": 6.3,
+          "colour_linear": [
+            1.0,
+            0.95,
+            0.86
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.35
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.55
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_top",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -45,
+            150
+          ],
+          "size_mm": [
+            170,
+            95
+          ],
+          "emission_strength": 3.0,
+          "colour_linear": [
+            1.0,
+            0.98,
+            0.95
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.3
+            ],
+            [
+              0.55,
+              1.0
+            ],
+            [
+              1.0,
+              0.8
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "rim_back_left",
+          "kind": "area_light",
+          "position_mm": [
+            -78,
+            130,
+            78
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "size_mm": [
+            16,
+            90
+          ],
+          "radiance": 10.0,
+          "power_w": 0.04524,
+          "colour": [
+            0.9,
+            0.95,
+            1.0
+          ],
+          "spread_deg": 90.0
+        },
+        {
+          "name": "rim_back_right",
+          "kind": "area_light",
+          "position_mm": [
+            78,
+            130,
+            78
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "size_mm": [
+            16,
+            90
+          ],
+          "radiance": 8.5,
+          "power_w": 0.03845,
+          "colour": [
+            1.0,
+            0.92,
+            0.8
+          ],
+          "spread_deg": 90.0
+        },
+        {
+          "name": "reflector_front_gradient",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -120,
+            52
+          ],
+          "size_mm": [
+            230,
+            150
+          ],
+          "emission_strength": 1.6,
+          "colour_linear": [
+            1.0,
+            0.99,
+            0.97
+          ],
+          "aim_mm": [
+            0,
+            0,
+            52
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.1,
+              0.2
+            ],
+            [
+              0.35,
+              0.35
+            ],
+            [
+              0.55,
+              0.6
+            ],
+            [
+              0.72,
+              1.0
+            ],
+            [
+              0.95,
+              0.9
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "bevel_light_top_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -105,
+            -20,
+            175
+          ],
+          "size_mm": [
+            90,
+            34
+          ],
+          "emission_strength": 6.0,
+          "colour_linear": [
+            0.95,
+            0.98,
+            1.0
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "bevel_light_top_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            105,
+            -20,
+            175
+          ],
+          "size_mm": [
+            90,
+            34
+          ],
+          "emission_strength": 6.0,
+          "colour_linear": [
+            1.0,
+            0.98,
+            0.94
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "bevel_light_floor_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -60,
+            -15,
+            1.0
+          ],
+          "size_mm": [
+            90,
+            40
+          ],
+          "emission_strength": 3.5999999999999996,
+          "colour_linear": [
+            0.95,
+            0.98,
+            1.0
+          ],
+          "aim_mm": null,
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ],
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "bevel_light_floor_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            60,
+            -15,
+            1.0
+          ],
+          "size_mm": [
+            90,
+            40
+          ],
+          "emission_strength": 3.5999999999999996,
+          "colour_linear": [
+            1.0,
+            0.98,
+            0.94
+          ],
+          "aim_mm": null,
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ],
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "backdrop_wash",
+          "kind": "spot",
+          "position_mm": [
+            0,
+            -350,
+            520
+          ],
+          "aim_mm": [
+            0,
+            380,
+            110
+          ],
+          "power_w": 140.0,
+          "cone_deg": 38.0,
+          "blend": 1.0,
+          "colour": [
+            1.0,
+            0.97,
+            0.93
+          ],
+          "radius_mm": 59.99999865889549
+        },
+        {
+          "name": "floor_pool",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            60,
+            160
+          ],
+          "size_mm": [
+            300,
+            200
+          ],
+          "emission_strength": 0.9,
+          "colour_linear": [
+            1.0,
+            0.95,
+            0.88
+          ],
+          "aim_mm": [
+            0,
+            20,
+            0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        }
+      ],
+      "world": {
+        "file": "photo_studio_01_2k.hdr",
+        "strength": 0.25,
+        "rotation_deg": 200.0,
+        "licence": "CC0 (Poly Haven)"
+      }
+    },
+    "render-macro-edge.png": {
+      "shot": "macro",
+      "mode": "dark",
+      "file": "render-macro-edge.png",
+      "blender": "5.2.1 LTS",
+      "engine": "Cycles (CPU)",
+      "resolution": [
+        2560,
+        1440
+      ],
+      "samples": 256,
+      "adaptive_threshold": 0.009999999776482582,
+      "denoiser": "OpenImageDenoise",
+      "threads": 12,
+      "render_seconds": 357.0,
+      "colour_transform": "Khronos PBR Neutral",
+      "camera": {
+        "lens_mm": 100.0,
+        "f_stop": 5.6,
+        "sensor_width_mm": 36.0,
+        "distance_mm": 72.2,
+        "elevation_deg": 12.0,
+        "location_mm": [
+          0.4,
+          -70.9,
+          51.7
+        ],
+        "target_mm": [
+          0.4,
+          -0.3,
+          36.6
+        ],
+        "focus_distance_mm": 69.1,
+        "dof": true
+      },
+      "mark": {
+        "depth_mm": 8.0,
+        "bevel_mm": 0.6,
+        "bevel_segments": 3,
+        "yaw_deg": -35.0,
+        "scale": "1 grid unit = 1 mm",
+        "height_above_floor_mm": 3.0
+      },
+      "materials": {
+        "silver_brushed": {
+          "base_colour": "#D6DAE0",
+          "metallic": 1.0,
+          "roughness": 0.32,
+          "roughness_variation": 0.05,
+          "anisotropy": 0.7,
+          "anisotropic_rotation": 0.0,
+          "tangent": "(1, 0, 0), brushing along the horizontal axis",
+          "brush_texture": "noise stretched 37 x along X, bump 0.10",
+          "specular_tint": [
+            0.97,
+            0.985,
+            1.0
+          ]
+        },
+        "gold_champagne": {
+          "base_colour": "#C9A15A",
+          "metallic": 1.0,
+          "roughness": 0.2,
+          "roughness_variation": 0.02,
+          "anisotropy": 0.0,
+          "specular_tint": [
+            1.0,
+            0.9,
+            0.7
+          ]
+        },
+        "ground": "graphite #0C0D0F, roughness 0.30, coat 0.6 (roughness 0.10)"
+      },
+      "lights": [
+        {
+          "name": "softbox_strip_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -118,
+            -32,
+            46
+          ],
+          "size_mm": [
+            26,
+            170
+          ],
+          "emission_strength": 7.0,
+          "colour_linear": [
+            0.93,
+            0.97,
+            1.0
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.35
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.55
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_strip_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            118,
+            -22,
+            44
+          ],
+          "size_mm": [
+            26,
+            170
+          ],
+          "emission_strength": 6.3,
+          "colour_linear": [
+            1.0,
+            0.95,
+            0.86
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.35
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.55
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_top",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -45,
+            150
+          ],
+          "size_mm": [
+            170,
+            95
+          ],
+          "emission_strength": 3.0,
+          "colour_linear": [
+            1.0,
+            0.98,
+            0.95
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.3
+            ],
+            [
+              0.55,
+              1.0
+            ],
+            [
+              1.0,
+              0.8
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "rim_back_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -78,
+            130,
+            78
+          ],
+          "size_mm": [
+            16,
+            90
+          ],
+          "emission_strength": 10.0,
+          "colour_linear": [
+            0.9,
+            0.95,
+            1.0
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "rim_back_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            78,
+            130,
+            78
+          ],
+          "size_mm": [
+            16,
+            90
+          ],
+          "emission_strength": 8.5,
+          "colour_linear": [
+            1.0,
+            0.92,
+            0.8
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "reflector_front_gradient",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -120,
+            52
+          ],
+          "size_mm": [
+            230,
+            150
+          ],
+          "emission_strength": 1.35,
+          "colour_linear": [
+            1.0,
+            0.99,
+            0.97
+          ],
+          "aim_mm": [
+            0,
+            0,
+            52
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.18,
+              0.45
+            ],
+            [
+              0.5,
+              0.7
+            ],
+            [
+              0.85,
+              1.0
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "macro_fill_card",
+          "kind": "emissive_card",
+          "position_mm": [
+            -118,
+            -78,
+            6
+          ],
+          "size_mm": [
+            230,
+            190
+          ],
+          "emission_strength": 0.3,
+          "colour_linear": [
+            1.0,
+            0.99,
+            0.96
+          ],
+          "aim_mm": null,
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ],
+          "gradient": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.5,
+              0.6
+            ],
+            [
+              1.0,
+              0.05
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "macro_back_card",
+          "kind": "emissive_card",
+          "position_mm": [
+            120,
+            90,
+            8
+          ],
+          "size_mm": [
+            200,
+            160
+          ],
+          "emission_strength": 2.5,
+          "colour_linear": [
+            1.0,
+            0.97,
+            0.92
+          ],
+          "aim_mm": null,
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ],
+          "gradient": [
+            [
+              0.0,
+              0.1
+            ],
+            [
+              0.5,
+              0.7
+            ],
+            [
+              1.0,
+              1.0
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "backdrop_wash",
+          "kind": "spot",
+          "position_mm": [
+            0,
+            -350,
+            520
+          ],
+          "aim_mm": [
+            0,
+            380,
+            110
+          ],
+          "power_w": 200.0,
+          "cone_deg": 38.0,
+          "blend": 1.0,
+          "colour": [
+            1.0,
+            0.97,
+            0.93
+          ],
+          "radius_mm": 59.99999865889549
+        },
+        {
+          "name": "floor_pool",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            60,
+            160
+          ],
+          "size_mm": [
+            300,
+            200
+          ],
+          "emission_strength": 0.9,
+          "colour_linear": [
+            1.0,
+            0.95,
+            0.88
+          ],
+          "aim_mm": [
+            0,
+            20,
+            0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        }
+      ],
+      "world": {
+        "file": "photo_studio_01_2k.hdr",
+        "strength": 0.25,
+        "rotation_deg": 200.0,
+        "licence": "CC0 (Poly Haven)"
+      }
+    },
+    "render-light-ground.png": {
+      "shot": "light",
+      "mode": "light",
+      "file": "render-light-ground.png",
+      "blender": "5.2.1 LTS",
+      "engine": "Cycles (CPU)",
+      "resolution": [
+        2560,
+        1440
+      ],
+      "samples": 192,
+      "adaptive_threshold": 0.009999999776482582,
+      "denoiser": "OpenImageDenoise",
+      "threads": 12,
+      "render_seconds": 171.9,
+      "colour_transform": "Khronos PBR Neutral",
+      "camera": {
+        "lens_mm": 120.0,
+        "f_stop": 11.0,
+        "sensor_width_mm": 36.0,
+        "distance_mm": 833.3,
+        "elevation_deg": 5.0,
+        "location_mm": [
+          0.0,
+          -830.2,
+          108.6
+        ],
+        "target_mm": [
+          0.0,
+          0.0,
+          36.0
+        ],
+        "focus_distance_mm": 833.3,
+        "dof": true
+      },
+      "mark": {
+        "depth_mm": 8.0,
+        "bevel_mm": 0.6,
+        "bevel_segments": 3,
+        "yaw_deg": 0.0,
+        "scale": "1 grid unit = 1 mm",
+        "height_above_floor_mm": 3.0
+      },
+      "materials": {
+        "silver_brushed": {
+          "base_colour": "#9BA3AE",
+          "metallic": 1.0,
+          "roughness": 0.3,
+          "roughness_variation": 0.05,
+          "anisotropy": 0.7,
+          "anisotropic_rotation": 0.0,
+          "tangent": "(1, 0, 0), brushing along the horizontal axis",
+          "brush_texture": "noise stretched 37 x along X, bump 0.10",
+          "specular_tint": [
+            0.95,
+            0.97,
+            1.0
+          ]
+        },
+        "gold_champagne": {
+          "base_colour": "#C9A15A",
+          "metallic": 1.0,
+          "roughness": 0.2,
+          "roughness_variation": 0.02,
+          "anisotropy": 0.0,
+          "specular_tint": [
+            1.0,
+            0.9,
+            0.7
+          ]
+        },
+        "ground": "paper #F6F7F8, roughness 0.55, emission 0.3"
+      },
+      "lights": [
+        {
+          "name": "softbox_top_wide",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -130,
+            330
+          ],
+          "size_mm": [
+            520,
+            300
+          ],
+          "emission_strength": 6.0,
+          "colour_linear": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "aim_mm": [
+            0,
+            0,
+            20
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.5
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.8
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_strip_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -130,
+            -40,
+            60
+          ],
+          "size_mm": [
+            60,
+            200
+          ],
+          "emission_strength": 12.0,
+          "colour_linear": [
+            0.95,
+            0.97,
+            1.0
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.2
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.2
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_strip_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            130,
+            -40,
+            60
+          ],
+          "size_mm": [
+            60,
+            200
+          ],
+          "emission_strength": 12.0,
+          "colour_linear": [
+            1.0,
+            0.97,
+            0.92
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.2
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.2
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "wall_wash_front",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -700,
+            420
+          ],
+          "size_mm": [
+            1400,
+            700
+          ],
+          "emission_strength": 3.2,
+          "colour_linear": [
+            1.0,
+            0.995,
+            0.985
+          ],
+          "aim_mm": [
+            0,
+            500,
+            150
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.7
+            ],
+            [
+              1.0,
+              1.0
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "reflector_front_gradient",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -120,
+            52
+          ],
+          "size_mm": [
+            230,
+            150
+          ],
+          "emission_strength": 2.2,
+          "colour_linear": [
+            1.0,
+            0.99,
+            0.97
+          ],
+          "aim_mm": [
+            0,
+            0,
+            52
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.18,
+              0.12
+            ],
+            [
+              0.5,
+              0.45
+            ],
+            [
+              0.85,
+              1.0
+            ]
+          ],
+          "camera_visible": false
+        }
+      ],
+      "world": {
+        "file": "studio_small_08_2k.hdr",
+        "strength": 0.7,
+        "rotation_deg": 200.0,
+        "licence": "CC0 (Poly Haven)"
+      }
+    },
+    "render-hero-transparent.png": {
+      "shot": "transparent",
+      "mode": "transparent",
+      "file": "render-hero-transparent.png",
+      "blender": "5.2.1 LTS",
+      "engine": "Cycles (CPU)",
+      "resolution": [
+        2048,
+        2048
+      ],
+      "samples": 192,
+      "adaptive_threshold": 0.009999999776482582,
+      "denoiser": "OpenImageDenoise",
+      "threads": 12,
+      "render_seconds": 49.1,
+      "colour_transform": "Khronos PBR Neutral",
+      "camera": {
+        "lens_mm": 100.0,
+        "f_stop": 11.0,
+        "sensor_width_mm": 36.0,
+        "distance_mm": 294.4,
+        "elevation_deg": 6.0,
+        "location_mm": [
+          0.0,
+          -292.8,
+          71.8
+        ],
+        "target_mm": [
+          0.0,
+          0.0,
+          41.0
+        ],
+        "focus_distance_mm": 294.4,
+        "dof": true
+      },
+      "mark": {
+        "depth_mm": 8.0,
+        "bevel_mm": 0.6,
+        "bevel_segments": 3,
+        "yaw_deg": 17.0,
+        "scale": "1 grid unit = 1 mm",
+        "height_above_floor_mm": null
+      },
+      "materials": {
+        "silver_brushed": {
+          "base_colour": "#D6DAE0",
+          "metallic": 1.0,
+          "roughness": 0.32,
+          "roughness_variation": 0.05,
+          "anisotropy": 0.7,
+          "anisotropic_rotation": 0.0,
+          "tangent": "(1, 0, 0), brushing along the horizontal axis",
+          "brush_texture": "noise stretched 37 x along X, bump 0.10",
+          "specular_tint": [
+            0.97,
+            0.985,
+            1.0
+          ]
+        },
+        "gold_champagne": {
+          "base_colour": "#C9A15A",
+          "metallic": 1.0,
+          "roughness": 0.2,
+          "roughness_variation": 0.02,
+          "anisotropy": 0.0,
+          "specular_tint": [
+            1.0,
+            0.9,
+            0.7
+          ]
+        },
+        "ground": "none"
+      },
+      "lights": [
+        {
+          "name": "softbox_strip_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -118,
+            -32,
+            46
+          ],
+          "size_mm": [
+            26,
+            170
+          ],
+          "emission_strength": 9.0,
+          "colour_linear": [
+            0.93,
+            0.97,
+            1.0
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.35
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.55
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_strip_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            118,
+            -22,
+            44
+          ],
+          "size_mm": [
+            26,
+            170
+          ],
+          "emission_strength": 8.1,
+          "colour_linear": [
+            1.0,
+            0.95,
+            0.86
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.35
+            ],
+            [
+              0.5,
+              1.0
+            ],
+            [
+              1.0,
+              0.55
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "softbox_top",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -45,
+            150
+          ],
+          "size_mm": [
+            170,
+            95
+          ],
+          "emission_strength": 3.0,
+          "colour_linear": [
+            1.0,
+            0.98,
+            0.95
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.0,
+              0.3
+            ],
+            [
+              0.55,
+              1.0
+            ],
+            [
+              1.0,
+              0.8
+            ]
+          ],
+          "camera_visible": false
+        },
+        {
+          "name": "rim_back_left",
+          "kind": "emissive_card",
+          "position_mm": [
+            -78,
+            130,
+            78
+          ],
+          "size_mm": [
+            16,
+            90
+          ],
+          "emission_strength": 10.0,
+          "colour_linear": [
+            0.9,
+            0.95,
+            1.0
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "rim_back_right",
+          "kind": "emissive_card",
+          "position_mm": [
+            78,
+            130,
+            78
+          ],
+          "size_mm": [
+            16,
+            90
+          ],
+          "emission_strength": 8.5,
+          "colour_linear": [
+            1.0,
+            0.92,
+            0.8
+          ],
+          "aim_mm": [
+            0.0,
+            0.0,
+            41.0
+          ],
+          "rotation_deg": null,
+          "gradient": null,
+          "camera_visible": false
+        },
+        {
+          "name": "reflector_front_gradient",
+          "kind": "emissive_card",
+          "position_mm": [
+            0,
+            -120,
+            52
+          ],
+          "size_mm": [
+            230,
+            150
+          ],
+          "emission_strength": 2.0,
+          "colour_linear": [
+            1.0,
+            0.99,
+            0.97
+          ],
+          "aim_mm": [
+            0,
+            0,
+            52
+          ],
+          "rotation_deg": null,
+          "gradient": [
+            [
+              0.18,
+              0.45
+            ],
+            [
+              0.5,
+              0.7
+            ],
+            [
+              0.85,
+              1.0
+            ]
+          ],
+          "camera_visible": false
+        }
+      ],
+      "world": {
+        "file": "studio_small_08_2k.hdr",
+        "strength": 0.9,
+        "rotation_deg": 200.0,
+        "licence": "CC0 (Poly Haven)"
+      }
+    }
+  }
+}

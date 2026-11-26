@@ -183,3 +183,7 @@ user-path crates/nurt-journal/src/salvage.rs
 user-path crates/nurt-journal/src/store/tests.rs
 user-path crates/nurt-journal/src/undo.rs
 user-path crates/nurt-tooldef/tests/equivalence.rs
+
+# Reference drawings of the start banner reproduce the example session of the
+# design pack, which contains the words of the check.
+promotional-word */terminal-banner*
