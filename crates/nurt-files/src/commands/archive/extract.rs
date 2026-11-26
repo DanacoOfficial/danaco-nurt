@@ -19,8 +19,9 @@
 //! held in memory beyond one copy buffer.
 //!
 //! Regular files are created with the permissions stored in the archive
-//! (`preserve_permissions: true`) or with those permissions without the
-//! set-id, sticky and group and other write bits. Directories are created
+//! (`preserve_permissions: true`) without the set-id bits, which only a
+//! privileged extraction that states the option keeps, or with those
+//! permissions without the set-id, sticky and group and other write bits. Directories are created
 //! with their permissions and always with full access for the account, so
 //! that their content can be written. Modification times are not restored:
 //! a new file has the time it was written.
@@ -46,6 +47,7 @@ use nurt_contracts::stage::{
     StageImpl, StageInput,
 };
 use nurt_contracts::value::Size;
+use nurt_contracts::value::Value;
 use serde_json::Value as Json;
 
 use super::{
@@ -72,6 +74,11 @@ const DEFAULT_FILE_MODE: u32 = 0o644;
 const DEFAULT_DIR_MODE: u32 = 0o755;
 /// Permission bits applied, including the set-id and sticky bits.
 const PERMISSION_BITS: u32 = 0o7777;
+/// Set-user-id and set-group-id bits, applied only to a privileged
+/// extraction that asks for the stored permissions explicitly.
+const SET_ID_BITS: u32 = 0o6000;
+/// Name of the account that may extract set-id bits.
+const ROOT_ACCOUNT: &str = "root";
 /// Bits kept with `preserve_permissions: false`: no set-id or sticky bits
 /// and no write access for the group and others.
 const UNPRESERVED_BITS: u32 = 0o755;
@@ -112,12 +119,16 @@ enum OnConflict {
 struct Settings {
     on_conflict: OnConflict,
     preserve_permissions: bool,
+    /// Whether the set-user-id and set-group-id bits of the archive are applied.
+    keep_set_id: bool,
     allow_outside: bool,
     strip_components: usize,
 }
 
 impl Settings {
-    fn read(args: &BoundArgs) -> Result<Self> {
+    /// Reads the parameters; `privileged` tells whether the process runs as
+    /// `root`.
+    fn read(args: &BoundArgs, privileged: bool) -> Result<Self> {
         let on_conflict = match choice(args, ON_CONFLICT)? {
             None | Some("overwrite") => OnConflict::Overwrite,
             Some("skip") => OnConflict::Skip,
@@ -132,31 +143,34 @@ impl Settings {
             )
             .with_found(strip.to_string())
         })?;
+        let preserve_permissions = flag(args, PRESERVE_PERMISSIONS, true)?;
+        let stated = matches!(args.value(PRESERVE_PERMISSIONS), Some(Value::Bool(true)));
         Ok(Self {
             on_conflict,
-            preserve_permissions: flag(args, PRESERVE_PERMISSIONS, true)?,
+            preserve_permissions,
+            keep_set_id: preserve_permissions && stated && privileged,
             allow_outside: flag(args, ALLOW_OUTSIDE, false)?,
             strip_components,
         })
     }
 
-    fn file_mode(self, stored: Option<u32>) -> u32 {
-        let mode = stored.unwrap_or(DEFAULT_FILE_MODE);
-        if self.preserve_permissions {
-            mode & PERMISSION_BITS
+    /// Bits of a stored mode that are applied.
+    fn kept_bits(self) -> u32 {
+        if !self.preserve_permissions {
+            UNPRESERVED_BITS
+        } else if self.keep_set_id {
+            PERMISSION_BITS
         } else {
-            mode & UNPRESERVED_BITS
+            PERMISSION_BITS & !SET_ID_BITS
         }
     }
 
+    fn file_mode(self, stored: Option<u32>) -> u32 {
+        stored.unwrap_or(DEFAULT_FILE_MODE) & self.kept_bits()
+    }
+
     fn dir_mode(self, stored: Option<u32>) -> u32 {
-        let mode = stored.unwrap_or(DEFAULT_DIR_MODE);
-        let kept = if self.preserve_permissions {
-            mode & PERMISSION_BITS
-        } else {
-            mode & UNPRESERVED_BITS
-        };
-        kept | ACCOUNT_ACCESS
+        (stored.unwrap_or(DEFAULT_DIR_MODE) & self.kept_bits()) | ACCOUNT_ACCESS
     }
 }
 
@@ -226,7 +240,7 @@ impl EffectStage for ArchiveExtract {
         let fs = ctx.require_fs()?;
         let archive = required_path(args, PATH, ctx)?;
         let into = required_path(args, INTO, ctx)?;
-        let settings = Settings::read(args)?;
+        let settings = Settings::read(args, ctx.host().info().user == ROOT_ACCOUNT)?;
         let filter = path_filter(args, ONLY)?;
         let select = filter
             .as_ref()
@@ -1025,7 +1039,7 @@ mod tests {
             (PRESERVE_PERMISSIONS, Value::Bool(false)),
             (ALLOW_OUTSIDE, Value::Bool(true)),
         ]);
-        let settings = Settings::read(&given).unwrap();
+        let settings = Settings::read(&given, false).unwrap();
         assert_eq!(settings.on_conflict, OnConflict::Error);
         assert_eq!(settings.strip_components, 2);
         assert!(!settings.preserve_permissions);
@@ -1036,19 +1050,34 @@ mod tests {
 
     #[test]
     fn invalid_settings_are_rejected() {
-        let negative = Settings::read(&args(&[(STRIP_COMPONENTS, Value::Int(-1))])).unwrap_err();
+        let negative =
+            Settings::read(&args(&[(STRIP_COMPONENTS, Value::Int(-1))]), false).unwrap_err();
         assert_eq!(negative.code(), ErrorCode::InvalidValue);
-        let unknown =
-            Settings::read(&args(&[(ON_CONFLICT, Value::Enum("merge".to_owned()))])).unwrap_err();
+        let unknown = Settings::read(
+            &args(&[(ON_CONFLICT, Value::Enum("merge".to_owned()))]),
+            false,
+        )
+        .unwrap_err();
         assert_eq!(unknown.code(), ErrorCode::UnknownValue);
     }
 
     #[test]
-    fn preserved_permissions_keep_set_id_bits() {
-        let settings = Settings::read(&args(&[])).unwrap();
-        assert_eq!(settings.file_mode(Some(0o104_755)), 0o4755);
-        assert_eq!(settings.file_mode(None), DEFAULT_FILE_MODE);
-        assert_eq!(settings.dir_mode(None), DEFAULT_DIR_MODE);
+    fn set_id_bits_are_applied_only_to_a_privileged_extraction_that_asks_for_them() {
+        let stated = args(&[(PRESERVE_PERMISSIONS, Value::Bool(true))]);
+        let privileged = Settings::read(&stated, true).unwrap();
+        assert_eq!(privileged.file_mode(Some(0o106_755)), 0o6755);
+        assert_eq!(privileged.dir_mode(Some(0o103_755)), 0o3755);
+        for settings in [
+            Settings::read(&stated, false).unwrap(),
+            Settings::read(&args(&[]), true).unwrap(),
+            Settings::read(&args(&[]), false).unwrap(),
+        ] {
+            assert_eq!(settings.file_mode(Some(0o106_755)), 0o755);
+            assert_eq!(settings.file_mode(Some(0o101_755)), 0o1755);
+            assert_eq!(settings.dir_mode(Some(0o102_755)), 0o755);
+            assert_eq!(settings.file_mode(None), DEFAULT_FILE_MODE);
+            assert_eq!(settings.dir_mode(None), DEFAULT_DIR_MODE);
+        }
     }
 
     #[test]

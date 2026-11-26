@@ -747,6 +747,16 @@ mod tests {
             true
         ));
         assert!(!binary_signature("a.txt", b"%PDF is a prefix\n", true));
+        assert!(!binary_signature(
+            "a.txt",
+            "BM zażółć gęślą jaźń\n".as_bytes(),
+            true
+        ));
+        assert!(!binary_signature(
+            "a.txt",
+            "GIF opisuje obraz: zażółć\n".as_bytes(),
+            true
+        ));
     }
 
     #[test]
