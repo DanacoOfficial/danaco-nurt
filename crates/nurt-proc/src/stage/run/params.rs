@@ -94,6 +94,7 @@ pub(super) fn read(args: &BoundArgs, ctx: &ExecCtx) -> Result<Settings> {
         exact: None,
         preimage: config.run.preimage == PreimageMode::Auto,
         scan_hash: false,
+        timeout: limits.timeout,
     };
     Ok(Settings {
         platform,

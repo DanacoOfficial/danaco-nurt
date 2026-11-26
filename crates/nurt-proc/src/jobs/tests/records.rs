@@ -186,3 +186,33 @@ fn a_failed_read_ends_the_output_events_after_one_log_event() {
     assert_eq!(logs.len(), 1);
     assert!(logs[0].contains("j1") && logs[0].contains("the spool is gone"));
 }
+
+#[test]
+fn the_time_limit_of_a_run_given_to_the_program_covers_the_preparation() {
+    let dir = tempfile::tempdir().unwrap();
+    let (ctx, _) = context(dir.path());
+    let control = Arc::new(FakeControl::default());
+    let components = components_with(control.clone());
+    let RunWait::Finished(_) = run(&ctx, &components, request(dir.path(), 0, 0, 0), None).unwrap()
+    else {
+        panic!("the run moved to the background");
+    };
+    let spawned = control.spawned.lock().unwrap();
+    let given = spawned[0].limits.timeout.unwrap();
+    assert!(given <= Duration::from_secs(60));
+    assert!(given > Duration::from_secs(50), "{given:?}");
+}
+
+#[test]
+fn a_stored_request_without_a_scan_time_limit_is_still_read() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut stored = request(dir.path(), 0, 0, 0);
+    stored.track.timeout = Some(Duration::from_secs(7));
+    let mut json = serde_json::to_value(StoredRequest(stored.clone())).unwrap();
+    assert!(json["track"]["timeout"].is_object() || json["track"]["timeout"].is_array());
+    json["track"].as_object_mut().unwrap().remove("timeout");
+    let read: StoredRequest = serde_json::from_value(json).unwrap();
+    assert_eq!(read.0.track.timeout, None);
+    stored.track.timeout = None;
+    assert_eq!(read.0, stored);
+}
