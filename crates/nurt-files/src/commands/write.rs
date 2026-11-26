@@ -2984,4 +2984,50 @@ mod tests {
         assert!(stages[0].as_effect().is_some());
         assert!(stages[0].as_read().is_none());
     }
+
+    #[test]
+    fn append_keeps_the_legacy_encoding_and_line_endings_of_the_file() {
+        let (test, _) = with_file("/data/legacy.txt", CP1250_CRLF);
+        let given = with_text("/data/legacy.txt", "append", "\u{17c}\u{f3}\u{142}w\n");
+        run(&test, &given).unwrap();
+        let mut expected = CP1250_CRLF.to_vec();
+        expected.extend_from_slice(b"\xbf\xf3\xb3w\r\n");
+        assert_eq!(read(&test, "/data/legacy.txt"), expected);
+    }
+
+    #[test]
+    fn prepend_keeps_the_byte_order_mark_in_front() {
+        let (test, _) = with_file("/data/a.txt", b"\xef\xbb\xbfbody\n");
+        run(&test, &with_text("/data/a.txt", "prepend", "head\n")).unwrap();
+        assert_eq!(read(&test, "/data/a.txt"), b"\xef\xbb\xbfhead\nbody\n");
+    }
+
+    #[test]
+    fn append_with_ensure_newline_ends_the_added_text_with_the_line_ending() {
+        let (test, _) = with_file("/data/a.txt", b"a\r\n");
+        let given = set(
+            with_text("/data/a.txt", "append", "b"),
+            ENSURE_NEWLINE,
+            Value::Bool(true),
+        );
+        run(&test, &given).unwrap();
+        assert_eq!(read(&test, "/data/a.txt"), b"a\r\nb\r\n");
+    }
+
+    #[test]
+    fn unknown_modes_and_negative_sizes_are_rejected_before_any_change() {
+        let (test, _) = with_file("/data/a.bin", b"abc");
+        let unknown = with_text("/data/a.bin", "upsert", "x");
+        assert_eq!(
+            run(&test, &unknown).unwrap_err().code(),
+            ErrorCode::UnknownValue
+        );
+        let negative = set(args("/data/a.bin", "overwrite"), SIZE, Value::Int(-1));
+        assert_eq!(
+            run(&test, &negative).unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
+        assert_eq!(read(&test, "/data/a.bin"), b"abc");
+        assert!(test.journal().calls().is_empty());
+    }
 }
