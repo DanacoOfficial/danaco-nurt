@@ -108,8 +108,8 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/downloads"
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/downloads" \
-            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'SHA256SUMS'
-          (cd "$RUNNER_TEMP/downloads" && sha256sum --check --ignore-missing --strict SHA256SUMS)
+            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'checksums.txt'
+          (cd "$RUNNER_TEMP/downloads" && sha256sum --check --ignore-missing --strict checksums.txt)
       - name: Arrange the native assets by runtime identifier
         if: env.TAG != ''
         run: |

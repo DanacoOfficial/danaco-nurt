@@ -96,8 +96,8 @@ jobs:
           downloads="$RUNNER_TEMP/downloads"
           mkdir -p "$context/amd64" "$context/arm64" "$downloads"
           gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --dir "$downloads" \
-            --pattern "nurt-$VERSION-*-unknown-linux-musl.tar.gz" --pattern SHA256SUMS
-          (cd "$downloads" && grep -F -- "-unknown-linux-musl.tar.gz" SHA256SUMS | sha256sum --check --strict)
+            --pattern "nurt-$VERSION-*-unknown-linux-musl.tar.gz" --pattern checksums.txt
+          (cd "$downloads" && grep -F -- "-unknown-linux-musl.tar.gz" checksums.txt | sha256sum --check --strict)
           tar -xzf "$downloads/nurt-$VERSION-x86_64-unknown-linux-musl.tar.gz" -C "$context/amd64" \
             --strip-components=1 "nurt-$VERSION-x86_64-unknown-linux-musl/nurt"
           tar -xzf "$downloads/nurt-$VERSION-aarch64-unknown-linux-musl.tar.gz" -C "$context/arm64" \

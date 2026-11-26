@@ -83,9 +83,9 @@ install_release() {
   fetch "$url" "$work/$name" || die "cannot download $name for version $version"
 
   if [[ $verify == true ]]; then
-    fetch "$base/v$version/SHA256SUMS" "$work/SHA256SUMS" ||
-      die "cannot download SHA256SUMS for version $version; set 'verify' to false to skip verification"
-    verify_checksum "$work/$name" "$name" "$work/SHA256SUMS"
+    fetch "$base/v$version/checksums.txt" "$work/checksums.txt" ||
+      die "cannot download checksums.txt for version $version; set 'verify' to false to skip verification"
+    verify_checksum "$work/$name" "$name" "$work/checksums.txt"
     printf 'verified SHA-256 of %s\n' "$name"
   fi
 

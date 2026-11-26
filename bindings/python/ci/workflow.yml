@@ -96,8 +96,8 @@ jobs:
         run: |
           mkdir -p downloads
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir downloads \
-            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'SHA256SUMS'
-          (cd downloads && sha256sum --check --ignore-missing --strict SHA256SUMS)
+            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'checksums.txt'
+          (cd downloads && sha256sum --check --ignore-missing --strict checksums.txt)
       - name: Arrange artifacts by target
         run: |
           version="${TAG#v}"

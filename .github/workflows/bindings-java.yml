@@ -129,8 +129,8 @@ jobs:
         run: |
           mkdir -p downloads
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir downloads \
-            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'SHA256SUMS'
-          (cd downloads && sha256sum --check --ignore-missing --strict SHA256SUMS)
+            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'checksums.txt'
+          (cd downloads && sha256sum --check --ignore-missing --strict checksums.txt)
       - name: Version matches the release
         run: |
           project=$(sed -n 's:^  <version>\(.*\)</version>$:\1:p' pom.xml | head -n 1)
