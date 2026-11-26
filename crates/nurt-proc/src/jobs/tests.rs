@@ -1354,7 +1354,6 @@ mod jobs_stop_dispatch {
         );
     }
 }
-}
 
 mod jobs_retry {
     use super::*;

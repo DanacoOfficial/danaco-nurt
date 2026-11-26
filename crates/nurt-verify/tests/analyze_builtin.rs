@@ -149,6 +149,35 @@ fn changed_only_checks_the_files_the_repository_reports() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn changed_only_finds_the_changed_files_of_a_directory_given_through_a_link() {
+    let workspace = Workspace::new();
+    workspace
+        .file("src/a.rs", &branching())
+        .file("src/b.rs", &branching());
+    let links = tempfile::tempdir().unwrap();
+    let link = links.path().join("project");
+    std::os::unix::fs::symlink(workspace.project.path(), &link).unwrap();
+    let git = FakeGit {
+        root: Some(std::fs::canonicalize(workspace.project.path()).unwrap()),
+        tracked: Vec::new(),
+        changed: vec!["src/a.rs".to_owned()],
+    };
+    let ctx = workspace.serviced_at(&link, Some(git));
+    let values = [
+        ("checks", texts(&["complexity"])),
+        ("changed_only", Value::Bool(true)),
+    ];
+    let (output, _) = apply(&ctx, "analyze.check", &args("analyze.check", &values)).unwrap();
+    let paths: Vec<_> = output
+        .records
+        .iter()
+        .filter_map(|record| field(record, "path"))
+        .collect();
+    assert_eq!(paths, ["src/a.rs"]);
+}
+
 #[test]
 fn changed_only_outside_a_repository_checks_every_file() {
     let workspace = Workspace::new();

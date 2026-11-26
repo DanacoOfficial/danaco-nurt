@@ -123,7 +123,10 @@ Rows of kind `entry` that all carry an integer `depth` are drawn as a tree in
 the formats `text` and `markdown`. A row of depth 0 is a root. A row of depth
 `d` is a child of the nearest preceding row of depth `d - 1`. The connectors
 are `|-- `, `` `-- `` and `|   `. A directory is written with a trailing `/`,
-a file with its size.
+a file with its size. A directory above a row that is not in the list, as
+when `find` returns only the matches, is derived from the `path` of the row
+and drawn at its depth; a value with a line break is written on one line with
+the break as `\n`.
 
 ```
 src/

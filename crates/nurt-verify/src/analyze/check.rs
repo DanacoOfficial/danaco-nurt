@@ -195,15 +195,49 @@ fn external_checks(
         let handles: Vec<_> = jobs
             .iter()
             .map(|(tool, program, paths)| {
-                threads.spawn(move || run_one(ctx, request, *tool, program.clone(), paths))
+                let handle =
+                    threads.spawn(move || run_one(ctx, request, *tool, program.clone(), paths));
+                (*tool, handle)
             })
             .collect();
         handles
             .into_iter()
-            .filter_map(|handle| handle.join().ok())
+            .map(|(tool, handle)| handle.join().unwrap_or_else(|_| crashed(tool)))
             .collect()
     });
     (reports, absent, notes)
+}
+
+/// Report of a tool whose check ended in a panic: the check failed and the
+/// note names the tool, so that the analysis does not pass without it.
+fn crashed(tool: Tool) -> ToolReport {
+    ToolReport {
+        check: AnalysisCheck {
+            check: tool.check().to_string(),
+            tool: Some(tool.name().to_owned()),
+            status: CheckStatus::Failed,
+            findings: Some(0),
+            ..AnalysisCheck::default()
+        },
+        findings: Vec::new(),
+        note: Some(missing(format!("{}: the check ended in a panic", tool.name()))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_panicked_check_is_a_failed_check_with_a_note() {
+        let report = crashed(Tool::Eslint);
+        assert!(matches!(report.check.status, CheckStatus::Failed));
+        assert_eq!(report.check.tool.as_deref(), Some("eslint"));
+        assert_eq!(report.check.check, FindingKind::Lint.to_string());
+        assert!(report.findings.is_empty());
+        let note = report.note.unwrap();
+        assert!(note.detail.unwrap().contains("eslint: the check ended in a panic"));
+    }
 }
 
 fn status_only(kind: FindingKind, tool: Option<&str>, status: CheckStatus) -> AnalysisCheck {

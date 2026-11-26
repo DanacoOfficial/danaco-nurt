@@ -289,6 +289,11 @@ fn parse_event_log(body: &str) -> Option<Cursor> {
 fn parse_unified(body: &str) -> Option<Cursor> {
     let mut parts = body.split(':');
     let nanos_text = parts.next()?;
+    // The time is written with a minus sign when negative and never with a
+    // plus sign, as the other numbers of a cursor have digits only.
+    if nanos_text.starts_with('+') {
+        return None;
+    }
     let nanos = nanos_text.parse::<i64>().ok()?;
     let pid = parse_decimal(parts.next()?)?;
     let tid = parse_decimal(parts.next()?)?;
@@ -385,6 +390,13 @@ mod tests {
         assert_eq!(text, "v1:m:-5:1:2:00000000deadbeef");
         assert_eq!(text.parse::<Cursor>().unwrap(), cursor);
         assert_eq!(cursor.time(), Some(Instant::from_unix_nanos(-5)));
+    }
+
+    #[test]
+    fn unified_cursor_with_a_plus_sign_in_the_time_is_rejected() {
+        assert!("v1:m:+1:1:2:00000000deadbeef".parse::<Cursor>().is_err());
+        assert!("v1:m:1:1:2:00000000deadbeef".parse::<Cursor>().is_ok());
+        assert!("v1:m:-1:1:2:00000000deadbeef".parse::<Cursor>().is_ok());
     }
 
     #[test]

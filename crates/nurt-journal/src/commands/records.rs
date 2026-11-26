@@ -62,6 +62,7 @@ fn reverse_action(action: &TargetAction) -> ChangeAction {
 pub(super) fn change(outcome: &TargetOutcome) -> Change {
     let mut change = Change::new(target_text(&outcome.path), change_action(&outcome.action));
     if let TargetAction::Rename { to, .. } = &outcome.action {
+        change.from = Some(change.path.clone());
         change.to = Some(Path::from(to.to_language_string()));
     }
     change.size_before = outcome.before.size.map(Size::from_bytes);
@@ -79,6 +80,7 @@ fn reversal(item: &ItemDetail) -> Change {
     let mut change = match &item.action {
         TargetAction::Rename { to, .. } => {
             let mut change = Change::new(to.to_language_string(), ChangeAction::Rename);
+            change.from = Some(change.path.clone());
             change.to = Some(Path::from(target_text(&item.path)));
             change
         }
@@ -275,6 +277,7 @@ mod tests {
         );
         assert_eq!(changes[1].path, Path::from("/d/e.txt"));
         assert_eq!(changes[1].to, Some(Path::from("/d/b.txt")));
+        assert_eq!(changes[1].from, Some(Path::from("/d/e.txt")));
         let only = [path("/d/b.txt")];
         assert_eq!(reversals(&details, Some(&only)).len(), 1);
     }
@@ -387,6 +390,7 @@ mod tests {
         ));
         assert_eq!(moved.action, ChangeAction::Rename);
         assert_eq!(moved.to, Some(Path::from("/d/b.txt")));
+        assert_eq!(moved.from, Some(Path::from("/d/a.txt")));
 
         let mut unchanged = outcome_of("/d/a.txt", TargetAction::Delete);
         unchanged.after = None;

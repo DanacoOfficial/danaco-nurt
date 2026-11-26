@@ -162,10 +162,22 @@ impl Docs {
         let mut docs = Self::empty();
         for (source, text) in pages {
             let page = parse_page(source, text)?;
+            if docs.pages.contains_key(&page.command) {
+                return Err(error(
+                    source,
+                    format!("the command `{}` has another page already", page.command),
+                ));
+            }
             docs.pages.insert(page.command.clone(), page);
         }
         for (source, text) in guides {
             let guide = parse_guide(source, text)?;
+            if docs.guides.contains_key(&guide.name) {
+                return Err(error(
+                    source,
+                    format!("the guide `{}` exists already", guide.name),
+                ));
+            }
             docs.guides.insert(guide.name.clone(), guide);
         }
         Ok(docs)
@@ -527,5 +539,16 @@ mod tests {
         assert!(docs.guide("g").is_some());
         assert_eq!(docs.pages().count(), 1);
         assert_eq!(docs.guides().count(), 1);
+    }
+
+    #[test]
+    fn a_second_page_or_guide_of_the_same_name_is_rejected_not_overwritten() {
+        let error = Docs::from_sources(&[("a.md", PAGE), ("b.md", PAGE)], &[]).unwrap_err();
+        assert_eq!(error.source, "b.md");
+        assert!(error.message.contains("`count`"));
+        let guide = "---\nname: g\ndescription: D.\ncommands: []\n---\n";
+        let error = Docs::from_sources(&[], &[("a.md", guide), ("b.md", guide)]).unwrap_err();
+        assert_eq!(error.source, "b.md");
+        assert!(error.message.contains("`g`"));
     }
 }
