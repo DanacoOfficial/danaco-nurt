@@ -42,7 +42,7 @@ pub fn help_intro() -> String {
     format!(
         "{}\n\n\
          Run 'help <topic>' for a command or a topic.\n\
-         Run 'catalog' to list the commands.",
+         Run 'help \"commands\"' to list the commands.",
         product::session_help_heading(VERSION)
     )
 }
@@ -101,7 +101,7 @@ mod tests {
     fn help_introduction_points_to_topics_and_the_catalog() {
         let intro = help_intro();
         assert!(intro.contains("Run 'help <topic>' for a command or a topic."));
-        assert!(intro.ends_with("Run 'catalog' to list the commands."));
+        assert!(intro.ends_with("Run 'help \"commands\"' to list the commands."));
     }
 
     #[test]
