@@ -77,7 +77,7 @@ preimage_copy_max = "256mib"
 preimage_exclude = ["node_modules", ".git", "target", "build", "dist", ".venv", "__pycache__"]
 irreversible_patterns = []
 parallel = 1
-spool_max = "unlimited"
+spool_max = "1gib"
 supervisor = "auto"
 waits_threshold = "3s"
 

@@ -244,7 +244,7 @@ behaviour in the meaning column applies.
 | `run.preimage_exclude` | list of names | `node_modules`, `.git`, `target`, `build`, `dist`, `.venv`, `__pycache__` | names never kept |
 | `run.irreversible_patterns` | list of patterns | `[]` | argument patterns added to the built-in table of programs with effects outside the computer; tokens are separated by spaces, `*` matches any token, `a\|b` matches alternatives; the built-in table cannot be removed |
 | `run.parallel` | integer | `1` | default number of batches run at the same time |
-| `run.spool_max` | byte limit | `unlimited` | largest output kept per program; more output is reported |
+| `run.spool_max` | byte limit | `1gib` | largest output kept per program: its first part and, up to a quarter of the limit (at most 64 MiB), its last part; the bytes between them are omitted, marked with a line `[... N bytes omitted ...]` in the spool file and reported with the note `spool_limit`; the counters and the hash cover all output; `unlimited` keeps everything and can be set at any level, including the run-time level for one run |
 | `run.supervisor` | `auto`, `none` | `auto` | supervision of programs that continue in the background after the command line exits; `none` allows background programs only inside a long-lived process |
 | `run.waits_threshold` | duration | `3s` | waiting time above which a program is listed among the waits of a checked program |
 

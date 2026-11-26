@@ -57,7 +57,7 @@ fn request(args: &[&str], limits: ProcessLimits) -> SpawnRequest {
         launcher: Launcher::Direct,
         raw_command_line: None,
         cwd: std::env::temp_dir(),
-        env: std::env::vars_os().collect(),
+        env: std::env::vars_os().collect::<Vec<_>>().into(),
         stdin: StdinSource::Null,
         merge_stderr: false,
         limits,

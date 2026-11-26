@@ -20,6 +20,7 @@ mod windows_cmd;
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use nurt_contracts::env::Os;
 use nurt_contracts::error::{Error, ErrorCode, Result};
@@ -84,7 +85,7 @@ impl Launch {
     pub(crate) fn request(
         &self,
         cwd: &Path,
-        env: ChildEnv,
+        env: Arc<[(OsString, OsString)]>,
         stdin: StdinSource,
         merge_stderr: bool,
         limits: ProcessLimits,
@@ -95,7 +96,7 @@ impl Launch {
             launcher: self.launcher,
             raw_command_line: self.command_line.clone(),
             cwd: cwd.to_path_buf(),
-            env: env.into_vars(),
+            env,
             stdin,
             merge_stderr,
             limits,
@@ -145,7 +146,7 @@ pub(crate) fn prepare_launch(command: &[String], cwd: &Path, env: &ChildEnv) -> 
             unpassable(command, problem.index, problem.problem, problem.reason)
         })?;
         return Ok(Launch {
-            executable: windows_cmd::interpreter(env.get("SystemRoot")),
+            executable: windows_cmd::interpreter(env.host_system_root()),
             program: resolved.path,
             launcher: Launcher::Cmd,
             args: Vec::new(),

@@ -199,7 +199,7 @@ mod tests {
         fields
             .iter()
             .fold(Record::new(RecordKind::Map), |record, (name, value)| {
-                record.with(*name, value.clone())
+                record.with(name, value.clone())
             })
     }
 
