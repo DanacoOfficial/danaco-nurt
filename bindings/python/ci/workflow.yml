@@ -114,6 +114,19 @@ jobs:
             find "unpacked/$target" -type f \( -name nurt -o -name nurt.exe -o -name libnurt.so.1 \
               -o -name libnurt.1.dylib -o -name nurt.dll \) -exec cp {} "artifacts/$target/" \;
           done
+          for archive in downloads/nurt-lib-"$version"-*; do
+            name="$(basename "$archive")"
+            target="${name#nurt-lib-$version-}"
+            target="${target%.tar.gz}"
+            target="${target%.zip}"
+            mkdir -p "unpacked-lib/$target" "artifacts/$target"
+            case "$archive" in
+              *.zip) unzip -q "$archive" -d "unpacked-lib/$target" ;;
+              *) tar -xzf "$archive" -C "unpacked-lib/$target" ;;
+            esac
+            find "unpacked-lib/$target" -type f \( -name libnurt.so.1 -o -name libnurt.1.dylib -o -name nurt.dll \) \
+              -exec cp {} "artifacts/$target/" \;
+          done
       - name: Version matches the release
         run: test "v$(python -c 'import re;print(re.search(r"\"(.+)\"", open("src/nurt/_version.py").read())[1])')" = "$TAG"
       - name: Build wheels

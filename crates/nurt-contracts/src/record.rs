@@ -1905,6 +1905,41 @@ object_struct! {
 }
 
 object_struct! {
+    /// Error found in the output of a known tool; every field is one line.
+    ExecDiagnostic {
+        /// File named by the tool.
+        file: Option<String>,
+        /// Line, from 1.
+        line: Option<u64>,
+        /// Column, from 1.
+        col: Option<u64>,
+        /// Code of the error, for example `E0308` or `TS2322`.
+        code: Option<String>,
+        /// Message.
+        message: String,
+        /// Severity.
+        severity: DiagnosticSeverity,
+        /// Places the same error was reported at, when more than one.
+        count: Option<u64>,
+    }
+}
+
+object_struct! {
+    /// Errors and warnings found in the output of a known tool.
+    ExecDiagnostics {
+        /// Tool whose format was recognised: `cargo`, `pytest`, `tsc`, `gcc`
+        /// (gcc or clang) or `go`.
+        tool: String,
+        /// Number of errors in the output.
+        errors: u64,
+        /// Number of warnings in the output.
+        warnings: u64,
+        /// The first distinct errors, at most 10.
+        first: Vec<ExecDiagnostic>,
+    }
+}
+
+object_struct! {
     /// Progress of a run.
     Progress {
         /// Percentage, when the output shows one.
@@ -2779,6 +2814,13 @@ record_struct! {
         env_keys: Option<Vec<String>>,
         /// Job identifier when the run continued in the background.
         job: Option<String>,
+        /// Errors and warnings of a recognised tool.
+        diagnostics: Option<ExecDiagnostics>,
+        /// One line about a successful run: exit code, time, lines and bytes.
+        digest: Option<String>,
+        /// Sentence with the commands that read what the response leaves out
+        /// from the output file.
+        read_hint: Option<String>,
     }
 }
 

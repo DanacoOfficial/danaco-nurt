@@ -58,6 +58,22 @@ jobs:
           gh release download "v${{ inputs.version }}" --repo "$GITHUB_REPOSITORY" --dir archives \
             --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern checksums.txt
           (cd archives && sha256sum --check --strict checksums.txt)
+      - name: Check the dependencies of the Linux binaries
+        run: |
+          version="${{ inputs.version }}"
+          for triple in x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu; do
+            mkdir -p "checked/$triple"
+            tar -xzf "archives/nurt-${version}-${triple}.tar.gz" -C "checked/$triple" --strip-components=1
+            tar -xzf "archives/nurt-lib-${version}-${triple}.tar.gz" -C "checked/$triple" --strip-components=1
+            bash tools/ci/check-dependencies.sh "checked/$triple/nurt" "checked/$triple/libnurt.so.1"
+          done
+          for archive in archives/nurt-"${version}"-*-unknown-linux-musl.tar.gz; do
+            [ -e "$archive" ] || continue
+            mkdir -p checked/musl
+            tar -xzf "$archive" -C checked/musl --strip-components=1
+            bash tools/ci/check-dependencies.sh checked/musl/nurt
+            rm -rf checked/musl
+          done
       - name: Import the signing key
         env:
           SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
@@ -74,8 +90,10 @@ jobs:
       - name: Build the Debian packages
         run: |
           sh packaging/deb/build-deb.sh --artifact "archives/nurt-${{ inputs.version }}-x86_64-unknown-linux-gnu.tar.gz" \
+            --lib-artifact "archives/nurt-lib-${{ inputs.version }}-x86_64-unknown-linux-gnu.tar.gz" \
             --version "${{ inputs.version }}" --arch amd64 --output debs
           sh packaging/deb/build-deb.sh --artifact "archives/nurt-${{ inputs.version }}-aarch64-unknown-linux-gnu.tar.gz" \
+            --lib-artifact "archives/nurt-lib-${{ inputs.version }}-aarch64-unknown-linux-gnu.tar.gz" \
             --version "${{ inputs.version }}" --arch arm64 --output debs
       - name: Generate the signed apt repository
         run: |

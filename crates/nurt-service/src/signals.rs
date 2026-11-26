@@ -85,7 +85,9 @@ impl SignalThread {
     /// Ends the thread and restores the signal mask of the calling thread.
     pub(crate) fn finish(self) {
         self.finished.store(true, Ordering::Release);
-        if pthread_kill(self.thread.as_pthread_t(), Signal::SIGHUP).is_ok() {
+        // The handle is an integer in `std` and a pointer in the type of `nix`
+        // on musl, so the cast infers its target type.
+        if pthread_kill(self.thread.as_pthread_t() as _, Signal::SIGHUP).is_ok() {
             let _ = self.thread.join();
         }
     }

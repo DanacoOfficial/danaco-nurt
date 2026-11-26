@@ -130,9 +130,12 @@ impl EffectStage for Copy {
     ) -> Result<EffectPlan> {
         let fs = ctx.require_fs()?;
         let settings = Settings::read(args)?;
-        if let Some((registered, destination)) = registry::transfer_request(args, FROM)? {
-            return plan_registry(ctx, &registered, &destination);
-        }
+        let input = match registry::route(args, input, FROM)? {
+            registry::Route::Registry(registered, destination) => {
+                return plan_registry(ctx, &registered, &destination);
+            }
+            registry::Route::Files(input) => input,
+        };
         let sources = sources(args, input, ctx, FROM)?;
         let shared = sources.len() > 1 && args.expr(TO).is_none();
         let mut planner = Planner {

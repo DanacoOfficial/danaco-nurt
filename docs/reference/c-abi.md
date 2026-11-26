@@ -8,8 +8,9 @@ foreign function interface. The interface is declared in
 `crates/nurt-ffi/include/nurt.h`; the exported symbols are listed in
 `crates/nurt-ffi/nurt.symbols`. The crate `nurt-ffi` builds a shared library
 (`libnurt_ffi.so`, `libnurt_ffi.dylib`, `nurt_ffi.dll`) and a static library.
-The release packages carry the shared library as `libnurt.so` (also `libnurt.so.1`),
-`libnurt.dylib` and `nurt.dll`. The bindings for .NET and Java look for the name of the
+The release publishes the shared library in its own archive `nurt-lib-<version>-<target>`, as `libnurt.so.1`,
+`libnurt.1.dylib` and `nurt.dll`, with `nurt.h` and `nurt.pc`; the program archive does not hold it. The packages
+install the library as `libnurt.so` (also `libnurt.so.1`) and `libnurt.dylib`. The bindings for .NET and Java look for the name of the
 package first and for the name of the build second, so both are found; a path given in the
 options or in `NURT_LIBRARY` is used as given, whatever its name.
 

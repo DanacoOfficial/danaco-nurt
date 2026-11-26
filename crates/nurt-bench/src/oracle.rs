@@ -199,6 +199,7 @@ mod tests {
         "harm":{"unexpected":["x"],"lost":[],"encoding":[],"line_endings":[],"forbidden":[]},
         "changes":{"x":"create"}}"#;
 
+    #[cfg(unix)]
     fn empty() -> Snapshot {
         Snapshot {
             format: None,

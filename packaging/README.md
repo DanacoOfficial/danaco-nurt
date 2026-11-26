@@ -50,29 +50,58 @@ The `Signed-By` field of `nurt.sources` restricts the key to this repository.
 
 ## Release archives
 
-The release job publishes one archive per target and `checksums.txt` in the format of `sha256sum`.
+The release job publishes the archives of every target and `checksums.txt` in the format of `sha256sum`. `pack.py` assembles them: the program archive `nurt-<version>-<target>` and, when `--library` is given, the library archive `nurt-lib-<version>-<target>`. `checksums.txt` lists both kinds, and `checksums.txt.asc` signs both.
 
 | Target | Archive | Used by |
 |---|---|---|
-| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | `nurt-<version>-<target>.tar.gz` | deb, rpm, Homebrew on Linux, `install.sh` when the release has no musl archive |
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | `nurt-<version>-<target>.tar.gz`, `nurt-lib-<version>-<target>.tar.gz` | deb, rpm, Homebrew on Linux, `install.sh` when the release has no musl archive |
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | `nurt-<version>-<target>.tar.gz` | `install.sh` (preferred), the container images, the GitHub Action `setup-nurt` and the dev container feature; optional, a release without them is installed from the glibc archives by `install.sh` only |
-| `x86_64-apple-darwin`, `aarch64-apple-darwin` | `nurt-<version>-<target>.tar.gz` | `install.sh`, Homebrew |
-| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `nurt-<version>-<target>.zip` | winget, Scoop, Chocolatey, `install.ps1` |
+| `x86_64-apple-darwin`, `aarch64-apple-darwin` | `nurt-<version>-<target>.tar.gz`, `nurt-lib-<version>-<target>.tar.gz` | `install.sh`, Homebrew |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `nurt-<version>-<target>.zip`, `nurt-lib-<version>-<target>.zip` | winget, Scoop, Chocolatey, `install.ps1` |
 | source | `nurt-<version>-source.tar.gz` | Homebrew core formula |
 
-Archives for Linux and macOS contain the directory `nurt-<version>-<target>/` with:
+The placeholder `@SHA256:lib-<target>@` of `render.py` reads the digest of the library archive of a target.
+
+The program archive of Linux and macOS contains the directory `nurt-<version>-<target>/` with:
 
 | Path | Content | Required |
 |---|---|---|
 | `nurt` | executable | yes |
-| `libnurt.so.1` | shared library (glibc Linux); `libnurt.1.dylib` on macOS; no library in musl archives, which are static | for deb and rpm |
-| `nurt.h`, `nurt.pc` | C header and pkg-config file; `nurt.pc` defines `prefix`, `libdir` and `includedir` on separate lines | for deb and rpm |
-| `LICENSE`, `NOTICE` | license texts | yes |
+| `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md` | texts | yes |
 | `man/man1/*.1` | manual pages | no |
 | `completions/nurt.bash`, `completions/_nurt`, `completions/nurt.fish` | shell completions | no |
+| `doc/` | the documentation site | no |
 | `service/` | unit files of the service mode | no |
 
-Windows archives contain `nurt.exe`, `LICENSE` and `NOTICE` at the top level, and `nurt.dll` with `nurt.h` when the library is packed. The packages only deliver the service files; `nurt service install` installs the service.
+The library archive contains the directory `nurt-lib-<version>-<target>/` with:
+
+| Path | Content | Required |
+|---|---|---|
+| `libnurt.so.1` | shared library (glibc Linux); `libnurt.1.dylib` on macOS | yes |
+| `nurt.h`, `nurt.pc` | C header and pkg-config file; `nurt.pc` defines `prefix`, `libdir` and `includedir` on separate lines | yes |
+| `LICENSE`, `NOTICE` | license texts | yes |
+
+The library is not packed for musl targets.
+
+The musl archive is built with the target `x86_64-unknown-linux-musl` (`rustup target add x86_64-unknown-linux-musl`) and a C compiler for it. Without `musl-gcc`, `zig cc` works when the C compiler and the linker are set apart:
+
+```sh
+export CC_x86_64_unknown_linux_musl=<script that runs: zig cc -target x86_64-linux-musl, without the option --target=...>
+export CFLAGS_x86_64_unknown_linux_musl="-fno-sanitize=undefined"
+cargo build --release --target x86_64-unknown-linux-musl -p nurt-cli
+python3 -I packaging/release/pack.py --root . --version <version> --target x86_64-unknown-linux-musl \
+    --binary target/x86_64-unknown-linux-musl/release/nurt --output archives --completions <dir> --site <dir>
+```
+
+The linker stays the default `cc`: `zig cc` as the linker adds a second C runtime start file to the one of the Rust target and the link fails with a duplicate `_start`. `-fno-sanitize=undefined` is needed because `zig cc` enables the undefined behavior sanitizer by default and `aws-lc-sys` then leaves `__ubsan_handle_type_mismatch_v1` undefined. The result is a static-pie executable with no `NEEDED` entries; `release.yml` checks it with `check-dependencies.sh`.
+
+`build-deb.sh` takes the library archive with `--lib-artifact`; `nurt.spec.in` lists it as `Source1`.
+
+Windows archives hold their files at the top level: the program archive `nurt.exe`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `completions/` and `doc/`; the library archive `nurt.dll`, `nurt.h`, `LICENSE` and `NOTICE`. The packages only deliver the service files; `nurt service install` installs the service.
+
+## Dependency check
+
+`tools/ci/check-dependencies.sh [--format elf|pe] FILE...` reads the dynamic section of every file (`readelf -d`, entries `NEEDED`) and fails when a file names a shared library outside the permitted list: `libc.so.6`, `libm.so.6`, `libgcc_s.so.1`, `ld-linux-x86-64.so.2`, `ld-linux-aarch64.so.1` and `linux-vdso.so.1`. A statically linked file passes. The format is taken from the first bytes of the file when `--format` is omitted. The environment variable `READELF` replaces the `readelf` program. The workflow `release.yml` runs the script on `nurt` and `libnurt.so.1` of both glibc archives before it signs the checksums. The check of Windows files (`check_pe`, list `WINDOWS_ALLOWED_DLLS`) is reserved in the script and not implemented. The tests are in `tests/test_check_dependencies.py`.
 
 ## Directories
 

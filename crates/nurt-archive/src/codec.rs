@@ -756,6 +756,28 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_bzip2_stream_and_every_level_digit_are_recognised() {
+        for level in b'1'..=b'9' {
+            assert_eq!(
+                detect(&[b'B', b'Z', b'h', level, 0x17, 0x72]),
+                Some(Algorithm::Bzip2)
+            );
+        }
+        assert_eq!(detect(b"BZh9\x17\x73"), None);
+    }
+
+    #[test]
+    fn a_prefix_shorter_than_the_signature_is_not_recognised() {
+        assert_eq!(detect(&[]), None);
+        assert_eq!(detect(&[0x1f]), None);
+        assert_eq!(detect(&[0x28, 0xb5, 0x2f]), None);
+        assert_eq!(detect(&[0xfd, b'7', b'z', b'X', b'Z']), None);
+        assert_eq!(detect(&[0x04, 0x22, 0x4d]), None);
+        assert_eq!(detect(&[0x1f, 0x8b]), Some(Algorithm::Gzip));
+        assert_eq!(detect(&[0x04, 0x22, 0x4d, 0x18]), Some(Algorithm::Lz4));
+    }
+
+    #[test]
     fn empty_input_round_trips() {
         for algorithm in ALGORITHMS {
             assert!(

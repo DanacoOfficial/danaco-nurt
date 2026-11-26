@@ -147,24 +147,37 @@ jobs:
               echo "release $TAG has no archive for $target" >&2
               exit 1
             fi
+            libarchive=""
+            for candidate in "$RUNNER_TEMP/downloads/nurt-lib-$version-$target.tar.gz" "$RUNNER_TEMP/downloads/nurt-lib-$version-$target.zip"; do
+              if [ -f "$candidate" ]; then libarchive="$candidate"; fi
+            done
+            if [ -z "$libarchive" ]; then
+              echo "release $TAG has no library archive for $target" >&2
+              exit 1
+            fi
             unpacked="$RUNNER_TEMP/unpacked/$target"
-            mkdir -p "$unpacked" "artifacts/native/$rid"
+            libunpacked="$RUNNER_TEMP/unpacked-lib/$target"
+            mkdir -p "$unpacked" "$libunpacked" "artifacts/native/$rid"
             case "$archive" in
               *.zip) unzip -q "$archive" -d "$unpacked" ;;
               *) tar -xzf "$archive" -C "$unpacked" ;;
             esac
+            case "$libarchive" in
+              *.zip) unzip -q "$libarchive" -d "$libunpacked" ;;
+              *) tar -xzf "$libarchive" -C "$libunpacked" ;;
+            esac
             case "$rid" in
               win-*)
                 copy_first "$unpacked" "artifacts/native/$rid/nurt.exe" nurt.exe
-                copy_first "$unpacked" "artifacts/native/$rid/nurt.dll" nurt.dll
+                copy_first "$libunpacked" "artifacts/native/$rid/nurt.dll" nurt.dll
                 ;;
               osx-*)
                 copy_first "$unpacked" "artifacts/native/$rid/nurt" nurt
-                copy_first "$unpacked" "artifacts/native/$rid/libnurt.dylib" libnurt.dylib libnurt.1.dylib
+                copy_first "$libunpacked" "artifacts/native/$rid/libnurt.dylib" libnurt.dylib libnurt.1.dylib
                 ;;
               *)
                 copy_first "$unpacked" "artifacts/native/$rid/nurt" nurt
-                copy_first "$unpacked" "artifacts/native/$rid/libnurt.so" libnurt.so libnurt.so.1
+                copy_first "$libunpacked" "artifacts/native/$rid/libnurt.so" libnurt.so libnurt.so.1
                 ;;
             esac
           done

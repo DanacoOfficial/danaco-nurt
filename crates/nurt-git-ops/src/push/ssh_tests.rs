@@ -362,6 +362,7 @@ impl Environment {
             user_key.to_openssh(LineEnding::LF).unwrap().as_bytes(),
         )
         .unwrap();
+        #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(

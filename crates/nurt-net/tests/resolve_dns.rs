@@ -34,6 +34,7 @@ use nurt_contracts::record::DnsRecord;
 use nurt_contracts::stage::{CancelReason, CancelToken};
 use nurt_contracts::value::{Duration as ValueDuration, Value};
 use nurt_net::dns::{QueryType, Resolve, ResolverConfig, lookup};
+#[cfg(unix)]
 use nurt_net::interfaces::SysRoot;
 
 const TTL: u32 = 60;

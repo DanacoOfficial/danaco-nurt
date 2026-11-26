@@ -256,6 +256,7 @@ behaviour in the meaning column applies.
 | `output.color` | `auto`, `always`, `never` | `auto` | colours for people |
 | `output.head` | integer | `20` | first lines of program output shown in a response |
 | `output.tail` | integer | `40` | last lines of program output shown in a response |
+| `output.max_bytes` | integer | `4096` | bytes of text of one program output stream shown in a response; `0` is no limit |
 | `output.spool_ttl` | duration | `1h` | lifetime of files with complete program output |
 | `output.results_dir` | path | none: `results` in the state directory | directory of complete results saved to files |
 

@@ -751,6 +751,13 @@
           "minimum": 0,
           "default": 40
         },
+        "max_bytes": {
+          "description": "Key `output.max_bytes`: bytes of text of one program output stream\nshown in a response; `0` is no limit. Default `4096`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 4096
+        },
         "spool_ttl": {
           "description": "Key `output.spool_ttl`: lifetime of files with complete program output.\nDefault `1h`.",
           "$ref": "#/$defs/DurationSetting",
@@ -1726,6 +1733,7 @@
         "color": "auto",
         "head": 20,
         "tail": 40,
+        "max_bytes": 4096,
         "spool_ttl": "1h",
         "results_dir": null
       }

@@ -15,6 +15,7 @@ use tempfile::TempDir;
 
 use crate::iface::{OutputStore, OutputView, SpoolFactory};
 
+mod budget;
 mod corpus;
 mod reads;
 mod spool_files;

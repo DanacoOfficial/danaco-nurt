@@ -50,6 +50,7 @@ fn language_and_scope_defaults() {
     assert_eq!(config.output.language, Language::En);
     assert_eq!(config.output.head, 20);
     assert_eq!(config.output.tail, 40);
+    assert_eq!(config.output.max_bytes, 4096);
 }
 
 #[test]

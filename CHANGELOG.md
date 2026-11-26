@@ -80,6 +80,36 @@ their own version numbers, described in the specification.
   by 0.1.0 are read unchanged, and a reader of version 1 rejects version 2.
   The items of an undo or redo entry are packed with the targets, so that the
   entry of an undo of thousands of files is about seven times smaller.
+- `run`: the response is short by default. The text of all streams together
+  fits in `max_bytes` (new parameter, key `output.max_bytes`, 4096 bytes, `0`
+  is no limit), filled with the errors found, the end of standard error, the
+  end of standard output and the beginning; a line longer than 400 characters
+  is cut and ends with `… [+N znaków]`. `dedupe` is on by default and also
+  collapses lines that differ only in numbers, versions or the names after
+  `Compiling` and similar words. After exit code 0, `show: auto` returns the
+  last 5 lines and the field `digest` instead of the first 20 and last 40
+  lines. After a failure with more than 20 lines of output, the output of
+  `cargo`/`rustc` and `pytest` is recognised: the field `diagnostics` holds
+  the numbers of errors and warnings and the first 10 distinct errors with
+  file, line, column, code and message, and the text keeps the last 10 lines.
+  A cut response carries `read_hint`, a sentence with `read` and `search`
+  commands that read the rest from the output file. Pass `dedupe: false`,
+  `max_bytes: 0` or `head` and `tail` to get the earlier behaviour.
+- Linux: the executable and the library link liblzma statically; the only
+  shared libraries are `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` and the
+  dynamic loader, so the program runs on a system without `liblzma.so.5`. The
+  `.deb` package no longer depends on `liblzma5`.
+- `nurt-service` compiles for the target `x86_64-unknown-linux-musl`
+  (`sched_param` and `pthread_t` differ from glibc), and the release procedure
+  builds the static musl archive `nurt-<version>-x86_64-unknown-linux-musl`.
+
+### Known limitations
+
+- The archives are built for x86-64: Linux glibc, Linux musl (static, without
+  the library) and Windows MSVC. The code for macOS passes `cargo check` for
+  `x86_64-apple-darwin` and `aarch64-apple-darwin`, but it is not run and no
+  macOS archive is built; no aarch64 archive is built.
+- On Windows, `suspend` and `resume` of a process return `E_UNSUPPORTED`.
 
 ## [0.1.0] - 2026-11-22
 

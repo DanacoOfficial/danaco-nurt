@@ -166,6 +166,14 @@ jobs:
               *.zip) unzip -q "$archive" -d "$unpacked" ;;
               *) tar -xzf "$archive" -C "$unpacked" ;;
             esac
+            libarchive=$(find downloads -maxdepth 1 -name "nurt-lib-$version-$triple.*" | sort | head -n 1)
+            test -n "$libarchive"
+            libunpacked="unpacked-lib/$triple"
+            mkdir -p "$libunpacked"
+            case "$libarchive" in
+              *.zip) unzip -q "$libarchive" -d "$libunpacked" ;;
+              *) tar -xzf "$libarchive" -C "$libunpacked" ;;
+            esac
             case "$platform" in
               windows-*) executable=nurt.exe; library=nurt.dll; packaged=nurt.dll ;;
               macos-*) executable=nurt; library=libnurt.1.dylib; packaged=libnurt.dylib ;;
@@ -173,7 +181,7 @@ jobs:
             esac
             bundle "$(find "$unpacked" -type f -name "$executable" | head -n 1)" \
               "nurt/src/main/resources/natives/$platform/$executable"
-            bundle "$(find "$unpacked" -type f -name "$library" | head -n 1)" \
+            bundle "$(find "$libunpacked" -type f -name "$library" | head -n 1)" \
               "nurt-ffm/src/main/resources/natives/$platform/$packaged"
           done
       - name: Build packages

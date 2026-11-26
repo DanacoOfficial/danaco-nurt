@@ -744,6 +744,56 @@ mod tests {
         assert!(error.message().contains("`src`"));
     }
 
+    fn project_journal_limits(trusted: bool) -> JournalLimits {
+        let temp = tempfile::tempdir().unwrap();
+        let project = temp.path().join("app");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(
+            project.join(PROJECT_FILE_NAME),
+            "[journal]\nmax_ops = 3\nmax_age = \"1m\"\n",
+        )
+        .unwrap();
+        let user = temp.path().join("user.toml");
+        let listed = if trusted {
+            format!(
+                "[scope]\ntrusted_projects = [{:?}]\n",
+                project.to_str().unwrap()
+            )
+        } else {
+            String::new()
+        };
+        fs::write(&user, listed).unwrap();
+        let sources = ConfigSources::new()
+            .with_files(None, Some(user))
+            .with_environment(false);
+        let loader = ConfigLoader::new(&sources, &TestHost::linux()).unwrap();
+        let loaded = loader.load(Some(&project.join(PROJECT_FILE_NAME))).unwrap();
+        assert_eq!(loaded.project().unwrap().trusted, trusted);
+        loaded.journal_limits().clone()
+    }
+
+    #[test]
+    fn trusted_project_journal_limits_are_raised_to_the_project_floor() {
+        let limits = project_journal_limits(true);
+        assert_eq!(limits.max_ops, PROJECT_FLOOR_MAX_OPS);
+        assert_eq!(limits.max_age, PROJECT_FLOOR_MAX_AGE);
+        assert_eq!(limits.raised.len(), 2);
+        assert!(
+            limits
+                .raised
+                .iter()
+                .all(|raise| raise.floor == FloorSource::ProjectFile)
+        );
+    }
+
+    #[test]
+    fn untrusted_project_journal_limits_are_ignored() {
+        let limits = project_journal_limits(false);
+        assert_eq!(limits.max_ops, Config::default().journal.max_ops);
+        assert_eq!(limits.max_age, Config::default().journal.max_age);
+        assert!(limits.raised.is_empty());
+    }
+
     #[test]
     fn runtime_trust_is_ignored() {
         let loaded = load(&overrides("[scope]\ntrusted_projects = [\"/srv/app\"]\n")).unwrap();

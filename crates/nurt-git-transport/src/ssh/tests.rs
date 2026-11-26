@@ -9,8 +9,11 @@
 //! program.
 
 use std::collections::HashMap;
+#[cfg(unix)]
 use std::io::{Read as _, Write as _};
-use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 

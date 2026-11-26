@@ -121,6 +121,7 @@ mod imp {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
     use std::fs;
 
     use super::*;

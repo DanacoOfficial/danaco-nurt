@@ -1,7 +1,7 @@
 {
   "nurt": "1.0",
   "bound": "1.0",
-  "catalog_rev": "sha256:819dca2f2e452438dcf27dd9ae3d773b3cca391bda177aee94038b1e163b1238",
+  "catalog_rev": "sha256:91096de585b63c65381978d4f9f0f49ef68f64dcc19f89b70f6841bcaf240071",
   "corr_rev": "sha256:65d40b4ec4fbcd11daf83d2286a5d642c20da9688004b43bd7d51950c217ef7c",
   "program": {
     "statements": [
@@ -127,6 +127,14 @@
               "default": true
             },
             {
+              "name": "max_bytes",
+              "value": {
+                "t": "int",
+                "v": 4096
+              },
+              "default": true
+            },
+            {
               "name": "filter",
               "value": {
                 "t": "null"
@@ -145,7 +153,7 @@
               "name": "dedupe",
               "value": {
                 "t": "bool",
-                "v": false
+                "v": true
               },
               "default": true
             },
