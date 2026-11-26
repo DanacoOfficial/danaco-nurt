@@ -16,9 +16,16 @@ pub(super) fn is_option(arg: &str) -> bool {
 
 /// Program name compared with patterns: the last path component, without a
 /// package version (`vercel@latest`) and without an executable extension,
-/// in lower case.
+/// in lower case. A backslash separates directories on Windows and in
+/// Windows paths (`C:\dir\git.exe`, `\\host\share\git.exe`); in a plain word
+/// on other systems it is part of the file name, so `x\ls` is not `ls`.
 pub(super) fn program_name(word: &str) -> String {
-    let base = word.rsplit(['/', '\\']).next().unwrap_or(word);
+    let separators: &[char] = if cfg!(windows) || is_windows_path(word) {
+        &['/', '\\']
+    } else {
+        &['/']
+    };
+    let base = word.rsplit(separators).next().unwrap_or(word);
     let base = match base.char_indices().skip(1).find(|&(_, c)| c == '@') {
         Some((at, _)) => base.get(..at).unwrap_or(base),
         None => base,
@@ -28,6 +35,16 @@ pub(super) fn program_name(word: &str) -> String {
         .iter()
         .find_map(|extension| lower.strip_suffix(extension))
         .map_or_else(|| lower.clone(), str::to_owned)
+}
+
+/// Whether `word` is a drive-letter or UNC path.
+fn is_windows_path(word: &str) -> bool {
+    let bytes = word.as_bytes();
+    word.starts_with("\\\\")
+        || (bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'\\' | b'/'))
 }
 
 /// Whether `arg` is an environment assignment `NAME=VALUE`.
@@ -198,6 +215,11 @@ mod tests {
     fn program_names_lose_directories_versions_and_extensions() {
         assert_eq!(program_name("/usr/bin/Git"), "git");
         assert_eq!(program_name(r"C:\Tools\TOOL.EXE"), "tool");
+        assert_eq!(program_name(r"\\host\share\Git.exe"), "git");
+        assert_eq!(
+            program_name(r"x\ls"),
+            if cfg!(windows) { "ls" } else { r"x\ls" }
+        );
         assert_eq!(program_name("vercel@latest"), "vercel");
         assert_eq!(program_name("@scope/pkg"), "pkg");
         assert_eq!(program_name("@angular"), "@angular");
