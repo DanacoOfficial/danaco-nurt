@@ -273,6 +273,9 @@ pub struct Step {
     pub events: Option<EventExpectation>,
     /// Expected state of the directory on the second volume.
     pub second_volume_after: Option<FsExpectation>,
+    /// The step only prepares or cleans up the state and may state no
+    /// expectation, also as the last step.
+    pub setup_only: bool,
 }
 
 impl Step {
@@ -612,6 +615,8 @@ struct RawStep {
     events: Option<Vec<Value>>,
     events_match: Option<String>,
     second_volume_after: Option<Value>,
+    #[serde(default)]
+    setup_only: bool,
 }
 
 impl RawStep {
@@ -627,6 +632,7 @@ impl RawStep {
             && self.absent.is_none()
             && self.events.is_none()
             && self.second_volume_after.is_none()
+            && !self.setup_only
     }
 }
 
@@ -834,16 +840,27 @@ fn fs_expectation(source: &Path, dir: &Path, value: &Value) -> Result<FsExpectat
 
 /// Plan of the steps of a case. A case in which no step states an expectation
 /// would pass for any server, so it is refused; steps before the last one that
-/// only prepare the state need no expectation.
+/// only prepare the state need no expectation, and the last step states one
+/// or is marked `setup_only`.
 fn with_expectation(source: &Path, id: &str, steps: Vec<Step>) -> Result<Plan, Error> {
-    if steps.iter().any(Step::states_expectation) {
-        Ok(Plan::Steps(steps))
-    } else {
-        Err(Error::format(
+    if !steps.iter().any(Step::states_expectation) {
+        return Err(Error::format(
             source,
             format!("no step of case {id:?} states an expectation"),
-        ))
+        ));
     }
+    if steps
+        .last()
+        .is_some_and(|last| !last.states_expectation() && !last.setup_only)
+    {
+        return Err(Error::format(
+            source,
+            format!(
+                "the last step of case {id:?} states no expectation; state one or mark it `setup_only`"
+            ),
+        ));
+    }
+    Ok(Plan::Steps(steps))
 }
 
 fn build_plan(
@@ -967,6 +984,7 @@ fn build_step(source: &Path, dir: &Path, raw: &RawStep, case_variant: &str) -> R
         absent: raw.absent.clone().unwrap_or_default(),
         events,
         second_volume_after,
+        setup_only: raw.setup_only,
     })
 }
 
@@ -1523,6 +1541,37 @@ expect_error = -32602
             json!({"nurt": "1.0", "options": {"limit": 1}})
         );
         assert_eq!(steps[4].expect_error, Some(-32602));
+    }
+
+    #[test]
+    fn a_last_step_without_an_expectation_must_be_marked_as_setup_only() {
+        let root = suite_root();
+        let r = root.path();
+        let case = |last: &str| {
+            format!(
+                r#"
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "exec/ending"
+kind = "exec"
+summary = "s"
+
+[[case.step]]
+program = "count"
+expect = {{ report = {{ status = "ok" }} }}
+
+[[case.step]]
+program = "count"
+{last}
+"#
+            )
+        };
+        write(r, "exec/set.cases.toml", &case(""));
+        let error = load(r).unwrap_err().to_string();
+        assert!(error.contains("last step"), "{error}");
+        write(r, "exec/set.cases.toml", &case("setup_only = true"));
+        assert!(load(r).is_ok());
     }
 
     #[test]
