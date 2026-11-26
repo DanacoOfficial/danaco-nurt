@@ -109,11 +109,17 @@ pub(crate) fn verify(
     if let Some(home) = &config.gnupg_home {
         certs.extend(keyring::load_gnupg(home));
     }
+    let now = unix_now();
     let mut matched = false;
     for cert in &certs {
         if issued_by(&cert.primary_key) {
             matched = true;
             if detached.verify(&cert.primary_key, payload).is_ok() {
+                // A revoked or expired key does not vouch for the signature,
+                // as in `gpg`, which reports it as not good.
+                if cert_unusable(cert, now) {
+                    return Ok(status);
+                }
                 return Ok(good(status, cert, &cert.primary_key));
             }
         }
@@ -121,6 +127,9 @@ pub(crate) fn verify(
             if issued_by(&subkey.key) {
                 matched = true;
                 if detached.verify(&subkey.key, payload).is_ok() {
+                    if cert_unusable(cert, now) || !subkey_usable(cert, subkey, now) {
+                        return Ok(status);
+                    }
                     return Ok(good(status, cert, &subkey.key));
                 }
             }
@@ -187,7 +196,7 @@ fn sign_with_key_file(payload: &[u8], config: &SigningConfig) -> Result<Option<S
                 path,
             )
         })?,
-        None => best_signing_key(&public, None).ok_or_else(|| {
+        None => best_signing_key(&public, None, unix_now()).ok_or_else(|| {
             with_path(
                 no_key(format!("the key file `{}` holds no key that can sign", path.display())),
                 "key_file",
@@ -357,14 +366,18 @@ fn sign_with_agent(payload: &[u8], config: &SigningConfig) -> Result<Option<Sign
     };
     let hash = preferred_hash(cert);
     let armored = if selection.fingerprint == cert.primary_key.fingerprint() {
-        agent::sign(&cert.primary_key, config, hash, &selection, payload)?
+        let armored = agent::sign(&cert.primary_key, config, hash, &selection, payload)?;
+        check_created(&armored, &cert.primary_key, payload)?;
+        armored
     } else {
         let subkey = cert
             .public_subkeys
             .iter()
             .find(|subkey| subkey.key.fingerprint() == selection.fingerprint)
             .ok_or_else(|| no_key(format!("no OpenPGP subkey matches `{spec}`")))?;
-        agent::sign(&subkey.key, config, hash, &selection, payload)?
+        let armored = agent::sign(&subkey.key, config, hash, &selection, payload)?;
+        check_created(&armored, &subkey.key, payload)?;
+        armored
     };
     Ok(Some(Signature {
         format: SignatureFormat::Openpgp,
@@ -372,6 +385,29 @@ fn sign_with_agent(payload: &[u8], config: &SigningConfig) -> Result<Option<Sign
         key: fingerprint_hex(&selection.fingerprint),
         source: KeySource::Agent,
     }))
+}
+
+/// Verifies a signature just obtained from the agent against the public key
+/// that was meant to make it, so that a wrong or damaged answer of the agent
+/// is never stored in a commit.
+fn check_created(
+    armored: &[u8],
+    key: &impl pgp::types::VerifyingKey,
+    payload: &[u8],
+) -> Result<()> {
+    let invalid = |reason: String| {
+        sign_error(
+            "signature_check",
+            format!(
+                "the signature made by the agent does not verify: {reason}; check the key in `gpg-agent`"
+            ),
+        )
+    };
+    let (detached, _) = DetachedSignature::from_armor_single(armored)
+        .map_err(|error| invalid(error.to_string()))?;
+    detached
+        .verify(key, payload)
+        .map_err(|error| invalid(error.to_string()))
 }
 
 /// Builds a version 4 binary signature packet over `payload`.
@@ -583,7 +619,17 @@ pub(crate) struct Selection {
 /// Chooses the signing key of `cert` named by `spec`, as GnuPG does: a key
 /// named with `!` is used as is; otherwise the newest valid signing subkey,
 /// then the primary key.
+///
+/// A certificate whose primary key is revoked or expired, and a subkey that
+/// is revoked or expired, are never selected.
 pub(crate) fn select(cert: &SignedPublicKey, spec: &KeySpec) -> Option<Selection> {
+    select_at(cert, spec, unix_now())
+}
+
+fn select_at(cert: &SignedPublicKey, spec: &KeySpec, now: u64) -> Option<Selection> {
+    if cert_unusable(cert, now) {
+        return None;
+    }
     if let Some(exact) = spec.names_key(&cert.primary_key) {
         if exact {
             return primary_can_sign(cert).then(|| Selection {
@@ -591,29 +637,107 @@ pub(crate) fn select(cert: &SignedPublicKey, spec: &KeySpec) -> Option<Selection
                 signer_mailbox: None,
             });
         }
-        return best_signing_key(cert, None);
+        return best_signing_key(cert, None, now);
     }
     for subkey in &cert.public_subkeys {
         if let Some(exact) = spec.names_key(&subkey.key) {
-            if exact || subkey_can_sign(subkey) {
+            if subkey_usable(cert, subkey, now) && (exact || subkey_can_sign(subkey)) {
                 return Some(Selection {
                     fingerprint: subkey.key.fingerprint(),
                     signer_mailbox: None,
                 });
             }
-            return best_signing_key(cert, None);
+            return best_signing_key(cert, None, now);
         }
     }
     let user = spec.matching_user(cert)?;
     let mailbox = mailbox_of(&String::from_utf8_lossy(user)).map(|mailbox| mailbox.to_lowercase());
-    best_signing_key(cert, mailbox)
+    best_signing_key(cert, mailbox, now)
 }
 
-fn best_signing_key(cert: &SignedPublicKey, signer_mailbox: Option<String>) -> Option<Selection> {
+/// Seconds since the Unix epoch.
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs())
+}
+
+/// Whether a key created at `created` with the given lifetime in seconds has
+/// expired at `now`; a lifetime of zero or none never expires.
+fn has_expired(created: u64, lifetime: Option<u64>, now: u64) -> bool {
+    lifetime.is_some_and(|seconds| seconds != 0 && now >= created.saturating_add(seconds))
+}
+
+/// Key lifetime stated by the newest self-signature among `signatures`, as
+/// `gpg` takes it: a newer signature without a lifetime lifts the expiry.
+fn newest_lifetime<'a>(
+    signatures: impl Iterator<Item = &'a pgp::packet::Signature>,
+    issuer: &Fingerprint,
+) -> Option<u64> {
+    signatures
+        .filter(|signature| {
+            !matches!(
+                signature.typ(),
+                Some(
+                    SignatureType::CertRevocation
+                        | SignatureType::KeyRevocation
+                        | SignatureType::SubkeyRevocation
+                )
+            )
+        })
+        .filter(|signature| {
+            let issued = signature.issuer_fingerprint();
+            issued.is_empty() || issued.contains(&issuer)
+        })
+        .max_by_key(|signature| signature.created().map(|created| created.as_secs()))
+        .and_then(|signature| signature.key_expiration_time())
+        .map(|lifetime| u64::from(lifetime.as_secs()))
+}
+
+/// Whether the primary key of `cert` is revoked or expired at `now`.
+fn cert_unusable(cert: &SignedPublicKey, now: u64) -> bool {
+    if !cert.details.revocation_signatures.is_empty() {
+        return true;
+    }
+    let signatures = cert
+        .details
+        .users
+        .iter()
+        .flat_map(|user| user.signatures.iter())
+        .chain(cert.details.direct_signatures.iter());
+    let lifetime = newest_lifetime(signatures, &cert.primary_key.fingerprint());
+    let created = u64::from(cert.primary_key.created_at().as_secs());
+    has_expired(created, lifetime, now)
+}
+
+/// Whether `subkey` of `cert` is neither revoked nor expired at `now`; the
+/// binding signatures of a subkey are made by the primary key.
+fn subkey_usable(
+    cert: &SignedPublicKey,
+    subkey: &pgp::composed::SignedPublicSubKey,
+    now: u64,
+) -> bool {
+    let revoked = subkey
+        .signatures
+        .iter()
+        .any(|signature| signature.typ() == Some(SignatureType::SubkeyRevocation));
+    let lifetime = newest_lifetime(subkey.signatures.iter(), &cert.primary_key.fingerprint());
+    let created = u64::from(subkey.key.created_at().as_secs());
+    !revoked && !has_expired(created, lifetime, now)
+}
+
+fn best_signing_key(
+    cert: &SignedPublicKey,
+    signer_mailbox: Option<String>,
+    now: u64,
+) -> Option<Selection> {
+    if cert_unusable(cert, now) {
+        return None;
+    }
     let newest_subkey = cert
         .public_subkeys
         .iter()
-        .filter(|subkey| subkey_can_sign(subkey))
+        .filter(|subkey| subkey_usable(cert, subkey, now) && subkey_can_sign(subkey))
         .max_by_key(|subkey| subkey.key.created_at().as_secs());
     if let Some(subkey) = newest_subkey {
         return Some(Selection {
@@ -770,6 +894,28 @@ mod tests {
             public_key_files: vec![path],
             ..VerifyConfig::default()
         }
+    }
+
+    #[test]
+    fn key_lifetime_ends_at_creation_plus_seconds() {
+        assert!(!has_expired(100, None, 1_000_000));
+        assert!(!has_expired(100, Some(0), 1_000_000));
+        assert!(!has_expired(100, Some(50), 149));
+        assert!(has_expired(100, Some(50), 150));
+        assert!(has_expired(u64::MAX - 1, Some(10), u64::MAX));
+    }
+
+    #[test]
+    fn revoked_certificate_is_not_selected() {
+        let cert = cert(ED25519_PUBLIC);
+        let spec = KeySpec::parse("ed@example.test");
+        assert!(select_at(&cert, &spec, 1_800_000_000).is_some());
+        let mut revoked = cert.clone();
+        let signature = revoked.details.users[0].signatures[0].clone();
+        revoked.details.revocation_signatures.push(signature);
+        assert!(cert_unusable(&revoked, 1_800_000_000));
+        assert!(select_at(&revoked, &spec, 1_800_000_000).is_none());
+        assert!(best_signing_key(&revoked, None, 1_800_000_000).is_none());
     }
 
     #[test]
