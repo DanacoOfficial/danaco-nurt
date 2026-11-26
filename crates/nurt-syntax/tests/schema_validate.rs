@@ -148,7 +148,10 @@ fn rejects_surface_integers_outside_the_safe_non_negative_range() {
     let range = surface_value(json!({"t": "range", "lo": 1, "hi": MAX_SAFE_INTEGER + 1}));
     assert_eq!(surface_violation(range), format!("{ARG_VALUE}/hi"));
     surface_accepts(surface_value(json!({"t": "range", "lo": 10, "hi": 12})));
-    surface_accepts(surface_value(json!({"t": "num", "v": -2.5})));
+    surface_accepts(surface_value(json!({"t": "num", "v": 2.5})));
+    surface_accepts(surface_value(json!({"t": "num", "v": -0.0})));
+    let negative = surface_value(json!({"t": "num", "v": -2.5}));
+    assert_eq!(surface_violation(negative), format!("{ARG_VALUE}/v"));
 }
 
 #[test]
@@ -434,7 +437,8 @@ fn checks_bound_values() {
     for value in [
         json!({"t": "int", "v": -MAX_SAFE_INTEGER}),
         json!({"t": "path", "v": "/srv/data/my file.txt"}),
-        json!({"t": "instant", "v": "2026-11-22T10:00:00.25+01:00"}),
+        json!({"t": "instant", "v": "2026-11-22T10:00:00.25Z"}),
+        json!({"t": "instant", "v": "2026-11-22T10:00:00Z"}),
         json!({"t": "range", "lo": -1, "hi": 1}),
         json!({"t": "list", "items": [{"t": "spread", "x": {"t": "ref", "name": "r"}}]}),
         json!({"t": "sub", "p": {"t": "pipeline", "head": {"t": "ref", "name": "r"},
@@ -452,6 +456,10 @@ fn checks_bound_values() {
         (json!({"t": "size", "v": MAX_SAFE_INTEGER + 1}), "/v"),
         (json!({"t": "path", "v": "src/app"}), "/v"),
         (json!({"t": "instant", "v": "2026-11-22 10:00:00Z"}), "/v"),
+        (json!({"t": "instant", "v": "2026-11-22T10:00:00.25+01:00"}), "/v"),
+        (json!({"t": "instant", "v": "2026-11-22T10:00:00.250Z"}), "/v"),
+        (json!({"t": "instant", "v": "2026-11-22T10:00:60Z"}), "/v"),
+        (json!({"t": "instant", "v": "2026-11-22T10:00:00.1234567891Z"}), "/v"),
         (json!({"t": "regex", "v": "x", "flags": "xi"}), "/flags"),
         (json!({"t": "range", "hi": MAX_SAFE_INTEGER + 1}), "/hi"),
         (json!({"t": "spread", "x": {"t": "ref", "name": "r"}}), ""),
