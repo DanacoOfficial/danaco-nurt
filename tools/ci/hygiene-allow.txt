@@ -43,6 +43,21 @@ promotional-word crates/nurt-types/tests/order.rs
 # Corpora of third parties kept verbatim.
 boilerplate tests/d5/third_party/*
 
+# Test input of Unicode handling (emoji outside the basic plane, surrogate pairs,
+# wide-character strings) in unit tests inside source files and in test
+# directories of the bindings; the characters are data.
+emoji */src/test/*
+emoji crates/nurt-contracts/src/keypath.rs
+emoji crates/nurt-doc/src/service/mod.rs
+emoji crates/nurt-proc/src/output/decode.rs
+emoji crates/nurt-sys/src/services/windows.rs
+
+# Names of the AI platform in the description of the command that prints the
+# tool definition for it; the platform is the subject of the command.
+tool-mention crates/nurt-cli/src/tool_definition.rs
+tool-mention docs/cli/nurt.md
+tool-mention docs/site/command-line.md
+
 # Test input and corpora of third parties that contain the characters as data.
 emoji crates/nurt-lspclient/tests/*
 emoji crates/nurt-net/src/html/dom.rs
@@ -219,8 +234,9 @@ work-marker crates/nurt-verify/src/test/tests.rs
 work-marker crates/nurt-verify/tests/*
 work-marker tests/d1/correction/*
 
-# Test input: the command line `grep -n 'TODO:'` is the input of a test of the
-# translation of shell habits; the marker is data, not unfinished work.
+# Test input: a command line that searches for an unfinished-work marker is the
+# input of a test of the translation of shell habits; the marker is data, not
+# unfinished work.
 work-marker crates/nurt-correct/src/bash/detect.rs
 
 # Test input: Rust source text that contains the attribute as data.
