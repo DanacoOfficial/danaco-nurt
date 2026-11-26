@@ -245,6 +245,17 @@ fn command_for_jest_skips_name_pattern_for_file_failures() {
 }
 
 #[test]
+fn command_for_jest_reruns_files_by_their_exact_paths() {
+    let mut request = Request::new(Framework::Jest);
+    request.only = vec![failed_case("pages/[id].test.tsx", Some("g"), "bad")];
+    let argv = request.plan("/s/run-1.json").argv;
+    assert_eq!(
+        argv[..3],
+        words(&["jest", "pages/[id].test.tsx", "--runTestsByPath"])
+    );
+}
+
+#[test]
 fn command_for_pytest_builds_nodes_and_coverage_environment() {
     let mut request = Request::new(Framework::Pytest);
     request.filter = Some("abc".to_owned());
