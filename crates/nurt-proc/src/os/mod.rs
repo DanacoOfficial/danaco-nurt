@@ -127,6 +127,20 @@ pub(crate) fn io_error(action: &str, error: &std::io::Error) -> Error {
     Error::new(ErrorCode::Io, format!("cannot {action}: {error}"))
 }
 
+/// Whether the exit of the main process is the forced termination ordered by
+/// the supervisor: the supervisor recorded that it ended the job while the main
+/// process was still running (`ended_while_running`) and the process left with
+/// the code given to the termination. The code alone never decides, because a
+/// program may exit with that code by itself.
+#[cfg(any(windows, test))]
+pub(crate) fn ended_by_supervisor(
+    code: u32,
+    termination_code: u32,
+    ended_while_running: bool,
+) -> bool {
+    ended_while_running && code == termination_code
+}
+
 /// Error of a signal that does not exist on this system.
 pub(crate) fn unsupported_signal(signal: Signal) -> Error {
     Error::new(
@@ -186,6 +200,23 @@ mod tests {
         assert_eq!(process_replaced(7).code(), ErrorCode::Stale);
         assert_eq!(process_denied(7).code(), ErrorCode::Permission);
         assert!(process_gone(4242).data().message.contains("4242"));
+    }
+
+    #[test]
+    fn a_natural_exit_is_not_a_forced_termination_without_the_record() {
+        assert!(!ended_by_supervisor(1, 1, false));
+        assert!(!ended_by_supervisor(0, 1, false));
+    }
+
+    #[test]
+    fn the_record_and_the_termination_code_together_mean_a_forced_termination() {
+        assert!(ended_by_supervisor(1, 1, true));
+    }
+
+    #[test]
+    fn a_recorded_termination_does_not_change_another_exit_code() {
+        assert!(!ended_by_supervisor(0, 1, true));
+        assert!(!ended_by_supervisor(3, 1, true));
     }
 
     #[cfg(unix)]
