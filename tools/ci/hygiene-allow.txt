@@ -153,3 +153,7 @@ allow-attribute crates/nurt-sys/tests/d7_static.rs
 # unmaintained ttf-parser crate. The files keep the wording and the comments of
 # the upstream project and carry its origin instead of the producer header.
 * crates/nurt-pdf-extract/*
+
+# Vendored third-party crate kept as published, without the producer header, the
+# style rules of this repository and the other checks.
+* crates/jaq-json/*

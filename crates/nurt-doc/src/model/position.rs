@@ -23,6 +23,72 @@ use super::Span;
 pub struct LineIndex {
     starts: Vec<usize>,
     len: usize,
+    encoding: Encoding,
+}
+
+/// Bytes per entry of the counts of continuation bytes.
+const BLOCK: usize = 64;
+
+/// What the index knows about the characters of the text, so that a column
+/// does not take a scan of the line: a line of a minified document is as long
+/// as the document.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+enum Encoding {
+    /// Not valid UTF-8, or not indexed: a column counts the characters of the
+    /// line up to the offset.
+    #[default]
+    Unscanned,
+    /// Every character is one byte.
+    Ascii,
+    /// Valid UTF-8 with multi-byte characters: the number of continuation
+    /// bytes before the first byte of each block of [`BLOCK`] bytes, and one
+    /// more entry for the end of the text.
+    Counted(Vec<usize>),
+}
+
+const fn is_continuation(byte: u8) -> bool {
+    byte & 0xC0 == 0x80
+}
+
+impl Encoding {
+    fn of(text: &[u8]) -> Self {
+        match std::str::from_utf8(text) {
+            Ok(valid) if valid.is_ascii() => Self::Ascii,
+            Ok(_) => {
+                let mut counts = Vec::with_capacity(text.len() / BLOCK + 2);
+                let mut total = 0;
+                for block in text.chunks(BLOCK) {
+                    counts.push(total);
+                    total += block.iter().filter(|byte| is_continuation(**byte)).count();
+                }
+                counts.push(total);
+                Self::Counted(counts)
+            }
+            Err(_) => Self::Unscanned,
+        }
+    }
+
+    /// Number of characters from `start`, the first byte of a line, to
+    /// `offset`, or `None` when only a scan of the bytes tells.
+    fn chars(&self, text: &[u8], start: usize, offset: usize) -> Option<usize> {
+        match self {
+            Self::Ascii => Some(offset - start),
+            Self::Counted(counts)
+                if text.get(offset).is_none_or(|byte| !is_continuation(*byte)) =>
+            {
+                let before = |at: usize| {
+                    let block = at / BLOCK;
+                    counts[block]
+                        + text[block * BLOCK..at]
+                            .iter()
+                            .filter(|byte| is_continuation(**byte))
+                            .count()
+                };
+                Some(offset - start - (before(offset) - before(start)))
+            }
+            _ => None,
+        }
+    }
 }
 
 impl LineIndex {
@@ -39,6 +105,7 @@ impl LineIndex {
         Self {
             starts,
             len: text.len(),
+            encoding: Encoding::of(text),
         }
     }
 
@@ -73,10 +140,16 @@ impl LineIndex {
         let offset = offset.min(text.len());
         let line = self.line_of(offset);
         let start = self.line_start(line).min(offset);
-        let prefix = text.get(start..offset).unwrap_or_default();
+        let counted = if text.len() == self.len {
+            self.encoding.chars(text, start, offset)
+        } else {
+            None
+        };
+        let chars =
+            counted.unwrap_or_else(|| count_chars(text.get(start..offset).unwrap_or_default()));
         TextPosition {
             line: to_u32(line + 1),
-            column: to_u32(count_chars(prefix) + 1),
+            column: to_u32(chars + 1),
         }
     }
 

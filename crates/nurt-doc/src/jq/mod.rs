@@ -228,6 +228,30 @@ impl Query {
     /// Runs the filter; a guard stops it when the stack in use reaches the
     /// address `floor`, unless `floor` is 0.
     fn run_above(&self, input: &Value, ctx: &ExecCtx, floor: usize) -> QueryRun {
+        let max_bytes = usize::try_from(ctx.limits().max_file_bytes_text).unwrap_or(usize::MAX);
+        let (mut run, exceeded) = jaq_json::limit::with_repeat_limit(max_bytes, || {
+            self.run_with_repeat_limit(input, ctx, floor)
+        });
+        if exceeded
+            && run
+                .error
+                .as_ref()
+                .is_none_or(|error| error.code == ErrorCode::Query)
+        {
+            run.error = Some(Error::new(
+                ErrorCode::Limit,
+                format!(
+                    "the filter made a string longer than {max_bytes} bytes by multiplying a string; narrow the filter"
+                ),
+            ));
+        }
+        run
+    }
+
+    /// Runs the filter once the thread has the limit on repeated strings; a
+    /// repetition above it is an error that `try` can catch, so the caller
+    /// reads the outcome from the limit itself.
+    fn run_with_repeat_limit(&self, input: &Value, ctx: &ExecCtx, floor: usize) -> QueryRun {
         let val = to_val(input);
         let (raw, error) = match self.run_paths(&val, ctx, floor) {
             PathRun::Done(raw) => (raw, None),
@@ -763,7 +787,7 @@ mod tests {
 
     #[test]
     fn generators_follow_jq() {
-        let expected: Vec<Value> = [1, 2, 4, 8].into_iter().map(Value::Int).collect();
+        let expected: Vec<Value> = [2, 2, 2, 2].into_iter().map(Value::Int).collect();
         assert_eq!(values("limit(4; repeat(. * 2))", "1"), expected);
         assert_eq!(
             values("[range(0; 10; 3)]", "null"),
@@ -895,6 +919,160 @@ mod tests {
             .unwrap()
             .run(&Value::Null, &ctx);
         assert!(run.error.is_none());
+    }
+
+    #[test]
+    fn a_string_multiplied_by_a_number_follows_jq() {
+        for (filter, expected) in [
+            (r#""a" * 0"#, r#""""#),
+            (r#"0 * "a""#, r#""""#),
+            (r#""a" * 0.5"#, r#""""#),
+            (r#""ab" * 2.7"#, r#""abab""#),
+            (r#""a" * -1"#, "null"),
+            (r#""a" * -0.5"#, "null"),
+            (r#""a" * nan"#, "null"),
+            (r#""" * 5"#, r#""""#),
+        ] {
+            assert_eq!(values(filter, "null"), vec![json(expected)], "{filter}");
+        }
+    }
+
+    #[test]
+    fn updates_create_and_extend_containers_as_jq_does() {
+        for (filter, expected) in [
+            ("[1, 2, 3] | .[5] = 1", "[1, 2, 3, null, null, 1]"),
+            ("null | .a.b = 1", r#"{"a": {"b": 1}}"#),
+            ("null | .[2] = 1", "[null, null, 1]"),
+            ("[1, 2, 3] | .[1.5] = 9", "[1, 9, 3]"),
+            ("[1, 2, 3] | del(.[7])", "[1, 2, 3]"),
+            ("null | .a |= empty", "null"),
+            ("[1, 2, 3, 4, 5] | del(.[0, 2], .[3])", "[2, 5]"),
+            (r#"{"a": {"b": 1}} | del(.a.b, .a)"#, "{}"),
+        ] {
+            assert_eq!(values(filter, "null"), vec![json(expected)], "{filter}");
+        }
+        for filter in ["[1, 2, 3] | .[-5] = 1", "null | .[-1] = 1"] {
+            let run = Query::compile(filter).unwrap().run(&Value::Null, &ctx());
+            assert!(run.error.is_some(), "{filter}");
+        }
+    }
+
+    #[test]
+    fn an_update_past_the_end_of_a_list_counts_against_the_size_limit() {
+        let ctx = repeat_limited_ctx(1000);
+        let run = Query::compile("[1] | .[1000] = 1")
+            .unwrap()
+            .run(&Value::Null, &ctx);
+        assert_eq!(run.error.map(|error| error.code), Some(ErrorCode::Limit));
+        let run = Query::compile("[1] | .[10] = 1")
+            .unwrap()
+            .run(&Value::Null, &ctx);
+        assert!(run.error.is_none());
+    }
+
+    #[test]
+    fn reading_follows_jq_for_fractions_objects_and_null() {
+        for (filter, expected) in [
+            ("[1, 2, 3] | .[1.7]", "2"),
+            ("[1, 2, 3] | .[-1.5]", "3"),
+            ("[1, 2, 3] | .[nan]", "null"),
+            ("null | .[1:]", "null"),
+        ] {
+            assert_eq!(values(filter, "null"), vec![json(expected)], "{filter}");
+        }
+        let run = Query::compile(r#"{"a": 1} | .[0]"#)
+            .unwrap()
+            .run(&Value::Null, &ctx());
+        assert!(run.error.is_some());
+    }
+
+    #[test]
+    fn base64_decoding_follows_jq() {
+        for (filter, expected) in [
+            (r#""YQ" | @base64d"#, r#""a""#),
+            (r#""YQ==" | @base64d"#, r#""a""#),
+            (r#""YWJj" | @base64d"#, r#""abc""#),
+            (r#""abc" | @base64d"#, "\"i\u{fffd}\""),
+            (r#""" | @base64d"#, r#""""#),
+        ] {
+            assert_eq!(values(filter, "null"), vec![json(expected)], "{filter}");
+        }
+        for filter in [r#""a" | @base64d"#, r#""a!b" | @base64d"#] {
+            let run = Query::compile(filter).unwrap().run(&Value::Null, &ctx());
+            assert!(run.error.is_some(), "{filter}");
+        }
+    }
+
+    #[test]
+    fn fromstream_rebuilds_the_values_of_a_stream() {
+        assert_eq!(
+            values("[1, [2]] | fromstream(tostream)", "null"),
+            vec![json("[1, [2]]")]
+        );
+        let run = Query::compile("fromstream(([0], 1), ([1], 2), ([1]))")
+            .unwrap()
+            .run(&Value::Null, &ctx());
+        assert!(run.error.is_some());
+    }
+
+    fn repeat_limited_ctx(max_bytes: u64) -> ExecCtx {
+        let limits = Limits {
+            max_file_bytes_text: max_bytes,
+            ..Limits::default()
+        };
+        ExecCtx::builder(Arc::new(FixedClock), host())
+            .limits(limits)
+            .build()
+    }
+
+    #[test]
+    fn a_string_repeated_beyond_the_size_limit_is_an_error_even_inside_try() {
+        let ctx = repeat_limited_ctx(1000);
+        for filter in [
+            r#""x" * 2000"#,
+            r#"2000 * "x""#,
+            r#""abcdefghij" * 101"#,
+            r#""x" * 1000000000000"#,
+            r#"try ("x" * 2000) catch "caught""#,
+            r#"[.[] | . * 2000]"#,
+        ] {
+            let run = Query::compile(filter).unwrap().run(&json(r#"["x"]"#), &ctx);
+            assert_eq!(
+                run.error.map(|error| error.code),
+                Some(ErrorCode::Limit),
+                "{filter}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_string_repeated_within_the_size_limit_is_unchanged() {
+        let ctx = repeat_limited_ctx(1000);
+        let run = Query::compile(r#""ab" * 3, ("x" * 1000 | length), ("x" * 0)"#)
+            .unwrap()
+            .run(&Value::Null, &ctx);
+        assert!(run.error.is_none(), "{:?}", run.error);
+        let values: Vec<Value> = run.outputs.into_iter().map(|output| output.value).collect();
+        assert_eq!(
+            values,
+            [
+                Value::Text("ababab".into()),
+                Value::Int(1000),
+                Value::Text(String::new())
+            ]
+        );
+    }
+
+    #[test]
+    fn the_repeat_limit_of_one_run_does_not_reach_the_next() {
+        let strict = repeat_limited_ctx(10);
+        let filter = Query::compile(r#""x" * 100 | length"#).unwrap();
+        assert_eq!(
+            filter.run(&Value::Null, &strict).error.map(|e| e.code),
+            Some(ErrorCode::Limit)
+        );
+        let run = filter.run(&Value::Null, &ctx());
+        assert_eq!(run.into_result().unwrap()[0].value, Value::Int(100));
     }
 
     #[test]

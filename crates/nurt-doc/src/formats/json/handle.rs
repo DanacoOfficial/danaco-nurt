@@ -280,20 +280,64 @@ impl JsonHandle {
             .collect())
     }
 
+    /// The nodes of the members of `container` that are named `name`, in
+    /// document order.
+    fn occurrences(&self, container: NodeId, name: &str) -> Vec<NodeId> {
+        let entries = self.document.tree.nodes[container]
+            .entries()
+            .unwrap_or_default();
+        match self.document.indexed_members(container, name) {
+            Some(positions) => positions
+                .iter()
+                .map(|position| entries[*position].value)
+                .collect(),
+            None => entries
+                .iter()
+                .filter(|entry| entry.key.as_ref().is_some_and(|key| key.text == name))
+                .map(|entry| entry.value)
+                .collect(),
+        }
+    }
+
     /// Removes `keys`, which are in reverse document order, from the
-    /// containers that hold them in one step. Returns `None` when a key
-    /// needs the entry-by-entry removal: a repeated member name, the root,
-    /// or a container with comments.
+    /// containers that hold them in one step. A repeated member name loses
+    /// all its occurrences. Returns `None` when a key needs the
+    /// entry-by-entry removal: the root, or an arrangement of entries that
+    /// [`editor::Editor::remove_runs`] leaves to it.
     fn batch_removal(&self, keys: &[KeyPath]) -> Result<Option<(EditPlan, Expectation<'static>)>> {
         let tree = &self.document.tree;
         let mut selected: Vec<(NodeId, &KeyPath)> = Vec::with_capacity(keys.len());
+        // The node each key selects; the other occurrences of its name are in
+        // `selected` as well.
+        let mut primary: HashSet<NodeId> = HashSet::with_capacity(keys.len());
+        let mut repeated: Vec<(NodeId, &KeyPath)> = Vec::new();
         for key in keys {
-            match self.document.locate(key)? {
-                Target::Node {
-                    id,
-                    duplicate: false,
-                } if tree.nodes[id].parent.is_some() => selected.push((id, key)),
-                _ => return Ok(None),
+            let Target::Node { id, duplicate } = self.document.locate(key)? else {
+                return Ok(None);
+            };
+            let Some(container) = tree.nodes[id].parent else {
+                return Ok(None);
+            };
+            primary.insert(id);
+            selected.push((id, key));
+            let occurrences = match key.segments().last() {
+                Some(KeySegment::Key(name))
+                    if matches!(tree.nodes[container].kind, syntax::NodeKind::Object(_)) =>
+                {
+                    self.occurrences(container, name)
+                }
+                _ => Vec::new(),
+            };
+            if occurrences.len() > 1 {
+                selected.extend(
+                    occurrences
+                        .into_iter()
+                        .filter(|other| *other != id)
+                        .map(|other| (other, key)),
+                );
+            }
+            if duplicate || selected.last().is_some_and(|(last, _)| *last != id) {
+                repeated.push((id, key));
             }
         }
         let chosen: HashSet<NodeId> = selected.iter().map(|(id, _)| *id).collect();
@@ -339,10 +383,20 @@ impl JsonHandle {
                 ));
             }
         }
-        plan.report.replacements = u64::try_from(selected.len()).unwrap_or(u64::MAX);
+        let kept: HashSet<NodeId> = selected.iter().map(|(id, _)| *id).collect();
+        let removed_keys = selected.iter().filter(|(id, _)| primary.contains(id));
+        plan.report.replacements = u64::try_from(removed_keys.count()).unwrap_or(u64::MAX);
+        for (id, key) in repeated {
+            if kept.contains(&id) {
+                plan.report
+                    .note(Notable::DuplicateKey, Some(key.to_string()));
+            }
+        }
         let mut expectation = self.expectation();
-        for (_, key) in &selected {
-            expectation = expectation.remove((*key).clone());
+        for (id, key) in &selected {
+            if primary.contains(id) {
+                expectation = expectation.remove((*key).clone());
+            }
         }
         Ok(Some((plan, expectation)))
     }

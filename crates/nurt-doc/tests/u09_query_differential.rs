@@ -26,42 +26,11 @@ use serde_json::Value as Json;
 /// Smallest number of filters of the data file.
 const MIN_CASES: usize = 300;
 
-/// Filters whose results differ from `jq` by design, with the reason.
+/// Filters whose results differ from `jq` 1.8.1, with the reason.
 const KNOWN_DIFFERENCES: &[(&str, &str)] = &[
-    (".b[5] = 1", "an update does not extend a list past its end"),
-    (
-        ".b | .[length] = 99",
-        "an update does not extend a list past its end",
-    ),
-    (
-        "null | .a.b = 1",
-        "an update does not create containers from null",
-    ),
-    (
-        "null | .[2] = 1",
-        "an update does not create containers from null",
-    ),
-    ("del(.[0, 2])", "paths are deleted one after another"),
-    (". * 0", "text times zero is null, as in jq 1.7"),
-    ("\"a\" * 0", "text times zero is null, as in jq 1.7"),
     (
         "[match(\"(d)(x)?\").captures[].string]",
         "groups that did not take part are omitted",
-    ),
-    ("[1,2,3] | .[1.5]", "an index must be an integer"),
-    (
-        "{\"a\":1} | .[0]",
-        "a number index of an object yields null",
-    ),
-    ("null | .[1:]", "a slice of null is an error"),
-    ("\"abc\" | @base64d", "invalid Base64 input is an error"),
-    (
-        "[limit(5; .a | repeat(. * 2))]",
-        "repeat emits its input first, as the jq manual specifies",
-    ),
-    (
-        "[limit(3; repeat(1))]",
-        "repeat emits its input first, as the jq manual specifies",
     ),
     (
         ".g | @base32",
@@ -70,11 +39,6 @@ const KNOWN_DIFFERENCES: &[(&str, &str)] = &[
     (
         ".g | @base32 | @base32d",
         "an unknown format fails when the filter is compiled",
-    ),
-    ("fromstream(tostream)", "fromstream is not provided"),
-    (
-        "fromstream(([0], 1), ([1], 2), ([1]))",
-        "fromstream is not provided",
     ),
 ];
 

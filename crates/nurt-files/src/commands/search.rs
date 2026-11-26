@@ -605,7 +605,7 @@ fn language_param(args: &BoundArgs) -> Result<Option<LanguageId>> {
 /// Compiled patterns.
 enum Matcher {
     Text {
-        searcher: Searcher,
+        searcher: Box<Searcher>,
         engines: Vec<Option<RegexEngine>>,
     },
     Syntax(SyntaxSearch),
@@ -655,7 +655,10 @@ impl Matcher {
                 }
             })
             .collect();
-        Ok(Self::Text { searcher, engines })
+        Ok(Self::Text {
+            searcher: Box::new(searcher),
+            engines,
+        })
     }
 }
 

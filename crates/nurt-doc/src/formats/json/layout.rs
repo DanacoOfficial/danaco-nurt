@@ -59,15 +59,23 @@ impl<'d> Layout<'d> {
 
     /// Offset of the start of the line containing `offset`.
     pub(crate) fn line_start(&self, offset: usize) -> usize {
-        self.text[..offset].rfind('\n').map_or(0, |pos| pos + 1)
+        let newlines = &self.tree.newlines;
+        let before = newlines.partition_point(|at| *at < offset);
+        before.checked_sub(1).map_or(0, |index| newlines[index] + 1)
+    }
+
+    /// Offset of the first line feed at or after `offset`.
+    fn next_newline(&self, offset: usize) -> Option<usize> {
+        let newlines = &self.tree.newlines;
+        newlines
+            .get(newlines.partition_point(|at| *at < offset))
+            .copied()
     }
 
     /// Offset of the line break ending the line containing `offset`, or the
     /// end of the text; a `\r` before the `\n` belongs to the line break.
     pub(crate) fn line_end(&self, offset: usize) -> usize {
-        let end = self.text[offset..]
-            .find('\n')
-            .map_or(self.text.len(), |pos| offset + pos);
+        let end = self.next_newline(offset).unwrap_or(self.text.len());
         if end > offset && self.text.as_bytes()[end - 1] == b'\r' && end < self.text.len() {
             end - 1
         } else {
@@ -77,9 +85,8 @@ impl<'d> Layout<'d> {
 
     /// Offset after the line break ending the line containing `offset`.
     pub(crate) fn next_line_start(&self, offset: usize) -> usize {
-        self.text[offset..]
-            .find('\n')
-            .map_or(self.text.len(), |pos| offset + pos + 1)
+        self.next_newline(offset)
+            .map_or(self.text.len(), |pos| pos + 1)
     }
 
     /// Leading whitespace of the line containing `offset`.
@@ -99,7 +106,9 @@ impl<'d> Layout<'d> {
 
     /// The span contains a line break.
     pub(crate) fn is_multiline(&self, span: Span) -> bool {
-        self.text[span.start..span.end].contains('\n')
+        let newlines = &self.tree.newlines;
+        let first = newlines.partition_point(|offset| *offset < span.start);
+        newlines.get(first).is_some_and(|offset| *offset < span.end)
     }
 
     /// Comments that start inside the span.
@@ -178,20 +187,22 @@ impl<'d> Layout<'d> {
 
     /// Style for content added to the container `container`.
     pub(crate) fn style_for(&self, container: NodeId) -> Style {
-        Style {
+        self.tree.styles.get_or_compute(container, || Style {
             indent_unit: self.indent_unit(),
             eol: self.eol(),
             colon: self.colon(container),
             comma_space: self.comma_space(container),
             bracket_space: self.bracket_space(),
             trailing_comma: self.trailing_comma(container),
-        }
+        })
     }
 
     fn eol(&self) -> &'static str {
-        let crlf = self.text.matches("\r\n").count();
-        let lf = self.text.matches('\n').count() - crlf;
-        if crlf > lf { "\r\n" } else { "\n" }
+        if self.tree.crlf_majority {
+            "\r\n"
+        } else {
+            "\n"
+        }
     }
 
     /// Difference between the indentation of the first entry of a

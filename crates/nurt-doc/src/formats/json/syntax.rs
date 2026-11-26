@@ -9,11 +9,15 @@
 //! not: whitespace limited to the four characters of RFC 8259, string and
 //! number lexemes of the RFC, and the exact separators between entries.
 
+use std::collections::HashMap;
+use std::sync::{Mutex, PoisonError};
+
 use jsonc_parser::ast;
 use jsonc_parser::common::Ranged;
 use jsonc_parser::{CollectOptions, ParseOptions};
 
 use super::Dialect;
+use super::layout::Style;
 use super::lexeme::{self, LexemeError};
 
 /// Greatest nesting depth of objects and arrays; deeper documents are
@@ -107,7 +111,47 @@ pub(crate) struct Tree {
     pub(crate) root: NodeId,
     /// Spans of all comments in document order.
     pub(crate) comments: Vec<Span>,
+    /// Offsets of the line feeds in document order, so that the question
+    /// whether a span holds a line break takes a search, not a scan of the
+    /// span.
+    pub(crate) newlines: Vec<usize>,
+    /// More line breaks of the document are `\r\n` than `\n` alone.
+    pub(crate) crlf_majority: bool,
+    /// Styles of containers, computed when an edit first asks for them.
+    pub(crate) styles: StyleCache,
 }
+
+/// Styles of the containers of one tree. The cache belongs to the tree and
+/// is empty in a copy of it, so a style never outlives the text it was read
+/// from.
+#[derive(Debug, Default)]
+pub(crate) struct StyleCache(Mutex<HashMap<NodeId, Style>>);
+
+impl StyleCache {
+    /// The style of `container`, computed by `compute` the first time.
+    pub(crate) fn get_or_compute(
+        &self,
+        container: NodeId,
+        compute: impl FnOnce() -> Style,
+    ) -> Style {
+        let mut styles = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        styles.entry(container).or_insert_with(compute).clone()
+    }
+}
+
+impl Clone for StyleCache {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl PartialEq for StyleCache {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for StyleCache {}
 
 /// Syntax error with the byte offset in the document where it was found.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,10 +202,22 @@ pub(crate) fn parse(text: &str, dialect: Dialect) -> Result<Tree, SyntaxError> {
     builder.gap(0, value.start(), &[])?;
     let root = builder.value(&value)?;
     builder.gap(value.end(), text.len(), &[])?;
+    let newlines: Vec<usize> = text
+        .bytes()
+        .enumerate()
+        .filter_map(|(offset, byte)| (byte == b'\n').then_some(offset))
+        .collect();
+    let crlf = newlines
+        .iter()
+        .filter(|offset| **offset > 0 && text.as_bytes()[**offset - 1] == b'\r')
+        .count();
     Ok(Tree {
         nodes: builder.nodes,
         root,
         comments: builder.comments,
+        crlf_majority: crlf > newlines.len() - crlf,
+        newlines,
+        styles: StyleCache::default(),
     })
 }
 
