@@ -27,7 +27,7 @@ The clear space around the mark equals the stroke width. The smallest size is 24
 | Graphite soft | `#15171A` | panels |
 | Silver | `#C3C8CE` | step back, text on dark backgrounds |
 | Gold | `#D4AE6E` | step forward, accents |
-| Gold deep | `#B88E4F` | gold on light backgrounds |
+| Gold deep | `#92703E` | gold on light backgrounds (4.6 : 1 on white) |
 | Ink | `#2B2F36` | mark on light backgrounds |
 | White | `#F6F7F8` | light backgrounds, white mark |
 | Navy | `#0A1224` | tile of the blue application icon |
@@ -37,7 +37,9 @@ In the terminal the banner, the prompt and the highlighting of a typed line use 
 
 ## Type
 
-The name "Danaco Nurt" is set in JetBrains Mono, "Danaco" in the weight Regular and "Nurt" in the weight Bold. The same typeface sets code and the terminal, so the name looks like the program it names. Headings, text and interface use Inter Display and Inter. The fonts are licensed under the SIL Open Font License 1.1. The letters of the name in the files are outlines.
+The name "Danaco Nurt" is not set in a font: its nine different letters (D, a, n, c, o, N, u, r, t) are drawn in `letters.py` on the grid of the mark. They are built from straight stems and true circular arcs with one stroke width, and the ends of the strokes are cut by vertical lines, as the arms of the chevrons are. The letter u is the letter n turned by 180 degrees, as the right chevron is the left one turned by 180 degrees. "Danaco" has the stroke 0.85 and "Nurt" the stroke 1.35 of an x-height of 5.4. The letters in the files are outlines. The smallest width of a lockup is 160 pixels.
+
+The variant `-mono` of the lockups sets the name in JetBrains Mono, "Danaco" in the weight Regular and "Nurt" in the weight Bold. Code and the terminal use JetBrains Mono, headings, text and interface use Inter Display and Inter. The fonts are licensed under the SIL Open Font License 1.1.
 
 ## Files
 
@@ -47,7 +49,7 @@ The name "Danaco Nurt" is set in JetBrains Mono, "Danaco" in the weight Regular 
 | `svg/mark-16.svg` | the drawing for 16 pixels |
 | `svg/app-icon-*.svg` | application icons: graphite, light, blue, gold on white and the drawing for 16 pixels |
 | `svg/favicon.svg` | icon of the documentation site; it follows the colour scheme of the browser |
-| `svg/lockup-*.svg`, `svg/wordmark-*.svg` | the mark with the name, horizontal and stacked, and the name alone |
+| `svg/lockup-*.svg`, `svg/wordmark-*.svg` | the mark with the name, horizontal and stacked, and the name alone, in the drawn letters; the files with the suffix `-mono` set the name in JetBrains Mono |
 | `raster/nurt.ico` | icon of `nurt.exe` with the sizes 16 to 256 pixels |
 | `raster/hicolor/` | application icon in the sizes of the hicolor icon theme |
 | `raster/favicon.ico`, `raster/apple-touch-icon.png`, `raster/social-card.png` | icons of the web and the card of 1200 x 630 pixels |
@@ -58,12 +60,13 @@ The name "Danaco Nurt" is set in JetBrains Mono, "Danaco" in the weight Regular 
 
 ```text
 python3 -I branding/build.py
-python3 -I branding/lockup.py --font "JetBrainsMono-Regular.ttf|JetBrainsMono-Bold.ttf"
+python3 -I branding/lockup.py --font custom
+python3 -I branding/lockup.py --font "JetBrainsMono-Regular.ttf|JetBrainsMono-Bold.ttf" --suffix=-mono
 python3 -I branding/export.py
 python3 -I branding/book.py --fonts FONT_DIRECTORY --hero branding/render/nurt-hero.png
 ```
 
-`build.py` and `export.py` need only Python and `rsvg-convert`. `lockup.py` and `book.py` also need the package fontTools and the font files. The file `crates/nurt-cli/windows/nurt.ico` is a copy of `raster/nurt.ico`, and `docs/site/favicon.svg` is a copy of `svg/favicon.svg`.
+`build.py`, `letters.py` and `export.py` need only Python and `rsvg-convert`. `lockup.py` and `book.py` also need the package fontTools; the drawn letters need no font file, the variant `-mono` and the guidelines do. The file `crates/nurt-cli/windows/nurt.ico` is a copy of `raster/nurt.ico`, and `docs/site/favicon.svg` is a copy of `svg/favicon.svg`.
 
 ## Use of the name and the mark
 

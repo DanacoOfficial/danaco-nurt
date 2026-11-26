@@ -14,7 +14,8 @@ Usage:
 
   lockup.py --font FONT [--style title|mixed|caps] [--out DIR]
 
-FONT is one font file, or two static files joined with a vertical bar (the
+FONT is the word custom (the letters drawn in letters.py), one font file, or
+two static files joined with a vertical bar (the
 light word and the bold word), for example
 JetBrainsMono-Regular.ttf|JetBrainsMono-Bold.ttf.
 """
@@ -32,6 +33,13 @@ from fontTools.varLib.instancer import instantiateVariableFont
 
 def load_build():
     spec = importlib.util.spec_from_file_location("nurt_build", Path(__file__).resolve().parent / "build.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_letters():
+    spec = importlib.util.spec_from_file_location("nurt_letters", Path(__file__).resolve().parent / "letters.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -75,7 +83,13 @@ def outline(font, text, size, x, baseline, tracking=0.0):
 
 
 def words(font_path, left_color, right_color, style="mixed"):
-    """Return the paths of "Danaco Nurt" and its width, with the first letter at x = 0."""
+    """Return the paths of "Danaco Nurt" and its width, with the first letter at x = 0.
+
+    The font "custom" is the lettering drawn in letters.py.
+    """
+    if str(font_path) == "custom":
+        letters = load_letters()
+        return letters.words(left_color, right_color, cap_height=CAP_HEIGHT)
     spec = STYLES[style]
     if "|" in str(font_path):
         # Two static font files: the light word and the bold word.
@@ -96,7 +110,7 @@ def words(font_path, left_color, right_color, style="mixed"):
     )
 
 
-def files(font_path, style="mixed"):
+def files(font_path, style="mixed", suffix=""):
     build = BUILD
     out = {}
     themes = {
@@ -115,7 +129,7 @@ def files(font_path, style="mixed"):
             build.place(mark, 0, 0, 96)
             + f'<g transform="translate({text_x:.2f} {baseline:.2f})">{text}</g>'
         )
-        out[f"lockup-horizontal-{theme}.svg"] = (
+        out[f"lockup-horizontal-{theme}{suffix}.svg"] = (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {total:.2f} 96" role="img" '
             f'aria-label="Danaco Nurt"><title>Danaco Nurt</title>{body}</svg>\n'
         )
@@ -130,11 +144,11 @@ def files(font_path, style="mixed"):
             build.place(mark, mark_x, 0, mark_size)
             + f'<g transform="translate({name_x:.2f} {name_y:.2f})">{text}</g>'
         )
-        out[f"lockup-stacked-{theme}.svg"] = (
+        out[f"lockup-stacked-{theme}{suffix}.svg"] = (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {stacked_width:.2f} {name_y + 14:.2f}" '
             f'role="img" aria-label="Danaco Nurt"><title>Danaco Nurt</title>{stacked}</svg>\n'
         )
-        out[f"wordmark-{theme}.svg"] = (
+        out[f"wordmark-{theme}{suffix}.svg"] = (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -{CAP_HEIGHT + 4:.2f} {width + 4:.2f} {CAP_HEIGHT + 12:.2f}" '
             f'role="img" aria-label="Danaco Nurt"><title>Danaco Nurt</title>{text}</svg>\n'
         )
@@ -146,9 +160,10 @@ def main(argv):
     parser.add_argument("--font", required=True, help="font file, or two files joined with |")
     parser.add_argument("--out", type=Path, default=Path(__file__).resolve().parent / "svg")
     parser.add_argument("--style", choices=sorted(STYLES), default="title")
+    parser.add_argument("--suffix", default="", help="text added to the file names before .svg")
     arguments = parser.parse_args(argv)
     arguments.out.mkdir(parents=True, exist_ok=True)
-    for name, content in files(arguments.font, arguments.style).items():
+    for name, content in files(arguments.font, arguments.style, arguments.suffix).items():
         (arguments.out / name).write_text(BUILD.header() + content, encoding="utf-8")
         print(f"{arguments.out / name} written")
     return 0

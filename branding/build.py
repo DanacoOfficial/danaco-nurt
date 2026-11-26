@@ -34,7 +34,7 @@ GRAPHITE = "#0B0C0E"
 GRAPHITE_SOFT = "#15171A"
 SILVER = "#C3C8CE"
 GOLD = "#D4AE6E"
-GOLD_DEEP = "#B88E4F"
+GOLD_DEEP = "#92703E"
 INK = "#2B2F36"
 WHITE = "#F6F7F8"
 NAVY = "#0A1224"
@@ -217,7 +217,7 @@ def files():
     out["favicon.svg"] = svg(
         mark(SMALL, "var(--left)", "var(--right)"),
         "Danaco Nurt",
-        extra=' style="--left:#2B2F36;--right:#B88E4F"',
+        extra=' style="--left:#2B2F36;--right:#92703E"',
     ).replace(
         "<title>",
         "<style>@media (prefers-color-scheme: dark){svg{--left:#C3C8CE;--right:#D4AE6E}}</style><title>",

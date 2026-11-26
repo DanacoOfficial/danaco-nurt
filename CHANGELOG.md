@@ -59,7 +59,7 @@ First release.
   any other terminal the nearest colours of the 256-colour palette.
 - The visual identity in `branding`: the mark of two chevrons turned by 180
   degrees, the application icons, the favicon of the documentation site, the
-  lockups with the name, a render of the mark and the identity guidelines.
+  lockups with the name drawn in letters of its own, a render of the mark and the identity guidelines.
 - `nurt.exe` carries version information and a manifest with the execution
   level `asInvoker`, long path support and the UTF-8 code page, and the icon
   of the product (`crates/nurt-cli/windows/nurt.ico`).
