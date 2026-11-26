@@ -53,6 +53,8 @@ impl ScenarioProcessHost {
     fn command(&self, spec: &ProgramSpec, program: &Path) -> Command {
         let mut command = Command::new(program);
         command.args(&spec.args).current_dir(&spec.cwd).env_clear();
+        #[cfg(unix)]
+        std::os::unix::process::CommandExt::process_group(&mut command, 0);
         if spec.inherit_env {
             command.envs(self.vars.iter().map(|(name, value)| (name, value)));
         }
@@ -118,7 +120,7 @@ impl ProcessHost for ScenarioProcessHost {
             }
             let expired = started.elapsed() >= timeout;
             if expired || cancel.is_cancelled() {
-                let _ = child.kill();
+                kill_tree(&mut child);
                 let _ = child.wait();
                 break (None, expired, !expired);
             }
@@ -165,6 +167,21 @@ fn collect<R: Read + Send + 'static>(
         let drained = std::io::copy(&mut pipe, &mut std::io::sink()).unwrap_or(0);
         (kept, drained > 0)
     })
+}
+
+/// Kills the program and the processes it started. Those inherit the pipes of
+/// the program, so that the readers of its output would wait for them if only
+/// the program were killed.
+#[cfg(unix)]
+fn kill_tree(child: &mut std::process::Child) {
+    let group = rustix::process::Pid::from_child(child);
+    let _ = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
+    let _ = child.kill();
+}
+
+#[cfg(not(unix))]
+fn kill_tree(child: &mut std::process::Child) {
+    let _ = child.kill();
 }
 
 #[cfg(unix)]
@@ -244,6 +261,18 @@ mod tests {
         let outcome = host().run_program(&program, &token()).unwrap();
         assert_eq!(outcome.stdout, b"input");
         assert_eq!(outcome.stderr, b"oops\n");
+    }
+
+    #[test]
+    fn stops_the_processes_a_program_started_when_its_time_limit_passes() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut program = spec(dir.path(), "sleep 30 & wait");
+        program.inherit_env = true;
+        program.timeout_ms = Some(100);
+        let started = Instant::now();
+        let outcome = host().run_program(&program, &token()).unwrap();
+        assert!(outcome.timed_out);
+        assert!(started.elapsed() < Duration::from_secs(10));
     }
 
     #[test]
