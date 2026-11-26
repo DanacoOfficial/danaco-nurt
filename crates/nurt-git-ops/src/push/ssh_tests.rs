@@ -362,6 +362,14 @@ impl Environment {
             user_key.to_openssh(LineEnding::LF).unwrap().as_bytes(),
         )
         .unwrap();
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(
+                ssh_dir.join("id_ed25519"),
+                std::fs::Permissions::from_mode(0o600),
+            )
+            .unwrap();
+        }
         let server = GitServer::start(home.path(), user_key.public_key().clone());
         std::fs::write(
             ssh_dir.join("known_hosts"),
@@ -441,6 +449,23 @@ fn pushes_a_new_branch_over_ssh_and_updates_the_tracking_ref() {
             .iter()
             .all(|command| command.starts_with("git-receive-pack '"))
     );
+}
+
+#[test]
+#[ignore = "needs the git program"]
+fn records_a_host_key_accepted_as_new_in_the_transaction() {
+    let remote = Fixture::bare();
+    let mut environment = Environment::new();
+    let home = environment._home.path().to_path_buf();
+    std::fs::remove_file(home.join(".ssh").join("known_hosts")).unwrap();
+    environment.network.ssh.as_mut().unwrap().known_hosts =
+        nurt_contracts::config::KnownHosts::AcceptNew;
+    let local = linked(&environment.url(&remote));
+    local.commit("main", &[("a.txt", "one\n")], &[]);
+    let (outcome, _) = push(&local, &PushRequest::new("main"), &environment.network);
+    outcome.unwrap();
+    let recorded = std::fs::read_to_string(home.join("nurt").join("known_hosts")).unwrap();
+    assert!(recorded.starts_with(&format!("[127.0.0.1]:{} ", environment.server.port)));
 }
 
 #[test]

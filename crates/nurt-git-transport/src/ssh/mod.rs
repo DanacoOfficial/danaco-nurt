@@ -36,7 +36,9 @@ use nurt_contracts::env::Os;
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::{CancelToken, ExecCtx};
 
-pub use known_hosts::{HostKeyAddition, record_host_key};
+pub use known_hosts::{
+    HostKeyAddition, HostKeyReservation, host_keys_plan, record_host_key, reserve_host_key_file,
+};
 pub use transport::{RemoteDiagnostics, SshTransport, connect};
 
 /// Time limit of the TCP connection and key exchange of one hop when
@@ -92,6 +94,41 @@ pub struct SshOptions {
     /// Call to repeat with an accepted fingerprint, used in the fix of
     /// unknown host errors, for example `git.fetch "/home/user/repo"`.
     pub retry_command: Option<String>,
+    /// Keys accepted for new hosts by the connections made with these
+    /// options; the caller records them in its transaction.
+    pub host_keys: HostKeyLog,
+}
+
+/// Keys accepted for new hosts, shared by the clones of one [`SshOptions`].
+///
+/// A transport is boxed before the transfer, so the keys it accepts reach the
+/// command that owns the transaction through this handle.
+#[derive(Debug, Clone, Default)]
+pub struct HostKeyLog(std::sync::Arc<std::sync::Mutex<Vec<HostKeyAddition>>>);
+
+impl HostKeyLog {
+    pub(crate) fn push_all(&self, additions: &[HostKeyAddition]) {
+        let mut keys = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        for addition in additions {
+            if !keys.contains(addition) {
+                keys.push(addition.clone());
+            }
+        }
+    }
+
+    /// Removes and returns the keys accepted so far.
+    #[must_use]
+    pub fn take(&self) -> Vec<HostKeyAddition> {
+        std::mem::take(
+            &mut *self
+                .0
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        )
+    }
 }
 
 impl SshOptions {
@@ -165,6 +202,7 @@ impl SshOptions {
             timeout: None,
             cancel: CancelToken::new(),
             retry_command: None,
+            host_keys: HostKeyLog::default(),
             home,
             local_user,
             local_host,

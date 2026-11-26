@@ -31,7 +31,7 @@ use nurt_contracts::stage::ExecCtx;
 use nurt_git_transport::connect::{self, Direction, TransportOptions, UrlRewrites};
 use nurt_git_transport::credentials::{CredentialOptions, Credentials, EnvLookup, bearer_token};
 use nurt_git_transport::http::{HttpNote, HttpSettings};
-use nurt_git_transport::ssh::SshOptions;
+use nurt_git_transport::ssh::{HostKeyAddition, SshOptions};
 
 use super::error;
 
@@ -104,6 +104,18 @@ impl Network {
             credentials,
             notable,
         })
+    }
+}
+
+impl Network {
+    /// Keys of new SSH hosts accepted by the connections of this transfer,
+    /// which the command records in its transaction.
+    pub(crate) fn host_key_additions(&self) -> Vec<HostKeyAddition> {
+        self.options
+            .ssh
+            .as_ref()
+            .map(|ssh| ssh.host_keys.take())
+            .unwrap_or_default()
     }
 }
 
@@ -346,7 +358,7 @@ impl Session {
         };
         let outcome = watched(ctx, &interrupt, || exchange.run(&mut self, &interrupt));
         let changed = scratch.changed();
-        scratch.remove();
+        drop(scratch);
         if interrupt.load(Ordering::Relaxed) {
             return Err(error::interrupted(ctx));
         }
@@ -379,6 +391,7 @@ impl Exchange<'_> {
             ref_map: self.ref_map,
             shallow: self.shallow,
             tags: self.tags,
+            interrupt,
         };
         let mut received = Received::default();
         let options = gix::odb::pack::bundle::write::Options {
@@ -452,10 +465,20 @@ fn watched<T>(ctx: &ExecCtx, interrupt: &AtomicBool, work: impl FnOnce() -> T) -
                 std::thread::sleep(WATCH_INTERVAL);
             }
         });
-        let result = work();
-        done.store(true, Ordering::Relaxed);
-        result
+        // Stops the watcher when `work` panics as well, so that the scope can
+        // join it while the panic unwinds.
+        let _stop = StopWatch(&done);
+        work()
     })
+}
+
+/// Tells the watcher of [`watched`] to end when dropped.
+struct StopWatch<'a>(&'a AtomicBool);
+
+impl Drop for StopWatch<'_> {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
 }
 
 /// Negotiation of the objects to send, with the algorithm `git` uses by
@@ -467,10 +490,23 @@ struct Negotiation<'a, 'r> {
     ref_map: &'a RefMap,
     shallow: &'a Shallow,
     tags: Tags,
+    interrupt: &'a AtomicBool,
+}
+
+impl Negotiation<'_, '_> {
+    /// Fails once the watcher has asked for the end of the transfer, so
+    /// that the negotiation rounds stop as well as the pack write.
+    fn check_interrupt(&self) -> gix::Result<()> {
+        if self.interrupt.load(Ordering::Relaxed) {
+            return Err(gix::error::message("the transfer was interrupted").into());
+        }
+        Ok(())
+    }
 }
 
 impl gix::protocol::fetch::Negotiate for Negotiation<'_, '_> {
     fn mark_complete_and_common_ref(&mut self) -> gix::Result<negotiate::Action> {
+        self.check_interrupt()?;
         negotiate::mark_complete_and_common_ref(
             &self.repo.objects,
             &self.repo.refs,
@@ -502,6 +538,7 @@ impl gix::protocol::fetch::Negotiate for Negotiation<'_, '_> {
         arguments: &mut Arguments,
         previous_response: Option<&gix::protocol::fetch::Response>,
     ) -> gix::Result<(negotiate::Round, bool)> {
+        self.check_interrupt()?;
         negotiate::one_round(
             self.negotiator.as_mut(),
             &mut *self.graph,
@@ -523,13 +560,17 @@ impl Scratch {
     fn new(objects_dir: &Path, shallow_file: &Path) -> Result<Self> {
         let serial = SCRATCH_COUNTER.fetch_add(1, Ordering::Relaxed);
         let dir = objects_dir.join(format!("{SCRATCH_PREFIX}{}-{serial}", std::process::id()));
-        let io = |failure: std::io::Error| crate::repo::error::io(&dir, &failure);
-        std::fs::create_dir_all(&dir).map_err(io)?;
-        let before = std::fs::read(shallow_file).ok();
-        if let Some(content) = &before {
-            std::fs::write(dir.join(SHALLOW_FILE), content).map_err(io)?;
+        std::fs::create_dir_all(&dir).map_err(|failure| crate::repo::error::io(&dir, &failure))?;
+        // The directory is removed by `Drop` from here on, also when the copy
+        // of the shallow file fails.
+        let mut scratch = Self { dir, before: None };
+        scratch.before = std::fs::read(shallow_file).ok();
+        if let Some(content) = &scratch.before {
+            let copy = scratch.file();
+            std::fs::write(&copy, content)
+                .map_err(|failure| crate::repo::error::io(&copy, &failure))?;
         }
-        Ok(Self { dir, before })
+        Ok(scratch)
     }
 
     fn file(&self) -> PathBuf {
@@ -546,8 +587,10 @@ impl Scratch {
         };
         Ok((after != self.before).then(|| after.unwrap_or_default()))
     }
+}
 
-    fn remove(self) {
+impl Drop for Scratch {
+    fn drop(&mut self) {
         std::fs::remove_dir_all(&self.dir).ok();
     }
 }
@@ -584,7 +627,18 @@ mod tests {
         std::fs::remove_file(scratch.file()).unwrap();
         assert_eq!(scratch.changed().unwrap(), Some(Vec::new()));
         let path = scratch.dir.clone();
-        scratch.remove();
+        drop(scratch);
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn watcher_ends_when_the_work_panics() {
+        let ctx = crate::testutil::test_ctx();
+        let interrupt = AtomicBool::new(false);
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            watched(&ctx, &interrupt, || -> () { panic!("work failed") })
+        }));
+        assert!(outcome.is_err());
+        assert!(!interrupt.load(Ordering::Relaxed));
     }
 }

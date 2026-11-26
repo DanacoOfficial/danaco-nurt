@@ -190,6 +190,9 @@ pub struct FetchPlan {
     pub notable: Vec<NotableEntry>,
     /// Pending changes of credential `store` files.
     pub store_updates: Vec<StoreUpdate>,
+    /// Keys of new SSH hosts accepted by the transfer, recorded in the known
+    /// hosts file of Nurt when the plan is written.
+    pub host_key_additions: Vec<nurt_git_transport::ssh::HostKeyAddition>,
     /// Symbolic reference `refs/remotes/<remote>/HEAD` to create and the
     /// remote-tracking branch it names.
     pub remote_head: Option<(String, String)>,
@@ -413,6 +416,7 @@ pub fn plan_fetch(
         bytes_received: received.bytes,
         notable,
         store_updates: report.store_updates,
+        host_key_additions: network.host_key_additions(),
         remote_head,
     })
 }
@@ -466,12 +470,24 @@ pub fn write_fetch(
         Some(path) => Some(declare_removal(tx, path)?),
         None => None,
     };
+    let host_keys = nurt_git_transport::ssh::host_keys_plan(&plan.host_key_additions)?;
+    let host_keys_first = if host_keys.is_empty() {
+        None
+    } else {
+        tx.preserve(host_keys.targets())?
+            .first()
+            .map(|target| target.index)
+    };
     writes.apply(tx, first)?;
     if let (Some(index), Some(path)) = (removal, &shallow_removal) {
         ensure_unlocked(path)?;
         tx.apply(index, Mutation::Remove)?;
     }
-    prepared.apply(tx)
+    let outcomes = prepared.apply(tx)?;
+    if let Some(first) = host_keys_first {
+        host_keys.apply(tx, first)?;
+    }
+    Ok(outcomes)
 }
 
 /// Declares the deletion of `path`, expecting its current content.
