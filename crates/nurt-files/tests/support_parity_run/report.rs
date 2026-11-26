@@ -332,7 +332,7 @@ fn navigate(value: Json, rest: &[Seg]) -> Json {
         return value;
     };
     match (first, value) {
-        (Seg::Name(name), Json::Array(items)) if items.len() == 1 => {
+        (Seg::Name(_), Json::Array(items)) if items.len() == 1 => {
             navigate(items.into_iter().next().unwrap_or(Json::Null), rest)
         }
         (Seg::Name(name), Json::Object(mut fields)) => {

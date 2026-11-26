@@ -24,6 +24,9 @@ use nurt_testkit::fixtures::begin_request;
 use nurt_testkit::journal::JournalCall;
 use nurt_testkit::vfs::test_path;
 
+#[path = "../support_report/mod.rs"]
+mod support_report;
+
 /// Notebook of the examples.
 pub(crate) const SALES: &str = "/home/user/sales.ipynb";
 
@@ -196,7 +199,9 @@ pub(crate) fn plan(test: &TestContext, args: &BoundArgs) -> Result<Vec<Change>> 
     let stage = stage(args.command());
     let ctx = test.ctx();
     let effect = stage.as_effect().expect("the command changes files");
-    Ok(effect.plan(args, StageInput::none(), &ctx)?.changes)
+    let changes = effect.plan(args, StageInput::none(), &ctx)?.changes;
+    support_report::assert_plan_valid(args.command(), &changes);
+    Ok(changes)
 }
 
 /// Plans, applies and commits an effect command; returns its `effect`
@@ -206,8 +211,10 @@ pub(crate) fn run(test: &TestContext, args: &BoundArgs) -> Result<Effect> {
     let ctx = test.ctx();
     let effect = stage.as_effect().expect("the command changes files");
     let plan = effect.plan(args, StageInput::none(), &ctx)?;
+    support_report::assert_plan_valid(args.command(), &plan.changes);
     let mut tx = test.journal().begin(begin_request(args.command()));
     let outcome = effect.apply(args, plan, tx.as_mut(), &ctx)?;
+    support_report::assert_changes_valid(args.command(), &outcome.changes);
     tx.commit()?;
     let record = StageInput::from(outcome.output)
         .into_records()?
