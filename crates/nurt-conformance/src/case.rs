@@ -275,6 +275,20 @@ pub struct Step {
     pub second_volume_after: Option<FsExpectation>,
 }
 
+impl Step {
+    /// Whether the step states what its result or its effect must be.
+    #[must_use]
+    pub fn states_expectation(&self) -> bool {
+        !self.expectations.is_empty()
+            || self.expect_error.is_some()
+            || self.validate.is_some()
+            || self.fs_after.is_some()
+            || !self.absent.is_empty()
+            || self.events.is_some()
+            || self.second_volume_after.is_some()
+    }
+}
+
 /// Files of a golden case.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Golden {
@@ -818,6 +832,20 @@ fn fs_expectation(source: &Path, dir: &Path, value: &Value) -> Result<FsExpectat
     }
 }
 
+/// Plan of the steps of a case. A case in which no step states an expectation
+/// would pass for any server, so it is refused; steps before the last one that
+/// only prepare the state need no expectation.
+fn with_expectation(source: &Path, id: &str, steps: Vec<Step>) -> Result<Plan, Error> {
+    if steps.iter().any(Step::states_expectation) {
+        Ok(Plan::Steps(steps))
+    } else {
+        Err(Error::format(
+            source,
+            format!("no step of case {id:?} states an expectation"),
+        ))
+    }
+}
+
 fn build_plan(
     source: &Path,
     dir: &Path,
@@ -827,19 +855,15 @@ fn build_plan(
     directory: bool,
 ) -> Result<Plan, Error> {
     if let Some(steps) = &raw.step {
-        return steps
+        let steps = steps
             .iter()
             .map(|step| build_step(source, dir, step, variant))
-            .collect::<Result<Vec<_>, _>>()
-            .map(Plan::Steps);
+            .collect::<Result<Vec<_>, _>>()?;
+        return with_expectation(source, &raw.id, steps);
     }
     if !raw.inline.is_empty() {
-        return Ok(Plan::Steps(vec![build_step(
-            source,
-            dir,
-            &raw.inline,
-            variant,
-        )?]));
+        let step = build_step(source, dir, &raw.inline, variant)?;
+        return with_expectation(source, &raw.id, vec![step]);
     }
     if !directory {
         return Err(Error::format(
@@ -1499,6 +1523,32 @@ expect_error = -32602
             json!({"nurt": "1.0", "options": {"limit": 1}})
         );
         assert_eq!(steps[4].expect_error, Some(-32602));
+    }
+
+    #[test]
+    fn a_case_without_any_expectation_is_refused() {
+        let root = suite_root();
+        let r = root.path();
+        write(
+            r,
+            "exec/set.cases.toml",
+            r#"
+format = "nurt-conformance-cases/1"
+
+[[case]]
+id = "exec/trivial"
+kind = "exec"
+summary = "s"
+
+[[case.step]]
+program = "count"
+
+[[case.step]]
+method = "info"
+"#,
+        );
+        let error = load(r).unwrap_err().to_string();
+        assert!(error.contains("states an expectation"), "{error}");
     }
 
     #[test]
