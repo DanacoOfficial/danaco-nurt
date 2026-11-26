@@ -118,7 +118,7 @@ function run(id, params) {
         clearTimeout(timer);
         end(id);
         send(failure(id, RPC_CANCELLED, "the execution was cancelled", {
-          response: response("", report("failed", "delay")),
+          response: response("", report("failed", "delay", { error: { code: "E_CANCELLED", message: "the execution was cancelled" } })),
         }));
       });
       return;

@@ -76,7 +76,9 @@ describe("library backend", () => {
       setTimeout(() => {
         execution.cancel();
       }, 10);
-      await assert.rejects(execution.wait(), { status: "NURT_E_CANCELLED" });
+      const response = await execution.wait();
+      assert.equal(response.ok, false);
+      assert.equal(response.error.code, "E_CANCELLED");
     });
   });
 

@@ -29,12 +29,7 @@ const OPTIONAL_PREFIX = "optional:";
 const PLACEHOLDER = /\$\{(base|step(\d+)(\/[^}]*))\}/;
 
 /** Cases whose expectation this client does not meet, with the reason. */
-const KNOWN_DIFFERENCES = new Map([
-  [
-    "start.cancel",
-    "Execution.wait rejects with NURT_E_CANCELLED after cancel, whereas the case expects a response with the error E_CANCELLED",
-  ],
-]);
+const KNOWN_DIFFERENCES = new Map();
 
 function nonEmpty(value) {
   return value === undefined || value === "" ? undefined : value;
