@@ -50,13 +50,16 @@ impl<'a> JobStore<'a> {
 
     /// Removes finished jobs older than `output.spool_ttl` with their output.
     ///
+    /// A job whose files cannot be removed keeps its record and is retried by
+    /// the next sweep; it does not stop the removal of the other jobs.
+    ///
     /// # Errors
     ///
-    /// Fails with `E_IO` when the job table cannot be read or updated.
+    /// Fails with `E_IO` when the job table cannot be read.
     pub(crate) fn sweep(&self) -> Result<()> {
         let ttl = self.ctx.config().output.spool_ttl.as_std();
         for id in self.table.expired(self.ctx.clock().now(), ttl)? {
-            self.remove_files(&id)?;
+            let _ = self.remove_files(&id);
         }
         Ok(())
     }
@@ -233,15 +236,23 @@ impl<'a> JobStore<'a> {
     /// # Errors
     ///
     /// Fails with `E_UNKNOWN_JOB`, with `E_JOB_STATE` for a running job and
-    /// with `E_IO` when the job files cannot be read.
+    /// with `E_IO` when the job files cannot be read or the stored environment
+    /// and standard input of the job are missing: repeating the command with
+    /// an empty environment would not be the same run.
     pub(crate) fn retry_request(&self, id: &str, timeout: Option<Duration>) -> Result<RunRequest> {
         let file = self.table.get(id)?;
         check_action(id, file.record.state, Action::Retry)?;
         let mut request = file.request.0;
-        if let Some(input) = self.table.read_input(id)? {
-            request.spawn.env = input.env;
-            request.spawn.stdin = input.stdin;
-        }
+        let Some(input) = self.table.read_input(id)? else {
+            return Err(Error::new(
+                ErrorCode::Io,
+                format!(
+                    "job `{id}` has no stored environment and standard input; start the command again instead of retrying it"
+                ),
+            ));
+        };
+        request.spawn.env = input.env;
+        request.spawn.stdin = input.stdin;
         if let Some(timeout) = timeout {
             request.spawn.limits.timeout = Some(timeout);
         }

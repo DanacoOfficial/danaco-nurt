@@ -38,6 +38,7 @@ use super::control::{self, ControlAction};
 use super::host::LocalHost;
 use super::journal::Unjournaled;
 use super::runner::Launch;
+use super::store::JobStore;
 use super::table::{JobFile, JobTable, PROTOCOL};
 use super::wire::StoredRequest;
 use super::{Supervision, SupervisorCommand, run_host, supervisor};
@@ -1791,6 +1792,44 @@ mod jobs_remove {
         let ids: Vec<&str> = jobs.iter().map(|job| job.id.as_str()).collect();
         assert_eq!(ids, [running.id.as_str()]);
         stop_all(&ctx, &components);
+    }
+
+    #[test]
+    fn a_job_that_cannot_be_removed_does_not_stop_the_sweep() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.output.spool_ttl = DurationSetting::from_millis(1);
+        let (ctx, _) = context_with(dir.path(), config, None);
+        let components = components();
+        let stuck = background(&ctx, &components, request(dir.path(), 0, 0, 1));
+        wait_finished(dir.path(), &stuck.id);
+        let removable = background(&ctx, &components, request(dir.path(), 0, 0, 1));
+        wait_finished(dir.path(), &removable.id);
+        let input = dir.path().join("jobs").join(format!("{}.input.json", stuck.id));
+        fs::remove_file(&input).unwrap();
+        fs::create_dir_all(input.join("blocker")).unwrap();
+        std::thread::sleep(Duration::from_millis(20));
+        let (jobs, _) = read_jobs(&components, &ctx, &BoundArgs::new("jobs")).unwrap();
+        let ids: Vec<&str> = jobs.iter().map(|job| job.id.as_str()).collect();
+        assert_eq!(ids, [stuck.id.as_str()]);
+    }
+
+    #[test]
+    fn retry_without_the_stored_input_fails_instead_of_running_with_an_empty_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let job = finished(&ctx, &components, dir.path());
+        let store = JobStore::open(&ctx, &components).unwrap();
+        assert!(store.retry_request(&job.id, None).is_ok());
+        fs::remove_file(
+            dir.path()
+                .join("jobs")
+                .join(format!("{}.input.json", job.id)),
+        )
+        .unwrap();
+        let error = store.retry_request(&job.id, None).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Io);
     }
 }
 

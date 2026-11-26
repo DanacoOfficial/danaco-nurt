@@ -320,25 +320,23 @@ impl JobTable {
         Ok(self.try_lock_host()?.is_none())
     }
 
-    /// Removes all files of a job.
+    /// Removes all files of a job; the job file goes last, so a job whose
+    /// removal fails stays listed and can be removed again.
     ///
     /// # Errors
     ///
     /// Fails with `E_IO` when a file exists but cannot be removed.
     pub(crate) fn remove(&self, id: &str) -> Result<()> {
-        for path in [
-            self.record_path(id),
-            self.input_path(id),
-            self.lock_path(id),
-        ] {
+        for path in [self.input_path(id), self.lock_path(id)] {
             remove_file(&path)?;
         }
         match fs::remove_dir_all(self.control_dir(id)) {
             Err(error) if error.kind() != ErrorKind::NotFound => {
-                Err(io_error("remove the job control files", &error))
+                return Err(io_error("remove the job control files", &error));
             }
-            _ => Ok(()),
+            _ => {}
         }
+        remove_file(&self.record_path(id))
     }
 
     /// Identifiers of finished jobs that ended more than `ttl` before `now`;
