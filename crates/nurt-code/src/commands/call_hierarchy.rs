@@ -237,7 +237,7 @@ fn project_callables(
     let (Some(code), Some(language)) = (ctx.code(), target.language.as_ref()) else {
         return Ok(callables);
     };
-    for path in shared::project_files(ctx, files, target) {
+    for path in shared::project_files(ctx, files, target)? {
         ctx.checkpoint()?;
         let Some(file) = files.get(&path) else {
             continue;

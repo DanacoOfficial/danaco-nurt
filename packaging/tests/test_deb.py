@@ -237,6 +237,17 @@ class AptRepositoryTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("gpg is not installed", result.stderr)
 
+    def test_rejects_a_source_date_epoch_that_is_not_a_number(self):
+        result = subprocess.run(
+            ["python3", "-I", str(support.PACKAGING / "apt-repo" / "mkrepo.py"),
+             "--packages", str(self.packages), "--output", str(self.repository)],
+            capture_output=True, text=True, check=False,
+            env=support.clean_environment(SOURCE_DATE_EPOCH="soon"),
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("SOURCE_DATE_EPOCH", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
     def test_fails_for_directory_without_packages(self):
         empty = self.root / "empty"
         empty.mkdir()

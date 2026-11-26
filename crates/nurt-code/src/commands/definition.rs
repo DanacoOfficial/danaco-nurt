@@ -350,12 +350,16 @@ pub(crate) mod shared {
         /// [`SKIPPED_DIRECTORIES`], no more than `code.index_max_files`; the
         /// flag is `true` when accepted files were left out because of the
         /// limit, and then a `source_unavailable` note is recorded.
+        ///
+        /// # Errors
+        ///
+        /// Fails when the execution is cancelled.
         pub(crate) fn walk(
             &self,
             root: &Path,
             accept: &dyn Fn(&Path) -> bool,
-        ) -> (Vec<PathBuf>, bool) {
-            let found = self.walk_limited(root, accept);
+        ) -> Result<(Vec<PathBuf>, bool)> {
+            let found = self.walk_limited(root, accept)?;
             if found.1 {
                 let mut note = NotableEntry::new(Notable::SourceUnavailable);
                 note.path = Some(root.to_string_lossy().into_owned());
@@ -365,21 +369,22 @@ pub(crate) mod shared {
                 ));
                 self.ctx.note(note);
             }
-            found
+            Ok(found)
         }
 
         fn walk_limited(
             &self,
             root: &Path,
             accept: &dyn Fn(&Path) -> bool,
-        ) -> (Vec<PathBuf>, bool) {
+        ) -> Result<(Vec<PathBuf>, bool)> {
             let max = usize::try_from(self.ctx.config().code.index_max_files).unwrap_or(usize::MAX);
             let Ok(fs) = self.ctx.require_fs() else {
-                return (Vec::new(), false);
+                return Ok((Vec::new(), false));
             };
             let mut found = Vec::new();
             let mut pending = vec![root.to_path_buf()];
             while let Some(directory) = pending.pop() {
+                self.ctx.checkpoint()?;
                 let Ok(absolute) = AbsPath::new(&directory) else {
                     continue;
                 };
@@ -405,7 +410,7 @@ pub(crate) mod shared {
                         }
                         Some(FileKind::File) if accept(&path) => {
                             if found.len() >= max {
-                                return (found, true);
+                                return Ok((found, true));
                             }
                             found.push(path);
                         }
@@ -414,7 +419,7 @@ pub(crate) mod shared {
                 }
                 pending.extend(directories.into_iter().rev());
             }
-            (found, false)
+            Ok((found, false))
         }
     }
 
@@ -983,16 +988,24 @@ pub(crate) mod shared {
     }
 
     /// Files of the project in the language of the target.
-    pub(crate) fn project_files(ctx: &ExecCtx, files: &Files<'_>, target: &Target) -> Vec<PathBuf> {
+    ///
+    /// # Errors
+    ///
+    /// Fails when the execution is cancelled.
+    pub(crate) fn project_files(
+        ctx: &ExecCtx,
+        files: &Files<'_>,
+        target: &Target,
+    ) -> Result<Vec<PathBuf>> {
         let (Some(code), Some(language)) = (ctx.code(), target.language.as_ref()) else {
-            return vec![target.path.clone()];
+            return Ok(vec![target.path.clone()]);
         };
         let accept = |path: &Path| code.language_of(Some(path), &[]).as_ref() == Some(language);
-        let (mut paths, _) = files.walk(&target.root, &accept);
+        let (mut paths, _) = files.walk(&target.root, &accept)?;
         if !paths.contains(&target.path) {
             paths.insert(0, target.path.clone());
         }
-        paths
+        Ok(paths)
     }
 
     /// Definitions of the identifier at the target found by syntax
@@ -1008,7 +1021,7 @@ pub(crate) mod shared {
         let (code, language) = require_code(ctx, target.language.as_ref(), &target.path)?;
         let mut found = Vec::new();
         let mut seen = HashSet::new();
-        for path in project_files(ctx, files, target) {
+        for path in project_files(ctx, files, target)? {
             ctx.checkpoint()?;
             let Some(file) = files.get(&path) else {
                 continue;
@@ -1052,7 +1065,7 @@ pub(crate) mod shared {
         };
         let (code, language) = require_code(ctx, target.language.as_ref(), &target.path)?;
         let paths = if whole_project {
-            project_files(ctx, files, target)
+            project_files(ctx, files, target)?
         } else {
             vec![target.path.clone()]
         };

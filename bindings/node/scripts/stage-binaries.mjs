@@ -5,10 +5,10 @@
 //
 //   node scripts/stage-binaries.mjs --assets <directory> --version <version>
 //
-// The assets directory holds the release archives and the file SHA256SUMS
+// The assets directory holds the release archives and the file checksums.txt
 // ("<sha256>  <file name>" per line). The archive of a platform is
 // nurt-<version>-<target>.tar.gz, or .zip for Windows, where <target> is the
-// Rust target triple. Every archive is checked against SHA256SUMS before it is
+// Rust target triple. Every archive is checked against checksums.txt before it is
 // extracted; a missing archive or a checksum mismatch stops the script. The
 // executable found in the archive is copied to npm/<platform>/bin/, together
 // with the addon nurt.node when the archive contains it. Requires
@@ -40,7 +40,7 @@ const packageDirectory = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function readChecksums(directory) {
   const checksums = new Map();
-  for (const line of readFileSync(join(directory, "SHA256SUMS"), "utf8").split("\n")) {
+  for (const line of readFileSync(join(directory, "checksums.txt"), "utf8").split("\n")) {
     const match = CHECKSUM_LINE.exec(line.trim());
     if (match !== null) {
       checksums.set(match[2], match[1]);
@@ -87,7 +87,7 @@ try {
     const archive = join(values.assets, name);
     const expected = checksums.get(name);
     if (expected === undefined) {
-      throw new Error(`SHA256SUMS has no entry for ${name}`);
+      throw new Error(`checksums.txt has no entry for ${name}`);
     }
     const actual = sha256(archive);
     if (actual !== expected) {

@@ -181,7 +181,9 @@ jobs:
               dnf install -y -q rpm-build
               mkdir -p /root/rpmbuild/SOURCES
               cp /archives/nurt-${{ inputs.version }}-${{ matrix.arch }}-unknown-linux-gnu.tar.gz /root/rpmbuild/SOURCES/
-              rpmbuild -bb --define "_buildhost reproducible" /spec/nurt.spec
+              rpmbuild -bb --define "_buildhost reproducible" \
+                --define "use_source_date_epoch_as_buildtime 1" \
+                --define "clamp_mtime_to_source_date_epoch 1" /spec/nurt.spec
               cp /root/rpmbuild/RPMS/${{ matrix.arch }}/*.rpm /rpms/
             '
       - uses: actions/upload-artifact@v4

@@ -83,12 +83,27 @@ impl CodeOutline {
         let symbols = provider
             .document_symbols(ctx, &SemanticScope::new(directory), path)
             .map_err(|error| server_error(path, &error))?;
+        let language = language_name(self.registry, path);
         Ok(symbols
             .iter()
             .filter(|symbol| depth.is_none_or(|max| symbol.depth <= max))
-            .map(|symbol| semantic_record(symbol, "", &etag, FIELDS).into())
+            .map(|symbol| semantic_record(symbol, &language, &etag, FIELDS).into())
             .collect())
     }
+}
+
+/// Name of the language of a file for the `language` field of records: the
+/// language of the registry, else the extension of the file in lower case,
+/// else the empty string.
+fn language_name(registry: &Registry, path: &Path) -> String {
+    registry.detect_by_name(path).map_or_else(
+        || {
+            path.extension()
+                .map(|extension| extension.to_string_lossy().to_ascii_lowercase())
+                .unwrap_or_default()
+        },
+        |id| id.to_string(),
+    )
 }
 
 fn no_language(path: &Path) -> Error {
@@ -177,6 +192,14 @@ mod tests {
     use nurt_contracts::value::Value;
 
     use super::*;
+
+    #[test]
+    fn language_of_a_file_comes_from_the_registry_or_the_extension() {
+        let registry = Registry::builtin();
+        assert_eq!(language_name(registry, Path::new("/p/a.rs")), "rust");
+        assert_eq!(language_name(registry, Path::new("/p/main.ZIG")), "zig");
+        assert_eq!(language_name(registry, Path::new("/p/Makefile")), "");
+    }
 
     #[test]
     fn negative_depth_is_rejected() {

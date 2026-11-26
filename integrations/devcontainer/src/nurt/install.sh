@@ -110,10 +110,10 @@ main() {
     --output "$work/$archive" "$DOWNLOAD_BASE/v$version/$archive" ||
     fail "cannot download $archive"
   curl --fail --silent --show-error --location --retry 3 \
-    --output "$work/SHA256SUMS" "$DOWNLOAD_BASE/v$version/SHA256SUMS" ||
-    fail "cannot download SHA256SUMS for version $version"
+    --output "$work/checksums.txt" "$DOWNLOAD_BASE/v$version/checksums.txt" ||
+    fail "cannot download checksums.txt for version $version"
 
-  expected=$(awk -v n="$archive" '{ f = $2; sub(/^\*/, "", f); if (f == n) { print tolower($1); exit } }' "$work/SHA256SUMS")
+  expected=$(awk -v n="$archive" '{ f = $2; sub(/^\*/, "", f); if (f == n) { print tolower($1); exit } }' "$work/checksums.txt")
   [ -n "$expected" ] || fail "no checksum listed for $archive"
   actual=$(sha256sum "$work/$archive" | awk '{ print tolower($1) }')
   [ "$expected" = "$actual" ] ||

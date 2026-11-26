@@ -114,6 +114,8 @@ pub struct LocalAnalysis<'a> {
     language: LanguageId,
     line_starts: Vec<usize>,
     symbols: Vec<SymbolInfo>,
+    /// Index of the symbol whose definition directly contains each symbol.
+    symbol_parents: Vec<Option<usize>>,
     scopes: Vec<Scope>,
     occurrences: Vec<Occurrence>,
     /// Byte from which the name of each occurrence is visible: the end of
@@ -228,6 +230,7 @@ impl<'a> LocalAnalysis<'a> {
     #[must_use]
     pub fn new(parsed: &ParsedSource<'a>) -> Self {
         let symbols = extract(parsed);
+        let symbol_parents = nesting_parents(&symbols);
         let scopes = collect_scopes(parsed);
         let mut analysis = Self {
             source: parsed.source,
@@ -236,6 +239,7 @@ impl<'a> LocalAnalysis<'a> {
             spans: classify_spans(&parsed.tree),
             calls: Vec::new(),
             symbols,
+            symbol_parents,
             scopes,
             occurrences: Vec::new(),
             visible_from: Vec::new(),
@@ -331,15 +335,35 @@ impl<'a> LocalAnalysis<'a> {
     /// the byte `offset`, other than a symbol named at `offset`.
     #[must_use]
     pub fn container_at(&self, offset: u64) -> Option<String> {
-        self.symbols
-            .iter()
-            .filter(|symbol| {
-                symbol.span.bytes.start <= offset
-                    && offset < symbol.span.bytes.end
-                    && symbol.name_span.bytes.start != offset
-            })
-            .min_by_key(|symbol| symbol.span.bytes.len())
-            .map(|symbol| qualified_name(&symbol.name, symbol.container.as_deref()))
+        let qualifies = |symbol: &SymbolInfo| {
+            offset < symbol.span.bytes.end && symbol.name_span.bytes.start != offset
+        };
+        let upper = self
+            .symbols
+            .partition_point(|symbol| symbol.span.bytes.start <= offset);
+        let mut current = upper.checked_sub(1);
+        while let Some(index) = current {
+            let symbol = &self.symbols[index];
+            if qualifies(symbol) {
+                // Of several symbols with the same span the first wins.
+                let mut found = index;
+                let mut up = self.symbol_parents[index];
+                while let Some(outer) = up {
+                    let candidate = &self.symbols[outer];
+                    if candidate.span.bytes != symbol.span.bytes {
+                        break;
+                    }
+                    if qualifies(candidate) {
+                        found = outer;
+                    }
+                    up = self.symbol_parents[outer];
+                }
+                let symbol = &self.symbols[found];
+                return Some(qualified_name(&symbol.name, symbol.container.as_deref()));
+            }
+            current = self.symbol_parents[index];
+        }
+        None
     }
 
     /// Lexical class of the byte at `offset`.
@@ -450,17 +474,25 @@ impl<'a> LocalAnalysis<'a> {
         }
     }
 
+    /// Index of the innermost scope that contains the bytes `start..end`.
+    ///
+    /// Scopes are sorted by start and nest like syntax nodes, so the last
+    /// scope that starts at or before `start` either contains the bytes or
+    /// has the innermost containing scope among its ancestors.
     fn innermost_scope(&self, start: u64, end: u64, exclude_same: bool) -> usize {
-        self.scopes
-            .iter()
-            .enumerate()
-            .filter(|(_, scope)| {
-                scope.bytes.start <= start
-                    && end <= scope.bytes.end
-                    && !(exclude_same && scope.bytes.start == start && scope.bytes.end == end)
-            })
-            .min_by_key(|(_, scope)| scope.bytes.len())
-            .map_or(0, |(index, _)| index)
+        let upper = self
+            .scopes
+            .partition_point(|scope| scope.bytes.start <= start);
+        let mut current = upper.checked_sub(1);
+        while let Some(index) = current {
+            let scope = &self.scopes[index];
+            let same = scope.bytes.start == start && scope.bytes.end == end;
+            if end <= scope.bytes.end && !(exclude_same && same) {
+                return index;
+            }
+            current = scope.parent;
+        }
+        0
     }
 
     fn collect_occurrences(&mut self, parsed: &ParsedSource<'_>) {
@@ -474,6 +506,9 @@ impl<'a> LocalAnalysis<'a> {
         let mut cursor = parsed.tree.root_node().walk();
         let mut found = Vec::new();
         let mut visible_from = Vec::new();
+        // Nodes from the root to the parent of the current node; `Node::parent`
+        // searches from the root on every call.
+        let mut ancestors: Vec<Node<'_>> = Vec::new();
         loop {
             let node = cursor.node();
             if rules::is_identifier(node) {
@@ -482,11 +517,11 @@ impl<'a> LocalAnalysis<'a> {
                     .get(&start)
                     .copied()
                     .unwrap_or(OccurrenceKind::Use);
-                let member =
-                    kind == OccurrenceKind::Use && rules::is_member(node, cursor.field_name());
+                let member = kind == OccurrenceKind::Use
+                    && rules::is_member(node, cursor.field_name(), ancestors.last().copied());
                 visible_from.push(match kind {
                     OccurrenceKind::Local => {
-                        rules::sequential_declaration_end(node).map_or(start, to_u64)
+                        rules::sequential_declaration_end(&ancestors).map_or(start, to_u64)
                     }
                     _ => start,
                 });
@@ -499,9 +534,10 @@ impl<'a> LocalAnalysis<'a> {
                 ));
             }
             if cursor.goto_first_child() {
+                ancestors.push(node);
                 continue;
             }
-            if !advance(&mut cursor) {
+            if !next_node(&mut cursor, &mut ancestors) {
                 break;
             }
         }
@@ -675,6 +711,41 @@ pub(crate) fn advance(cursor: &mut tree_sitter::TreeCursor<'_>) -> bool {
         if !cursor.goto_parent() {
             return false;
         }
+    }
+}
+
+/// Index of the symbol whose definition directly contains each symbol.
+///
+/// The symbols are sorted by start, larger definitions first, and nest like
+/// syntax nodes.
+fn nesting_parents(symbols: &[SymbolInfo]) -> Vec<Option<usize>> {
+    let mut parents = Vec::with_capacity(symbols.len());
+    let mut open: Vec<usize> = Vec::new();
+    for (index, symbol) in symbols.iter().enumerate() {
+        let bytes = symbol.span.bytes;
+        while let Some(top) = open.last() {
+            let outer = symbols[*top].span.bytes;
+            if outer.start <= bytes.start && bytes.end <= outer.end {
+                break;
+            }
+            open.pop();
+        }
+        parents.push(open.last().copied());
+        open.push(index);
+    }
+    parents
+}
+
+/// Like [`advance`], and drops from `ancestors` every node the cursor leaves.
+fn next_node<'t>(cursor: &mut tree_sitter::TreeCursor<'t>, ancestors: &mut Vec<Node<'t>>) -> bool {
+    loop {
+        if cursor.goto_next_sibling() {
+            return true;
+        }
+        if !cursor.goto_parent() {
+            return false;
+        }
+        ancestors.pop();
     }
 }
 
@@ -893,6 +964,128 @@ mod tests {
             (found[0].span.start.line, found[0].span.start.column),
             (2, 11)
         );
+    }
+
+    fn brute_force_scope(
+        analysis: &LocalAnalysis<'_>,
+        start: u64,
+        end: u64,
+        exclude_same: bool,
+    ) -> usize {
+        analysis
+            .scopes
+            .iter()
+            .enumerate()
+            .filter(|(_, scope)| {
+                scope.bytes.start <= start
+                    && end <= scope.bytes.end
+                    && !(exclude_same && scope.bytes.start == start && scope.bytes.end == end)
+            })
+            .min_by_key(|(_, scope)| scope.bytes.len())
+            .map_or(0, |(index, _)| index)
+    }
+
+    #[test]
+    fn innermost_scope_agrees_with_a_scan_of_every_scope() {
+        let sources = [
+            (
+                "rust",
+                "fn a(x: u32) { let y = x; { let z = y; for i in 0..z { let w = i; } } }\nfn b() { let c = |q| q + 1; c(2); }\nmod m { fn n() { match 1 { k => k, } } }\n",
+            ),
+            (
+                "python",
+                "def f(a):\n    def g(b):\n        return [c for c in b]\n    return g(a)\n\nclass K:\n    def m(self): pass\n",
+            ),
+            (
+                "typescript",
+                "function f(a: number) { const g = (b: number) => { return b + a; }; if (a) { let d = 1; } }\nclass C { m(x: number) { return x; } }\n",
+            ),
+        ];
+        for (language, source) in sources {
+            let analysis = analysis(language, source);
+            assert!(analysis.scopes().len() > 3, "{language}");
+            for occurrence in analysis.occurrences() {
+                let (start, end) = (occurrence.span.bytes.start, occurrence.span.bytes.end);
+                for exclude_same in [false, true] {
+                    assert_eq!(
+                        analysis.innermost_scope(start, end, exclude_same),
+                        brute_force_scope(&analysis, start, end, exclude_same),
+                        "{language} {} @{start}",
+                        occurrence.name
+                    );
+                }
+            }
+            for scope in analysis.scopes() {
+                let (start, end) = (scope.bytes.start, scope.bytes.end);
+                for exclude_same in [false, true] {
+                    assert_eq!(
+                        analysis.innermost_scope(start, end, exclude_same),
+                        brute_force_scope(&analysis, start, end, exclude_same),
+                        "{language} scope {start}..{end}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn php_variables_inside_strings_are_references_in_code() {
+        let source = "<?php\n$name = 1;\necho \"hi $name and {$name}\";\n";
+        let found = analysis("php", source).references("name");
+        let in_code = found
+            .iter()
+            .filter(|reference| reference.class == SpanClass::Code)
+            .count();
+        assert_eq!(in_code, 3);
+        assert!(found.iter().all(|reference| reference.class != SpanClass::String));
+    }
+
+    #[test]
+    fn container_search_agrees_with_a_scan_of_every_symbol() {
+        let sources = [
+            (
+                "rust",
+                "mod m { struct S; impl S { fn a(&self) { fn b() {} b(); } fn c(&self) {} } }\nfn d() { m::S.c(); }\nconst K: u32 = 1;\n",
+            ),
+            (
+                "python",
+                "class A:\n    x = 1\n    def f(self):\n        def g():\n            return 1\n        return g()\n\nclass B:\n    def h(self): pass\n",
+            ),
+            (
+                "typescript",
+                "class C { f = 1; m(x: number) { const g = () => 1; return g(); } }\nfunction top() { return 2; }\n",
+            ),
+        ];
+        for (language, source) in sources {
+            let analysis = analysis(language, source);
+            assert!(analysis.symbols().len() > 3, "{language}");
+            for offset in 0..=source.len() as u64 {
+                let expected = analysis
+                    .symbols()
+                    .iter()
+                    .filter(|symbol| {
+                        symbol.span.bytes.start <= offset
+                            && offset < symbol.span.bytes.end
+                            && symbol.name_span.bytes.start != offset
+                    })
+                    .min_by_key(|symbol| symbol.span.bytes.len())
+                    .map(|symbol| qualified_name(&symbol.name, symbol.container.as_deref()));
+                assert_eq!(analysis.container_at(offset), expected, "{language} {offset}");
+            }
+        }
+    }
+
+    #[test]
+    fn long_member_chains_are_analysed_in_linear_time() {
+        let depth = 20_000;
+        let source = format!("x{}\n", ".a".repeat(depth));
+        let analysis = analysis("python", &source);
+        let members = analysis
+            .occurrences()
+            .iter()
+            .filter(|occurrence| occurrence.member)
+            .count();
+        assert_eq!(members, depth);
     }
 
     #[test]

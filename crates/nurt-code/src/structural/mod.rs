@@ -216,6 +216,7 @@ pub fn replacement_edits(
     template: &str,
 ) -> Vec<Replacement> {
     let lines = LineIndex::new(source);
+    let crlf = dominant_line_ending_is_crlf(source);
     let mut sorted: Vec<&SyntaxMatch> = matches.iter().collect();
     sorted.sort_by_key(|found| {
         (
@@ -236,12 +237,34 @@ pub fn replacement_edits(
             match_start: found.span.bytes.start,
             match_line: found.span.start.line,
         };
+        let text = render(found, template, &indents);
         edits.push(Replacement {
             bytes: found.span.bytes,
-            text: render(found, template, &indents),
+            text: if crlf { to_crlf(&text) } else { text },
         });
     }
     edits
+}
+
+/// Returns `true` when the document has more `CRLF` than bare `LF` line
+/// endings.
+fn dominant_line_ending_is_crlf(source: &[u8]) -> bool {
+    let (mut crlf, mut lf) = (0_usize, 0_usize);
+    for (index, byte) in source.iter().enumerate() {
+        if *byte == b'\n' {
+            if index > 0 && source[index - 1] == b'\r' {
+                crlf += 1;
+            } else {
+                lf += 1;
+            }
+        }
+    }
+    crlf > lf
+}
+
+/// Text with every line ending written as `CRLF`.
+fn to_crlf(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\n', "\r\n")
 }
 
 fn render(found: &SyntaxMatch, template: &str, indents: &dyn Indents) -> String {
@@ -444,6 +467,25 @@ mod tests {
         assert_eq!(edits.len(), 1);
         assert_eq!(edits[0].bytes, ByteRange::new(1, end as u64));
         assert_eq!(edits[0].text, "wrapped(\n\t\tfirst,\n\t\tsecond\n\t)");
+    }
+
+    #[test]
+    fn dominant_line_ending_decides_the_endings_of_the_replacement() {
+        assert!(dominant_line_ending_is_crlf(b"a\r\nb\r\nc\n"));
+        assert!(!dominant_line_ending_is_crlf(b"a\r\nb\nc\n"));
+        assert!(!dominant_line_ending_is_crlf(b"a\nb\n"));
+        assert!(!dominant_line_ending_is_crlf(b""));
+        assert!(!dominant_line_ending_is_crlf(b"\n\r\n"));
+        assert_eq!(to_crlf("a\nb\r\nc"), "a\r\nb\r\nc");
+        let source = "x\r\ny\r\nabcdefgh\r\n";
+        let start = source.find("abc").unwrap();
+        let found = found_at(source, start, start + 3, 3);
+        let edits = replacement_edits(source.as_bytes(), &[found], "p\nq");
+        assert_eq!(edits[0].text, "p\r\nq");
+        let lf = "x\ny\nabcdefgh\n";
+        let found = found_at(lf, start - 2, start + 1, 3);
+        let edits = replacement_edits(lf.as_bytes(), &[found], "p\nq");
+        assert_eq!(edits[0].text, "p\nq");
     }
 
     #[test]

@@ -32,7 +32,7 @@ make_release() {
     else
       shasum -a 256 "nurt-$version-$target.tar.gz"
     fi
-  } >SHA256SUMS)
+  } >checksums.txt)
 }
 
 # run_setup VERSION VERIFY CACHE: runs the script and captures its output files.
@@ -89,17 +89,17 @@ assert_no_file 'leaves no completion marker after a failure' "$cache/nurt/1.2.3/
 assert_no_file 'leaves no executable after a failure' "$cache/nurt/1.2.3/x64/nurt"
 
 make_release 1.2.3
-printf '%064d  nurt-1.2.3-%s.tar.gz\n' 0 "$target" >"$release/v1.2.3/SHA256SUMS"
+printf '%064d  nurt-1.2.3-%s.tar.gz\n' 0 "$target" >"$release/v1.2.3/checksums.txt"
 run_setup 1.2.3 false "$cache"
 assert_eq 'installs without verification when disabled' 0 $?
 assert_file 'installs the executable when verification is disabled' "$cache/nurt/1.2.3/x64/nurt"
 make_release 1.2.3
 
 cache="$work/cache-e"
-rm "$release/v1.2.3/SHA256SUMS"
+rm "$release/v1.2.3/checksums.txt"
 run_setup 1.2.3 true "$cache"
 assert_eq 'fails when the checksum list is missing' 1 $?
-assert_contains 'names the missing checksum list' 'SHA256SUMS' "$(cat "$work/stderr")"
+assert_contains 'names the missing checksum list' 'checksums.txt' "$(cat "$work/stderr")"
 make_release 1.2.3
 
 cache="$work/cache-f"
@@ -119,7 +119,7 @@ cache="$work/cache-g"
 stage=$(mktemp -d "$work/stage.XXXXXX")
 printf 'x\n' >"$stage/README"
 tar -czf "$release/v1.2.3/nurt-1.2.3-$target.tar.gz" -C "$stage" README
-(cd "$release/v1.2.3" && { sha256sum "nurt-1.2.3-$target.tar.gz" 2>/dev/null || shasum -a 256 "nurt-1.2.3-$target.tar.gz"; } >SHA256SUMS)
+(cd "$release/v1.2.3" && { sha256sum "nurt-1.2.3-$target.tar.gz" 2>/dev/null || shasum -a 256 "nurt-1.2.3-$target.tar.gz"; } >checksums.txt)
 run_setup 1.2.3 true "$cache"
 assert_eq 'fails when the archive lacks the executable' 1 $?
 assert_contains 'names the missing executable' 'does not contain nurt' "$(cat "$work/stderr")"
@@ -130,7 +130,7 @@ mkdir -p "$stage/nurt-1.2.3-$target"
 printf '#!/bin/sh\necho "nurt 1.2.3"\n' >"$stage/nurt-1.2.3-$target/nurt"
 chmod +x "$stage/nurt-1.2.3-$target/nurt"
 tar -czf "$release/v1.2.3/nurt-1.2.3-$target.tar.gz" -C "$stage" "nurt-1.2.3-$target"
-(cd "$release/v1.2.3" && { sha256sum "nurt-1.2.3-$target.tar.gz" 2>/dev/null || shasum -a 256 "nurt-1.2.3-$target.tar.gz"; } >SHA256SUMS)
+(cd "$release/v1.2.3" && { sha256sum "nurt-1.2.3-$target.tar.gz" 2>/dev/null || shasum -a 256 "nurt-1.2.3-$target.tar.gz"; } >checksums.txt)
 run_setup 1.2.3 true "$cache"
 assert_eq 'installs an archive with the top directory of the release layout' 0 $?
 assert_file 'places the executable of the nested archive in the tool cache' "$cache/nurt/1.2.3/x64/nurt"

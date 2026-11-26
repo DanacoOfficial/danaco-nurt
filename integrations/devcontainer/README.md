@@ -26,7 +26,7 @@ Development container Feature that installs Danaco Nurt, a command shell and lan
 
 ## Installation
 
-`install.sh` selects the Linux archive for the architecture (`x86_64` or `aarch64`, statically linked against musl), downloads it with `SHA256SUMS` from the GitHub release of `DanacoOfficial/nurt`, verifies the SHA-256 digest and installs `nurt` into `/usr/local/bin`. The script runs on Debian, Ubuntu, Alpine and Red Hat based images; it installs `curl`, `tar` and `ca-certificates` with the package manager of the image when they are missing.
+`install.sh` selects the Linux archive for the architecture (`x86_64` or `aarch64`, statically linked against musl), downloads it with `checksums.txt` from the GitHub release of `DanacoOfficial/nurt`, verifies the SHA-256 digest and installs `nurt` into `/usr/local/bin`. The script runs on Debian, Ubuntu, Alpine and Red Hat based images; it installs `curl`, `tar` and `ca-certificates` with the package manager of the image when they are missing.
 
 Environment variables for testing against a different release location:
 

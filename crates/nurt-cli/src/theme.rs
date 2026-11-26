@@ -14,7 +14,7 @@ use reedline::Color;
 const SILVER: (u8, u8, u8) = (0xC3, 0xC8, 0xCE);
 const GOLD: (u8, u8, u8) = (0xD4, 0xAE, 0x6E);
 const CYAN: (u8, u8, u8) = (0x4F, 0xD1, 0xF5);
-const SILVER_INDEX: u8 = 250;
+const SILVER_INDEX: u8 = 251;
 const GOLD_INDEX: u8 = 179;
 const CYAN_INDEX: u8 = 81;
 
@@ -114,6 +114,35 @@ fn reports_truecolor(variable: &impl Fn(&str) -> Option<String>) -> bool {
 mod tests {
     use super::*;
 
+    /// RGB value of an entry of the 256-colour palette from 16 upwards.
+    fn palette(index: u8) -> (i32, i32, i32) {
+        const LEVELS: [i32; 6] = [0, 95, 135, 175, 215, 255];
+        if index >= 232 {
+            let grey = 8 + 10 * (i32::from(index) - 232);
+            return (grey, grey, grey);
+        }
+        let cube = i32::from(index) - 16;
+        let level = |part: i32| LEVELS[usize::try_from(part).unwrap_or(0)];
+        (level(cube / 36), level(cube / 6 % 6), level(cube % 6))
+    }
+
+    #[test]
+    fn palette_indexes_are_the_nearest_entries_to_the_brand_colours() {
+        for (rgb, index) in [
+            (SILVER, SILVER_INDEX),
+            (GOLD, GOLD_INDEX),
+            (CYAN, CYAN_INDEX),
+        ] {
+            let distance = |candidate: u8| {
+                let (r, g, b) = palette(candidate);
+                let (tr, tg, tb) = (i32::from(rgb.0), i32::from(rgb.1), i32::from(rgb.2));
+                (r - tr).pow(2) + (g - tg).pow(2) + (b - tb).pow(2)
+            };
+            let nearest = (16..=255_u8).min_by_key(|candidate| distance(*candidate));
+            assert_eq!(Some(index), nearest, "{rgb:?}");
+        }
+    }
+
     fn environment<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
         move |name| {
             pairs
@@ -183,7 +212,7 @@ mod tests {
     fn silver_and_cyan_have_exact_and_palette_forms() {
         assert_eq!(Theme::new(true).cyan(), Color::Rgb(0x4F, 0xD1, 0xF5));
         assert_eq!(Theme::new(true).silver_escape(), "\x1b[38;2;195;200;206m");
-        assert_eq!(Theme::new(false).silver_escape(), "\x1b[38;5;250m");
+        assert_eq!(Theme::new(false).silver_escape(), "\x1b[38;5;251m");
     }
 
     #[test]
@@ -198,7 +227,7 @@ mod tests {
     #[test]
     fn other_terminals_get_the_nearest_colours_of_the_256_palette() {
         let theme = Theme::new(false);
-        assert_eq!(theme.silver(), Color::Fixed(250));
+        assert_eq!(theme.silver(), Color::Fixed(251));
         assert_eq!(theme.gold(), Color::Fixed(179));
         assert_eq!(theme.cyan(), Color::Fixed(81));
         assert_eq!(theme.gold_escape(), "\x1b[38;5;179m");

@@ -43,6 +43,18 @@ class RepoHygieneArgumentsTest(unittest.TestCase):
         result = self.run_script("--only", "no-such-check")
         self.assertEqual(result.returncode, 2)
 
+    def test_rejects_an_additional_pattern_that_is_not_a_regular_expression(self):
+        result = subprocess.run(
+            ["bash", str(REPO_HYGIENE), "--only", "external-pattern"],
+            capture_output=True,
+            text=True,
+            env=support.clean_environment(NURT_HYGIENE_PATTERNS="secret(unclosed"),
+            check=False,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("not a valid extended regular expression", result.stderr)
+        self.assertNotIn("secret", result.stderr)
+
     def test_lists_the_checks(self):
         result = self.run_script("--list")
         self.assertEqual(result.returncode, 0)
@@ -148,6 +160,47 @@ class WorkflowCopiesTest(unittest.TestCase):
             self.assertEqual(
                 source.read_text(encoding="utf-8"), installed.read_text(encoding="utf-8"), name
             )
+
+    def test_release_jobs_that_commit_to_a_repository_can_be_run_again(self):
+        lines = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8").splitlines()
+        commits = [number for number, line in enumerate(lines) if line.strip().startswith("git commit")]
+        self.assertEqual(len(commits), 2)
+        for number in commits:
+            self.assertIn("git diff --cached --quiet", lines[number - 1])
+
+    def test_binding_workflows_name_the_library_the_ffi_crate_builds(self):
+        # The crate nurt-ffi has no [lib] name, so cargo builds libnurt_ffi.
+        manifest = (support.PACKAGING.parent / "crates" / "nurt-ffi" / "Cargo.toml").read_text(encoding="utf-8")
+        self.assertNotIn("[lib]\nname", manifest)
+        for language in ("go", "dotnet", "java"):
+            text = (support.PACKAGING.parent / "bindings" / language / "ci" / "workflow.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertNotIn("target/release/libnurt.so", text, language)
+            self.assertNotRegex(text, r"target/release -lnurt\s*$", language)
+
+    def test_binding_workflows_fail_for_an_archive_without_a_checksum(self):
+        for language in ("dotnet", "java", "python"):
+            text = (support.PACKAGING.parent / "bindings" / language / "ci" / "workflow.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("is not listed in checksums.txt", text, language)
+            self.assertIn("--ignore-missing --strict checksums.txt", text, language)
+
+    def test_rpm_build_takes_its_times_from_source_date_epoch(self):
+        text = (support.PACKAGING / "ci" / "packaging.yml").read_text(encoding="utf-8")
+        self.assertIn('--define "use_source_date_epoch_as_buildtime 1"', text)
+        self.assertIn('--define "clamp_mtime_to_source_date_epoch 1"', text)
+
+    def test_only_the_job_that_uploads_to_the_release_can_write_to_the_repository(self):
+        text = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8")
+        self.assertEqual(text.count("contents: write"), 1)
+        self.assertLess(text.index("contents: read"), text.index("jobs:"))
+        self.assertGreater(text.index("contents: write"), text.index("  prepare:"))
+
+    def test_apt_upload_keeps_the_packages_of_older_releases(self):
+        text = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8")
+        self.assertIn('--delete-after --filter="P /pool/"', text)
 
     def test_release_checks_use_the_first_line_of_nurt_version(self):
         workflows = support.PACKAGING.parent / ".github" / "workflows"

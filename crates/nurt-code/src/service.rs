@@ -111,7 +111,8 @@ impl CodeService for CodeAnalysis {
         language: &LanguageId,
         name: &str,
     ) -> Result<Vec<SymbolInfo>> {
-        let (container, simple) = split_qualified(name);
+        let name = name.trim().replace("::", ".");
+        let (container, simple) = split_qualified(&name);
         let symbols = symbols::symbols_of(self.registry(), bytes, language)?;
         Ok(symbols
             .into_iter()
@@ -208,9 +209,11 @@ fn split_qualified(name: &str) -> (Option<&str>, &str) {
 }
 
 /// Returns `true` when the qualified container of `symbol` is `wanted` or
-/// ends with it.
+/// ends with it; `::` and `.` separate the components alike.
 fn in_container(symbol: &SymbolInfo, wanted: &str) -> bool {
     symbol.container.as_deref().is_some_and(|actual| {
+        let actual = actual.replace("::", ".");
+        let actual = actual.as_str();
         actual == wanted
             || actual
                 .strip_suffix(wanted)
@@ -249,6 +252,20 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn double_colon_separates_qualified_names_like_a_period() {
+        let service = CodeAnalysis::builtin();
+        let rust = LanguageId::new("rust").unwrap();
+        let source = b"mod net {\n    pub struct Client;\n    impl Client {\n        pub fn send(&self) {}\n    }\n}\nfn send() {}\n";
+        let count = |name: &str| service.find_symbol(source, &rust, name).unwrap().len();
+        assert_eq!(count("send"), 2);
+        assert_eq!(count("Client::send"), 1);
+        assert_eq!(count("net::Client::send"), 1);
+        assert_eq!(count(" net.Client::send "), 1);
+        assert_eq!(count("Server::send"), 0);
+        assert_eq!(count("net::send"), 0);
     }
 
     #[test]

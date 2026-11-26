@@ -213,6 +213,23 @@ impl ParsedSource<'_> {
     }
 }
 
+/// Byte order mark of UTF-8 text.
+const BOM: &[u8] = b"\xEF\xBB\xBF";
+
+/// Text to parse: a leading byte order mark is replaced by spaces of the same
+/// byte length, because the grammars do not accept it and every offset of the
+/// tree must stay an offset of the file.
+pub(crate) fn without_bom(source: &[u8]) -> Cow<'_, [u8]> {
+    match source.strip_prefix(BOM) {
+        Some(rest) => {
+            let mut text = vec![b' '; BOM.len()];
+            text.extend_from_slice(rest);
+            Cow::Owned(text)
+        }
+        None => Cow::Borrowed(source),
+    }
+}
+
 /// Number of Unicode scalar values in UTF-8 text; bytes of invalid
 /// sequences count as one value each lead byte.
 fn scalar_count(bytes: &[u8]) -> usize {
@@ -414,7 +431,7 @@ impl Registry {
                 format!("grammar of `{id}` is not compatible with the parser: {error}"),
             )
         })?;
-        let tree = parser.parse(source, None).ok_or_else(|| {
+        let tree = parser.parse(without_bom(source), None).ok_or_else(|| {
             Error::new(
                 ErrorCode::Internal,
                 format!("parser of `{id}` returned no tree"),
@@ -578,6 +595,34 @@ mod tests {
         assert_eq!((span.end.line, span.end.column), (2, 12));
         assert_eq!(parsed.line_text(offset), "y = \"λλ\"; z = 1");
         assert_eq!(parsed.line_text(text.len()), "");
+    }
+
+    #[test]
+    fn leading_byte_order_mark_does_not_break_the_parse_or_move_offsets() {
+        for (language, text, name) in [
+            ("csharp", "\u{feff}using System;\nclass Box { }\n", "Box"),
+            ("powershell", "\u{feff}function Get-Box { 1 }\n", "Get-Box"),
+            ("python", "\u{feff}def box():\n    pass\n", "box"),
+        ] {
+            let id = LanguageId::new(language).unwrap();
+            let parsed = Registry::builtin().parse(&id, text.as_bytes()).unwrap();
+            assert!(!parsed.tree.root_node().has_error(), "{language}");
+            let start = text.find(name).unwrap();
+            let node = parsed
+                .tree
+                .root_node()
+                .descendant_for_byte_range(start, start + name.len())
+                .unwrap();
+            assert_eq!(node.start_byte(), start, "{language}");
+            assert_eq!(parsed.text(node), name, "{language}");
+        }
+    }
+
+    #[test]
+    fn byte_order_mark_is_replaced_by_spaces_of_the_same_length() {
+        assert_eq!(without_bom(b"\xEF\xBB\xBFab").as_ref(), b"   ab");
+        assert_eq!(without_bom(b"ab\xEF\xBB\xBF").as_ref(), b"ab\xEF\xBB\xBF");
+        assert_eq!(without_bom(b"").as_ref(), b"");
     }
 
     #[test]

@@ -186,10 +186,21 @@ def build_parser():
     return parser
 
 
+def source_date_epoch():
+    """Seconds of SOURCE_DATE_EPOCH, or of the current time when it is unset."""
+    text = os.environ.get("SOURCE_DATE_EPOCH")
+    if not text:
+        return int(datetime.datetime.now().timestamp())
+    try:
+        return int(text)
+    except ValueError:
+        raise RepoError(f"SOURCE_DATE_EPOCH is not a number of seconds: {text!r}") from None
+
+
 def main(argv=None):
     args = build_parser().parse_args(argv)
-    epoch = int(os.environ.get("SOURCE_DATE_EPOCH") or datetime.datetime.now().timestamp())
     try:
+        epoch = source_date_epoch()
         by_arch = collect(args.packages, args.output, args.component)
         suite_dir = args.output / "dists" / args.suite
         architectures, indices = write_indices(by_arch, suite_dir, args.component)

@@ -29,6 +29,14 @@ check_cmp 1.0.0-alpha.2 1.0.0-alpha.10 -1
 check_cmp 1.0.0-1 1.0.0-alpha -1
 check_cmp 1.0.0+build.5 1.0.0 0
 check_cmp v1.2.3 1.2.3 0
+# SemVer orders identifiers by ASCII code: upper case before lower case, in
+# every locale.
+check_cmp 1.0.0-Alpha 1.0.0-alpha -1
+check_cmp 1.0.0-beta 1.0.0-Beta 1
+if locale -a 2>/dev/null | grep -qix 'en_US.utf-\?8'; then
+  assert_eq 'semver_cmp ignores a locale with another collation' -1 \
+    "$(LC_ALL=en_US.UTF-8 semver_cmp 1.0.0-Alpha 1.0.0-alpha)"
+fi
 
 assert_succeeds 'accepts plain SemVer' is_semver 1.2.3
 assert_succeeds 'accepts SemVer with v prefix' is_semver v1.2.3
