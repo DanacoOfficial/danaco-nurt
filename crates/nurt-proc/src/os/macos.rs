@@ -7,6 +7,14 @@
 //! for a group of processes, so the memory limit is measured: members are
 //! listed with `proc_listpids(PROC_PGRP_ONLY)` and measured with
 //! `proc_pid_rusage`, and the supervisor ends the group at the limit.
+//!
+//! A descendant that left the group with `setsid` or `setpgid` is not reached
+//! by `killpg`. The tree of the main process is walked with the children of
+//! each process (`proc_listpids(PROC_PPID_ONLY)`, the list behind
+//! `proc_listchildpids`) and remembered with the start times of the
+//! processes at every sample and before the group is ended, so `kill` also
+//! signals the descendants that left the group and those whose parent
+//! ended, and never a process that received the identifier of an ended one.
 
 use std::collections::HashMap;
 use std::os::fd::RawFd;
@@ -16,11 +24,18 @@ use std::time::Duration;
 use nurt_contracts::error::Result;
 use nurt_contracts::record::LimitHit;
 
+use super::descendants::{Remembered, tree_of};
 use super::io_error;
 use crate::iface::{ProcessLimits, ResourceUsage};
 
 /// `PROC_PGRP_ONLY` of `<libproc.h>`: list the members of a process group.
 const PROC_PGRP_ONLY: u32 = 2;
+/// `PROC_PPID_ONLY` of `<libproc.h>`: list the children of a process.
+const PROC_PPID_ONLY: u32 = 6;
+/// Rounds of walking and signalling the tree in `kill`; a round that finds a
+/// process new to the tree is followed by another, because that process may
+/// have started more.
+const KILL_ROUNDS: usize = 8;
 /// Initial capacity of the member list; doubled while the list is full.
 const MEMBER_CAPACITY: usize = 64;
 
@@ -59,6 +74,7 @@ impl Timebase {
 pub(super) struct Membership {
     timebase: Timebase,
     seen_cpu: Mutex<HashMap<libc::pid_t, Duration>>,
+    tree: Mutex<Remembered>,
 }
 
 impl Membership {
@@ -67,6 +83,7 @@ impl Membership {
         Self {
             timebase: Timebase::query(),
             seen_cpu: Mutex::new(HashMap::new()),
+            tree: Mutex::new(Remembered::default()),
         }
     }
 
@@ -80,15 +97,45 @@ impl Membership {
         None
     }
 
-    /// Every member is in the process group; nothing else to end.
-    pub(super) fn kill(&self) {}
+    /// Ends the descendants of `root` that are not in its process group:
+    /// the processes found below `root` and the remembered ones that still
+    /// run with their start time. The group itself is ended by the caller.
+    /// `root` is `None` once the main process was collected; its identifier
+    /// may then name another process, so nothing is walked.
+    pub(super) fn kill(&self, root: Option<libc::pid_t>) {
+        let Some(root) = root else {
+            return;
+        };
+        let mut tree = self
+            .tree
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        for _ in 0..KILL_ROUNDS {
+            let found = tree_of(root, children);
+            let added = tree.add(&found, start_time);
+            for pid in tree.alive(start_time) {
+                if pid != root {
+                    // SAFETY: the process was found with the start time it
+                    // has now, so the identifier names the remembered process.
+                    unsafe { libc::kill(pid, libc::SIGKILL) };
+                }
+            }
+            if added == 0 {
+                break;
+            }
+        }
+    }
 
     /// Processor time and resident memory of the processes in group `pgid`.
     ///
     /// The processor time of a member that ended is kept at its last value,
     /// so the total does not decrease.
     pub(super) fn sample(&self, pgid: libc::pid_t) -> Result<ResourceUsage> {
-        let members = members(pgid)?;
+        let members = list(PROC_PGRP_ONLY, pgid)?;
+        self.tree
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .add(&tree_of(pgid, children), start_time);
         let mut resident: u64 = 0;
         let mut seen = self
             .seen_cpu
@@ -128,7 +175,41 @@ impl Membership {
     pub(super) fn release(&self) {}
 }
 
-fn members(pgid: libc::pid_t) -> Result<Vec<libc::pid_t>> {
+/// Children of process `pid`; empty when the list cannot be read.
+fn children(pid: libc::pid_t) -> Vec<libc::pid_t> {
+    list(PROC_PPID_ONLY, pid).unwrap_or_default()
+}
+
+/// Start time of process `pid` in microseconds, or `None` when it ended.
+fn start_time(pid: libc::pid_t) -> Option<u64> {
+    let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::zeroed();
+    let size = libc::c_int::try_from(std::mem::size_of::<libc::proc_bsdinfo>()).ok()?;
+    // SAFETY: `info` is a writable `proc_bsdinfo` of `size` bytes, the
+    // structure of the requested flavor.
+    let filled = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size,
+        )
+    };
+    if filled != size {
+        return None;
+    }
+    // SAFETY: the call filled the whole structure.
+    let info = unsafe { info.assume_init() };
+    Some(
+        info.pbi_start_tvsec
+            .saturating_mul(1_000_000)
+            .saturating_add(info.pbi_start_tvusec),
+    )
+}
+
+/// Processes selected by `kind` (`PROC_PGRP_ONLY` or `PROC_PPID_ONLY`) for
+/// the identifier `id`.
+fn list(kind: u32, id: libc::pid_t) -> Result<Vec<libc::pid_t>> {
     let entry_size = std::mem::size_of::<libc::pid_t>();
     let mut capacity = MEMBER_CAPACITY;
     loop {
@@ -136,16 +217,11 @@ fn members(pgid: libc::pid_t) -> Result<Vec<libc::pid_t>> {
         let size = libc::c_int::try_from(capacity * entry_size).unwrap_or(libc::c_int::MAX);
         // SAFETY: the buffer holds `size` writable bytes.
         let filled = unsafe {
-            libc::proc_listpids(
-                PROC_PGRP_ONLY,
-                pgid.cast_unsigned(),
-                buffer.as_mut_ptr().cast(),
-                size,
-            )
+            libc::proc_listpids(kind, id.cast_unsigned(), buffer.as_mut_ptr().cast(), size)
         };
         let Ok(filled) = usize::try_from(filled) else {
             return Err(io_error(
-                "list the processes of the group",
+                "list the processes of the group or the children of the process",
                 &std::io::Error::last_os_error(),
             ));
         };

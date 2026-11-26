@@ -146,23 +146,48 @@ fn drain<R: Read + Send + 'static>(stream: Option<R>) -> thread::JoinHandle<Vec<
     })
 }
 
-/// Decodes bytes as UTF-8 and converts line ends to `\n`.
+/// Decodes bytes as UTF-8. Line ends are kept as they are, so a difference
+/// in line ends between Nurt and the reference program is a difference; the
+/// line splitting of the callers drops one line end per line.
 ///
 /// # Errors
 ///
 /// Returns `DiffError::NotUtf8` when the bytes are not valid UTF-8.
 pub(crate) fn normalize_text(bytes: &[u8]) -> Result<String, DiffError> {
-    let text = std::str::from_utf8(bytes).map_err(|_| DiffError::NotUtf8)?;
-    Ok(text.replace("\r\n", "\n"))
+    std::str::from_utf8(bytes)
+        .map(str::to_owned)
+        .map_err(|_| DiffError::NotUtf8)
+}
+
+/// Whether `text` is a drive-letter or UNC path, whose separators are `\`.
+fn is_windows_path(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    text.starts_with("\\\\")
+        || (bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'\\' | b'/'))
 }
 
 /// Converts one path to the form used by Nurt reports.
 ///
 /// The path is made relative to `root`, separated by `/`, without a leading
-/// `./`, and composed in Unicode normalization form C.
+/// `./`, and composed in Unicode normalization form C. A backslash is a
+/// separator only in a Windows path (drive letter or UNC) or on Windows; in
+/// any other path it is part of a file name, which a reference program and
+/// Nurt must both report unchanged.
 pub(crate) fn normalize_path(raw: &str, root: &Path) -> String {
-    let unified = raw.replace('\\', "/");
-    let root_text = root.to_string_lossy().replace('\\', "/");
+    let windows = cfg!(windows) || is_windows_path(raw);
+    let unified = if windows {
+        raw.replace('\\', "/")
+    } else {
+        raw.to_owned()
+    };
+    let root_text = if windows {
+        root.to_string_lossy().replace('\\', "/")
+    } else {
+        root.to_string_lossy().into_owned()
+    };
     let prefix = format!("{}/", root_text.trim_end_matches('/'));
     let relative = unified.strip_prefix(&prefix).unwrap_or(&unified);
     let mut trimmed = relative;

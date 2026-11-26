@@ -11,6 +11,7 @@
 
 use std::ffi::OsString;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use nurt_contracts::env::WallTime;
@@ -24,6 +25,27 @@ use crate::iface::{
     OutputView, Priority, ProcessEnd, ProcessLimits, RenderedOutput, ResourceUsage, RunKind,
     RunRequest, RunResult, ShowMode, SpawnRequest, StdinSource, TrackMode, TrackOutcome, TrackSpec,
 };
+
+/// Serialized form of a shared environment: the list of its variables.
+mod shared_env {
+    use std::ffi::OsString;
+    use std::sync::Arc;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub(super) fn serialize<S: Serializer>(
+        env: &Arc<[(OsString, OsString)]>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        env.as_ref().serialize(serializer)
+    }
+
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Arc<[(OsString, OsString)]>, D::Error> {
+        Vec::<(OsString, OsString)>::deserialize(deserializer).map(Arc::from)
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(remote = "StdinSource", rename_all = "snake_case")]
@@ -62,7 +84,8 @@ struct SpawnRequestDef {
     launcher: Launcher,
     raw_command_line: Option<OsString>,
     cwd: PathBuf,
-    env: Vec<(OsString, OsString)>,
+    #[serde(with = "shared_env")]
+    env: Arc<[(OsString, OsString)]>,
     #[serde(with = "StdinSourceDef")]
     stdin: StdinSource,
     merge_stderr: bool,

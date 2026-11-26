@@ -130,7 +130,7 @@ impl ProcessHost for SystemProcessHost {
         let capture = Arc::new(Capture::new(
             spec.output_limit.unwrap_or(DEFAULT_OUTPUT_LIMIT),
         ));
-        let request = launch.request(&spec.cwd, env, stdin, false, limits);
+        let request = launch.request(&spec.cwd, env.shared_vars(), stdin, false, limits);
         let mut process = self.components.control.spawn(
             request,
             Arc::clone(&capture) as Arc<dyn OutputSink>,

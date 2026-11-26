@@ -217,6 +217,25 @@ pub(crate) fn post(table: &JobTable, id: &str, action: ControlAction) -> Result<
     )
 }
 
+/// Cancels the run of job `id` and answers with the record of the job.
+///
+/// Cancelling is not an event to be missed but a state of the job: the
+/// request stays until the supervising process takes it, and a job that has
+/// ended, or that was cancelled before, is not an error; the answer is its
+/// record.
+///
+/// # Errors
+///
+/// Fails with `E_IO` when the job cannot be read or the request cannot be
+/// written.
+pub(crate) fn cancel(table: &JobTable, id: &str) -> Result<Job> {
+    let file = table.get(id)?;
+    if is_live(file.record.state) {
+        post(table, id, ControlAction::Cancel)?;
+    }
+    Ok(file.record)
+}
+
 /// Takes the pending requests of job `id`, oldest first. A request withdrawn
 /// by its requester before it was removed here is not taken.
 pub(crate) fn pending(table: &JobTable, id: &str) -> Vec<(String, ControlAction)> {
