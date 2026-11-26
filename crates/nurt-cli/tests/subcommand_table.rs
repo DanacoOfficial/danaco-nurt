@@ -120,7 +120,10 @@ fn required_dependencies_are_crates_of_the_core_and_the_extensions() {
         })
         .map(|(name, _)| name.as_str())
         .collect();
-    assert_eq!(required, ["nurt-contracts", "nurt-core", "nurt-ext"]);
+    assert_eq!(
+        required,
+        ["nurt-contracts", "nurt-core", "nurt-ext", "nurt-tooldef"]
+    );
 }
 
 #[test]

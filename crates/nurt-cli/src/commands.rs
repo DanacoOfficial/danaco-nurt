@@ -17,6 +17,7 @@ use crate::integrations;
 use crate::output;
 use crate::repl;
 use crate::text;
+use crate::tool_definition::{self, ToolOptions};
 
 /// Runs the subcommand `name` with the arguments that follow it.
 ///
@@ -274,6 +275,16 @@ fn ast(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8
 }
 
 fn schema(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {
+    if let [name, options @ ..] = args
+        && name == "tool"
+        && !options.is_empty()
+    {
+        let options = ToolOptions::parse(options)?;
+        let context = Context::open(io.terminal, source)?;
+        let definition = tool_definition::render(&context.engine, &options)?;
+        writeln!(io.out, "{definition}")?;
+        return Ok(exit::SUCCESS);
+    }
     let name = single(
         "schema",
         "a name: ast, bound, report, request, config or tool",

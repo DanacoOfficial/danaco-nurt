@@ -6109,6 +6109,7 @@ dependencies = [
  "nurt-migrate",
  "nurt-service",
  "nurt-testkit",
+ "nurt-tooldef",
  "reedline",
  "serde",
  "serde_json",
