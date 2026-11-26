@@ -47,7 +47,10 @@ not searched.
 
 `author` is a regular expression matched against `Name <email>`, and
 `message` against each line of the message. Identities are mapped through
-`.mailmap`. `since` stops the traversal at the first commit older than the
+`.mailmap`. The field `trailers` of a commit record maps each trailer token
+to its value; a token that occurs several times keeps every value, one per
+line in message order, as `git interpret-trailers` lists them, in `git.log` and
+in every other command that returns commit records. `since` stops the traversal at the first commit older than the
 instant; `until` hides commits newer than it. Both compare the committer time
 in whole seconds and include the bound.
 

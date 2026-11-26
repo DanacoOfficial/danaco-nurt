@@ -54,7 +54,7 @@ use super::validate::{self, Validate};
 use crate::common::etag::{Observed, check_if_match};
 use crate::common::notable::{at_path, counted};
 use crate::common::params::{self, EncodingParam, IfMatch, OnMissing};
-use crate::common::path::{path_list_arg, record_path};
+use crate::common::path::{path_list_arg_for_change, record_path};
 use crate::common::text::{TextFile, read_text};
 use crate::walk::{KindFilter, WalkItem, WalkOptions, Walker};
 
@@ -429,7 +429,7 @@ struct Target {
 /// Files of the source form: files listed in `in`, and the files in the
 /// directories of `in` that match `glob` and `file_type`, each once.
 fn source_targets(args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Target>> {
-    let roots = path_list_arg(args, IN, ctx)?;
+    let roots = path_list_arg_for_change(args, IN, ctx)?;
     if roots.is_empty() {
         return Err(missing_param(COMMAND, IN));
     }

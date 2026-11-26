@@ -27,9 +27,11 @@ use crate::safety::{Guard, Rules, SkipReason, Verdict, Violation};
 pub const DEFAULT_MAX_SIZE: u64 = 1 << 40;
 /// Default largest ratio of extracted size to archive size.
 pub const DEFAULT_MAX_RATIO: u64 = 1_000;
-/// Default extracted size below which the ratio is not checked: 1 GiB.
-/// Small archives of repetitive data reach high ratios without risk.
-pub const DEFAULT_RATIO_FLOOR: u64 = 1 << 30;
+/// Default extracted size below which the ratio is not checked: 64 MiB.
+/// Small archives of repetitive data reach high ratios without risk, but a
+/// floor above the size of a typical bomb (300 KiB expanding to 300 MiB) would
+/// let it through.
+pub const DEFAULT_RATIO_FLOOR: u64 = 64 << 20;
 
 /// Limits that stop extraction of a decompression bomb with `E_LIMIT`.
 ///
@@ -371,7 +373,19 @@ mod tests {
         let limits = Limits::default();
         assert_eq!(limits.max_size, 1 << 40);
         assert_eq!(limits.max_ratio, 1_000);
-        assert_eq!(limits.ratio_floor, 1 << 30);
+        assert_eq!(limits.ratio_floor, 64 << 20);
+    }
+
+    #[test]
+    fn a_small_archive_that_expands_to_three_hundred_mebibytes_is_refused() {
+        let limits = Limits::default();
+        let archive = 300 * 1024;
+        let extracted = 300 * 1024 * 1024;
+        assert_eq!(
+            limit_of(limits.check(extracted, archive)),
+            Some((LimitKind::Ratio, 1_000, extracted / archive))
+        );
+        assert_eq!(limit_of(limits.check(extracted, extracted / 1_000)), None);
     }
 
     #[test]

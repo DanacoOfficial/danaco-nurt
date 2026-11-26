@@ -32,7 +32,7 @@ use super::conflict::{
 };
 use crate::common::etag::{Observed, check_if_match, parse_etag, stale_error};
 use crate::common::params::{EncodingParam, OnMissing, on_missing_param};
-use crate::common::path::{PATH_FIELD, path_list_arg, record_path};
+use crate::common::path::{PATH_FIELD, path_list_arg_for_change, record_path};
 use crate::common::text::{TextFile, encode_preserving, read_text, text_change};
 
 const COMMAND: &str = "remove";
@@ -178,7 +178,7 @@ fn read_input(
     let mut edits = BTreeMap::new();
     if input.is_none() {
         args.require(PATH)?;
-        entries = path_list_arg(args, PATH, ctx)?
+        entries = path_list_arg_for_change(args, PATH, ctx)?
             .into_iter()
             .map(Source::from_path)
             .collect();

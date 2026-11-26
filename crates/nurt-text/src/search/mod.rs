@@ -208,10 +208,14 @@ impl SearchOptions {
     }
 
     /// Largest number of hits, or of matches with `only_matching`, passed
-    /// to the sink; `None` for no limit.
+    /// to the sink; `None` or `Some(0)` for no limit, as `max_line(0)` and the
+    /// parameter `max_per_file` of the command `search`.
     #[must_use]
     pub const fn max_per_file(mut self, limit: Option<u64>) -> Self {
-        self.max_per_file = limit;
+        self.max_per_file = match limit {
+            Some(0) => None,
+            other => other,
+        };
         self
     }
 

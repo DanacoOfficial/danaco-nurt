@@ -25,6 +25,14 @@ one target, without a separate confirmation. A link is removed as a link;
 its target stays. A path inside another removed path is removed once, with
 the enclosing directory.
 
+In a path written in the program, `..` that follows a symbolic link is refused
+with `E_INVALID_VALUE` and the path without `..` as the fix: the system would
+continue from the target of the link, the language from the directory that
+holds it, and `remove` must not remove another entry than the one written. The
+same rule holds for `move`, the destination of `copy`, `write`, `edit`,
+`insert`, `create`, `replace`, `attributes`, `convert` and `compress`; commands
+that only read keep the lexical meaning of `..`.
+
 `on_missing` decides what happens to a path that does not exist: `skip`
 counts it as `missing` and continues, `error` fails with `E_NOT_FOUND`
 before anything changes. An `entry` record with `exists: false`, as `info`
@@ -120,7 +128,7 @@ lines "/home/user/notes.txt" 2..3 |> remove
 | `E_MISSING_PARAM` | the source form has no path | give `path` |
 | `E_NOT_FOUND` | a path does not exist with `on_missing: error` | check the path or use `on_missing: skip` |
 | `E_STALE` | an entry or file changed since it was read, or a line or match is no longer where the record says | read or search the file again |
-| `E_INVALID_VALUE` | a file is removed and edited in the same call | remove the file or its lines, not both |
+| `E_INVALID_VALUE` | a file is removed and edited in the same call, or a path has `..` after a symbolic link | remove the file or its lines, not both, or write the path without `..` |
 | `E_TYPE` | a record of a kind `remove` does not accept, or a `line` or `match` record without its number fields | pass records of `list`, `find`, `lines`, `read` or `search` |
 | `E_IN_USE` | Windows: an entry is open in another process; the error lists the processes | close the entry there |
 | `E_PATH_RELATIVE` | a relative path without a base directory | give an absolute path or set `base` |

@@ -566,14 +566,14 @@ fn only_matching_limit_counts_matches() {
 }
 
 #[test]
-fn zero_max_per_file_reports_nothing() {
+fn zero_max_per_file_means_no_limit() {
     let s = searcher(
         &[Pattern::literal("a")],
         SearchOptions::new().max_per_file(Some(0)),
     );
-    let (seen, summary) = search(&s, b"a\n");
-    assert!(seen.is_empty());
-    assert!(summary.limit_reached);
+    let (seen, summary) = search(&s, b"a\na\na\n");
+    assert_eq!(seen.len(), 3);
+    assert!(!summary.limit_reached);
 }
 
 #[test]

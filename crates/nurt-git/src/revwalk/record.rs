@@ -219,22 +219,13 @@ pub(crate) fn instant(seconds: i64) -> Instant {
     Instant::from_unix_seconds(seconds).unwrap_or(Instant::UNIX_EPOCH)
 }
 
+/// Trailers of a message; repeated tokens keep every value, one per line, as
+/// in the records of `crate::repo::records`.
 fn trailers(message: &gix::objs::commit::MessageRef<'_>) -> IndexMap<String, String> {
-    let mut out: IndexMap<String, String> = IndexMap::new();
-    let Some(body) = message.body() else {
-        return out;
-    };
-    for trailer in body.trailers() {
-        let token = trailer.token.to_str_lossy().into_owned();
-        let value = trailer.value.to_str_lossy().into_owned();
-        out.entry(token)
-            .and_modify(|existing| {
-                existing.push_str(", ");
-                existing.push_str(&value);
-            })
-            .or_insert(value);
-    }
-    out
+    message
+        .body()
+        .map(|body| crate::repo::records::trailers(&body))
+        .unwrap_or_default()
 }
 
 /// Kind of a signed object.
@@ -370,7 +361,7 @@ mod tests {
         let trailers = record.trailers.unwrap();
         assert_eq!(
             trailers["Signed-off-by"],
-            "A <a@example.com>, B <b@example.com>"
+            "A <a@example.com>\nB <b@example.com>"
         );
         assert_eq!(record.refs.unwrap(), ["HEAD -> main", "tag: v1"]);
         assert!(record.signature.is_none());

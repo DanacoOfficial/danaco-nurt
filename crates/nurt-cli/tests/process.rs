@@ -84,6 +84,22 @@ fn help_option_names_the_product_first() {
 }
 
 #[test]
+fn help_option_after_a_subcommand_prints_its_usage_and_succeeds() {
+    for name in nurt_cli::args::SUBCOMMANDS {
+        for option in ["-h", "--help"] {
+            let output = nurt(&[name, option], "");
+            assert_eq!(output.status.code(), Some(0), "{name} {option}");
+            let text = stdout(&output);
+            assert!(
+                text.contains(&format!("Usage: nurt {name}")),
+                "{name}: {text}"
+            );
+            assert!(stderr(&output).is_empty(), "{name}: {}", stderr(&output));
+        }
+    }
+}
+
+#[test]
 fn program_with_the_front_end_prints_a_valid_json_response() {
     let output = nurt(&["--format", "json", "find", "\"/srv\""], "");
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));

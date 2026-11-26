@@ -383,6 +383,37 @@ fn named_guide<'a>(catalog: &'a Catalog, name: &str) -> Result<Subject<'a>, Erro
         })
 }
 
+/// The topic `syntax` and the topics of its parts.
+fn named_syntax<'a>(name: &str) -> Result<Subject<'a>, Error> {
+    if name == "syntax" {
+        return Ok(Subject::Syntax);
+    }
+    match text::PART_TOPICS.into_iter().find(|part| *part == name) {
+        Some(part) => Ok(Subject::Part(part)),
+        None => {
+            let names: Vec<String> = ["syntax"]
+                .into_iter()
+                .chain(text::PART_TOPICS)
+                .map(str::to_owned)
+                .collect();
+            Err(lookup::unknown("syntax topic", name, &names))
+        }
+    }
+}
+
+/// The topic `corrections`.
+fn named_corrections<'a>(name: &str) -> Result<Subject<'a>, Error> {
+    if name == "corrections" {
+        Ok(Subject::Corrections)
+    } else {
+        Err(lookup::unknown(
+            "corrections topic",
+            name,
+            &["corrections".to_owned()],
+        ))
+    }
+}
+
 fn named_error<'a>(name: &str) -> Result<Subject<'a>, Error> {
     name.parse::<ErrorCode>().map(Subject::Error).map_err(|_| {
         let names: Vec<String> = ErrorCode::ALL

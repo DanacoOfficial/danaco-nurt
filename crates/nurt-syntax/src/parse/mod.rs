@@ -106,7 +106,24 @@ pub fn parse(
 ) -> Result<AstDocument, SyntaxError> {
     let mut parser = Parser::new(text, variant, options, false)?;
     let program = parse_variant(&mut parser)?;
-    Ok(parser.document(program, options))
+    let document = parser.document(program, options);
+    // The parser counts nodes while the decoders count JSON values, which are
+    // more numerous: a program that passes only the first count would encode
+    // to a document the decoders reject.
+    if let Some(index) = crate::validate::first_statement_too_deep(&document) {
+        let span = match &document.program.statements[index] {
+            Statement::Let(binding) => binding.span,
+            Statement::Pipeline(pipeline) => pipeline.span,
+            _ => None,
+        };
+        return Err(error::too_deep_at(span.unwrap_or(Span {
+            line: 1,
+            column: 1,
+            end_line: 1,
+            end_column: 1,
+        })));
+    }
+    Ok(document)
 }
 
 /// Parses program text and repairs it with `policy` when strict parsing

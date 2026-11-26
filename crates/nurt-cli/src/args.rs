@@ -96,6 +96,13 @@ pub fn resolve(args: &[String]) -> Invocation {
     }
 }
 
+/// Whether the arguments after the name of a subcommand ask for its usage: the
+/// first one is `-h` or `--help`.
+#[must_use]
+pub fn wants_help(args: &[String]) -> bool {
+    matches!(args.first().map(String::as_str), Some("-h" | "--help"))
+}
+
 /// Values of the options of a command line.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Flags {
@@ -413,6 +420,15 @@ mod tests {
         );
         assert_eq!(resolve(&words("-h")), Invocation::Help);
         assert_eq!(resolve(&words("--help check")), Invocation::Help);
+    }
+
+    #[test]
+    fn help_is_asked_by_the_first_argument_after_the_subcommand() {
+        assert!(wants_help(&words("--help")));
+        assert!(wants_help(&words("-h extra")));
+        assert!(!wants_help(&words("")));
+        assert!(!wants_help(&words("-e count --help")));
+        assert!(!wants_help(&words("help")));
     }
 
     #[test]

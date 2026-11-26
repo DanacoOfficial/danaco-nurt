@@ -21,9 +21,11 @@
 //! place; [`JournalStore::recover`] completes or reverts interrupted entries
 //! before the first new operation is admitted.
 //!
-//! The journal never fails a user operation: [`JournalStore::begin`] is
-//! infallible, and when the previous state cannot be kept the operation
-//! proceeds with [`PreserveMode::None`] and an explicit irreversible marker.
+//! The journal never fails a user operation for lack of space, eligibility or
+//! limits: [`JournalStore::begin`] is infallible, and when the previous state
+//! cannot be kept the operation proceeds with [`PreserveMode::None`] and an
+//! explicit irreversible marker. A removal whose target the journal agreed to
+//! keep but failed to move into itself fails with the target still in place.
 //! Results carry no expiry time; retention state is reported only by
 //! [`JournalStore::status`].
 //!

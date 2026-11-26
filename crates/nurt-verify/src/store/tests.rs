@@ -100,8 +100,10 @@ fn list_returns_newest_headers_first_up_to_the_limit() {
             .save(EntryKind::TestRun, &entry(&format!("run-{number}"), &[]))
             .unwrap();
     }
-    let headers = store.list(EntryKind::TestRun, 2).unwrap();
-    let ids: Vec<&str> = headers
+    let listing = store.list(EntryKind::TestRun, 2).unwrap();
+    assert!(listing.skipped.is_empty());
+    let ids: Vec<&str> = listing
+        .headers
         .iter()
         .filter_map(|header| header.get("id").and_then(Value::as_str))
         .collect();
@@ -209,6 +211,30 @@ fn pruned_runs_lose_their_reports_and_coverage() {
     }
     assert!(reports.join("run-2.xml").exists());
     assert!(reports.join("other.txt").exists());
+}
+
+#[test]
+fn list_leaves_out_a_corrupt_entry_and_reports_its_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = DirStore::new(dir.path(), 50);
+    for number in 1..=3 {
+        store
+            .save(EntryKind::TestRun, &entry(&format!("run-{number}"), &[]))
+            .unwrap();
+    }
+    let damaged = dir.path().join("verify/runs/run-2.json");
+    std::fs::write(&damaged, "{").unwrap();
+    let listing = store.list(EntryKind::TestRun, 10).unwrap();
+    let ids: Vec<&str> = listing
+        .headers
+        .iter()
+        .filter_map(|header| header.get("id").and_then(Value::as_str))
+        .collect();
+    assert_eq!(ids, ["run-3", "run-1"]);
+    assert_eq!(listing.skipped.len(), 1);
+    assert_eq!(listing.skipped[0].path, damaged);
+    assert!(!listing.skipped[0].error.data().fix.is_empty());
+    assert!(store.load(EntryKind::TestRun, "run-2").is_err());
 }
 
 #[test]

@@ -164,6 +164,7 @@ pub fn run_process(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) 
         name: "serve",
         args: rest,
     } = args::resolve(args)
+        && !args::wants_help(&rest)
     {
         return match integrations::serve::start(&rest, source, &mut *io.input, io::stdout()) {
             Ok(code) => code,
@@ -174,6 +175,7 @@ pub fn run_process(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) 
         name: "mcp",
         args: rest,
     } = args::resolve(args)
+        && !args::wants_help(&rest)
     {
         return match integrations::mcp::start(&rest, source) {
             Ok(code) => code,
@@ -198,7 +200,15 @@ fn dispatch(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resu
             writeln!(io.out, "{}", text::usage())?;
             Ok(exit::SUCCESS)
         }
-        Invocation::Subcommand { name, args } => commands::run_subcommand(name, &args, io, source),
+        Invocation::Subcommand { name, args } => {
+            if args::wants_help(&args)
+                && let Some(usage) = text::subcommand_usage(name)
+            {
+                writeln!(io.out, "{usage}")?;
+                return Ok(exit::SUCCESS);
+            }
+            commands::run_subcommand(name, &args, io, source)
+        }
         Invocation::Program { args } => commands::exec(&args, io, source),
     }
 }

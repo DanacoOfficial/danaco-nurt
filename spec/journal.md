@@ -20,9 +20,14 @@ reference semantics of test implementations.
    anything is changed. At every instant of a crash the previous content exists
    in at least one place.
 3. Space priority. Free space for the user has priority over the journal.
-   The journal never causes a user operation to fail; when it cannot keep the
-   previous content, the operation proceeds unpreserved and the target is
-   marked irreversible.
+   The journal never causes a user operation to fail for lack of space,
+   eligibility or limits: when admission declines to keep the previous
+   content, the operation proceeds unpreserved and the target is marked
+   irreversible. A failure of the journal itself while it moves a removed
+   target into the journal (any error other than a cross-device rename, which
+   falls back to a copy, and a lack of space for that copy) fails the
+   operation with the target still in place; a removal never deletes data
+   after the journal failed to keep it.
 4. Explicitness. Missing coverage is always visible in the result. Results
    never state until when an operation can be undone.
 
@@ -47,6 +52,13 @@ directory of the account). `history`, `undo` and `redo` see only the entries of
 the calling account; entries written before the account was recorded have no
 such record and are seen by every account. Recovery completes an entry of
 another account but leaves its index row, and its marker, to that account.
+
+Accounts with separate state directories number their operations locally. The
+exclusive creation of the marker `pending/<N>` decides who owns a number. A
+transaction that loses that claim (the marker or an entry of the number
+already exists) takes a new number and tries again, at most eight times, while
+it has no part open yet; only then is the journal given up for the operation
+and the target marked irreversible with `journal_error`.
 
 ## 3. Transaction protocol
 

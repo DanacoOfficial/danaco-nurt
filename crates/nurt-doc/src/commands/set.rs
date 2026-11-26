@@ -25,12 +25,12 @@
 //!
 //! Nothing is written when any step fails for any key of any file.
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 
 use nurt_contracts::error::{Error, ErrorCode, Location, Result, Stage};
-use nurt_contracts::fs::{AbsPath, ContentHash};
+use nurt_contracts::fs::{AbsPath, ContentHash, FileId, Follow};
 use nurt_contracts::journal::{Expect, Mutation, MutationTx, TargetAction, TargetPath, TargetSpec};
 use nurt_contracts::keypath::{KeyPath, KeySegment};
 use nurt_contracts::record::{Effect, EffectStatus};
@@ -395,7 +395,7 @@ fn item_requests<'a>(
     value_of: impl Fn(&Record) -> Result<Option<Value>>,
 ) -> Result<Vec<FileRequest>> {
     let mut requests: Vec<FileRequest> = Vec::new();
-    let mut index: BTreeMap<PathBuf, usize> = BTreeMap::new();
+    let mut index: HashMap<FileKey, usize> = HashMap::new();
     for record in input.into_records()? {
         ctx.checkpoint()?;
         let record = record?;
@@ -418,7 +418,7 @@ fn item_requests<'a>(
             Some(expect) => Some(expect),
             None => text_field(&record, "etag").and_then(|etag| ContentHash::parse(etag).ok()),
         };
-        let slot = *index.entry(group_key(&path)).or_insert_with(|| {
+        let slot = *index.entry(group_key(ctx, &path)).or_insert_with(|| {
             requests.push(FileRequest {
                 path,
                 format: text_field(&record, FORMAT).map(str::to_owned),
@@ -434,12 +434,35 @@ fn item_requests<'a>(
     Ok(requests)
 }
 
-/// Key that groups the items of one file: the path after lexical
+/// Identity of the file an item changes.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum FileKey {
+    /// Device and file number of an existing file, so that two names of one
+    /// file (a symbolic link, a hard link, a path through a link to a
+    /// directory) are one file.
+    Identity(FileId),
+    /// Path after lexical normalisation, for a file that does not exist yet.
+    Path(PathBuf),
+}
+
+/// Key that groups the items of one file: the identity of the file the path
+/// reaches through symbolic links, otherwise the path after lexical
 /// normalisation (`.` and `..` components), so that `/d/a.json` and
-/// `/d/./a.json` are one file. Symbolic links are not followed. A path that
-/// cannot be normalised groups by its text and fails later when planned.
-fn group_key(path: &str) -> PathBuf {
-    AbsPath::new(path).map_or_else(|_| PathBuf::from(path), |abs| abs.as_path().to_path_buf())
+/// `/d/./a.json` are one file even before it exists. A path that cannot be
+/// normalised groups by its text and fails later when planned.
+fn group_key(ctx: &ExecCtx, path: &str) -> FileKey {
+    let lexical = AbsPath::new(path).ok();
+    let identity = lexical
+        .as_ref()
+        .zip(ctx.fs())
+        .and_then(|(abs, fs)| fs.metadata(abs, Follow::Follow).ok())
+        .map(|meta| meta.file_id);
+    match identity {
+        Some(id) => FileKey::Identity(id),
+        None => FileKey::Path(
+            lexical.map_or_else(|| PathBuf::from(path), |abs| abs.as_path().to_path_buf()),
+        ),
+    }
 }
 
 /// Fails with `E_KEY_CONFLICT` when one key path of a file is equal to
@@ -900,6 +923,7 @@ fn notable_code(entry: &NotableEntry) -> String {
 mod tests {
     use super::*;
     use nurt_contracts::services::{ByteRange, TextPosition, TextSpan};
+    use nurt_testkit::ctx::TestContext;
 
     fn key(text: &str) -> KeyPath {
         KeyPath::parse(text).unwrap()
@@ -921,10 +945,39 @@ mod tests {
 
     #[test]
     fn paths_of_one_file_share_a_group_key() {
-        assert_eq!(group_key("/d/a.json"), group_key("/d/./a.json"));
-        assert_eq!(group_key("/d/a.json"), group_key("/d/x/../a.json"));
-        assert_ne!(group_key("/d/a.json"), group_key("/d/b.json"));
-        assert_eq!(group_key("rel/a.json"), PathBuf::from("rel/a.json"));
+        let test = TestContext::new();
+        let ctx = test.ctx();
+        assert_eq!(group_key(&ctx, "/d/a.json"), group_key(&ctx, "/d/./a.json"));
+        assert_eq!(
+            group_key(&ctx, "/d/a.json"),
+            group_key(&ctx, "/d/x/../a.json")
+        );
+        assert_ne!(group_key(&ctx, "/d/a.json"), group_key(&ctx, "/d/b.json"));
+        assert_eq!(
+            group_key(&ctx, "rel/a.json"),
+            FileKey::Path(PathBuf::from("rel/a.json"))
+        );
+    }
+
+    #[test]
+    fn names_of_one_existing_file_share_a_group_key_whatever_the_link() {
+        let test = TestContext::new();
+        let ctx = test.ctx();
+        let fs = test.fs();
+        fs.create_dir_all(&AbsPath::new("/d").unwrap()).unwrap();
+        fs.write_file(&AbsPath::new("/d/a.json").unwrap(), b"{}")
+            .unwrap();
+        fs.write_file(&AbsPath::new("/d/b.json").unwrap(), b"{}")
+            .unwrap();
+        fs.symlink("/d/a.json", &AbsPath::new("/d/link.json").unwrap())
+            .unwrap();
+        fs.symlink("/d", &AbsPath::new("/dir-link").unwrap())
+            .unwrap();
+        let direct = group_key(&ctx, "/d/a.json");
+        assert!(matches!(direct, FileKey::Identity(_)));
+        assert_eq!(direct, group_key(&ctx, "/d/link.json"));
+        assert_eq!(direct, group_key(&ctx, "/dir-link/a.json"));
+        assert_ne!(direct, group_key(&ctx, "/d/b.json"));
     }
 
     #[test]

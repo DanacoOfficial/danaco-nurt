@@ -176,6 +176,10 @@ fn list(names: &[String]) -> String {
     }
 }
 
+/// Keywords whose value is a list of schemas that are adapted like any other
+/// nested schema.
+const SCHEMA_LISTS: [&str; 4] = ["anyOf", "oneOf", "allOf", "prefixItems"];
+
 fn adapt_node(node: &mut Value, profile: Profile) -> Result<(), ToolDefError> {
     if profile.objects_as_text && is_free_object(node) {
         let description = node.get("description").cloned();
@@ -208,6 +212,16 @@ fn adapt_object(map: &mut Map<String, Value>, profile: Profile) -> Result<(), To
     }
     if let Some(items) = map.get_mut("items") {
         adapt_node(items, profile)?;
+    }
+    for keyword in SCHEMA_LISTS {
+        if let Some(Value::Array(schemas)) = map.get_mut(keyword) {
+            for schema in schemas {
+                adapt_node(schema, profile)?;
+            }
+        }
+    }
+    if let Some(schema @ Value::Object(_)) = map.get_mut("additionalProperties") {
+        adapt_node(schema, profile)?;
     }
     if let Some(Value::Object(properties)) = map.get_mut("properties") {
         for property in properties.values_mut() {
@@ -441,6 +455,48 @@ mod tests {
         );
         assert_eq!(properties["fields"]["items"]["type"], "STRING");
         assert_eq!(properties["ast"]["type"], "STRING");
+    }
+
+    #[test]
+    fn nested_combinators_additional_properties_and_prefix_items_are_adapted() {
+        let source = json!({
+            "type": "object",
+            "properties": {
+                "choice": {"anyOf": [
+                    {"type": "string"},
+                    {"type": "object", "properties": {"a": {"type": "integer"}}}
+                ]},
+                "all": {"allOf": [{"type": "object", "properties": {"b": {"type": "string"}}}]},
+                "one": {"oneOf": [{"type": "boolean"}]},
+                "map": {"type": "object", "additionalProperties": {"type": "number"}},
+                "pair": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "integer"}]}
+            }
+        });
+        let gemini = adapted(source.clone(), ToolFormat::Gemini).unwrap();
+        let properties = &gemini["properties"];
+        assert_eq!(properties["choice"]["anyOf"][0]["type"], "STRING");
+        assert_eq!(properties["choice"]["anyOf"][1]["type"], "OBJECT");
+        assert_eq!(
+            properties["choice"]["anyOf"][1]["properties"]["a"]["type"],
+            "INTEGER"
+        );
+        assert_eq!(
+            properties["all"]["allOf"][0]["properties"]["b"]["type"],
+            "STRING"
+        );
+        assert_eq!(properties["one"]["oneOf"][0]["type"], "BOOLEAN");
+        assert_eq!(properties["pair"]["prefixItems"][1]["type"], "INTEGER");
+
+        let strict = adapted(source, ToolFormat::OpenAiChatStrict).unwrap();
+        let object = &strict["properties"]["choice"]["anyOf"][1];
+        assert_eq!(object["additionalProperties"], false);
+        assert_eq!(object["required"], json!(["a"]));
+        assert_eq!(
+            object["properties"]["a"]["type"],
+            json!(["integer", "null"])
+        );
+        let all = &strict["properties"]["all"]["allOf"][0];
+        assert_eq!(all["required"], json!(["b"]));
     }
 
     #[test]

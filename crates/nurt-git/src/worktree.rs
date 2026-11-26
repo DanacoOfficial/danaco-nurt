@@ -208,7 +208,7 @@ pub fn plan_add(repo_path: &Path, request: &AddRequest, ctx: &ExecCtx) -> Result
     let (branch, start_point) = match (&request.branch, &request.start_point) {
         (None, Some(spec)) if is_local_branch(&repo, spec)? => (Some(spec.clone()), None),
         (None, Some(_)) => (None, request.start_point.clone()),
-        (None, None) => (Some(directory_name(&path)), None),
+        (None, None) => (Some(raw_directory_name(&path)), None),
         (Some(branch), start) => (Some(branch.clone()), start.clone()),
     };
     let Some(branch) = branch else {
@@ -979,6 +979,14 @@ fn registration_name(common_dir: &Path, path: &Path) -> String {
     }
 }
 
+/// Last component of `path` as written, the branch name `git worktree add`
+/// takes when none is given; a name git would refuse is refused as well.
+fn raw_directory_name(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
 fn directory_name(path: &Path) -> String {
     let raw = path
         .file_name()
@@ -1445,6 +1453,25 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.code(), ErrorCode::GitRevision);
+    }
+
+    #[test]
+    fn a_directory_name_that_is_not_a_branch_name_is_refused_like_git_does() {
+        let fixture = Fixture::new(&[("a.txt", "a\n")]);
+        for name in ["my tree", ".hidden", "a..b", "wip.lock", "tilde~1"] {
+            let path = fixture.base().join(name);
+            let err =
+                plan_add(&fixture.root, &request(&path, None, None), &test_ctx()).expect_err(name);
+            assert_eq!(err.code(), ErrorCode::GitRef, "{name}");
+            assert_eq!(err.problem.as_deref(), Some("invalid_name"), "{name}");
+        }
+        let branch = fixture.base().join("my tree");
+        let plan = plan_add(
+            &fixture.root,
+            &request(&branch, Some("fine"), None),
+            &test_ctx(),
+        );
+        assert!(plan.is_ok());
     }
 
     #[test]

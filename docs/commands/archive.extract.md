@@ -51,15 +51,19 @@ An existing entry of another type than the member is kept with
 `on_conflict: skip` and is an error otherwise; a symbolic link with the same
 target as the member is left unchanged.
 
-Regular files receive the permissions stored in the archive, including the
-set-id and sticky bits; with `preserve_permissions: false` those bits and the
-write permission of the group and others are dropped. A replaced file keeps
+Regular files receive the permissions stored in the archive; the set-user-id
+and set-group-id bits are kept only when `preserve_permissions: true` is given
+explicitly and the process runs as `root`, and are dropped otherwise, so that
+an archive extracted by an unprivileged process or without that option never
+creates a privileged program. With `preserve_permissions: false` the sticky bit
+and the write permission of the group and others are dropped as well. A replaced file keeps
 its own permissions. Directories always grant the account full access, so
 that their content can be written. Files receive the time they are written as
 their modification time.
 
 The extracted size and the ratio of the extracted size to the size of the
-archive are limited (1 TiB, and a ratio of 1000 above 1 GiB); an archive that
+archive are limited (1 TiB, and a ratio of 1000 above 64 MiB, so that an archive
+of 300 KiB that declares 300 MiB is refused with `E_LIMIT`); an archive that
 declares more fails before anything is written.
 
 ## Parameters

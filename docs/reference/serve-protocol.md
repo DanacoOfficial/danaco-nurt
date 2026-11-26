@@ -61,6 +61,11 @@ Every message is a JSON-RPC 2.0 object with `"jsonrpc": "2.0"`.
 | `0` | `shutdown` was received or the input ended. |
 | `1` | The input could not be read, the framing was broken, or the output could not be written. |
 
+When a write to the output fails, the server cancels the requests in flight and
+reads no further message: it exits with code 1 before the next read, or, when a
+read is already waiting, as soon as that read returns; the message it returned
+is not processed. The server never waits for the end of the input.
+
 ## Methods
 
 | Method | Parameters | Result |

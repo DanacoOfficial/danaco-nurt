@@ -1020,6 +1020,19 @@ mod tests {
     }
 
     #[test]
+    fn an_entry_with_a_committed_and_a_prepared_part_is_in_progress_and_stays_unlisted() {
+        for parts in [
+            [part(EntryState::Committed), part(EntryState::Prepared)],
+            [part(EntryState::Prepared), part(EntryState::Committed)],
+        ] {
+            let entry = JournalEntry::from_parts(&parts).unwrap();
+            assert_eq!(entry.state, EntryState::Prepared);
+            assert!(!entry.is_available());
+            assert!(!entry.is_expired());
+        }
+    }
+
+    #[test]
     fn an_entry_takes_the_most_advanced_state_of_its_parts() {
         let table = [
             (

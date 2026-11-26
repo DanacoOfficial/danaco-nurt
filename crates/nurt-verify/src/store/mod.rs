@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
+use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::ExecCtx;
 use nurt_contracts::value::Record;
 use serde::{Deserialize, Serialize};
@@ -220,16 +221,24 @@ impl DirStore {
         }))
     }
 
-    pub(crate) fn list(&self, kind: EntryKind, limit: u32) -> Result<Vec<Record>> {
+    /// Headers of the newest `limit` entries, newest first. An entry that
+    /// cannot be read is left out and reported in `skipped`, so one damaged
+    /// file does not hide the others.
+    pub(crate) fn list(&self, kind: EntryKind, limit: u32) -> Result<Listing> {
         let limit = usize::try_from(limit).unwrap_or(usize::MAX);
-        let mut headers = Vec::new();
+        let mut listing = Listing::default();
         for number in self.numbers(kind).into_iter().rev().take(limit) {
             let id = format!("{}{number}", prefix(kind));
-            if let Some(entry) = self.load(kind, &id)? {
-                headers.push(entry.header);
+            match self.load(kind, &id) {
+                Ok(Some(entry)) => listing.headers.push(entry.header),
+                Ok(None) => {}
+                Err(error) => listing.skipped.push(Skipped {
+                    path: self.file(kind, &id),
+                    error,
+                }),
             }
         }
-        Ok(headers)
+        Ok(listing)
     }
 
     pub(crate) fn ids(&self, kind: EntryKind) -> Vec<String> {
@@ -239,6 +248,21 @@ impl DirStore {
             .map(|number| format!("{}{number}", prefix(kind)))
             .collect()
     }
+}
+
+/// Entries of one kind as listed: the readable headers and the files left
+/// out.
+#[derive(Debug, Default)]
+pub(crate) struct Listing {
+    pub(crate) headers: Vec<Record>,
+    pub(crate) skipped: Vec<Skipped>,
+}
+
+/// A history file that could not be read.
+#[derive(Debug)]
+pub(crate) struct Skipped {
+    pub(crate) path: PathBuf,
+    pub(crate) error: Error,
 }
 
 /// Whether `id` is the prefix of the kind followed by a number; any other
@@ -291,7 +315,18 @@ impl VerifyStore for ContextStore {
     }
 
     fn list(&self, ctx: &ExecCtx, kind: EntryKind, limit: u32) -> Result<Vec<Record>> {
-        directory_store(ctx)?.list(kind, limit)
+        let listing = directory_store(ctx)?.list(kind, limit)?;
+        for skipped in listing.skipped {
+            let mut note = NotableEntry::new(Notable::SourceUnavailable);
+            note.path = Some(skipped.path.display().to_string());
+            note.detail = Some(format!(
+                "{}; the entry is left out of the list: remove the file {} from the history directory",
+                skipped.error.message,
+                skipped.path.display()
+            ));
+            ctx.note(note);
+        }
+        Ok(listing.headers)
     }
 
     fn ids(&self, ctx: &ExecCtx, kind: EntryKind) -> Result<Vec<String>> {

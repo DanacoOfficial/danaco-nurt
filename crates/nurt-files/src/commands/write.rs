@@ -66,7 +66,7 @@ use crate::common::notable::{at_path, preserved_text};
 use crate::common::params::{
     EncodingParam, IfMatch, LineEndingParam, encoding_param, if_match_param, line_ending_param,
 };
-use crate::common::path::{path_arg, resolve};
+use crate::common::path::{path_arg_for_change, resolve, resolve_for_change};
 use crate::common::text::{TextFile, read_text, record_line_ending, text_codec};
 use crate::details::content::count_lines;
 
@@ -775,7 +775,7 @@ struct Item {
 }
 
 fn items(args: &BoundArgs, input: StageInput<'_>, ctx: &ExecCtx) -> Result<Vec<Item>> {
-    let path = path_arg(args, PATH, ctx)?;
+    let path = path_arg_for_change(args, PATH, ctx)?;
     let files = args
         .value(FILES)
         .filter(|value| !matches!(value, Value::Null));
@@ -1186,7 +1186,7 @@ fn batch_item(number: usize, entry: &Value, default: Option<Mode>, ctx: &ExecCtx
         .with_found(name.as_str()));
     }
     let path = match fields.get(PATH) {
-        Some(Value::Path(text) | Value::Text(text)) => resolve(ctx, text)?,
+        Some(Value::Path(text) | Value::Text(text)) => resolve_for_change(ctx, text)?,
         Some(_) => return Err(item_error(number, "has a `path` that is not a path")),
         None => return Err(item_error(number, "has no `path`")),
     };

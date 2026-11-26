@@ -62,6 +62,9 @@ Windows-1250, is decoded before matching. Lines longer than `max_line`
 characters are shortened around the first match, with a marker of the
 omitted characters (notable `truncated_lines`).
 
+`max_per_file` limits the matches reported for one file; `0`, like leaving it
+out, means no limit.
+
 `output: matches` gives `match` records. `output: counts` gives one `match`
 record per file, or per file and pattern, with `count`, the number of
 matches, and the position of the first match. `output: files` and

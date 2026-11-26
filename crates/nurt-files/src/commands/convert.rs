@@ -36,7 +36,7 @@ use crate::common::etag::stale_error;
 use crate::common::mutation::{apply_changes, planned_change};
 use crate::common::notable::{at_path, counted};
 use crate::common::params::{EncodingParam, LineEndingParam, encoding_param, line_ending_param};
-use crate::common::path::{path_list_arg, record_path};
+use crate::common::path::{path_list_arg_for_change, record_path};
 use crate::common::text::{TextFile, read_text, record_line_ending};
 
 /// Name of the command in the catalog.
@@ -306,7 +306,7 @@ fn sources(args: &BoundArgs, input: StageInput<'_>, ctx: &ExecCtx) -> Result<Vec
         }
     };
     if input.is_none() {
-        let paths = path_list_arg(args, PATH, ctx)?;
+        let paths = path_list_arg_for_change(args, PATH, ctx)?;
         if paths.is_empty() {
             return Err(Error::new(
                 ErrorCode::MissingParam,

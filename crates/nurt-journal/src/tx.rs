@@ -65,6 +65,10 @@ use crate::store::{self, Fault, JournalCtx, JournalLocation};
 /// Permission bits of directories created inside a journal.
 const JOURNAL_DIR_MODE: u32 = 0o700;
 
+/// Attempts of one operation to take a number that another process has
+/// already claimed in a shared journal before the journal is given up.
+const MAX_NUMBER_RACES: u32 = 8;
+
 /// Workers removing the directory of an entry that could not be written.
 const REMOVE_WORKERS: usize = 1;
 
@@ -230,6 +234,13 @@ fn misuse(problem: &str) -> Error {
         format!("journal protocol violated: {problem}"),
     )
     .with_problem(problem)
+}
+
+/// Failure of the journal while it moves a target it had agreed to keep: the
+/// operation stops before anything is removed, so no data is lost.
+fn journal_kept_nothing(index: TargetIndex, error: FsError) -> Error {
+    target_error(index, error)
+        .with_problem("the journal could not keep the previous content; nothing was removed")
 }
 
 fn rolled_back() -> Error {
@@ -536,20 +547,42 @@ impl<'a> Tx<'a> {
         // A volume met for the first time registers its journal only now, so
         // a number another account already used there is replaced while no
         // part is open.
-        if self.parts.is_empty() && self.named_in(&JournalLayout::new(dir.clone()), op) {
-            match self.renumber() {
-                Ok(Some(renumbered)) => op = renumbered,
-                Ok(None) | Err(Fault::Fs(_)) => return skip(self, Irreversible::JournalError),
+        //
+        // Another process can still take the number between that check and
+        // the creation of the marker, because accounts with separate state
+        // directories share the journal of a volume and the marker is the
+        // only exclusive claim. The loser takes a new number and tries again.
+        let mut lost_races = 0;
+        loop {
+            if self.parts.is_empty() && self.named_in(&JournalLayout::new(dir.clone()), op) {
+                match self.renumber() {
+                    Ok(Some(renumbered)) => op = renumbered,
+                    Ok(None) | Err(Fault::Fs(_)) => return skip(self, Irreversible::JournalError),
+                    Err(Fault::Halt) => return Err(Located::Halt),
+                }
+            }
+            match self.open_part(op, volume.clone(), dir.clone()) {
+                Ok(part) => {
+                    self.parts.push(part);
+                    return Ok(self.parts.len() - 1);
+                }
                 Err(Fault::Halt) => return Err(Located::Halt),
+                Err(Fault::Fs(error))
+                    if error.kind == FsErrorKind::Exists
+                        && self.parts.is_empty()
+                        && lost_races < MAX_NUMBER_RACES =>
+                {
+                    lost_races += 1;
+                    match self.renumber() {
+                        Ok(Some(renumbered)) => op = renumbered,
+                        Ok(None) | Err(Fault::Fs(_)) => {
+                            return skip(self, Irreversible::JournalError);
+                        }
+                        Err(Fault::Halt) => return Err(Located::Halt),
+                    }
+                }
+                Err(Fault::Fs(_)) => return skip(self, Irreversible::JournalError),
             }
-        }
-        match self.open_part(op, volume.clone(), dir) {
-            Ok(part) => {
-                self.parts.push(part);
-                Ok(self.parts.len() - 1)
-            }
-            Err(Fault::Halt) => Err(Located::Halt),
-            Err(Fault::Fs(_)) => skip(self, Irreversible::JournalError),
         }
     }
 
@@ -578,6 +611,15 @@ impl<'a> Tx<'a> {
             fs.sync_dir(&scope, layout.root())?;
         }
         let lock = fs.lock_exclusive(&layout.entry_lock(op)?, ctx.settings.lock_timeout)?;
+        // A holder of the lock that finished meanwhile has left its entry but
+        // no marker, so the marker alone does not show that the number is gone.
+        if self.named_in(&layout, op) {
+            return Err(Fault::Fs(FsError::new(
+                FsErrorKind::Exists,
+                "create_new",
+                None,
+            )));
+        }
         drop(fs.create_new(&scope, &layout.pending(op)?)?);
         fs.sync_dir(&scope, &layout.pending_dir()?)?;
         Ok(Part {
@@ -2028,8 +2070,10 @@ impl Tx<'_> {
     }
 
     /// Moves the entry at `path` into the journal as the previous content of
-    /// the target, by rename or, across layers, by copy; removes it without
-    /// preservation when the journal cannot hold it.
+    /// the target, by rename or, across layers, by copy. A target the journal
+    /// was not asked to keep, or cannot hold for lack of space, is removed
+    /// without preservation; any other failure of the journal fails the
+    /// operation with the entry still in place.
     fn move_into_journal(&mut self, position: usize, path: &AbsPath) -> Result<()> {
         let ctx = self.ctx;
         let fs = ctx.fs.as_ref();
@@ -2081,18 +2125,20 @@ impl Tx<'_> {
                                     &tmp.join_name(&format!("{id}.blob"))?,
                                 )
                             });
-                            self.targets[position].degrade(if error.kind == FsErrorKind::NoSpace {
-                                Irreversible::NoSpaceForCopy
-                            } else {
-                                Irreversible::JournalError
-                            });
+                            if error.kind != FsErrorKind::NoSpace {
+                                return Err(journal_kept_nothing(index, error));
+                            }
+                            self.targets[position].degrade(Irreversible::NoSpaceForCopy);
                         }
                     }
                 }
-                Err(_) => self.targets[position].degrade(Irreversible::JournalError),
+                Err(error) => return Err(journal_kept_nothing(index, error)),
             }
         } else if self.targets[position].mode() == PreserveMode::Moved {
-            self.targets[position].degrade(Irreversible::JournalError);
+            return Err(journal_kept_nothing(
+                index,
+                FsError::new(FsErrorKind::Io, "journal", None),
+            ));
         }
         blob::remove_entry(fs, &scope, path).map_err(|error| target_error(index, error))?;
         self.targets[position].changed = true;
@@ -4848,6 +4894,109 @@ mod tests {
         assert_eq!(report.rolled_back, vec![OpId(1)]);
         assert_eq!(env.read(&from), b"from");
         assert_eq!(env.read(&to), b"to");
+    }
+
+    #[test]
+    fn lost_race_for_a_number_takes_a_new_number_instead_of_giving_up_the_journal() {
+        let env = Env::new();
+        let a = env.file("vol-a/a.txt", b"old");
+        env.fixture
+            .fs
+            .fail("create_new", "pending", FsErrorKind::Exists);
+        let handle = env.overwrite(&a, b"new");
+        assert_eq!(handle.op, Some(OpId(2)));
+        assert!(handle.irreversible.is_empty(), "{handle:?}");
+        assert_eq!(handle.targets[0].mode, PreserveMode::Exchange);
+        assert_eq!(env.read(&env.blob(0, 2, 0, BlobRole::Previous)), b"old");
+        assert_eq!(env.read(&a), b"new");
+    }
+
+    #[test]
+    fn persistent_conflict_over_the_marker_gives_up_after_a_bounded_number_of_attempts() {
+        let env = Env::new();
+        let a = env.file("vol-a/a.txt", b"old");
+        env.fixture
+            .fs
+            .fail_always("create_new", "pending", FsErrorKind::Exists);
+        let handle = env.overwrite(&a, b"new");
+        assert_eq!(
+            handle.targets[0].irreversible,
+            Some(Irreversible::JournalError)
+        );
+        assert_eq!(env.read(&a), b"new");
+    }
+
+    #[test]
+    fn two_state_directories_sharing_a_journal_never_share_a_number() {
+        let env = Env::new();
+        let other_state = env.fixture.fs.path("vol-a/state-other");
+        std::fs::create_dir(other_state.as_path()).unwrap();
+        let mut other = env.fixture.ctx();
+        other.state = layout::StateLayout::new(other_state);
+        let own = env.file("vol-a/own.txt", b"o");
+        let foreign = env.file("vol-a/foreign.txt", b"f");
+        let rounds = 12;
+        let run = |ctx: &JournalCtx, path: &AbsPath| -> Vec<OpHandle> {
+            (0..rounds)
+                .map(|round| {
+                    let mut tx = begin(ctx, request("write"));
+                    tx.preserve(&[spec(path, TargetAction::Modify)]).unwrap();
+                    tx.apply(
+                        TargetIndex(0),
+                        Mutation::WriteBytes(format!("{round}").into_bytes()),
+                    )
+                    .unwrap();
+                    tx.commit().unwrap()
+                })
+                .collect()
+        };
+        let (mine, theirs) = std::thread::scope(|scope| {
+            let first = scope.spawn(|| run(&env.ctx, &own));
+            let second = scope.spawn(|| run(&other, &foreign));
+            (first.join().unwrap(), second.join().unwrap())
+        });
+        let mut ops = Vec::new();
+        for handle in mine.iter().chain(&theirs) {
+            assert!(handle.irreversible.is_empty(), "{handle:?}");
+            ops.push(handle.op.unwrap());
+        }
+        let total = ops.len();
+        ops.sort();
+        ops.dedup();
+        assert_eq!(ops.len(), total);
+    }
+
+    #[test]
+    fn failed_move_of_a_removed_file_into_the_journal_keeps_the_file() {
+        let env = Env::new();
+        let a = env.file("vol-a/a.txt", b"precious");
+        env.fixture.fs.fail("rename", ".blob", FsErrorKind::Io);
+        let mut tx = begin(&env.ctx, request("remove"));
+        tx.preserve(&[spec(&a, TargetAction::Delete)]).unwrap();
+        let error = tx.apply(TargetIndex(0), Mutation::Remove).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Io);
+        assert_eq!(env.read(&a), b"precious");
+        assert_eq!(
+            env.state(0, 1),
+            StateRecord::undone(UndoneCause::RolledBack)
+        );
+    }
+
+    #[test]
+    fn removal_the_journal_declined_up_front_proceeds_unpreserved() {
+        let env = Env::new();
+        *env.fixture.admission.eligibility.lock().unwrap() =
+            Eligibility::Inactive(InactiveReason::NoAnchor);
+        let a = env.file("vol-a/a.txt", b"a");
+        let mut tx = begin(&env.ctx, request("remove"));
+        let preserved = tx.preserve(&[spec(&a, TargetAction::Delete)]).unwrap();
+        assert_eq!(
+            preserved[0].irreversible,
+            Some(Irreversible::JournalInactive)
+        );
+        tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
+        tx.commit().unwrap();
+        assert!(!env.fixture.exists(&a));
     }
 
     #[test]

@@ -16,13 +16,17 @@ failures=0
 status=0
 
 host_target() {
-  case $(uname -m) in
+  case ${1:-$(uname -m)} in
     x86_64 | amd64) echo x86_64-unknown-linux-musl ;;
-    *) echo aarch64-unknown-linux-musl ;;
+    aarch64 | arm64) echo aarch64-unknown-linux-musl ;;
+    *)
+      printf 'unsupported architecture: %s\n' "${1:-$(uname -m)}" >&2
+      return 1
+      ;;
   esac
 }
 
-target=$(host_target)
+target=$(host_target) || exit 1
 
 expect() {
   local description=$1
@@ -49,6 +53,14 @@ failed_with() {
 
 missing() {
   [[ ! -e $1 ]]
+}
+
+refused_architecture() {
+  ! host_target "$1" >/dev/null 2>&1
+}
+
+prints_target() {
+  [[ $(host_target amd64) == x86_64-unknown-linux-musl && $(host_target arm64) == aarch64-unknown-linux-musl ]]
 }
 
 make_release() {
@@ -119,5 +131,8 @@ printf '%064d  nurt-1.2.3-%s.tar.gz\n' 0 "$target" >"$work/release/v1.2.3/checks
 run_install 1.2.3 "$work/bin-tampered"
 expect 'fails on checksum mismatch' failed_with 'checksum mismatch'
 expect 'installs nothing after a checksum mismatch' missing "$work/bin-tampered/nurt"
+
+expect 'maps the supported architectures' prints_target
+expect 'refuses an unknown architecture' refused_architecture riscv64
 
 ((failures == 0))
