@@ -287,6 +287,136 @@ mod tests {
     }
 
     #[test]
+    fn tmpfs_is_a_memory_volume_whatever_kind_the_back_end_reports() {
+        let config = JournalConfig::default();
+        for kind in [VolumeKind::Fixed, VolumeKind::Other, VolumeKind::Memory] {
+            for fs_type in ["tmpfs", "TMPFS", "Ramfs", "devtmpfs"] {
+                let volume = volume_info(1, "/tmp", fs_type, kind);
+                assert_eq!(
+                    evaluate(&volume, &config),
+                    inactive(InactiveReason::MemoryVolume),
+                    "{fs_type} {kind:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn memory_volumes_stay_inactive_when_network_and_removable_volumes_are_enabled() {
+        let mut config = JournalConfig::default();
+        config.volumes.network = true;
+        config.volumes.removable = true;
+        let volume = volume_info(1, "/dev/shm", "tmpfs", VolumeKind::Memory);
+        assert_eq!(
+            evaluate(&volume, &config),
+            inactive(InactiveReason::MemoryVolume)
+        );
+    }
+
+    #[test]
+    fn memory_volume_is_enabled_only_by_its_own_setting_and_never_when_read_only() {
+        let config = with_override("/dev/shm", true);
+        let mut volume = volume_info(1, "/dev/shm", "tmpfs", VolumeKind::Memory);
+        assert_eq!(evaluate(&volume, &config), Eligibility::Eligible);
+        volume.read_only = true;
+        assert_eq!(evaluate(&volume, &config), inactive(InactiveReason::NoAnchor));
+        let other = volume_info(2, "/run/user/1000", "tmpfs", VolumeKind::Memory);
+        assert_eq!(
+            evaluate(&other, &config),
+            inactive(InactiveReason::MemoryVolume)
+        );
+    }
+
+    #[test]
+    fn disabling_a_volume_wins_over_every_class_rule() {
+        let config = with_override("/mnt/data", false);
+        for kind in [VolumeKind::Fixed, VolumeKind::Overlay, VolumeKind::Network] {
+            let volume = volume_info(1, "/mnt/data", "ext4", kind);
+            assert_eq!(
+                evaluate(&volume, &config),
+                inactive(InactiveReason::Disabled),
+                "{kind:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn recognises_remote_fuse_and_upper_case_type_names() {
+        let config = JournalConfig::default();
+        for fs_type in [
+            "fuse.rclone",
+            "fuse.s3fs",
+            "fuse.gcsfuse",
+            "FUSE.SSHFS",
+            "NFS4",
+            "webdav",
+            "afpfs",
+            "smbfs",
+        ] {
+            assert_eq!(
+                evaluate(&typed(fs_type), &config),
+                inactive(InactiveReason::NetworkVolume),
+                "{fs_type}"
+            );
+        }
+        for fs_type in ["fuse.gvfsd-fuse", "fuseblk", "zfs", "ntfs3", "OverlayFS"] {
+            assert_eq!(
+                evaluate(&typed(fs_type), &config),
+                Eligibility::Eligible,
+                "{fs_type}"
+            );
+        }
+    }
+
+    #[test]
+    fn fat_family_volumes_are_not_durable_even_when_they_claim_durable_metadata() {
+        let config = JournalConfig::default();
+        for fs_type in ["vfat", "msdos", "fat", "exfat", "EXFAT"] {
+            let volume = volume_info(1, "/mnt/stick", fs_type, VolumeKind::Fixed);
+            assert!(volume.features.durable_metadata);
+            assert_eq!(
+                evaluate(&volume, &config),
+                inactive(InactiveReason::NotDurable),
+                "{fs_type}"
+            );
+        }
+    }
+
+    #[test]
+    fn overlay_volumes_follow_the_read_only_and_durability_rules() {
+        let config = JournalConfig::default();
+        let mut volume = volume_info(1, "/", "overlay", VolumeKind::Overlay);
+        assert_eq!(evaluate(&volume, &config), Eligibility::Eligible);
+        volume.features.durable_metadata = false;
+        assert_eq!(
+            evaluate(&volume, &config),
+            inactive(InactiveReason::NotDurable)
+        );
+        volume.features.durable_metadata = true;
+        volume.read_only = true;
+        assert_eq!(evaluate(&volume, &config), inactive(InactiveReason::NoAnchor));
+    }
+
+    #[test]
+    fn override_keys_match_mount_points_in_language_form() {
+        let volume = volume_info(1, "/mnt/zażółć", "tmpfs", VolumeKind::Memory);
+        for key in ["/mnt/zażółć", "/mnt/zażółć/"] {
+            assert_eq!(
+                evaluate(&volume, &with_override(key, true)),
+                Eligibility::Eligible,
+                "{key}"
+            );
+        }
+        for key in ["/mnt/zazolc", "/mnt", "", "mnt/zażółć"] {
+            assert_eq!(
+                evaluate(&volume, &with_override(key, true)),
+                inactive(InactiveReason::MemoryVolume),
+                "{key:?}"
+            );
+        }
+    }
+
+    #[test]
     fn disables_journal_by_global_setting() {
         let mut config = JournalConfig::default();
         config.enabled = false;

@@ -958,6 +958,138 @@ mod tests {
         assert_eq!(keys, ["applied", "effective", "expiring", "expiring_bytes"]);
     }
 
+    #[test]
+    fn session_limit_files_are_named_by_a_digest_of_the_identifier() {
+        let mut names = BTreeSet::new();
+        for id in ["s1", "", "../../etc/passwd", "sesja żółć", "a/b\\c\0d"] {
+            let name = session_file(&SessionId(id.to_owned()));
+            assert_eq!(name, session_file(&SessionId(id.to_owned())));
+            let file = name.strip_prefix("journal-limits/").unwrap();
+            let stem = file.strip_suffix(".json").unwrap();
+            assert_eq!(stem.len(), 64, "{id:?}");
+            assert!(stem.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')));
+            names.insert(name);
+        }
+        assert_eq!(names.len(), 5);
+    }
+
+    #[test]
+    fn the_latest_change_wins_and_equal_times_are_ordered_by_session() {
+        let content = |session: &str, steps: u32, changed: u64| {
+            format!(
+                r#"{{"session":"{session}","changed":{changed},"touched":0,"limits":{{"all":{{"steps":{steps}}}}}}}"#
+            )
+            .into_bytes()
+        };
+        let tie = sessions_from_contents(&[content("a", 5, 10), content("b", 6, 10)]).unwrap();
+        assert_eq!(tie.all.steps, Some(StepLimit::Limited(6)));
+        let reversed = sessions_from_contents(&[content("b", 6, 10), content("a", 5, 10)]).unwrap();
+        assert_eq!(reversed.all.steps, Some(StepLimit::Limited(6)));
+        let newer = sessions_from_contents(&[content("b", 6, 10), content("a", 5, 11)]).unwrap();
+        assert_eq!(newer.all.steps, Some(StepLimit::Limited(5)));
+    }
+
+    #[test]
+    fn unreadable_or_empty_session_contents_set_no_limits() {
+        assert!(sessions_from_contents(&[]).is_none());
+        assert!(sessions_from_contents(&[b"{}".to_vec(), b"\xff".to_vec(), Vec::new()]).is_none());
+        let empty = br#"{"session":"a","changed":1,"touched":1,"limits":{}}"#.to_vec();
+        assert!(sessions_from_contents(&[empty]).is_none());
+    }
+
+    #[test]
+    fn user_configuration_edits_keep_comments_and_replace_values() {
+        let values = LimitValues {
+            steps: Some(StepLimit::Limited(10)),
+            age: Some(AgeLimit::Limited(DurationSetting::from_secs(2 * HOUR))),
+            size: Some(SizeLimit::Unlimited),
+        };
+        let fresh = edit_user_config(None, None, &values).unwrap();
+        assert!(fresh.contains("[journal]"), "{fresh}");
+        assert!(fresh.contains("max_ops = 10"), "{fresh}");
+        assert!(fresh.contains("max_age = \"2h\""), "{fresh}");
+        assert!(fresh.contains("max_size = \"unlimited\""), "{fresh}");
+
+        let current = "# limits\n[journal]\nmax_ops = 5\nother = true\n";
+        let edited = edit_user_config(Some(current), None, &values).unwrap();
+        assert!(edited.starts_with("# limits\n"), "{edited}");
+        assert!(edited.contains("other = true"), "{edited}");
+        assert!(edited.contains("max_ops = 10"), "{edited}");
+        assert!(!edited.contains("max_ops = 5"), "{edited}");
+
+        let volume = edit_user_config(None, Some("/mnt/zażółć"), &values).unwrap();
+        assert!(volume.contains("[journal.volume.\"/mnt/zażółć\"]"), "{volume}");
+
+        let unlimited = LimitValues {
+            steps: Some(StepLimit::Unlimited),
+            ..LimitValues::default()
+        };
+        let text = edit_user_config(None, None, &unlimited).unwrap();
+        assert!(text.contains("max_ops = \"unlimited\""), "{text}");
+    }
+
+    #[test]
+    fn user_configuration_edits_refuse_files_that_are_not_tables() {
+        let values = LimitValues {
+            steps: Some(StepLimit::Limited(10)),
+            ..LimitValues::default()
+        };
+        for current in ["[journal", "journal = 5\n", "[journal]\nvolume = 1\n"] {
+            let error = edit_user_config(Some(current), Some("/mnt/data"), &values).unwrap_err();
+            assert_eq!(error.code(), ErrorCode::Config, "{current:?}");
+        }
+    }
+
+    #[test]
+    fn limits_are_added_to_the_user_layer_in_their_tables() {
+        let values = LimitValues {
+            steps: Some(StepLimit::Limited(10)),
+            ..LimitValues::default()
+        };
+        let layers = with_user_values(Vec::new(), None, &values).unwrap();
+        assert_eq!(layers.len(), 1);
+        assert_eq!(layers[0].level, ConfigLevel::User);
+        assert_eq!(layers[0].values["journal"]["max_ops"], 10);
+        let layers = with_user_values(layers, Some("/mnt/data"), &values).unwrap();
+        assert_eq!(layers.len(), 1);
+        assert_eq!(
+            layers[0].values["journal"]["volume"]["/mnt/data"]["max_ops"],
+            10
+        );
+        let broken = ConfigLayer::new(
+            ConfigLevel::User,
+            "user",
+            json!({ "journal": 5 }).as_object().cloned().unwrap(),
+        );
+        let error = with_user_values(vec![broken], None, &values).err().unwrap();
+        assert_eq!(error.code(), ErrorCode::Config);
+    }
+
+    #[test]
+    fn step_limits_are_accepted_from_one_to_one_hundred_thousand() {
+        for count in [1, 100_000] {
+            let store = store();
+            assert!(limits_store(&store, &steps(count, session("s1"), false)).is_ok());
+        }
+        for count in [0, 100_001] {
+            let store = store();
+            let error = limits_store(&store, &steps(count, session("s1"), false))
+                .err()
+                .unwrap();
+            assert_eq!(error.code(), ErrorCode::InvalidValue, "{count}");
+        }
+    }
+
+    #[test]
+    fn limits_for_an_unknown_volume_are_refused_without_storing_anything() {
+        let store = store();
+        let mut request = steps(5, session("s1"), false);
+        request.volume = Some(mount("/srv"));
+        let error = limits_store(&store, &request).err().unwrap();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+        assert!(store.list_dir(Area::State, SESSION_DIR).unwrap().is_empty());
+    }
+
     fn expiry_config(store: &MemStore) -> Resolved {
         super::super::expiry::resolve_config(store).unwrap()
     }

@@ -719,6 +719,39 @@ mod tests {
     }
 
     #[test]
+    fn changing_requests_are_read_from_the_arguments() {
+        let repo = TestRepo::new();
+        let delete = args(
+            &repo,
+            &[
+                ("delete", Value::List(vec![text("a"), text("b")])),
+                ("force", Value::Bool(true)),
+            ],
+        );
+        match request(&delete).unwrap() {
+            Request::Delete { names, force } => {
+                assert_eq!(names, ["a", "b"]);
+                assert!(force);
+            }
+            _ => panic!("expected a delete request"),
+        }
+        let everything = args(&repo, &[("purge", text("all"))]);
+        assert!(matches!(request(&everything).unwrap(), Request::Purge(None)));
+        let named = args(&repo, &[("purge", text("old-1"))]);
+        match request(&named).unwrap() {
+            Request::Purge(Some(names)) => assert_eq!(names, ["old-1"]),
+            _ => panic!("expected a purge of named copies"),
+        }
+        let rename = args(&repo, &[("rename", text("a")), ("new_name", text("b"))]);
+        match request(&rename).unwrap() {
+            Request::Rename { from, to } => assert_eq!((from.as_str(), to.as_str()), ("a", "b")),
+            _ => panic!("expected a rename request"),
+        }
+        let listing = args(&repo, &[]);
+        assert!(request(&listing).is_err());
+    }
+
+    #[test]
     fn target_changes_map_journal_actions() {
         let path = AbsPath::new(std::env::temp_dir().join("x")).unwrap();
         let spec = |action, expect| TargetSpec {

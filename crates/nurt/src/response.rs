@@ -97,7 +97,7 @@ impl Response {
     /// Whether the report carries no language error.
     #[must_use]
     pub fn is_ok(&self) -> bool {
-        self.report().get("error").is_none_or(Value::is_null)
+        !self.report().get("error").is_some_and(Value::is_object)
     }
 
     /// Language error of the report.
@@ -186,10 +186,16 @@ impl LanguageError {
         self.text_field("message").unwrap_or_default()
     }
 
-    /// Stage in which the error occurred, for example `0` for parsing.
+    /// Stage in which the error occurred, for example `0` for parsing. The
+    /// server writes it as `at.stage`; a `stage` member of the error itself
+    /// is read as well.
     #[must_use]
     pub fn stage(&self) -> Option<&str> {
-        self.text_field("stage")
+        self.raw
+            .get("at")
+            .and_then(|at| at.get("stage"))
+            .and_then(Value::as_str)
+            .or_else(|| self.text_field("stage"))
     }
 
     /// Position in the program: `line`, `column` and `length`.
@@ -349,6 +355,50 @@ mod tests {
         assert_eq!(error.help(), Some("lists"));
         assert_eq!(error.to_string(), "E_SYNTAX: unclosed list");
         assert_eq!(error.raw()["code"], "E_SYNTAX");
+    }
+
+    #[test]
+    fn stage_is_read_from_the_position_of_the_error() {
+        let error = response(json!({
+            "status": "failed",
+            "error": {
+                "code": "E_STALE",
+                "message": "changed",
+                "at": {"stage": "5"}
+            }
+        }))
+        .error()
+        .unwrap();
+        assert_eq!(error.stage(), Some("5"));
+        let positioned = response(json!({
+            "error": {
+                "code": "E_SYNTAX",
+                "message": "m",
+                "at": {"line": 1, "column": 2, "length": 1, "stage": "0"},
+                "stage": "9"
+            }
+        }))
+        .error()
+        .unwrap();
+        assert_eq!(positioned.stage(), Some("0"));
+        let without_stage = response(json!({
+            "error": {"code": "E_SYNTAX", "message": "m", "at": {"line": 1, "column": 2}}
+        }))
+        .error()
+        .unwrap();
+        assert_eq!(without_stage.stage(), None);
+    }
+
+    #[test]
+    fn error_without_text_fields_reads_as_empty() {
+        let error = response(json!({"error": {"code": 5, "message": []}}))
+            .error()
+            .unwrap();
+        assert_eq!(error.code(), "");
+        assert_eq!(error.message(), "");
+        assert_eq!(error.to_string(), ": ");
+        assert!(response(json!({"error": "text"})).is_ok());
+        assert!(response(json!({"error": "text"})).error().is_none());
     }
 
     #[test]

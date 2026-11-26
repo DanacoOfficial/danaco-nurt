@@ -461,6 +461,7 @@ pub(super) fn respond(
             && from == Position::default()
             && source.ended
             && !snapshot.merged
+            && scan.end.offset >= scan.length
         {
             set_lines(&mut output, source.stream, scan.end.line);
         }

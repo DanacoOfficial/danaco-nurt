@@ -117,6 +117,17 @@ mod tests {
     }
 
     #[test]
+    fn id_without_a_fingerprint_is_kept() {
+        let mut wide = hunk(&[" a", " b", "-x", " c"]);
+        wide.id = Some("/f#1".to_owned());
+        let mut changes = [change(vec![wide])];
+        limit_context(&mut changes, 0);
+        let result = changes[0].diff.take().unwrap_or_default().remove(0);
+        assert_eq!(result.lines, ["-x"].map(String::from));
+        assert_eq!(result.id.as_deref(), Some("/f#1"));
+    }
+
+    #[test]
     fn hunk_within_the_limit_is_untouched() {
         let original = hunk(&[" a", "-x", " b"]);
         let result = limited(&[" a", "-x", " b"], 3);

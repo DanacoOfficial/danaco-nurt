@@ -48,6 +48,71 @@ fn a_posted_request_is_taken_once_in_order() {
 }
 
 #[test]
+fn requests_are_taken_in_the_order_of_their_counters() {
+    let dir = tempfile::tempdir().unwrap();
+    let (table, _lock, _) = supervised(dir.path());
+    let control_dir = table.control_dir("j1");
+    fs::create_dir_all(&control_dir).unwrap();
+    let body = |action: &str| {
+        format!(r#"{{"protocol": {PROTOCOL}, "action": {{"action": "{action}"}}}}"#)
+    };
+    for (name, action) in [
+        ("42-10", "resume"),
+        ("42-9", "suspend"),
+        ("7-100", "cancel"),
+        ("42-100", "cancel"),
+    ] {
+        fs::write(
+            control_dir.join(format!("{name}.request.json")),
+            body(action),
+        )
+        .unwrap();
+    }
+    let taken: Vec<(String, ControlAction)> = control::pending(&table, "j1");
+    let names: Vec<&str> = taken.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(names, ["7-100", "42-9", "42-10", "42-100"]);
+    assert_eq!(taken[1].1, ControlAction::Suspend);
+    assert_eq!(taken[2].1, ControlAction::Resume);
+}
+
+#[test]
+fn request_names_without_a_counter_are_taken_last_in_text_order() {
+    let order = control::request_order;
+    assert_eq!(order("12-3"), (12, 3));
+    assert!(order("12-3") < order("12-10"));
+    assert!(order("9-100") < order("12-1"));
+    assert_eq!(order("odd"), (u64::MAX, u64::MAX));
+    assert_eq!(order("a-b"), (u64::MAX, u64::MAX));
+    assert!(order("12-3") < order("odd"));
+}
+
+#[test]
+fn start_requests_are_listed_in_the_order_of_their_counters() {
+    let dir = tempfile::tempdir().unwrap();
+    let table = JobTable::at(dir.path().join("jobs")).unwrap();
+    for name in ["5-10", "5-9", "5-100", "5-1"] {
+        fs::write(table.inbox().join(format!("{name}.request.json")), b"{}").unwrap();
+    }
+    fs::write(table.inbox().join("5-0.reply.json"), b"{}").unwrap();
+    let names: Vec<String> = super::super::host::inbox_requests(&table)
+        .unwrap()
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    assert_eq!(names, ["5-1", "5-9", "5-10", "5-100"]);
+}
+
+#[test]
+fn a_request_belongs_to_whoever_removes_its_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("1-0.request.json");
+    fs::write(&path, b"{}").unwrap();
+    assert!(control::withdraw(&path).unwrap());
+    assert!(!path.exists());
+    assert!(!control::withdraw(&path).unwrap());
+}
+
+#[test]
 fn a_request_of_another_protocol_is_dropped() {
     let dir = tempfile::tempdir().unwrap();
     let (table, _lock, _) = supervised(dir.path());
@@ -117,6 +182,21 @@ fn a_cancelled_call_stops_waiting_for_the_reply() {
     let stop = ControlAction::Stop {
         signal: Signal::Terminate,
         grace: Duration::ZERO,
+    };
+    let error = control::send(&ctx, &table, "j1", stop).unwrap_err();
+    assert_eq!(error.code, ErrorCode::Cancelled);
+    assert_eq!(request_files(&table), 0);
+}
+
+#[test]
+fn a_grace_time_beyond_the_clock_does_not_overflow_the_deadline() {
+    let dir = tempfile::tempdir().unwrap();
+    let (ctx, _) = context(dir.path());
+    let (table, _lock, _) = supervised(dir.path());
+    ctx.cancel().cancel(CancelReason::Requested);
+    let stop = ControlAction::Stop {
+        signal: Signal::Terminate,
+        grace: Duration::MAX,
     };
     let error = control::send(&ctx, &table, "j1", stop).unwrap_err();
     assert_eq!(error.code, ErrorCode::Cancelled);

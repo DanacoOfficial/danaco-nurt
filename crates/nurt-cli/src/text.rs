@@ -98,6 +98,46 @@ mod tests {
     }
 
     #[test]
+    fn help_introduction_points_to_topics_and_the_catalog() {
+        let intro = help_intro();
+        assert!(intro.contains("Run 'help <topic>' for a command or a topic."));
+        assert!(intro.ends_with("Run 'catalog' to list the commands."));
+    }
+
+    #[test]
+    fn usage_names_every_option_of_a_program() {
+        let usage = usage();
+        for option in [
+            "--variant",
+            "--preview",
+            "--json",
+            "--format",
+            "--limit",
+            "--cursor",
+            "--verbosity",
+            "-V, --version",
+            "-h, --help",
+        ] {
+            assert!(usage.contains(option), "{option}");
+        }
+        assert!(usage.contains("Usage: nurt [OPTIONS] <PROGRAM>"));
+    }
+
+    #[test]
+    fn banner_carries_the_version_and_a_hint() {
+        let banner = banner();
+        assert!(banner.contains(&format!("Danaco Nurt {VERSION}")));
+        assert!(banner.ends_with("Type 'help' to get started."));
+    }
+
+    #[test]
+    fn full_version_has_the_copyright_and_the_license() {
+        let lines: Vec<String> = full_version().lines().map(str::to_owned).collect();
+        assert!(lines[1].starts_with("Copyright (c) 2026"));
+        assert_eq!(lines[2], "License: Apache-2.0");
+    }
+
+    #[test]
     fn product_lines_are_ascii() {
         for text in [
             short_version(),

@@ -247,6 +247,97 @@ mod tests {
     }
 
     #[test]
+    fn accepts_the_largest_limit_and_rejects_values_out_of_range() {
+        let largest = call(NAME, &[("limit", Value::Int(i64::from(u32::MAX)))]);
+        assert_eq!(parse(&largest).unwrap().limit, u32::MAX);
+        let one = call(NAME, &[("limit", Value::Int(1))]);
+        assert_eq!(parse(&one).unwrap().limit, 1);
+        for limit in [-1, 0, i64::from(u32::MAX) + 1, i64::MIN, i64::MAX] {
+            let args = call(NAME, &[("limit", Value::Int(limit))]);
+            assert_eq!(
+                parse(&args).unwrap_err().code,
+                ErrorCode::InvalidValue,
+                "{limit}"
+            );
+        }
+        let wrong = call(NAME, &[("limit", Value::Text("5".to_owned()))]);
+        assert_eq!(parse(&wrong).unwrap_err().code, ErrorCode::Type);
+    }
+
+    #[test]
+    fn rejects_operation_numbers_below_one_and_unknown_states() {
+        for name in ["id", "before", "since"] {
+            for number in [0, -1] {
+                let args = call(NAME, &[(name, Value::Int(number))]);
+                assert_eq!(
+                    parse(&args).unwrap_err().code,
+                    ErrorCode::InvalidValue,
+                    "{name} {number}"
+                );
+            }
+            let parsed = parse(&call(NAME, &[(name, Value::Int(1))])).unwrap();
+            assert!(parsed.id.is_some() || parsed.before.is_some() || parsed.since.is_some());
+        }
+        let bogus = call(NAME, &[("state", Value::Enum("bogus".to_owned()))]);
+        assert_eq!(parse(&bogus).unwrap_err().code, ErrorCode::InvalidValue);
+        let wrong = call(NAME, &[("state", Value::Int(1))]);
+        assert_eq!(parse(&wrong).unwrap_err().code, ErrorCode::Type);
+    }
+
+    #[test]
+    fn reads_every_state_filter_path_and_flag() {
+        for (word, state) in [
+            ("any", None),
+            ("available", Some(OpState::Available)),
+            ("partial", Some(OpState::Partial)),
+            ("expired", Some(OpState::Expired)),
+            ("undone", Some(OpState::Undone)),
+        ] {
+            let args = call(NAME, &[("state", Value::Enum(word.to_owned()))]);
+            assert_eq!(parse(&args).unwrap().state, state, "{word}");
+        }
+        let args = call(
+            NAME,
+            &[
+                ("path", Value::Text("/home/użytkownik/zażółć.txt".to_owned())),
+                ("deleted", Value::Bool(true)),
+                ("details", Value::Bool(true)),
+            ],
+        );
+        let parsed = parse(&args).unwrap();
+        assert_eq!(parsed.path.as_deref(), Some("/home/użytkownik/zażółć.txt"));
+        assert!(parsed.deleted && parsed.details);
+        let plain = parse(&call(NAME, &[])).unwrap();
+        assert!(!plain.deleted && !plain.details && plain.path.is_none());
+    }
+
+    #[test]
+    fn lists_only_operations_that_match_the_filters() {
+        let env = Env::new();
+        let a = env.seed("a.txt", b"a");
+        let b = env.seed("b.txt", b"b");
+        env.write(&a, b"A");
+        env.write(&b, b"B");
+        let ctx = env.ctx(NAME);
+        let ids = |given: &[(&str, Value)]| -> Vec<Value> {
+            read(&History, &call(NAME, given), &ctx)
+                .unwrap()
+                .iter()
+                .map(|record| record.get("id").cloned().unwrap())
+                .collect()
+        };
+        assert_eq!(ids(&[("limit", Value::Int(1))]), [Value::Int(2)]);
+        assert_eq!(ids(&[("before", Value::Int(2))]), [Value::Int(1)]);
+        assert_eq!(ids(&[("since", Value::Int(1))]), [Value::Int(2)]);
+        assert!(ids(&[("deleted", Value::Bool(true))]).is_empty());
+        assert!(ids(&[("state", Value::Enum("undone".to_owned()))]).is_empty());
+        assert_eq!(
+            ids(&[("state", Value::Enum("available".to_owned()))]),
+            [Value::Int(2), Value::Int(1)]
+        );
+    }
+
+    #[test]
     fn reads_the_catalog_defaults() {
         let parsed = parse(&call(NAME, &[])).unwrap();
         assert_eq!(parsed.limit, DEFAULT_LIMIT);

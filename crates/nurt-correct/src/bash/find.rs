@@ -380,6 +380,7 @@ fn size_condition(sign: Sign, number: u64, factor: u64) -> Expr {
     match sign {
         Sign::More => binary(BinOp::Gt, size(), bytes(number)),
         Sign::Less => binary(BinOp::Le, size(), bytes(number.saturating_sub(1))),
+        Sign::Exactly if number == 0 => binary(BinOp::Le, size(), bytes(0)),
         Sign::Exactly => binary(
             BinOp::And,
             binary(BinOp::Gt, size(), bytes(number.saturating_sub(1))),
@@ -400,8 +401,18 @@ fn binary(op: BinOp, left: Expr, right: Expr) -> Expr {
 #[cfg(test)]
 mod tests {
     use super::super::tree::print_stage;
+    use super::super::{BashTable, TranslateContext};
     use super::*;
     use nurt_contracts::ast::{Arg, Stage};
+
+    fn span() -> Span {
+        Span {
+            line: 1,
+            column: 1,
+            end_line: 1,
+            end_column: 5,
+        }
+    }
 
     fn show(expr: Expr) -> String {
         let stage = Stage {
@@ -455,5 +466,39 @@ mod tests {
             show(size_condition(Sign::Exactly, 2, 1024)),
             "filter size > 1kib and size <= 2kib"
         );
+    }
+
+    #[test]
+    fn size_zero_selects_empty_files() {
+        assert_eq!(
+            show(size_condition(Sign::Exactly, 0, 1024)),
+            "filter size <= 0b"
+        );
+        assert_eq!(
+            show(size_condition(Sign::More, 0, 1024)),
+            "filter size > 0b"
+        );
+    }
+
+    #[test]
+    fn glob_of_a_name_rejects_a_path_and_prefixes_the_tree() {
+        let table = BashTable::embedded().unwrap();
+        let context = TranslateContext::default();
+        let session = Session::new(table, &context, "");
+        let value = engine::located("*.go", span());
+        assert!(matches!(
+            glob(&session, &value, "*.go").unwrap(),
+            Bound::Word { ref text, .. } if text == "**/*.go"
+        ));
+        assert!(glob(&session, &value, "a/b").is_err());
+    }
+
+    #[test]
+    fn reads_the_size_unit_after_a_multibyte_character() {
+        let table = BashTable::embedded().unwrap();
+        let context = TranslateContext::default();
+        let session = Session::new(table, &context, "");
+        assert!(size_readings(&session, span(), "5ą").is_err());
+        assert_eq!(size_readings(&session, span(), "2k").unwrap().len(), 2);
     }
 }

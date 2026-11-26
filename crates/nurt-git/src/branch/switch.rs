@@ -108,9 +108,10 @@ impl SwitchPart {
                     EntryAction::Create | EntryAction::Mkdir | EntryAction::Symlink => {
                         ChangeAction::Create
                     }
-                    EntryAction::Modify => ChangeAction::Modify,
+                    EntryAction::Modify | EntryAction::Chmod | EntryAction::TypeChange => {
+                        ChangeAction::Modify
+                    }
                     EntryAction::Delete | EntryAction::Rmdir => ChangeAction::Delete,
-                    _ => return None,
                 };
                 let relative = gix_path::from_bstr(entry.path.as_bstr()).ok()?;
                 Some(Change::new(
@@ -163,4 +164,49 @@ fn tree_of(repo: &gix::Repository, commit: ObjectId) -> Result<ObjectId> {
             )
         })?;
     Ok(commit.tree_id().map_err(read_error)?.detach())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testutil::RepoBuilder;
+
+    fn committer() -> gix_actor::Signature {
+        gix_actor::Signature {
+            name: "Test".into(),
+            email: "test@example.com".into(),
+            time: gix_date::Time {
+                seconds: 1_767_225_600,
+                offset: 0,
+            },
+        }
+    }
+
+    #[test]
+    fn changes_list_a_file_replaced_by_a_directory_as_modified() {
+        let fixture = RepoBuilder::new()
+            .file("p", "file\n")
+            .commit("one")
+            .remove("p")
+            .file("p/inner", "inner\n")
+            .commit("two")
+            .build();
+        let repo = fixture.open();
+        let first = repo.rev_parse_single("HEAD~1").unwrap().detach();
+        let branch = FullName::try_from("refs/heads/topic").unwrap();
+        let part = SwitchPart::plan(&repo, &branch, first, "HEAD~1", &committer()).unwrap();
+        let changes = part.changes(fixture.path(), &fixture.git_dir());
+        let action_of = |suffix: &str| {
+            changes
+                .iter()
+                .find(|change| change.path.as_str().ends_with(suffix))
+                .map(|change| change.action)
+        };
+        assert_eq!(action_of("repo/p"), Some(ChangeAction::Modify));
+        assert_eq!(action_of("refs/heads/topic"), Some(ChangeAction::Create));
+        assert_eq!(action_of("HEAD"), Some(ChangeAction::Modify));
+        assert!(part.plan.entries.iter().any(|entry| {
+            entry.path == "p" && entry.action == EntryAction::TypeChange
+        }));
+    }
 }

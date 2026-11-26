@@ -153,3 +153,95 @@ fn main() -> ExitCode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn strings(items: &[&str]) -> Vec<String> {
+        items.iter().map(|item| (*item).to_owned()).collect()
+    }
+
+    #[test]
+    fn options_are_parsed_into_arguments() {
+        let raw = strings(&[
+            "check",
+            "--root",
+            "/repo",
+            "--core-tokens",
+            "2,230",
+            "--allow-missing-pages",
+        ]);
+        assert_eq!(parse_args(&raw).err(), Some("2,230 is not a number".to_owned()));
+        let raw = strings(&[
+            "check",
+            "--root",
+            "/repo",
+            "--core-tokens",
+            "2230",
+            "--total-tokens",
+            "4900",
+            "--allow-missing-pages",
+        ]);
+        let args = parse_args(&raw).unwrap();
+        assert_eq!(args.command, "check");
+        assert_eq!(args.root, Some(PathBuf::from("/repo")));
+        assert_eq!(args.core_tokens, Some(2230));
+        assert_eq!(args.total_tokens, Some(4900));
+        assert!(args.allow_missing_pages);
+    }
+
+    #[test]
+    fn missing_values_unknown_options_and_an_empty_line_are_errors() {
+        assert_eq!(parse_args(&[]).err(), Some(USAGE.to_owned()));
+        assert_eq!(
+            parse_args(&strings(&["site", "--out"])).err(),
+            Some("option --out needs a value".to_owned())
+        );
+        assert_eq!(
+            parse_args(&strings(&["site", "--bogus"])).err(),
+            Some("unknown option --bogus".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_command_needs_its_root_and_a_known_name() {
+        let without_root = Args {
+            command: "check".to_owned(),
+            ..Args::default()
+        };
+        assert_eq!(
+            run(&without_root).unwrap_err(),
+            "option --root is required".to_owned()
+        );
+        let unknown = Args {
+            command: "bogus".to_owned(),
+            root: Some(PathBuf::from("/repo")),
+            ..Args::default()
+        };
+        assert_eq!(run(&unknown).unwrap_err(), USAGE.to_owned());
+    }
+
+    #[test]
+    fn the_site_and_man_commands_need_their_output_options() {
+        let site = Args {
+            command: "site".to_owned(),
+            root: Some(PathBuf::from("/repo")),
+            ..Args::default()
+        };
+        assert_eq!(
+            run(&site).unwrap_err(),
+            "option --out is required".to_owned()
+        );
+        let man = Args {
+            command: "man".to_owned(),
+            out: Some(PathBuf::from("/out")),
+            root: Some(PathBuf::from("/repo")),
+            ..Args::default()
+        };
+        assert_eq!(
+            run(&man).unwrap_err(),
+            "option --date is required".to_owned()
+        );
+    }
+}

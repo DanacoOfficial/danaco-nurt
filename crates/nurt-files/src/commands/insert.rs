@@ -480,4 +480,54 @@ mod tests {
         let wrong = BoundArgs::new(COMMAND).with(TEXT, ArgValue::Value(Value::Int(1)), false);
         assert_eq!(text_param(&wrong).unwrap_err().code(), ErrorCode::Type);
     }
+
+    #[test]
+    fn insertion_keeps_the_byte_order_mark_and_multibyte_text() {
+        let (test, path) = with_file(
+            "/data/a.txt",
+            "\u{feff}za\u{17c}\u{f3}\u{142}\u{107}\r\nx\r\n".as_bytes(),
+        );
+        run(
+            &test,
+            &args("gl\u{105}", &[file_arg(&path), (LINE, Value::Int(1))]),
+            StageInput::none(),
+        )
+        .unwrap();
+        assert_eq!(
+            test.fs().read_file(&path).unwrap(),
+            "\u{feff}za\u{17c}\u{f3}\u{142}\u{107}\r\ngl\u{105}\r\nx\r\n".as_bytes()
+        );
+    }
+
+    #[test]
+    fn a_line_below_the_first_fails_with_out_of_range() {
+        let (test, path) = with_file("/data/a.txt", b"one\n");
+        let error = run(
+            &test,
+            &args(
+                "x",
+                &[file_arg(&path), (LINE, Value::Int(0)), position("before")],
+            ),
+            StageInput::none(),
+        )
+        .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::OutOfRange);
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"one\n");
+    }
+
+    #[test]
+    fn binary_files_are_not_changed() {
+        let (test, path) = with_file("/data/a.bin", b"\x7fELF\x00\x01\x02\x00");
+        let error = run(
+            &test,
+            &args("x", &[file_arg(&path), position("end")]),
+            StageInput::none(),
+        )
+        .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Binary);
+        assert_eq!(
+            test.fs().read_file(&path).unwrap(),
+            b"\x7fELF\x00\x01\x02\x00"
+        );
+    }
 }

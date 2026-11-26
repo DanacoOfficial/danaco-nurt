@@ -118,7 +118,7 @@ impl Watchdog {
         let timeout = self.timeout.map(|limit| limit.saturating_sub(now));
         let idle = self
             .idle_timeout
-            .map(|limit| (self.last_activity + limit).saturating_sub(now));
+            .map(|limit| self.last_activity.saturating_add(limit).saturating_sub(now));
         match (timeout, idle) {
             (Some(left), Some(right)) => Some(left.min(right)),
             (left, right) => left.or(right),
@@ -259,5 +259,59 @@ mod tests {
     #[test]
     fn without_time_limits_there_is_no_deadline() {
         assert_eq!(Watchdog::new(&limits()).until_deadline(secs(1)), None);
+    }
+
+    #[test]
+    fn the_idle_deadline_does_not_overflow_for_the_largest_limit() {
+        let mut watchdog = Watchdog::new(&ProcessLimits {
+            idle_timeout: Some(Duration::MAX),
+            ..limits()
+        });
+        watchdog.observe_output(secs(3), Some(secs(2)));
+        assert_eq!(watchdog.verdict(secs(10)), None);
+        assert_eq!(
+            watchdog.until_deadline(secs(10)),
+            Some(Duration::MAX - secs(10))
+        );
+    }
+
+    #[test]
+    fn the_nearest_of_the_two_deadlines_is_reported() {
+        let mut watchdog = Watchdog::new(&ProcessLimits {
+            timeout: Some(secs(100)),
+            idle_timeout: Some(secs(20)),
+            ..limits()
+        });
+        watchdog.observe_output(secs(10), Some(secs(1)));
+        assert_eq!(watchdog.until_deadline(secs(15)), Some(secs(15)));
+        watchdog.observe_output(secs(90), Some(secs(2)));
+        assert_eq!(watchdog.until_deadline(secs(95)), Some(secs(5)));
+        assert_eq!(watchdog.until_deadline(secs(500)), Some(Duration::ZERO));
+    }
+
+    #[test]
+    fn a_limit_of_zero_is_reached_at_once() {
+        let timeout = Watchdog::new(&ProcessLimits {
+            timeout: Some(Duration::ZERO),
+            ..limits()
+        });
+        assert_eq!(timeout.verdict(Duration::ZERO), Some(Verdict::Timeout));
+        let cpu = Watchdog::new(&ProcessLimits {
+            max_cpu: Some(Duration::ZERO),
+            ..limits()
+        });
+        assert_eq!(cpu.verdict(Duration::ZERO), Some(Verdict::Cpu));
+    }
+
+    #[test]
+    fn unchanged_output_time_is_not_activity() {
+        let mut watchdog = Watchdog::new(&ProcessLimits {
+            idle_timeout: Some(secs(10)),
+            ..limits()
+        });
+        watchdog.observe_output(secs(1), Some(secs(1)));
+        watchdog.observe_output(secs(9), Some(secs(1)));
+        assert_eq!(watchdog.verdict(secs(10)), None);
+        assert_eq!(watchdog.verdict(secs(11)), Some(Verdict::Idle));
     }
 }

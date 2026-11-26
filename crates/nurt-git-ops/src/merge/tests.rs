@@ -292,6 +292,11 @@ fn refuses_unrelated_histories_unless_allowed() {
     let error = merge_commits(&fx.repo, ours, theirs, &options("other")).unwrap_err();
     assert_eq!(error.code(), ErrorCode::GitNonFastForward);
     assert_eq!(error.data().problem.as_deref(), Some("unrelated_histories"));
+    assert!(
+        !error.data().message.contains("allow_unrelated"),
+        "the command has no such parameter: {}",
+        error.data().message
+    );
     let mut opts = options("other");
     opts.allow_unrelated = true;
     let out = merge_commits(&fx.repo, ours, theirs, &opts).unwrap();

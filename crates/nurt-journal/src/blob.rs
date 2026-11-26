@@ -318,6 +318,76 @@ mod tests {
     }
 
     #[test]
+    fn shared_content_is_not_remembered_by_identity_and_copies_count_every_time() {
+        let mut held = HeldBytes::default();
+        assert_eq!(held.count(PreserveMode::Moved, 50, Some(id(2)), true), 0);
+        assert_eq!(held.count(PreserveMode::Moved, 50, Some(id(2)), false), 50);
+        assert_eq!(held.count(PreserveMode::Exchange, 50, Some(id(2)), false), 0);
+        assert_eq!(held.count(PreserveMode::ReplaceBackup, 8, Some(id(3)), false), 8);
+        assert_eq!(held.count(PreserveMode::Copy, 4, None, false), 4);
+        assert_eq!(held.count(PreserveMode::Copy, 4, None, false), 4);
+        assert_eq!(held.count(PreserveMode::Clone, 0, None, false), 0);
+        assert_eq!(held.count(PreserveMode::Copy, u64::MAX, None, true), 0);
+        assert_eq!(held.count(PreserveMode::Copy, u64::MAX, None, false), u64::MAX);
+    }
+
+    #[test]
+    fn parent_directories_are_flushed_once() {
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = scope(OpId(1), ScopePurpose::Maintenance);
+        let first = fs.path("vol-a/one.txt");
+        let second = fs.path("vol-a/two.txt");
+        fixture.write(&first, b"1");
+        fixture.write(&second, b"2");
+        fs.clear_log();
+        sync_parents(fs, &scope, &[&first, &second, &first]).unwrap();
+        let flushes = fs
+            .log()
+            .iter()
+            .filter(|entry| entry.starts_with("sync_dir "))
+            .count();
+        assert_eq!(flushes, 1);
+        sync_parents(fs, &scope, &[]).unwrap();
+    }
+
+    #[test]
+    fn streams_of_empty_and_multibyte_content_are_copied_and_hashed() {
+        use sha2::Digest;
+
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = scope(OpId(1), ScopePurpose::Maintenance);
+        let contents = [Vec::new(), "zażółć gęślą jaźń\r\n".as_bytes().to_vec()];
+        for (n, content) in contents.into_iter().enumerate() {
+            let source = fs.path(&format!("vol-a/s{n}.bin"));
+            fixture.write(&source, &content);
+            let target = fs.path(&format!("vol-a/d{n}.bin"));
+            let mut dest = fs.create_new(&scope, &target).unwrap();
+            let mut hasher = sha2::Sha256::default();
+            let copied = stream_copy(fs, &source, dest.as_mut(), Some(&mut hasher)).unwrap();
+            assert_eq!(copied, u64::try_from(content.len()).unwrap());
+            let digest: [u8; 32] = hasher.finalize().into();
+            assert_eq!(fs.content_hash(&source).unwrap().0, digest);
+            assert_eq!(fixture.read(&target), content);
+        }
+    }
+
+    #[test]
+    fn removing_a_missing_entry_or_leftover_is_not_an_error() {
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = scope(OpId(1), ScopePurpose::Maintenance);
+        let missing = fs.path("vol-a/missing");
+        assert_eq!(remove_entry(fs, &scope, &missing), Ok(()));
+        assert_eq!(discard(fs, &scope, &missing), Ok(()));
+        let file = fs.path("vol-a/leftover.txt");
+        fixture.write(&file, b"x");
+        assert_eq!(discard(fs, &scope, &file), Ok(()));
+        assert!(!fixture.exists(&file));
+    }
+
+    #[test]
     fn copies_become_visible_only_when_complete() {
         let fixture = Fixture::new();
         let fs = &fixture.fs;

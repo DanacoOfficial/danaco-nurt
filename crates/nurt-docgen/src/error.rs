@@ -111,3 +111,54 @@ pub fn list_files(dir: &Path, extension: &str) -> Result<Vec<PathBuf>> {
     files.sort();
     Ok(files)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lists_files_with_the_extension_sorted_by_name() {
+        let dir = tempfile::tempdir().expect("temporary directory");
+        for name in ["b.md", "a.md", "c.txt", "\u{17c}.md"] {
+            std::fs::write(dir.path().join(name), "x").expect("file");
+        }
+        std::fs::create_dir(dir.path().join("d.md")).expect("directory");
+        let names: Vec<String> = list_files(dir.path(), "md")
+            .expect("listing")
+            .iter()
+            .filter_map(|path| path.file_name())
+            .map(|name| name.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["a.md", "b.md", "\u{17c}.md"]);
+    }
+
+    #[test]
+    fn write_text_creates_parent_directories_and_keeps_multi_byte_text() {
+        let dir = tempfile::tempdir().expect("temporary directory");
+        let path = dir.path().join("a").join("b").join("page.html");
+        write_text(&path, "za\u{17c}\u{f3}\u{142}\u{107}\r\n").expect("written");
+        assert_eq!(read_text(&path).expect("read"), "za\u{17c}\u{f3}\u{142}\u{107}\r\n");
+    }
+
+    #[test]
+    fn missing_files_and_directories_are_reported_with_their_path() {
+        let dir = tempfile::tempdir().expect("temporary directory");
+        let missing = dir.path().join("missing");
+        let error = read_text(&missing).expect_err("missing file");
+        assert!(matches!(error, DocgenError::Io { .. }));
+        assert!(error.to_string().starts_with(&missing.display().to_string()));
+        assert!(std::error::Error::source(&error).is_some());
+        assert!(list_files(&missing, "md").is_err());
+    }
+
+    #[test]
+    fn describes_invalid_inputs_and_failed_checks() {
+        let invalid = DocgenError::invalid("table", "bad");
+        assert_eq!(invalid.to_string(), "table: bad");
+        assert!(std::error::Error::source(&invalid).is_none());
+        assert_eq!(
+            DocgenError::Checks { count: 3 }.to_string(),
+            "3 documentation problems found"
+        );
+    }
+}

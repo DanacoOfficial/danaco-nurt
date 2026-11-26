@@ -18,7 +18,7 @@ use std::ops::ControlFlow;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{AbsPath, Etag, FileKind, FileMeta, Follow, Fs, FsErrorKind};
 use nurt_contracts::journal::{FileOp, Mutation, MutationTx, TargetSpec};
-use nurt_contracts::record::{Change, Effect, EffectStatus};
+use nurt_contracts::record::{Change, ChangeAction, Effect, EffectStatus};
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::services::ExcludePreset;
 use nurt_contracts::stage::{BoundArgs, ExecCtx, RecordStream, StageInput, StageOutput};
@@ -782,6 +782,9 @@ impl Step {
         if let Some(source) = &self.from {
             change.from = Some(path_field(source));
         }
+        if change.action == ChangeAction::Rename && change.from.is_none() {
+            change.from = Some(change.path.clone());
+        }
         change
     }
 }
@@ -1472,6 +1475,76 @@ mod tests {
     }
 
     #[test]
+    fn words_next_to_multibyte_letters_are_not_references() {
+        assert!(contains_word("\u{e9} utils \u{fc}", "utils"));
+        assert!(!contains_word("\u{e9}utils", "utils"));
+        assert!(!contains_word("utils\u{fc}", "utils"));
+        assert!(contains_word("(utils)", "utils"));
+    }
+
+    #[test]
+    fn large_and_hidden_files_are_not_read_for_references() {
+        let test = TestContext::new();
+        let target = file(&test, "/p/utils.py", b"x\n");
+        let mut big = b"import utils\n".to_vec();
+        big.resize(usize::try_from(REFERENCE_FILE_BYTES).unwrap() + 1, b' ');
+        file(&test, "/p/big.py", &big);
+        file(&test, "/p/.hidden.py", b"import utils\n");
+        let ctx = test.ctx();
+        assert_eq!(references_left(&ctx, &[target]).unwrap(), None);
+    }
+
+    #[test]
+    fn choices_and_flags_read_values_and_defaults() {
+        let given = BoundArgs::new("copy")
+            .with("preserve", ArgValue::Value(Value::Bool(true)), false)
+            .with("clone", ArgValue::Value(Value::Enum("never".to_owned())), false);
+        assert!(flag(&given, "preserve", false).unwrap());
+        assert_eq!(choice(&given, "clone").unwrap(), Some("never"));
+        let empty = BoundArgs::new("copy");
+        assert!(!flag(&empty, "preserve", false).unwrap());
+        assert!(flag(&empty, "preserve", true).unwrap());
+        assert_eq!(choice(&empty, "clone").unwrap(), None);
+        let number = BoundArgs::new("copy").with("clone", ArgValue::Value(Value::Int(1)), false);
+        assert_eq!(choice(&number, "clone").unwrap_err().code(), ErrorCode::Type);
+    }
+
+    #[test]
+    fn an_unknown_value_names_the_accepted_ones() {
+        let error = unknown_value(ON_CONFLICT, "merge", &ON_CONFLICT_VALUES);
+        assert_eq!(error.code(), ErrorCode::UnknownValue);
+        assert_eq!(error.found.as_deref(), Some("merge"));
+        assert!(error.message.contains("overwrite, skip, error"));
+    }
+
+    #[test]
+    fn walk_tree_lists_directories_before_their_content_and_keeps_links() {
+        let test = TestContext::new();
+        file(&test, "/t/b/inner.txt", b"i");
+        file(&test, "/t/a.txt", b"a");
+        test.fs().symlink("/elsewhere", &abs("/t/link")).unwrap();
+        let ctx = test.ctx();
+        let entries = walk_tree(test.fs().as_ref(), &ctx, &abs("/t")).unwrap();
+        let relative: Vec<String> = entries.iter().map(WalkEntry::relative_string).collect();
+        assert_eq!(relative, ["a.txt", "b", "b/inner.txt", "link"]);
+    }
+
+    #[test]
+    fn in_use_errors_without_holders_stay_as_they_are() {
+        let test = TestContext::new();
+        let plain = with_holders(Error::new(ErrorCode::InUse, "in use"), test.fs().as_ref());
+        assert_eq!(plain.message, "in use");
+        let path = file(&test, "/data/a.txt", b"a");
+        let free = Error::new(ErrorCode::InUse, "in use").with_detail(
+            PATH_FIELD,
+            Json::from(path.as_path().to_string_lossy().into_owned()),
+        );
+        let free = with_holders(free, test.fs().as_ref());
+        assert_eq!(free.message, "in use");
+        assert!(!free.details.contains_key(HOLDERS_DETAIL));
+    }
+
+    #[test]
     fn remaining_references_are_counted_with_locations() {
         let test = TestContext::new();
         let target = file(&test, "/p/utils.py", b"def f(): pass\n");
@@ -1485,6 +1558,23 @@ mod tests {
         let main = abs("/p/main.py").to_language_string();
         assert_eq!(found.detail, Some(format!("{main}:1, {main}:3")));
         assert_eq!(references_left(&ctx, &[]).unwrap(), None);
+    }
+
+    #[test]
+    fn a_rename_step_gives_the_previous_path_and_the_destination() {
+        let source = abs("/a.txt");
+        let target = abs("/b.txt");
+        let change = Step::op(FileOp::rename(source.clone(), target.clone(), false)).change();
+        assert_eq!(change.action, ChangeAction::Rename);
+        assert_eq!(change.path.as_str(), source.to_language_string());
+        assert_eq!(
+            change.from.map(|path| path.as_str().to_owned()),
+            Some(source.to_language_string())
+        );
+        assert_eq!(
+            change.to.map(|path| path.as_str().to_owned()),
+            Some(target.to_language_string())
+        );
     }
 
     #[test]

@@ -100,3 +100,34 @@ fn removed(job: Job) -> Effect {
         ..Effect::default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_descriptor_accepts_only_job_records_and_the_stage_changes_state() {
+        let stage = Remove::new(crate::api::components());
+        let descriptor = stage.descriptor();
+        assert_eq!(descriptor.command, "remove");
+        assert!(!descriptor.source);
+        assert_eq!(descriptor.input, InputKinds::Only(vec![RecordKind::Job]));
+        assert!(stage.as_effect().is_some());
+    }
+
+    #[test]
+    fn the_effect_record_holds_the_last_record_of_the_job() {
+        let job = Job {
+            id: "j9".to_owned(),
+            ..Job::default()
+        };
+        let record = removed(job);
+        assert_eq!(record.status, EffectStatus::Ok);
+        assert_eq!(record.kind, "remove");
+        assert_eq!(record.action.as_deref(), Some("remove"));
+        assert_eq!(record.target.as_deref(), Some("job:j9"));
+        assert_eq!(record.targets, Some(1));
+        assert!(record.irreversible.is_none());
+        assert_eq!(record.job.map(|job| job.id), Some("j9".to_owned()));
+    }
+}

@@ -1144,3 +1144,128 @@ pub fn word_at(text: &str, position: TextPosition) -> Option<String> {
     let word: String = characters[start..end].iter().collect();
     (!word.is_empty()).then_some(word)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn emptiness_covers_every_kind_of_json_value() {
+        assert!(is_empty(&Value::Null));
+        assert!(is_empty(&json!([])));
+        assert!(is_empty(&json!({})));
+        for value in [json!(0), json!(""), json!(false), json!([null])] {
+            assert!(!is_empty(&value), "{value}");
+        }
+    }
+
+    #[test]
+    fn runs_of_white_space_collapse_to_one_space() {
+        assert_eq!(collapse_whitespace(" a \n b\t c "), "a b c");
+        assert_eq!(collapse_whitespace(""), "");
+    }
+
+    #[test]
+    fn severity_defaults_to_error() {
+        assert_eq!(severity(None), DiagnosticSeverity::Error);
+        assert_eq!(
+            severity(Some(LspSeverity::WARNING)),
+            DiagnosticSeverity::Warning
+        );
+        assert_eq!(
+            severity(Some(LspSeverity::INFORMATION)),
+            DiagnosticSeverity::Info
+        );
+        assert_eq!(severity(Some(LspSeverity::HINT)), DiagnosticSeverity::Hint);
+    }
+
+    #[test]
+    fn code_actions_carry_their_command_kind_and_preference() {
+        let no_text = |_: &Path| None;
+        let plain = json!({"title": "t", "command": "c"});
+        let bare = code_action(&plain, PositionUnit::Utf16, &no_text).unwrap();
+        assert_eq!(bare.command.as_deref(), Some("c"));
+        assert!(bare.edit.is_none() && !bare.preferred && bare.kind.is_none());
+        let full = code_action(
+            &json!({"title": "t", "kind": "quickfix", "isPreferred": true,
+                    "command": {"title": "x", "command": "cmd"}}),
+            PositionUnit::Utf16,
+            &no_text,
+        )
+        .unwrap();
+        assert_eq!(full.kind.as_deref(), Some("quickfix"));
+        assert!(full.preferred);
+        assert_eq!(full.command.as_deref(), Some("cmd"));
+        assert!(code_action(&json!({"command": "c"}), PositionUnit::Utf16, &no_text).is_none());
+    }
+
+    #[test]
+    fn lines_are_found_without_their_carriage_returns() {
+        assert_eq!(line_text("a\r\nb", 1), Some("a"));
+        assert_eq!(line_text("a\r\nb", 2), Some("b"));
+        assert_eq!(line_text("a\r\nb", 3), None);
+        assert_eq!(line_text("a", 0), None);
+    }
+
+    #[test]
+    fn character_widths_follow_the_position_unit() {
+        assert_eq!(width('\u{e9}', PositionUnit::Utf8), 2);
+        assert_eq!(width('\u{1f600}', PositionUnit::Utf8), 4);
+        assert_eq!(width('\u{1f600}', PositionUnit::Utf16), 2);
+        assert_eq!(width('\u{1f600}', PositionUnit::Utf32), 1);
+    }
+
+    #[test]
+    fn positions_after_a_surrogate_pair_convert_in_both_directions() {
+        let text = "\u{1f600}x\r\ny\n";
+        let position = TextPosition { line: 1, column: 2 };
+        let protocol = to_lsp(Some(text), position, PositionUnit::Utf16);
+        assert_eq!(protocol, json!({"line": 0, "character": 2}));
+        assert_eq!(
+            from_lsp(Some(text), &protocol, PositionUnit::Utf16),
+            Some(position)
+        );
+        let second = TextPosition { line: 2, column: 1 };
+        assert_eq!(
+            to_lsp(Some(text), second, PositionUnit::Utf8),
+            json!({"line": 1, "character": 0})
+        );
+        assert_eq!(
+            from_lsp(Some(text), &json!({"line": 0, "character": 5}), PositionUnit::Utf8),
+            Some(TextPosition { line: 1, column: 3 })
+        );
+        let negative = json!({"line": -1, "character": 0});
+        assert!(from_lsp(Some(text), &negative, PositionUnit::Utf16).is_none());
+    }
+
+    #[test]
+    fn identifiers_may_contain_dollar_signs_and_non_ascii_letters() {
+        assert_eq!(
+            word_at("$x = 1", TextPosition { line: 1, column: 2 }).as_deref(),
+            Some("$x")
+        );
+        assert_eq!(
+            word_at("\u{17c}\u{f3}\u{142}w = 1", TextPosition { line: 1, column: 3 }).as_deref(),
+            Some("\u{17c}\u{f3}\u{142}w")
+        );
+        assert_eq!(word_at("a", TextPosition { line: 1, column: 0 }), None);
+    }
+
+    #[test]
+    fn nested_hover_contents_are_joined_without_empty_parts() {
+        assert_eq!(hover_text(&json!([["a"], "", "b"])), "a\n\nb");
+        assert_eq!(
+            hover_text(&json!({"language": "rust", "value": "fn f()"})),
+            "```rust\nfn f()\n```"
+        );
+        assert_eq!(hover_text(&json!(3)), "");
+    }
+
+    #[test]
+    fn a_timeout_is_reported_as_timed_out() {
+        let error = semantic_error(LspError::Timeout {
+            server: "mock".to_owned(),
+        });
+        assert_eq!(error.kind, SemanticErrorKind::TimedOut);
+    }
+}

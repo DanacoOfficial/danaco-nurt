@@ -1612,7 +1612,8 @@ impl<'c> Planner<'c> {
         if after == 0 && before > 0 {
             self.note(Notable::FileEmptied, path, None);
         } else if before >= SHRINK_MIN_BYTES
-            && (after as f64) <= (before as f64) * self.settings.shrink_ratio
+            && after < before
+            && ((before - after) as f64) >= (before as f64) * self.settings.shrink_ratio
         {
             self.note(
                 Notable::SizeShrunk,
@@ -2165,6 +2166,40 @@ mod tests {
         let emptied = run(&test, &with_text("/data/big.txt", "overwrite", "")).unwrap();
         assert!(emptied.notable.contains(&Notable::FileEmptied));
         assert!(read(&test, "/data/big.txt").is_empty());
+    }
+
+    #[test]
+    fn size_shrunk_follows_the_share_by_which_the_file_shrinks() {
+        let (test, _) = with_file("/data/big.txt", &[b'x'; 2048]);
+        let mut config = config::Config::default();
+        config.report.notable.shrink_ratio = 0.8;
+        let ctx = test.builder().config(Arc::new(config)).build();
+        let half = "y".repeat(1024);
+        let halved = run_with(
+            &test,
+            &ctx,
+            &with_text("/data/big.txt", "overwrite", &half),
+            StageInput::none(),
+        )
+        .unwrap();
+        assert!(!halved.notable.contains(&Notable::SizeShrunk));
+        let tenth = run_with(
+            &test,
+            &ctx,
+            &with_text("/data/big.txt", "overwrite", &"z".repeat(100)),
+            StageInput::none(),
+        )
+        .unwrap();
+        assert!(tenth.notable.contains(&Notable::SizeShrunk));
+    }
+
+    #[test]
+    fn growing_a_file_is_not_reported_as_shrunk() {
+        let (test, _) = with_file("/data/big.txt", &[b'x'; 2048]);
+        let grown = "y".repeat(4096);
+        let run = run(&test, &with_text("/data/big.txt", "overwrite", &grown)).unwrap();
+        assert!(!run.notable.contains(&Notable::SizeShrunk));
+        assert!(!run.notable.contains(&Notable::FileEmptied));
     }
 
     #[test]
@@ -2983,5 +3018,51 @@ mod tests {
         assert_eq!(descriptor.input, InputKinds::Any);
         assert!(stages[0].as_effect().is_some());
         assert!(stages[0].as_read().is_none());
+    }
+
+    #[test]
+    fn append_keeps_the_legacy_encoding_and_line_endings_of_the_file() {
+        let (test, _) = with_file("/data/legacy.txt", CP1250_CRLF);
+        let given = with_text("/data/legacy.txt", "append", "\u{17c}\u{f3}\u{142}w\n");
+        run(&test, &given).unwrap();
+        let mut expected = CP1250_CRLF.to_vec();
+        expected.extend_from_slice(b"\xbf\xf3\xb3w\r\n");
+        assert_eq!(read(&test, "/data/legacy.txt"), expected);
+    }
+
+    #[test]
+    fn prepend_keeps_the_byte_order_mark_in_front() {
+        let (test, _) = with_file("/data/a.txt", b"\xef\xbb\xbfbody\n");
+        run(&test, &with_text("/data/a.txt", "prepend", "head\n")).unwrap();
+        assert_eq!(read(&test, "/data/a.txt"), b"\xef\xbb\xbfhead\nbody\n");
+    }
+
+    #[test]
+    fn append_with_ensure_newline_ends_the_added_text_with_the_line_ending() {
+        let (test, _) = with_file("/data/a.txt", b"a\r\n");
+        let given = set(
+            with_text("/data/a.txt", "append", "b"),
+            ENSURE_NEWLINE,
+            Value::Bool(true),
+        );
+        run(&test, &given).unwrap();
+        assert_eq!(read(&test, "/data/a.txt"), b"a\r\nb\r\n");
+    }
+
+    #[test]
+    fn unknown_modes_and_negative_sizes_are_rejected_before_any_change() {
+        let (test, _) = with_file("/data/a.bin", b"abc");
+        let unknown = with_text("/data/a.bin", "upsert", "x");
+        assert_eq!(
+            run(&test, &unknown).unwrap_err().code(),
+            ErrorCode::UnknownValue
+        );
+        let negative = set(args("/data/a.bin", "overwrite"), SIZE, Value::Int(-1));
+        assert_eq!(
+            run(&test, &negative).unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
+        assert_eq!(read(&test, "/data/a.bin"), b"abc");
+        assert!(test.journal().calls().is_empty());
     }
 }

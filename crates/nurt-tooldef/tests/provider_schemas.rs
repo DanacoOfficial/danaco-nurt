@@ -232,3 +232,17 @@ fn description_holds_the_selected_groups_in_every_format() {
         assert_eq!(description, &Value::from(expected.as_str()), "{format}");
     }
 }
+
+#[test]
+fn every_format_names_the_tool_nurt() {
+    for format in ToolFormat::ALL {
+        let definition = definition(*format, &common::options()).unwrap();
+        let name = match format {
+            ToolFormat::OpenAiChat | ToolFormat::OpenAiChatStrict => {
+                &definition["function"]["name"]
+            }
+            _ => &definition["name"],
+        };
+        assert_eq!(name, &Value::from("nurt"), "{format}");
+    }
+}

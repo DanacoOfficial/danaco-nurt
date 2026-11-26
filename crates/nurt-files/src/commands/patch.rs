@@ -1634,6 +1634,16 @@ mod tests {
     }
 
     #[test]
+    fn strip_larger_than_the_path_fails_with_format_before_any_change() {
+        let test = with_files(&[("/work/notes.txt", b"a\nb\nc\n")]);
+        let error = run(&test, &args(&modify_b(), &[(STRIP, Value::Int(5))])).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Format);
+        assert_eq!(error.problem.as_deref(), Some("strip_too_large"));
+        assert_eq!(read(&test, "/work/notes.txt"), b"a\nb\nc\n");
+        assert!(test.journal().calls().is_empty());
+    }
+
+    #[test]
     fn apply_without_the_state_of_the_plan_fails() {
         let test = with_files(&[]);
         let given = args(&modify_b(), &[]);

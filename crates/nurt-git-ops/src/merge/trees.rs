@@ -470,7 +470,7 @@ pub fn merge_base_virtual(
 pub fn unrelated_error() -> Error {
     Error::new(
         ErrorCode::GitNonFastForward,
-        "refusing to merge unrelated histories; pass allow_unrelated: true to merge them",
+        "refusing to merge unrelated histories; the commits share no common ancestor, so merge a branch that descends from the current one",
     )
     .with_problem("unrelated_histories")
 }

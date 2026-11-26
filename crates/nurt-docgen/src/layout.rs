@@ -80,3 +80,27 @@ impl Layout {
         self.root.join("docs")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn directories_are_derived_from_the_root() {
+        let root = Path::new("repo");
+        let layout = Layout::new(root);
+        assert_eq!(layout.root(), root);
+        assert_eq!(layout.catalog(), root.join("catalog"));
+        assert_eq!(layout.spec(), root.join("spec"));
+        assert_eq!(layout.docs(), root.join("docs"));
+        assert_eq!(layout.commands(), root.join("docs").join("commands"));
+        assert_eq!(layout.site(), root.join("docs").join("site"));
+        assert_eq!(layout.cookbook(), root.join("docs").join("cookbook"));
+        assert_eq!(layout.cheatsheets(), root.join("docs").join("cheatsheets"));
+        assert_eq!(layout.reference(), root.join("docs").join("reference"));
+        assert_eq!(
+            layout.cli_subcommands(),
+            root.join("tables").join("cli-subcommands.toml")
+        );
+    }
+}

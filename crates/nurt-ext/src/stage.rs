@@ -254,6 +254,20 @@ impl ReadStage for ExtensionStage {
     }
 }
 
+/// The writes of one call with one write per path: when an extension writes a
+/// file twice, the last content counts and the file keeps the place of its
+/// first write.
+fn last_write_per_path(writes: Vec<PlannedWrite>) -> Vec<PlannedWrite> {
+    let mut kept: Vec<PlannedWrite> = Vec::with_capacity(writes.len());
+    for write in writes {
+        match kept.iter_mut().find(|known| known.path == write.path) {
+            Some(known) => known.content = write.content,
+            None => kept.push(write),
+        }
+    }
+    kept
+}
+
 fn planned_change(write: &PlannedWrite, ctx: &ExecCtx) -> Result<(Change, TargetAction, Expect)> {
     let fs = ctx.require_fs()?;
     let content_size = Size::from(u64::try_from(write.content.len()).unwrap_or(u64::MAX));
@@ -283,7 +297,7 @@ impl EffectStage for ExtensionStage {
         let (records, writes) = self.call(args, input, ctx)?;
         let mut plan = EffectPlan::new();
         let mut planned = Vec::with_capacity(writes.len());
-        for write in writes {
+        for write in last_write_per_path(writes) {
             let (change, action, expect) = planned_change(&write, ctx)?;
             plan.changes.push(change);
             planned.push((write, action, expect));
@@ -499,6 +513,54 @@ write = ["/project"]
             .execute(&args, items(), &ctx)
             .unwrap_err();
         assert!(error.message.contains("writes = true"));
+    }
+
+    #[test]
+    fn a_file_written_twice_is_planned_once_with_the_last_content() {
+        let context = TestContext::new();
+        let path = test_path("/project/twice.txt").unwrap();
+        let output = GuestOutput {
+            records: Vec::new(),
+            writes: vec![
+                PlannedWrite {
+                    path: path.clone(),
+                    content: b"first".to_vec(),
+                },
+                PlannedWrite {
+                    path: test_path("/project/other.txt").unwrap(),
+                    content: b"o".to_vec(),
+                },
+                PlannedWrite {
+                    path: path.clone(),
+                    content: b"second".to_vec(),
+                },
+            ],
+        };
+        let (fix, _) = stage(1, output);
+        let ctx = context.ctx();
+        let args = BoundArgs::new("acme.fix");
+        let effect = fix.as_effect().unwrap();
+        let plan = effect.plan(&args, items(), &ctx).unwrap();
+        assert_eq!(plan.changes.len(), 2);
+        let mut tx = context.journal().begin(begin_request("acme.fix"));
+        effect.apply(&args, plan, tx.as_mut(), &ctx).unwrap();
+        tx.commit().unwrap();
+        assert_eq!(context.fs().read_file(&path).unwrap(), b"second");
+    }
+
+    #[test]
+    fn last_write_per_path_keeps_the_order_of_first_writes() {
+        let write = |name: &str, content: &str| PlannedWrite {
+            path: test_path(name).unwrap(),
+            content: content.as_bytes().to_vec(),
+        };
+        let kept = super::last_write_per_path(vec![
+            write("/a", "1"),
+            write("/b", "2"),
+            write("/a", "3"),
+        ]);
+        assert_eq!(kept, [write("/a", "3"), write("/b", "2")]);
+        assert!(super::last_write_per_path(Vec::new()).is_empty());
     }
 
     #[test]

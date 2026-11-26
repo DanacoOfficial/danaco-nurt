@@ -84,20 +84,41 @@ const BREW_ENV: [(&str, &str); 2] = [("HOMEBREW_NO_AUTO_UPDATE", "1"), ("NONINTE
 const WINGET_QUIET: [&str; 2] = ["--silent", "--disable-interactivity"];
 const WINGET_AGREEMENTS: [&str; 2] = ["--accept-package-agreements", "--accept-source-agreements"];
 
+/// Rejects a package name or version that a manager would read as an option
+/// or that cannot be passed as one argument.
+fn check_argument(text: &str) -> Result<()> {
+    if text.is_empty() || text.starts_with('-') || text.chars().any(char::is_control) {
+        return Err(Error::new(
+            ErrorCode::Arg,
+            format!(
+                "`{}` cannot be passed to the package manager; a name or a version is not empty, \
+                 does not start with `-` and has no control characters",
+                text.escape_debug()
+            ),
+        )
+        .with_found(text.to_owned()));
+    }
+    Ok(())
+}
+
 /// Builds the invocations that apply `action` to `names` through `manager`.
 ///
 /// `names` is empty only for an upgrade of all packages.
 ///
 /// # Errors
 ///
-/// Returns `E_UNSUPPORTED` when the manager cannot install the requested
-/// `version`.
+/// Returns `E_ARG` for a name or a version that starts with `-`, is empty or
+/// holds a control character, and `E_UNSUPPORTED` when the manager cannot
+/// install the requested `version`.
 pub fn build(
     manager: PackageManager,
     action: Action,
     names: &[String],
     version: Option<&str>,
 ) -> Result<ChangePlan> {
+    for text in names.iter().map(String::as_str).chain(version) {
+        check_argument(text)?;
+    }
     let mut plan = ChangePlan::default();
     let pinned = |separator: &str| -> Vec<String> {
         names
@@ -532,6 +553,28 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn names_and_versions_that_read_as_options_are_rejected() {
+        for bad in ["-oAPT::Update::Pre-Invoke::=x", "--yes", "", "a\nb"] {
+            let error = build(PackageManager::Apt, Action::Install, &names(&[bad]), None)
+                .expect_err("rejected name");
+            assert_eq!(error.code(), ErrorCode::Arg, "{bad:?}");
+        }
+        for manager in [PackageManager::Choco, PackageManager::Winget] {
+            let error = build(manager, Action::Install, &names(&["tool"]), Some("-1"))
+                .expect_err("rejected version");
+            assert_eq!(error.code(), ErrorCode::Arg);
+        }
+        let plan = build(
+            PackageManager::Apt,
+            Action::Install,
+            &names(&["libstdc++6", "g++-12"]),
+            None,
+        )
+        .expect("plan");
+        assert_eq!(plan.invocations[0].args[7..], ["libstdc++6", "g++-12"]);
     }
 
     #[test]

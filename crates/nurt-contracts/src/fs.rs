@@ -117,13 +117,15 @@ impl AbsPath {
     /// # Errors
     ///
     /// Fails with [`FsErrorKind::InvalidPath`] when `name` is empty, is `.`
-    /// or `..`, or contains a separator.
+    /// or `..`, or contains a separator. On Windows a colon is rejected as
+    /// well, because a name that starts with a drive prefix replaces the
+    /// whole path when it is joined.
     pub fn join_name(&self, name: &str) -> FsResult<AbsPath> {
         let invalid = name.is_empty()
             || name == "."
             || name == ".."
             || name.contains('/')
-            || (cfg!(windows) && name.contains('\\'));
+            || (cfg!(windows) && name.contains(['\\', ':']));
         if invalid {
             return Err(FsError::new(
                 FsErrorKind::InvalidPath,
@@ -741,8 +743,8 @@ impl FsErrorKind {
 /// File system error with context.
 ///
 /// Converted to the language error ([`Error`](crate::error::Error)) with the
-/// code given by [`FsErrorKind::code_id`]; `kind`, `path`, `os_code` and
-/// `holders` become error details.
+/// code given by [`FsErrorKind::code_id`]; `kind`, `op`, `path`, `os_error`
+/// and `holders` become error details.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct FsError {
     /// Classification.

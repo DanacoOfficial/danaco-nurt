@@ -179,7 +179,8 @@ impl ProcNet {
         names
             .entry(pid)
             .or_insert_with(|| {
-                fs::read_to_string(self.root.path(format!("/proc/{pid}/comm")))
+                self.root
+                    .read_to_string(format!("/proc/{pid}/comm"))
                     .ok()
                     .map(|name| name.trim_end().to_owned())
             })

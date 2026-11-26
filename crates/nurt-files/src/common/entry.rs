@@ -270,6 +270,47 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn names_that_are_not_valid_unicode_keep_their_bytes_in_raw_name() {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+        use std::path::PathBuf;
+
+        let (test, existing) = with_file("/data/a.txt", b"x");
+        let meta = meta_of(&test, &existing);
+        let stored = OsString::from_vec(b"/data/z\xff.txt".to_vec());
+        let odd = AbsPath::new(PathBuf::from(stored)).unwrap();
+        let entry = entry_record(&odd, &meta);
+        assert_eq!(entry.name, "z\u{fffd}.txt");
+        assert_eq!(entry.stem.as_deref(), Some("z\u{fffd}"));
+        assert_eq!(entry.extension.as_deref(), Some("txt"));
+        assert_eq!(
+            entry.raw_name.map(|raw| raw.as_slice().to_vec()),
+            Some(b"z\xff.txt".to_vec())
+        );
+        let missing = missing_entry(&odd);
+        assert_eq!(
+            missing.raw_name.map(|raw| raw.as_slice().to_vec()),
+            Some(b"z\xff.txt".to_vec())
+        );
+    }
+
+    #[test]
+    fn hidden_names_and_extensions_are_split_at_the_last_period() {
+        assert_eq!(
+            split_extension("archive.tar.gz"),
+            (Some("archive.tar".to_owned()), Some("gz".to_owned()))
+        );
+        assert_eq!(split_extension(".profile"), (Some(".profile".to_owned()), None));
+        assert_eq!(split_extension("name."), (Some("name.".to_owned()), None));
+        assert_eq!(
+            split_extension(".env.local"),
+            (Some(".env".to_owned()), Some("local".to_owned()))
+        );
+        assert_eq!(split_extension("plain"), (Some("plain".to_owned()), None));
+    }
+
     #[test]
     fn roots_are_named_by_their_path() {
         let test = TestContext::new();

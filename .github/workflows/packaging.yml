@@ -231,7 +231,7 @@ jobs:
       - name: Install and run
         run: |
           NURT_RELEASES_URL="$PWD/releases" sh packaging/install/install.sh --bin-dir "$RUNNER_TEMP/bin"
-          "$RUNNER_TEMP/bin/nurt" version | head -n 1 | grep -q '^Danaco Nurt'
+          "$RUNNER_TEMP/bin/nurt" version | head -n 1 | grep -q '^nurt [0-9]'
 
   install-script-windows:
     name: install.ps1 on Windows
@@ -258,7 +258,7 @@ jobs:
           $env:NURT_NO_PATH_UPDATE = '1'
           ./packaging/install/install.ps1
           $first = (& (Join-Path $env:NURT_INSTALL_DIR 'nurt.exe') version) | Select-Object -First 1
-          if ($first -notlike 'Danaco Nurt*') { throw "unexpected output: $first" }
+          if ($first -notmatch '^nurt \d') { throw "unexpected output: $first" }
 
   manifests:
     name: Manifests

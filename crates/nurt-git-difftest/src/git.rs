@@ -24,6 +24,10 @@ pub const IDENTITY_NAME: &str = "Nurt Test";
 /// Author and committer e-mail address of both sides.
 pub const IDENTITY_EMAIL: &str = "test@nurt.invalid";
 
+/// Variable that stops the search for a repository above the case directory.
+#[cfg(unix)]
+const CEILING_VARIABLE: &str = "GIT_CEILING_DIRECTORIES";
+
 /// Variables passed through from the environment of the test process.
 #[cfg(windows)]
 const INHERITED: &[&str] = &[
@@ -279,7 +283,7 @@ impl GitEnv {
             .iter()
             .filter_map(|name| std::env::var_os(name).map(|value| ((*name).to_owned(), value)))
             .collect();
-        let fixed: [(&str, OsString); 20] = [
+        let fixed: [(&str, OsString); 21] = [
             ("HOME", home.into()),
             ("USERPROFILE", home.into()),
             ("XDG_CONFIG_HOME", home.join(".config").into()),
@@ -287,6 +291,7 @@ impl GitEnv {
             ("LANG", "C".into()),
             ("TZ", "UTC".into()),
             ("GIT_CONFIG_NOSYSTEM", "1".into()),
+            ("GIT_CONFIG_SYSTEM", home.join(".gitconfig-system").into()),
             ("GIT_CONFIG_GLOBAL", home.join(".gitconfig").into()),
             ("GIT_ATTR_NOSYSTEM", "1".into()),
             ("GIT_AUTHOR_NAME", IDENTITY_NAME.into()),
@@ -306,6 +311,14 @@ impl GitEnv {
                 .into_iter()
                 .map(|(name, value)| (name.to_owned(), value)),
         );
+        // A temporary directory below another repository must not make `git`
+        // find that repository from a directory that has none.
+        #[cfg(unix)]
+        {
+            if let Some(case_dir) = home.parent() {
+                vars.push((CEILING_VARIABLE.to_owned(), case_dir.into()));
+            }
+        }
         Self { vars }
     }
 
@@ -380,6 +393,57 @@ mod tests {
         assert_eq!(later.vars().len(), env.vars().len());
         let extended = env.with_var("GIT_OPTIONAL_LOCKS", "0");
         assert_eq!(extended.vars().len(), env.vars().len() + 1);
+    }
+
+    #[test]
+    fn environment_pins_locale_zone_home_and_configuration_files() {
+        let home = Path::new("/case/home");
+        let env = GitEnv::new(home, ScenarioClock::default());
+        for (name, value) in [
+            ("LC_ALL", "C"),
+            ("LANG", "C"),
+            ("TZ", "UTC"),
+            ("GIT_CONFIG_NOSYSTEM", "1"),
+            ("GIT_ATTR_NOSYSTEM", "1"),
+            ("GIT_TERMINAL_PROMPT", "0"),
+        ] {
+            assert_eq!(env.get(name), Some(OsStr::new(value)), "{name}");
+        }
+        assert_eq!(
+            env.get("GIT_CONFIG_GLOBAL"),
+            Some(home.join(".gitconfig").as_os_str())
+        );
+        assert_eq!(
+            env.get("XDG_CONFIG_HOME"),
+            Some(home.join(".config").as_os_str())
+        );
+        let names: Vec<&str> = env.vars().iter().map(|(name, _)| name.as_str()).collect();
+        let unique: std::collections::BTreeSet<&str> = names.iter().copied().collect();
+        assert_eq!(names.len(), unique.len());
+        for name in names {
+            assert!(
+                name == "PATH" || !name.starts_with("GIT_CONFIG_KEY"),
+                "{name}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn environment_stops_the_repository_search_at_the_case_directory() {
+        let env = GitEnv::new(Path::new("/case/home"), ScenarioClock::default());
+        assert_eq!(
+            env.get("GIT_CEILING_DIRECTORIES"),
+            Some(OsStr::new("/case"))
+        );
+    }
+
+    #[test]
+    fn a_variable_set_twice_keeps_one_entry() {
+        let env = GitEnv::new(Path::new("/h"), ScenarioClock::default());
+        let again = env.with_var("TZ", "Europe/Warsaw").with_var("TZ", "UTC");
+        assert_eq!(again.get("TZ"), Some(OsStr::new("UTC")));
+        assert_eq!(again.vars().len(), env.vars().len());
     }
 
     #[test]

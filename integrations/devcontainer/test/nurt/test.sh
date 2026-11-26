@@ -10,6 +10,6 @@ set -e
 source dev-container-features-test-lib
 
 check "nurt is on the PATH" bash -c "command -v nurt"
-check "nurt prints its version" bash -c "nurt version | grep -F 'Danaco Nurt'"
+check "nurt prints its version" bash -c "nurt version | grep -E '^nurt [0-9]'"
 
 reportResults

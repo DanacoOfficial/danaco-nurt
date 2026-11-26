@@ -5,13 +5,14 @@
 //! Model Context Protocol server of Danaco Nurt.
 //!
 //! The server lets any MCP client, such as the host of an AI agent, run
-//! programs of the Nurt language. It exposes two tools and a set of
+//! programs of the Nurt language. It exposes three tools and a set of
 //! read-only resources:
 //!
 //! | Name | Kind | Content |
 //! |---|---|---|
 //! | `nurt` | tool | runs a program; the input schema is the request `nurt-request/1` with the options at the top level |
 //! | `nurt_help` | tool | returns built-in help as text |
+//! | `nurt_check` | tool | checks a program without running it and returns the check document `nurt-check/1` |
 //! | `nurt://help/{topic}` | resource | built-in help of a topic |
 //! | `nurt://schema/{name}` | resource | published JSON schemas |
 //! | `nurt://describe/core`, `nurt://describe/group/{name}` | resource | description layers for models |
@@ -169,4 +170,30 @@ fn runtime() -> Result<tokio::runtime::Runtime, McpError> {
     Ok(tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn options_start_without_a_session() {
+        assert_eq!(McpOptions::new().session, None);
+        assert_eq!(McpOptions::new(), McpOptions::default());
+    }
+
+    #[test]
+    fn a_session_is_set_from_any_text_and_the_last_one_wins() {
+        let options = McpOptions::new().with_session("s1");
+        assert_eq!(options.session.as_deref(), Some("s1"));
+        let options = options.with_session(String::from("\u{142}\u{f3}d\u{17a}"));
+        assert_eq!(options.session.as_deref(), Some("\u{142}\u{f3}d\u{17a}"));
+        assert_eq!(McpOptions::new().with_session("").session.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn the_runtime_of_a_blocking_entry_point_starts() {
+        let runtime = runtime().unwrap();
+        assert_eq!(runtime.block_on(async { 1 + 1 }), 2);
+    }
 }

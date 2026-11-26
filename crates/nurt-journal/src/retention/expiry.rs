@@ -1207,6 +1207,271 @@ mod tests {
     }
 
     #[test]
+    fn step_distance_counts_only_newer_counted_entries() {
+        let marks = [
+            StepMark {
+                op: OpId(1),
+                kind: StepKind::Operation,
+            },
+            StepMark {
+                op: OpId(2),
+                kind: StepKind::Operation,
+            },
+            StepMark {
+                op: OpId(3),
+                kind: StepKind::NotCounted,
+            },
+            StepMark {
+                op: OpId(4),
+                kind: StepKind::Undo,
+            },
+            StepMark {
+                op: OpId(4),
+                kind: StepKind::Undo,
+            },
+        ];
+        let counted = Distances::new(&marks, true);
+        assert_eq!(counted.after(OpId(0)), 3);
+        assert_eq!(counted.after(OpId(1)), 2);
+        assert_eq!(counted.after(OpId(3)), 1);
+        assert_eq!(counted.after(OpId(4)), 0);
+        assert_eq!(counted.after(OpId(u64::MAX)), 0);
+        let uncounted = Distances::new(&marks, false);
+        assert_eq!(uncounted.after(OpId(0)), 2);
+        assert_eq!(Distances::new(&[], true).after(OpId(0)), 0);
+    }
+
+    #[test]
+    fn sweep_of_an_empty_journal_expires_nothing() {
+        let store = store();
+        let report = sweep_store(&store).unwrap();
+        assert!(report.expired.is_empty());
+        assert_eq!(report.bytes, 0);
+        let empty = MemStore::new();
+        assert!(sweep_store(&empty).unwrap().expired.is_empty());
+    }
+
+    #[test]
+    fn entry_expires_exactly_when_its_age_reaches_the_limit() {
+        let store = store();
+        store.commit("/home", [1]);
+        store.set_clock(1800);
+        assert!(sweep_store(&store).unwrap().expired.is_empty());
+        store.set_clock(1801);
+        assert_eq!(
+            expired(&sweep_store(&store).unwrap()),
+            [(1, ExpiryReason::Time)]
+        );
+    }
+
+    #[test]
+    fn size_budget_is_exceeded_only_by_a_byte_above_it() {
+        let store = store();
+        store.layer(
+            ConfigLevel::User,
+            json!({ "journal": { "max_size": "20gib" } }),
+        );
+        store.add(sized(1, "/home", 10 * GIB), StepKind::Operation);
+        store.add(sized(2, "/home", 10 * GIB), StepKind::Operation);
+        assert!(sweep_store(&store).unwrap().expired.is_empty());
+        store.add(sized(3, "/home", 1), StepKind::Operation);
+        assert_eq!(
+            expired(&sweep_store(&store).unwrap()),
+            [(1, ExpiryReason::Size)]
+        );
+        assert_eq!(store.live("/home"), [2, 3]);
+    }
+
+    #[test]
+    fn total_budget_is_exceeded_only_by_a_byte_above_it() {
+        let store = store();
+        store.layer(
+            ConfigLevel::User,
+            json!({ "journal": { "max_size_total": "10gib" } }),
+        );
+        store.add(sized(1, "/home", 5 * GIB), StepKind::Operation);
+        store.add(sized(2, "/home", 5 * GIB), StepKind::Operation);
+        assert!(sweep_store(&store).unwrap().expired.is_empty());
+        store.add(sized(3, "/home", 1), StepKind::Operation);
+        assert_eq!(
+            expired(&sweep_store(&store).unwrap()),
+            [(1, ExpiryReason::Size)]
+        );
+    }
+
+    #[test]
+    fn unlimited_steps_and_age_never_expire_entries() {
+        let store = store();
+        store.layer(
+            ConfigLevel::User,
+            json!({ "journal": { "max_ops": "unlimited", "max_age": "unlimited" } }),
+        );
+        store.commit("/home", 1..=100);
+        store.set_clock(10 * 365 * 24 * 3600);
+        assert!(sweep_store(&store).unwrap().expired.is_empty());
+        assert_eq!(store.live("/home").len(), 100);
+    }
+
+    #[test]
+    fn entries_in_transient_or_corrupt_states_are_never_expired_by_limits() {
+        let store = store();
+        let mut prepared = entry(1, "/home");
+        prepared.state = EntryState::Prepared;
+        store.add(prepared, StepKind::Operation);
+        let mut corrupt = entry(2, "/home");
+        corrupt.state = EntryState::Corrupt;
+        store.add(corrupt, StepKind::Operation);
+        store.commit("/home", 3..=33);
+        assert_eq!(
+            expired(&sweep_store(&store).unwrap()),
+            [(3, ExpiryReason::Ops)]
+        );
+        let mut live = vec![1, 2];
+        live.extend(4..=33);
+        assert_eq!(store.live("/home"), live);
+    }
+
+    #[test]
+    fn undone_entries_expire_like_available_ones() {
+        let store = store();
+        let mut undone = entry(1, "/home");
+        undone.state = EntryState::Undone;
+        store.add(undone, StepKind::Operation);
+        store.commit("/home", 2..=31);
+        assert_eq!(
+            expired(&sweep_store(&store).unwrap()),
+            [(1, ExpiryReason::Ops)]
+        );
+    }
+
+    #[test]
+    fn entries_rolled_back_before_commit_leave_no_tombstone_and_no_report() {
+        let store = store();
+        let mut rolled_back = entry(1, "/home");
+        rolled_back.state = EntryState::Undone;
+        rolled_back.rolled_back = true;
+        store.add(rolled_back, StepKind::Operation);
+        let report = sweep_store(&store).unwrap();
+        assert!(report.expired.is_empty());
+        assert_eq!(report.bytes, 0);
+        assert!(store.live("/home").is_empty());
+        assert!(tomb::list(&store, &mount("/home")).unwrap().is_empty());
+    }
+
+    #[test]
+    fn purge_of_nothing_selected_releases_nothing_but_is_audited() {
+        let store = store();
+        store.commit("/home", 1..=3);
+        for selector in [
+            PurgeSelector::UpTo(OpId(0)),
+            PurgeSelector::Ids(Vec::new()),
+        ] {
+            let outcome = purge_store(
+                &store,
+                &PurgeRequest {
+                    volume: None,
+                    selector,
+                },
+            )
+            .unwrap();
+            assert!(outcome.released.is_empty());
+            assert_eq!(outcome.bytes, 0);
+        }
+        assert_eq!(store.live("/home"), [1, 2, 3]);
+        assert_eq!(store.audit_records().len(), 2);
+    }
+
+    #[test]
+    fn select_volumes_takes_the_longest_mount_that_contains_the_path() {
+        let facts = |path: &str| VolumeFacts {
+            mount: mount(path),
+            capacity: GIB,
+            free: GIB,
+            inactive: None,
+        };
+        let volumes = [facts("/"), facts("/mnt/data"), facts("/mnt/data/archive")];
+        let selected = |path: &str| {
+            select_volumes(&volumes, Some(&mount(path)))
+                .map(|found| found.iter().map(|v| v.mount.clone()).collect::<Vec<_>>())
+        };
+        assert_eq!(
+            selected("/mnt/data/archive/2026").unwrap(),
+            [mount("/mnt/data/archive")]
+        );
+        assert_eq!(selected("/mnt/data").unwrap(), [mount("/mnt/data")]);
+        assert_eq!(selected("/mnt/data2/x").unwrap(), [mount("/")]);
+        assert_eq!(select_volumes(&volumes, None).unwrap().len(), 3);
+        let without_root = &volumes[1..];
+        let error = select_volumes(without_root, Some(&mount("/srv"))).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+        assert!(select_volumes(&[], None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn admission_at_the_budget_expires_nothing_and_one_byte_more_expires_the_oldest() {
+        let limits = effective(json!({ "max_size": "4gib" }));
+        let entries = [sized(1, "/home", GIB), sized(2, "/home", GIB)];
+        assert_eq!(
+            budget_admission(&entries, 2 * GIB, 2 * GIB, &limits),
+            BudgetAdmission::Fits {
+                victims: Vec::new()
+            }
+        );
+        assert_eq!(
+            budget_admission(&entries, 2 * GIB + 1, 2 * GIB + 1, &limits),
+            BudgetAdmission::Fits {
+                victims: vec![OpId(1)]
+            }
+        );
+        assert_eq!(
+            budget_admission(&[], 4 * GIB, 4 * GIB, &limits),
+            BudgetAdmission::Fits {
+                victims: Vec::new()
+            }
+        );
+    }
+
+    #[test]
+    fn single_operation_limit_is_exceeded_only_by_a_byte_above_it() {
+        let limits = effective(json!({ "max_op_size": "1gib" }));
+        assert_eq!(
+            budget_admission(&[], GIB, GIB, &limits),
+            BudgetAdmission::Fits {
+                victims: Vec::new()
+            }
+        );
+        assert_eq!(
+            budget_admission(&[], GIB + 1, GIB + 1, &limits),
+            BudgetAdmission::TooLarge {
+                size: GIB + 1,
+                limit: GIB
+            }
+        );
+        assert_eq!(oversize_note(GIB, &limits), None);
+        assert_eq!(
+            oversize_note(GIB + 1, &limits),
+            Some(JournalNotable::JournalOversize {
+                size: GIB + 1,
+                limit: GIB
+            })
+        );
+    }
+
+    #[test]
+    fn rolled_back_entries_do_not_count_against_the_admission_budget() {
+        let limits = effective(json!({ "max_size": "4gib" }));
+        let mut rolled_back = sized(1, "/home", 4 * GIB);
+        rolled_back.rolled_back = true;
+        let entries = [rolled_back, sized(2, "/home", GIB)];
+        assert_eq!(
+            budget_admission(&entries, 2 * GIB, 2 * GIB, &limits),
+            BudgetAdmission::Fits {
+                victims: Vec::new()
+            }
+        );
+    }
+
+    #[test]
     fn invalid_configuration_is_reported() {
         let store = store();
         store.layer(ConfigLevel::User, json!({ "journal": { "max_ops": 0 } }));

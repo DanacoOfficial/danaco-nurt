@@ -56,6 +56,16 @@ impl StageImpl for Format {
     }
 }
 
+/// Files the formatter listed that are in scope. A formatter that checks the
+/// whole project lists files outside the requested paths and outside the
+/// project too; none of them is rewritten.
+fn in_scope(found: Vec<String>, own: &[String]) -> Vec<String> {
+    found
+        .into_iter()
+        .filter(|file| own.contains(file))
+        .collect()
+}
+
 /// Files each available formatter would change, found with its check mode.
 fn plan_batches(ctx: &ExecCtx, dir: &Path, scope: &Scope) -> Result<Vec<Batch>> {
     let search = ctx.host().env_var("PATH");
@@ -75,12 +85,12 @@ fn plan_batches(ctx: &ExecCtx, dir: &Path, scope: &Scope) -> Result<Vec<Batch>> 
         let mut command = vec![program.to_string_lossy().into_owned()];
         command.extend(tool.check_args(&own));
         let captured = run_captured(ctx, dir, command, None)?;
-        let files: Vec<String> = tool
+        let found = tool
             .parse(&captured.output, dir)
             .into_iter()
             .map(|finding: Finding| finding.path.as_str().to_owned())
-            .filter(|file| own.contains(file) || !tool.accepts_paths())
             .collect();
+        let files = in_scope(found, &own);
         if !files.is_empty() {
             batches.push(Batch {
                 tool,
@@ -93,6 +103,14 @@ fn plan_batches(ctx: &ExecCtx, dir: &Path, scope: &Scope) -> Result<Vec<Batch>> 
     Ok(batches)
 }
 
+/// Directory for one sample under `base`, created new: a name that another
+/// account planted in the shared temporary directory is refused instead of
+/// followed.
+fn fresh_scratch(base: &Path, serial: usize) -> Option<PathBuf> {
+    let scratch = base.join(format!("nurt-format-{}-{serial}", std::process::id()));
+    std::fs::create_dir(&scratch).ok().map(|()| scratch)
+}
+
 fn sample_of(ctx: &ExecCtx, dir: &Path, batch: &Batch, file: &str, limit: usize) -> Vec<String> {
     static NEXT: AtomicUsize = AtomicUsize::new(0);
     let Ok(before) = std::fs::read_to_string(dir.join(file)) else {
@@ -101,11 +119,12 @@ fn sample_of(ctx: &ExecCtx, dir: &Path, batch: &Batch, file: &str, limit: usize)
     let Some(arguments) = batch.tool.write_args(&[file.to_owned()]) else {
         return Vec::new();
     };
-    let scratch = std::env::temp_dir().join(format!(
-        "nurt-format-{}-{}",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let Some(scratch) = fresh_scratch(
+        &std::env::temp_dir(),
+        NEXT.fetch_add(1, Ordering::Relaxed),
+    ) else {
+        return Vec::new();
+    };
     let target = scratch.join(file);
     let prepared = target
         .parent()
@@ -200,5 +219,38 @@ impl EffectStage for Format {
         outcome.changes = plan.changes;
         outcome.notable = plan.notable;
         Ok(outcome)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{fresh_scratch, in_scope};
+
+    #[cfg(unix)]
+    #[test]
+    fn a_planted_scratch_name_is_refused_and_a_free_one_is_created() {
+        let base = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let planted = format!("nurt-format-{}-7", std::process::id());
+        std::os::unix::fs::symlink(elsewhere.path(), base.path().join(planted)).unwrap();
+        assert_eq!(fresh_scratch(base.path(), 7), None);
+        assert!(elsewhere.path().read_dir().unwrap().next().is_none());
+        let fresh = fresh_scratch(base.path(), 8).unwrap();
+        assert!(fresh.is_dir());
+        assert_eq!(fresh_scratch(base.path(), 8), None);
+    }
+
+    #[test]
+    fn files_outside_the_scope_are_not_rewritten() {
+        let own = vec!["src/a.rs".to_owned(), "src/b.rs".to_owned()];
+        let found = vec![
+            "src/b.rs".to_owned(),
+            "/work/other/lib.rs".to_owned(),
+            "../x.rs".to_owned(),
+            "src/c.rs".to_owned(),
+        ];
+        assert_eq!(in_scope(found, &own), ["src/b.rs"]);
+        assert!(in_scope(Vec::new(), &own).is_empty());
+        assert!(in_scope(vec!["src/a.rs".to_owned()], &[]).is_empty());
     }
 }

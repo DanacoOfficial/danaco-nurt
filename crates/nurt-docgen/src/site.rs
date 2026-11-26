@@ -204,7 +204,8 @@ fn command_pages(layout: &Layout, catalog: &Catalog) -> Result<Vec<SourcePage>> 
         for spec in &file.commands {
             index.push_str(&format!(
                 "| [`{0}`](../commands/{0}.md) | {1} |\n",
-                spec.name, spec.summary
+                spec.name,
+                spec.summary.replace('|', "\\|")
             ));
         }
     }
@@ -375,7 +376,9 @@ fn link(root: &str, target: &str, text: &str, current: bool) -> String {
         ""
     };
     format!(
-        "<a href=\"{root}{target}\"{marker}>{}</a>",
+        "<a href=\"{}{}\"{marker}>{}</a>",
+        html::escape(root),
+        html::escape(target),
         html::escape(text)
     )
 }
@@ -491,6 +494,7 @@ pub fn build(layout: &Layout, catalog: &Catalog, out: &Path, version: &str) -> R
         let side = sidebar(&pages, &root, page);
         let toc = table_of_contents(&rendered);
         let title = html::escape(&page.title);
+        let version_html = html::escape(version);
         let document_html = fill(
             &template,
             &[
@@ -500,7 +504,7 @@ pub fn build(layout: &Layout, catalog: &Catalog, out: &Path, version: &str) -> R
                 ("sidebar", &side),
                 ("toc", &toc),
                 ("content", &content),
-                ("version", version),
+                ("version", &version_html),
             ],
         );
         write_text(&out.join(&page.output), &document_html)?;
@@ -586,6 +590,43 @@ mod tests {
             "nowhere.md"
         );
         assert_eq!(resolver.unresolved.borrow().len(), 1);
+    }
+
+    #[test]
+    fn link_escapes_the_target_and_the_text() {
+        assert_eq!(
+            link("../", "a\"b<c>.html", "x & y", true),
+            "<a href=\"../a&quot;b&lt;c&gt;.html\" aria-current=\"page\">x &amp; y</a>"
+        );
+    }
+
+    #[test]
+    fn fill_inserts_values_literally_and_keeps_multi_byte_text() {
+        assert_eq!(
+            fill("za\u{17c}\u{f3}\u{142}\u{107} {{v}} \u{1f600}", &[("v", "<b>")]),
+            "za\u{17c}\u{f3}\u{142}\u{107} <b> \u{1f600}"
+        );
+    }
+
+    #[test]
+    fn relative_path_handles_equal_directories_and_deep_sources() {
+        assert_eq!(relative_path("a/b", "a/b/c.html"), "c.html");
+        assert_eq!(relative_path("a/b", "c.html"), "../../c.html");
+        assert_eq!(relative_path("", "index.html"), "index.html");
+    }
+
+    #[test]
+    fn normalize_does_not_climb_above_the_root() {
+        assert_eq!(normalize("../../etc/passwd"), "etc/passwd");
+        assert_eq!(normalize(""), "");
+    }
+
+    #[test]
+    fn reads_front_matter_values() {
+        let front = "title: Name: with colon\norder: 7";
+        assert_eq!(front_value(front, "title").as_deref(), Some("Name: with colon"));
+        assert_eq!(front_value(front, "order").as_deref(), Some("7"));
+        assert_eq!(front_value(front, "missing"), None);
     }
 
     #[test]

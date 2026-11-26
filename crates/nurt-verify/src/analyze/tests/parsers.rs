@@ -168,6 +168,35 @@ fn parses_ruff_json_report_with_error_classes() {
 }
 
 #[test]
+fn ruff_reports_only_pyflakes_and_runtime_error_codes_as_errors() {
+    let item = |code: &str| {
+        format!(
+            "{{\"code\":\"{code}\",\"message\":\"m\",\"filename\":\"/work/a.py\",\"location\":{{\"row\":1,\"column\":1}}}}"
+        )
+    };
+    let report = format!(
+        "[{}]",
+        ["F401", "E902", "FBT001", "FIX002", "FURB101", "E501", "ERA001"]
+            .map(item)
+            .join(",")
+    );
+    let found = ruff::parse_lint(&stdout(&report), Path::new("/work"));
+    let severities: Vec<FindingSeverity> = found.iter().map(|item| item.severity).collect();
+    assert_eq!(
+        severities,
+        [
+            FindingSeverity::Error,
+            FindingSeverity::Error,
+            FindingSeverity::Warning,
+            FindingSeverity::Warning,
+            FindingSeverity::Warning,
+            FindingSeverity::Warning,
+            FindingSeverity::Warning,
+        ]
+    );
+}
+
+#[test]
 fn parses_ruff_format_check_listing() {
     let project = Project::with_files(&[("src/app.py", ""), ("src/helpers.py", "")]);
     let found = ruff::parse_format(

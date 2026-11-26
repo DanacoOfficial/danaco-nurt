@@ -85,7 +85,11 @@ fn indent_unit(tree: &XmlTree) -> String {
     }
     let best = counts
         .into_iter()
-        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.len().cmp(&a.0.len())))
+        .max_by(|a, b| {
+            a.1.cmp(&b.1)
+                .then_with(|| b.0.len().cmp(&a.0.len()))
+                .then_with(|| b.0.cmp(a.0))
+        })
         .map(|(delta, _)| delta.to_owned());
     best.unwrap_or_else(|| {
         if uses_tabs {
@@ -158,5 +162,36 @@ impl XmlTree {
             },
             str::to_owned,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn equally_frequent_indentation_units_resolve_deterministically() {
+        let tree = XmlTree::parse("<a>\n  <b/>\n\t\t<c/>\n</a>").unwrap();
+        assert_eq!(tree.style().indent_unit, "\t\t");
+    }
+
+    #[test]
+    fn dominant_indentation_unit_wins() {
+        let tree = XmlTree::parse("<a>\n    <b/>\n    <c/>\n\t<d/>\n</a>").unwrap();
+        assert_eq!(tree.style().indent_unit, "    ");
+    }
+
+    #[test]
+    fn crlf_document_selects_crlf_line_ending() {
+        let tree = XmlTree::parse("<a>\r\n  <b/>\r\n</a>").unwrap();
+        assert_eq!(tree.style().eol, "\r\n");
+        assert!(tree.style().multiline);
+    }
+
+    #[test]
+    fn single_quoted_attributes_select_single_quote() {
+        let tree = XmlTree::parse("<a x='1' y='2' z=\"3\"/>").unwrap();
+        assert_eq!(tree.style().quote, '\'');
+        assert!(!tree.style().multiline);
     }
 }

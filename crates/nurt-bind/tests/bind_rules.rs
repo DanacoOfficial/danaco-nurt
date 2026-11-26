@@ -580,3 +580,104 @@ fn binding_records_the_revisions() {
     assert_eq!(tree.corr_rev, "sha256:00");
     nurt_syntax::validate::validate_bound(&tree).unwrap();
 }
+
+#[test]
+fn texts_convert_to_durations_in_days_and_weeks() {
+    let tree = bound(&single(
+        stage(
+            "run",
+            vec![
+                pos(list(vec![text("make")])),
+                named("cwd", text("/srv")),
+                named("timeout", text("2w")),
+                named("idle_timeout", text("24h")),
+            ],
+        ),
+        vec![],
+    ));
+    let run = stages_of(&tree, 0)[0];
+    assert_eq!(
+        arg(run, "timeout").value,
+        BoundExpr::Dur { v: 1_209_600_000 }
+    );
+    assert_eq!(
+        arg(run, "idle_timeout").value,
+        BoundExpr::Dur { v: 86_400_000 }
+    );
+}
+
+#[test]
+fn a_wait_of_a_week_written_as_text_marks_the_stage() {
+    let tree = bound(&single(
+        stage(
+            "run",
+            vec![
+                pos(list(vec![text("make")])),
+                named("cwd", text("/srv")),
+                named("wait", text("1w")),
+            ],
+        ),
+        vec![],
+    ));
+    let run = stages_of(&tree, 0)[0];
+    assert_eq!(arg(run, "wait").value, BoundExpr::Dur { v: 604_800_000 });
+    assert!(run.waits);
+}
+
+#[test]
+fn malformed_texts_of_sizes_and_durations_are_type_errors() {
+    let run = |name: &str, value: &str| {
+        failed(&single(
+            stage(
+                "run",
+                vec![
+                    pos(list(vec![text("make")])),
+                    named("cwd", text("/srv")),
+                    named(name, text(value)),
+                ],
+            ),
+            vec![],
+        ))
+    };
+    for (name, value) in [
+        ("max_memory", "1MB"),
+        ("max_memory", "1é"),
+        ("max_memory", "0.0005kb"),
+        ("max_memory", "9007199254740992b"),
+        ("timeout", "1W"),
+        ("timeout", "1ч"),
+        ("timeout", "10"),
+    ] {
+        let error = run(name, value);
+        assert_eq!(error.code(), ErrorCode::Type, "{name}: {value}");
+        assert_eq!(error.error().stage(), Some(ExecStage::Bind));
+    }
+}
+
+#[test]
+fn error_positions_count_characters_of_the_line() {
+    let document = nurt_syntax::parse::parse(
+        "find \"/srv/é日\" |> remvoe",
+        nurt_contracts::kinds::SyntaxVariant::A,
+        &nurt_syntax::parse::ParseOptions::default(),
+    )
+    .unwrap();
+    let error = failed(&document);
+    assert_eq!(error.code(), ErrorCode::UnknownCommand);
+    let at = error.error().at.unwrap();
+    assert_eq!((at.line, at.column, at.length), (Some(1), Some(19), Some(6)));
+    assert_eq!(error.error().found.as_deref(), Some("remvoe"));
+}
+
+#[test]
+fn unknown_values_of_multi_byte_text_are_reported_as_written() {
+    let error = failed(&single(
+        stage(
+            "find",
+            vec![pos(text("/srv/é")), named("type", ident("fïl"))],
+        ),
+        vec![],
+    ));
+    assert_eq!(error.code(), ErrorCode::UnknownValue);
+    assert_eq!(error.error().found.as_deref(), Some("fïl"));
+}

@@ -96,7 +96,7 @@ function readCases(corpusDir) {
   if (!fs.existsSync(corpusDir)) {
     return cases;
   }
-  const header = /^(={3,})\n([^\n]+)\n\1\n\n([\s\S]*?)\n\n-{3,}\n\n([\s\S]*?)(?=\n={3,}\n[^\n]+\n={3,}\n|$)/gm;
+  const header = /^(={3,})\n([^\n]+)\n\1\n\n([\s\S]*?)\n\n-{3,}\n\n([\s\S]*?)(?=\n={3,}\n[^\n]+\n={3,}\n|(?![\s\S]))/gm;
   for (const file of fs.readdirSync(corpusDir).filter((name) => name.startsWith(CORPUS_PREFIX))) {
     const text = fs.readFileSync(path.join(corpusDir, file), 'utf8').replace(/\r\n/g, '\n');
     for (const match of text.matchAll(header)) {

@@ -52,7 +52,7 @@ use crate::manifest::{
     self, BeforeRecord, ItemRef, ItemState, Manifest, StateRecord, TargetRecord, TargetRole,
 };
 use crate::store::{self, JournalCtx};
-use crate::tx::{self, Link};
+use crate::tx::{self, Link, RecordedMeta};
 
 /// Whether undo and redo entries count as steps (`journal.count_undo_as_op`).
 const COUNT_UNDO_AS_OP: bool = true;
@@ -461,10 +461,17 @@ impl Bound {
 
 /// Whether the change of an item is still in effect with respect to the
 /// range: the chain of its sources inside the range has even length.
+///
+/// A source that was already visited ends the chain, so that a damaged
+/// manifest whose source names its own item cannot loop.
 fn net_applied(view: &View, item: &EntryItem, bound: Bound) -> bool {
     let mut applied = true;
+    let mut visited = HashSet::new();
     let mut next = item.source;
     while let Some(source) = next {
+        if !visited.insert(source) {
+            break;
+        }
         let Some(entry) = view.get(source.op).filter(|entry| bound.contains(entry)) else {
             break;
         };
@@ -1350,6 +1357,8 @@ struct Step {
     /// Preserved directory whose entries are copied into the directory the
     /// mutation recreates.
     tree: Option<AbsPath>,
+    /// Metadata recorded with the state the step brings back.
+    meta: RecordedMeta,
 }
 
 fn undeclared() -> Error {
@@ -1399,7 +1408,7 @@ impl<'a> RestoreTx for CtxRestore<'a> {
         let mut tx: Box<dyn MutationTx + 'a> = Box::new(tx::begin_linked(
             self.ctx,
             request,
-            link_of(self.plan, &spans),
+            link_of(self.plan, &spans, &steps),
         ));
         let specs: Vec<TargetSpec> = steps.iter().map(|step| step.spec.clone()).collect();
         match tx.preserve(&specs) {
@@ -1488,7 +1497,7 @@ impl CtxRestore<'_> {
 /// the commit, before the pending marker of the entry is removed. The entry
 /// names the item it reverses once per target, so that target `n` of the
 /// entry reverses `items[n]`.
-fn link_of(plan: &RestorePlan, spans: &[std::ops::Range<usize>]) -> Link {
+fn link_of(plan: &RestorePlan, spans: &[std::ops::Range<usize>], steps: &[Step]) -> Link {
     let sources: Vec<ItemSource> = plan.items.iter().map(|item| item.source).collect();
     let (scope, cause) = (plan.scope, plan.cause);
     Link {
@@ -1507,6 +1516,7 @@ fn link_of(plan: &RestorePlan, spans: &[std::ops::Range<usize>]) -> Link {
                 })
             })
             .collect(),
+        recorded: steps.iter().map(|step| step.meta.clone()).collect(),
         after_commit: Some(Box::new(move |ctx: &JournalCtx, op: OpId| {
             update_sources(ctx, op, scope, &sources, cause)
         })),
@@ -1603,6 +1613,7 @@ fn rename_step(from: &AbsPath, to: &AbsPath, replace: bool, expect: Expect) -> S
         },
         mutation: Mutation::Rename,
         tree: None,
+        meta: RecordedMeta::default(),
     }
 }
 
@@ -1646,6 +1657,7 @@ fn restore_step(
         },
         mutation,
         tree: None,
+        meta: RecordedMeta::default(),
     };
     let removal = if matches!(target.path, TargetPath::Provider(_)) {
         Mutation::ProviderRemove
@@ -1656,11 +1668,15 @@ fn restore_step(
         return Ok(step(target.path.clone(), TargetAction::Delete, removal));
     }
     match target.mode {
-        PreserveMode::Append => Ok(step(
-            target.path.clone(),
-            TargetAction::Truncate,
-            Mutation::SetLength(record.before.size.unwrap_or(0)),
-        )),
+        PreserveMode::Append => {
+            let mut restored = step(
+                target.path.clone(),
+                TargetAction::Truncate,
+                Mutation::SetLength(record.before.size.unwrap_or(0)),
+            );
+            restored.meta.modified_ns = record.before.modified_ns;
+            Ok(restored)
+        }
         PreserveMode::Meta => {
             let change = meta_change(ctx, target, &record.before)?;
             Ok(step(
@@ -1697,7 +1713,7 @@ fn restore_step(
             {
                 return Ok(rename_step(&data, path, false, Expect::Unchecked));
             }
-            content_step(
+            let mut restored = content_step(
                 ctx,
                 Content {
                     path: target.path.clone(),
@@ -1706,7 +1722,16 @@ fn restore_step(
                     shared,
                 },
                 &record.before,
-            )
+            )?;
+            restored.meta = RecordedMeta {
+                blob: record
+                    .before
+                    .meta
+                    .as_deref()
+                    .and_then(|name| entry.resolve(name).ok()),
+                modified_ns: record.before.modified_ns,
+            };
+            Ok(restored)
         }
         _ => Err(unsupported(target, "nothing was preserved")),
     }
@@ -1742,6 +1767,7 @@ fn content_step(ctx: &JournalCtx, content: Content, before: &BeforeRecord) -> Re
         },
         mutation,
         tree,
+        meta: RecordedMeta::default(),
     };
     Ok(match before.kind {
         Some(FileKind::Directory) => step(
@@ -4327,6 +4353,249 @@ mod tests {
         apply_source_updates(&journal, &undo_entry).unwrap();
         assert_eq!(journal.entry(OpId(1)).state, EntryState::Undone);
     }
+
+    #[test]
+    fn net_applied_ends_a_chain_of_sources_that_loops() {
+        let journal = TestJournal::new();
+        let op = journal.op(None).create("/home/user/a", b"a").commit();
+        let mut entry = journal.entry(op);
+        entry.items[0].source = Some(ItemSource {
+            op,
+            index: TargetIndex(0),
+        });
+        let view = super::View::from_entries(vec![entry.clone()]);
+        assert!(!super::net_applied(
+            &view,
+            &entry.items[0],
+            super::Bound::All
+        ));
+    }
+
+    #[test]
+    fn net_applied_counts_the_sources_inside_the_range() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        undo_op(&journal, 1, OnConflict::Report).unwrap();
+        redo_entry(&journal, Some(2), None).unwrap();
+        let entries: Vec<JournalEntry> = (1..=3).map(|op| journal.entry(OpId(op))).collect();
+        let view = super::View::from_entries(entries.clone());
+        let item = |op: usize| &entries[op - 1].items[0];
+        assert!(super::net_applied(&view, item(1), super::Bound::All));
+        assert!(!super::net_applied(&view, item(2), super::Bound::All));
+        assert!(super::net_applied(&view, item(3), super::Bound::All));
+        let after_first = super::Bound::After(OpId(1));
+        assert!(super::net_applied(&view, item(2), after_first));
+        assert!(!super::net_applied(&view, item(3), after_first));
+    }
+
+    #[test]
+    fn quoted_escapes_backslashes_and_quotes_and_keeps_multi_byte_text() {
+        assert_eq!(super::quoted("a\"b\\c"), "\"a\\\"b\\\\c\"");
+        assert_eq!(super::quoted(""), "\"\"");
+        assert_eq!(super::quoted("zażółć/ü"), "\"zażółć/ü\"");
+    }
+
+    #[test]
+    fn path_list_of_a_selection_names_file_paths_only() {
+        assert_eq!(
+            super::fs_path_list(&[fs_path("/home/user/a"), fs_path("/home/user/b")]),
+            Some("\"/home/user/a\", \"/home/user/b\"".to_owned())
+        );
+        assert_eq!(
+            super::fs_path_list(&[fs_path("/home/user/a"), value_path("PATH")]),
+            None
+        );
+        assert_eq!(super::fs_path_list(&[]), Some(String::new()));
+    }
+
+    #[test]
+    fn rollback_reasons_map_to_the_cause_of_the_undone_entry() {
+        use nurt_contracts::journal::UndoneCause;
+
+        assert_eq!(
+            super::cause_of(RollbackReason::VerifyFailed),
+            UndoneCause::VerifyFailed
+        );
+        assert_eq!(
+            super::cause_of(RollbackReason::ValidateFailed),
+            UndoneCause::ValidateFailed
+        );
+        assert_eq!(
+            super::cause_of(RollbackReason::Cancelled),
+            UndoneCause::RolledBack
+        );
+    }
+
+    #[test]
+    fn undo_of_a_rename_reports_a_recreated_source_and_a_changed_destination() {
+        let recreated = TestJournal::new();
+        recreated.put("/home/user/r", b"r");
+        let op = recreated
+            .op(None)
+            .rename("/home/user/r", "/home/user/s")
+            .commit();
+        recreated.put("/home/user/r", b"new");
+        let error = undo_op(&recreated, op.0, OnConflict::Report).unwrap_err();
+        assert_eq!(conflict_kinds(&error), ["created"]);
+        assert_eq!(recreated.get("/home/user/r"), file(b"new"));
+
+        let changed = TestJournal::new();
+        changed.put("/home/user/r", b"r");
+        let op = changed
+            .op(None)
+            .rename("/home/user/r", "/home/user/s")
+            .commit();
+        changed.put("/home/user/s", b"x");
+        let error = undo_op(&changed, op.0, OnConflict::Report).unwrap_err();
+        assert_eq!(conflict_kinds(&error), ["modified"]);
+        assert_eq!(changed.get("/home/user/s"), file(b"x"));
+    }
+
+    #[test]
+    fn on_conflict_force_undoes_over_a_later_entry() {
+        let journal = TestJournal::new();
+        journal.put("/home/user/a", b"0");
+        journal.op(None).write("/home/user/a", b"1").commit();
+        journal.op(None).write("/home/user/a", b"2").commit();
+        let outcome = undo_op(&journal, 1, OnConflict::Force).unwrap();
+        assert_eq!(outcome.forced.len(), 1);
+        assert_eq!(journal.get("/home/user/a"), file(b"0"));
+        assert_eq!(journal.entry(OpId(1)).state, EntryState::Undone);
+        assert_eq!(journal.entry(OpId(2)).state, EntryState::Committed);
+    }
+
+    #[test]
+    fn undo_to_reports_a_corrupt_entry_of_the_range() {
+        let journal = TestJournal::new();
+        for name in ["a", "b", "c"] {
+            journal
+                .op(None)
+                .create(&format!("/home/user/{name}"), b"x")
+                .commit();
+        }
+        journal.set_state(OpId(2), EntryState::Corrupt);
+        let snapshot = journal.snapshot();
+        let to = request(
+            UndoSelector::To {
+                after: OpId(1),
+                all_sessions: false,
+            },
+            OnConflict::Report,
+            None,
+        );
+        assert_eq!(code(undo(&journal, &to)), ErrorCode::JournalCorrupt);
+        assert_eq!(journal.snapshot(), snapshot);
+    }
+
+    #[test]
+    fn undo_to_without_newer_entries_reports_noop() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        let to = request(
+            UndoSelector::To {
+                after: OpId(1),
+                all_sessions: false,
+            },
+            OnConflict::Report,
+            None,
+        );
+        assert_eq!(code(undo(&journal, &to)), ErrorCode::JournalNoop);
+        assert_eq!(journal.get("/home/user/a"), file(b"a"));
+    }
+
+    #[test]
+    fn undo_file_reports_a_corrupt_entry_only_when_it_touched_the_file() {
+        let select_a = || {
+            request(
+                UndoSelector::File {
+                    path: abs("/home/user/a"),
+                    since: None,
+                },
+                OnConflict::Report,
+                None,
+            )
+        };
+        let other = TestJournal::new();
+        other.op(None).create("/home/user/a", b"a").commit();
+        other.op(None).create("/home/user/b", b"b").commit();
+        other.set_state(OpId(2), EntryState::Corrupt);
+        assert_eq!(undo(&other, &select_a()).unwrap().sources, [OpId(1)]);
+        assert_eq!(other.get("/home/user/a"), None);
+
+        let touching = TestJournal::new();
+        touching.op(None).create("/home/user/a", b"a").commit();
+        touching.op(None).create("/home/user/b", b"b").commit();
+        touching.set_state(OpId(1), EntryState::Corrupt);
+        assert_eq!(
+            code(undo(&touching, &select_a())),
+            ErrorCode::JournalCorrupt
+        );
+        assert_eq!(touching.get("/home/user/a"), file(b"a"));
+    }
+
+    #[test]
+    fn rollback_committed_rejects_an_entry_that_is_not_committed() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        journal.set_state(OpId(1), EntryState::Partial);
+        assert_eq!(
+            code(rollback_committed(
+                &journal,
+                OpId(1),
+                RollbackReason::VerifyFailed
+            )),
+            ErrorCode::JournalNoop
+        );
+        assert_eq!(journal.get("/home/user/a"), file(b"a"));
+    }
+
+    #[test]
+    fn paths_conflict_offers_ready_programs_with_quoted_paths() {
+        let journal = TestJournal::new();
+        journal
+            .op(None)
+            .create("/home/user/a", b"a")
+            .create("/home/user/b", b"b")
+            .commit();
+        journal.put("/home/user/a", b"y");
+        let error = undo(
+            &journal,
+            &request(
+                UndoSelector::Paths {
+                    op: OpId(1),
+                    paths: vec![fs_path("/home/user/a")],
+                },
+                OnConflict::Report,
+                None,
+            ),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::JournalConflict);
+        assert_eq!(
+            error.fix,
+            [
+                "undo 1 paths: [\"/home/user/a\"] on_conflict: include_later",
+                "undo 1 paths: [\"/home/user/a\"] on_conflict: force"
+            ]
+        );
+    }
+
+    #[test]
+    fn redo_of_an_expired_or_unknown_undo_entry_is_refused() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        undo_op(&journal, 1, OnConflict::Report).unwrap();
+        journal.expire(OpId(2));
+        assert_eq!(
+            code(redo_entry(&journal, Some(2), None)),
+            ErrorCode::JournalExpired
+        );
+        assert_eq!(
+            code(redo_entry(&journal, Some(9), None)),
+            ErrorCode::JournalNoop
+        );
+        assert_eq!(journal.get("/home/user/a"), None);
+    }
 }
 
 #[cfg(test)]
@@ -5098,6 +5367,105 @@ mod journal_ctx_tests {
         assert_eq!(records[0].files, 3);
         let error = undo(&world.ctx, &select(UndoSelector::Op(OpId(op.0 + 1)))).unwrap_err();
         assert_eq!(error.code, ErrorCode::JournalExpired);
+    }
+
+    #[test]
+    fn undo_of_a_provider_value_with_a_damaged_snapshot_reports_corruption() {
+        let world = World::new();
+        world
+            .registry
+            .values
+            .lock()
+            .unwrap()
+            .insert(registry_key(), ProviderValue::Text("old".to_owned()));
+        let value = FileOp {
+            target: TargetSpec {
+                path: TargetPath::Provider(registry_key()),
+                action: TargetAction::Modify,
+                expect: Expect::Unchecked,
+                size_hint: None,
+            },
+            mutation: Mutation::ProviderSet(ProviderValue::Text("new".to_owned())),
+        };
+        let op = world.run(vec![value]);
+        let entry = JournalLayout::new(abs(JOURNAL)).entry(op).unwrap();
+        let snapshot = entry
+            .blob(crate::layout::BlobId::new(
+                nurt_contracts::journal::TargetIndex(0),
+                crate::layout::BlobRole::Previous,
+            ))
+            .unwrap();
+        world.overwrite(&snapshot.to_string(), b"not json");
+        let error = undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap_err();
+        assert_eq!(error.code, ErrorCode::JournalCorrupt);
+        assert_eq!(error.problem.as_deref(), Some("damaged_preserved_value"));
+        assert_eq!(world.state(op).state, EntryState::Committed);
+        assert_eq!(
+            world.registry.values.lock().unwrap().get(&registry_key()),
+            Some(&ProviderValue::Text("new".to_owned()))
+        );
+    }
+
+    /// Modification time of a file left untouched since the first second of
+    /// the epoch, far before the time of the virtual clock.
+    const OLD_MTIME_NS: i64 = 1_000_000_000;
+
+    /// Gives `path` the permission bits and the old modification time.
+    fn age(world: &World, path: &str, mode: u32) {
+        let scope = store::scope(OpId(0), ScopePurpose::Operation);
+        let change = MetaChange {
+            mode: Some(mode),
+            modified_ns: Some(OLD_MTIME_NS),
+            ..MetaChange::default()
+        };
+        world.fs.set_meta(&scope, &abs(path), &change).unwrap();
+    }
+
+    #[test]
+    fn overwrite_keeps_the_mode_and_dates_the_new_content_while_undo_restores_the_old_time() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/f"), b"old").unwrap();
+        age(&world, "/a/f", 0o600);
+        let op = world.run(vec![FileOp::write(abs("/a/f"), b"new".to_vec())]);
+        let written = meta(&world, "/a/f");
+        assert_eq!(world.read("/a/f").as_deref(), Some(&b"new"[..]));
+        assert_eq!(written.mode & 0o777, 0o600);
+        assert_ne!(written.modified_ns, OLD_MTIME_NS);
+        undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        let restored = meta(&world, "/a/f");
+        assert_eq!(world.read("/a/f").as_deref(), Some(&b"old"[..]));
+        assert_eq!(restored.mode & 0o777, 0o600);
+        assert_eq!(restored.modified_ns, OLD_MTIME_NS);
+    }
+
+    #[test]
+    fn undo_of_a_removed_file_restores_its_mode_and_time_and_redo_finds_no_conflict() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/secret"), b"key").unwrap();
+        age(&world, "/a/secret", 0o600);
+        let op = world.run(vec![FileOp::remove(abs("/a/secret"))]);
+        assert_eq!(world.read("/a/secret"), None);
+        undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        let restored = meta(&world, "/a/secret");
+        assert_eq!(world.read("/a/secret").as_deref(), Some(&b"key"[..]));
+        assert_eq!(restored.mode & 0o777, 0o600);
+        assert_eq!(restored.modified_ns, OLD_MTIME_NS);
+        redo(&world.ctx, &redo_latest()).unwrap();
+        assert_eq!(world.read("/a/secret"), None);
+    }
+
+    #[test]
+    fn undo_of_an_append_restores_the_previous_modification_time() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/log"), b"abc").unwrap();
+        age(&world, "/a/log", 0o640);
+        let op = world.run(vec![FileOp::append(abs("/a/log"), b"def".to_vec())]);
+        assert_ne!(meta(&world, "/a/log").modified_ns, OLD_MTIME_NS);
+        undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        let restored = meta(&world, "/a/log");
+        assert_eq!(world.read("/a/log").as_deref(), Some(&b"abc"[..]));
+        assert_eq!(restored.mode & 0o777, 0o640);
+        assert_eq!(restored.modified_ns, OLD_MTIME_NS);
     }
 }
 

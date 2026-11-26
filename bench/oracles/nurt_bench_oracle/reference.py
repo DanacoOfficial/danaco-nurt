@@ -315,8 +315,10 @@ def verify_task(task: Mapping[str, Any], shell: str, timeout: float) -> list[Out
     outcomes: list[Outcome] = []
     try:
         execution = execute(task, shell, reference, timeout)
-    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+    except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as error:
         return [Outcome("reference", True, None, str(error))]
+    if execution.timed_out:
+        return [Outcome("reference", True, None, f"the reference solution did not end within {timeout:g} s")]
     outcomes.append(Outcome("reference", True, judge(task, execution)))
     unchanged = check(execution.before, execution.before, task, {"answer": "", "probes": {}})
     defects: list[tuple[str, str, str | None]] = []
@@ -331,7 +333,7 @@ def verify_task(task: Mapping[str, Any], shell: str, timeout: float) -> list[Out
     for label, script, delete in defects:
         try:
             verdict = judge(task, execute(task, shell, script, timeout, delete))
-        except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+        except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as error:
             outcomes.append(Outcome(label, False, None, str(error)))
             continue
         outcomes.append(Outcome(label, False, verdict))

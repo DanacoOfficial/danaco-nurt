@@ -28,6 +28,7 @@ pub mod linux;
 pub mod macos;
 pub mod mem;
 pub mod path;
+pub mod transfer;
 pub mod windows;
 
 /// File system back end of the running operating system.

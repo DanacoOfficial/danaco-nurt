@@ -224,6 +224,53 @@ fn slash_after_whitespace_and_before_a_character_starts_a_regular_expression() {
 }
 
 #[test]
+fn regular_expression_argument_may_start_with_a_hash() {
+    assert_eq!(
+        arg_values("search \"/src\" /#include/i"),
+        [
+            json!({"t": "text", "v": "/src"}),
+            json!({"t": "regex", "v": "#include", "flags": "i"})
+        ]
+    );
+}
+
+#[test]
+fn crlf_line_endings_end_statements_and_keep_scalar_value_columns() {
+    let json = json_a("find \"zażółć\"\r\n|> first 20\r\nlet x = count\r\n");
+    let statements = &json["program"]["statements"];
+    assert_eq!(statements.as_array().map(Vec::len), Some(2));
+    assert_eq!(statements[0]["head"]["span"], json!([1, 1, 1, 14]));
+    assert_eq!(statements[0]["stages"][0]["span"], json!([2, 4, 2, 12]));
+    assert_eq!(statements[1]["span"], json!([3, 1, 3, 14]));
+}
+
+#[test]
+fn crlf_inside_a_text_is_stored_as_a_line_feed() {
+    assert_eq!(
+        first_arg("info \"a\r\nb\" "),
+        json!({"t": "text", "v": "a\nb"})
+    );
+    assert_eq!(
+        first_arg("info r\"a\r\nb\""),
+        json!({"t": "text", "v": "a\nb"})
+    );
+}
+
+#[test]
+fn comments_with_crlf_keep_their_text_and_span_without_the_carriage_return() {
+    let options = ParseOptions {
+        keep_comments: true,
+        ..ParseOptions::default()
+    };
+    let document = parse("# zażółć\r\ncount # end\r\n", Variant::A, &options).expect("parses");
+    let meta = Value::Object(document.meta.expect("meta"));
+    assert_eq!(meta["comments"][0]["text"], " zażółć");
+    assert_eq!(meta["comments"][0]["span"], json!([1, 1, 1, 9]));
+    assert_eq!(meta["comments"][1]["text"], " end");
+    assert_eq!(meta["comments"][1]["span"], json!([2, 7, 2, 12]));
+}
+
+#[test]
 fn call_requires_the_parenthesis_directly_after_the_name() {
     assert_eq!(
         arg_values("filter ago (24h)"),
