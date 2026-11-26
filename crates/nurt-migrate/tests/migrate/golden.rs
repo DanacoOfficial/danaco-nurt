@@ -102,7 +102,7 @@ fn bash_mixed_script_matches_expected_output() {
         .binds("SOURCES=$(find /srv/app/src -name '*.go')", "sources")
         .program(
             "grep -rn \"oldName(\" $SOURCES",
-            "search \"oldName(\" ...@sources.path",
+            "search \"oldName(\" [...@sources.path]",
             &["B15:P", "B25"],
         )
         .assume(

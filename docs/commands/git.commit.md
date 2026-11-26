@@ -88,7 +88,7 @@ not change the result.
 | `sign_off` | `bool` | `false` | Append a Signed-off-by trailer. |
 | `author` | `text` | the repository configuration | Author as Name <email>. |
 | `allow_empty` | `bool` | `false` | Allow a commit without changes. |
-| `hooks` | `bool` | `true` | Run the pre-commit and commit-msg hooks of the repository as user programs. |
+| `hooks` | `bool` | `true` | Run the pre-commit, prepare-commit-msg, commit-msg and post-commit hooks of the repository as user programs. |
 | `sign` | `bool` | the setting commit.gpgSign of the repository configuration | Sign the commit with the signing key of the repository configuration. |
 | `exclude` | `list<glob>` | `[]` | Paths to leave out of the commit; the report counts the excluded files. |
 | `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
@@ -108,7 +108,7 @@ not change the result.
 | Reversibility | `reversible` |
 | Implementation | `builtin` |
 | Reversibility conditions | Undo moves the branch reference back; the working tree is not changed and written objects remain in the repository. |
-| External use | `user_program`; used when `hooks` is given; Runs the pre-commit and commit-msg hooks of the repository as user programs. |
+| External use | `user_program`; used when `hooks` is given; Runs the pre-commit, prepare-commit-msg, commit-msg and post-commit hooks of the repository as user programs. |
 
 ## Examples
 

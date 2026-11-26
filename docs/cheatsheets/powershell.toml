@@ -9,14 +9,14 @@ title = "Nurt for PowerShell users"
 id = "P01"
 topic = "Files and directories"
 habit = "Get-ChildItem -Path C:\\Users\\user\\app"
-canonical = 'list "C:/Users/user/app"'
+canonical = 'list "C:/Users/user/app" hidden: false'
 outcome = "corrected"
 
 [[entry]]
 id = "P02"
 topic = "Files and directories"
 habit = "Get-ChildItem C:\\Users\\user\\app -Recurse -Filter *.go"
-canonical = 'find "C:/Users/user/app" glob: "**/*.go"'
+canonical = 'find "C:/Users/user/app" glob: "**/*.go" type: any hidden: false'
 outcome = "corrected"
 
 [[entry]]
@@ -30,7 +30,7 @@ outcome = "corrected"
 id = "P07"
 topic = "Files and directories"
 habit = "Move-Item C:\\Users\\user\\a.txt C:\\Users\\user\\archive"
-canonical = 'move "C:/Users/user/a.txt" to: "C:/Users/user/archive"'
+canonical = 'move "C:/Users/user/a.txt" to: "C:/Users/user/archive" on_conflict: error'
 outcome = "corrected"
 
 [[entry]]
@@ -72,7 +72,7 @@ outcome = "corrected"
 id = "P05"
 topic = "Reading and searching text"
 habit = "Select-String -Pattern todo -Path C:\\Users\\user\\app\\a.go"
-canonical = 'search /todo/i "C:/Users/user/app/a.go"'
+canonical = 'search /todo/ "C:/Users/user/app/a.go" case_sensitive: false'
 outcome = "corrected"
 note = "Select-String ignores letter case by default, so the pattern is case-insensitive"
 
@@ -116,7 +116,7 @@ outcome = "corrected"
 id = "P15"
 topic = "Pipelines"
 habit = "Get-ChildItem C:\\Users\\user\\app -Recurse | Where-Object { $_.Length -gt 1MB }"
-canonical = 'find "C:/Users/user/app" |> filter size > 1mb'
+canonical = 'find "C:/Users/user/app" type: any hidden: false |> filter size > 1mib'
 outcome = "corrected"
 
 [[entry]]
@@ -222,7 +222,7 @@ outcome = "corrected"
 id = "P29"
 topic = "Archives"
 habit = "Expand-Archive -Path C:\\Users\\user\\a.zip -DestinationPath C:\\Users\\user\\data"
-canonical = 'archive.extract "C:/Users/user/a.zip" into: "C:/Users/user/data"'
+canonical = 'archive.extract "C:/Users/user/a.zip" into: "C:/Users/user/data" on_conflict: error'
 outcome = "corrected"
 
 [[entry]]

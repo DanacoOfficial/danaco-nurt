@@ -10,9 +10,11 @@ Bound trees (`nurt-bound/1`) of programs bound with the reference catalog.
 | Path | Content |
 |---|---|
 | `a/<name>.json` | bound tree of the program written in variant A |
-| `b/<name>.json` | bound tree of the program written in variant B |
-| `c/<name>.json` | bound tree of the program written in variant C |
+| `c/<name>.json` | bound tree of the program written in variant C; present for the 14 reference tasks |
 | `<variant>/<name>.hash` | `ast_hash` of `<variant>/<name>.json` |
+
+Variant B has no bound trees: its surface tree is the surface tree of variant
+A, so both bind to the same tree.
 
 `<name>` is the name of the program in `spec/golden/ast/` (`task-NN-<name>`,
 `example-NN-<name>`) or a name of its own for a case without a surface golden
@@ -31,7 +33,7 @@ For every tree:
 4. the hash of the tree equals `<name>.hash`.
 
 A program written in several variants binds to one tree: the files of one
-name under `a/`, `b/` and `c/` have the same hash.
+name under `a/` and `c/` have the same hash.
 
 ## Regeneration
 

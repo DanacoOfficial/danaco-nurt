@@ -7,7 +7,6 @@
 //! `NURT_CRASH_REPORT_DIR` environment variable when it is set.
 
 use std::path::PathBuf;
-use std::time::Instant;
 
 use nurt_crashfs::crash::CrashProfile;
 use nurt_crashfs::points::{CorpusReport, CrashPoint, Harness, Trigger};
@@ -77,14 +76,18 @@ fn reference_corpus_random_points() {
 #[test]
 #[ignore = "long crash corpus"]
 fn reference_corpus_long_random_points() {
-    let started = Instant::now();
     for profile in CrashProfile::ALL {
         let harness = Harness::new(profile);
         let enumeration = harness.enumerate(&CORRECT, CORPUS_SEED).unwrap();
         let report = harness.run_random(&CORRECT, &enumeration, CORPUS_SEED, LONG_POINTS);
         assert_clean(&report);
+        assert!(
+            report.points >= LONG_POINTS,
+            "{}: only {} of {LONG_POINTS} points ran",
+            profile.as_str(),
+            report.points
+        );
     }
-    assert!(started.elapsed().as_secs() > 0);
 }
 
 #[test]
