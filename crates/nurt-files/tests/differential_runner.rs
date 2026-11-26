@@ -20,7 +20,11 @@ fn normalizes_separators_and_prefixes_of_paths() {
     let root = Path::new("/tmp/corpus");
     assert_eq!(normalize_path("/tmp/corpus/a/b.txt", root), "a/b.txt");
     assert_eq!(normalize_path("./a/b.txt", root), "a/b.txt");
-    assert_eq!(normalize_path("a\\b.txt", root), "a/b.txt");
+    assert_eq!(
+        normalize_path("a\\b.txt", root),
+        if cfg!(windows) { "a/b.txt" } else { "a\\b.txt" },
+        "a backslash in a Unix name is part of the name"
+    );
     assert_eq!(
         normalize_path("C:\\w\\corpus\\a.txt", Path::new("C:\\w\\corpus")),
         "a.txt"
@@ -55,8 +59,8 @@ fn rejects_output_that_is_not_utf8() {
 }
 
 #[test]
-fn converts_crlf_to_lf() {
-    assert_eq!(normalize_text(b"a\r\nb\n").unwrap(), "a\nb\n");
+fn keeps_line_ends_of_the_output() {
+    assert_eq!(normalize_text(b"a\r\nb\n").unwrap(), "a\r\nb\n");
 }
 
 #[test]
