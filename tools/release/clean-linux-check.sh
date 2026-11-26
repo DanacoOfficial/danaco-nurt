@@ -21,7 +21,7 @@
 #
 # Environment (all optional):
 #
-#   NURT_CONTAINER_ENGINE   podman or docker; podman when available, else docker
+#   NURT_CONTAINER_ENGINE   docker or podman; the first one that answers `info`
 #   NURT_DEBIAN_IMAGE       image for the glibc archive (debian:stable-slim)
 #   NURT_ALPINE_IMAGE       image for the musl archive (alpine:latest)
 #
@@ -45,10 +45,13 @@ archive="$(cd "$(dirname "$archive")" && pwd)/$(basename "$archive")"
 
 engine="${NURT_CONTAINER_ENGINE:-}"
 if [ -z "$engine" ]; then
-  if command -v podman > /dev/null 2>&1; then engine=podman
-  elif command -v docker > /dev/null 2>&1; then engine=docker
-  else die "neither podman nor docker is available"
-  fi
+  for candidate in docker podman; do
+    if command -v "$candidate" > /dev/null 2>&1 && timeout 30 "$candidate" info > /dev/null 2>&1; then
+      engine="$candidate"
+      break
+    fi
+  done
+  [ -n "$engine" ] || die "neither docker nor podman is usable"
 fi
 debian_image="${NURT_DEBIAN_IMAGE:-docker.io/library/debian:stable-slim}"
 alpine_image="${NURT_ALPINE_IMAGE:-docker.io/library/alpine:latest}"

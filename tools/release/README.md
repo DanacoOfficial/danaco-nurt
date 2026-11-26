@@ -50,7 +50,7 @@ The environment of the build (`CARGO_TARGET_DIR`, `RUSTUP_TOOLCHAIN`, `RUSTC_WRA
 tools/release/clean-linux-check.sh /tmp/release-0.1.1/nurt-0.1.1-x86_64-unknown-linux-gnu.tar.gz
 ```
 
-The archive is mounted read-only into a container of `debian:stable-slim` (glibc archive) or `alpine:latest` (musl archive; checked as well when it lies next to the glibc archive). The container has no network. It unpacks the archive, runs `nurt version` and `nurt doctor`, overwrites a file, runs `undo` and compares the file with its original content. `NURT_CONTAINER_ENGINE` selects `podman` or `docker`. The images must be present or pullable by the engine.
+The archive is mounted read-only into a container of `debian:stable-slim` (glibc archive) or `alpine:latest` (musl archive; checked as well when it lies next to the glibc archive). The container has no network. It unpacks the archive, runs `nurt version` and `nurt doctor`, overwrites a file, runs `undo` and compares the file with its original content. `NURT_CONTAINER_ENGINE` selects `docker` or `podman`; without it the first engine that answers `info` is used (rootless `podman` without subordinate user identifiers cannot unpack the images). The images must be present or pullable by the engine.
 
 ## Tests
 
