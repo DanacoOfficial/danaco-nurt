@@ -5624,6 +5624,7 @@ dependencies = [
  "hex",
  "nurt-contracts",
  "nurt-fs",
+ "nurt-journal",
  "nurt-types",
  "proptest",
  "serde",

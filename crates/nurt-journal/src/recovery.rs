@@ -2382,7 +2382,7 @@ mod pass_tests {
     use std::collections::HashMap;
     use std::io::{Seek, Write};
     use std::sync::{Arc, Mutex, OnceLock};
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     use nurt_contracts::config::OverwriteStrategy;
     use nurt_contracts::env::{BootId, ClockStamp, WallTime};
@@ -3553,26 +3553,6 @@ mod pass_tests {
         assert_eq!(outcome.states_read, 1);
         assert!(outcome.report.corrupt.is_empty());
         assert!(!world.exists(&world.journal().entry(OpId(500)).unwrap().state().unwrap()));
-        assert_rolled_back(&world);
-    }
-
-    #[test]
-    fn recovery_with_a_million_entries_takes_less_than_five_seconds() {
-        let world = World::new();
-        for op in 10..1_000_010 {
-            world
-                .fs
-                .seed_dir(world.journal().entry(OpId(op)).unwrap().dir())
-                .unwrap();
-        }
-        overwrite_entry(&world, PreserveMode::Exchange);
-        let started = Instant::now();
-        recover(&world.ctx).unwrap();
-        assert!(
-            started.elapsed() < Duration::from_secs(5),
-            "{:?}",
-            started.elapsed()
-        );
         assert_rolled_back(&world);
     }
 

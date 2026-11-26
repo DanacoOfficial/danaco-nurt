@@ -29,6 +29,10 @@ pub(crate) mod retention;
 pub mod salvage;
 pub(crate) mod seq;
 pub mod store;
+/// Serves only the performance tests.
+#[cfg(feature = "testing")]
+#[doc(hidden)]
+pub mod testing;
 pub(crate) mod tx;
 pub(crate) mod undo;
 pub mod volumes;
