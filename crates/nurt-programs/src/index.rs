@@ -697,7 +697,7 @@ impl<'a> Builder<'a> {
                 aliases: raw.aliases.clone(),
                 sources: vec![id.to_string()],
                 order: raw.order.map_or(order, |order| {
-                    usize::try_from(order).unwrap_or(order as usize)
+                    usize::try_from(order).unwrap_or(if order < 0 { 0 } else { usize::MAX })
                 }),
             });
         }
@@ -1186,4 +1186,43 @@ fn state_key(registry: &SourceRegistry, env: &HostEnv, options: &IndexOptions) -
         }
     }
     key
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn category(id: &str, order: Option<i64>) -> RawCategory {
+        RawCategory {
+            id: id.to_owned(),
+            title: LocalizedText::new(id),
+            order,
+            ..RawCategory::default()
+        }
+    }
+
+    #[test]
+    fn negative_category_order_sorts_first_not_last() {
+        let env = HostEnv::new(Os::Linux);
+        let mut builder = Builder::new(&env);
+        let source = SourceId::catalog("sample");
+        builder.add_categories(
+            &source,
+            &[
+                category("first-cat", Some(-5)),
+                category("middle-cat", Some(7)),
+                category("unordered-cat", None),
+            ],
+        );
+        let order_of = |id: &str| {
+            builder
+                .categories
+                .iter()
+                .find(|category| category.id == id)
+                .map(|category| category.order)
+        };
+        assert_eq!(order_of("first-cat"), Some(0));
+        assert_eq!(order_of("middle-cat"), Some(7));
+        assert!(order_of("unordered-cat").is_some_and(|order| order < usize::MAX / 2));
+    }
 }
