@@ -167,7 +167,7 @@ query "[.[] | objects] | length" path: "/home/user/app/config.toml"
 | `E_TYPE` | an input record is of another kind, or an entry is not a file | pass `content`, `entry`, `item` or `response` records |
 | `E_MISSING_PARAM` | the source form has no `path` | add `path:` |
 | `E_STALE` | the file changed while it was read | run the command again |
-| `E_LIMIT` | the filter produces more results than one execution may hold, or the file is larger than the document size limit | narrow the filter, use `limit(n; f)`, or raise the limit |
+| `E_LIMIT` | the filter produces more results than one execution may hold, multiplies a string into a result longer than `limits.max_file_bytes_text` bytes (`"x" * n`), or the file is larger than the document size limit | narrow the filter, use `limit(n; f)`, or raise the limit |
 | `E_CANCELLED` | the execution was cancelled or its time limit passed, including inside endless generators such as `repeat` | run the command again with a narrower filter |
 | `E_TIMEOUT` | the execution was cancelled or its time limit passed, including inside endless generators such as `repeat` | run the command again with a narrower filter |
 

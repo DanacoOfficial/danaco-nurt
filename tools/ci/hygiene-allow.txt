@@ -147,3 +147,7 @@ work-marker tests/d1/correction/*
 
 # Test input: Rust source text that contains the attribute as data.
 allow-attribute crates/nurt-sys/tests/d7_static.rs
+
+# Vendored third-party crate kept as published, without the producer header, the
+# style rules of this repository and the other checks.
+* crates/jaq-json/*

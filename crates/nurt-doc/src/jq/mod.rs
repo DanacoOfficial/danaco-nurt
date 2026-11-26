@@ -228,6 +228,30 @@ impl Query {
     /// Runs the filter; a guard stops it when the stack in use reaches the
     /// address `floor`, unless `floor` is 0.
     fn run_above(&self, input: &Value, ctx: &ExecCtx, floor: usize) -> QueryRun {
+        let max_bytes = usize::try_from(ctx.limits().max_file_bytes_text).unwrap_or(usize::MAX);
+        let (mut run, exceeded) = jaq_json::limit::with_repeat_limit(max_bytes, || {
+            self.run_with_repeat_limit(input, ctx, floor)
+        });
+        if exceeded
+            && run
+                .error
+                .as_ref()
+                .is_none_or(|error| error.code == ErrorCode::Query)
+        {
+            run.error = Some(Error::new(
+                ErrorCode::Limit,
+                format!(
+                    "the filter made a string longer than {max_bytes} bytes by multiplying a string; narrow the filter"
+                ),
+            ));
+        }
+        run
+    }
+
+    /// Runs the filter once the thread has the limit on repeated strings; a
+    /// repetition above it is an error that `try` can catch, so the caller
+    /// reads the outcome from the limit itself.
+    fn run_with_repeat_limit(&self, input: &Value, ctx: &ExecCtx, floor: usize) -> QueryRun {
         let val = to_val(input);
         let (raw, error) = match self.run_paths(&val, ctx, floor) {
             PathRun::Done(raw) => (raw, None),
@@ -895,6 +919,62 @@ mod tests {
             .unwrap()
             .run(&Value::Null, &ctx);
         assert!(run.error.is_none());
+    }
+
+    fn repeat_limited_ctx(max_bytes: u64) -> ExecCtx {
+        let limits = Limits {
+            max_file_bytes_text: max_bytes,
+            ..Limits::default()
+        };
+        ExecCtx::builder(Arc::new(FixedClock), host())
+            .limits(limits)
+            .build()
+    }
+
+    #[test]
+    fn a_string_repeated_beyond_the_size_limit_is_an_error_even_inside_try() {
+        let ctx = repeat_limited_ctx(1000);
+        for filter in [
+            r#""x" * 2000"#,
+            r#"2000 * "x""#,
+            r#""abcdefghij" * 101"#,
+            r#""x" * 1000000000000"#,
+            r#"try ("x" * 2000) catch "caught""#,
+            r#"[.[] | . * 2000]"#,
+        ] {
+            let run = Query::compile(filter).unwrap().run(&json(r#"["x"]"#), &ctx);
+            assert_eq!(
+                run.error.map(|error| error.code),
+                Some(ErrorCode::Limit),
+                "{filter}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_string_repeated_within_the_size_limit_is_unchanged() {
+        let ctx = repeat_limited_ctx(1000);
+        let run = Query::compile(r#""ab" * 3, ("x" * 1000 | length), ("x" * 0)"#)
+            .unwrap()
+            .run(&Value::Null, &ctx);
+        assert!(run.error.is_none(), "{:?}", run.error);
+        let values: Vec<Value> = run.outputs.into_iter().map(|output| output.value).collect();
+        assert_eq!(
+            values,
+            [Value::Text("ababab".into()), Value::Int(1000), Value::Null]
+        );
+    }
+
+    #[test]
+    fn the_repeat_limit_of_one_run_does_not_reach_the_next() {
+        let strict = repeat_limited_ctx(10);
+        let filter = Query::compile(r#""x" * 100 | length"#).unwrap();
+        assert_eq!(
+            filter.run(&Value::Null, &strict).error.map(|e| e.code),
+            Some(ErrorCode::Limit)
+        );
+        let run = filter.run(&Value::Null, &ctx());
+        assert_eq!(run.into_result().unwrap()[0].value, Value::Int(100));
     }
 
     #[test]

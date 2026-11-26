@@ -92,7 +92,10 @@ exceptions = [
 
 [licenses.private]
 # Crates of this workspace are not published and are licensed by the
-# workspace manifest.
+# workspace manifest. The vendored crate crates/jaq-json (jaq-json 2.0.3 with a
+# limit on repeated strings) is licensed under MIT, not by the workspace
+# manifest; it is not marked as unpublished, so its license is checked against
+# the list above like that of any other dependency.
 ignore = true
 
 [bans]
