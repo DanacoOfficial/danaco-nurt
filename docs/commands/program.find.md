@@ -20,9 +20,11 @@ program.find <name>... [name: value]...
 
 `program.find` resolves each name in the directories of `PATH` in the order the operating system uses and emits one `program_location` record per name, in the order of the arguments. It starts a pipeline and accepts no input. Repeated names are reported once.
 
-A name that resolves gives `found: true`, the first matching file in `path` and every match in `all_paths`. A name that does not resolve gives a record with `found: false` and no path; the command does not fail. On Windows the extensions of `PATHEXT` are tried in order and names are compared without regard to case; on macOS names are compared without regard to case; on Linux and other Unix systems the comparison is exact and only files with an execute permission are matched. A symbolic link in `PATH` that points to another program in `PATH` is reported with the field `alias_of`.
+A name that resolves gives `found: true`, the first matching file in `path` and, with `all`, every match in `all_paths`. A name that does not resolve gives a record with `found: false` and no path; the command does not fail. On Windows the extensions of `PATHEXT` are tried in order and names are compared without regard to case; on macOS names are compared without regard to case; on Linux and other Unix systems the comparison is exact and only files with an execute permission are matched. A symbolic link in `PATH` that points to another program in `PATH` is reported with the field `alias_of`.
 
-`program.find` reads only the directories of `PATH`; it does not build the program index unless `versions` is `true`.
+A name that contains a path separator, such as `./tool` or `bin/tool`, is not searched in `PATH`; the file is checked as it is, a relative name relative to the base directory of the request.
+
+`program.find` reads only the directories of `PATH`; it does not build the program index unless `versions` is `true`. With `versions` the version comes from the program index: from the package database, the application entry or a catalog, and `version_source` names which of `package`, `app` or `catalog` gave it. No program is started; a located program without a version in these sources has none.
 
 ## Parameters
 
@@ -30,6 +32,7 @@ A name that resolves gives `found: true`, the first matching file in `path` and 
 |---|---|---|---|
 | `name` | `list<text>` | required | Program names. |
 | `versions` | `bool` | `false` | Read the version of each located program. |
+| `all` | `bool` | `false` | List every match in all_paths. |
 
 ## Input and output
 
@@ -47,7 +50,6 @@ Fields of `program_location`: `name`, `found`, `path`, `all_paths`, `version`, `
 | Effect | `read` |
 | Reversibility | `read` |
 | Implementation | `builtin` |
-| External use | `user_program`; used when `versions` is given; Runs a located program once with --version when its file metadata gives no version. |
 
 ## Examples
 
