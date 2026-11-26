@@ -104,6 +104,9 @@ struct AnalyzeArgs {
     /// Seed of the bootstrap.
     #[arg(long, default_value_t = 1)]
     seed: u64,
+    /// Also analyse the runs of the mock model, which are left out otherwise.
+    #[arg(long)]
+    include_mock: bool,
 }
 
 #[derive(clap::Args)]
@@ -232,7 +235,8 @@ fn analyze(args: &AnalyzeArgs) -> Result<bool> {
         seed: args.seed,
         level: LEVEL,
     };
-    let analysis = analyze::analyse_directory(&args.runs, &args.out, &bootstrap)?;
+    let analysis =
+        analyze::analyse_directory(&args.runs, &args.out, &bootstrap, args.include_mock)?;
     say(&format!(
         "analysed {} runs, excluded {}; results in {}",
         analysis.runs,

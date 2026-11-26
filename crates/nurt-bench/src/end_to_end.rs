@@ -277,7 +277,8 @@ fn check_analysis(base: &Path) {
         level: 0.95,
     };
     let analysis =
-        analyze::analyse_directory(&base.join("runs"), &base.join("results"), &bootstrap).unwrap();
+        analyze::analyse_directory(&base.join("runs"), &base.join("results"), &bootstrap, true)
+            .unwrap();
     assert_eq!((analysis.runs, analysis.excluded_errors), (40, 0));
     let pooled = analysis
         .comparisons

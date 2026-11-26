@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::condition::Condition;
+use crate::model::Provider;
 use crate::oracle::Verdict;
 use crate::runlog::{Event, NurtCall, Outcome, RunHeader, ToolEvent};
-use crate::task::Platform;
+use crate::task::{HostOs, Platform};
 
 /// Interpreters whose use counts as an intermediate script.
 const INTERPRETERS: [&str; 8] = ["python", "py", "perl", "ruby", "node", "php", "deno", "bun"];
@@ -81,6 +82,14 @@ pub struct RunMeasures {
     pub steps: u32,
     /// Tool calls.
     pub tool_calls: u32,
+    /// Operating system of the run.
+    pub host: HostOs,
+    /// Whether the run was made by the mock model and not by a provider.
+    pub mock: bool,
+    /// Whether the provider reported the input tokens of every model call; a
+    /// call without a count has an input of 0 and is not measured, which is
+    /// not the same as a measured 0.
+    pub tokens_measured: bool,
     /// Input tokens.
     pub input_tokens: u64,
     /// Output tokens.
@@ -268,6 +277,12 @@ impl RunMeasures {
             forbidden: harm.map_or(0, |harm| harm.forbidden.len()),
             steps: end.steps,
             tool_calls: end.tool_calls,
+            host: header.host,
+            mock: header.model.provider == Provider::Mock,
+            tokens_measured: events.iter().all(|event| match event {
+                Event::Model(model) => model.response.usage.input > 0,
+                _ => true,
+            }),
             input_tokens: end.tokens.input,
             output_tokens: end.tokens.output,
             description_tokens,
@@ -366,6 +381,29 @@ mod tests {
         assert_eq!(measures.description_tokens, Some(3));
         assert!(RunMeasures::from_events(&events[..3]).is_none());
         assert!(RunMeasures::from_events(&events[1..]).is_none());
+    }
+
+    #[test]
+    fn calls_without_a_token_count_are_not_measured() {
+        let counted = vec![
+            Event::Run(Box::new(header(Condition::Bash))),
+            model_event(1, "a", None),
+            end_event(Outcome::Answered),
+        ];
+        let measures = RunMeasures::from_events(&counted).unwrap();
+        assert!(measures.tokens_measured);
+        assert_eq!(measures.host, HostOs::Linux);
+
+        let mut silent = model_event(1, "a", None);
+        if let Event::Model(model) = &mut silent {
+            model.response.usage.input = 0;
+        }
+        let uncounted = vec![
+            Event::Run(Box::new(header(Condition::Bash))),
+            silent,
+            end_event(Outcome::Answered),
+        ];
+        assert!(!RunMeasures::from_events(&uncounted).unwrap().tokens_measured);
     }
 
     #[test]
