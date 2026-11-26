@@ -14,6 +14,11 @@ install the library as `libnurt.so` (also `libnurt.so.1`) and `libnurt.dylib`. T
 package first and for the name of the build second, so both are found; a path given in the
 options or in `NURT_LIBRARY` is used as given, whatever its name.
 
+On musl targets (`x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`) the library of the release is static: the archive `nurt-lib-<version>-<target>`
+holds `libnurt.a`, `nurt.h` and `nurt.pc`, and `pkg-config --static --libs nurt` returns every library that a static link needs. On musl the library is
+static (`libnurt.a`) and must not be linked into one program with another static library written in Rust.
+The program `examples/c/hello.c` calls `nurt_abi_check` and `nurt_version`; the release checks build and run it against the library archive.
+
 ## Versioning
 
 | Item | Value |

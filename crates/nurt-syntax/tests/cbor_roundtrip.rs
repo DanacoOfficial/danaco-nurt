@@ -3,7 +3,9 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Round trips JSON ↔ CBOR ↔ tree of the golden trees and of generated trees.
 //!
-//! The properties run `PROPTEST_CASES` cases, 100 000 by default.
+//! Every property runs `PROPTEST_CASES` cases when that variable is set,
+//! 100 000 cases when `NURT_PROPTEST_FULL=1` (the nightly run) and 300 cases
+//! otherwise.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -29,14 +31,22 @@ use nurt_syntax::validate::{MAX_SAFE_INTEGER, is_reserved_word};
 use proptest::prelude::*;
 use proptest::test_runner::{Config, TestRunner};
 
-/// Number of generated cases of every property unless `PROPTEST_CASES` is set.
-const DEFAULT_CASES: u32 = 100_000;
+/// Number of generated cases of every property in the regular run.
+const QUICK_CASES: u32 = 300;
+
+/// Number of generated cases of every property in the full run.
+const FULL_CASES: u32 = 100_000;
+
+/// Whether `NURT_PROPTEST_FULL=1` requests the full number of cases.
+fn full_run() -> bool {
+    std::env::var("NURT_PROPTEST_FULL").is_ok_and(|value| value == "1")
+}
 
 fn config() -> Config {
     let cases = std::env::var("PROPTEST_CASES")
         .ok()
         .and_then(|cases| cases.parse().ok())
-        .unwrap_or(DEFAULT_CASES);
+        .unwrap_or(if full_run() { FULL_CASES } else { QUICK_CASES });
     Config {
         cases,
         failure_persistence: None,
