@@ -1195,7 +1195,7 @@ mod tests {
         );
         assert_eq!(
             path_check("../x", "/srv/x", Some("/srv/app")),
-            PathCheck::Changed
+            PathCheck::Preserved
         );
     }
 
