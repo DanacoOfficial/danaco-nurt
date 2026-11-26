@@ -179,6 +179,14 @@ class WorkflowCopiesTest(unittest.TestCase):
             self.assertNotIn("target/release/libnurt.so", text, language)
             self.assertNotRegex(text, r"target/release -lnurt\s*$", language)
 
+    def test_binding_workflows_fail_for_an_archive_without_a_checksum(self):
+        for language in ("dotnet", "java", "python"):
+            text = (support.PACKAGING.parent / "bindings" / language / "ci" / "workflow.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("is not listed in checksums.txt", text, language)
+            self.assertIn("--ignore-missing --strict checksums.txt", text, language)
+
     def test_rpm_build_takes_its_times_from_source_date_epoch(self):
         text = (support.PACKAGING / "ci" / "packaging.yml").read_text(encoding="utf-8")
         self.assertIn('--define "use_source_date_epoch_as_buildtime 1"', text)

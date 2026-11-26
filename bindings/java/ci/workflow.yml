@@ -130,7 +130,7 @@ jobs:
           mkdir -p downloads
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir downloads \
             --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'checksums.txt'
-          (cd downloads && sha256sum --check --ignore-missing --strict checksums.txt)
+          (cd downloads && for archive in nurt-*; do grep -qE "^[0-9a-f]{64} [ *]${archive}$" checksums.txt || { echo "${archive} is not listed in checksums.txt" >&2; exit 1; }; done && sha256sum --check --ignore-missing --strict checksums.txt)
       - name: Version matches the release
         run: |
           project=$(sed -n 's:^  <version>\(.*\)</version>$:\1:p' pom.xml | head -n 1)
