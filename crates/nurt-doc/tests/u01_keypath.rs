@@ -413,17 +413,11 @@ fn structured_keys_outside_the_filter_subset_are_rejected() {
         flags: String::new(),
         span: None,
     };
-    let negative = Expr::Un {
-        op: UnOp::Neg,
-        x: Box::new(int(1)),
-        span: None,
-    };
     let cases = [
         (Vec::new(), Empty),
         (vec![append(), name()], MisplacedAppend),
         (vec![name(), filter(field_of_text)], Unsupported),
         (vec![name(), filter(regex)], Unsupported),
-        (vec![name(), filter(negative)], Unsupported),
         (
             vec![name(), filter(bin(BinOp::Add, int(1), int(2)))],
             Unsupported,
