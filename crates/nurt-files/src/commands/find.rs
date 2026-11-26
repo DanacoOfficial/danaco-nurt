@@ -24,11 +24,12 @@ use nurt_contracts::value::Value;
 
 use super::file_types::TypeFilter;
 use super::list::{
-    Listing, Root, SORT, Selection, SortKey, SortSpec, View, actual_root, choice, depth_param,
-    descending, kind_param, root_param, static_info, type_error,
+    Listing, PATH, Root, SORT, Selection, SortKey, SortSpec, View, actual_root, choice,
+    depth_param, descending, kind_param, root_param, static_info, type_error,
 };
 use crate::common::params::{WalkFilters, walk_filters};
 use crate::fuzzy::FuzzyQuery;
+use crate::registry;
 use crate::walk::{KindFilter, WalkOptions, compile_globs};
 
 const COMMAND: &str = "find";
@@ -76,6 +77,16 @@ impl ReadStage for Find {
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
         let params = FindParams::read(args)?;
+        if let Some(texts) = registry::path_texts(args, PATH)? {
+            let selection = registry::Walk {
+                depth: params.depth,
+                kind: params.kind,
+                globs: params.globs,
+                root: true,
+                keys_first: false,
+            };
+            return registry::listing(ctx, &texts, &selection);
+        }
         let (options, selection) = params.listing_parts()?;
         let fs = ctx.require_fs()?;
         let root = actual_root(ctx, fs, root_param(args, ctx)?);

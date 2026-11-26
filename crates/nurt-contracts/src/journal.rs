@@ -47,7 +47,7 @@ use crate::env::WallTime;
 use crate::error::{Error, ErrorCode, Result};
 use crate::fs::{
     AbsPath, ContentHash, Etag, FileKind, FileMeta, LinkKind, MetaChange, ProviderKey,
-    ProviderValue, VolumeId, VolumeInfo, WriteHandle,
+    ProviderSnapshot, ProviderValue, VolumeId, VolumeInfo, WriteHandle,
 };
 use crate::report::{Correction, Irreversible, IrreversibleEntry};
 
@@ -566,6 +566,12 @@ pub enum Mutation {
     ProviderSet(ProviderValue),
     /// Remove a provider key or value.
     ProviderRemove,
+    /// Copy a provider key with its subtree, or a value, from the given key
+    /// to the target, creating the missing keys above it.
+    ProviderCopy(ProviderKey),
+    /// Restore the exact state kept in a snapshot of the target, including
+    /// its absence; used by undo.
+    ProviderRestore(ProviderSnapshot),
 }
 
 /// Result of applying one mutation.

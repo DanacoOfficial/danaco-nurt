@@ -42,6 +42,7 @@ use crate::common::entry::{entry_record, link_type};
 use crate::common::params::{WalkFilters, walk_filters};
 use crate::common::path::{path_arg, path_field};
 use crate::fuzzy::FuzzyQuery;
+use crate::registry;
 use crate::walk::{self, KindFilter, WalkItem, WalkOptions, WalkSummary, Walker};
 
 /// Name of the `path` parameter.
@@ -118,6 +119,16 @@ impl ReadStage for List {
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
         let params = ListParams::read(args)?;
+        if let Some(texts) = registry::path_texts(args, PATH)? {
+            let selection = registry::Walk {
+                depth: Some(params.depth),
+                kind: params.kind,
+                globs: Vec::new(),
+                root: false,
+                keys_first: true,
+            };
+            return registry::listing(ctx, &texts, &selection);
+        }
         let fs = ctx.require_fs()?;
         let root = actual_root(ctx, fs, root_param(args, ctx)?);
         require_directory(fs, &root.path)?;

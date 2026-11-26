@@ -141,6 +141,8 @@ with `E_STAGE_FAILED` and roll back.
 | Create a directory or link | `create` / `link` | `create_dir`, `create_link`, `create_hard_link` |
 | Change metadata | `attributes` | `set_meta` |
 | Set or remove a provider value | `modify` / `delete` on a provider target | `provider_set` / `provider_remove` |
+| Copy a provider key with its subtree, or a value | `create`, `absent`, on the destination | `provider_copy` from the source key |
+| Undo a change of a provider target | `modify` on the changed target | `provider_restore` with the kept snapshot |
 | Library writes the file itself | `external_write` | `observe_external` after the write |
 | New tree populated by the operation | `create_tree` | writes inside are not declared |
 

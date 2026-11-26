@@ -408,15 +408,28 @@ fn must_be_absent(action: &TargetAction) -> bool {
     )
 }
 
+/// Change applied to a provider target.
+enum ProviderChange {
+    Set(nurt_contracts::fs::ProviderValue),
+    Remove,
+    Copy(nurt_contracts::fs::ProviderKey),
+    Restore(nurt_contracts::fs::ProviderSnapshot),
+}
+
+/// Whether a mutation of a provider target matches the declared action.
+fn provider_accepts(action: &TargetAction, mutation: &Mutation) -> bool {
+    match mutation {
+        Mutation::ProviderSet(_) => matches!(action, TargetAction::Modify | TargetAction::Create),
+        Mutation::ProviderRemove => matches!(action, TargetAction::Delete),
+        Mutation::ProviderCopy(_) => matches!(action, TargetAction::Create),
+        Mutation::ProviderRestore(_) => matches!(action, TargetAction::Modify),
+        _ => false,
+    }
+}
+
 fn accepts(action: &TargetAction, mutation: &Mutation, provider: bool) -> bool {
     if provider {
-        return match mutation {
-            Mutation::ProviderSet(_) => {
-                matches!(action, TargetAction::Modify | TargetAction::Create)
-            }
-            Mutation::ProviderRemove => matches!(action, TargetAction::Delete),
-            _ => false,
-        };
+        return provider_accepts(action, mutation);
     }
     match mutation {
         Mutation::CommitStaged | Mutation::WriteBytes(_) | Mutation::CopyFrom { .. } => matches!(
@@ -1078,6 +1091,20 @@ impl Tx<'_> {
                 let taken = provider
                     .snapshot(key)
                     .map_err(|error| target_error(index, error))?;
+                let named = record_path(&spec.path);
+                let named = std::path::Path::new(&named);
+                if must_be_absent(&spec.action) && taken.existed {
+                    return Err(target_error(
+                        index,
+                        FsError::new(FsErrorKind::Exists, "preserve", Some(named)),
+                    ));
+                }
+                if must_exist(&spec.action) && !taken.existed {
+                    return Err(target_error(
+                        index,
+                        FsError::new(FsErrorKind::NotFound, "preserve", Some(named)),
+                    ));
+                }
                 before.exists = taken.existed;
                 snapshot = Some(taken);
             }
@@ -1868,8 +1895,12 @@ impl Tx<'_> {
                     .map_err(|error| target_error(index, error))?;
                 self.finish(position, None)
             }
-            Mutation::ProviderSet(value) => self.provider(position, Some(value)),
-            Mutation::ProviderRemove => self.provider(position, None),
+            Mutation::ProviderSet(value) => self.provider(position, ProviderChange::Set(value)),
+            Mutation::ProviderRemove => self.provider(position, ProviderChange::Remove),
+            Mutation::ProviderCopy(from) => self.provider(position, ProviderChange::Copy(from)),
+            Mutation::ProviderRestore(snapshot) => {
+                self.provider(position, ProviderChange::Restore(snapshot))
+            }
             _ => Err(misuse("the mutation is not supported")),
         }
     }
@@ -1893,11 +1924,7 @@ impl Tx<'_> {
         })
     }
 
-    fn provider(
-        &mut self,
-        position: usize,
-        value: Option<nurt_contracts::fs::ProviderValue>,
-    ) -> Result<Applied> {
+    fn provider(&mut self, position: usize, change: ProviderChange) -> Result<Applied> {
         let index = self.targets[position].index();
         let TargetPath::Provider(key) = self.targets[position].spec.path.clone() else {
             return Err(misuse("the target is not a provider key"));
@@ -1907,14 +1934,21 @@ impl Tx<'_> {
             .provider(&key.scheme)
             .ok_or_else(|| misuse("the provider disappeared"))?
             .clone();
-        let result = match &value {
-            Some(value) => provider.set(&self.scope(), &key, value),
-            None => provider.remove(&self.scope(), &key),
+        let scope = self.scope();
+        let result = match &change {
+            ProviderChange::Set(value) => provider.set(&scope, &key, value),
+            ProviderChange::Remove => provider.remove(&scope, &key),
+            ProviderChange::Copy(from) => provider.duplicate(&scope, from, &key),
+            ProviderChange::Restore(snapshot) => provider.restore(&scope, snapshot),
         };
         result.map_err(|error| target_error(index, error))?;
         self.targets[position].changed = true;
         let after = AfterRecord {
-            exists: value.is_some(),
+            exists: match &change {
+                ProviderChange::Remove => false,
+                ProviderChange::Restore(snapshot) => snapshot.existed,
+                ProviderChange::Set(_) | ProviderChange::Copy(_) => true,
+            },
             ..AfterRecord::default()
         };
         let state = after.to_state();
@@ -4591,6 +4625,131 @@ mod tests {
         assert_eq!(
             env.fixture.registry.values.lock().unwrap().get(&key),
             Some(&ProviderValue::Text("dark".to_owned()))
+        );
+    }
+
+    fn theme_key(name: &str) -> ProviderKey {
+        ProviderKey {
+            scheme: ProviderScheme("registry".to_owned()),
+            segments: vec!["HKCU".to_owned(), "Software".to_owned()],
+            value: Some(name.to_owned()),
+        }
+    }
+
+    fn provider_target(key: ProviderKey, action: TargetAction, expect: Expect) -> TargetSpec {
+        TargetSpec {
+            path: TargetPath::Provider(key),
+            action,
+            expect,
+            size_hint: None,
+        }
+    }
+
+    #[test]
+    fn provider_copy_creates_the_destination_and_rollback_removes_it() {
+        let env = Env::new();
+        let dark = ProviderValue::Text("dark".to_owned());
+        env.fixture
+            .registry
+            .values
+            .lock()
+            .unwrap()
+            .insert(theme_key("Theme"), dark.clone());
+        let target = provider_target(theme_key("Copy"), TargetAction::Create, Expect::Absent);
+        let mut tx = begin(&env.ctx, request("registry.copy"));
+        tx.preserve(&[target]).unwrap();
+        tx.apply(TargetIndex(0), Mutation::ProviderCopy(theme_key("Theme")))
+            .unwrap();
+        assert_eq!(
+            env.fixture
+                .registry
+                .values
+                .lock()
+                .unwrap()
+                .get(&theme_key("Copy")),
+            Some(&dark)
+        );
+        tx.rollback(RollbackReason::Cancelled).unwrap();
+        let values = env.fixture.registry.values.lock().unwrap();
+        assert_eq!(values.get(&theme_key("Copy")), None);
+        assert_eq!(values.get(&theme_key("Theme")), Some(&dark));
+    }
+
+    #[test]
+    fn provider_copy_is_accepted_only_for_a_created_target() {
+        let env = Env::new();
+        env.fixture
+            .registry
+            .values
+            .lock()
+            .unwrap()
+            .insert(theme_key("Theme"), ProviderValue::Text("dark".to_owned()));
+        let target = provider_target(theme_key("Copy"), TargetAction::Modify, Expect::Unchecked);
+        let mut tx = begin(&env.ctx, request("registry.copy"));
+        tx.preserve(&[target]).unwrap();
+        let error = tx
+            .apply(TargetIndex(0), Mutation::ProviderCopy(theme_key("Theme")))
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::StageFailed);
+    }
+
+    #[test]
+    fn an_existing_provider_target_cannot_be_declared_as_created() {
+        let env = Env::new();
+        env.fixture
+            .registry
+            .values
+            .lock()
+            .unwrap()
+            .insert(theme_key("Copy"), ProviderValue::Text("old".to_owned()));
+        let target = provider_target(theme_key("Copy"), TargetAction::Create, Expect::Absent);
+        let mut tx = begin(&env.ctx, request("registry.copy"));
+        let error = tx.preserve(&[target]).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Exists);
+    }
+
+    #[test]
+    fn a_missing_provider_target_cannot_be_declared_as_deleted() {
+        let env = Env::new();
+        let target = provider_target(theme_key("Gone"), TargetAction::Delete, Expect::Unchecked);
+        let mut tx = begin(&env.ctx, request("registry.remove"));
+        let error = tx.preserve(&[target]).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+    }
+
+    #[test]
+    fn provider_restore_hands_the_snapshot_to_the_provider() {
+        let env = Env::new();
+        let old = ProviderValue::Text("old".to_owned());
+        env.fixture
+            .registry
+            .values
+            .lock()
+            .unwrap()
+            .insert(theme_key("Theme"), ProviderValue::Text("new".to_owned()));
+        let snapshot = ProviderSnapshot {
+            key: theme_key("Theme"),
+            existed: true,
+            value: Some(old.clone()),
+            subtree: Some(b"subtree".to_vec()),
+        };
+        let target = provider_target(theme_key("Theme"), TargetAction::Modify, Expect::Unchecked);
+        let mut tx = begin(&env.ctx, request("registry.undo"));
+        tx.preserve(&[target]).unwrap();
+        tx.apply(TargetIndex(0), Mutation::ProviderRestore(snapshot.clone()))
+            .unwrap();
+        assert_eq!(
+            env.fixture.registry.restored.lock().unwrap().first(),
+            Some(&snapshot)
+        );
+        assert_eq!(
+            env.fixture
+                .registry
+                .values
+                .lock()
+                .unwrap()
+                .get(&theme_key("Theme")),
+            Some(&old)
         );
     }
 

@@ -54,10 +54,11 @@ last write to the key and `size` 0. A symbolic link key is an `entry` with
 
 ## Writing
 
-`write "registry:/…" "<value>" value_type: <type>` sets a value and creates
-missing keys. The value is the text parameter of `write`; without
-`value_type` it is written as `string`. Numbers are written as text and
-converted to the type.
+`write "registry:/…" "<value>" mode: <mode> value_type: <type>` sets a value
+and creates missing keys. `mode` is required, as for files, and is `create`
+(the value must not exist) or `overwrite`. The value is the text parameter of
+`write`; without `value_type` it is written as `string`. Numbers are written
+as text and converted to the type.
 
 | `value_type` | Accepted value |
 |---|---|
@@ -71,6 +72,25 @@ converted to the type.
 key cannot be removed. `copy` and `move` copy a key with its subtree, or a
 value; the destination must not exist, and missing keys above it are
 created. `move` is one operation of the journal.
+
+## Commands
+
+| Command | Behaviour on `registry:` paths |
+|---|---|
+| `read` | Returns the `registry_value` record of each value. A key is refused with `E_IO` (`kind: is_a_directory`): list it instead. Line selectors do not apply. |
+| `info` | Returns the `entry` record of a key or the `registry_value` record of a value; a path that names nothing gives an `entry` with `exists: false`. |
+| `list` | Keys first, then values, to `depth` levels (default 1). `type` selects values (`file`), keys (`directory`), link keys (`link`) or all (`any`). |
+| `find` | Keys and values below a key to `depth` levels (default unlimited). `type` defaults to `file`, which selects values. `glob` is matched without regard to case against the name and against the path below the key. The key itself is a candidate for `type: any` and `type: directory` when no `glob` is given. |
+| `write` | Sets a value as described in Writing. `mode` is `create` or `overwrite`. |
+| `remove` | Removes the values and keys named by `path`, or by piped `entry` records of keys. A key inside a key that is removed as well is removed once, with the enclosing key. `on_missing` applies. |
+| `copy`, `move` | `to` names the destination of one source, `into` the key that receives every source under its own name. Sources and destination must all be registry paths. The destination must not exist, whatever `on_conflict` says. |
+
+`list`, `find`, `read` and `info` return records of the kinds named in Records.
+`remove`, `copy` and `move` declare their targets to the journal like the
+changes of files; a `move` declares the copy and the removal of the source in
+one operation. A command that takes only file paths rejects a `registry:` path
+with `E_INVALID_VALUE`, and a host that has no registry rejects it with
+`E_OS_ONLY`.
 
 ## Effect
 
@@ -106,7 +126,7 @@ read "registry:/HKLM/SOFTWARE/Microsoft/Windows NT/CurrentVersion/ProductName"
 Set the persistent environment variable `EDITOR` of the current account:
 
 ```nurt
-write "registry:/HKCU/Environment/EDITOR" "code" value_type: string
+write "registry:/HKCU/Environment/EDITOR" "code" mode: overwrite value_type: string
 ```
 
 Remove a key with its subtree and restore it:

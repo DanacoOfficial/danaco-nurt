@@ -40,7 +40,7 @@ use nurt_contracts::envelope::{
     Verbosity,
 };
 use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::fs::{AbsPath, Fs};
+use nurt_contracts::fs::{AbsPath, Fs, RegistryAccess};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
 use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
 use nurt_contracts::report::{REPORT_VERSION, RecordsPage, Report, ReportStatus, Timing};
@@ -56,6 +56,7 @@ use nurt_plan::{CheckSummary, Plan, PlanOptions};
 use nurt_report::assemble::{ReportBuilder, ReportContext, TargetChange};
 use nurt_report::rules::PathContext;
 use nurt_report::{RenderOptions, respond};
+use nurt_sys::registry::RegistryProvider;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as Json, json};
@@ -122,6 +123,7 @@ pub struct EngineConfig {
     system_journal: bool,
     process_components: bool,
     system_services: bool,
+    registry: Option<Arc<RegistryProvider>>,
     frontend: Arc<dyn Frontend>,
     services: Services,
     stages: Vec<Arc<dyn StageImpl>>,
@@ -156,6 +158,7 @@ impl EngineConfig {
             system_journal: false,
             process_components: false,
             system_services: false,
+            registry: None,
             frontend: Arc::new(UnavailableFrontend),
             services: Services::new(),
             stages: Vec::new(),
@@ -221,6 +224,17 @@ impl EngineConfig {
     #[must_use]
     pub fn with_journal(mut self, journal: Arc<dyn JournalStore>) -> Self {
         self.journal = Some(journal);
+        self
+    }
+
+    /// Registry that `registry:` paths address and that the journal changes
+    /// and restores, instead of the registry of the system, which Windows
+    /// engines use by default. Outside Windows an engine has no registry
+    /// unless one is given here, and `registry:` paths fail with
+    /// `E_OS_ONLY`.
+    #[must_use]
+    pub fn with_registry(mut self, registry: Arc<RegistryProvider>) -> Self {
+        self.registry = Some(registry);
         self
     }
 
@@ -410,6 +424,7 @@ struct Inner {
     host: Arc<dyn Host>,
     fs: Option<Arc<dyn Fs>>,
     journal: Option<Arc<dyn JournalStore>>,
+    registry_access: Option<Arc<dyn RegistryAccess>>,
     frontend: Arc<dyn Frontend>,
     services: Arc<Services>,
     registry: Arc<Registry>,
@@ -425,6 +440,18 @@ struct Inner {
     default_session: Option<SessionId>,
     requests: AtomicU64,
     results: AtomicU64,
+}
+
+/// The registry of the system on Windows; elsewhere there is none.
+#[cfg(windows)]
+fn system_registry() -> Option<Arc<RegistryProvider>> {
+    Some(Arc::new(RegistryProvider::system()))
+}
+
+/// The registry of the system on Windows; elsewhere there is none.
+#[cfg(not(windows))]
+fn system_registry() -> Option<Arc<RegistryProvider>> {
+    None
 }
 
 /// Configuration of one project with the state of its file at load time.
@@ -562,6 +589,7 @@ impl Engine {
             None
         };
         let state = root.map(StateDir::open).transpose()?;
+        let windows_registry = config.registry.or_else(system_registry);
         let journal = match config.journal {
             Some(journal) => Some(journal),
             None if config.system_journal => state
@@ -573,6 +601,7 @@ impl Engine {
                         false,
                         Arc::clone(&config.clock),
                         state.root(),
+                        windows_registry.clone(),
                     )
                 })
                 .transpose()?,
@@ -626,6 +655,7 @@ impl Engine {
             host: config.host,
             fs: config.fs,
             journal,
+            registry_access: windows_registry.map(|registry| registry as Arc<dyn RegistryAccess>),
             frontend: config.frontend,
             services: Arc::new(services),
             registry,
@@ -1114,6 +1144,9 @@ impl Engine {
             .with_services(Arc::clone(&self.inner.services))
             .with_cancel(cancel.clone())
             .with_timeout(prepared.timeout);
+        if let Some(access) = &self.inner.registry_access {
+            env = env.with_extension(Arc::clone(access));
+        }
         if let Some(events) = events {
             env = env.with_events(events);
         }
@@ -1332,6 +1365,9 @@ impl Engine {
         limits.threads = config.limits.threads.unwrap_or(self.inner.host.info().cpus);
         let mut extensions = Extensions::new();
         extensions.insert::<ReadCache>(Arc::clone(&self.inner.read_cache));
+        if let Some(registry) = &self.inner.registry_access {
+            extensions.insert::<dyn RegistryAccess>(Arc::clone(registry));
+        }
         let mut builder =
             ExecCtx::builder(Arc::clone(&self.inner.clock), Arc::clone(&self.inner.host))
                 .config(Arc::new(config.clone()))

@@ -1503,4 +1503,117 @@ pub trait ProviderWrite: Provider {
     ///
     /// Fails with [`FsErrorKind::PermissionDenied`] or [`FsErrorKind::Io`].
     fn restore(&self, scope: &TxScope, snapshot: &ProviderSnapshot) -> FsResult<()>;
+
+    /// Copies a key with its subtree, or a value, to `to`, creating the
+    /// missing keys above it. A provider that cannot copy keeps the default,
+    /// which fails.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`FsErrorKind::Unsupported`] by default; providers fail
+    /// with [`FsErrorKind::NotFound`] for a missing source and
+    /// [`FsErrorKind::Exists`] for an existing destination.
+    fn duplicate(&self, scope: &TxScope, from: &ProviderKey, to: &ProviderKey) -> FsResult<()> {
+        let _ = (scope, from, to);
+        Err(FsError::new(FsErrorKind::Unsupported, "copy", None))
+    }
+}
+
+/// Kind of a registry address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RegistryKind {
+    /// A key, which holds subkeys and values.
+    Key,
+    /// A value of a key; the default value has the empty name.
+    Value,
+}
+
+/// Key or value of the registry, as the provider key the journal declares.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RegistryTarget {
+    /// Address in the form of the provider: the root key and the keys in
+    /// `segments`, the name of the value in `value`.
+    pub key: ProviderKey,
+    /// Whether the address names a key or a value.
+    pub kind: RegistryKind,
+}
+
+/// Kind of a node found by [`RegistryAccess::walk`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RegistryNodeKind {
+    /// A key.
+    Key,
+    /// A symbolic link key, which is reported but not entered.
+    Link,
+    /// A value.
+    Value,
+}
+
+/// Key or value below a walked key.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RegistryNode {
+    /// The `entry` record of a key or the `registry_value` record of a value.
+    pub record: crate::value::Record,
+    /// Kind of the node.
+    pub kind: RegistryNodeKind,
+    /// Name of the key or value; empty for the default value.
+    pub name: String,
+    /// Path below the walked key, with `/` between the segments.
+    pub relative: String,
+}
+
+/// Read access to the Windows registry for the file commands, which address
+/// it with `registry:` paths.
+///
+/// The host registers an implementation in the extensions of the execution
+/// context; where none is registered the registry does not exist and the
+/// commands reject `registry:` paths with `E_OS_ONLY`. Changes are not made
+/// here: the commands declare them to the journal as targets of a provider
+/// key, and the journal writes them through [`ProviderWrite`].
+///
+/// # Errors
+///
+/// Every method fails with `E_INVALID_VALUE` for a path that does not parse
+/// and with the code of the [`FsErrorKind`] of the failure otherwise.
+pub trait RegistryAccess: Send + Sync {
+    /// The `registry_value` record of the value a path names.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_IS_A_DIRECTORY` when the path names a key and with
+    /// `E_NOT_FOUND` when it names nothing.
+    fn read_value(&self, path: &str) -> crate::error::Result<crate::value::Record>;
+
+    /// Description of a key (an `entry` record) or of a value (a
+    /// `registry_value` record); `None` when the path names nothing.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the errors of the registry other than `E_NOT_FOUND`.
+    fn describe(&self, path: &str) -> crate::error::Result<Option<crate::value::Record>>;
+
+    /// Keys and values below a key, depth first, down to `max_depth`
+    /// levels, or without a limit for `None`; symbolic link keys are
+    /// reported and not entered.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_NOT_FOUND` for a missing key and `E_NOT_A_DIRECTORY`
+    /// when the path names a value.
+    fn walk(&self, path: &str, max_depth: Option<u32>) -> crate::error::Result<Vec<RegistryNode>>;
+
+    /// The key or value a path names, which must exist.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_NOT_FOUND` when the path names nothing.
+    fn locate(&self, path: &str) -> crate::error::Result<RegistryTarget>;
+
+    /// The address a path names read as `kind`, whether or not it exists.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_INVALID_VALUE` when the path cannot name that kind, for
+    /// example a value at the root key.
+    fn address(&self, path: &str, kind: RegistryKind) -> crate::error::Result<RegistryTarget>;
 }

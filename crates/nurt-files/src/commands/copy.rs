@@ -31,6 +31,7 @@ use super::conflict::{
 };
 use crate::common::mutation::fs_target;
 use crate::common::path::PATH_FIELD;
+use crate::registry;
 
 const COMMAND: &str = "copy";
 const FROM: &str = "from";
@@ -129,6 +130,9 @@ impl EffectStage for Copy {
     ) -> Result<EffectPlan> {
         let fs = ctx.require_fs()?;
         let settings = Settings::read(args)?;
+        if let Some((registered, destination)) = registry::transfer_request(args, FROM)? {
+            return plan_registry(ctx, &registered, &destination);
+        }
         let sources = sources(args, input, ctx, FROM)?;
         let shared = sources.len() > 1 && args.expr(TO).is_none();
         let mut planner = Planner {
@@ -166,6 +170,30 @@ impl EffectStage for Copy {
         outcome.changes = changes;
         Ok(outcome)
     }
+}
+
+/// Plan of a copy between registry paths: the destination must not exist,
+/// so `on_conflict` does not apply.
+fn plan_registry(
+    ctx: &ExecCtx,
+    sources: &[String],
+    destination: &registry::Destination,
+) -> Result<EffectPlan> {
+    let transfers = registry::plan_transfers(ctx, sources, destination, false)?;
+    let summary = Summary {
+        files: transfers.values,
+        directories: transfers.keys,
+        ..Summary::default()
+    };
+    let changes = transfers.steps.iter().map(Step::change).collect();
+    let bulk = transfers.steps.len() > 1;
+    let mut plan = EffectPlan::new().with_state(CopyState {
+        steps: transfers.steps,
+        summary,
+    });
+    plan.changes = changes;
+    plan.bulk = bulk;
+    Ok(plan)
 }
 
 struct Planner<'a> {

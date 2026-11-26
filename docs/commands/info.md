@@ -77,7 +77,7 @@ without a grammar has no `symbols` group.
 
 | Form | Input | Output |
 |---|---|---|
-| default | `none` | `entry` |
+| default | `none` | `entry`, `registry_value` |
 
 ## Effect
 

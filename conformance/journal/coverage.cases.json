@@ -1093,14 +1093,14 @@
             "report": {
               "status": "ok",
               "records": {
-                "type": "entry",
+                "type": "registry_value",
                 "rows": [
                   {
-                    "kind": "entry",
+                    "kind": "registry_value",
                     "fields": {
-                      "exists": {
-                        "t": "bool",
-                        "v": true
+                      "name": {
+                        "t": "text",
+                        "v": "value"
                       }
                     }
                   },
@@ -1304,14 +1304,14 @@
             "report": {
               "status": "ok",
               "records": {
-                "type": "entry",
+                "type": "registry_value",
                 "rows": [
                   {
-                    "kind": "entry",
+                    "kind": "registry_value",
                     "fields": {
-                      "exists": {
-                        "t": "bool",
-                        "v": true
+                      "name": {
+                        "t": "text",
+                        "v": "value"
                       }
                     }
                   },
@@ -1628,14 +1628,14 @@
             "report": {
               "status": "ok",
               "records": {
-                "type": "entry",
+                "type": "registry_value",
                 "rows": [
                   {
-                    "kind": "entry",
+                    "kind": "registry_value",
                     "fields": {
-                      "exists": {
-                        "t": "bool",
-                        "v": true
+                      "name": {
+                        "t": "text",
+                        "v": "value"
                       }
                     }
                   }

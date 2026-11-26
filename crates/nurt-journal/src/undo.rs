@@ -1665,7 +1665,9 @@ fn restore_step(
     } else {
         Mutation::Remove
     };
-    if !record.before.exists || target.mode == PreserveMode::Created {
+    let provider_state =
+        matches!(target.path, TargetPath::Provider(_)) && target.mode == PreserveMode::Value;
+    if !provider_state && (!record.before.exists || target.mode == PreserveMode::Created) {
         return Ok(step(target.path.clone(), TargetAction::Delete, removal));
     }
     match target.mode {
@@ -1696,6 +1698,16 @@ fn restore_step(
             let bytes = manifest::read_bytes(ctx.fs.as_ref(), &preserved_path(entry, record, op)?)?;
             let snapshot: ProviderSnapshot = serde_json::from_slice(&bytes)
                 .map_err(|_| conflict::corrupt_error(op).with_problem("damaged_preserved_value"))?;
+            if target.mode == PreserveMode::Value {
+                // A snapshot of a subtree or of a typed value is restored by
+                // its provider; a value alone cannot bring back keys, types
+                // and the absence of the keys the operation created.
+                return Ok(step(
+                    target.path.clone(),
+                    TargetAction::Modify,
+                    Mutation::ProviderRestore(snapshot),
+                ));
+            }
             Ok(match snapshot.value {
                 Some(value) => step(
                     target.path.clone(),
@@ -5424,6 +5436,56 @@ mod journal_ctx_tests {
         );
         undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
         assert_eq!(xattrs_of(&world, "/a/m"), before.set_xattrs);
+
+    fn provider_set(value: &str) -> FileOp {
+        FileOp {
+            target: TargetSpec {
+                path: TargetPath::Provider(registry_key()),
+                action: TargetAction::Modify,
+                expect: Expect::Unchecked,
+                size_hint: None,
+            },
+            mutation: Mutation::ProviderSet(ProviderValue::Text(value.to_owned())),
+        }
+    }
+
+    #[test]
+    fn undo_of_a_provider_change_is_a_restore_of_the_kept_snapshot() {
+        let world = World::new();
+        world
+            .registry
+            .values
+            .lock()
+            .unwrap()
+            .insert(registry_key(), ProviderValue::Text("old".to_owned()));
+        let op = world.run(vec![provider_set("new")]);
+        undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        let restored = world.registry.restored.lock().unwrap();
+        assert_eq!(restored.len(), 1, "the provider restores its own snapshot");
+        assert!(restored[0].existed);
+        assert_eq!(
+            restored[0].value,
+            Some(ProviderValue::Text("old".to_owned()))
+        );
+    }
+
+    #[test]
+    fn undo_of_a_created_provider_target_restores_its_absence_through_the_provider() {
+        let world = World::new();
+        let op = world.run(vec![provider_set("new")]);
+        assert!(
+            world
+                .registry
+                .values
+                .lock()
+                .unwrap()
+                .contains_key(&registry_key())
+        );
+        undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        let restored = world.registry.restored.lock().unwrap();
+        assert_eq!(restored.len(), 1);
+        assert!(!restored[0].existed, "the target did not exist before");
+        assert!(world.registry.values.lock().unwrap().is_empty());
     }
 
     #[test]
