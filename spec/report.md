@@ -108,7 +108,7 @@ hidden.
 | `create` | target created |
 | `modify` | content changed |
 | `delete` | target deleted |
-| `rename` | target renamed or moved; `from` is required |
+| `rename` | target renamed or moved; `path` is the path after the change, `from` is the previous path (required) and `to` repeats `path` |
 | `attributes` | mode, ownership or access control changed |
 | `link` | link created or changed |
 | `truncate` | target truncated |
