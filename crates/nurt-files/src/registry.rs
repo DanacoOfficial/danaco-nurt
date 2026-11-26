@@ -29,7 +29,7 @@ use nurt_contracts::fs::{
 };
 use nurt_contracts::journal::{Expect, Mutation, TargetAction, TargetPath, TargetSpec};
 use nurt_contracts::record::Entry;
-use nurt_contracts::stage::{BoundArgs, ExecCtx, RecordStream, StageOutput};
+use nurt_contracts::stage::{BoundArgs, ExecCtx, RecordStream, StageInput, StageOutput};
 use nurt_contracts::value::{Path, Record, RecordKind, Value};
 
 use crate::commands::conflict::{INTO, Step, TO};
@@ -409,7 +409,12 @@ pub(crate) fn transfer_request(
     source_param: &str,
 ) -> Result<Option<(Vec<String>, Destination)>> {
     let sources = path_texts(args, source_param)?;
-    let destination = [(TO, true), (INTO, false)]
+    pair(args, sources, registry_destination(args))
+}
+
+/// The destination of `args` when it names the registry.
+fn registry_destination(args: &BoundArgs) -> Option<Destination> {
+    [(TO, true), (INTO, false)]
         .into_iter()
         .find_map(|(name, to)| match args.value(name) {
             Some(Value::Path(text) | Value::Text(text)) if is_registry_path(text.as_str()) => {
@@ -421,7 +426,14 @@ pub(crate) fn transfer_request(
                 })
             }
             _ => None,
-        });
+        })
+}
+
+fn pair(
+    args: &BoundArgs,
+    sources: Option<Vec<String>>,
+    destination: Option<Destination>,
+) -> Result<Option<(Vec<String>, Destination)>> {
     match (sources, destination) {
         (Some(sources), Some(destination)) => Ok(Some((sources, destination))),
         (None, None) => Ok(None),
@@ -433,6 +445,53 @@ pub(crate) fn transfer_request(
             ),
         )),
     }
+}
+
+/// Where a `copy` or a `move` goes: to the registry with its sources, or to
+/// the file system with the input it was given.
+pub(crate) enum Route<'a> {
+    /// Sources and destination are registry paths.
+    Registry(Vec<String>, Destination),
+    /// Neither names the registry.
+    Files(StageInput<'a>),
+}
+
+/// Routes a `copy` or a `move`. The source form `copy "a" to: "b"` runs as the
+/// stage form over the `entry` records of `info "a"`, so the sources of a
+/// registry transfer come either from the parameter `source_param` or from
+/// the input records. Input is read only when the destination names the
+/// registry.
+///
+/// # Errors
+///
+/// Fails with `E_INVALID_VALUE` when one side names the registry and the
+/// other a file.
+pub(crate) fn route<'a>(
+    args: &BoundArgs,
+    input: StageInput<'a>,
+    source_param: &str,
+) -> Result<Route<'a>> {
+    if input.is_none() {
+        return Ok(match transfer_request(args, source_param)? {
+            Some((sources, destination)) => Route::Registry(sources, destination),
+            None => Route::Files(input),
+        });
+    }
+    let Some(destination) = registry_destination(args) else {
+        return Ok(Route::Files(input));
+    };
+    let mut texts = Vec::new();
+    let mut files = 0_usize;
+    for item in input.into_records()? {
+        match record_text(&item?) {
+            Some(text) => texts.push(text),
+            None => files += 1,
+        }
+    }
+    if files > 0 || texts.is_empty() {
+        return pair(args, None, Some(destination)).map(|_| Route::Files(StageInput::none()));
+    }
+    Ok(Route::Registry(texts, destination))
 }
 
 /// Copies and moves planned for registry paths.

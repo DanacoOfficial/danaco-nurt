@@ -353,6 +353,54 @@ fn copy_into_a_key_keeps_the_name_of_the_source() {
     );
 }
 
+/// Input of the stage form that `copy "<key>" to: "<key>"` is expanded to:
+/// the `entry` record of `info "<key>"`.
+fn entry_of(text: &str) -> StageInput<'static> {
+    let record = Record::new(RecordKind::Entry).with("path", path(text));
+    StageInput::records(RecordStream::from_records(vec![record]))
+}
+
+#[test]
+fn copy_and_move_take_registry_sources_from_the_input_records() {
+    let test = windows();
+    let ctx = with_registry(&test);
+    for (command, stage) in [
+        ("copy", &Copy as &dyn EffectStage),
+        ("move", &Move as &dyn EffectStage),
+    ] {
+        let args = BoundArgs::new(command)
+            .with("from", ArgValue::Absent, false)
+            .with(
+                "to",
+                ArgValue::Value(path("registry:/HKCU/Software/Backup")),
+                false,
+            );
+        let plan = stage.plan(&args, entry_of(KEY), &ctx).unwrap();
+        let created: Vec<&str> = plan
+            .changes
+            .iter()
+            .filter(|change| change.action == ChangeAction::Create)
+            .map(|change| change.path.as_str())
+            .collect();
+        assert_eq!(created, ["registry:/HKCU/Software/Backup"], "{command}");
+    }
+}
+
+#[test]
+fn a_file_record_cannot_be_copied_into_the_registry() {
+    let test = windows();
+    let ctx = with_registry(&test);
+    let args = BoundArgs::new("copy").with(
+        "to",
+        ArgValue::Value(path("registry:/HKCU/Software/Backup")),
+        false,
+    );
+    let error = Copy
+        .plan(&args, entry_of("C:/data/a.txt"), &ctx)
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+}
+
 #[test]
 fn several_sources_need_into_and_files_do_not_mix_with_the_registry() {
     let test = windows();
