@@ -28,6 +28,7 @@ use super::conflict::{
     same_entry_error, sources,
 };
 use crate::common::path::PATH_FIELD;
+use crate::registry;
 
 const COMMAND: &str = "move";
 const FROM: &str = "from";
@@ -91,6 +92,9 @@ impl EffectStage for Move {
     ) -> Result<EffectPlan> {
         let fs = ctx.require_fs()?;
         let on_conflict = on_conflict_param(args, OnConflict::Overwrite)?;
+        if let Some((registered, destination)) = registry::transfer_request(args, FROM)? {
+            return plan_registry(ctx, &registered, &destination);
+        }
         let sources = sources(args, input, ctx, FROM)?;
         reject_nested(&sources)?;
         let shared = sources.len() > 1 && args.expr(TO).is_none();
@@ -131,6 +135,30 @@ impl EffectStage for Move {
         outcome.changes = changes;
         Ok(outcome)
     }
+}
+
+/// Plan of a move between registry paths: a copy and the removal of the
+/// source in one transaction. The destination must not exist, so
+/// `on_conflict` does not apply.
+fn plan_registry(
+    ctx: &ExecCtx,
+    sources: &[String],
+    destination: &registry::Destination,
+) -> Result<EffectPlan> {
+    let transfers = registry::plan_transfers(ctx, sources, destination, true)?;
+    let summary = Summary {
+        moved: transfers.keys + transfers.values,
+        ..Summary::default()
+    };
+    let changes = transfers.steps.iter().map(Step::change).collect();
+    let bulk = transfers.steps.len() > 1;
+    let mut plan = EffectPlan::new().with_state(MoveState {
+        steps: transfers.steps,
+        summary,
+    });
+    plan.changes = changes;
+    plan.bulk = bulk;
+    Ok(plan)
 }
 
 /// Rejects a source that lies inside another source, which would no longer

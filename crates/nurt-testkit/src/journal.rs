@@ -907,6 +907,8 @@ fn mutation_name(mutation: &Mutation) -> &'static str {
         Mutation::SetMeta(_) => "set_meta",
         Mutation::ProviderSet(_) => "provider_set",
         Mutation::ProviderRemove => "provider_remove",
+        Mutation::ProviderCopy(_) => "provider_copy",
+        Mutation::ProviderRestore(_) => "provider_restore",
         _ => "other",
     }
 }
@@ -923,13 +925,18 @@ fn allowed(action: &TargetAction, mutation: &Mutation) -> bool {
         Mutation::CreateDir { .. } | Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. }
     );
     match action {
-        TargetAction::Create => writes_content || creates_entry,
+        TargetAction::Create => {
+            writes_content || creates_entry || matches!(mutation, Mutation::ProviderCopy(_))
+        }
         TargetAction::CreateTree => matches!(mutation, Mutation::CreateDir { .. }),
         TargetAction::Modify => {
             writes_content
                 || matches!(
                     mutation,
-                    Mutation::WriteAt { .. } | Mutation::SetLength(_) | Mutation::ProviderSet(_)
+                    Mutation::WriteAt { .. }
+                        | Mutation::SetLength(_)
+                        | Mutation::ProviderSet(_)
+                        | Mutation::ProviderRestore(_)
                 )
         }
         TargetAction::Append => matches!(mutation, Mutation::AppendBytes(_)),

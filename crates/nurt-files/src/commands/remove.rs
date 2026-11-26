@@ -34,6 +34,7 @@ use crate::common::etag::{Observed, check_if_match, parse_etag, stale_error};
 use crate::common::params::{EncodingParam, OnMissing, on_missing_param};
 use crate::common::path::{PATH_FIELD, path_list_arg, record_path};
 use crate::common::text::{TextFile, encode_preserving, read_text, text_change};
+use crate::registry;
 
 const COMMAND: &str = "remove";
 const PATH: &str = "path";
@@ -116,7 +117,7 @@ impl EffectStage for Remove {
         let fs = ctx.require_fs()?;
         let on_missing = on_missing_param(args)?;
         let check_references = flag(args, CHECK_REFERENCES, false)?;
-        let (entries, edits) = read_input(args, input, ctx)?;
+        let (entries, edits, registered) = read_input(args, input, ctx)?;
         let mut planner = Planner {
             fs,
             ctx,
@@ -129,6 +130,7 @@ impl EffectStage for Remove {
             summary: Summary::default(),
         };
         planner.plan_entries(entries)?;
+        planner.plan_registry(&registered)?;
         planner.plan_edits(edits)?;
         let mut notable = Vec::new();
         if check_references && let Some(entry) = references_left(ctx, &planner.removed)? {
@@ -168,21 +170,25 @@ impl EffectStage for Remove {
 }
 
 /// Entries and text edits of the input, in input order for entries and by
-/// path for edits.
+/// path for edits, and the registry paths to remove.
 fn read_input(
     args: &BoundArgs,
     input: StageInput<'_>,
     ctx: &ExecCtx,
-) -> Result<(Vec<Source>, BTreeMap<AbsPath, TextEdit>)> {
+) -> Result<(Vec<Source>, BTreeMap<AbsPath, TextEdit>, Vec<String>)> {
     let mut entries = Vec::new();
     let mut edits = BTreeMap::new();
+    let mut registered = Vec::new();
     if input.is_none() {
         args.require(PATH)?;
+        if let Some(texts) = registry::path_texts(args, PATH)? {
+            return Ok((entries, edits, texts));
+        }
         entries = path_list_arg(args, PATH, ctx)?
             .into_iter()
             .map(Source::from_path)
             .collect();
-        return Ok((entries, edits));
+        return Ok((entries, edits, registered));
     }
     for (index, item) in input.into_records()?.enumerate() {
         if index % CHECKPOINT_INTERVAL == 0 {
@@ -190,7 +196,10 @@ fn read_input(
         }
         let record = item?;
         match record.kind {
-            RecordKind::Entry => entries.push(Source::from_record(record, ctx)?),
+            RecordKind::Entry => match registry::record_text(&record) {
+                Some(text) => registered.push(text),
+                None => entries.push(Source::from_record(record, ctx)?),
+            },
             RecordKind::Line | RecordKind::Match => {
                 let path = record_path(&record, ctx)?;
                 edits
@@ -201,7 +210,7 @@ fn read_input(
             _ => return Err(input_kind_error(COMMAND, &record)),
         }
     }
-    Ok((entries, edits))
+    Ok((entries, edits, registered))
 }
 
 struct Planner<'a> {
@@ -293,6 +302,17 @@ impl Planner<'_> {
         }
         self.steps.push(step);
         self.removed.push(path.clone());
+        Ok(())
+    }
+
+    fn plan_registry(&mut self, texts: &[String]) -> Result<()> {
+        let removals =
+            registry::plan_removals(self.ctx, texts, self.on_missing == OnMissing::Skip)?;
+        self.summary.removed += removals.keys + removals.values;
+        self.summary.directories += removals.keys;
+        self.summary.files += removals.values;
+        self.summary.missing += removals.missing;
+        self.steps.extend(removals.steps);
         Ok(())
     }
 

@@ -1789,6 +1789,8 @@ pub(crate) mod test_support {
     pub(crate) struct MemProvider {
         pub(crate) scheme: ProviderScheme,
         pub(crate) values: Mutex<HashMap<ProviderKey, ProviderValue>>,
+        /// Snapshots passed to `restore`, in order.
+        pub(crate) restored: Mutex<Vec<ProviderSnapshot>>,
     }
 
     impl MemProvider {
@@ -1796,6 +1798,7 @@ pub(crate) mod test_support {
             Self {
                 scheme: ProviderScheme(scheme.to_owned()),
                 values: Mutex::new(HashMap::new()),
+                restored: Mutex::new(Vec::new()),
             }
         }
     }
@@ -1851,11 +1854,27 @@ pub(crate) mod test_support {
         }
 
         fn restore(&self, _scope: &TxScope, snapshot: &ProviderSnapshot) -> FsResult<()> {
+            self.restored.lock().unwrap().push(snapshot.clone());
             let mut values = self.values.lock().unwrap();
             match &snapshot.value {
                 Some(value) => values.insert(snapshot.key.clone(), value.clone()),
                 None => values.remove(&snapshot.key),
             };
+            Ok(())
+        }
+
+        fn duplicate(
+            &self,
+            _scope: &TxScope,
+            from: &ProviderKey,
+            to: &ProviderKey,
+        ) -> FsResult<()> {
+            let mut values = self.values.lock().unwrap();
+            let value = values
+                .get(from)
+                .cloned()
+                .ok_or_else(|| FsError::new(FsErrorKind::NotFound, "copy", None))?;
+            values.insert(to.clone(), value);
             Ok(())
         }
     }

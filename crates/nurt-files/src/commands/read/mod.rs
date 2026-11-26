@@ -38,6 +38,7 @@ use self::text::{Loaded, ReadOptions, TagMatch, View};
 use crate::common::params::{EncodingParam, encoding_param};
 use crate::common::path::{path_list_arg, record_path, resolve};
 use crate::read::{compressed, image};
+use crate::registry;
 
 const COMMAND: &str = "read";
 const TARGETS: &str = "targets";
@@ -124,6 +125,14 @@ impl ReadStage for Read {
         input: StageInput<'a>,
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
+        if input.is_none()
+            && let Some(texts) = registry::path_texts(args, PATH)?
+        {
+            let records = registry::read(ctx, &texts)?;
+            return Ok(StageOutput::records(
+                RecordStream::new(records.into_iter().map(Ok)).checked(ctx),
+            ));
+        }
         let options = read_options(args, ctx)?;
         let targets: Targets<'a> = if input.is_none() {
             Box::new(source_targets(args, ctx, options.view)?.into_iter().map(Ok))

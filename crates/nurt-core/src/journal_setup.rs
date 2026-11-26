@@ -29,6 +29,7 @@ use nurt_space::admission::{ServiceLink, SpaceAdmission};
 use nurt_space::service::{
     JournalMaintenance, RegistryLink, ServiceProbe, SpaceModule, SpaceService, SpaceWorker,
 };
+use nurt_sys::registry::RegistryProvider;
 
 use crate::config::LoadedConfig;
 use crate::error::EngineError;
@@ -211,20 +212,21 @@ pub(crate) fn open_journal(
     project_trusted: bool,
     clock: Arc<dyn Clock>,
     state_root: &Path,
+    registry: Option<Arc<RegistryProvider>>,
 ) -> std::result::Result<Arc<dyn JournalStore>, EngineError> {
-    build(layers, loaded, project_trusted, clock, state_root)
+    build(layers, loaded, project_trusted, clock, state_root, registry)
         .map(|journal| journal as Arc<dyn JournalStore>)
         .map_err(|error| EngineError::journal(&error))
 }
 
-#[cfg(windows)]
-fn with_providers(builder: JournalBuilder) -> JournalBuilder {
-    builder.provider(Arc::new(nurt_sys::registry::RegistryProvider::system()))
-}
-
-#[cfg(not(windows))]
-fn with_providers(builder: JournalBuilder) -> JournalBuilder {
-    builder
+fn with_providers(
+    builder: JournalBuilder,
+    registry: Option<Arc<RegistryProvider>>,
+) -> JournalBuilder {
+    match registry {
+        Some(registry) => builder.provider(registry),
+        None => builder,
+    }
 }
 
 fn build(
@@ -233,6 +235,7 @@ fn build(
     project_trusted: bool,
     clock: Arc<dyn Clock>,
     state_root: &Path,
+    registry: Option<Arc<RegistryProvider>>,
 ) -> Result<Arc<Journal>> {
     let state_dir = AbsPath::new(state_root.to_path_buf()).map_err(Error::from)?;
     let fs: Arc<dyn FsWrite> = nurt_fs::system_fs();
@@ -287,7 +290,7 @@ fn build(
     )
     .user_config(user_limits)
     .space_reporter(admission_handle.clone());
-    let journal = Arc::new(with_providers(builder).build()?);
+    let journal = Arc::new(with_providers(builder, registry).build()?);
     catalog.bind(&journal);
     let _ = worker.admission.set(Arc::downgrade(&admission_handle));
     locked(&module).start()?;

@@ -64,6 +64,15 @@ pub fn resolve(ctx: &ExecCtx, text: &str) -> Result<AbsPath> {
             "a path cannot be empty: give a file or directory",
         ));
     }
+    if crate::registry::is_registry_path(text) {
+        return Err(Error::new(
+            ErrorCode::InvalidValue,
+            format!(
+                "`{text}` is a registry path, which only `list`, `find`, `read`, `info`, `write`, `remove`, `copy` and `move` take: give a file path here"
+            ),
+        )
+        .with_found(text));
+    }
     let written = PathBuf::from(text);
     let joined = if written.is_absolute() {
         written
