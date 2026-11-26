@@ -266,7 +266,7 @@ fn merging_an_ancestor_is_up_to_date() {
     let result = repo.run(&repo.start("topic")).expect("merge");
     assert_eq!(result.state, GitEffectState::UpToDate);
     assert_eq!(repo.branch(), repo.main);
-    assert!(!repo.has_git("ORIG_HEAD"));
+    assert_eq!(repo.read_git("ORIG_HEAD"), hex_line(repo.main));
     assert!(result.commit.is_none());
 }
 

@@ -468,6 +468,7 @@ fn reports_an_up_to_date_branch() {
     let fetch = FakeFetch::new(vec![(scenario.base, "main")]);
     let records = scenario.run(&GitPull::new(fetch), &[]).unwrap();
     assert_eq!(scenario.branch(), scenario.local);
+    assert_eq!(scenario.reference("ORIG_HEAD"), scenario.local);
     assert_eq!(
         effect(&records).git.unwrap().state,
         GitEffectState::UpToDate
