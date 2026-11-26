@@ -1265,6 +1265,74 @@ mod tests {
     }
 
     #[test]
+    fn path_extensions_come_from_pathext_in_upper_case() {
+        let defaults = HostEnv::new(Os::Windows);
+        assert_eq!(defaults.path_extensions(), [".COM", ".EXE", ".BAT", ".CMD"]);
+        let custom = HostEnv::new(Os::Windows).with_var("PATHEXT", "exe;.Cmd; ;.;.exe");
+        assert_eq!(custom.path_extensions(), [".EXE", ".CMD"]);
+        assert!(HostEnv::new(Os::Linux).path_extensions().is_empty());
+    }
+
+    #[test]
+    fn command_name_strips_only_executable_extensions_on_windows() {
+        let windows = HostEnv::new(Os::Windows);
+        assert_eq!(windows.command_name("git.exe").as_deref(), Some("git"));
+        assert_eq!(windows.command_name("Git.EXE").as_deref(), Some("Git"));
+        assert_eq!(windows.command_name("a.exe.bat").as_deref(), Some("a.exe"));
+        assert_eq!(windows.command_name(".exe"), None);
+        assert_eq!(windows.command_name("readme.txt"), None);
+        let linux = HostEnv::new(Os::Linux);
+        assert_eq!(linux.command_name("readme.txt").as_deref(), Some("readme.txt"));
+    }
+
+    #[test]
+    fn sys_path_stays_below_the_root_and_maps_drive_letters() {
+        let linux = HostEnv::new(Os::Linux).with_root("/r");
+        assert_eq!(linux.sys_path("/usr/bin/../lib"), PathBuf::from("/r/usr/lib"));
+        assert_eq!(linux.sys_path("/../../etc"), PathBuf::from("/r/etc"));
+        assert_eq!(linux.host_path(Path::new("/r/usr/lib")), PathBuf::from("/usr/lib"));
+        let windows = HostEnv::new(Os::Windows).with_root("/r");
+        assert_eq!(windows.sys_path("C:\\Tools\\x.exe"), PathBuf::from("/r/c/Tools/x.exe"));
+        assert_eq!(windows.sys_path("d:/data"), PathBuf::from("/r/d/data"));
+        assert_eq!(HostEnv::new(Os::Linux).sys_path("/usr/bin"), PathBuf::from("/usr/bin"));
+    }
+
+    #[test]
+    fn absolute_paths_follow_the_notation_of_the_host() {
+        let windows = HostEnv::new(Os::Windows);
+        assert!(windows.is_absolute(Path::new("C:\\Tools")));
+        assert!(windows.is_absolute(Path::new("c:/tools")));
+        assert!(windows.is_absolute(Path::new("\\\\server\\share")));
+        assert!(!windows.is_absolute(Path::new("C:tools")));
+        assert!(!windows.is_absolute(Path::new("\\tools")));
+        assert!(!windows.is_absolute(Path::new("tools\\bin")));
+        let linux = HostEnv::new(Os::Linux);
+        assert!(linux.is_absolute(Path::new("/usr/bin")));
+        assert!(!linux.is_absolute(Path::new("bin")));
+    }
+
+    #[test]
+    fn locale_language_accepts_two_or_three_letters_only() {
+        assert_eq!(locale_language("pl_PL.UTF-8").as_deref(), Some("pl"));
+        assert_eq!(locale_language("zh-Hans").as_deref(), Some("zh"));
+        assert_eq!(locale_language("fil").as_deref(), Some("fil"));
+        assert_eq!(locale_language("C.UTF-8"), None);
+        assert_eq!(locale_language("POSIX"), None);
+        assert_eq!(locale_language(""), None);
+    }
+
+    #[test]
+    fn catalog_ids_are_derived_from_the_last_path_component() {
+        assert_eq!(catalog_id_from_path("/opt/Media Tools/"), "media-tools");
+        assert_eq!(catalog_id_from_path("/opt/media/catalog.json"), "media");
+        assert_eq!(catalog_id_from_path("C:\\cats\\Media_1"), "media_1");
+        assert_eq!(catalog_id_from_path("catalog.json"), "catalog");
+        assert_eq!(catalog_id_from_path("///"), "catalog");
+        assert_eq!(catalog_id_from_path("/x/-.-"), "catalog");
+        assert_eq!(catalog_id_from_path("/x/\u{142}\u{f3}d\u{17a}"), "d");
+    }
+
+    #[test]
     fn path_dirs_of_windows_ignore_case_and_trailing_separator() {
         let list = "C:\\Windows\\System32;c:\\WINDOWS\\system32\\;;relative\\bin;D:\\Tools";
         let env = HostEnv::new(Os::Windows).with_var("Path", list);
