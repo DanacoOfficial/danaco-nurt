@@ -384,8 +384,15 @@ impl PartFile {
                 validator = Some(value.to_owned());
             }
         }
-        let offset = fs::metadata(&self.part).ok()?.len();
-        (stored_url == Some(url) && offset > 0).then_some(ResumePoint { offset, validator })
+        let part = fs::symlink_metadata(&self.part).ok()?;
+        if !part.is_file() {
+            return None;
+        }
+        let offset = part.len();
+        // Without a validator the server cannot tell that the content changed,
+        // so the bytes of an earlier download could be joined to another version.
+        (stored_url == Some(url) && offset > 0 && validator.is_some())
+            .then_some(ResumePoint { offset, validator })
     }
 
     fn write_meta(&self, url: &str, validator: Option<&str>) -> Result<()> {
@@ -393,11 +400,12 @@ impl PartFile {
         if let Some(validator) = validator {
             text.push_str(&format!("{META_VALIDATOR}{validator}\n"));
         }
-        fs::write(&self.meta, text).map_err(|error| io_error(&self.meta, "written", &error))
+        write_new(&self.meta, text.as_bytes())
+            .map_err(|error| io_error(&self.meta, "written", &error))
     }
 
     fn create(&self) -> Result<File> {
-        File::create(&self.part).map_err(|error| io_error(&self.part, "created", &error))
+        create_new(&self.part).map_err(|error| io_error(&self.part, "created", &error))
     }
 
     /// Opens the partial file at `offset`, feeding the bytes before it to
@@ -434,6 +442,23 @@ impl PartFile {
         }
         Ok(())
     }
+}
+
+/// Creates the file at `path` as a new regular file. An existing file or link
+/// of that name is removed first, so that a link planted at the predictable
+/// name of a partial file is never followed.
+fn create_new(path: &Path) -> io::Result<File> {
+    match fs::remove_file(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    OpenOptions::new().write(true).create_new(true).open(path)
+}
+
+/// Writes `bytes` to a new regular file at `path` (see [`create_new`]).
+fn write_new(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    create_new(path)?.write_all(bytes)
 }
 
 /// Range of a `Content-Range` header: first byte and complete length, each
@@ -533,7 +558,7 @@ impl<'a> Transfer<'a> {
     /// the same address when `resume` is set.
     fn run(&self) -> Result<Fetched> {
         let mut point = if self.params.resume {
-            self.part.resume_point(self.params.target.as_str())
+            self.part.resume_point(&self.params.target.display_url())
         } else {
             None
         };
@@ -564,7 +589,7 @@ impl<'a> Transfer<'a> {
             return Err(status_error(&exchange.head));
         }
         self.part.write_meta(
-            self.params.target.as_str(),
+            &self.params.target.display_url(),
             validator(&exchange.head).as_deref(),
         )?;
         self.receive(exchange, 0)
@@ -765,7 +790,7 @@ fn download_object(params: &Params, fetched: &Fetched) -> Value {
     let mut fields = IndexMap::new();
     fields.insert(
         "url".to_owned(),
-        Value::Text(params.target.as_str().to_owned()),
+        Value::Text(params.target.display_url()),
     );
     fields.insert(
         "final_url".to_owned(),
@@ -830,7 +855,7 @@ impl StageImpl for Download {
             scheme: params.target.scheme().to_owned(),
             host: params.target.host(),
             port: Some(params.target.port()),
-            url: Some(params.target.as_str().to_owned()),
+            url: Some(params.target.display_url()),
         });
         info.paths.push(params.to.to_language_string());
         Ok(info)
@@ -1044,6 +1069,49 @@ mod tests {
         let error =
             Params::from_args(&base_args(&[(PARAM_HEADERS, Value::Map(fields))])).unwrap_err();
         assert_eq!(error.code(), ErrorCode::Type);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn partial_file_is_created_without_following_a_planted_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let victim = dir.path().join("victim.txt");
+        fs::write(&victim, b"keep").unwrap();
+        let to = AbsPath::new(dir.path().join("file.bin")).unwrap();
+        let part = PartFile::for_target(&to);
+        std::os::unix::fs::symlink(&victim, &part.part).unwrap();
+        std::os::unix::fs::symlink(&victim, &part.meta).unwrap();
+        assert_eq!(part.resume_point("http://a/"), None);
+        part.write_meta("http://a/", Some("\"v1\"")).unwrap();
+        let mut file = part.create().unwrap();
+        file.write_all(b"new").unwrap();
+        drop(file);
+        assert_eq!(fs::read(&victim).unwrap(), b"keep");
+        assert_eq!(fs::read(&part.part).unwrap(), b"new");
+        assert!(fs::symlink_metadata(&part.meta).unwrap().is_file());
+    }
+
+    #[test]
+    fn resume_needs_a_validator_of_the_earlier_response() {
+        let dir = tempfile::tempdir().unwrap();
+        let to = AbsPath::new(dir.path().join("file.bin")).unwrap();
+        let part = PartFile::for_target(&to);
+        fs::write(&part.part, b"12345").unwrap();
+        part.write_meta("http://a/", None).unwrap();
+        assert_eq!(part.resume_point("http://a/"), None);
+        part.write_meta("http://a/", Some("Mon")).unwrap();
+        assert_eq!(part.resume_point("http://a/").map(|point| point.offset), Some(5));
+    }
+
+    #[test]
+    fn description_file_names_the_address_without_credentials() {
+        let target = Target::parse("http://user:secret@a.test/file").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let to = AbsPath::new(dir.path().join("file.bin")).unwrap();
+        let part = PartFile::for_target(&to);
+        part.write_meta(&target.display_url(), Some("\"v1\"")).unwrap();
+        let text = fs::read_to_string(&part.meta).unwrap();
+        assert!(!text.contains("secret") && !text.contains("user"), "{text}");
     }
 
     #[test]
