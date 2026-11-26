@@ -682,8 +682,11 @@ fn one_or_tie(mut names: Vec<String>, one: impl FnOnce(String) -> Nearest) -> Ne
 /// Returns up to `limit` names of `kind` nearest to `s`, for the `expected`
 /// member of an `E_UNKNOWN_*` error.
 ///
-/// Only names are listed, never synonyms or habit words. Names are ordered by
-/// distance and then by text.
+/// Only names are listed, never synonyms or habit words. Names that start
+/// with `s` come first, then names that contain `s` (for example `s` as the
+/// last part of a dotted name), then the other names. Within each of these
+/// classes names are ordered by distance and then by text. A word of fewer
+/// than [`MIN_RELATED_LEN`] characters is ordered by distance alone.
 ///
 /// # Examples
 ///
@@ -694,26 +697,61 @@ fn one_or_tie(mut names: Vec<String>, one: impl FnOnce(String) -> Nearest) -> Ne
 ///     ["depth", "glob", "type", "hidden"].map(|name| NameEntry::name(name, NameKind::Param)),
 /// );
 /// assert_eq!(expected("dept", &index, NameKind::Param, 2), ["depth", "type"]);
+///
+/// let commands = NameIndex::new(
+///     ["git.log", "logs", "program.catalog"].map(|name| NameEntry::name(name, NameKind::Command)),
+/// );
+/// assert_eq!(
+///     expected("catalog", &commands, NameKind::Command, 1),
+///     ["program.catalog"]
+/// );
 /// ```
 #[must_use]
 pub fn expected(s: &str, index: &NameIndex, kind: NameKind, limit: usize) -> Vec<String> {
     let folded: Vec<char> = fold(s).chars().collect();
-    let mut ranked: Vec<(usize, &str)> = index
+    let related = folded.len() >= MIN_RELATED_LEN;
+    let mut ranked: Vec<(usize, usize, &str)> = index
         .of_kind(kind)
         .filter(|candidate| candidate.entry.role == NameRole::Name)
         .map(|candidate| {
             let distance = osa_chars(&folded, &candidate.folded, usize::MAX).unwrap_or(usize::MAX);
-            (distance, candidate.entry.text.as_str())
+            let class = if !related {
+                CLASS_OTHER
+            } else if candidate.folded.starts_with(&folded) {
+                CLASS_PREFIX
+            } else if candidate
+                .folded
+                .windows(folded.len())
+                .any(|window| window == folded.as_slice())
+            {
+                CLASS_CONTAINS
+            } else {
+                CLASS_OTHER
+            };
+            (class, distance, candidate.entry.text.as_str())
         })
         .collect();
     ranked.sort_unstable();
-    ranked.dedup_by(|a, b| a.1 == b.1);
+    ranked.dedup_by(|a, b| a.2 == b.2);
     ranked
         .into_iter()
         .take(limit)
-        .map(|(_, name)| name.to_owned())
+        .map(|(_, _, name)| name.to_owned())
         .collect()
 }
+
+/// Shortest written name whose prefix and substring matches rank first in
+/// [`expected`].
+pub const MIN_RELATED_LEN: usize = 3;
+
+/// Class of a name that starts with the written name.
+const CLASS_PREFIX: usize = 0;
+
+/// Class of a name that contains the written name.
+const CLASS_CONTAINS: usize = 1;
+
+/// Class of every other name.
+const CLASS_OTHER: usize = 2;
 
 /// Pair of entries of the same kind that lie close to each other.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -1088,6 +1126,39 @@ mod tests {
         assert_eq!(names.first().map(String::as_str), Some("remove"));
         assert!(names.len() <= EXPECTED_LIMIT);
         assert!(!names.contains(&"delete".to_owned()));
+    }
+
+    #[test]
+    fn expected_names_that_contain_the_word_come_before_closer_unrelated_names() {
+        let index = NameIndex::new(
+            ["git.log", "git.tag", "logs", "patch", "program.catalog", "stop"]
+                .map(|name| NameEntry::name(name, NameKind::Command)),
+        );
+        let names = expected("catalog", &index, NameKind::Command, 3);
+        assert_eq!(names.first().map(String::as_str), Some("program.catalog"));
+    }
+
+    #[test]
+    fn expected_names_with_the_word_as_prefix_come_first() {
+        let index = NameIndex::new(
+            ["copy", "git.log", "logs", "lock"].map(|name| NameEntry::name(name, NameKind::Command)),
+        );
+        assert_eq!(
+            expected("log", &index, NameKind::Command, 4),
+            ["logs", "git.log", "lock", "copy"]
+        );
+    }
+
+    #[test]
+    fn short_words_are_ranked_by_distance_only() {
+        let index = NameIndex::new(
+            ["ls", "copy", "a.ls"].map(|name| NameEntry::name(name, NameKind::Command)),
+        );
+        assert_eq!(
+            expected("ls", &index, NameKind::Command, 3),
+            ["ls", "a.ls", "copy"]
+        );
+        assert_eq!(MIN_RELATED_LEN, 3);
     }
 
     #[test]
