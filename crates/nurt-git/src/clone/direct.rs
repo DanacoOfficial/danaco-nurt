@@ -58,6 +58,27 @@ impl DirectTx {
         }
     }
 
+    /// Refuses a write through a link, whether `path` or a directory between
+    /// the new directory and `path` is one: the write would land outside the
+    /// new directory.
+    fn ensure_no_link(&self, path: &Path) -> Result<()> {
+        let mut current = Some(path);
+        while let Some(candidate) = current.filter(|candidate| *candidate != self.root) {
+            if std::fs::symlink_metadata(candidate).is_ok_and(|meta| meta.file_type().is_symlink())
+            {
+                return Err(Error::new(
+                    ErrorCode::StageFailed,
+                    format!(
+                        "{} is a link; a write through it would leave the new directory",
+                        candidate.display()
+                    ),
+                ));
+            }
+            current = candidate.parent();
+        }
+        Ok(())
+    }
+
     fn target(&self, index: TargetIndex) -> Result<&Target> {
         usize::try_from(index.0)
             .ok()
@@ -119,6 +140,7 @@ impl MutationTx for DirectTx {
 
     fn stage(&mut self, target: TargetIndex) -> Result<Box<dyn WriteHandle>> {
         let path = self.target(target)?.path.clone();
+        self.ensure_no_link(&path)?;
         let file = std::fs::File::create(&path).map_err(|failure| io(&path, &failure))?;
         let handle = DirectWriter::new(path, file)?;
         Ok(Box::new(handle))
@@ -127,6 +149,9 @@ impl MutationTx for DirectTx {
     fn apply(&mut self, index: TargetIndex, mutation: Mutation) -> Result<Applied> {
         let target = self.target(index)?;
         let path = target.path.as_path();
+        if matches!(mutation, Mutation::WriteBytes(_) | Mutation::AppendBytes(_)) {
+            self.ensure_no_link(path)?;
+        }
         let failed = |error: std::io::Error| io(path, &error);
         match mutation {
             Mutation::WriteBytes(bytes) => std::fs::write(path, bytes).map_err(failed)?,
@@ -311,4 +336,38 @@ fn set_mode(path: &Path, mode: u32) -> std::io::Result<()> {
 #[cfg(not(unix))]
 fn set_mode(_path: &Path, _mode: u32) -> std::io::Result<()> {
     Ok(())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use crate::testutil::target;
+
+    #[test]
+    fn writes_through_a_link_are_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("new");
+        let outside = dir.path().join("outside");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join("victim"), "keep").unwrap();
+        std::os::unix::fs::symlink(outside.join("victim"), root.join("link")).unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("dir")).unwrap();
+        let mut tx = DirectTx::new(&root);
+        let specs = [
+            target(&root.join("link"), TargetAction::Modify),
+            target(&root.join("dir/victim"), TargetAction::Modify),
+        ];
+        let preserved = tx.preserve(&specs).unwrap();
+        assert!(tx.stage(preserved[0].index).is_err());
+        assert!(
+            tx.apply(preserved[0].index, Mutation::WriteBytes(b"x".to_vec()))
+                .is_err()
+        );
+        assert!(
+            tx.apply(preserved[1].index, Mutation::AppendBytes(b"x".to_vec()))
+                .is_err()
+        );
+        assert_eq!(std::fs::read(outside.join("victim")).unwrap(), b"keep");
+    }
 }
