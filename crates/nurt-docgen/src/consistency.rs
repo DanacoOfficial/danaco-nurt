@@ -169,7 +169,8 @@ fn check_tokens(number: u64, facts: &Facts) -> Option<String> {
     }
 }
 
-/// Lists the Markdown files under a directory recursively, sorted.
+/// Lists the Markdown files under a directory recursively, sorted. Symbolic
+/// links are not followed, so a link to an ancestor cannot loop the walk.
 ///
 /// # Errors
 ///
@@ -180,10 +181,12 @@ pub fn markdown_files(root: &Path) -> Result<Vec<PathBuf>> {
     while let Some(dir) = pending.pop() {
         let entries = std::fs::read_dir(&dir).map_err(|e| DocgenError::io(&dir, e))?;
         for entry in entries {
-            let path = entry.map_err(|e| DocgenError::io(&dir, e))?.path();
-            if path.is_dir() {
+            let entry = entry.map_err(|e| DocgenError::io(&dir, e))?;
+            let kind = entry.file_type().map_err(|e| DocgenError::io(&dir, e))?;
+            let path = entry.path();
+            if kind.is_dir() {
                 pending.push(path);
-            } else if path.extension().is_some_and(|ext| ext == "md") {
+            } else if kind.is_file() && path.extension().is_some_and(|ext| ext == "md") {
                 files.push(path);
             }
         }
@@ -256,6 +259,19 @@ mod tests {
 
     fn facts() -> Facts {
         Facts::from_catalog(&catalog(), Some(2230), Some(4900))
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_walk_over_markdown_files_ignores_symbolic_links() {
+        let dir = tempfile::tempdir().expect("directory");
+        let docs = dir.path().join("docs");
+        std::fs::create_dir(&docs).expect("docs");
+        std::fs::write(docs.join("a.md"), "a").expect("file");
+        std::os::unix::fs::symlink(dir.path(), docs.join("loop")).expect("link");
+        std::os::unix::fs::symlink(docs.join("a.md"), docs.join("b.md")).expect("link");
+        let found = markdown_files(dir.path()).expect("walk");
+        assert_eq!(found, [docs.join("a.md")]);
     }
 
     #[test]

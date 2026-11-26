@@ -41,6 +41,13 @@ The term change is defined in the [glossary](glossary.md#change).
 Operation numbers form one sequence per account, starting at 1. Reads and
 previews do not consume numbers. Numbers are unique but not necessarily dense.
 
+The journal directory of a volume is shared by every account that works on the
+volume. An entry and its tombstone record the account that made it (the state
+directory of the account). `history`, `undo` and `redo` see only the entries of
+the calling account; entries written before the account was recorded have no
+such record and are seen by every account. Recovery completes an entry of
+another account but leaves its index row, and its marker, to that account.
+
 ## 3. Transaction protocol
 
 The executor opens a transaction with `JournalStore::begin`, passes it to the

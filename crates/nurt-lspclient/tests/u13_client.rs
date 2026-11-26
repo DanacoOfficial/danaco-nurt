@@ -1438,6 +1438,28 @@ fn hover_joins_markup_and_marked_strings() {
 }
 
 #[test]
+fn a_relative_path_is_refused_before_the_server_is_asked() {
+    let s = setup();
+    let requests = Arc::new(AtomicUsize::new(0));
+    let counted = requests.clone();
+    s.mock.handle("textDocument/hover", move |_| {
+        counted.fetch_add(1, Ordering::SeqCst);
+        Ok(json!({"contents": "x"}))
+    });
+    let ctx = context(CancelToken::new());
+    let at = DocumentPosition {
+        path: PathBuf::from("pkg/use.py"),
+        position: TextPosition {
+            line: 5,
+            column: 12,
+        },
+    };
+    let error = s.provider.hover(&ctx, &s.project.scope(), &at).unwrap_err();
+    assert_eq!(error.kind, SemanticErrorKind::Failed);
+    assert_eq!(requests.load(Ordering::SeqCst), 0);
+}
+
+#[test]
 fn implementations_type_definitions_and_unsupported_requests() {
     let s = setup();
     let shapes = s.project.uri("pkg/shapes.py");

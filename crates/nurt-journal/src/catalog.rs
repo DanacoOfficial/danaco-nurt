@@ -334,6 +334,7 @@ fn tombstone(manifest: &Manifest, reason: ExpiryReason) -> Tombstone {
     Tombstone {
         op: manifest.op,
         time: manifest.time,
+        account: manifest.account.clone(),
         kind: manifest.kind.clone(),
         files: u64::try_from(manifest.targets.len()).unwrap_or(u64::MAX),
         bytes: manifest.bytes_held,

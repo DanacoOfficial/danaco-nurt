@@ -108,7 +108,12 @@ pub(super) fn copy_file(src: &Path, dst: &Path) -> FsResult<u64> {
         destination: pair.destination.as_fd(),
         in_kernel: true,
     };
-    let result = copier.copy_data(pair.size).and_then(|length| {
+    let copied = if pair.size == 0 {
+        copier.copy_to_end()
+    } else {
+        copier.copy_data(pair.size)
+    };
+    let result = copied.and_then(|length| {
         retry(|| rustix::fs::ftruncate(pair.destination.as_fd(), length)).map(|()| length)
     });
     match result {
@@ -154,6 +159,27 @@ impl Copier<'_> {
             offset = end;
         }
         Ok(size)
+    }
+
+    /// Copies a source that reports no size until its end and returns the
+    /// length of the copy. Files of `/proc` and `/sys` have size 0 and still
+    /// hold content; an empty file ends at the first read.
+    fn copy_to_end(&self) -> rustix::io::Result<u64> {
+        let mut buffer = vec![0; FALLBACK_BUFFER];
+        let mut position = 0_u64;
+        loop {
+            let read = retry(|| rustix::io::pread(self.source, &mut buffer[..], position))?;
+            if read == 0 {
+                return Ok(position);
+            }
+            let mut written = 0;
+            while written < read {
+                let offset = position + written as u64;
+                written +=
+                    retry(|| rustix::io::pwrite(self.destination, &buffer[written..read], offset))?;
+            }
+            position += read as u64;
+        }
     }
 
     /// Length of the copy once the whole source was read: `size`, or the
@@ -267,6 +293,24 @@ mod tests {
             assert_eq!(copier.copy_data(40), Ok(10));
         }
         assert_eq!(copy_file(&source, &dir.path().join("whole")), Ok(10));
+    }
+
+    #[test]
+    fn file_that_reports_no_size_is_copied_to_its_end() {
+        let source = Path::new("/proc/self/status");
+        let Ok(text) = fs::read(source) else {
+            return;
+        };
+        assert!(!text.is_empty());
+        let dir = tempfile::tempdir().expect("directory");
+        let target = dir.path().join("target");
+        let length = copy_file(source, &target).expect("copy");
+        let copied = fs::read(&target).expect("target");
+        assert_eq!(length, copied.len() as u64);
+        assert!(copied.starts_with(b"Name:"));
+        let empty = dir.path().join("empty");
+        fs::write(&empty, b"").expect("empty");
+        assert_eq!(copy_file(&empty, &dir.path().join("copy")), Ok(0));
     }
 
     #[test]

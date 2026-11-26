@@ -38,8 +38,8 @@ use windows_sys::Win32::System::Services::{
 
 use self::scm::{
     ERROR_SERVICE_ALREADY_RUNNING, ERROR_SERVICE_NOT_ACTIVE, Failure, OsError, RestartError,
-    SERVICE_AUTO_START, SERVICE_DISABLED, ScmOps, ServiceFacts, classify, map_state, scope_of,
-    state_name, tolerate,
+    SERVICE_AUTO_START, SERVICE_DISABLED, ScmOps, ServiceFacts, classify, exit_result, map_state,
+    scope_of, state_name, tolerate,
 };
 use super::{
     ServiceBackend, ServiceQuery, ServiceStatus, service_error, service_not_found,
@@ -117,6 +117,7 @@ impl ServiceBackend for ScmBackend {
             pid: status.dwProcessId,
             service_type: status.dwServiceType,
             exit_code: status.dwWin32ExitCode,
+            specific_exit_code: status.dwServiceSpecificExitCode,
             ..ServiceFacts::default()
         };
         // Services that deny the configuration to the account still report
@@ -134,7 +135,7 @@ impl ServiceBackend for ScmBackend {
         Ok(ServiceStatus {
             state: map_state(status.dwCurrentState),
             state_raw: Some(state_name(status.dwCurrentState)),
-            result: (status.dwWin32ExitCode != 0).then(|| status.dwWin32ExitCode.to_string()),
+            result: exit_result(status.dwWin32ExitCode, status.dwServiceSpecificExitCode),
         })
     }
 
@@ -272,6 +273,7 @@ fn facts_of_entry(entry: &ENUM_SERVICE_STATUS_PROCESSW) -> ServiceFacts {
         pid: status.dwProcessId,
         service_type: status.dwServiceType,
         exit_code: status.dwWin32ExitCode,
+        specific_exit_code: status.dwServiceSpecificExitCode,
         ..ServiceFacts::default()
     }
 }

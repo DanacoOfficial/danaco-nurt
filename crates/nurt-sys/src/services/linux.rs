@@ -222,7 +222,7 @@ impl SystemdBackend {
         scope: ServiceScope,
         name: &str,
     ) -> Result<(String, OwnedObjectPath, Properties)> {
-        let unit = unit_name(name);
+        let unit = checked_unit(name)?;
         let path = self.unit_path(scope, &unit)?;
         let properties = self.properties(scope, &unit, &path, UNIT_INTERFACE)?;
         if text(&properties, "LoadState") == Some(LOAD_STATE_NOT_FOUND) {
@@ -232,7 +232,7 @@ impl SystemdBackend {
     }
 
     fn job(&self, scope: ServiceScope, name: &str, method: &str) -> Result<()> {
-        let unit = unit_name(name);
+        let unit = checked_unit(name)?;
         let _job: OwnedObjectPath = self.manager_call(scope, &unit, method, &(&unit, JOB_MODE))?;
         Ok(())
     }
@@ -294,7 +294,7 @@ impl ServiceBackend for SystemdBackend {
     }
 
     fn enable(&self, name: &str, scope: ServiceScope) -> Result<()> {
-        let unit = unit_name(name);
+        let unit = checked_unit(name)?;
         let runtime = false;
         let force = false;
         let _changes: (bool, Vec<UnitFileChange>) = self.manager_call(
@@ -307,7 +307,7 @@ impl ServiceBackend for SystemdBackend {
     }
 
     fn disable(&self, name: &str, scope: ServiceScope) -> Result<()> {
-        let unit = unit_name(name);
+        let unit = checked_unit(name)?;
         let runtime = false;
         let _changes: Vec<UnitFileChange> =
             self.manager_call(scope, &unit, "DisableUnitFiles", &(vec![&unit], runtime))?;
@@ -391,6 +391,16 @@ pub(super) fn unit_name(name: &str) -> String {
     } else {
         format!("{name}{SERVICE_SUFFIX}")
     }
+}
+
+/// Unit name of a service, or `E_NOT_FOUND` when `name` names no service. An
+/// empty name would reach systemd as the unit `.service`.
+fn checked_unit(name: &str) -> Result<String> {
+    let unit = unit_name(name);
+    if service_name(&unit).is_none() {
+        return Err(service_not_found(MANAGER, name));
+    }
+    Ok(unit)
 }
 
 /// Service name of a unit of type `service`; `None` for other unit types.

@@ -43,6 +43,9 @@ pub(crate) struct EntryFacts {
     pub(crate) state: EntryState,
     /// Reason recorded when the entry was moved to `reap/`.
     pub(crate) reason: Option<ExpiryReason>,
+    /// Account that made the operation; `None` for entries written before
+    /// the account was recorded.
+    pub(crate) account: Option<String>,
     /// Kind of the operation.
     pub(crate) kind: OpKind,
     /// Commit time as recorded in the manifest.

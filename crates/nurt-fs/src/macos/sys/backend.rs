@@ -263,7 +263,7 @@ impl FsWrite for MacosFs {
     }
 
     fn open_in_place(&self, _scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>> {
-        let flags = OFlags::RDWR | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+        let flags = OFlags::WRONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
         let file = Self::open(path.as_path(), flags, 0, "open_in_place")?;
         Ok(Self::write_handle(file, path.clone()))
     }

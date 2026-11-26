@@ -736,10 +736,27 @@ pub(crate) mod test_support {
         1
     }
 
+    /// Nanoseconds since the Unix epoch, saturated to the range of `i64` as
+    /// the back ends of `nurt-fs` do.
     #[cfg(unix)]
     fn meta_mtime_ns(meta: &std::fs::Metadata) -> i64 {
-        std::os::unix::fs::MetadataExt::mtime(meta) * 1_000_000_000
-            + std::os::unix::fs::MetadataExt::mtime_nsec(meta)
+        std::os::unix::fs::MetadataExt::mtime(meta)
+            .saturating_mul(1_000_000_000)
+            .saturating_add(std::os::unix::fs::MetadataExt::mtime_nsec(meta))
+    }
+
+    #[cfg(all(test, unix))]
+    #[test]
+    fn modification_time_after_the_year_2262_saturates() {
+        let dir = tempfile::tempdir().expect("directory");
+        let path = dir.path().join("late");
+        let file = std::fs::File::create(&path).expect("file");
+        let late = std::time::UNIX_EPOCH + std::time::Duration::from_secs(10_000_000_000);
+        if file.set_modified(late).is_err() {
+            return;
+        }
+        let meta = std::fs::metadata(&path).expect("metadata");
+        assert_eq!(meta_mtime_ns(&meta), i64::MAX);
     }
 
     #[cfg(not(unix))]

@@ -194,6 +194,17 @@ impl WindowsFs {
             .map_err(|code| Self::error(code, op, path, &[]))
     }
 
+    /// Refuses a handle opened on a symbolic link or a junction, as the
+    /// back ends of Linux and macOS refuse them with `O_NOFOLLOW`.
+    fn refuse_link(file: &File, op: &str, path: &AbsPath) -> FsResult<()> {
+        match Self::file_meta(file, op, path)?.kind {
+            FileKind::Symlink | FileKind::Junction => {
+                Err(failure(FsErrorKind::Loop, op, path.as_path()))
+            }
+            _ => Ok(()),
+        }
+    }
+
     fn create_writable(
         &self,
         path: &AbsPath,
@@ -580,8 +591,9 @@ impl FsWrite for WindowsFs {
             "open_in_place",
             GENERIC_READ | GENERIC_WRITE,
             OPEN_EXISTING,
-            0,
+            FILE_FLAG_OPEN_REPARSE_POINT,
         )?;
+        Self::refuse_link(&file, "open_in_place", path)?;
         Ok(Box::new(WinWrite::new(file, path.clone())))
     }
 
@@ -813,7 +825,14 @@ impl FsWrite for WindowsFs {
     }
 
     fn truncate(&self, _scope: &TxScope, path: &AbsPath, length: u64) -> FsResult<()> {
-        let file = self.open(path, "truncate", GENERIC_WRITE, OPEN_EXISTING, 0)?;
+        let file = self.open(
+            path,
+            "truncate",
+            GENERIC_WRITE | FILE_READ_ATTRIBUTES,
+            OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT,
+        )?;
+        Self::refuse_link(&file, "truncate", path)?;
         file.set_len(length)
             .map_err(|error| from_io(&error, "truncate", Some(path.as_path())))
     }

@@ -38,7 +38,7 @@ action = "bootstrap"
 domain = "system"
 exit = 5
 stderr = "Bootstrap failed: 5: Input/output error"
-code = "ok"
+code = "E_SERVICE"
 
 [[case]]
 action = "bootout"

@@ -164,7 +164,7 @@ impl LspProvider {
         let session = self.session(ctx, scope, &at.path)?;
         session.require(capability.0, capability.1)?;
         session.open(&at.path, None)?;
-        let mut params = session.position_params(at);
+        let mut params = session.position_params(at)?;
         if let (Some((key, value)), Some(object)) = (extra, params.as_object_mut()) {
             object.insert(key.to_owned(), value);
         }
@@ -293,12 +293,12 @@ impl Session<'_> {
         })
     }
 
-    fn position_params(&self, at: &DocumentPosition) -> Value {
+    fn position_params(&self, at: &DocumentPosition) -> SemanticResult<Value> {
         let text = self.text(&at.path);
-        json!({
-            "textDocument": {"uri": path_to_uri(&at.path)},
+        Ok(json!({
+            "textDocument": {"uri": self.uri(&at.path)?},
             "position": to_lsp(text.as_deref(), at.position, self.unit),
-        })
+        }))
     }
 
     fn range_value(&self, location: &Location) -> Value {
@@ -692,7 +692,7 @@ impl SemanticProvider for LspProvider {
         session.require("referencesProvider", "textDocument/references")?;
         session.open(&at.path, None)?;
         session.open_candidates(at);
-        let mut params = session.position_params(at);
+        let mut params = session.position_params(at)?;
         if let Some(object) = params.as_object_mut() {
             object.insert(
                 "context".to_owned(),
@@ -712,7 +712,7 @@ impl SemanticProvider for LspProvider {
         let session = self.session(ctx, scope, &at.path)?;
         session.require("hoverProvider", "textDocument/hover")?;
         session.open(&at.path, None)?;
-        let answer = session.ask("textDocument/hover", &session.position_params(at))?;
+        let answer = session.ask("textDocument/hover", &session.position_params(at)?)?;
         let contents = answer.get("contents").map(hover_text).unwrap_or_default();
         let contents = contents.trim();
         if contents.is_empty() {
@@ -769,7 +769,7 @@ impl SemanticProvider for LspProvider {
         session.open(&at.path, None)?;
         let prepared = session.ask(
             "textDocument/prepareCallHierarchy",
-            &session.position_params(at),
+            &session.position_params(at)?,
         )?;
         let Some(item) = prepared.as_array().and_then(|items| items.first()).cloned() else {
             return Ok(Vec::new());
@@ -876,7 +876,7 @@ impl SemanticProvider for LspProvider {
         session.require("renameProvider", "textDocument/rename")?;
         session.open(&at.path, None)?;
         session.open_candidates(at);
-        let mut params = session.position_params(at);
+        let mut params = session.position_params(at)?;
         if let Some(object) = params.as_object_mut() {
             object.insert("newName".to_owned(), Value::String(new_name.to_owned()));
         }

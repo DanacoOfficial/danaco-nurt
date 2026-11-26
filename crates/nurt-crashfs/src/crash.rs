@@ -662,8 +662,16 @@ impl Image {
                 if self.ensure(*id, inits)
                     && let Some(node) = self.nodes.get_mut(id)
                 {
+                    let (modified_ns, changed_ns) = (node.meta.modified_ns, node.meta.changed_ns);
                     node.meta = (**meta).clone();
-                    node.stamp = seq;
+                    if node.stamp > seq {
+                        // A later write is durable already; the snapshot taken
+                        // before it must not move the times back.
+                        node.meta.modified_ns = modified_ns;
+                        node.meta.changed_ns = changed_ns;
+                    } else {
+                        node.stamp = seq;
+                    }
                 }
             }
             op => self.apply_entries(op, inits),
@@ -2474,6 +2482,47 @@ mod tests {
             },
             unsynced_dirs: Vec::new(),
         }
+    }
+
+    #[test]
+    fn an_older_metadata_snapshot_does_not_move_the_times_of_a_later_write_back() {
+        let id = 2;
+        let file = Node {
+            body: Body::File(Arc::new(Vec::new())),
+            meta: Meta::new(0o644, 100),
+            nlink: 0,
+            stamp: 0,
+        };
+        let inits = HashMap::from([(id, file)]);
+        let meta_op = |seq: u64, mode: u32, now: i64| Pending {
+            seq,
+            op: Op::Meta {
+                id,
+                meta: Box::new(Meta::new(mode, now)),
+            },
+            unsynced_dirs: Vec::new(),
+        };
+        let write = Pending {
+            seq: 5,
+            op: Op::Write {
+                id,
+                offset: 0,
+                data: vec![1],
+                time: 900,
+            },
+            unsynced_dirs: Vec::new(),
+        };
+        let mut image = Image::new(0);
+        image.apply(&write, &inits, None);
+        image.apply(&meta_op(3, 0o600, 100), &inits, None);
+        let node = &image.nodes[&id];
+        assert_eq!(node.meta.mode, 0o600);
+        assert_eq!(node.meta.modified_ns, 900);
+        assert_eq!(node.meta.changed_ns, 900);
+        image.apply(&meta_op(7, 0o640, 1_000), &inits, None);
+        let node = &image.nodes[&id];
+        assert_eq!(node.meta.mode, 0o640);
+        assert_eq!(node.meta.modified_ns, 1_000);
     }
 
     #[test]

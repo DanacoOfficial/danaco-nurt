@@ -628,6 +628,14 @@ impl StateLayout {
         &self.root
     }
 
+    /// Identifier of the account: the text of its state directory. Entries
+    /// record it, because the journal directory of a volume is shared by
+    /// every account that works on the volume.
+    #[must_use]
+    pub fn account_id(&self) -> String {
+        self.root.as_path().to_string_lossy().into_owned()
+    }
+
     /// Sequence file: eight bytes of the last assigned number in
     /// little-endian order followed by the CRC-32 of those bytes, also in
     /// little-endian order.

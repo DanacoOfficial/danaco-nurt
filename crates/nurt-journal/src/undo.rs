@@ -29,8 +29,8 @@ use nurt_contracts::bound::BoundDocument;
 use nurt_contracts::env::WallTime;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{
-    AbsPath, FileKind, Follow, FsError, FsErrorKind, LinkKind, MetaChange, ProviderSnapshot,
-    ScopePurpose,
+    AbsPath, ExtendedMeta, FileKind, Follow, FsError, FsErrorKind, LinkKind, MetaChange,
+    ProviderSnapshot, ScopePurpose,
 };
 use nurt_contracts::journal::{
     BeginRequest, CloneMode, Conflict, ConflictKind, EntryState, Expect, Mutation, MutationTx,
@@ -1315,7 +1315,7 @@ impl UndoBackend for JournalCtx {
         let fs = self.fs.as_ref();
         let scope = store::scope(op, ScopePurpose::Maintenance);
         let record = match (state, cause) {
-            (EntryState::Undone, Some(cause)) => StateRecord::undone(cause),
+            (EntryState::Undone, Some(cause)) => StateRecord::undone_after_commit(cause),
             _ => StateRecord::new(state),
         };
         let (parts, _) = stored_parts(self, op)?;
@@ -1478,6 +1478,7 @@ impl CtxRestore<'_> {
         if let (Some(tree), TargetPath::Fs(dest)) = (&step.tree, &step.spec.path) {
             let op = tx.op().ok_or_else(undeclared)?;
             copy_children(self.ctx, op, tree, dest)?;
+            restore_directory_meta(self.ctx, op, dest, &step.meta)?;
         }
         Ok(TargetOutcome {
             index: preserved.index,
@@ -1678,7 +1679,13 @@ fn restore_step(
             Ok(restored)
         }
         PreserveMode::Meta => {
-            let change = meta_change(ctx, target, &record.before)?;
+            let kept = record
+                .before
+                .meta
+                .as_deref()
+                .and_then(|name| entry.resolve(name).ok())
+                .and_then(|blob| manifest::read_meta(ctx.fs.as_ref(), &blob).ok());
+            let change = meta_change(ctx, target, &record.before, kept.as_ref())?;
             Ok(step(
                 target.path.clone(),
                 TargetAction::Attributes,
@@ -1817,22 +1824,74 @@ fn preserved_path(entry: &EntryLayout, record: &TargetRecord, op: OpId) -> Resul
 
 /// Metadata change back to the recorded permission bits and modification
 /// time; the account and group of the file are set only when they differ.
+/// Extended attributes and the ACL are brought back from the metadata block
+/// `kept` when it exists, only where they differ from the current ones.
 fn meta_change(
     ctx: &JournalCtx,
     target: &TargetOutcome,
     before: &BeforeRecord,
+    kept: Option<&ExtendedMeta>,
 ) -> Result<MetaChange> {
     let TargetPath::Fs(path) = &target.path else {
         return Err(unsupported(target, "metadata of a provider key"));
     };
     let current = ctx.fs.metadata(path, Follow::NoFollow)?;
-    Ok(MetaChange {
+    let mut change = MetaChange {
         mode: before.mode,
         uid: before.uid.filter(|uid| current.uid != Some(*uid)),
         gid: before.gid.filter(|gid| current.gid != Some(*gid)),
         modified_ns: before.modified_ns,
         ..MetaChange::default()
-    })
+    };
+    if let Some(kept) = kept {
+        let now = ctx.fs.extended_metadata(path, Follow::NoFollow)?;
+        for xattr in &kept.xattrs {
+            if !now.xattrs.contains(xattr) {
+                change.set_xattrs.push(xattr.clone());
+            }
+        }
+        for xattr in &now.xattrs {
+            if !kept.xattrs.iter().any(|old| old.name == xattr.name) {
+                change.remove_xattrs.push(xattr.name.clone());
+            }
+        }
+        if kept.acl.is_some() && kept.acl != now.acl {
+            change.acl.clone_from(&kept.acl);
+        }
+    }
+    Ok(change)
+}
+
+/// Puts the metadata the removed directory had on the recreated one, after its
+/// entries were copied into it, because copying changes its modification
+/// time. The metadata block keeps the attributes, the ACL and the account;
+/// without it only the modification time is set.
+fn restore_directory_meta(
+    ctx: &JournalCtx,
+    op: OpId,
+    path: &AbsPath,
+    recorded: &RecordedMeta,
+) -> Result<()> {
+    let fs = ctx.fs.as_ref();
+    let scope = store::scope(op, ScopePurpose::Operation);
+    let kept = recorded
+        .blob
+        .as_ref()
+        .and_then(|blob| manifest::read_meta(fs, blob).ok());
+    match (kept, recorded.modified_ns) {
+        (Some(kept), _) => {
+            fs.restore_meta(&scope, path, &kept)?;
+        }
+        (None, Some(modified_ns)) => {
+            let change = MetaChange {
+                modified_ns: Some(modified_ns),
+                ..MetaChange::default()
+            };
+            fs.set_meta(&scope, path, &change)?;
+        }
+        (None, None) => {}
+    }
+    Ok(())
 }
 
 /// Copies the entries of a preserved directory into the recreated directory.
@@ -2263,6 +2322,7 @@ pub(crate) mod testkit {
                 time: WallTime::from_unix_nanos(self.now),
                 kind,
                 session,
+                account: None,
                 state: EntryState::Committed,
                 bulk: items.len() > 1,
                 volumes,
@@ -4186,6 +4246,7 @@ mod tests {
             },
             kind: OpKind::undo(),
             session: None,
+            account: None,
             ast_hash: hash_of(b"program"),
             ast: serde_json::Value::Null,
             corrections: Vec::new(),
@@ -5286,6 +5347,69 @@ mod journal_ctx_tests {
         );
     }
 
+    fn xattr(name: &str, value: &[u8]) -> nurt_contracts::fs::Xattr {
+        nurt_contracts::fs::Xattr {
+            name: name.into(),
+            value: value.to_vec(),
+        }
+    }
+
+    fn xattrs_of(world: &World, path: &str) -> Vec<nurt_contracts::fs::Xattr> {
+        world
+            .fs
+            .extended_metadata(&abs(path), Follow::NoFollow)
+            .unwrap()
+            .xattrs
+    }
+
+    #[test]
+    fn undo_of_a_removed_directory_restores_its_time_and_attributes() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/d/x"), b"x").unwrap();
+        let wanted = MetaChange {
+            mode: Some(0o750),
+            modified_ns: Some(1_500_000_000_000_000_000),
+            set_xattrs: vec![xattr("user.k", b"v")],
+            ..MetaChange::default()
+        };
+        let scope = store::scope(OpId(0), ScopePurpose::Operation);
+        world.fs.set_meta(&scope, &abs("/a/d"), &wanted).unwrap();
+        let op = world.run(vec![FileOp::remove(abs("/a/d"))]);
+        undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        assert_eq!(world.read("/a/d/x").as_deref(), Some(&b"x"[..]));
+        let restored = world
+            .fs
+            .extended_metadata(&abs("/a/d"), Follow::NoFollow)
+            .unwrap();
+        assert_eq!(restored.basic.mode, 0o750);
+        assert_eq!(restored.basic.modified_ns, 1_500_000_000_000_000_000);
+        assert_eq!(restored.xattrs, wanted.set_xattrs);
+    }
+
+    #[test]
+    fn undo_of_an_attribute_change_restores_the_extended_attributes() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/m"), b"m").unwrap();
+        let scope = store::scope(OpId(0), ScopePurpose::Operation);
+        let before = MetaChange {
+            set_xattrs: vec![xattr("user.change", b"old"), xattr("user.keep", b"1")],
+            ..MetaChange::default()
+        };
+        world.fs.set_meta(&scope, &abs("/a/m"), &before).unwrap();
+        let change = MetaChange {
+            set_xattrs: vec![xattr("user.added", b"x"), xattr("user.change", b"new")],
+            remove_xattrs: vec!["user.keep".into()],
+            ..MetaChange::default()
+        };
+        let op = world.run(vec![FileOp::set_meta(abs("/a/m"), change)]);
+        assert_eq!(
+            xattrs_of(&world, "/a/m"),
+            [xattr("user.added", b"x"), xattr("user.change", b"new")]
+        );
+        undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
+        assert_eq!(xattrs_of(&world, "/a/m"), before.set_xattrs);
+    }
+
     #[test]
     fn undo_rollback_on_the_journal_store_records_the_failed_check() {
         let world = World::new();
@@ -5295,7 +5419,7 @@ mod journal_ctx_tests {
         assert_eq!(world.read("/a/f").as_deref(), Some(&b"old"[..]));
         assert_eq!(
             world.state(op),
-            manifest::StateRecord::undone(UndoneCause::VerifyFailed)
+            manifest::StateRecord::undone_after_commit(UndoneCause::VerifyFailed)
         );
         assert_eq!(world.manifest(outcome.entry).undo_of, [op]);
         assert_eq!(
@@ -5304,6 +5428,24 @@ mod journal_ctx_tests {
                 .code,
             ErrorCode::JournalNoop
         );
+    }
+
+    #[test]
+    fn rollback_after_the_commit_marks_the_source_whatever_the_reason() {
+        for reason in [
+            RollbackReason::VerifyFailed,
+            RollbackReason::ValidateFailed,
+            RollbackReason::Cancelled,
+            RollbackReason::TargetFailed,
+        ] {
+            let world = World::new();
+            world.fs.seed_file(&abs("/a/f"), b"old").unwrap();
+            let op = world.run(vec![FileOp::write(abs("/a/f"), b"new".to_vec())]);
+            rollback_committed(&world.ctx, op, reason).unwrap();
+            let state = world.state(op);
+            assert_eq!(state.state, EntryState::Undone, "{reason:?}");
+            assert!(state.after_commit, "{reason:?}");
+        }
     }
 
     #[test]
@@ -5350,6 +5492,7 @@ mod journal_ctx_tests {
         let tombstone = Tombstone {
             op: OpId(op.0 + 1),
             time: nurt_contracts::env::Clock::now(&*world.ctx.clock),
+            account: None,
             kind: OpKind::command("remove"),
             files: 3,
             bytes: 10,
@@ -5367,6 +5510,34 @@ mod journal_ctx_tests {
         assert_eq!(records[0].files, 3);
         let error = undo(&world.ctx, &select(UndoSelector::Op(OpId(op.0 + 1)))).unwrap_err();
         assert_eq!(error.code, ErrorCode::JournalExpired);
+    }
+
+    #[test]
+    fn history_lists_the_tombstones_of_the_account_and_of_no_account_only() {
+        let world = World::new();
+        let op = world.run(vec![FileOp::create(abs("/a/x"), b"x".to_vec())]);
+        let tombstone = |number: u64, account: Option<String>| Tombstone {
+            op: OpId(number),
+            time: nurt_contracts::env::Clock::now(&*world.ctx.clock),
+            account,
+            kind: OpKind::command("remove"),
+            files: 1,
+            bytes: 1,
+            irreversible: Vec::new(),
+            state: EntryState::Expired,
+            reason: ExpiryReason::Ops,
+        };
+        let store = CtxStore(&world.ctx);
+        let mine = Some(world.ctx.state.account_id());
+        let theirs = Some("/home/other/.local/state/nurt".to_owned());
+        tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 1, mine)).unwrap();
+        tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 2, theirs)).unwrap();
+        tomb::write(&store, &abs(MOUNT), &tombstone(op.0 + 3, None)).unwrap();
+        let records = history(&world.ctx, &HistoryQuery::default()).unwrap();
+        assert_eq!(
+            records.iter().map(|r| r.id).collect::<Vec<_>>(),
+            [op.0 + 3, op.0 + 1, op.0]
+        );
     }
 
     #[test]

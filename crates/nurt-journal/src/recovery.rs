@@ -147,6 +147,25 @@ fn original_likeness(
     }
 }
 
+/// Likeness of the current target. A target preserved as a copy can be the
+/// copy itself, put back by an interrupted rollback: a new file with another
+/// identity. When the recorded hash exists, only the content hash can tell it
+/// from changed content of the same size.
+fn target_likeness(before: &Facts, now: &Facts, identity: Identity) -> Likeness {
+    let decided = likeness(before, now, Identity::Original);
+    let may_be_the_copy = identity == Identity::Copy
+        && before.hash.is_some()
+        && now.hash.is_none()
+        && before.kind == Some(FileKind::File)
+        && now.kind == Some(FileKind::File)
+        && !matches!((before.size, now.size), (Some(a), Some(b)) if a != b);
+    if decided == Likeness::Different && may_be_the_copy {
+        Likeness::Undecided
+    } else {
+        decided
+    }
+}
+
 /// Place that holds the previous content of a target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Holder {
@@ -229,7 +248,7 @@ pub(crate) fn decide_content(mode: PreserveMode, scene: &TargetScene) -> Content
     }
     let target = scene
         .target
-        .map(|facts| likeness(&scene.before, &facts, Identity::Original));
+        .map(|facts| target_likeness(&scene.before, &facts, block_identity));
     if target == Some(Likeness::Same) {
         return ContentAction::Keep;
     }
@@ -1292,8 +1311,21 @@ impl Entry<'_> {
             return self.mark_corrupt();
         }
         self.write_state(StateRecord::new(EntryState::Committed))?;
+        if self.made_by_another_account(manifest) {
+            return Ok(EntryResult::Unresolved);
+        }
         self.ensure_index_row(manifest)?;
         self.finish(EntryResult::RolledForward)
+    }
+
+    /// Whether another account than the one of this process made the entry.
+    /// The row of such an entry belongs to the index of that account, whose
+    /// recovery appends it; the marker stays until then.
+    fn made_by_another_account(&self, manifest: &Manifest) -> bool {
+        manifest
+            .account
+            .as_deref()
+            .is_some_and(|recorded| recorded != self.ctx.state.account_id())
     }
 
     /// Checks a committed or partial entry with a marker: reconciles item
@@ -1308,6 +1340,9 @@ impl Entry<'_> {
         // the next pass repeats it.
         if is_undo_entry(&manifest) && undo::apply_source_updates(self.ctx, &manifest).is_err() {
             return Ok(EntryResult::SourcesPending);
+        }
+        if self.made_by_another_account(&manifest) {
+            return Ok(EntryResult::Unresolved);
         }
         let appended = self.ensure_index_row(&manifest)?;
         self.finish(EntryResult::Settled {
@@ -1481,8 +1516,9 @@ enum PartState {
 }
 
 /// Whether the part of operation `op` in `journal` was committed. Entries
-/// undone by an explicit undo or a failed verification were committed
-/// before; entries undone by a rollback were not.
+/// undone after their commit (the state file says so; files of an explicit
+/// undo written before that word existed name the cause `undo`) were
+/// committed before; entries undone by a rollback were not.
 fn part_state(fs: &dyn Fs, journal: &JournalLayout, op: OpId) -> PartState {
     let Ok(entry) = journal.entry(op) else {
         return PartState::Unknown;
@@ -1499,9 +1535,8 @@ fn part_state(fs: &dyn Fs, journal: &JournalLayout, op: OpId) -> PartState {
                 | EntryState::Expired,
                 _,
             )
-            | (EntryState::Undone, Some(UndoneCause::Undo | UndoneCause::VerifyFailed)) => {
-                PartState::Committed
-            }
+            | (EntryState::Undone, Some(UndoneCause::Undo)) => PartState::Committed,
+            (EntryState::Undone, _) if record.after_commit => PartState::Committed,
             (EntryState::Prepared | EntryState::RollingBack | EntryState::Undone, _) => {
                 PartState::NotCommitted
             }
@@ -2191,6 +2226,49 @@ mod tests {
     }
 
     #[test]
+    fn target_restored_from_a_copy_is_decided_by_its_hash() {
+        let hash = ContentHash([7; 32]);
+        let before = Facts {
+            hash: Some(hash),
+            ..old_file()
+        };
+        let restored = Facts {
+            file_id: Some(COPY_ID),
+            modified_ns: Some(5),
+            ..old_file()
+        };
+        let scene = TargetScene {
+            existed: true,
+            before,
+            target: Some(restored),
+            ..TargetScene::default()
+        };
+        for mode in [PreserveMode::Copy, PreserveMode::Clone] {
+            assert_eq!(decide_content(mode, &scene), ContentAction::NeedHashes);
+            let same = TargetScene {
+                target: Some(Facts {
+                    hash: Some(hash),
+                    ..restored
+                }),
+                ..scene
+            };
+            assert_eq!(decide_content(mode, &same), ContentAction::Keep);
+            let changed = TargetScene {
+                target: Some(Facts {
+                    hash: Some(ContentHash([8; 32])),
+                    ..restored
+                }),
+                ..scene
+            };
+            assert_eq!(decide_content(mode, &changed), ContentAction::Lost);
+        }
+        assert_eq!(
+            decide_content(PreserveMode::Moved, &scene),
+            ContentAction::Lost
+        );
+    }
+
+    #[test]
     fn copy_identity_is_decided_by_size_and_then_by_hash() {
         let sized = Facts {
             kind: Some(FileKind::File),
@@ -2519,6 +2597,7 @@ mod pass_tests {
             },
             kind: OpKind::command("write"),
             session: None,
+            account: None,
             ast_hash: manifest::hash_bytes(b"program"),
             ast: serde_json::json!({}),
             corrections: Vec::new(),
@@ -3137,6 +3216,76 @@ mod pass_tests {
             vec![1, 3, 2]
         );
         assert_eq!(rows[2].digest(), Some(unindexed_digest));
+    }
+
+    #[test]
+    fn part_state_tells_a_rollback_after_the_commit_from_one_before_it() {
+        use super::{PartState, part_state};
+
+        let world = World::new();
+        let part = world.part(0);
+        let cases = [
+            (
+                1,
+                StateRecord::undone(UndoneCause::ValidateFailed),
+                PartState::NotCommitted,
+            ),
+            (
+                2,
+                StateRecord::undone_after_commit(UndoneCause::ValidateFailed),
+                PartState::Committed,
+            ),
+            (
+                3,
+                StateRecord::undone(UndoneCause::RolledBack),
+                PartState::NotCommitted,
+            ),
+            (
+                4,
+                StateRecord::undone_after_commit(UndoneCause::RolledBack),
+                PartState::Committed,
+            ),
+            (
+                5,
+                StateRecord::undone(UndoneCause::VerifyFailed),
+                PartState::NotCommitted,
+            ),
+            (
+                6,
+                StateRecord::undone(UndoneCause::Undo),
+                PartState::Committed,
+            ),
+        ];
+        for (op, state, expected) in cases {
+            let entry = entry_of(op, Vec::new(), vec![part.clone()]);
+            world.write_entry(0, entry, state, false);
+            assert_eq!(
+                part_state(&*world.fs, world.journal(), OpId(op)),
+                expected,
+                "{state:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn index_row_of_an_entry_of_another_account_is_left_to_that_account() {
+        let world = World::new();
+        let index = world.ctx.state.index().unwrap();
+        let part = world.part(0);
+        let mut foreign = entry_of(1, Vec::new(), vec![part.clone()]);
+        foreign.account = Some("/home/other/.local/state/nurt".to_owned());
+        world.write_entry(0, foreign, StateRecord::new(EntryState::Committed), true);
+        let mut own = entry_of(2, Vec::new(), vec![part]);
+        own.account = Some(world.ctx.state.account_id());
+        world.write_entry(0, own, StateRecord::new(EntryState::Committed), true);
+
+        let outcome = recover_detailed(&world.ctx).unwrap();
+        assert_eq!(outcome.index_appended, vec![OpId(2)]);
+        assert_eq!(outcome.unresolved, vec![OpId(1)]);
+        assert!(world.marked(0, 1));
+        assert!(!world.marked(0, 2));
+        let rows = manifest::read_index(&*world.fs, &index).unwrap();
+        assert_eq!(rows.iter().map(|row| row.op.0).collect::<Vec<_>>(), [2]);
     }
 
     fn tamper_manifest(world: &World, op: u64) {
