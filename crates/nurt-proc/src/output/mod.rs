@@ -10,9 +10,11 @@ use crate::iface::SpoolFactory;
 mod cursor;
 mod decode;
 mod filter;
+mod formats;
 mod progress;
 mod select;
 mod spool;
+mod window;
 
 #[cfg(test)]
 mod tests;

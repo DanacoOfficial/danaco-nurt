@@ -19,7 +19,7 @@ use nurt_contracts::env::WallTime;
 use nurt_contracts::error::Result;
 use nurt_contracts::journal::MutationTx;
 use nurt_contracts::record::{
-    Change, ExecShown, Job, KilledBy, Launcher, LimitHit, Preimage, Progress, Signal, Tracking,
+    Change, ExecDiagnostics, ExecShown, Job, KilledBy, Launcher, LimitHit, Preimage, Progress, Signal, Tracking,
 };
 use nurt_contracts::report::NotableEntry;
 use nurt_contracts::stage::{CancelToken, ExecCtx, OutputStream};
@@ -207,6 +207,12 @@ pub(crate) struct OutputView {
     pub(crate) context: u32,
     /// Repeated consecutive lines are collapsed.
     pub(crate) dedupe: bool,
+    /// Bytes of text one response may hold in all streams together; `0` is
+    /// no limit.
+    pub(crate) max_bytes: u32,
+    /// `show: auto` returns the last lines only after a success; set when
+    /// the call gave neither `head`, `tail` nor `filter`.
+    pub(crate) compact: bool,
     /// No output after exit code 0.
     pub(crate) quiet_on_success: bool,
     /// Patterns whose last matches form the summary lines.
@@ -257,6 +263,10 @@ pub(crate) struct RenderedOutput {
     pub(crate) output_sha256: Option<String>,
     /// Notes about the output.
     pub(crate) notes: Vec<NotableEntry>,
+    /// Errors and warnings of a recognised tool.
+    pub(crate) diagnostics: Option<ExecDiagnostics>,
+    /// Sentence with the commands that read what the response leaves out.
+    pub(crate) read_hint: Option<String>,
 }
 
 /// Captured output of one run, kept in spool files.

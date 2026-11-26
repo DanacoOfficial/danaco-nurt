@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use nurt_contracts::env::WallTime;
 use nurt_contracts::record::{
-    Change, ExecShown, KilledBy, Launcher, LimitHit, Preimage, Progress, Signal, Tracking,
+    Change, ExecDiagnostics, ExecShown, KilledBy, Launcher, LimitHit, Preimage, Progress, Signal, Tracking,
 };
 use nurt_contracts::report::NotableEntry;
 use serde::{Deserialize, Serialize};
@@ -116,6 +116,10 @@ struct OutputViewDef {
     filter: Option<String>,
     context: u32,
     dedupe: bool,
+    #[serde(default)]
+    max_bytes: u32,
+    #[serde(default)]
+    compact: bool,
     quiet_on_success: bool,
     summary: Vec<String>,
     progress: Option<String>,
@@ -198,6 +202,10 @@ struct RenderedOutputDef {
     output_cursor: Option<String>,
     output_sha256: Option<String>,
     notes: Vec<NotableEntry>,
+    #[serde(default)]
+    diagnostics: Option<ExecDiagnostics>,
+    #[serde(default)]
+    read_hint: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

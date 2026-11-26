@@ -96,6 +96,7 @@ language = "en"
 color = "auto"
 head = 20
 tail = 40
+max_bytes = 4096
 spool_ttl = "1h"
 # The key results_dir defaults to the directory results in the state directory.
 

@@ -14,7 +14,7 @@ use nurt_contracts::value::{self, Size};
 use super::state::final_state;
 use super::table::{instant, wall_time};
 use crate::api::ToolResult;
-use crate::iface::{RunRequest, RunResult};
+use crate::iface::{RunRequest, RunResult, ShowMode};
 use crate::spawn::{Platform, record_path};
 
 /// Path as a record value.
@@ -132,7 +132,39 @@ pub(crate) fn exec_record(request: &RunRequest, result: &RunResult, platform: Pl
         failed_batches: None,
         env_keys: (!request.env_keys.is_empty()).then(|| request.env_keys.clone()),
         job: result.job.clone(),
+        diagnostics: output.diagnostics.clone(),
+        digest: digest(request, result),
+        read_hint: output.read_hint.clone(),
     }
+}
+
+/// One line about a successful run whose response shows only the last lines
+/// of its output: exit code, time, lines and bytes of output and, for a
+/// recognised tool, the numbers of errors and warnings.
+fn digest(request: &RunRequest, result: &RunResult) -> Option<String> {
+    let view = &request.view;
+    if !view.compact || view.show != ShowMode::Auto || result.end.exit_code != Some(0) {
+        return None;
+    }
+    let output = &result.output;
+    let elapsed = result.end.finished.saturating_since(result.started);
+    let elapsed = if elapsed < Duration::from_secs(1) {
+        format!("{} ms", elapsed.as_millis())
+    } else {
+        format!("{:.1} s", elapsed.as_secs_f64())
+    };
+    let mut line = format!(
+        "exit 0 in {elapsed}; {} lines, {} bytes of output",
+        output.stdout_lines + output.stderr_lines,
+        output.stdout_bytes + output.stderr_bytes,
+    );
+    if let Some(found) = &output.diagnostics {
+        line.push_str(&format!(
+            "; {}: {} errors, {} warnings",
+            found.tool, found.errors, found.warnings
+        ));
+    }
+    Some(line)
 }
 
 /// Irreversible entry of a run whose command line matched the external

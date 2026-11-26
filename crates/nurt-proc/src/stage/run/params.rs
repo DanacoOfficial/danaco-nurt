@@ -5,7 +5,7 @@
 //!
 //! A parameter the program did not give takes its default from the
 //! configuration (`run.timeout`, `run.wait`, `run.idle_timeout`,
-//! `run.track_changes`, `run.parallel`, `output.head`, `output.tail`), so the
+//! `run.track_changes`, `run.parallel`, `output.head`, `output.tail`, `output.max_bytes`), so the
 //! defaults of the catalog apply only when the configuration keeps them.
 
 use std::path::{Path, PathBuf};
@@ -543,13 +543,19 @@ fn output_view(args: &BoundArgs, ctx: &ExecCtx, config: &Config) -> Result<Outpu
         }
         Some(other) => return Err(type_error("context", "int", &other)),
     };
+    let compact = show == ShowMode::Auto
+        && given(args, ctx, "head")?.is_none()
+        && given(args, ctx, "tail")?.is_none()
+        && optional_regex(args, ctx, "filter")?.is_none();
     Ok(OutputView {
         show,
+        compact,
+        max_bytes: lines(args, ctx, "max_bytes", config.output.max_bytes)?,
         head: Some(lines(args, ctx, "head", config.output.head)?),
         tail: Some(lines(args, ctx, "tail", config.output.tail)?),
         filter: optional_regex(args, ctx, "filter")?,
         context,
-        dedupe: flag(args, ctx, "dedupe")?.unwrap_or(false),
+        dedupe: flag(args, ctx, "dedupe")?.unwrap_or(true),
         quiet_on_success: flag(args, ctx, "quiet_on_success")?.unwrap_or(false),
         summary,
         progress: optional_regex(args, ctx, "progress")?,
