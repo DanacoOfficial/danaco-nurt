@@ -155,7 +155,10 @@ const ENV_OPTIONS_WITH_VALUE: &[&str] = &["-u", "--unset", "-C", "--chdir"];
 pub fn exec_command(exec: &str) -> Option<String> {
     let arguments = split_exec(exec);
     let mut index = 0;
-    if arguments.first().map(String::as_str) == Some("env") {
+    if arguments
+        .first()
+        .is_some_and(|first| first.rsplit('/').next() == Some("env"))
+    {
         index = 1;
         while let Some(argument) = arguments.get(index) {
             if ENV_OPTIONS_WITH_VALUE.contains(&argument.as_str()) {
@@ -421,6 +424,14 @@ mod tests {
         assert_eq!(exec_command("foo --bar %f").as_deref(), Some("foo"));
         assert_eq!(exec_command("env -u X A=1 prog").as_deref(), Some("prog"));
         assert_eq!(exec_command("%U"), None);
+        assert_eq!(
+            exec_command("/usr/bin/env A=1 prog %u").as_deref(),
+            Some("prog")
+        );
+        assert_eq!(
+            exec_command("/usr/bin/environment-tool").as_deref(),
+            Some("/usr/bin/environment-tool")
+        );
         assert_eq!(unescape("a\\sb\\\\c"), "a b\\c");
     }
 }
