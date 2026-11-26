@@ -186,6 +186,24 @@ mod tests {
     }
 
     #[test]
+    fn omits_the_length_of_an_empty_node() {
+        let error = BindError::new(ErrorCode::Type, "wrong type").at(Some(span(3, 7, 3, 7)));
+        let at = error.error().at.unwrap();
+        assert_eq!((at.line, at.column, at.length), (Some(3), Some(7), None));
+    }
+
+    #[test]
+    fn leaves_the_place_unset_without_a_span() {
+        let error = BindError::new(ErrorCode::Type, "wrong type").at(None);
+        assert!(error.error().at.is_none());
+        assert_eq!(
+            join_spans(Some(span(1, 1, 1, 2)), None),
+            Some(span(1, 1, 1, 2))
+        );
+        assert_eq!(join_spans(None, None), None);
+    }
+
+    #[test]
     fn keeps_the_stage_of_a_wrapped_error() {
         let error = BindError::from(Error::new(ErrorCode::Internal, "x").with_stage(Stage::Parse));
         assert_eq!(error.error().stage(), Some(Stage::Parse));

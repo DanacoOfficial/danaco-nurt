@@ -434,6 +434,39 @@ mod tests {
     }
 
     #[test]
+    fn decodes_day_and_week_durations() {
+        assert_eq!(duration_ms("24h"), Some(86_400_000));
+        assert_eq!(duration_ms("1w"), Some(604_800_000));
+        assert_eq!(duration_ms("0.5w"), Some(302_400_000));
+        assert_eq!(duration_ms("1w1d1h"), Some(694_800_000));
+        assert_eq!(duration_ms("1W"), None);
+    }
+
+    #[test]
+    fn decodes_the_largest_exact_values() {
+        assert_eq!(duration_ms("9007199254740991ms"), Some(9_007_199_254_740_991));
+        assert_eq!(duration_ms("9007199254740992ms"), None);
+        assert_eq!(size_bytes("9007199254740991b"), Some(9_007_199_254_740_991));
+        assert_eq!(size_bytes("9007199254740992b"), None);
+        assert_eq!(size_bytes("1mb"), Some(1_000_000));
+        assert_eq!(size_bytes("0.0005kb"), None);
+    }
+
+    #[test]
+    fn rejects_units_and_digits_of_multi_byte_text() {
+        assert_eq!(duration_ms("1é"), None);
+        assert_eq!(duration_ms("1ч"), None);
+        assert_eq!(duration_ms("１s"), None);
+        assert_eq!(size_bytes("1é"), None);
+        assert_eq!(size_bytes("10мб"), None);
+        assert_eq!(size_bytes("１０mb"), None);
+        assert!(!is_percent("１０%"));
+        assert!(!is_percent("10é"));
+        assert_eq!(instant("2026-03-01é", &TimeZone::UTC), None);
+        assert_eq!(instant("é", &TimeZone::UTC), None);
+    }
+
+    #[test]
     fn recognises_percentages() {
         assert!(is_percent("10%"));
         assert!(is_percent("12.5%free"));
