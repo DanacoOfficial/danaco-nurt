@@ -91,6 +91,22 @@ fn component(name: &str, outcome: Result<(), nurt_contracts::error::Error>) -> C
     }
 }
 
+/// The features of the engine and the Cargo features that link components.
+fn features(engine: &[String]) -> String {
+    let linked = integrations::COMPONENTS
+        .iter()
+        .filter(|component| component.linked)
+        .filter_map(|component| component.feature)
+        .chain(cfg!(feature = "mcp-http").then_some("mcp-http"))
+        .chain(cfg!(feature = "stub").then_some("stub"));
+    let all: Vec<&str> = engine.iter().map(String::as_str).chain(linked).collect();
+    if all.is_empty() {
+        "none".to_owned()
+    } else {
+        all.join(", ")
+    }
+}
+
 fn gather(context: &Context, source: &dyn EngineSource) -> Vec<Check> {
     let engine = &context.engine;
     let info = engine.info();
@@ -117,15 +133,7 @@ fn gather(context: &Context, source: &dyn EngineSource) -> Vec<Check> {
                 info.formats.config
             ),
         ),
-        check(
-            "features",
-            Verdict::Ok,
-            if info.features.is_empty() {
-                "none".to_owned()
-            } else {
-                info.features.join(", ")
-            },
-        ),
+        check("features", Verdict::Ok, features(&info.features)),
         state_directory(engine),
     ];
     checks.extend(configuration_files(source));
