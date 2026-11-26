@@ -341,6 +341,50 @@ mod tests {
     }
 
     #[test]
+    fn leaves_out_metadata_and_fields_filled_by_the_host() {
+        let schema = json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "urn:test",
+            "title": "Request",
+            "description": "Text.",
+            "type": "object",
+            "required": ["nurt"],
+            "dependentRequired": {"variant": ["nurt"]},
+            "properties": {
+                "nurt": {"type": "string"},
+                "variant": {"type": "string"},
+                "program": {"type": "string"}
+            },
+            "additionalProperties": false,
+            "oneOf": [{"required": ["program"]}]
+        });
+        let source = source(&schema).unwrap();
+        assert_eq!(source.inputs, ["program"]);
+        assert!(source.options.is_empty());
+        assert_eq!(
+            Value::Object(source.schema),
+            json!({
+                "type": "object",
+                "properties": {"program": {"type": "string"}},
+                "additionalProperties": false,
+                "oneOf": [{"required": ["program"]}]
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_host_only_keywords_that_name_other_fields_or_are_malformed() {
+        assert_eq!(
+            reason(source(&json!({"dependentRequired": {"program": ["nurt"]}}))),
+            "`dependentRequired` names fields that are arguments of the tool"
+        );
+        assert_eq!(
+            reason(source(&json!({"required": "program"}))),
+            "`required` names fields that are arguments of the tool"
+        );
+    }
+
+    #[test]
     fn resolves_references_inside_arrays() {
         let schema = json!({
             "properties": {"a": {"anyOf": [{"$ref": "#/$defs/b"}]}},

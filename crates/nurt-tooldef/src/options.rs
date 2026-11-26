@@ -375,6 +375,25 @@ mod tests {
     }
 
     #[test]
+    fn group_names_take_lower_case_letters_digits_and_hyphens_only() {
+        let accepted = RenderOptions::new("Core.")
+            .with_group_description("web-2", "Web.")
+            .with_groups(GroupSelection::Only(vec!["web-2".into()]));
+        assert_eq!(accepted.description(), Ok("Core.\n\nWeb.".to_owned()));
+        for name in ["web_2", "wéb", "web 2", ""] {
+            let options = RenderOptions::new("Core.")
+                .with_groups(GroupSelection::Only(vec![name.to_owned()]));
+            assert_eq!(
+                options.description(),
+                Err(ToolDefError::InvalidGroupName {
+                    name: name.to_owned()
+                }),
+                "name {name:?}"
+            );
+        }
+    }
+
+    #[test]
     fn rejects_blank_catalog_version() {
         let options = RenderOptions::new("Core.").with_catalog_version(" ");
         assert_eq!(
