@@ -380,6 +380,14 @@ impl Fixture {
             user_key.to_openssh(LineEnding::LF).unwrap().as_bytes(),
         )
         .unwrap();
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(
+                ssh_dir.join("id_ed25519"),
+                std::fs::Permissions::from_mode(0o600),
+            )
+            .unwrap();
+        }
         let server = GitServer::start(&home, user_key.public_key().clone());
         std::fs::write(
             ssh_dir.join("known_hosts"),
