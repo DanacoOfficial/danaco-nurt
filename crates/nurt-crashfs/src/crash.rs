@@ -890,7 +890,9 @@ impl State {
             .iter()
             .enumerate()
             .filter(|(_, volume)| path.starts_with(&volume.spec.mount))
-            .max_by_key(|(_, volume)| volume.spec.mount.as_path().components().count())
+            // Mounts that are all prefixes of one path are nested, so the
+            // longest one is the one with the most components.
+            .max_by_key(|(_, volume)| volume.spec.mount.as_path().as_os_str().len())
             .map(|(index, _)| index)
     }
 
