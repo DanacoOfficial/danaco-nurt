@@ -328,6 +328,142 @@ pub(super) fn apply_change(file: &File, change: &MetaChange, path: &Path) -> FsR
     Ok(())
 }
 
+/// Whether an entry that cannot be opened for reading can still be changed:
+/// the owner may change its metadata by path without read permission.
+pub(super) fn needs_path_calls(error: &FsError) -> bool {
+    error.kind == FsErrorKind::PermissionDenied
+}
+
+/// Applies a metadata change requested by a command with calls by path
+/// (`fchmodat`, `fchownat`, `utimensat` with `AT_SYMLINK_NOFOLLOW`, extended
+/// attributes of the entry itself), for an entry that cannot be opened, as a
+/// file with mode 000. The ACL and the creation time have no call by path here
+/// and end the call with `Unsupported`.
+pub(super) fn apply_change_by_path(path: &Path, change: &MetaChange) -> FsResult<()> {
+    const OP: &str = "set_meta";
+    if change.set_windows_attributes != 0
+        || change.clear_windows_attributes != 0
+        || change.acl.is_some()
+        || change.created_ns.is_some()
+    {
+        return Err(FsError::new(FsErrorKind::Unsupported, OP, Some(path)));
+    }
+    let plain = |errno| sys_error(errno, ErrnoContext::Plain, OP, path);
+    if change.uid.is_some() || change.gid.is_some() {
+        retry(|| {
+            rustix::fs::chownat(
+                CWD,
+                path,
+                change.uid.map(Uid::from_raw),
+                change.gid.map(Gid::from_raw),
+                AtFlags::SYMLINK_NOFOLLOW,
+            )
+        })
+        .map_err(|errno| sys_error(errno, ErrnoContext::Privileged, OP, path))?;
+    }
+    if let Some(mode) = change.mode {
+        set_mode_by_path(path, mode).map_err(plain)?;
+    }
+    let failed = |error: std::io::Error| io_error(&error, ErrnoContext::Plain, OP, path);
+    for name in &change.remove_xattrs {
+        xattr::remove(path, name).map_err(failed)?;
+    }
+    for item in &change.set_xattrs {
+        xattr::set(path, &item.name, &item.value).map_err(failed)?;
+    }
+    if change.modified_ns.is_some() || change.accessed_ns.is_some() {
+        let current = stat_path(path, Follow::NoFollow, OP)?;
+        let times = timestamps(change.accessed_ns, change.modified_ns, &current);
+        retry(|| rustix::fs::utimensat(CWD, path, &times, AtFlags::SYMLINK_NOFOLLOW))
+            .map_err(plain)?;
+    }
+    Ok(())
+}
+
+fn set_mode_by_path(path: &Path, mode: u32) -> rustix::io::Result<()> {
+    let raw =
+        RawMode::try_from(mode & MODE_PERMISSION_BITS).map_err(|_| rustix::io::Errno::INVAL)?;
+    retry(|| {
+        rustix::fs::chmodat(
+            CWD,
+            path,
+            Mode::from_raw_mode(raw),
+            AtFlags::SYMLINK_NOFOLLOW,
+        )
+    })
+}
+
+/// Applies complete metadata with calls by path to an entry that cannot be
+/// opened; the elements without a call by path (the ACL when it differs, the
+/// creation time) are reported as not transferred.
+pub(super) fn apply_extended_by_path(
+    path: &Path,
+    meta: &ExtendedMeta,
+) -> FsResult<MetaTransferReport> {
+    const OP: &str = "apply_meta";
+    let current = stat_path(path, Follow::NoFollow, OP)?;
+    let c_path = c_path(path, OP)?;
+    let mut report = Report::default();
+    if let Some(flags) = unblocked_flags(current.st_flags) {
+        report.check(FLAGS, ffi::set_link_flags(&c_path, flags).is_ok());
+    }
+    let uid = meta.basic.uid.filter(|&uid| uid != current.st_uid);
+    let gid = meta.basic.gid.filter(|&gid| gid != current.st_gid);
+    if uid.is_some() || gid.is_some() {
+        let changed = retry(|| {
+            rustix::fs::chownat(
+                CWD,
+                path,
+                uid.map(Uid::from_raw),
+                gid.map(Gid::from_raw),
+                AtFlags::SYMLINK_NOFOLLOW,
+            )
+        });
+        report.check(ACCOUNT, changed.is_ok());
+    }
+    report.check(MODE, set_mode_by_path(path, meta.basic.mode).is_ok());
+    match xattr::list(path) {
+        Ok(present) => {
+            for name in present.filter(|name| meta.xattrs.iter().all(|item| &item.name != name)) {
+                report.check(&xattr_label(&name), xattr::remove(path, &name).is_ok());
+            }
+            for item in &meta.xattrs {
+                let unchanged = xattr::get(path, &item.name)
+                    .is_ok_and(|value| value.as_deref() == Some(item.value.as_slice()));
+                if !unchanged {
+                    report.check(
+                        &xattr_label(&item.name),
+                        xattr::set(path, &item.name, &item.value).is_ok(),
+                    );
+                }
+            }
+        }
+        Err(_) if !meta.xattrs.is_empty() => report.fail(XATTR_LIST),
+        Err(_) => {}
+    }
+    let acl_now = ffi::read_path_acl(&c_path, false);
+    report.check(
+        ACL,
+        acl_now.is_ok_and(|acl| acl.as_deref() == meta.acl.as_deref()),
+    );
+    let times = timestamps(
+        meta.basic.accessed_ns,
+        Some(meta.basic.modified_ns),
+        &current,
+    );
+    report.check(
+        TIMES,
+        retry(|| rustix::fs::utimensat(CWD, path, &times, AtFlags::SYMLINK_NOFOLLOW)).is_ok(),
+    );
+    if meta.basic.created_ns.is_some() {
+        report.fail(CREATED);
+    }
+    let stored = meta.flags.unwrap_or(u64::from(current.st_flags));
+    let flags = flags_to_restore(stored, current.st_flags);
+    report.check(FLAGS, ffi::set_link_flags(&c_path, flags).is_ok());
+    Ok(report.finish())
+}
+
 fn change_xattrs(file: &File, change: &MetaChange, path: &Path) -> FsResult<()> {
     let failed = |error: std::io::Error| io_error(&error, ErrnoContext::Plain, "set_meta", path);
     for name in &change.remove_xattrs {
