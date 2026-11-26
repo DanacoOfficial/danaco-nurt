@@ -113,6 +113,18 @@ fn finished_jobs_expire_only_after_the_lifetime() {
     assert!(table.expired(WallTime::UNIX_EPOCH, ttl).unwrap().is_empty());
 }
 
+#[test]
+fn lost_jobs_never_expire() {
+    let dir = tempfile::tempdir().unwrap();
+    let table = JobTable::at(dir.path().join("jobs")).unwrap();
+    table
+        .write(&sample_file(dir.path(), "j1", JobState::Lost))
+        .unwrap();
+    let ttl = Duration::from_secs(10);
+    let far = WallTime::from_unix_nanos(i128::MAX / 2);
+    assert!(table.expired(far, ttl).unwrap().is_empty());
+}
+
 /// Output store double that counts the reads and fails them on request.
 struct CountingStore {
     reads: AtomicUsize,
