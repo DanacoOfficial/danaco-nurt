@@ -287,6 +287,15 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_identifier_stays_the_source_as_journalctl_shows_it() {
+        let event = map(vec![
+            field("SYSLOG_IDENTIFIER", b""),
+            field("_COMM", b"cron"),
+        ]);
+        assert_eq!(event.source, "");
+    }
+
+    #[test]
     fn logs_level_maps_priority() {
         assert_eq!(map(vec![field("PRIORITY", b"0")]).priority, 0);
         assert_eq!(map(vec![field("PRIORITY", b"9")]).priority, 6);

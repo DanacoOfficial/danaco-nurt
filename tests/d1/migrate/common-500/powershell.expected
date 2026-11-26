@@ -196,7 +196,7 @@ translated	Get-Service | Export-Csv -Path C:\temp\services.csv -NoTypeInformatio
 failed	Get-ChildItem C:\proj | ConvertTo-Json -Depth 2	E_UNCORRECTABLE: ConvertTo-Json only shows text unless a file is written; write the records with write format: json (conversion_without_write)
 translated	Compress-Archive -Path C:\proj\dist -DestinationPath C:\release\dist.zip	find "C:/proj/dist" |> archive.create "C:/release/dist.zip"
 translated	Expand-Archive -Path C:\downloads\tool.zip -DestinationPath C:\tools\tool	archive.extract "C:/downloads/tool.zip" into: "C:/tools/tool" on_conflict: error
-translated	Compress-Archive -Path C:\logs\*.log -DestinationPath C:\backup\logs.zip	find "C:/logs/*.log" |> archive.create "C:/backup/logs.zip"
+translated	Compress-Archive -Path C:\logs\*.log -DestinationPath C:\backup\logs.zip	find "C:/logs" glob: "*.log" depth: 1 |> archive.create "C:/backup/logs.zip"
 translated	Expand-Archive C:\downloads\data.zip C:\data	archive.extract "C:/downloads/data.zip" into: "C:/data" on_conflict: error
 failed	Compress-Archive -Path C:\site -DestinationPath C:\backup\site.zip -Force	E_UNCORRECTABLE: -Force of Compress-Archive has no Nurt translation; translated parameters: -Path, -LiteralPath, -DestinationPath (unknown_parameter)
 translated	Expand-Archive -Path C:\downloads\pkg.zip -DestinationPath C:\pkg -Force	archive.extract "C:/downloads/pkg.zip" into: "C:/pkg" on_conflict: overwrite

@@ -237,6 +237,20 @@ fn the_directory_of_a_quoted_wildcard_path_is_located_without_the_quote() -> Out
 }
 
 #[test]
+fn a_wildcard_in_the_path_of_compress_archive_selects_the_files() -> Outcome {
+    let archive = live(r"Compress-Archive C:\logs\*.log -DestinationPath C:\a.zip")?;
+    let program = archive.text();
+    assert!(
+        program.starts_with("find \"C:/logs\" glob: \"*.log\""),
+        "{program}"
+    );
+    assert!(program.contains("archive.create \"C:/a.zip\""), "{program}");
+    let literal = live(r"Compress-Archive -LiteralPath C:\logs\*.log -DestinationPath C:\a.zip")?;
+    assert!(!literal.text().contains("glob:"), "{}", literal.text());
+    Ok(())
+}
+
+#[test]
 fn size_multipliers_are_binary() -> Outcome {
     let mega = live("Get-ChildItem /srv | Where-Object { $_.Length -gt 1MB }")?;
     assert!(
