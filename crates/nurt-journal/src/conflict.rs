@@ -850,7 +850,7 @@ mod tests {
         let target = rename("/mnt/a/file", "/mnt/b/file");
         let own = TargetPath::Fs(abs("/mnt/a/file"));
         for role in [TargetRole::Source, TargetRole::Destination] {
-            assert_eq!(addresses(&target, role), [own.clone()]);
+            assert_eq!(addresses(&target, role), std::slice::from_ref(&own));
             assert_eq!(primary(&target, role), own);
             let expected = expected_after(&target, role);
             assert_eq!(expected.len(), 1);
