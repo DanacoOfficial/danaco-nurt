@@ -710,6 +710,7 @@ fn schema_tool_rejects_an_unknown_format_and_an_unknown_option() {
 }
 
 /// Output of a program run in `home` with the given arguments before it.
+#[cfg(unix)]
 fn program_in(home: &std::path::Path, options: &[&str], program: &str) -> Output {
     command(options, home)
         .arg(program)
@@ -719,6 +720,7 @@ fn program_in(home: &std::path::Path, options: &[&str], program: &str) -> Output
 }
 
 /// Rows of the records of a program run as JSON.
+#[cfg(unix)]
 fn json_rows(home: &std::path::Path, program: &str) -> Vec<serde_json::Value> {
     let output = program_in(home, &["--format", "json"], program);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));

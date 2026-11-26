@@ -23,9 +23,13 @@ use nurt_programs::model::{
     RawCategory, RawGuide, RawProgram, SourceData,
 };
 use nurt_programs::search::SearchOptions;
-use nurt_programs::source::{SourceKind, SourceRegistry};
+#[cfg(unix)]
+use nurt_programs::source::SourceKind;
+use nurt_programs::source::SourceRegistry;
 use nurt_programs::stages::{CATALOG, DESCRIBE, FIND, ProgramsSetup, SEARCH};
-use support::{Fixture, StaticSource, TestProcess, args, field, names, run, text, texts};
+#[cfg(unix)]
+use support::TestProcess;
+use support::{Fixture, StaticSource, args, field, names, run, text, texts};
 
 fn program(name: &str, category: &str, summary: &str, when: &[&str]) -> RawProgram {
     let mut raw = RawProgram::new(name);

@@ -286,6 +286,7 @@ pub fn split_command(text: &str) -> Result<Vec<String>> {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
     fn shell(script: &str, timeout: Duration) -> ProcessSpec {
         ProcessSpec::new(
             "sh",

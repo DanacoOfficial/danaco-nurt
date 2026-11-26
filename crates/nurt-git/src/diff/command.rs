@@ -1288,6 +1288,7 @@ mod tests {
         assert_eq!(run_diff(&stat, &ctx()).unwrap().records.len(), 1);
     }
 
+    #[cfg(unix)]
     const NO_NEWLINE_LINE: &str = "\\ No newline at end of file";
 
     #[test]
