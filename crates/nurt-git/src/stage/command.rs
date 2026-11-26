@@ -123,6 +123,16 @@ impl EffectStage for GitStageCommand {
             note.detail = Some("files left out by exclude".to_owned());
             effect.notable.push(note);
         }
+        if !planned.ignored().is_empty() {
+            let names: Vec<String> = planned.ignored().iter().map(ToString::to_string).collect();
+            let mut note = NotableEntry::new(Notable::Ignored);
+            note.count = Some(names.len() as u64);
+            note.detail = Some(format!(
+                "ignored files named explicitly were staged (git add needs -f): {}",
+                names.join(", ")
+            ));
+            effect.notable.push(note);
+        }
         Ok(effect.with_state(Planned { plan: planned }))
     }
 

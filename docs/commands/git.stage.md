@@ -30,7 +30,9 @@ working tree are removed from the index, and a staged conflicted file is
 resolved, with its stages kept as resolve-undo data. A directory, and `.` for
 the whole working tree, stands for the files below it: the entries of the
 index and the untracked files that are not ignored. Files matching a pattern
-of `exclude` are left out and counted.
+of `exclude` are left out and counted. An ignored file named explicitly in
+`paths` is staged, which `git add` refuses without `-f`; the report carries an
+`ignored` note that lists such files.
 
 `action: unstage` copies the `HEAD` state of the selection into the index, as
 `git restore --staged` does: an entry returns to its content and mode in
