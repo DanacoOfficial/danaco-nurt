@@ -84,3 +84,318 @@ fn a_cancelled_call_stops_a_run_the_supervisor_already_took() {
     let id = table.ids().unwrap().pop().unwrap();
     assert_eq!(job_file(&path, &id).record.state, JobState::Stopped);
 }
+
+/// Change detection double whose preparation lasts until the execution is
+/// cancelled or a limit of real time passes, and records that it began.
+struct BlockedTracker {
+    entered: Arc<AtomicBool>,
+}
+
+impl ChangeTracker for BlockedTracker {
+    fn prepare(
+        &self,
+        ctx: &ExecCtx,
+        _spec: &TrackSpec,
+        _tx: &mut dyn MutationTx,
+    ) -> Result<Box<dyn PreparedScan>> {
+        self.entered.store(true, Ordering::SeqCst);
+        match ctx.cancel().wait_timeout(Duration::from_secs(8)) {
+            Some(reason) => Err(reason.to_error()),
+            None => Err(Error::new(
+                ErrorCode::Timeout,
+                "the scan was never cancelled",
+            )),
+        }
+    }
+}
+
+#[test]
+fn a_cancelled_call_reaches_the_supervisor_before_the_program_starts() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_path_buf();
+    let entered = Arc::new(AtomicBool::new(false));
+    let components = Components {
+        control: Arc::new(FakeControl::default()),
+        spool: Arc::new(FileSpool),
+        tracker: Arc::new(BlockedTracker {
+            entered: Arc::clone(&entered),
+        }),
+    };
+    let (server, _) = context(&path);
+    let _serving = {
+        let components = components.clone();
+        std::thread::spawn(move || supervisor::serve(&server, &components))
+    };
+    let table = JobTable::at(path.join("jobs")).unwrap();
+    wait_until(|| table.host_running().unwrap());
+    let command = SupervisorCommand {
+        program: path.join("nurt"),
+        args: Vec::new(),
+    };
+    let (client, _) = context_with(
+        &path,
+        Config::default(),
+        Some(Supervision::Detached(command)),
+    );
+    let cancel = client.cancel().clone();
+    let host = run_host(&client, components);
+    let begun = Instant::now();
+    let caller = {
+        let path = path.clone();
+        std::thread::spawn(move || {
+            host.run(
+                &client,
+                request(&path, 10_000, 0, 0),
+                Some(Duration::from_secs(30)),
+            )
+        })
+    };
+    wait_until(|| entered.load(Ordering::SeqCst));
+    cancel.cancel(CancelReason::Requested);
+    let Err(error) = caller.join().unwrap() else {
+        panic!("the call was not cancelled");
+    };
+    assert_eq!(error.code(), ErrorCode::Cancelled);
+    assert!(
+        begun.elapsed() < Duration::from_secs(6),
+        "the scan ran to its limit"
+    );
+    let notices = fs::read_dir(table.inbox())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".cancel.json")
+        })
+        .count();
+    assert_eq!(notices, 0);
+}
+
+#[test]
+fn a_supervisor_started_while_a_client_probes_the_lock_keeps_serving() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_path_buf();
+    let table = JobTable::at(path.join("jobs")).unwrap();
+    // The probe of `host_running` holds the lock for an instant; the
+    // supervisor starts inside that instant.
+    let probe = table.try_lock_host().unwrap().expect("the lock is free");
+    let (server, _) = context(&path);
+    let serving = std::thread::spawn(move || supervisor::serve(&server, &components()));
+    std::thread::sleep(Duration::from_millis(30));
+    drop(probe);
+    wait_until(|| table.host_running().unwrap());
+    assert!(!serving.is_finished(), "the supervisor gave up");
+}
+
+/// Change detection double that ignores the cancellation: its preparation
+/// ends successfully once the execution is cancelled.
+struct DeafTracker {
+    entered: Arc<AtomicBool>,
+}
+
+impl ChangeTracker for DeafTracker {
+    fn prepare(
+        &self,
+        ctx: &ExecCtx,
+        spec: &TrackSpec,
+        _tx: &mut dyn MutationTx,
+    ) -> Result<Box<dyn PreparedScan>> {
+        self.entered.store(true, Ordering::SeqCst);
+        let _ = ctx.cancel().wait_timeout(Duration::from_secs(8));
+        Ok(Box::new(FakeScan {
+            watch: spec.watch.clone(),
+            mode: spec.mode,
+        }))
+    }
+}
+
+#[test]
+fn a_call_cancelled_before_exec_never_starts_the_program() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_path_buf();
+    let entered = Arc::new(AtomicBool::new(false));
+    let control = Arc::new(FakeControl::default());
+    let components = Components {
+        control: Arc::clone(&control) as Arc<dyn ProcessControl>,
+        spool: Arc::new(FileSpool),
+        tracker: Arc::new(DeafTracker {
+            entered: Arc::clone(&entered),
+        }),
+    };
+    let (ctx, _) = context(&path);
+    let cancel = ctx.cancel().clone();
+    let caller = {
+        let path = path.clone();
+        std::thread::spawn(move || {
+            run(
+                &ctx,
+                &components,
+                request(&path, 10_000, 0, 0),
+                Some(Duration::from_secs(30)),
+            )
+        })
+    };
+    wait_until(|| entered.load(Ordering::SeqCst));
+    cancel.cancel(CancelReason::Requested);
+    let Err(error) = caller.join().unwrap() else {
+        panic!("the call was not cancelled");
+    };
+    assert_eq!(error.code(), ErrorCode::Cancelled);
+    assert!(
+        control.spawned.lock().unwrap().is_empty(),
+        "the program started"
+    );
+    let table = JobTable::at(path.join("jobs")).unwrap();
+    assert!(table.ids().unwrap().is_empty(), "a job record was left");
+}
+
+#[test]
+fn cancelling_twice_or_after_the_end_answers_with_the_state_of_the_job() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_path_buf();
+    let (ctx, _) = context(&path);
+    let components = components();
+    let job = background(&ctx, &components, gated(&path, 1));
+    let table = JobTable::at(path.join("jobs")).unwrap();
+    let first = control::cancel(&table, &job.id).unwrap();
+    assert_eq!(first.id, job.id);
+    control::cancel(&table, &job.id).unwrap();
+    wait_until(|| job_file(&path, &job.id).record.state == JobState::Stopped);
+    let ended = control::cancel(&table, &job.id).unwrap();
+    assert_eq!(ended.state, JobState::Stopped);
+    assert!(
+        control::pending(&table, &job.id).is_empty(),
+        "a cancellation of an ended job left a request"
+    );
+}
+
+/// Race between a call and its cancellation with real processes: whatever
+/// the moment of the cancellation, the program has not started or its
+/// process group is gone.
+#[cfg(target_os = "linux")]
+mod race {
+    use super::*;
+
+    /// Processes that still run (zombies excluded) and carry `token` in their
+    /// command line.
+    fn running_with(token: &str) -> Vec<u32> {
+        let Ok(entries) = fs::read_dir("/proc") else {
+            return Vec::new();
+        };
+        entries
+            .flatten()
+            .filter_map(|entry| entry.file_name().to_str()?.parse::<u32>().ok())
+            .filter(|pid| {
+                let Ok(line) = fs::read(format!("/proc/{pid}/cmdline")) else {
+                    return false;
+                };
+                let carries = line
+                    .split(|byte| *byte == 0)
+                    .any(|part| part == token.as_bytes());
+                let zombie = fs::read_to_string(format!("/proc/{pid}/stat"))
+                    .ok()
+                    .and_then(|stat| {
+                        stat.rsplit_once(')')
+                            .map(|(_, rest)| rest.trim_start().starts_with('Z'))
+                    })
+                    .unwrap_or(true);
+                carries && !zombie
+            })
+            .collect()
+    }
+
+    /// Request of the test program that sleeps for 30 s and carries `token`
+    /// in its arguments.
+    fn sleeping(dir: &Path, token: &str) -> RunRequest {
+        let program = crate::spawn::testing::fixture_path();
+        let args = ["silent-sleep", "30000", token];
+        let mut request = request(dir, 0, 0, 0);
+        request.command = std::iter::once("proc_fixture")
+            .chain(args)
+            .map(str::to_owned)
+            .collect();
+        request.program = program.clone();
+        request.spawn.program = program;
+        request.spawn.args = args.iter().map(Into::into).collect();
+        request
+    }
+
+    fn random(seed: &mut u64) -> u64 {
+        *seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        *seed >> 33
+    }
+
+    /// Runs `iterations` calls, each cancelled `base..=base + spread`
+    /// milliseconds after it was handed to the detached supervisor.
+    fn cancel_race(iterations: u32, base_ms: u64, spread_ms: u64) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_path_buf();
+        let components = Components {
+            control: crate::control::system(),
+            spool: Arc::new(FileSpool),
+            tracker: Arc::new(FakeTracker),
+        };
+        let (server, _) = context(&path);
+        let _serving = {
+            let components = components.clone();
+            std::thread::spawn(move || supervisor::serve(&server, &components))
+        };
+        let table = JobTable::at(path.join("jobs")).unwrap();
+        wait_until(|| table.host_running().unwrap());
+        let command = SupervisorCommand {
+            program: path.join("nurt"),
+            args: Vec::new(),
+        };
+        let mut seed = 0x5eed_u64;
+        let mut started = 0;
+        for n in 0..iterations {
+            let token = format!("cancel-race-{}-{n}", std::process::id());
+            let (client, _) = context_with(
+                &path,
+                Config::default(),
+                Some(Supervision::Detached(command.clone())),
+            );
+            let cancel = client.cancel().clone();
+            let host = run_host(&client, components.clone());
+            let request = sleeping(&path, &token);
+            let caller = std::thread::spawn(move || {
+                host.run(&client, request, Some(Duration::from_secs(30)))
+            });
+            let micros = base_ms * 1000 + random(&mut seed) % (spread_ms * 1000 + 1);
+            std::thread::sleep(Duration::from_micros(micros));
+            cancel.cancel(CancelReason::Requested);
+            match caller.join().unwrap() {
+                Err(error) => assert_eq!(error.code(), ErrorCode::Cancelled, "run {n}"),
+                Ok(RunWait::Finished(result)) => {
+                    started += 1;
+                    assert_eq!(result.end.killed_by, Some(KilledBy::Cancel), "run {n}");
+                }
+                Ok(RunWait::Background(_)) => panic!("run {n} moved to the background"),
+            }
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while !running_with(&token).is_empty() {
+                assert!(
+                    Instant::now() < deadline,
+                    "run {n}: processes {:?} of the cancelled program still run",
+                    running_with(&token)
+                );
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+        eprintln!("{started} of {iterations} programs had started when they were cancelled");
+    }
+
+    #[test]
+    fn a_program_cancelled_within_milliseconds_has_not_started_or_has_no_process_left() {
+        cancel_race(200, 0, 5);
+    }
+
+    #[test]
+    fn a_program_cancelled_while_the_supervisor_takes_the_request_leaves_no_process() {
+        cancel_race(100, 40, 25);
+    }
+}

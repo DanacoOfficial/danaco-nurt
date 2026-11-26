@@ -81,8 +81,9 @@ pub(crate) struct SpawnRequest {
     pub(crate) raw_command_line: Option<OsString>,
     /// Working directory.
     pub(crate) cwd: PathBuf,
-    /// Complete environment of the child.
-    pub(crate) env: Vec<(OsString, OsString)>,
+    /// Complete environment of the child; shared by the requests of the
+    /// batches of one run, so that memory does not grow with their number.
+    pub(crate) env: Arc<[(OsString, OsString)]>,
     /// Standard input.
     pub(crate) stdin: StdinSource,
     /// Standard error is written to the standard output stream.

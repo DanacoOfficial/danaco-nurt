@@ -4,6 +4,7 @@
 //! Environment of a started program.
 
 use std::ffi::{OsStr, OsString};
+use std::sync::Arc;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::services::EnvVar;
@@ -30,6 +31,10 @@ pub(crate) enum InheritEnv {
 pub(crate) struct ChildEnv {
     platform: Platform,
     vars: Vec<(OsString, OsString)>,
+    /// `SystemRoot` of the host, taken before the changes of the request, so
+    /// that the command interpreter is never looked up in a directory the
+    /// request names.
+    host_system_root: Option<OsString>,
 }
 
 impl ChildEnv {
@@ -49,9 +54,14 @@ impl ChildEnv {
         defaults: impl IntoIterator<Item = (&'a str, &'a str)>,
         changes: &[EnvVar],
     ) -> Result<Self> {
+        let host_system_root = inherited
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case("SystemRoot"))
+            .map(|(_, value)| value.clone());
         let mut env = Self {
             platform,
             vars: Vec::new(),
+            host_system_root,
         };
         match inherit {
             InheritEnv::All => {
@@ -96,6 +106,13 @@ impl ChildEnv {
         Ok(env)
     }
 
+    /// `SystemRoot` of the host that runs the engine; `None` when the host
+    /// has none. It does not follow the changes made to the environment of
+    /// the program.
+    pub(crate) fn host_system_root(&self) -> Option<&OsStr> {
+        self.host_system_root.as_deref()
+    }
+
     /// Rules of the host the environment is for.
     pub(crate) fn platform(&self) -> Platform {
         self.platform
@@ -111,6 +128,12 @@ impl ChildEnv {
     #[cfg(test)]
     pub(crate) fn names(&self) -> impl Iterator<Item = &OsStr> {
         self.vars.iter().map(|(name, _)| name.as_os_str())
+    }
+
+    /// The variables, in order, in one allocation that the requests of all
+    /// batches of a run share.
+    pub(crate) fn shared_vars(&self) -> Arc<[(OsString, OsString)]> {
+        Arc::from(self.vars.as_slice())
     }
 
     /// The variables, in order.

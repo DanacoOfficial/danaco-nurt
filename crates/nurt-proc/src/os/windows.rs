@@ -62,8 +62,8 @@ use windows_sys::Win32::System::Threading::{
 };
 
 use super::{
-    Exit, Finished, Streams, io_error, process_denied, process_gone, process_replaced, same_start,
-    spawn_error, unsupported_signal,
+    Exit, Finished, Streams, ended_by_supervisor, io_error, process_denied, process_gone,
+    process_replaced, same_start, spawn_error, unsupported_signal,
 };
 use crate::iface::{Priority, ResourceUsage, SpawnRequest, StdinSource};
 
@@ -227,9 +227,21 @@ impl Tree {
     }
 
     /// Ends every process of the job.
+    ///
+    /// The tree records that the supervisor ended it only when the main
+    /// process was still running at that moment, so an exit that happened by
+    /// itself at the same time keeps its own code.
     pub(crate) fn kill(&self) -> Result<()> {
-        self.terminated.store(true, Ordering::Release);
-        self.terminate_job()
+        // SAFETY: the process handle is open for the lifetime of `self`.
+        let running = unsafe { WaitForSingleObject(raw(&self.process), 0) } != WAIT_OBJECT_0;
+        if running {
+            self.terminated.store(true, Ordering::Release);
+        }
+        let ended = self.terminate_job();
+        if ended.is_err() {
+            self.terminated.store(false, Ordering::Release);
+        }
+        ended
     }
 
     /// Suspends every process of the job.
@@ -334,7 +346,8 @@ impl Tree {
                 &io::Error::last_os_error(),
             ));
         }
-        let exit = if code == TERMINATED_EXIT_CODE && self.terminated.load(Ordering::Acquire) {
+        let ended = self.terminated.load(Ordering::Acquire);
+        let exit = if ended_by_supervisor(code, TERMINATED_EXIT_CODE, ended) {
             Exit::Signal {
                 signal: Signal::Kill,
                 number: None,
