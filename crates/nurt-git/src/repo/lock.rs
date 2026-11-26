@@ -65,6 +65,7 @@ pub fn ensure_unlocked(file: &Path) -> Result<(), Error> {
 pub struct LockedWrite {
     file: PathBuf,
     bytes: Vec<u8>,
+    expect: Option<Expect>,
 }
 
 impl LockedWrite {
@@ -74,7 +75,17 @@ impl LockedWrite {
         Self {
             file: file.into(),
             bytes,
+            expect: None,
         }
+    }
+
+    /// Requires the file to have the given state at the write, instead of
+    /// the state found when the target is declared. Used when the content
+    /// to write was derived from an earlier read of the file.
+    #[must_use]
+    pub fn expecting(mut self, expect: Expect) -> Self {
+        self.expect = Some(expect);
+        self
     }
 
     /// The file replaced.
@@ -95,18 +106,22 @@ impl LockedWrite {
         &self.bytes
     }
 
-    /// The target of the write: `modify` of the file, expecting its current
-    /// content, or its absence when it does not exist.
+    /// The target of the write: `modify` of the file, expecting the state
+    /// given by [`LockedWrite::expecting`] or else its current content, or
+    /// its absence when it does not exist.
     ///
     /// # Errors
     ///
     /// Fails with `E_IO` when the path is not absolute or the file exists
     /// but cannot be read.
     pub fn target(&self) -> Result<TargetSpec, Error> {
-        let expect = match std::fs::read(&self.file) {
-            Ok(previous) => Expect::Hash(content_hash(&previous)),
-            Err(failure) if failure.kind() == std::io::ErrorKind::NotFound => Expect::Absent,
-            Err(failure) => return Err(error::io(&self.file, &failure)),
+        let expect = match &self.expect {
+            Some(expect) => expect.clone(),
+            None => match std::fs::read(&self.file) {
+                Ok(previous) => Expect::Hash(content_hash(&previous)),
+                Err(failure) if failure.kind() == std::io::ErrorKind::NotFound => Expect::Absent,
+                Err(failure) => return Err(error::io(&self.file, &failure)),
+            },
         };
         Ok(TargetSpec {
             path: TargetPath::Fs(abs(&self.file)?),
@@ -301,6 +316,22 @@ mod tests {
         std::fs::write(&file, b"changed by another program\n").unwrap();
         let failure = writes.apply(tx.as_mut(), first).unwrap_err();
         assert_eq!(failure.code, ErrorCode::Stale);
+    }
+
+    #[test]
+    fn content_replaced_after_the_read_is_stale_when_a_read_state_is_given() {
+        let fixture = RepoBuilder::new().build();
+        let file = fixture.git_dir().join("description");
+        let read = Expect::Hash(content_hash(&std::fs::read(&file).unwrap()));
+        std::fs::write(&file, b"replaced after the read\n").unwrap();
+        let writes = LockedWrites::new(vec![
+            LockedWrite::new(&file, b"new\n".to_vec()).expecting(read),
+        ]);
+        let journal = RecordingJournal::new();
+        let mut tx = journal.begin();
+        let failure = writes.run(tx.as_mut()).unwrap_err();
+        assert_eq!(failure.code, ErrorCode::Stale);
+        assert_eq!(std::fs::read(&file).unwrap(), b"replaced after the read\n");
     }
 
     #[test]
