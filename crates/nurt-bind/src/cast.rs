@@ -12,11 +12,12 @@
 //! input records. With correction, a literal that does not have the form of
 //! its place is corrected by the type rules before it is reported.
 
-use nurt_contracts::ast::{Expr, KeySeg, MapEntry, Pipeline, Span, UnOp};
+use nurt_contracts::ast::{BinOp, Expr, KeySeg, MapEntry, Pipeline, Span, UnOp};
 use nurt_contracts::bound::{BoundExpr, BoundMapEntry};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::keypath::KeyPath;
 use nurt_contracts::spec::{ParamType, ScalarType};
+use nurt_types::{Operand, function_error, operation_error};
 
 use crate::binder::{Binder, unsupported};
 use crate::error::BindError;
@@ -385,6 +386,7 @@ impl Binder<'_> {
                 for arg in args {
                     bound.push(self.expression(arg)?);
                 }
+                self.check_call(&function, &bound, *span)?;
                 Ok(BoundExpr::Call {
                     function,
                     args: bound,
@@ -394,17 +396,83 @@ impl Binder<'_> {
                 op: *op,
                 x: Box::new(self.expression(x)?),
             }),
-            Expr::Bin { op, l, r, .. } => Ok(BoundExpr::Bin {
-                op: *op,
-                l: Box::new(self.expression(l)?),
-                r: Box::new(self.expression(r)?),
-            }),
+            Expr::Bin { op, l, r, span } => {
+                let (bound_l, bound_r) = (self.expression(l)?, self.expression(r)?);
+                self.check_operation(*op, (l, &bound_l), (r, &bound_r), *span)?;
+                Ok(BoundExpr::Bin {
+                    op: *op,
+                    l: Box::new(bound_l),
+                    r: Box::new(bound_r),
+                })
+            }
             Expr::Sub { span, .. } => Err(BindError::new(
                 ErrorCode::Type,
                 "a sub-pipeline is not an expression; use it as the argument of `verify` or of a parameter of type pipeline",
             )
             .at(*span)),
             _ => Err(unsupported("expression")),
+        }
+    }
+
+    /// Rejects an operation on a field of a known type and a literal that the
+    /// operator cannot take, with the error that evaluating it raises for
+    /// every record; the error is placed at the literal, or at the whole
+    /// operation when both operands are fields.
+    fn check_operation(
+        &self,
+        op: BinOp,
+        left: (&Expr, &BoundExpr),
+        right: (&Expr, &BoundExpr),
+        span: Option<Span>,
+    ) -> Result<(), BindError> {
+        let (Some(first), Some(second)) = (self.operand(left.1), self.operand(right.1)) else {
+            return Ok(());
+        };
+        let Some(error) = operation_error(op, first, second, &self.context.local_tz) else {
+            return Ok(());
+        };
+        let at = match (first, second) {
+            (Operand::Field(_), Operand::Literal(_)) => expr_span(right.0),
+            (Operand::Literal(_), Operand::Field(_)) => expr_span(left.0),
+            _ => span,
+        };
+        Err(BindError::from(error).at(at))
+    }
+
+    /// Rejects a call of a built-in function whose arguments are known and
+    /// are refused by the function for every record.
+    fn check_call(
+        &self,
+        function: &str,
+        args: &[BoundExpr],
+        span: Option<Span>,
+    ) -> Result<(), BindError> {
+        let operands: Option<Vec<Operand<'_>>> = args.iter().map(|arg| self.operand(arg)).collect();
+        let Some(operands) = operands else {
+            return Ok(());
+        };
+        match function_error(function, &operands, &self.context.local_tz) {
+            Some(error) => Err(BindError::from(error).at(span)),
+            None => Ok(()),
+        }
+    }
+
+    /// The operand of a bound expression: a field of a known type or a
+    /// literal; `None` for everything computed per record.
+    fn operand<'e>(&self, expr: &'e BoundExpr) -> Option<Operand<'e>> {
+        match expr {
+            BoundExpr::Field { name, of: None } => self
+                .field_types
+                .get(name.as_str())
+                .map(|ty| Operand::Field(*ty)),
+            BoundExpr::Field { .. }
+            | BoundExpr::Ref(_)
+            | BoundExpr::Call { .. }
+            | BoundExpr::Un { .. }
+            | BoundExpr::Bin { .. }
+            | BoundExpr::Sub { .. }
+            | BoundExpr::Spread { .. } => None,
+            literal => Some(Operand::Literal(literal)),
         }
     }
 

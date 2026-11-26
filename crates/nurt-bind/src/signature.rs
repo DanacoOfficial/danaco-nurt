@@ -21,7 +21,7 @@ use nurt_correct::distance::{EXPECTED_LIMIT, NameEntry, NameIndex, NameKind, exp
 use crate::binder::{Binder, Flow, internal};
 use crate::cast::Place;
 use crate::error::{BindError, join_spans};
-use crate::fields::flow_fields;
+use crate::fields::{flow_field_types, flow_fields};
 use crate::literal::default_expr;
 use crate::phase::{effect_of, waits_of};
 
@@ -113,8 +113,10 @@ impl<'a> Binder<'a> {
     /// source form gives two stages.
     pub(crate) fn command(&mut self, stage: &Stage, flow: &Flow) -> Result<Vec<Bound>, BindError> {
         let fields = std::mem::replace(&mut self.fields, flow_fields(flow));
+        let field_types = std::mem::replace(&mut self.field_types, flow_field_types(flow));
         let bound = self.bind_command(stage, flow);
         self.fields = fields;
+        self.field_types = field_types;
         bound
     }
 

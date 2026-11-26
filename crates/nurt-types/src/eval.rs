@@ -275,7 +275,7 @@ impl Scope<'_> {
     }
 }
 
-fn literal_value(expr: &BoundExpr, tz: &TimeZone) -> Result<Value> {
+pub(crate) fn literal_value(expr: &BoundExpr, tz: &TimeZone) -> Result<Value> {
     Ok(match expr {
         BoundExpr::Null => Value::Null,
         BoundExpr::Bool { v } => Value::Bool(*v),
@@ -313,14 +313,14 @@ fn truth(operator: &str, value: Value) -> Result<bool> {
     }
 }
 
-const fn is_comparison(op: BinOp) -> bool {
+pub(crate) const fn is_comparison(op: BinOp) -> bool {
     matches!(
         op,
         BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge
     )
 }
 
-const fn is_text_literal(expr: &BoundExpr) -> bool {
+pub(crate) const fn is_text_literal(expr: &BoundExpr) -> bool {
     matches!(expr, BoundExpr::Text { .. })
 }
 
@@ -333,14 +333,14 @@ fn convert_literal(literal: Value, other: &Value, tz: &TimeZone) -> Result<Value
     }
 }
 
-fn apply(op: BinOp, left: &Value, right: &Value, regexes: &RegexCache) -> Result<Value> {
+pub(crate) fn apply(op: BinOp, left: &Value, right: &Value, regexes: &RegexCache) -> Result<Value> {
     match op {
         BinOp::Eq => Ok(Value::Bool(equal(left, right))),
         BinOp::Ne => Ok(Value::Bool(!equal(left, right))),
-        BinOp::Lt => order("`<`", left, right, Ordering::is_lt),
-        BinOp::Le => order("`<=`", left, right, Ordering::is_le),
-        BinOp::Gt => order("`>`", left, right, Ordering::is_gt),
-        BinOp::Ge => order("`>=`", left, right, Ordering::is_ge),
+        BinOp::Lt => order(op, left, right, Ordering::is_lt),
+        BinOp::Le => order(op, left, right, Ordering::is_le),
+        BinOp::Gt => order(op, left, right, Ordering::is_gt),
+        BinOp::Ge => order(op, left, right, Ordering::is_ge),
         BinOp::Match => matches(left, right, regexes).map(Value::Bool),
         BinOp::NotMatch => matches(left, right, regexes).map(|found| Value::Bool(!found)),
         BinOp::In => membership(left, right).map(Value::Bool),
@@ -352,18 +352,35 @@ fn apply(op: BinOp, left: &Value, right: &Value, regexes: &RegexCache) -> Result
     }
 }
 
-fn order(operator: &str, left: &Value, right: &Value, test: fn(Ordering) -> bool) -> Result<Value> {
+fn order(op: BinOp, left: &Value, right: &Value, test: fn(Ordering) -> bool) -> Result<Value> {
+    if let Some(error) = ordering_error(op, left, right) {
+        return Err(error);
+    }
     if left.is_null() || right.is_null() {
         return Ok(Value::Bool(false));
     }
-    if !comparable(left, right) {
-        return Err(type_error(
-            &format!("{operator} with {}", left.type_name()),
-            &family_types(left),
-            right,
-        ));
-    }
     Ok(Value::Bool(test(compare(left, right))))
+}
+
+/// `E_TYPE` of an ordering operator applied to values of different type
+/// families; `None` when a value is `null`, when the families agree and for
+/// an operator that is not an ordering.
+fn ordering_error(op: BinOp, left: &Value, right: &Value) -> Option<Error> {
+    let operator = match op {
+        BinOp::Lt => "`<`",
+        BinOp::Le => "`<=`",
+        BinOp::Gt => "`>`",
+        BinOp::Ge => "`>=`",
+        _ => return None,
+    };
+    if left.is_null() || right.is_null() || comparable(left, right) {
+        return None;
+    }
+    Some(type_error(
+        &format!("{operator} with {}", left.type_name()),
+        &family_types(left),
+        right,
+    ))
 }
 
 fn matches(left: &Value, right: &Value, regexes: &RegexCache) -> Result<bool> {
