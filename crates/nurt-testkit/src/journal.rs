@@ -1249,7 +1249,13 @@ impl NoopTx<'_> {
             .write_all(bytes)
             .map_err(|error| io_error_to_error(&error, path))?;
         if let Some(meta) = &previous {
-            handle.apply_meta(meta).map_err(convert)?;
+            // The new content is dated by its write; the rest of the
+            // metadata of the previous file is transferred.
+            let written = fs.metadata(&staged, Follow::NoFollow).map_err(convert)?;
+            let mut wanted = meta.clone();
+            wanted.basic.modified_ns = written.modified_ns;
+            wanted.basic.accessed_ns = written.accessed_ns;
+            handle.apply_meta(&wanted).map_err(convert)?;
         }
         handle.sync(Durability::Full).map_err(convert)?;
         drop(handle);

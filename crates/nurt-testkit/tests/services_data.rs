@@ -457,3 +457,19 @@ fn scripted_runs_stop_when_cancelled_while_waiting() {
     let spec = nurt_contracts::services::ProgramSpec::new("slow", Vec::new(), "/");
     assert!(host.run_program(&spec, &cancel).unwrap().cancelled);
 }
+
+#[test]
+fn an_empty_chunk_of_scripted_output_does_not_end_the_stream() {
+    let host = ScriptedProcessHost::new(Arc::new(VirtualClock::new()));
+    host.script(
+        ProgramScript::new("daemon")
+            .stdout(Duration::from_secs(1), "")
+            .stdout(Duration::from_secs(2), "data\n")
+            .runs_for(Duration::from_secs(3)),
+    );
+    let mut child = host.spawn_service(&spawn_spec("daemon")).unwrap();
+    let mut stdout = child.take_stdout().unwrap();
+    let mut text = String::new();
+    stdout.read_to_string(&mut text).unwrap();
+    assert_eq!(text, "data\n");
+}
