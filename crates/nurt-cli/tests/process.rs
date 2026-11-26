@@ -366,6 +366,13 @@ fn fmt_reads_the_program_from_the_standard_input() {
     assert!(stdout(&output).contains("find"));
 }
 
+#[test]
+fn fmt_prints_a_program_of_the_configured_variant_in_the_requested_one() {
+    let output = nurt(&["fmt", "--variant", "c", "-"], "find \"/srv\" kind: \"file\"\n");
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(stdout(&output).contains("kind="), "{}", stdout(&output));
+}
+
 #[cfg(unix)]
 #[test]
 fn argument_that_is_not_utf8_is_a_usage_error() {
