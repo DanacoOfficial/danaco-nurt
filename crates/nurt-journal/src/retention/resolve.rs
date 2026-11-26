@@ -911,6 +911,33 @@ mod tests {
     }
 
     #[test]
+    fn trusted_project_volume_values_are_raised_to_the_project_minimum() {
+        let project = layer(
+            ConfigLevel::Project,
+            json!({ "journal": { "volume": { MOUNT: { "max_ops": 3, "max_age": "1m" } } } }),
+        );
+        let resolved = merged(&[project], true);
+        let limits = effective(&resolved, None);
+        assert_eq!(limits.max_ops.value, PROJECT_FLOOR_MAX_OPS);
+        assert_eq!(limits.max_age.value, PROJECT_FLOOR_MAX_AGE);
+        assert_eq!(limits.max_ops.source, ConfigLevel::Project);
+        assert!(limits.max_ops.raised_to_floor && limits.max_age.raised_to_floor);
+    }
+
+    #[test]
+    fn untrusted_project_volume_values_are_ignored() {
+        let user = layer(ConfigLevel::User, json!({ "journal": { "max_ops": 40 } }));
+        let project = layer(
+            ConfigLevel::Project,
+            json!({ "journal": { "volume": { MOUNT: { "max_ops": 3 } } } }),
+        );
+        let resolved = merged(&[user, project], false);
+        let limits = effective(&resolved, None);
+        assert_eq!(limits.max_ops.value, StepLimit::Limited(40));
+        assert_eq!(limits.max_ops.source, ConfigLevel::User);
+    }
+
+    #[test]
     fn system_floor_raises_lower_values_of_every_level() {
         let system = layer(
             ConfigLevel::System,
