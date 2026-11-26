@@ -37,9 +37,6 @@ Environment variables:
                         https://github.com/DanacoOfficial/nurt/releases)
 #>
 
-$ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
-
 function Get-NurtFile {
     param([string]$Location, [string]$Destination)
     if ($Location -match '^https?://') {
@@ -59,6 +56,11 @@ function Test-NurtAdministrator {
 }
 
 function Install-Nurt {
+    # Set here and not at the top of the file: when the script runs through
+    # Invoke-Expression its top level is the caller's scope, and the values
+    # would stay set in the session of the user.
+    $ErrorActionPreference = 'Stop'
+    $ProgressPreference = 'SilentlyContinue'
     $scope = if ($env:NURT_SCOPE) { $env:NURT_SCOPE.ToLowerInvariant() } else { 'user' }
     if ($scope -notin 'user', 'machine') {
         throw "invalid NURT_SCOPE: $scope; use user or machine"
