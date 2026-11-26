@@ -270,15 +270,16 @@ impl ExecEnv {
     }
 
     /// Resource limits of the stages from the configuration: the record
-    /// limit, the largest text file and the number of threads (one when the
-    /// configuration leaves it open).
+    /// limit, the largest text file and the number of threads (the number of
+    /// processor cores of the host when the configuration leaves it open, and
+    /// at least one).
     #[must_use]
     pub fn limits(&self) -> Limits {
         let config = &self.config.limits;
         Limits {
             max_records: config.max_records,
             max_file_bytes_text: config.max_file_bytes_text.bytes(),
-            threads: config.threads.unwrap_or(Limits::default().threads).max(1),
+            threads: config.threads.unwrap_or(self.host.info().cpus).max(1),
         }
     }
 }
@@ -369,6 +370,11 @@ mod tests {
         config.limits.threads = Some(0);
         let env = env().with_config(Arc::new(config));
         assert_eq!(env.limits().threads, 1);
+    }
+
+    #[test]
+    fn open_threads_default_to_the_cores_of_the_host() {
+        assert_eq!(env().limits().threads, 4);
     }
 
     #[test]
