@@ -108,11 +108,11 @@ pub(super) fn copy_file(src: &Path, dst: &Path) -> FsResult<u64> {
         destination: pair.destination.as_fd(),
         in_kernel: true,
     };
-    let result = copier
-        .copy_data(pair.size)
-        .and_then(|()| retry(|| rustix::fs::ftruncate(pair.destination.as_fd(), pair.size)));
+    let result = copier.copy_data(pair.size).and_then(|length| {
+        retry(|| rustix::fs::ftruncate(pair.destination.as_fd(), length)).map(|()| length)
+    });
     match result {
-        Ok(()) => Ok(pair.size),
+        Ok(length) => Ok(length),
         Err(errno) => {
             drop(pair);
             discard(dst);
@@ -128,15 +128,17 @@ struct Copier<'a> {
 }
 
 impl Copier<'_> {
-    /// Copies every data range of the first `size` bytes of the source.
-    fn copy_data(&mut self, size: u64) -> rustix::io::Result<()> {
+    /// Copies every data range of the first `size` bytes of the source and
+    /// returns the length of the copy: `size`, or the current length of the
+    /// source when it shrank during the copy.
+    fn copy_data(&mut self, size: u64) -> rustix::io::Result<u64> {
         let mut offset = 0;
         let mut sparse = true;
         while offset < size {
             let (start, end) = if sparse {
                 match self.next_data(offset, size) {
                     Ok(Some(range)) => range,
-                    Ok(None) => return Ok(()),
+                    Ok(None) => return self.length_now(size),
                     Err(Errno::INVAL | Errno::OPNOTSUPP) => {
                         sparse = false;
                         (offset, size)
@@ -147,11 +149,18 @@ impl Copier<'_> {
                 (offset, size)
             };
             if self.copy_range(start, end)? {
-                return Ok(());
+                return self.length_now(size);
             }
             offset = end;
         }
-        Ok(())
+        Ok(size)
+    }
+
+    /// Length of the copy once the whole source was read: `size`, or the
+    /// present length of the source when it is shorter.
+    fn length_now(&self, size: u64) -> rustix::io::Result<u64> {
+        let current = rustix::fs::fstat(self.source)?.st_size;
+        Ok(u64::try_from(current).unwrap_or(0).min(size))
     }
 
     /// Next data range at or after `offset`, ending at the next hole or at
@@ -240,6 +249,24 @@ mod tests {
         drop(file);
         let content = fs::read(&path).expect("content");
         (path, content)
+    }
+
+    #[test]
+    fn source_that_shrank_gives_a_copy_of_its_present_length() {
+        let dir = tempfile::tempdir().expect("directory");
+        let source = dir.path().join("source");
+        fs::write(&source, b"0123456789").expect("source");
+        let target = dir.path().join("target");
+        let pair = open_pair(&source, &target, "copy_file").expect("pair");
+        for in_kernel in [true, false] {
+            let mut copier = Copier {
+                source: pair.source.as_fd(),
+                destination: pair.destination.as_fd(),
+                in_kernel,
+            };
+            assert_eq!(copier.copy_data(40), Ok(10));
+        }
+        assert_eq!(copy_file(&source, &dir.path().join("whole")), Ok(10));
     }
 
     #[test]
