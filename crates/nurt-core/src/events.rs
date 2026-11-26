@@ -202,6 +202,61 @@ mod tests {
         assert_eq!(json[2]["status"], "ok");
     }
 
+    /// Listener that lets other threads run before it records an event.
+    #[derive(Default)]
+    struct Yielding(Mutex<Vec<u64>>);
+
+    impl EventListener for Yielding {
+        fn deliver(&self, event: DeliveredEvent) {
+            std::thread::yield_now();
+            self.0.lock().unwrap().push(event.seq);
+        }
+    }
+
+    #[test]
+    fn delivery_order_follows_sequence_numbers_across_threads() {
+        const THREADS: u64 = 4;
+        const PER_THREAD: u64 = 100;
+        let listener = Arc::new(Yielding::default());
+        let sequencer = Sequencer::new(
+            listener.clone(),
+            Arc::new(VirtualClock::new()),
+            "r3".to_owned(),
+        );
+        std::thread::scope(|scope| {
+            for _ in 0..THREADS {
+                scope.spawn(|| {
+                    for _ in 0..PER_THREAD {
+                        sequencer.emit(Event::Log(LogEvent {
+                            level: LogLevel::Debug,
+                            message: String::new(),
+                            source: None,
+                        }));
+                    }
+                });
+            }
+        });
+        let seqs = listener.0.lock().unwrap().clone();
+        assert_eq!(seqs, (1..=THREADS * PER_THREAD).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn closing_twice_delivers_the_lifecycle_once() {
+        let listener = Arc::new(Collect::default());
+        let sequencer = Sequencer::new(
+            listener.clone(),
+            Arc::new(VirtualClock::new()),
+            "r2".to_owned(),
+        );
+        sequencer.close(ReportStatus::Failed);
+        sequencer.close(ReportStatus::Ok);
+        let events = listener.0.lock().unwrap().clone();
+        assert_eq!(events.len(), 2);
+        let finished = serde_json::to_value(&events[1]).unwrap();
+        assert_eq!(finished["t"], "exec.finished");
+        assert_eq!(finished["status"], "failed");
+    }
+
     #[test]
     fn events_of_the_executor_are_not_repeated() {
         let listener = Arc::new(Collect::default());

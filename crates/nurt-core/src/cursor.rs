@@ -524,6 +524,64 @@ mod tests {
     }
 
     #[test]
+    fn expired_cursor_of_a_preview_has_no_fix() {
+        let store = CursorStore::new(None, TTL);
+        let mut report = changes(4);
+        report.status = ReportStatus::Planned;
+        report.op = None;
+        let cursor = store
+            .first_page(report, 2, &program(), at(0))
+            .next_cursor
+            .unwrap();
+        assert!(store.page(&cursor, 2, at(3600)).unwrap_err().fix.is_empty());
+    }
+
+    #[test]
+    fn adding_a_result_drops_the_expired_ones_from_memory_and_disk() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = CursorStore::new(Some(temp.path().to_path_buf()), TTL);
+        store.first_page(records(3), 1, &program(), at(0));
+        store.first_page(records(3), 1, &program(), at(TTL.as_secs()));
+        let files = fs::read_dir(temp.path().join(CURSOR_DIR)).unwrap().count();
+        assert_eq!(files, 1);
+        assert_eq!(store.sweep(at(TTL.as_secs())), 0);
+    }
+
+    #[test]
+    fn every_record_is_listed_once_across_the_pages() {
+        let store = CursorStore::new(None, TTL);
+        let mut page = store.first_page(records(7), 3, &program(), at(0));
+        let mut sizes = vec![page.records.as_ref().unwrap().rows.len()];
+        while let Some(cursor) = page.next_cursor.clone() {
+            page = store.page(&cursor, 3, at(1)).unwrap();
+            sizes.push(page.records.as_ref().unwrap().rows.len());
+        }
+        assert_eq!(sizes, [3, 3, 1]);
+    }
+
+    #[test]
+    fn page_size_below_one_is_raised_to_one() {
+        let store = CursorStore::new(None, TTL);
+        let first = store.first_page(records(3), 0, &program(), at(0));
+        assert_eq!(first.records.unwrap().rows.len(), 1);
+    }
+
+    #[test]
+    fn cursor_at_the_end_gives_an_empty_page_and_beyond_it_is_malformed() {
+        let store = CursorStore::new(None, TTL);
+        let cursor = store
+            .first_page(records(3), 2, &program(), at(0))
+            .next_cursor
+            .unwrap();
+        let stem = cursor.rsplit_once('-').unwrap().0.to_owned();
+        let page = store.page(&format!("{stem}-3"), 2, at(1)).unwrap();
+        assert!(page.records.unwrap().rows.is_empty());
+        assert!(page.next_cursor.is_none());
+        let error = store.page(&format!("{stem}-4"), 2, at(1)).unwrap_err();
+        assert!(error.message.starts_with("malformed"));
+    }
+
+    #[test]
     fn diff_follows_the_changes_of_the_page() {
         let mut report = changes(2);
         report.diff = serde_json::from_value(json!([
