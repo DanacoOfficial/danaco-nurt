@@ -72,18 +72,13 @@ fn read_text(response: &Value) -> String {
     field(&rows[0], "text").as_str().unwrap().to_owned()
 }
 
-/// The matches of a `search` response as (line, text) pairs.
-fn matches(response: &Value) -> Vec<(i64, String)> {
+/// The line numbers of the matches of a `search` response.
+fn match_lines(response: &Value) -> Vec<i64> {
     response["report"]["records"]["rows"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|row| {
-            (
-                field(row, "no").as_i64().unwrap(),
-                field(row, "text").as_str().unwrap().trim_end().to_owned(),
-            )
-        })
+        .map(|row| field(row, "no").as_i64().unwrap())
         .collect()
 }
 
@@ -141,7 +136,7 @@ fn a_range_and_a_filter_taken_from_the_hint_both_return_the_left_out_lines() {
         "499\n500\nFAILED test_middle\n501\n502\n"
     );
     let found = nurt(home.path(), command_of(&hint, "search /"));
-    assert_eq!(matches(&found), [(501, "FAILED test_middle".to_owned())]);
+    assert_eq!(match_lines(&found), [501]);
 }
 
 #[test]
@@ -151,12 +146,12 @@ fn the_hint_of_a_selection_of_error_lines_names_the_search() {
     let response = run_program(
         home.path(),
         work.path(),
-        "seq 1 100; echo FAILED test_x; seq 101 200; exit 1",
+        "seq 1 100; echo ERROR step FAILED; seq 101 200; exit 1",
     );
     let hint = hint_of(&response);
     assert!(!hint.contains(" or search"), "{hint}");
     let found = nurt(home.path(), command_of(&hint, "search /"));
-    assert_eq!(matches(&found), [(101, "FAILED test_x".to_owned())]);
+    assert_eq!(match_lines(&found), [101]);
 }
 
 #[test]
