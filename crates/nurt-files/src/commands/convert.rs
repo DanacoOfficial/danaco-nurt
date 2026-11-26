@@ -1012,4 +1012,33 @@ mod tests {
             .unwrap_err();
         assert_eq!(error.code(), ErrorCode::Internal);
     }
+
+    #[test]
+    fn utf16_big_endian_text_with_a_mark_becomes_utf8_without_one() {
+        let mut wide = vec![0xfe, 0xff];
+        wide.extend("a\u{142}\n".encode_utf16().flat_map(u16::to_be_bytes));
+        let test = with_files(&[("/data/wide.txt", &wide)]);
+        let given = args(&["/data/wide.txt"], &[("encoding", text("utf-8"))]);
+        let run = run(&test, &given).unwrap();
+        assert_eq!(
+            test.fs().read_file(&abs("/data/wide.txt")).unwrap(),
+            "a\u{142}\n".as_bytes()
+        );
+        assert_eq!(run.changes[0].bom_before, Some(true));
+        assert_eq!(run.changes[0].bom_after, Some(false));
+        assert_eq!(run.changes[0].encoding_before.as_deref(), Some("utf-16be"));
+    }
+
+    #[test]
+    fn the_same_encoding_keeps_the_byte_order_mark_and_changes_nothing() {
+        let test = with_files(&[("/data/a.txt", b"\xef\xbb\xbfa\n")]);
+        let given = args(&["/data/a.txt"], &[("encoding", text("utf-8"))]);
+        let run = run(&test, &given).unwrap();
+        assert!(run.changes.is_empty());
+        assert_eq!(codes(&run.notable), [Notable::Unchanged]);
+        assert_eq!(
+            test.fs().read_file(&abs("/data/a.txt")).unwrap(),
+            b"\xef\xbb\xbfa\n"
+        );
+    }
 }

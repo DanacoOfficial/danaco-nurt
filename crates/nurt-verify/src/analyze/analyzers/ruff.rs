@@ -58,7 +58,7 @@ pub(crate) fn parse_lint(output: &ToolOutput, dir: &Path) -> Vec<Finding> {
         .into_iter()
         .map(|item| {
             let code = item.code.unwrap_or_else(|| SYNTAX_CODE.to_owned());
-            let severity = if ERROR_PREFIXES.iter().any(|prefix| code.starts_with(prefix)) {
+            let severity = if is_error_code(&code) {
                 FindingSeverity::Error
             } else {
                 FindingSeverity::Warning
@@ -78,6 +78,16 @@ pub(crate) fn parse_lint(output: &ToolOutput, dir: &Path) -> Vec<Finding> {
             )
         })
         .collect()
+}
+
+/// Whether a rule code belongs to a class that is reported as an error: the
+/// code is the prefix followed by digits only, so `F401` counts and the
+/// `FBT001` rule of another class does not.
+fn is_error_code(code: &str) -> bool {
+    ERROR_PREFIXES.iter().any(|prefix| {
+        code.strip_prefix(prefix)
+            .is_some_and(|rest| rest.chars().next().is_none_or(|first| first.is_ascii_digit()))
+    })
 }
 
 /// Files the formatter would change.

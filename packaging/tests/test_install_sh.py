@@ -98,6 +98,14 @@ class InstallScriptTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid version", result.stderr)
 
+    def test_rejects_malformed_version_named_by_the_latest_release(self):
+        latest = self.releases / "latest" / "download" / "checksums.txt"
+        latest.write_text(f"{'0' * 64}  nurt-../evil-{self.target}.tar.gz\n", encoding="utf-8")
+        result = self.install()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid version in the latest release", result.stderr)
+        self.assertFalse((self.bin_dir / "nurt").exists())
+
     def test_rejects_unsupported_architecture(self):
         shim = self.root / "shim"
         shim.mkdir()

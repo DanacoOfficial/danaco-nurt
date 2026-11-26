@@ -91,6 +91,7 @@ function Install-Nurt {
             $match = Get-Content -LiteralPath $latest | ForEach-Object { [regex]::Match($_, $pattern) } | Where-Object { $_.Success } | Select-Object -First 1
             if (-not $match) { throw "the latest release has no archive for $target" }
             $version = $match.Groups['version'].Value
+            if ($version -notmatch '^[0-9A-Za-z.+-]+$') { throw "invalid version in the latest release: $version" }
         }
 
         $archive = "nurt-$version-$target.zip"

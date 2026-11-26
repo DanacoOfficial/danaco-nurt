@@ -264,9 +264,67 @@ type = "int"
 summary = "Depth."
 "#;
 
+    const FORMS: &str = r#"
+format = "nurt-catalog/1"
+group = "core"
+summary = "Core commands."
+
+[[command]]
+name = "read"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none", "entry"]
+output = ["entry"]
+summary = "Read file content."
+
+[[command.param]]
+name = "path"
+type = "path"
+position = 1
+summary = "File."
+
+[[command.param]]
+name = "ranges"
+type = "list<path>"
+position = 2
+repeated = true
+required = true
+summary = "Line ranges."
+
+[[command.form]]
+name = "source"
+input = ["none"]
+positional = ["path", "ranges"]
+required = ["path"]
+summary = "Read a file."
+
+[[command.form]]
+name = "stage"
+input = ["entry"]
+positional = ["ranges"]
+summary = "Read the input files."
+
+[[command]]
+name = "push"
+category = "change"
+reversibility = "irreversible"
+effect = "external"
+implementation = "builtin"
+input = ["none"]
+output = ["entry"]
+summary = "Push."
+"#;
+
     fn list() -> StageSpec {
         let file: CatalogFile = toml::from_str(FILE).unwrap();
         file.commands.into_iter().next().unwrap()
+    }
+
+    fn with_forms() -> Vec<StageSpec> {
+        let file: CatalogFile = toml::from_str(FORMS).unwrap();
+        file.commands
     }
 
     #[test]
@@ -315,5 +373,46 @@ summary = "Depth."
     #[test]
     fn effect_text_states_reversibility() {
         assert_eq!(effect_text(&list()), "reads only");
+    }
+
+    #[test]
+    fn effect_text_states_an_external_irreversible_effect() {
+        assert_eq!(
+            effect_text(&with_forms()[1]),
+            "acts outside the local file system; irreversible"
+        );
+    }
+
+    #[test]
+    fn usages_of_a_command_with_forms_name_the_forms_and_the_input_prefix() {
+        let specs = with_forms();
+        let usages = usages(&specs[0]);
+        assert_eq!(usages.len(), 2);
+        assert_eq!(usages[0].form, "source");
+        assert_eq!(usages[0].text, "read PATH* RANGES…");
+        assert_eq!(usages[1].form, "stage");
+        assert_eq!(usages[1].text, "… |> read RANGES…");
+        assert_eq!(usages[1].summary, "Read the input files.");
+    }
+
+    #[test]
+    fn repeated_required_positional_parameter_has_both_marks() {
+        let specs = with_forms();
+        assert_eq!(positional_label(&specs[0].params[1], true), "RANGES…*");
+        assert_eq!(compact(&specs[0], 0), "read PATH RANGES…*");
+    }
+
+    #[test]
+    fn category_names_are_the_names_of_the_catalog() {
+        assert_eq!(category_name(Category::Source), "source");
+        assert_eq!(category_name(Category::Journal), "journal");
+        assert_eq!(category_name(Category::Help), "help");
+    }
+
+    #[test]
+    fn wrap_keeps_an_item_longer_than_the_width_on_one_line() {
+        let items = vec!["abcdefghijkl".to_owned(), "x".to_owned()];
+        assert_eq!(wrap(&items, "", 5), "abcdefghijkl\nx");
+        assert_eq!(wrap(&[], "  ", 10), "");
     }
 }

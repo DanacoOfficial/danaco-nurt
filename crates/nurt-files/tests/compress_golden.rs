@@ -11,6 +11,8 @@
     reason = "tests report failures by panicking"
 )]
 
+mod support_report;
+
 use std::sync::Arc;
 
 use nurt_archive::codec::{self, Algorithm};
@@ -83,8 +85,10 @@ fn run(test: &TestContext, args: &BoundArgs, input: StageInput<'_>) -> Result<Ef
     let effect_stage = stage.as_effect().expect("the command is an effect stage");
     let ctx = test.ctx();
     let plan = effect_stage.plan(args, input, &ctx)?;
+    support_report::assert_plan_valid(args.command(), &plan.changes);
     let mut tx = test.journal().begin(begin_request(args.command()));
     let outcome = effect_stage.apply(args, plan, tx.as_mut(), &ctx)?;
+    support_report::assert_changes_valid(args.command(), &outcome.changes);
     let StageData::Records(stream) = outcome.output.data else {
         panic!("expected the effect record");
     };

@@ -608,7 +608,8 @@ impl Response {
 /// A rule of the envelope broken by a [`Request`] or [`Response`].
 ///
 /// The executor reports a broken request rule as the language error `E_ARG`
-/// with the message of this error.
+/// with the message of this error; a relative path option
+/// ([`EnvelopeError::RelativePath`]) is reported as `E_PATH_RELATIVE`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum EnvelopeError {

@@ -737,16 +737,18 @@ pub fn plan_push(
         .map(|revision| resolve_source(&repo, revision).map(|(_, id)| id))
         .transpose()?;
     let mut updates = Vec::with_capacity(specs.len());
-    for spec in &specs {
+    for (position, spec) in specs.iter().enumerate() {
         let tracking_ref = tracking_name(&remote.fetch, &spec.remote_ref);
         let tracking = match &tracking_ref {
             Some(name) => send_pack::read_ref(&common_dir, name.as_bytes())?,
             None => None,
         };
+        // The explicit lease names the pushed branch, which is the first
+        // update; the tags added by `tags` have no lease of that kind.
         let expected = match (&request.force_with_lease, request.force) {
-            (Some(_), _) => Some(lease),
-            (None, ForceMode::Lease) => Some(tracking),
-            (None, _) => None,
+            (Some(_), _) if position == 0 => Some(lease),
+            (_, ForceMode::Lease) => Some(tracking),
+            _ => None,
         };
         let old = advertisement.find(spec.remote_ref.as_bytes().as_bstr());
         let force = spec.force || request.force == ForceMode::Yes;
@@ -1980,6 +1982,33 @@ fn request_of(arguments: &BoundArgs) -> Result<(PathBuf, PushRequest)> {
     Ok((repo, request))
 }
 
+/// Call repeated with an accepted host key in the fix of host key errors; it
+/// keeps every parameter that changes what the push does.
+fn retry_command(repo: &Path, request: &PushRequest) -> String {
+    let mut call = format!(
+        "{COMMAND} {} remote: {} branch: {}",
+        quote(&repo.to_string_lossy()),
+        quote(&redact_url(&request.remote)),
+        quote(&request.branch)
+    );
+    if request.force != ForceMode::No {
+        call.push_str(&format!(" force: {}", request.force.as_str()));
+    }
+    if let Some(lease) = &request.force_with_lease {
+        call.push_str(&format!(" force_with_lease: {}", quote(lease)));
+    }
+    for (name, set) in [
+        ("tags", request.tags),
+        ("set_upstream", request.set_upstream),
+        ("delete", request.delete),
+    ] {
+        if set {
+            call.push_str(&format!(" {name}: true"));
+        }
+    }
+    call
+}
+
 /// Stage implementation of `git.push`.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PushCommand;
@@ -2006,7 +2035,12 @@ impl EffectStage for PushCommand {
         ctx: &'a ExecCtx,
     ) -> Result<EffectPlan> {
         let (repo, request) = request_of(args)?;
-        let planned = plan_push(&repo, &request, &NetworkOptions::from_ctx(ctx))?;
+        let mut network = NetworkOptions::from_ctx(ctx);
+        if let Some(ssh) = network.ssh.as_mut() {
+            ssh.accept_host_key = args::text(args, "accept_host_key")?;
+            ssh.retry_command = Some(retry_command(&repo, &request));
+        }
+        let planned = plan_push(&repo, &request, &network)?;
         let preview = planned.preview();
         let mut plan = EffectPlan::new();
         plan.notable = preview.notable();
@@ -2664,6 +2698,77 @@ mod tests {
                 ErrorCode::UnknownValue
             );
         }
+    }
+
+    #[test]
+    fn an_explicit_lease_applies_to_the_pushed_branch_only() {
+        let remote = Fixture::bare();
+        let local = linked(&remote);
+        let base = local.commit("main", &[("a.txt", "one\n")], &[]);
+        push(&local, &PushRequest::new("main"));
+        local.tag("v1", base);
+        let request = PushRequest {
+            tags: true,
+            force_with_lease: Some(base.to_string()),
+            ..PushRequest::new("main")
+        };
+        let (outcome, _) = push(&local, &request);
+        assert_eq!(outcome.updates[0].status, GitRefStatus::UpToDate);
+        assert_eq!(outcome.updates[1].remote_ref, "refs/tags/v1");
+        assert_eq!(outcome.updates[1].status, GitRefStatus::New);
+        assert!(remote.ref_value("refs/tags/v1").is_some());
+    }
+
+    #[test]
+    fn the_retry_call_keeps_every_parameter_that_changes_the_push() {
+        let request = PushRequest {
+            remote: "https://user:secret@example.com/r.git".to_owned(),
+            force: ForceMode::Lease,
+            force_with_lease: Some("abc".to_owned()),
+            tags: true,
+            delete: true,
+            ..PushRequest::new("topic")
+        };
+        assert_eq!(
+            retry_command(Path::new("/home/user/repo"), &request),
+            "git.push \"/home/user/repo\" remote: \"https://example.com/r.git\" branch: \"topic\" force: lease force_with_lease: \"abc\" tags: true delete: true"
+        );
+        assert_eq!(
+            retry_command(Path::new("/home/user/repo"), &PushRequest::new("main")),
+            "git.push \"/home/user/repo\" remote: \"origin\" branch: \"main\""
+        );
+    }
+
+    #[test]
+    fn the_stage_gives_the_accepted_host_key_to_the_ssh_settings() {
+        use nurt_contracts::stage::ArgValue;
+        let remote = Fixture::bare();
+        let local = linked(&remote);
+        local.commit("main", &[("a.txt", "one\n")], &[]);
+        let arguments = BoundArgs::new(COMMAND)
+            .with(
+                "repo",
+                ArgValue::Value(Value::Path(local.root().display().to_string())),
+                false,
+            )
+            .with(
+                "branch",
+                ArgValue::Value(Value::Text("main".to_owned())),
+                false,
+            )
+            .with(
+                "accept_host_key",
+                ArgValue::Value(Value::Text("SHA256:AAAA".to_owned())),
+                false,
+            );
+        let ctx = nurt_git::testutil::test_ctx();
+        let mut plan = PushCommand
+            .plan(&arguments, StageInput::none(), &ctx)
+            .unwrap();
+        let planned = plan.take_state::<PlannedPush>().unwrap();
+        let ssh = planned.network.ssh.unwrap();
+        assert_eq!(ssh.accept_host_key.as_deref(), Some("SHA256:AAAA"));
+        assert!(ssh.retry_command.unwrap().starts_with("git.push \""));
     }
 
     #[test]

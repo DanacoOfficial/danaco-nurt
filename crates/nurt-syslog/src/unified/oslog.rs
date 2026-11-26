@@ -240,3 +240,39 @@ fn is_root() -> bool {
     // SAFETY: `geteuid` has no preconditions and cannot fail.
     unsafe { libc::geteuid() == 0 }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn framework_levels_map_to_entry_levels() {
+        let cases = [
+            (0, EntryLevel::Undefined),
+            (1, EntryLevel::Debug),
+            (2, EntryLevel::Info),
+            (3, EntryLevel::Notice),
+            (4, EntryLevel::Error),
+            (5, EntryLevel::Fault),
+            (99, EntryLevel::Undefined),
+        ];
+        for (raw, level) in cases {
+            assert_eq!(entry_level(OSLogEntryLogLevel(raw)), level, "{raw}");
+        }
+    }
+
+    #[test]
+    fn backends_name_their_scope() {
+        assert_eq!(OsLogBackend::local(), OsLogBackend::local());
+        let path = Path::new("/tmp/a.logarchive");
+        assert_ne!(OsLogBackend::archive(path), OsLogBackend::local());
+        assert_eq!(OsLogBackend::archive(path), OsLogBackend::archive(path));
+    }
+
+    #[test]
+    fn archive_that_does_not_exist_is_unavailable() {
+        let backend = OsLogBackend::archive(Path::new("/nonexistent/none.logarchive"));
+        let error = backend.items(&EntryRequest::default()).err();
+        assert!(matches!(error, Some(BackendError::Unavailable(_))));
+    }
+}

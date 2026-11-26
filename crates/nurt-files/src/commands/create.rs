@@ -707,6 +707,38 @@ mod tests {
     }
 
     #[test]
+    fn an_existing_link_of_the_requested_kind_is_left_as_it_is() {
+        let (test, _) = with_file("/data/a.txt", b"a");
+        test.fs().symlink("a.txt", &abs("/data/link")).unwrap();
+        let given = set(
+            args(&["/data/link"], "link"),
+            TARGET,
+            Value::Text("a.txt".to_owned()),
+        );
+        let kept = run(&test, &given).unwrap();
+        assert!(kept.changes.is_empty());
+        assert_eq!(kept.notable, [Notable::Unchanged]);
+        let wrong = run(&test, &args(&["/data/link"], "file")).unwrap_err();
+        assert_eq!(wrong.code(), ErrorCode::Exists);
+        assert!(wrong.message.contains("symbolic link"));
+        assert_eq!(kind_of(&test, "/data/link"), FileKind::Symlink);
+    }
+
+    #[test]
+    fn a_path_given_twice_with_a_unicode_name_is_rejected() {
+        let test = TestContext::new();
+        let name = "/data/\u{142}\u{f3}d\u{17a}";
+        let given = args(&[name, name], "directory");
+        assert_eq!(
+            run(&test, &given).unwrap_err().code(),
+            ErrorCode::ParamConflict
+        );
+        assert!(test.journal().calls().is_empty());
+        let once = run(&test, &args(&[name], "directory")).unwrap();
+        assert_eq!(once.changes.len(), 2);
+    }
+
+    #[test]
     fn symbolic_links_store_the_target_as_written() {
         let (test, _) = with_file("/data/releases/v2/app", b"bin");
         let given = set(

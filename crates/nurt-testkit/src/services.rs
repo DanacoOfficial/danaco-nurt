@@ -692,7 +692,7 @@ impl ProcessHost for ScriptedProcessHost {
                 chunks: script
                     .output
                     .iter()
-                    .filter(|output| output.stream == stream)
+                    .filter(|output| output.stream == stream && !output.bytes.is_empty())
                     .map(|output| (output.at, output.bytes.clone()))
                     .collect(),
                 position: 0,

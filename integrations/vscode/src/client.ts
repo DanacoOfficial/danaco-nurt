@@ -20,7 +20,7 @@ export class LanguageServer implements vscode.Disposable {
 
   /** Starts the server unless it is disabled or already running. */
   async start(): Promise<void> {
-    if (this.client !== undefined) {
+    if (this.client !== undefined || !vscode.workspace.isTrusted) {
       return;
     }
     const settings = readSettings();

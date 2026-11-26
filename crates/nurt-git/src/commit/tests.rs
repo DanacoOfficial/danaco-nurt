@@ -1109,3 +1109,124 @@ fn file_list_reports_type_changes_and_binary_files() {
     assert_eq!(find("blob.bin").binary, Some(true));
     assert_eq!(find("a.txt").binary, Some(false));
 }
+
+#[test]
+fn all_keeps_a_gitlink_whose_directory_exists() {
+    let fixture = with_identity(RepoBuilder::new())
+        .file("a.txt", "1\n")
+        .commit("one")
+        .build();
+    let submodule = head_commit(&fixture);
+    let ctx = context(None);
+    let repo = GitRepo::open(fixture.path(), &ctx).unwrap();
+    let mut index = repo.read_index().unwrap();
+    access::upsert_entry(
+        &mut index.state,
+        BStr::new("sub"),
+        submodule,
+        EntryKind::Commit,
+        Default::default(),
+    );
+    let journal = RecordingJournal::new();
+    let mut tx = journal.begin();
+    crate::repo::index::write_index(tx.as_mut(), &mut index).unwrap();
+    tx.commit().unwrap();
+    std::fs::create_dir(fixture.path().join("sub")).unwrap();
+    std::fs::write(fixture.path().join("a.txt"), "2\n").unwrap();
+    let outcome = commit(&fixture, &CommitRequest::new("two", Selection::All)).unwrap();
+    let repo = fixture.open();
+    let tree = repo
+        .find_commit(outcome.id)
+        .unwrap()
+        .tree_id()
+        .unwrap()
+        .detach();
+    let state: gix::index::State = repo.index_from_tree(&tree).unwrap().into();
+    let entry = state.entry_by_path(BStr::new("sub")).expect("gitlink kept");
+    assert_eq!(entry.mode, gix::index::entry::Mode::COMMIT);
+    assert_eq!(entry.id, submodule);
+}
+
+#[cfg(unix)]
+#[test]
+fn all_records_the_text_of_a_link_byte_for_byte() {
+    let fixture = with_identity(RepoBuilder::new())
+        .file("a.txt", "1\n")
+        .commit("one")
+        .build();
+    std::os::unix::fs::symlink("dir\\file", fixture.path().join("link")).unwrap();
+    let outcome = commit(&fixture, &CommitRequest::new("two", Selection::All)).unwrap();
+    assert!(
+        tree_paths(&fixture, outcome.id).contains(&("link".to_owned(), "dir\\file".to_owned()))
+    );
+}
+
+#[test]
+fn a_message_with_a_zero_byte_is_refused_before_anything_is_written() {
+    let fixture = with_identity(RepoBuilder::new())
+        .file("a.txt", "1\n")
+        .commit("one")
+        .build();
+    std::fs::write(fixture.path().join("a.txt"), "2\n").unwrap();
+    let head = head_commit(&fixture);
+    let before = files(&fixture);
+    let error = commit(&fixture, &CommitRequest::new("a\0b", Selection::All)).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+    assert_eq!(error.data().problem.as_deref(), Some("nul_in_message"));
+    assert_eq!(head_commit(&fixture), head);
+    assert_eq!(files(&fixture), before);
+}
+
+#[cfg(unix)]
+#[test]
+fn all_leaves_out_a_socket_and_refuses_a_tracked_path_taken_by_one() {
+    let fixture = with_identity(RepoBuilder::new())
+        .file("a.txt", "1\n")
+        .file("b.txt", "1\n")
+        .commit("one")
+        .build();
+    let Ok(_listener) = std::os::unix::net::UnixListener::bind(fixture.path().join("s.sock"))
+    else {
+        // The path of the temporary directory may exceed the length of a socket address.
+        return;
+    };
+    std::fs::write(fixture.path().join("a.txt"), "2\n").unwrap();
+    let outcome = commit(&fixture, &CommitRequest::new("two", Selection::All)).unwrap();
+    assert_eq!(
+        tree_paths(&fixture, outcome.id),
+        vec![
+            ("a.txt".to_owned(), "2\n".to_owned()),
+            ("b.txt".to_owned(), "1\n".to_owned())
+        ]
+    );
+    std::fs::remove_file(fixture.path().join("b.txt")).unwrap();
+    let Ok(_other) = std::os::unix::net::UnixListener::bind(fixture.path().join("b.txt")) else {
+        return;
+    };
+    let error = commit(&fixture, &CommitRequest::new("three", Selection::All)).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::GitUnsupported);
+    assert_eq!(error.data().problem.as_deref(), Some("special_file"));
+}
+
+#[cfg(unix)]
+#[test]
+fn all_follows_files_whose_names_are_not_unicode() {
+    use std::os::unix::ffi::OsStrExt;
+    let fixture = with_identity(RepoBuilder::new())
+        .file("a.txt", "1\n")
+        .commit("one")
+        .build();
+    let name = b"caf\xe9.txt";
+    let file = fixture.path().join(std::ffi::OsStr::from_bytes(name));
+    std::fs::write(&file, "1\n").unwrap();
+    let added = commit(&fixture, &CommitRequest::new("add", Selection::All)).unwrap();
+    std::fs::write(&file, "2\n").unwrap();
+    let changed = commit(&fixture, &CommitRequest::new("change", Selection::All)).unwrap();
+    for (id, content) in [(added.id, b"1\n"), (changed.id, b"2\n")] {
+        let repo = fixture.open();
+        let tree = repo.find_commit(id).unwrap().tree_id().unwrap().detach();
+        let state: gix::index::State = repo.index_from_tree(&tree).unwrap().into();
+        let entry = state.entry_by_path(BStr::new(name)).expect("file recorded");
+        assert_eq!(repo.find_object(entry.id).unwrap().data.as_slice(), content);
+    }
+}

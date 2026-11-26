@@ -29,7 +29,7 @@ mod test_host;
 mod windows;
 
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -431,8 +431,43 @@ pub(crate) fn write_file(path: &Path, bytes: &[u8]) -> Result<(), Error> {
     let mut temp = path.as_os_str().to_owned();
     temp.push(".tmp");
     let temp = PathBuf::from(temp);
-    fs::write(&temp, bytes).map_err(|error| io_error(&temp, &error))?;
-    fs::rename(&temp, path).map_err(|error| io_error(path, &error))
+    // A leftover or planted file of that name is replaced and never written
+    // through, as the installer may run with more rights than the account
+    // that controls the directory.
+    let _absent_is_fine = fs::remove_file(&temp);
+    let written = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)
+        .and_then(|mut file| file.write_all(bytes));
+    if let Err(error) = written {
+        let _ = fs::remove_file(&temp);
+        return Err(io_error(&temp, &error));
+    }
+    fs::rename(&temp, path).map_err(|error| {
+        let _ = fs::remove_file(&temp);
+        io_error(path, &error)
+    })
+}
+
+/// Files of a manifest with the given name. The manifest lies in the state
+/// directory of the account, so it can be changed by that account while the
+/// removal may run with administrator rights; a listed file of another name
+/// is not one the installation wrote, it stays and is reported in `notes`.
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
+pub(crate) fn files_named(files: &[PathBuf], name: &str, notes: &mut Vec<String>) -> Vec<PathBuf> {
+    let mut kept = Vec::new();
+    for file in files {
+        if file.file_name().is_some_and(|found| found == name) {
+            kept.push(file.clone());
+        } else {
+            notes.push(format!(
+                "{} is not a file of the service and was not removed",
+                file.display()
+            ));
+        }
+    }
+    kept
 }
 
 /// Deletes the files of a manifest; files already gone count as deleted.
@@ -510,6 +545,49 @@ mod tests {
             Manifest::read(&paths.install_manifest()).unwrap_err().code,
             ErrorCode::Io
         );
+    }
+
+    #[test]
+    fn files_named_keeps_only_files_of_that_name_and_reports_the_rest() {
+        let files = vec![
+            PathBuf::from("/units/nurt-service.service"),
+            PathBuf::from("/etc/passwd"),
+            PathBuf::from("/units/nurt-service.service/.."),
+        ];
+        let mut notes = Vec::new();
+        assert_eq!(
+            files_named(&files, "nurt-service.service", &mut notes),
+            vec![PathBuf::from("/units/nurt-service.service")]
+        );
+        assert_eq!(notes.len(), 2);
+        assert!(notes[0].contains("/etc/passwd"));
+        assert!(files_named(&[], "x", &mut notes).is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_file_replaces_a_planted_link_instead_of_writing_through_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let precious = dir.path().join("precious");
+        fs::write(&precious, "keep").unwrap();
+        let path = dir.path().join("service.install.json");
+        std::os::unix::fs::symlink(&precious, dir.path().join("service.install.json.tmp"))
+            .unwrap();
+        write_file(&path, b"manifest").unwrap();
+        assert_eq!(fs::read_to_string(&precious).unwrap(), "keep");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "manifest");
+        assert!(!dir.path().join("service.install.json.tmp").exists());
+    }
+
+    #[test]
+    fn write_file_creates_directories_and_replaces_the_previous_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("units/nested/nurt-service.service");
+        write_file(&path, b"first").unwrap();
+        write_file(&path, b"second").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "second");
+        let error = write_file(&dir.path().join("units"), b"x").unwrap_err();
+        assert_eq!(error.code, ErrorCode::Io);
     }
 
     #[test]

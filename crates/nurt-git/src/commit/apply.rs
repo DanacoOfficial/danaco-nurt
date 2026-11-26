@@ -107,6 +107,13 @@ pub(crate) fn apply(
         )
         .with_problem("empty_message"));
     }
+    if message.contains('\0') {
+        return Err(Error::new(
+            ErrorCode::InvalidValue,
+            "the commit message contains a NUL byte, which git does not accept; remove it",
+        )
+        .with_problem("nul_in_message"));
+    }
     let mut object = gix::objs::Commit {
         tree: prepared.tree,
         parents: prepared.parents.iter().copied().collect(),

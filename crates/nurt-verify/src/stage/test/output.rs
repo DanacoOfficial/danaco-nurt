@@ -52,6 +52,9 @@ pub(super) fn shape(results: &[TestResult], shape: Shape) -> Vec<TestResult> {
 /// replaces the lines between them with a count. The end of the output of a
 /// failed start holds the final error line.
 pub(super) fn edge_lines(text: &str, limit: usize) -> String {
+    if limit == 0 {
+        return String::new();
+    }
     let lines: Vec<&str> = text.lines().collect();
     if lines.len() <= limit {
         return lines.join("\n");

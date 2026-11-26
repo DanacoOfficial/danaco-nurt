@@ -182,6 +182,7 @@ impl Trigger {
     pub fn compile(def: &TriggerDef) -> Result<Self, Error> {
         match def.kind {
             TriggerKind::Every => parse_duration(&def.expression)
+                .filter(|interval| !interval.is_zero())
                 .map(|interval| Self::Every { interval })
                 .ok_or_else(|| invalid(format!("invalid interval `{}`", def.expression))),
             TriggerKind::At => def

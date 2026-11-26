@@ -126,6 +126,44 @@ fn stage_after_verify_is_rejected() {
 }
 
 #[test]
+fn second_run_inside_verify_is_rejected() {
+    let check = pipeline(run(&["make"]), vec![run(&["make", "test"])]);
+    let program = single(pipeline(find("/a"), vec![move_into("/b"), verify(check)]));
+    let error = rejected(&program);
+    assert_eq!(error.code(), ErrorCode::OneEffect);
+    assert!(error.message.contains("second effect stage"));
+}
+
+#[test]
+fn local_command_inside_verify_is_a_change() {
+    let local = common::stage("run", EffectKind::Local, Phase::Run, Vec::new());
+    let check = pipeline(local, Vec::new());
+    let program = single(pipeline(find("/a"), vec![move_into("/b"), verify(check)]));
+    let error = rejected(&program);
+    assert_eq!(error.code(), ErrorCode::OneEffect);
+    assert!(error.message.contains("inside `verify`"));
+}
+
+#[test]
+fn verify_inside_a_named_result_is_malformed() {
+    let check = pipeline(run(&["true"]), Vec::new());
+    let program = document(vec![
+        binding("x", pipeline(find("/a"), vec![verify(check)])),
+        operation(from_ref("x", vec![transform("count", Vec::new())])),
+    ]);
+    assert_eq!(rejected(&program).code(), ErrorCode::AstSchema);
+}
+
+#[test]
+fn after_stage_inside_a_named_result_is_malformed() {
+    let program = document(vec![
+        binding("x", pipeline(find("/a"), vec![after("count", Vec::new())])),
+        operation(from_ref("x", vec![transform("count", Vec::new())])),
+    ]);
+    assert_eq!(rejected(&program).code(), ErrorCode::AstSchema);
+}
+
+#[test]
 fn effect_with_reading_phase_is_malformed() {
     let remove = common::stage("remove", EffectKind::Local, Phase::Transform, Vec::new());
     let error = rejected(&single(pipeline(find("/a"), vec![remove])));

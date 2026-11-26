@@ -227,6 +227,7 @@ impl JobRun {
     fn run(&self) -> Result<()> {
         let ctx = &self.ctx;
         let request = &self.launch.request;
+        let begun = Instant::now();
         let _lock = self.table.lock_job(&self.id)?;
         let mut tx = begin(
             ctx,
@@ -255,11 +256,17 @@ impl JobRun {
         };
         let cancel = CancelToken::new();
         let sink: Arc<dyn OutputSink> = store.clone();
+        // The time limit covers the preparation of the run as well.
+        let mut spawn = request.spawn.clone();
+        spawn.limits.timeout = spawn
+            .limits
+            .timeout
+            .map(|timeout| timeout.saturating_sub(begun.elapsed()));
         let mut process =
             match self
                 .components
                 .control
-                .spawn(request.spawn.clone(), sink, cancel.clone())
+                .spawn(spawn, sink, cancel.clone())
             {
                 Ok(process) => process,
                 Err(error) => {

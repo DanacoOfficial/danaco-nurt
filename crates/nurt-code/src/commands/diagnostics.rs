@@ -306,7 +306,8 @@ fn expand(ctx: &ExecCtx, files: &Files<'_>, given: &[PathBuf]) -> Vec<PathBuf> {
     let mut paths = Vec::new();
     for path in given {
         if files.is_dir(path) {
-            paths.extend(files.walk(path, &|candidate: &Path| checkable(ctx, candidate)));
+            let (listed, _) = files.walk(path, &|candidate: &Path| checkable(ctx, candidate));
+            paths.extend(listed);
         } else {
             paths.push(path.clone());
         }

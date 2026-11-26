@@ -21,6 +21,9 @@ const PERCENT_SCALE: f64 = 100.0;
 /// Percentage reported for a count of zero items.
 const EMPTY_PERCENT: f64 = 100.0;
 
+/// Longest range of lines that one block of a report marks.
+pub(crate) const RANGE_LINES_MAX: u64 = 1_000_000;
+
 /// Items found and items covered.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct Tally {
@@ -30,8 +33,8 @@ pub(crate) struct Tally {
 
 impl Tally {
     pub(crate) fn add(&mut self, other: Self) {
-        self.found += other.found;
-        self.hit += other.hit;
+        self.found = self.found.saturating_add(other.found);
+        self.hit = self.hit.saturating_add(other.hit);
     }
 }
 
@@ -70,6 +73,16 @@ impl FileData {
     pub(crate) fn hit_line(&mut self, line: u64, hits: u64) {
         let entry = self.lines.entry(line).or_insert(0);
         *entry = (*entry).max(hits);
+    }
+
+    /// Records the hits of the lines from `start` to `end`, both included.
+    /// A report states the bounds, so a range longer than
+    /// [`RANGE_LINES_MAX`] lines is cut instead of filling the memory.
+    pub(crate) fn hit_range(&mut self, start: u64, end: u64, hits: u64) {
+        let last = end.min(start.saturating_add(RANGE_LINES_MAX));
+        for line in start..=last {
+            self.hit_line(line, hits);
+        }
     }
 
     fn merge(&mut self, other: Self) {

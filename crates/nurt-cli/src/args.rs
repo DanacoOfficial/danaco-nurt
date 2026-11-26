@@ -315,6 +315,113 @@ mod tests {
     }
 
     #[test]
+    fn values_follow_an_equals_sign_or_the_next_word() {
+        let (flags, rest) = parse_flags(
+            &words("--variant=c --format=compact --limit=9 --verbosity=detailed find"),
+            EXEC_FLAGS,
+            false,
+        )
+        .unwrap();
+        assert_eq!(flags.variant, Some(SyntaxVariant::C));
+        assert_eq!(flags.format, Some(OutputFormat::Compact));
+        assert_eq!(flags.limit, Some(9));
+        assert_eq!(flags.verbosity, Some(Verbosity::Detailed));
+        assert_eq!(rest, words("find"));
+    }
+
+    #[test]
+    fn json_and_format_set_the_same_option_and_the_last_wins() {
+        let (flags, _) = parse_flags(&words("--format text --json"), EXEC_FLAGS, false).unwrap();
+        assert_eq!(flags.format, Some(OutputFormat::Json));
+        let (flags, _) =
+            parse_flags(&words("--json --format markdown"), EXEC_FLAGS, false).unwrap();
+        assert_eq!(flags.format, Some(OutputFormat::Markdown));
+    }
+
+    #[test]
+    fn check_options_take_the_program_text_and_a_file() {
+        let (flags, rest) =
+            parse_flags(&words("-e count --variant b file.nurt"), CHECK_FLAGS, true).unwrap();
+        assert_eq!(flags.program.as_deref(), Some("count"));
+        assert_eq!(flags.variant, Some(SyntaxVariant::B));
+        assert_eq!(rest, words("file.nurt"));
+        let (flags, _) = parse_flags(&words("-e=a=b"), CHECK_FLAGS, true).unwrap();
+        assert_eq!(flags.program.as_deref(), Some("a=b"));
+    }
+
+    #[test]
+    fn ast_options_take_the_notations() {
+        let (flags, rest) = parse_flags(&words("--from a --to=json -"), AST_FLAGS, true).unwrap();
+        assert_eq!(flags.from.as_deref(), Some("a"));
+        assert_eq!(flags.to.as_deref(), Some("json"));
+        assert_eq!(rest, words("-"));
+        assert!(parse_flags(&words("--variant a"), AST_FLAGS, true).is_err());
+        assert!(parse_flags(&words("--from"), AST_FLAGS, true).is_err());
+    }
+
+    #[test]
+    fn options_of_other_subcommands_are_rejected() {
+        for (flags, option) in [
+            (SCRIPT_FLAGS, "--variant"),
+            (SCRIPT_FLAGS, "--cursor"),
+            (FMT_FLAGS, "--preview"),
+            (CHECK_FLAGS, "--limit"),
+        ] {
+            let error = parse_flags(&words(&format!("{option} x")), flags, true).unwrap_err();
+            assert_eq!(
+                error,
+                CliError::Usage(format!("unknown option `{option}`")),
+                "{option}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_lone_dash_and_non_ascii_words_are_positional() {
+        let (flags, rest) =
+            parse_flags(&words("- \u{142}\u{f3}d\u{17a}"), EXEC_FLAGS, true).unwrap();
+        assert_eq!(flags, Flags::default());
+        assert_eq!(rest, words("- \u{142}\u{f3}d\u{17a}"));
+    }
+
+    #[test]
+    fn limit_must_be_a_number_that_fits_the_type() {
+        for bad in ["--limit -1", "--limit 4294967296", "--limit 1.5", "--limit="] {
+            assert!(
+                parse_flags(&words(bad), EXEC_FLAGS, false).is_err(),
+                "{bad}"
+            );
+        }
+        let (flags, _) = parse_flags(&words("--limit 4294967295"), EXEC_FLAGS, false).unwrap();
+        assert_eq!(flags.limit, Some(u32::MAX));
+    }
+
+    #[test]
+    fn version_and_help_options_resolve_before_subcommands() {
+        assert_eq!(resolve(&words("-V")), Invocation::Version { full: false });
+        assert_eq!(resolve(&words("--version x")), Invocation::Version { full: true });
+        assert_eq!(resolve(&words("-h")), Invocation::Help);
+        assert_eq!(resolve(&words("--help check")), Invocation::Help);
+    }
+
+    #[test]
+    fn subcommand_arguments_exclude_its_name() {
+        assert_eq!(
+            resolve(&words("check -e count")),
+            Invocation::Subcommand {
+                name: "check",
+                args: words("-e count")
+            }
+        );
+        assert_eq!(
+            resolve(&words("count |> first")),
+            Invocation::Program {
+                args: words("count |> first")
+            }
+        );
+    }
+
+    #[test]
     fn named_values_are_stored() {
         let (flags, _) = parse_flags(
             &words("--variant b --format markdown --verbosity quiet --cursor c_1"),

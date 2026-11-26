@@ -143,6 +143,50 @@ mod tests {
     }
 
     #[test]
+    fn theme_of_an_environment_follows_the_variables() {
+        let truecolor = Theme::from_environment(|name| {
+            (name == "COLORTERM").then(|| "truecolor".to_owned())
+        });
+        assert_eq!(truecolor, Theme::new(true));
+        let plain = Theme::from_environment(|_| None);
+        assert_eq!(plain, Theme::new(cfg!(windows)));
+        let unknown = Theme::from_environment(|name| {
+            (name == "TERM_PROGRAM").then(|| "Apple_Terminal".to_owned())
+        });
+        assert_eq!(unknown, Theme::new(cfg!(windows)));
+    }
+
+    #[test]
+    fn colorterm_is_compared_without_regard_to_case_and_exactly() {
+        let with = |value: &str| {
+            let value = value.to_owned();
+            move |name: &str| (name == "COLORTERM").then(|| value.clone())
+        };
+        assert!(reports_truecolor(&with("TrueColor")));
+        assert!(reports_truecolor(&with("24bit")));
+        assert!(!reports_truecolor(&with("yes")));
+        assert!(!reports_truecolor(&with("")));
+    }
+
+    #[test]
+    fn every_known_program_reports_truecolor() {
+        for program in TRUECOLOR_PROGRAMS {
+            assert!(
+                reports_truecolor(&environment(&[("TERM_PROGRAM", program)])),
+                "{program}"
+            );
+        }
+        assert!(!reports_truecolor(&environment(&[("TERM_PROGRAM", "vscode2")])));
+    }
+
+    #[test]
+    fn silver_and_cyan_have_exact_and_palette_forms() {
+        assert_eq!(Theme::new(true).cyan(), Color::Rgb(0x4F, 0xD1, 0xF5));
+        assert_eq!(Theme::new(true).silver_escape(), "\x1b[38;2;195;200;206m");
+        assert_eq!(Theme::new(false).silver_escape(), "\x1b[38;5;250m");
+    }
+
+    #[test]
     fn truecolor_theme_uses_the_exact_colours_of_the_mark() {
         let theme = Theme::new(true);
         assert_eq!(theme.silver(), Color::Rgb(0xC3, 0xC8, 0xCE));

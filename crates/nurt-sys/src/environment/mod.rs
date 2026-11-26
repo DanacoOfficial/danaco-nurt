@@ -134,7 +134,7 @@ impl ReadStage for EnvironmentStage {
         require_os(scope, os)?;
         let filter = NameFilter::from_args(args, os)?;
         let variables = match scope {
-            EnvironmentScope::Process => process_variables(ctx),
+            EnvironmentScope::Process => process_variables(ctx, &filter),
             other => persistent_variables(other)?,
         };
         let records: Vec<Record> = variables
@@ -148,7 +148,7 @@ impl ReadStage for EnvironmentStage {
 
 fn scope(args: &BoundArgs) -> Result<EnvironmentScope> {
     match args.value(SCOPE) {
-        None => Ok(EnvironmentScope::Process),
+        None | Some(Value::Null) => Ok(EnvironmentScope::Process),
         Some(value) => value
             .as_str()
             .and_then(|text| text.parse().ok())
@@ -177,12 +177,13 @@ fn require_os(scope: EnvironmentScope, os: Os) -> Result<()> {
     .with_detail("profiles", serde_json::json!(PROFILE_FILES)))
 }
 
-fn process_variables(ctx: &ExecCtx) -> Vec<(String, String)> {
+fn process_variables(ctx: &ExecCtx, filter: &NameFilter) -> Vec<(String, String)> {
     ctx.host()
         .env_vars()
         .into_iter()
+        .map(|(name, value)| (lossy(name), value))
+        .filter(|(name, _)| filter.matches(name))
         .map(|(name, value)| {
-            let name = lossy(name);
             let value = value.into_string().unwrap_or_else(|raw| {
                 ctx.note(NotableEntry {
                     path: Some(format!("env:/{name}")),
@@ -238,7 +239,7 @@ impl NameFilter {
     /// that is neither text nor a pattern.
     pub(crate) fn from_args(args: &BoundArgs, os: Os) -> Result<Self> {
         match args.value(NAME) {
-            None => Ok(Self::All),
+            None | Some(Value::Null) => Ok(Self::All),
             Some(Value::Text(name)) => Ok(Self::Exact {
                 name: name.clone(),
                 ignore_case: os == Os::Windows,

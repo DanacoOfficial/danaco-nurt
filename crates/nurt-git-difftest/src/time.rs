@@ -13,6 +13,8 @@ const SECONDS_PER_MINUTE: i64 = 60;
 const SECONDS_PER_DAY: i64 = 86_400;
 const MINUTES_PER_HOUR: i32 = 60;
 const MAX_OFFSET_MINUTES: i32 = 14 * MINUTES_PER_HOUR;
+/// The `Etc` area of the IANA database has no zone west of `Etc/GMT+12`.
+const MAX_WEST_OFFSET_MINUTES: i32 = 12 * MINUTES_PER_HOUR;
 const NANOSECONDS_PER_SECOND: i128 = 1_000_000_000;
 
 /// Instant and UTC offset of a scenario clock, written in RFC 3339 form
@@ -72,9 +74,11 @@ impl ScenarioClock {
             return Err(format!("clock `{text}` has a time of day out of range"));
         }
         let offset_minutes = parse_offset(&text[19..]).ok_or_else(invalid)?;
-        if offset_minutes % MINUTES_PER_HOUR != 0 || offset_minutes.abs() > MAX_OFFSET_MINUTES {
+        if offset_minutes % MINUTES_PER_HOUR != 0
+            || !(-MAX_WEST_OFFSET_MINUTES..=MAX_OFFSET_MINUTES).contains(&offset_minutes)
+        {
             return Err(format!(
-                "clock `{text}` has an offset that is not a whole number of hours up to 14"
+                "clock `{text}` has an offset that is not a whole number of hours from -12 to +14"
             ));
         }
         let local = days_from_civil(year, month, day) * SECONDS_PER_DAY
@@ -280,6 +284,30 @@ mod tests {
             "2026-01-01T12:00:00+0100",
             "2026-01-01 12:00:00Z",
             "2026-0a-01T12:00:00Z",
+        ] {
+            assert!(ScenarioClock::parse(text).is_err(), "{text}");
+        }
+    }
+
+    #[test]
+    fn offsets_have_an_iana_zone_of_the_etc_area() {
+        let far_east = ScenarioClock::parse("2026-01-01T12:00:00+14:00").unwrap();
+        assert_eq!(far_east.timezone(), "Etc/GMT-14");
+        let far_west = ScenarioClock::parse("2026-01-01T12:00:00-12:00").unwrap();
+        assert_eq!(far_west.timezone(), "Etc/GMT+12");
+        for text in ["2026-01-01T12:00:00-13:00", "2026-01-01T12:00:00-14:00"] {
+            assert!(ScenarioClock::parse(text).is_err(), "{text}");
+        }
+        assert!(ScenarioClock::parse("2026-01-01T12:00:00+15:00").is_err());
+    }
+
+    #[test]
+    fn rejects_multi_byte_text_without_a_panic() {
+        for text in [
+            "2026-01-01T12:00:00é+01:00",
+            "2026-01-01T12:00:0é",
+            "2026-01-01T12:00:00+0é:00",
+            "é026-01-01T12:00:00Z",
         ] {
             assert!(ScenarioClock::parse(text).is_err(), "{text}");
         }

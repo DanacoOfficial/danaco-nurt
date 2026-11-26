@@ -409,7 +409,7 @@ fn tracking_setup(repo: &gix::Repository, from: &str) -> Result<Option<(BString,
     let config = repo.config_snapshot();
     if config
         .string("branch.autoSetupMerge")
-        .is_some_and(|value| value.eq_ignore_ascii_case(b"false"))
+        .is_some_and(|value| is_false_value(value.as_ref()))
     {
         return Ok(None);
     }
@@ -430,6 +430,16 @@ fn tracking_setup(repo: &gix::Repository, from: &str) -> Result<Option<(BString,
     let mut merge = BString::from(HEADS);
     merge.extend_from_slice(branch);
     Ok(Some((remote, merge)))
+}
+
+/// Whether a configuration value is one of the spellings of `false` that Git
+/// accepts for a boolean: `false`, `no`, `off`, `0` and the empty string.
+fn is_false_value(value: &BStr) -> bool {
+    const FALSE_VALUES: [&[u8]; 5] = [b"false", b"no", b"off", b"0", b""];
+    let value: &[u8] = value.trim();
+    FALSE_VALUES
+        .iter()
+        .any(|candidate| value.eq_ignore_ascii_case(candidate))
 }
 
 /// Plans `git branch -m <from> <to>`.
@@ -1013,6 +1023,21 @@ mod tests {
     }
 
     #[test]
+    fn auto_setup_merge_accepts_every_false_spelling() {
+        for value in ["false", "no", "off", "0", "FALSE"] {
+            let repo = TestRepo::new();
+            let head = repo.commit("first");
+            repo.append_config(&format!(
+                "[branch]\n\tautoSetupMerge = {value}\n[remote \"origin\"]\n\turl = /nowhere\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n"
+            ));
+            repo.write("refs/remotes/origin/feature", &format!("{head}\n"));
+            let plan =
+                plan_create(&repo.open(), "feature", "origin/feature", repo.signature()).unwrap();
+            assert!(!plan.changes_config(), "{value}");
+        }
+    }
+
+    #[test]
     fn create_rejects_existing_invalid_and_unknown_start_points() {
         let repo = TestRepo::new();
         repo.commit("first");
@@ -1088,6 +1113,21 @@ mod tests {
             null(),
             null()
         )));
+    }
+
+    #[test]
+    fn rename_rejects_an_existing_target_and_a_missing_source() {
+        let repo = TestRepo::new();
+        let head = repo.commit("first");
+        repo.write("refs/heads/other", &format!("{head}\n"));
+        let current = repo.open().head_name().unwrap().unwrap();
+        let short = short_name(current.as_bstr(), HEADS);
+        let error = plan_rename(&repo.open(), &short, "other", repo.signature()).unwrap_err();
+        assert_eq!(error.problem.as_deref(), Some("exists"));
+        let error = plan_rename(&repo.open(), "nope", "fresh", repo.signature()).unwrap_err();
+        assert_eq!(error.code, ErrorCode::GitRef);
+        let error = plan_rename(&repo.open(), &short, "a..b", repo.signature()).unwrap_err();
+        assert_eq!(error.problem.as_deref(), Some("invalid_name"));
     }
 
     #[test]

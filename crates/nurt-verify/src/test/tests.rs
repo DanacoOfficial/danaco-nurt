@@ -245,6 +245,17 @@ fn command_for_jest_skips_name_pattern_for_file_failures() {
 }
 
 #[test]
+fn command_for_jest_reruns_files_by_their_exact_paths() {
+    let mut request = Request::new(Framework::Jest);
+    request.only = vec![failed_case("pages/[id].test.tsx", Some("g"), "bad")];
+    let argv = request.plan("/s/run-1.json").argv;
+    assert_eq!(
+        argv[..3],
+        words(&["jest", "pages/[id].test.tsx", "--runTestsByPath"])
+    );
+}
+
+#[test]
 fn command_for_pytest_builds_nodes_and_coverage_environment() {
     let mut request = Request::new(Framework::Pytest);
     request.filter = Some("abc".to_owned());
@@ -333,6 +344,46 @@ fn command_for_cargo_uses_exact_names_and_llvm_cov_for_coverage() {
     assert_eq!(
         coverage.plan("/s/unused").argv,
         words(&["cargo", "llvm-cov", "--lcov", "--output-path", "/s/c"])
+    );
+}
+
+#[test]
+fn command_for_cargo_reruns_a_should_panic_test_by_the_name_the_harness_selects() {
+    let mut rerun = Request::new(Framework::Cargo);
+    rerun.only = vec![
+        failed_case("", None, "tests::panics - should panic"),
+        failed_case("", None, "src/lib.rs - documented (line 3) - should panic"),
+        failed_case("", None, "tests::plain"),
+    ];
+    assert_eq!(
+        rerun.plan("/s/unused").argv,
+        words(&[
+            "cargo",
+            "test",
+            "--",
+            "tests::panics",
+            "src/lib.rs - documented (line 3)",
+            "tests::plain",
+            "--exact"
+        ])
+    );
+}
+
+#[test]
+fn command_for_go_reruns_results_without_a_package_in_every_package() {
+    let mut rerun = Request::new(Framework::Go);
+    rerun.only = vec![failed_case("", None, "TestA")];
+    assert_eq!(
+        rerun.plan("/s/unused").argv,
+        words(&["go", "test", "-json", "-run", "^(TestA)$", "./..."])
+    );
+    rerun.only = vec![
+        failed_case("", None, "TestA"),
+        failed_case("", Some("example.com/p"), "TestB"),
+    ];
+    assert_eq!(
+        rerun.plan("/s/unused").argv,
+        words(&["go", "test", "-json", "-run", "^(TestA|TestB)$", "./..."])
     );
 }
 

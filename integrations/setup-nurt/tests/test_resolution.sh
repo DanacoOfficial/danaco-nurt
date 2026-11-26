@@ -109,6 +109,13 @@ assert_eq 'resolve exact version without listing' 9.9.9 "$(NURT_RELEASES_URL=fil
 assert_eq 'resolve strips v prefix' 1.2.3 "$(resolve_version v1.2.3)"
 assert_eq 'resolve exact pre-release' 3.0.0-rc.1 "$(resolve_version 3.0.0-rc.1)"
 assert_fails 'resolve fails without a match' resolve_version '>=5.0.0'
-assert_fails 'resolve fails when listing is unavailable' env NURT_RELEASES_URL=file:///nonexistent bash -c "source '$here/../scripts/lib.sh'; resolve_version latest"
+unavailable_listing() {
+  env NURT_RELEASES_URL=file:///nonexistent bash -c 'source "$1"; resolve_version latest' _ "$here/../scripts/lib.sh"
+}
+assert_fails 'resolve fails when listing is unavailable' unavailable_listing
+out=$(unavailable_listing 2>&1 || true)
+assert_contains 'explains the unavailable listing' 'cannot download the release listing' "$out"
+out=$( (resolve_version '>=5.0.0') 2>&1 || true)
+assert_contains 'explains the unmatched range' "no release satisfies version '>=5.0.0'" "$out"
 
 finish_tests

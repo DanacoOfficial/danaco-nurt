@@ -364,3 +364,53 @@ fn reads_nodes_with_positions_comments_and_canonical_keys() {
         .unwrap();
     assert_eq!(paths.len(), 1);
 }
+
+fn member_of(document: &OpenDocument, name: &str) -> Value {
+    document
+        .handle
+        .to_value()
+        .unwrap()
+        .get(name)
+        .cloned()
+        .unwrap()
+}
+
+#[test]
+fn removes_elements_of_a_list_by_position_and_keeps_the_others() {
+    let mut document = open(&DocFormatId::JSON, b"{\"l\": [1, 2, 3, 4]}");
+    document.handle.remove(&key("l[1]")).unwrap();
+    assert_eq!(
+        member_of(&document, "l"),
+        Value::List(vec![Value::Int(1), Value::Int(3), Value::Int(4)])
+    );
+    document.handle.remove(&key("l[-1]")).unwrap();
+    assert_eq!(
+        member_of(&document, "l"),
+        Value::List(vec![Value::Int(1), Value::Int(3)])
+    );
+    serde_json::from_slice::<serde_json::Value>(&document.bytes()).unwrap();
+}
+
+#[test]
+fn appends_to_an_empty_list() {
+    let mut document = open(&DocFormatId::JSON, b"{\"l\": []}");
+    document
+        .handle
+        .set(&key("l[+]"), &Value::Int(7), &CREATE)
+        .unwrap();
+    assert_eq!(member_of(&document, "l"), Value::List(vec![Value::Int(7)]));
+    serde_json::from_slice::<serde_json::Value>(&document.bytes()).unwrap();
+}
+
+#[test]
+fn writes_multi_byte_text_and_escapes_that_read_back_unchanged() {
+    let text = "za\u{17c}\u{f3}\u{142}\u{107} \"q\" \\ \n\t \u{1F600}";
+    let mut document = open(&DocFormatId::JSON, "{\"a\": \"x\"}".as_bytes());
+    document
+        .handle
+        .set(&key("a"), &Value::Text(text.to_owned()), &CREATE)
+        .unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&document.bytes()).unwrap();
+    assert_eq!(parsed["a"], text);
+    assert_eq!(member_of(&document, "a"), Value::Text(text.to_owned()));
+}

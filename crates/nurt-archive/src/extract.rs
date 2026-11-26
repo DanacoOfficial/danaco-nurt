@@ -350,3 +350,70 @@ where
         None => Ok(()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn limit_of(result: Result<(), ArchiveError>) -> Option<(LimitKind, u64, u64)> {
+        match result {
+            Err(ArchiveError::Limit {
+                limit,
+                allowed,
+                actual,
+            }) => Some((limit, allowed, actual)),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn default_limits_are_those_of_the_documentation() {
+        let limits = Limits::default();
+        assert_eq!(limits.max_size, 1 << 40);
+        assert_eq!(limits.max_ratio, 1_000);
+        assert_eq!(limits.ratio_floor, 1 << 30);
+    }
+
+    #[test]
+    fn the_ratio_is_checked_only_above_the_floor_and_only_when_exceeded() {
+        let limits = Limits {
+            max_size: 1_000,
+            max_ratio: 10,
+            ratio_floor: 100,
+        };
+        assert_eq!(limit_of(limits.check(100, 1)), None);
+        assert_eq!(limit_of(limits.check(101, 10)), None);
+        assert_eq!(
+            limit_of(limits.check(111, 10)),
+            Some((LimitKind::Ratio, 10, 11))
+        );
+        assert_eq!(
+            limit_of(limits.check(500, 0)),
+            Some((LimitKind::Ratio, 10, 500))
+        );
+    }
+
+    #[test]
+    fn the_size_limit_applies_below_the_ratio_floor_too() {
+        let limits = Limits {
+            max_size: 1_000,
+            max_ratio: 10,
+            ratio_floor: 1_000_000,
+        };
+        assert_eq!(limit_of(limits.check(1_000, 1)), None);
+        assert_eq!(
+            limit_of(limits.check(1_001, 1_000_000)),
+            Some((LimitKind::Size, 1_000, 1_001))
+        );
+    }
+
+    #[test]
+    fn the_default_ratio_floor_lets_a_small_archive_of_repeated_data_pass() {
+        let limits = Limits::default();
+        assert_eq!(limit_of(limits.check(limits.ratio_floor, 1)), None);
+        assert_eq!(
+            limit_of(limits.check(limits.ratio_floor + 1, 1)),
+            Some((LimitKind::Ratio, 1_000, limits.ratio_floor + 1))
+        );
+    }
+}

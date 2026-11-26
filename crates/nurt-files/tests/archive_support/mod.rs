@@ -29,6 +29,9 @@ use nurt_testkit::fixtures::begin_request;
 use nurt_testkit::journal::JournalCall;
 use nurt_testkit::vfs::test_path;
 
+#[path = "../support_report/mod.rs"]
+mod support_report;
+
 /// Size of a tar block.
 const BLOCK: usize = 512;
 /// Fields of a ustar header: offset and length.
@@ -208,6 +211,7 @@ pub(crate) fn run_effect(
     let stage = stage(command);
     let effect = stage.as_effect().expect("the command changes files");
     let plan = effect.plan(args, input, &ctx)?;
+    support_report::assert_plan_valid(command, &plan.changes);
     let notable = plan.notable.clone();
     let mut tx = test.journal().begin(begin_request(command));
     let outcome = match effect.apply(args, plan, tx.as_mut(), &ctx) {
@@ -219,6 +223,7 @@ pub(crate) fn run_effect(
         }
     };
     let changes = outcome.changes;
+    support_report::assert_changes_valid(command, &changes);
     let record = StageInput::from(outcome.output)
         .into_records()?
         .next()

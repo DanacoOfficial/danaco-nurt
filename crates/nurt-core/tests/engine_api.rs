@@ -251,6 +251,23 @@ fn only_one_input_is_accepted() {
 }
 
 #[test]
+fn envelope_errors_have_the_report_kind_request() {
+    let h = harness();
+    let mut request = Request::program(FIND);
+    request.cursor = Some("c_1".to_owned());
+    let response = h.engine.run(&request);
+    assert_eq!(error_of(&response).code, ErrorCode::Arg);
+    assert_eq!(response.report.kind, "request");
+    let relative = RequestOptions {
+        base: Some("srv/app".to_owned()),
+        ..RequestOptions::default()
+    };
+    let response = h.engine.run(&Request::cursor("c_1").with_options(relative));
+    assert_eq!(error_of(&response).code, ErrorCode::PathRelative);
+    assert_eq!(response.report.kind, "request");
+}
+
+#[test]
 fn relative_paths_are_rejected() {
     let h = harness();
     for options in [

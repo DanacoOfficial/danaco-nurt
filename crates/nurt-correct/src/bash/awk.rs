@@ -423,6 +423,26 @@ mod tests {
     }
 
     #[test]
+    fn line_programs_select_one_line() {
+        assert_eq!(line_program("NR==5"), Some(5));
+        assert_eq!(line_program(" NR == 12 "), Some(12));
+        assert_eq!(line_program("NR==0"), None);
+        assert_eq!(line_program("NR==x"), None);
+        assert_eq!(line_program("NR=="), None);
+        assert_eq!(line_program("NR==99999999999999999999"), None);
+        assert_eq!(line_program("{print}"), None);
+    }
+
+    #[test]
+    fn programs_with_multibyte_text_do_not_panic() {
+        assert_eq!(parse_program("/żółć/ {print $1}").unwrap().regex.as_deref(), Some("żółć"));
+        assert_eq!(parse_program("$1 == \"ą\"").unwrap().fields, vec![0]);
+        assert_eq!(parse_program("ż"), None);
+        assert_eq!(parse_program("$1 > ł"), None);
+        assert_eq!(parse_program("{print $1,}"), None);
+    }
+
+    #[test]
     fn separators() {
         assert_eq!(
             delimiter(None),

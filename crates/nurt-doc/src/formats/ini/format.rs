@@ -463,6 +463,19 @@ mod tests {
     }
 
     #[test]
+    fn section_maps_match_key_names_without_case_in_folded_profiles() {
+        let mut document =
+            IniDocument::parse("[core]\n\tbare = false\n", IniProfile::Gitconfig).unwrap();
+        let fields = [("BARE".to_owned(), Value::Text("true".into()))]
+            .into_iter()
+            .collect();
+        document
+            .set(&key("core"), &Value::Map(fields), false)
+            .unwrap();
+        assert_eq!(document.text(), "[core]\n\tbare = true\n");
+    }
+
+    #[test]
     fn sniffs_sections_and_key_lines() {
         let format = IniFormat::new();
         assert_eq!(format.sniff(b"; c\n[a]\nb = 1\n"), Confidence::Medium);

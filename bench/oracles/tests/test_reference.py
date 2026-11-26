@@ -10,8 +10,10 @@ import shutil
 import sys
 import unittest
 from typing import Any
+from unittest import mock
 
-from nurt_bench_oracle.reference import Outcome, report_line, verify_task
+from nurt_bench_oracle.reference import Execution, Outcome, report_line, verify_task
+from nurt_bench_oracle.snapshot import SnapshotError, as_index
 
 from .support import snap
 
@@ -54,6 +56,43 @@ class ReportTests(unittest.TestCase):
 
     def test_task_without_reference_for_the_shell_has_no_outcomes(self) -> None:
         self.assertEqual(verify_task(sort_task(reference_bash=None), "bash", TIMEOUT), [])
+
+
+class ExecutionFailureTests(unittest.TestCase):
+    """Failures of the execution are outcomes, not passes and not crashes."""
+
+    def test_a_reference_that_reached_the_time_limit_is_not_accepted(self) -> None:
+        task = sort_task()
+        before = as_index(task["fs_before"])
+        after = as_index(snap({"names.txt": SORTED, "keep.txt": "keep\n"}))
+        late = Execution(before, after, "", {}, timed_out=True)
+        with mock.patch("nurt_bench_oracle.reference.execute", return_value=late):
+            outcomes = verify_task(task, "bash", 5.0)
+        self.assertEqual(len(outcomes), 1)
+        self.assertEqual(outcomes[0].label, "reference")
+        self.assertFalse(outcomes[0].ok)
+        self.assertIn("did not end within 5 s", outcomes[0].error or "")
+
+    def test_a_malformed_snapshot_is_reported_as_an_error_of_the_solution(self) -> None:
+        with mock.patch("nurt_bench_oracle.reference.execute", side_effect=SnapshotError("bad entry")):
+            outcomes = verify_task(sort_task(), "bash", 5.0)
+        self.assertEqual([(o.label, o.error) for o in outcomes], [("reference", "bad entry")])
+        self.assertFalse(outcomes[0].ok)
+
+    def test_a_defective_solution_that_fails_to_run_is_an_error_outcome(self) -> None:
+        task = sort_task()
+        before = as_index(task["fs_before"])
+        after = as_index(snap({"names.txt": SORTED, "keep.txt": "keep\n"}))
+        done = Execution(before, after, "", {}, timed_out=False)
+        failure = RuntimeError("setup failed")
+        with mock.patch("nurt_bench_oracle.reference.execute", side_effect=[done, failure, failure]):
+            outcomes = verify_task(task, "bash", 5.0)
+        self.assertEqual(
+            [o.label for o in outcomes],
+            ["reference", "empty solution", "reference and deletion of keep.txt"],
+        )
+        self.assertEqual([o.error for o in outcomes[1:]], ["setup failed", "setup failed"])
+        self.assertFalse(outcomes[1].ok)
 
 
 @unittest.skipUnless(HAS_BASH, "bash is not available")

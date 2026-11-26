@@ -139,6 +139,11 @@ class RenderedManifestsTest(unittest.TestCase):
             self.assertIn(package, text)
         self.assertRegex(text, r"(?m)^ExclusiveArch:\s+x86_64 aarch64$")
 
+    def test_rpm_spec_generates_the_requirements_of_the_linked_libraries(self):
+        text = self.read("rpm/nurt.spec")
+        self.assertNotRegex(text, r"(?m)^AutoReq(Prov)?:\s+no\b")
+        self.assertRegex(text, r"(?m)^AutoProv:\s+no$")
+
 
 # Product description required in every package manifest and package manager
 # listing: the constant TAGLINE of nurt_contracts::product. The suite holds no

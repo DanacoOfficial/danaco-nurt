@@ -39,11 +39,13 @@ struct Pair {
 }
 
 fn open_pair(src: &Path, dst: &Path, op: &str) -> FsResult<Pair> {
+    // `O_NONBLOCK` keeps the open of a FIFO from waiting for a writer; the
+    // kind check below refuses it.
     let source = retry(|| {
         rustix::fs::openat(
             CWD,
             src,
-            OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOCTTY,
+            OFlags::RDONLY | OFlags::NONBLOCK | OFlags::CLOEXEC | OFlags::NOCTTY,
             Mode::empty(),
         )
     })

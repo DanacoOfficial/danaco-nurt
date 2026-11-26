@@ -233,6 +233,8 @@ pub(crate) struct PatternSet {
     /// Line filter of the reader search; `None` when some pattern cannot be
     /// expressed for it.
     line_matcher: Option<RegexMatcher>,
+    /// Sources searched independently, computed once for every scan.
+    sources: Vec<MatchSource>,
 }
 
 /// Source of matches within a [`PatternSet`]: one pattern or the automaton
@@ -255,10 +257,16 @@ impl PatternSet {
             .collect::<Result<Vec<_>, _>>()?;
         let literals = literal_automaton(&patterns);
         let line_matcher = line_matcher(&patterns);
+        let sources = if literals.is_some() {
+            vec![MatchSource::Literals]
+        } else {
+            (0..patterns.len()).map(MatchSource::Pattern).collect()
+        };
         Ok(Self {
             patterns,
             literals,
             line_matcher,
+            sources,
         })
     }
 
@@ -275,12 +283,8 @@ impl PatternSet {
     }
 
     /// Sources searched independently and merged by leftmost start.
-    pub(crate) fn sources(&self) -> Vec<MatchSource> {
-        if self.literals.is_some() {
-            vec![MatchSource::Literals]
-        } else {
-            (0..self.patterns.len()).map(MatchSource::Pattern).collect()
-        }
+    pub(crate) fn sources(&self) -> &[MatchSource] {
+        &self.sources
     }
 
     pub(crate) fn searches_by_line(&self, source: MatchSource) -> bool {

@@ -77,8 +77,10 @@ fn declaration_kind(kind: &str) -> Option<SymbolKind> {
     Some(symbol)
 }
 
-/// Fields that hold the name of a declaration, in order of preference.
-const NAME_FIELDS: [&str; 3] = ["name", "type", "declarator"];
+/// Fields that hold the name of a declaration, in order of preference. The
+/// `declarator` precedes the `type`, which holds the return type of a C or
+/// C++ function and the implemented type of a Rust `impl` block.
+const NAME_FIELDS: [&str; 3] = ["name", "declarator", "type"];
 
 /// Name of a declaration node and the node holding it.
 fn declaration_name<'t>(node: Node<'t>, source: &[u8]) -> Option<(String, Node<'t>)> {
@@ -102,20 +104,27 @@ fn is_name_kind(kind: &str) -> bool {
 
 /// Identifier inside a declarator chain (`*f(int)` in C, `S<T>` in Rust).
 fn innermost_name(node: Node<'_>) -> Node<'_> {
-    if is_name_kind(node.kind()) {
-        return node;
-    }
-    let inner = node
-        .child_by_field_name("declarator")
-        .or_else(|| node.child_by_field_name("name"))
-        .or_else(|| node.child_by_field_name("type"))
-        .or_else(|| {
-            let mut cursor = node.walk();
+    let mut current = node;
+    loop {
+        if is_name_kind(current.kind()) {
+            return current;
+        }
+        let inner = current
+            .child_by_field_name("declarator")
+            .or_else(|| current.child_by_field_name("name"))
+            .or_else(|| current.child_by_field_name("type"))
+            .or_else(|| {
+                let mut cursor = current.walk();
 
-            node.named_children(&mut cursor)
-                .find(|child| is_name_kind(child.kind()))
-        });
-    inner.map_or(node, innermost_name)
+                current
+                    .named_children(&mut cursor)
+                    .find(|child| is_name_kind(child.kind()))
+            });
+        match inner {
+            Some(next) => current = next,
+            None => return current,
+        }
+    }
 }
 
 /// Declaration found in a tree.
@@ -252,6 +261,13 @@ pub(crate) fn declarations<'t>(tree: &'t Tree, source: &[u8]) -> Vec<(SymbolInfo
     walker.out
 }
 
+/// Work of the walk: a node to enter, or the end of the declaration entered
+/// last.
+enum Step<'t> {
+    Enter(Node<'t>),
+    Leave,
+}
+
 struct Walker<'s, 't> {
     source: &'s [u8],
     lines: &'s LineIndex<'s>,
@@ -260,25 +276,29 @@ struct Walker<'s, 't> {
 }
 
 impl<'t> Walker<'_, 't> {
-    fn walk(&mut self, node: Node<'t>) {
-        let found = declaration(node, self.source);
-        if let Some(found) = found {
-            let outer: Vec<&Declaration<'t>> = self.stack.iter().collect();
-            let info = symbol_info(&found, &outer, self.source, self.lines);
-            self.out.push((info, node));
-            self.stack.push(found);
-            self.walk_children(node);
-            self.stack.pop();
-        } else {
-            self.walk_children(node);
-        }
-    }
-
-    fn walk_children(&mut self, node: Node<'t>) {
-        let mut cursor = node.walk();
-        let children: Vec<Node<'t>> = node.children(&mut cursor).collect();
-        for child in children {
-            self.walk(child);
+    /// Visits the subtree of `root` in source order with an explicit stack,
+    /// so that the depth of the tree is not limited by the stack of the
+    /// thread.
+    fn walk(&mut self, root: Node<'t>) {
+        let mut pending = vec![Step::Enter(root)];
+        while let Some(step) = pending.pop() {
+            let node = match step {
+                Step::Leave => {
+                    self.stack.pop();
+                    continue;
+                }
+                Step::Enter(node) => node,
+            };
+            if let Some(found) = declaration(node, self.source) {
+                let outer: Vec<&Declaration<'t>> = self.stack.iter().collect();
+                let info = symbol_info(&found, &outer, self.source, self.lines);
+                self.out.push((info, node));
+                self.stack.push(found);
+                pending.push(Step::Leave);
+            }
+            let mut cursor = node.walk();
+            let children: Vec<Node<'t>> = node.children(&mut cursor).collect();
+            pending.extend(children.into_iter().rev().map(Step::Enter));
         }
     }
 }
@@ -300,6 +320,58 @@ mod tests {
         assert_eq!(declaration_kind("class_specifier"), Some(SymbolKind::Class));
         assert_eq!(declaration_kind("trait_item"), Some(SymbolKind::Interface));
         assert_eq!(declaration_kind("call_expression"), None);
+    }
+
+    /// Depth of the nesting that would overflow the stack of a test thread
+    /// in a walk by recursion.
+    const DEEP: usize = 300_000;
+
+    fn parse(language: tree_sitter::Language, source: &[u8]) -> Tree {
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&language).unwrap();
+        parser.parse(source, None).unwrap()
+    }
+
+    #[test]
+    fn c_function_is_named_by_its_declarator_not_by_its_return_type() {
+        let source = b"static int *find(int n) {\n    return 0;\n}\n";
+        let tree = parse(tree_sitter_c::LANGUAGE.into(), source);
+        let offset = source.windows(6).position(|w| w == b"return").unwrap();
+        let symbol = enclosing(&tree, source, offset).unwrap();
+        assert_eq!(symbol.name, "find");
+        assert_eq!(symbol.kind, SymbolKind::Function);
+        assert_eq!(symbol.name_span.start.line, 1);
+        assert_eq!(symbol.name_span.start.column, 13);
+    }
+
+    #[test]
+    fn declarations_are_listed_in_source_order_with_their_containers() {
+        let source = b"mod a {\n    fn f() {\n        fn g() {}\n    }\n    fn h() {}\n}\n";
+        let tree = parse(tree_sitter_rust::LANGUAGE.into(), source);
+        let found: Vec<(String, u32, Option<String>)> = declarations(&tree, source)
+            .into_iter()
+            .map(|(info, _)| (info.name, info.depth, info.container))
+            .collect();
+        let expected = [
+            ("a", 0, None),
+            ("f", 1, Some("a")),
+            ("g", 2, Some("a.f")),
+            ("h", 1, Some("a")),
+        ];
+        assert_eq!(found.len(), expected.len());
+        for (found, expected) in found.iter().zip(expected) {
+            assert_eq!(found.0, expected.0);
+            assert_eq!(found.1, expected.1);
+            assert_eq!(found.2.as_deref(), expected.2);
+        }
+    }
+
+    #[test]
+    fn deeply_nested_source_is_walked_without_recursion() {
+        let source = format!("{}1{}", "[".repeat(DEEP), "]".repeat(DEEP));
+        let tree = parse(tree_sitter_json::LANGUAGE.into(), source.as_bytes());
+        assert!(declarations(&tree, source.as_bytes()).is_empty());
+        assert!(enclosing(&tree, source.as_bytes(), DEEP).is_none());
     }
 
     #[test]

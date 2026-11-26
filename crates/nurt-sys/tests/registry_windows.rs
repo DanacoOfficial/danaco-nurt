@@ -104,6 +104,30 @@ fn it_registry_hkcu_write_undo_roundtrip() {
 
 #[test]
 #[ignore = "requires the Windows registry"]
+fn it_registry_info_of_a_key_with_many_subkeys_does_not_overflow_the_class_buffer() {
+    let provider = RegistryProvider::system();
+    let path = RegistryPath::parse("registry:/HKCU/Software").unwrap();
+    let info = provider.info(&path).unwrap();
+    assert!(matches!(info, nurt_sys::registry::RegistryItem::Key(_)));
+    assert!(!provider.list(&path.as_key().unwrap()).unwrap().is_empty());
+}
+
+#[test]
+#[ignore = "requires the Windows registry"]
+fn it_registry_set_below_a_missing_key_creates_it_and_reads_back_by_path() {
+    let provider = RegistryProvider::system();
+    let test = TestKey::new(&provider);
+    let target = test.value("Mode");
+    provider
+        .set(&scope(), &target, &ProviderValue::U32(3))
+        .unwrap();
+    let text = format!("{}/Mode", test.key.to_language_string());
+    let value = provider.read(&RegistryPath::parse(&text).unwrap()).unwrap();
+    assert_eq!(value.name, "Mode");
+}
+
+#[test]
+#[ignore = "requires the Windows registry"]
 fn it_registry_remove_subtree_undo() {
     let provider = RegistryProvider::system();
     let test = TestKey::new(&provider);

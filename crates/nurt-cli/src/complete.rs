@@ -350,6 +350,91 @@ mod tests {
     }
 
     #[test]
+    fn position_beyond_the_line_is_the_end_of_the_line() {
+        let (start, found) = vocabulary().complete("fi", 99);
+        assert_eq!((start, found), (0, vec!["find".to_owned()]));
+        let (start, found) = vocabulary().complete("", 5);
+        assert_eq!(start, 0);
+        assert!(found.contains(&"remove".to_owned()));
+    }
+
+    #[test]
+    fn multi_byte_words_are_completed_at_byte_offsets() {
+        let line = "\u{142}\u{f3}d\u{17a} |> re";
+        let (start, found) = vocabulary().complete(line, line.len());
+        assert_eq!(&line[start..], "re");
+        assert_eq!(found, vec!["remove".to_owned()]);
+        let (start, found) = vocabulary().complete("remove \u{142}a", "remove \u{142}a".len());
+        assert_eq!(start, 7);
+        assert!(found.is_empty());
+    }
+
+    #[test]
+    fn parameters_are_listed_once_and_sorted() {
+        let documents = [json!({"commands": [
+            {"name": "sort", "params": [{"name": "order"}, {"name": "by"}, {"name": "by"}]}
+        ]})];
+        let vocabulary = Vocabulary::from_documents(&documents);
+        let (_, found) = vocabulary.complete("sort ", 5);
+        assert_eq!(found, vec!["by:".to_owned(), "order:".to_owned()]);
+    }
+
+    #[test]
+    fn commands_found_twice_in_the_documents_are_kept_once() {
+        let command = json!({"name": "find", "summary": "list", "params": [{"name": "path"}]});
+        let vocabulary = Vocabulary::from_documents(&[command.clone(), command]);
+        let (_, found) = vocabulary.complete("fi", 2);
+        assert_eq!(found, vec!["find".to_owned()]);
+    }
+
+    #[test]
+    fn commands_are_found_in_nested_documents_and_session_words_only_at_the_start() {
+        let documents = [json!({"group": {"items": [{"name": "git.status", "forms": []}]}})];
+        let vocabulary = Vocabulary::from_documents(&documents);
+        assert!(vocabulary.knows("git.status"));
+        let (_, at_start) = vocabulary.complete("ex", 2);
+        assert_eq!(at_start, vec!["exit".to_owned()]);
+        let (_, after_pipe) = vocabulary.complete("git.status |> ex", 16);
+        assert!(after_pipe.is_empty());
+    }
+
+    #[test]
+    fn the_stage_after_a_pipe_looks_up_its_own_command() {
+        let line = "find \"/srv\" |> remove pa";
+        let (start, found) = vocabulary().complete(line, line.len());
+        assert_eq!(&line[start..], "pa");
+        assert_eq!(found, vec!["path:".to_owned()]);
+    }
+
+    #[test]
+    fn tokens_cover_multi_byte_text_and_crlf() {
+        let line = "find \"\u{1f600}\" |>\r\n  remove";
+        let tokens = vocabulary().tokens(line);
+        let joined: String = tokens.iter().map(|(_, part)| part.as_str()).collect();
+        assert_eq!(joined, line);
+        assert!(tokens.contains(&(TokenKind::Text, "\"\u{1f600}\"".to_owned())));
+        assert!(tokens.contains(&(TokenKind::Space, "\r\n  ".to_owned())));
+    }
+
+    #[test]
+    fn a_name_that_is_not_a_command_is_a_word() {
+        let tokens = vocabulary().tokens("frobnicate find");
+        let kinds: Vec<TokenKind> = tokens.iter().map(|(kind, _)| *kind).collect();
+        assert_eq!(
+            kinds,
+            vec![TokenKind::Word, TokenKind::Space, TokenKind::Word]
+        );
+        assert!(vocabulary().tokens("").is_empty());
+    }
+
+    #[test]
+    fn a_text_with_an_escaped_quote_is_one_token() {
+        let tokens = vocabulary().tokens("\"a\\\"b\" c");
+        assert_eq!(tokens[0], (TokenKind::Text, "\"a\\\"b\"".to_owned()));
+        assert_eq!(string_length("\"a\\\\\" x"), 5);
+    }
+
+    #[test]
     fn words_that_touch_a_pipe_are_split() {
         let tokens = vocabulary().tokens("find|>remove");
         let kinds: Vec<TokenKind> = tokens.iter().map(|(kind, _)| *kind).collect();

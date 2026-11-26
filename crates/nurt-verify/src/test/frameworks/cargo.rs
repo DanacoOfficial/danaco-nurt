@@ -16,6 +16,10 @@ use crate::test::{CommandPlan, Framework, ParseError, ParseInput, PlanRequest};
 /// Note on `bail`: the test runner of cargo has no per-test equivalent.
 const BAIL_NOTE: &str = "cargo stops after the first failing test target by itself";
 
+/// Suffix the test harness appends to the name of a `should_panic` test in
+/// its result line; it is not a part of the name the harness selects by.
+const SHOULD_PANIC_SUFFIX: &str = " - should panic";
+
 static RESULT_LINE: LazyLock<Option<Regex>> =
     LazyLock::new(|| Regex::new(r"^test (.+?) \.\.\. (ok|FAILED|ignored)(?:, .*)?$").ok());
 static BLOCK_START: LazyLock<Option<Regex>> =
@@ -41,7 +45,13 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
     argv.extend(request.targets.iter().cloned());
     if !request.only.is_empty() {
         argv.push("--".to_owned());
-        argv.extend(request.only.iter().map(|case| case.name.clone()));
+        argv.extend(
+            request
+                .only
+                .iter()
+                .map(|case| case.name.strip_suffix(SHOULD_PANIC_SUFFIX).unwrap_or(&case.name))
+                .map(str::to_owned),
+        );
         argv.push("--exact".to_owned());
     } else if let Some(filter) = request.filter {
         if filter.starts_with('-') {
