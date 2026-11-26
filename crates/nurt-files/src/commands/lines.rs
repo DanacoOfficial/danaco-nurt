@@ -227,6 +227,27 @@ impl OffsetMapper {
         })
     }
 
+    /// Offsets in a text that starts `start` bytes into a file stored in the
+    /// encoding `label`; a text stored as UTF-8, or in an encoding the codec
+    /// does not know, is shifted by `start`.
+    pub(crate) fn from_start(label: &str, start: u64) -> Self {
+        let encoding = TextEncoding {
+            label: label.to_owned(),
+            bom: false,
+        };
+        if label == UTF8 || Codec::from_encoding(&encoding).is_err() {
+            return Self::shifted(start);
+        }
+        Self {
+            mapping: Mapping::Encoded {
+                encoding,
+                base: start,
+            },
+            decoded: 0,
+            original: start,
+        }
+    }
+
     /// Offset in the file of the byte at `offset` in `text`; an offset
     /// inside a character is moved back to the start of the character.
     pub(crate) fn map(&mut self, text: &str, offset: usize) -> u64 {
