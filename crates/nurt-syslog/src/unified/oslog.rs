@@ -126,7 +126,9 @@ impl Iterator for OsLogItems {
         autoreleasepool(|_| {
             let object = self.enumerator.nextObject()?;
             let item = match object.downcast::<OSLogEntryLog>() {
-                Ok(log) => BackendItem::Log(Box::new(entry(&log))),
+                Ok(log) => entry(&log).map_or(BackendItem::Other, |entry| {
+                    BackendItem::Log(Box::new(entry))
+                }),
                 Err(_) => BackendItem::Other,
             };
             Some(Ok(item))
@@ -189,8 +191,11 @@ fn ns_predicate(predicate: &Predicate) -> Retained<NSPredicate> {
     unsafe { NSPredicate::predicateWithFormat_argumentArray(&format, Some(&array)) }
 }
 
-/// Entry of a log message.
-fn entry(log: &OSLogEntryLog) -> UnifiedEntry {
+/// Entry of a log message, or `None` when its date lies outside the range of
+/// an instant: such an entry is skipped like an entry of another kind, as the
+/// archive reader does, because the epoch would put it in the wrong place of
+/// the newest-first order.
+fn entry(log: &OSLogEntryLog) -> Option<UnifiedEntry> {
     // SAFETY: every call reads a property of a valid `OSLogEntryLog` and
     // takes no arguments.
     let (date, level, message, process, pid, tid, subsystem, category, sender, activity, format) = unsafe {
@@ -208,8 +213,9 @@ fn entry(log: &OSLogEntryLog) -> UnifiedEntry {
             log.formatString(),
         )
     };
-    UnifiedEntry {
-        time: instant_from_unix_seconds(date.timeIntervalSince1970()).unwrap_or_default(),
+    let time = instant_from_unix_seconds(date.timeIntervalSince1970())?;
+    Some(UnifiedEntry {
+        time,
         level: entry_level(level),
         message: message.to_string(),
         process: process.to_string(),
@@ -221,7 +227,7 @@ fn entry(log: &OSLogEntryLog) -> UnifiedEntry {
         activity_id: (activity != 0).then_some(activity),
         format_string: Some(format.to_string()),
         ..UnifiedEntry::default()
-    }
+    })
 }
 
 fn entry_level(level: OSLogEntryLogLevel) -> EntryLevel {
