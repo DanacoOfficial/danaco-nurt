@@ -459,6 +459,100 @@ mod tests {
     }
 
     #[test]
+    fn pin_ends_exactly_at_its_end_time() {
+        let mut pins = PinSet::default();
+        pins.pin(OpId(1), WallTime::from_unix_nanos(10));
+        assert!(pins.is_pinned(OpId(1), WallTime::from_unix_nanos(9)));
+        assert!(!pins.is_pinned(OpId(1), WallTime::from_unix_nanos(10)));
+        assert!(!pins.is_pinned(OpId(2), WallTime::from_unix_nanos(0)));
+        pins.prune(WallTime::from_unix_nanos(9));
+        assert!(pins.is_pinned(OpId(1), WallTime::from_unix_nanos(9)));
+        pins.prune(WallTime::from_unix_nanos(10));
+        assert_eq!(pins, PinSet::default());
+    }
+
+    #[test]
+    fn pinning_again_replaces_the_pin_and_releasing_an_unpinned_entry_changes_nothing() {
+        let mut pins = PinSet::default();
+        pins.pin(OpId(3), WallTime::from_unix_nanos(100));
+        pins.pin(OpId(3), WallTime::from_unix_nanos(50));
+        assert!(!pins.is_pinned(OpId(3), WallTime::from_unix_nanos(50)));
+        assert!(pins.is_pinned(OpId(3), WallTime::from_unix_nanos(49)));
+        pins.release(OpId(9));
+        assert!(pins.is_pinned(OpId(3), WallTime::from_unix_nanos(49)));
+        pins.release(OpId(3));
+        assert_eq!(pins, PinSet::default());
+    }
+
+    #[test]
+    fn empty_pin_files_round_trip_and_damaged_ones_are_rejected() {
+        let empty = PinSet::default();
+        assert_eq!(PinSet::parse(&empty.to_bytes().unwrap()).unwrap(), empty);
+        for damaged in [
+            &b""[..],
+            b"\xff\xfe",
+            b"{}",
+            b"null",
+            b"{\"v\":1,\"crc32\":0,\"pins\":[],\"extra\":1}",
+            b"{\"v\":1,\"crc32\":0,\"pins\":[{\"op\":1}]}",
+            b"{\"v\":-1,\"crc32\":0,\"pins\":[]}",
+        ] {
+            assert_eq!(
+                PinSet::parse(damaged).unwrap_err().code,
+                ErrorCode::Io,
+                "{damaged:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn merge_with_an_empty_set_and_of_disjoint_entries_keeps_every_pin() {
+        let mut first = PinSet::default();
+        first.pin(OpId(1), WallTime::from_unix_nanos(10));
+        let mut second = PinSet::default();
+        second.pin(OpId(2), WallTime::from_unix_nanos(20));
+        first.merge(&PinSet::default());
+        first.merge(&second);
+        assert!(first.is_pinned(OpId(1), WallTime::from_unix_nanos(0)));
+        assert!(first.is_pinned(OpId(2), WallTime::from_unix_nanos(19)));
+        let mut earlier = PinSet::default();
+        earlier.pin(OpId(2), WallTime::from_unix_nanos(5));
+        first.merge(&earlier);
+        assert!(first.is_pinned(OpId(2), WallTime::from_unix_nanos(19)));
+    }
+
+    #[test]
+    fn pinning_nothing_or_releasing_unknown_entries_changes_and_expires_nothing() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        let nothing = pin(&journal, &request(&[], false, None)).unwrap();
+        assert!(nothing.changed.is_empty());
+        assert!(nothing.not_available.is_empty());
+        assert!(nothing.expired.is_empty());
+        let unknown = pin(&journal, &request(&[9, 9], true, None)).unwrap();
+        assert!(unknown.changed.is_empty());
+        assert_eq!(unknown.not_available, [OpId(9)]);
+        assert!(unknown.expired.is_empty());
+    }
+
+    #[test]
+    fn releasing_a_pin_stops_the_protection_at_once() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        pin(&journal, &request(&[1], false, None)).unwrap();
+        let outcome = pin(&journal, &request(&[1], true, None)).unwrap();
+        assert_eq!(outcome.changed, [OpId(1)]);
+        assert!(outcome.expired.is_empty());
+        assert!(
+            !journal
+                .pins_of(&volume(1))
+                .is_pinned(OpId(1), journal.now_time())
+        );
+        let again = pin(&journal, &request(&[1], true, None)).unwrap();
+        assert_eq!(again.changed, [OpId(1)]);
+    }
+
+    #[test]
     fn pin_results_carry_no_end_of_pin() {
         let journal = TestJournal::new();
         journal.op(None).create("/home/user/a", b"a").commit();

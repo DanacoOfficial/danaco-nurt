@@ -203,6 +203,56 @@ mod tests {
     }
 
     #[test]
+    fn every_kind_of_journal_name_raises_the_recorded_sequence() {
+        for case in 0..4 {
+            let fixture = Fixture::new();
+            let ctx = fixture.ctx();
+            assert_eq!(allocate(&ctx), Ok(OpId(1)));
+            let journal = &ctx.active_journals()[0];
+            let scope = store::scope(OpId(1), ScopePurpose::Maintenance);
+            let (dir, name) = match case {
+                0 => (journal.pending_dir().unwrap(), "000000000020"),
+                1 => (journal.reap_dir().unwrap(), "000000000020"),
+                2 => (journal.tomb_dir().unwrap(), "000000000020.json"),
+                _ => (journal.ops_dir().unwrap(), "000000000020.tmp"),
+            };
+            fixture.fs.create_dir(&scope, &dir, 0o700).unwrap();
+            fixture.write(&dir.join_name(name).unwrap(), b"x");
+            assert_eq!(allocate(&ctx), Ok(OpId(21)), "{name}");
+            assert_eq!(allocate(&ctx), Ok(OpId(22)), "{name}");
+        }
+    }
+
+    #[test]
+    fn names_that_are_not_entries_do_not_raise_the_sequence() {
+        let fixture = Fixture::new();
+        let ctx = fixture.ctx();
+        assert_eq!(allocate(&ctx), Ok(OpId(1)));
+        let journal = &ctx.active_journals()[0];
+        let scope = store::scope(OpId(1), ScopePurpose::Maintenance);
+        let ops = journal.ops_dir().unwrap();
+        fixture.fs.create_dir(&scope, &ops, 0o700).unwrap();
+        for name in ["99", "0000000000900", "00000000090x", "notes.txt"] {
+            fixture.write(&ops.join_name(name).unwrap(), b"x");
+        }
+        assert_eq!(allocate(&ctx), Ok(OpId(2)));
+    }
+
+    #[test]
+    fn sequence_files_of_the_wrong_length_or_checksum_are_rejected() {
+        assert_eq!(decode(&encode(OpId(0))), Some(OpId(0)));
+        assert_eq!(decode(&encode(OpId(u64::MAX))), Some(OpId(u64::MAX)));
+        assert_eq!(decode(&[]), None);
+        assert_eq!(decode(&[0_u8; SEQ_LEN]), None);
+        let mut longer = encode(OpId(7)).to_vec();
+        longer.push(0);
+        assert_eq!(decode(&longer), None);
+        let mut other_checksum = encode(OpId(7));
+        other_checksum[SEQ_LEN - 1] ^= 0x80;
+        assert_eq!(decode(&other_checksum), None);
+    }
+
+    #[test]
     fn unreadable_rebuild_sources_forbid_assignment() {
         let fixture = Fixture::new();
         let ctx = fixture.ctx();

@@ -245,6 +245,68 @@ mod tests {
     }
 
     #[test]
+    fn without_any_feature_the_previous_content_is_copied() {
+        let bare = plan(
+            OverwriteStrategy::Exchange,
+            &features(false, false, false, false),
+            1,
+        );
+        assert!(bare.exchange.is_empty());
+        assert!(!bare.in_place);
+        assert!(bare.copies_first());
+        assert_eq!(bare.planned_mode(), PreserveMode::Copy);
+    }
+
+    #[test]
+    fn link_counts_decide_between_exchange_and_writing_in_place() {
+        let every_feature = features(true, true, true, true);
+        for links in [0, 1] {
+            let single = plan(OverwriteStrategy::Exchange, &every_feature, links);
+            assert!(!single.in_place, "{links}");
+            assert_eq!(
+                single.exchange,
+                [Exchange::Names, Exchange::Backup, Exchange::Link]
+            );
+        }
+        for links in [2, 3, u64::MAX] {
+            let shared = plan(OverwriteStrategy::Exchange, &every_feature, links);
+            assert!(shared.in_place, "{links}");
+            assert!(shared.copies_first());
+            assert_eq!(shared.planned_mode(), PreserveMode::Clone);
+        }
+    }
+
+    #[test]
+    fn every_variant_records_its_own_preserve_mode() {
+        assert_eq!(Exchange::Names.mode(), PreserveMode::Exchange);
+        assert_eq!(Exchange::Backup.mode(), PreserveMode::ReplaceBackup);
+        assert_eq!(Exchange::Link.mode(), PreserveMode::Hardlink);
+    }
+
+    #[test]
+    fn the_security_check_ignores_the_order_and_size_of_alternate_streams() {
+        let fixture = Fixture::new();
+        let path = fixture.fs.path("vol-a/streams.txt");
+        fixture.write(&path, b"x");
+        let stream = |name: &str, size: u64| AlternateStream {
+            name: name.to_owned(),
+            size,
+        };
+        let mut before = fixture
+            .fs
+            .extended_metadata(&path, Follow::NoFollow)
+            .unwrap();
+        before.streams = vec![stream("a", 1), stream("b", 2)];
+        let mut after = before.clone();
+        after.streams = vec![stream("b", 9), stream("a", 8)];
+        assert!(security_kept(&before, &after));
+        after.streams = vec![stream("a", 1)];
+        assert!(!security_kept(&before, &after));
+        after.streams = vec![stream("a", 1), stream("c", 2)];
+        assert!(!security_kept(&before, &after));
+    }
+
+    #[test]
     fn switches_keep_the_previous_file_as_blob() {
         for variant in [Exchange::Names, Exchange::Link, Exchange::Backup] {
             let fixture = Fixture::new();

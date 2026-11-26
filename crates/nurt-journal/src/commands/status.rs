@@ -218,6 +218,51 @@ mod tests {
     }
 
     #[test]
+    fn limit_values_are_shown_in_their_natural_types() {
+        assert_eq!(step_value(StepLimit::Limited(30)), Value::Int(30));
+        assert_eq!(
+            size_value("2gib".parse().unwrap()),
+            Value::Size(Size::from_bytes(2 << 30))
+        );
+        assert_eq!(
+            size_value(SizeLimit::Unlimited),
+            Value::Enum("unlimited".to_owned())
+        );
+        assert_eq!(
+            size_value("50%free".parse().unwrap()),
+            Value::Text("50%free".to_owned())
+        );
+        assert_eq!(
+            age_value(AgeLimit::Unlimited),
+            Value::Enum("unlimited".to_owned())
+        );
+        assert_eq!(
+            age_value("1d".parse().unwrap()),
+            Value::Duration(value::Duration::from_millis(86_400_000))
+        );
+    }
+
+    #[test]
+    fn only_session_limits_name_a_scope_and_a_raised_limit_names_the_floor() {
+        let limit = |source: ConfigLevel, raised_to_floor: bool| {
+            let sourced = Sourced {
+                value: StepLimit::Limited(1),
+                source,
+                raised_to_floor,
+            };
+            journal_limit("steps", Value::Int(1), &sourced, None)
+        };
+        assert_eq!(limit(ConfigLevel::Builtin, false).source, "default");
+        assert_eq!(limit(ConfigLevel::Builtin, false).scope, None);
+        assert_eq!(limit(ConfigLevel::User, false).source, ConfigLevel::User.as_str());
+        assert_eq!(limit(ConfigLevel::User, false).scope, None);
+        assert_eq!(limit(ConfigLevel::Runtime, false).scope.as_deref(), Some("session"));
+        for level in [ConfigLevel::Builtin, ConfigLevel::System, ConfigLevel::Runtime] {
+            assert_eq!(limit(level, true).source, "floor");
+        }
+    }
+
+    #[test]
     fn limits_name_their_level_and_floor() {
         let runtime = Sourced {
             value: StepLimit::Limited(5),
