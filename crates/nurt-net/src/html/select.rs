@@ -81,7 +81,7 @@ pub fn find(blocks: &[Block], pattern: &Regex, context: usize) -> Vec<Block> {
     for (index, block) in blocks.iter().enumerate() {
         if pattern.is_match(&block.text) || pattern.is_match(&block.markdown) {
             let from = index.saturating_sub(context);
-            let to = (index + context).min(blocks.len().saturating_sub(1));
+            let to = index.saturating_add(context).min(blocks.len().saturating_sub(1));
             keep[from..=to].iter_mut().for_each(|slot| *slot = true);
         }
     }
@@ -360,6 +360,14 @@ mod tests {
             .map(|block| block.text)
             .collect();
         assert_eq!(texts, vec!["a", "b package", "c", "…", "e", "f package"]);
+    }
+
+    #[test]
+    fn find_accepts_the_largest_context() {
+        let page = convert_markdown("a\n\nb package\n\nc");
+        let pattern = Regex::new("package").unwrap();
+        assert_eq!(find(&page.blocks, &pattern, usize::MAX).len(), 3);
+        assert!(find(&[], &pattern, 1).is_empty());
     }
 
     #[test]

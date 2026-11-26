@@ -113,3 +113,35 @@ const fn kind(event: EventType, log: LogType) -> ArchiveKind {
         _ => ArchiveKind::Other,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn log_messages_map_to_the_levels_of_the_reader() {
+        let cases = [
+            (LogType::Debug, EntryLevel::Debug),
+            (LogType::Info, EntryLevel::Info),
+            (LogType::Default, EntryLevel::Notice),
+            (LogType::Error, EntryLevel::Error),
+            (LogType::Fault, EntryLevel::Fault),
+        ];
+        for (log, level) in cases {
+            assert_eq!(kind(EventType::Log, log), ArchiveKind::Log(level));
+        }
+    }
+
+    #[test]
+    fn loss_records_are_counted_whatever_their_type() {
+        assert_eq!(kind(EventType::Loss, LogType::Default), ArchiveKind::Loss);
+        assert_eq!(kind(EventType::Loss, LogType::Fault), ArchiveKind::Loss);
+    }
+
+    #[test]
+    fn backend_over_a_missing_directory_is_unavailable() {
+        let backend = ArchiveBackend::new(Path::new("/nonexistent/none.logarchive"));
+        let error = backend.items(&EntryRequest::default()).unwrap_err();
+        assert!(matches!(error, BackendError::Unavailable(_)));
+    }
+}

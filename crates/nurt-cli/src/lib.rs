@@ -52,7 +52,10 @@ pub fn main_with_args<I: IntoIterator<Item = OsString>>(args: I) -> ExitCode {
         stdout: io::stdout().is_terminal(),
         stderr: io::stderr().is_terminal(),
     };
-    let mut input = stdin.lock();
+    // The lock of the standard input is taken per read: the servers of `mcp`
+    // and `lsp` read the same stream from their own threads and would block
+    // for ever behind a lock held for the whole process.
+    let mut input = io::BufReader::new(stdin);
     let mut io = Io {
         out: &mut io::stdout(),
         err: &mut io::stderr(),

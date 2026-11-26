@@ -231,7 +231,7 @@ impl OffsetMapper {
     /// inside a character is moved back to the start of the character.
     pub(crate) fn map(&mut self, text: &str, offset: usize) -> u64 {
         let (encoding, base) = match &self.mapping {
-            Mapping::Shift(shift) => return shift + byte_count(offset),
+            Mapping::Shift(shift) => return shift.saturating_add(byte_count(offset)),
             Mapping::Encoded { encoding, base } => (encoding, *base),
         };
         let mut target = offset.min(text.len());
@@ -668,6 +668,19 @@ mod tests {
     }
 
     #[test]
+    fn offsets_of_multibyte_lines_count_bytes() {
+        let (test, path) = with_file("/data/a.txt", "\u{17c}\u{f3}\u{142}w\nx\n".as_bytes());
+        let lines = source(&test.ctx(), &args(Some(&path), None)).unwrap();
+        assert_eq!(
+            summary(&lines),
+            [
+                (1, "\u{17c}\u{f3}\u{142}w", LineEnding::Lf, Some(0), Some(7)),
+                (2, "x", LineEnding::Lf, Some(8), Some(9)),
+            ]
+        );
+    }
+
+    #[test]
     fn empty_files_have_no_lines() {
         let (test, path) = with_file("/data/empty.txt", b"");
         assert!(
@@ -802,6 +815,14 @@ mod tests {
         let encoding = Codec::Utf16Le.text_encoding(true);
         let mut offsets = OffsetMapper::for_file(&encoding).unwrap();
         assert_eq!(offsets.map("ab\n", 2), 6);
+    }
+
+    #[test]
+    fn shifted_offsets_saturate_instead_of_overflowing() {
+        let mut shifted = OffsetMapper::shifted(u64::MAX);
+        assert_eq!(shifted.map("ab", 2), u64::MAX);
+        let mut near = OffsetMapper::shifted(u64::MAX - 1);
+        assert_eq!(near.map("ab", 1), u64::MAX);
     }
 
     #[test]

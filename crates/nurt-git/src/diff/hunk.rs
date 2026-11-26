@@ -545,3 +545,76 @@ fn push_line(lines: &mut Vec<HunkLine>, kind: LineKind, line: &[u8]) {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::diff::text_hunks;
+
+    #[test]
+    fn deleting_every_line_writes_an_empty_new_range() {
+        let hunks = text_hunks("f", b"a\nb\n", b"");
+        assert_eq!(hunks[0].header_line(), "@@ -1,2 +0,0 @@");
+        assert_eq!(hunks[0].counts(), (0, 2));
+    }
+
+    #[test]
+    fn adding_to_an_empty_file_writes_an_empty_old_range() {
+        let hunks = text_hunks("f", b"", b"a\n");
+        assert_eq!(hunks[0].header_line(), "@@ -0,0 +1 @@");
+        assert_eq!(hunks[0].counts(), (1, 0));
+    }
+
+    #[test]
+    fn a_missing_final_line_feed_adds_a_marker_row() {
+        let with = text_hunks("f", b"a\nb\n", b"a\nc\n");
+        let without = text_hunks("f", b"a\nb\n", b"a\nc");
+        let last = without[0].lines.last().unwrap();
+        assert_eq!(last.kind, LineKind::NoNewline);
+        assert_eq!(last.render(), NO_NEWLINE);
+        assert_ne!(with[0].fingerprint(), without[0].fingerprint());
+        assert_eq!(without[0].counts(), (1, 1));
+    }
+
+    #[test]
+    fn carriage_returns_stay_in_the_text_of_a_line() {
+        let hunks = text_hunks("f", b"a\r\nb\r\n", b"a\r\nc\r\n");
+        let added = hunks[0]
+            .lines
+            .iter()
+            .find(|line| line.kind == LineKind::Added)
+            .unwrap();
+        assert_eq!(added.text, "c\r");
+        assert!(
+            hunks[0]
+                .lines
+                .iter()
+                .all(|line| line.kind != LineKind::NoNewline)
+        );
+    }
+
+    #[test]
+    fn retains_only_changes_that_touch_the_given_new_lines() {
+        let old = b"a\nb\nc\nd\ne\n";
+        let new = b"A\nb\nc\nd\nE\n";
+        let mut diff = TextDiff::new(old, new, &LineOptions::default());
+        assert_eq!(diff.counts(), (2, 2));
+        diff.retain_new_lines(&(4..5));
+        assert_eq!(diff.counts(), (1, 1));
+        assert!(!diff.is_empty());
+        diff.retain_new_lines(&(1..3));
+        assert!(diff.is_empty());
+    }
+
+    #[test]
+    fn header_text_names_the_function_line_above_the_hunk() {
+        let old: String = ["fn one() {\n"]
+            .into_iter()
+            .map(str::to_owned)
+            .chain((1..=9).map(|number| format!("    line{number}\n")))
+            .collect();
+        let new = old.replace("line9", "other");
+        let hunks = text_hunks("f", old.as_bytes(), new.as_bytes());
+        assert_eq!(hunks[0].header_line(), "@@ -7,4 +7,4 @@ fn one() {");
+    }
+}

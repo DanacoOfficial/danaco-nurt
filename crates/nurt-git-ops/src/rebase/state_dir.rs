@@ -387,6 +387,18 @@ mod tests {
     }
 
     #[test]
+    fn author_script_keeps_multi_byte_names_and_rejects_malformed_text() {
+        let author = AuthorScript {
+            name: "Zażółć Gęślą".into(),
+            email: "z@example.com".into(),
+            date: "@1700000000 +0100".into(),
+        };
+        assert_eq!(AuthorScript::parse(&author.render()).ok(), Some(author));
+        assert!(AuthorScript::parse(b"GIT_AUTHOR_NAME=abc\n").is_err());
+        assert!(AuthorScript::parse(b"GIT_AUTHOR_NAME='a'\n").is_err());
+    }
+
+    #[test]
     fn author_header_round_trips() {
         let author = AuthorScript::from_header(BStr::new("A U <a@e> 1700000000 +0100")).ok();
         assert_eq!(

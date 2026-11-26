@@ -34,7 +34,7 @@ pub(super) struct Scanner<'s, 'h> {
     set: &'s PatternSet,
     haystack: &'h [u8],
     multiline: bool,
-    sources: Vec<MatchSource>,
+    sources: &'s [MatchSource],
     slots: Vec<Slot>,
     pos: usize,
     last_end: Option<usize>,

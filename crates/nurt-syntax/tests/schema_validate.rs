@@ -580,6 +580,56 @@ fn check_members_reports_unknown_members_and_admits_normalized_defaults() {
 }
 
 #[test]
+fn rejects_metadata_integers_outside_the_safe_range() {
+    let mut value = surface_value(json!({"t": "null"}));
+    value["meta"] = json!({"count": MAX_SAFE_INTEGER, "ratio": 1e300, "low": -MAX_SAFE_INTEGER});
+    surface_accepts(value.clone());
+    for number in [
+        json!(MAX_SAFE_INTEGER + 1),
+        json!(-MAX_SAFE_INTEGER - 1),
+        json!(u64::MAX),
+    ] {
+        value["meta"] = json!({"nested": [{"count": number}]});
+        assert_eq!(surface_violation(value.clone()), "/meta");
+    }
+}
+
+#[test]
+fn rejects_metadata_integers_outside_the_safe_range_in_a_bound_tree() {
+    let mut value = bound_pipeline(bound_stage("find", "read", "source"), vec![]);
+    value["meta"] = json!({"count": MAX_SAFE_INTEGER + 1});
+    assert_eq!(bound_violation(value), "/meta");
+}
+
+#[test]
+fn rejects_empty_regular_expression_patterns() {
+    for flags in ["", "i"] {
+        let value = surface_value(json!({"t": "regex", "v": "", "flags": flags}));
+        assert_eq!(surface_violation(value), format!("{ARG_VALUE}/v"), "{flags}");
+        let value = json!({"t": "regex", "v": "", "flags": flags});
+        assert_eq!(
+            bound_violation(bound_value(value)),
+            format!("{BOUND_VALUE}/v"),
+            "{flags}"
+        );
+    }
+    surface_accepts(surface_value(json!({"t": "regex", "v": " ", "flags": ""})));
+}
+
+#[test]
+fn rejects_empty_bound_globs_and_keys() {
+    for kind in ["glob", "key"] {
+        let value = json!({"t": kind, "v": ""});
+        assert_eq!(
+            bound_violation(bound_value(value)),
+            format!("{BOUND_VALUE}/v"),
+            "{kind}"
+        );
+        bound_accepts(bound_value(json!({"t": kind, "v": "a"})));
+    }
+}
+
+#[test]
 fn rejects_reserved_words_and_overlong_identifiers() {
     use nurt_syntax::validate::is_reserved_word;
     assert!(is_reserved_word("and"));

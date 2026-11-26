@@ -105,8 +105,8 @@ impl ServiceBackend for ScmBackend {
     }
 
     fn get(&self, name: &str, scope: ServiceScope) -> Result<Service> {
-        let service = open_service(name, SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS)
-            .map_err(|error| to_error(error, name))?;
+        let service =
+            open_service(name, SERVICE_QUERY_STATUS).map_err(|error| to_error(error, name))?;
         let status = query_status(&service).map_err(|error| to_error(error, name))?;
         if scope_of(status.dwServiceType) != Some(scope) {
             return Err(service_not_found(MANAGER, name));
@@ -119,7 +119,11 @@ impl ServiceBackend for ScmBackend {
             exit_code: status.dwWin32ExitCode,
             ..ServiceFacts::default()
         };
-        read_config(&service, &mut facts);
+        // Services that deny the configuration to the account still report
+        // their state, as in the listing.
+        if let Ok(configured) = open_service(name, SERVICE_QUERY_CONFIG) {
+            read_config(&configured, &mut facts);
+        }
         Ok(facts.to_record())
     }
 
@@ -471,8 +475,123 @@ fn to_error(error: OsError, name: &str) -> Error {
 #[cfg(test)]
 mod tests {
     use nurt_contracts::error::ErrorCode;
+    use windows_sys::Win32::Foundation::SetLastError;
 
     use super::*;
+
+    fn fail_with(code: u32) -> i32 {
+        // SAFETY: `SetLastError` stores the error code of the calling thread.
+        unsafe { SetLastError(code) };
+        0
+    }
+
+    #[test]
+    fn query_buffer_grows_until_the_result_fits() {
+        let mut calls = 0;
+        let buffer = query_buffer(|_, size, needed| {
+            calls += 1;
+            if size < 100 {
+                *needed = 100;
+                fail_with(ERROR_INSUFFICIENT_BUFFER)
+            } else {
+                1
+            }
+        })
+        .unwrap();
+        assert_eq!(calls, 2);
+        assert!(buffer.len() * size_of::<u64>() >= 100);
+        let mut more_data = 0;
+        let buffer = query_buffer(|_, size, needed| {
+            more_data += 1;
+            if size < 20 {
+                *needed = 20;
+                fail_with(ERROR_MORE_DATA)
+            } else {
+                1
+            }
+        })
+        .unwrap();
+        assert_eq!(more_data, 2);
+        assert_eq!(buffer.len(), 3);
+    }
+
+    #[test]
+    fn query_buffer_returns_other_errors_and_gives_up_after_the_attempt_limit() {
+        let mut calls = 0;
+        let error = query_buffer(|_, _, _| {
+            calls += 1;
+            fail_with(scm::ERROR_ACCESS_DENIED)
+        })
+        .unwrap_err();
+        assert_eq!(error.code, scm::ERROR_ACCESS_DENIED);
+        assert_eq!(calls, 1);
+        let mut attempts = 0;
+        let outcome = query_buffer(|_, _, needed| {
+            attempts += 1;
+            *needed = 8;
+            fail_with(ERROR_MORE_DATA)
+        });
+        assert!(outcome.is_err());
+        assert_eq!(attempts, MAX_ATTEMPTS);
+        assert!(query_buffer(|_, _, _| 1).unwrap().is_empty());
+    }
+
+    #[test]
+    fn read_wide_stops_at_the_terminator_and_reads_null_as_empty() {
+        let text: Vec<u16> = "Café ß 日本 🙂"
+            .encode_utf16()
+            .chain([0, u16::from(b'x')])
+            .collect();
+        // SAFETY: `text` holds a NUL-terminated UTF-16 string.
+        assert_eq!(unsafe { read_wide(text.as_ptr()) }, "Café ß 日本 🙂");
+        // SAFETY: a null pointer is permitted.
+        assert_eq!(unsafe { read_wide(ptr::null()) }, "");
+        let empty = [0u16];
+        // SAFETY: `empty` holds a NUL-terminated UTF-16 string.
+        assert_eq!(unsafe { read_wide(empty.as_ptr()) }, "");
+        let lone_surrogate = [0xD800u16, u16::from(b'a'), 0];
+        // SAFETY: `lone_surrogate` holds a NUL-terminated UTF-16 string.
+        assert_eq!(unsafe { read_wide(lone_surrogate.as_ptr()) }, "\u{FFFD}a");
+    }
+
+    #[test]
+    fn errors_of_the_manager_map_to_the_error_table() {
+        let os_error = |code| OsError {
+            code,
+            message: "message of the system".to_owned(),
+        };
+        let missing = to_error(os_error(scm::ERROR_SERVICE_DOES_NOT_EXIST), "Absent");
+        assert_eq!(missing.code(), ErrorCode::NotFound);
+        let denied = to_error(os_error(scm::ERROR_ACCESS_DENIED), "Spooler");
+        assert_eq!(denied.code(), ErrorCode::Privilege);
+        assert_eq!(denied.details["required"], REQUIRED_PRIVILEGE);
+        let other = to_error(os_error(1051), "Spooler");
+        assert_eq!(other.code(), ErrorCode::Service);
+        assert_eq!(other.details["os_code"], "1051");
+        assert_eq!(other.details["os_message"], "message of the system");
+    }
+
+    #[test]
+    fn format_message_describes_a_known_code_and_leaves_an_unknown_one_empty() {
+        assert!(!format_message(scm::ERROR_ACCESS_DENIED).is_empty());
+        assert!(!format_message(scm::ERROR_ACCESS_DENIED).ends_with(char::is_whitespace));
+        assert!(format_message(0x3FFF_FFFF).is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires the Windows service control manager"]
+    fn it_scm_get_reads_the_state_of_every_listed_service() {
+        let backend = ScmBackend;
+        let query = ServiceQuery {
+            scope: ServiceScope::System,
+        };
+        for listed in backend.list(&query).unwrap() {
+            let service = backend
+                .get(&listed.name, ServiceScope::System)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", listed.name));
+            assert_eq!(service.name.to_lowercase(), listed.name.to_lowercase());
+        }
+    }
 
     #[test]
     #[ignore = "requires the Windows service control manager"]

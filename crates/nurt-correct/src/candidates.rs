@@ -352,6 +352,40 @@ mod tests {
     }
 
     #[test]
+    fn keeps_at_most_three_ranked_candidates() {
+        let ranked = rank(["d", "c", "b", "a"].map(candidate).to_vec());
+        assert_eq!(
+            ranked
+                .iter()
+                .map(|c| c.program.as_str())
+                .collect::<Vec<_>>(),
+            ["a", "b", "c"]
+        );
+        assert!(rank(Vec::new()).is_empty());
+    }
+
+    #[test]
+    fn an_empty_set_is_kept_but_offers_nothing() {
+        let clock = ManualClock::new();
+        let mut store = Store::new(DEFAULT_TTL, &clock);
+        assert!(store.insert(Vec::new()).is_empty());
+        assert_eq!(store.len(), 1);
+        assert_eq!(
+            store.accept("c1").unwrap_err().code(),
+            ErrorCode::ExpiredCandidate
+        );
+    }
+
+    #[test]
+    fn keeps_multibyte_programs_exactly() {
+        let clock = ManualClock::new();
+        let mut store = Store::new(DEFAULT_TTL, &clock);
+        let offered = store.insert(vec![candidate("remove \"/srv/zażółć\"")]);
+        assert_eq!(offered[0].program, "remove \"/srv/zażółć\"");
+        assert_eq!(store.accept("c1").unwrap(), "remove \"/srv/zażółć\"");
+    }
+
+    #[test]
     fn numbers_candidates_without_reuse() {
         let clock = ManualClock::new();
         let mut store = Store::new(DEFAULT_TTL, &clock);

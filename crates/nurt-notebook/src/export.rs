@@ -7,6 +7,7 @@ use nurt_contracts::record::CellType;
 
 use crate::cell::output_text;
 use crate::notebook::Notebook;
+use crate::source;
 
 /// Format of [`Notebook::export`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -107,7 +108,7 @@ fn script_cell(marker: &str, cell_type: CellType, source: &str) -> String {
         CellType::Code => format!("{marker} %%\n{source}\n"),
         _ => {
             let mut out = format!("{marker} %% [{}]\n", cell_type.as_str());
-            for line in source.lines() {
+            for line in source::lines(source) {
                 if line.is_empty() {
                     out.push_str(marker);
                 } else {
@@ -123,7 +124,15 @@ fn script_cell(marker: &str, cell_type: CellType, source: &str) -> String {
 }
 
 /// Fenced code block with a fence longer than any backtick run in `text`.
+///
+/// The info string comes from the notebook metadata, so white space, control
+/// characters and backticks are removed from it: it stays on the line of the
+/// fence and cannot close the block.
 fn fenced(info: &str, text: &str) -> String {
+    let info: String = info
+        .chars()
+        .filter(|c| !c.is_whitespace() && !c.is_control() && *c != '`')
+        .collect();
     let longest_run = text
         .split(|c| c != '`')
         .map(str::len)
@@ -192,6 +201,37 @@ mod tests {
             script_cell("//", CellType::Markdown, "a\n\nb"),
             "// %% [markdown]\n// a\n//\n// b\n"
         );
+    }
+
+    #[test]
+    fn script_comments_never_hold_a_line_break_of_the_reader() {
+        let text = "{\"cells\": [{\"cell_type\": \"markdown\", \"metadata\": {}, \
+                    \"source\": \"a\\rimport os\\u000bimport sys\\u2028x\"}], \
+                    \"nbformat\": 4, \"nbformat_minor\": 5}";
+        let exported = Notebook::parse(text.as_bytes())
+            .unwrap()
+            .export(ExportFormat::Script);
+        assert_eq!(
+            exported,
+            "# %% [markdown]\n# a\n# import os\n# import sys\n# x\n"
+        );
+        assert!(!exported.contains('\r'));
+    }
+
+    #[test]
+    fn fence_info_string_stays_on_one_line() {
+        assert_eq!(
+            fenced("py\n```\nINJECT `x` y", "1"),
+            "```pyINJECTxy\n1\n```\n"
+        );
+        let text = "{\"cells\": [{\"cell_type\": \"code\", \"execution_count\": null, \
+                    \"metadata\": {}, \"outputs\": [], \"source\": \"x\"}], \
+                    \"metadata\": {\"language_info\": {\"name\": \"p\\ny\\u0060\"}}, \
+                    \"nbformat\": 4, \"nbformat_minor\": 5}";
+        let exported = Notebook::parse(text.as_bytes())
+            .unwrap()
+            .export(ExportFormat::Markdown);
+        assert_eq!(exported, "```py\nx\n```\n");
     }
 
     #[test]

@@ -132,6 +132,14 @@ mod tests {
     }
 
     #[test]
+    fn rejects_account_and_path_that_look_like_options() {
+        for url in ["-oProxyCommand=x@example.com:repo", "git@example.com:-x"] {
+            let error = target(url).unwrap_err();
+            assert_eq!(error.code(), ErrorCode::Arg, "{url}");
+        }
+    }
+
+    #[test]
     fn quotes_path_like_git() {
         let command = remote_command(Service::UploadPack, "/srv/it's here!.git".into());
         assert_eq!(command, r"git-upload-pack '/srv/it'\''s here'\!'.git'");

@@ -252,6 +252,23 @@ mod tests {
     }
 
     #[test]
+    fn encodes_line_feeds_of_passwords() {
+        let updated = store("", &entry("example.com", "bob", "pa\nss"));
+        assert_eq!(updated, "https://bob:pa%0Ass@example.com\n");
+        let found = find(&updated, &query("example.com", None, None)).expect("entry");
+        assert_eq!(found.password, "pa\nss");
+    }
+
+    #[test]
+    fn reads_crlf_lines_and_multibyte_names() {
+        let content = "https://zażółć:p%C5%82%C3%B3d@example.com\r\nhttps://bob:1@example.com\r\n";
+        let found = find(content, &query("example.com", None, Some("zażółć"))).expect("entry");
+        assert_eq!(found.password, "płód");
+        let other = find(content, &query("example.com", None, Some("bob"))).expect("entry");
+        assert_eq!(other.password, "1");
+    }
+
+    #[test]
     fn debug_output_hides_the_password() {
         assert!(!format!("{:?}", entry("h", "u", "hidden-value")).contains("hidden-value"));
     }

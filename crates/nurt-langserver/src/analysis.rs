@@ -809,6 +809,100 @@ mod tests {
     }
 
     #[test]
+    fn corrections_after_wide_characters_are_placed_in_the_units_of_the_encoding() {
+        let setup = Setup::new();
+        let text = "find \"\u{1f600}\" |> Count\n";
+        let utf16 = setup.engine(Encoding::Utf16).analyze(text);
+        assert_eq!(
+            utf16.diagnostics[0].range,
+            Range::new(Position::new(0, 13), Position::new(0, 18))
+        );
+        let utf32 = setup.engine(Encoding::Utf32).analyze(text);
+        assert_eq!(
+            utf32.diagnostics[0].range,
+            Range::new(Position::new(0, 12), Position::new(0, 17))
+        );
+        let fixes = edits(&utf16, whole());
+        assert_eq!(fixes[0].1, "count");
+    }
+
+    #[test]
+    fn a_program_replaces_the_text_with_the_line_ending_of_the_text() {
+        assert_eq!(program_text("count\n", "count"), "count\n");
+        assert_eq!(program_text("count\n", "count\n"), "count\n");
+        assert_eq!(program_text("count", "count"), "count");
+        assert_eq!(program_text("", "count"), "count");
+        assert_eq!(program_text("\n", ""), "\n");
+    }
+
+    #[test]
+    fn the_first_line_of_a_program_is_shown_with_a_mark_for_more() {
+        assert_eq!(first_line("count"), "count");
+        assert_eq!(first_line("count\nsort size"), "count \u{2026}");
+        assert_eq!(first_line("\u{142}\u{f3}d\u{17a}\r\nx"), "\u{142}\u{f3}d\u{17a} \u{2026}");
+        assert_eq!(first_line(""), "");
+    }
+
+    #[test]
+    fn positions_of_an_error_need_a_line_and_a_column() {
+        let lines = Lines::new("find \"\u{142}\" |> x\n");
+        let at = |line, column| At {
+            line,
+            column,
+            length: Some(1),
+            stage: None,
+        };
+        assert_eq!(error_bytes(&lines, None), None);
+        assert_eq!(error_bytes(&lines, Some(at(Some(1), None))), None);
+        assert_eq!(error_bytes(&lines, Some(at(None, Some(1)))), None);
+        let found = error_bytes(&lines, Some(at(Some(1), Some(13)))).unwrap();
+        assert_eq!(&"find \"\u{142}\" |> x\n"[found], "x");
+    }
+
+    #[test]
+    fn a_span_without_a_length_is_empty_and_a_long_one_ends_with_the_text() {
+        let lines = Lines::new("ab\ncd");
+        assert_eq!(span(&lines, 1, 2, None), 1..1);
+        assert_eq!(span(&lines, 2, 1, Some(99)), 3..5);
+        assert_eq!(span(&lines, 9, 9, Some(1)), 5..5);
+    }
+
+    #[test]
+    fn a_fix_without_a_position_replaces_the_whole_text() {
+        let text = "count )\n";
+        let lines = Lines::new(text);
+        let (edit, local) = fix_edit(text, &lines, None, "count", true, Variant::A, Encoding::Utf16);
+        assert!(!local);
+        assert_eq!(edit.new_text, "count\n");
+        assert_eq!(edit.range, Range::new(Position::new(0, 0), Position::new(1, 0)));
+    }
+
+    #[test]
+    fn a_lexical_fix_replaces_only_the_fragment_at_the_error() {
+        let text = "find '/srv'\n";
+        let lines = Lines::new(text);
+        let (edit, local) = fix_edit(
+            text,
+            &lines,
+            Some(5..11),
+            "\"/srv\"",
+            true,
+            Variant::A,
+            Encoding::Utf16,
+        );
+        assert!(local);
+        assert_eq!(edit.new_text, "\"/srv\"");
+        assert_eq!(edit.range, Range::new(Position::new(0, 5), Position::new(0, 11)));
+    }
+
+    #[test]
+    fn only_the_empty_program_problem_is_not_an_error() {
+        assert!(is_empty_program(Some("empty_program")));
+        assert!(!is_empty_program(Some("trailing_input")));
+        assert!(!is_empty_program(None));
+    }
+
+    #[test]
     fn matches_argument_shapes_to_types() {
         let path: ParamType = "path".parse().unwrap();
         let pattern: ParamType = "text | regex".parse().unwrap();

@@ -1117,6 +1117,7 @@ pub(crate) mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::store::test_support::Fixture;
 
     fn abs(path: &str) -> AbsPath {
         AbsPath::new(path).unwrap()
@@ -1415,6 +1416,286 @@ pub(crate) mod tests {
                 .to_string()
                 .ends_with(": e")
         );
+    }
+
+    fn row_of(op: u64, command: &str) -> IndexRow {
+        IndexRow {
+            op: OpId(op),
+            time: WallTime(5),
+            kind: OpKind::command(command),
+            session: None,
+            bulk: false,
+            counts_as_step: true,
+            parts: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn index_rows_with_multibyte_text_and_crlf_line_ends_are_read() {
+        let first = row_of(1, "zapisz-żółć");
+        let second = row_of(2, "write");
+        let mut bytes = first.encode().unwrap();
+        bytes.pop();
+        bytes.extend_from_slice(b"\r\n");
+        bytes.extend(second.encode().unwrap());
+        assert_eq!(parse_rows(&bytes).unwrap(), vec![first, second]);
+    }
+
+    #[test]
+    fn blank_lines_and_a_missing_final_line_end_are_tolerated_in_the_index() {
+        let row = row_of(3, "write");
+        let mut bytes = b"\n\n".to_vec();
+        bytes.extend(row.encode().unwrap());
+        bytes.extend_from_slice(b"\n");
+        assert_eq!(parse_rows(&bytes).unwrap(), vec![row.clone()]);
+        let mut torn = row.encode().unwrap();
+        torn.pop();
+        assert!(parse_rows(&torn).unwrap().is_empty());
+        assert!(parse_rows(b"").unwrap().is_empty());
+        assert!(parse_rows(b"\n").unwrap().is_empty());
+    }
+
+    #[test]
+    fn malformed_complete_index_lines_are_decoding_errors() {
+        for bytes in [&b"not json\n"[..], b"\xff\xfe\n", b"[]\n", b"{}\n"] {
+            assert!(
+                matches!(
+                    parse_rows(bytes),
+                    Err(ReadError::Format(FormatError::Decoding(_)))
+                ),
+                "{bytes:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn last_index_row_names_the_last_complete_row() {
+        let fixture = Fixture::new();
+        let missing = fixture.fs.path("vol-a/state/last-missing.jsonl");
+        assert_eq!(last_index_row(&fixture.fs, &missing).unwrap(), None);
+        assert_eq!(read_index(&fixture.fs, &missing).unwrap(), Vec::new());
+
+        let path = fixture.fs.path("vol-a/state/last-rows.jsonl");
+        let mut bytes = row_of(1, "a").encode().unwrap();
+        bytes.extend(row_of(2, "żółć").encode().unwrap());
+        bytes.extend_from_slice(b"{\"op\":3,\"ti");
+        fixture.write(&path, &bytes);
+        assert_eq!(
+            last_index_row(&fixture.fs, &path).unwrap(),
+            Some(row_of(2, "żółć"))
+        );
+
+        let torn = fixture.fs.path("vol-a/state/last-torn.jsonl");
+        fixture.write(&torn, b"{\"op\":");
+        assert_eq!(last_index_row(&fixture.fs, &torn).unwrap(), None);
+        assert!(read_index(&fixture.fs, &torn).unwrap().is_empty());
+
+        let empty = fixture.fs.path("vol-a/state/last-empty.jsonl");
+        fixture.write(&empty, b"");
+        assert_eq!(last_index_row(&fixture.fs, &empty).unwrap(), None);
+        assert!(read_index(&fixture.fs, &empty).unwrap().is_empty());
+    }
+
+    #[test]
+    fn index_readers_report_a_malformed_complete_line() {
+        let fixture = Fixture::new();
+        let path = fixture.fs.path("vol-a/state/malformed.jsonl");
+        fixture.write(&path, b"not json\n");
+        assert!(matches!(
+            read_index(&fixture.fs, &path),
+            Err(ReadError::Format(FormatError::Decoding(_)))
+        ));
+        assert!(matches!(
+            last_index_row(&fixture.fs, &path),
+            Err(ReadError::Format(FormatError::Decoding(_)))
+        ));
+    }
+
+    #[test]
+    fn state_and_item_files_round_trip_through_atomic_writes() {
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = crate::store::scope(OpId(2), nurt_contracts::fs::ScopePurpose::Maintenance);
+        let temp = fs.mount(0);
+
+        let state_path = fs.path("vol-a/STATE");
+        let record = StateRecord::rolling_back(UndoneCause::Crash);
+        write_state(fs, &scope, &temp, &state_path, record).unwrap();
+        assert_eq!(read_state(fs, &state_path).unwrap(), record);
+        assert_eq!(fixture.read(&state_path), b"rolling_back crash\n");
+
+        let items_path = fs.path("vol-a/ITEMS");
+        assert_eq!(read_items(fs, &items_path).unwrap(), Items::default());
+        let items = Items {
+            items: vec![ItemState {
+                index: TargetIndex(4),
+                released: true,
+                undone_by: Some(OpId(9)),
+            }],
+        };
+        write_items(fs, &scope, &temp, &items_path, &items).unwrap();
+        assert_eq!(read_items(fs, &items_path).unwrap(), items);
+
+        let damaged = fs.path("vol-a/ITEMS-damaged");
+        fixture.write(&damaged, b"{\"items\":[]}\ncrc32 00000000\n");
+        assert!(matches!(
+            read_items(fs, &damaged),
+            Err(ReadError::Format(FormatError::Checksum))
+        ));
+        assert!(matches!(
+            read_state(fs, &fs.path("vol-a/STATE-missing")),
+            Err(ReadError::Fs(_))
+        ));
+    }
+
+    #[test]
+    fn item_files_tolerate_a_missing_final_line_end_but_not_a_carriage_return() {
+        let items = Items {
+            items: vec![ItemState {
+                index: TargetIndex(1),
+                released: false,
+                undone_by: None,
+            }],
+        };
+        let mut bytes = items.encode().unwrap();
+        bytes.pop();
+        assert_eq!(Items::decode(&bytes), Ok(items.clone()));
+        bytes.extend_from_slice(b"\r\n");
+        assert_eq!(Items::decode(&bytes), Err(FormatError::Checksum));
+        assert_eq!(Items::decode("żółć".as_bytes()), Err(FormatError::Checksum));
+        assert_eq!(Items::decode(b""), Err(FormatError::Checksum));
+    }
+
+    #[test]
+    fn state_files_reject_carriage_returns_blank_words_and_multibyte_names() {
+        for garbage in [
+            &b"committed\r\n"[..],
+            b"undone  crash\n",
+            b" committed\n",
+            b"committed \n",
+            "zatwierdzony\n".as_bytes(),
+            b"undone crash\n\n",
+        ] {
+            assert!(StateRecord::decode(garbage).is_err(), "{garbage:?}");
+        }
+        assert_eq!(
+            StateRecord::decode(b"undone\n"),
+            Ok(StateRecord::new(EntryState::Undone))
+        );
+    }
+
+    #[test]
+    fn manifests_with_other_versions_or_wrong_member_types_are_rejected() {
+        assert_eq!(
+            Manifest::decode(br#"{"v": 4294967297}"#),
+            Err(FormatError::Version(4_294_967_297))
+        );
+        for bytes in [
+            &b""[..],
+            b"[]",
+            b"null",
+            br#"{"v": "1"}"#,
+            br#"{"v": 1.5}"#,
+            br#"{"v": -1}"#,
+            br#"{"v": 1}"#,
+        ] {
+            assert!(
+                matches!(Manifest::decode(bytes), Err(FormatError::Decoding(_))),
+                "{bytes:?}"
+            );
+        }
+        let deep = "[".repeat(100_000);
+        assert!(matches!(
+            Manifest::decode(deep.as_bytes()),
+            Err(FormatError::Decoding(_))
+        ));
+    }
+
+    #[test]
+    fn file_identities_keep_every_digit_as_decimal_text() {
+        let mut before = sample().targets[0].before.clone();
+        before.file_id = Some(FileId {
+            volume: u64::MAX,
+            low: u64::MAX - 1,
+            high: 1,
+        });
+        let value = serde_json::to_value(&before).unwrap();
+        assert_eq!(value["file_id"]["volume"], "18446744073709551615");
+        assert_eq!(value["file_id"]["low"], "18446744073709551614");
+        assert_eq!(value["file_id"]["high"], "1");
+        let back: BeforeRecord = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(back, before);
+        for text in ["12x", "-1", "", "18446744073709551616"] {
+            let mut damaged = value.clone();
+            damaged["file_id"]["low"] = serde_json::json!(text);
+            assert!(
+                serde_json::from_value::<BeforeRecord>(damaged).is_err(),
+                "{text:?}"
+            );
+        }
+        before.file_id = None;
+        let value = serde_json::to_value(&before).unwrap();
+        assert!(value["file_id"].is_null());
+        assert_eq!(
+            serde_json::from_value::<BeforeRecord>(value).unwrap().file_id,
+            None
+        );
+    }
+
+    #[test]
+    fn byte_hashes_match_the_published_sha256_vectors() {
+        assert_eq!(
+            hash_bytes(b"").to_string(),
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            hash_bytes(b"abc").to_string(),
+            "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn tree_listing_covers_files_and_directories_with_hashes() {
+        use nurt_fs::mem::{MemFs, VolumeSpec};
+
+        let fs = MemFs::builder()
+            .volume(VolumeSpec::posix(abs("/v")))
+            .build()
+            .unwrap();
+        fs.seed_file(&abs("/v/t/b.txt"), b"bb").unwrap();
+        fs.seed_file(&abs("/v/t/a/x.txt"), b"x").unwrap();
+        let goose = "gęś".as_bytes();
+        fs.seed_file(&abs("/v/t/a/zażółć.txt"), goose).unwrap();
+        fs.seed_dir(&abs("/v/t/empty")).unwrap();
+        let listing = TreeListing::build(&fs, &abs("/v/t")).unwrap();
+        let mut found: Vec<(&str, FileKind, Option<ContentHash>)> = listing
+            .entries
+            .iter()
+            .map(|entry| (entry.path.as_str(), entry.kind, entry.hash))
+            .collect();
+        found.sort_by(|left, right| left.0.cmp(right.0));
+        assert_eq!(
+            found,
+            vec![
+                ("a", FileKind::Directory, None),
+                ("a/x.txt", FileKind::File, Some(hash_bytes(b"x"))),
+                ("a/zażółć.txt", FileKind::File, Some(hash_bytes(goose))),
+                ("b.txt", FileKind::File, Some(hash_bytes(b"bb"))),
+                ("empty", FileKind::Directory, None),
+            ]
+        );
+        let sizes: Vec<(&str, u64)> = listing
+            .entries
+            .iter()
+            .filter(|entry| entry.kind == FileKind::File)
+            .map(|entry| (entry.path.as_str(), entry.size))
+            .collect();
+        assert!(sizes.contains(&("b.txt", 2)));
+        let goose_size = u64::try_from(goose.len()).unwrap();
+        assert!(sizes.contains(&("a/zażółć.txt", goose_size)));
+        assert!(TreeListing::build(&fs, &abs("/v/missing")).is_err());
+        let encoded = serde_json::to_vec(&listing).unwrap();
+        assert_eq!(serde_json::from_slice::<TreeListing>(&encoded).unwrap(), listing);
     }
 
     proptest! {

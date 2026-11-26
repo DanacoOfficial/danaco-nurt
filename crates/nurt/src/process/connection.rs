@@ -448,7 +448,8 @@ pub(crate) fn is_compatible(protocol: &str) -> bool {
     protocol == PROTOCOL
         || protocol
             .strip_prefix(PROTOCOL)
-            .is_some_and(|minor| minor.starts_with('.'))
+            .and_then(|rest| rest.strip_prefix('.'))
+            .is_some_and(|minor| !minor.is_empty() && minor.bytes().all(|b| b.is_ascii_digit()))
 }
 
 #[cfg(test)]
@@ -529,6 +530,38 @@ mod tests {
         assert!(!is_compatible("nurt-rpc/2"));
         assert!(!is_compatible("nurt-rpc/10"));
         assert!(!is_compatible(""));
+    }
+
+    #[test]
+    fn protocol_minor_version_must_be_a_number() {
+        assert!(is_compatible("nurt-rpc/1.0"));
+        assert!(is_compatible("nurt-rpc/1.12"));
+        for protocol in [
+            "nurt-rpc/1.",
+            "nurt-rpc/1.x",
+            "nurt-rpc/1.2.3",
+            "nurt-rpc/1.-1",
+            "nurt-rpc/1. 2",
+            "nurt-rpc/1.\u{663}",
+            "Nurt-rpc/1",
+            "nurt-rpc/1 ",
+        ] {
+            assert!(!is_compatible(protocol), "{protocol:?}");
+        }
+    }
+
+    #[test]
+    fn reply_with_an_error_member_fails_even_with_a_result() {
+        let error =
+            reply_of(&json!({"id": 1, "result": 5, "error": {"code": -32602}})).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidArgument);
+    }
+
+    #[test]
+    fn non_integer_codes_are_internal_errors() {
+        let error = rpc_error(&json!({"code": "x", "message": "m"}));
+        assert_eq!(error.kind(), ErrorKind::Internal);
+        assert!(error.message().contains("code -32603"));
     }
 
     #[test]

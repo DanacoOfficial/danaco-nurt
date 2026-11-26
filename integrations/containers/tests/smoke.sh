@@ -27,7 +27,7 @@ run_nurt() {
 
 version_output=$(run_nurt version 2>&1)
 case $version_output in
-  'Danaco Nurt '*) printf 'ok   version output\n' ;;
+  'nurt '[0-9]*) printf 'ok   version output\n' ;;
   *)
     printf 'FAIL version output: %s\n' "$version_output"
     failures=$((failures + 1))

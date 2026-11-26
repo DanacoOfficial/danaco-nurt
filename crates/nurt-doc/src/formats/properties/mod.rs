@@ -336,9 +336,24 @@ impl PropertiesDocument {
             return;
         }
         plan.expected[id].1 = value.to_owned();
-        let raw = self.continued_value(id, value);
+        let mut raw = self.continued_value(id, value);
+        if entry.key_range.end == entry.value_range.start {
+            raw.insert_str(0, self.separator());
+        }
         plan.splices
             .push(Splice::new(entry.value_range.clone(), raw));
+    }
+
+    /// Separator between a key and its value: the one of the last entry that
+    /// has a plain one, `=` otherwise.
+    fn separator(&self) -> &str {
+        self.parsed
+            .entries
+            .iter()
+            .rev()
+            .map(|e| &self.text[e.key_range.end..e.value_range.start])
+            .find(|s| !s.is_empty() && !s.contains(['\n', '\r', '\\']))
+            .unwrap_or("=")
     }
 
     /// Raw text of `value` for the entry `id`, broken over lines like the
@@ -394,14 +409,7 @@ impl PropertiesDocument {
     fn plan_new(&self, plan: &mut Plan, name: &str, value: &str) {
         plan.count += 1;
         plan.expected.push((name.to_owned(), value.to_owned()));
-        let separator = self
-            .parsed
-            .entries
-            .iter()
-            .rev()
-            .map(|e| &self.text[e.key_range.end..e.value_range.start])
-            .find(|s| !s.is_empty() && !s.contains(['\n', '\r', '\\']))
-            .unwrap_or("=");
+        let separator = self.separator();
         let newline = dominant_newline(&self.text);
         let line = format!(
             "{}{}{separator}{}{newline}",
@@ -522,6 +530,17 @@ mod tests {
         doc.set(&key("name"), &Value::Text("λöd€ é".into()), false)
             .unwrap();
         assert_eq!(doc.bytes(), b"name=\\u03BB\xf6d\\u20AC \xe9\n");
+    }
+
+    #[test]
+    fn sets_a_value_on_a_key_without_separator() {
+        let mut doc = PropertiesDocument::parse(b"debug\nport: 1\n").unwrap();
+        doc.set(&key("debug"), &Value::Text("on".into()), false)
+            .unwrap();
+        assert_eq!(doc.text(), "debug: on\nport: 1\n");
+        let mut last = PropertiesDocument::parse(b"port=1\r\ndebug").unwrap();
+        last.set(&key("debug"), &Value::Int(2), false).unwrap();
+        assert_eq!(last.text(), "port=1\r\ndebug=2");
     }
 
     #[test]

@@ -49,6 +49,27 @@ fn calls() -> Vec<(&'static str, Value, bool)> {
         ),
         ("syntax tree", json!({"ast": tree(), "preview": true}), true),
         ("cursor", json!({"cursor": "c-2", "limit": 100}), true),
+        (
+            "limit at the lower bound",
+            json!({"program": "help", "limit": 1}),
+            true,
+        ),
+        (
+            "limit at the upper bound",
+            json!({"program": "help", "limit": 5000}),
+            true,
+        ),
+        (
+            "multi-byte program",
+            json!({"program": "find \"/home/użytkownik/zażółć\""}),
+            true,
+        ),
+        (
+            "negative limit",
+            json!({"program": "help", "limit": -1}),
+            false,
+        ),
+        ("null program", json!({"program": null}), false),
         ("accepted candidate", json!({"accept": "c1"}), true),
         ("no input", json!({"preview": true}), false),
         (

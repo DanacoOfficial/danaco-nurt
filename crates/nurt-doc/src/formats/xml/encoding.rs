@@ -918,6 +918,120 @@ mod tests {
     }
 
     #[test]
+    fn byte_order_mark_contradicting_the_declaration_is_rejected() {
+        let bytes = b"\xEF\xBB\xBF<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><a/>";
+        let error = XmlEncoding::detect(bytes).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::DocParse);
+    }
+
+    #[test]
+    fn ucs4_and_ebcdic_documents_are_rejected() {
+        for bytes in [
+            [0x00, 0x00, 0x00, 0x3C],
+            [0x3C, 0x00, 0x00, 0x00],
+            [0x4C, 0x6F, 0xA7, 0x94],
+        ] {
+            assert!(XmlEncoding::detect(&bytes).is_err());
+        }
+    }
+
+    #[test]
+    fn malformed_declarations_are_rejected() {
+        for bytes in [
+            &b"<?xml version=\"2.0\"?><a/>"[..],
+            b"<?xml version=\"1.0\" standalone=\"maybe\"?><a/>",
+            b"<?xml encoding=\"UTF-8\"?><a/>",
+            b"<?xml version=\"1.0\" encoding=\"9x\"?><a/>",
+            b"<?xml version=\"1.0\" encoding=\"no-such-encoding\"?><a/>",
+        ] {
+            assert!(XmlEncoding::detect(bytes).is_err());
+        }
+    }
+
+    #[test]
+    fn undeclared_encoding_defaults_to_utf8_and_reports_invalid_bytes() {
+        let encoding = XmlEncoding::detect(b"<a/>").unwrap();
+        assert_eq!(encoding.label(), "utf-8");
+        assert!(!encoding.has_bom());
+        let error = encoding.decode(b"<a>\xFF</a>", None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::DocParse);
+    }
+
+    #[test]
+    fn utf8_byte_order_mark_is_kept_when_encoding_back() {
+        let bytes = b"\xEF\xBB\xBF<a>\xC3\xA9</a>";
+        let encoding = XmlEncoding::detect(bytes).unwrap();
+        assert!(encoding.has_bom());
+        let text = encoding.decode(bytes, None).unwrap();
+        assert_eq!(text, "<a>\u{E9}</a>");
+        assert_eq!(encoding.encode(&text, None).unwrap(), bytes);
+    }
+
+    #[test]
+    fn latin1_document_round_trips_and_rejects_other_characters() {
+        let bytes = b"<?xml version=\"1.0\" encoding=\"latin1\"?><a>\xE9</a>";
+        let encoding = XmlEncoding::detect(bytes).unwrap();
+        assert_eq!(encoding.label(), "iso-8859-1");
+        let text = encoding.decode(bytes, None).unwrap();
+        assert_eq!(encoding.encode(&text, None).unwrap(), bytes);
+        let error = encoding.encode("<a>\u{20AC}</a>", None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Encoding);
+    }
+
+    #[test]
+    fn ascii_document_with_a_high_byte_is_rejected() {
+        let bytes = b"<?xml version=\"1.0\" encoding=\"us-ascii\"?><a>\xE9</a>";
+        let encoding = XmlEncoding::detect(bytes).unwrap();
+        assert_eq!(encoding.decode(bytes, None).unwrap_err().code(), ErrorCode::DocParse);
+    }
+
+    #[test]
+    fn codec_encoding_without_the_codec_service_reports_a_parse_error() {
+        let bytes = b"<?xml version=\"1.0\" encoding=\"windows-1250\"?><a/>";
+        let encoding = XmlEncoding::detect(bytes).unwrap();
+        assert_eq!(encoding.label(), "windows-1250");
+        assert_eq!(encoding.decode(bytes, None).unwrap_err().code(), ErrorCode::DocParse);
+    }
+
+    #[test]
+    fn unrepresentable_characters_become_references_only_where_references_exist() {
+        let bytes = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><a/>";
+        let encoding = XmlEncoding::detect(bytes).unwrap();
+        let text = encoding
+            .escape_unrepresentable("\u{20AC}5", XmlContext::Attribute, None)
+            .unwrap();
+        assert_eq!(text, "&#x20AC;5");
+        for context in [
+            XmlContext::Comment,
+            XmlContext::CData,
+            XmlContext::ProcessingInstruction,
+            XmlContext::Name,
+        ] {
+            let error = encoding
+                .escape_unrepresentable("\u{20AC}", context, None)
+                .unwrap_err();
+            assert_eq!(error.code(), ErrorCode::Encoding);
+        }
+    }
+
+    #[test]
+    fn encode_change_escapes_attribute_values_and_rejects_comments_in_latin1() {
+        let bytes = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><a x='1'><!--c--></a>";
+        let (encoding, tree) = parse_document(bytes, None).unwrap();
+        let text = tree.text();
+        let value_at = text.find("'1'").unwrap() + 1;
+        let mut change = XmlChange::default();
+        change.push(XmlEdit::new(value_at..value_at + 1, "\u{20AC}"));
+        let written = encoding.encode_change(&tree, &change, None).unwrap();
+        assert!(written.ends_with(b"<a x='&#x20AC;'><!--c--></a>"));
+        let comment_at = text.find("c-->").unwrap();
+        let mut in_comment = XmlChange::default();
+        in_comment.push(XmlEdit::new(comment_at..comment_at + 1, "\u{20AC}"));
+        let error = encoding.encode_change(&tree, &in_comment, None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Encoding);
+    }
+
+    #[test]
     fn labels_map_to_charsets() {
         assert_eq!(charset_for_label("Latin1"), Some(Charset::Latin1));
         assert_eq!(charset_for_label("US-ASCII"), Some(Charset::Ascii));

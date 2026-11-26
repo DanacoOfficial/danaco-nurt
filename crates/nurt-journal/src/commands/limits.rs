@@ -306,6 +306,104 @@ mod tests {
     }
 
     #[test]
+    fn reads_unlimited_and_text_forms_of_each_limit() {
+        let word = || Value::Enum("unlimited".to_owned());
+        let parsed = parse(&call(
+            NAME,
+            &[("steps", word()), ("age", word()), ("size", word())],
+        ))
+        .unwrap();
+        assert_eq!(parsed.steps, Some(StepLimit::Unlimited));
+        assert_eq!(parsed.age, Some(AgeLimit::Unlimited));
+        assert_eq!(parsed.size, Some(SizeLimit::Unlimited));
+        assert_eq!(parsed.scope, Scope::Session);
+        assert!(parsed.sets_limits());
+
+        let text = parse(&call(
+            NAME,
+            &[
+                ("steps", Value::Text("100000".to_owned())),
+                ("age", Value::Text("2h".to_owned())),
+                ("volume", Value::Text("/mnt/zażółć".to_owned())),
+            ],
+        ))
+        .unwrap();
+        assert_eq!(text.steps, Some(StepLimit::Limited(100_000)));
+        assert_eq!(text.age, Some("2h".parse().unwrap()));
+        assert_eq!(text.volume.as_deref(), Some("/mnt/zażółć"));
+        assert!(!parse(&call(NAME, &[])).unwrap().sets_limits());
+    }
+
+    #[test]
+    fn size_budgets_are_accepted_from_the_minimum_upwards() {
+        let at_minimum = Value::Size(Size::from_bytes(SizeLimit::MIN_BYTES));
+        let parsed = parse(&call(NAME, &[("size", at_minimum)])).unwrap();
+        assert_eq!(
+            parsed.size,
+            Some(SizeLimit::Bytes(SizeSetting::from_bytes(
+                SizeLimit::MIN_BYTES
+            )))
+        );
+        let below = Value::Size(Size::from_bytes(SizeLimit::MIN_BYTES - 1));
+        let error = parse(&call(NAME, &[("size", below)])).unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn rejects_mistyped_and_out_of_range_limits() {
+        let invalid = [
+            ("steps", Value::Int(100_001), ErrorCode::InvalidValue),
+            ("steps", Value::Int(-1), ErrorCode::InvalidValue),
+            ("steps", Value::Bool(true), ErrorCode::Type),
+            (
+                "age",
+                Value::Duration(value::Duration::from_millis(-1)),
+                ErrorCode::InvalidValue,
+            ),
+            (
+                "age",
+                Value::Duration(value::Duration::from_millis(9_999)),
+                ErrorCode::InvalidValue,
+            ),
+            ("age", Value::Bool(true), ErrorCode::Type),
+            ("size", Value::Bool(true), ErrorCode::Type),
+            (
+                "scope",
+                Value::Enum("forever".to_owned()),
+                ErrorCode::InvalidValue,
+            ),
+        ];
+        for (name, given, code) in invalid {
+            let error = parse(&call(NAME, &[(name, given.clone())])).unwrap_err();
+            assert_eq!(error.code, code, "{name} {given:?}");
+        }
+    }
+
+    #[test]
+    fn a_report_without_limits_needs_no_session_and_changes_nothing() {
+        let env = Env::new();
+        env.three_operations();
+        let ctx = env.ctx_with(NAME, |options| options.session = None);
+        let args = call(NAME, &[]);
+        let done = apply(&env, &Limits, &args, &ctx).unwrap();
+        assert_eq!(done.records.len(), 1);
+        assert!(done.irreversible.is_empty());
+        assert_eq!(env.available(), 3);
+    }
+
+    #[test]
+    fn a_preview_reports_the_entries_that_would_expire_and_changes_nothing() {
+        let env = Env::new();
+        env.three_operations();
+        let ctx = env.ctx(NAME);
+        let args = call(NAME, &[("steps", Value::Int(1))]);
+        let planned = plan(&Limits, &args, &ctx).unwrap();
+        assert_eq!(planned.irreversible[0].count, Some(2));
+        assert_eq!(planned.preview.len(), 1);
+        assert_eq!(env.available(), 3);
+    }
+
+    #[test]
     fn rejects_values_out_of_range() {
         let invalid = [
             ("steps", Value::Int(0)),

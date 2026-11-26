@@ -171,8 +171,10 @@ fn config_pairs(host: &dyn Host) -> Vec<(String, String)> {
     else {
         return Vec::new();
     };
+    // A missing key ends the list, so a count far above the number of keys
+    // costs no more than the keys present.
     (0..count)
-        .filter_map(|n| {
+        .map_while(|n| {
             let key = host.env_var(&format!("GIT_CONFIG_KEY_{n}"))?;
             let value = host
                 .env_var(&format!("GIT_CONFIG_VALUE_{n}"))
@@ -264,6 +266,20 @@ mod tests {
                 ("core.abbrev".to_owned(), "12".to_owned()),
                 ("user.name".to_owned(), "Ada".to_owned())
             ]
+        );
+    }
+
+    #[test]
+    fn config_pairs_stop_at_the_first_missing_key() {
+        let host = TestHost::new("/home/user")
+            .with_var("GIT_CONFIG_COUNT", "4000000000")
+            .with_var("GIT_CONFIG_KEY_0", "core.abbrev")
+            .with_var("GIT_CONFIG_VALUE_0", "12")
+            .with_var("GIT_CONFIG_KEY_2", "user.name")
+            .with_var("GIT_CONFIG_VALUE_2", "Ada");
+        assert_eq!(
+            GitEnv::from_host(&host).config_pairs(),
+            &[("core.abbrev".to_owned(), "12".to_owned())]
         );
     }
 

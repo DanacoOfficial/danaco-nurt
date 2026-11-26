@@ -287,3 +287,125 @@ fn conflict(key: &KeyPath, found: &Value) -> nurt_contracts::error::Error {
         format!("passes through a {kind}; the path needs a map or a list there"),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::error::ErrorCode;
+    use serde_json::json;
+
+    use super::*;
+    use crate::model::{FlatSemantics, MapSemantics};
+
+    fn value(json: serde_json::Value) -> Value {
+        Value::from_plain_json(json)
+    }
+
+    fn key(text: &str) -> KeyPath {
+        KeyPath::parse(text).unwrap()
+    }
+
+    fn set(root: &mut Value, path: &str, new: Value) -> Result<()> {
+        apply_set(root, &key(path), new, &MapSemantics::LAST_WINS)
+    }
+
+    fn remove(root: &mut Value, path: &str) -> Result<()> {
+        apply_remove(root, &key(path), &MapSemantics::LAST_WINS)
+    }
+
+    #[test]
+    fn set_creates_maps_and_lists_on_the_way() {
+        let mut root = Value::Null;
+        set(&mut root, "a.b[0].c", Value::Int(1)).unwrap();
+        assert_eq!(root, value(json!({"a": {"b": [{"c": 1}]}})));
+    }
+
+    #[test]
+    fn set_appends_replaces_and_counts_from_the_end() {
+        let mut root = value(json!({"l": [1]}));
+        set(&mut root, "l[+]", Value::Int(2)).unwrap();
+        set(&mut root, "l[2]", Value::Int(3)).unwrap();
+        set(&mut root, "l[-1]", Value::Int(4)).unwrap();
+        assert_eq!(root, value(json!({"l": [1, 2, 4]})));
+    }
+
+    #[test]
+    fn set_beyond_the_end_of_a_list_is_not_found() {
+        let mut root = value(json!({"l": [1]}));
+        let error = set(&mut root, "l[5]", Value::Int(2)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyNotFound);
+        let error = set(&mut root, "l[-3]", Value::Int(2)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyNotFound);
+        assert_eq!(root, value(json!({"l": [1]})));
+    }
+
+    #[test]
+    fn set_through_a_scalar_or_a_pattern_conflicts() {
+        let mut root = value(json!({"a": 1}));
+        let error = set(&mut root, "a.b", Value::Int(2)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyConflict);
+        for pattern in ["a[*]", "**", "a[?x == 1]"] {
+            let error = set(&mut root, pattern, Value::Int(2)).unwrap_err();
+            assert_eq!(error.code, ErrorCode::KeyConflict, "{pattern}");
+        }
+    }
+
+    #[test]
+    fn flat_semantics_joins_names_into_one_member() {
+        let mut root = Value::Null;
+        let path = key("server.port");
+        apply_set(&mut root, &path, Value::Int(8080), &FlatSemantics).unwrap();
+        assert_eq!(root, value(json!({"server.port": 8080})));
+    }
+
+    #[test]
+    fn document_selector_addresses_an_element_of_the_stream() {
+        let mut root = value(json!([{"a": 1}, {"a": 2}]));
+        set(&mut root, "#1:a", Value::Int(9)).unwrap();
+        assert_eq!(root, value(json!([{"a": 1}, {"a": 9}])));
+        let error = set(&mut root, "#5:a", Value::Int(1)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyNotFound);
+        let error = set(&mut root, "#*:a", Value::Int(1)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyConflict);
+        let mut single = value(json!({"a": 1}));
+        let error = set(&mut single, "#1:a", Value::Int(1)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyConflict);
+    }
+
+    #[test]
+    fn setting_the_root_replaces_the_document() {
+        let mut root = value(json!({"a": 1}));
+        apply_set(&mut root, &KeyPath::root(), Value::Int(3), &MapSemantics::LAST_WINS).unwrap();
+        assert_eq!(root, Value::Int(3));
+    }
+
+    #[test]
+    fn remove_deletes_members_and_elements() {
+        let mut root = value(json!({"a": [1, 2, 3, 4], "b": 1, "c": 2}));
+        remove(&mut root, "a[-1]").unwrap();
+        remove(&mut root, "a[0]").unwrap();
+        remove(&mut root, "a.0").unwrap();
+        remove(&mut root, "b").unwrap();
+        assert_eq!(root, value(json!({"a": [3], "c": 2})));
+    }
+
+    #[test]
+    fn remove_reports_missing_and_conflicting_keys() {
+        let mut root = value(json!({"a": [1], "b": 1}));
+        for path in ["zzz", "a[3]", "a.x", "a[-2]"] {
+            let error = remove(&mut root, path).unwrap_err();
+            assert_eq!(error.code, ErrorCode::KeyNotFound, "{path}");
+        }
+        let error = remove(&mut root, "b.c").unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyConflict);
+        let error = remove(&mut root, "a[*]").unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyConflict);
+        assert_eq!(root, value(json!({"a": [1], "b": 1})));
+    }
+
+    #[test]
+    fn removing_the_root_leaves_null() {
+        let mut root = value(json!({"a": 1}));
+        apply_remove(&mut root, &KeyPath::root(), &MapSemantics::LAST_WINS).unwrap();
+        assert_eq!(root, Value::Null);
+    }
+}

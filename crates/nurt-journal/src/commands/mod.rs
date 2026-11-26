@@ -481,6 +481,44 @@ mod tests {
     }
 
     #[test]
+    fn absolute_paths_ignore_the_base_option_and_multibyte_names_are_kept() {
+        let env = testing::Env::new();
+        let ctx = env.ctx_with("journal.status", |options| {
+            options.base = Some("/home/użytkownik".to_owned());
+        });
+        assert_eq!(
+            super::resolve(&ctx, "docs/zażółć.txt").unwrap(),
+            testing::path("/home/użytkownik/docs/zażółć.txt")
+        );
+        assert_eq!(
+            super::resolve(&ctx, "/srv/data").unwrap(),
+            testing::path("/srv/data")
+        );
+        assert_eq!(super::resolve_opt(&ctx, None).unwrap(), None);
+        assert_eq!(
+            super::resolve_opt(&ctx, Some("/srv/data")).unwrap(),
+            Some(testing::path("/srv/data"))
+        );
+        let relative_base = env.ctx_with("journal.status", |options| {
+            options.base = Some("relative".to_owned());
+        });
+        let error = super::resolve(&relative_base, "docs").unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn the_session_of_the_request_is_taken_from_its_options() {
+        let env = testing::Env::new();
+        let with = env.ctx("journal.status");
+        assert_eq!(
+            super::session(&with).map(|session| session.0),
+            Some("s1".to_owned())
+        );
+        let without = env.ctx_with("journal.status", |options| options.session = None);
+        assert_eq!(super::session(&without), None);
+    }
+
+    #[test]
     fn a_context_without_a_journal_store_fails() {
         let ctx = testing::bare_ctx("journal.status");
         let error = super::store(&ctx).err().unwrap();

@@ -117,6 +117,16 @@ mod tests {
     }
 
     #[test]
+    fn judges_scheme_changes_of_a_redirect() {
+        assert!(scheme_is_safe("https://b/x", "https://a/x"));
+        assert!(scheme_is_safe("http://b/x", "http://a/x"));
+        assert!(scheme_is_safe("https://a/x", "http://a/x"));
+        assert!(!scheme_is_safe("http://a/x", "https://a/x"));
+        assert!(!scheme_is_safe("ftp://a/x", "ftp://a/x"));
+        assert!(!scheme_is_safe("not a url", "https://a/x"));
+    }
+
+    #[test]
     fn compares_authorities_with_default_ports() {
         assert!(same_authority("https://H:443/a", "https://h/b"));
         assert!(!same_authority("https://h:444/a", "https://h/a"));

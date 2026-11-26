@@ -908,6 +908,35 @@ mod tests {
     }
 
     #[test]
+    fn multibyte_text_is_compared_by_characters() {
+        let test = with_files(&[
+            (
+                "/data/old.txt",
+                "g\u{119}\u{15b}\n\u{17c}\u{f3}\u{142}\u{107}\n".as_bytes(),
+            ),
+            (
+                "/data/new.txt",
+                "g\u{119}\u{15b}\n\u{17c}\u{f3}\u{142}w\n".as_bytes(),
+            ),
+        ]);
+        let records = run(
+            &test.ctx(),
+            &files("/data/old.txt", "/data/new.txt", &[]),
+            StageInput::none(),
+        )
+        .unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(
+            records[0].lines,
+            [
+                " g\u{119}\u{15b}",
+                "-\u{17c}\u{f3}\u{142}\u{107}",
+                "+\u{17c}\u{f3}\u{142}w"
+            ]
+        );
+    }
+
+    #[test]
     fn equal_files_give_no_records() {
         let test = with_files(&[("/data/a.txt", b"same\n"), ("/data/b.txt", b"same\n")]);
         let records = run(

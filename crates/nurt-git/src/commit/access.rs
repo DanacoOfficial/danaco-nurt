@@ -62,9 +62,8 @@ impl<'r> Worktree<'r> {
 
     /// Absolute path of a repository path.
     pub(crate) fn absolute(&self, path: &BStr) -> PathBuf {
-        path.split_str("/").fold(self.root.clone(), |out, part| {
-            out.join(part.to_str_lossy().as_ref())
-        })
+        path.split_str("/")
+            .fold(self.root.clone(), |out, part| out.join(native_name(part)))
     }
 
     /// Reads a file; `None` when it is missing or is a directory.
@@ -86,11 +85,24 @@ impl<'r> Worktree<'r> {
         if metadata.is_dir() {
             return Ok(None);
         }
+        if !metadata.is_file() && !metadata.file_type().is_symlink() {
+            return Err(Error::new(
+                ErrorCode::GitUnsupported,
+                format!(
+                    "{} is a device, a socket or a pipe; remove it or leave it out of the commit",
+                    absolute.display()
+                ),
+            )
+            .with_problem("special_file")
+            .with_found(absolute.display().to_string()));
+        }
         let (data, kind) = if metadata.file_type().is_symlink() && self.symlinks {
             let target =
                 std::fs::read_link(&absolute).map_err(|error| repo_error::io(&absolute, &error))?;
-            let target = target.to_string_lossy().replace('\\', "/");
-            (target.into_bytes(), EntryKind::Link)
+            let target = gix::path::into_bstr(target)
+                .map_err(|error| lib_error("read a link target", error))?;
+            let target = gix::path::to_unix_separators_on_windows(target).into_owned();
+            (Vec::from(target), EntryKind::Link)
         } else {
             let raw =
                 std::fs::read(&absolute).map_err(|error| repo_error::io(&absolute, &error))?;
@@ -146,12 +158,14 @@ impl<'r> Worktree<'r> {
         let mut pending = vec![BString::default()];
         while let Some(dir) = pending.pop() {
             let absolute = self.absolute(dir.as_ref());
-            let mut names: Vec<(String, std::fs::FileType)> = std::fs::read_dir(&absolute)
+            let mut names: Vec<(BString, std::fs::FileType)> = std::fs::read_dir(&absolute)
                 .map_err(|error| repo_error::io(&absolute, &error))?
                 .filter_map(std::result::Result::ok)
                 .filter_map(|entry| {
                     Some((
-                        entry.file_name().into_string().ok()?,
+                        gix::path::os_str_into_bstr(&entry.file_name())
+                            .ok()?
+                            .to_owned(),
                         entry.file_type().ok()?,
                     ))
                 })
@@ -161,8 +175,9 @@ impl<'r> Worktree<'r> {
                 if name == ".git" {
                     continue;
                 }
-                let path = join_path(dir.as_ref(), BStr::new(name.as_bytes()));
-                let relative = PathBuf::from(path.to_str_lossy().as_ref());
+                let path = join_path(dir.as_ref(), name.as_ref());
+                let relative = gix::path::from_bstr(path.as_bstr())
+                    .map_err(|error| lib_error("read a file name", error))?;
                 let is_dir = file_type.is_dir();
                 let mode = if is_dir {
                     gix::index::entry::Mode::DIR
@@ -170,7 +185,7 @@ impl<'r> Worktree<'r> {
                     gix::index::entry::Mode::FILE
                 };
                 let excluded = excludes
-                    .at_path(&relative, Some(mode))
+                    .at_path(&*relative, Some(mode))
                     .map_err(|error| lib_error("read the ignore rules", error))?
                     .is_excluded();
                 if excluded {
@@ -181,7 +196,8 @@ impl<'r> Worktree<'r> {
                     if !nested && filter.may_contain(path.as_ref()) {
                         pending.push(path);
                     }
-                } else if index.entry_range(path.as_ref()).is_none()
+                } else if (file_type.is_file() || file_type.is_symlink())
+                    && index.entry_range(path.as_ref()).is_none()
                     && filter.matches(path.as_ref())
                 {
                     found.push(path);
@@ -205,6 +221,19 @@ pub(crate) fn require_workdir(repo: &GitRepo) -> Result<&Path> {
         )
         .with_problem("bare_repository")
     })
+}
+
+/// Native form of one path component; on Unix the bytes are kept as they are,
+/// so that a name that is not valid Unicode still names its file.
+#[cfg(unix)]
+fn native_name(part: &[u8]) -> PathBuf {
+    use std::os::unix::ffi::OsStrExt;
+    PathBuf::from(std::ffi::OsStr::from_bytes(part))
+}
+
+#[cfg(not(unix))]
+fn native_name(part: &[u8]) -> PathBuf {
+    PathBuf::from(String::from_utf8_lossy(part).into_owned())
 }
 
 #[cfg(unix)]

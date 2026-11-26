@@ -33,6 +33,38 @@ test("strict arguments reach the console without null and with the tree parsed",
   assert.deepEqual(requests[1]!["input"], [{ type: "function_call_output", call_id: "c1", output: "previewed" }]);
 });
 
+test("answers an unknown tool with an error and does not run the console", async () => {
+  const requests: Array<Record<string, unknown>> = [];
+  const responses = [
+    { id: "r1", output: [{ type: "function_call", name: "bash", call_id: "c1", arguments: "{}" }], output_text: "" },
+    { id: "r2", output: [{ type: "message" }], output_text: "Done." },
+  ];
+  const client = { responses: { create: async (request: Record<string, unknown>) => (requests.push(request), responses.shift()!) } };
+  const nurt = new MockNurt();
+  assert.equal(await runAgent(client, nurt, { type: "function" }, "list"), "Done.");
+  assert.deepEqual(nurt.calls, []);
+  assert.deepEqual(requests[1]!["input"], [{ type: "function_call_output", call_id: "c1", output: "error: unknown tool bash" }]);
+});
+
+test("falls back to the report when the console gives no text", async () => {
+  const silent = { async run() { return { report: { status: "ok" } }; } };
+  assert.equal(await callNurt(silent, '{"program":"count"}'), '{"status":"ok"}');
+});
+
+test("does not run the console when the tree is not JSON text", async () => {
+  const nurt = new MockNurt();
+  assert.match(await callNurt(nurt, '{"ast":"{"}'), /^error: /);
+  assert.deepEqual(nurt.calls, []);
+});
+
+test("stops after the turn limit", async () => {
+  let requests = 0;
+  const call = { type: "function_call", name: "nurt", call_id: "c", arguments: '{"program":"count"}' };
+  const client = { responses: { create: async () => (requests += 1, { id: `r${requests}`, output: [call], output_text: "" }) } };
+  await assert.rejects(runAgent(client, new MockNurt(), { type: "function" }, "loop"), /no answer after 20 turns/);
+  assert.equal(requests, 20);
+});
+
 test("reports malformed arguments to the model", async () => {
   assert.match(await callNurt(new MockNurt(), "{"), /^error: /);
 });

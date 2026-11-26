@@ -1099,7 +1099,8 @@ impl<'o> Run<'o> {
             Work::Matches(records) => input_hits(&file, records, self.options)?,
         };
         self.found += hits.len();
-        if self.nearest.is_empty()
+        if self.options.on_missing == OnMissing::Error
+            && self.nearest.is_empty()
             && hits.is_empty()
             && let Some(literal) = self.options.literal()
         {
@@ -2063,5 +2064,151 @@ mod tests {
         assert_eq!(static_info(&listed).unwrap().paths, ["/x", "/y"]);
         let broken = args(regex("("), "b", &[]);
         assert_eq!(static_info(&broken).unwrap_err().code(), ErrorCode::Regex);
+    }
+
+    #[test]
+    fn nearest_fragments_are_collected_only_when_a_missing_pattern_is_an_error() {
+        let (test, path) = with_file("/data/a.txt", b"let total = price * count;\n");
+        let ctx = test.ctx();
+        let target = Target {
+            path: path.clone(),
+            origin: Origin::Named,
+            etag: None,
+            work: Work::Pattern(Region::Whole),
+        };
+        let skipping = args(
+            text("let total = price * amount;"),
+            "x",
+            &[in_paths(&[&path])],
+        );
+        let options = Options::from_args(&skipping).unwrap();
+        let mut run = Run::new(&options, 1);
+        run.file(&ctx, &target, None).unwrap();
+        assert!(run.nearest.is_empty());
+
+        let failing = args(
+            text("let total = price * amount;"),
+            "x",
+            &[
+                in_paths(&[&path]),
+                (params::ON_MISSING, Value::Enum("error".to_owned())),
+            ],
+        );
+        let options = Options::from_args(&failing).unwrap();
+        let mut run = Run::new(&options, 1);
+        run.file(&ctx, &target, None).unwrap();
+        assert_eq!(run.nearest.len(), 1);
+    }
+
+    #[test]
+    fn line_anchors_match_before_carriage_returns_and_replacements_keep_crlf() {
+        let (test, path) = with_file("/data/a.txt", b"foo\r\nbar foo\r\n");
+        let given = args(regex("foo$"), "baz\nqux", &[in_paths(&[&path])]);
+        run(&test, &given).unwrap();
+        assert_eq!(
+            test.fs().read_file(&path).unwrap(),
+            b"baz\r\nqux\r\nbar baz\r\nqux\r\n"
+        );
+    }
+
+    #[test]
+    fn empty_regular_expression_matches_are_replaced_at_every_position() {
+        let (test, path) = with_file("/data/a.txt", b"ab");
+        let given = args(regex("x*"), "-", &[in_paths(&[&path])]);
+        let outcome = run(&test, &given).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"-a-b-");
+        assert_eq!(outcome.changes[0].replacements, Some(3));
+    }
+
+    #[test]
+    fn literal_replacements_insert_dollar_signs_and_backslashes_as_written() {
+        let (test, path) = with_file("/data/a.txt", b"a\n");
+        let given = args(text("a"), r"$1\d$$", &[in_paths(&[&path])]);
+        run(&test, &given).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"$1\\d$$\n");
+    }
+
+    #[test]
+    fn look_ahead_patterns_use_the_backtracking_engine() {
+        let (test, path) = with_file("/data/a.txt", b"foobar foobaz\n");
+        let given = args(regex("foo(?=bar)"), "X", &[in_paths(&[&path])]);
+        run(&test, &given).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"Xbar foobaz\n");
+    }
+
+    #[test]
+    fn whole_word_and_case_insensitive_options_apply_to_regular_expressions() {
+        let (test, path) = with_file("/data/a.txt", b"Cat concat cat\n");
+        let given = args(
+            regex("cat"),
+            "dog",
+            &[
+                in_paths(&[&path]),
+                (WHOLE_WORD, Value::Bool(true)),
+                (CASE_SENSITIVE, Value::Bool(false)),
+            ],
+        );
+        run(&test, &given).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"dog concat dog\n");
+    }
+
+    #[test]
+    fn if_match_with_another_tag_fails_with_stale_before_any_change() {
+        let (test, path) = with_file("/data/a.txt", b"old\n");
+        let ctx = test.ctx();
+        let file = read_text(&ctx, &path, EncodingParam::Auto).unwrap();
+        let mut tag = file.etag();
+        tag.size += 1;
+        let given = args(
+            text("old"),
+            "new",
+            &[
+                in_paths(&[&path]),
+                (
+                    params::IF_MATCH,
+                    Value::Text(crate::common::etag::etag_text(&tag)),
+                ),
+            ],
+        );
+        let error = plan(&test, &given, StageInput::none()).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"old\n");
+    }
+
+    #[test]
+    fn replacement_keeps_the_byte_order_mark_and_a_missing_final_line_break() {
+        let (test, path) = with_file("/data/a.txt", b"\xef\xbb\xbfold line");
+        let given = args(text("old"), "new", &[in_paths(&[&path])]);
+        run(&test, &given).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"\xef\xbb\xbfnew line");
+    }
+
+    #[test]
+    fn match_records_locate_columns_in_characters_not_bytes() {
+        let (test, path) = with_file("/data/a.txt", "\u{17c}\u{f3}\u{142}w x\n".as_bytes());
+        let found = record::Match {
+            path: value::Path::new(path.to_language_string()),
+            no: 1,
+            column: 6,
+            start: 8,
+            end: 9,
+            text: "x".to_owned(),
+            ..record::Match::default()
+        };
+        let given = BoundArgs::new(COMMAND).with(WITH, ArgValue::Value(text("y")), false);
+        let plan = plan(
+            &test,
+            &given,
+            StageInput::records(RecordStream::once(Record::from(found))),
+        )
+        .unwrap();
+        let ctx = test.ctx();
+        let mut tx = test.journal().begin(begin_request(COMMAND));
+        apply_edits(plan, tx.as_mut(), &ctx).unwrap();
+        tx.commit().unwrap();
+        assert_eq!(
+            test.fs().read_file(&path).unwrap(),
+            "\u{17c}\u{f3}\u{142}w y\n".as_bytes()
+        );
     }
 }

@@ -1199,6 +1199,7 @@ fn percent_decode(text: &str) -> String {
         let escape = (bytes[index] == b'%')
             .then(|| text.get(index + 1..index + PERCENT_ESCAPE_LEN))
             .flatten()
+            .filter(|hex| hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
             .and_then(|hex| u8::from_str_radix(hex, HEX_RADIX).ok());
         if let Some(byte) = escape {
             decoded.push(byte);
@@ -1328,6 +1329,28 @@ mod tests {
         assert_eq!(resolve_tag("!<!bar>", &handles), "!bar");
         assert_eq!(resolve_tag("!local", &handles), "!local");
         assert_eq!(resolve_tag("!", &handles), "!");
+    }
+
+    #[test]
+    fn percent_decoding_accepts_only_hexadecimal_digits() {
+        assert_eq!(percent_decode("a%41%2"), "aA%2");
+        assert_eq!(percent_decode("%+f"), "%+f");
+        assert_eq!(percent_decode("%é"), "%é");
+        assert_eq!(percent_decode("%C3%A9"), "é");
+    }
+
+    #[test]
+    fn marks_documents_of_a_stream_with_an_empty_document() {
+        let model = parse("a: 1\n---\n---\nb: 2\n");
+        assert_eq!(model.documents().len(), 3);
+        assert!(model.node(model.documents()[1].root).is_empty_node());
+    }
+
+    #[test]
+    fn rejects_collections_nested_beyond_the_limit() {
+        let depth = backend_saphyr::MAX_DEPTH + 1;
+        let text = format!("{}1{}", "[".repeat(depth), "]".repeat(depth));
+        assert_eq!(YamlModel::parse(&text).unwrap_err().code(), ErrorCode::DocParse);
     }
 
     #[test]

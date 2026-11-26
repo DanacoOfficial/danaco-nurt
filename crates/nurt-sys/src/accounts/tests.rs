@@ -193,6 +193,30 @@ mod unix_files {
     }
 
     #[test]
+    fn accounts_null_name_lists_everything() {
+        let (all, _) = run(fixture_root(), vec![(super::super::NAME, Value::Null)]);
+        assert_eq!(all.len(), 13);
+    }
+
+    #[test]
+    fn accounts_non_utf8_full_name_does_not_abort_the_listing() {
+        let dir = tempfile::tempdir().unwrap();
+        let etc = dir.path().join("etc");
+        std::fs::create_dir_all(&etc).unwrap();
+        std::fs::write(
+            etc.join("passwd"),
+            b"user:x:1000:1000:Ren\xE9 Dupont:/home/user:/bin/sh\n".as_slice(),
+        )
+        .unwrap();
+        std::fs::write(etc.join("group"), "user:x:1000:\n").unwrap();
+        let (users, _) = run(SysRoot::new(dir.path()), Vec::new());
+        assert_eq!(
+            find(&users, "user").full_name.as_deref(),
+            Some("Ren\u{FFFD} Dupont")
+        );
+    }
+
+    #[test]
     fn accounts_missing_passwd_is_io_error() {
         let dir = tempfile::tempdir().unwrap();
         let ctx = test_support::context(TestHost::new(dir.path()));

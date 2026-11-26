@@ -4353,3 +4353,187 @@ typed_records! {
     GitEffect(GitEffect) = "git_effect",
     GitTrashEntry(GitTrashEntry) = "git_trash_entry",
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry() -> Entry {
+        Entry {
+            path: Path::from("/home/user/a.txt"),
+            name: "a.txt".to_owned(),
+            kind: EntryType::File,
+            size: Size::from_bytes(3),
+            modified: Instant::UNIX_EPOCH,
+            ..Entry::default()
+        }
+    }
+
+    fn field_error(record: Record) -> RecordError {
+        Entry::try_from(record).unwrap_err()
+    }
+
+    #[test]
+    fn name_that_is_not_unicode_survives_as_raw_bytes_in_records_and_json() {
+        let raw = Bytes::new(vec![b'z', 0xff, b'.', b't', b'x', b't']);
+        let source = Entry {
+            raw_name: Some(raw.clone()),
+            ..entry()
+        };
+        let record = Record::from(source.clone());
+        assert_eq!(record.get("raw_name"), Some(&Value::Bytes(raw.clone())));
+        assert_eq!(Entry::try_from(record).unwrap(), source);
+        let json = serde_json::to_value(&source).unwrap();
+        assert_eq!(json["raw_name"], serde_json::json!(raw.to_base64()));
+        assert_eq!(serde_json::from_value::<Entry>(json).unwrap(), source);
+    }
+
+    #[test]
+    fn conversion_reports_missing_unknown_and_mistyped_fields() {
+        let missing = field_error(Record::new(RecordKind::Entry));
+        assert_eq!(
+            missing,
+            RecordError::MissingField {
+                field: "path".to_owned()
+            }
+        );
+        let mut record = Record::from(entry());
+        record.set("bogus", Value::Int(1));
+        assert_eq!(
+            field_error(record),
+            RecordError::UnknownField {
+                field: "bogus".to_owned()
+            }
+        );
+        let mut record = Record::from(entry());
+        record.set("size", Value::Text("big".to_owned()));
+        assert_eq!(
+            field_error(record),
+            RecordError::FieldType {
+                field: "size".to_owned(),
+                expected: "size".to_owned(),
+                found: "text".to_owned()
+            }
+        );
+        let mut record = Record::from(entry());
+        record.set("modified", Value::Text("yesterday".to_owned()));
+        assert!(matches!(field_error(record), RecordError::FieldType { .. }));
+        assert_eq!(
+            Entry::try_from(Record::new(RecordKind::Line)).unwrap_err(),
+            RecordError::KindMismatch {
+                expected: RecordKind::Entry,
+                found: RecordKind::Line
+            }
+        );
+    }
+
+    #[test]
+    fn errors_inside_nested_records_carry_the_full_field_path() {
+        let record = Record::new(RecordKind::Effect)
+            .with("status", Value::Enum("ok".to_owned()))
+            .with("kind", Value::Text("replace".to_owned()))
+            .with(
+                "changes",
+                Value::List(vec![Value::Record(Record::new(RecordKind::Change))]),
+            );
+        assert_eq!(
+            Effect::try_from(record).unwrap_err(),
+            RecordError::MissingField {
+                field: "changes.0.path".to_owned()
+            }
+        );
+    }
+
+    #[test]
+    fn counts_above_the_signed_range_use_big_integers_and_negative_counts_are_rejected() {
+        let source = Entry {
+            links: Some(u64::MAX),
+            ..entry()
+        };
+        let record = Record::from(source.clone());
+        assert_eq!(
+            record.get("links"),
+            Some(&Value::BigInt(u64::MAX.to_string()))
+        );
+        assert_eq!(Entry::try_from(record).unwrap(), source);
+        let mut record = Record::from(entry());
+        record.set("links", Value::Int(-1));
+        assert_eq!(
+            field_error(record),
+            RecordError::FieldType {
+                field: "links".to_owned(),
+                expected: "count".to_owned(),
+                found: "int".to_owned()
+            }
+        );
+    }
+
+    #[test]
+    fn sizes_accept_non_negative_integers_and_null_means_absent() {
+        let mut record = Record::from(entry());
+        record.set("size", Value::Int(7));
+        record.set("exists", Value::Null);
+        let read = Entry::try_from(record).unwrap();
+        assert_eq!(read.size, Size::from_bytes(7));
+        assert_eq!(read.exists, None);
+        let mut record = Record::from(entry());
+        record.set("size", Value::Int(-1));
+        assert!(matches!(field_error(record), RecordError::FieldType { .. }));
+        assert_eq!(Record::from(entry()).get("stem"), None);
+    }
+
+    #[test]
+    fn typed_records_cover_every_kind_except_map_and_round_trip_through_json() {
+        assert_eq!(TypedRecord::KINDS.len() + 1, RecordKind::ALL.len());
+        assert!(!TypedRecord::KINDS.contains(&RecordKind::Map));
+        let typed = TypedRecord::from(entry());
+        assert_eq!(typed.kind(), RecordKind::Entry);
+        let json = serde_json::to_value(&typed).unwrap();
+        assert_eq!(json["kind"], "entry");
+        assert_eq!(json["record"]["type"], "file");
+        assert_eq!(serde_json::from_value::<TypedRecord>(json).unwrap(), typed);
+        assert_eq!(
+            TypedRecord::try_from(Record::new(RecordKind::Map)).unwrap_err(),
+            RecordError::Untyped {
+                kind: RecordKind::Map
+            }
+        );
+        assert_eq!(Record::from(typed), Record::from(entry()));
+    }
+
+    #[test]
+    fn enumerations_parse_their_stable_names_only() {
+        assert_eq!("directory".parse::<EntryType>().unwrap(), EntryType::Directory);
+        assert!("dir".parse::<EntryType>().is_err());
+        assert!("File".parse::<EntryType>().is_err());
+        assert_eq!(EntryType::ALL.len(), 4);
+        assert_eq!(RegistryView::Bits32.as_str(), "32");
+        assert_eq!("64".parse::<RegistryView>().unwrap(), RegistryView::Bits64);
+    }
+
+    #[test]
+    fn record_errors_map_to_the_codes_of_the_contract() {
+        let unknown = Error::from(RecordError::UnknownField {
+            field: "x".to_owned(),
+        });
+        assert_eq!(unknown.code(), ErrorCode::UnknownField);
+        let missing = Error::from(RecordError::MissingField {
+            field: "x".to_owned(),
+        });
+        assert_eq!(missing.code(), ErrorCode::Type);
+    }
+
+    #[test]
+    fn hunk_lines_need_a_diff_prefix() {
+        let valid = Hunk {
+            lines: vec!["+a".to_owned(), "-b".to_owned(), " c".to_owned()],
+            ..Hunk::default()
+        };
+        assert_eq!(valid.first_invalid_line(), None);
+        let invalid = Hunk {
+            lines: vec![" c".to_owned(), String::new()],
+            ..Hunk::default()
+        };
+        assert_eq!(invalid.first_invalid_line(), Some(1));
+    }
+}

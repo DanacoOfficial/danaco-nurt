@@ -3,8 +3,9 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! The `stop`, `suspend` and `resume` commands on job records.
 //!
-//! Each command has further implementations for process and service records
-//! in other crates; the registry selects this one for job records.
+//! Process records are handled by [`super::process`] and service records by
+//! the commands of the services in other crates; the registry selects this
+//! implementation for job records.
 
 use std::str::FromStr;
 use std::time::Duration;
@@ -24,7 +25,7 @@ use crate::iface::Components;
 use crate::jobs::{Action, JobStore, check_action};
 
 /// Time between the termination request and killing, by default.
-const DEFAULT_GRACE: Duration = Duration::from_secs(5);
+pub(super) const DEFAULT_GRACE: Duration = Duration::from_secs(5);
 
 /// Command implemented by [`Control`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,7 +36,7 @@ pub(crate) enum Kind {
 }
 
 impl Kind {
-    fn name(self) -> &'static str {
+    pub(super) fn name(self) -> &'static str {
         match self {
             Self::Stop => "stop",
             Self::Suspend => "suspend",
@@ -51,7 +52,7 @@ impl Kind {
         }
     }
 
-    fn irreversible(self) -> Irreversible {
+    pub(super) fn irreversible(self) -> Irreversible {
         match self {
             Self::Stop => Irreversible::ProcessStopped,
             Self::Suspend | Self::Resume => Irreversible::ProcessStateChanged,
@@ -70,7 +71,7 @@ impl Control {
         Self { kind, components }
     }
 
-    fn signal(args: &BoundArgs) -> Result<Signal> {
+    pub(super) fn signal(args: &BoundArgs) -> Result<Signal> {
         let name = word(args, "signal")?.unwrap_or("terminate");
         Signal::from_str(name).map_err(|_| {
             Error::new(
@@ -174,5 +175,79 @@ pub(crate) fn effect(command: &str, job: Job, entry: IrreversibleEntry) -> Effec
         action: Some(command.to_owned()),
         job: Some(job),
         ..Effect::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::stage::ArgValue;
+    use nurt_contracts::value::Value;
+
+    use super::*;
+
+    fn signal_of(name: Option<&str>) -> Result<Signal> {
+        let mut args = BoundArgs::new("stop");
+        if let Some(name) = name {
+            args.insert("signal", ArgValue::Value(Value::Enum(name.to_owned())), false);
+        }
+        Control::signal(&args)
+    }
+
+    #[test]
+    fn the_signal_defaults_to_terminate_and_must_have_a_known_name() {
+        assert_eq!(signal_of(None).unwrap(), Signal::Terminate);
+        assert_eq!(signal_of(Some("kill")).unwrap(), Signal::Kill);
+        assert_eq!(signal_of(Some("interrupt")).unwrap(), Signal::Interrupt);
+        assert_eq!(signal_of(Some("hangup")).unwrap(), Signal::Hangup);
+        let error = signal_of(Some("bogus")).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn every_command_has_its_name_action_and_irreversible_marker() {
+        assert_eq!(Kind::Stop.name(), "stop");
+        assert_eq!(Kind::Suspend.name(), "suspend");
+        assert_eq!(Kind::Resume.name(), "resume");
+        assert_eq!(Kind::Stop.action(), Action::Stop);
+        assert_eq!(Kind::Suspend.action(), Action::Suspend);
+        assert_eq!(Kind::Resume.action(), Action::Resume);
+        assert_eq!(Kind::Stop.irreversible(), Irreversible::ProcessStopped);
+        assert_eq!(
+            Kind::Suspend.irreversible(),
+            Irreversible::ProcessStateChanged
+        );
+        assert_eq!(
+            Kind::Resume.irreversible(),
+            Irreversible::ProcessStateChanged
+        );
+    }
+
+    #[test]
+    fn the_marker_and_the_effect_name_the_job() {
+        let entry = marker(Kind::Stop, "j7");
+        assert_eq!(entry.detail.as_deref(), Some("job j7"));
+        assert_eq!(entry.reason, Irreversible::ProcessStopped);
+        let job = Job {
+            id: "j7".to_owned(),
+            ..Job::default()
+        };
+        let record = effect("stop", job, entry);
+        assert_eq!(record.target.as_deref(), Some("job:j7"));
+        assert_eq!(record.action.as_deref(), Some("stop"));
+        assert_eq!(record.kind, "stop");
+        assert_eq!(record.targets, Some(1));
+        assert_eq!(record.status, EffectStatus::Ok);
+        assert_eq!(record.irreversible.map(|entries| entries.len()), Some(1));
+        assert_eq!(record.job.map(|job| job.id), Some("j7".to_owned()));
+    }
+
+    #[test]
+    fn the_descriptors_accept_only_job_records() {
+        for kind in [Kind::Stop, Kind::Suspend, Kind::Resume] {
+            let descriptor = StageImpl::descriptor(&Control::new(kind, crate::api::components()));
+            assert_eq!(descriptor.command, kind.name());
+            assert!(!descriptor.source);
+            assert_eq!(descriptor.input, InputKinds::Only(vec![RecordKind::Job]));
+        }
     }
 }

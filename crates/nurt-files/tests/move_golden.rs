@@ -6,6 +6,8 @@
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+mod support_report;
+
 use std::sync::Arc;
 
 use nurt_contracts::error::Result;
@@ -58,15 +60,19 @@ fn execute(test: &TestContext, args: &BoundArgs) -> Result<Effect> {
     let effect = stage.as_effect().expect("an effect stage");
     let ctx = test.ctx();
     let plan = effect.plan(args, StageInput::none(), &ctx)?;
+    support_report::assert_plan_valid(args.command(), &plan.changes);
     let mut tx = test.journal().begin(begin_request(args.command()));
     let outcome = effect.apply(args, plan, tx.as_mut(), &ctx)?;
+    support_report::assert_changes_valid(args.command(), &outcome.changes);
     let StageData::Records(stream) = outcome.output.data else {
         panic!("the stage returns the effect record");
     };
     let records = stream.collect::<Result<Vec<_>>>()?;
     tx.commit()?;
     let record = records.into_iter().next().expect("one effect record");
-    Ok(Effect::try_from(record)?)
+    let effect = Effect::try_from(record)?;
+    support_report::assert_effect_valid(&effect);
+    Ok(effect)
 }
 
 /// Every declared target was changed through the transaction.

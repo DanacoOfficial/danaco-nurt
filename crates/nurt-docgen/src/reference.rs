@@ -11,7 +11,7 @@ use crate::catalog::keyword;
 use crate::markdown::split_cells;
 
 fn escape_cell(text: &str) -> String {
-    text.replace('|', "\\|")
+    text.replace('|', "\\|").replace(['\r', '\n'], " ")
 }
 
 fn first_alternative(ty: &str) -> &str {
@@ -179,7 +179,7 @@ pub fn default_text(spec: &StageSpec, param: &ParamSpec) -> String {
         return "no limit".to_string();
     }
     if let Some(note) = &param.default_note {
-        return note.clone();
+        return escape_cell(note);
     }
     "none".to_string()
 }
@@ -394,6 +394,15 @@ mod tests {
         assert!(rows[1].contains("`glob \\| list<glob>`"));
         assert!(rows[1].contains("`\"**\"`"));
         assert!(rows[3].contains("| none |"));
+    }
+
+    #[test]
+    fn escape_cell_keeps_a_cell_on_one_row() {
+        assert_eq!(escape_cell("a|b\r\nc"), "a\\|b  c");
+        assert_eq!(
+            escape_cell("za\u{17c}\u{f3}\u{142}\u{107}"),
+            "za\u{17c}\u{f3}\u{142}\u{107}"
+        );
     }
 
     #[test]

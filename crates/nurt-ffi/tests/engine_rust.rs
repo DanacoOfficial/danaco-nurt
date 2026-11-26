@@ -494,3 +494,23 @@ fn info_reports_the_revision_of_the_built_in_catalog() {
     assert!(info["catalog_rev"].as_str().unwrap().starts_with("sha256:"));
     assert_eq!(info["features"], json!([]));
 }
+
+#[test]
+fn session_identifiers_are_checked_by_characters() {
+    let engine = Open::new();
+    let too_long = CString::new("s".repeat(100_000)).unwrap();
+    let control = CString::new("s\u{7}1").unwrap();
+    let multi_byte = CString::new("sesja-żółw-日本").unwrap();
+    let cases = [
+        (c"", NurtStatus::Arg),
+        (too_long.as_c_str(), NurtStatus::Arg),
+        (control.as_c_str(), NurtStatus::Arg),
+        (multi_byte.as_c_str(), NurtStatus::Ok),
+    ];
+    for (session, expected) in cases {
+        // SAFETY: A live engine and a NUL-terminated session identifier.
+        let status = unsafe { nurt_session_end(engine.engine, session.as_ptr()) };
+        assert_eq!(status, expected, "{session:?}");
+    }
+    assert_eq!(last_error()["detail"]["function"], "nurt_session_end");
+}

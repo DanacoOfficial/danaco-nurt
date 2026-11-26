@@ -251,6 +251,49 @@ fn positional_argument_has_no_variant_c_form() {
 }
 
 #[test]
+fn print_errors_report_the_span_of_the_offending_node() {
+    let span = Span {
+        line: 1,
+        column: 7,
+        end_line: 1,
+        end_column: 9,
+    };
+    let errors = [
+        PrintError::PositionalArgument { span: Some(span) },
+        PrintError::UnnamedArgument {
+            command: "first".to_owned(),
+            index: 0,
+            span: Some(span),
+        },
+        PrintError::Unprintable {
+            node: "ident",
+            problem: "is not an identifier",
+            span: Some(span),
+        },
+    ];
+    for error in errors {
+        assert_eq!(error.span(), Some(span), "{error}");
+    }
+    let too_deep = PrintError::TooDeep {
+        limit: MAX_NESTING_DEPTH,
+    };
+    assert_eq!(too_deep.span(), None);
+    assert_eq!(
+        too_deep.to_string(),
+        "the tree is nested deeper than 128 levels; split the program"
+    );
+    assert_eq!(
+        PrintError::Unprintable {
+            node: "ident",
+            problem: "is not an identifier",
+            span: None,
+        }
+        .to_string(),
+        "`ident` node is not an identifier"
+    );
+}
+
+#[test]
 fn naming_fails_for_a_positional_argument_without_a_parameter() {
     let document = single_stage(vec![positional(20, None), positional(5, None)]);
     let error =

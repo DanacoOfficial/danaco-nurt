@@ -23,8 +23,11 @@ use nurt_contracts::stage::CancelToken;
 use crate::iface::{OutputSink, ProcessControl, RunningProcess, SpawnRequest, StdinSource};
 use crate::os::Tree;
 
+mod process;
 mod supervisor;
 mod watchdog;
+
+pub use process::{ProcessRef, StopEnd, resume_process, stop_process, suspend_process};
 
 #[cfg(test)]
 mod tests;

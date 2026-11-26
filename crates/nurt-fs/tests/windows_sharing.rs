@@ -203,6 +203,25 @@ fn holders_lists_this_process_while_a_handle_is_open() {
 }
 
 #[test]
+fn lock_with_the_longest_timeout_is_taken_when_the_file_is_free() {
+    let fx = fixture();
+    let path = fx.path("lock");
+    let lock = fx.fs.lock_exclusive(&path, Duration::MAX).unwrap();
+    assert_eq!(lock.path(), &path);
+}
+
+#[test]
+fn lock_with_zero_timeout_reports_in_use_while_it_is_held() {
+    let fx = fixture();
+    let path = fx.path("lock");
+    let first = fx.fs.lock_exclusive(&path, Duration::ZERO).unwrap();
+    let error = fx.fs.lock_exclusive(&path, Duration::ZERO).err().unwrap();
+    assert_eq!(error.kind, FsErrorKind::InUse, "{error}");
+    drop(first);
+    fx.fs.lock_exclusive(&path, Duration::ZERO).unwrap();
+}
+
+#[test]
 fn holders_of_a_missing_file_is_not_found() {
     let fx = fixture();
     let error = fx.fs.holders(&fx.path("missing.txt")).unwrap_err();
