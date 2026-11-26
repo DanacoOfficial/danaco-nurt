@@ -685,7 +685,9 @@ impl IndexRow {
 /// because a directory tree is preserved by a single rename.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreeListing {
-    /// Entries below the directory in depth-first order of byte-sorted names.
+    /// Entries below the directory, grouped by directory: the entries of a
+    /// directory in order of byte-sorted names, followed by the groups of its
+    /// subdirectories in the same order.
     pub entries: Vec<TreeEntry>,
 }
 
@@ -1673,6 +1675,8 @@ pub(crate) mod tests {
             .iter()
             .map(|entry| (entry.path.as_str(), entry.kind, entry.hash))
             .collect();
+        let order: Vec<&str> = found.iter().map(|entry| entry.0).collect();
+        assert_eq!(order, ["a", "b.txt", "empty", "a/x.txt", "a/zażółć.txt"]);
         found.sort_by(|left, right| left.0.cmp(right.0));
         assert_eq!(
             found,

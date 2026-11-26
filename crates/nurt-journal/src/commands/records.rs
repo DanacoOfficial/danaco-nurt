@@ -53,7 +53,7 @@ fn reverse_action(action: &TargetAction) -> ChangeAction {
         TargetAction::Delete => ChangeAction::Create,
         TargetAction::Rename { .. } => ChangeAction::Rename,
         TargetAction::Attributes => ChangeAction::Attributes,
-        TargetAction::Append | TargetAction::Truncate => ChangeAction::Truncate,
+        TargetAction::Append => ChangeAction::Truncate,
         _ => ChangeAction::Modify,
     }
 }
@@ -488,6 +488,14 @@ mod tests {
             );
             assert_eq!(value.get("actual"), None);
         }
+    }
+
+    #[test]
+    fn undoing_an_append_truncates_and_undoing_a_truncate_modifies() {
+        assert_eq!(reverse_action(&TargetAction::Append), ChangeAction::Truncate);
+        assert_eq!(reverse_action(&TargetAction::Truncate), ChangeAction::Modify);
+        assert_eq!(reverse_action(&TargetAction::Create), ChangeAction::Delete);
+        assert_eq!(reverse_action(&TargetAction::Delete), ChangeAction::Create);
     }
 
     #[test]
