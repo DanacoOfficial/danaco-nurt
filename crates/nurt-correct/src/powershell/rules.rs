@@ -94,6 +94,21 @@ const NO_NEWLINE_PARAM: &str = "NoNewline";
 /// Entry of the table read by `Compare-Object` arguments.
 const CONTENT_CMDLET: &str = "Get-Content";
 
+/// Preference variables of PowerShell.
+const PREFERENCE_VARIABLES: [&str; 8] = [
+    "ErrorActionPreference",
+    "WarningPreference",
+    "VerbosePreference",
+    "DebugPreference",
+    "InformationPreference",
+    "ProgressPreference",
+    "ConfirmPreference",
+    "WhatIfPreference",
+];
+
+/// Words of the language that cannot name a `let` result.
+const RESERVED_NAMES: [&str; 8] = ["let", "true", "false", "null", "and", "or", "not", "in"];
+
 /// Attribute flags of `attrib`.
 const ATTRIB_FLAGS: [(&str, &str, bool); 4] = [
     ("+r", "readonly", true),
@@ -564,11 +579,23 @@ impl<'a> Session<'a> {
                         "help run",
                     ));
                 }
+                if is_preference_variable(&var.name) {
+                    return Err(self.uncorrectable(
+                        "preference_variable",
+                        format!(
+                            "`${}` has no Nurt form: a program stops at its first error and shows every result; remove the assignment, and use `on_missing: skip` of the command instead of -ErrorAction SilentlyContinue",
+                            var.name
+                        ),
+                        statement.start,
+                        statement.end,
+                        HELP_CORRECTIONS,
+                    ));
+                }
                 let name = let_name(&var.name).ok_or_else(|| {
                     self.uncorrectable(
                         "variable_name",
                         format!(
-                            "`${}` is not a valid let name; use lower-case letters, digits and `_`",
+                            "`${}` is not a valid let name; use lower-case letters, digits and `_`, and not a word of the language",
                             var.name
                         ),
                         *var_start,
@@ -2953,13 +2980,22 @@ fn is_item_name(value: &Value) -> bool {
     )
 }
 
-/// The let name of a PowerShell variable: lower case, `[a-z][a-z0-9_]*`.
+/// Whether the variable is a preference variable of PowerShell, which changes
+/// the behaviour of every later command and has no counterpart in Nurt.
+fn is_preference_variable(name: &str) -> bool {
+    PREFERENCE_VARIABLES
+        .iter()
+        .any(|known| known.eq_ignore_ascii_case(name))
+}
+
+/// The let name of a PowerShell variable: lower case, `[a-z][a-z0-9_]*`, and
+/// not a word of the language.
 pub(crate) fn let_name(name: &str) -> Option<String> {
     let lower = name.to_ascii_lowercase();
     let mut chars = lower.chars();
     let valid = chars.next().is_some_and(|c| c.is_ascii_lowercase())
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
-    valid.then_some(lower)
+    (valid && !RESERVED_NAMES.contains(&lower.as_str())).then_some(lower)
 }
 
 /// The first variant whose conditions hold.
@@ -2996,6 +3032,24 @@ mod tests {
         assert_eq!(let_name("my_list2"), Some("my_list2".to_owned()));
         assert_eq!(let_name("_x"), None);
         assert_eq!(let_name("a-b"), None);
+    }
+
+    #[test]
+    fn words_of_the_language_are_not_let_names() {
+        for word in ["null", "true", "False", "in", "and", "or", "not", "let"] {
+            assert_eq!(let_name(word), None, "{word}");
+        }
+        assert_eq!(let_name("nullable"), Some("nullable".to_owned()));
+        assert_eq!(let_name("input"), Some("input".to_owned()));
+    }
+
+    #[test]
+    fn preference_variables_are_recognized_in_any_letter_case() {
+        assert!(is_preference_variable("ErrorActionPreference"));
+        assert!(is_preference_variable("erroractionpreference"));
+        assert!(is_preference_variable("ProgressPreference"));
+        assert!(!is_preference_variable("colorPreference"));
+        assert!(!is_preference_variable("Preference"));
     }
 
     #[test]
