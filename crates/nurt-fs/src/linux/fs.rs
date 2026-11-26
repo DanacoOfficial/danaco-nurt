@@ -541,7 +541,7 @@ impl FsWrite for LinuxFs {
         const OP: &str = "lock_exclusive";
         let fd = open(
             path.as_path(),
-            OFlags::RDONLY | OFlags::CREATE,
+            OFlags::RDONLY | OFlags::CREATE | OFlags::NOFOLLOW,
             NEW_FILE_MODE,
             OP,
         )?;
