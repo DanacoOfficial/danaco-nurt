@@ -53,6 +53,12 @@ pub(in crate::refs_tx) enum Step {
     AppendLog { path: AbsPath, bytes: Vec<u8> },
     /// New reflog.
     CreateLog { path: AbsPath, bytes: Vec<u8> },
+    /// Reflog that overwrites the existing one with content `old`.
+    ReplaceLog {
+        path: AbsPath,
+        old: Vec<u8>,
+        bytes: Vec<u8>,
+    },
     /// Directory left empty by the transaction.
     RemoveDir(AbsPath),
 }
@@ -79,6 +85,9 @@ impl Step {
             }
             Self::AppendLog { path, .. } => spec(path, TargetAction::Append, Expect::Unchecked),
             Self::CreateLog { path, .. } => spec(path, TargetAction::Create, Expect::Absent),
+            Self::ReplaceLog { path, old, .. } => {
+                spec(path, TargetAction::Modify, Expect::Hash(content_hash(old)))
+            }
         }
     }
 }
@@ -226,7 +235,9 @@ fn apply_logs(tx: &mut dyn MutationTx, step: &Step, targets: &StepTargets) -> Re
         Step::AppendLog { bytes, .. } => {
             apply_at(tx, targets, Mutation::AppendBytes(bytes.clone()))
         }
-        Step::CreateLog { bytes, .. } => apply_at(tx, targets, Mutation::WriteBytes(bytes.clone())),
+        Step::CreateLog { bytes, .. } | Step::ReplaceLog { bytes, .. } => {
+            apply_at(tx, targets, Mutation::WriteBytes(bytes.clone()))
+        }
         _ => Ok(()),
     }
 }
