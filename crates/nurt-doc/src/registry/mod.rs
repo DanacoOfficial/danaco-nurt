@@ -476,6 +476,25 @@ pub fn open_with_path(
     bytes: &[u8],
     options: &DocOptions,
 ) -> Result<OpenDocument> {
+    check_size(bytes, options)?;
+    let (encoding, text) = match format.input() {
+        InputKind::Utf8Text => TextEncoding::decode(bytes)?,
+        InputKind::Bytes => (TextEncoding::Utf8, bytes.to_vec()),
+    };
+    // For UTF-8 without a byte order mark and for formats that read bytes
+    // the text equals the file, so no copy is kept for the identity check.
+    let decoded = (encoding != TextEncoding::Utf8).then(|| text.clone());
+    let handle = format.open_at(path, text, options)?;
+    check_round_trip(decoded.as_deref().unwrap_or(bytes), handle.text())?;
+    Ok(OpenDocument { handle, encoding })
+}
+
+/// Checks `bytes` against `documents.max_bytes`.
+///
+/// # Errors
+///
+/// Fails with `E_LIMIT` when the document is larger than the limit.
+pub(crate) fn check_size(bytes: &[u8], options: &DocOptions) -> Result<()> {
     let size = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
     if size > options.max_bytes {
         return Err(Error::new(
@@ -487,16 +506,7 @@ pub fn open_with_path(
         )
         .with_detail("limit", options.max_bytes.into()));
     }
-    let (encoding, text) = match format.input() {
-        InputKind::Utf8Text => TextEncoding::decode(bytes)?,
-        InputKind::Bytes => (TextEncoding::Utf8, bytes.to_vec()),
-    };
-    // For UTF-8 without a byte order mark and for formats that read bytes
-    // the text equals the file, so no copy is kept for the identity check.
-    let decoded = (encoding != TextEncoding::Utf8).then(|| text.clone());
-    let handle = format.open_at(path, text, options)?;
-    check_round_trip(decoded.as_deref().unwrap_or(bytes), handle.text())?;
-    Ok(OpenDocument { handle, encoding })
+    Ok(())
 }
 
 /// Returns `true` when the name or the extension of `path` belongs to

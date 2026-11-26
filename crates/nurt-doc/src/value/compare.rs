@@ -34,47 +34,92 @@ pub fn compare_numbers(left: &Value, right: &Value) -> Option<Ordering> {
     if let (Some(left), Some(right)) = (exact_integer(left), exact_integer(right)) {
         return Some(left.cmp(&right));
     }
-    if let (Some(left), Some(right)) = (integer_digits(left), integer_digits(right)) {
-        return Some(compare_digits(&left, &right));
+    if let (Some(left), Some(right)) = (Decimal::of(left), Decimal::of(right)) {
+        return Some(left.compare(&right));
     }
     as_float(left)?.partial_cmp(&as_float(right)?)
 }
 
-/// Sign and decimal digits without leading zeros of an integer of any size;
-/// zero is positive.
-fn integer_digits(value: &Value) -> Option<(bool, String)> {
-    let text = match value {
-        Value::Int(number) => number.to_string(),
-        Value::BigInt(digits) => digits.clone(),
-        Value::Decimal(lexeme) => lexeme.replace('_', ""),
-        _ => return None,
-    };
-    let (negative, unsigned) = match text.strip_prefix('-') {
-        Some(rest) => (true, rest),
-        None => (false, text.strip_prefix('+').unwrap_or(&text)),
-    };
-    if unsigned.is_empty() || !unsigned.bytes().all(|byte| byte.is_ascii_digit()) {
-        return None;
-    }
-    let magnitude = unsigned.trim_start_matches('0');
-    if magnitude.is_empty() {
-        Some((false, "0".to_owned()))
-    } else {
-        Some((negative, magnitude.to_owned()))
-    }
+/// Largest exponent of a lexeme compared as an exact decimal; larger ones
+/// are compared as floating point numbers.
+const MAX_EXACT_EXPONENT: i64 = 1_000_000;
+
+/// Exact value of a finite number of any representation and size, without
+/// rounding: `0.DIGITS × 10^order`. `digits` holds no leading and no
+/// trailing zeros and is empty for zero, which is never negative.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Decimal {
+    negative: bool,
+    digits: String,
+    order: i64,
 }
 
-fn compare_digits(left: &(bool, String), right: &(bool, String)) -> Ordering {
-    match (left.0, right.0) {
-        (false, true) => Ordering::Greater,
-        (true, false) => Ordering::Less,
-        (negative, _) => {
-            let magnitude = left
-                .1
-                .len()
-                .cmp(&right.1.len())
-                .then_with(|| left.1.cmp(&right.1));
-            if negative { magnitude.reverse() } else { magnitude }
+impl Decimal {
+    /// Exact value of a numeric `value`; `None` for other values, for
+    /// `nan` and infinities, and for lexemes this form does not cover.
+    fn of(value: &Value) -> Option<Self> {
+        match value {
+            Value::Int(number) => Self::parse(&number.to_string()),
+            Value::BigInt(digits) => Self::parse(digits),
+            Value::Decimal(lexeme) => Self::parse(&lexeme.replace('_', "")),
+            Value::Number(number) if number.is_finite() => Self::parse(&format!("{number:?}")),
+            _ => None,
+        }
+    }
+
+    /// Value of `[+-]digits[.digits][(e|E)[+-]digits]`.
+    fn parse(text: &str) -> Option<Self> {
+        let (negative, unsigned) = match text.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, text.strip_prefix('+').unwrap_or(text)),
+        };
+        let (mantissa, exponent) = match unsigned.find(['e', 'E']) {
+            Some(at) => (&unsigned[..at], unsigned[at + 1..].parse::<i64>().ok()?),
+            None => (unsigned, 0),
+        };
+        if exponent.unsigned_abs() > MAX_EXACT_EXPONENT.unsigned_abs() {
+            return None;
+        }
+        let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+        let all_digits = |part: &str| part.bytes().all(|byte| byte.is_ascii_digit());
+        if whole.len() + fraction.len() == 0 || !all_digits(whole) || !all_digits(fraction) {
+            return None;
+        }
+        let joined = format!("{whole}{fraction}");
+        let significant = joined.trim_start_matches('0');
+        let leading = i64::try_from(joined.len() - significant.len()).ok()?;
+        let digits = significant.trim_end_matches('0');
+        if digits.is_empty() {
+            return Some(Self {
+                negative: false,
+                digits: String::new(),
+                order: 0,
+            });
+        }
+        let order = i64::try_from(whole.len()).ok()? - leading + exponent;
+        Some(Self {
+            negative,
+            digits: digits.to_owned(),
+            order,
+        })
+    }
+
+    fn compare(&self, other: &Self) -> Ordering {
+        match (self.negative, other.negative) {
+            (false, true) => Ordering::Greater,
+            (true, false) => Ordering::Less,
+            (negative, _) => {
+                let magnitude = match (self.digits.is_empty(), other.digits.is_empty()) {
+                    (true, true) => Ordering::Equal,
+                    (true, false) => Ordering::Less,
+                    (false, true) => Ordering::Greater,
+                    (false, false) => self
+                        .order
+                        .cmp(&other.order)
+                        .then_with(|| self.digits.cmp(&other.digits)),
+                };
+                if negative { magnitude.reverse() } else { magnitude }
+            }
         }
     }
 }
@@ -266,6 +311,49 @@ mod tests {
         let nines = big(&"9".repeat(45));
         assert!(equivalent(&decimal, &nines));
         assert!(!equivalent(&decimal, &big(&format!("{}8", "9".repeat(44)))));
+    }
+
+    #[test]
+    fn long_decimal_fractions_are_compared_exactly() {
+        let short = Value::Decimal("0.1000000000000000".to_owned());
+        let longer = Value::Decimal("0.1000000000000000000001".to_owned());
+        assert_eq!(compare_numbers(&short, &longer), Some(Ordering::Less));
+        assert!(!equivalent(&short, &longer));
+        assert!(!equivalent(&Value::Number(0.1), &longer));
+        assert!(equivalent(&Value::Number(0.1), &short));
+        let left = Value::from_plain_json(serde_json::json!({"a": [1.5]}));
+        let right = Value::Map(
+            [(
+                "a".to_owned(),
+                Value::List(vec![Value::Decimal("1.5000000000000000001".to_owned())]),
+            )]
+            .into_iter()
+            .collect(),
+        );
+        let path = first_difference(&left, &right).map(|key| key.to_string());
+        assert_eq!(path.as_deref(), Some("a[0]"));
+    }
+
+    #[test]
+    fn decimals_with_exponents_signs_and_zeros_are_ordered_by_value() {
+        let decimal = |text: &str| Value::Decimal(text.to_owned());
+        let cases = [
+            ("1e5", "100000.0", Ordering::Equal),
+            ("1e-3", "0.001", Ordering::Equal),
+            ("0.0", "-0.0", Ordering::Equal),
+            ("-1.5", "-1.25", Ordering::Less),
+            ("-1e400", "1e-400", Ordering::Less),
+            ("1e400", "1e399", Ordering::Greater),
+            ("0.5", ".5", Ordering::Equal),
+            ("123456.789e-3", "123.456789", Ordering::Equal),
+        ];
+        for (left, right, expected) in cases {
+            assert_eq!(
+                compare_numbers(&decimal(left), &decimal(right)),
+                Some(expected),
+                "{left} {right}"
+            );
+        }
     }
 
     #[test]
