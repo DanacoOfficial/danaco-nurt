@@ -1586,7 +1586,7 @@ fn restore_steps(
 /// before it applies the first step, so the destination still exists when the
 /// later rename is declared, as when redo repeats a rename over a file.
 fn declare_vacated_destinations(steps: &mut [Step]) {
-    let mut vacated: Vec<AbsPath> = Vec::new();
+    let mut vacated: HashSet<AbsPath> = HashSet::with_capacity(steps.len());
     for step in steps {
         let TargetSpec { path, action, .. } = &mut step.spec;
         let TargetPath::Fs(from) = path else {
@@ -1594,7 +1594,7 @@ fn declare_vacated_destinations(steps: &mut [Step]) {
         };
         if let TargetAction::Rename { to, replace } = action {
             *replace |= vacated.contains(to);
-            vacated.push(from.clone());
+            vacated.insert(from.clone());
         }
     }
 }
