@@ -182,8 +182,10 @@ not repeat the `stat`.
 
 The manifest of an operation with at least 256 targets has format version 2:
 the target records are packed (`targets_z`: the JSON array compressed with
-Zstandard, Base64), and the digest covers the unpacked manifest. A journal
-written before this format is read unchanged (version 1); a reader of version 1
+Zstandard, Base64), and the digest covers the unpacked manifest. The items of
+an undo or redo entry are packed in the same way (`items_z`), so that the entry
+of an undo of many files stays proportional to their number with a small
+constant. A journal written before this format is read unchanged (version 1); a reader of version 1
 rejects version 2 and changes nothing.
 
 `JournalStore::recover` runs before the first transaction of a process and

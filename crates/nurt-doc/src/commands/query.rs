@@ -43,6 +43,9 @@ pub const COMPUTED_KEY: &str = ".";
 
 const EXPRESSION: &str = "expression";
 const PATH: &str = "path";
+
+/// Key of the native bytes of a path that is not valid Unicode.
+const RAW_PATH: &str = "raw_path";
 const JSON_MEDIA_TYPE: &str = "json";
 
 /// Implementation of the `query` command.
@@ -226,7 +229,7 @@ impl Outputs<'_> {
         self.prepare_query(record)?;
         let roots = match subject {
             Subject::Record(record) => record_roots(self.ctx, self.registry, &record)?,
-            Subject::File(path) => file_roots(self.ctx, self.registry, &path)?,
+            Subject::File(path) => file_roots(self.ctx, self.registry, &path, None)?,
         };
         let Some(query) = self.query.as_ref() else {
             return Ok(());
@@ -334,7 +337,7 @@ fn record_roots(ctx: &ExecCtx, registry: Option<&Registry>, record: &Record) -> 
                 )
                 .with_stage(Stage::Read));
             }
-            file_roots(ctx, registry, path)
+            file_roots(ctx, registry, path, raw_record_path(record, path))
         }
         RecordKind::Item => Ok(vec![item_root(record)]),
         RecordKind::Response => response_roots(ctx, registry, record),
@@ -387,8 +390,27 @@ fn response_roots(
     document_roots(ctx, registry, url, body.as_bytes(), hint, etag)
 }
 
-fn file_roots(ctx: &ExecCtx, registry: Option<&Registry>, path: &str) -> Result<Vec<Root>> {
-    let content = read_file(ctx, path)?;
+/// Path of a record from its `raw_path` field, when the record has one and its
+/// `path` is still the display form of it: the text of a path that is not valid
+/// Unicode shows the invalid bytes as U+FFFD and does not lead back to the file.
+fn raw_record_path(record: &Record, path: &str) -> Option<AbsPath> {
+    let Some(Value::Bytes(raw)) = record.get(RAW_PATH) else {
+        return None;
+    };
+    let abs = AbsPath::from_raw_bytes(raw.as_slice()).ok()?;
+    (abs.to_language_string() == path).then_some(abs)
+}
+
+fn file_roots(
+    ctx: &ExecCtx,
+    registry: Option<&Registry>,
+    path: &str,
+    abs: Option<AbsPath>,
+) -> Result<Vec<Root>> {
+    let content = match abs {
+        Some(abs) => read_file_at(ctx, &abs, path)?,
+        None => read_file(ctx, path)?,
+    };
     document_roots(ctx, registry, path, &content.bytes, None, &content.etag)
 }
 
@@ -400,15 +422,23 @@ fn file_roots(ctx: &ExecCtx, registry: Option<&Registry>, path: &str) -> Result<
 /// larger than `max_file_bytes_text`, and with `E_STALE` when the file
 /// changed while it was read.
 pub(crate) fn read_file(ctx: &ExecCtx, path: &str) -> Result<FileContent> {
+    read_file_at(ctx, &AbsPath::new(path)?, path)
+}
+
+/// Reads the file at `abs`, which `path` shows in the messages.
+///
+/// # Errors
+///
+/// As for [`read_file`].
+fn read_file_at(ctx: &ExecCtx, abs: &AbsPath, path: &str) -> Result<FileContent> {
     let fs = ctx.require_fs()?;
-    let abs = AbsPath::new(path)?;
-    let mut handle = fs.open_read(&abs)?;
+    let mut handle = fs.open_read(abs)?;
     let limit = ctx.limits().max_file_bytes_text;
     let size = handle.meta()?.size;
     if size > limit {
         return Err(too_large(path, size, limit));
     }
-    let before = fs.content_hash(&abs)?;
+    let before = fs.content_hash(abs)?;
     let mut bytes = Vec::new();
     handle
         .by_ref()
@@ -419,7 +449,7 @@ pub(crate) fn read_file(ctx: &ExecCtx, path: &str) -> Result<FileContent> {
     if read > limit {
         return Err(too_large(path, read, limit));
     }
-    let after = fs.content_hash(&abs)?;
+    let after = fs.content_hash(abs)?;
     if before != after {
         return Err(Error::new(
             ErrorCode::Stale,

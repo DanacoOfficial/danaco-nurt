@@ -347,6 +347,7 @@ mod tests {
 
     use super::*;
 
+    #[allow(clippy::unwrap_used, reason = "test helper")]
     fn executable_with_mode(mode: u32) -> bool {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("f");

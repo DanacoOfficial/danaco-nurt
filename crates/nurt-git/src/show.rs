@@ -26,6 +26,7 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{Path, Range, Record, Size};
 
+use crate::repo::records::raw_path_bytes;
 use crate::revwalk::args;
 use crate::revwalk::changes::{self, Detect, FileChange, Side};
 use crate::revwalk::combined;
@@ -334,10 +335,15 @@ impl Show<'_> {
         let new = self.records.content(change.new)?;
         let base = Hunk {
             path: Path::from(change.path.to_str_lossy().into_owned()),
+            raw_path: raw_path_bytes(change.path.as_bstr()),
             old_path: change
                 .old_path
                 .as_ref()
                 .map(|path| Path::from(path.to_str_lossy().into_owned())),
+            raw_old_path: change
+                .old_path
+                .as_ref()
+                .and_then(|path| raw_path_bytes(path.as_bstr())),
             status: Some(hunk_status(change.status)),
             old_mode: None,
             new_mode: None,
@@ -445,6 +451,7 @@ impl Show<'_> {
         };
         let base = Hunk {
             path: Path::from(path.to_str_lossy().into_owned()),
+            raw_path: raw_path_bytes(path.as_bstr()),
             status: Some(status),
             ..Hunk::default()
         };

@@ -26,6 +26,9 @@ are untracked or ignored. The entries and their states correspond to
 The order within one repository is fixed: tracked paths and paths with
 conflicts in byte order of the path, then untracked paths, then ignored
 paths. Repositories follow the order of `repo`.
+A path of the repository that is not valid Unicode is shown with U+FFFD in
+`path` and `renamed_from` and carries its bytes in `raw_path` and
+`raw_renamed_from`.
 
 The index is compared with `HEAD` with rename and copy detection as
 configured by `status.renames`, which defaults to the value of `diff.renames`

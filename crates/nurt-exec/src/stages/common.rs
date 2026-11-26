@@ -21,6 +21,10 @@ pub(crate) const SAMPLE_SIZE: usize = 5;
 /// Field that names the file or target of a record.
 pub(crate) const PATH_FIELD: &str = "path";
 
+/// Field that holds the native bytes of the path of a record when the path is
+/// not valid Unicode.
+pub(crate) const RAW_PATH_FIELD: &str = "raw_path";
+
 /// Field that holds the line or row number of a record.
 pub(crate) const NUMBER_FIELD: &str = "no";
 

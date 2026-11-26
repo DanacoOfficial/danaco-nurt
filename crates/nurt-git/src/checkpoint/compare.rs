@@ -560,6 +560,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(
+        clippy::single_range_in_vec_init,
+        reason = "the expected groups are a list of one range"
+    )]
     fn grouping_with_the_largest_context_does_not_overflow() {
         let changes = [(0..1, 0..1), (10..11, 10..11)];
         assert_eq!(group_changes(&changes, u32::MAX), vec![0..2]);

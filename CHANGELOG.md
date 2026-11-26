@@ -53,8 +53,10 @@ their own version numbers, described in the specification.
   - a corrected name of a changing command is offered as a candidate
     (`E_AMBIGUOUS`) and is not applied by itself;
   - paths that are not valid Unicode keep their native bytes beside their
-    display form in reports and journal records, and report values stay on
-    one line in the text views;
+    display form in reports and journal records (the records `git_status` and
+    `git_conflict` and the hunks of `git.show` included, and `query` reads an
+    entry of such a name), and report values stay on one line in the text
+    views;
   - `registry:` paths are accepted by the file commands on Windows;
   - `nurt fmt` keeps the comments of the program;
   - `nurt schema tool` prints the tool definition for the platforms of the
@@ -76,6 +78,8 @@ their own version numbers, described in the specification.
   once per directory. Manifests of operations with at least 256 targets have
   format version 2 (packed target records, same digest rule); journals written
   by 0.1.0 are read unchanged, and a reader of version 1 rejects version 2.
+  The items of an undo or redo entry are packed with the targets, so that the
+  entry of an undo of thousands of files is about seven times smaller.
 
 ## [0.1.0] - 2026-11-22
 

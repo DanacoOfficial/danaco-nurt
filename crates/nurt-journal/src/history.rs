@@ -1091,6 +1091,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cognitive_complexity)] // one scenario with many checks
     fn an_entry_reports_the_metrics_hash_and_items_of_its_manifest() {
         use nurt_contracts::journal::{SessionId, TargetIndex};
         let mut manifest = crate::manifest::tests::sample();

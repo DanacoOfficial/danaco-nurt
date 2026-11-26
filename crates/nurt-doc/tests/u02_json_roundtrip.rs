@@ -165,6 +165,14 @@ fn assert_clean(summary: &Summary, format: &dyn DocFormat) {
         violations.len(),
         violations.iter().take(10).collect::<Vec<_>>()
     );
+    // A violation that reaches a repeated member is set aside; a harness that
+    // set aside most of its violations would hide a defect of the format.
+    let set_aside = summary.violations.len() - violations.len();
+    assert!(
+        set_aside * 10 <= summary.accepted,
+        "{set_aside} violations set aside among {} accepted operations",
+        summary.accepted
+    );
     assert!(summary.unsupported.is_empty(), "{:?}", summary.unsupported);
     assert!(summary.refused.is_empty(), "{:?}", summary.refused);
     assert!(summary.accepted > 0);

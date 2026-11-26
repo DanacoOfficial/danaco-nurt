@@ -13,9 +13,17 @@ use nurt_contracts::error::Error;
 use nurt_contracts::record::{
     Branch, Commit, GitConflictKind, GitFileState, GitStatus, GitStatusKind, GitTag, GitTagKind,
 };
-use nurt_contracts::value::{Instant, Path as RecordPath};
+use nurt_contracts::value::{Bytes, Instant, Path as RecordPath};
 
 use super::{GitRepo, error};
+
+/// The bytes of a path of the repository that is not valid UTF-8. The record
+/// shows such a path with U+FFFD and carries the bytes beside it; `None` for a
+/// path that is valid UTF-8.
+#[must_use]
+pub fn raw_path_bytes(path: &BStr) -> Option<Bytes> {
+    path.to_str().is_err().then(|| Bytes::new(path.to_vec()))
+}
 
 /// Prefix of local branch references.
 pub const HEADS: &str = "refs/heads/";

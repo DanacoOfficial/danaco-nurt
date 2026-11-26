@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use nurt_contracts::config::Config;
 use nurt_contracts::error::{Error, ErrorCode, Result, Stage};
+use nurt_contracts::fs::AbsPath;
 use nurt_contracts::record::{Content, Entry, EntryType, Item};
 use nurt_contracts::spec::StageSpec;
 use nurt_contracts::stage::{
@@ -204,6 +205,35 @@ fn entry_records_of_directories_are_rejected() {
     let error = failure(output.into_iter().collect::<Result<Vec<_>>>());
     assert_eq!(error.code, ErrorCode::Type);
     assert!(error.message.contains("type: file"), "{}", error.message);
+}
+
+#[test]
+fn an_entry_whose_name_is_not_valid_unicode_is_read_through_its_raw_path() {
+    let fixture = Fixture::new();
+    let abs = AbsPath::from_raw_bytes(b"/data/n\xffotes.json").unwrap();
+    let fs = fixture.test.fs();
+    fs.create_dir_all(&AbsPath::new("/data").unwrap()).unwrap();
+    fs.write_file(&abs, b"{\"a\": 7}").unwrap();
+    let record = Record::from(Entry {
+        path: Path::new(abs.to_language_string()),
+        raw_path: abs.raw_bytes(),
+        name: "n\u{fffd}otes.json".to_owned(),
+        kind: EntryType::File,
+        ..Entry::default()
+    });
+    let output = query_all(&fixture, &expression(".a"), Some(vec![record.clone()]));
+    let found = items(&output.into_iter().collect::<Result<Vec<_>>>().unwrap());
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].value, Value::Int(7));
+    let mut other = Entry::try_from(record).unwrap();
+    other.path = Path::new("/data/other.json");
+    let output = query_all(&fixture, &expression(".a"), Some(vec![Record::from(other)]));
+    let error = failure(output.into_iter().collect::<Result<Vec<_>>>());
+    assert_eq!(
+        error.code,
+        ErrorCode::NotFound,
+        "a path that is not the display form of the raw path is read as written"
+    );
 }
 
 #[test]

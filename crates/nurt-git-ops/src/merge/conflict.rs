@@ -10,6 +10,7 @@ use gix_hash::ObjectId;
 use gix_index::entry::Stage;
 use gix_merge::tree::{Conflict, ResolutionFailure, TreatAsUnresolved};
 use nurt_contracts::record::{GitConflict, GitConflictKind};
+use nurt_contracts::value::Bytes;
 
 /// One conflicting path of a merge result.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +35,11 @@ impl MergeConflict {
     pub fn to_record(&self) -> GitConflict {
         GitConflict {
             path: self.path.to_str_lossy().into_owned(),
+            raw_path: self
+                .path
+                .to_str()
+                .is_err()
+                .then(|| Bytes::new(self.path.to_vec())),
             kind: self.kind,
             markers: self.markers,
             base: self.base.map(|id| id.to_hex().to_string()),

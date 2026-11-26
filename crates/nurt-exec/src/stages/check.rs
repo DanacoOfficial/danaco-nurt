@@ -15,8 +15,8 @@ use nurt_contracts::value::{Range, Record, RecordKind, Value};
 use serde_json::{Value as Json, json};
 
 use super::common::{
-    PATH_FIELD, Parts, SAMPLE_SIZE, descriptor, is_present, known_value, missing_param,
-    sample_item, truth, type_error,
+    PATH_FIELD, Parts, RAW_PATH_FIELD, SAMPLE_SIZE, descriptor, is_present, known_value,
+    missing_param, sample_item, truth, type_error,
 };
 
 const ASSERT: &str = "assert";
@@ -175,9 +175,18 @@ fn check_count(range: Range, records: &[Record]) -> Option<Failure> {
 }
 
 fn check_paths(range: Range, records: &[Record]) -> Option<Failure> {
-    let paths: BTreeSet<&str> = records
+    // Two paths that are not valid Unicode can show the same display text; the
+    // native bytes tell them apart.
+    let paths: BTreeSet<(&str, Option<&[u8]>)> = records
         .iter()
-        .filter_map(|record| record.get(PATH_FIELD).and_then(Value::as_str))
+        .filter_map(|record| {
+            let path = record.get(PATH_FIELD).and_then(Value::as_str)?;
+            let raw = match record.get(RAW_PATH_FIELD) {
+                Some(Value::Bytes(bytes)) => Some(bytes.as_slice()),
+                _ => None,
+            };
+            Some((path, raw))
+        })
         .collect();
     let found = len_i64(paths.len());
     (!range.contains(found)).then(|| Failure {
@@ -187,7 +196,7 @@ fn check_paths(range: Range, records: &[Record]) -> Option<Failure> {
         sample: paths
             .into_iter()
             .take(SAMPLE_SIZE)
-            .map(str::to_owned)
+            .map(|(path, _)| path.to_owned())
             .collect(),
     })
 }

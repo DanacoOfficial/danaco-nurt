@@ -10,7 +10,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::value::{Fields, Value};
@@ -577,10 +577,40 @@ impl PartialEq for AnchorCache {
 
 impl Eq for AnchorCache {}
 
+/// Smallest number of entries of a mapping that is looked up through an index
+/// of its key texts; a shorter mapping is scanned.
+const NAME_INDEX_MIN_ENTRIES: usize = 32;
+
+/// Position of every value node among the entries of its mapping and of every
+/// item node among the items of its sequence, and the index of the key texts of
+/// the large mappings, computed on first use so that a walk over the children of
+/// a large mapping or sequence takes time proportional to its size. Two models
+/// are equal whether or not the caches were computed.
+#[derive(Debug, Default)]
+pub(crate) struct PositionCache {
+    slots: OnceLock<Vec<u32>>,
+    names: Mutex<HashMap<NodeId, Arc<HashMap<String, usize>>>>,
+}
+
+impl Clone for PositionCache {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl PartialEq for PositionCache {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for PositionCache {}
+
 /// Lossless model of a YAML stream.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct YamlModel {
     pub(crate) anchor_cache: AnchorCache,
+    pub(crate) position_cache: PositionCache,
     pub(crate) source: String,
     pub(crate) bom: bool,
     pub(crate) documents: Vec<YamlDocument>,
@@ -763,11 +793,31 @@ impl YamlModel {
     /// without merge keys; aliases used as keys are followed.
     #[must_use]
     pub fn entry_index(&self, map: NodeId, key: &str) -> Option<usize> {
-        self.node(map)
-            .as_mapping()?
-            .entries
-            .iter()
-            .rposition(|entry| !entry.merge && self.key_text(entry.key).as_deref() == Some(key))
+        let mapping = self.node(map).as_mapping()?;
+        if mapping.entries.len() < NAME_INDEX_MIN_ENTRIES {
+            return mapping.entries.iter().rposition(|entry| {
+                !entry.merge && self.key_text(entry.key).as_deref() == Some(key)
+            });
+        }
+        let index = {
+            let mut names = self
+                .position_cache
+                .names
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            Arc::clone(names.entry(map).or_insert_with(|| {
+                let mut index = HashMap::with_capacity(mapping.entries.len());
+                for (position, entry) in mapping.entries.iter().enumerate() {
+                    if !entry.merge
+                        && let Some(text) = self.key_text(entry.key)
+                    {
+                        index.insert(text, position);
+                    }
+                }
+                Arc::new(index)
+            }))
+        };
+        index.get(key).copied()
     }
 
     /// Value of the last entry with the given key text in a mapping, without
@@ -791,24 +841,53 @@ impl YamlModel {
     #[must_use]
     pub fn entry_position(&self, value: NodeId) -> Option<(usize, &MapEntry)> {
         let parent = self.parent(value)?;
-        self.node(parent)
-            .as_mapping()?
-            .entries
-            .iter()
-            .enumerate()
-            .find(|(_, entry)| entry.value == value)
+        let mapping = self.node(parent).as_mapping()?;
+        let index = self.slot_of(value)?;
+        let entry = mapping.entries.get(index)?;
+        (entry.value == value).then_some((index, entry))
     }
 
     /// Sequence item whose node is the given node, with its index.
     #[must_use]
     pub fn item_of(&self, node: NodeId) -> Option<(usize, &SeqItem)> {
         let parent = self.parent(node)?;
-        self.node(parent)
-            .as_sequence()?
-            .items
-            .iter()
-            .enumerate()
-            .find(|(_, item)| item.node == node)
+        let sequence = self.node(parent).as_sequence()?;
+        let index = self.slot_of(node)?;
+        let item = sequence.items.get(index)?;
+        (item.node == node).then_some((index, item))
+    }
+
+    /// Position of a node among the entries of its mapping or the items of its
+    /// sequence, from the table that is built for the whole model on first use.
+    fn slot_of(&self, id: NodeId) -> Option<usize> {
+        let slots = self.position_cache.slots.get_or_init(|| {
+            let mut slots = vec![u32::MAX; self.nodes.len()];
+            for node in &self.nodes {
+                if let Some(mapping) = node.as_mapping() {
+                    for (position, entry) in mapping.entries.iter().enumerate() {
+                        if let (Some(slot), Ok(position)) =
+                            (slots.get_mut(entry.value.index()), u32::try_from(position))
+                        {
+                            *slot = position;
+                        }
+                    }
+                } else if let Some(sequence) = node.as_sequence() {
+                    for (position, item) in sequence.items.iter().enumerate() {
+                        if let (Some(slot), Ok(position)) =
+                            (slots.get_mut(item.node.index()), u32::try_from(position))
+                        {
+                            *slot = position;
+                        }
+                    }
+                }
+            }
+            slots
+        });
+        slots
+            .get(id.index())
+            .copied()
+            .filter(|slot| *slot != u32::MAX)
+            .and_then(|slot| usize::try_from(slot).ok())
     }
 
     /// Text of a key: the value of a scalar key, the value of the target of
