@@ -291,8 +291,7 @@ def icons(f):
     ]
     for index, tile in enumerate(tiles):
         x = 64 + index * 230
-        if True:
-            body += f'<rect x="{x - 4}" y="196" width="208" height="208" rx="38" fill="none" stroke="#30343B"/>'
+        body += f'<rect x="{x - 4}" y="196" width="208" height="208" rx="38" fill="none" stroke="#30343B"/>'
         body += B.place(tile, x, 200, 200)
     x = 64
     for size in (128, 64, 48, 32, 24, 16):
