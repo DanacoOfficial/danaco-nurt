@@ -42,7 +42,10 @@ destination: `overwrite` replaces it, `skip` keeps it and leaves the source
 out, `error` fails before anything changes. A symbolic link is copied as a
 link with the same target; its target is not copied.
 
-`preserve: true` keeps the permission bits of directories and lets the
+`preserve: true` keeps the permission bits of directories, except that a
+directory whose user permissions lack read, write or search is created with
+`rwx` for the user, because its content is copied into it afterwards; the
+notable entry `attributes_changed` names the path and both modes. It also lets the
 journal keep the times, permissions and extended attributes of files where
 the file system supports them. `clone: auto` uses block clones when source
 and destination share a volume that supports them, and a byte copy

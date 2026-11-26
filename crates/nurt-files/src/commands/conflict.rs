@@ -276,6 +276,9 @@ impl Source {
 ///
 /// Fails with `E_MISSING_PARAM` when the source form has no paths, with
 /// `E_TYPE` for records of another kind, and as [`Source::from_record`].
+///
+/// An entry named more than once is one source: planned twice it would be
+/// moved or copied twice and the second step would fail when applied.
 pub(crate) fn sources(
     args: &BoundArgs,
     input: StageInput<'_>,
@@ -284,10 +287,12 @@ pub(crate) fn sources(
 ) -> Result<Vec<Source>> {
     if input.is_none() {
         args.require(param)?;
-        return Ok(path_list_arg(args, param, ctx)?
-            .into_iter()
-            .map(Source::from_path)
-            .collect());
+        return Ok(first_of_each_path(
+            path_list_arg(args, param, ctx)?
+                .into_iter()
+                .map(Source::from_path)
+                .collect(),
+        ));
     }
     let mut found = Vec::new();
     for (index, item) in input.into_records()?.enumerate() {
@@ -300,7 +305,16 @@ pub(crate) fn sources(
         }
         found.push(Source::from_record(record, ctx)?);
     }
-    Ok(found)
+    Ok(first_of_each_path(found))
+}
+
+/// Keeps the first source of every path, in order.
+fn first_of_each_path(found: Vec<Source>) -> Vec<Source> {
+    let mut seen = HashSet::with_capacity(found.len());
+    found
+        .into_iter()
+        .filter(|source| seen.insert(source.path.clone()))
+        .collect()
 }
 
 /// Destination given by `to` or `into`.

@@ -41,6 +41,9 @@ const CLONE_VALUES: [&str; 3] = ["auto", "always", "never"];
 /// Permission bits kept by `preserve`, including the set-id and sticky bits.
 const PERMISSION_BITS: u32 = 0o7777;
 
+/// Read, write and search permission of the owner of a directory.
+const OWNER_ALL: u32 = 0o700;
+
 /// Stage of `copy`.
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct Copy;
@@ -255,11 +258,27 @@ impl Planner<'_> {
         Ok(())
     }
 
+    /// Plans the directory with the mode of its source. The content is
+    /// copied into the directory after it is created, so an owner mode
+    /// without read, write and search permission would make that copy fail
+    /// for everyone but the superuser: the owner permissions are added and
+    /// reported as `attributes_changed`.
     fn create_dir(&mut self, target: &AbsPath, source: &FileMeta) {
         let mode = if self.settings.preserve {
             source.mode & PERMISSION_BITS
         } else {
             NEW_DIR_MODE
+        };
+        let mode = if mode & OWNER_ALL == OWNER_ALL {
+            mode
+        } else {
+            let widened = mode | OWNER_ALL;
+            self.placer.note(
+                Notable::AttributesChanged,
+                target,
+                Some(format!("mode {mode:04o} created as {widened:04o}")),
+            );
+            widened
         };
         self.steps
             .push(Step::op(FileOp::create_dir(target.clone(), mode)));
@@ -606,6 +625,36 @@ mod tests {
             .metadata(&abs("/plain"), Follow::NoFollow)
             .unwrap();
         assert_eq!(plain.mode & PERMISSION_BITS, NEW_DIR_MODE);
+    }
+
+    #[test]
+    fn a_directory_without_user_write_is_created_writable_and_reported() {
+        let test = TestContext::new();
+        let source = dir(&test, "/src/frozen");
+        file(&test, "/src/frozen/a.txt", b"a");
+        test.fs().set_mode(&source, 0o555).unwrap();
+        let run = run(&Copy, &test, &to(args(&[&source]), &abs("/kept")), None).unwrap();
+        let kept = test.fs().metadata(&abs("/kept"), Follow::NoFollow).unwrap();
+        assert_eq!(kept.mode & PERMISSION_BITS, 0o755);
+        assert_eq!(test.fs().read_file(&abs("/kept/a.txt")).unwrap(), b"a");
+        assert_eq!(run.codes(), [Notable::AttributesChanged]);
+        assert_journaled(&test);
+    }
+
+    #[test]
+    fn a_source_named_twice_is_copied_once() {
+        let test = TestContext::new();
+        let source = file(&test, "/a/x.txt", b"1");
+        let run = run(
+            &Copy,
+            &test,
+            &into(args(&[&source, &source]), &abs("/out")),
+            None,
+        )
+        .unwrap();
+        assert_eq!(run.summary("files"), Some(1));
+        assert_eq!(test.fs().read_file(&abs("/out/x.txt")).unwrap(), b"1");
+        assert_journaled(&test);
     }
 
     #[test]
