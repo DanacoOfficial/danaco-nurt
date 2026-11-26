@@ -104,6 +104,13 @@ pub(crate) fn request_name() -> String {
     format!("{}-{counter}", std::process::id())
 }
 
+/// Sort key of a request name `<process>-<counter>`; counters compare as numbers.
+pub(crate) fn request_order(name: &str) -> (u64, u64) {
+    name.split_once('-')
+        .and_then(|(process, counter)| Some((process.parse().ok()?, counter.parse().ok()?)))
+        .unwrap_or((u64::MAX, u64::MAX))
+}
+
 /// Sends `action` to the process supervising job `id` and waits for its
 /// reply.
 ///
@@ -134,14 +141,14 @@ pub(crate) fn send(
         },
         true,
     )?;
-    let deadline = Instant::now() + action.timeout();
+    let deadline = Instant::now().checked_add(action.timeout());
     loop {
         if let Some(reply) = take_reply(&reply_path)? {
             return reply;
         }
         let ended = table.read(id)?.filter(|file| !is_live(file.record.state));
         let cancelled = ctx.cancel().check();
-        let expired = Instant::now() >= deadline;
+        let expired = deadline.is_some_and(|deadline| Instant::now() >= deadline);
         if ended.is_some() || cancelled.is_err() || expired {
             let withdrawn = withdraw(&request_path)?;
             if let Some(reply) = take_reply(&reply_path)? {
@@ -182,9 +189,8 @@ fn take_reply(path: &Path) -> Result<Option<Result<Job>>> {
     }))
 }
 
-/// Removes a request file; `false` when the supervising process already
-/// took the request.
-fn withdraw(path: &Path) -> Result<bool> {
+/// Removes a request file; `false` when the other side removed it first.
+pub(crate) fn withdraw(path: &Path) -> Result<bool> {
     match fs::remove_file(path) {
         Ok(()) => Ok(true),
         Err(error) if error.kind() == ErrorKind::NotFound => Ok(false),
@@ -227,7 +233,7 @@ pub(crate) fn pending(table: &JobTable, id: &str) -> Vec<(String, ControlAction)
             (request.protocol == PROTOCOL).then_some((name, request.action))
         })
         .collect();
-    requests.sort_by(|left, right| left.0.cmp(&right.0));
+    requests.sort_by_cached_key(|(name, _)| (request_order(name), name.clone()));
     requests
 }
 
