@@ -13,6 +13,18 @@ their own version numbers, described in the specification.
 
 ## [Unreleased]
 
+### Security
+
+- The Git library `gix` and its sub-crates are updated to the 0.91 generation,
+  which no longer depends on `heapless` 0.8 (nine advisories about unsound code,
+  RUSTSEC-2026-0574 to RUSTSEC-2026-0582).
+- The unused `netstat2` dependency and the AVIF encoder of the `image` crate
+  (`ravif`, `rav1e`) are removed, which removes the unmaintained `paste` macro
+  crate (RUSTSEC-2024-0436). Reading of AVIF files was never enabled.
+- Advisories without a fixed release that can be adopted are listed with their
+  reasons in `deny.toml`: `rsa` 0.9 and `crypto-bigint` 0.5 required by the
+  newest `pgp` release, and the unmaintained `chrono` and `ttf-parser`.
+
 ## [0.1.0] - 2026-11-22
 
 First release.
