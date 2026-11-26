@@ -41,7 +41,7 @@ A path is text in canonical form, so a path with bytes that are not valid Unicod
 
 A command that takes the records of a previous stage reads the path of a record from `raw_path` when the record has it and its `path` is still the display form of it, and from `path` otherwise, so that `find ... |> remove`, `move`, `copy`, `replace` and the other commands act on the entry that was listed. A path written in a program is text and cannot name such an entry; the entry is reached through the records of `list`, `find`, `info` or `search`. The journal keeps the native bytes of the targets of an operation, so `undo` and `redo` restore the entry under its original name. Reports show the display form in the formats `text`, `markdown` and `compact` and give the raw form in the format `json`.
 
-The records of the file system commands (`entry`, `content`, `line`, `match`, `hunk`, `change` and the items of an `operation`) follow this rule; records of other families, for example `symbol`, `item` or `cell`, show the display form only. The fields of the report that name a path follow the same rule: `raw_path`, `raw_from`, `raw_to` and `raw_link_target` of [`change`](#change), `raw_path` of [`hunk`](#hunk), of `notable` and of `irreversible` entries, `raw_directory` of the directories of a bulk summary, and `raw_sample_head` and `raw_sample_tail` of its sample (one item for each target of the sample, `null` for a target that is valid Unicode).
+The records of the file system commands (`entry`, `content`, `line`, `match`, `hunk`, `change` and the items of an `operation`) and the records `git_status` (`raw_path`, `raw_renamed_from`) and `git_conflict` (`raw_path`), which hold paths relative to the repository root, follow this rule; records of other families, for example `symbol`, `item` or `cell`, show the display form only. The fields of the report that name a path follow the same rule: `raw_path`, `raw_from`, `raw_to` and `raw_link_target` of [`change`](#change), `raw_path` of [`hunk`](#hunk), of `notable` and of `irreversible` entries, `raw_directory` of the directories of a bulk summary, and `raw_sample_head` and `raw_sample_tail` of its sample (one item for each target of the sample, `null` for a target that is valid Unicode).
 
 | Kind | Description |
 |---|---|
@@ -748,11 +748,13 @@ Status of a path in a repository.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `path` | text | yes | Path in the repository. |
+| `raw_path` | bytes | no | Bytes of `path`; present only when it is not valid Unicode. |
 | `index` | enum(unmodified\|modified\|added\|deleted\|renamed\|copied\|type_changed\|unmerged\|untracked\|ignored) | yes | State in the index. |
 | `worktree` | enum(unmodified\|modified\|added\|deleted\|renamed\|copied\|type_changed\|unmerged\|untracked\|ignored) | yes | State in the working tree. |
 | `kind` | enum(tracked\|untracked\|ignored\|conflict) | yes | Kind of entry. |
 | `repo` | path | yes | Root of the repository. |
 | `renamed_from` | text | no | Path before a rename. |
+| `raw_renamed_from` | bytes | no | Bytes of `renamed_from`; present only when it is not valid Unicode. |
 | `conflict` | enum(both_modified\|both_added\|both_deleted\|added_by_us\|added_by_them\|deleted_by_us\|deleted_by_them\|rename_rename\|rename_delete\|directory_file\|binary\|submodule) | no | Kind of conflict. |
 | `submodule` | object [`Submodule`](#submodule) | no | Status of a submodule. |
 | `mode_before` | text | no | Mode before. |
@@ -1459,6 +1461,7 @@ Conflict left by a merge.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `path` | text | yes | Path in the repository. |
+| `raw_path` | bytes | no | Bytes of `path`; present only when it is not valid Unicode. |
 | `kind` | enum(both_modified\|both_added\|both_deleted\|added_by_us\|added_by_them\|deleted_by_us\|deleted_by_them\|rename_rename\|rename_delete\|directory_file\|binary\|submodule) | yes | Kind. |
 | `markers` | bool | yes | The file contains conflict markers. |
 | `base` | text | no | Object identifier of the base. |

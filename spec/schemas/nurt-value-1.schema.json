@@ -7353,6 +7353,17 @@
           "type": "string",
           "description": "Path in the repository."
         },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bytes of `path`; present only when it is not valid Unicode."
+        },
         "index": {
           "$ref": "#/$defs/GitFileState",
           "description": "State in the index."
@@ -7375,6 +7386,17 @@
             "null"
           ],
           "description": "Path before a rename."
+        },
+        "raw_renamed_from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bytes of `renamed_from`; present only when it is not valid Unicode."
         },
         "conflict": {
           "anyOf": [
@@ -10186,6 +10208,17 @@
         "path": {
           "type": "string",
           "description": "Path in the repository."
+        },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bytes of `path`; present only when it is not valid Unicode."
         },
         "kind": {
           "$ref": "#/$defs/GitConflictKind",
