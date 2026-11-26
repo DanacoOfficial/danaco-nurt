@@ -54,8 +54,8 @@ The release job publishes one archive per target and `checksums.txt` in the form
 
 | Target | Archive | Used by |
 |---|---|---|
-| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | `nurt-<version>-<target>.tar.gz` | deb, rpm |
-| `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | `nurt-<version>-<target>.tar.gz` | `install.sh`, Homebrew on Linux |
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | `nurt-<version>-<target>.tar.gz` | deb, rpm, Homebrew on Linux, `install.sh` when the release has no musl archive |
+| `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | `nurt-<version>-<target>.tar.gz` | `install.sh` (preferred), the container images, the GitHub Action `setup-nurt` and the dev container feature; optional, a release without them is installed from the glibc archives by `install.sh` only |
 | `x86_64-apple-darwin`, `aarch64-apple-darwin` | `nurt-<version>-<target>.tar.gz` | `install.sh`, Homebrew |
 | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `nurt-<version>-<target>.zip` | winget, Scoop, Chocolatey, `install.ps1` |
 | source | `nurt-<version>-source.tar.gz` | Homebrew core formula |
@@ -65,14 +65,14 @@ Archives for Linux and macOS contain the directory `nurt-<version>-<target>/` wi
 | Path | Content | Required |
 |---|---|---|
 | `nurt` | executable | yes |
-| `libnurt.so.1` | shared library (glibc targets only) | for deb and rpm |
+| `libnurt.so.1` | shared library (glibc Linux); `libnurt.1.dylib` on macOS; no library in musl archives, which are static | for deb and rpm |
 | `nurt.h`, `nurt.pc` | C header and pkg-config file; `nurt.pc` defines `prefix`, `libdir` and `includedir` on separate lines | for deb and rpm |
 | `LICENSE`, `NOTICE` | license texts | yes |
 | `man/man1/*.1` | manual pages | no |
 | `completions/nurt.bash`, `completions/_nurt`, `completions/nurt.fish` | shell completions | no |
 | `service/` | unit files of the service mode | no |
 
-Windows archives contain `nurt.exe`, `LICENSE` and `NOTICE` at the top level. The packages only deliver the service files; `nurt service install` installs the service.
+Windows archives contain `nurt.exe`, `LICENSE` and `NOTICE` at the top level, and `nurt.dll` with `nurt.h` when the library is packed. The packages only deliver the service files; `nurt service install` installs the service.
 
 ## Directories
 

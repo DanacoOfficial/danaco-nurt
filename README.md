@@ -26,7 +26,10 @@ between 0.x versions. The known limitations are listed in the
 ## Design
 
 - One executable per operating system (`nurt`, `nurt.exe`) for Linux, macOS
-  and Windows, without runtime dependencies.
+  and Windows, with no tools to install besides the system itself. The glibc
+  build for Linux links the system libraries `libc.so.6`, `libgcc_s.so.1` and
+  `liblzma.so.5` dynamically (the `.deb` and `.rpm` packages declare them);
+  the musl build for Linux is linked statically.
 - File, text, archive, document, code, version control, network and system
   operations are implemented in the program and do not invoke external tools.
 - Stages exchange records with named fields (files, lines, matches, processes)

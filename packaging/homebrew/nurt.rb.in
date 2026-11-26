@@ -17,12 +17,12 @@ class Nurt < Formula
 
   on_linux do
     on_arm do
-      url "https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-aarch64-unknown-linux-musl.tar.gz"
-      sha256 "@SHA256:aarch64-unknown-linux-musl@"
+      url "https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "@SHA256:aarch64-unknown-linux-gnu@"
     end
     on_intel do
-      url "https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-x86_64-unknown-linux-musl.tar.gz"
-      sha256 "@SHA256:x86_64-unknown-linux-musl@"
+      url "https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "@SHA256:x86_64-unknown-linux-gnu@"
     end
   end
 

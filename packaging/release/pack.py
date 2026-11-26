@@ -13,8 +13,10 @@ with --epoch or SOURCE_DATE_EPOCH.
 Contents:
 
   nurt or nurt.exe        executable
-  libnurt.so.1, nurt.h,   shared library, C header and pkg-config file
-  nurt.pc                 (with --library)
+  libnurt.so.1,           shared library, C header and pkg-config file
+  libnurt.1.dylib or      (with --library; the library is named libnurt.so.1 on
+  nurt.dll, nurt.h,       glibc Linux, libnurt.1.dylib on macOS and nurt.dll on
+  nurt.pc                 Windows; nurt.pc is not packed for Windows)
   LICENSE, NOTICE,        texts of the repository
   README.md, CHANGELOG.md
   man/man<N>/*            manual pages (--man; not in Windows archives)
@@ -43,6 +45,9 @@ ROOT_TEXTS = ("LICENSE", "NOTICE", "README.md", "CHANGELOG.md")
 HEADER = Path("crates") / "nurt-ffi" / "include" / "nurt.h"
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$")
 TARGET = re.compile(r"^[a-z0-9_]+-[a-z0-9_]+-[a-z0-9_]+(?:-[a-z0-9_]+)?$")
+# Zip entries record the Unix file system as their origin, so that the
+# archive does not depend on the platform that assembled it.
+ZIP_CREATOR_UNIX = 3
 
 PKG_CONFIG = """prefix=/usr/local
 libdir=${{prefix}}/lib
@@ -67,12 +72,25 @@ def parse_arguments(argv):
     parser.add_argument("--target", required=True)
     parser.add_argument("--binary", required=True, type=Path, help="nurt or nurt.exe")
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--library", type=Path, help="shared library, stored as libnurt.so.1")
+    parser.add_argument("--library", type=Path, help="shared library, stored under the name of the target")
     parser.add_argument("--man", type=Path, help="directory with the manual pages")
     parser.add_argument("--completions", type=Path, help="directory with the completion scripts")
     parser.add_argument("--site", type=Path, help="directory of the documentation site")
     parser.add_argument("--epoch", type=int, default=None, help="time of the entries, seconds")
     return parser.parse_args(argv)
+
+
+def library_name(target):
+    """Return the file name of the shared library in the archive of a target."""
+    if target.endswith("-unknown-linux-gnu"):
+        return "libnurt.so.1"
+    if target.endswith("-apple-darwin"):
+        return "libnurt.1.dylib"
+    if "windows" in target:
+        return "nurt.dll"
+    raise PackError(
+        f"--library belongs to glibc Linux, macOS and Windows targets only, not {target}"
+    )
 
 
 def collect(arguments):
@@ -87,16 +105,14 @@ def collect(arguments):
             raise PackError(f"{source} does not exist")
         entries[text] = source
     if arguments.library is not None:
-        if not arguments.target.endswith("-unknown-linux-gnu"):
-            raise PackError(
-                f"--library is stored as libnurt.so.1 and belongs to glibc targets only, not {arguments.target}"
-            )
+        library = library_name(arguments.target)
         header = arguments.root / HEADER
         if not header.is_file():
             raise PackError(f"{header} does not exist")
-        entries["libnurt.so.1"] = arguments.library
+        entries[library] = arguments.library
         entries["nurt.h"] = header
-        entries["nurt.pc"] = PKG_CONFIG.format(version=arguments.version).encode("utf-8")
+        if not windows:
+            entries["nurt.pc"] = PKG_CONFIG.format(version=arguments.version).encode("utf-8")
     if arguments.man is not None and not windows:
         for page in sorted(arguments.man.glob("*.[0-9]")):
             entries[f"man/man{page.suffix[1:]}/{page.name}"] = page
@@ -155,6 +171,7 @@ def write_zip(destination, entries, epoch):
     with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for path in sorted(entries):
             info = zipfile.ZipInfo(path, date_time=stamp)
+            info.create_system = ZIP_CREATOR_UNIX
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = (0o755 if is_executable(path) else 0o644) << 16
             archive.writestr(info, content(entries[path]))

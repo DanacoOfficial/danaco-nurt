@@ -106,9 +106,19 @@ main() {
   work=$(mktemp -d)
   trap 'rm -rf "$work"' EXIT
 
-  curl --fail --silent --show-error --location --retry 3 \
-    --output "$work/$archive" "$DOWNLOAD_BASE/v$version/$archive" ||
-    fail "cannot download $archive"
+  if ! curl --fail --silent --show-error --location --retry 3 \
+    --output "$work/$archive" "$DOWNLOAD_BASE/v$version/$archive"; then
+    # A release without the static musl archive is installed from the glibc
+    # archive, except on a machine whose C library is musl.
+    if have ldd && ldd --version 2>&1 | grep -qi musl; then
+      fail "cannot download $archive"
+    fi
+    target=${target%-musl}-gnu
+    archive="nurt-$version-$target.tar.gz"
+    curl --fail --silent --show-error --location --retry 3 \
+      --output "$work/$archive" "$DOWNLOAD_BASE/v$version/$archive" ||
+      fail "cannot download $archive"
+  fi
   curl --fail --silent --show-error --location --retry 3 \
     --output "$work/checksums.txt" "$DOWNLOAD_BASE/v$version/checksums.txt" ||
     fail "cannot download checksums.txt for version $version"

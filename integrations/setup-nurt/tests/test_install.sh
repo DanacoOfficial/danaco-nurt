@@ -135,6 +135,22 @@ run_setup 1.2.3 true "$cache"
 assert_eq 'installs an archive with the top directory of the release layout' 0 $?
 assert_file 'places the executable of the nested archive in the tool cache' "$cache/nurt/1.2.3/x64/nurt"
 
+cache="$work/cache-j"
+gnu=x86_64-unknown-linux-gnu
+rm -rf "$release/v1.2.3"
+stage=$(mktemp -d "$work/stage.XXXXXX")
+mkdir -p "$release/v1.2.3" "$stage/nurt-1.2.3-$gnu"
+printf '#!/bin/sh\necho "nurt 1.2.3"\n' >"$stage/nurt-1.2.3-$gnu/nurt"
+chmod +x "$stage/nurt-1.2.3-$gnu/nurt"
+tar -czf "$release/v1.2.3/nurt-1.2.3-$gnu.tar.gz" -C "$stage" "nurt-1.2.3-$gnu"
+(cd "$release/v1.2.3" && { sha256sum "nurt-1.2.3-$gnu.tar.gz" 2>/dev/null || shasum -a 256 "nurt-1.2.3-$gnu.tar.gz"; } >checksums.txt)
+run_setup 1.2.3 true "$cache"
+assert_eq 'installs the glibc archive of a release without a musl archive' 0 $?
+assert_contains 'reports the missing musl archive' 'no musl archive in version 1.2.3' "$(cat "$work/stdout")"
+assert_contains 'verifies the glibc archive' "verified SHA-256 of nurt-1.2.3-$gnu.tar.gz" "$(cat "$work/stdout")"
+assert_file 'places the executable of the glibc archive in the tool cache' "$cache/nurt/1.2.3/x64/nurt"
+make_release 1.2.3
+
 cache="$work/cache-h"
 env RUNNER_OS=FreeBSD RUNNER_ARCH=X64 RUNNER_TOOL_CACHE="$cache" INPUT_VERSION=1.2.3 \
   bash "$setup" >/dev/null 2>"$work/stderr"
