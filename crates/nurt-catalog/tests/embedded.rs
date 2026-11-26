@@ -16,7 +16,15 @@ use std::path::Path;
 use nurt_catalog::{NameEntry, NameKind, Registry, StageSpecExt};
 use nurt_contracts::spec::{CORE_GROUP, IoSpec, Os};
 
-const CATALOG_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog");
+/// The reference catalog directory, resolved at run time so that relocated test archives find it.
+fn catalog_dir() -> std::path::PathBuf {
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../catalog")
+}
 
 #[test]
 fn embedded_catalog_has_148_commands_in_15_groups() {
@@ -30,7 +38,7 @@ fn embedded_catalog_has_148_commands_in_15_groups() {
 #[test]
 fn embedded_catalog_equals_catalog_loaded_from_directory() {
     let embedded = Registry::load_embedded().unwrap();
-    let from_disk = Registry::load_dir(Path::new(CATALOG_DIR)).unwrap();
+    let from_disk = Registry::load_dir(&catalog_dir()).unwrap();
     assert_eq!(
         embedded.catalog_rev().unwrap(),
         from_disk.catalog_rev().unwrap()

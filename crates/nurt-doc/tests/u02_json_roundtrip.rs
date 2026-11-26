@@ -38,9 +38,13 @@ const SUITE_CASES: usize = 318;
 const SURROUNDINGS: &[u8] = b" \t\r\n,";
 
 fn data(path: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d5")
-        .join(path)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5")
+    .join(path)
 }
 
 fn run(dir: &str, dialect: Dialect, filter: FileFilter) -> Summary {

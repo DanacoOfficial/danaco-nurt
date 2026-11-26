@@ -41,7 +41,12 @@ const MIN_EXAMPLE_PROGRAMS: usize = 48;
 const MIN_BOUND_TREES: usize = 12;
 
 fn spec_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec")
 }
 
 fn golden_dir(format: &str) -> PathBuf {

@@ -33,7 +33,12 @@ use exec_ctx::text;
 const URL: &str = "https://example.test/page";
 
 fn spec() -> StageSpec {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/network.toml");
+    let path = format!(
+        "{}/../../catalog/network.toml",
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+    );
     let mut file: CatalogFile = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     file.resolve_groups();
     file.command(COMMAND).unwrap().clone()

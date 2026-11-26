@@ -165,7 +165,12 @@ impl Case {
 
 /// Root of the repository.
 pub(crate) fn repository_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn corpus_files(directory: &Path, out: &mut Vec<PathBuf>) {

@@ -20,8 +20,12 @@ const SCRIPT: TranslateContext<'static> = TranslateContext {
 
 #[test]
 fn common_commands_translate_in_script_mode() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d1/migrate/common-500/bash.txt");
+    let path = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d1/migrate/common-500/bash.txt");
     let text = std::fs::read_to_string(path).expect("the list of common commands");
     let mut translated = 0;
     let mut failed = Vec::new();

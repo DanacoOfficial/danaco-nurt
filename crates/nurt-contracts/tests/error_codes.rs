@@ -15,7 +15,12 @@ use std::str::FromStr;
 use nurt_contracts::error::{AbiStatus, ErrorCode, Stage};
 
 fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn all_codes() -> Vec<&'static str> {

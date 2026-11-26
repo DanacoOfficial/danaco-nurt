@@ -95,10 +95,14 @@ const TASK_COUNT: usize = 14;
 const EXAMPLE_COUNT: usize = 48;
 
 fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .expect("workspace root exists")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
+    .canonicalize()
+    .expect("workspace root exists")
 }
 
 fn variant_c_dir() -> PathBuf {

@@ -22,7 +22,11 @@ pub(crate) fn options() -> RenderOptions {
 }
 
 pub(crate) fn crate_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
 }
 
 pub(crate) fn read_json(path: &Path) -> Value {

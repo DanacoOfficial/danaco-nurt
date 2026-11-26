@@ -42,9 +42,13 @@ const SEPARATORS: [(char, &str); 4] = [
 const BOM: &str = "\u{feff}";
 
 fn corpus(format: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d5/corpus")
-        .join(format)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/corpus")
+    .join(format)
 }
 
 fn files(dir: &Path, extensions: &[&str]) -> Vec<PathBuf> {

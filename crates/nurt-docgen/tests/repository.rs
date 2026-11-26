@@ -54,7 +54,13 @@ fn site_pages_use_the_product_sentence_only() {
 }
 
 fn layout() -> Layout {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+    let root = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("..")
+    .join("..");
     Layout::new(&root)
 }
 

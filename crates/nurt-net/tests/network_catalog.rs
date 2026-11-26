@@ -23,7 +23,12 @@ use nurt_testkit::host::TestHost;
 
 /// Catalog entry of `command` in `catalog/network.toml`.
 fn entry(command: &str) -> toml::Value {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/network.toml");
+    let path = format!(
+        "{}/../../catalog/network.toml",
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+    );
     let text = std::fs::read_to_string(path).unwrap();
     let catalog: toml::Table = text.parse().unwrap();
     catalog["command"]

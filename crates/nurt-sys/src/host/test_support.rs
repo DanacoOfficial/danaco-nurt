@@ -23,7 +23,12 @@ use nurt_contracts::value::{Record, Value};
 
 /// Directory of the static fixtures of these tests.
 pub(crate) fn fixtures() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d7/u02")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d7/u02")
 }
 
 /// Clock fixed at one wall time.

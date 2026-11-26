@@ -49,7 +49,12 @@ const JOBS: usize = 4;
 const TIME_LIMIT: &str = "time limit reached";
 
 fn conformance() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../conformance")
 }
 
 fn command(deviation: Option<Break>) -> String {

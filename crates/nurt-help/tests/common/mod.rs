@@ -13,7 +13,12 @@ use nurt_help::docs::Docs;
 
 /// Root of the repository, relative to the manifest of the crate.
 pub(crate) fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 pub(crate) fn read(relative: &str) -> String {

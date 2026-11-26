@@ -30,7 +30,12 @@ const GUARD_CONSTRUCTS: [&str; 2] = ["doc.out_of_scope_change", "doc.semantic_mi
 const SHOWN: usize = 10;
 
 fn corpus() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/xml/core")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/corpus/xml/core")
 }
 
 fn key(text: &str) -> KeyPath {

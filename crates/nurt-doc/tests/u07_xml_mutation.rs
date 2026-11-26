@@ -39,7 +39,12 @@ const ALPHABET: &[char] = &[
 const MAX_MUTATIONS: usize = 4;
 
 fn corpus_files() -> Vec<PathBuf> {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/xml/core");
+    let dir = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/corpus/xml/core");
     let mut files: Vec<PathBuf> = fs::read_dir(dir)
         .unwrap()
         .map(|entry| entry.unwrap().path())

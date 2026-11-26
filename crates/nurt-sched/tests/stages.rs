@@ -768,7 +768,12 @@ fn commands_without_state_directory_fail() {
 
 #[test]
 fn catalog_lists_every_command() {
-    let catalog_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/schedule.toml");
+    let catalog_path = format!(
+        "{}/../../catalog/schedule.toml",
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+    );
     let catalog = std::fs::read_to_string(catalog_path).unwrap();
     let commands: Vec<String> = stages()
         .iter()

@@ -34,11 +34,21 @@ const INVALID_DIR: &str = "invalid";
 const INVALID_TABLE: &str = "expected.tsv";
 
 fn conformance() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../conformance")
 }
 
 fn spec_golden() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden")
 }
 
 fn suite() -> Suite {

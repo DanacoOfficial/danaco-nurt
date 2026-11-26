@@ -65,7 +65,12 @@ mod tests {
 
     /// Sorted command names of the catalog file `catalog/<file>`.
     fn catalog_commands(file: &str) -> Vec<String> {
-        let path = format!("{}/../../catalog/{file}", env!("CARGO_MANIFEST_DIR"));
+        let path = format!(
+            "{}/../../catalog/{file}",
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+        );
         let catalog: toml::Table = std::fs::read_to_string(path).unwrap().parse().unwrap();
         let mut names: Vec<String> = catalog["command"]
             .as_array()

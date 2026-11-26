@@ -30,7 +30,12 @@ use nurt_plan::{PipelinePlan, Plan, PlanStatement};
 
 /// Directory of the golden bound trees.
 pub(crate) fn golden_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/bound")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/bound")
 }
 
 /// Reads a golden bound tree by its relative name without `.json`.

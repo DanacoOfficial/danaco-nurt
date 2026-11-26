@@ -38,7 +38,12 @@ const CHANGED_TEXT: &str = "changed & <quoted> \"value\"";
 const CDATA_SAMPLE: &str = "xml_cdata.plist";
 
 fn corpus() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/plist")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/corpus/plist")
 }
 
 fn files() -> Vec<PathBuf> {

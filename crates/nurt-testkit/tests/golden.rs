@@ -29,7 +29,12 @@ fn word_count(input: &GoldenInput) -> Value {
 
 #[test]
 fn sample_cases_match() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/sample");
+    let dir = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/golden/sample");
     let report = GoldenRunner::new(dir)
         .run(|case| word_count(&case.input))
         .unwrap();

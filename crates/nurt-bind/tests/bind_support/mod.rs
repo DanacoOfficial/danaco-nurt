@@ -19,7 +19,13 @@ use nurt_contracts::spec::Os;
 
 /// Root of the workspace.
 pub(crate) fn workspace() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("..")
+    .join("..")
 }
 
 /// The reference catalog of the workspace, read once.

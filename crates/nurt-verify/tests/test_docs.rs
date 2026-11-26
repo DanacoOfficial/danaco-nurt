@@ -22,9 +22,13 @@ const SECTIONS: [&str; 7] = [
 ];
 
 fn repository() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("..")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("..")
+    .join("..")
 }
 
 fn page(command: &str) -> String {

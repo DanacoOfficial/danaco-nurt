@@ -16,9 +16,13 @@ use nurt_contracts::envelope as contract;
 use serde_json::{Value, json};
 
 fn golden(directory: &str) -> Vec<PathBuf> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../spec/golden")
-        .join(directory);
+    let root = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden")
+    .join(directory);
     let mut files: Vec<PathBuf> = fs::read_dir(&root)
         .unwrap()
         .map(|entry| entry.unwrap().path())

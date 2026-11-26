@@ -25,7 +25,13 @@ const FORBIDDEN_PACKAGES: &[&str] = &["git2", "libgit2-sys", "openssl-sys", "cur
 const TEST_MODULE_MARKER: &str = "#[cfg(test)]";
 
 fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("..")
+    .join("..")
 }
 
 fn rust_files(dir: &Path, found: &mut Vec<PathBuf>) {

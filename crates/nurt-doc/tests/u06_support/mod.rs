@@ -176,7 +176,12 @@ pub(crate) fn json_at<'a>(documents: &'a mut [Json], key: &KeyPath) -> Option<&'
 
 /// Repository directory of the advanced YAML corpus.
 pub(crate) fn corpus_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/yaml/advanced")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/corpus/yaml/advanced")
 }
 
 /// Every `.yaml` and `.yml` file below `dir`, sorted.
@@ -204,8 +209,12 @@ pub(crate) fn yaml_files(dir: &Path) -> Vec<PathBuf> {
 /// of this unit (sequences, anchors, aliases, documents, comments, tags,
 /// explicit keys), from `tests/d5/data/u06/yaml-test-suite-cases.tsv`.
 pub(crate) fn suite_case_ids() -> Vec<String> {
-    let list = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/d5/data/u06/yaml-test-suite-cases.tsv");
+    let list = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/data/u06/yaml-test-suite-cases.tsv");
     let text = fs::read_to_string(list).expect("case list");
     text.lines()
         .filter(|line| !line.starts_with('#') && !line.starts_with("case\t"))

@@ -36,9 +36,13 @@ const EFFECT_IN_LET: &str = "@x = find \"/srv/app/build\" |> remove\n@x";
 const AFTER_WITHOUT_EFFECT: &str = "find \"/srv/app\" |> assert exit_code: 0";
 
 fn golden(dir: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../spec/golden")
-        .join(dir)
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden")
+    .join(dir)
 }
 
 fn bound(name: &str) -> BoundDocument {

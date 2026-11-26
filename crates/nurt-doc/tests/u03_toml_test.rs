@@ -20,7 +20,12 @@ use serde_json::Value as Json;
 
 /// Root of the suite in the repository.
 fn suite() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/third_party/toml/toml-test")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/third_party/toml/toml-test")
 }
 
 /// Invalid cases of TOML 1.0 that TOML 1.1 accepts: times without seconds,

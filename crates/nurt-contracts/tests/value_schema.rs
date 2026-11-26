@@ -16,7 +16,12 @@ use schemars::generate::SchemaSettings;
 use serde_json::json;
 
 fn schema_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../spec/schemas/nurt-value-1.schema.json")
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/schemas/nurt-value-1.schema.json")
 }
 
 fn generated_schema() -> serde_json::Value {

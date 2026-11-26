@@ -84,8 +84,12 @@ pub(crate) fn write(root: &Path, relative: &str, content: &str) -> PathBuf {
 
 /// Content of a file of the recorded outputs.
 pub(crate) fn corpus(relative: &str) -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/data/test")
-        .join(relative);
+    let path = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/data/test")
+    .join(relative);
     std::fs::read_to_string(path).unwrap_or_default()
 }

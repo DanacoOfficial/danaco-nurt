@@ -215,7 +215,12 @@ fn golden_requests_get_valid_responses() {
             .without_state_dir(),
     )
     .unwrap();
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/request");
+    let dir = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/request");
     let mut checked = 0;
     for entry in fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();

@@ -53,7 +53,12 @@ fn sources(dir: &Path, files: &mut Vec<PathBuf>) {
 fn declared_names() -> Vec<(PathBuf, String)> {
     let mut files = Vec::new();
     sources(
-        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &PathBuf::from(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join("src"),
         &mut files,
     );
     let mut found = Vec::new();

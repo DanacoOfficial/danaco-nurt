@@ -149,11 +149,15 @@ const DELEGATIONS: [Delegation; 1] = [Delegation {
 }];
 
 fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("the crate lies two levels below the workspace root")
-        .to_path_buf()
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .ancestors()
+    .nth(2)
+    .expect("the crate lies two levels below the workspace root")
+    .to_path_buf()
 }
 
 fn relative(root: &Path, path: &Path) -> String {

@@ -25,7 +25,12 @@ use crate::golden::{assert_matches_file, data_directory};
 const CATALOG_DIRECTORY: &str = "../../catalog";
 
 pub(crate) fn translator(host_os: Os) -> TableTranslator {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(CATALOG_DIRECTORY);
+    let dir = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join(CATALOG_DIRECTORY);
     let catalog = match Catalog::load_dir(&dir) {
         Ok(catalog) => catalog,
         Err(error) => panic!("cannot load the catalog: {error}"),

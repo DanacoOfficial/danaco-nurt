@@ -24,7 +24,12 @@ const ROUNDS: usize = 2_000;
 #[test]
 #[ignore = "timing test; run in release builds"]
 fn prints_a_typical_program_within_budget() {
-    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/ast");
+    let directory = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/ast");
     let mut documents = Vec::new();
     for entry in fs::read_dir(&directory).expect("golden directory") {
         let path = entry.expect("directory entry").path();

@@ -292,7 +292,12 @@ mod tests {
     /// The help catalog of the catalog files of the workspace, without
     /// documentation pages.
     fn help_catalog() -> HelpCatalog {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog");
+        let dir = Path::new(
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+        )
+        .join("../../catalog");
         let index = fs::read_to_string(dir.join(INDEX_FILE)).unwrap();
         let mut files: Vec<(String, String)> = fs::read_dir(&dir)
             .unwrap()

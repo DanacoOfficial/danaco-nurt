@@ -47,7 +47,12 @@ fn matches(expected: &Value, actual: &Value) -> bool {
 }
 
 fn transcripts() -> Vec<PathBuf> {
-    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/transcripts");
+    let directory = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/transcripts");
     let mut files: Vec<PathBuf> = std::fs::read_dir(directory)
         .unwrap()
         .map(|entry| entry.unwrap().path())

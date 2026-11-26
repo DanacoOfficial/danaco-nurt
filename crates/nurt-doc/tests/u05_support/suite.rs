@@ -35,7 +35,12 @@ pub(crate) struct SuiteCase {
 
 /// Directory of the suite inside the repository.
 pub(crate) fn suite_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/third_party/yaml/yaml-test-suite")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/third_party/yaml/yaml-test-suite")
 }
 
 /// Every case of the suite, sorted by identifier.

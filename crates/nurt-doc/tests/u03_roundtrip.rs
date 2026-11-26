@@ -27,7 +27,12 @@ use nurt_doc::registry::{DocFormat, DocOptions, Registry};
 use nurt_doc::testing::{HarnessOperation, HarnessOptions, Summary, run_corpus};
 
 fn data() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5")
 }
 
 /// Harness operations for formats whose values are text.

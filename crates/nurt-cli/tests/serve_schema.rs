@@ -161,8 +161,12 @@ fn engine() -> nurt_core::Engine {
 #[cfg(feature = "stub")]
 #[test]
 fn stub_transcript_conforms_to_the_schemas() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/serve/methods.requests.ndjson");
+    let path = std::path::Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests/fixtures/serve/methods.requests.ndjson");
     let mut requests = read(&std::fs::read(path).unwrap());
     requests[0]["params"]["capabilities"]["events"] = json!(true);
     let shutdown = requests

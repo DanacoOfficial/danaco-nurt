@@ -66,7 +66,12 @@ mod tests {
 
     #[test]
     fn registers_one_stage_per_catalog_command() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../catalog/network.toml");
+        let path = format!(
+            "{}/../../catalog/network.toml",
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+        );
         let catalog: toml::Table = std::fs::read_to_string(path).unwrap().parse().unwrap();
         let mut expected: Vec<String> = catalog["command"]
             .as_array()

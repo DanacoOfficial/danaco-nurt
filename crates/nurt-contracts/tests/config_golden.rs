@@ -26,7 +26,12 @@ use nurt_contracts::kinds::SyntaxVariant;
 use serde_json::{Map, Value};
 
 fn golden_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/golden/config")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/golden/config")
 }
 
 fn toml_files(dir: &Path) -> Vec<PathBuf> {

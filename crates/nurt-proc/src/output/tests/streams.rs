@@ -130,11 +130,15 @@ fn show_both() -> OutputView {
 #[test]
 fn output_cursor_concurrent_with_paced_program() {
     let bench = Bench::new();
-    let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("data")
-        .join("output")
-        .join("test_report.txt");
+    let corpus = std::path::Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("tests")
+    .join("data")
+    .join("output")
+    .join("test_report.txt");
     let expected: Vec<String> = std::fs::read_to_string(&corpus)
         .unwrap()
         .lines()

@@ -31,7 +31,12 @@ const BOM: &[u8] = b"\xEF\xBB\xBF";
 const QUOTED_TEXT: &str = "x,y \"z\"";
 
 fn corpus() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/d5/corpus/csv")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../tests/d5/corpus/csv")
 }
 
 fn files() -> Vec<PathBuf> {

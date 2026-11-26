@@ -23,7 +23,12 @@ use nurt_testkit::golden::{GoldenInput, GoldenRunner};
 const MIN_CASES: usize = 3;
 
 fn cases_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/cases/stages")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../conformance/cases/stages")
 }
 
 fn case_dirs(command: &str) -> Vec<PathBuf> {

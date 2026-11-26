@@ -13,7 +13,11 @@ use std::process::{Command, Output};
 
 /// Directory of the crate.
 pub(crate) fn manifest_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
 }
 
 /// Directory of the public header.

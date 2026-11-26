@@ -96,7 +96,12 @@ const CALL_PARAMETERS: [&str; 15] = [
 ];
 
 fn catalog_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../catalog")
 }
 
 fn read_text(path: &Path) -> String {
@@ -487,8 +492,12 @@ fn core_categories_match_the_catalog_legend() {
 
 #[test]
 fn catalog_files_validate_against_the_published_schema() {
-    let schema_path =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/schemas/nurt-catalog-1.schema.json");
+    let schema_path = Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../../spec/schemas/nurt-catalog-1.schema.json");
     let schema: serde_json::Value = serde_json::from_str(&read_text(&schema_path)).unwrap();
     let validator = jsonschema::validator_for(&schema).unwrap();
     for path in catalog_paths() {

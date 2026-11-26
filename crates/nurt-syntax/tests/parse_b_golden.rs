@@ -32,7 +32,12 @@ const EXAMPLE_PROGRAMS: usize = 48;
 const PROGRAM_PREFIXES: [&str; 3] = ["task-", "example-", "extra-"];
 
 fn repository_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .as_deref()
+            .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+    )
+    .join("../..")
 }
 
 fn variant_b_dir() -> PathBuf {
