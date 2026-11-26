@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn line_index_counts_multibyte_characters_and_floors_to_a_boundary() {
-        let text = "żółw x";
+        let text = "ñüéw x";
         let index = LineIndex::new(text);
         assert_eq!(index.position(8..9).column, 6);
         let inside = index.position(1..3);

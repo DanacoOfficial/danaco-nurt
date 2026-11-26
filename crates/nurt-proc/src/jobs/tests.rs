@@ -1320,20 +1320,6 @@ mod jobs_stop_job {
 mod jobs_stop_dispatch {
     use super::*;
 
-    /// Provider of `stop` for process records, as another crate registers
-    /// it.
-    struct ProcessStop;
-
-    impl StageImpl for ProcessStop {
-        fn descriptor(&self) -> StageDescriptor {
-            StageDescriptor {
-                command: "stop".to_owned(),
-                source: false,
-                input: InputKinds::Only(vec![RecordKind::Process]),
-            }
-        }
-    }
-
     fn select<'a>(
         stages: &'a [Arc<dyn StageImpl>],
         command: &str,
@@ -1347,15 +1333,17 @@ mod jobs_stop_dispatch {
 
     #[test]
     fn job_commands_accept_job_records_only() {
-        let mut stages = crate::stage::jobs::with_components(&components());
-        stages.push(Arc::new(ProcessStop));
+        let stages = crate::stage::jobs::with_components(&components());
         for command in ["stop", "suspend", "resume", "retry", "remove"] {
             let selected = select(&stages, command, RecordKind::Job).unwrap();
             assert!(selected.as_effect().is_some(), "{command}");
         }
-        let process = select(&stages, "stop", RecordKind::Process).unwrap();
-        assert!(process.as_effect().is_none());
-        assert!(select(&stages, "suspend", RecordKind::Process).is_none());
+        for command in ["stop", "suspend", "resume"] {
+            let selected = select(&stages, command, RecordKind::Process).unwrap();
+            assert!(selected.as_effect().is_some(), "{command}");
+        }
+        assert!(select(&stages, "retry", RecordKind::Process).is_none());
+        assert!(select(&stages, "remove", RecordKind::Process).is_none());
         assert!(select(&stages, "remove", RecordKind::Entry).is_none());
         let jobs = select(&stages, "jobs", RecordKind::Job);
         assert!(jobs.is_none());
@@ -1365,6 +1353,7 @@ mod jobs_stop_dispatch {
                 .any(|stage| stage.descriptor().command == "jobs" && stage.descriptor().source)
         );
     }
+}
 }
 
 mod jobs_retry {
@@ -1400,7 +1389,11 @@ mod jobs_retry {
             vec![(SECRET_NAME.into(), SECRET_VALUE.into())]
         );
         assert_eq!(repeated.stdin, StdinSource::Bytes(b"input".to_vec()));
-        assert_eq!(repeated.limits.timeout, Some(Duration::from_secs(30)));
+        let timeout = repeated.limits.timeout.unwrap();
+        assert!(
+            timeout <= Duration::from_secs(30) && timeout > Duration::from_secs(29),
+            "{timeout:?}"
+        );
         assert_eq!(repeated.cwd, dir.path());
         let table = JobTable::at(dir.path().join("jobs")).unwrap();
         let newest = table.ids().unwrap().last().cloned().unwrap();

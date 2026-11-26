@@ -451,7 +451,7 @@ fn a_saved_interval_of_zero_does_not_compile() {
 fn a_saved_interval_with_a_multibyte_unit_is_invalid() {
     let def = TriggerDef {
         kind: TriggerKind::Every,
-        expression: "5ł".to_owned(),
+        expression: "5ñ".to_owned(),
         timezone: "UTC".to_owned(),
     };
     assert!(Trigger::compile(&def).is_err());
