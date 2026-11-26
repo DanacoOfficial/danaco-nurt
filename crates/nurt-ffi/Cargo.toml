@@ -39,6 +39,7 @@ sha2 = { workspace = true, optional = true }
 nurt-testkit = { workspace = true, optional = true }
 
 [dev-dependencies]
+jsonschema = { workspace = true }
 nurt-core = { workspace = true, features = ["fixtures"] }
 nurt-testkit = { workspace = true }
 tempfile = { workspace = true }

@@ -315,10 +315,10 @@ fn executions_deliver_the_framed_events_of_the_engine() {
         .collect();
     assert_eq!(frames, [("exec.started", 1), ("exec.finished", 2)]);
     assert_eq!(events[1]["status"], "failed");
-    let request_id = events[0]["request_id"].as_str().unwrap();
-    assert!(!request_id.is_empty());
-    assert_eq!(events[1]["request_id"], request_id);
-    assert!(!events[0]["time"].is_null());
+    let request = events[0]["request"].as_str().unwrap();
+    assert!(!request.is_empty());
+    assert_eq!(events[1]["request"], request);
+    assert!(events[0]["time"].as_str().unwrap().ends_with('Z'));
 }
 
 #[test]

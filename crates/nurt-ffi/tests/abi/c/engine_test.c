@@ -210,7 +210,8 @@ static void collect(void *user, const char *event_json) {
     }
     sscanf(type + 5, "%31[^\"]", events->types[events->count]);
     events->seq[events->count] = strtol(seq + 6, NULL, 10);
-    events->with_request_id += strstr(event_json, "\"request_id\":\"") != NULL;
+    events->with_request_id += strstr(event_json, "\"request\":\"") != NULL
+                               && strstr(event_json, "\"request_id\"") == NULL;
     events->count++;
 }
 
