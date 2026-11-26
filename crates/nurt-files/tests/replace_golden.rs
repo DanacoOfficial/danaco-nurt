@@ -274,7 +274,11 @@ fn example_replaces_search_matches_with_their_groups() {
             end: start + found.len() as u64,
             text: found.to_owned(),
             line: found.to_owned(),
-            groups: Some(vec![Some(key.to_owned()), Some(value.to_owned())]),
+            groups: Some(vec![
+                Some(found.to_owned()),
+                Some(key.to_owned()),
+                Some(value.to_owned()),
+            ]),
             ..record::Match::default()
         })
     })

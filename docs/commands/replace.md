@@ -41,8 +41,9 @@ look-around or back-references is evaluated by the backtracking engine.
 For regular expressions and input matches `with` is a template: `$1` and
 `${1}` insert a numbered group, `${name}` a named group, `$0` the whole match
 and `$$` a `$`. Any other `$` is an error. With `template: false` the text is
-inserted as written. For input matches the numbered groups are the `groups`
-of the record and the named groups its `named` map. A literal pattern always
+inserted as written. For input matches `$n` is `groups[n]` of the record
+(`groups[0]` is the whole match, as `search` writes it) and the named groups
+are its `named` map. A literal pattern always
 inserts `with` as written.
 
 `expect` counts the matches of all files before `occurrence` applies;
