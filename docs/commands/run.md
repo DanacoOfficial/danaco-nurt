@@ -71,7 +71,7 @@ selected by `filter` with `context` lines around each match (or, for `show:
 errors` and for `show: auto` after a failure of output longer than 20 lines,
 by the built-in error line patterns with 2 lines of context), limited to the
 first `head` and the last `tail` lines, and cut to 400 characters per line
-(the rest becomes `… [+N znaków]`). The text of all streams together then
+(the rest becomes `… [+N characters]`). The text of all streams together then
 fits in `max_bytes` bytes (4096 by default, key `output.max_bytes`, `0` is no
 limit), filled in this order: the errors found in the output of a known tool,
 the end of standard error, the end of standard output, the beginning of the

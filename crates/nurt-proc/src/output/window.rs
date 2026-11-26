@@ -7,7 +7,7 @@
 use std::collections::VecDeque;
 
 /// Characters of one line a response keeps; a longer line is cut and marked
-/// with `… [+N znaków]`.
+/// with `… [+N characters]`.
 pub(super) const MAX_LINE_CHARS: usize = 400;
 
 /// Line standing for the lines left out between the head and the tail.
@@ -186,7 +186,7 @@ impl Window {
 pub(super) fn cut_line(text: &str) -> Option<String> {
     let (end, _) = text.char_indices().nth(MAX_LINE_CHARS)?;
     let left = text[end..].chars().count();
-    Some(format!("{}\u{2026} [+{left} znak\u{f3}w]", &text[..end]))
+    Some(format!("{}\u{2026} [+{left} characters]", &text[..end]))
 }
 
 /// `text` cut to at most `limit` bytes, marked like a cut line.
@@ -198,7 +198,7 @@ fn clip_to_bytes(text: &str, limit: usize) -> String {
         end -= 1;
     }
     let left = text[end..].chars().count();
-    format!("{}\u{2026} [+{left} znak\u{f3}w]", &text[..end])
+    format!("{}\u{2026} [+{left} characters]", &text[..end])
 }
 
 fn separator_bytes(grouped: bool, earlier: u64, later: u64) -> usize {
@@ -388,10 +388,10 @@ mod tests {
         let text = "a".repeat(MAX_LINE_CHARS + 25);
         let cut = cut_line(&text).unwrap();
         assert!(cut.starts_with(&"a".repeat(MAX_LINE_CHARS)));
-        assert!(cut.ends_with("\u{2026} [+25 znak\u{f3}w]"));
+        assert!(cut.ends_with("\u{2026} [+25 characters]"));
         assert_eq!(cut_line(&"b".repeat(MAX_LINE_CHARS)), None);
         let wide = "\u{105}".repeat(MAX_LINE_CHARS + 1);
-        assert!(cut_line(&wide).unwrap().ends_with("[+1 znak\u{f3}w]"));
+        assert!(cut_line(&wide).unwrap().ends_with("[+1 characters]"));
     }
 
     #[test]
@@ -441,7 +441,7 @@ mod tests {
         allocate(&mut windows, 120, &[0], &[0]);
         let text = windows[0].text();
         assert!(text.len() <= 120, "{}", text.len());
-        assert!(text.contains("znak\u{f3}w]"));
+        assert!(text.contains("characters]"));
         assert_eq!(windows[0].cut_lines, 1);
     }
 

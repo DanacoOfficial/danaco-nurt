@@ -64,6 +64,74 @@ polish-text tests/d5/corpus/*
 polish-text tests/d5/data/*
 polish-text tests/d5/differential/*
 
+# Unit and binding tests of Unicode handling (names, paths, patterns, messages,
+# encodings, normalisation and quoting) take Polish words as input and expected
+# output; the text is test data, not product wording.
+polish-text bindings/dotnet/tests/Danaco.Nurt.Tests/NativeInteropTests.cs
+polish-text bindings/java/nurt-ffm/src/test/java/pl/danacogroup/nurt/ffm/LibraryBackendArgumentsTest.java
+polish-text bindings/python/tests/test_library_abi.py
+polish-text crates/nurt-bench/src/model/mock.rs
+polish-text crates/nurt-bind/src/path.rs
+polish-text crates/nurt-catalog/tests/synthetic.rs
+polish-text crates/nurt-conformance/src/snapshot.rs
+polish-text crates/nurt-contracts/src/keypath.rs
+polish-text crates/nurt-core/src/builtin.rs
+polish-text crates/nurt-core/src/candidates.rs
+polish-text crates/nurt-core/src/readcache.rs
+polish-text crates/nurt-core/src/session.rs
+polish-text crates/nurt-correct/src/bash/awk.rs
+polish-text crates/nurt-correct/src/bash/detect.rs
+polish-text crates/nurt-correct/src/bash/engine.rs
+polish-text crates/nurt-correct/src/bash/find.rs
+polish-text crates/nurt-correct/src/bash/mod.rs
+polish-text crates/nurt-correct/src/bash/pattern.rs
+polish-text crates/nurt-correct/src/bash/produce.rs
+polish-text crates/nurt-correct/src/bash/sed.rs
+polish-text crates/nurt-correct/src/bash/session.rs
+polish-text crates/nurt-correct/src/candidates.rs
+polish-text crates/nurt-correct/src/policy.rs
+polish-text crates/nurt-correct/src/types.rs
+polish-text crates/nurt-correct/src/values.rs
+polish-text crates/nurt-doc/src/service/mod.rs
+polish-text crates/nurt-doc/src/sql/split.rs
+polish-text crates/nurt-exec/tests/stages_behaviour.rs
+polish-text crates/nurt-ext/src/manifest.rs
+polish-text crates/nurt-ext/src/store.rs
+polish-text crates/nurt-ffi/tests/engine_rust.rs
+polish-text crates/nurt-files/src/commands/read/mod.rs
+polish-text crates/nurt-files/src/read/image.rs
+polish-text crates/nurt-git-ops/src/merge/message.rs
+polish-text crates/nurt-git-ops/src/rebase/command.rs
+polish-text crates/nurt-git-ops/src/rebase/state_dir.rs
+polish-text crates/nurt-git-ops/src/stash/entries.rs
+polish-text crates/nurt-git/src/checkpoint/support.rs
+polish-text crates/nurt-git/src/message.rs
+polish-text crates/nurt-git/src/worktree.rs
+polish-text crates/nurt-git-transport/src/connect.rs
+polish-text crates/nurt-git-transport/src/credentials/store.rs
+polish-text crates/nurt-git-transport/src/ssh/channel.rs
+polish-text crates/nurt-journal/src/blob.rs
+polish-text crates/nurt-journal/src/commands/history.rs
+polish-text crates/nurt-journal/src/commands/limits.rs
+polish-text crates/nurt-journal/src/commands/mod.rs
+polish-text crates/nurt-journal/src/commands/undo.rs
+polish-text crates/nurt-journal/src/conflict.rs
+polish-text crates/nurt-journal/src/layout.rs
+polish-text crates/nurt-journal/src/manifest.rs
+polish-text crates/nurt-journal/src/retention/limits.rs
+polish-text crates/nurt-journal/src/retention/tomb.rs
+polish-text crates/nurt-journal/src/salvage.rs
+polish-text crates/nurt-journal/src/undo.rs
+polish-text crates/nurt-journal/src/volumes/eligibility.rs
+polish-text crates/nurt-node/src/dispatch.rs
+polish-text crates/nurt-plan/src/address.rs
+polish-text crates/nurt-proc/src/classify/argv.rs
+polish-text crates/nurt-proc/src/classify/pattern.rs
+polish-text crates/nurt-tooldef/src/arguments.rs
+polish-text crates/nurt-tooldef/src/options.rs
+polish-text crates/nurt-tooldef/tests/api_limits.rs
+polish-text crates/nurt-tooldef/tests/equivalence.rs
+
 # Addresses of private networks used as test input and in documentation examples.
 private-address crates/nurt-net/src/check.rs
 private-address crates/nurt-net/tests/*
