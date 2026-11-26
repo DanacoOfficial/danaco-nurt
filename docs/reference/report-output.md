@@ -101,6 +101,10 @@ the line `effect applied` after it.
 
 The line `result file <path>` appears when the result was written to a file.
 
+A control character in a line of a difference, such as the carriage return of
+a file with CRLF line endings, is written as an escape sequence (`\r`) in the
+formats `text` and `compact`; the tab stays as it is.
+
 ### json
 
 The reduced report as one line of JSON that validates against

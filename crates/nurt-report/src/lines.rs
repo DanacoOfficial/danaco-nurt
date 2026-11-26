@@ -123,15 +123,35 @@ impl Lines {
 pub(crate) fn single_line(text: &str) -> String {
     let mut line = String::with_capacity(text.len());
     for character in text.chars() {
-        match character {
-            '\n' => line.push_str("\\n"),
-            '\r' => line.push_str("\\r"),
-            '\t' => line.push_str("\\t"),
-            other if other.is_control() => line.extend(other.escape_default()),
-            other => line.push(other),
+        escape_control(character, &mut line);
+    }
+    line
+}
+
+/// Writes a line of file content with control characters shown as escape
+/// sequences, except the tab, which indents source text. A carriage return
+/// kept raw would move the cursor of a terminal to the start of the line and
+/// overwrite what was printed before it.
+pub(crate) fn visible_controls(text: &str) -> String {
+    let mut line = String::with_capacity(text.len());
+    for character in text.chars() {
+        if character == '\t' {
+            line.push(character);
+        } else {
+            escape_control(character, &mut line);
         }
     }
     line
+}
+
+fn escape_control(character: char, out: &mut String) {
+    match character {
+        '\n' => out.push_str("\\n"),
+        '\r' => out.push_str("\\r"),
+        '\t' => out.push_str("\\t"),
+        other if other.is_control() => out.extend(other.escape_default()),
+        other => out.push(other),
+    }
 }
 
 /// Shortens a line to `width` display columns, marking the cut.

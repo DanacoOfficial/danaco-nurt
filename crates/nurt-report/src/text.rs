@@ -15,7 +15,7 @@ use crate::facts::{
     header_parts, hunk_location, irreversible_parts, json_array, marker_counts, notable_parts,
     record_text, targets_parts, timing_parts, value_text,
 };
-use crate::lines::{Lines, Style, single_line};
+use crate::lines::{Lines, Style, single_line, visible_controls};
 use crate::options::RenderOptions;
 use crate::shape::Shaped;
 use crate::tree;
@@ -425,7 +425,10 @@ fn diff(out: &mut Lines, shaped: &Shaped) {
         for line in &hunk.lines {
             let mut characters = line.chars();
             let marker = characters.next().unwrap_or(' ');
-            out.plain(format!("{INDENT}{INDENT}{marker} {}", characters.as_str()));
+            out.plain(format!(
+                "{INDENT}{INDENT}{marker} {}",
+                visible_controls(characters.as_str())
+            ));
         }
     }
 }

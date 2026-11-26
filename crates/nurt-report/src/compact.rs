@@ -9,6 +9,7 @@ use nurt_contracts::value::Record;
 use serde::Serialize;
 
 use crate::facts::{error_facts, json_text, short_hash, value_text};
+use crate::lines::visible_controls;
 use crate::options::RenderOptions;
 use crate::shape::Shaped;
 
@@ -76,7 +77,12 @@ fn body(lines: &mut Vec<String>, shaped: &Shaped, options: &RenderOptions) {
     }
     for hunk in &report.diff {
         for line in &hunk.lines {
-            lines.push(format!("diff {}:{} {line}", hunk.path, hunk.new_start));
+            lines.push(format!(
+                "diff {}:{} {}",
+                hunk.path,
+                hunk.new_start,
+                visible_controls(line)
+            ));
         }
     }
     lines.extend(report.bulk.as_ref().map(|bulk| object_line("bulk", bulk)));
