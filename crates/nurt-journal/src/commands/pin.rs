@@ -191,6 +191,52 @@ mod tests {
     }
 
     #[test]
+    fn rejects_entry_numbers_below_one_and_values_that_are_not_numbers() {
+        for id in [
+            Value::Int(0),
+            Value::Int(-5),
+            Value::Int(i64::MIN),
+            ids(&[1, 0]),
+        ] {
+            let error = parse(&call(NAME, &[("id", id)])).unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidValue);
+        }
+        let mixed = Value::List(vec![Value::Int(1), Value::Text("2".to_owned())]);
+        let error = parse(&call(NAME, &[("id", mixed)])).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Type);
+        let single = parse(&call(NAME, &[("id", Value::Int(4))])).unwrap();
+        assert_eq!(single.ids, [OpId(4)]);
+        let largest = parse(&call(NAME, &[("id", Value::Int(i64::MAX))])).unwrap();
+        assert_eq!(largest.ids, [OpId(u64::try_from(i64::MAX).unwrap())]);
+    }
+
+    #[test]
+    fn rejects_negative_and_mistyped_pin_durations() {
+        let negative = value::Duration::from_millis(-1000);
+        let args = call(
+            NAME,
+            &[("id", ids(&[1])), ("until", Value::Duration(negative))],
+        );
+        assert_eq!(parse(&args).unwrap_err().code, ErrorCode::InvalidValue);
+        let wrong = call(NAME, &[("id", ids(&[1])), ("until", Value::Int(5))]);
+        assert_eq!(parse(&wrong).unwrap_err().code, ErrorCode::Type);
+        let none = parse(&call(NAME, &[("id", ids(&[1]))])).unwrap();
+        assert_eq!(none.until, None);
+    }
+
+    #[test]
+    fn the_plan_only_announces_the_effect() {
+        use super::super::testing::plan;
+
+        let env = Env::new();
+        let ctx = env.ctx(NAME);
+        let planned = plan(&Pin, &call(NAME, &[("id", ids(&[1]))]), &ctx).unwrap();
+        assert_eq!(planned.preview.len(), 1);
+        assert!(planned.changes.is_empty());
+        assert!(planned.irreversible.is_empty());
+    }
+
+    #[test]
     fn reads_the_pin_duration() {
         let hour = value::Duration::from_millis(3_600_000);
         let args = call(
