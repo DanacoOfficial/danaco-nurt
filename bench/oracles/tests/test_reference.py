@@ -9,9 +9,11 @@ import os
 import shutil
 import sys
 import unittest
+from pathlib import Path
 from typing import Any
 from unittest import mock
 
+from nurt_bench_oracle import reference
 from nurt_bench_oracle.reference import Execution, Outcome, report_line, verify_task
 from nurt_bench_oracle.snapshot import SnapshotError, as_index
 
@@ -150,6 +152,69 @@ class PowerShellTests(unittest.TestCase):
             ["reference", "empty solution", "reference and deletion of keep.txt"],
         )
         self.assertEqual(labels(outcomes), [])
+
+
+class ProcessTableTests(unittest.TestCase):
+    """The process table of systems without ``/proc`` is read with ps and lsof."""
+
+    def setUp(self) -> None:
+        patcher = mock.patch.object(reference, "PROC", Path("/nonexistent-proc"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def answer(stdout: str, code: int = 0) -> mock.Mock:
+        return mock.Mock(returncode=code, stdout=stdout, stderr="")
+
+    def test_commands_are_read_with_ps_when_there_is_no_proc(self) -> None:
+        listing = "  101 /bin/sleep 30\n  202 bash -c echo marker-4711\nnot a process line\n"
+        with mock.patch.object(reference.subprocess, "run", return_value=self.answer(listing)) as run:
+            commands = reference.process_commands()
+        self.assertEqual(commands, {101: "/bin/sleep 30", 202: "bash -c echo marker-4711"})
+        self.assertEqual(run.call_args.args[0][0], "ps")
+
+    @unittest.skipUnless(os.name == "posix", "POSIX systems only")
+    def test_processes_are_counted_by_their_command_line_without_proc(self) -> None:
+        listing = f"  {os.getpid()} python marker-4711\n  202 bash -c marker-4711\n  303 other\n"
+        with mock.patch.object(reference.subprocess, "run", return_value=self.answer(listing)):
+            self.assertEqual(reference.count_processes("marker-4711"), 1)
+
+    def test_working_directories_are_read_with_lsof_when_there_is_no_proc(self) -> None:
+        listing = "p101\nn/tmp/task/sub\np202\nn/home/user\n"
+        with mock.patch.object(reference.subprocess, "run", return_value=self.answer(listing)) as run:
+            directories = reference.process_directories()
+        self.assertEqual(directories, {101: "/tmp/task/sub", 202: "/home/user"})
+        self.assertEqual(run.call_args.args[0][0], "lsof")
+
+    @unittest.skipUnless(os.name == "posix", "POSIX systems only")
+    def test_leftovers_below_the_task_directory_are_stopped_without_proc(self) -> None:
+        listing = "p101\nn/tmp/task/sub\np202\nn/home/user\np303\nn/tmp/taskother\n"
+        with mock.patch.object(reference.subprocess, "run", return_value=self.answer(listing)):
+            with mock.patch.object(reference.os, "kill") as kill:
+                reference.stop_leftovers(Path("/tmp/task"))
+        kill.assert_called_once_with(101, reference.signal.SIGKILL)
+
+
+class WindowsProbeTests(unittest.TestCase):
+    def test_a_probe_that_fails_is_an_error_and_not_an_empty_result(self) -> None:
+        failed = mock.Mock(returncode=1, stdout="", stderr="pwsh: access denied")
+        with mock.patch.object(reference.subprocess, "run", return_value=failed):
+            with self.assertRaisesRegex(RuntimeError, "access denied"):
+                reference.windows_probe({"kind": "registry", "key": "HKCU\\Software\\X", "value": "v"})
+
+    def test_a_process_probe_on_windows_checks_the_exit_code(self) -> None:
+        failed = mock.Mock(returncode=2, stdout="", stderr="no cim")
+        with mock.patch.object(reference.os, "name", "nt"):
+            with mock.patch.object(reference.subprocess, "run", return_value=failed):
+                with self.assertRaisesRegex(RuntimeError, "no cim"):
+                    reference.count_processes("anything")
+
+    def test_stopping_a_process_on_windows_ends_its_tree(self) -> None:
+        process = mock.Mock(pid=4321)
+        with mock.patch.object(reference.subprocess, "run") as run:
+            reference.stop_process(process, posix=False)
+        self.assertEqual(run.call_args.args[0], ["taskkill", "/PID", "4321", "/T", "/F"])
+        process.kill.assert_called_once_with()
 
 
 if __name__ == "__main__":

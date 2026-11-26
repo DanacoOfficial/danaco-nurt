@@ -29,6 +29,9 @@ from .tasks import FIXTURES_DIR
 
 PROBE_TIMEOUT = 30
 KILL_GRACE = 5
+# Process information of Linux; other POSIX systems (macOS) have no such
+# directory and are asked with ps and lsof.
+PROC = Path("/proc")
 GIT_IDENTITY = "[user]\n\tname = Bench User\n\temail = bench@example.com\n[init]\n\tdefaultBranch = main\n"
 
 
@@ -136,32 +139,78 @@ def run_script(
 
 
 def stop_process(process: subprocess.Popen[bytes], posix: bool) -> None:
-    """Stops a process and, on POSIX systems, its process group."""
+    """Stops a process and its descendants.
+
+    On POSIX systems the process group is killed; on Windows the process tree,
+    because the shell is not the only process of a script that starts work in
+    the background.
+    """
     if posix:
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
     else:
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            capture_output=True, timeout=PROBE_TIMEOUT, check=False,
+        )
         process.kill()
     process.wait(timeout=KILL_GRACE)
+
+
+def process_commands() -> dict[int, str]:
+    """Returns the command lines of the running processes by identifier."""
+    commands: dict[int, str] = {}
+    if PROC.is_dir():
+        for entry in PROC.iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                raw = (entry / "cmdline").read_bytes()
+            except OSError:
+                continue
+            commands[int(entry.name)] = raw.replace(b"\0", b" ").decode("utf-8", errors="replace")
+        return commands
+    done = subprocess.run(
+        ["ps", "-axo", "pid=,args="], capture_output=True, text=True, timeout=PROBE_TIMEOUT, check=False,
+    )
+    for line in done.stdout.splitlines():
+        identifier, _, command = line.strip().partition(" ")
+        if identifier.isdigit():
+            commands[int(identifier)] = command.strip()
+    return commands
+
+
+def process_directories() -> dict[int, str]:
+    """Returns the working directories of the running processes by identifier."""
+    directories: dict[int, str] = {}
+    if PROC.is_dir():
+        for entry in PROC.iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                directories[int(entry.name)] = os.readlink(entry / "cwd")
+            except OSError:
+                continue
+        return directories
+    done = subprocess.run(
+        ["lsof", "-d", "cwd", "-Fpn"], capture_output=True, text=True, timeout=PROBE_TIMEOUT, check=False,
+    )
+    current: int | None = None
+    for line in done.stdout.splitlines():
+        if line.startswith("p") and line[1:].isdigit():
+            current = int(line[1:])
+        elif line.startswith("n") and current is not None:
+            directories[current] = line[1:]
+    return directories
 
 
 def count_processes(match: str) -> int:
     """Counts processes whose command line contains ``match``."""
     if os.name == "posix":
         own = os.getpid()
-        count = 0
-        for entry in Path("/proc").iterdir():
-            if not entry.name.isdigit() or int(entry.name) == own:
-                continue
-            try:
-                raw = (entry / "cmdline").read_bytes()
-            except OSError:
-                continue
-            if match in raw.replace(b"\0", b" ").decode("utf-8", errors="replace"):
-                count += 1
-        return count
+        return sum(1 for pid, command in process_commands().items() if pid != own and match in command)
     script = (
         "$m = $env:NURT_BENCH_MATCH; @(Get-CimInstance Win32_Process | "
         "Where-Object { $_.CommandLine -and $_.CommandLine.Contains($m) -and $_.ProcessId -ne $PID }).Count"
@@ -171,6 +220,8 @@ def count_processes(match: str) -> int:
         ["pwsh", "-NoProfile", "-Command", script], capture_output=True, text=True, env=env,
         timeout=PROBE_TIMEOUT, check=False,
     )
+    if result.returncode != 0:
+        raise RuntimeError(f"process probe failed with exit code {result.returncode}: {result.stderr.strip()}")
     return int(result.stdout.strip() or "0")
 
 
@@ -196,6 +247,8 @@ def windows_probe(probe: Mapping[str, Any]) -> dict[str, Any]:
         ["pwsh", "-NoProfile", "-Command", script], capture_output=True, text=True, env=env,
         timeout=PROBE_TIMEOUT, check=False,
     )
+    if result.returncode != 0:
+        raise RuntimeError(f"{probe['kind']} probe failed with exit code {result.returncode}: {result.stderr.strip()}")
     return json.loads(result.stdout or '{"exists": false}')
 
 
@@ -270,16 +323,12 @@ def stop_leftovers(base: Path) -> None:
     if os.name != "posix":
         return
     prefix = str(base)
-    for entry in Path("/proc").iterdir():
-        if not entry.name.isdigit() or int(entry.name) == os.getpid():
-            continue
-        try:
-            cwd = os.readlink(entry / "cwd")
-        except OSError:
+    for pid, cwd in process_directories().items():
+        if pid == os.getpid():
             continue
         if cwd == prefix or cwd.startswith(prefix + os.sep):
             try:
-                os.kill(int(entry.name), signal.SIGKILL)
+                os.kill(pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
 

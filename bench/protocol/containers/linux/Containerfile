@@ -2,7 +2,10 @@
 # programs, Python for the oracle, Git, and the executables under test.
 # Build context: a directory holding the release executables `nurt` and
 # `nurt-bench` for x86_64-unknown-linux-musl and the directory `bench/`.
-FROM docker.io/library/ubuntu:24.04
+# The base image is named by its digest, so that a build on another day starts
+# from the same system; the tag is kept for the reader. The packages of the
+# distribution are those of the day of the build.
+FROM docker.io/library/ubuntu:24.04@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LC_ALL=C.UTF-8 \

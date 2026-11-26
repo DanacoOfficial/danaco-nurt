@@ -9,10 +9,15 @@ Run inside Blender with a scene written by logo3d:
 
 The scene is the one that the program logo3d writes with the option --blend
 for the file svg/mark-black.svg prepared for three dimensions.
+
+The image depends on the version of Blender. The seed of the sampling of
+Cycles is fixed, so that two runs of one version give the same pixels.
 """
 import sys
 
 import bpy
+
+RENDER_SEED = 0
 
 out, samples, size = sys.argv[sys.argv.index("--") + 1 :][:3]
 width, height = (int(v) for v in size.split("x"))
@@ -45,5 +50,7 @@ scene = bpy.context.scene
 scene.render.resolution_x, scene.render.resolution_y = width, height
 scene.render.resolution_percentage = 100
 scene.cycles.samples = int(samples)
+scene.cycles.seed = RENDER_SEED
+scene.cycles.use_animated_seed = False
 scene.render.filepath = out
 bpy.ops.render.render(write_still=True)

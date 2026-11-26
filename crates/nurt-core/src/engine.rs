@@ -121,6 +121,7 @@ pub struct EngineConfig {
     journal: Option<Arc<dyn JournalStore>>,
     system_journal: bool,
     process_components: bool,
+    system_services: bool,
     frontend: Arc<dyn Frontend>,
     services: Services,
     stages: Vec<Arc<dyn StageImpl>>,
@@ -154,6 +155,7 @@ impl EngineConfig {
             journal: None,
             system_journal: false,
             process_components: false,
+            system_services: false,
             frontend: Arc::new(UnavailableFrontend),
             services: Services::new(),
             stages: Vec::new(),
@@ -176,6 +178,17 @@ impl EngineConfig {
             .with_fs(nurt_fs::system_fs())
             .with_system_journal()
             .with_process_components()
+            .with_system_services()
+    }
+
+    /// The engine registers the services of the command groups of this build
+    /// when it opens: documents, source code, the process host, the file
+    /// listing, repository queries, the text codec and the file holders. A
+    /// service given with [`with_services`](Self::with_services) is kept.
+    #[must_use]
+    pub fn with_system_services(mut self) -> Self {
+        self.system_services = true;
+        self
     }
 
     /// The journal of the process is built in the state directory when the
@@ -580,6 +593,17 @@ impl Engine {
         if let Some(state) = &state {
             read_cache = read_cache.with_dir(state.area(StateArea::ReadCache));
         }
+        let services = if config.system_services {
+            crate::system_services::complete(
+                config.services,
+                config.fs.as_ref(),
+                &config.clock,
+                &config.host,
+                settings,
+            )
+        } else {
+            config.services
+        };
         let inner = Inner {
             sessions: Sessions::new(settings.session.ttl.as_std()),
             candidates: CandidateStore::new(
@@ -603,7 +627,7 @@ impl Engine {
             fs: config.fs,
             journal,
             frontend: config.frontend,
-            services: Arc::new(config.services),
+            services: Arc::new(services),
             registry,
             catalog_rev,
             loader,
@@ -690,7 +714,10 @@ impl Engine {
             .spawn(move || {
                 let events: Arc<dyn EventSink> = sequencer.clone();
                 let response = engine.execute(&owned, &cancel, Some(events));
-                sequencer.close(response.report.status);
+                sequencer.close(
+                    response.report.status,
+                    response.report.error.as_ref().map(Error::code),
+                );
                 finished.complete(response);
             });
         if let Err(error) = spawned {
@@ -807,6 +834,30 @@ impl Engine {
         self.inner
             .frontend
             .help(topic, language)
+            .map_err(|error| localized(error, language))
+    }
+
+    /// Help text of a topic of the stated kind with a number of examples.
+    ///
+    /// `kind` is the name of a topic kind (`command`, `group`, `error`,
+    /// `skill`, `syntax`, `corrections`); a front end that does not
+    /// distinguish them answers like [`Engine::help`].
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the front end, for example for an unknown topic
+    /// or a topic of another kind.
+    pub fn help_query(
+        &self,
+        topic: &str,
+        kind: Option<&str>,
+        examples: Option<usize>,
+        language: Option<Language>,
+    ) -> Result<String, Error> {
+        let language = language.unwrap_or_else(|| language_of(self.config()));
+        self.inner
+            .frontend
+            .help_query(topic, kind, examples, language)
             .map_err(|error| localized(error, language))
     }
 

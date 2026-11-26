@@ -35,6 +35,7 @@ nurt-fs = { workspace = true }
 nurt-journal = { workspace = true }
 nurt-space = { workspace = true }
 nurt-files = { workspace = true }
+nurt-text = { workspace = true }
 nurt-doc = { workspace = true }
 nurt-code = { workspace = true }
 nurt-proc = { workspace = true }

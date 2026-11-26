@@ -804,7 +804,12 @@ impl Step {
             change.from = Some(path_field(source));
         }
         if change.action == ChangeAction::Rename && change.from.is_none() {
+            // A detail that names only the source and the destination: the path of
+            // the record is the path after the change.
             change.from = Some(change.path.clone());
+            if let Some(to) = &change.to {
+                change.path = to.clone();
+            }
         }
         change
     }
@@ -1589,12 +1594,27 @@ mod tests {
     }
 
     #[test]
+    fn a_rename_detail_that_names_only_its_source_and_destination_gets_the_new_path() {
+        let source = abs("/a.txt");
+        let target = abs("/b.txt");
+        let step = Step::op(FileOp::rename(source.clone(), target.clone(), false));
+        let mut detail = Change::new(source.to_language_string(), ChangeAction::Rename);
+        detail.to = Some(path_field(&target));
+        let change = step.with_detail(detail).change();
+        assert_eq!(change.path.as_str(), target.to_language_string());
+        assert_eq!(
+            change.from.map(|path| path.as_str().to_owned()),
+            Some(source.to_language_string())
+        );
+    }
+
+    #[test]
     fn a_rename_step_gives_the_previous_path_and_the_destination() {
         let source = abs("/a.txt");
         let target = abs("/b.txt");
         let change = Step::op(FileOp::rename(source.clone(), target.clone(), false)).change();
         assert_eq!(change.action, ChangeAction::Rename);
-        assert_eq!(change.path.as_str(), source.to_language_string());
+        assert_eq!(change.path.as_str(), target.to_language_string());
         assert_eq!(
             change.from.map(|path| path.as_str().to_owned()),
             Some(source.to_language_string())

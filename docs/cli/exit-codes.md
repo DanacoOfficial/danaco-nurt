@@ -7,14 +7,14 @@ The exit code of `nurt` follows the status of the report of the program and the 
 
 | Code | Name | Meaning | Interface status |
 |---|---|---|---|
-| 0 | success | The report status is `ok`, `planned` or `running`. | `NURT_OK` |
+| 0 | success | The report status is `ok`, `planned` or `running` and the report carries no error. | `NURT_OK` |
 | 1 | failure | The program failed with a language or execution error, or a file could not be read or written. | `NURT_OK`, `NURT_E_ARG`, `NURT_E_IO` |
 | 2 | usage | The command line is invalid: an unknown option, a missing or invalid value, a missing argument. | |
 | 3 | unavailable | The subcommand is not part of this build. | |
 | 4 | timeout | The program exceeded its time limit (`E_TIMEOUT`). | `NURT_E_TIMEOUT` |
-| 70 | internal | An internal error (`E_INTERNAL`). | `NURT_E_INTERNAL` |
+| 70 | internal | An internal error (`E_INTERNAL` or `E_INTERNAL_CORRECTION`). | `NURT_E_INTERNAL` |
 | 130 | cancelled | The program was cancelled (`E_CANCELLED`). | `NURT_E_CANCELLED` |
 
-A report with the status `partial`, `rolled_back` or `failed` takes the code of its error; without an error the code is 1. An engine that cannot be opened, for example because of an invalid configuration, takes the code of its error.
+A report with the status `partial`, `rolled_back` or `failed` takes the code of its error; without an error the code is 1. A report with the status `ok`, `planned` or `running` that carries an error, for example `E_ASSERT` of a check that failed in stage 5a after the effect was applied, takes the code of that error too (1 for `E_ASSERT`), so that a script does not go on after it. A journal problem that does not interrupt the operation is not an error of the report (it is listed as `journal_error` in `irreversible`) and leaves the code 0. An engine that cannot be opened, for example because of an invalid configuration, takes the code of its error.
 
 Messages of the command line are written to the standard error output in the form `nurt: <message>`. A language error is written as `<code>: <message>` followed by the ready replacements of the program.

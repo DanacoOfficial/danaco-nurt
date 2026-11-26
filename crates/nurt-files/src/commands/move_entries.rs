@@ -273,7 +273,14 @@ mod tests {
         assert!(!test.fs().exists(&source));
         assert_eq!(test.fs().read_file(&target).unwrap(), b"alpha");
         assert_eq!(run.changes[0].action, ChangeAction::Rename);
-        assert_eq!(run.changes[0].path.as_str(), source.to_language_string());
+        assert_eq!(run.changes[0].path.as_str(), target.to_language_string());
+        assert_eq!(
+            run.changes[0]
+                .from
+                .as_ref()
+                .map(|from| from.as_str().to_owned()),
+            Some(source.to_language_string())
+        );
         assert_eq!(
             run.changes[0]
                 .to
@@ -300,10 +307,12 @@ mod tests {
             .collect();
         assert_eq!(renames.len(), 2);
         for change in renames {
-            assert_eq!(
-                change.from.as_ref().map(|path| path.as_str().to_owned()),
-                Some(change.path.as_str().to_owned())
-            );
+            let from = change
+                .from
+                .as_ref()
+                .expect("a rename names the previous path");
+            assert_ne!(from.as_str(), change.path.as_str());
+            assert!(change.path.as_str().starts_with("/out"));
         }
     }
 

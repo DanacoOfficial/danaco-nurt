@@ -208,7 +208,10 @@ fn creates_deletes_and_renames_files() {
         [
             (language("/srv/app/docs"), ChangeAction::Create),
             (language("/srv/app/src/support"), ChangeAction::Create),
-            (language("/srv/app/src/util.rs"), ChangeAction::Rename),
+            (
+                language("/srv/app/src/support/util.rs"),
+                ChangeAction::Rename
+            ),
             (language("/srv/app/INSTALL.txt"), ChangeAction::Delete),
             (language("/srv/app/docs/setup.md"), ChangeAction::Create),
         ]

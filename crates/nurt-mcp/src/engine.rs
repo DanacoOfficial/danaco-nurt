@@ -19,7 +19,7 @@ use nurt_contracts::stage::{CancelToken, EventSink};
 use nurt_core::{DeliveredEvent, Engine, EventBody, EventListener};
 
 use crate::backend::{
-    Backend, BackendInfo, CallError, CheckOutcome, DescribeSubject, HelpQuery, SchemaName,
+    Backend, BackendInfo, CallError, CheckOutcome, DescribeSubject, HelpKind, HelpQuery, SchemaName,
 };
 
 /// Calls handled at the same time; the engine has no setting of its own.
@@ -90,7 +90,17 @@ impl Backend for Engine {
 
     fn help(&self, query: &HelpQuery) -> Result<String, CallError> {
         let topic = query.topic.as_deref().unwrap_or("");
-        Engine::help(self, topic, query.language).map_err(|error| call_error(&error))
+        let examples = query
+            .examples
+            .map(|count| usize::try_from(count).unwrap_or(usize::MAX));
+        Engine::help_query(
+            self,
+            topic,
+            query.kind.map(HelpKind::as_str),
+            examples,
+            query.language,
+        )
+        .map_err(|error| call_error(&error))
     }
 
     fn describe(&self, subject: &DescribeSubject) -> Result<String, CallError> {
@@ -156,6 +166,14 @@ mod tests {
         Engine::open(config).expect("engine opens in a temporary directory")
     }
 
+    fn open_with(state: &std::path::Path, frontend: Arc<dyn nurt_core::Frontend>) -> Engine {
+        let config = EngineConfig::new(Arc::new(VirtualClock::new()), Arc::new(TestHost::linux()))
+            .with_sources(ConfigSources::isolated())
+            .with_state_dir(state)
+            .with_frontend(frontend);
+        Engine::open(config).expect("engine opens in a temporary directory")
+    }
+
     fn run(engine: &Engine, program: &str, cancel: CancelToken) -> Response {
         Backend::run(
             engine,
@@ -173,6 +191,28 @@ mod tests {
         fn emit(&self, event: Event) {
             self.0.lock().expect("lock").push(event);
         }
+    }
+
+    #[test]
+    fn help_passes_the_kind_and_the_examples_to_the_engine() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let frontend = nurt_core::LanguageFrontend::new().expect("embedded front end");
+        let engine = open_with(&temp.path().join("state"), Arc::new(frontend));
+        let ask = |kind: Option<HelpKind>, examples: Option<u32>| {
+            Backend::help(
+                &engine,
+                &HelpQuery {
+                    topic: Some("replace".to_owned()),
+                    kind,
+                    examples,
+                    language: None,
+                },
+            )
+        };
+        let plain = ask(None, None).expect("help of a command");
+        let without_examples = ask(Some(HelpKind::Command), Some(0)).expect("typed help");
+        assert!(without_examples.len() < plain.len());
+        assert!(ask(Some(HelpKind::Error), None).is_err());
     }
 
     #[test]

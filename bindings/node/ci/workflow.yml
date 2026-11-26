@@ -38,8 +38,8 @@ jobs:
         node: ["18", "20", "22"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node }}
       - name: Install development dependencies
@@ -52,8 +52,8 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
       - run: npm install --no-audit --no-fund --ignore-scripts
@@ -69,19 +69,19 @@ jobs:
         runtime: [bun, deno]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
       - run: npm install --no-audit --no-fund --ignore-scripts
       - run: npm run build
       - if: matrix.runtime == 'bun'
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - if: matrix.runtime == 'bun'
         name: Smoke test in Bun
         run: bun test/runtime-smoke.mjs
       - if: matrix.runtime == 'deno'
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.x
       - if: matrix.runtime == 'deno'
@@ -91,14 +91,14 @@ jobs:
   conformance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install the Rust toolchain of rust-toolchain.toml
         working-directory: .
         run: rustup show active-toolchain || rustup toolchain install
       - name: Build nurt-conformance
         working-directory: .
         run: cargo build --locked -p nurt-conformance
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
       - run: npm install --no-audit --no-fund --ignore-scripts
@@ -116,14 +116,14 @@ jobs:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install the Rust toolchain of rust-toolchain.toml
         working-directory: .
         run: rustup show active-toolchain || rustup toolchain install
       - name: Build the addon
         working-directory: .
         run: cargo build --locked --release -p nurt-node
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
       - run: npm install --no-audit --no-fund --ignore-scripts
@@ -148,14 +148,14 @@ jobs:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install the Rust toolchain of rust-toolchain.toml
         working-directory: .
         run: rustup show active-toolchain || rustup toolchain install
       - name: Build nurt
         working-directory: .
         run: cargo build --locked -p nurt-cli
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
       - run: npm install --no-audit --no-fund --ignore-scripts
@@ -174,8 +174,8 @@ jobs:
     needs: [test, runtimes]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
       - run: npm install --no-audit --no-fund --ignore-scripts
@@ -227,7 +227,7 @@ jobs:
             fi
           done
           exit "$status"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: npm-packages
           path: ${{ runner.temp }}/packages/*.tgz

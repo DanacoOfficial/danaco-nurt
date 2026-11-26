@@ -17,11 +17,13 @@ from __future__ import annotations
 
 import gzip
 import io
+import json
 import re
 import unittest
 import zipfile
 from collections import Counter
 from pathlib import Path
+from unittest import mock
 
 import generate_cases
 import generate_correction
@@ -386,6 +388,102 @@ class NameRules(unittest.TestCase):
 
     def test_generated_corpus_is_up_to_date(self) -> None:
         self.assertEqual(generate_correction.main(["--check"]), 0)
+
+    def test_cached_resolution_follows_the_content_of_the_catalog_and_not_its_identity(self) -> None:
+        def catalog(category: str) -> dict[str, suite.Command]:
+            command = suite.Command("rename_entries", "files", category, "reversible", category, {}, ())
+            return {"rename_entries": command}
+
+        # Every mapping gets the same identity, as a mapping that reuses the
+        # identifier of one that was freed.
+        with mock.patch.object(suite, "id", lambda _: 1, create=True):
+            self.assertEqual(suite.resolve_command("rnme_entries", catalog("change")).outcome, "ambiguous")
+            self.assertEqual(suite.resolve_command("rnme_entries", catalog("read")).outcome, "fuzzy")
+
+
+def part_cases(part: str) -> list[dict]:
+    """Returns the cases of the files of ``errors/`` or ``bind/``, which the executable checks cover."""
+    root = suite.CONFORMANCE / part
+    files = sorted(root.rglob("*.cases.toml")) + sorted(root.rglob("*.cases.json"))
+    cases: list[dict] = []
+    for path in files:
+        data = suite.load_case_file(path)
+        assert data.get("format") == suite.CASES_FORMAT, path
+        assert set(data) - {"format", "case"} == set(), path
+        for raw in data.get("case", []):
+            cases.append(dict(raw, file=path))
+    return cases
+
+
+class ErrorAndBindCases(unittest.TestCase):
+    """The cases of ``errors/`` and ``bind/`` follow the case format, apart from the run of the executable."""
+
+    PARTS = {"errors": "error", "bind": "bind"}
+    KEYS = HEADER_KEYS | STEP_KEYS | {"file"}
+
+    def test_cases_have_known_keys_and_required_members(self) -> None:
+        for part, kind in self.PARTS.items():
+            for case in part_cases(part):
+                with self.subTest(case=case.get("id")):
+                    self.assertEqual(set(case) - self.KEYS, set())
+                    for key in ("id", "kind", "summary"):
+                        self.assertIn(key, case)
+                    self.assertRegex(case["id"], suite.CASE_ID)
+                    self.assertEqual(case["kind"], kind)
+                    self.assertTrue(case["id"].startswith(part + "/"))
+                    self.assertRegex(case.get("class", "mandatory"), suite.CLASS)
+                    for requirement in case.get("requires", []):
+                        self.assertRegex(requirement, suite.REQUIREMENTS)
+                    steps = case.get("step", [case])
+                    for step in steps:
+                        self.assertFalse("program" in step and "program_file" in step)
+                        self.assertIn(step.get("method", "run"), suite.METHODS)
+
+    def test_identifiers_are_unique_across_the_whole_suite(self) -> None:
+        ids = [c["id"] for part in self.PARTS for c in part_cases(part)] + [c.id for c in CASES]
+        self.assertEqual([i for i, n in Counter(ids).items() if n > 1], [])
+
+    def test_error_cases_name_codes_of_the_registry(self) -> None:
+        for case in part_cases("errors"):
+            with self.subTest(case=case["id"]):
+                self.assertIn(case["code"], ERRORS)
+
+    def test_snapshots_are_valid(self) -> None:
+        for part in self.PARTS:
+            for case in part_cases(part):
+                with self.subTest(case=case["id"]):
+                    if "fs_before" in case:
+                        self.assertEqual(suite.snapshot_errors(case["fs_before"]), [])
+                    for step in case.get("step", [case]):
+                        if "fs_after" in step:
+                            self.assertEqual(suite.snapshot_errors(step["fs_after"]), [])
+
+
+class GoldenCases(unittest.TestCase):
+    """The directories of ``golden/`` hold the files that the runner of the executable reads."""
+
+    def directories(self) -> list[Path]:
+        return sorted(path for path in (suite.CONFORMANCE / "golden").iterdir() if path.is_dir())
+
+    def test_every_case_has_a_tree_and_a_description(self) -> None:
+        # The program texts a.nurt, b.nurt and c.nurt are optional.
+        for directory in self.directories():
+            with self.subTest(case=directory.name):
+                self.assertTrue((directory / "ast.json").is_file())
+                self.assertTrue((directory / "case.toml").is_file())
+
+    def test_trees_are_json_documents(self) -> None:
+        for directory in self.directories():
+            for name in ("ast.json", "c.json", "bound.json"):
+                path = directory / name
+                if path.is_file():
+                    with self.subTest(file=f"{directory.name}/{name}"):
+                        self.assertIsInstance(json.loads(path.read_text(encoding="utf-8")), dict)
+
+    def test_hash_files_hold_one_sha256_digest(self) -> None:
+        for path in sorted((suite.CONFORMANCE / "golden").rglob("*.hash")):
+            with self.subTest(file=str(path.relative_to(suite.CONFORMANCE))):
+                self.assertRegex(path.read_text(encoding="utf-8").strip(), r"^(sha256:)?[0-9a-f]{64}$")
 
 
 def ids(kind: str) -> list[str]:

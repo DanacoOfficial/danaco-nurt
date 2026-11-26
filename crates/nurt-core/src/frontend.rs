@@ -125,6 +125,27 @@ pub trait Frontend: Send + Sync {
     /// Returns `E_UNKNOWN_NAME` for an unknown topic.
     fn help(&self, topic: &str, language: Language) -> Result<String, Error>;
 
+    /// Help text of a topic of the stated kind with a number of examples.
+    ///
+    /// `kind` is the name of a topic kind (`command`, `group`, `error`,
+    /// `skill`, `syntax`, `corrections`). The default implementation ignores
+    /// `kind` and `examples` and answers like [`Frontend::help`].
+    ///
+    /// # Errors
+    ///
+    /// Returns `E_UNKNOWN_NAME` for an unknown topic or a topic of another
+    /// kind.
+    fn help_query(
+        &self,
+        topic: &str,
+        kind: Option<&str>,
+        examples: Option<usize>,
+        language: Language,
+    ) -> Result<String, Error> {
+        let _ = (kind, examples);
+        self.help(topic, language)
+    }
+
     /// Corrects and binds program text.
     ///
     /// # Errors

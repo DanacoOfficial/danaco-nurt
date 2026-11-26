@@ -694,7 +694,17 @@ mod tests {
         .unwrap();
         assert_eq!(test.fs().read_file(&abs("/c/aa")).unwrap(), b"short");
         assert_eq!(test.fs().read_file(&abs("/c/aaaa")).unwrap(), b"long");
-        assert_eq!(renamed.changes[0].path.as_str(), long.to_language_string());
+        assert_eq!(
+            renamed.changes[0].path.as_str(),
+            abs("/c/aaaa").to_language_string()
+        );
+        assert_eq!(
+            renamed.changes[0]
+                .from
+                .as_ref()
+                .map(|from| from.as_str().to_owned()),
+            Some(long.to_language_string())
+        );
         assert_journaled(&test);
     }
 

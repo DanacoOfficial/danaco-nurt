@@ -6,7 +6,12 @@
 Command crates depend only on `nurt-contracts`. When a command of one group
 needs a capability implemented by another group, it calls a service trait
 from `nurt_contracts::services`. The engine registers the implementations
-once, in a `Services` registry carried by the execution context.
+once, in a `Services` registry carried by the execution context. An engine
+configured for the running process (`EngineConfig::system`) registers the
+services of every group of the build that the embedding application did not
+supply itself: documents, source code, the process host, the file listing
+(when the engine has a file system), repository queries, the text codec and
+the file holders. The review rule provider has no implementation of its own.
 
 A missing service is never an error by itself. It means the group that
 provides it is not loaded; the calling command applies the fallback listed

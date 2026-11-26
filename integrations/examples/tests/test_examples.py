@@ -14,6 +14,7 @@ import asyncio
 import importlib.util
 import json
 import pathlib
+import re
 import unittest
 from types import SimpleNamespace
 
@@ -193,6 +194,31 @@ class SemanticKernelExampleTest(unittest.TestCase):
                 return SimpleNamespace(content=f"answer to {messages}")
 
         self.assertEqual(asyncio.run(agent.run_agent(MockAgent(), "task")), "answer to task")
+
+
+class SweAgentToolTest(unittest.TestCase):
+    """The tool of SWE-agent hands the whole program over as one argument.
+
+    SWE-agent quotes the value of an argument for the shell
+    (``shlex.quote`` in its function calling parser) before it replaces the
+    placeholder of the signature, so a program with spaces and double quotes
+    reaches ``nurt`` as a single argument. The signature must therefore hold
+    exactly one placeholder and the argument must be a required string.
+    """
+
+    def setUp(self):
+        self.text = (EXAMPLES / "swe-agent" / "tools" / "nurt" / "config.yaml").read_text(encoding="utf-8")
+
+    def test_signature_has_the_program_as_its_only_placeholder(self):
+        match = re.search(r'(?m)^\s*signature:\s*"([^"]+)"', self.text)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "nurt <program>")
+
+    def test_program_is_a_required_string_argument(self):
+        block = self.text[self.text.index("arguments:") :]
+        self.assertRegex(block, r"name: program\s+type: string")
+        self.assertRegex(block, r"required: true")
+        self.assertNotIn("argument_format", block)
 
 
 if __name__ == "__main__":

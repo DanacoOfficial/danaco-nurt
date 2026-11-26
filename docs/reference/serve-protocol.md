@@ -205,7 +205,7 @@ delivered event of the contract:
 | `job.progress` | `id`, `percent`, `line` |
 | `job.finished` | `id`, `state`, `exit_code`, `signal`, `elapsed`, `output_file`, `changes` |
 | `log` | `level`, `message`, `source` |
-| `exec.finished` | `status`, `error` |
+| `exec.finished` | `status`, `error` (the code of the error of the report, `null` when the report has none; also for a program that failed before it was planned, for example `E_SYNTAX`) |
 
 The events of one execution are sent in the order of `seq`; `exec.started`
 is the first and `exec.finished` the last, and all of them precede the reply

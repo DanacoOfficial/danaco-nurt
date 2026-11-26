@@ -24,6 +24,10 @@ from pathlib import Path
 ICON_SIZES = (16, 24, 32, 48, 64, 128, 256)
 HICOLOR_SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
 SMALL_LIMIT = 32
+# The operating system of the touch icon rounds the corners itself and fills
+# transparent pixels with black, so the rounded tile is rendered on its own
+# colour: the corners stay opaque and the icon is a full square.
+APPLE_TOUCH_BACKGROUND = "#0B0C0E"
 
 
 def render(source, destination, width, height=None, background=None):
@@ -84,7 +88,7 @@ def main(argv):
     write_ico(out / "nurt.ico", [(size, pngs[size]) for size in ICON_SIZES])
     write_ico(out / "favicon.ico", [(size, pngs[size]) for size in (16, 32, 48)])
     (out / "favicon-32.png").write_bytes(pngs[32])
-    render(svg / "app-icon-graphite.svg", out / "apple-touch-icon.png", 180)
+    render(svg / "app-icon-graphite.svg", out / "apple-touch-icon.png", 180, background=APPLE_TOUCH_BACKGROUND)
     social_card(svg / "lockup-stacked-dark.svg", out / "social-card.png")
     for name in sorted(path.relative_to(out).as_posix() for path in out.rglob("*") if path.is_file()):
         print(out / name)

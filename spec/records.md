@@ -271,7 +271,9 @@ Row of a table, a CSV file or a query.
 
 ### node
 
-Node of a syntax tree.
+Node of a syntax tree. The kind is reserved: the catalog lists `node` among the input kinds of
+some commands, but no command of this release produces node records, so a pipeline cannot supply
+one.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|

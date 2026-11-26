@@ -582,10 +582,16 @@ impl Backend for StubBackend {
                     answer(&catalog, &request, &emit, &running.cancel)
                 }))
                 .unwrap_or_else(|payload| Err(caught_panic("an execution", payload.as_ref())));
-                let status = result
-                    .as_ref()
-                    .map_or(ReportStatus::Failed, |response| response.report.status);
-                sequence.deliver(EventBody::Lifecycle(Lifecycle::Finished { status }));
+                let (status, error) =
+                    result
+                        .as_ref()
+                        .map_or((ReportStatus::Failed, None), |response| {
+                            (
+                                response.report.status,
+                                response.report.error.as_ref().map(Error::code),
+                            )
+                        });
+                sequence.deliver(EventBody::Lifecycle(Lifecycle::Finished { status, error }));
                 running.complete(result);
             })
             .map_err(|error| {

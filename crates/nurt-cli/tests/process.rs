@@ -345,6 +345,33 @@ fn doctor_lists_the_features_of_the_linked_components() {
     }
 }
 
+#[test]
+fn doctor_lists_the_services_registered_by_the_engine() {
+    let output = nurt(&["doctor"], "");
+    let text = stdout(&output);
+    let row = text
+        .lines()
+        .find(|line| line.trim_start().starts_with("services"))
+        .unwrap();
+    assert!(!row.contains("unavailable"), "{row}");
+    for service in ["doc", "code", "process_host", "text_codec", "file_holders"] {
+        assert!(row.contains(service), "{service}: {row}");
+    }
+}
+
+#[test]
+fn read_of_a_key_uses_the_document_service() {
+    let home = tempfile::tempdir().unwrap();
+    let document = home.path().join("settings.json");
+    std::fs::write(&document, "{\"server\": {\"port\": 8080}}\n").unwrap();
+    let program = format!("read \"{}\" key: \"server.port\"", document.display());
+    let output = nurt(&[program.as_str()], "");
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(text.contains("8080"), "{text}");
+    assert!(!text.contains("semantic_fallback"), "{text}");
+}
+
 #[cfg(feature = "mcp")]
 #[test]
 fn mcp_server_ends_at_the_end_of_the_input() {
@@ -537,6 +564,32 @@ fn mcp_server_answers_initialize_and_tools_list_and_ends_at_the_end_of_the_input
     drop(input);
     assert!(lines.next().is_none(), "output after the end of the input");
     assert_eq!(child.wait().unwrap().code(), Some(0));
+}
+
+/// The input of a client that writes its whole session and closes the pipe
+/// at once, as `nurt mcp --stdio < file` does: the requests that were read
+/// before the end of the input are still answered.
+#[cfg(feature = "mcp")]
+#[test]
+fn mcp_server_answers_the_requests_read_before_the_end_of_the_input() {
+    let session = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+    ]
+    .join("\n")
+        + "\n";
+    let output = nurt(&["mcp", "--stdio"], &session);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let replies: Vec<serde_json::Value> = stdout(&output)
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let list = replies
+        .iter()
+        .find(|reply| reply["id"] == 2)
+        .unwrap_or_else(|| panic!("no answer to tools/list in {replies:?}"));
+    assert_eq!(list["result"]["tools"].as_array().map(Vec::len), Some(3));
 }
 
 #[cfg(feature = "lsp")]

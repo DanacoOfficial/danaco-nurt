@@ -20,7 +20,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use nurt_contracts::envelope::{Request, Response};
-use nurt_contracts::error::ErrorCode;
+use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::ReportStatus;
 use nurt_contracts::value::Instant as WireInstant;
 use nurt_core::{DeliveredEvent, EventBody, EventListener, Lifecycle};
@@ -286,11 +286,11 @@ impl Delivery {
     }
 
     /// Delivers the frame events that an execution ended without.
-    fn close(&mut self, request_id: &str, status: ReportStatus) {
+    fn close(&mut self, request_id: &str, status: ReportStatus, error: Option<ErrorCode>) {
         if self.last_seq == 0 {
             self.send(&self.frame(request_id, Lifecycle::Started));
         }
-        self.send(&self.frame(request_id, Lifecycle::Finished { status }));
+        self.send(&self.frame(request_id, Lifecycle::Finished { status, error }));
     }
 
     fn frame(&self, request_id: &str, lifecycle: Lifecycle) -> DeliveredEvent {
@@ -321,11 +321,14 @@ fn deliver(shared: &Shared, receiver: &Receiver<DeliveredEvent>, callback: Optio
     };
     let result = shared.run.result(timeout);
     if !delivery.finished {
-        let status = match &result {
-            Some(Ok(response)) => response.report.status,
-            _ => ReportStatus::Failed,
+        let (status, error) = match &result {
+            Some(Ok(response)) => (
+                response.report.status,
+                response.report.error.as_ref().map(Error::code),
+            ),
+            _ => (ReportStatus::Failed, None),
         };
-        delivery.close(shared.run.request_id(), status);
+        delivery.close(shared.run.request_id(), status, error);
     }
     shared.complete(Outcome::of(result));
 }
@@ -531,6 +534,11 @@ mod tests {
             EventBody::Lifecycle(Lifecycle::Started),
             EventBody::Lifecycle(Lifecycle::Finished {
                 status: ReportStatus::Ok,
+                error: None,
+            }),
+            EventBody::Lifecycle(Lifecycle::Finished {
+                status: ReportStatus::Failed,
+                error: Some(ErrorCode::Syntax),
             }),
         ] {
             let event = DeliveredEvent {
