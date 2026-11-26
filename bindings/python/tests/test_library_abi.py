@@ -11,6 +11,7 @@ same status name.
 
 from __future__ import annotations
 
+import json
 import re
 import unittest
 from typing import Any, Callable, Dict, List
@@ -19,7 +20,7 @@ import support
 
 from nurt import Nurt, NurtError
 from nurt._errors import STATUS_CODES
-from nurt._library import SIGNATURES
+from nurt._library import SIGNATURES, _diagnostics, _document, _encode, _text
 
 COLUMNS = ("OK", "TIMEOUT", "CANCELLED", "ARG", "ABI", "IO", "INTERNAL")
 
@@ -90,6 +91,20 @@ class HeaderAgreementTest(unittest.TestCase):
     def test_every_declared_function_has_a_signature(self) -> None:
         self.assertEqual(sorted(declared_functions(header_text())), sorted(SIGNATURES))
 
+    def test_signatures_have_the_arity_and_void_result_of_the_header(self) -> None:
+        text = header_text()
+        found = 0
+        for match in re.finditer(r"NURT_API\s+([^;]*?)NURT_CALL\s+(\w+)\s*\(([^;]*?)\)\s*;", text, re.S):
+            result = match.group(1).rsplit("NURT_API", 1)[-1].strip()
+            name, parameters = match.group(2), match.group(3).strip()
+            restype, argtypes = SIGNATURES[name]
+            arity = 0 if parameters in ("", "void") else parameters.count(",") + 1
+            with self.subTest(function=name):
+                self.assertEqual(len(argtypes), arity)
+                self.assertEqual(restype is None, result == "void")
+            found += 1
+        self.assertEqual(found, len(SIGNATURES))
+
     def test_status_table_lists_known_functions(self) -> None:
         table = status_table(header_text())
         self.assertGreater(len(table), 0)
@@ -98,6 +113,40 @@ class HeaderAgreementTest(unittest.TestCase):
         for function, statuses in table.items():
             with self.subTest(function=function):
                 self.assertEqual(statuses[0], "OK")
+
+
+class HelperTest(unittest.TestCase):
+    """Conversions of the library backend that need no library."""
+
+    def test_text_is_utf8_and_rejects_what_a_c_string_cannot_hold(self) -> None:
+        self.assertIsNone(_text(None))
+        self.assertEqual(_text("zażółć"), "zażółć".encode("utf-8"))
+        for bad in ("a\0b", "\ud800"):
+            with self.subTest(text=bad):
+                with self.assertRaises(NurtError) as caught:
+                    _text(bad)
+                self.assertEqual(caught.exception.status, "NURT_E_ARG")
+        with self.assertRaises(NurtError):
+            _encode({"program": "\udfff"})
+        self.assertEqual(_encode({"a": "\0"}), b'{"a":"\\u0000"}')
+
+    def test_second_document_carries_diagnostics_and_the_language_error(self) -> None:
+        self.assertEqual(_diagnostics(b'{"diagnostics":[]}', "x"), ([], None))
+        error = {"code": "E_SYNTAX"}
+        document = json.dumps({"diagnostics": [{"message": "m"}, 3], "error": error}).encode()
+        self.assertEqual(_diagnostics(document, "x"), ([{"message": "m"}], error))
+        self.assertEqual(_diagnostics(b"", "x"), ([], None))
+        self.assertEqual(_diagnostics(b'[{"message":"m"}]', "x"), ([{"message": "m"}], None))
+        with self.assertRaises(NurtError):
+            _diagnostics(b"{", "x")
+
+    def test_first_document_is_null_after_a_language_error(self) -> None:
+        self.assertIsNone(_document(b"null", "x"))
+        self.assertIsNone(_document(b"", "x"))
+        self.assertEqual(_document(b'{"a":1}', "x"), {"a": 1})
+        with self.assertRaises(NurtError) as caught:
+            _document(b"[1]", "x")
+        self.assertEqual(caught.exception.status, "NURT_E_INTERNAL")
 
 
 class StatusMatrixTest(unittest.TestCase):

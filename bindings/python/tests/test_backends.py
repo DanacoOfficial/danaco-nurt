@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import gc
 import json
 import os
 import shutil
@@ -120,6 +121,7 @@ class BackendContract:
     def test_parse_failure_has_diagnostics_and_no_tree(self) -> None:
         result = self.nurt.parse("fail")
         self.assertFalse(result.ok)
+        self.assertIsNone(result.ast)
         self.assertEqual(result.diagnostics[0]["severity"], "error")
 
     def test_print_accepts_tree_as_object_or_json(self) -> None:
@@ -165,8 +167,8 @@ class BackendContract:
         self.assertEqual(self.nurt.catalog()["catalog_rev"], "mock")
         self.assertEqual(self.nurt.catalog({"name": "find"})["catalog_rev"], "mock")
         self.assertEqual(self.nurt.schema("report"), {"title": "nurt-report/1"})
-        self.assertEqual(self.nurt.history({"limit": 1}), {"entries": []})
-        self.assertEqual(self.nurt.history("last 5"), {"entries": []})
+        self.assertEqual(self.nurt.history({"limit": 1})["entries"], [])
+        self.assertEqual(self.nurt.history("last 5")["entries"], [])
         self.assertEqual(self.nurt.space("/home/user"), {"volumes": []})
         self.assertEqual(self.nurt.info()["implementation"], "mock")
 
@@ -348,6 +350,64 @@ class LibraryBackendTest(BackendContract, unittest.TestCase):
             {"limit": 5, "preview": True, "session": "s-0001", "language": "pl"},
         )
         self.assertEqual(json.loads(description[len("description ") :])["language"], "pl")
+
+    def test_language_error_of_parse_and_check_is_kept(self) -> None:
+        parsed = self.nurt.parse("fail")
+        assert parsed.error is not None
+        self.assertEqual(parsed.error["code"], "E_SYNTAX")
+        self.assertIsNone(parsed.ast)
+        checked = self.nurt.check("fail")
+        assert checked.error is not None
+        self.assertEqual(checked.error["code"], "E_SYNTAX")
+        self.assertIsNone(checked.bound)
+        self.assertFalse(checked.ok)
+
+    def test_history_text_is_the_json_text_of_the_query(self) -> None:
+        self.assertEqual(self.nurt.history('{"limit":2}')["received"], '{"limit":2}')
+        self.assertEqual(self.nurt.history({"limit": 2})["received"], '{"limit":2}')
+        self.assertNotIn("received", self.nurt.history())
+
+    def test_text_that_cannot_cross_the_boundary_is_an_argument_error(self) -> None:
+        for program in ("list\0here", "list \ud800"):
+            with self.subTest(program=program):
+                with self.assertRaises(NurtError) as caught:
+                    self.nurt.parse(program)
+                self.assertEqual(caught.exception.status, "NURT_E_ARG")
+        with self.assertRaises(NurtError) as caught:
+            self.nurt.run("list \ud800")
+        self.assertEqual(caught.exception.status, "NURT_E_ARG")
+
+    def test_close_waits_for_a_blocked_wait_and_cancels_it(self) -> None:
+        controls = support.mock_controls(support.mock_library())
+        executions = controls.live_executions()
+        execution = self.nurt.start(LONG_SLEEP)
+        responses: List[Response] = []
+        thread = threading.Thread(target=lambda: responses.append(execution.wait()))
+        thread.start()
+        time.sleep(0.1)
+        started = time.monotonic()
+        execution.close()
+        thread.join(10)
+        self.assertFalse(thread.is_alive())
+        self.assertLess(time.monotonic() - started, 4)
+        self.assertEqual(len(responses), 1)
+        self.assertEqual(controls.live_executions(), executions)
+
+    def test_dropped_client_releases_its_engine(self) -> None:
+        controls = support.mock_controls(support.mock_library())
+        engines = controls.live_engines()
+        client = self.make()
+        self.assertEqual(controls.live_engines(), engines + 1)
+        del client
+        gc.collect()
+        self.assertEqual(controls.live_engines(), engines)
+
+    def test_non_finite_timeout_is_handled(self) -> None:
+        with self.nurt.start("done") as execution:
+            self.assertEqual(execution.wait(float("inf")).text, "done")
+            with self.assertRaises(NurtError) as caught:
+                execution.wait(float("nan"))
+            self.assertEqual(caught.exception.status, "NURT_E_ARG")
 
     def test_buffers_are_released_after_every_call(self) -> None:
         controls = support.mock_controls(support.mock_library())

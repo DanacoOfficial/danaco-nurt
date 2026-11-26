@@ -214,12 +214,25 @@ def _read(buffer: Buffer) -> bytes:
     return ctypes.string_at(buffer.ptr, buffer.len)
 
 
+def _utf8(text: str) -> bytes:
+    try:
+        return text.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise NurtError("NURT_E_ARG", f"the text is not valid Unicode: {exc.reason}") from exc
+
+
 def _encode(value: Any) -> bytes:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return _utf8(json.dumps(value, ensure_ascii=False, separators=(",", ":")))
 
 
 def _text(value: Optional[str]) -> Optional[bytes]:
-    return None if value is None else value.encode("utf-8")
+    """UTF-8 text for a ``const char *`` argument; a NUL character would end the string early."""
+    if value is None:
+        return None
+    data = _utf8(value)
+    if b"\0" in data:
+        raise NurtError("NURT_E_ARG", "the text contains a NUL character")
+    return data
 
 
 def _decode(data: bytes, name: str) -> Any:
@@ -236,11 +249,24 @@ def _object(data: bytes, name: str) -> Json:
     return value
 
 
-def _diagnostics(data: bytes, name: str) -> Diagnostics:
+def _diagnostics(data: bytes, name: str) -> Tuple[Diagnostics, Optional[Json]]:
+    """Diagnostics and language error of the second document of ``nurt_parse`` and ``nurt_check``."""
     value = _decode(data, name) if data else []
+    error: Optional[Json] = None
     if isinstance(value, dict):
+        found = value.get("error")
+        error = found if isinstance(found, dict) else None
         value = value.get("diagnostics", [])
-    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+    items = [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+    return items, error
+
+
+def _document(data: bytes, name: str) -> Optional[Json]:
+    """First document of ``nurt_parse`` and ``nurt_check``: an object, or ``null`` after a language error."""
+    value = _decode(data, name) if data else None
+    if value is not None and not isinstance(value, dict):
+        raise NurtError("NURT_E_INTERNAL", f"{name} returned JSON that is not an object")
+    return value
 
 
 class LibraryExecution(ExecutionHandle):
@@ -250,6 +276,8 @@ class LibraryExecution(ExecutionHandle):
         self._backend = backend
         self._sink = sink
         self._lock = threading.Lock()
+        self._idle = threading.Condition(self._lock)
+        self._active = 0
         self._ended = False
         self._pid = os.getpid()
         self._handle: Optional[int] = None
@@ -280,19 +308,36 @@ class LibraryExecution(ExecutionHandle):
             self._ended = True
         self._sink(None)
 
-    def _live(self) -> int:
-        if self._pid != os.getpid():
-            raise NurtError("NURT_E_INTERNAL", "the execution belongs to the parent process")
-        if self._handle is None:
-            raise NurtError("NURT_E_ARG", "the execution is closed")
-        return self._handle
+    def _enter(self) -> int:
+        """Handle for one call; :meth:`close` waits until the call has left."""
+        with self._lock:
+            if self._pid != os.getpid():
+                raise NurtError("NURT_E_INTERNAL", "the execution belongs to the parent process")
+            if self._handle is None:
+                raise NurtError("NURT_E_ARG", "the execution is closed")
+            self._active += 1
+            return self._handle
+
+    def _leave(self) -> None:
+        with self._idle:
+            self._active -= 1
+            if self._active == 0:
+                self._idle.notify_all()
 
     def wait(self, timeout: Optional[float]) -> Json:
-        handle = self._live()
-        if timeout is None:
+        if timeout is None or timeout == float("inf"):
             milliseconds = WAIT_FOREVER
+        elif timeout != timeout:
+            raise NurtError("NURT_E_ARG", "the timeout is not a number")
         else:
-            milliseconds = min(max(int(timeout * 1000), 0), LONGEST_WAIT_MS)
+            milliseconds = int(min(max(timeout * 1000, 0.0), float(LONGEST_WAIT_MS)))
+        handle = self._enter()
+        try:
+            return self._wait(handle, milliseconds, timeout)
+        finally:
+            self._leave()
+
+    def _wait(self, handle: int, milliseconds: int, timeout: Optional[float]) -> Json:
         library = self._backend.library
         buffer = Buffer()
         try:
@@ -310,17 +355,26 @@ class LibraryExecution(ExecutionHandle):
         raise library.failure("nurt_exec_wait", status, None)
 
     def cancel(self) -> None:
-        handle = self._live()
-        library = self._backend.library
-        status = library.dll.nurt_exec_cancel(handle)
-        if status != STATUS_OK:
-            raise library.failure("nurt_exec_cancel", status, None)
+        handle = self._enter()
+        try:
+            library = self._backend.library
+            status = library.dll.nurt_exec_cancel(handle)
+            if status != STATUS_OK:
+                raise library.failure("nurt_exec_cancel", status, None)
+        finally:
+            self._leave()
 
     def close(self) -> None:
         with self._lock:
             handle, self._handle = self._handle, None
         if handle is not None and self._pid == os.getpid():
-            self._backend.library.dll.nurt_exec_free(handle)
+            library = self._backend.library
+            # A call blocked in nurt_exec_wait must return before the handle is released.
+            library.dll.nurt_exec_cancel(handle)
+            with self._idle:
+                while self._active:
+                    self._idle.wait()
+            library.dll.nurt_exec_free(handle)
         self.callback = None
         self._backend.forget(self)
         self._end()
@@ -347,6 +401,8 @@ class LibraryBackend(Backend):
         if language is not None:
             self._defaults["language"] = language
         self._lock = threading.Lock()
+        self._idle = threading.Condition(self._lock)
+        self._active = 0
         self._executions: Set[LibraryExecution] = set()
         self._closed = False
         self._engine: Optional[int] = None
@@ -361,18 +417,30 @@ class LibraryBackend(Backend):
         self._engine = handle.value
         self._pid = os.getpid()
 
-    def _handle(self) -> Optional[int]:
+    def _enter(self) -> Optional[int]:
+        """Engine handle for one call; :meth:`close` waits until the call has left."""
         with self._lock:
             if self._closed:
                 raise NurtError("NURT_E_ARG", "the engine is closed")
             if self._pid != os.getpid():
                 self._executions.clear()
+                self._active = 0
                 self._open()
+            self._active += 1
             return self._engine
 
+    def _leave(self) -> None:
+        with self._idle:
+            self._active -= 1
+            if self._active == 0:
+                self._idle.notify_all()
+
     def _call(self, name: str, args: Sequence[Any], outputs: int) -> List[bytes]:
-        engine = self._handle()
-        return self.library.call(name, (engine, *args), outputs, engine)
+        engine = self._enter()
+        try:
+            return self.library.call(name, (engine, *args), outputs, engine)
+        finally:
+            self._leave()
 
     def forget(self, execution: LibraryExecution) -> None:
         """Remove a closed execution from the set released by :meth:`close`."""
@@ -393,29 +461,38 @@ class LibraryBackend(Backend):
         return _object(data, "nurt_run_json")
 
     def start(self, request: Mapping[str, Any], sink: EventSink) -> ExecutionHandle:
-        engine = self._handle()
-        execution = LibraryExecution(self, sink)
-        handle = ctypes.c_void_p()
-        status = self.library.dll.nurt_exec_start(
-            engine, self._request(request), execution.callback, None, ctypes.byref(handle)
-        )
-        if status != STATUS_OK:
-            raise self.library.failure("nurt_exec_start", status, engine)
-        execution.attach(handle.value)
-        with self._lock:
-            self._executions.add(execution)
+        text = self._request(request)
+        engine = self._enter()
+        try:
+            execution = LibraryExecution(self, sink)
+            handle = ctypes.c_void_p()
+            status = self.library.dll.nurt_exec_start(
+                engine, text, execution.callback, None, ctypes.byref(handle)
+            )
+            if status != STATUS_OK:
+                raise self.library.failure("nurt_exec_start", status, engine)
+            execution.attach(handle.value)
+            with self._lock:
+                self._executions.add(execution)
+        finally:
+            self._leave()
         return execution
 
     def check(self, request: Mapping[str, Any]) -> Json:
         bound, diagnostics = self._call("nurt_check", (self._request(request),), 2)
-        result = _object(bound, "nurt_check")
-        result["diagnostics"] = _diagnostics(diagnostics, "nurt_check")
+        result = dict(_document(bound, "nurt_check") or {})
+        result["diagnostics"], error = _diagnostics(diagnostics, "nurt_check")
+        if error is not None:
+            result["error"] = error
         return result
 
     def parse(self, program: str, variant: str) -> Json:
         ast, diagnostics = self._call("nurt_parse", (_text(program), VARIANTS[variant]), 2)
-        tree = _object(ast, "nurt_parse") if ast else None
-        return {"ast": tree, "diagnostics": _diagnostics(diagnostics, "nurt_parse")}
+        result: Json = {"ast": _document(ast, "nurt_parse")}
+        result["diagnostics"], error = _diagnostics(diagnostics, "nurt_parse")
+        if error is not None:
+            result["error"] = error
+        return result
 
     def print(self, ast: Mapping[str, Any], variant: str) -> str:
         (text,) = self._call("nurt_print", (_encode(ast), VARIANTS[variant]), 1)
@@ -450,7 +527,8 @@ class LibraryBackend(Backend):
         return _object(data, "nurt_schema")
 
     def history(self, query: Any) -> Json:
-        selector = None if query is None else _encode(query)
+        # A text is the JSON text of the query; an encoded text would be taken for no query at all.
+        selector = None if query is None else _text(query) if isinstance(query, str) else _encode(query)
         (data,) = self._call("nurt_history", (selector,), 1)
         return _object(data, "nurt_history")
 
@@ -468,8 +546,20 @@ class LibraryBackend(Backend):
                 return
             self._closed = True
             executions = list(self._executions)
-            engine, self._engine = self._engine, None
+            engine = self._engine
         for execution in executions:
             execution.close()
-        if engine is not None and self._pid == os.getpid():
+        owned = self._pid == os.getpid()
+        with self._idle:
+            # The engine must not be released while a call uses it; after fork() no thread of this process does.
+            while owned and self._active:
+                self._idle.wait()
+            self._engine = None
+        if engine is not None and owned:
             self.library.dll.nurt_engine_close(engine)
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
