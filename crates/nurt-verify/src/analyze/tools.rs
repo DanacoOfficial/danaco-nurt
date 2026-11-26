@@ -233,7 +233,7 @@ impl Tool {
             Tool::Rustfmt => words(&["--edition", RUSTFMT_EDITION]),
             _ => return None,
         };
-        args.extend(paths.iter().cloned());
+        args.extend(paths.iter().map(|path| operand(path)));
         Some(args)
     }
 
@@ -265,7 +265,17 @@ fn or_project(paths: &[String]) -> Vec<String> {
     if paths.is_empty() {
         vec![".".to_owned()]
     } else {
-        paths.to_vec()
+        paths.iter().map(|path| operand(path)).collect()
+    }
+}
+
+/// Path as a command line operand: a name that starts with `-` would be read
+/// as an option of the tool, so it is given relative to the directory.
+fn operand(path: &str) -> String {
+    if path.starts_with('-') {
+        format!("./{path}")
+    } else {
+        path.to_owned()
     }
 }
 

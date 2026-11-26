@@ -82,9 +82,7 @@ fn source_file(source: &SourceFile, dir: &Path) -> FileData {
                 next.0.saturating_sub(1).max(line)
             }
         });
-        for covered in line..=end {
-            file.hit_line(covered, count);
-        }
+        file.hit_range(line, end, count);
     }
     file
 }

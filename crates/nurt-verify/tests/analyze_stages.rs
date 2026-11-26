@@ -197,6 +197,49 @@ fn show_rejects_an_unknown_analysis_and_offers_the_stored_ones() {
     assert_eq!(error.data().candidates.len(), 1);
 }
 
+#[test]
+fn show_offers_the_newest_analyses_as_candidates() {
+    let workspace = typed_project();
+    let ctx = workspace.context();
+    let values = [("checks", texts(&["types"]))];
+    for _ in 0..7 {
+        apply(&ctx, "analyze.check", &args("analyze.check", &values)).unwrap();
+    }
+    let unknown = [("analysis_id", text("an-99"))];
+    let error = read(&ctx, "analyze.show", &args("analyze.show", &unknown))
+        .err()
+        .unwrap();
+    let offered: Vec<Option<&str>> = error
+        .data()
+        .candidates
+        .iter()
+        .map(|candidate| candidate.reference.as_deref())
+        .collect();
+    assert_eq!(
+        offered,
+        [
+            Some("an-7"),
+            Some("an-6"),
+            Some("an-5"),
+            Some("an-4"),
+            Some("an-3")
+        ]
+    );
+}
+
+#[test]
+fn show_refuses_an_analysis_identifier_that_names_another_file() {
+    let workspace = typed_project();
+    let ctx = workspace.context();
+    let values = [("checks", texts(&["types"]))];
+    apply(&ctx, "analyze.check", &args("analyze.check", &values)).unwrap();
+    let outside = [("analysis_id", text("../analyses/an-1"))];
+    let error = read(&ctx, "analyze.show", &args("analyze.show", &outside))
+        .err()
+        .unwrap();
+    assert_eq!(error.code(), ErrorCode::UnknownAnalysis);
+}
+
 fn formatter_project() -> Workspace {
     let workspace = Workspace::new();
     workspace
@@ -298,6 +341,35 @@ fn format_reports_that_nothing_needs_formatting() {
     .unwrap();
     assert!(summary.changes.is_empty());
     assert!(summary.notable.iter().any(|code| code == "nothing_matched"));
+}
+
+#[test]
+fn format_of_a_path_outside_the_project_changes_nothing() {
+    let workspace = formatter_project();
+    let outside = workspace.state.path().to_string_lossy().into_owned();
+    let values = [("path", texts(&[outside.as_str()]))];
+    let (_, summary) = apply(
+        &workspace.context(),
+        "analyze.format",
+        &args("analyze.format", &values),
+    )
+    .unwrap();
+    assert!(summary.changes.is_empty());
+    assert!(workspace.read("src/loose.ts").contains("1;   "));
+}
+
+#[test]
+fn format_of_the_project_directory_given_as_a_path_covers_every_file() {
+    let workspace = formatter_project();
+    let project = workspace.project.path().to_string_lossy().into_owned();
+    let values = [("path", texts(&[project.as_str(), "src"]))];
+    let (_, summary) = apply(
+        &workspace.context(),
+        "analyze.format",
+        &args("analyze.format", &values),
+    )
+    .unwrap();
+    assert_eq!(summary.changes, vec!["src/loose.ts".to_owned()]);
 }
 
 #[test]

@@ -15,8 +15,8 @@ use zbus::{Connection, DBusError, Message, OwnedObjectPath, OwnedVariant, block_
 
 use super::detect::ModeChoice;
 use super::{
-    Backend, InstallReport, InstallRequest, Manifest, UninstallReport, privilege_error,
-    remove_files, write_file,
+    Backend, InstallReport, InstallRequest, Manifest, UninstallReport, files_named,
+    privilege_error, remove_files, write_file,
 };
 
 /// Name of the systemd unit.
@@ -491,7 +491,8 @@ pub(crate) fn uninstall_with(
             error.message
         )),
     }
-    let removed = remove_files(&manifest.files)?;
+    let files = files_named(&manifest.files, UNIT_NAME, &mut notes);
+    let removed = remove_files(&files)?;
     if let Ok(manager) = &manager {
         let _ = manager.reload();
     }
@@ -618,6 +619,29 @@ mod tests {
             "DisableUnitFiles nurt-service.service".to_owned(),
             "Reload".to_owned(),
         ]));
+    }
+
+    #[test]
+    fn uninstall_linux_removes_only_the_unit_file_of_the_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let unit = dir.path().join(UNIT_NAME);
+        let foreign = dir.path().join("precious.conf");
+        std::fs::write(&unit, "unit").unwrap();
+        std::fs::write(&foreign, "keep").unwrap();
+        let mut manifest = Manifest::new(
+            ServiceMode::User,
+            Backend::SystemdUser,
+            Path::new("/opt/nurt/bin/nurt"),
+        );
+        manifest.files = vec![unit.clone(), foreign.clone()];
+        let buses = FakeBuses {
+            system: FakeSystem::start(LingerPolicy::Allow),
+            session_available: true,
+        };
+        let report = uninstall_with(&manifest, &buses).unwrap();
+        assert_eq!(report.removed, [unit]);
+        assert!(foreign.exists());
+        assert!(report.notes.iter().any(|note| note.contains("precious.conf")));
     }
 
     #[test]

@@ -13,6 +13,7 @@ use nurt_contracts::stage::{
 use nurt_contracts::value::{Record, Value};
 
 use super::args;
+use super::finish::RUN_MARKER;
 use super::launch::{self, Prepared, Request};
 use super::run::{DEFAULT_TIMEOUT, shape};
 use crate::iface::{EntryKind, StoredEntry, VerifyStore, verify_store};
@@ -121,6 +122,28 @@ fn rerun(ctx: &ExecCtx, args: &BoundArgs) -> Result<Rerun> {
         return Ok(Rerun::Nothing(entry.header));
     }
     let header = &entry.header;
+    // A run that produced no test results (the program did not start or the
+    // build failed) names no test to select: the whole scope runs again.
+    let (only, targets, filter) = if only.iter().any(|case| case.id == RUN_MARKER) {
+        let targets: Vec<String> = header
+            .get("targets")
+            .and_then(Value::as_list)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        args::check_targets(&targets)?;
+        let filter = header
+            .get("filter")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        (Vec::new(), targets, filter)
+    } else {
+        (only, Vec::new(), None)
+    };
     let stored_dir = header
         .get("cwd")
         .and_then(Value::as_str)
@@ -147,8 +170,8 @@ fn rerun(ctx: &ExecCtx, args: &BoundArgs) -> Result<Rerun> {
     let request = Request {
         dir,
         framework: Some(framework),
-        targets: Vec::new(),
-        filter: None,
+        targets,
+        filter,
         bail: false,
         only,
         command: (framework == Framework::Custom && !command.is_empty()).then_some(command),
