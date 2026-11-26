@@ -518,6 +518,10 @@ write = ["/project"]
     #[test]
     fn a_file_written_twice_is_planned_once_with_the_last_content() {
         let context = TestContext::new();
+        context
+            .fs()
+            .create_dir_all(&test_path("/project").unwrap())
+            .unwrap();
         let path = test_path("/project/twice.txt").unwrap();
         let output = GuestOutput {
             records: Vec::new(),
