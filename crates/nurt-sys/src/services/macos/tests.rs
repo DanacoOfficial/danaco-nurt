@@ -975,6 +975,115 @@ fn launchd_stage_spec_external_marks_launchctl_x() {
     assert!(LAUNCHCTL.ends_with(PROGRAM_NAME));
 }
 
+#[test]
+fn launchd_denied_outside_the_system_domain_is_not_a_privilege_error() {
+    let output = Output {
+        code: EXIT_NOT_PERMITTED,
+        stdout: String::new(),
+        stderr: "Operation not permitted".to_owned(),
+    };
+    let target = Target {
+        domain: "gui/501",
+        label: "org.example.agent",
+        path: Some("/Users/user/Library/LaunchAgents/org.example.agent.plist"),
+    };
+    let error = classify(&output, Action::Kickstart, &target).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Permission);
+    assert!(error.message.contains("launchd denied"));
+    assert!(error.details.get("required").is_none());
+    let protected = Target {
+        path: Some("/System/Library/LaunchAgents/com.apple.example.plist"),
+        ..target
+    };
+    let error = classify(&output, Action::Kickstart, &protected).unwrap_err();
+    assert!(error.message.contains("System Integrity Protection"));
+}
+
+#[test]
+fn launchd_output_message_prefers_stderr_and_falls_back_to_stdout() {
+    let output = |stdout: &str, stderr: &str| Output {
+        code: 1,
+        stdout: stdout.to_owned(),
+        stderr: stderr.to_owned(),
+    };
+    assert_eq!(output(" out \n", " err \n").message(), "err");
+    assert_eq!(output(" out \n", "  \n").message(), "out");
+    assert_eq!(output("", "").message(), "");
+}
+
+#[test]
+fn launchd_stop_of_a_service_without_a_process_succeeds_and_a_denied_stop_needs_root() {
+    let idle = Fixture::new(FakeLaunchctl::default().on(
+        "kill SIGTERM system/org.example.backup",
+        EXIT_NO_PROCESS,
+        "",
+        "No such process",
+    ));
+    idle.backend()
+        .stop("org.example.backup", ServiceScope::System)
+        .unwrap();
+    let denied = Fixture::new(FakeLaunchctl::default().on(
+        "kill SIGTERM system/org.example.backup",
+        EXIT_NOT_PERMITTED,
+        "",
+        "Could not signal service: 1: Operation not permitted",
+    ));
+    let error = denied
+        .backend()
+        .stop("org.example.backup", ServiceScope::System)
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Privilege);
+    assert_eq!(error.details["required"], "root");
+}
+
+#[test]
+fn launchd_find_scans_files_with_another_name_and_rejects_a_foreign_label() {
+    let fixture = Fixture::new(FakeLaunchctl::default());
+    let layout = Layout {
+        root: fixture.root.path().to_path_buf(),
+        home: HOME.to_owned(),
+        uid: UID,
+    };
+    let scope = ServiceScope::System;
+    let scanned = definitions::find(&layout, scope, "com.openssh.sshd", &fixture.ctx).unwrap();
+    assert_eq!(scanned.path, "/System/Library/LaunchDaemons/ssh.plist");
+    let liar = fixture
+        .root
+        .path()
+        .join("Library/LaunchDaemons/org.example.liar.plist");
+    std::fs::write(liar, BACKUP_XML).unwrap();
+    assert!(definitions::find(&layout, scope, "org.example.liar", &fixture.ctx).is_none());
+    let backups: Vec<Definition> = definitions::read_all(&layout, scope, &fixture.ctx)
+        .into_iter()
+        .filter(|definition| definition.label == "org.example.backup")
+        .collect();
+    assert_eq!(backups.len(), 1);
+    assert_eq!(
+        backups[0].path,
+        "/Library/LaunchDaemons/org.example.backup.plist"
+    );
+}
+
+#[test]
+fn launchd_layout_directories_and_physical_paths() {
+    let layout = Layout {
+        root: PathBuf::from("/tmp/root"),
+        home: "/Users/user/".to_owned(),
+        uid: UID,
+    };
+    let user = layout.directories(ServiceScope::User);
+    assert_eq!(
+        user.last().map(String::as_str),
+        Some("/Users/user/Library/LaunchAgents")
+    );
+    assert_eq!(user.len(), 3);
+    assert_eq!(layout.directories(ServiceScope::System).len(), 2);
+    assert_eq!(
+        layout.physical("/Library/LaunchDaemons/a.plist"),
+        PathBuf::from("/tmp/root/Library/LaunchDaemons/a.plist")
+    );
+}
+
 /// Program runner of the macOS integration tests.
 #[cfg(target_os = "macos")]
 struct SystemLaunchctl;
