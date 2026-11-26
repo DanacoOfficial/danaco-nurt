@@ -700,6 +700,21 @@ fn set_mtime(file: &Path, time: SystemTime) {
         .unwrap();
 }
 
+#[cfg(unix)]
+#[test]
+fn path_fingerprint_sees_a_change_of_the_execute_permission_of_a_file() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let fixture = Fixture::new();
+    let file = fixture.executable("/usr/bin/tool");
+    let source = PathSource::new();
+    let env = fixture.env();
+    let before = source.fingerprint(&env).unwrap();
+    assert_eq!(before, source.fingerprint(&env).unwrap());
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+    assert_ne!(before, source.fingerprint(&env).unwrap());
+}
+
 #[test]
 fn index_cache_invalidation_on_mtime() {
     let fixture = dpkg_fixture();

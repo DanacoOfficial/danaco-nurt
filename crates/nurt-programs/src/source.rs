@@ -1017,6 +1017,31 @@ impl<'a> FingerprintBuilder<'a> {
         self
     }
 
+    /// Adds the state of the entries of a directory given as a host path:
+    /// the name, size, modification time and permission bits of every entry,
+    /// independent of their order. A change of the permissions or of the
+    /// content of a file does not change the directory that holds it, so
+    /// [`FingerprintBuilder::path`] alone would not see it.
+    #[must_use]
+    pub fn entries(mut self, dir: impl AsRef<Path>) -> Self {
+        let host = dir.as_ref();
+        self.item(host.to_string_lossy().as_bytes());
+        let mut combined = 0_u64;
+        let mut count = 0_u64;
+        if let Ok(listing) = std::fs::read_dir(self.env.sys_path(host)) {
+            for entry in listing.flatten() {
+                let Ok(meta) = std::fs::metadata(entry.path()).or_else(|_| entry.metadata()) else {
+                    continue;
+                };
+                combined = combined.wrapping_add(entry_hash(&entry.file_name(), &meta));
+                count += 1;
+            }
+        }
+        self.item(&count.to_le_bytes());
+        self.item(&combined.to_le_bytes());
+        self
+    }
+
     /// Adds the last write time of a registry key; nothing without a
     /// registry.
     #[must_use]
@@ -1049,6 +1074,30 @@ impl fmt::Debug for FingerprintBuilder<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FingerprintBuilder").finish_non_exhaustive()
     }
+}
+
+/// Hash of the name, size, modification time and permission bits of one
+/// directory entry (FNV-1a).
+fn entry_hash(name: &OsStr, meta: &std::fs::Metadata) -> u64 {
+    const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+    #[cfg(unix)]
+    let mode = std::os::unix::fs::PermissionsExt::mode(&meta.permissions());
+    #[cfg(not(unix))]
+    let mode = u32::from(meta.permissions().readonly());
+    let modified = u64::try_from(nanos(meta.modified().ok())).unwrap_or(u64::MAX);
+    let mut hash = OFFSET;
+    let bytes = name
+        .as_encoded_bytes()
+        .iter()
+        .copied()
+        .chain(meta.len().to_le_bytes())
+        .chain(modified.to_le_bytes())
+        .chain(mode.to_le_bytes());
+    for byte in bytes {
+        hash = (hash ^ u64::from(byte)).wrapping_mul(PRIME);
+    }
+    hash
 }
 
 fn nanos(time: Option<SystemTime>) -> u128 {

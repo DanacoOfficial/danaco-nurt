@@ -90,7 +90,7 @@ impl ProgramSource for PathSource {
             .text("PATH", &list)
             .text("PATHEXT", &env.path_extensions().join(";"));
         for dir in env.path_dirs() {
-            builder = builder.path(dir);
+            builder = builder.path(&dir).entries(&dir);
         }
         Ok(builder.finish())
     }
