@@ -29,7 +29,7 @@ const GENERATED_COMMENTS: &[&str] = &[
 ];
 
 /// Words of the license header of the files of the repository; none of the
-/// scripts of this file contains them.
+/// scripts in this file uses them.
 const FOREIGN_WORDS: &[&str] = &[
     "Copyright",
     "Danaco",

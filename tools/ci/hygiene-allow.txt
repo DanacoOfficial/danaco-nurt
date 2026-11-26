@@ -52,7 +52,7 @@ emoji crates/nurt-doc/src/service/mod.rs
 emoji crates/nurt-proc/src/output/decode.rs
 emoji crates/nurt-sys/src/services/windows.rs
 
-# Names of the AI platform in the description of the command that prints the
+# Names of the client platform in the description of the command that prints the
 # tool definition for it; the platform is the subject of the command.
 tool-mention crates/nurt-cli/src/tool_definition.rs
 tool-mention docs/cli/nurt.md
