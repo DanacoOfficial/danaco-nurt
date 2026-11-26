@@ -24,7 +24,7 @@ use nurt_contracts::kinds::EffectKind;
 use nurt_contracts::stage::{
     ArgValue, BoundArgs, OrderKey, RecordStream, StageImpl, StageInput, StreamOrder,
 };
-use nurt_contracts::value::{Duration, Range, Record, RecordKind, Regex, Size, Value};
+use nurt_contracts::value::{Bytes, Duration, Range, Record, RecordKind, Regex, Size, Value};
 use nurt_exec::stages::{
     Assert, Count, Distinct, Filter, First, Group, Last, Parse, Select, Skip, Sort, Split,
     Summarize, Verify,
@@ -493,6 +493,20 @@ fn assert_count_and_paths_compare_with_ranges() {
     assert_eq!(error.expected, Some(serde_json::json!(3)));
     assert_eq!(error.actual, Some(serde_json::json!(2)));
     assert_eq!(error.sample, ["/a", "/b"]);
+}
+
+#[test]
+fn assert_paths_tells_apart_two_paths_that_are_not_valid_unicode_by_their_bytes() {
+    let named = |raw: &[u8]| {
+        line("/d/n\u{fffd}", 1, "x").with("raw_path", Value::Bytes(Bytes::new(raw.to_vec())))
+    };
+    let both = vec![named(b"/d/n\xff"), named(b"/d/n\xfe"), named(b"/d/n\xff")];
+    assert_eq!(
+        records_of(&Assert, &assert_with("paths", value(2)), both.clone()).len(),
+        3
+    );
+    let error = assert_fails(&assert_with("paths", value(1)), both);
+    assert_eq!(error.actual, Some(serde_json::json!(2)));
 }
 
 #[test]
