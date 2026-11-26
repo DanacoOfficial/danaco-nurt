@@ -253,6 +253,10 @@ pub struct DocNode {
     pub parent: Option<NodeId>,
     /// Children in document order.
     pub children: Vec<NodeId>,
+    /// Position of the node among the selectable members of its parent.
+    pub(crate) member_slot: usize,
+    /// Number of selectable members among the children added so far.
+    pub(crate) member_total: usize,
 }
 
 /// Builder of a [`DocTree`]; nodes are added parent first.
@@ -283,8 +287,17 @@ impl<'a> TreeBuilder<'a> {
     pub fn node(&mut self, parent: Option<NodeId>, spec: NodeSpec) -> NodeId {
         let id = NodeId(u32::try_from(self.nodes.len()).unwrap_or(u32::MAX));
         let value_span = spec.value_span.unwrap_or(spec.span);
+        let kind = spec.kind.unwrap_or(NodeKind::Scalar);
+        let member_slot = parent.map_or(0, |parent| {
+            let holder = &mut self.nodes[parent.index()];
+            let slot = holder.member_total;
+            if kind != NodeKind::Comment {
+                holder.member_total += 1;
+            }
+            slot
+        });
         self.nodes.push(DocNode {
-            kind: spec.kind.unwrap_or(NodeKind::Scalar),
+            kind,
             name: spec.name,
             span: spec.span,
             key_span: spec.key_span,
@@ -299,6 +312,8 @@ impl<'a> TreeBuilder<'a> {
             tag: spec.tag,
             parent,
             children: Vec::new(),
+            member_slot,
+            member_total: 0,
         });
         match parent {
             Some(parent) => self.nodes[parent.index()].children.push(id),
@@ -479,8 +494,7 @@ impl DocTree {
         let name = self[child].name.as_deref();
         match (parent_node.kind, name) {
             (NodeKind::List, _) | (_, None) => {
-                let position = self.members(parent).position(|member| member == child);
-                reversed.push(KeySegment::Index(to_index(position.unwrap_or_default())));
+                reversed.push(KeySegment::Index(to_index(self[child].member_slot)));
             }
             (_, Some(name)) => {
                 if semantics.repeated() == Repeated::Conflict {
@@ -687,6 +701,22 @@ mod tests {
         let tree = builder.finish();
         let value = tree.value_of(root, &MapSemantics::LAST_WINS, Some(1));
         assert_eq!(value.get("l"), Some(&Value::List(Vec::new())));
+    }
+
+    #[test]
+    fn list_positions_skip_comments_and_do_not_depend_on_the_length() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::List));
+        builder.node(Some(root), spec(NodeKind::Comment));
+        let mut last = root;
+        for _ in 0..3000 {
+            last = builder.node(Some(root), spec(NodeKind::Scalar));
+        }
+        let tree = builder.finish();
+        let semantics = MapSemantics::LAST_WINS;
+        assert_eq!(tree.path_of(last, &semantics).to_string(), "[2999]");
+        let first = tree.members(root).next().unwrap();
+        assert_eq!(tree.path_of(first, &semantics).to_string(), "[0]");
     }
 
     #[test]

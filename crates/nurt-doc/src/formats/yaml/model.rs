@@ -10,12 +10,14 @@
 
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
+use std::sync::OnceLock;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::value::{Fields, Value};
 
 pub use nurt_contracts::config::YamlVersion;
 
+use super::anchor::Anchors;
 use super::scalar;
 use crate::constructs::{self, YAML_ALIAS_EXPANSION_LIMIT};
 
@@ -399,9 +401,23 @@ impl ValueOverrides {
     }
 }
 
+/// Anchor resolution of a model, computed on first use. Two models are equal
+/// whether or not the resolution was computed.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct AnchorCache(OnceLock<Anchors>);
+
+impl PartialEq for AnchorCache {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for AnchorCache {}
+
 /// Lossless model of a YAML stream.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct YamlModel {
+    pub(crate) anchor_cache: AnchorCache,
     pub(crate) source: String,
     pub(crate) bom: bool,
     pub(crate) documents: Vec<YamlDocument>,
@@ -412,6 +428,12 @@ pub struct YamlModel {
 }
 
 impl YamlModel {
+    /// Targets of the aliases of the stream, resolved once per model.
+    #[must_use]
+    pub fn anchors(&self) -> &Anchors {
+        self.anchor_cache.0.get_or_init(|| Anchors::new(self))
+    }
+
     /// Source text, including a byte order mark.
     #[must_use]
     pub fn source(&self) -> &str {

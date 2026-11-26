@@ -30,7 +30,7 @@ pub mod seq;
 mod style;
 pub mod tag;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::keypath::{DocSelector, KeyPath, KeySegment};
@@ -406,7 +406,7 @@ impl YamlDoc {
         }
         let container = self.model.dealias(node);
         match self.step(container, last, key)? {
-            Step::Node(target) => self.removal_of(container, target, key),
+            Step::Node(target) => self.removal_of(container, target, last, key),
             Step::Inherited { map, .. } => {
                 merge::check_remove(&self.model, map, &segment_name(last))?;
                 Err(self.not_found(key))
@@ -415,15 +415,19 @@ impl YamlDoc {
         }
     }
 
-    fn removal_of(&self, container: NodeId, target: NodeId, key: &KeyPath) -> Result<Removal> {
+    fn removal_of(
+        &self,
+        container: NodeId,
+        target: NodeId,
+        last: &KeySegment,
+        key: &KeyPath,
+    ) -> Result<Removal> {
         let index = match &self.model.node(container).kind {
             NodeKind::Mapping(mapping) => mapping
                 .entries
                 .iter()
                 .position(|entry| entry.value == target),
-            NodeKind::Sequence(sequence) => {
-                sequence.items.iter().position(|item| item.node == target)
-            }
+            NodeKind::Sequence(sequence) => sequence_position(sequence, target, last),
             _ => None,
         };
         index
@@ -737,7 +741,7 @@ impl<'m> Change<'m> {
     /// Removes the selected entries and items; a collection that loses every
     /// member becomes `{}` or `[]`.
     fn remove_all(&mut self, mut removals: Vec<Removal>) -> Result<()> {
-        let removed: Vec<NodeId> = removals.iter().map(|removal| removal.node).collect();
+        let removed: HashSet<NodeId> = removals.iter().map(|removal| removal.node).collect();
         removals.retain(|removal| !self.inside_any(removal.container, &removed));
         let mut groups: HashMap<NodeId, Vec<Removal>> = HashMap::new();
         let mut order = Vec::new();
@@ -756,7 +760,7 @@ impl<'m> Change<'m> {
         Ok(())
     }
 
-    fn inside_any(&self, node: NodeId, removed: &[NodeId]) -> bool {
+    fn inside_any(&self, node: NodeId, removed: &HashSet<NodeId>) -> bool {
         let mut current = Some(node);
         while let Some(id) = current {
             if removed.contains(&id) {
@@ -805,6 +809,31 @@ impl<'m> Change<'m> {
         }
         Ok(())
     }
+}
+
+/// Position of the item `target` in `sequence`. The segment that selected the
+/// item names its position, which is checked first so that removing every
+/// item of a long list does not search the list for each of them.
+fn sequence_position(
+    sequence: &SequenceNode,
+    target: NodeId,
+    selected_by: &KeySegment,
+) -> Option<usize> {
+    let hint = match selected_by {
+        KeySegment::Index(index) if *index >= 0 => usize::try_from(*index).ok(),
+        KeySegment::Index(index) => usize::try_from(index.unsigned_abs())
+            .ok()
+            .and_then(|back| sequence.items.len().checked_sub(back)),
+        KeySegment::Key(name) if is_index(name) => name.parse().ok(),
+        _ => None,
+    };
+    hint.filter(|position| {
+        sequence
+            .items
+            .get(*position)
+            .is_some_and(|item| item.node == target)
+    })
+    .or_else(|| sequence.items.iter().position(|item| item.node == target))
 }
 
 /// Value of a missing path: `value` wrapped in a map for each name and in a
@@ -1199,6 +1228,40 @@ mod tests {
         let report = doc.remove(&key("m.*")).unwrap();
         assert_eq!(report.replacements, 2);
         assert_eq!(doc.text(), b"m: {}\nz: 0\n");
+    }
+
+    #[test]
+    fn removes_every_item_of_a_long_list_and_selected_items_by_position() {
+        let items: String = (0..5000).map(|index| format!("  - {index}\n")).collect();
+        let mut doc = doc(&format!("l:\n{items}z: 0\n"));
+        let report = doc.remove(&key("l[*]")).unwrap();
+        assert_eq!(report.replacements, 5000);
+        assert_eq!(doc.text(), b"l: []\nz: 0\n");
+        let mut doc = self::doc("l: [a, b, c, d]\n");
+        doc.remove(&key("l[-1]")).unwrap();
+        doc.remove(&key("l.0")).unwrap();
+        assert_eq!(doc.text(), b"l: [b, c]\n");
+    }
+
+    #[test]
+    fn many_merge_keys_resolve_against_their_anchors() {
+        let mut text = String::from("base: &b {x: 1}\n");
+        for index in 0..2000 {
+            text.push_str(&format!("m{index}:\n  <<: *b\n  y: {index}\n"));
+        }
+        let doc = doc(&text);
+        let found = doc.get(&key("m1999.x")).unwrap();
+        assert_eq!(
+            doc.tree().value_of(found[0].node, &SEMANTICS, None),
+            Value::Int(1)
+        );
+        let anchors = doc.model().anchors();
+        let target = doc
+            .model()
+            .node_ids()
+            .find_map(|id| anchors.target(id))
+            .unwrap();
+        assert_eq!(anchors.aliases_of(target).len(), 2000);
     }
 
     #[test]

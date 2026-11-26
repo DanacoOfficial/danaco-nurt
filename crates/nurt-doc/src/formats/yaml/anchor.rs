@@ -93,6 +93,11 @@ impl Anchors {
         }
     }
 
+    /// Whether the stream has no alias that refers to an anchor.
+    pub fn is_empty(&self) -> bool {
+        self.aliases.is_empty()
+    }
+
     /// Aliases that refer to the anchored node `target`, in source order.
     pub fn aliases_of(&self, target: NodeId) -> &[NodeId] {
         self.aliases.get(&target).map_or(&[], Vec::as_slice)
@@ -108,7 +113,7 @@ impl Anchors {
 /// the node its anchor defines and `yaml.alias_expansion_limit` when the
 /// aliases of a document expand to too many nodes.
 pub fn check_expansion(model: &YamlModel) -> Result<()> {
-    let anchors = Anchors::new(model);
+    let anchors = model.anchors();
     let total = model.node_ids().count();
     let mut sizes = vec![None; total];
     let mut open = vec![false; total];
@@ -236,8 +241,7 @@ pub fn alias_of(model: &YamlModel, node: NodeId) -> Option<&str> {
 ///
 /// A key of a mapping that is not a value has the path of its mapping.
 pub fn path_of(model: &YamlModel, node: NodeId) -> KeyPath {
-    let anchors = Anchors::new(model);
-    path_with(model, &anchors, node)
+    path_with(model, model.anchors(), node)
 }
 
 fn path_with(model: &YamlModel, anchors: &Anchors, node: NodeId) -> KeyPath {
@@ -289,7 +293,10 @@ fn segment_in(
 /// itself. Aliases inside aliased nodes are followed; no more than
 /// [`MAX_SHARED_PATHS`] paths are returned, in source order of the aliases.
 pub fn shared_by(model: &YamlModel, node: NodeId) -> Vec<KeyPath> {
-    let anchors = Anchors::new(model);
+    let anchors = model.anchors();
+    if anchors.is_empty() {
+        return Vec::new();
+    }
     let mut paths = Vec::new();
     let mut seen = HashSet::new();
     let mut pending = vec![(node, Vec::new())];
@@ -466,6 +473,17 @@ mod tests {
             panic!("an exponential expansion was accepted");
         };
         assert_eq!(error.found.as_deref(), Some(YAML_ALIAS_EXPANSION_LIMIT));
+    }
+
+    #[test]
+    fn documents_without_aliases_share_nothing() {
+        let doc = YamlDoc::parse("a: &x 1\nb: [1, 2]\n", YamlVersion::V1_2).unwrap();
+        let model = doc.model();
+        assert!(model.anchors().is_empty());
+        let item = model.node_ids().last().unwrap();
+        assert!(shared_by(model, item).is_empty());
+        let shared = YamlDoc::parse("a: &x 1\nb: *x\n", YamlVersion::V1_2).unwrap();
+        assert!(!shared.model().anchors().is_empty());
     }
 
     #[test]

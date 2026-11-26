@@ -16,7 +16,7 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use super::backend_saphyr::{self, RawEvent, RawKind};
 
 use super::model::{
-    BlockHeader, Chomping, CollectionStyle, Directive, DirectiveKind, FlowDelimiters, MapEntry,
+    AnchorCache, BlockHeader, Chomping, CollectionStyle, Directive, DirectiveKind, FlowDelimiters, MapEntry,
     MappingNode, NodeId, NodeKind, Property, ScalarNode, ScalarStyle, SeqItem, SequenceNode,
     TagProperty, YamlDocument, YamlModel, YamlNode, YamlVersion,
 };
@@ -212,6 +212,7 @@ impl<'a> Builder<'a> {
             text,
             bytes,
             model: YamlModel {
+                anchor_cache: AnchorCache::default(),
                 source: text.to_owned(),
                 bom,
                 documents: Vec::new(),

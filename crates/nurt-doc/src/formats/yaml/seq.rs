@@ -22,7 +22,6 @@ use nurt_contracts::error::Result;
 use nurt_contracts::keypath::KeyPath;
 use nurt_contracts::value::Value;
 
-use super::anchor::Anchors;
 use super::comment::Comments;
 use super::model::{CollectionStyle, NodeId, NodeKind, SequenceNode, YamlModel};
 use super::multidoc;
@@ -72,8 +71,7 @@ pub fn index_target(
     index: i64,
     key: &KeyPath,
 ) -> Result<IndexTarget> {
-    let anchors = Anchors::new(model);
-    let seq = anchors.resolve(seq).unwrap_or(seq);
+    let seq = model.anchors().resolve(seq).unwrap_or(seq);
     let Some(sequence) = model.node(seq).as_sequence() else {
         return Err(key_conflict(
             key,
@@ -121,8 +119,7 @@ pub fn plan_append(
     value: &Value,
     key: &KeyPath,
 ) -> Result<SeqPlan> {
-    let anchors = Anchors::new(model);
-    let target = anchors.resolve(node).unwrap_or(node);
+    let target = model.anchors().resolve(node).unwrap_or(node);
     let layout = Layout::of(model);
     let yaml = model.node(target);
     let edits = match &yaml.kind {
@@ -152,8 +149,7 @@ pub fn plan_append(
 /// Returns `E_KEY_CONFLICT` when `node` is not a sequence and
 /// `E_KEY_NOT_FOUND` when the index selects no item.
 pub fn plan_remove(model: &YamlModel, node: NodeId, index: i64, key: &KeyPath) -> Result<SeqPlan> {
-    let anchors = Anchors::new(model);
-    let target = anchors.resolve(node).unwrap_or(node);
+    let target = model.anchors().resolve(node).unwrap_or(node);
     let Some(sequence) = model.node(target).as_sequence() else {
         return Err(key_conflict(
             key,
@@ -466,7 +462,7 @@ impl Layout {
             }
         }
         Self {
-            unit: unit.unwrap_or(DEFAULT_INDENT_UNIT),
+            unit: unit.unwrap_or_else(|| super::style::text_unit(model)),
             flush_lists: flush_lists.unwrap_or(false),
             eol: model.line_ending().as_str(),
         }
@@ -844,6 +840,30 @@ mod tests {
         assert_eq!(scalar_text(&date, false), "2026-11-21");
         let path = Value::Path("conf/app.yaml".to_owned());
         assert_eq!(scalar_text(&path, false), "conf/app.yaml");
+    }
+
+    #[test]
+    fn layout_takes_the_indentation_unit_from_the_text_without_nested_mappings() {
+        let model = parse("l:\n    - x\n");
+        assert_eq!(Layout::of(&model).unit, 4);
+        let model = parse("l:\n  - x\n");
+        assert_eq!(Layout::of(&model).unit, DEFAULT_INDENT_UNIT);
+        let model = parse("- x\n");
+        assert_eq!(Layout::of(&model).unit, DEFAULT_INDENT_UNIT);
+    }
+
+    #[test]
+    fn appended_nested_mapping_uses_the_indentation_of_the_text() {
+        let mut inner = IndexMap::new();
+        inner.insert("n".to_owned(), Value::Int(1));
+        let mut item = IndexMap::new();
+        item.insert("k".to_owned(), Value::Map(inner));
+        let appended = append_to(
+            "l:\n    - x\n",
+            |model| value_node(model, "l"),
+            &Value::Map(item),
+        );
+        assert_eq!(appended, "l:\n    - x\n    - k:\n          n: 1\n");
     }
 
     #[test]
