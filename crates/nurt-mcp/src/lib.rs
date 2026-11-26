@@ -5,13 +5,14 @@
 //! Model Context Protocol server of Danaco Nurt.
 //!
 //! The server lets any MCP client, such as the host of an AI agent, run
-//! programs of the Nurt language. It exposes two tools and a set of
+//! programs of the Nurt language. It exposes three tools and a set of
 //! read-only resources:
 //!
 //! | Name | Kind | Content |
 //! |---|---|---|
 //! | `nurt` | tool | runs a program; the input schema is the request `nurt-request/1` with the options at the top level |
 //! | `nurt_help` | tool | returns built-in help as text |
+//! | `nurt_check` | tool | checks a program without running it and returns the check document `nurt-check/1` |
 //! | `nurt://help/{topic}` | resource | built-in help of a topic |
 //! | `nurt://schema/{name}` | resource | published JSON schemas |
 //! | `nurt://describe/core`, `nurt://describe/group/{name}` | resource | description layers for models |
