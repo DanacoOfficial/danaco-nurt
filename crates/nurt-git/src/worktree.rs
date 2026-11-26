@@ -875,6 +875,11 @@ fn registered(repo: &gix::Repository) -> Result<Vec<Registered>> {
             |_| PathBuf::from(gitdir.trim().to_str_lossy().into_owned()),
             std::borrow::Cow::into_owned,
         );
+        let gitdir = if gitdir.is_relative() {
+            absolute_target(&registration, &gitdir)
+        } else {
+            gitdir
+        };
         let path = gitdir
             .parent()
             .map_or_else(|| gitdir.clone(), Path::to_path_buf);
@@ -1466,6 +1471,31 @@ mod tests {
         let from_linked = list(&locked).unwrap();
         assert_eq!(from_linked.len(), 3);
         assert_eq!(from_linked[0].path.as_str(), display_path(&fixture.root));
+    }
+
+    #[test]
+    fn relative_gitdir_of_a_registration_is_resolved_against_the_registration() {
+        let fixture = Fixture::new(&[("a.txt", "a\n")]);
+        let journal = RecordingJournal::default();
+        let path = fixture.base().join("wt");
+        add(&fixture, &journal, &request(&path, Some("feat"), None));
+        std::fs::write(
+            fixture.root.join(".git/worktrees/wt/gitdir"),
+            "../../../../wt/.git\n",
+        )
+        .unwrap();
+        let records = list(&fixture.root).unwrap();
+        assert_eq!(records[1].path.as_str(), display_path(&path));
+        assert_eq!(records[1].prunable, Some(false));
+        let plan = plan_remove(
+            &fixture.root,
+            &RemoveRequest {
+                path: path.clone(),
+                force: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(plan.path(), path.as_path());
     }
 
     #[cfg(unix)]
