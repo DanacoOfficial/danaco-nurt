@@ -45,9 +45,6 @@ const REFLOG_MESSAGE: &str = "push";
 /// Size of the pack header: signature, version and object count.
 const PACK_HEADER: usize = 12;
 
-/// Size of the SHA-1 pack trailer.
-const PACK_TRAILER: usize = 20;
-
 /// Options of the service.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReceiveOptions {
@@ -439,7 +436,7 @@ impl ReceivePack {
         }
         let count = u32::from_be_bytes([header[8], header[9], header[10], header[11]]);
         if count == 0 {
-            let mut trailer = vec![0_u8; PACK_TRAILER];
+            let mut trailer = vec![0_u8; self.repo.object_hash().len_in_bytes()];
             input
                 .read_exact(&mut trailer)
                 .map_err(|error| format!("reading the pack trailer failed: {error}"))?;
@@ -1105,6 +1102,31 @@ mod tests {
     use super::*;
     use crate::send_pack::testing::{Fixture, RecordingTx, ScriptHost};
     use crate::send_pack::{RefStatus, SendOptions, discover, send};
+
+    #[test]
+    fn empty_pack_trailer_has_the_length_of_the_repository_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        gix::init_bare(dir.path()).unwrap();
+        let config = dir.path().join("config");
+        let text = std::fs::read_to_string(&config).unwrap();
+        let text = text.replace("repositoryformatversion = 0", "repositoryformatversion = 1");
+        std::fs::write(
+            &config,
+            format!("{text}[extensions]\n\tobjectformat = sha256\n"),
+        )
+        .unwrap();
+        let service = ReceivePack::open(dir.path(), options()).unwrap();
+        assert_eq!(service.repo.object_hash(), gix::hash::Kind::Sha256);
+        let mut pack = b"PACK\0\0\0\x02\0\0\0\0".to_vec();
+        pack.extend_from_slice(&[0_u8; 32]);
+        pack.extend_from_slice(b"next");
+        let mut input = io::Cursor::new(pack);
+        let (objects, keep) = service.unpack(&mut input).unwrap();
+        assert_eq!((objects, keep), (0, None));
+        let mut rest = Vec::new();
+        input.read_to_end(&mut rest).unwrap();
+        assert_eq!(rest, b"next");
+    }
 
     fn identity() -> Identity {
         Identity {
