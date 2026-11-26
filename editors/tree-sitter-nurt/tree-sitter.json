@@ -18,8 +18,8 @@
       "title": "Nurt (call syntax)",
       "scope": "source.nurt.b",
       "path": "variant-b",
-      "highlights": "queries/highlights.scm",
-      "injections": "queries/injections.scm",
+      "highlights": "../queries/highlights.scm",
+      "injections": "../queries/injections.scm",
       "injection-regex": "^nurt-b$"
     },
     {
@@ -28,8 +28,8 @@
       "title": "Nurt (named syntax)",
       "scope": "source.nurt.c",
       "path": "variant-c",
-      "highlights": "queries/highlights.scm",
-      "injections": "queries/injections.scm",
+      "highlights": "../queries/highlights.scm",
+      "injections": "../queries/injections.scm",
       "injection-regex": "^nurt-c$"
     }
   ],

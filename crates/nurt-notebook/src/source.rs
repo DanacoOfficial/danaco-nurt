@@ -77,10 +77,45 @@ pub(crate) fn split_lines(text: &str) -> Vec<&str> {
     lines
 }
 
+/// Whether `c` ends a line in Python `str.splitlines`.
+fn is_line_boundary(c: char) -> bool {
+    matches!(
+        c,
+        '\n' | '\r'
+            | '\u{0b}'
+            | '\u{0c}'
+            | '\u{1c}'
+            | '\u{1d}'
+            | '\u{1e}'
+            | '\u{85}'
+            | '\u{2028}'
+            | '\u{2029}'
+    )
+}
+
+/// Lines of `text` without their line boundaries, split at every boundary
+/// of Python `str.splitlines`, so that no line holds a character that a
+/// reader of the text may take for a line break.
+pub(crate) fn lines(text: &str) -> Vec<&str> {
+    split_lines(text)
+        .into_iter()
+        .map(|line| line.trim_end_matches(is_line_boundary))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn lines_split_at_every_python_boundary() {
+        assert_eq!(
+            lines("a\rb\r\nc\u{b}d\u{2028}e\n\nf"),
+            ["a", "b", "c", "d", "e", "", "f"]
+        );
+        assert!(lines("").is_empty());
+    }
 
     #[test]
     fn splits_like_python_splitlines() {

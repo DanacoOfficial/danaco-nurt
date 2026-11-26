@@ -173,7 +173,8 @@ fn shorten_texts(report: &mut Report, max_chars: usize) {
     }
 }
 
-fn shorten_record(record: &mut Record, max_chars: usize) {
+/// Shortens the texts of a record; returns whether any text was shortened.
+fn shorten_record(record: &mut Record, max_chars: usize) -> bool {
     let mut shortened = false;
     for value in record.fields.values_mut() {
         shortened |= shorten_value(value, max_chars);
@@ -181,6 +182,7 @@ fn shorten_record(record: &mut Record, max_chars: usize) {
     if shortened {
         record.set(TRUNCATED_FIELD, Value::Bool(true));
     }
+    shortened
 }
 
 fn shorten_value(value: &mut Value, max_chars: usize) -> bool {
@@ -198,11 +200,7 @@ fn shorten_value(value: &mut Value, max_chars: usize) -> bool {
         Value::Map(fields) => fields
             .values_mut()
             .fold(false, |acc, item| shorten_value(item, max_chars) | acc),
-        Value::Record(record) => {
-            let before = record.get(TRUNCATED_FIELD).cloned();
-            shorten_record(record, max_chars);
-            record.get(TRUNCATED_FIELD).cloned() != before
-        }
+        Value::Record(record) => shorten_record(record, max_chars),
         _ => false,
     }
 }
@@ -422,5 +420,36 @@ mod tests {
             panic!("inner record missing");
         };
         assert_eq!(inner.get("truncated"), Some(&Value::Bool(true)));
+    }
+
+    #[test]
+    fn marks_the_holder_of_a_nested_record_that_was_already_marked() {
+        let mut inner = Record::new(RecordKind::Entry);
+        inner.set("note", Value::Text("abcdef".to_owned()));
+        inner.set("truncated", Value::Bool(true));
+        let mut exec = Record::new(RecordKind::Exec);
+        exec.set("inner", Value::Record(inner));
+        let mut report = Report::new(ReportStatus::Ok, "run");
+        report.exec = Some(exec);
+        let options = RenderOptions {
+            max_chars: 2,
+            ..RenderOptions::default()
+        };
+        let exec = shape(&report, &options).report.exec.unwrap();
+        assert_eq!(exec.get("truncated"), Some(&Value::Bool(true)));
+    }
+
+    #[test]
+    fn keeps_texts_that_fit_and_unlimited_texts_unchanged() {
+        let report = read_report(vec![entry("/a", "abcd", "xy")]);
+        for max_chars in [0, 4] {
+            let options = RenderOptions {
+                max_chars,
+                ..RenderOptions::default()
+            };
+            let rows = shape(&report, &options).report.records.unwrap().rows;
+            assert_eq!(rows[0].get("name"), Some(&Value::Text("abcd".to_owned())));
+            assert_eq!(rows[0].get("truncated"), None);
+        }
     }
 }

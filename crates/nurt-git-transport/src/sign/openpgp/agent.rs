@@ -463,8 +463,9 @@ impl Sexp {
             b'0'..=b'9' => {
                 let colon = bytes.iter().position(|byte| *byte == b':')?;
                 let len: usize = std::str::from_utf8(&bytes[..colon]).ok()?.parse().ok()?;
-                let value = bytes.get(colon + 1..colon + 1 + len)?;
-                Some((Self::Atom(value.to_vec()), &bytes[colon + 1 + len..]))
+                let end = (colon + 1).checked_add(len)?;
+                let value = bytes.get(colon + 1..end)?;
+                Some((Self::Atom(value.to_vec()), &bytes[end..]))
             }
             _ => None,
         }
@@ -748,6 +749,13 @@ mod tests {
         assert_eq!(&native[30..32], &[1, 2]);
         assert!(signature_bytes(b"(7:sig-val", PublicKeyAlgorithm::RSA).is_none());
         assert!(Sexp::parse(b"(3:abc)x").is_none());
+    }
+
+    #[test]
+    fn rejects_atom_lengths_that_overflow() {
+        assert!(Sexp::parse(b"18446744073709551615:x").is_none());
+        assert!(Sexp::parse(b"4294967295:x").is_none());
+        assert_eq!(Sexp::parse(b"1:x"), Some(Sexp::Atom(b"x".to_vec())));
     }
 
     fn signature_values(armored: &str) -> Vec<Vec<u8>> {

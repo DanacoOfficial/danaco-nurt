@@ -399,4 +399,67 @@ mod tests {
         assert_eq!(indents.of_later_line(4), None);
         assert_eq!(render_template(&found, "a\nb"), "a\n    b");
     }
+
+    fn found_at(source: &str, start: usize, end: usize, line: u32) -> SyntaxMatch {
+        SyntaxMatch {
+            span: span(start as u64, end as u64, line, 1),
+            node_kind: "node".to_owned(),
+            text: source[start..end].to_owned(),
+            captures: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn matches_inside_or_overlapping_an_earlier_match_are_skipped() {
+        let source = "abcdefgh";
+        let found = [
+            found_at(source, 4, 7, 1),
+            found_at(source, 0, 5, 1),
+            found_at(source, 1, 2, 1),
+            found_at(source, 5, 8, 1),
+        ];
+        let edits = replacement_edits(source.as_bytes(), &found, "_");
+        let ranges: Vec<(u64, u64)> = edits
+            .iter()
+            .map(|edit| (edit.bytes.start, edit.bytes.end))
+            .collect();
+        assert_eq!(ranges, [(0, 5), (5, 8)]);
+        assert!(replacement_edits(source.as_bytes(), &[], "_").is_empty());
+    }
+
+    #[test]
+    fn captured_lines_keep_their_tab_indentation_relative_to_the_capture() {
+        let source = "\tcall(\n\t\tfirst,\n\t\tsecond)\n";
+        let start = 1;
+        let end = source.find(')').unwrap() + 1;
+        let arg_start = source.find("first").unwrap();
+        let arg_end = source.find("second").unwrap() + "second".len();
+        let mut found = found_at(source, start, end, 1);
+        found.captures.push(SyntaxCapture {
+            name: "ARGS".to_owned(),
+            spans: vec![span(arg_start as u64, arg_end as u64, 2, 3)],
+            text: source[arg_start..arg_end].to_owned(),
+        });
+        let edits = replacement_edits(source.as_bytes(), &[found], "wrapped(\n\t$ARGS\n)");
+        assert_eq!(edits.len(), 1);
+        assert_eq!(edits[0].bytes, ByteRange::new(1, end as u64));
+        assert_eq!(edits[0].text, "wrapped(\n\t\tfirst,\n\t\tsecond\n\t)");
+    }
+
+    #[test]
+    fn captured_text_keeps_multibyte_characters_and_carriage_returns() {
+        let source = "  f(\"é\",\r\n    \"λ\")\r\n";
+        let start = 2;
+        let end = source.find(')').unwrap() + 1;
+        let arg_start = source.find('"').unwrap();
+        let arg_end = end - 1;
+        let mut found = found_at(source, start, end, 1);
+        found.captures.push(SyntaxCapture {
+            name: "ARGS".to_owned(),
+            spans: vec![span(arg_start as u64, arg_end as u64, 1, 5)],
+            text: source[arg_start..arg_end].to_owned(),
+        });
+        let edits = replacement_edits(source.as_bytes(), &[found], "g($ARGS)");
+        assert_eq!(edits[0].text, "g(\"é\",\r\n    \"λ\")");
+    }
 }

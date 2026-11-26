@@ -164,7 +164,7 @@ def main(argv):
     arguments = parser.parse_args(argv)
     arguments.out.mkdir(parents=True, exist_ok=True)
     for name, content in files(arguments.font, arguments.style, arguments.suffix).items():
-        (arguments.out / name).write_text(BUILD.header() + content, encoding="utf-8")
+        (arguments.out / name).write_text(BUILD.header() + content, encoding="utf-8", newline="\n")
         print(f"{arguments.out / name} written")
     return 0
 

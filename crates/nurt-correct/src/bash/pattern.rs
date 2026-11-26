@@ -485,6 +485,45 @@ mod tests {
     }
 
     #[test]
+    fn multibyte_and_empty_patterns() {
+        assert_eq!(basic_to_extended(""), "");
+        assert_eq!(basic_to_extended("zażółć(ą)"), r"zażółć\(ą\)");
+        assert_eq!(basic_to_extended("[ą-ć]+"), r"[ą-ć]\+");
+        let found = readings("zażółć", Dialect::Basic).unwrap();
+        assert!(!found.probable);
+        assert_eq!(texts(&found), vec!["regex zażółć"]);
+        assert!(readings("[a", Dialect::Basic).is_err());
+    }
+
+    #[test]
+    fn scan_tells_the_dialects_apart() {
+        assert_eq!(scan("abc"), (false, false));
+        assert_eq!(scan("a.c"), (true, false));
+        assert_eq!(scan("a+c"), (false, true));
+        assert_eq!(scan(r"a\+c"), (true, false));
+        assert_eq!(scan("a\\"), (true, false));
+    }
+
+    #[test]
+    fn spans_are_set_on_text_and_regex_only() {
+        let span = nurt_contracts::ast::Span {
+            line: 1,
+            column: 2,
+            end_line: 1,
+            end_column: 5,
+        };
+        let mut text = Expr::Text {
+            v: "a".to_owned(),
+            span: None,
+        };
+        set_span(&mut text, span);
+        assert!(matches!(&text, Expr::Text { span: Some(found), .. } if *found == span));
+        let mut int = Expr::Int { v: 1, span: None };
+        set_span(&mut int, span);
+        assert_eq!(int, Expr::Int { v: 1, span: None });
+    }
+
+    #[test]
     fn regex_form_escapes_text() {
         let text = Expr::Text {
             v: "a.b".to_owned(),

@@ -34,6 +34,7 @@ pub use crate::heartbeat::{PING_TIMEOUT, ServiceProbe, liveness};
 
 use crate::admission::{ServiceLink, SpaceAdmission};
 use crate::heartbeat::{self, Heartbeat, RunState};
+use crate::measure::MIN_POLL_PERIOD;
 
 /// Name of the scratch directory of cost model calibration, inside the
 /// journal directory of a volume.
@@ -291,7 +292,7 @@ impl<J: JournalMaintenance + ?Sized> SpaceService for SpaceModule<J> {
 
     fn tick(&mut self) -> Duration {
         if !self.running {
-            return Self::millis(self.config.poll_ms);
+            return Self::millis(self.config.poll_ms).max(MIN_POLL_PERIOD);
         }
         let volumes = self.volumes();
         let due = self.heartbeat_due();
@@ -312,11 +313,12 @@ impl<J: JournalMaintenance + ?Sized> SpaceService for SpaceModule<J> {
         if due {
             self.beat(&volumes, RunState::Running);
         }
-        if pressed {
+        let period = if pressed {
             Self::millis(self.config.poll_fast_ms)
         } else {
             Self::millis(self.config.poll_ms)
-        }
+        };
+        period.max(MIN_POLL_PERIOD)
     }
 
     fn ping(&self) -> ServiceLiveness {
@@ -461,6 +463,7 @@ mod tests {
         JournalMaintenance, RegistryLink, SpaceModule, SpaceService, SpaceWorker, liveness, run,
     };
     use crate::admission::ServiceLink;
+    use crate::measure::MIN_POLL_PERIOD;
     use crate::heartbeat::{self, RunState, testing::TestProbe};
 
     type Events = Arc<Mutex<Vec<String>>>;
@@ -775,6 +778,27 @@ mod tests {
             reclaims,
             ["reclaim 1 500ms", "reclaim 2 500ms", "reclaim 1 500ms"]
         );
+    }
+
+    #[test]
+    fn tick_delay_is_never_shorter_than_the_minimum_period() {
+        let world = World::new();
+        let events = Events::default();
+        let mut config = SpaceConfig::default();
+        config.poll_ms = 0;
+        config.poll_fast_ms = 0;
+        let mut module = SpaceModule::new(
+            Arc::new(world.fs.clone()),
+            world.clock.clone(),
+            TestJournal::new(&world, &events),
+            TestWorker::new(&events, &[VolumeState::Hard]),
+            world.registry.clone(),
+            config,
+        );
+        assert_eq!(module.tick(), MIN_POLL_PERIOD);
+        module.start().unwrap();
+        assert_eq!(module.tick(), MIN_POLL_PERIOD);
+        assert_eq!(module.tick(), MIN_POLL_PERIOD);
     }
 
     #[test]

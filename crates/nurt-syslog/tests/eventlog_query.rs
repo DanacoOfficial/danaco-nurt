@@ -296,3 +296,176 @@ fn eventlog_channel_candidates_rank_containment_then_distance() {
     let many: Vec<String> = (0..20).map(|n| format!("Channel{n}")).collect();
     assert_eq!(nearest("Channel", &many).len(), 8);
 }
+
+const EVENT_HEAD: &str = "<Event><System><Provider Name='Example'/><EventID>1</EventID>\
+                          <TimeCreated SystemTime='2026-11-21T10:00:00Z'/>\
+                          <EventRecordID>5</EventRecordID></System>";
+
+#[test]
+fn eventlog_xml_cdata_and_character_references() {
+    let xml = EventXml::parse(&format!(
+        "{EVENT_HEAD}<EventData><Data Name='a'><![CDATA[x<y & z]]></Data>\
+         <Data>&#65;&#x42;&amp;&lt;&unknown;</Data></EventData></Event>"
+    ))
+    .unwrap();
+    assert_eq!(
+        xml.data,
+        [
+            ("a".to_owned(), "x<y & z".to_owned()),
+            ("Data1".to_owned(), "AB&<&unknown;".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn eventlog_xml_empty_data_elements_and_numbering_of_unnamed_data() {
+    let xml = EventXml::parse(&format!(
+        "{EVENT_HEAD}<EventData><Data Name='x'/><Data/><Data Name='y'>1</Data>\
+         <Data>v</Data><ComplexData><Data>ignored</Data></ComplexData></EventData></Event>"
+    ))
+    .unwrap();
+    assert_eq!(
+        xml.data,
+        [
+            ("x".to_owned(), String::new()),
+            ("Data1".to_owned(), String::new()),
+            ("y".to_owned(), "1".to_owned()),
+            ("Data2".to_owned(), "v".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn eventlog_xml_keeps_white_space_of_values() {
+    let xml = EventXml::parse(&format!(
+        "{EVENT_HEAD}<EventData><Data Name='a'>  two  words\n</Data></EventData></Event>"
+    ))
+    .unwrap();
+    assert_eq!(xml.data, [("a".to_owned(), "  two  words\n".to_owned())]);
+}
+
+#[test]
+fn eventlog_xml_matches_elements_by_local_name() {
+    let xml = EventXml::parse(
+        "<ns:Event xmlns:ns='urn:example'><ns:System><ns:Provider ns:Name='P'/>\
+         <ns:TimeCreated SystemTime='2026-11-21T10:00:00Z'/>\
+         <ns:EventRecordID>9</ns:EventRecordID></ns:System></ns:Event>",
+    )
+    .unwrap();
+    assert_eq!(xml.provider, "P");
+    assert_eq!(xml.record_id, 9);
+}
+
+#[test]
+fn eventlog_xml_values_that_are_not_numbers_are_absent() {
+    let xml = EventXml::parse(
+        "<Event><System><Provider Name='P'/><EventID>abc</EventID>\
+         <TimeCreated SystemTime='2026-11-21T10:00:00Z'/><EventRecordID>1</EventRecordID>\
+         <Execution ProcessID='x' ThreadID='-1'/></System></Event>",
+    )
+    .unwrap();
+    assert_eq!(xml.event_id, None);
+    assert_eq!((xml.process_id, xml.thread_id), (None, None));
+    let event = map_event(&xml, Formatted::default(), "System");
+    assert_eq!(event.id, None);
+    assert_eq!(event.level(), LogLevel::Info);
+}
+
+#[test]
+fn eventlog_xml_with_an_invalid_time_has_no_event() {
+    assert_eq!(
+        EventXml::parse(
+            "<Event><System><TimeCreated SystemTime='yesterday'/>\
+             <EventRecordID>1</EventRecordID></System></Event>"
+        ),
+        Err(EventXmlError::Missing("TimeCreated/@SystemTime"))
+    );
+}
+
+#[test]
+fn eventlog_xml_of_a_second_root_or_text_before_it_is_rejected() {
+    assert!(EventXml::parse(&format!("{EVENT_HEAD}</Event><Event/>")).is_err());
+    assert!(EventXml::parse("text").is_err());
+}
+
+#[test]
+fn eventlog_xml_does_not_expand_declared_entities() {
+    let xml = EventXml::parse(&format!(
+        "<!DOCTYPE Event [<!ENTITY big 'aaaaaaaaaa'>]>{EVENT_HEAD}\
+         <EventData><Data Name='a'>&big;</Data></EventData></Event>"
+    ))
+    .unwrap();
+    assert_eq!(xml.data, [("a".to_owned(), "&big;".to_owned())]);
+}
+
+#[test]
+fn eventlog_event_level_text_with_white_space_or_junk_maps_to_info() {
+    let build = |level: &str| {
+        let xml = EventXml::parse(&format!(
+            "<Event><System><Provider Name='P'/><Level>{level}</Level>\
+             <TimeCreated SystemTime='2026-11-21T10:00:00Z'/>\
+             <EventRecordID>1</EventRecordID></System></Event>"
+        ))
+        .unwrap();
+        map_event(&xml, Formatted::default(), "System").priority
+    };
+    assert_eq!(build(" 2 "), 3);
+    assert_eq!(build("x"), 6);
+    assert_eq!(build("300"), 6);
+    assert_eq!(build(""), 6);
+}
+
+#[test]
+fn eventlog_xpath_rounds_instants_before_the_epoch_outwards() {
+    let filter = XPathFilter {
+        level: LogLevel::Debug,
+        since: Some(Instant::from_unix_nanos(-1)),
+        until: Some(Instant::from_unix_nanos(-1)),
+        ..XPathFilter::default()
+    };
+    assert_eq!(
+        filter.to_xpath(),
+        "*[System[TimeCreated[@SystemTime>='1969-12-31T23:59:59.999Z' and \
+         @SystemTime<'1970-01-01T00:00:00.000Z']]]"
+    );
+}
+
+#[test]
+fn eventlog_xpath_terms_follow_a_fixed_order() {
+    let filter = XPathFilter {
+        level: LogLevel::Error,
+        since: Some(instant("2026-11-21T10:00:00Z")),
+        provider: Some("Example"),
+        before_record: Some(9),
+        ..XPathFilter::default()
+    };
+    assert_eq!(
+        filter.to_xpath(),
+        "*[System[(Level=1 or Level=2) and \
+         TimeCreated[@SystemTime>='2026-11-21T10:00:00.000Z'] and \
+         Provider[@Name='Example'] and EventRecordID<9]]"
+    );
+    let unusable = XPathFilter {
+        level: LogLevel::Debug,
+        provider: Some("a'b\"c"),
+        before_record: Some(1),
+        ..XPathFilter::default()
+    };
+    assert_eq!(unusable.to_xpath(), "*[System[EventRecordID<1]]");
+}
+
+#[test]
+fn eventlog_channel_candidates_of_degenerate_input() {
+    assert!(nearest("System", &[]).is_empty());
+    let available = ["b", "a"].map(String::from);
+    assert_eq!(nearest("", &available), ["a", "b"]);
+    let accents = ["\u{c9}v\u{e9}nements".to_owned(), "System".to_owned()];
+    assert_eq!(nearest("\u{e9}V\u{c9}", &accents)[0], "\u{c9}v\u{e9}nements");
+}
+
+#[test]
+fn eventlog_priority_of_every_level_is_in_the_range_of_priorities() {
+    for level in 0..=u8::MAX {
+        assert!(priority(level) <= 7, "Level {level}");
+    }
+}

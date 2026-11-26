@@ -93,7 +93,7 @@ fn unknown(ctx: &ExecCtx, id: &str) -> Error {
     let ids = verify_store()
         .ids(ctx, EntryKind::Analysis)
         .unwrap_or_default();
-    for (rank, known) in ids.iter().rev().take(CANDIDATES_MAX).enumerate() {
+    for (rank, known) in ids.iter().take(CANDIDATES_MAX).enumerate() {
         error = error.with_candidate(Candidate {
             rank: u32::try_from(rank + 1).unwrap_or(u32::MAX),
             reference: Some(known.clone()),

@@ -87,13 +87,15 @@ fn read_limited(ctx: &ExecCtx, path: &Path, max: u64) -> Result<SourceText> {
     if meta.size > max {
         return Err(too_large(path, meta.size, max));
     }
-    let mut bytes = Vec::new();
-    handle.read_to_end(&mut bytes).map_err(|error| {
+    let read = read_bounded(&mut handle, max).map_err(|error| {
         Error::new(
             ErrorCode::Io,
             format!("cannot read {}: {error}", path.display()),
         )
     })?;
+    let Some(bytes) = read else {
+        return Err(too_large(path, max.saturating_add(1), max));
+    };
     Ok(SourceText {
         path: path.to_path_buf(),
         etag: content_hash(&bytes),
@@ -101,6 +103,17 @@ fn read_limited(ctx: &ExecCtx, path: &Path, max: u64) -> Result<SourceText> {
         modified_ns: meta.modified_ns,
         bytes,
     })
+}
+
+/// Content of `reader` of at most `max` bytes; `None` when it holds more.
+///
+/// The size reported by the file system does not bound the content of a
+/// file that grows while it is read or of a file that reports no size.
+pub(crate) fn read_bounded(reader: impl Read, max: u64) -> std::io::Result<Option<Vec<u8>>> {
+    let mut bytes = Vec::new();
+    reader.take(max.saturating_add(1)).read_to_end(&mut bytes)?;
+    let length = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+    Ok((length <= max).then_some(bytes))
 }
 
 fn too_large(path: &Path, size: u64, max: u64) -> Error {
@@ -401,6 +414,18 @@ mod tests {
         assert!(text.starts_with(ContentHash::PREFIX));
         assert_eq!(ContentHash::parse(&text), Ok(hash));
         assert_ne!(content_hash(b""), hash);
+    }
+
+    #[test]
+    fn bounded_read_stops_at_the_limit() {
+        let exact = read_bounded(std::io::Cursor::new(b"0123456789"), 10).unwrap();
+        assert_eq!(exact.as_deref(), Some(&b"0123456789"[..]));
+        let empty = read_bounded(std::io::empty(), 0).unwrap();
+        assert_eq!(empty.as_deref(), Some(&b""[..]));
+        let over = read_bounded(std::io::Cursor::new(b"0123456789a"), 10).unwrap();
+        assert_eq!(over, None);
+        let endless = read_bounded(std::io::repeat(b'x'), 1024).unwrap();
+        assert_eq!(endless, None);
     }
 
     #[test]

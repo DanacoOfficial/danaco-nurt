@@ -5,10 +5,12 @@
 //! file when the repository has one and from the commit objects otherwise.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use gix::ObjectId;
 use smallvec::SmallVec;
+
+use crate::fetch::{SHALLOW, update::shallow_commits};
 
 /// What the traversal needs to know about one commit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,15 +26,27 @@ pub(crate) struct CommitInfo {
 /// Cache of [`CommitInfo`] for the commits of one repository.
 pub(crate) struct CommitCache {
     graph: Option<gix::commitgraph::Graph>,
+    shallow: HashSet<ObjectId>,
     known: RefCell<HashMap<ObjectId, CommitInfo>>,
 }
 
 impl CommitCache {
     /// Creates an empty cache that uses the commit-graph file of `repo` when
-    /// `core.commitGraph` allows it.
+    /// `core.commitGraph` allows it and the repository is not shallow.
+    ///
+    /// The commits listed in the `shallow` file have no parents, as in `git`.
     pub(crate) fn new(repo: &gix::Repository) -> Self {
+        let shallow = std::fs::read(repo.common_dir().join(SHALLOW))
+            .map(|content| shallow_commits(&content))
+            .unwrap_or_default();
+        let graph = if shallow.is_empty() {
+            repo.commit_graph_if_enabled().ok().flatten()
+        } else {
+            None
+        };
         Self {
-            graph: repo.commit_graph_if_enabled().ok().flatten(),
+            graph,
+            shallow,
             known: RefCell::new(HashMap::new()),
         }
     }
@@ -42,10 +56,13 @@ impl CommitCache {
         if let Some(info) = self.known.borrow().get(&id) {
             return Ok(info.clone());
         }
-        let info = match self.read_graph(id) {
+        let mut info = match self.read_graph(id) {
             Some(info) => info,
             None => from_object(repo, id)?,
         };
+        if self.shallow.contains(&id) {
+            info.parents.clear();
+        }
         self.known.borrow_mut().insert(id, info.clone());
         Ok(info)
     }
@@ -96,6 +113,20 @@ mod tests {
         assert_eq!(info.tree, repo.tree_of(second).unwrap());
         let cached = repo.commits.info(&repo.repo, second).unwrap();
         assert_eq!(cached, info);
+    }
+
+    #[test]
+    fn commits_of_the_shallow_file_have_no_parents() {
+        let mut fixture = Fixture::new();
+        let first = fixture.commit("first", &[("a.txt", Some("a\n"))]);
+        let second = fixture.commit("second", &[("a.txt", Some("b\n"))]);
+        let third = fixture.commit("third", &[("a.txt", Some("c\n"))]);
+        fixture.write_file(".git/shallow", &format!("{second}\n"));
+        let repo = fixture.open();
+        assert!(repo.commits.info(&repo.repo, second).unwrap().parents.is_empty());
+        let info = repo.commits.info(&repo.repo, third).unwrap();
+        assert_eq!(info.parents.as_slice(), &[second]);
+        assert_ne!(first, second);
     }
 
     #[test]

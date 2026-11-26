@@ -62,3 +62,54 @@ impl EditReport {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_report_without_changed_spans_is_unchanged() {
+        let mut report = EditReport::default();
+        assert!(report.is_unchanged());
+        report.changed.push(Span::new(1, 2));
+        assert!(!report.is_unchanged());
+    }
+
+    #[test]
+    fn notes_and_flags_are_kept_once() {
+        let mut report = EditReport::default();
+        report.note(Notable::KeysCreated, Some("a".to_owned()));
+        report.note(Notable::KeysCreated, Some("b".to_owned()));
+        report.note(Notable::DuplicateKey, None);
+        report.flag("keys_created");
+        report.flag("keys_created");
+        assert_eq!(report.notable.len(), 2);
+        assert_eq!(report.notable[0].detail.as_deref(), Some("a"));
+        assert_eq!(report.flags, ["keys_created"]);
+    }
+
+    #[test]
+    fn absorbing_a_report_adds_counts_notes_and_flags_without_spans() {
+        let mut first = EditReport {
+            replacements: 2,
+            ..EditReport::default()
+        };
+        first.note(Notable::KeysCreated, None);
+        first.flag("a");
+        let mut second = EditReport {
+            changed: vec![Span::new(0, 1)],
+            replacements: 3,
+            ..EditReport::default()
+        };
+        second.note(Notable::KeysCreated, Some("other".to_owned()));
+        second.note(Notable::DuplicateKey, None);
+        second.flag("a");
+        second.flag("b");
+        first.absorb(second);
+        assert_eq!(first.replacements, 5);
+        assert_eq!(first.notable.len(), 2);
+        assert_eq!(first.notable[0].detail, None);
+        assert_eq!(first.flags, ["a", "b"]);
+        assert!(first.is_unchanged());
+    }
+}

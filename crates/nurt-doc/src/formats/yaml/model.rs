@@ -23,6 +23,11 @@ use crate::constructs::{self, YAML_ALIAS_EXPANSION_LIMIT};
 /// to a value, beyond the nodes written in the document.
 pub const ALIAS_EXPANSION_LIMIT: usize = 1_000_000;
 
+/// Deepest nesting of collections in an expanded value. Aliases nest
+/// collections beyond the depth of the text, and the expansion is recursive,
+/// so this bound keeps it within the stack of a thread.
+pub const MAX_EXPANSION_DEPTH: usize = 1024;
+
 /// Identifier of a node in a [`YamlModel`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(u32);
@@ -684,6 +689,14 @@ impl YamlModel {
             return Err(constructs::unsupported(
                 YAML_ALIAS_EXPANSION_LIMIT,
                 format!("the expansion of aliases adds more than {ALIAS_EXPANSION_LIMIT} nodes"),
+            ));
+        }
+        if active.len() >= MAX_EXPANSION_DEPTH {
+            return Err(constructs::unsupported(
+                YAML_ALIAS_EXPANSION_LIMIT,
+                format!(
+                    "the expansion of aliases nests collections deeper than {MAX_EXPANSION_DEPTH} levels"
+                ),
             ));
         }
         *budget -= 1;

@@ -602,20 +602,25 @@ pub fn run_diff(request: &DiffRequest, ctx: &ExecCtx) -> Result<DiffOutput, Erro
             Some("diff.algorithm patience is computed with the histogram algorithm".to_owned());
         notes.push(note);
     }
+    let canonical = request.from.is_none() && request.to.is_none() && request.canonical_layout();
+    // The canonical difference numbers hunks without `diff.interHunkContext`.
+    let inter_hunk_context = if canonical {
+        0
+    } else {
+        repo.config_snapshot()
+            .integer("diff.interHunkContext")
+            .and_then(|value| u32::try_from(value).ok())
+            .unwrap_or(0)
+    };
     let mut options = FileOptions {
         lines,
         layout: Layout {
             context: request.context,
-            inter_hunk_context: repo
-                .config_snapshot()
-                .integer("diff.interHunkContext")
-                .and_then(|value| u32::try_from(value).ok())
-                .unwrap_or(0),
+            inter_hunk_context,
             function_context: request.function_context,
         },
     };
     options.lines.ignore_whitespace = request.ignore_whitespace;
-    let canonical = request.from.is_none() && request.to.is_none() && request.canonical_layout();
     let mut files = Vec::new();
     let mut words = Vec::new();
     for pair in pairs {
@@ -1198,6 +1203,35 @@ mod tests {
                 .iter()
                 .any(|note| note.code == Notable::Excluded && note.count == Some(1))
         );
+    }
+
+    #[test]
+    fn canonical_hunks_ignore_the_inter_hunk_context_of_the_configuration() {
+        use std::io::Write;
+
+        let fixture = Fixture::new();
+        let old: String = (1..=30).map(|number| format!("l{number}\n")).collect();
+        fixture.commit(&[("a.txt", old.as_str())]);
+        let new = old.replace("l2\n", "L2\n").replace("l10\n", "L10\n");
+        fixture.write("a.txt", &new);
+        let mut config = std::fs::OpenOptions::new()
+            .append(true)
+            .open(fixture.root().join(".git/config"))
+            .unwrap();
+        config
+            .write_all(b"[diff]\n\tinterHunkContext = 5\n")
+            .unwrap();
+        let canonical = run_diff(&request(&fixture), &ctx()).unwrap();
+        assert_eq!(canonical.records.len(), 2);
+        assert_eq!(
+            text(&canonical.records[1], "id").as_deref(),
+            Some("a.txt#2")
+        );
+        let mut other = request(&fixture);
+        other.ignore_whitespace = true;
+        let joined = run_diff(&other, &ctx()).unwrap();
+        assert_eq!(joined.records.len(), 1);
+        assert_eq!(text(&joined.records[0], "id"), None);
     }
 
     #[test]

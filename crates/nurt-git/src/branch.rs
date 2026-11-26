@@ -409,7 +409,7 @@ fn tracking_setup(repo: &gix::Repository, from: &str) -> Result<Option<(BString,
     let config = repo.config_snapshot();
     if config
         .string("branch.autoSetupMerge")
-        .is_some_and(|value| is_false_value(&value))
+        .is_some_and(|value| is_false_value(value.as_ref()))
     {
         return Ok(None);
     }

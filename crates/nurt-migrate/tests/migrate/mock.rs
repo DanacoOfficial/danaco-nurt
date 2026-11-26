@@ -45,6 +45,7 @@ enum Reply {
 pub(crate) struct MockTranslator {
     replies: BTreeMap<String, Reply>,
     unbound: Vec<String>,
+    wrapped: bool,
     requests: RefCell<Vec<String>>,
 }
 
@@ -132,6 +133,13 @@ impl MockTranslator {
     /// Makes `check` fail for every script that contains `marker`.
     pub(crate) fn unbound(mut self, marker: &str) -> Self {
         self.unbound.push(marker.to_owned());
+        self
+    }
+
+    /// Prints the program `run [...]` of the migration with one list item per
+    /// line, as the canonical printer does for a long list.
+    pub(crate) fn wrapped(mut self) -> Self {
+        self.wrapped = true;
         self
     }
 
@@ -228,7 +236,7 @@ impl Translator for MockTranslator {
         {
             return text.to_owned();
         }
-        print_run(tree)
+        print_run(tree, self.wrapped)
     }
 
     fn check(&self, script: &str) -> Result<(), Error> {
@@ -276,8 +284,9 @@ fn tree(text: &str, binds: Option<&str>) -> AstDocument {
 }
 
 /// Prints the trees built by the migration itself: a single `let` taken from
-/// a reply and the program `run ["a", "b"]`.
-fn print_run(tree: &AstDocument) -> String {
+/// a reply and the program `run ["a", "b"]`, on one line or with one item per
+/// line when `wrapped` is set.
+fn print_run(tree: &AstDocument, wrapped: bool) -> String {
     if let Some(Statement::Let(binding)) = tree.program.statements.first() {
         return format!("let {} = @reply", binding.name);
     }
@@ -299,5 +308,9 @@ fn print_run(tree: &AstDocument) -> String {
             _ => String::new(),
         })
         .collect();
+    if wrapped {
+        let lines: Vec<String> = items.iter().map(|item| format!("  {item}")).collect();
+        return format!("{name} [\n{}\n]", lines.join(",\n"));
+    }
     format!("{name} [{}]", items.join(", "))
 }

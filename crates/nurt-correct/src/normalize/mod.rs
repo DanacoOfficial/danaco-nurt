@@ -242,6 +242,25 @@ mod tests {
     }
 
     #[test]
+    fn leaves_empty_and_crlf_text_unchanged() {
+        let empty = normalize("");
+        assert_eq!(empty.text, "");
+        assert!(empty.corrections.is_empty());
+        let crlf = normalize("list \"/a\"\r\ncount\r\n");
+        assert_eq!(crlf.text, "list \"/a\"\r\ncount\r\n");
+        assert!(crlf.corrections.is_empty());
+    }
+
+    #[test]
+    fn removes_a_unicode_space_at_the_start_of_the_text() {
+        let normalized = normalize("\u{a0}list \"/a\"");
+        assert_eq!(normalized.text, "list \"/a\"");
+        assert_eq!(normalized.corrections.len(), 1);
+        assert_eq!(normalized.corrections[0].to, "");
+        assert_eq!(normalized.positions.to_original(0), 2);
+    }
+
+    #[test]
     fn reports_positions_in_the_text_as_written() {
         let normalized = normalize("\u{feff}find \"/a\"\nlist\u{a0}\"/b\"");
         let at = normalized.corrections[0].at;

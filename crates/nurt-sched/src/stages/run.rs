@@ -12,7 +12,7 @@ use nurt_contracts::stage::{
 use nurt_contracts::value::Record;
 
 use super::{now, running_link, schedule_record, store, text_arg};
-use crate::action::PIPELINE_KIND;
+use crate::action::{PIPELINE_KIND, definition_hash};
 use crate::errors::{busy, failed, not_found};
 use crate::module::ModuleRequest;
 use crate::store::{Definition, check_id};
@@ -124,6 +124,13 @@ fn run_here(definition: &Definition, ctx: &ExecCtx) -> Result<Vec<Record>, Error
             )));
         }
     };
+    if definition_hash(definition)? != definition.ast_hash {
+        return Err(failed(format!(
+            "the definition of schedule `{}` was changed outside the schedule commands; remove \
+             it and create it again",
+            definition.id
+        )));
+    }
     let store = store(ctx)?;
     let Some(_lock) = store.try_run_lock(&definition.id)? else {
         return Err(busy(&definition.id, &definition.id));

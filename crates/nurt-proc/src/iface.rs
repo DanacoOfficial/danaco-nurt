@@ -307,6 +307,9 @@ pub(crate) struct TrackSpec {
     pub(crate) preimage: bool,
     /// Compare content hashes, not only size and modification time.
     pub(crate) scan_hash: bool,
+    /// Time limit of the whole run; the scans before and after the program
+    /// end with it. `None` does not limit them.
+    pub(crate) timeout: Option<Duration>,
 }
 
 /// What the change tracker found after a run.

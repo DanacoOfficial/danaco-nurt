@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Markdown and plain text documents, and rendering of blocks.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::OnceLock;
 
 use regex::Regex;
@@ -67,6 +67,9 @@ pub fn convert_text(source: &str) -> Page {
 struct MarkdownParser {
     blocks: Vec<Block>,
     links: Vec<Link>,
+    /// Position in `links` of each address, so that a repeated address is
+    /// found without a scan of the list.
+    link_index: HashMap<String, usize>,
     paragraph: Vec<String>,
     paragraph_kind: Option<BlockKind>,
     fence: Option<String>,
@@ -176,7 +179,7 @@ impl MarkdownParser {
     }
 
     fn register(&mut self, text: &str, url: &str) -> Link {
-        if let Some(existing) = self.links.iter().find(|link| link.url == url) {
+        if let Some(existing) = self.link_index.get(url).and_then(|at| self.links.get(*at)) {
             return existing.clone();
         }
         let link = Link {
@@ -184,6 +187,7 @@ impl MarkdownParser {
             text: text.to_owned(),
             url: url.to_owned(),
         };
+        self.link_index.insert(url.to_owned(), self.links.len());
         self.links.push(link.clone());
         link
     }

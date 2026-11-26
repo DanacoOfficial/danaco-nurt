@@ -1193,6 +1193,35 @@ mod tests {
     }
 
     #[test]
+    fn options_follow_the_configuration() {
+        let mut config = CorrectionConfig::default();
+        config.require_first_char = false;
+        assert!(!Options::from(&config).require_first_char);
+        assert!(Options::default().require_first_char);
+    }
+
+    #[test]
+    fn handles_empty_and_multibyte_names() {
+        let index = NameIndex::new(
+            ["żółw", "żółć"].map(|name| NameEntry::command(name, false)),
+        );
+        assert_eq!(find("", &index, NameKind::Command), Nearest::None);
+        assert_eq!(
+            find("ŻÓŁW", &index, NameKind::Command),
+            Nearest::Exact {
+                to: "żółw".into()
+            }
+        );
+        assert_eq!(
+            find("żółx", &index, NameKind::Command),
+            Nearest::Tie {
+                names: vec!["żółw".into(), "żółć".into()]
+            }
+        );
+        assert_eq!(osa("żółw", ""), 4);
+    }
+
+    #[test]
     fn index_reports_size() {
         let index = commands();
         assert_eq!(index.len(), 17);

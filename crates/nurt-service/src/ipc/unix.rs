@@ -87,10 +87,15 @@ impl Listener for SocketListener {
     }
 }
 
-/// Connects to the socket of a running service.
-pub(super) fn connect(path: &Path) -> io::Result<(Box<dyn Read + Send>, Box<dyn Write + Send>)> {
+/// Connects to the socket of a running service; a read waits at most
+/// `read_limit`, without a limit when it is `None`.
+pub(super) fn connect(
+    path: &Path,
+    read_limit: Option<Duration>,
+) -> io::Result<(Box<dyn Read + Send>, Box<dyn Write + Send>)> {
     let stream = UnixStream::connect(path)?;
     stream.set_write_timeout(Some(WRITE_TIMEOUT))?;
+    stream.set_read_timeout(read_limit)?;
     let writer = stream.try_clone()?;
     Ok((Box::new(stream), Box::new(writer)))
 }

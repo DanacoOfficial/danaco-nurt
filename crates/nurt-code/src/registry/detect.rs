@@ -146,3 +146,91 @@ fn vim_filetype(line: &str) -> Option<String> {
         })
         .filter(|value| !value.is_empty())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shebang_with_a_carriage_return_or_spaces_names_the_interpreter() {
+        assert_eq!(
+            interpreter_of_shebang(b"#!/bin/bash\r\necho\r\n").as_deref(),
+            Some("bash")
+        );
+        assert_eq!(
+            interpreter_of_shebang(b"#!  /usr/bin/python3.12  -u\n").as_deref(),
+            Some("python")
+        );
+        assert_eq!(
+            interpreter_of_shebang(b"#!/usr/bin/env -S node --flag\n").as_deref(),
+            Some("node")
+        );
+    }
+
+    #[test]
+    fn shebang_without_an_interpreter_or_with_invalid_text_names_nothing() {
+        for source in [
+            &b""[..],
+            b"#!",
+            b"#!\n",
+            b"#!/usr/bin/env\n",
+            b"#!/usr/bin/env -S\n",
+            b"#!/usr/bin/env FOO=1\n",
+            b"#!\xff\xfe\n",
+            b"# !/bin/sh\n",
+        ] {
+            assert_eq!(interpreter_of_shebang(source), None, "{source:?}");
+        }
+    }
+
+    #[test]
+    fn modeline_is_read_from_the_first_and_the_last_lines_only() {
+        let near_head = b"1\n2\n3\n4\n# vim: set ft=ruby:\n6\n";
+        assert_eq!(modeline_language(near_head).as_deref(), Some("ruby"));
+        let too_deep = b"1\n2\n3\n4\n5\n# vim: ft=ruby\n7\n8\n9\n10\n11\n12\n";
+        assert_eq!(modeline_language(too_deep), None);
+        let tail = b"1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n# vim: ft=go\n";
+        assert_eq!(modeline_language(tail).as_deref(), Some("go"));
+    }
+
+    #[test]
+    fn emacs_modelines_name_the_mode() {
+        assert_eq!(
+            modeline_language(b"# -*- mode: Python; coding: utf-8 -*-\n").as_deref(),
+            Some("python")
+        );
+        assert_eq!(
+            modeline_language(b"// -*- C++ -*-\n").as_deref(),
+            Some("c++")
+        );
+        assert_eq!(modeline_language(b"# -*- coding: utf-8 -*-\n"), None);
+        assert_eq!(modeline_language(b"# -*- unterminated\n"), None);
+    }
+
+    #[test]
+    fn modeline_survives_invalid_utf8_empty_values_and_empty_text() {
+        assert_eq!(
+            modeline_language(b"\xff\xfe\n# vim: ft=go\n").as_deref(),
+            Some("go")
+        );
+        assert_eq!(modeline_language(b"# vim: ft=\n"), None);
+        assert_eq!(modeline_language(b""), None);
+    }
+
+    #[test]
+    fn file_name_and_extension_decide_before_the_shebang() {
+        let registry = Registry::builtin();
+        let by = |path: Option<&str>, bytes: &[u8]| {
+            detect_language(registry, path.map(Path::new), bytes).map(|id| id.to_string())
+        };
+        assert_eq!(
+            by(Some("/p/tool.py"), b"#!/bin/bash\n").as_deref(),
+            Some("python")
+        );
+        assert_eq!(by(Some("/p/MAIN.RS"), b"").as_deref(), Some("rust"));
+        assert_eq!(by(Some("/p/.bashrc"), b"").as_deref(), Some("bash"));
+        assert_eq!(by(Some("/"), b"#!/bin/bash\n").as_deref(), Some("bash"));
+        assert_eq!(by(Some("/p/data.unknownext"), b""), None);
+        assert_eq!(by(None, b"#!/usr/bin/env ruby\n").as_deref(), Some("ruby"));
+    }
+}

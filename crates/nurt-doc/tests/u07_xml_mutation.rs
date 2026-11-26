@@ -20,6 +20,14 @@ use nurt_contracts::keypath::KeyPath;
 use nurt_contracts::value::Value;
 use nurt_doc::formats::xml::{Node, XmlTree};
 use proptest::prelude::*;
+use proptest::test_runner::RngSeed;
+
+/// Cases of the property.
+const PROPERTY_CASES: u32 = 512;
+
+/// Seed of the property, fixed so that runs are reproducible and no file of
+/// failures is written into the source tree.
+const PROPERTY_SEED: u64 = 0x786D_6C21;
 
 /// Characters used by mutations.
 const ALPHABET: &[char] = &[
@@ -96,7 +104,12 @@ fn check_ranges(tree: &XmlTree) {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(512))]
+    #![proptest_config(ProptestConfig {
+        cases: PROPERTY_CASES,
+        failure_persistence: None,
+        rng_seed: RngSeed::Fixed(PROPERTY_SEED),
+        ..ProptestConfig::default()
+    })]
 
     #[test]
     fn mutated_documents_are_rejected_or_parsed_consistently(

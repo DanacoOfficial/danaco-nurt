@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use bstr::ByteSlice;
 
-use super::failure::{NetworkFailure, NetworkProblem};
+use super::failure::{NetworkFailure, NetworkProblem, redact_url};
 use super::urlmatch::{self, UrlParts};
 
 /// Default of `http.postBuffer`: request bodies up to this size are sent with
@@ -84,7 +84,7 @@ pub enum HttpNote {
 }
 
 /// HTTP options for requests to one remote address.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct HttpSettings {
     /// `name: value` lines added to every request (`http.extraHeader`).
     pub extra_headers: Vec<String>,
@@ -113,6 +113,28 @@ pub struct HttpSettings {
     pub bearer: Option<BearerToken>,
     /// Conditions to report.
     pub notes: Vec<HttpNote>,
+}
+
+/// The extra headers may carry credentials, so only their number is shown, and
+/// the user name and password of the proxy address are removed.
+impl fmt::Debug for HttpSettings {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HttpSettings")
+            .field("extra_headers", &self.extra_headers.len())
+            .field("follow_redirects", &self.follow_redirects)
+            .field("low_speed_limit", &self.low_speed_limit)
+            .field("low_speed_time", &self.low_speed_time)
+            .field("proxy", &self.proxy.as_deref().map(redact_url))
+            .field("user_agent", &self.user_agent)
+            .field("connect_timeout", &self.connect_timeout)
+            .field("ca_info", &self.ca_info)
+            .field("ca_path", &self.ca_path)
+            .field("ssl_verify", &self.ssl_verify)
+            .field("post_buffer", &self.post_buffer)
+            .field("bearer", &self.bearer)
+            .field("notes", &self.notes)
+            .finish()
+    }
 }
 
 impl Default for HttpSettings {
@@ -603,6 +625,30 @@ mod tests {
         let token = BearerToken::new("secret");
         assert_eq!(format!("{token:?}"), "BearerToken(<redacted>)");
         assert_eq!(token.expose(), "secret");
+    }
+
+    #[test]
+    fn debug_output_hides_header_values_and_proxy_credentials() {
+        let settings = HttpSettings {
+            extra_headers: vec!["Authorization: Bearer hidden-value".to_owned()],
+            proxy: Some("http://user:hidden-pass@proxy.example:3128".to_owned()),
+            ..HttpSettings::default()
+        };
+        let text = format!("{settings:?}");
+        assert!(!text.contains("hidden-value") && !text.contains("hidden-pass"));
+        assert!(text.contains("proxy.example:3128"));
+    }
+
+    #[test]
+    fn matches_hosts_against_no_proxy_lists() {
+        assert!(no_proxy_matches(
+            "localhost, .example.com",
+            "git.example.com"
+        ));
+        assert!(no_proxy_matches("example.com", "EXAMPLE.com"));
+        assert!(no_proxy_matches("::1", "[::1]"));
+        assert!(!no_proxy_matches("example.com", "notexample.com"));
+        assert!(!no_proxy_matches("", "example.com"));
     }
 
     #[test]

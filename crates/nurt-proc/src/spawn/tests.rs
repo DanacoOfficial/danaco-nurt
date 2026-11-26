@@ -103,6 +103,31 @@ mod resolution {
         assert_eq!(resolved.path, second.path().join("tool"));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn a_relative_entry_of_path_is_taken_against_the_working_directory() {
+        let cwd = tempfile::tempdir().unwrap();
+        std::fs::create_dir(cwd.path().join("bin")).unwrap();
+        touch(&cwd.path().join("bin").join("tool"), true);
+        let env = env_with_path(Platform::Unix, Path::new("bin"), &[]);
+        let resolved = resolve(&command(&["tool"]), cwd.path(), &env).unwrap();
+        assert_eq!(resolved.path, cwd.path().join("bin").join("tool"));
+        assert!(resolved.path.is_absolute());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn empty_entries_of_path_are_skipped() {
+        let bin = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        touch(&cwd.path().join("tool"), true);
+        touch(&bin.path().join("tool"), true);
+        let joined = format!(":{}:", bin.path().display());
+        let env = env_with_path(Platform::Unix, Path::new(&joined), &[]);
+        let resolved = resolve(&command(&["tool"]), cwd.path(), &env).unwrap();
+        assert_eq!(resolved.path, bin.path().join("tool"));
+    }
+
     #[test]
     fn tries_the_extensions_of_pathext_in_order() {
         let bin = tempfile::tempdir().unwrap();
@@ -442,6 +467,26 @@ mod paths {
         assert_eq!(
             record_path(Path::new("/home/user/a"), Platform::Unix).as_str(),
             "/home/user/a"
+        );
+    }
+
+    #[test]
+    fn writes_extended_length_network_paths_as_network_paths() {
+        assert_eq!(
+            record_path(Path::new(r"\\?\UNC\server\share\x"), Platform::Windows).as_str(),
+            "//server/share/x"
+        );
+        assert_eq!(
+            record_path(Path::new(r"\\?\unc\server\share"), Platform::Windows).as_str(),
+            "//server/share"
+        );
+        assert_eq!(
+            record_path(Path::new(r"\\?\C:\work\unc\a"), Platform::Windows).as_str(),
+            "C:/work/unc/a"
+        );
+        assert_eq!(
+            record_path(Path::new("d:/a/b"), Platform::Windows).as_str(),
+            "D:/a/b"
         );
     }
 

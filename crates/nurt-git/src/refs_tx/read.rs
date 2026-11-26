@@ -33,9 +33,21 @@ pub(super) enum Loose {
 pub(super) fn read_loose(path: &Path) -> Result<Loose> {
     match std::fs::symlink_metadata(path) {
         Ok(meta) if meta.is_dir() => Ok(Loose::Dir),
-        Ok(_) => std::fs::read(path)
-            .map(Loose::File)
-            .map_err(|error| io_error(path, &error)),
+        Ok(meta) => {
+            let target = if meta.file_type().is_symlink() {
+                std::fs::metadata(path).map_err(|error| io_error(path, &error))?
+            } else {
+                meta
+            };
+            // Reading a named pipe or a device does not end.
+            if !target.is_file() {
+                let error = std::io::Error::new(ErrorKind::InvalidInput, "not a regular file");
+                return Err(io_error(path, &error));
+            }
+            std::fs::read(path)
+                .map(Loose::File)
+                .map_err(|error| io_error(path, &error))
+        }
         Err(error) if is_missing(&error) => Ok(Loose::Absent),
         Err(error) => Err(io_error(path, &error)),
     }
@@ -213,6 +225,30 @@ mod tests {
         assert_eq!(error.problem.as_deref(), Some("corrupt"));
         let error = Packed::parse(b"nospace\n".to_vec()).unwrap_err();
         assert_eq!(error.problem.as_deref(), Some("corrupt"));
+    }
+
+    #[test]
+    fn read_loose_distinguishes_absent_file_and_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(read_loose(&dir.path().join("none")).unwrap(), Loose::Absent);
+        assert_eq!(read_loose(dir.path()).unwrap(), Loose::Dir);
+        let file = dir.path().join("ref");
+        std::fs::write(&file, b"content\n").unwrap();
+        assert_eq!(read_loose(&file).unwrap(), Loose::File(b"content\n".to_vec()));
+        assert_eq!(
+            read_loose(&dir.path().join("ref").join("below")).unwrap(),
+            Loose::Absent
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_loose_rejects_a_file_that_is_not_regular() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("special");
+        let _socket = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let error = read_loose(&path).unwrap_err();
+        assert!(error.message.contains("not a regular file"), "{}", error.message);
     }
 
     #[test]

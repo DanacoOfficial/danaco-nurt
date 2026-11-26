@@ -248,6 +248,78 @@ fn topic_kinds_match_the_values_of_the_catalog_parameter() {
 }
 
 #[test]
+fn topic_kinds_are_found_by_their_names() {
+    for kind in TopicKind::ALL {
+        assert_eq!(TopicKind::from_name(kind.name()), Some(kind));
+    }
+    assert_eq!(TopicKind::from_name("nothing"), None);
+    assert_eq!(TopicKind::from_name(""), None);
+}
+
+#[test]
+fn the_kind_selects_the_topic_whatever_the_name_is() {
+    let syntax = text(&HelpQuery::topic("anything").with_kind(TopicKind::Syntax));
+    assert!(syntax.contains("program = [let name = PIPELINE]"));
+    let corrections = text(&HelpQuery::topic("anything").with_kind(TopicKind::Corrections));
+    assert!(corrections.contains("classes: C certain"));
+    let error = text(&HelpQuery::topic("E_STALE").with_kind(TopicKind::Error));
+    assert!(error.starts_with("E_STALE — "));
+}
+
+#[test]
+fn the_kind_restricts_the_lookup_to_that_kind() {
+    let catalog = common::catalog();
+    let command = HelpQuery::topic("git").with_kind(TopicKind::Command);
+    assert_eq!(
+        help::render(&command, &catalog).unwrap_err().code(),
+        ErrorCode::UnknownName
+    );
+    let error = HelpQuery::topic("E_NOTHING").with_kind(TopicKind::Error);
+    assert_eq!(
+        help::render(&error, &catalog).unwrap_err().code(),
+        ErrorCode::UnknownName
+    );
+    let guide = HelpQuery::topic("list").with_kind(TopicKind::Skill);
+    assert_eq!(
+        help::render(&guide, &catalog).unwrap_err().code(),
+        ErrorCode::UnknownName
+    );
+}
+
+#[test]
+fn search_ignores_words_of_one_character() {
+    let mut query = HelpQuery::new();
+    query.search = Some("a".to_owned());
+    assert!(text(&query).contains("no matches"));
+    query.search = Some(String::new());
+    assert!(text(&query).contains("no matches"));
+}
+
+#[test]
+fn search_in_json_lists_the_results_by_kind() {
+    let mut query = HelpQuery::new().with_format(HelpFormat::Json);
+    query.search = Some("assertion".to_owned());
+    let document: serde_json::Value = serde_json::from_str(&text(&query)).unwrap();
+    assert_eq!(document["search"], "assertion");
+    assert!(document["commands"].is_array());
+    assert!(document["guides"].is_array());
+    assert!(
+        document["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["name"] == "E_ASSERT")
+    );
+}
+
+#[test]
+fn the_number_of_examples_zero_hides_them() {
+    let body = text(&HelpQuery::topic("evaluate").with_examples(0));
+    assert!(!body.contains("\nexamples:"));
+    assert!(!body.contains("evaluate 6 * 7"));
+}
+
+#[test]
 fn group_note_points_at_the_group_description() {
     let catalog = common::catalog();
     assert_eq!(

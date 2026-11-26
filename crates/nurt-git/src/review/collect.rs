@@ -324,6 +324,10 @@ fn add_untracked(
         let Ok(metadata) = std::fs::symlink_metadata(&absolute) else {
             continue;
         };
+        let kind = metadata.file_type();
+        if !kind.is_file() && !kind.is_symlink() {
+            continue;
+        }
         pairs.insert(
             path,
             Pair {
