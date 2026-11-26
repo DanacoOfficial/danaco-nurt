@@ -71,7 +71,8 @@ case $version in
 esac
 
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT INT TERM
+trap 'rm -rf "$work"' EXIT
+trap 'exit 1' INT TERM
 
 if [ -d "$artifact" ]; then
     root=$artifact
@@ -175,6 +176,7 @@ write_control nurt "$nurt_dir" \
     "Section: utils" \
     "Priority: optional" \
     "Multi-Arch: foreign" \
+    "Depends: libc6 (>= 2.17), libgcc-s1, liblzma5" \
     "Description: $summary" \
     " Danaco Nurt is a command shell with its own command language. The" \
     " program is a single executable."

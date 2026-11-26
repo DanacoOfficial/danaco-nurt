@@ -70,6 +70,12 @@ class DebBuildTest(unittest.TestCase):
         self.assertEqual(self.field(nurt, "Maintainer"), "Danaco Official <support@danaco-group.pl>")
         self.assertEqual(self.field(nurt, "Section"), "utils")
 
+    def test_command_package_depends_on_the_shared_libraries_it_links(self):
+        nurt = next(p for p in self.build() if p.name.startswith("nurt_"))
+        depends = self.field(nurt, "Depends")
+        for library in ("libc6", "libgcc-s1", "liblzma5"):
+            self.assertIn(library, depends)
+
     def test_command_package_description_is_the_product_tagline(self):
         nurt = next(p for p in self.build() if p.name.startswith("nurt_"))
         self.assertEqual(self.field(nurt, "Description").splitlines()[0], support.product_tagline())

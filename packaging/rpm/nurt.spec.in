@@ -11,7 +11,7 @@ License:        Apache-2.0
 URL:            https://nurt.danaco-group.pl
 Source0:        %{release_url}/nurt-@VERSION@-%{target_triple}.tar.gz
 ExclusiveArch:  x86_64 aarch64
-AutoReqProv:    no
+AutoProv:       no
 
 %description
 Danaco Nurt is a command shell with its own command language. The program is
