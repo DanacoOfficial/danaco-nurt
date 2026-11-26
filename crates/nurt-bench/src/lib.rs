@@ -42,7 +42,8 @@ pub mod task;
 pub mod tool;
 pub mod variants;
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod end_to_end;
 
 pub use condition::Condition;
