@@ -411,6 +411,13 @@ impl TargetProbe for JournalCtx {
     ) -> Result<HashMap<TargetIndex, ContentHash>> {
         let mut hashes = HashMap::with_capacity(indexes.len());
         for (index, data) in history::preserved_files(self, op, indexes)? {
+            let data = match data {
+                history::PreservedData::File(data) => data,
+                history::PreservedData::Inline(hash) => {
+                    hashes.insert(index, hash);
+                    continue;
+                }
+            };
             match self.fs.content_hash(&data) {
                 Ok(hash) => {
                     hashes.insert(index, hash);

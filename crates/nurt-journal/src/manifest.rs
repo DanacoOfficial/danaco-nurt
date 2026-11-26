@@ -4,7 +4,7 @@
 //! Entry manifest format.
 //!
 //! An entry part consists of the manifest `op.json` ([`Manifest`], format
-//! version 1), the state file `STATE` ([`StateRecord`]), the optional item
+//! version 1 or 2), the state file `STATE` ([`StateRecord`]), the optional item
 //! state file `ITEMS` ([`Items`]) and the preserved data in `blobs/`. The
 //! account index `ops.jsonl` has one [`IndexRow`] per committed operation.
 //!
@@ -56,12 +56,35 @@ use nurt_contracts::journal::{
 };
 use nurt_contracts::report::{Correction, Irreversible, IrreversibleEntry};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::integrity;
 
 /// Version of the manifest format.
 pub const FORMAT_VERSION: u32 = 1;
+/// Version of the manifest format with packed target records.
+///
+/// A manifest of an operation with at least [`PACKED_MIN_TARGETS`] targets has
+/// this version: the member `targets` is replaced by `targets_z`, the JSON
+/// array of the target records compressed with Zstandard and encoded in
+/// Base64. The records of such an operation repeat the same members and long
+/// path prefixes, so the packed form is roughly an order of magnitude smaller.
+/// The digest is computed over the unpacked manifest and is the same for both
+/// forms. A reader of version 1 rejects version 2 as an unknown format.
+pub const PACKED_FORMAT_VERSION: u32 = 2;
+/// Number of targets from which a manifest is written in the packed form.
+pub const PACKED_MIN_TARGETS: usize = 256;
+/// Member of a packed manifest that holds the compressed target records.
+const PACKED_TARGETS: &str = "targets_z";
+/// Member of an unpacked manifest that holds the target records.
+const TARGETS: &str = "targets";
+/// Zstandard level of packed target records; a low level is enough for
+/// records that repeat the same members.
+const PACK_LEVEL: i32 = 3;
+/// Largest size of unpacked target records accepted from a packed manifest,
+/// which bounds the memory a damaged or hostile file can make a reader use.
+const UNPACKED_LIMIT: usize = 1 << 30;
 /// Digest algorithm named in `integrity.algo`.
 pub const DIGEST_ALGO: &str = "sha256";
 /// Prefix of the checksum trailer of `ITEMS`.
@@ -245,9 +268,81 @@ pub struct BeforeRecord {
     /// (`blobs/<id>.meta`).
     #[serde(default)]
     pub meta: Option<String>,
+    /// Previous content kept in the manifest itself, as lower-case hex. Used
+    /// with the store `copy` for small files of operations with many targets,
+    /// where a block per file would cost a file system entry and a flush per
+    /// target; such a record has neither `blob` nor `meta`, and its
+    /// metadata is the plain metadata recorded in this record.
+    #[serde(default, skip_serializing_if = "Option::is_none", with = "inline_hex")]
+    pub inline: Option<Vec<u8>>,
+}
+
+/// Serialization of inline content as lower-case hex.
+mod inline_hex {
+    use serde::de::Error as _;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    #[expect(
+        clippy::ref_option,
+        reason = "serde passes the field by reference to `serialize_with`"
+    )]
+    pub(super) fn serialize<S: Serializer>(
+        bytes: &Option<Vec<u8>>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        match bytes {
+            Some(bytes) => serializer.serialize_str(&hex::encode(bytes)),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<Vec<u8>>, D::Error> {
+        Option::<String>::deserialize(deserializer)?
+            .map(|text| hex::decode(text).map_err(D::Error::custom))
+            .transpose()
+    }
 }
 
 impl BeforeRecord {
+    /// Metadata of the previous file rebuilt from this record, for records that
+    /// keep their content inline: the permission bits, the account, the group
+    /// and the modification time. Other elements of the metadata (attributes,
+    /// ACL, streams) are absent by construction, because a record is inline
+    /// only when the file had none.
+    #[must_use]
+    pub fn plain_meta(&self) -> Option<ExtendedMeta> {
+        self.inline.as_ref()?;
+        let modified_ns = self.modified_ns?;
+        Some(ExtendedMeta {
+            basic: nurt_contracts::fs::FileMeta {
+                kind: FileKind::File,
+                size: self.size.unwrap_or(0),
+                mode: self.mode?,
+                uid: self.uid,
+                gid: self.gid,
+                links: self.links.unwrap_or(1),
+                modified_ns,
+                accessed_ns: Some(modified_ns),
+                created_ns: None,
+                changed_ns: None,
+                file_id: self.file_id.unwrap_or(FileId {
+                    volume: 0,
+                    low: 0,
+                    high: 0,
+                }),
+                windows_attributes: 0,
+            },
+            xattrs: Vec::new(),
+            acl: None,
+            account_sid: None,
+            flags: None,
+            streams: Vec::new(),
+            link_target: None,
+        })
+    }
+
     /// State before in the form of the journal interface.
     #[must_use]
     pub fn to_state(&self) -> BeforeState {
@@ -422,7 +517,13 @@ impl Manifest {
     /// Fails with [`FormatError::Encoding`] when the manifest cannot be
     /// serialized.
     pub fn encode(&self) -> Result<Vec<u8>, FormatError> {
-        serde_json::to_vec(self).map_err(|error| FormatError::Encoding(error.to_string()))
+        let encoding = |error: serde_json::Error| FormatError::Encoding(error.to_string());
+        if self.v != PACKED_FORMAT_VERSION {
+            return serde_json::to_vec(self).map_err(encoding);
+        }
+        let mut value = serde_json::to_value(self).map_err(encoding)?;
+        pack_targets(&mut value)?;
+        serde_json::to_vec(&value).map_err(encoding)
     }
 
     /// Parses `op.json`. Arbitrary bytes never cause a panic.
@@ -441,10 +542,16 @@ impl Manifest {
         }
         let versioned: Versioned = serde_json::from_slice(bytes)
             .map_err(|error| FormatError::Decoding(error.to_string()))?;
-        if versioned.v != u64::from(FORMAT_VERSION) {
-            return Err(FormatError::Version(versioned.v));
+        let decoding = |error: serde_json::Error| FormatError::Decoding(error.to_string());
+        match u32::try_from(versioned.v) {
+            Ok(FORMAT_VERSION) => serde_json::from_slice(bytes).map_err(decoding),
+            Ok(PACKED_FORMAT_VERSION) => {
+                let mut value: Value = serde_json::from_slice(bytes).map_err(decoding)?;
+                unpack_targets(&mut value)?;
+                serde_json::from_value(value).map_err(decoding)
+            }
+            _ => Err(FormatError::Version(versioned.v)),
         }
-        serde_json::from_slice(bytes).map_err(|error| FormatError::Decoding(error.to_string()))
     }
 
     /// Target record of `index` in the given role.
@@ -458,6 +565,58 @@ impl Manifest {
 
 /// Word of the state file that marks an entry undone after its commit.
 const COMMITTED_WORD: &str = "committed";
+
+/// Replaces the member `targets` of a manifest value by the packed member
+/// `targets_z`.
+fn pack_targets(manifest: &mut Value) -> Result<(), FormatError> {
+    use base64::Engine as _;
+    let members = manifest
+        .as_object_mut()
+        .ok_or_else(|| FormatError::Encoding("the manifest is not an object".to_owned()))?;
+    let targets = members
+        .remove(TARGETS)
+        .ok_or_else(|| FormatError::Encoding("the manifest has no targets".to_owned()))?;
+    let json =
+        serde_json::to_vec(&targets).map_err(|error| FormatError::Encoding(error.to_string()))?;
+    let packed = zstd::bulk::compress(&json, PACK_LEVEL)
+        .map_err(|error| FormatError::Encoding(error.to_string()))?;
+    members.insert(
+        PACKED_TARGETS.to_owned(),
+        Value::String(base64::engine::general_purpose::STANDARD.encode(packed)),
+    );
+    Ok(())
+}
+
+/// Replaces the packed member `targets_z` of a manifest value by the member
+/// `targets`; a value without the packed member is left unchanged.
+///
+/// # Errors
+///
+/// Fails with [`FormatError::Decoding`] when the packed member is not Base64,
+/// not a Zstandard frame, larger than the limit once unpacked, or not a JSON
+/// array.
+pub(crate) fn unpack_targets(manifest: &mut Value) -> Result<(), FormatError> {
+    use base64::Engine as _;
+    let damaged = |what: &str| FormatError::Decoding(format!("packed targets: {what}"));
+    let Some(members) = manifest.as_object_mut() else {
+        return Ok(());
+    };
+    let Some(packed) = members.remove(PACKED_TARGETS) else {
+        return Ok(());
+    };
+    let text = packed.as_str().ok_or_else(|| damaged("not a string"))?;
+    let compressed = base64::engine::general_purpose::STANDARD
+        .decode(text)
+        .map_err(|_| damaged("not Base64"))?;
+    let json = zstd::bulk::decompress(&compressed, UNPACKED_LIMIT)
+        .map_err(|_| damaged("not a Zstandard frame within the limit"))?;
+    let targets: Value = serde_json::from_slice(&json).map_err(|_| damaged("not JSON"))?;
+    if !targets.is_array() {
+        return Err(damaged("not an array"));
+    }
+    members.insert(TARGETS.to_owned(), targets);
+    Ok(())
+}
 
 /// Persistent state of an entry (`STATE`).
 ///
@@ -1219,6 +1378,7 @@ pub(crate) mod tests {
                     store: PreserveMode::Exchange,
                     blob: Some("blobs/0000000000000000.blob".to_owned()),
                     meta: Some("blobs/0000000000000000.meta".to_owned()),
+                    inline: None,
                 },
                 replaced: None,
                 after: Some(AfterRecord {
@@ -1315,9 +1475,9 @@ pub(crate) mod tests {
     #[test]
     fn rejects_other_format_versions() {
         let mut value = serde_json::to_value(sample()).unwrap();
-        value["v"] = serde_json::json!(2);
+        value["v"] = serde_json::json!(3);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert_eq!(Manifest::decode(&bytes), Err(FormatError::Version(2)));
+        assert_eq!(Manifest::decode(&bytes), Err(FormatError::Version(3)));
         assert!(matches!(
             Manifest::decode(b"{}"),
             Err(FormatError::Decoding(_))
@@ -1774,6 +1934,113 @@ pub(crate) mod tests {
             serde_json::from_slice::<TreeListing>(&encoded).unwrap(),
             listing
         );
+    }
+
+    /// Manifest of an operation with many targets, in the packed form.
+    fn packed_sample(count: u32) -> Manifest {
+        let mut manifest = sample();
+        manifest.v = PACKED_FORMAT_VERSION;
+        manifest.bulk = true;
+        let template = manifest.targets[0].clone();
+        manifest.targets = (0..count)
+            .map(|index| TargetRecord {
+                index: TargetIndex(index),
+                path: TargetPath::Fs(abs(&format!(
+                    "/srv/app/src/dir{}/file{index}.txt",
+                    index % 7
+                ))),
+                before: BeforeRecord {
+                    store: PreserveMode::Copy,
+                    blob: None,
+                    meta: None,
+                    inline: Some(format!("content {index}\n").into_bytes()),
+                    ..template.before.clone()
+                },
+                ..template.clone()
+            })
+            .collect();
+        manifest
+    }
+
+    #[test]
+    fn packed_manifest_round_trips_and_is_much_smaller() {
+        let mut packed = packed_sample(2000);
+        packed.seal().unwrap();
+        let bytes = packed.encode().unwrap();
+        let text = std::str::from_utf8(&bytes).unwrap();
+        assert!(text.contains("\"targets_z\"") && !text.contains("\"targets\""));
+        assert_eq!(Manifest::decode(&bytes).unwrap(), packed);
+        let mut plain = packed.clone();
+        plain.v = FORMAT_VERSION;
+        let plain_bytes = plain.encode().unwrap();
+        assert!(
+            bytes.len() * 4 < plain_bytes.len(),
+            "packed {} bytes, plain {} bytes",
+            bytes.len(),
+            plain_bytes.len()
+        );
+    }
+
+    #[test]
+    fn packed_and_plain_forms_have_one_digest_and_pass_verification() {
+        let mut packed = packed_sample(300);
+        let digest = packed.seal().unwrap();
+        let verdict = integrity::verify_manifest(&packed.encode().unwrap());
+        assert!(
+            matches!(&verdict, integrity::ManifestVerdict::Intact { digest: found, .. } if *found == digest),
+            "{verdict:?}"
+        );
+        let mut altered = packed.clone();
+        altered.targets[17].bytes_held += 1;
+        let verdict = integrity::verify_manifest(&altered.encode().unwrap());
+        assert!(!matches!(
+            verdict,
+            integrity::ManifestVerdict::Intact { .. }
+        ));
+    }
+
+    #[test]
+    fn damaged_packed_targets_are_a_decoding_error() {
+        let mut value = serde_json::to_value(packed_sample(3)).unwrap();
+        value.as_object_mut().unwrap().remove("targets");
+        for damaged in [
+            serde_json::json!(7),
+            serde_json::json!("not base64 !"),
+            serde_json::json!("AAAA"),
+        ] {
+            value["targets_z"] = damaged;
+            let bytes = serde_json::to_vec(&value).unwrap();
+            assert!(
+                matches!(Manifest::decode(&bytes), Err(FormatError::Decoding(_))),
+                "{value}"
+            );
+            assert!(!integrity::verify_manifest(&bytes).is_intact());
+        }
+        value.as_object_mut().unwrap().remove("targets_z");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(matches!(
+            Manifest::decode(&bytes),
+            Err(FormatError::Decoding(_))
+        ));
+    }
+
+    #[test]
+    fn inline_content_is_hex_and_rebuilds_plain_metadata() {
+        let mut record = sample().targets.remove(0).before;
+        record.store = PreserveMode::Copy;
+        record.blob = None;
+        record.meta = None;
+        record.inline = Some(b"old\n".to_vec());
+        let text = serde_json::to_string(&record).unwrap();
+        assert!(text.contains("\"inline\":\"6f6c640a\""), "{text}");
+        assert_eq!(serde_json::from_str::<BeforeRecord>(&text).unwrap(), record);
+        let meta = record.plain_meta().unwrap();
+        assert_eq!(meta.basic.mode, 0o644);
+        assert_eq!(meta.basic.modified_ns, 1_763_720_031_123_456_789);
+        assert!(meta.xattrs.is_empty() && meta.acl.is_none());
+        record.inline = None;
+        assert!(record.plain_meta().is_none());
+        assert!(!serde_json::to_string(&record).unwrap().contains("inline"));
     }
 
     proptest! {

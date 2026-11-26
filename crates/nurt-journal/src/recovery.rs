@@ -948,10 +948,28 @@ impl Entry<'_> {
         recorded.and_then(|recorded| self.layout.resolve(recorded).ok())
     }
 
+    /// Block of the previous content of a record that keeps it in the
+    /// manifest, written when missing, so that the restoring actions work on
+    /// a file like for any other copy. The block stays in the entry, which is
+    /// removed as a whole when it expires.
+    fn materialize_inline(&self, record: &TargetRecord, bytes: &[u8]) -> Step<AbsPath> {
+        let blob = self.layout.blob(layout::BlobId::new(
+            record.index,
+            layout::BlobRole::Previous,
+        ))?;
+        if observe(self.read(), &blob)?.is_none() {
+            manifest::write_atomic(self.fs(), &self.scope, &self.layout.tmp()?, &blob, bytes)?;
+        }
+        Ok(blob)
+    }
+
     fn plan_content(&self, record: &TargetRecord, target: &AbsPath) -> Step<Option<Vec<Action>>> {
         let fs = self.read();
         let before = &record.before;
-        let blob = self.blob_path(before.blob.as_deref());
+        let blob = match &before.inline {
+            Some(bytes) => Some(self.materialize_inline(record, bytes)?),
+            None => self.blob_path(before.blob.as_deref()),
+        };
         let staged = staged_path(target, self.op, record.index);
         let mut scene = TargetScene {
             existed: before.exists,
@@ -986,6 +1004,7 @@ impl Entry<'_> {
                 let meta = if copies {
                     self.blob_path(before.meta.as_deref())
                         .and_then(|path| manifest::read_meta(fs, &path).ok())
+                        .or_else(|| before.plain_meta())
                         .map(Box::new)
                 } else {
                     None
@@ -2521,6 +2540,7 @@ mod pass_tests {
                 store,
                 blob: Some(id.content_name()),
                 meta: Some(id.meta_name()),
+                inline: None,
             }
         }
 
@@ -2635,6 +2655,7 @@ mod pass_tests {
             store,
             blob: None,
             meta: None,
+            inline: None,
         }
     }
 

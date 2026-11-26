@@ -15,7 +15,7 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::FileKind;
 use nurt_contracts::journal::{
     BeginRequest, JournalStore, MutationTx, OpHandle, OpKind, RollbackReason, SessionId,
-    TargetAction, TargetPath,
+    TargetAction, TargetOutcome, TargetPath,
 };
 use nurt_contracts::record::Change;
 use nurt_contracts::report::{
@@ -206,7 +206,19 @@ pub(crate) fn target_text(path: &TargetPath) -> String {
 
 /// Changes of an effect with the facts the journal reported for their
 /// targets.
+///
+/// The targets are indexed by their text once, so that the cost grows with the
+/// number of changes and not with its square; of several targets with one text
+/// the first is used.
 pub(crate) fn change_facts(changes: Vec<Change>, handle: Option<&OpHandle>) -> Vec<ChangeFacts> {
+    let mut by_text: std::collections::HashMap<String, &TargetOutcome> =
+        std::collections::HashMap::new();
+    if let Some(handle) = handle {
+        by_text.reserve(handle.targets.len());
+        for target in &handle.targets {
+            by_text.entry(target_text(&target.path)).or_insert(target);
+        }
+    }
     changes
         .into_iter()
         .map(|change| {
@@ -214,12 +226,7 @@ pub(crate) fn change_facts(changes: Vec<Change>, handle: Option<&OpHandle>) -> V
                 .flags
                 .as_ref()
                 .is_some_and(|flags| flags.iter().any(|flag| flag == OVERWROTE_EXISTING));
-            let target = handle.and_then(|handle| {
-                handle
-                    .targets
-                    .iter()
-                    .find(|target| target_text(&target.path) == change.path.as_str())
-            });
+            let target = by_text.get(change.path.as_str()).copied();
             let journaled = target.and_then(|target| {
                 if target.before.exists {
                     target.before.kind

@@ -5620,6 +5620,7 @@ dependencies = [
 name = "nurt-journal"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
  "crc32fast",
  "hex",
  "nurt-contracts",
@@ -5633,6 +5634,7 @@ dependencies = [
  "tempfile",
  "toml_edit",
  "uuid",
+ "zstd",
 ]
 
 [[package]]

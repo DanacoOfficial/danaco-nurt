@@ -1311,6 +1311,41 @@ pub trait FsWrite: Fs {
     /// Fails with [`FsErrorKind::Io`].
     fn sync_dir(&self, scope: &TxScope, dir: &AbsPath) -> FsResult<()>;
 
+    /// Flushes the content of `files` and then the directories `dirs`, so
+    /// that every listed file holds its content durably and every rename or
+    /// creation in the listed directories is durable.
+    ///
+    /// The default implementation flushes each file through a write handle,
+    /// then each directory with [`FsWrite::sync_dir`]; a file that cannot be
+    /// opened for writing (read-only permission bits) is flushed through its
+    /// directory. A backend that can flush many entries at once, such as a
+    /// whole-volume flush, overrides it for long lists. The durability
+    /// guarantee is the same, only the number of flushes differs.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`FsErrorKind::NotFound`] when a listed directory does not
+    /// exist, and, when entries are flushed one by one, when a listed file does
+    /// not exist; with [`FsErrorKind::Io`] or [`FsErrorKind::NoSpace`] when a
+    /// flush fails.
+    fn sync_paths(&self, scope: &TxScope, files: &[AbsPath], dirs: &[AbsPath]) -> FsResult<()> {
+        for file in files {
+            match self.open_in_place(scope, file) {
+                Ok(mut handle) => handle.sync(Durability::Full)?,
+                Err(error) if error.kind == FsErrorKind::PermissionDenied => {
+                    if let Some(parent) = file.parent() {
+                        self.sync_dir(scope, &parent)?;
+                    }
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        for dir in dirs {
+            self.sync_dir(scope, dir)?;
+        }
+        Ok(())
+    }
+
     /// Takes an exclusive advisory lock on `path`, creating the file when
     /// needed, and waits no longer than `timeout`.
     ///

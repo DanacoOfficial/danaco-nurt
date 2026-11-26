@@ -11,7 +11,8 @@
 //!   pending/<N>         marker of the non-terminal entry <N>
 //!   ops/<N>.tmp/        entry not yet prepared
 //!   ops/<N>/            op.json  STATE  ITEMS  tmp/  displaced/
-//!   ops/<N>/blobs/      <id>.blob  <id>.meta  <id>.tree
+//!   ops/<N>/blobs/      <id>.blob  <id>.meta  <id>.tree  (none for content
+//!                       kept in op.json, see `BeforeRecord::inline`)
 //!   reap/<N>/           entry being reclaimed
 //!   tomb/<N>.json       metrics of an expired entry
 //! ```
