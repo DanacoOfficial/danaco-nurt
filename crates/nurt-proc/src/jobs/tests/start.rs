@@ -84,3 +84,105 @@ fn a_cancelled_call_stops_a_run_the_supervisor_already_took() {
     let id = table.ids().unwrap().pop().unwrap();
     assert_eq!(job_file(&path, &id).record.state, JobState::Stopped);
 }
+
+/// Change detection double whose preparation lasts until the execution is
+/// cancelled or a limit of real time passes, and records that it began.
+struct BlockedTracker {
+    entered: Arc<AtomicBool>,
+}
+
+impl ChangeTracker for BlockedTracker {
+    fn prepare(
+        &self,
+        ctx: &ExecCtx,
+        _spec: &TrackSpec,
+        _tx: &mut dyn MutationTx,
+    ) -> Result<Box<dyn PreparedScan>> {
+        self.entered.store(true, Ordering::SeqCst);
+        match ctx.cancel().wait_timeout(Duration::from_secs(8)) {
+            Some(reason) => Err(reason.to_error()),
+            None => Err(Error::new(
+                ErrorCode::Timeout,
+                "the scan was never cancelled",
+            )),
+        }
+    }
+}
+
+#[test]
+fn a_cancelled_call_reaches_the_supervisor_before_the_program_starts() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_path_buf();
+    let entered = Arc::new(AtomicBool::new(false));
+    let components = Components {
+        control: Arc::new(FakeControl::default()),
+        spool: Arc::new(FileSpool),
+        tracker: Arc::new(BlockedTracker {
+            entered: Arc::clone(&entered),
+        }),
+    };
+    let (server, _) = context(&path);
+    let _serving = {
+        let components = components.clone();
+        std::thread::spawn(move || supervisor::serve(&server, &components))
+    };
+    let table = JobTable::at(path.join("jobs")).unwrap();
+    wait_until(|| table.host_running().unwrap());
+    let command = SupervisorCommand {
+        program: path.join("nurt"),
+        args: Vec::new(),
+    };
+    let (client, _) = context_with(
+        &path,
+        Config::default(),
+        Some(Supervision::Detached(command)),
+    );
+    let cancel = client.cancel().clone();
+    let host = run_host(&client, components);
+    let begun = Instant::now();
+    let caller = {
+        let path = path.clone();
+        std::thread::spawn(move || {
+            host.run(
+                &client,
+                request(&path, 10_000, 0, 0),
+                Some(Duration::from_secs(30)),
+            )
+        })
+    };
+    wait_until(|| entered.load(Ordering::SeqCst));
+    cancel.cancel(CancelReason::Requested);
+    let error = caller.join().unwrap().err().expect("the call is cancelled");
+    assert_eq!(error.code(), ErrorCode::Cancelled);
+    assert!(
+        begun.elapsed() < Duration::from_secs(6),
+        "the scan ran to its limit"
+    );
+    let notices = fs::read_dir(table.inbox())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".cancel.json")
+        })
+        .count();
+    assert_eq!(notices, 0);
+}
+
+#[test]
+fn a_supervisor_started_while_a_client_probes_the_lock_keeps_serving() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_path_buf();
+    let table = JobTable::at(path.join("jobs")).unwrap();
+    // The probe of `host_running` holds the lock for an instant; the
+    // supervisor starts inside that instant.
+    let probe = table.try_lock_host().unwrap().expect("the lock is free");
+    let (server, _) = context(&path);
+    let serving = std::thread::spawn(move || supervisor::serve(&server, &components()));
+    std::thread::sleep(Duration::from_millis(30));
+    drop(probe);
+    wait_until(|| table.host_running().unwrap());
+    assert!(!serving.is_finished(), "the supervisor gave up");
+}

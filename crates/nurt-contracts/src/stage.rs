@@ -1765,6 +1765,16 @@ impl ExecCtx {
         }
     }
 
+    /// The same context with another cancellation token, for work that must
+    /// be cancellable on its own, such as a run started for a remote caller.
+    #[must_use]
+    pub fn with_cancel(&self, cancel: CancelToken) -> Self {
+        Self {
+            cancel,
+            ..self.clone()
+        }
+    }
+
     /// Clock.
     #[must_use]
     pub fn clock(&self) -> &dyn Clock {

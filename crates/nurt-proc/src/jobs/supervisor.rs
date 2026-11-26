@@ -11,18 +11,26 @@
 //! has arrived for [`IDLE_EXIT`].
 
 use std::fs::File;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use nurt_contracts::error::Result;
-use nurt_contracts::stage::ExecCtx;
+use nurt_contracts::stage::{CancelReason, CancelToken, ExecCtx};
 
 use super::control::withdraw;
-use super::host::{StartReply, StartRequest, inbox_requests, write_start_reply};
+use super::host::{
+    StartReply, StartRequest, cancel_notice_path, inbox_requests, write_start_reply,
+};
 use super::runner::{self, POLL_INTERVAL};
 use super::store::JobStore;
 use super::table::{JobTable, PROTOCOL, read_json};
 use crate::iface::Components;
+
+/// Pause between two attempts to take the host lock.
+const LOCK_RETRY: Duration = Duration::from_millis(10);
 
 /// Time without jobs and requests after which the supervisor ends.
 pub(crate) const IDLE_EXIT: Duration = Duration::from_secs(60);
@@ -36,7 +44,7 @@ pub(crate) const IDLE_EXIT: Duration = Duration::from_secs(60);
 /// job table cannot be read.
 pub(crate) fn serve(ctx: &ExecCtx, components: &Components) -> Result<()> {
     let table = JobTable::open(ctx)?;
-    let Some(lock) = table.try_lock_host()? else {
+    let Some(lock) = lock_host(&table)? else {
         return Ok(());
     };
     let mut lock: Option<File> = Some(lock);
@@ -65,6 +73,26 @@ pub(crate) fn serve(ctx: &ExecCtx, components: &Components) -> Result<()> {
     }
 }
 
+/// Number of attempts to take the host lock before another supervisor is
+/// assumed to hold it.
+const LOCK_ATTEMPTS: u32 = 10;
+
+/// Takes the host lock. A client that asks whether a supervisor runs takes
+/// the lock itself for an instant, so a free lock that is refused is tried
+/// again before the supervisor gives up; a supervisor that gave up at that
+/// moment would leave the client waiting for one that never starts.
+fn lock_host(table: &JobTable) -> Result<Option<File>> {
+    for attempt in 0..LOCK_ATTEMPTS {
+        if let Some(lock) = table.try_lock_host()? {
+            return Ok(Some(lock));
+        }
+        if attempt + 1 < LOCK_ATTEMPTS {
+            std::thread::sleep(LOCK_RETRY);
+        }
+    }
+    Ok(None)
+}
+
 fn accept(
     ctx: &ExecCtx,
     components: &Components,
@@ -82,7 +110,17 @@ fn accept(
         }
         let reply = match request {
             Ok(Some(request)) if request.protocol == PROTOCOL => {
-                match runner::start(ctx, components, table, request.into_launch()) {
+                // The run has a token of its own so that a cancel notice of
+                // the client reaches the preparation of the run, which
+                // ends before the program and the job exist.
+                let token = ctx.cancel().child();
+                let watch = watch_notice(cancel_notice_path(table, &name), token.clone());
+                let started = match runner::start(
+                    &ctx.with_cancel(token),
+                    components,
+                    table,
+                    request.into_launch(),
+                ) {
                     Ok((waiter, job)) => {
                         jobs.push(job);
                         match waiter.wait_started() {
@@ -91,7 +129,9 @@ fn accept(
                         }
                     }
                     Err(error) => StartReply::Failed(error),
-                }
+                };
+                watch.end();
+                started
             }
             Ok(None) => continue,
             Ok(Some(_)) => StartReply::Failed(nurt_contracts::error::Error::new(
@@ -103,4 +143,42 @@ fn accept(
         write_start_reply(table, &name, &reply)?;
     }
     Ok(count)
+}
+
+/// Thread that cancels `token` when the cancel notice at `path` appears.
+struct NoticeWatch {
+    done: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
+}
+
+impl NoticeWatch {
+    /// Stops the watch.
+    fn end(mut self) {
+        self.done.store(true, Ordering::Release);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+fn watch_notice(path: PathBuf, token: CancelToken) -> NoticeWatch {
+    let done = Arc::new(AtomicBool::new(false));
+    let flag = Arc::clone(&done);
+    let thread = std::thread::Builder::new()
+        .name("nurt-cancel-notice".to_owned())
+        .spawn(move || {
+            while !flag.load(Ordering::Acquire) {
+                if path.exists() {
+                    token.cancel(CancelReason::Requested);
+                    let _ = withdraw(&path);
+                    return;
+                }
+                std::thread::sleep(POLL_INTERVAL);
+            }
+            // A notice written after the preparation ended is the client's
+            // to remove; the client cancels the started job by a control
+            // request.
+        })
+        .ok();
+    NoticeWatch { done, thread }
 }
