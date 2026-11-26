@@ -153,6 +153,10 @@ work-marker tests/d1/correction/*
 # Test input: Rust source text that contains the attribute as data.
 allow-attribute crates/nurt-sys/tests/d7_static.rs
 
+# Test input: a line of Rust source text with an inner lint attribute, checked
+# as data by the comment recogniser of the hover command.
+allow-attribute crates/nurt-code/src/commands/hover.rs
+
 # Source of pdf-extract 0.12.1 (MIT license, crates/nurt-pdf-extract/LICENSE-MIT,
 # NOTICE), copied because its release requires lopdf 0.42 and with it the
 # unmaintained ttf-parser crate. The files keep the wording and the comments of
