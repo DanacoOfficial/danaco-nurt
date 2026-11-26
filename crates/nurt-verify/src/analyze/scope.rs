@@ -105,10 +105,20 @@ fn restrict_to_changed(ctx: &ExecCtx, dir: &Path, scope: &mut Scope) -> Result<(
         );
         return Ok(());
     };
+    // The directory and the root of the repository may be given through
+    // links, so a changed file is also tried against their canonical forms.
+    let canonical = |path: &Path| std::fs::canonicalize(path).unwrap_or_else(|_| path.to_owned());
+    let bases = [dir.to_owned(), canonical(dir)];
+    let roots = [root.clone(), canonical(&root)];
     let changed: BTreeSet<String> = git
         .changed_files(&root, None)?
         .into_iter()
-        .filter_map(|file| relative(dir, &root.join(file).to_string_lossy()))
+        .filter_map(|file| {
+            roots.iter().find_map(|root| {
+                let absolute = root.join(&file).to_string_lossy().into_owned();
+                bases.iter().find_map(|base| relative(base, &absolute))
+            })
+        })
         .collect();
     scope.files.retain(|file| changed.contains(file));
     scope.scoped = true;

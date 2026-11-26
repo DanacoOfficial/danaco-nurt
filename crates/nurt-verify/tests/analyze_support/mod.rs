@@ -186,10 +186,32 @@ impl Workspace {
         )
     }
 
+    /// Like [`serviced`](Self::serviced), with `base` as the base directory
+    /// of the request, for example a link to the project.
+    pub(crate) fn serviced_at(&self, base: &Path, git: Option<FakeGit>) -> ExecCtx {
+        let mut services = Services::new()
+            .with_code(Arc::new(FakeCode))
+            .with_file_list(Arc::new(DiskFiles));
+        if let Some(git) = git {
+            services = services.with_git_query(Arc::new(git));
+        }
+        self.builder_at(self.bin.path().as_os_str(), base)
+            .services(Arc::new(services))
+            .build()
+    }
+
     fn builder(&self, path: &std::ffi::OsStr) -> nurt_contracts::stage::ExecCtxBuilder {
+        self.builder_at(path, self.project.path())
+    }
+
+    fn builder_at(
+        &self,
+        path: &std::ffi::OsStr,
+        base: &Path,
+    ) -> nurt_contracts::stage::ExecCtxBuilder {
         let host = TestHost::native().with_var("PATH", path);
         let options = RequestOptions {
-            base: Some(self.project.path().to_string_lossy().into_owned()),
+            base: Some(base.to_string_lossy().into_owned()),
             ..RequestOptions::default()
         };
         ExecCtx::builder(
