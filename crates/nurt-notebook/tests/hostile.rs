@@ -234,3 +234,40 @@ fn positions_and_ranges_outside_the_notebook_change_nothing() {
     assert!(!notebook.is_modified());
     assert_eq!(notebook.render(), render(&sample(), " "));
 }
+
+#[test]
+fn a_repeated_cells_member_is_a_format_error() {
+    let text = "{\"cells\": [], \"cells\": [], \"nbformat\": 4, \"nbformat_minor\": 5}";
+    let error = Notebook::parse(text.as_bytes()).unwrap_err();
+    assert!(matches!(error, NotebookError::Structure { .. }), "{error}");
+    assert_eq!(error.code(), ErrorCode::Format);
+}
+
+#[test]
+fn json_deeper_than_the_reader_limit_is_invalid_json() {
+    let nested = |depth: usize| {
+        format!(
+            "{{\"cells\": [], \"nbformat\": 4, \"x\": {}{}}}",
+            "[".repeat(depth),
+            "]".repeat(depth)
+        )
+    };
+    assert!(Notebook::parse(nested(100).as_bytes()).is_ok());
+    let error = Notebook::parse(nested(200).as_bytes()).unwrap_err();
+    assert!(
+        matches!(error, NotebookError::InvalidJson { .. }),
+        "{error}"
+    );
+    assert_eq!(error.code(), ErrorCode::Format);
+}
+
+#[test]
+fn duplicate_ids_do_not_fail_parsing_so_that_normalize_can_repair_them() {
+    let text = "{\"cells\": [\
+        {\"cell_type\": \"markdown\", \"id\": \"a\", \"metadata\": {}, \"source\": \"x\"},\
+        {\"cell_type\": \"markdown\", \"id\": \"a\", \"metadata\": {}, \"source\": \"y\"}\
+        ], \"metadata\": {}, \"nbformat\": 4, \"nbformat_minor\": 5}";
+    let mut notebook = Notebook::parse(text.as_bytes()).unwrap();
+    let repaired = notebook.normalize();
+    assert_eq!(repaired.cells, [1]);
+}

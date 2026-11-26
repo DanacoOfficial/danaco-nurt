@@ -332,8 +332,9 @@ impl KeyPath {
     /// # Errors
     ///
     /// Returns [`KeyPathErrorKind::MisplacedAppend`] when a segment follows
-    /// [`KeySegment::Append`], and [`KeyPathErrorKind::InvalidNumber`] for a
-    /// non-finite number in a filter.
+    /// [`KeySegment::Append`], [`KeyPathErrorKind::InvalidNumber`] for a
+    /// non-finite number in a filter, and [`KeyPathErrorKind::InvalidFilter`]
+    /// for a filter nested deeper than [`MAX_FILTER_DEPTH`].
     pub fn new(
         document: Option<DocSelector>,
         segments: Vec<KeySegment>,
@@ -386,15 +387,15 @@ impl KeyPath {
         matches!(self.segments.last(), Some(KeySegment::Append))
     }
 
-    /// Appends a segment, rejecting a segment after `[+]` and non-finite
-    /// numbers in filters.
+    /// Appends a segment, rejecting a segment after `[+]`, non-finite numbers
+    /// in filters and filters nested deeper than [`MAX_FILTER_DEPTH`].
     ///
     /// # Errors
     ///
     /// Returns [`KeyPathErrorKind::MisplacedAppend`] when the path already
-    /// ends with [`KeySegment::Append`], and
-    /// [`KeyPathErrorKind::InvalidNumber`] for a non-finite number in a
-    /// filter.
+    /// ends with [`KeySegment::Append`], [`KeyPathErrorKind::InvalidNumber`]
+    /// for a non-finite number in a filter, and
+    /// [`KeyPathErrorKind::InvalidFilter`] for a filter nested too deeply.
     ///
     /// # Examples
     ///
@@ -448,24 +449,65 @@ fn invalid_value(kind: KeyPathErrorKind, message: &str) -> KeyPathError {
     }
 }
 
-fn check_filter(expr: &FilterExpr) -> Result<(), KeyPathError> {
-    match expr {
-        FilterExpr::Field { .. } => Ok(()),
-        FilterExpr::Literal {
-            value: FilterLiteral::Number(n),
-        } if !n.is_finite() => Err(invalid_value(
-            KeyPathErrorKind::InvalidNumber,
-            "filter numbers must be finite",
-        )),
-        FilterExpr::Literal { .. } => Ok(()),
-        FilterExpr::Compare { left, right, .. }
-        | FilterExpr::And { left, right }
-        | FilterExpr::Or { left, right } => {
-            check_filter(left)?;
-            check_filter(right)
+/// Checks the numbers of a filter and its nesting, with the rules of the
+/// parser: each negation and each parenthesised group the canonical text
+/// needs counts as one level, and no more than [`MAX_FILTER_DEPTH`] levels
+/// are admitted, so that the text of every key path reads back. The walk uses
+/// an explicit stack and does not deepen the call stack.
+fn check_filter(root: &FilterExpr) -> Result<(), KeyPathError> {
+    let nested_too_deeply = || {
+        invalid_value(
+            KeyPathErrorKind::InvalidFilter,
+            "the filter is nested too deeply",
+        )
+    };
+    let mut pending = vec![(root, 0_usize)];
+    while let Some((expr, depth)) = pending.pop() {
+        let (first, second, depth) = match expr {
+            FilterExpr::Field { .. } => continue,
+            FilterExpr::Literal {
+                value: FilterLiteral::Number(n),
+            } if !n.is_finite() => {
+                return Err(invalid_value(
+                    KeyPathErrorKind::InvalidNumber,
+                    "filter numbers must be finite",
+                ));
+            }
+            FilterExpr::Literal { .. } => continue,
+            FilterExpr::Compare { left, right, .. } => {
+                ((&**left, PREC_ATOM), Some((&**right, PREC_ATOM)), depth)
+            }
+            FilterExpr::And { left, right } => {
+                ((&**left, PREC_AND), Some((&**right, PREC_NOT)), depth)
+            }
+            FilterExpr::Or { left, right } => {
+                ((&**left, PREC_OR), Some((&**right, PREC_AND)), depth)
+            }
+            FilterExpr::Not { operand } => {
+                let min = if matches!(**operand, FilterExpr::Not { .. }) {
+                    PREC_NOT
+                } else {
+                    PREC_ATOM
+                };
+                ((&**operand, min), None, depth + 1)
+            }
+        };
+        if depth > MAX_FILTER_DEPTH {
+            return Err(nested_too_deeply());
         }
-        FilterExpr::Not { operand } => check_filter(operand),
+        for (child, min) in std::iter::once(first).chain(second) {
+            let depth = if precedence(child) < min {
+                depth + 1
+            } else {
+                depth
+            };
+            if depth > MAX_FILTER_DEPTH {
+                return Err(nested_too_deeply());
+            }
+            pending.push((child, depth));
+        }
     }
+    Ok(())
 }
 
 impl FromStr for KeyPath {
@@ -1600,6 +1642,21 @@ fn filter_from_expr(expr: &Expr) -> Result<FilterExpr, KeyPathError> {
         Expr::Un {
             op: UnOp::Not, x, ..
         } => FilterExpr::Not { operand: boxed(x)? },
+        Expr::Un {
+            op: UnOp::Neg, x, ..
+        } => match &**x {
+            Expr::Int { v, .. } => v
+                .checked_neg()
+                .map(|negated| literal(FilterLiteral::Int(negated)))
+                .ok_or_else(|| {
+                    invalid_value(
+                        KeyPathErrorKind::InvalidNumber,
+                        "the integer does not fit 64 bits",
+                    )
+                })?,
+            Expr::Num { v, .. } => literal(FilterLiteral::Number(-*v)),
+            _ => return Err(unsupported_expr("the negation of a non-literal")),
+        },
         Expr::Bin { op, l, r, .. } => binary_from_expr(*op, boxed(l)?, boxed(r)?)?,
         _ => return Err(unsupported_expr("this expression")),
     })

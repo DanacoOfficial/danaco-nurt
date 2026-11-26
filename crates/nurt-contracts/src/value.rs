@@ -386,9 +386,16 @@ impl From<u64> for Value {
     }
 }
 
+/// A finite number becomes [`Value::Number`]; NaN and the infinities become
+/// [`Value::Null`], as in [`Value::to_plain_json`], because the tagged JSON
+/// form of a `number` cannot carry them and could not be read back.
 impl From<f64> for Value {
     fn from(value: f64) -> Self {
-        Self::Number(value)
+        if value.is_finite() {
+            Self::Number(value)
+        } else {
+            Self::Null
+        }
     }
 }
 
@@ -1907,6 +1914,20 @@ mod tests {
             Value::Duration(Duration::from_millis(-5)).to_plain_json(),
             serde_json::json!(-5)
         );
+    }
+
+    #[test]
+    fn non_finite_floats_convert_to_null_and_round_trip() {
+        for float in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let value = Value::from(float);
+            assert_eq!(value, Value::Null, "{float}");
+            let json = serde_json::to_value(&value).unwrap();
+            assert_eq!(serde_json::from_value::<Value>(json).unwrap(), value);
+        }
+        let value = Value::from(1.5);
+        assert_eq!(value, Value::Number(1.5));
+        let json = serde_json::to_value(&value).unwrap();
+        assert_eq!(serde_json::from_value::<Value>(json).unwrap(), value);
     }
 
     #[test]

@@ -142,7 +142,7 @@
         "old_len": { "type": "integer", "minimum": 0 },
         "new_start": { "type": "integer", "minimum": 0 },
         "new_len": { "type": "integer", "minimum": 0 },
-        "lines": { "type": "array", "items": { "type": "string", "pattern": "^[-+ ]" }, "description": "Lines prefixed with '+', '-' or ' '." },
+        "lines": { "type": "array", "items": { "type": "string", "pattern": "^([-+ ]|\\\\ No newline at end of file$)" }, "description": "Lines prefixed with '+', '-' or ' ', and the marker line '\\ No newline at end of file'." },
         "id": { "type": "string", "description": "Stable identifier, path#number[:fingerprint][@lines]." },
         "header": { "type": "string" },
         "old_path": { "type": "string" },
@@ -319,14 +319,12 @@
     "error": {
       "type": "object",
       "required": ["code", "message"],
-      "additionalProperties": false,
       "description": "Error of the language, as defined by the error contract.",
       "properties": {
         "code": { "$ref": "#/$defs/error_code" },
         "message": { "type": "string" },
         "at": {
           "type": "object",
-          "additionalProperties": false,
           "description": "Position of the error: the execution stage and the place in the program text.",
           "properties": {
             "line": { "type": "integer", "minimum": 1 },
@@ -339,7 +337,6 @@
         "location": {
           "type": "object",
           "required": ["path"],
-          "additionalProperties": false,
           "properties": {
             "path": { "type": "string" },
             "line": { "type": "integer", "minimum": 1 },
@@ -361,7 +358,6 @@
           "items": {
             "type": "object",
             "required": ["rank", "program"],
-            "additionalProperties": false,
             "properties": {
               "rank": { "type": "integer", "minimum": 1 },
               "ref": { "type": "string" },

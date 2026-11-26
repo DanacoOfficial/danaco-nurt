@@ -36,7 +36,7 @@ use std::borrow::Cow;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path, PathBuf, Prefix};
 use std::time::Duration;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
@@ -66,11 +66,12 @@ impl AbsPath {
     ///
     /// # Errors
     ///
-    /// Fails with [`FsErrorKind::InvalidPath`] when the path is relative or
-    /// when a `..` component would escape the root.
+    /// Fails with [`FsErrorKind::InvalidPath`] when the path is relative,
+    /// when a `..` component would escape the root, when it contains a NUL
+    /// character or, on Windows, when it carries the long-path prefix `\\?\`.
     pub fn new(path: impl Into<PathBuf>) -> FsResult<Self> {
         let path: PathBuf = path.into();
-        if !path.is_absolute() {
+        if !path.is_absolute() || path.to_string_lossy().contains('\0') {
             return Err(FsError::new(
                 FsErrorKind::InvalidPath,
                 "abs_path",
@@ -80,6 +81,18 @@ impl AbsPath {
         let mut out = PathBuf::new();
         for component in path.components() {
             match component {
+                Component::Prefix(prefix)
+                    if matches!(
+                        prefix.kind(),
+                        Prefix::Verbatim(_) | Prefix::VerbatimUNC(..) | Prefix::VerbatimDisk(_)
+                    ) =>
+                {
+                    return Err(FsError::new(
+                        FsErrorKind::InvalidPath,
+                        "abs_path",
+                        Some(&path),
+                    ));
+                }
                 Component::CurDir => {}
                 Component::ParentDir => {
                     let at_root = out.parent().is_none();
@@ -117,14 +130,14 @@ impl AbsPath {
     /// # Errors
     ///
     /// Fails with [`FsErrorKind::InvalidPath`] when `name` is empty, is `.`
-    /// or `..`, or contains a separator. On Windows a colon is rejected as
+    /// or `..`, or contains a separator or a NUL character. On Windows a colon is rejected as
     /// well, because a name that starts with a drive prefix replaces the
     /// whole path when it is joined.
     pub fn join_name(&self, name: &str) -> FsResult<AbsPath> {
         let invalid = name.is_empty()
             || name == "."
             || name == ".."
-            || name.contains('/')
+            || name.contains(['/', '\0'])
             || (cfg!(windows) && name.contains(['\\', ':']));
         if invalid {
             return Err(FsError::new(

@@ -49,7 +49,7 @@ name never appears in the output of a program.
 | `targets` | object | `count` (required), `files`, `directories`, `bytes`, `listed` (number of entries of `changes` on this page) |
 | `summary` | object | `files_created`, `files_modified`, `files_deleted`, `files_renamed`, `directories_created`, `directories_deleted`, `replacements`, `lines_added`, `lines_removed`, `bytes_before`, `bytes_after`, `bytes_freed` |
 | `changes` | list | changed targets on this page, section 5 |
-| `diff` | list | hunks of unified differences: `path`, `old_start`, `old_len`, `new_start`, `new_len`, `lines` (prefix `+`, `-` or space), `header` |
+| `diff` | list | hunks of unified differences: `path`, `old_start`, `old_len`, `new_start`, `new_len`, `lines` (prefix `+`, `-` or space, or the marker line `\ No newline at end of file`), `header` |
 | `bulk` | object | summary of a bulk operation: `by_directory`, `by_extension` (largest first, with `count` and `bytes`), `sample_head`, `sample_tail` |
 | `exec` | record `exec` | a program that ran |
 | `job` | record `job` | a program that continues in the background; present when the status is `running` |

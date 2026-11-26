@@ -75,9 +75,14 @@ fn minimal_error_has_code_and_message() {
 }
 
 #[test]
-fn unknown_members_are_rejected() {
+fn unknown_members_are_ignored_and_unknown_codes_are_rejected() {
     let json = json!({"code": "E_STALE", "message": "changed", "extra": 1});
-    assert!(serde_json::from_value::<Error>(json).is_err());
+    let error = serde_json::from_value::<Error>(json).unwrap();
+    assert_eq!(error.message, "changed");
+    assert_eq!(
+        serde_json::to_value(&error).unwrap(),
+        json!({"code": "E_STALE", "message": "changed"})
+    );
     let json = json!({"code": "E_NOT_A_CODE", "message": "changed"});
     assert!(serde_json::from_value::<Error>(json).is_err());
 }

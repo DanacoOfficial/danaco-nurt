@@ -1091,7 +1091,8 @@ pub trait GitQueryService: Send + Sync {
 pub enum LineEnding {
     /// `\n`.
     Lf,
-    /// `\r\n`.
+    /// `\r\n`; written `crlf`, as in the record enumeration.
+    #[serde(rename = "crlf")]
     CrLf,
     /// `\r`.
     Cr,

@@ -76,6 +76,30 @@ fn relative_and_empty_paths_are_invalid() {
 }
 
 #[test]
+fn a_nul_character_is_invalid_in_a_path_and_in_a_name() {
+    for input in ["/a\0b", "/\0", "/a/b\0"] {
+        let error = AbsPath::new(at(input)).unwrap_err();
+        assert_eq!(error.kind, FsErrorKind::InvalidPath, "{input:?}");
+        assert_eq!(error.op, "abs_path");
+    }
+    let dir = abs("/home/user");
+    for name in ["\0", "a\0", "\0a", "a\0b"] {
+        let error = dir.join_name(name).unwrap_err();
+        assert_eq!(error.kind, FsErrorKind::InvalidPath, "{name:?}");
+        assert_eq!(error.op, "join_name");
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn the_long_path_prefix_is_never_part_of_an_abs_path() {
+    for input in [r"\\?\C:\a", r"\\?\UNC\server\share\a", r"\\?\Volume{1}\a"] {
+        let error = AbsPath::new(input).unwrap_err();
+        assert_eq!(error.kind, FsErrorKind::InvalidPath, "{input:?}");
+    }
+}
+
+#[test]
 fn root_has_no_parent_and_no_name() {
     let root = abs("/");
     assert_eq!(root.parent(), None);

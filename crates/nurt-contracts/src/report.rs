@@ -41,7 +41,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::ast::AST_HASH_PREFIX;
-use crate::error::Error;
+use crate::error::{Error, ErrorCode};
 use crate::value::{Record, RecordKind};
 
 pub use crate::record::{Change, ChangeAction, Hunk};
@@ -1545,6 +1545,13 @@ impl Report {
             ReportStatus::Partial if self.irreversible.is_empty() && self.error.is_none() => {
                 Err(ReportViolation::PartialWithoutRemainder)
             }
+            ReportStatus::RolledBack
+                if !self.error.as_ref().is_some_and(|error| {
+                    error.code == ErrorCode::RolledBack && error.cause.is_some()
+                }) =>
+            {
+                Err(ReportViolation::RolledBackWithoutCause)
+            }
             _ => Ok(()),
         }
     }
@@ -1645,6 +1652,9 @@ pub enum ReportViolation {
     /// A report with status `partial` lists neither irreversible effects nor
     /// an error for the targets left unchanged.
     PartialWithoutRemainder,
+    /// A report with status `rolled_back` does not carry the error
+    /// `E_ROLLED_BACK` with the `cause` that failed the verification.
+    RolledBackWithoutCause,
     /// The canonical program text is present although no correction was
     /// applied.
     RanWithoutCorrections,
@@ -1709,6 +1719,9 @@ impl fmt::Display for ReportViolation {
             }
             Self::PartialWithoutRemainder => f.write_str(
                 "a report with status `partial` must list irreversible effects or an error",
+            ),
+            Self::RolledBackWithoutCause => f.write_str(
+                "a report with status `rolled_back` must carry the error `E_ROLLED_BACK` with a cause",
             ),
             Self::RanWithoutCorrections => {
                 f.write_str("the canonical program text is present without corrections")

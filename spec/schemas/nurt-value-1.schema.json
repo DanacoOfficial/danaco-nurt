@@ -3098,7 +3098,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Lines with the prefixes `+`, `-` and space."
+          "description": "Lines with the prefixes `+`, `-` and space, and the marker line\n`\\ No newline at end of file`."
         },
         "id": {
           "type": [
@@ -11682,7 +11682,6 @@
     },
     "ErrorData": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "code": {
           "$ref": "#/$defs/ErrorCode",
@@ -11794,7 +11793,7 @@
         "code",
         "message"
       ],
-      "description": "Content of an [`Error`].\n\n[`Error`] dereferences to this structure, so the fields are read as\n`error.code`, `error.message` and so on."
+      "description": "Content of an [`Error`].\n\n[`Error`] dereferences to this structure, so the fields are read as\n`error.code`, `error.message` and so on.\n\nA reader ignores fields it does not know: a later minor version of the\nformat may add optional error fields."
     },
     "ErrorCode": {
       "oneOf": [
@@ -12313,7 +12312,6 @@
     },
     "At": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "line": {
           "type": [
@@ -12408,7 +12406,6 @@
     },
     "Location": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "path": {
           "type": "string",
@@ -12467,7 +12464,6 @@
     },
     "Candidate": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "rank": {
           "type": "integer",

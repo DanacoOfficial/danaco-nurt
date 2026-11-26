@@ -402,9 +402,24 @@ fn request_id(value: &Value) -> Option<u64> {
         .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
 }
 
+/// Response of a cancelled request: the server reports `NURT_E_CANCELLED`
+/// and carries the response in `data.response`, which the caller receives as
+/// a result, as in the other bindings.
+fn cancelled_response(error: &Value) -> Option<Value> {
+    let cancelled = APPLICATION_ERROR_BASE - i64::from(Status::Cancelled.code());
+    if error.get("code").and_then(Value::as_i64) != Some(cancelled) {
+        return None;
+    }
+    let response = error.get("data")?.get("response")?;
+    response
+        .get("report")?
+        .is_object()
+        .then(|| response.clone())
+}
+
 fn reply_of(message: &Value) -> Reply {
     match message.get("error") {
-        Some(error) => Err(rpc_error(error)),
+        Some(error) => cancelled_response(error).map_or_else(|| Err(rpc_error(error)), Ok),
         None => Ok(message.get("result").cloned().unwrap_or(Value::Null)),
     }
 }
@@ -562,6 +577,31 @@ mod tests {
         let error = rpc_error(&json!({"code": "x", "message": "m"}));
         assert_eq!(error.kind(), ErrorKind::Internal);
         assert!(error.message().contains("code -32603"));
+    }
+
+    #[test]
+    fn cancelled_request_replies_with_its_response() {
+        let code = APPLICATION_ERROR_BASE - i64::from(Status::Cancelled.code());
+        let response = json!({"report": {"status": "failed", "error": {"code": "E_CANCELLED"}}});
+        let message = json!({
+            "id": 1,
+            "error": {"code": code, "message": "cancelled", "data": {"response": response}}
+        });
+        assert_eq!(reply_of(&message).unwrap(), response);
+
+        let without = json!({"id": 1, "error": {"code": code, "message": "cancelled"}});
+        assert_eq!(reply_of(&without).unwrap_err().status(), Status::Cancelled);
+        let not_a_response = json!({
+            "id": 1,
+            "error": {"code": code, "message": "cancelled", "data": {"response": 5}}
+        });
+        assert!(reply_of(&not_a_response).is_err());
+        let other = APPLICATION_ERROR_BASE - i64::from(Status::Io.code());
+        let failed = json!({
+            "id": 1,
+            "error": {"code": other, "message": "x", "data": {"response": response}}
+        });
+        assert!(reply_of(&failed).is_err());
     }
 
     #[test]

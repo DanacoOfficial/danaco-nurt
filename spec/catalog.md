@@ -378,7 +378,12 @@ catalog_rev = "sha256:" + lowercase_hex(SHA-256(UTF-8(JCS(files))))
 serialized from `CatalogFile` (the form validated by
 `nurt-catalog-1.schema.json`), and JCS is the canonical JSON of RFC 8785. Any
 change of a command, a parameter or a description therefore changes the
-revision. The revision of the correction tables, `corr_rev`, has the same
+revision. The command registry of the engine reports the same value as
+`catalog_rev` in the result of a catalog query and in `nurt_info`. The groups
+of registered extensions follow the files of the index as files of the same
+form, so a registry with extensions reports a different revision from the one
+recorded in a bound tree, which names the built-in catalog used for binding.
+The revision of the correction tables, `corr_rev`, has the same
 form.
 
 ## 10. Checks

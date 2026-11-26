@@ -88,7 +88,9 @@ to the floor and the change is noted in `journal.status`; `unlimited` is
 above every floor. Values that come from a project file are raised to at
 least 10 steps and 5 minutes even when no floor is set. Floors are normally
 set by an administrator (system file) or by an embedding application when it
-opens the engine; a floor can only raise protection.
+opens the engine; a floor can only raise protection: when several levels set
+the same floor, the highest value wins, whatever the precedence of the levels,
+so that a user file cannot lower a floor set in the system file.
 
 ## 5. Values
 
