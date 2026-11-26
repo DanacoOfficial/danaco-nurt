@@ -682,3 +682,85 @@ fn filter_blocks_without_a_nurt_form_are_uncorrectable() -> Outcome {
     }
     Ok(())
 }
+
+#[test]
+fn preference_variables_are_not_translated_to_let_names() -> Outcome {
+    for input in [
+        "$ErrorActionPreference = 'Stop'",
+        "$erroractionpreference = 'SilentlyContinue'",
+        "$ProgressPreference = 'SilentlyContinue'",
+    ] {
+        let failure = error(input, &TranslateContext::default())?;
+        assert_eq!(failure.code, ErrorCode::Uncorrectable, "{input:?}");
+        assert_eq!(
+            failure.problem.as_deref(),
+            Some("preference_variable"),
+            "{input:?}"
+        );
+    }
+    let ordinary = live("$colorPreference = Get-Process")?;
+    assert_eq!(ordinary.text(), "let colorpreference = processes");
+    Ok(())
+}
+
+#[test]
+fn words_of_the_language_do_not_name_let_results() -> Outcome {
+    for name in ["null", "true", "in", "not"] {
+        let failure = error(&format!("${name} = Get-Process"), &TranslateContext::default())?;
+        assert_eq!(failure.problem.as_deref(), Some("variable_name"), "{name}");
+    }
+    let named = live("$nullable = Get-Process")?;
+    assert_eq!(named.text(), "let nullable = processes");
+    Ok(())
+}
+
+#[test]
+fn deeply_nested_filter_blocks_are_uncorrectable() -> Outcome {
+    let negations = format!(
+        "Get-Process | Where-Object {{ {}$_.Name -eq 'x' }}",
+        "! ".repeat(5_000)
+    );
+    let failure = error(&negations, &TranslateContext::default())?;
+    assert_eq!(failure.code, ErrorCode::Uncorrectable);
+    assert_eq!(failure.problem.as_deref(), Some("script_block"));
+    let groups = format!(
+        "Get-Process | Where-Object {{ {}$_.Name -eq 'x'{} }}",
+        "(".repeat(5_000),
+        ")".repeat(5_000)
+    );
+    let failure = error(&groups, &TranslateContext::default())?;
+    assert_eq!(failure.code, ErrorCode::Uncorrectable);
+    Ok(())
+}
+
+#[test]
+fn long_chains_of_conditions_are_uncorrectable() -> Outcome {
+    let chain = format!(
+        "Get-Process | Where-Object {{ $_.Name -eq 'a'{} }}",
+        " -or $_.Name -eq 'a'".repeat(300)
+    );
+    let failure = error(&chain, &TranslateContext::default())?;
+    assert_eq!(failure.code, ErrorCode::Uncorrectable);
+    assert_eq!(failure.problem.as_deref(), Some("script_block"));
+    let short = live("Get-Process | Where-Object { $_.Name -eq 'a' -or $_.Name -eq 'b' }")?;
+    assert!(short.text().ends_with(" or lower(name) == \"b\""), "{}", short.text());
+    Ok(())
+}
+
+#[test]
+fn deeply_nested_text_is_a_syntax_error_in_script_mode() -> Outcome {
+    let nested = format!("Remove-Item {}x{}", "(".repeat(10_000), ")".repeat(10_000));
+    let failure = error(&nested, &script())?;
+    assert_eq!(failure.code, ErrorCode::Syntax);
+    assert!(failure.message.contains("nested too deeply"), "{}", failure.message);
+    assert!(translate(&nested).is_none());
+    Ok(())
+}
+
+#[test]
+fn empty_here_strings_and_signed_hexadecimal_words_are_read() -> Outcome {
+    let tokens = lex("@'\n'@ 0x-5")?;
+    assert_eq!(tokens[0].kind, TokenKind::Literal(String::new()));
+    assert_eq!(tokens[1].kind, TokenKind::Word("0x-5".to_owned()));
+    Ok(())
+}

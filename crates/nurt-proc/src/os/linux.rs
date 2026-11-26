@@ -353,4 +353,79 @@ mod tests {
         };
         assert_eq!(membership.ticks(250), Duration::from_millis(2500));
     }
+
+    #[test]
+    fn clock_ticks_do_not_overflow_and_a_missing_rate_gives_no_time() {
+        let membership = |clock_ticks| Membership {
+            cgroup: None,
+            clock_ticks,
+            page_size: 4096,
+            seen_cpu: Mutex::new(HashMap::new()),
+        };
+        assert_eq!(membership(100).ticks(0), Duration::ZERO);
+        assert_eq!(membership(100).ticks(99), Duration::from_millis(990));
+        assert_eq!(
+            membership(100).ticks(u64::MAX),
+            Duration::new(u64::MAX / 100, 150_000_000)
+        );
+        assert_eq!(membership(0).ticks(1000), Duration::ZERO);
+    }
+
+    #[test]
+    fn stat_with_fields_that_are_not_numbers_is_ignored() {
+        let stat = "4242 (a) S 1 x 4240 0 -1 4194560 100 0 0 0 7 3 0 0 20 0 1 0 123 4096 25";
+        assert_eq!(parse_stat(stat), None);
+        let negative = "4242 (a) S 1 4240 4240 0 -1 4194560 100 0 0 0 7 3 0 0 20 0 1 0 123 4096 -1";
+        assert_eq!(parse_stat(negative), None);
+        assert_eq!(parse_stat(""), None);
+        assert_eq!(parse_stat(")"), None);
+    }
+
+    #[test]
+    fn keyed_values_ignore_lines_that_are_not_numbers() {
+        assert_eq!(keyed_value("oom_kill abc\nother 2\n", "oom_kill"), None);
+        assert_eq!(keyed_value("oom_kill\nother 2\n", "oom_kill"), None);
+        assert_eq!(keyed_value("a 1\na 2\n", "a"), Some(1));
+        assert_eq!(keyed_value("populated 0\r\n", "populated"), Some(0));
+        assert_eq!(keyed_value("", "a"), None);
+    }
+
+    #[test]
+    fn the_resident_memory_of_a_group_is_summed_from_proc() {
+        let limits = ProcessLimits {
+            timeout: None,
+            idle_timeout: None,
+            kill_grace: Duration::from_secs(1),
+            max_cpu: None,
+            max_memory: None,
+            priority: crate::iface::Priority::Normal,
+        };
+        let membership = Membership::prepare(&limits);
+        // SAFETY: `getpgrp` has no preconditions.
+        let group = unsafe { libc::getpgrp() };
+        let first = membership.sample(group).unwrap();
+        assert!(first.max_rss > 0);
+        let second = membership.sample(group).unwrap();
+        assert!(second.cpu_time >= first.cpu_time);
+        assert_eq!(membership.sample(libc::pid_t::MAX).unwrap().max_rss, 0);
+    }
+
+    #[test]
+    fn a_membership_without_a_cgroup_enforces_nothing() {
+        let limits = ProcessLimits {
+            timeout: None,
+            idle_timeout: None,
+            kill_grace: Duration::from_secs(1),
+            max_cpu: None,
+            max_memory: None,
+            priority: crate::iface::Priority::Normal,
+        };
+        let membership = Membership::prepare(&limits);
+        assert!(!membership.enforces_memory());
+        assert_eq!(membership.join_descriptor(), None);
+        assert_eq!(membership.limit_hit(), None);
+        assert_eq!(membership.cpu_time(), None);
+        membership.kill();
+        membership.release();
+    }
 }

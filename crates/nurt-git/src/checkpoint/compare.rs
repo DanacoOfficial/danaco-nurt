@@ -292,7 +292,7 @@ fn group_changes(changes: &[(Range<u32>, Range<u32>)], context: u32) -> Vec<Rang
     for (index, (before, _)) in changes.iter().enumerate() {
         if let Some(last) = groups.last_mut() {
             let previous_end = changes[last.end - 1].0.end;
-            if before.start.saturating_sub(previous_end) <= 2 * context {
+            if before.start.saturating_sub(previous_end) <= context.saturating_mul(2) {
                 last.end = index + 1;
                 continue;
             }
@@ -557,6 +557,14 @@ mod tests {
             .find(|hunk| hunk.path.as_str() == "t.txt")
             .unwrap();
         assert_eq!(text.lines, [" a", "-b", NO_NEWLINE, "+c", NO_NEWLINE]);
+    }
+
+    #[test]
+    fn grouping_with_the_largest_context_does_not_overflow() {
+        let changes = [(0..1, 0..1), (10..11, 10..11)];
+        assert_eq!(group_changes(&changes, u32::MAX), [0..2]);
+        assert_eq!(group_changes(&changes, 4), [0..1, 1..2]);
+        assert_eq!(group_changes(&changes, 5), [0..2]);
     }
 
     #[test]

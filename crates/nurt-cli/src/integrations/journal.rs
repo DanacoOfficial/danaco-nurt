@@ -177,3 +177,65 @@ pub fn execute(args: &[String], out: &mut dyn Write) -> Result<u8, CliError> {
 pub fn run(args: &[String]) -> Result<u8, CliError> {
     execute(args, &mut std::io::stdout().lock())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn words(text: &str) -> Vec<String> {
+        text.split_whitespace().map(str::to_owned).collect()
+    }
+
+    #[test]
+    fn salvage_takes_one_volume() {
+        assert_eq!(parse(&words("salvage /")), Ok(PathBuf::from("/")));
+        assert_eq!(
+            parse(&words("salvage /mnt/dane")),
+            Ok(PathBuf::from("/mnt/dane"))
+        );
+        let args = vec!["salvage".to_owned(), "/mnt/r\u{f3}\u{17c}ne \u{1f600}".to_owned()];
+        assert_eq!(
+            parse(&args),
+            Ok(PathBuf::from("/mnt/r\u{f3}\u{17c}ne \u{1f600}"))
+        );
+    }
+
+    #[test]
+    fn a_form_is_required_and_must_be_salvage() {
+        for bad in ["", "purge /", "Salvage /"] {
+            assert!(
+                matches!(parse(&words(bad)), Err(CliError::Usage(_))),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn salvage_without_a_volume_or_with_more_than_one_is_a_usage_error() {
+        assert!(matches!(
+            parse(&words("salvage")),
+            Err(CliError::Usage(message)) if message.contains("needs a volume")
+        ));
+        assert!(matches!(
+            parse(&words("salvage / /tmp")),
+            Err(CliError::Usage(message)) if message.contains("`/tmp`")
+        ));
+    }
+
+    #[test]
+    fn invalid_arguments_are_rejected_before_the_volume_is_opened() {
+        let mut out = Vec::new();
+        let result = execute(&words("salvage"), &mut out);
+        assert!(matches!(result, Err(CliError::Usage(_))));
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn a_volume_without_a_journal_is_not_found() {
+        let error = journal_error("the volume has no journal".to_owned());
+        assert!(matches!(
+            error,
+            CliError::Language(error) if error.code == ErrorCode::NotFound
+        ));
+    }
+}

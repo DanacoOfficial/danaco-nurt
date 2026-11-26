@@ -882,9 +882,10 @@ fn every_registered_format_supports_the_operations() {
             }
         }
     }
-    assert!(
-        covered.contains(&"json") && covered.contains(&"jsonc"),
-        "{covered:?}"
+    assert_eq!(
+        covered.len(),
+        SAMPLES.len(),
+        "formats of the matrix missing from the registry: {covered:?}"
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

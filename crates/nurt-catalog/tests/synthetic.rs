@@ -503,3 +503,67 @@ fn catalog_result_reports_unknown_names() {
         .unwrap_err();
     assert_eq!(group.code(), ErrorCode::UnknownName);
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn rejects_an_unlisted_toml_file_whose_name_is_not_utf8() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let (index_text, files) = core_catalog(&["count"]);
+    let dir = write_dir(&index_text, &files);
+    let name = OsStr::from_bytes(b"caf\xe9.toml");
+    fs::write(dir.path().join(name), "").unwrap();
+    let error = Registry::load_dir(dir.path()).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Catalog);
+    assert!(
+        issues_of(&error)
+            .iter()
+            .any(|issue| issue.contains("is not listed in the index")),
+        "{error}"
+    );
+}
+
+#[test]
+fn rejects_an_unlisted_toml_file_with_a_multi_byte_name() {
+    let (index_text, mut files) = core_catalog(&["count"]);
+    files.push(("żółw.toml".to_owned(), String::new()));
+    assert_rejected(&index_text, &files, "żółw.toml is not listed in the index");
+}
+
+#[test]
+fn rejects_an_extension_prefix_written_with_multi_byte_letters() {
+    let mut registry = small_registry();
+    let spec = extension_command(&registry, "ünï.count");
+    let error = registry
+        .register_extension("ünï", "Unicode commands.", vec![spec])
+        .unwrap_err();
+    assert!(
+        issues_of(&error)
+            .iter()
+            .any(|issue| issue.contains("is not an identifier")),
+        "{error}"
+    );
+    assert!(registry.group("ünï").is_none());
+    assert_eq!(registry.len(), 2);
+}
+
+#[test]
+fn group_and_command_results_list_the_extension_commands() {
+    let mut registry = small_registry();
+    let spec = extension_command(&registry, "acme.count");
+    registry
+        .register_extension("acme", "Acme commands.", vec![spec])
+        .unwrap();
+    let group = registry.catalog_json(&CatalogQuery::Group("acme")).unwrap();
+    assert_eq!(group["group"]["origin"], "extension");
+    assert_eq!(group["group"]["commands"], 1);
+    assert_eq!(group["commands"][0]["name"], "acme.count");
+    let command = registry
+        .catalog_json(&CatalogQuery::Command("acme.count"))
+        .unwrap();
+    assert_eq!(command["command"]["name"], "acme.count");
+    let summary = registry.catalog_json(&CatalogQuery::Summary).unwrap();
+    assert_eq!(summary["total"], 3);
+    assert_eq!(summary["groups"][1]["name"], "acme");
+}

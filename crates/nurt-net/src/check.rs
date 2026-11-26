@@ -284,7 +284,7 @@ pub fn describe(
             scheme: target.scheme().to_owned(),
             host: target.host(),
             port: Some(target.port()),
-            url: Some(target.as_str().to_owned()),
+            url: Some(target.display_url()),
         }),
         entry: Value::Map(entry),
     })
@@ -292,8 +292,13 @@ pub fn describe(
 
 fn address_fields(entry: &mut IndexMap<String, Value>, target: &Target) {
     let text = |value: &str| Value::Text(value.to_owned());
-    entry.insert("url".to_owned(), text(target.as_str()));
-    entry.insert("url_input".to_owned(), text(target.input()));
+    let input = if target.has_userinfo() {
+        target.display_url()
+    } else {
+        target.input().to_owned()
+    };
+    entry.insert("url".to_owned(), text(&target.display_url()));
+    entry.insert("url_input".to_owned(), text(&input));
     entry.insert("scheme".to_owned(), text(target.scheme()));
     entry.insert(
         "scheme_assumed".to_owned(),
@@ -349,6 +354,33 @@ mod tests {
 
     fn class(text: &str) -> &'static str {
         classify(text.parse().unwrap()).class
+    }
+
+    #[test]
+    fn description_of_an_address_with_credentials_does_not_repeat_them() {
+        let context = nurt_testkit::ctx::TestContext::new();
+        let ctx = context.ctx();
+        let facts = RequestFacts {
+            stage: 0,
+            command: "http.request".to_owned(),
+            deferred: false,
+            method: "get".to_owned(),
+            address: AddressFact::Fixed("https://user:secret@example.test/a".to_owned()),
+            follow_redirects: true,
+            max_redirects: 10,
+            retries: 0,
+            proxy: ProxyChoice::None,
+            pins: Pins::new(),
+            verify_tls: true,
+            header_names: Vec::new(),
+            body: "none".to_owned(),
+            save: None,
+            cache: "bypass".to_owned(),
+        };
+        let described = describe(&facts, ctx.host(), None, None).unwrap();
+        assert!(!format!("{:?}", described.entry).contains("secret"));
+        let target = described.target.unwrap();
+        assert_eq!(target.url.as_deref(), Some("https://example.test/a"));
     }
 
     #[test]

@@ -424,7 +424,8 @@ fn parse_local_instant(text: &str, tz: &TimeZone) -> Option<Instant> {
 #[must_use]
 pub fn display_instant(instant: Instant) -> String {
     let nanos = instant.as_unix_nanos();
-    Instant::from_unix_nanos(nanos - nanos.rem_euclid(NANOS_PER_SECOND)).to_string()
+    let whole_seconds = nanos.saturating_sub(nanos.rem_euclid(NANOS_PER_SECOND));
+    Instant::from_unix_nanos(whole_seconds).to_string()
 }
 
 /// Parses a range: `5`, `1..5`, `40..`, `..9` or `..`, bounds inclusive.

@@ -437,6 +437,19 @@ mod tests {
     }
 
     #[test]
+    fn shallow_commits_end_the_history() {
+        let mut fixture = Fixture::new();
+        fixture.commit("first", &[("a", Some("a\n"))]);
+        let second = fixture.commit("second", &[("a", Some("b\n"))]);
+        fixture.commit("third", &[("a", Some("c\n"))]);
+        fixture.write_file(".git/shallow", &format!("{second}\n"));
+        assert_eq!(
+            walk(&fixture, "HEAD", WalkOptions::default()),
+            ["third", "second"]
+        );
+    }
+
+    #[test]
     fn since_stops_and_until_hides() {
         let fixture = merged();
         let topic = fixture.resolve("topic");

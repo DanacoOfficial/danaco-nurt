@@ -59,7 +59,7 @@ pub(crate) fn package_version(data: &[u8]) -> Option<String> {
     let layout = layout(bytes, wide)?;
     let names = section(bytes, &layout, layout.shstrndx, wide)?;
     let note = (0..layout.shnum).find_map(|index| {
-        let header = layout.shoff + index * layout.shentsize;
+        let header = header_offset(&layout, index)?;
         let name = usize::try_from(bytes.u32(header)?).ok()?;
         let name = names.get(name..)?;
         name.starts_with(SECTION_NAME)
@@ -84,12 +84,26 @@ fn layout(bytes: Bytes<'_>, wide: bool) -> Option<Layout> {
     })
 }
 
+/// Offset of the header of section `index`; `None` when it does not fit in
+/// the address space.
+fn header_offset(layout: &Layout, index: usize) -> Option<usize> {
+    layout
+        .shoff
+        .checked_add(index.checked_mul(layout.shentsize)?)
+}
+
 fn section<'a>(bytes: Bytes<'a>, layout: &Layout, index: usize, wide: bool) -> Option<&'a [u8]> {
-    let header = layout.shoff + index * layout.shentsize;
+    let header = header_offset(layout, index)?;
     if wide {
-        bytes.slice64(bytes.u64(header + 0x18)?, bytes.u64(header + 0x20)?)
+        bytes.slice64(
+            bytes.u64(header.checked_add(0x18)?)?,
+            bytes.u64(header.checked_add(0x20)?)?,
+        )
     } else {
-        bytes.slice(bytes.index32(header + 0x10)?, bytes.index32(header + 0x14)?)
+        bytes.slice(
+            bytes.index32(header.checked_add(0x10)?)?,
+            bytes.index32(header.checked_add(0x14)?)?,
+        )
     }
 }
 
@@ -183,5 +197,12 @@ mod tests {
         let without = elf_with_notes(&note(b"GNU\0", 3, &[0; 20]));
         assert_eq!(package_version(&without), None);
         assert_eq!(package_version(b"\x7fELF"), None);
+    }
+
+    #[test]
+    fn host_versions_elf_section_table_at_the_end_of_the_address_space() {
+        let mut file = elf_with_notes(&note(b"GNU\0", 3, &[0; 20]));
+        file[0x28..0x30].copy_from_slice(&(u64::MAX - 16).to_le_bytes());
+        assert_eq!(package_version(&file), None);
     }
 }

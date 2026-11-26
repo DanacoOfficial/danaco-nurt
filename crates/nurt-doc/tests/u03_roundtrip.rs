@@ -142,6 +142,22 @@ fn environment_files_keep_their_layout() {
     assert!(summary.files >= 100, "{} files", summary.files);
 }
 
+/// Whether every line of `before` occurs in `after`, in the same order, so
+/// that a line which was changed into a copy of another line is detected.
+fn keeps_every_line_in_order(before: &[u8], after: &[u8]) -> bool {
+    let mut later = after.split(|byte| *byte == b'\n');
+    before
+        .split(|byte| *byte == b'\n')
+        .all(|line| later.any(|candidate| candidate == line))
+}
+
+#[test]
+fn a_changed_line_is_not_taken_for_a_kept_one() {
+    assert!(keeps_every_line_in_order(b"a\nb\n", b"a\nnew\nb\n"));
+    assert!(!keeps_every_line_in_order(b"a\nb\n", b"a\na\nnew\n"));
+    assert!(!keeps_every_line_in_order(b"a\nb\n", b"b\na\n"));
+}
+
 /// Inserts a text key into every map of each corpus file and checks that
 /// the bytes before the change are kept around the new line.
 ///
@@ -182,14 +198,8 @@ fn text_keys_are_inserted_without_changing_other_lines() {
             .unwrap_or_else(|error| panic!("{file}: {error}"));
         assert_eq!(report.replacements, 1, "{file}");
         let after = document.bytes();
-        let removed: Vec<&[u8]> = bytes.split(|b| *b == b'\n').collect();
-        let kept = after
-            .split(|b| *b == b'\n')
-            .filter(|line| removed.contains(line))
-            .count();
-        assert_eq!(
-            kept,
-            removed.len(),
+        assert!(
+            keeps_every_line_in_order(&bytes, &after),
             "{file}: a line of the original changed"
         );
         let found = document.handle.get(&key).unwrap();

@@ -230,6 +230,14 @@ impl GoldenRunner {
                 continue;
             };
             let input_path = entry.path();
+            if cases.contains_key(name) {
+                // The order of a directory listing is not defined, so a case
+                // with two inputs would run with either of them.
+                return Err(GoldenError::Io {
+                    path: input_path,
+                    message: format!("the case `{name}` has more than one input file"),
+                });
+            }
             let text =
                 fs::read_to_string(&input_path).map_err(|error| io_error(&input_path, &error))?;
             let input = if extension == "json" {

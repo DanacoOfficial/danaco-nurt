@@ -180,6 +180,9 @@ pub const CHECKS: &[(&str, CheckFn)] = &[
     ("symbolic_links", |area| finish(symbolic_links(area))),
     ("hard_links", |area| finish(hard_links(area))),
     ("modification_time", |area| finish(modification_time(area))),
+    ("content_changes_date_the_file", |area| {
+        finish(content_changes_date_the_file(area))
+    }),
     ("volumes", |area| finish(volumes(area))),
     ("remove_tree", |area| finish(remove_tree(area))),
     ("exclusive_locks", |area| finish(exclusive_locks(area))),
@@ -710,6 +713,36 @@ fn modification_time(area: &CheckArea<'_>) -> Step<()> {
         before.modified_ns == FIXED_MODIFIED_NS || !before.matches(&meta.etag()),
         || "the entity tag did not change with the modification time".to_owned(),
     )
+}
+
+/// A content change sets the modification time to the time of the change; a
+/// stale time makes build tools and backups skip the file.
+fn content_changes_date_the_file(area: &CheckArea<'_>) -> Step<()> {
+    let file = area.path("changed")?;
+    area.write_new(&file, CONTENT)?;
+    let dated = MetaChange {
+        modified_ns: Some(FIXED_MODIFIED_NS),
+        ..MetaChange::default()
+    };
+    op("set_meta", area.fs.set_meta(area.scope, &file, &dated))?;
+    {
+        let mut handle = op("open_in_place", area.fs.open_in_place(area.scope, &file))?;
+        handle
+            .seek(SeekFrom::Start(0))
+            .and_then(|_| handle.write_all(b"X"))
+            .map_err(|error| failed(format!("writing in place failed: {error}")))?;
+        op("sync", handle.sync(Durability::Data))?;
+    }
+    let written = op("metadata", area.fs.metadata(&file, Follow::NoFollow))?;
+    ensure(written.modified_ns != FIXED_MODIFIED_NS, || {
+        "an in-place write left the modification time unchanged".to_owned()
+    })?;
+    op("set_meta", area.fs.set_meta(area.scope, &file, &dated))?;
+    op("truncate", area.fs.truncate(area.scope, &file, 4))?;
+    let cut = op("metadata", area.fs.metadata(&file, Follow::NoFollow))?;
+    ensure(cut.modified_ns != FIXED_MODIFIED_NS, || {
+        "a truncation left the modification time unchanged".to_owned()
+    })
 }
 
 fn volumes(area: &CheckArea<'_>) -> Step<()> {

@@ -484,16 +484,16 @@ impl ServiceChild for ServiceProcess {
     }
 
     fn wait_timeout(&mut self, timeout: Duration) -> Result<Option<ChildExit>> {
-        let deadline = Instant::now() + timeout;
+        let deadline = Instant::now().checked_add(timeout);
         loop {
             if let Some(exit) = self.try_wait()? {
                 return Ok(Some(exit));
             }
-            let now = Instant::now();
-            if now >= deadline {
+            let left = deadline.map(|deadline| deadline.saturating_duration_since(Instant::now()));
+            if left.is_some_and(|left| left.is_zero()) {
                 return Ok(None);
             }
-            std::thread::sleep(SERVICE_POLL.min(deadline - now));
+            std::thread::sleep(left.map_or(SERVICE_POLL, |left| SERVICE_POLL.min(left)));
         }
     }
 
@@ -529,10 +529,10 @@ mod tests {
 
     use nurt_contracts::error::ErrorCode;
     use nurt_contracts::services::{ProcessHost, ProgramInput, ProgramSpec, ServiceSpawnSpec};
-    use nurt_contracts::stage::CancelToken;
+    use nurt_contracts::stage::{CancelToken, OutputStream};
 
-    use super::{SystemProcessHost, changed, scan};
-    use crate::iface::Components;
+    use super::{Capture, SystemProcessHost, changed, lock, scan};
+    use crate::iface::{Components, OutputSink};
     use crate::spawn::testing::{StdControl, fixture_path};
 
     fn host() -> SystemProcessHost {
@@ -686,5 +686,126 @@ mod tests {
         assert!(child.try_wait().unwrap().is_none());
         child.kill_tree().unwrap();
         assert!(child.try_wait().unwrap().is_some());
+    }
+
+    fn helper(args: &[&str], dir: &Path) -> Box<dyn nurt_contracts::services::ServiceChild> {
+        host()
+            .spawn_service(&ServiceSpawnSpec {
+                program: fixture(),
+                args: args.iter().map(|arg| (*arg).to_owned()).collect(),
+                cwd: dir.to_path_buf(),
+                env: Vec::new(),
+                inherit_env: true,
+                temp_dir: None,
+            })
+            .unwrap()
+    }
+
+    #[test]
+    fn waiting_for_a_helper_without_a_practical_limit_does_not_overflow() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut child = helper(&["exit-with", "0"], dir.path());
+        let exit = child.wait_timeout(Duration::MAX).unwrap();
+        assert_eq!(exit.and_then(|exit| exit.exit_code), Some(0));
+    }
+
+    #[test]
+    fn a_zero_wait_polls_a_running_helper_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut child = helper(&["exit-with", "0", "30000"], dir.path());
+        assert!(child.wait_timeout(Duration::ZERO).unwrap().is_none());
+        child.kill_tree().unwrap();
+        let exit = child.wait_timeout(Duration::ZERO).unwrap();
+        assert!(exit.is_some());
+        assert_eq!(exit.and_then(|exit| exit.exit_code), None);
+    }
+
+    #[test]
+    fn capture_keeps_bytes_up_to_the_limit_of_each_stream() {
+        let capture = Capture::new(5);
+        capture.write(OutputStream::Stdout, b"abc").unwrap();
+        capture.write(OutputStream::Stdout, b"defg").unwrap();
+        capture.write(OutputStream::Stderr, b"xy").unwrap();
+        let streams = capture.take();
+        assert_eq!(streams.stdout, b"abcde");
+        assert!(streams.stdout_truncated);
+        assert_eq!(streams.stderr, b"xy");
+        assert!(!streams.stderr_truncated);
+        assert!(capture.take().stdout.is_empty());
+    }
+
+    #[test]
+    fn capture_without_room_reports_truncation_only_for_real_bytes() {
+        let capture = Capture::new(0);
+        capture.write(OutputStream::Stdout, b"").unwrap();
+        assert!(!capture.take().stdout_truncated);
+        capture.write(OutputStream::Stdout, b"x").unwrap();
+        let streams = capture.take();
+        assert!(streams.stdout.is_empty() && streams.stdout_truncated);
+        let unlimited = Capture::new(u64::MAX);
+        unlimited.write(OutputStream::Stderr, b"all").unwrap();
+        assert_eq!(unlimited.take().stderr, b"all");
+    }
+
+    #[test]
+    fn capture_counts_the_ended_streams_and_does_not_wait_for_closed_ones() {
+        let capture = Capture::new(8);
+        capture.finish(OutputStream::Stdout).unwrap();
+        assert_eq!(lock(&capture.state).open, 1);
+        capture.finish(OutputStream::Stderr).unwrap();
+        capture.finish(OutputStream::Stderr).unwrap();
+        assert_eq!(lock(&capture.state).open, 0);
+        capture.wait_closed(Duration::from_secs(60));
+    }
+
+    #[test]
+    fn capture_reports_the_last_activity_after_the_first_output() {
+        let capture = Capture::new(8);
+        assert!(capture.last_activity().is_none());
+        capture.write(OutputStream::Stdout, b"a").unwrap();
+        assert!(capture.last_activity().is_some());
+    }
+
+    #[test]
+    fn changes_are_reported_for_new_removed_and_resized_files_in_path_order() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("same.txt"), "same").unwrap();
+        std::fs::write(dir.path().join("grows.txt"), "a").unwrap();
+        std::fs::write(dir.path().join("gone.txt"), "x").unwrap();
+        let before = scan(dir.path());
+        std::fs::write(dir.path().join("grows.txt"), "abc").unwrap();
+        std::fs::remove_file(dir.path().join("gone.txt")).unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("sub").join("new.txt"), "n").unwrap();
+        let after = scan(dir.path());
+        assert_eq!(
+            changed(&before, &after),
+            vec![
+                dir.path().join("gone.txt"),
+                dir.path().join("grows.txt"),
+                dir.path().join("sub").join("new.txt"),
+            ]
+        );
+        assert!(changed(&after, &after).is_empty());
+        assert!(scan(&dir.path().join("missing")).is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_does_not_follow_links_to_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("real")).unwrap();
+        std::fs::write(dir.path().join("real").join("file.txt"), "x").unwrap();
+        std::os::unix::fs::symlink(dir.path().join("real"), dir.path().join("link")).unwrap();
+        std::os::unix::fs::symlink(dir.path(), dir.path().join("real").join("loop")).unwrap();
+        let files: Vec<_> = scan(dir.path()).into_keys().collect();
+        assert_eq!(
+            files,
+            vec![
+                dir.path().join("link"),
+                dir.path().join("real").join("file.txt"),
+                dir.path().join("real").join("loop"),
+            ]
+        );
     }
 }

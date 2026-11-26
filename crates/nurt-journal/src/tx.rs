@@ -65,6 +65,9 @@ use crate::store::{self, Fault, JournalCtx, JournalLocation};
 /// Permission bits of directories created inside a journal.
 const JOURNAL_DIR_MODE: u32 = 0o700;
 
+/// Workers removing the directory of an entry that could not be written.
+const REMOVE_WORKERS: usize = 1;
+
 /// Opens a transaction of a user operation.
 pub(crate) fn begin(ctx: &JournalCtx, request: BeginRequest) -> Box<dyn MutationTx + '_> {
     Box::new(Tx::new(ctx, request, Link::default()))
@@ -86,10 +89,24 @@ pub(crate) struct Link {
     pub(crate) scope: Option<UndoScope>,
     /// Items restored.
     pub(crate) items: Vec<ItemRef>,
+    /// Metadata of the state restored by each target of the transaction, in
+    /// the order of the targets; shorter than the targets when unknown.
+    pub(crate) recorded: Vec<RecordedMeta>,
     /// Update of the source entries, run after the entry is durably committed
     /// and indexed and before its marker is removed; recovery repeats it
     /// idempotently when the marker remains.
     pub(crate) after_commit: Option<AfterCommit>,
+}
+
+/// Metadata recorded with the previous state of a target that an undo or
+/// redo brings back.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct RecordedMeta {
+    /// Block with the extended metadata kept with the previous content.
+    pub(crate) blob: Option<AbsPath>,
+    /// Modification time of the previous state, nanoseconds since the Unix
+    /// epoch.
+    pub(crate) modified_ns: Option<i64>,
 }
 
 /// Update of source entries after an undo entry is committed.
@@ -420,13 +437,48 @@ impl<'a> Tx<'a> {
                 return Ok(None);
             }
         };
-        match seq::allocate(self.ctx) {
+        match self.allocate_unused() {
             Ok(op) => self.op = Some(op),
             Err(Fault::Halt) => return Err(Fault::Halt),
             Err(Fault::Fs(_)) => self.unavailable = Some(Irreversible::JournalError),
         }
         drop(lock);
         Ok(self.op)
+    }
+
+    /// Assigns a number that no active journal names yet.
+    ///
+    /// A journal directory can be shared by accounts that keep separate
+    /// sequences. A number already named there is dropped and the sequence is
+    /// rebuilt from the journals, so that an entry of another account is never
+    /// overwritten or shadowed.
+    fn allocate_unused(&self) -> std::result::Result<OpId, Fault> {
+        let op = seq::allocate(self.ctx)?;
+        if !self.named_in_journals(op) {
+            return Ok(op);
+        }
+        let scope = store::scope(op, ScopePurpose::Maintenance);
+        self.ctx.fs.remove_file(&scope, &self.ctx.state.seq()?)?;
+        seq::allocate(self.ctx)
+    }
+
+    /// Whether an entry, a temporary entry, a marker, a reclaimed entry or a
+    /// tombstone of `op` exists in an active journal.
+    fn named_in_journals(&self, op: OpId) -> bool {
+        let fs = self.ctx.fs.as_ref();
+        self.ctx.active_journals().iter().any(|journal| {
+            let names = [
+                journal.entry(op).map(|entry| entry.dir().clone()),
+                journal.entry_tmp(op).map(|entry| entry.dir().clone()),
+                journal.reaped(op).map(|entry| entry.dir().clone()),
+                journal.pending(op),
+                journal.tomb(op),
+            ];
+            names
+                .into_iter()
+                .flatten()
+                .any(|name| fs.metadata(&name, Follow::NoFollow).is_ok())
+        })
     }
 
     /// Part of `volume`, opened on first use; `Err` names the reason why the
@@ -607,27 +659,15 @@ impl<'a> Tx<'a> {
         let tmp = target.layout.entry_tmp(op)?;
         let ops_dir = target.layout.ops_dir()?;
         let entry_dir = target.entry.dir().clone();
-        for dir in [tmp.dir().clone(), tmp.blobs()?, tmp.tmp()?] {
-            fs.create_dir(&scope, &dir, JOURNAL_DIR_MODE)?;
+        // A directory that exists already is not this entry's: it is left as
+        // found. A directory created here is removed when it cannot be
+        // completed, because no marker leads recovery to it afterwards.
+        fs.create_dir(&scope, tmp.dir(), JOURNAL_DIR_MODE)?;
+        let filled = fill_entry_tmp(ctx, &scope, &tmp, &bytes, (&entry_dir, &ops_dir));
+        if matches!(filled, Err(Fault::Fs(_))) {
+            let _ = fs.remove_tree(&scope, tmp.dir(), REMOVE_WORKERS);
         }
-        let mut handle = fs.create_new(&scope, &tmp.manifest()?)?;
-        manifest::write_all(handle.as_mut(), &bytes)?;
-        ctx.hit(FailPoint::ManifestWritten, None)?;
-        handle.sync(Durability::Full)?;
-        drop(handle);
-        let mut state = fs.create_new(&scope, &tmp.state()?)?;
-        manifest::write_all(
-            state.as_mut(),
-            &StateRecord::new(nurt_contracts::journal::EntryState::Prepared).encode(),
-        )?;
-        state.sync(Durability::Full)?;
-        drop(state);
-        fs.sync_dir(&scope, tmp.dir())?;
-        ctx.hit(FailPoint::ManifestSynced, None)?;
-        fs.rename(&scope, tmp.dir(), &entry_dir, RenameMode::NoReplace)?;
-        ctx.hit(FailPoint::PreparedRenamed, None)?;
-        fs.sync_dir(&scope, &ops_dir)?;
-        ctx.hit(FailPoint::PreparedDurable, None)?;
+        filled?;
         self.parts[part].prepared = true;
         Ok(())
     }
@@ -696,6 +736,40 @@ impl<'a> Tx<'a> {
         };
         if matches { Ok(()) } else { Err(stale(path)) }
     }
+}
+
+/// Fills the new directory `tmp` of an entry with its manifest and its
+/// prepared state, flushes it and renames it to the name of the entry.
+fn fill_entry_tmp(
+    ctx: &JournalCtx,
+    scope: &TxScope,
+    tmp: &EntryLayout,
+    manifest_bytes: &[u8],
+    (entry_dir, ops_dir): (&AbsPath, &AbsPath),
+) -> std::result::Result<(), Fault> {
+    let fs = ctx.fs.as_ref();
+    for dir in [tmp.blobs()?, tmp.tmp()?] {
+        fs.create_dir(scope, &dir, JOURNAL_DIR_MODE)?;
+    }
+    let mut handle = fs.create_new(scope, &tmp.manifest()?)?;
+    manifest::write_all(handle.as_mut(), manifest_bytes)?;
+    ctx.hit(FailPoint::ManifestWritten, None)?;
+    handle.sync(Durability::Full)?;
+    drop(handle);
+    let mut state = fs.create_new(scope, &tmp.state()?)?;
+    manifest::write_all(
+        state.as_mut(),
+        &StateRecord::new(nurt_contracts::journal::EntryState::Prepared).encode(),
+    )?;
+    state.sync(Durability::Full)?;
+    drop(state);
+    fs.sync_dir(scope, tmp.dir())?;
+    ctx.hit(FailPoint::ManifestSynced, None)?;
+    fs.rename(scope, tmp.dir(), entry_dir, RenameMode::NoReplace)?;
+    ctx.hit(FailPoint::PreparedRenamed, None)?;
+    fs.sync_dir(scope, ops_dir)?;
+    ctx.hit(FailPoint::PreparedDurable, None)?;
+    Ok(())
 }
 
 /// Outcome of locating the journal part of a target.
@@ -1638,9 +1712,13 @@ impl Tx<'_> {
             }
         }
         self.step(FailPoint::StageWritten, index)?;
-        let complete = match &self.targets[position].old_meta {
-            Some(meta) if existed => handle.apply_meta(meta).map_err(as_target)?.is_complete(),
-            _ => true,
+        let previous = self.targets[position].old_meta.as_ref().filter(|_| existed);
+        let complete = match self
+            .metadata_for(index, previous, &staged)
+            .map_err(as_target)?
+        {
+            Some(meta) => handle.apply_meta(&meta).map_err(as_target)?.is_complete(),
+            None => true,
         };
         handle.sync(Durability::Full).map_err(as_target)?;
         drop(handle);
@@ -1676,6 +1754,41 @@ impl Tx<'_> {
             fs.sync_dir(&scope, &parent).map_err(as_target)?;
         }
         self.finish(position, Some(hash))
+    }
+
+    /// Metadata the new content of a target receives before it is switched
+    /// in.
+    ///
+    /// An undo or redo applies the metadata recorded with the state it brings
+    /// back, also to a file that does not exist any more, so that the file is
+    /// never visible with other permissions. Any other change transfers the
+    /// metadata of the previous file `previous`, except the modification
+    /// time, which is the time of the write.
+    fn metadata_for(
+        &self,
+        index: TargetIndex,
+        previous: Option<&ExtendedMeta>,
+        written: &AbsPath,
+    ) -> FsResult<Option<ExtendedMeta>> {
+        let fs = self.ctx.fs.as_ref();
+        let recorded = usize::try_from(index.0)
+            .ok()
+            .and_then(|position| self.link.recorded.get(position));
+        let kept = recorded
+            .and_then(|recorded| recorded.blob.as_ref())
+            .and_then(|blob| manifest::read_meta(fs, blob).ok());
+        if kept.is_some() {
+            return Ok(kept);
+        }
+        let Some(previous) = previous else {
+            return Ok(None);
+        };
+        let current = fs.metadata(written, Follow::NoFollow)?;
+        let mut meta = nurt_fs::transfer::for_content_change(previous, &current);
+        if let Some(modified_ns) = recorded.and_then(|recorded| recorded.modified_ns) {
+            meta.basic.modified_ns = modified_ns;
+        }
+        Ok(Some(meta))
     }
 
     fn step(&mut self, point: FailPoint, index: TargetIndex) -> Result<()> {
@@ -3685,6 +3798,219 @@ mod tests {
     }
 
     #[test]
+    fn number_named_in_a_shared_journal_is_never_assigned() {
+        let env = Env::new();
+        let layout = env.layout(0);
+        let used = [
+            layout.entry(OpId(1)).unwrap(),
+            layout.entry_tmp(OpId(2)).unwrap(),
+        ];
+        for entry in &used {
+            std::fs::create_dir_all(entry.dir().as_path()).unwrap();
+        }
+        env.fixture
+            .write(&env.ctx.state.seq().unwrap(), &seq::encode(OpId(0)));
+        let path = env.file("vol-a/a.txt", b"old");
+        let handle = env.overwrite(&path, b"new");
+        assert_eq!(handle.op, Some(OpId(3)));
+        assert_eq!(handle.targets[0].mode, PreserveMode::Exchange);
+        assert!(handle.irreversible.is_empty(), "{handle:?}");
+        assert_eq!(env.read(&env.blob(0, 3, 0, BlobRole::Previous)), b"old");
+        assert!(used.iter().all(|entry| env.fixture.exists(entry.dir())));
+    }
+
+    #[test]
+    fn failed_preparation_removes_its_temporary_entry_directory() {
+        let env = Env::new();
+        let path = env.file("vol-a/a.txt", b"old");
+        env.fixture
+            .fs
+            .fail("create_new", "op.json", FsErrorKind::NoSpace);
+        let handle = env.overwrite(&path, b"new");
+        assert_eq!(
+            handle.targets[0].irreversible,
+            Some(Irreversible::JournalError)
+        );
+        assert_eq!(env.read(&path), b"new");
+        let tmp = env.layout(0).entry_tmp(OpId(1)).unwrap();
+        assert!(!env.fixture.exists(tmp.dir()));
+        assert!(env.pending(0).is_empty());
+    }
+
+    #[test]
+    fn overwrite_keeps_the_mode_and_gives_the_new_content_the_time_of_the_write() {
+        let env = Env::new();
+        let path = env.file("vol-a/a.txt", b"old");
+        let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000);
+        std::fs::File::options()
+            .write(true)
+            .open(path.as_path())
+            .unwrap()
+            .set_modified(old)
+            .unwrap();
+        crate::store::test_support::set_path_mode(path.as_path(), 0o600).unwrap();
+        env.overwrite(&path, b"new");
+        let written = env.fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
+        assert_eq!(env.read(&path), b"new");
+        assert_eq!(written.mode & 0o777, 0o600);
+        assert!(written.modified_ns > 1_000_000_000_000, "{written:?}");
+    }
+
+    #[test]
+    fn write_at_and_set_length_change_the_content_in_place_of_the_range() {
+        let env = Env::new();
+        let path = env.file("vol-a/a.txt", b"abcdef");
+        let mut tx = begin(&env.ctx, request("write"));
+        tx.preserve(&[spec(&path, TargetAction::Modify)]).unwrap();
+        tx.apply(
+            TargetIndex(0),
+            Mutation::WriteAt {
+                offset: 2,
+                bytes: b"XY".to_vec(),
+            },
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        assert_eq!(env.read(&path), b"abXYef");
+        let grown = env.file("vol-a/b.txt", b"abc");
+        let mut tx = begin(&env.ctx, request("write"));
+        tx.preserve(&[spec(&grown, TargetAction::Truncate)]).unwrap();
+        tx.apply(TargetIndex(0), Mutation::SetLength(5)).unwrap();
+        tx.commit().unwrap();
+        assert_eq!(env.read(&grown), b"abc\0\0");
+    }
+
+    #[test]
+    fn append_to_a_missing_file_creates_it_and_rollback_removes_it() {
+        let env = Env::new();
+        let path = env.fixture.fs.path("vol-a/new.log");
+        let mut tx = begin(&env.ctx, request("write"));
+        let preserved = tx.preserve(&[spec(&path, TargetAction::Append)]).unwrap();
+        assert_eq!(preserved[0].mode, PreserveMode::Created);
+        tx.apply(TargetIndex(0), Mutation::AppendBytes(b"x".to_vec()))
+            .unwrap();
+        assert_eq!(env.read(&path), b"x");
+        tx.rollback(RollbackReason::Cancelled).unwrap();
+        assert!(!env.fixture.exists(&path));
+    }
+
+    #[test]
+    fn replacing_a_file_by_a_directory_is_rolled_back_to_the_file() {
+        let env = Env::new();
+        let path = env.file("vol-a/x", b"file");
+        let mut tx = begin(&env.ctx, request("replace"));
+        let preserved = tx.preserve(&[spec(&path, TargetAction::Replace)]).unwrap();
+        assert_eq!(preserved[0].mode, PreserveMode::Moved);
+        tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
+        tx.apply(TargetIndex(0), Mutation::CreateDir { mode: 0o755 })
+            .unwrap();
+        assert!(std::fs::metadata(path.as_path()).unwrap().is_dir());
+        tx.rollback(RollbackReason::Cancelled).unwrap();
+        assert_eq!(env.read(&path), b"file");
+    }
+
+    #[test]
+    fn expected_state_that_differs_fails_the_declaration_as_stale() {
+        let env = Env::new();
+        let path = env.file("vol-a/a.txt", b"a");
+        let mut wrong_hash = spec(&path, TargetAction::Modify);
+        wrong_hash.expect = Expect::Hash(manifest::hash_bytes(b"other"));
+        let mut tx = begin(&env.ctx, request("write"));
+        assert_eq!(
+            tx.preserve(&[wrong_hash]).unwrap_err().code(),
+            ErrorCode::Stale
+        );
+        let mut not_absent = spec(&path, TargetAction::Modify);
+        not_absent.expect = Expect::Absent;
+        let mut tx = begin(&env.ctx, request("write"));
+        assert_eq!(
+            tx.preserve(&[not_absent]).unwrap_err().code(),
+            ErrorCode::Stale
+        );
+        let mut right_hash = spec(&path, TargetAction::Modify);
+        right_hash.expect = Expect::Hash(manifest::hash_bytes(b"a"));
+        let mut tx = begin(&env.ctx, request("write"));
+        tx.preserve(&[right_hash]).unwrap();
+        assert_eq!(env.read(&path), b"a");
+    }
+
+    #[test]
+    fn provider_value_removal_is_restored_by_rollback() {
+        let env = Env::new();
+        let key = ProviderKey {
+            scheme: ProviderScheme("registry".to_owned()),
+            segments: vec!["HKCU".to_owned(), "Software".to_owned()],
+            value: Some("Theme".to_owned()),
+        };
+        env.fixture
+            .registry
+            .values
+            .lock()
+            .unwrap()
+            .insert(key.clone(), ProviderValue::Text("dark".to_owned()));
+        let target = TargetSpec {
+            path: TargetPath::Provider(key.clone()),
+            action: TargetAction::Delete,
+            expect: Expect::Unchecked,
+            size_hint: None,
+        };
+        let mut tx = begin(&env.ctx, request("registry.remove"));
+        let preserved = tx.preserve(&[target]).unwrap();
+        assert_eq!(preserved[0].mode, PreserveMode::Value);
+        tx.apply(TargetIndex(0), Mutation::ProviderRemove).unwrap();
+        assert!(env.fixture.registry.values.lock().unwrap().is_empty());
+        tx.rollback(RollbackReason::Cancelled).unwrap();
+        assert_eq!(
+            env.fixture.registry.values.lock().unwrap().get(&key),
+            Some(&ProviderValue::Text("dark".to_owned()))
+        );
+    }
+
+    #[test]
+    fn file_mutation_on_a_provider_target_is_a_protocol_violation() {
+        let env = Env::new();
+        let key = ProviderKey {
+            scheme: ProviderScheme("registry".to_owned()),
+            segments: vec!["HKCU".to_owned()],
+            value: Some("Theme".to_owned()),
+        };
+        let target = TargetSpec {
+            path: TargetPath::Provider(key),
+            action: TargetAction::Modify,
+            expect: Expect::Unchecked,
+            size_hint: None,
+        };
+        let mut tx = begin(&env.ctx, request("registry.set"));
+        tx.preserve(&[target]).unwrap();
+        let error = tx
+            .apply(TargetIndex(0), Mutation::WriteBytes(Vec::new()))
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::StageFailed);
+    }
+
+    #[test]
+    fn symbolic_link_is_created_and_recorded() {
+        let env = Env::new();
+        let link = env.fixture.fs.path("vol-a/link");
+        let mut tx = begin(&env.ctx, request("link"));
+        tx.preserve(&[spec(&link, TargetAction::Link)]).unwrap();
+        tx.apply(
+            TargetIndex(0),
+            Mutation::CreateLink {
+                target: std::path::PathBuf::from("a.txt"),
+                kind: nurt_contracts::fs::LinkKind::SymlinkFile,
+            },
+        )
+        .unwrap();
+        let handle = tx.commit().unwrap();
+        assert_eq!(handle.targets[0].mode, PreserveMode::Created);
+        assert_eq!(
+            std::fs::read_link(link.as_path()).unwrap(),
+            std::path::PathBuf::from("a.txt")
+        );
+    }
+
+    #[test]
     fn staged_content_is_switched_in_by_commit_staged() {
         let env = Env::new();
         let a = env.file("vol-a/a.txt", b"a");
@@ -4135,6 +4461,7 @@ mod tests {
                 index: TargetIndex(0),
                 path: TargetPath::Fs(a.clone()),
             }],
+            recorded: Vec::new(),
             after_commit: Some(Box::new(move |ctx: &JournalCtx, op| {
                 let layout = JournalLayout::new(ctx.journals.active()[0].clone());
                 let pending = layout::pending_entries(ctx.fs.as_ref(), &layout).unwrap();

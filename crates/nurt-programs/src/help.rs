@@ -112,7 +112,9 @@ impl HelpResult {
 /// name, `a|b` lists alternatives).
 #[must_use]
 pub fn refusal(env: &HostEnv, path: &Path, patterns: &[String]) -> Option<String> {
-    let file_name = path.file_name()?.to_str()?;
+    let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+        return Some("the file name is missing or not valid Unicode".to_owned());
+    };
     let name = env
         .command_name(file_name)
         .unwrap_or_else(|| file_name.to_owned())
@@ -285,6 +287,25 @@ mod tests {
                 .unwrap()
                 .contains("search path")
         );
+    }
+
+    #[test]
+    fn refuses_path_without_file_name() {
+        let env = HostEnv::new(Os::Linux).with_var("PATH", "/usr/bin");
+        let reason = refusal(&env, Path::new("/"), &[]).unwrap();
+        assert!(reason.contains("file name"));
+        assert!(refusal(&env, Path::new("/usr/bin/.."), &[]).is_some());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_file_name_that_is_not_unicode() {
+        use std::os::unix::ffi::OsStrExt;
+
+        let env = HostEnv::new(Os::Linux).with_var("PATH", "/usr/bin");
+        let path = Path::new(std::ffi::OsStr::from_bytes(b"/usr/bin/tool\xff"));
+        let reason = refusal(&env, path, &[]).unwrap();
+        assert!(reason.contains("not valid Unicode"));
     }
 
     #[test]

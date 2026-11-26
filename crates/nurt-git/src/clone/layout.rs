@@ -350,8 +350,9 @@ impl<'a> Layout<'a> {
         }
         if let Some(name) = branch {
             text.push_str(&format!(
-                "[branch \"{}\"]\n\tremote = {REMOTE}\n\tmerge = {HEADS}{name}\n",
-                subsection(name)
+                "[branch \"{}\"]\n\tremote = {REMOTE}\n\tmerge = {}\n",
+                subsection(name),
+                value(&format!("{HEADS}{name}"))
             ));
         }
         write_file(&path, text.as_bytes())
@@ -359,7 +360,19 @@ impl<'a> Layout<'a> {
 
     /// Writes `packed-refs`, `HEAD`, the checked out branch,
     /// `refs/remotes/origin/HEAD` and the reflogs.
+    ///
+    /// # Errors
+    ///
+    /// `E_GIT_REF` when the remote names a reference or the branch of `HEAD`
+    /// in a form that is not a valid reference name, such as one with a `..`
+    /// component; no path is written then.
     pub(super) fn write_refs(&self, refs: &[Packed], head: &HeadTarget) -> Result<()> {
+        for reference in refs {
+            verify_name(&reference.name)?;
+        }
+        if let HeadTarget::Branch { name, .. } = head {
+            verify_name(&format!("{HEADS}{name}"))?;
+        }
         if !refs.is_empty() {
             write_file(
                 &self.git_dir.join("packed-refs"),
@@ -420,6 +433,20 @@ impl<'a> Layout<'a> {
         );
         write_file(&path, &line)
     }
+}
+
+/// Fails when `name` is not a valid full reference name, before it becomes
+/// part of a path below the repository directory.
+fn verify_name(name: &str) -> Result<()> {
+    if gix::refs::FullName::try_from(name).is_ok() {
+        return Ok(());
+    }
+    Err(Error::new(
+        ErrorCode::GitRef,
+        format!("the remote names the invalid reference `{name}`; clone another repository"),
+    )
+    .with_problem("invalid_name")
+    .with_found(name.to_owned()))
 }
 
 /// `core` settings that `git` leaves out while they have their default
@@ -558,6 +585,27 @@ mod tests {
     }
 
     #[test]
+    fn values_with_line_feeds_or_edge_spaces_are_quoted_and_escaped() {
+        assert_eq!(value("a\nb"), "\"a\\nb\"");
+        assert_eq!(value(" a"), "\" a\"");
+        assert_eq!(value("a "), "\"a \"");
+        assert_eq!(subsection("a\\b\"c"), "a\\\\b\\\"c");
+    }
+
+    #[test]
+    fn stored_url_keeps_scp_like_and_file_addresses() {
+        assert_eq!(
+            stored_url("file:///srv/up.git").unwrap(),
+            "file:///srv/up.git"
+        );
+        assert_eq!(
+            stored_url("ssh://git@example.com:2222/up.git").unwrap(),
+            "ssh://git@example.com:2222/up.git"
+        );
+        assert!(stored_url("a:b").is_err());
+    }
+
+    #[test]
     fn remote_head_guesses_the_branch_by_commit() {
         let refs = vec![
             Ref::Direct {
@@ -579,6 +627,73 @@ mod tests {
             object: id(5),
         }];
         assert_eq!(RemoteHead::of(&detached).branch(), None);
+    }
+
+    #[test]
+    fn branch_names_with_comment_characters_are_quoted_in_the_configuration() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("config"), "[core]\n\tbare = false\n").unwrap();
+        let mut layout = Layout::new(dir.path(), false, "https://example.com/app.git");
+        layout
+            .write_config(Some("+refs/heads/*:refs/remotes/origin/*"), Some("fix#1;x"))
+            .unwrap();
+        let config = std::fs::read_to_string(dir.path().join("config")).unwrap();
+        let expected = format!(
+            "[branch \"fix#1;x\"]\n\tremote = {REMOTE}\n\tmerge = \"refs/heads/fix#1;x\"\n"
+        );
+        assert!(config.ends_with(&expected), "{config}");
+    }
+
+    #[test]
+    fn write_refs_refuses_names_that_leave_the_repository_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let git_dir = dir.path().join("repo.git");
+        std::fs::create_dir(&git_dir).unwrap();
+        let layout = Layout::new(&git_dir, false, "https://example.com/app.git");
+        let head = HeadTarget::Branch {
+            name: "../../escape".to_owned(),
+            commit: Some(id(1)),
+            origin_head: None,
+        };
+        let refs = [packed("refs/remotes/origin/ok", 1, 1)];
+        let error = layout.write_refs(&refs, &head).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::GitRef);
+        assert_eq!(error.data().problem.as_deref(), Some("invalid_name"));
+        assert!(!dir.path().join("escape").exists());
+        assert!(!git_dir.join("HEAD").exists());
+        assert!(!git_dir.join("packed-refs").exists());
+        let bad = [packed("refs/remotes/origin/../../x", 1, 1)];
+        let error = layout
+            .write_refs(&bad, &HeadTarget::Detached(id(1)))
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::GitRef);
+        assert!(!git_dir.join("packed-refs").exists());
+    }
+
+    #[test]
+    fn write_refs_writes_the_branch_head_and_packed_references() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path(), false, "https://example.com/app.git");
+        let head = HeadTarget::Branch {
+            name: "feature/a".to_owned(),
+            commit: Some(id(1)),
+            origin_head: None,
+        };
+        let refs = [packed("refs/remotes/origin/feature/a", 1, 1)];
+        layout.write_refs(&refs, &head).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("HEAD")).unwrap(),
+            "ref: refs/heads/feature/a\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("refs/heads/feature/a")).unwrap(),
+            format!("{}\n", id(1))
+        );
+        let packed_refs = std::fs::read_to_string(dir.path().join("packed-refs")).unwrap();
+        assert_eq!(
+            packed_refs,
+            format!("{PACKED_HEADER}{} refs/remotes/origin/feature/a\n", id(1))
+        );
     }
 
     #[test]

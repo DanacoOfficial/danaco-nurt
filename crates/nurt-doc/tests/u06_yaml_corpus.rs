@@ -331,5 +331,9 @@ fn merged_keys_match_yq_when_yq_is_installed() {
             }
         }
     }
+    assert!(
+        tally.operations > 0,
+        "yq is installed, but no mapping with merge keys was compared"
+    );
     tally.assert_clean("merge keys against yq");
 }

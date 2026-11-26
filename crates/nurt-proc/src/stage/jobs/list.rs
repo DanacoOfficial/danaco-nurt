@@ -138,3 +138,88 @@ fn output_view(args: &BoundArgs) -> Result<OutputView> {
         ..OutputView::default()
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::stage::ArgValue;
+    use nurt_contracts::value::Value;
+
+    use super::*;
+
+    fn bound(items: Vec<(&str, Value)>) -> BoundArgs {
+        let mut args = BoundArgs::new("jobs");
+        for (name, value) in items {
+            args.insert(name, ArgValue::Value(value), false);
+        }
+        args
+    }
+
+    fn word(value: &str) -> Value {
+        Value::Enum(value.to_owned())
+    }
+
+    #[test]
+    fn the_view_defaults_to_the_status_and_rejects_unknown_names() {
+        assert_eq!(view(&bound(Vec::new())).unwrap(), View::Status);
+        for (name, expected) in [
+            ("status", View::Status),
+            ("output", View::Output),
+            ("result", View::Result),
+        ] {
+            assert_eq!(view(&bound(vec![("view", word(name))])).unwrap(), expected);
+        }
+        let error = view(&bound(vec![("view", word("bogus"))])).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn the_state_filter_accepts_any_or_a_job_state() {
+        assert_eq!(state_filter(&bound(Vec::new())).unwrap(), None);
+        assert_eq!(
+            state_filter(&bound(vec![("state", word("any"))])).unwrap(),
+            None
+        );
+        assert_eq!(
+            state_filter(&bound(vec![("state", word("running"))])).unwrap(),
+            Some(JobState::Running)
+        );
+        assert_eq!(
+            state_filter(&bound(vec![("state", word("failed"))])).unwrap(),
+            Some(JobState::Failed)
+        );
+        let error = state_filter(&bound(vec![("state", word("bogus"))])).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn the_output_view_follows_stream_head_tail_filter_and_dedupe() {
+        let default = output_view(&bound(Vec::new())).unwrap();
+        assert_eq!(default.show, ShowMode::Both);
+        assert_eq!((default.head, default.tail, default.context), (None, None, 0));
+        assert!(!default.dedupe);
+        assert_eq!(default.filter, None);
+        let args = bound(vec![
+            ("stream", word("stderr")),
+            ("head", Value::Int(3)),
+            ("tail", Value::Int(0)),
+            ("filter", Value::Text("warn".to_owned())),
+            ("context", Value::Int(2)),
+            ("dedupe", Value::Bool(true)),
+        ]);
+        let view = output_view(&args).unwrap();
+        assert_eq!(view.show, ShowMode::Stderr);
+        assert_eq!((view.head, view.tail, view.context), (Some(3), Some(0), 2));
+        assert_eq!(view.filter.as_deref(), Some("warn"));
+        assert!(view.dedupe);
+        let stdout = output_view(&bound(vec![("stream", word("stdout"))])).unwrap();
+        assert_eq!(stdout.show, ShowMode::Stdout);
+    }
+
+    #[test]
+    fn the_descriptor_makes_jobs_a_source_without_input() {
+        let descriptor = StageImpl::descriptor(&Jobs::new(crate::api::components()));
+        assert_eq!(descriptor.command, "jobs");
+        assert!(descriptor.source);
+        assert_eq!(descriptor.input, InputKinds::None);
+    }
+}

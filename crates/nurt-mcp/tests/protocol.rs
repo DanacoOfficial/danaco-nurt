@@ -514,3 +514,140 @@ async fn malformed_json_is_ignored_and_unknown_methods_are_rejected() {
     let (response, _) = client.call(3, "ping", json!({})).await;
     assert_eq!(response["result"], json!({}));
 }
+
+#[tokio::test]
+async fn help_without_arguments_asks_for_the_index_of_topics() {
+    let mut client = Client::start(MockBackend::new());
+    client.initialize().await;
+    let (response, _) = client
+        .call(1, "tools/call", json!({"name": "nurt_help"}))
+        .await;
+    assert_eq!(
+        text(&response),
+        "help topic=index kind=any examples=3 language=en"
+    );
+    assert_eq!(response["result"]["isError"], false);
+}
+
+#[tokio::test]
+async fn percent_encoded_topics_of_resources_are_decoded_and_the_uri_is_kept() {
+    let mut client = Client::start(MockBackend::new());
+    client.initialize().await;
+    let uri = "nurt://help/git%2Ecommit";
+    let (response, _) = client.call(1, "resources/read", json!({"uri": uri})).await;
+    let contents = &response["result"]["contents"][0];
+    assert_eq!(contents["uri"], uri);
+    assert_eq!(
+        contents["text"],
+        "help topic=git.commit kind=any examples=3 language=en"
+    );
+    let (response, _) = client
+        .call(2, "resources/read", json!({"uri": "nurt://help/caf%C3%A9"}))
+        .await;
+    assert_eq!(
+        response["result"]["contents"][0]["text"],
+        "help topic=caf\u{e9} kind=any examples=3 language=en"
+    );
+}
+
+#[tokio::test]
+async fn uris_that_name_no_resource_are_not_found() {
+    let mut client = Client::start(MockBackend::new());
+    client.initialize().await;
+    for (id, uri) in (1_u64..).zip([
+        "nurt://help/",
+        "nurt://help/a%2",
+        "nurt://help/%FF",
+        "nurt://help/a/b",
+        "nurt://schema/catalog",
+        "nurt://describe/group/",
+        "nurt://other/x",
+    ]) {
+        let (response, _) = client.call(id, "resources/read", json!({"uri": uri})).await;
+        assert_eq!(response["error"]["code"], -32002, "{uri}");
+        assert_eq!(response["error"]["data"]["uri"], uri, "{uri}");
+    }
+}
+
+#[tokio::test]
+async fn check_tool_takes_a_candidate_and_the_default_session() {
+    let mut client = Client::start_with(MockBackend::new(), McpOptions::new().with_session("s9"));
+    client.initialize().await;
+    let (response, _) = client
+        .tool(1, "nurt_check", json!({"accept": "c1"}))
+        .await;
+    let document = &response["result"]["structuredContent"];
+    assert_eq!(document["program"], "c1");
+    assert_eq!(document["session"], "s9");
+    let (response, _) = client
+        .tool(2, "nurt_check", json!({"program": "ok", "session": "own"}))
+        .await;
+    assert_eq!(response["result"]["structuredContent"]["session"], "own");
+}
+
+#[tokio::test]
+async fn invalid_arguments_of_the_check_and_help_tools_name_the_tool() {
+    let mut client = Client::start(MockBackend::new());
+    client.initialize().await;
+    let (response, _) = client
+        .tool(1, "nurt_check", json!({"program": "ok", "accept": "c1"}))
+        .await;
+    assert_eq!(response["result"]["isError"], true);
+    assert!(text(&response).contains("`nurt_check`"), "{}", text(&response));
+    let (response, _) = client
+        .tool(2, "nurt_help", json!({"kind": "page"}))
+        .await;
+    assert_eq!(response["result"]["isError"], true);
+    assert!(text(&response).contains("`nurt_help`"), "{}", text(&response));
+}
+
+#[tokio::test]
+async fn tools_list_is_the_same_on_every_call_and_names_the_engine_version() {
+    let mut client = Client::start(MockBackend::new());
+    let initialized = client.initialize().await;
+    assert_eq!(initialized["result"]["serverInfo"]["version"], "1.4.0");
+    let (first, _) = client.call(1, "tools/list", json!({})).await;
+    let (second, _) = client.call(2, "tools/list", json!({})).await;
+    assert_eq!(first["result"], second["result"]);
+}
+
+#[tokio::test]
+async fn tools_annotations_tell_which_tools_only_read() {
+    let mut client = Client::start(MockBackend::new());
+    client.initialize().await;
+    let (response, _) = client.call(1, "tools/list", json!({})).await;
+    let tools = response["result"]["tools"].as_array().unwrap();
+    let read_only: Vec<(&str, &Value)> = tools
+        .iter()
+        .map(|tool| {
+            (
+                tool["name"].as_str().unwrap(),
+                &tool["annotations"]["readOnlyHint"],
+            )
+        })
+        .collect();
+    assert_eq!(
+        read_only,
+        [
+            ("nurt", &json!(false)),
+            ("nurt_help", &json!(true)),
+            ("nurt_check", &json!(true))
+        ]
+    );
+    assert_eq!(tools[2]["annotations"]["openWorldHint"], false);
+    assert_eq!(tools[0]["annotations"]["openWorldHint"], true);
+}
+
+#[tokio::test]
+async fn a_program_with_multi_byte_characters_reaches_the_engine_and_the_reply_is_valid() {
+    let mut client = Client::start(MockBackend::new());
+    client.initialize().await;
+    let (response, _) = client
+        .tool(1, "nurt", json!({"program": "\u{142}\u{f3}d\u{17a} \u{1f600}"}))
+        .await;
+    assert_eq!(response["result"]["isError"], true);
+    assert_eq!(
+        response["result"]["structuredContent"]["error"]["message"],
+        "unknown program \u{142}\u{f3}d\u{17a} \u{1f600}"
+    );
+}

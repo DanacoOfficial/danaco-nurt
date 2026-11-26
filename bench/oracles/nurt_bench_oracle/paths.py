@@ -47,7 +47,7 @@ def translate_segment(segment: str) -> str:
             out.append("[^/]")
         elif char == "[":
             end = segment.find("]", index + 1)
-            if end == -1:
+            if end == -1 or segment[index + 1 : end] in ("", "!"):
                 out.append(re.escape(char))
             else:
                 body = segment[index + 1 : end].replace("\\", "\\\\")

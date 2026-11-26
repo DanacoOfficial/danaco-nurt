@@ -251,3 +251,134 @@ fn limit_text(limit: Option<Duration>) -> String {
 pub(super) fn preview_path(path: &Path, platform: Platform) -> value::Value {
     value::Value::Path(record_path(path, platform).into_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::env::WallTime;
+
+    use super::*;
+    use crate::iface::ResourceUsage;
+
+    fn ended(exit_code: Option<i32>, killed_by: Option<KilledBy>) -> ProcessEnd {
+        ProcessEnd {
+            exit_code,
+            signal: None,
+            signal_number: None,
+            killed_by,
+            limit_hit: None,
+            finished: WallTime::from_unix_nanos(0),
+            usage: ResourceUsage::default(),
+            suspended_total: Duration::ZERO,
+            stdin_closed_early: false,
+        }
+    }
+
+    fn info(timeout: Option<Duration>, idle_timeout: Option<Duration>) -> LaunchInfo {
+        LaunchInfo {
+            command: vec!["tool".to_owned()],
+            program: PathBuf::from("tool"),
+            cwd: PathBuf::from("work"),
+            launcher: Launcher::Direct,
+            env_keys: Vec::new(),
+            platform: Platform::Unix,
+            timeout,
+            idle_timeout,
+        }
+    }
+
+    #[test]
+    fn a_program_ended_by_a_signal_has_the_exit_code_minus_one() {
+        assert_eq!(exit_code(&ended(Some(3), None)), 3);
+        assert_eq!(exit_code(&ended(Some(0), None)), 0);
+        assert_eq!(exit_code(&ended(None, None)), -1);
+    }
+
+    #[test]
+    fn only_a_nonzero_exit_code_is_noted() {
+        assert!(exit_note(0).is_none());
+        let failed = exit_note(3).unwrap();
+        assert_eq!(failed.code, Notable::ExitNonzero);
+        assert_eq!(failed.count, Some(3));
+        assert_eq!(failed.detail.as_deref(), Some("exit code 3"));
+        let signalled = exit_note(-1).unwrap();
+        assert_eq!(signalled.count, None);
+        assert!(signalled.detail.unwrap().contains("signal"));
+    }
+
+    #[test]
+    fn durations_and_instants_saturate_instead_of_overflowing() {
+        assert_eq!(
+            duration(Duration::from_millis(1_500)),
+            value::Duration::from_millis(1_500)
+        );
+        assert_eq!(duration(Duration::ZERO), value::Duration::from_millis(0));
+        assert_eq!(
+            duration(Duration::MAX),
+            value::Duration::from_millis(i64::MAX)
+        );
+        assert_eq!(
+            instant(WallTime::from_unix_nanos(i128::MAX)).as_unix_nanos(),
+            i64::MAX
+        );
+        assert_eq!(
+            instant(WallTime::from_unix_nanos(i128::MIN)).as_unix_nanos(),
+            i64::MIN
+        );
+        assert_eq!(
+            instant(WallTime::from_unix_nanos(1_500_000_000)).as_unix_nanos(),
+            1_500_000_000
+        );
+    }
+
+    #[test]
+    fn the_limit_text_names_whole_seconds_or_milliseconds() {
+        assert_eq!(limit_text(None), "");
+        assert_eq!(limit_text(Some(Duration::from_secs(2))), " of 2s");
+        assert_eq!(limit_text(Some(Duration::from_millis(2_500))), " of 2500ms");
+        assert_eq!(limit_text(Some(Duration::ZERO)), " of 0s");
+    }
+
+    #[test]
+    fn a_run_the_console_ended_becomes_an_error_with_the_record() {
+        let exec = Exec::default();
+        let launch = info(Some(Duration::from_secs(2)), Some(Duration::from_secs(30)));
+        let timeout =
+            termination_error(&launch, &ended(None, Some(KilledBy::Timeout)), &exec).unwrap();
+        assert_eq!(timeout.code(), ErrorCode::Timeout);
+        assert!(timeout.data().effect_applied);
+        assert!(timeout.data().message.contains("of 2s"));
+        let idle = termination_error(&launch, &ended(None, Some(KilledBy::Idle)), &exec).unwrap();
+        assert_eq!(idle.code(), ErrorCode::Timeout);
+        assert!(idle.data().message.contains("of 30s"));
+        let cancelled =
+            termination_error(&launch, &ended(None, Some(KilledBy::Cancel)), &exec).unwrap();
+        assert_eq!(cancelled.code(), ErrorCode::Cancelled);
+    }
+
+    #[test]
+    fn a_memory_limit_names_its_parameter_and_other_limits_the_processor() {
+        let launch = info(None, None);
+        let mut memory = ended(None, Some(KilledBy::Limit));
+        memory.limit_hit = Some(LimitHit::Memory);
+        let error = termination_error(&launch, &memory, &Exec::default()).unwrap();
+        assert_eq!(error.code(), ErrorCode::Limit);
+        assert!(error.data().message.contains("max_memory"));
+        let processor = ended(None, Some(KilledBy::Limit));
+        let error = termination_error(&launch, &processor, &Exec::default()).unwrap();
+        assert!(error.data().message.contains("max_cpu"));
+    }
+
+    #[test]
+    fn a_program_that_exited_or_was_stopped_is_not_an_error() {
+        let launch = info(None, None);
+        let exec = Exec::default();
+        assert!(termination_error(&launch, &ended(Some(1), None), &exec).is_none());
+        assert!(termination_error(&launch, &ended(None, Some(KilledBy::Stop)), &exec).is_none());
+    }
+
+    #[test]
+    fn program_paths_of_previews_use_the_canonical_form() {
+        let path = preview_path(Path::new("/usr/bin/tool"), Platform::Unix);
+        assert_eq!(path, value::Value::Path("/usr/bin/tool".to_owned()));
+    }
+}

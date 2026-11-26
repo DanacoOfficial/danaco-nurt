@@ -432,6 +432,7 @@ fn text_segment_info_plist(image: &[u8], at: usize, wide: bool, big_endian: bool
     let sections = read_u32(image, at + count_at, big_endian)?;
     let section = (0..to_usize(u64::from(sections))?)
         .map(|index| at + first + index * section_size)
+        .take_while(|section| section + 16 <= image.len())
         .find(|section| name_is(image.get(*section..*section + 16), INFO_PLIST_SECTION))?;
     let (length, offset) = if wide {
         (
@@ -656,6 +657,40 @@ mod tests {
     fn stops_at_malformed_pair() {
         let strings = parse_strings(b"\"a\" = \"1\"; \"b\" \"2\"; \"c\" = \"3\";");
         assert_eq!(strings.len(), 1);
+    }
+
+    /// 64-bit little-endian image with one `__TEXT` segment that declares
+    /// `declared` sections and holds one section named `name`.
+    fn macho_with_section(declared: u32, name: &[u8], payload: &[u8]) -> Vec<u8> {
+        let command_size = 72 + 80;
+        let data_offset = 32 + command_size;
+        let section = 32 + 72;
+        let mut image = vec![0u8; data_offset];
+        image[..4].copy_from_slice(&MH_MAGIC_64.to_le_bytes());
+        image[16..20].copy_from_slice(&1u32.to_le_bytes());
+        image[32..36].copy_from_slice(&LC_SEGMENT_64.to_le_bytes());
+        image[36..40].copy_from_slice(&(command_size as u32).to_le_bytes());
+        image[40..46].copy_from_slice(b"__TEXT");
+        image[96..100].copy_from_slice(&declared.to_le_bytes());
+        image[section..section + name.len()].copy_from_slice(name);
+        image[section + 40..section + 48].copy_from_slice(&(payload.len() as u64).to_le_bytes());
+        image[section + 48..section + 52].copy_from_slice(&(data_offset as u32).to_le_bytes());
+        image.extend(payload);
+        image
+    }
+
+    #[test]
+    fn finds_the_embedded_info_plist_section() {
+        let image = macho_with_section(1, b"__info_plist", b"<plist/>");
+        assert_eq!(macho_info_plist(&image), Some(b"<plist/>".as_slice()));
+        let other = macho_with_section(1, b"__other", b"<plist/>");
+        assert_eq!(macho_info_plist(&other), None);
+    }
+
+    #[test]
+    fn section_count_beyond_the_image_ends_the_search() {
+        let image = macho_with_section(u32::MAX, b"__other", b"<plist/>");
+        assert_eq!(macho_info_plist(&image), None);
     }
 
     #[test]

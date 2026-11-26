@@ -124,6 +124,10 @@ fn analyze(ctx: &ExecCtx, spec: &RunSpec, result: &ToolResult) -> Result<Analysi
         Err(failure) if ended_early => failure.partial,
         Err(failure) => return Err(parse_error(&failure, &output, exec)),
     };
+    if let Some(path) = &spec.report {
+        // The results are read; an unreadable report stays for diagnosis.
+        let _already_gone_is_fine = fs::remove_file(path);
+    }
     if !spec.only_ids.is_empty() {
         results
             .retain(|case| case.status != TestStatus::Skipped || spec.only_ids.contains(&case.id));
@@ -268,13 +272,25 @@ struct Comparison {
 fn compare(previous: &[StoredEntry], current: &[TestResult]) -> Comparison {
     let mut comparison = Comparison::default();
     let mut hits: HashMap<&str, usize> = HashMap::new();
+    let statuses: Vec<HashMap<&str, Option<&str>>> = previous
+        .iter()
+        .map(|entry| {
+            let mut known: HashMap<&str, Option<&str>> = HashMap::new();
+            for record in &entry.items {
+                if let Some(id) = record.get("id").and_then(Value::as_str) {
+                    known
+                        .entry(id)
+                        .or_insert_with(|| record.get("status").and_then(Value::as_str));
+                }
+            }
+            known
+        })
+        .collect();
     for case in current {
-        for entry in previous {
-            let earlier = entry.items.iter().find_map(|record| {
-                let id = record.get("id").and_then(Value::as_str)?;
-                (id == case.id).then(|| record.get("status").and_then(Value::as_str))
-            });
-            let Some(earlier) = earlier else { continue };
+        for (entry, known) in previous.iter().zip(&statuses) {
+            let Some(&earlier) = known.get(case.id.as_str()) else {
+                continue;
+            };
             *hits.entry(entry.id.as_str()).or_default() += 1;
             let now_failed = matches!(case.status, TestStatus::Failed | TestStatus::Error);
             if earlier == Some("passed") && now_failed {

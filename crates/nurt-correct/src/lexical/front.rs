@@ -1031,6 +1031,30 @@ mod tests {
     }
 
     #[test]
+    fn splits_stages_outside_brackets_and_trims_white_space() {
+        let text = "find \"/ä\" |>  count (a |> b) | first 1";
+        let stages: Vec<&str> = stage_ranges(text, &(0..text.len()))
+            .into_iter()
+            .map(|range| &text[range])
+            .collect();
+        assert_eq!(stages, ["find \"/ä\"", "count (a |> b)", "first 1"]);
+        assert!(stage_ranges("", &(0..0)).is_empty());
+    }
+
+    #[test]
+    fn finds_the_byte_range_of_a_span_in_multibyte_text() {
+        let text = "ä\nb ö";
+        let span = Span {
+            line: 2,
+            column: 3,
+            end_line: 2,
+            end_column: 4,
+        };
+        assert_eq!(span_range(text, Some(span)), Some(5..7));
+        assert_eq!(span_range(text, None), None);
+    }
+
+    #[test]
     fn shifts_positions_of_statement_corrections() {
         let correction = Rule::L13.record(
             TextPosition {

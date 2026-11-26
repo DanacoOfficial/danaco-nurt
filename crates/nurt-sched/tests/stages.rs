@@ -764,3 +764,32 @@ fn catalog_lists_every_command() {
     let listed = catalog.matches("name = \"schedule.").count();
     assert_eq!(listed, commands.len());
 }
+
+#[test]
+fn run_without_service_refuses_a_definition_changed_outside_the_commands() {
+    let env = Env::new();
+    env.create(&every_ten("t"));
+    let path = env.store().definition_path("s1");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let tampered = text.replace(
+        "\"ast_hash\": \"sha256:",
+        "\"ast_hash\": \"sha256:0000000000000000",
+    );
+    assert_ne!(tampered, text);
+    std::fs::write(&path, tampered).unwrap();
+    let runner = TestRunner::printing("hello\n", 0);
+    let ctx = ExecCtx::builder(env.clock.clone(), TestHost::new("UTC"))
+        .state_dir(env.dir.path().to_path_buf())
+        .pipelines(runner.clone())
+        .build();
+    let mut tx = TestTx::default();
+    let error = apply(
+        &Run,
+        &args("schedule.run", &[("id", Value::Text("s1".to_owned()))]),
+        &mut tx,
+        &ctx,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::StageFailed);
+    assert!(runner.calls.lock().unwrap().is_empty());
+}

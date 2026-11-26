@@ -165,3 +165,155 @@ pub(super) fn invocations<'a>(
     }
     chain
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn strings(words: &[&str]) -> Vec<String> {
+        words.iter().map(|word| (*word).to_owned()).collect()
+    }
+
+    fn wrapper(program: &str) -> Wrapper {
+        Wrapper {
+            program: Words::parse(program).unwrap(),
+            command: Vec::new(),
+            value_options: Vec::new(),
+            assignments: false,
+            skip: 0,
+            module_option: None,
+        }
+    }
+
+    /// Programs of the chain of `argv`, with the arguments of each.
+    fn chain(argv: &[&str], wrappers: &[Wrapper]) -> Vec<(String, Vec<String>)> {
+        let argv = strings(argv);
+        invocations(&argv, wrappers, &[])
+            .into_iter()
+            .map(|invocation| (invocation.program, invocation.args.to_vec()))
+            .collect()
+    }
+
+    #[test]
+    fn program_names_lose_directories_versions_and_extensions() {
+        assert_eq!(program_name("/usr/bin/Git"), "git");
+        assert_eq!(program_name(r"C:\Tools\TOOL.EXE"), "tool");
+        assert_eq!(program_name("vercel@latest"), "vercel");
+        assert_eq!(program_name("@scope/pkg"), "pkg");
+        assert_eq!(program_name("@angular"), "@angular");
+        assert_eq!(program_name("run.CMD"), "run");
+        assert_eq!(program_name("a.exe.exe"), "a.exe");
+        assert_eq!(program_name("./bin/"), "");
+        assert_eq!(program_name(""), "");
+    }
+
+    #[test]
+    fn program_names_with_multi_byte_characters_are_cut_at_character_boundaries() {
+        assert_eq!(program_name("Żółć@1.0"), "Żółć");
+        assert_eq!(program_name("dir/Ünï@x.exe"), "Ünï");
+        assert_eq!(program_name("łódź.exe"), "łódź");
+    }
+
+    #[test]
+    fn a_lone_dash_is_an_argument_and_two_dashes_are_an_option() {
+        assert!(!is_option("-") && !is_option("") && !is_option("x"));
+        assert!(is_option("--") && is_option("-x") && is_option("--name"));
+    }
+
+    #[test]
+    fn assignments_need_a_valid_variable_name() {
+        for valid in ["A=1", "_a1=", "Path=x=y"] {
+            assert!(is_assignment(valid), "{valid}");
+        }
+        for invalid in ["1A=x", "A-B=x", "=x", "plain", "", "ź=1"] {
+            assert!(!is_assignment(invalid), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn positionals_skip_options_and_the_values_of_value_options() {
+        let args = strings(&["-a", "-n", "5", "x", "--", "-y"]);
+        let plain = Invocation::new("p".to_owned(), &args, &[]);
+        assert_eq!(plain.positionals, [(2, "5"), (3, "x"), (5, "-y")]);
+        let with_value = Invocation::new("p".to_owned(), &args, &["-n".to_owned()]);
+        assert_eq!(with_value.positionals, [(3, "x"), (5, "-y")]);
+        let dangling = strings(&["x", "-n"]);
+        let last = Invocation::new("p".to_owned(), &dangling, &["-n".to_owned()]);
+        assert_eq!(last.positionals, [(0, "x")]);
+    }
+
+    #[test]
+    fn a_program_without_a_wrapper_is_the_whole_chain() {
+        let chain = chain(&["git", "push"], &[wrapper("sudo")]);
+        assert_eq!(chain, [("git".to_owned(), strings(&["push"]))]);
+        assert!(super::invocations(&[], &[], &[]).is_empty());
+    }
+
+    #[test]
+    fn a_wrapper_starts_the_next_program() {
+        let mut sudo = wrapper("sudo");
+        sudo.value_options = strings(&["-u"]);
+        let found = chain(&["sudo", "-u", "root", "git", "push"], &[sudo]);
+        assert_eq!(
+            found,
+            [
+                ("sudo".to_owned(), strings(&["-u", "root", "git", "push"])),
+                ("git".to_owned(), strings(&["push"])),
+            ]
+        );
+    }
+
+    #[test]
+    fn wrappers_nest_and_skip_assignments_and_positionals() {
+        let mut env = wrapper("env");
+        env.assignments = true;
+        let mut timeout = wrapper("timeout");
+        timeout.skip = 1;
+        let found = chain(
+            &["env", "A=1", "timeout", "10", "make", "test"],
+            &[env, timeout],
+        );
+        let programs: Vec<&str> = found.iter().map(|(program, _)| program.as_str()).collect();
+        assert_eq!(programs, ["env", "timeout", "make"]);
+        assert_eq!(found[2].1, strings(&["test"]));
+    }
+
+    #[test]
+    fn a_wrapper_needs_its_subcommand_and_a_program_after_it() {
+        let mut pnpm = wrapper("pnpm");
+        pnpm.command = vec![Words::parse("exec|dlx").unwrap()];
+        let wrappers = [pnpm];
+        let programs = |argv: &[&str]| -> Vec<String> {
+            chain(argv, &wrappers)
+                .into_iter()
+                .map(|(program, _)| program)
+                .collect()
+        };
+        assert_eq!(programs(&["pnpm", "exec", "vitest"]), ["pnpm", "vitest"]);
+        assert_eq!(programs(&["pnpm", "install"]), ["pnpm"]);
+        assert_eq!(programs(&["pnpm", "exec"]), ["pnpm"]);
+        assert_eq!(programs(&["pnpm"]), ["pnpm"]);
+    }
+
+    #[test]
+    fn a_module_wrapper_applies_only_to_the_module_option() {
+        let mut python = wrapper("python|python3");
+        python.module_option = Some("-m".to_owned());
+        python.value_options = strings(&["-c"]);
+        let wrappers = [python];
+        let found = chain(&["python3", "-m", "twine", "upload"], &wrappers);
+        assert_eq!(found[1], ("twine".to_owned(), strings(&["upload"])));
+        assert_eq!(chain(&["python3", "script.py"], &wrappers).len(), 1);
+        assert_eq!(chain(&["python3", "-c", "print(1)"], &wrappers).len(), 1);
+        assert_eq!(chain(&["python3", "-m"], &wrappers).len(), 1);
+    }
+
+    #[test]
+    fn the_end_of_options_lets_a_wrapper_start_a_program_named_like_an_option() {
+        let found = chain(&["sudo", "--", "-weird"], &[wrapper("sudo")]);
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[1].0, "-weird");
+        assert_eq!(chain(&["sudo", "-x"], &[wrapper("sudo")]).len(), 1);
+        assert_eq!(chain(&["sudo"], &[wrapper("sudo")]).len(), 1);
+    }
+}

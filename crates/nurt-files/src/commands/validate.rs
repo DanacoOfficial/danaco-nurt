@@ -446,6 +446,39 @@ mod tests {
     }
 
     #[test]
+    fn warn_lists_only_the_first_errors() {
+        let test = checked();
+        let path = abs("/data/config.json");
+        let after = format!("{{}}{}", "!".repeat(ISSUES_SHOWN + 4));
+        check_change(
+            &test.ctx(),
+            "edit",
+            &path,
+            b"{}",
+            after.as_bytes(),
+            Validate::Warn,
+        )
+        .unwrap();
+        let events = test.events().take();
+        let Event::Log(log) = &events[0] else {
+            panic!("expected a log event, got {:?}", events[0]);
+        };
+        assert!(log.message.contains("12 syntax errors"));
+        assert_eq!(log.message.matches("unexpected").count(), ISSUES_SHOWN);
+    }
+
+    #[test]
+    fn every_earlier_error_cancels_one_new_error_only() {
+        let one = issue("unexpected", "unexpected `!`", 0);
+        let new = added(std::slice::from_ref(&one), vec![one.clone(), one.clone()]);
+        assert_eq!(new.len(), 1);
+        let other = issue("unbalanced", "unbalanced braces", 0);
+        let new = added(std::slice::from_ref(&one), vec![other.clone()]);
+        assert_eq!(new, [other]);
+        assert!(added(&[], Vec::new()).is_empty());
+    }
+
+    #[test]
     fn rejection_lists_at_most_the_shown_errors() {
         let path = abs("/data/a.json");
         let issues = (0..20)

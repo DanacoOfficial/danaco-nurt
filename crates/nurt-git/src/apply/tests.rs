@@ -1135,3 +1135,68 @@ fn paths_with_glob_restore_only_matching_files() {
     assert_eq!(read(&repo, "a.txt"), "1\n");
     assert_eq!(read(&repo, "b.md"), "local\n");
 }
+
+#[test]
+fn new_tree_refuses_names_that_collide_on_a_case_insensitive_file_system() {
+    let (dir, _repo) = init();
+    let repo = reopen_with_config(dir.path(), "[core]\n\tignorecase = true\n");
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let clashes: [&[Spec<'_>]; 2] = [
+        &[("Readme", F, "1\n"), ("README", F, "2\n")],
+        &[("A", TreeKind::Link, "elsewhere"), ("a/x", F, "x\n")],
+    ];
+    for clash in clashes {
+        let target = tree(&repo, clash);
+        let error = plan_new_tree(&ctx, &target).expect_err("collision");
+        assert_eq!(error.code(), ErrorCode::GitUnsupported);
+        assert_eq!(error.data().problem.as_deref(), Some("unsafe_path"));
+    }
+    let distinct = tree(&repo, &[("one", F, "1\n"), ("two/x", F, "2\n")]);
+    plan_new_tree(&ctx, &distinct).expect("distinct names are accepted");
+}
+
+#[test]
+fn paths_restore_index_and_working_tree_together_from_a_tree() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let base = tree(&repo, &[("a.txt", F, "new\n"), ("b.txt", F, "b\n")]);
+    checkout(&repo, &journal, base);
+    let source = tree(&repo, &[("a.txt", F, "old\n"), ("b.txt", F, "b\n")]);
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let request = |source, to_index, to_worktree| PathsRequest {
+        source,
+        pathspec: vec!["a.txt".into()],
+        to_index,
+        to_worktree,
+    };
+    let plan = plan_paths(&ctx, &request(PathSource::Tree(source), true, true)).expect("plan");
+    run(&repo, &journal, plan);
+    assert_eq!(read(&repo, "a.txt"), "old\n");
+    assert_eq!(read(&repo, "b.txt"), "b\n");
+    let old_blob = repo.write_blob(b"old\n").expect("blob").detach();
+    let index = repo.open_index().expect("index");
+    let entry = index
+        .entry_by_path("a.txt".as_bytes().as_bstr())
+        .expect("entry");
+    assert_eq!(entry.id, old_blob);
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let again = plan_paths(&ctx, &request(PathSource::Index, false, true)).expect("plan");
+    assert!(again.entries.is_empty(), "{:?}", again.entries);
+}
+
+#[test]
+fn reset_to_the_empty_tree_removes_tracked_files_and_keeps_untracked_ones() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let base = tree(&repo, &[("a.txt", F, "a\n"), ("d/b.txt", F, "b\n")]);
+    checkout(&repo, &journal, base);
+    write(&repo, "free.txt", "u\n");
+    let empty = tree(&repo, &[]);
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let plan = plan_reset(&ctx, &empty, ResetOptions::default()).expect("plan");
+    run(&repo, &journal, plan);
+    assert!(!exists(&repo, "a.txt"));
+    assert!(!exists(&repo, "d"));
+    assert_eq!(read(&repo, "free.txt"), "u\n");
+    assert!(index_paths(&repo).is_empty());
+}

@@ -462,19 +462,30 @@ pub fn parse_duration(text: &str) -> Result<Duration, Error> {
     };
     let value: u64 = text[..digits].parse().map_err(|_| invalid())?;
     let seconds = |unit: u64| Duration::from_secs(value.saturating_mul(unit));
-    match &text[digits..] {
-        "ms" => Ok(Duration::from_millis(value)),
-        "s" | "" => Ok(seconds(1)),
-        "m" => Ok(seconds(SECONDS_PER_MINUTE)),
-        "h" => Ok(seconds(SECONDS_PER_HOUR)),
-        "d" => Ok(seconds(SECONDS_PER_DAY)),
-        _ => Err(invalid()),
+    let parsed = match &text[digits..] {
+        "ms" => Duration::from_millis(value),
+        "s" | "" => seconds(1),
+        "m" => seconds(SECONDS_PER_MINUTE),
+        "h" => seconds(SECONDS_PER_HOUR),
+        "d" => seconds(SECONDS_PER_DAY),
+        _ => return Err(invalid()),
+    };
+    // A deadline is the current time plus the duration, which must not
+    // overflow the clock.
+    if parsed > MAX_DURATION {
+        return Err(Error::Invalid(format!(
+            "{text:?} is longer than the limit of 366d"
+        )));
     }
+    Ok(parsed)
 }
 
 const SECONDS_PER_MINUTE: u64 = 60;
 const SECONDS_PER_HOUR: u64 = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY: u64 = 24 * SECONDS_PER_HOUR;
+
+/// Longest time limit that [`parse_duration`] accepts.
+const MAX_DURATION: Duration = Duration::from_secs(366 * SECONDS_PER_DAY);
 
 /// Returns the default number of parallel cases: the number of processors.
 #[must_use]
@@ -674,6 +685,11 @@ mod tests {
         assert_eq!(parse_duration("7").unwrap(), Duration::from_secs(7));
         assert!(parse_duration("s").is_err());
         assert!(parse_duration("5w").is_err());
+        assert_eq!(parse_duration("366d").unwrap(), MAX_DURATION);
+        assert!(parse_duration("367d").is_err());
+        assert!(parse_duration("18446744073709551615s").is_err());
+        assert!(parse_duration("18446744073709551615d").is_err());
+        assert!(parse_duration("18446744073709551615ms").is_err());
         assert!(default_jobs() >= 1);
         assert_eq!(millis(Duration::from_millis(3)), 3);
     }

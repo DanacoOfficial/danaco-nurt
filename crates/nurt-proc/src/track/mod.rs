@@ -24,6 +24,7 @@ mod tests;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use nurt_contracts::config::PreimageMode;
 use nurt_contracts::error::{Error, ErrorCode, Result};
@@ -33,14 +34,45 @@ use nurt_contracts::stage::ExecCtx;
 
 use self::preimage::{Candidate, Limits};
 use self::prepared::{Detection, Prepared, State};
-use self::scan::{Kind, Scope, Snapshot, has_name, scan};
+use self::scan::{Bound, Kind, ScanLimits, Scope, Snapshot, Stop, has_name, scan};
 use self::watch_events::EventWatch;
 use crate::iface::{ChangeTracker, PreparedScan, TrackMode, TrackSpec};
 
+/// Largest number of entries that automatic detection scans.
+const AUTO_MAX_ENTRIES: usize = 200_000;
+
+/// Time budget of one scan of automatic detection.
+const AUTO_BUDGET: Duration = Duration::from_secs(3);
+
+/// Time a scan after the program may use beyond the time limit of the run,
+/// so that the changes of a program ended by the limit are still recorded.
+const POST_SCAN_MIN: Duration = Duration::from_secs(5);
+
 /// Change tracker of `run` and of the tool runs of test and analysis
 /// commands.
-#[derive(Debug, Clone, Copy, Default)]
-struct Tracker;
+///
+/// Automatic detection is bounded: it does not scan the file system root,
+/// does not enter directories on other volumes, and gives up when the scope
+/// holds more than [`AUTO_MAX_ENTRIES`] entries or a scan takes longer than
+/// [`AUTO_BUDGET`]; the run then proceeds without detection and the report
+/// carries a `detection_scope` note that says why. Every mode ends its scans
+/// at the time limit of the run and at cancellation.
+#[derive(Debug, Clone, Copy)]
+struct Tracker {
+    automatic: ScanLimits,
+}
+
+impl Default for Tracker {
+    fn default() -> Self {
+        Self {
+            automatic: ScanLimits {
+                max_entries: AUTO_MAX_ENTRIES,
+                budget: Some(AUTO_BUDGET),
+                one_volume: true,
+            },
+        }
+    }
+}
 
 impl ChangeTracker for Tracker {
     fn prepare(
@@ -62,6 +94,9 @@ impl Tracker {
         tx: &mut dyn MutationTx,
     ) -> Result<Prepared> {
         let started = ctx.clock().monotonic();
+        let deadline = spec
+            .timeout
+            .and_then(|timeout| Instant::now().checked_add(timeout));
         let watch = absolute(&spec.watch)?;
         let exact = spec.exact.as_deref().map(absolute).transpose()?;
         let reported: Vec<PathBuf> = watch
@@ -86,12 +121,60 @@ impl Tracker {
         ignore.extend(spec.ignore.iter().cloned());
         ignore.sort();
         ignore.dedup();
+        let automatic = spec.mode == TrackMode::Auto;
+        if automatic
+            && let Some(root) = roots.iter().find(|root| root.as_path().parent().is_none())
+        {
+            return Ok(skipped(
+                reported,
+                format!(
+                    "automatic change detection skipped: {} is the file system root, which \
+                     holds too many entries to scan; name the directories the program changes \
+                     in `watch` or use `track_changes: scan`",
+                    root.as_path().display()
+                ),
+            ));
+        }
+        let scan_limits = if automatic {
+            self.automatic
+        } else {
+            ScanLimits::UNLIMITED
+        };
+        let bound = Bound::new(scan_limits, deadline, ctx.cancel().clone());
         let scope = Scope {
             roots: &roots,
             ignore: &ignore,
             hash: spec.scan_hash,
+            bound: Some(&bound),
         };
         let scanned = scan(fs, scope);
+        match scanned.stop {
+            None => {}
+            Some(Stop::Cancelled) => return Err(cancelled(ctx)),
+            Some(Stop::TimeLimit) => return Err(timed_out("before the program started")),
+            Some(Stop::Budget) => {
+                return Ok(skipped(
+                    reported,
+                    format!(
+                        "automatic change detection skipped: scanning the watched directories \
+                         took longer than {} s; name the directories the program changes in \
+                         `watch` or use `track_changes: scan`",
+                        scan_limits.budget.unwrap_or_default().as_secs()
+                    ),
+                ));
+            }
+            Some(Stop::Entries) => {
+                return Ok(skipped(
+                    reported,
+                    format!(
+                        "automatic change detection skipped: the watched directories hold more \
+                         than {} entries; name the directories the program changes in `watch` \
+                         or use `track_changes: scan`",
+                        scan_limits.max_entries
+                    ),
+                ));
+            }
+        }
         let preimage_enabled =
             spec.preimage && run.preimage == PreimageMode::Auto && exact.is_none();
         let mut explicit_paths = absolute(&spec.preserve)?;
@@ -125,6 +208,10 @@ impl Tracker {
             preimage,
             op: tx.op().map(|op| op.0),
             roots,
+            limits: scan_limits,
+            deadline,
+            foreign: scanned.foreign,
+            skipped: None,
         };
         Ok(Prepared {
             state,
@@ -135,7 +222,34 @@ impl Tracker {
 
 /// Change tracker used by the run host.
 pub(crate) fn tracker() -> Arc<dyn ChangeTracker> {
-    Arc::new(Tracker)
+    Arc::new(Tracker::default())
+}
+
+/// Preparation of a run without detection, with the reason in a
+/// `detection_scope` note.
+fn skipped(watch: Vec<PathBuf>, reason: String) -> Prepared {
+    let mut state = State::inactive(watch);
+    state.skipped = Some(reason);
+    Prepared { state, watch: None }
+}
+
+/// Error of a scan that stopped because the execution was cancelled.
+fn cancelled(ctx: &ExecCtx) -> Error {
+    ctx.cancel().check().err().unwrap_or_else(|| {
+        Error::new(
+            ErrorCode::Cancelled,
+            "the execution was cancelled while the changes were scanned",
+        )
+    })
+}
+
+/// Error of a scan that stopped at the time limit of the run.
+fn timed_out(phase: &str) -> Error {
+    Error::new(
+        ErrorCode::Timeout,
+        format!("the time limit of the run ended while the watched directories were scanned {phase}"),
+    )
+    .with_fix("raise `timeout`, name fewer directories in `watch` or use `track_changes: none`")
 }
 
 fn absolute(paths: &[PathBuf]) -> Result<Vec<AbsPath>> {
@@ -187,6 +301,7 @@ fn files_under(fs: &dyn Fs, paths: &[AbsPath], ignore: &[String]) -> Vec<Candida
                     roots: &roots,
                     ignore,
                     hash: false,
+                    bound: None,
                 },
             )
             .entries

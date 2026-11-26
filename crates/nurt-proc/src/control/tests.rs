@@ -24,6 +24,8 @@ use crate::iface::{
 const TEST_BOUND: Duration = Duration::from_secs(5);
 
 mod tree;
+#[cfg(unix)]
+mod targets;
 
 fn fixture() -> PathBuf {
     let exe = std::env::current_exe().unwrap_or_default();
@@ -678,9 +680,9 @@ fn program_runs_in_a_new_session_without_a_terminal() {
 
 #[cfg(windows)]
 #[test]
-fn windows_hangup_is_unsupported() {
+fn windows_quit_is_unsupported() {
     let mut started = start(request(&["silent-sleep", "3000"], limits()));
-    let result = started.process.signal(Signal::Hangup);
+    let result = started.process.signal(Signal::Quit);
     assert_eq!(
         result.err().map(|error| error.code()),
         Some(ErrorCode::Unsupported)
@@ -689,6 +691,18 @@ fn windows_hangup_is_unsupported() {
         .process
         .stop(Signal::Kill, Duration::ZERO)
         .unwrap_or_else(|error| panic!("{error:?}"));
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_hangup_ends_the_tree_like_terminate() {
+    let mut started = start(request(&["silent-sleep", "15000"], limits()));
+    let end = started
+        .process
+        .stop(Signal::Hangup, Duration::from_secs(1))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(end.killed_by, Some(KilledBy::Stop));
+    assert_group_gone(started.process.pid());
 }
 
 #[cfg(windows)]

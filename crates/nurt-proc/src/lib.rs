@@ -35,6 +35,7 @@ pub use classify::{
     ArgvClasses, EffectClassifier, EffectMatch, Interactive, OpaqueScript, classify_argv,
     classify_effects,
 };
+pub use control::{ProcessRef, StopEnd, resume_process, stop_process, suspend_process};
 pub use jobs::{Supervision, SupervisorCommand, run_supervisor};
 
 use nurt_contracts::error::Result;

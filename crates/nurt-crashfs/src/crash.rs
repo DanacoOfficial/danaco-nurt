@@ -1229,11 +1229,11 @@ fn select_prefix(
 ) -> Vec<Choice> {
     let metadata = pending.iter().filter(|item| !item.op.is_data()).count() as u64;
     let cut = rng.below(metadata + 1);
-    let boundary = pending
-        .iter()
-        .filter(|item| !item.op.is_data())
-        .nth(usize::try_from(cut).unwrap_or(usize::MAX))
-        .map_or(u64::MAX, |item| item.seq);
+    let boundary = cut
+        .checked_sub(1)
+        .and_then(|last| usize::try_from(last).ok())
+        .and_then(|last| pending.iter().filter(|item| !item.op.is_data()).nth(last))
+        .map_or(0, |item| item.seq);
     let mut seen = 0;
     pending
         .iter()
@@ -1761,9 +1761,10 @@ impl Fs for CrashFs {
         for _ in 0..=MAX_LINK_DEPTH {
             let located = state.resolve(&current, Follow::NoFollow, "real_path")?;
             let Body::Link(target, _) = &state.node(&located)?.body else {
-                return Ok(current);
+                return Ok(located.path);
             };
-            let dir = current
+            let dir = located
+                .path
                 .parent()
                 .ok_or_else(|| error(FsErrorKind::InvalidPath, "real_path", path))?;
             current = State::link_path(&dir, target, &[], "real_path", path)?;
@@ -2417,6 +2418,267 @@ impl Drop for CrashLock {
         let mut state = self.shared.lock();
         if state.generation == self.generation {
             state.locks.remove(self.path.as_path());
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::fs::{ScopePurpose, TxScope};
+    use nurt_contracts::journal::OpId;
+
+    use super::*;
+
+    fn root() -> AbsPath {
+        AbsPath::new(if cfg!(windows) { "C:\\vol" } else { "/vol" }).unwrap()
+    }
+
+    fn scope() -> TxScope {
+        TxScope::new_for_journal(OpId(1), ScopePurpose::Maintenance)
+    }
+
+    fn new_fs(profile: CrashProfile) -> CrashFs {
+        CrashFs::new(profile, 7, vec![VolumeSpec::new(root())]).unwrap()
+    }
+
+    fn at(name: &str) -> AbsPath {
+        root().join_name(name).unwrap()
+    }
+
+    fn content(fs: &CrashFs, path: &AbsPath) -> Vec<u8> {
+        fs.open_read(path).unwrap().as_bytes().unwrap().to_vec()
+    }
+
+    fn link_op(seq: u64, name: &str, id: NodeId) -> Pending {
+        Pending {
+            seq,
+            op: Op::Link {
+                at: Entry {
+                    dir: ROOT_NODE,
+                    name: OsString::from(name),
+                },
+                id,
+            },
+            unsynced_dirs: vec![ROOT_NODE],
+        }
+    }
+
+    fn write_op(seq: u64, id: NodeId) -> Pending {
+        Pending {
+            seq,
+            op: Op::Write {
+                id,
+                offset: 0,
+                data: vec![1; 8],
+                time: 0,
+            },
+            unsynced_dirs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn ext4_data_after_the_last_committed_metadata_operation_is_not_forced_durable() {
+        let rules = CrashProfile::Ext4Ordered.rules();
+        let pending = [link_op(0, "a", 2), write_op(1, 2), link_op(2, "b", 3)];
+        let mut skipped = false;
+        for seed in 0..200 {
+            let choices = select(&pending, rules, &mut SplitMix64::new(seed));
+            if matches!(choices[0], Choice::Apply(_))
+                && matches!(choices[1], Choice::Skip)
+                && matches!(choices[2], Choice::Skip)
+            {
+                skipped = true;
+            }
+        }
+        assert!(skipped);
+    }
+
+    #[test]
+    fn ext4_data_written_before_a_committed_metadata_operation_is_durable() {
+        let rules = CrashProfile::Ext4Ordered.rules();
+        let pending = [write_op(0, 2), link_op(1, "a", 2)];
+        for seed in 0..100 {
+            let choices = select(&pending, rules, &mut SplitMix64::new(seed));
+            if matches!(choices[1], Choice::Apply(_)) {
+                assert!(matches!(choices[0], Choice::Apply(_)), "seed {seed}");
+            }
+        }
+    }
+
+    #[test]
+    fn btrfs_applies_a_prefix_of_all_operations() {
+        let rules = CrashProfile::Btrfs.rules();
+        let pending = [link_op(0, "a", 2), write_op(1, 2), link_op(2, "b", 3)];
+        for seed in 0..100 {
+            let choices = select(&pending, rules, &mut SplitMix64::new(seed));
+            let applied = choices
+                .iter()
+                .take_while(|choice| matches!(choice, Choice::Apply(None)))
+                .count();
+            assert!(
+                choices[applied..]
+                    .iter()
+                    .all(|choice| matches!(choice, Choice::Skip)),
+                "seed {seed}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn real_path_resolves_links_inside_the_path() {
+        let fs = new_fs(CrashProfile::PosixWorstCase);
+        let real = at("real");
+        fs.create_dir(&scope(), &real, 0o755).unwrap();
+        let file = real.join_name("f").unwrap();
+        let mut handle = fs.create_new(&scope(), &file).unwrap();
+        handle.write_all(b"x").unwrap();
+        drop(handle);
+        let link = at("link");
+        fs.create_link(&scope(), real.as_path(), &link, LinkKind::SymlinkDirectory)
+            .unwrap();
+        let through = link.join_name("f").unwrap();
+        assert_eq!(fs.real_path(&through).unwrap(), file);
+        assert_eq!(fs.real_path(&link).unwrap(), real);
+        assert_eq!(fs.real_path(&file).unwrap(), file);
+    }
+
+    #[test]
+    fn a_rename_is_durable_after_the_flush_of_its_directory() {
+        let fs = new_fs(CrashProfile::PosixWorstCase);
+        let mut handle = fs.create_new(&scope(), &at("a")).unwrap();
+        handle.write_all(b"data").unwrap();
+        handle.sync(Durability::Data).unwrap();
+        drop(handle);
+        fs.sync_dir(&scope(), &root()).unwrap();
+        fs.rename(&scope(), &at("a"), &at("b"), RenameMode::Replace)
+            .unwrap();
+        fs.sync_dir(&scope(), &root()).unwrap();
+        fs.crash();
+        assert!(fs.metadata(&at("a"), Follow::NoFollow).is_err());
+        assert_eq!(content(&fs, &at("b")), b"data");
+    }
+
+    #[test]
+    fn a_new_file_without_a_flush_of_its_directory_can_vanish_in_a_crash() {
+        let vanished = (0..64).any(|seed| {
+            let volumes = vec![VolumeSpec::new(root())];
+            let fs = CrashFs::new(CrashProfile::PosixWorstCase, seed, volumes).unwrap();
+            let mut handle = fs.create_new(&scope(), &at("a")).unwrap();
+            handle.write_all(b"data").unwrap();
+            handle.sync(Durability::Full).unwrap();
+            drop(handle);
+            fs.crash();
+            fs.metadata(&at("a"), Follow::NoFollow).is_err()
+        });
+        assert!(vanished);
+    }
+
+    #[test]
+    fn sync_all_keeps_every_operation_through_a_crash() {
+        let fs = new_fs(CrashProfile::PosixWorstCase);
+        fs.create_dir(&scope(), &at("d"), 0o755).unwrap();
+        let mut handle = fs
+            .create_new(&scope(), &at("d").join_name("f").unwrap())
+            .unwrap();
+        handle.write_all(b"kept").unwrap();
+        drop(handle);
+        assert!(fs.pending_count() > 0);
+        fs.sync_all();
+        assert_eq!(fs.pending_count(), 0);
+        let summary = fs.crash();
+        assert_eq!(summary.pending, 0);
+        assert_eq!(content(&fs, &at("d").join_name("f").unwrap()), b"kept");
+    }
+
+    #[test]
+    fn removal_frees_the_space_of_the_file() {
+        let fs = new_fs(CrashProfile::PosixWorstCase);
+        let volume = fs.volume(&root()).unwrap().id;
+        let total = fs.space(&volume).unwrap().available;
+        let mut handle = fs.create_new(&scope(), &at("a")).unwrap();
+        handle.write_all(&[0; 4096]).unwrap();
+        drop(handle);
+        assert_eq!(fs.space(&volume).unwrap().available, total - 4096);
+        fs.remove_file(&scope(), &at("a")).unwrap();
+        assert_eq!(fs.space(&volume).unwrap().available, total);
+    }
+
+    #[test]
+    fn directories_report_their_state_errors() {
+        let fs = new_fs(CrashProfile::PosixWorstCase);
+        fs.create_dir(&scope(), &at("d"), 0o755).unwrap();
+        let again = fs.create_dir(&scope(), &at("d"), 0o755).unwrap_err();
+        assert_eq!(again.kind, FsErrorKind::Exists);
+        fs.create_new(&scope(), &at("d").join_name("f").unwrap())
+            .unwrap();
+        let full = fs.remove_dir(&scope(), &at("d")).unwrap_err();
+        assert_eq!(full.kind, FsErrorKind::NotEmpty);
+        let file = fs.remove_file(&scope(), &at("d")).unwrap_err();
+        assert_eq!(file.kind, FsErrorKind::IsADirectory);
+    }
+
+    #[test]
+    fn an_exclusive_lock_is_released_on_drop() {
+        let fs = new_fs(CrashProfile::PosixWorstCase);
+        let first = fs
+            .lock_exclusive(&at("lock"), Duration::from_millis(1))
+            .unwrap();
+        let busy = fs
+            .lock_exclusive(&at("lock"), Duration::from_millis(1))
+            .err()
+            .expect("the lock is held");
+        assert_eq!(busy.kind, FsErrorKind::InUse);
+        drop(first);
+        assert!(
+            fs.lock_exclusive(&at("lock"), Duration::from_millis(1))
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn handles_of_an_earlier_generation_fail_after_a_crash() {
+        let fs = new_fs(CrashProfile::PosixWorstCase);
+        let mut handle = fs.create_new(&scope(), &at("a")).unwrap();
+        fs.crash();
+        assert!(handle.write_all(b"late").is_err());
+        assert_eq!(
+            handle.sync(Durability::Data).unwrap_err().kind,
+            FsErrorKind::Io
+        );
+    }
+
+    #[test]
+    fn a_volume_set_needs_distinct_mounts() {
+        assert!(CrashFs::new(CrashProfile::Xfs, 1, Vec::new()).is_err());
+        let twice = vec![VolumeSpec::new(root()), VolumeSpec::new(root())];
+        assert!(CrashFs::new(CrashProfile::Xfs, 1, twice).is_err());
+    }
+
+    #[test]
+    fn seeks_stay_inside_the_addressable_range() {
+        assert_eq!(seek_position(5, 10, SeekFrom::End(-10)).unwrap(), 0);
+        assert_eq!(seek_position(5, 10, SeekFrom::Current(2)).unwrap(), 7);
+        assert!(seek_position(0, 10, SeekFrom::Current(-1)).is_err());
+        assert!(seek_position(0, 10, SeekFrom::End(-11)).is_err());
+    }
+
+    #[test]
+    fn writes_past_the_end_extend_the_file_with_zeros() {
+        let mut content = vec![1];
+        write_at(&mut content, 3, b"ab");
+        assert_eq!(content, [1, 0, 0, b'a', b'b']);
+        write_at(&mut content, 0, b"");
+        assert_eq!(content.len(), 5);
+    }
+
+    #[test]
+    fn profile_names_equal_their_serialized_form() {
+        for profile in CrashProfile::ALL {
+            assert_eq!(
+                serde_json::to_string(&profile).unwrap(),
+                format!("\"{}\"", profile.as_str())
+            );
         }
     }
 }

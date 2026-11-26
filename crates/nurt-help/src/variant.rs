@@ -97,7 +97,7 @@ fn collect_in_stage(catalog: &Catalog, stage: &mut Stage) {
         !taken.contains(&(position - 1))
     });
     stage.args.insert(
-        first - (taken.len() - 1).min(first),
+        first,
         Arg {
             name: Some(param.name.clone()),
             value: Expr::List { items, span: None },
@@ -189,6 +189,9 @@ pub fn convert_fenced(catalog: &Catalog, text: &str, variant: Variant) -> Result
             }
         }
     }
+    if let Some(program) = block {
+        out.extend(program.into_iter().map(str::to_owned));
+    }
     Ok(out.join("\n"))
 }
 
@@ -212,6 +215,18 @@ mod tests {
             .replace("total = 2", "total = 3")
             .replace("commands = 2", "commands = 3");
         let core = format!("{CORE}{SELECT}");
+        Catalog::from_sources(&index, &[("core.toml", &core)], Docs::empty()).unwrap()
+    }
+
+    const SEARCH: &str = "[[command]]\nname = \"search\"\ncategory = \"source\"\nreversibility = \"read\"\neffect = \"read\"\nimplementation = \"builtin\"\ninput = [\"none\"]\noutput = [\"match\"]\nsummary = \"Search.\"\n\
+[[command.param]]\nname = \"pattern\"\ntype = \"text\"\nposition = 1\nrequired = true\nsummary = \"Pattern.\"\n\
+[[command.param]]\nname = \"path\"\ntype = \"list<path>\"\nposition = 2\nrequired = true\nrepeated = true\nsummary = \"Paths.\"\n";
+
+    fn catalog_with_search() -> Catalog {
+        let index = INDEX
+            .replace("total = 2", "total = 3")
+            .replace("commands = 2", "commands = 3");
+        let core = format!("{CORE}{SEARCH}");
         Catalog::from_sources(&index, &[("core.toml", &core)], Docs::empty()).unwrap()
     }
 
@@ -246,9 +261,44 @@ mod tests {
     }
 
     #[test]
+    fn repeated_parameter_stays_after_the_positional_parameters_before_it_in_variant_c() {
+        let catalog = catalog_with_search();
+        let text = convert_program(&catalog, "search \"x\" \"/a\" \"/b\"", Variant::C).unwrap();
+        let pattern = text.find("pattern=\"x\"").unwrap();
+        let path = text.find("path=[").unwrap();
+        assert!(pattern < path, "{text}");
+        assert!(text.contains("\"/a\"") && text.contains("\"/b\""), "{text}");
+    }
+
+    #[test]
+    fn single_item_of_a_repeated_parameter_is_still_a_list_in_variant_c() {
+        let catalog = catalog_with_search();
+        let text = convert_program(&catalog, "search \"x\" \"/a\"", Variant::C).unwrap();
+        assert!(text.contains("path=[\"/a\"]"), "{text}");
+    }
+
+    #[test]
     fn text_that_is_not_a_program_is_an_error() {
         let error = convert_program(&catalog(), "find |>", Variant::B).unwrap_err();
         assert_eq!(error.code(), ErrorCode::Internal);
+    }
+
+    #[test]
+    fn unterminated_block_is_kept_as_written() {
+        let text = "Before.\n\n```nurt\nfind \"/srv\" |> first 5\nmore text";
+        let converted = convert_fenced(&catalog(), text, Variant::B).unwrap();
+        assert_eq!(converted, text);
+    }
+
+    #[test]
+    fn text_without_blocks_is_unchanged_in_every_variant() {
+        let text = "Only prose.\n\n    indented\n";
+        for variant in [Variant::A, Variant::B, Variant::C] {
+            assert_eq!(
+                convert_fenced(&catalog(), text.trim_end(), variant).unwrap(),
+                text.trim_end()
+            );
+        }
     }
 
     #[test]

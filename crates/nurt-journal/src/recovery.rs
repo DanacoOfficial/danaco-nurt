@@ -2154,6 +2154,127 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn equal_hashes_are_the_same_and_different_hashes_are_different() {
+        let recorded = Facts {
+            hash: Some(ContentHash([1; 32])),
+            ..old_file()
+        };
+        let same = Facts {
+            hash: Some(ContentHash([1; 32])),
+            file_id: Some(COPY_ID),
+            ..old_file()
+        };
+        let other = Facts {
+            hash: Some(ContentHash([2; 32])),
+            ..old_file()
+        };
+        for identity in [Identity::Original, Identity::Copy] {
+            assert_eq!(likeness(&recorded, &same, identity), Likeness::Same);
+            assert_eq!(likeness(&recorded, &other, identity), Likeness::Different);
+        }
+    }
+
+    #[test]
+    fn another_kind_is_different_for_both_identities() {
+        let directory = Facts {
+            kind: Some(FileKind::Directory),
+            ..old_file()
+        };
+        for identity in [Identity::Original, Identity::Copy] {
+            assert_eq!(
+                likeness(&old_file(), &directory, identity),
+                Likeness::Different
+            );
+        }
+    }
+
+    #[test]
+    fn copy_identity_is_decided_by_size_and_then_by_hash() {
+        let sized = Facts {
+            kind: Some(FileKind::File),
+            size: Some(10),
+            ..Facts::default()
+        };
+        let longer = Facts {
+            size: Some(11),
+            ..sized
+        };
+        assert_eq!(likeness(&sized, &sized, Identity::Copy), Likeness::Same);
+        assert_eq!(likeness(&sized, &longer, Identity::Copy), Likeness::Different);
+        let hashed = Facts {
+            kind: Some(FileKind::File),
+            hash: Some(ContentHash([3; 32])),
+            ..Facts::default()
+        };
+        let unhashed = Facts {
+            kind: Some(FileKind::File),
+            size: Some(10),
+            ..Facts::default()
+        };
+        assert_eq!(
+            likeness(&hashed, &unhashed, Identity::Copy),
+            Likeness::Undecided
+        );
+        let nothing = Facts {
+            kind: Some(FileKind::File),
+            ..Facts::default()
+        };
+        assert_eq!(
+            likeness(&nothing, &unhashed, Identity::Copy),
+            Likeness::Different
+        );
+    }
+
+    #[test]
+    fn original_identity_without_file_identity_is_decided_by_size_and_hash() {
+        let sized = Facts {
+            kind: Some(FileKind::File),
+            size: Some(10),
+            ..Facts::default()
+        };
+        let longer = Facts {
+            size: Some(11),
+            ..sized
+        };
+        assert_eq!(
+            likeness(&sized, &longer, Identity::Original),
+            Likeness::Different
+        );
+        assert_eq!(
+            likeness(&sized, &sized, Identity::Original),
+            Likeness::Different
+        );
+        let hashed = Facts {
+            hash: Some(ContentHash([4; 32])),
+            ..sized
+        };
+        assert_eq!(
+            likeness(&hashed, &sized, Identity::Original),
+            Likeness::Undecided
+        );
+    }
+
+    #[test]
+    fn original_identity_with_a_missing_modification_time_is_the_same_file() {
+        let recorded = Facts {
+            modified_ns: None,
+            ..old_file()
+        };
+        assert_eq!(
+            likeness(&recorded, &old_file(), Identity::Original),
+            Likeness::Same
+        );
+        let other_file = Facts {
+            file_id: Some(NEW_ID),
+            ..old_file()
+        };
+        assert_eq!(
+            likeness(&old_file(), &other_file, Identity::Original),
+            Likeness::Different
+        );
+    }
 }
 
 #[cfg(test)]
@@ -3523,5 +3644,134 @@ mod pass_tests {
             .unwrap()
             .kind;
         assert_eq!(kind, FileKind::Directory);
+    }
+
+    #[test]
+    fn prepared_entry_without_a_manifest_becomes_corrupt_without_changes() {
+        let world = World::new();
+        overwrite_entry(&world, PreserveMode::Exchange);
+        let manifest_path = world
+            .journal()
+            .entry(OpId(1))
+            .unwrap()
+            .manifest()
+            .unwrap();
+        world
+            .fs
+            .remove_file(&World::scope(1), &manifest_path)
+            .unwrap();
+        let report = recover(&world.ctx).unwrap();
+        assert_eq!(report.corrupt, vec![OpId(1)]);
+        assert_eq!(world.state(0, 1).state, EntryState::Corrupt);
+        assert!(!world.marked(0, 1));
+        assert_eq!(world.read("/a/f").as_deref(), Some(OLD));
+        assert!(world.exists(&World::staged("/a/f", 1, 0)));
+    }
+
+    #[test]
+    fn prepared_entry_with_a_truncated_manifest_becomes_corrupt_without_changes() {
+        let world = World::new();
+        overwrite_entry(&world, PreserveMode::Exchange);
+        let manifest_path = world
+            .journal()
+            .entry(OpId(1))
+            .unwrap()
+            .manifest()
+            .unwrap();
+        let mut handle = world
+            .fs
+            .open_in_place(&World::scope(1), &manifest_path)
+            .unwrap();
+        handle.set_length(0).unwrap();
+        handle.write_all(b"{\"v\":").unwrap();
+        drop(handle);
+        let report = recover(&world.ctx).unwrap();
+        assert_eq!(report.corrupt, vec![OpId(1)]);
+        assert_eq!(world.state(0, 1).state, EntryState::Corrupt);
+        assert_eq!(world.read("/a/f").as_deref(), Some(OLD));
+        assert!(world.exists(&World::staged("/a/f", 1, 0)));
+    }
+
+    #[test]
+    fn started_rollback_with_a_damaged_manifest_becomes_corrupt() {
+        let world = World::new();
+        world.fs.seed_file(&abs("/a/f"), OLD).unwrap();
+        let before = world.before("/a/f", PreserveMode::Exchange, 0);
+        world.write_entry(
+            0,
+            entry_of(
+                1,
+                vec![target(0, "/a/f", TargetAction::Modify, before)],
+                vec![world.part(0)],
+            ),
+            StateRecord::rolling_back(UndoneCause::Crash),
+            true,
+        );
+        tamper_manifest(&world, 1);
+        let report = recover(&world.ctx).unwrap();
+        assert_eq!(report.corrupt, vec![OpId(1)]);
+        assert!(report.completed_rollbacks.is_empty());
+        assert_eq!(world.state(0, 1).state, EntryState::Corrupt);
+        assert_eq!(world.read("/a/f").as_deref(), Some(OLD));
+    }
+
+    /// Prepared entry 1 that appended to `/a/log`, which held `abc`.
+    fn append_entry(world: &World) {
+        world.fs.seed_file(&abs("/a/log"), b"abc").unwrap();
+        let before = world.before("/a/log", PreserveMode::Append, 0);
+        world.write_entry(
+            0,
+            entry_of(
+                1,
+                vec![target(0, "/a/log", TargetAction::Append, before)],
+                vec![world.part(0)],
+            ),
+            prepared(),
+            true,
+        );
+    }
+
+    #[test]
+    fn append_rollback_of_an_unchanged_file_changes_nothing() {
+        let world = World::new();
+        append_entry(&world);
+        let report = recover(&world.ctx).unwrap();
+        assert_eq!(report.rolled_back, vec![OpId(1)]);
+        assert_eq!(world.read("/a/log").as_deref(), Some(&b"abc"[..]));
+        assert_eq!(world.displaced(1, 0), None);
+        assert_eq!(world.state(0, 1), StateRecord::undone(UndoneCause::Crash));
+    }
+
+    #[test]
+    fn append_rollback_of_a_shortened_file_marks_the_entry_corrupt() {
+        let world = World::new();
+        append_entry(&world);
+        let mut handle = world
+            .fs
+            .open_in_place(&World::scope(1), &abs("/a/log"))
+            .unwrap();
+        handle.set_length(2).unwrap();
+        drop(handle);
+        let report = recover(&world.ctx).unwrap();
+        assert_eq!(report.corrupt, vec![OpId(1)]);
+        assert_eq!(world.read("/a/log").as_deref(), Some(&b"ab"[..]));
+        assert_eq!(world.state(0, 1).state, EntryState::Corrupt);
+    }
+
+    #[test]
+    fn repeated_recovery_changes_nothing() {
+        let world = World::new();
+        two_entries(&world);
+        recover(&world.ctx).unwrap();
+        let first = world.fs.snapshot(&abs("/a")).unwrap();
+        let again = recover(&world.ctx).unwrap();
+        assert!(again.rolled_back.is_empty(), "{again:?}");
+        assert!(again.corrupt.is_empty(), "{again:?}");
+        let second = world.fs.snapshot(&abs("/a")).unwrap();
+        assert!(
+            first.diff(&second).is_empty(),
+            "{:?}",
+            first.diff(&second)
+        );
     }
 }

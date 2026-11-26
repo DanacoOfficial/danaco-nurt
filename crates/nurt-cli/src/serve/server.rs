@@ -606,6 +606,8 @@ fn panicked(payload: &(dyn Any + Send)) -> RpcError {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use super::*;
 
     #[test]
@@ -615,6 +617,61 @@ mod tests {
         assert_eq!(major(None), None);
         assert_eq!(major(PROTOCOL.strip_prefix(PROTOCOL_FAMILY)), Some("1"));
         assert_eq!(abi_major(0x0001_0003), 1);
+    }
+
+    #[test]
+    fn major_versions_ignore_the_minor_and_patch_parts() {
+        assert_eq!(major(Some("1.2.3")), Some("1"));
+        assert_eq!(major(Some("")), Some(""));
+        assert_eq!(major(Some(".5")), Some(""));
+        assert_eq!(major(Some("10.0")), Some("10"));
+        assert_ne!(major(Some("1")), major(Some("10")));
+        assert_eq!(PROTOCOL.strip_prefix(PROTOCOL_FAMILY), Some("1"));
+        assert_eq!("lsp/1".strip_prefix(PROTOCOL_FAMILY), None);
+    }
+
+    #[test]
+    fn interface_versions_are_compared_by_their_upper_half() {
+        assert_eq!(abi_major(0), 0);
+        assert_eq!(abi_major(0x0000_ffff), 0);
+        assert_eq!(abi_major(0x0001_0000), 1);
+        assert_eq!(abi_major(u32::MAX), 0xffff);
+        assert_ne!(abi_major(0x0001_ffff), abi_major(0x0002_0000));
+    }
+
+    #[test]
+    fn identifiers_of_every_json_type_have_distinct_keys() {
+        let keys = [
+            id_key(&json!(1)),
+            id_key(&json!(1.5)),
+            id_key(&json!("1")),
+            id_key(&Value::Null),
+            id_key(&json!("null")),
+        ];
+        for (index, key) in keys.iter().enumerate() {
+            assert!(!keys[..index].contains(key), "{key}");
+        }
+        assert_eq!(id_key(&json!("\u{142}")), "\"\u{142}\"");
+    }
+
+    #[test]
+    fn a_panic_payload_of_another_type_has_no_detail() {
+        let error = panicked(&42_i32);
+        assert_eq!(error.code, protocol::application_code(AbiStatus::Internal));
+        assert_eq!(error.data["panic"], "");
+    }
+
+    #[test]
+    fn the_limits_have_the_documented_defaults() {
+        assert_eq!(DEFAULT_MAX_INFLIGHT, 16);
+        assert_eq!(DEFAULT_MAX_MESSAGE_BYTES, 16 * 1024 * 1024);
+        let options = ServeOptions::with_backend(Box::new(NoBackend));
+        assert_eq!(options.max_inflight(), DEFAULT_MAX_INFLIGHT);
+        assert_eq!(options.max_message_bytes(), DEFAULT_MAX_MESSAGE_BYTES);
+        let options = options.with_max_inflight(usize::MAX).with_max_message_bytes(usize::MAX);
+        assert_eq!(options.max_inflight(), usize::MAX);
+        assert_eq!(options.max_message_bytes(), usize::MAX);
+        assert_eq!(options.with_framing(Framing::ContentLength).framing(), Framing::ContentLength);
     }
 
     #[test]
@@ -642,6 +699,135 @@ mod tests {
         assert_eq!(options.max_message_bytes(), 1);
         assert_eq!(options.framing(), Framing::Ndjson);
         assert!(format!("{options:?}").contains("max_inflight: 1"));
+    }
+
+    /// Longest time a stub call waits for its release before the test fails.
+    const RELEASE_LIMIT: std::time::Duration = std::time::Duration::from_secs(20);
+
+    /// Backend whose `run` is slow: it ends only when a `help` has been
+    /// answered or when its request is cancelled.
+    struct SlowBackend {
+        helped: AtomicBool,
+    }
+
+    impl SlowBackend {
+        fn new() -> Self {
+            Self {
+                helped: AtomicBool::new(false),
+            }
+        }
+    }
+
+    impl Backend for SlowBackend {
+        fn summary(&self) -> super::super::backend::Summary {
+            NoBackend.summary()
+        }
+
+        fn call(&self, call: Call, context: &CallContext<'_>) -> Result<Value, RpcError> {
+            match call {
+                Call::Run(_) => {
+                    let deadline = std::time::Instant::now() + RELEASE_LIMIT;
+                    while !self.helped.load(Ordering::SeqCst) && !context.cancel.is_cancelled() {
+                        assert!(
+                            std::time::Instant::now() < deadline,
+                            "the slow call was never released"
+                        );
+                        std::thread::yield_now();
+                    }
+                    if context.cancel.is_cancelled() {
+                        Err(RpcError::cancelled(json!({"stopped": true})))
+                    } else {
+                        Ok(json!({"slow": "done"}))
+                    }
+                }
+                Call::Help(_) => {
+                    self.helped.store(true, Ordering::SeqCst);
+                    Ok(json!({"text": "help"}))
+                }
+                _ => Err(RpcError::internal("unexpected call")),
+            }
+        }
+    }
+
+    /// Serves `messages` on `backend` to the end of the input and returns
+    /// every message the server wrote.
+    fn converse(backend: SlowBackend, messages: &[Value]) -> Vec<Value> {
+        let mut input = Vec::new();
+        for message in messages {
+            input.extend_from_slice(message.to_string().as_bytes());
+            input.push(b'\n');
+        }
+        let mut output = Vec::new();
+        let options = ServeOptions::with_backend(Box::new(backend));
+        run(options, std::io::Cursor::new(input), &mut output);
+        output
+            .split(|byte| *byte == b'\n')
+            .filter(|line| !line.is_empty())
+            .map(|line| serde_json::from_slice(line).unwrap())
+            .collect()
+    }
+
+    fn call_message(id: u64, method: &str, params: Value) -> Value {
+        json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params})
+    }
+
+    fn reply_to(messages: &[Value], id: u64) -> &Value {
+        messages
+            .iter()
+            .find(|message| message["id"] == id && message.get("method").is_none())
+            .unwrap_or_else(|| panic!("no reply to {id}: {messages:?}"))
+    }
+
+    fn initialize_message() -> Value {
+        call_message(1, "initialize", json!({"protocol": "nurt-rpc/1"}))
+    }
+
+    #[test]
+    fn a_slow_run_does_not_hold_back_a_help_request_behind_it() {
+        let messages = converse(
+            SlowBackend::new(),
+            &[
+                initialize_message(),
+                call_message(2, "run", json!({"nurt": "1.0", "program": "count"})),
+                call_message(3, "help", json!({"topic": "find"})),
+            ],
+        );
+        assert_eq!(reply_to(&messages, 3)["result"], json!({"text": "help"}));
+        assert_eq!(reply_to(&messages, 2)["result"], json!({"slow": "done"}));
+    }
+
+    #[test]
+    fn cancelling_a_request_stops_the_slow_call_with_its_cancellation_error() {
+        let messages = converse(
+            SlowBackend::new(),
+            &[
+                initialize_message(),
+                call_message(2, "run", json!({"nurt": "1.0", "program": "count"})),
+                call_message(3, "cancel", json!({"request_id": 2})),
+            ],
+        );
+        assert_eq!(reply_to(&messages, 3)["result"], json!({"cancelled": true}));
+        let stopped = &reply_to(&messages, 2)["error"];
+        assert_eq!(stopped["code"], protocol::application_code(AbiStatus::Cancelled));
+        assert_eq!(stopped["data"]["response"], json!({"stopped": true}));
+    }
+
+    #[test]
+    fn cancelling_one_request_leaves_the_others_running() {
+        let messages = converse(
+            SlowBackend::new(),
+            &[
+                initialize_message(),
+                call_message(2, "run", json!({"nurt": "1.0", "program": "count"})),
+                call_message(3, "run", json!({"nurt": "1.0", "program": "count"})),
+                call_message(4, "cancel", json!({"request_id": 2})),
+                call_message(5, "help", json!({})),
+            ],
+        );
+        assert_eq!(reply_to(&messages, 4)["result"], json!({"cancelled": true}));
+        assert!(reply_to(&messages, 2)["error"].is_object());
+        assert_eq!(reply_to(&messages, 3)["result"], json!({"slow": "done"}));
+        assert_eq!(reply_to(&messages, 5)["result"], json!({"text": "help"}));
     }
 
     struct NoBackend;

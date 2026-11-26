@@ -242,6 +242,25 @@ mod tests {
     }
 
     #[test]
+    fn rejects_agent_signature_that_does_not_verify() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let socket = dir.path().join("agent.sock");
+        let wrong = private_key()
+            .sign(NAMESPACE, HashAlg::Sha512, b"other payload")
+            .expect("sign")
+            .signature()
+            .encode_vec()
+            .expect("encode");
+        let agent = mock::serve(&socket, mock::sign_response(&wrong));
+        let mut config = SigningConfig::new(SignatureFormat::Ssh, CREATED);
+        config.signing_key = Some(format!("key::{PUBLIC}"));
+        config.ssh_auth_sock = Some(socket);
+        let error = super::super::sign(PAYLOAD, &config).expect_err("wrong signature");
+        assert_eq!(error.data().problem.as_deref(), Some("agent_unavailable"));
+        agent.join().expect("agent");
+    }
+
+    #[test]
     fn reports_agent_failure_as_missing_key() {
         let dir = tempfile::tempdir().expect("tempdir");
         let socket = dir.path().join("agent.sock");

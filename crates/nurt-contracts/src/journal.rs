@@ -42,7 +42,7 @@ use crate::config::{
     AgeClock, AgeLimit, ByteLimit, ConfigLevel, JournalFloor, Oversize, SizeLimit, StepLimit,
 };
 use crate::env::WallTime;
-use crate::error::Result;
+use crate::error::{Error, ErrorCode, Result};
 use crate::fs::{
     AbsPath, ContentHash, Etag, FileKind, FileMeta, LinkKind, MetaChange, ProviderKey,
     ProviderValue, VolumeId, VolumeInfo, WriteHandle,
@@ -982,9 +982,23 @@ pub struct FileOpOutcome {
 ///
 /// Fails with the errors of [`MutationTx::preserve`] and
 /// [`MutationTx::apply`]; the transaction is then rolled back by the journal.
+/// Fails with `E_STAGE_FAILED` before the first change when
+/// [`MutationTx::preserve`] returns a number of results that differs from the
+/// number of operations.
 pub fn apply_ops(tx: &mut dyn MutationTx, ops: Vec<FileOp>) -> Result<Vec<FileOpOutcome>> {
     let targets: Vec<TargetSpec> = ops.iter().map(|op| op.target.clone()).collect();
     let preserved = tx.preserve(&targets)?;
+    if preserved.len() != ops.len() {
+        return Err(Error::new(
+            ErrorCode::StageFailed,
+            format!(
+                "the journal preserved {} of {} declared targets",
+                preserved.len(),
+                ops.len()
+            ),
+        )
+        .with_problem("preserve_count"));
+    }
     preserved
         .into_iter()
         .zip(ops)

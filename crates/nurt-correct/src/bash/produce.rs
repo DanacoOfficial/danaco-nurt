@@ -762,6 +762,7 @@ fn substituted(session: &Session<'_>, body: &str, span: Span) -> Result<Piece, E
         return Err(failure());
     }
     let inner = Session::new(session.table, session.context, body);
+    inner.nested_in(session, span)?;
     let variants = inner.with_directory(session.directory(), || {
         inner.pipe(&item.first, &RunOptions::default())
     })?;
@@ -988,7 +989,7 @@ pub(crate) fn at(
             &[("time", &time_text)],
         ));
     }
-    let action = session.words(simple, command, None, &RunOptions::default())?;
+    let action = session.nested_words(simple, command, None, &RunOptions::default())?;
     let label = command[0].value.literal().unwrap_or_default();
     let stage = Stage {
         name: "schedule.create".to_owned(),
@@ -1061,6 +1062,17 @@ mod tests {
     }
 
     #[test]
+    fn echo_with_only_flags_or_no_words() {
+        assert_eq!(echo(&words(&["-n"])), "");
+        assert_eq!(echo(&words(&["-e"])), "\n");
+        assert_eq!(echo(&words(&[])), "\n");
+        assert_eq!(echo(&words(&["-E", "a\\tb"])), "a\\tb\n");
+        assert_eq!(echo(&words(&["-neE", "a\\tb"])), "a\\tb");
+        assert_eq!(echo(&words(&["-", "a"])), "- a\n");
+        assert_eq!(echo(&words(&["zażółć", "gęślą"])), "zażółć gęślą\n");
+    }
+
+    #[test]
     fn unescape_keeps_unknown_escapes() {
         assert_eq!(unescape("a\\qb\\"), "a\\qb\\");
         assert_eq!(unescape("\\r\\\\\\\""), "\r\\\"");
@@ -1072,5 +1084,8 @@ mod tests {
         assert!(is_absolute_time("2026-11-22T10:00:30"));
         assert!(!is_absolute_time("10:00"));
         assert!(!is_absolute_time("now"));
+        assert!(!is_absolute_time("2026-11-22T10:00:"));
+        assert!(!is_absolute_time("٢٠٢٦-11-22T10:00"));
+        assert!(!is_absolute_time(""));
     }
 }

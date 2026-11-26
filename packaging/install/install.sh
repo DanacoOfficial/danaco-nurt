@@ -160,7 +160,8 @@ fi
 detect_targets
 
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT INT TERM
+trap 'rm -rf "$work"' EXIT
+trap 'exit 1' INT TERM
 
 if [ -z "$version" ]; then
     fetch "$releases_url/latest/download/checksums.txt" "$work/latest.txt" ||
@@ -170,6 +171,9 @@ if [ -z "$version" ]; then
         [ -n "$version" ] && break
     done
     [ -n "$version" ] || fail "the latest release has no archive for $targets"
+    case $version in
+        *[!0-9A-Za-z.+-]*) fail "invalid version in the latest release: $version" ;;
+    esac
 fi
 
 download_url=$releases_url/download/v$version

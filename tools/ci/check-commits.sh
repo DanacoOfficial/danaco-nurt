@@ -56,7 +56,7 @@ for commit in $commits; do
     fail "$short" "subject longer than $MAX_SUBJECT characters"
   fi
 
-  if printf '%s\n' "$subject" | grep -qE "^($TYPES)(\([a-z0-9-]+\))?!?: [^ ].*[^.]$"; then
+  if printf '%s\n' "$subject" | grep -qE "^($TYPES)(\([a-z0-9-]+\))?!?: ([^ .]|[^ ].*[^.])$"; then
     scope=$(printf '%s\n' "$subject" | sed -nE 's/^[a-z]+\(([a-z0-9-]+)\).*/\1/p')
     if [ -n "$scope" ]; then
       case "$scopes" in

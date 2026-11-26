@@ -387,8 +387,13 @@ impl Snapshot {
         fs::create_dir_all(root).map_err(io_error(root))?;
         let mut entries: Vec<&Entry> = self.entries.iter().collect();
         entries.sort_by(|a, b| a.path.cmp(&b.path));
-        for entry in entries {
+        for entry in &entries {
             create_entry(root, entry)?;
+        }
+        // A directory without write permission would refuse its children, so
+        // the modes of directories are applied last, the deepest first.
+        for entry in entries.iter().rev().filter(|e| e.kind == EntryType::Dir) {
+            apply_mode(&native_path(root, &entry.path), entry.mode_bits()?)?;
         }
         Ok(())
     }
@@ -488,6 +493,9 @@ fn create_entry(root: &Path, entry: &Entry) -> Result<(), SnapshotError> {
             }
         }
         EntryType::Symlink => create_symlink(&path, entry.target.as_deref().unwrap_or_default())?,
+    }
+    if entry.kind == EntryType::Dir {
+        return Ok(());
     }
     apply_mode(&path, entry.mode_bits()?)
 }
@@ -830,6 +838,33 @@ mod tests {
                 "target \"run.sh\" instead of \"other\"".to_owned()
             ]
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn directories_without_write_permission_still_receive_their_children() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let root = tempfile::tempdir().unwrap();
+        let expected = snapshot(json!([
+            {"path": "locked", "type": "dir", "mode": "0555"},
+            {"path": "locked/inner", "type": "dir", "mode": "0500"},
+            {"path": "locked/inner/a.txt", "type": "file", "content_utf8": "a"}
+        ]));
+        expected.materialize(root.path()).unwrap();
+        let mode = |path: &str| {
+            fs::metadata(root.path().join(path)).unwrap().permissions().mode() & MODE_MASK
+        };
+        assert_eq!(mode("locked"), 0o555);
+        assert_eq!(mode("locked/inner"), 0o500);
+        assert_eq!(
+            fs::read_to_string(root.path().join("locked/inner/a.txt")).unwrap(),
+            "a"
+        );
+        // The tree is removed by the temporary directory.
+        for path in ["locked/inner", "locked"] {
+            fs::set_permissions(root.path().join(path), fs::Permissions::from_mode(0o755))
+                .unwrap();
+        }
     }
 
     #[test]

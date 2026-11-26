@@ -176,7 +176,41 @@ mod tests {
     use nurt_contracts::env::{Clock, Host};
     use nurt_contracts::stage::{CancelReason, CancelToken};
 
-    use super::{SystemClock, SystemHost};
+    use super::{SystemClock, SystemHost, first_variable, read_trimmed, wall_nanos};
+
+    #[test]
+    fn unset_variables_and_missing_files_give_nothing() {
+        assert_eq!(first_variable(&[]), None);
+        assert_eq!(first_variable(&["NURT_NODE_UNSET_ONE", "NURT_NODE_UNSET_TWO"]), None);
+        assert_eq!(read_trimmed("/nurt-node-missing/boot_id"), None);
+        assert_eq!(read_trimmed("/"), None);
+    }
+
+    #[test]
+    fn wall_time_is_after_the_epoch_and_does_not_go_back_between_readings() {
+        let first = wall_nanos();
+        let second = wall_nanos();
+        assert!(first > 0);
+        assert!(second >= first || first - second < 1_000_000_000);
+    }
+
+    #[test]
+    fn a_stamp_reports_one_elapsed_time_for_both_monotonic_readings() {
+        let clock = SystemClock::default();
+        let stamp = clock.stamp();
+        assert_eq!(stamp.since_boot_with_suspend, stamp.since_boot_active);
+        assert_eq!(stamp.boot, clock.stamp().boot);
+        assert!(clock.stamp().since_boot_active >= stamp.since_boot_active);
+    }
+
+    #[test]
+    fn the_host_default_equals_a_new_host_and_has_an_absolute_temp_directory() {
+        let host = SystemHost::default();
+        assert_eq!(host.info().architecture, SystemHost::new().info().architecture);
+        assert!(host.info().temp.is_absolute());
+        assert!(!host.info().hostname.is_empty());
+        assert!(!host.info().os_version.is_empty());
+    }
 
     #[test]
     fn monotonic_readings_do_not_decrease() {

@@ -326,4 +326,179 @@ mod tests {
         let entry = marker(Irreversible::Purged, &[OpId(1), OpId(2)]).unwrap();
         assert_eq!(entry.count, Some(2));
     }
+
+    use nurt_contracts::journal::{AfterState, BeforeState, TargetIndex};
+
+    fn outcome_of(target: &str, action: TargetAction) -> TargetOutcome {
+        TargetOutcome {
+            index: TargetIndex(0),
+            path: path(target),
+            action,
+            mode: PreserveMode::Moved,
+            bytes_held: 0,
+            before: BeforeState {
+                exists: true,
+                size: Some(6),
+                hash: Some(ContentHash([1; 32])),
+                ..BeforeState::default()
+            },
+            after: Some(AfterState {
+                exists: true,
+                size: Some(5),
+                hash: Some(ContentHash([2; 32])),
+                ..AfterState::default()
+            }),
+            irreversible: None,
+            notable: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn numbers_and_counts_saturate_instead_of_wrapping() {
+        assert_eq!(number(0), Value::Int(0));
+        assert_eq!(number(u64::MAX), Value::Int(i64::MAX));
+        assert_eq!(number(u64::try_from(i64::MAX).unwrap()), Value::Int(i64::MAX));
+        assert_eq!(count(0), 0);
+        assert_eq!(count(usize::MAX), u64::try_from(usize::MAX).unwrap_or(u64::MAX));
+        assert_eq!(op_list(&[]), Value::List(Vec::new()));
+        assert_eq!(op_list(&[OpId(u64::MAX)]), Value::List(vec![Value::Int(i64::MAX)]));
+    }
+
+    #[test]
+    fn restored_items_are_reported_with_their_actions_sizes_and_hashes() {
+        let modified = change(&outcome_of("/d/a.txt", TargetAction::Append));
+        assert_eq!(modified.action, ChangeAction::Modify);
+        assert_eq!(modified.size_before, Some(Size::from_bytes(6)));
+        assert_eq!(modified.size_after, Some(Size::from_bytes(5)));
+        assert_eq!(modified.hash_before, Some(ContentHash([1; 32]).to_string()));
+        assert_eq!(modified.hash_after, Some(ContentHash([2; 32]).to_string()));
+        assert_eq!(modified.to, None);
+
+        let created = change(&outcome_of("/d/zażółć", TargetAction::CreateTree));
+        assert_eq!(created.action, ChangeAction::Create);
+        assert_eq!(created.path, Path::from("/d/zażółć"));
+
+        let moved = change(&outcome_of(
+            "/d/a.txt",
+            TargetAction::Rename {
+                to: AbsPath::new("/d/b.txt").unwrap(),
+                replace: true,
+            },
+        ));
+        assert_eq!(moved.action, ChangeAction::Rename);
+        assert_eq!(moved.to, Some(Path::from("/d/b.txt")));
+
+        let mut unchanged = outcome_of("/d/a.txt", TargetAction::Delete);
+        unchanged.after = None;
+        let removed = change(&unchanged);
+        assert_eq!(removed.action, ChangeAction::Delete);
+        assert_eq!(removed.size_after, None);
+        assert_eq!(removed.hash_after, None);
+    }
+
+    #[test]
+    fn reversing_an_entry_reverses_each_action() {
+        let expected = [
+            (TargetAction::Create, ChangeAction::Delete),
+            (TargetAction::CreateTree, ChangeAction::Delete),
+            (TargetAction::Link, ChangeAction::Delete),
+            (TargetAction::Delete, ChangeAction::Create),
+            (TargetAction::Append, ChangeAction::Truncate),
+            (TargetAction::Attributes, ChangeAction::Attributes),
+            (TargetAction::Modify, ChangeAction::Modify),
+            (TargetAction::Replace, ChangeAction::Modify),
+        ];
+        for (action, reversed) in expected {
+            let details = OperationDetails {
+                record: OperationRecord::default(),
+                items: vec![detail("/d/a.txt", action.clone())],
+            };
+            let changes = reversals(&details, None);
+            assert_eq!(changes.len(), 1, "{action:?}");
+            assert_eq!(changes[0].action, reversed, "{action:?}");
+            assert_eq!(changes[0].path, Path::from("/d/a.txt"));
+        }
+    }
+
+    #[test]
+    fn items_already_undone_or_not_selected_are_not_reversed() {
+        let mut undone = detail("/d/a.txt", TargetAction::Modify);
+        undone.undone = true;
+        let details = OperationDetails {
+            record: OperationRecord::default(),
+            items: vec![undone, detail("/d/b.txt", TargetAction::Modify)],
+        };
+        assert_eq!(reversals(&details, None).len(), 1);
+        let nothing: [TargetPath; 0] = [];
+        assert!(reversals(&details, Some(&nothing)).is_empty());
+        let other = [path("/d/c.txt")];
+        assert!(reversals(&details, Some(&other)).is_empty());
+        let empty = OperationDetails {
+            record: OperationRecord::default(),
+            items: Vec::new(),
+        };
+        assert!(reversals(&empty, None).is_empty());
+    }
+
+    #[test]
+    fn effect_outcomes_carry_changes_and_markers_only_when_there_are_some() {
+        let bare = outcome(effect("journal.pin", EffectStatus::Ok), Vec::new(), Vec::new());
+        assert!(bare.changes.is_empty());
+        assert!(bare.irreversible.is_empty());
+        let marker = marker(Irreversible::Purged, &[OpId(1)]).unwrap();
+        let full = outcome(
+            effect("journal.purge", EffectStatus::Ok),
+            vec![Change::new("/d/a.txt".to_owned(), ChangeAction::Delete)],
+            vec![marker],
+        );
+        assert_eq!(full.changes.len(), 1);
+        assert_eq!(full.irreversible.len(), 1);
+    }
+
+    #[test]
+    fn every_kind_of_difference_is_named_for_the_language() {
+        let named = |kind: ConflictKind| {
+            let conflict = Conflict {
+                op: OpId(3),
+                path: path("/d/zażółć.txt"),
+                kind,
+                expected: Some(ContentHash([1; 32])),
+                actual: None,
+            };
+            difference(&conflict)
+        };
+        for (kind, name) in [
+            (ConflictKind::Modified, "modified"),
+            (ConflictKind::Deleted, "deleted"),
+            (ConflictKind::Created, "created"),
+            (ConflictKind::TypeChanged, "type_changed"),
+            (ConflictKind::BlobModified, "blob_modified"),
+        ] {
+            let value = named(kind);
+            assert_eq!(value.get("difference"), Some(&Value::Enum(name.to_owned())));
+            assert_eq!(value.get("later"), None);
+            assert_eq!(value.get("op"), Some(&Value::Int(3)));
+            assert_eq!(
+                value.get("path"),
+                Some(&Value::Path("/d/zażółć.txt".to_owned()))
+            );
+            assert_eq!(
+                value.get("expected"),
+                Some(&Value::Text(ContentHash([1; 32]).to_string()))
+            );
+            assert_eq!(value.get("actual"), None);
+        }
+    }
+
+    #[test]
+    fn provider_targets_are_shown_as_keys() {
+        use nurt_contracts::fs::{ProviderKey, ProviderScheme};
+
+        let key = TargetPath::Provider(ProviderKey {
+            scheme: ProviderScheme("env".to_owned()),
+            segments: Vec::new(),
+            value: Some("PATH".to_owned()),
+        });
+        assert_eq!(target_text(&key), "env:@PATH");
+    }
 }
