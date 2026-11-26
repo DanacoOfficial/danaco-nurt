@@ -266,3 +266,52 @@ fn tagline_is_the_canonical_sentence() {
         "Command shell and language where every change can be undone"
     );
 }
+
+#[test]
+fn commands_topic_lists_every_command_under_its_group() {
+    let catalog = common::catalog();
+    let body = help::render(&HelpQuery::topic("commands"), &catalog)
+        .unwrap()
+        .body;
+    for file in catalog.groups() {
+        assert!(
+            body.contains(&format!("{} ({})", file.group, file.commands.len())),
+            "group {}",
+            file.group
+        );
+        for command in &file.commands {
+            let line = format!("  {} — {}", command.name, command.summary);
+            assert!(body.lines().any(|found| found == line), "{}", command.name);
+        }
+    }
+}
+
+#[test]
+fn commands_topic_is_a_json_document_of_groups() {
+    let catalog = common::catalog();
+    let query = HelpQuery::topic("commands").with_format(HelpFormat::Json);
+    let body = help::render(&query, &catalog).unwrap().body;
+    let document: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(document["kind"], "commands");
+    assert_eq!(document["count"], catalog.command_count());
+    let groups = document["groups"].as_array().unwrap();
+    assert_eq!(groups.len(), catalog.groups().count());
+    assert!(groups[0]["commands"].as_array().unwrap().len() > 1);
+}
+
+#[test]
+fn commands_topic_follows_the_language() {
+    let query = HelpQuery::topic("commands").with_language(Language::Pl);
+    let body = text(&query);
+    assert!(body.starts_with("polecenia według grup"));
+    assert!(text(&HelpQuery::topic("commands")).starts_with("commands by group"));
+}
+
+#[test]
+fn overview_and_unknown_topics_name_the_commands_topic() {
+    assert!(text(&HelpQuery::new()).contains("topics: syntax, corrections, commands"));
+    let error = help::render(&HelpQuery::topic("comands"), &common::catalog()).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::UnknownName);
+    let expected = error.expected.clone().unwrap();
+    assert_eq!(expected.as_array().unwrap()[0], "commands");
+}

@@ -232,8 +232,12 @@ enum Subject<'a> {
     Skill(&'a Guide),
     Syntax,
     Corrections,
+    Commands,
     Search(&'a str),
 }
+
+/// Name of the topic that lists every command of every group.
+pub const COMMANDS_TOPIC: &str = "commands";
 
 /// Answers a help question.
 ///
@@ -270,6 +274,7 @@ pub fn render(query: &HelpQuery, catalog: &Catalog) -> Result<HelpText, Error> {
             "corrections",
             text::corrections(query.language).join("\n"),
         ),
+        Subject::Commands => command_list(catalog, labels),
         Subject::Search(words) => search(catalog, words, labels),
     };
     let body = match query.format {
@@ -363,6 +368,7 @@ fn detect<'a>(catalog: &'a Catalog, topic: &str) -> Result<Subject<'a>, Error> {
     match topic {
         "syntax" => return Ok(Subject::Syntax),
         "corrections" => return Ok(Subject::Corrections),
+        COMMANDS_TOPIC => return Ok(Subject::Commands),
         _ => {}
     }
     if let Some(file) = catalog.group(topic) {
@@ -380,7 +386,11 @@ fn detect<'a>(catalog: &'a Catalog, topic: &str) -> Result<Subject<'a>, Error> {
         let mut names: Vec<String> = catalog.commands().map(|c| c.name.clone()).collect();
         names.extend(group_names(catalog));
         names.extend(catalog.docs().guides().map(|g| g.name.clone()));
-        names.extend(["syntax".to_owned(), "corrections".to_owned()]);
+        names.extend(
+            ["syntax", "corrections", COMMANDS_TOPIC]
+                .into_iter()
+                .map(str::to_owned),
+        );
         names
     };
     Err(lookup::unknown("help topic", topic, &names))
@@ -389,6 +399,34 @@ fn detect<'a>(catalog: &'a Catalog, topic: &str) -> Result<Subject<'a>, Error> {
 fn plain(kind: &str, name: &str, text: String) -> (String, Value) {
     let document = json!({ "kind": kind, "name": name, "text": text });
     (text, document)
+}
+
+/// The topic `commands`: every command of the catalog under its group, with
+/// its summary.
+fn command_list(catalog: &Catalog, labels: &Labels) -> (String, Value) {
+    let mut lines = vec![labels.command_list.to_owned()];
+    let mut groups = Vec::new();
+    for file in catalog.groups() {
+        lines.push(format!("{} ({})", file.group, file.commands.len()));
+        lines.extend(
+            file.commands
+                .iter()
+                .map(|command| format!("  {} — {}", command.name, command.summary)),
+        );
+        let commands: Vec<Value> = file
+            .commands
+            .iter()
+            .map(|command| json!({ "name": command.name, "summary": command.summary }))
+            .collect();
+        groups.push(json!({ "name": file.group, "commands": commands }));
+    }
+    let document = json!({
+        "kind": COMMANDS_TOPIC,
+        "name": COMMANDS_TOPIC,
+        "count": catalog.command_count(),
+        "groups": groups,
+    });
+    (lines.join("\n"), document)
 }
 
 fn core_names(catalog: &Catalog) -> Vec<&str> {
@@ -449,7 +487,7 @@ fn overview(
         "commands": commands,
         "groups": groups,
         "guides": guides,
-        "topics": ["syntax", "corrections"],
+        "topics": ["syntax", "corrections", COMMANDS_TOPIC],
     });
     Ok((lines.join("\n"), document))
 }

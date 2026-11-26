@@ -229,8 +229,8 @@ const HELP_POINTER: Block = Block {
     programs: false,
     lines: &[Line {
         priority: 1,
-        en: r#"Help: help, help search: "words", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Help is optional; it is never required before running a program."#,
-        pl: r#"Pomoc: help, help search: "słowa", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Pomoc jest opcjonalna; nigdy nie jest wymagana przed uruchomieniem programu."#,
+        en: r#"Help: help, help "commands" (every command), help search: "words", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Help is optional; it is never required before running a program."#,
+        pl: r#"Pomoc: help, help "commands" (wszystkie polecenia), help search: "słowa", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Pomoc jest opcjonalna; nigdy nie jest wymagana przed uruchomieniem programu."#,
     }],
 };
 
@@ -263,6 +263,7 @@ pub(crate) struct Labels {
     pub(crate) guides: &'static str,
     pub(crate) topics: &'static str,
     pub(crate) topic_names: &'static str,
+    pub(crate) command_list: &'static str,
     pub(crate) no_matches: &'static str,
     pub(crate) search_for: &'static str,
 }
@@ -291,7 +292,8 @@ const LABELS_EN: Labels = Labels {
     groups: "groups:",
     guides: "guides:",
     topics: "topics:",
-    topic_names: "syntax, corrections, error codes such as E_ASSERT",
+    topic_names: "syntax, corrections, commands, error codes such as E_ASSERT",
+    command_list: r#"commands by group; help "<command>" shows one command, help group: "<group>" one group:"#,
     no_matches: "no matches; run help for the list of topics",
     search_for: "search:",
 };
@@ -320,7 +322,8 @@ const LABELS_PL: Labels = Labels {
     groups: "grupy:",
     guides: "przewodniki:",
     topics: "tematy:",
-    topic_names: "syntax, corrections, kody błędów, na przykład E_ASSERT",
+    topic_names: "syntax, corrections, commands, kody błędów, na przykład E_ASSERT",
+    command_list: r#"polecenia według grup; help "<command>" pokazuje jedno polecenie, help group: "<group>" jedną grupę:"#,
     no_matches: "brak wyników; help wypisuje listę tematów",
     search_for: "szukanie:",
 };
