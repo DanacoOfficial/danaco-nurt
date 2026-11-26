@@ -965,6 +965,47 @@ fn flushes_files_and_directories() {
 }
 
 #[test]
+fn flushes_many_paths_at_once_and_few_one_by_one() {
+    let fixture = Fixture::new();
+    let few = vec![fixture.file("a", b"a")];
+    fixture
+        .fs
+        .sync_paths(&fixture.scope, &few, std::slice::from_ref(&fixture.root))
+        .expect("few entries are flushed one by one");
+    let many: Vec<AbsPath> = (0..SYNC_PATHS_MANY)
+        .map(|index| fixture.file(&format!("many-{index}"), b"x"))
+        .collect();
+    fixture
+        .fs
+        .sync_paths(&fixture.scope, &many, std::slice::from_ref(&fixture.root))
+        .expect("many entries are flushed with the file system");
+    let read_only = fixture.file("read-only", b"x");
+    std::fs::set_permissions(
+        read_only.as_path(),
+        std::os::unix::fs::PermissionsExt::from_mode(0o444),
+    )
+    .expect("permissions");
+    fixture
+        .fs
+        .sync_paths(&fixture.scope, &[read_only], &[])
+        .expect("a file that cannot be opened for writing is flushed through its directory");
+    let missing = fixture.path("missing");
+    let error = fixture
+        .fs
+        .sync_paths(&fixture.scope, &[missing], &[])
+        .expect_err("a missing file cannot be flushed");
+    assert_eq!(error.kind, FsErrorKind::NotFound);
+    let error = fixture
+        .fs
+        .sync_paths(&fixture.scope, &[], &[fixture.path("missing-dir")])
+        .expect_err("a missing directory cannot be flushed");
+    assert_eq!(error.kind, FsErrorKind::NotFound);
+}
+
+/// Number of entries that makes `sync_paths` flush the whole file system.
+const SYNC_PATHS_MANY: usize = 80;
+
+#[test]
 fn creates_unique_private_temporary_files() {
     let fixture = Fixture::new();
     let first = fixture

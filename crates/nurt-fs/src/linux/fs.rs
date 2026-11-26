@@ -4,6 +4,7 @@
 //! The Linux back end type and its implementation of the file system
 //! interface.
 
+use std::collections::HashSet;
 use std::ffi::{OsStr, OsString};
 use std::io::Read;
 use std::os::fd::{AsFd, OwnedFd};
@@ -16,8 +17,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use nurt_contracts::env::Os;
 use nurt_contracts::fs::{
-    AbsPath, ContentHash, DirEntry, ExtendedMeta, FileKind, FileLock, FileMeta, Follow, Fs,
-    FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
+    AbsPath, ContentHash, DirEntry, Durability, ExtendedMeta, FileKind, FileLock, FileMeta, Follow,
+    Fs, FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
     PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, TxScope, VolumeId, VolumeInfo,
     WriteHandle,
 };
@@ -49,6 +50,9 @@ const HASH_BUFFER: usize = 1 << 20;
 const LOCK_FIRST_PAUSE: Duration = Duration::from_millis(1);
 /// Longest pause between attempts to take a lock.
 const LOCK_MAX_PAUSE: Duration = Duration::from_millis(50);
+/// Number of entries of [`FsWrite::sync_paths`] from which the file system is
+/// flushed as a whole instead of entry by entry.
+const SYNC_VOLUME_MIN: usize = 64;
 
 /// Counter that makes temporary names unique within the process.
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -535,6 +539,49 @@ impl FsWrite for LinuxFs {
         const OP: &str = "sync_dir";
         let fd = open(dir.as_path(), OFlags::RDONLY | OFlags::DIRECTORY, 0, OP)?;
         retry(|| rustix::fs::fsync(&fd)).map_err(|errno| sys_error(errno, OP, dir.as_path()))
+    }
+
+    fn sync_paths(&self, scope: &TxScope, files: &[AbsPath], dirs: &[AbsPath]) -> FsResult<()> {
+        const OP: &str = "sync_paths";
+        if files.len() + dirs.len() < SYNC_VOLUME_MIN {
+            for file in files {
+                match self.open_in_place(scope, file) {
+                    Ok(mut handle) => handle.sync(Durability::Full)?,
+                    Err(error) if error.kind == FsErrorKind::PermissionDenied => {
+                        if let Some(parent) = file.parent() {
+                            self.sync_dir(scope, &parent)?;
+                        }
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+            return dirs.iter().try_for_each(|dir| self.sync_dir(scope, dir));
+        }
+        // One flush per file system replaces one flush per file and per
+        // directory. `syncfs` writes every dirty page and commits the journal
+        // of the whole file system, which includes everything the individual
+        // flushes would make durable, and reports write-back errors of any of
+        // the files since Linux 5.8. Entries are grouped by device through
+        // their directories, so that a call touching several volumes flushes
+        // each of them once.
+        let parents: HashSet<AbsPath> = dirs
+            .iter()
+            .cloned()
+            .chain(files.iter().filter_map(AbsPath::parent))
+            .collect();
+        let mut flushed: HashSet<u64> = HashSet::new();
+        for dir in &parents {
+            let device = retry(|| rustix::fs::stat(dir.as_path()))
+                .map_err(|errno| sys_error(errno, OP, dir.as_path()))?
+                .st_dev;
+            if !flushed.insert(device) {
+                continue;
+            }
+            let fd = open(dir.as_path(), OFlags::RDONLY | OFlags::DIRECTORY, 0, OP)?;
+            retry(|| rustix::fs::syncfs(&fd))
+                .map_err(|errno| sys_error(errno, OP, dir.as_path()))?;
+        }
+        Ok(())
     }
 
     fn lock_exclusive(&self, path: &AbsPath, timeout: Duration) -> FsResult<Box<dyn FileLock>> {
