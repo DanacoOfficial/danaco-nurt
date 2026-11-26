@@ -19,6 +19,8 @@ workspace = true
 
 [features]
 failpoints = ["nurt-fs/failpoints"]
+# Setup of the performance tests in tests/perf.rs.
+testing = ["nurt-fs/conformance"]
 
 [dependencies]
 nurt-contracts = { workspace = true }
@@ -38,4 +40,5 @@ toml_edit = { workspace = true }
 [dev-dependencies]
 tempfile = { workspace = true }
 proptest = { workspace = true }
+nurt-journal = { path = ".", features = ["testing"] }
 nurt-fs = { workspace = true, features = ["conformance", "failpoints", "mutation-audit"] }

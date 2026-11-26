@@ -751,7 +751,9 @@ mod tests {
         child.kill_tree().unwrap();
         let exit = child.wait_timeout(Duration::ZERO).unwrap();
         assert!(exit.is_some());
-        assert_eq!(exit.and_then(|exit| exit.exit_code), None);
+        // Windows has no signals: the tree is ended with exit code 1.
+        let expected = if cfg!(windows) { Some(1) } else { None };
+        assert_eq!(exit.and_then(|exit| exit.exit_code), expected);
     }
 
     #[test]

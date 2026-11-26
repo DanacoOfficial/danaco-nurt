@@ -114,17 +114,102 @@ fn check_sheets(
                 path.display()
             ));
         }
+        if !SheetComments::of(&current).has_producer_header() {
+            problems.push(format!(
+                "{}: the sheet has no producer header",
+                path.display()
+            ));
+        }
     }
     Ok(())
 }
 
-/// The single-line HTML comments at the start of a sheet, each with its line
-/// break: the producer header, which regenerating the sheet keeps.
-fn leading_comment_lines(text: &str) -> String {
-    text.lines()
-        .take_while(|line| line.starts_with("<!--") && line.ends_with("-->"))
-        .map(|line| format!("{line}\n"))
-        .collect()
+/// Producer header written into a sheet that has none.
+const PRODUCER_HEADER: &str = "<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->\n<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->\n<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->\n";
+
+fn is_comment_line(line: &str) -> bool {
+    line.starts_with("<!--") && line.ends_with("-->")
+}
+
+/// Joins the lines, each with its line break.
+fn lines_with_breaks(lines: &[&str]) -> String {
+    lines.iter().map(|line| format!("{line}\n")).collect()
+}
+
+/// The single-line HTML comments of a sheet that regenerating keeps: the
+/// producer header and footer. They stand before the front matter, directly
+/// after it, or at the end of the file.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct SheetComments {
+    before: String,
+    after_front: String,
+    footer: String,
+}
+
+impl SheetComments {
+    fn of(text: &str) -> Self {
+        let lines: Vec<&str> = text.lines().collect();
+        let before_count = lines.iter().take_while(|l| is_comment_line(l)).count();
+        let mut at = before_count;
+        let mut after_front = Vec::new();
+        if lines.get(at) == Some(&"---")
+            && let Some(close) = lines[at + 1..].iter().position(|l| *l == "---")
+        {
+            at += close + 2;
+            after_front = lines[at..]
+                .iter()
+                .take_while(|l| is_comment_line(l))
+                .copied()
+                .collect();
+        }
+        let body_start = at + after_front.len();
+        let body = &lines[body_start.min(lines.len())..];
+        let mut footer: Vec<&str> = body
+            .iter()
+            .rev()
+            .take_while(|l| is_comment_line(l) || l.trim().is_empty())
+            .filter(|l| is_comment_line(l))
+            .copied()
+            .collect();
+        footer.reverse();
+        Self {
+            before: lines_with_breaks(&lines[..before_count]),
+            after_front: lines_with_breaks(&after_front),
+            footer: lines_with_breaks(&footer),
+        }
+    }
+
+    /// A producer header is a comment line with the copyright notice.
+    fn has_producer_header(&self) -> bool {
+        self.before
+            .lines()
+            .chain(self.after_front.lines())
+            .any(|line| line.contains("Copyright (c)"))
+    }
+
+    /// `rendered` with the comments placed back; a missing header is added.
+    fn apply(&self, rendered: &str) -> String {
+        let header = if self.has_producer_header() {
+            self.after_front.as_str()
+        } else {
+            PRODUCER_HEADER
+        };
+        let (front, body) = match rendered
+            .strip_prefix("---\n")
+            .and_then(|rest| rest.find("\n---\n").map(|i| i + 4 + 5))
+        {
+            Some(end) => rendered.split_at(end),
+            None => ("", rendered),
+        };
+        let mut out = format!("{}{front}{header}{body}", self.before);
+        if !self.footer.is_empty() {
+            if !out.ends_with('\n') {
+                out.push('\n');
+            }
+            out.push_str(&self.footer);
+        }
+        out
+    }
 }
 
 /// Removes single-line HTML comments, which carry the producer header and are not generated.
@@ -180,12 +265,12 @@ pub fn write_cheatsheets(layout: &Layout) -> Result<Vec<PathBuf>> {
         let path = layout
             .cheatsheets()
             .join(cheatsheet::sheet_file_name(&table));
-        let header = if path.exists() {
-            leading_comment_lines(&read_text(&path)?)
+        let comments = if path.exists() {
+            SheetComments::of(&read_text(&path)?)
         } else {
-            String::new()
+            SheetComments::default()
         };
-        write_text(&path, &format!("{header}{}", cheatsheet::render(&table)))?;
+        write_text(&path, &comments.apply(&cheatsheet::render(&table)))?;
         written.push(path);
     }
     Ok(written)
@@ -267,13 +352,48 @@ mod tests {
             .expect("sheets written")
             .remove(0);
         let generated = fs::read_to_string(&sheet).expect("sheet");
+        assert!(generated.contains(PRODUCER_HEADER));
         let header = "<!-- Copyright (c) 2026 Example -->\n<!-- https://example.org -->\n";
-        fs::write(&sheet, format!("{header}{generated}")).expect("write");
+        let custom = generated.replace(PRODUCER_HEADER, header);
+        let footer = "<!-- footer of the producer -->\n";
+        fs::write(&sheet, format!("{custom}{footer}")).expect("write");
         write_cheatsheets(&layout).expect("sheets written again");
         let again = fs::read_to_string(&sheet).expect("sheet");
-        assert_eq!(again, format!("{header}{generated}"));
-        assert_eq!(leading_comment_lines("text\n<!-- late -->\n"), "");
-        assert_eq!(leading_comment_lines(""), "");
+        assert_eq!(again, format!("{custom}{footer}"));
+        let before = format!("<!-- first -->\n{generated}");
+        fs::write(&sheet, &before).expect("write");
+        write_cheatsheets(&layout).expect("sheets written");
+        assert!(
+            fs::read_to_string(&sheet)
+                .expect("sheet")
+                .starts_with("<!-- first -->\n---\n")
+        );
+        assert_eq!(SheetComments::of("text\n<!-- late -->\n").before, "");
+        assert_eq!(SheetComments::of(""), SheetComments::default());
+    }
+
+    #[test]
+    fn check_reports_a_sheet_without_a_producer_header() {
+        let dir = repository();
+        let table = TABLE.replace("find \\\"/home/user\\\" |> count", "count");
+        fs::write(
+            dir.path()
+                .join("docs")
+                .join("cheatsheets")
+                .join("bash.toml"),
+            table,
+        )
+        .expect("write");
+        let layout = Layout::new(dir.path());
+        let sheet = write_cheatsheets(&layout)
+            .expect("sheets written")
+            .remove(0);
+        let generated = fs::read_to_string(&sheet).expect("sheet");
+        let ok = check_repository(&layout, &CheckOptions::default()).expect("check runs");
+        assert!(!ok.iter().any(|p| p.contains("producer header")));
+        fs::write(&sheet, generated.replace(PRODUCER_HEADER, "")).expect("write");
+        let problems = check_repository(&layout, &CheckOptions::default()).expect("check runs");
+        assert!(problems.iter().any(|p| p.contains("no producer header")));
     }
 
     #[test]

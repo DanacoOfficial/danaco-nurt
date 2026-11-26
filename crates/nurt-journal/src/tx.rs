@@ -3492,7 +3492,7 @@ mod tests {
     }
 
     #[test]
-    #[expect(clippy::cognitive_complexity, reason = "one scenario with many checks")]
+    #[allow(clippy::cognitive_complexity)] // one scenario with many checks
     fn bulk_overwrite_keeps_small_previous_content_in_a_packed_manifest() {
         let env = Env::new();
         let count = manifest::PACKED_MIN_TARGETS + 4;

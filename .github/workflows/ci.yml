@@ -124,6 +124,10 @@ jobs:
       - name: Build
         run: cargo build --workspace --all-targets --locked
       - name: Run tests
+        env:
+          # The scheduled (nightly) run generates the full number of cases of
+          # the property tests; other runs use the small default.
+          NURT_PROPTEST_FULL: ${{ github.event_name == 'schedule' && '1' || '0' }}
         run: |
           if cargo nextest --version >/dev/null 2>&1; then
             cargo nextest run --workspace --locked --no-fail-fast --no-tests=fail

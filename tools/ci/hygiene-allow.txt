@@ -43,6 +43,21 @@ promotional-word crates/nurt-types/tests/order.rs
 # Corpora of third parties kept verbatim.
 boilerplate tests/d5/third_party/*
 
+# Test input of Unicode handling (emoji outside the basic plane, surrogate pairs,
+# wide-character strings) in unit tests inside source files and in test
+# directories of the bindings; the characters are data.
+emoji */src/test/*
+emoji crates/nurt-contracts/src/keypath.rs
+emoji crates/nurt-doc/src/service/mod.rs
+emoji crates/nurt-proc/src/output/decode.rs
+emoji crates/nurt-sys/src/services/windows.rs
+
+# Names of the client platform in the description of the command that prints the
+# tool definition for it; the platform is the subject of the command.
+tool-mention crates/nurt-cli/src/tool_definition.rs
+tool-mention docs/cli/nurt.md
+tool-mention docs/site/command-line.md
+
 # Test input and corpora of third parties that contain the characters as data.
 emoji crates/nurt-lspclient/tests/*
 emoji crates/nurt-net/src/html/dom.rs
@@ -63,6 +78,75 @@ polish-text crates/nurt-syntax/tests/*
 polish-text tests/d5/corpus/*
 polish-text tests/d5/data/*
 polish-text tests/d5/differential/*
+
+# Directories of test code and test data: Polish words are input and expected
+# output of tests of Unicode handling (names, paths, patterns, encodings), not
+# product wording.
+polish-text tests/*
+polish-text */tests/*
+polish-text */src/test/*
+polish-text */golden/*
+polish-text */fixtures/*
+
+# Unit tests inside source files, which no directory pattern can select, use
+# Polish words as input and expected output of Unicode handling; the text is
+# test data, not product wording.
+polish-text crates/nurt-bench/src/model/mock.rs
+polish-text crates/nurt-bind/src/path.rs
+polish-text crates/nurt-conformance/src/snapshot.rs
+polish-text crates/nurt-contracts/src/keypath.rs
+polish-text crates/nurt-core/src/builtin.rs
+polish-text crates/nurt-core/src/candidates.rs
+polish-text crates/nurt-core/src/readcache.rs
+polish-text crates/nurt-core/src/session.rs
+polish-text crates/nurt-correct/src/bash/awk.rs
+polish-text crates/nurt-correct/src/bash/detect.rs
+polish-text crates/nurt-correct/src/bash/engine.rs
+polish-text crates/nurt-correct/src/bash/find.rs
+polish-text crates/nurt-correct/src/bash/mod.rs
+polish-text crates/nurt-correct/src/bash/pattern.rs
+polish-text crates/nurt-correct/src/bash/produce.rs
+polish-text crates/nurt-correct/src/bash/sed.rs
+polish-text crates/nurt-correct/src/bash/session.rs
+polish-text crates/nurt-correct/src/candidates.rs
+polish-text crates/nurt-correct/src/policy.rs
+polish-text crates/nurt-correct/src/types.rs
+polish-text crates/nurt-correct/src/values.rs
+polish-text crates/nurt-doc/src/service/mod.rs
+polish-text crates/nurt-doc/src/sql/split.rs
+polish-text crates/nurt-ext/src/manifest.rs
+polish-text crates/nurt-ext/src/store.rs
+polish-text crates/nurt-files/src/commands/read/mod.rs
+polish-text crates/nurt-files/src/read/image.rs
+polish-text crates/nurt-git-ops/src/merge/message.rs
+polish-text crates/nurt-git-ops/src/rebase/command.rs
+polish-text crates/nurt-git-ops/src/rebase/state_dir.rs
+polish-text crates/nurt-git-ops/src/stash/entries.rs
+polish-text crates/nurt-git/src/checkpoint/support.rs
+polish-text crates/nurt-git/src/message.rs
+polish-text crates/nurt-git/src/worktree.rs
+polish-text crates/nurt-git-transport/src/connect.rs
+polish-text crates/nurt-git-transport/src/credentials/store.rs
+polish-text crates/nurt-git-transport/src/ssh/channel.rs
+polish-text crates/nurt-journal/src/blob.rs
+polish-text crates/nurt-journal/src/commands/history.rs
+polish-text crates/nurt-journal/src/commands/limits.rs
+polish-text crates/nurt-journal/src/commands/mod.rs
+polish-text crates/nurt-journal/src/commands/undo.rs
+polish-text crates/nurt-journal/src/conflict.rs
+polish-text crates/nurt-journal/src/layout.rs
+polish-text crates/nurt-journal/src/manifest.rs
+polish-text crates/nurt-journal/src/retention/limits.rs
+polish-text crates/nurt-journal/src/retention/tomb.rs
+polish-text crates/nurt-journal/src/salvage.rs
+polish-text crates/nurt-journal/src/undo.rs
+polish-text crates/nurt-journal/src/volumes/eligibility.rs
+polish-text crates/nurt-node/src/dispatch.rs
+polish-text crates/nurt-plan/src/address.rs
+polish-text crates/nurt-proc/src/classify/argv.rs
+polish-text crates/nurt-proc/src/classify/pattern.rs
+polish-text crates/nurt-tooldef/src/arguments.rs
+polish-text crates/nurt-tooldef/src/options.rs
 
 # Addresses of private networks used as test input and in documentation examples.
 private-address crates/nurt-net/src/check.rs
@@ -150,6 +234,11 @@ work-marker crates/nurt-verify/src/test/tests.rs
 work-marker crates/nurt-verify/tests/*
 work-marker tests/d1/correction/*
 
+# Test input: a command line that searches for an unfinished-work marker is the
+# input of a test of the translation of shell habits; the marker is data, not
+# unfinished work.
+work-marker crates/nurt-correct/src/bash/detect.rs
+
 # Test input: Rust source text that contains the attribute as data.
 allow-attribute crates/nurt-sys/tests/d7_static.rs
 
@@ -168,8 +257,8 @@ allow-attribute crates/nurt-code/src/commands/hover.rs
 * crates/jaq-json/*
 
 # Tests of path handling, history, undo, recovery and policy use home
-# directories of other accounts (/home/u, /home/other, /home/run-1) as input;
-# the tests depend on the paths differing from the placeholder account.
+# directories of other accounts as input; the tests depend on the paths
+# differing from the placeholder account.
 user-path crates/nurt-bench/src/probe.rs
 user-path crates/nurt-contracts/tests/fs_paths.rs
 user-path crates/nurt-correct/src/policy.rs

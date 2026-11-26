@@ -117,10 +117,11 @@ impl Iterator for WevtEvents {
     type Item = Result<EventHandle, SourceError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.pending.is_empty() && !self.finished {
-            if let Err(error) = self.fetch() {
-                return Some(Err(error));
-            }
+        if self.pending.is_empty()
+            && !self.finished
+            && let Err(error) = self.fetch()
+        {
+            return Some(Err(error));
         }
         self.pending.pop_front().map(Ok)
     }

@@ -175,7 +175,7 @@ fn one_line(text: &str) -> String {
         return joined;
     }
     let kept: String = joined.chars().take(MAX_FIELD_CHARS).collect();
-    format!("{kept}\u{2026} [+{} znak\u{f3}w]", length - MAX_FIELD_CHARS)
+    format!("{kept}\u{2026} [+{} characters]", length - MAX_FIELD_CHARS)
 }
 
 /// Bytes of the response one listed error takes.
@@ -235,7 +235,7 @@ mod tests {
             ..ExecDiagnostic::default()
         });
         let text = &tally.listed[0].message;
-        assert!(!text.contains('\n') && text.contains("znak\u{f3}w]"));
+        assert!(!text.contains('\n') && text.contains("characters]"));
         assert!(text.chars().count() < 230);
     }
 

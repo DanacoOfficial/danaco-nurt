@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Metadata transfer onto a file that has just received new content.
+//! Metadata transfer onto a file that has received new content.
 //!
 //! [`WriteHandle::apply_meta`](nurt_contracts::fs::WriteHandle::apply_meta)
 //! and [`FsWrite::restore_meta`](nurt_contracts::fs::FsWrite::restore_meta)

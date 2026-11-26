@@ -122,6 +122,7 @@ impl Loop<'_, '_> {
                     tokens,
                 }))?;
             }
+            // Only the call of the model counts: the `check` before a `run` with groups on demand stays out so that the conditions remain comparable.
             self.result.tool_calls += 1;
             (self.log)(Event::Tool(Box::new(ToolEvent {
                 step,
@@ -449,5 +450,65 @@ mod tests {
             panic!()
         };
         assert!(tool.output.contains("characters omitted"));
+    }
+
+    #[test]
+    fn check_before_run_with_groups_on_demand_is_not_a_tool_call() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicU32, Ordering};
+
+        use crate::rpc::testing::connect;
+        use crate::tool::NurtTool;
+
+        let checks = Arc::new(AtomicU32::new(0));
+        let runs = Arc::new(AtomicU32::new(0));
+        let (seen_checks, seen_runs) = (Arc::clone(&checks), Arc::clone(&runs));
+        let client = connect(Arc::new(move |method: &str, params: &Value| match method {
+            "check" => {
+                seen_checks.fetch_add(1, Ordering::SeqCst);
+                Ok(json!({"groups": ["core", {"name": "git"}]}))
+            }
+            "describe" => Ok(json!({"text": format!("about {}", params["name"])})),
+            "run" => {
+                seen_runs.fetch_add(1, Ordering::SeqCst);
+                Ok(
+                    json!({"nurt": "1.0", "report": {"nurt": "1.0", "status": "ok", "kind": "list"}}),
+                )
+            }
+            _ => Err((-32601, "unknown".to_owned())),
+        }));
+        let mut tool = NurtTool::new(client, std::path::Path::new("/task"), true);
+        let tool_spec = ToolSpec {
+            name: "nurt".into(),
+            description: "Runs programs.".into(),
+            input_schema: json!({}),
+        };
+        let key = RunKey {
+            task: "t".into(),
+            condition: Condition::NurtGroups,
+            seed: 1,
+        };
+        let steps = json!([
+            {"text": "Step.", "tool_calls": [{"input": {"program": "list ."}}]},
+            {"text": "Done."}
+        ]);
+        let mut model = mock(steps).client(&key);
+        let result = run_agent(
+            AgentSetup {
+                system: "System.",
+                tool: &tool_spec,
+                task: "Do it.",
+                limits: LIMITS,
+                seed: 1,
+                max_output_chars: 100,
+            },
+            &mut model,
+            &mut tool,
+            &mut |_| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(checks.load(Ordering::SeqCst), 1);
+        assert_eq!(runs.load(Ordering::SeqCst), 1);
+        assert_eq!(result.tool_calls, 1);
     }
 }

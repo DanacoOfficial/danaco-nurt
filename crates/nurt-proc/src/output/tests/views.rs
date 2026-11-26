@@ -369,7 +369,7 @@ fn removes_terminal_sequences_and_shortens_long_lines() {
         lines.next(),
         Some(
             format!(
-                "{}\u{2026} [+{} znak\u{f3}w]",
+                "{}\u{2026} [+{} characters]",
                 "a".repeat(400),
                 64 * 1024 - 400
             )

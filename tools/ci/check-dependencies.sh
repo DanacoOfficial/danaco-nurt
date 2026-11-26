@@ -57,9 +57,9 @@ fail_usage() {
 }
 
 detect_format() {
-    local file=$1 magic
-    magic=$(LC_ALL=C head -c 4 -- "$file" | od -An -tx1 | tr -d ' \n')
-    case $magic in
+    local file=$1 signature
+    signature=$(LC_ALL=C head -c 4 -- "$file" | od -An -tx1 | tr -d ' \n')
+    case $signature in
         7f454c46) echo elf ;;
         4d5a*) echo pe ;;
         *) echo unknown ;;

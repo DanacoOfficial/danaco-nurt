@@ -107,7 +107,7 @@ fn a_line_longer_than_400_characters_is_cut_and_marked() {
     let out = store.render(&budgeted(4096), Some(0)).unwrap();
     assert_eq!(
         out.stdout,
-        format!("{}\u{2026} [+600 znak\u{f3}w]", "a".repeat(400))
+        format!("{}\u{2026} [+600 characters]", "a".repeat(400))
     );
     let notes = out
         .notes
@@ -124,7 +124,7 @@ fn a_single_line_longer_than_the_budget_is_clipped_to_it() {
     let store = bench.finished("clip", format!("{}\n", "b".repeat(380)).as_bytes(), b"");
     let out = store.render(&budgeted(200), Some(0)).unwrap();
     assert!(out.stdout.len() <= 200, "{}", out.stdout.len());
-    assert!(out.stdout.contains("znak\u{f3}w]"));
+    assert!(out.stdout.contains("characters]"));
 }
 
 #[test]

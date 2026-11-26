@@ -1,6 +1,9 @@
 ---
 title: Nurt for bash users
 ---
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Nurt for bash users
 
 Every row pairs a Bash command with its form in Nurt. The last column states whether Nurt corrects the habit automatically, rejects it with an error that carries the fix, or rejects it with an error that carries no program and asks for the program of the row.

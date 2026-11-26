@@ -44,7 +44,7 @@ pub(crate) struct CancelNotice {
 }
 
 /// Removes the cancel notices left in the inbox by clients that ended before
-/// they removed them. A supervisor that has just taken the lock serves no
+/// they removed them. A supervisor that has taken the lock serves no
 /// request yet, so every notice it finds belongs to a request that was
 /// answered or lost.
 pub(crate) fn remove_cancel_notices(table: &JobTable) {

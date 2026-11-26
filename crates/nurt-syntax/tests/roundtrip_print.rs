@@ -5,6 +5,10 @@
 //! `parse(print(T)) = T` apart from spans and metadata, and printing the
 //! parse of a printed text gives the same text. Variant C is checked on
 //! trees whose arguments are all named.
+//!
+//! The regular run generates a few hundred trees per property; the nightly run
+//! (`NURT_PROPTEST_FULL=1`) generates 100 000 trees for variants A and B and
+//! 20 000 for variant C. `PROPTEST_CASES` overrides both numbers.
 
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -18,15 +22,34 @@ use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
 use roundtrip_support::{Shape, hash_form, program};
 
-/// Generated trees per run for variants A and B.
+/// Generated trees per run for variants A and B in the full run.
 const CASES: u32 = 100_000;
 
-/// Generated trees per run for variant C.
+/// Generated trees per run for variant C in the full run.
 const NAMED_CASES: u32 = 20_000;
 
-fn config(cases: u32) -> ProptestConfig {
+/// Generated trees per property in the regular run.
+const QUICK_CASES: u32 = 300;
+
+/// Number of cases of a property: `PROPTEST_CASES`, else `full` when
+/// `NURT_PROPTEST_FULL=1`, else the quick number.
+fn cases_for(full: u32) -> u32 {
+    if let Some(cases) = std::env::var("PROPTEST_CASES")
+        .ok()
+        .and_then(|cases| cases.parse().ok())
+    {
+        return cases;
+    }
+    if std::env::var("NURT_PROPTEST_FULL").is_ok_and(|value| value == "1") {
+        full
+    } else {
+        QUICK_CASES
+    }
+}
+
+fn config(full: u32) -> ProptestConfig {
     ProptestConfig {
-        cases,
+        cases: cases_for(full),
         failure_persistence: None,
         ..ProptestConfig::default()
     }

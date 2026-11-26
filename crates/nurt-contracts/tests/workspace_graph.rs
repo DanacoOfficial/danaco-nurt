@@ -246,7 +246,10 @@ fn manifest_dependencies_are_allowed() {
             }
         }
         for dep in &deps.dev {
-            let allowed = entry.deps.contains(dep)
+            // A development dependency of a crate on itself only enables
+            // features of the crate for its own tests; it is not an edge.
+            let allowed = *dep == name
+                || entry.deps.contains(dep)
                 || entry.dev.contains(dep)
                 || (graph.dev_anywhere.contains(dep)
                     && graph.rank(&graph.entry(dep).layer) <= graph.rank(&entry.layer));
