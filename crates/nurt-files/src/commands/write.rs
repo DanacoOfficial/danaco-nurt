@@ -1612,7 +1612,8 @@ impl<'c> Planner<'c> {
         if after == 0 && before > 0 {
             self.note(Notable::FileEmptied, path, None);
         } else if before >= SHRINK_MIN_BYTES
-            && (after as f64) <= (before as f64) * self.settings.shrink_ratio
+            && after < before
+            && ((before - after) as f64) >= (before as f64) * self.settings.shrink_ratio
         {
             self.note(
                 Notable::SizeShrunk,
@@ -2165,6 +2166,40 @@ mod tests {
         let emptied = run(&test, &with_text("/data/big.txt", "overwrite", "")).unwrap();
         assert!(emptied.notable.contains(&Notable::FileEmptied));
         assert!(read(&test, "/data/big.txt").is_empty());
+    }
+
+    #[test]
+    fn size_shrunk_follows_the_share_by_which_the_file_shrinks() {
+        let (test, _) = with_file("/data/big.txt", &[b'x'; 2048]);
+        let mut config = config::Config::default();
+        config.report.notable.shrink_ratio = 0.8;
+        let ctx = test.builder().config(Arc::new(config)).build();
+        let half = "y".repeat(1024);
+        let halved = run_with(
+            &test,
+            &ctx,
+            &with_text("/data/big.txt", "overwrite", &half),
+            StageInput::none(),
+        )
+        .unwrap();
+        assert!(!halved.notable.contains(&Notable::SizeShrunk));
+        let tenth = run_with(
+            &test,
+            &ctx,
+            &with_text("/data/big.txt", "overwrite", &"z".repeat(100)),
+            StageInput::none(),
+        )
+        .unwrap();
+        assert!(tenth.notable.contains(&Notable::SizeShrunk));
+    }
+
+    #[test]
+    fn growing_a_file_is_not_reported_as_shrunk() {
+        let (test, _) = with_file("/data/big.txt", &[b'x'; 2048]);
+        let grown = "y".repeat(4096);
+        let run = run(&test, &with_text("/data/big.txt", "overwrite", &grown)).unwrap();
+        assert!(!run.notable.contains(&Notable::SizeShrunk));
+        assert!(!run.notable.contains(&Notable::FileEmptied));
     }
 
     #[test]
