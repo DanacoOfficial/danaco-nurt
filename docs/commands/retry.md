@@ -28,7 +28,9 @@ The environment of a job is kept outside the job record, in a file of the
 state directory readable only by the account of the engine. Neither job
 records nor events contain environment values.
 
-Only finished jobs can be repeated. When the new program runs longer than
+Only finished jobs can be repeated. A program that the console ends because of
+a limit or cancellation fails the call as in `run`; when several jobs are
+repeated, the error has `effect_applied` set once any of them started. When the new program runs longer than
 `wait`, it continues in the background; the result is then a `job` record and
 the stages after `retry` are skipped (`post_stages_deferred`).
 
@@ -91,6 +93,10 @@ jobs state: failed |> retry wait: 0s
 | `E_UNKNOWN_JOB` | No job has the identifier. | Use one of the identifiers in `candidates`. |
 | `E_PROGRAM_NOT_FOUND` | The program cannot be started again. | Check the program and the working directory. |
 | `E_SPAWN` | The program cannot be started again. | Check the program and the working directory. |
+| `E_IO` | The stored environment and standard input of the job are missing or unreadable. | Start the command again with `run`. |
+| `E_TIMEOUT` | The program reached `timeout` or `idle_timeout`; `details.exec` holds the record. | Raise the limit or repeat with `wait: 0s`. |
+| `E_LIMIT` | The program exceeded `max_cpu` or `max_memory`; `details.exec` holds the record. | Start the command again with a higher limit. |
+| `E_CANCELLED` | The call was cancelled while the program ran; `details.exec` holds the record. | Repeat the call. |
 
 ## Related
 

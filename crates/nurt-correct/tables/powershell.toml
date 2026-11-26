@@ -2114,6 +2114,7 @@ name = "Path"
 position = 0
 type = "path"
 role = "path"
+wildcards = true
 positional = true
 stage = "find"
 
@@ -2132,6 +2133,14 @@ type = "path"
 positional = true
 stage = "archive.create"
 required = "the archive path is required"
+
+[[entry.variant]]
+rule = "P29"
+class = "C"
+wildcard = true
+stages = ["find", "archive.create"]
+wildcard_arg = "glob"
+set = [{ arg = "depth", int = 1 }]
 
 [[entry.variant]]
 rule = "P29"

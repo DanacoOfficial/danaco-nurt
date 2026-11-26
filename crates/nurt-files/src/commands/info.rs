@@ -52,6 +52,7 @@ use crate::common::text::{record_line_ending, text_codec};
 use crate::details::accounts::Accounts;
 use crate::details::acl::{self, ACCESS_XATTR, DEFAULT_XATTR};
 use crate::details::content::{self, PDF_MIME, Sniffed, TextFacts};
+use crate::registry;
 
 const COMMAND: &str = "info";
 
@@ -123,6 +124,12 @@ impl ReadStage for Info {
         _input: StageInput<'a>,
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
+        if let Some(texts) = registry::path_texts(args, PATH)? {
+            let records = registry::describe(ctx, &texts)?;
+            return Ok(StageOutput::records(
+                RecordStream::new(records.into_iter().map(Ok)).checked(ctx),
+            ));
+        }
         let mut request = Request::parse(args, ctx)?;
         let paths = std::mem::take(&mut request.paths);
         let mut describer = Describer {

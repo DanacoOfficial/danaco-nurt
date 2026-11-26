@@ -16,6 +16,7 @@
 //! notebook in its location. A file that is not an nbformat 4 notebook is
 //! `E_FORMAT`.
 
+use std::collections::HashMap;
 use std::io::Read;
 use std::ops::{ControlFlow, Range as Span};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -29,7 +30,7 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{self, Fields, Range, Value};
 use nurt_notebook::{CellData, Literal, Notebook, NotebookError, Pattern};
-use nurt_text::search::{Pattern as SearchPattern, SearchOptions, Searcher};
+use nurt_text::search::{Hit, Match, Pattern as SearchPattern, SearchOptions, Searcher};
 use nurt_text::template::{CaptureSource, Groups, Template, TemplateError};
 use serde_json::json;
 
@@ -499,21 +500,64 @@ impl RegexPattern {
         searcher.search_slice(haystack.as_bytes(), |hit| {
             for found in hit.matches() {
                 if offset(found.start) == start {
-                    groups = searcher.captures(hit, found).map(|captures| {
-                        GroupTexts(
-                            (0..captures.len())
-                                .map(|index| {
-                                    captures.get(index).map(|group| group.text().into_owned())
-                                })
-                                .collect(),
-                        )
-                    });
+                    groups = self.group_texts(hit, found);
                     return ControlFlow::Break(());
                 }
             }
             ControlFlow::Continue(())
         });
         groups
+    }
+
+    /// Capture groups of every match of `haystack` by the offset where the
+    /// match starts, found in one search.
+    fn groups_by_start(&self, haystack: &str) -> HashMap<usize, GroupTexts> {
+        let mut all = HashMap::new();
+        self.inner
+            .searcher
+            .search_slice(haystack.as_bytes(), |hit| {
+                for found in hit.matches() {
+                    if let Some(groups) = self.group_texts(hit, found) {
+                        all.entry(offset(found.start)).or_insert(groups);
+                    }
+                }
+                ControlFlow::Continue(())
+            });
+        all
+    }
+
+    fn group_texts(&self, hit: &Hit<'_>, found: &Match) -> Option<GroupTexts> {
+        self.inner.searcher.captures(hit, found).map(|captures| {
+            GroupTexts(
+                (0..captures.len())
+                    .map(|index| captures.get(index).map(|group| group.text().into_owned()))
+                    .collect(),
+            )
+        })
+    }
+
+    /// Replacement for a match with the groups `groups`; the template is
+    /// parsed at the first match.
+    fn expand_groups(&self, groups: &GroupTexts, with: &str) -> String {
+        let mut state = self.state();
+        if matches!(*state, TemplateState::Unparsed) {
+            let names = Groups::from_names(std::iter::repeat_n(None, groups.0.len()));
+            *state = match Template::parse(with, &names) {
+                Ok(template) => TemplateState::Parsed(template),
+                Err(error) => TemplateState::Failed {
+                    with: with.to_owned(),
+                    error,
+                },
+            };
+        }
+        match &*state {
+            TemplateState::Parsed(template) => {
+                let mut out = String::new();
+                template.expand_into(groups, &mut out);
+                out
+            }
+            TemplateState::Unparsed | TemplateState::Failed { .. } => with.to_owned(),
+        }
     }
 
     /// `E_REGEX` when the replacement used with this pattern is not a valid
@@ -553,28 +597,21 @@ impl Pattern for RegexPattern {
     }
 
     fn expand(&self, haystack: &str, found: Span<usize>, with: &str) -> String {
-        let Some(groups) = self.groups_at(haystack, found.start) else {
-            return with.to_owned();
-        };
-        let mut state = self.state();
-        if matches!(*state, TemplateState::Unparsed) {
-            let names = Groups::from_names(std::iter::repeat_n(None, groups.0.len()));
-            *state = match Template::parse(with, &names) {
-                Ok(template) => TemplateState::Parsed(template),
-                Err(error) => TemplateState::Failed {
-                    with: with.to_owned(),
-                    error,
-                },
-            };
+        match self.groups_at(haystack, found.start) {
+            Some(groups) => self.expand_groups(&groups, with),
+            None => with.to_owned(),
         }
-        match &*state {
-            TemplateState::Parsed(template) => {
-                let mut out = String::new();
-                template.expand_into(&groups, &mut out);
-                out
-            }
-            TemplateState::Unparsed | TemplateState::Failed { .. } => with.to_owned(),
-        }
+    }
+
+    fn expand_all(&self, haystack: &str, found: &[Span<usize>], with: &str) -> Vec<String> {
+        let groups = self.groups_by_start(haystack);
+        found
+            .iter()
+            .map(|span| match groups.get(&span.start) {
+                Some(groups) => self.expand_groups(groups, with),
+                None => with.to_owned(),
+            })
+            .collect()
     }
 
     fn display(&self) -> String {
@@ -777,6 +814,36 @@ mod tests {
         );
         assert!(regex.template_error().is_none());
         assert_eq!(regex.display(), "/read_(\\w+)/");
+    }
+
+    #[test]
+    fn the_groups_of_all_matches_are_evaluated_in_one_pass() {
+        let regex = RegexPattern::new(&Regex::new(r"read_(\w+)", "").unwrap(), false).unwrap();
+        let haystack = "read_a(); read_b(); read_c();";
+        let found = regex.find_all(haystack);
+        let all = regex.expand_all(haystack, &found, "load_$1");
+        assert_eq!(all, ["load_a", "load_b", "load_c"]);
+        let one_by_one: Vec<String> = found
+            .iter()
+            .map(|span| regex.expand(haystack, span.clone(), "load_$1"))
+            .collect();
+        assert_eq!(all, one_by_one);
+    }
+
+    #[test]
+    fn many_matches_expand_without_a_search_per_match() {
+        let regex = RegexPattern::new(&Regex::new(r"(\d)x", "").unwrap(), false).unwrap();
+        let haystack = "1x ".repeat(20_000);
+        let found = regex.find_all(&haystack);
+        let started = std::time::Instant::now();
+        let expanded = regex.expand_all(&haystack, &found, "[$1]");
+        assert_eq!(expanded.len(), 20_000);
+        assert!(expanded.iter().all(|text| text == "[1]"));
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "{:?}",
+            started.elapsed()
+        );
     }
 
     #[test]

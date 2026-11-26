@@ -113,11 +113,33 @@ pub(crate) fn load_key_file(path: &Path, passphrase: Option<&str>) -> Option<Key
         }
         _ => state,
     };
+    // OpenSSH ignores a private key that other accounts can read.
+    let state = if readable_by_others(path) {
+        KeyState::Unsupported(
+            "the key file is accessible by other users; restrict it with `chmod 600`".to_owned(),
+        )
+    } else {
+        state
+    };
     Some(KeyFile {
         path: path.to_path_buf(),
         public,
         state,
     })
+}
+
+/// Whether the group or other users have any access to `path`.
+#[cfg(unix)]
+fn readable_by_others(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(path).is_ok_and(|meta| meta.permissions().mode() & GROUP_OTHER_BITS != 0)
+}
+
+/// Permissions of key files are not checked where the platform has no
+/// group and other bits.
+#[cfg(not(unix))]
+fn readable_by_others(_path: &Path) -> bool {
+    false
 }
 
 /// Orders the keys as OpenSSH does.
@@ -286,7 +308,28 @@ mod tests {
         }
         let path = dir.join(name);
         std::fs::write(&path, key.to_openssh(LineEnding::LF).unwrap().as_bytes()).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
         path
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn key_file_readable_by_others_is_not_used() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_key(dir.path(), "id_ed25519", 1, None);
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let file = load_key_file(&path, None).unwrap();
+        assert!(matches!(file.state, KeyState::Unsupported(_)));
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(matches!(
+            load_key_file(&path, None).unwrap().state,
+            KeyState::Ready(_)
+        ));
     }
 
     #[test]

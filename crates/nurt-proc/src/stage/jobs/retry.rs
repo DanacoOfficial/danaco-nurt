@@ -18,6 +18,7 @@ use crate::jobs::{
     Action, JobStore, check_action, end_notes, exec_record, external_effect, run_host,
 };
 use crate::spawn::Platform;
+use crate::stage::run::limit_error;
 
 /// The `retry` command on job records.
 pub(crate) struct Retry {
@@ -95,10 +96,26 @@ impl EffectStage for Retry {
         let mut irreversible = Vec::new();
         let platform = Platform::of(ctx.host().info().os);
         for id in &ids {
-            let request = store.retry_request(id, timeout)?;
+            let request = store.retry_request(id, timeout).map_err(|error| {
+                let applied = error.data().effect_applied || !records.is_empty();
+                error.with_effect_applied(applied)
+            })?;
             irreversible.extend(external_effect(&request));
-            match host.run(ctx, request.clone(), wait)? {
+            let waited = host.run(ctx, request.clone(), wait).map_err(|error| {
+                let applied = error.data().effect_applied || !records.is_empty();
+                error.with_effect_applied(applied)
+            })?;
+            match waited {
                 RunWait::Finished(result) => {
+                    let exec = exec_record(&request, &result, platform);
+                    if let Some(error) = limit_error(
+                        request.spawn.limits.timeout,
+                        request.spawn.limits.idle_timeout,
+                        &result.end,
+                        &exec,
+                    ) {
+                        return Err(error);
+                    }
                     if let Some(code) = result.end.exit_code.filter(|code| *code != 0) {
                         notable.push(NotableEntry {
                             count: u64::try_from(code).ok(),
@@ -108,7 +125,7 @@ impl EffectStage for Retry {
                     }
                     notable.extend(end_notes(&result));
                     notable.extend(result.track.notes.iter().cloned());
-                    records.push(Record::from(exec_record(&request, &result, platform)));
+                    records.push(Record::from(exec));
                 }
                 RunWait::Background(job) => {
                     detached = true;

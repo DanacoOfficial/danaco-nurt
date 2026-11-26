@@ -26,6 +26,9 @@ pub enum Outcome {
     Corrected,
     /// The program is rejected with an error that carries the fix.
     Error,
+    /// The program is rejected with an error that carries no ready program;
+    /// the canonical form is what to write instead.
+    Rejected,
 }
 
 impl Outcome {
@@ -35,6 +38,7 @@ impl Outcome {
         match self {
             Self::Corrected => "corrected automatically",
             Self::Error => "error with fix",
+            Self::Rejected => "error without fix",
         }
     }
 }
@@ -49,10 +53,15 @@ pub struct Entry {
     pub topic: String,
     /// Habit as written in the other shell.
     pub habit: String,
-    /// Canonical form in Nurt; the fix when the outcome is an error.
+    /// Canonical form in Nurt; the fix when the outcome is an error, the
+    /// program to write instead when the outcome is a rejection.
     pub canonical: String,
     /// What Nurt does with the habit.
     pub outcome: Outcome,
+    /// Code of the error of a rejected habit, such as `E_UNCORRECTABLE`;
+    /// empty for the other outcomes.
+    #[serde(default)]
+    pub code: String,
     /// Remark, empty when there is none.
     #[serde(default)]
     pub note: String,
@@ -68,6 +77,14 @@ pub struct Table {
     pub shell: String,
     /// Title of the sheet.
     pub title: String,
+    /// Operating system of the paths of the sheet, `linux` or `windows`;
+    /// empty when the sheet states none.
+    #[serde(default)]
+    pub host: String,
+    /// Call parameter `base` of the examples, an absolute directory; empty
+    /// when the examples need none.
+    #[serde(default)]
+    pub base: String,
     /// Entries in the order of the table.
     #[serde(rename = "entry")]
     pub entries: Vec<Entry>,
@@ -105,6 +122,12 @@ pub fn check_table(table: &Table, checker: &dyn ProgramChecker) -> Vec<String> {
         if entry.habit.trim().is_empty() || entry.canonical.trim().is_empty() {
             problems.push(format!(
                 "{}: habit and canonical form are required",
+                entry.id
+            ));
+        }
+        if (entry.outcome == Outcome::Rejected) == entry.code.is_empty() {
+            problems.push(format!(
+                "{}: the error code is required for a rejected habit and for it only",
                 entry.id
             ));
         }
@@ -165,9 +188,20 @@ pub fn render(table: &Table) -> String {
         }
     }
     let mut out = format!(
-        "---\ntitle: {}\n---\n# {}\n\nEvery row pairs a {shell_title} command with its form in Nurt. The last column states whether Nurt corrects the habit automatically or rejects it with an error that carries the fix.\n",
+        "---\ntitle: {}\n---\n# {}\n\nEvery row pairs a {shell_title} command with its form in Nurt. The last column states whether Nurt corrects the habit automatically, rejects it with an error that carries the fix, or rejects it with an error that carries no program and asks for the program of the row.\n",
         table.title, table.title
     );
+    if !table.host.is_empty() {
+        out.push_str(&format!(
+            "\nThe paths are those of a {} host{}.\n",
+            shell_label(&table.host),
+            if table.base.is_empty() {
+                String::new()
+            } else {
+                format!(", and the call parameter `base` is `{}`", table.base)
+            }
+        ));
+    }
     for topic in topics {
         out.push_str(&format!(
             "\n## {topic}\n\n| Rule | {shell_title} | Nurt | Result |\n|---|---|---|---|\n"
@@ -256,6 +290,44 @@ note = "two effects in one program"
         assert_eq!(shell_label(""), "");
         assert_eq!(sheet_file_name(&table()), "nurt-for-bash-users.md");
         assert_eq!(Outcome::Corrected.label(), "corrected automatically");
+        assert_eq!(Outcome::Rejected.label(), "error without fix");
+    }
+
+    #[test]
+    fn a_rejected_habit_has_an_error_code_and_no_other_habit_has() {
+        let catalog = catalog();
+        let mut table = table();
+        table.entries[0].outcome = Outcome::Rejected;
+        table.entries[1].code = "E_UNCORRECTABLE".to_owned();
+        let problems = check_table(&table, &CatalogChecker::new(&catalog));
+        let coded: Vec<&String> = problems
+            .iter()
+            .filter(|problem| problem.contains("error code is required"))
+            .collect();
+        assert_eq!(coded.len(), 2, "{problems:?}");
+        table.entries[0].code = "E_UNCORRECTABLE".to_owned();
+        table.entries[1].code.clear();
+        let problems = check_table(&table, &CatalogChecker::new(&catalog));
+        assert!(
+            !problems
+                .iter()
+                .any(|problem| problem.contains("error code"))
+        );
+    }
+
+    #[test]
+    fn states_the_host_and_the_base_of_the_examples() {
+        let mut table = table();
+        assert!(!render(&table).contains("host"));
+        table.host = "windows".to_owned();
+        table.base = "C:/Users/user".to_owned();
+        let text = render(&table);
+        assert!(
+            text.contains("The paths are those of a Windows host, and the call parameter `base` is `C:/Users/user`."),
+            "{text}"
+        );
+        table.base.clear();
+        assert!(render(&table).contains("The paths are those of a Windows host."));
     }
 
     #[test]

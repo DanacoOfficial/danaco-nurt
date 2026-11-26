@@ -1,4 +1,4 @@
-translated without error: 222 of 250
+translated without error: 221 of 250
 translated	rm /tmp/build.log	remove "/tmp/build.log" on_missing: error
 translated	rm -f /var/tmp/app.pid	remove "/var/tmp/app.pid"
 translated	rm -rf /srv/app/build	remove "/srv/app/build"
@@ -65,7 +65,7 @@ translated	tail -n 100 /var/log/nginx/access.log	read "/var/log/nginx/access.log
 failed	tail -f /var/log/app.log	E_UNCORRECTABLE: flag `-f` of `tail` has no equivalent; parameters of `read`: path, lines, last, around, context, symbol, section, cell, targets, key, depth, view, pages, mode, encoding, decompress, unchanged_since, since, known, line_numbers, max_line (flag_without_equivalent)
 translated	tail -n 50 /srv/app/logs/error.log	read "/srv/app/logs/error.log" last: 50
 translated	head -n 1 /srv/app/data.csv	read "/srv/app/data.csv" lines: ..1
-translated	tail -n +2 /srv/app/data.csv	read "/srv/app/data.csv" last: 2
+failed	tail -n +2 /srv/app/data.csv	E_UNCORRECTABLE: `+2` is not a non-negative integer (invalid_number)
 failed	head -c 100 /srv/app/blob.bin	E_UNCORRECTABLE: flag `-c` of `head` has no equivalent; parameters of `read`: path, lines, last, around, context, symbol, section, cell, targets, key, depth, view, pages, mode, encoding, decompress, unchanged_since, since, known, line_numbers, max_line (flag_without_equivalent)
 translated	wc -l /srv/app/data.csv	lines "/srv/app/data.csv" |> count
 failed	wc /etc/passwd	E_UNCORRECTABLE: `wc` with these flags has no translation (no_translation)
@@ -118,9 +118,9 @@ translated	sed -i 's/foo/bar/g' /srv/app/config.yaml	replace /foo/ "bar" in: ["/
 failed	sed 's/http:/https:/' /srv/app/links.txt	E_UNCORRECTABLE: sed without `-i` prints the changed text and changes nothing; with `-i` it changes the file (sed_without_in_place)
 translated	sed -n '1,10p' /srv/app/data.csv	read "/srv/app/data.csv" lines: 1..10
 translated	sed -i '/^#/d' /etc/app/app.conf	lines "/etc/app/app.conf" |> filter text ~ /^#/ |> remove
-translated	sed -i 's/version: 1.4.1/version: 1.4.2/' /srv/app/chart.yaml	replace /version: 1.4.1/ "version: 1.4.2" in: ["/srv/app/chart.yaml"] occurrence: 1
+translated	sed -i 's/version: 1.4.1/version: 1.4.2/' /srv/app/chart.yaml	replace /^(.*?)(version: 1.4.1)/ "${1}version: 1.4.2" in: ["/srv/app/chart.yaml"]
 translated	sed '5d' /srv/app/list.txt	lines "/srv/app/list.txt" |> filter no != 5
-translated	sed -i 's/\r$//' /srv/app/script.sh	replace /\r$/ "" in: ["/srv/app/script.sh"] occurrence: 1
+translated	sed -i 's/\r$//' /srv/app/script.sh	replace /^(.*?)(\r$)/ "${1}" in: ["/srv/app/script.sh"]
 failed	sed -i.bak 's/old/new/g' /srv/app/readme.md	E_UNCORRECTABLE: flag `-i.bak` of `sed` has no equivalent; parameters of ``:  (flag_without_equivalent)
 translated	awk '{print $1}' /var/log/nginx/access.log	lines "/var/log/nginx/access.log" |> split /\s+/ names: ["f1"] |> select cells.f1
 translated	awk -F: '{print $1}' /etc/passwd	lines "/etc/passwd" |> split ":" names: ["f1"] |> select cells.f1

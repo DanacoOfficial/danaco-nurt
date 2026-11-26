@@ -31,8 +31,8 @@ use serde_json::Value as Json;
 use super::conflict::{
     CHECK_REFERENCES, CHECKPOINT_INTERVAL, Occupant, OnConflict, Placer, Source, Step, TO, child,
     directory_exists_error, effect_output, exists_error, flag, fold, is_case_variant,
-    kind_mismatch_error, missing_state, on_conflict_param, references_left, run_steps, sources,
-    type_error,
+    kind_mismatch_error, missing_state, on_conflict_param, references_left, run_steps,
+    same_entry_error, sources, type_error,
 };
 use crate::common::path::PATH_FIELD;
 
@@ -72,7 +72,7 @@ enum Rule {
     Literal { pattern: String, with: String },
     /// Every match of a regular expression replaced by a template.
     Regex {
-        searcher: Searcher,
+        searcher: Box<Searcher>,
         template: Template,
     },
 }
@@ -127,7 +127,10 @@ impl Rule {
             Groups::from_names(std::iter::once(None).chain(names.iter().map(Option::as_deref)));
         let template = Template::parse(with, &groups)
             .map_err(|error| Error::new(error.code(), format!("`with`: {error}")))?;
-        Ok(Self::Regex { searcher, template })
+        Ok(Self::Regex {
+            searcher: Box::new(searcher),
+            template,
+        })
     }
 
     fn new_name(
@@ -439,6 +442,16 @@ impl Planner<'_> {
         if item.meta.kind == FileKind::Directory {
             return Err(kind_mismatch_error(&item.target));
         }
+        // Renaming onto another hard link of the same file removes nothing.
+        if existing.file_id == item.meta.file_id {
+            return match self.on_conflict {
+                OnConflict::Skip => {
+                    self.summary.skipped += 1;
+                    Ok(Decision::Skipped)
+                }
+                OnConflict::Overwrite | OnConflict::Error => Err(same_entry_error(&item.source)),
+            };
+        }
         match self.on_conflict {
             OnConflict::Overwrite => {
                 self.summary.overwritten += 1;
@@ -586,6 +599,23 @@ mod tests {
     }
 
     #[test]
+    fn a_path_with_dot_dot_after_a_link_is_refused() {
+        let test = TestContext::new();
+        file(&test, "/data/a.txt", b"a");
+        let target = dir(&test, "/elsewhere/deep");
+        test.fs()
+            .symlink(target.as_path(), &abs("/data/link"))
+            .unwrap();
+        let written = format!("{}/link/../a.txt", abs("/data").to_language_string());
+        let call = BoundArgs::new(COMMAND)
+            .with(PATH, ArgValue::Value(Value::Path(written)), false)
+            .with(TO, text_arg("b.txt"), false);
+        let error = run(&Rename, &test, &call, None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert_untouched(&test);
+    }
+
+    #[test]
     fn literal_patterns_replace_every_occurrence() {
         let test = TestContext::new();
         let records = vec![
@@ -667,7 +697,17 @@ mod tests {
         .unwrap();
         assert_eq!(test.fs().read_file(&abs("/c/aa")).unwrap(), b"short");
         assert_eq!(test.fs().read_file(&abs("/c/aaaa")).unwrap(), b"long");
-        assert_eq!(renamed.changes[0].path.as_str(), long.to_language_string());
+        assert_eq!(
+            renamed.changes[0].path.as_str(),
+            abs("/c/aaaa").to_language_string()
+        );
+        assert_eq!(
+            renamed.changes[0]
+                .from
+                .as_ref()
+                .map(|from| from.as_str().to_owned()),
+            Some(long.to_language_string())
+        );
         assert_journaled(&test);
     }
 

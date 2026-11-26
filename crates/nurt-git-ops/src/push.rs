@@ -990,7 +990,7 @@ impl NetworkConnection {
         let Ok(Some(answer)) = authenticate(Action::get_for_url(url)) else {
             return Err(credentials.error(Some(HTTP_UNAUTHORIZED)));
         };
-        if self.transport.set_identity(answer.identity).is_err() {
+        if self.transport.set_credentials(answer.credentials).is_err() {
             return Err(credentials.error(Some(HTTP_UNAUTHORIZED)));
         }
         let second = send_pack::discover(self.transport.as_mut());
@@ -1566,6 +1566,9 @@ struct PushSink<'t> {
     upstream_set: bool,
     changed: Vec<PathBuf>,
     store: Option<FilePlan>,
+    /// Keys of new SSH hosts accepted by the connection, appended to the
+    /// known hosts file of Nurt with the other changes.
+    host_keys: Option<FilePlan>,
     remote_updated: usize,
 }
 
@@ -1578,6 +1581,8 @@ impl PushSink<'_> {
         plans.push(&local);
         let repository_plans = plans.len();
         plans.extend(store.as_ref());
+        let host_keys = self.host_keys.take();
+        plans.extend(host_keys.as_ref());
         send_pack::preserve_and_apply(&mut *self.tx, &plans)?;
         for plan in &plans[..repository_plans] {
             self.changed.extend(plan.changed_files());
@@ -1687,6 +1692,7 @@ impl PlannedPush {
             upstream_set: false,
             changed: Vec::new(),
             store: None,
+            host_keys: None,
             remote_updated: 0,
         };
         self.execute(&repo, &mut sink, context, outcome)
@@ -1854,6 +1860,15 @@ impl PlannedPush {
         let mut connection = NetworkConnection::open(repo, &self.remote, address, &self.network)?;
         let advertisement = connection.discover()?;
         let store = connection.store_plan()?;
+        let accepted_keys = self
+            .network
+            .ssh
+            .as_ref()
+            .map(|ssh| ssh.host_keys.take())
+            .unwrap_or_default();
+        if !accepted_keys.is_empty() {
+            sink.host_keys = Some(nurt_git_transport::ssh::host_keys_plan(&accepted_keys)?);
+        }
         let names: Vec<BString> = commands
             .iter()
             .map(|command| command.name.clone())
@@ -2099,6 +2114,35 @@ mod ssh_tests;
 mod tests {
     use super::*;
     use nurt_git_transport::send_pack::testing::{Fixture, RecordingTx, ScriptHost};
+
+    #[test]
+    fn update_without_a_line_in_the_report_is_an_error() {
+        let update = |name: &str| RefUpdate {
+            local_ref: None,
+            remote_ref: name.to_owned(),
+            tracking_ref: None,
+            old: None,
+            new: None,
+            status: GitRefStatus::New,
+            reason: None,
+        };
+        let mut updates = vec![update("refs/heads/a"), update("refs/heads/b")];
+        let report = PushReport {
+            unpack_error: None,
+            refs: vec![nurt_git_transport::send_pack::RefReport {
+                name: "refs/heads/a".into(),
+                status: RefStatus::Ok,
+                updated_name: None,
+                old: None,
+                new: None,
+                forced: false,
+            }],
+        };
+        merge_report(&mut updates, Some(&report));
+        assert_eq!(updates[0].status, GitRefStatus::New);
+        assert_eq!(updates[1].status, GitRefStatus::Error);
+        assert_eq!(updates[1].reason.as_deref(), Some(NOT_REPORTED));
+    }
 
     fn plan_push(path: &Path, request: &PushRequest) -> Result<PlannedPush> {
         super::plan_push(path, request, &NetworkOptions::default())

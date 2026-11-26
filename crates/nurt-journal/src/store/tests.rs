@@ -34,6 +34,8 @@ use crate::manifest::{self, IndexRow, StateRecord};
 
 const HOME: &str = "/home";
 const STATE_DIR: &str = "/home/user/.local/state/nurt";
+const OTHER_STATE_DIR: &str = "/home/other/.local/state/nurt";
+const OTHER_FILE: &str = "/home/user/docs/other.txt";
 const NOTES: &str = "/home/user/docs/notes.txt";
 const USER_CONFIG: &str = "/home/user/.config/nurt/config.toml";
 /// Just over the built-in age limit of 30 minutes.
@@ -160,17 +162,29 @@ impl Env {
     }
 
     fn builder(&self) -> JournalBuilder {
+        self.builder_in(STATE_DIR)
+    }
+
+    /// Builder of the journal of the account whose state directory is
+    /// `state_dir`; the journal directory of the volume is shared.
+    fn builder_in(&self, state_dir: &str) -> JournalBuilder {
         let limits =
-            ConfiguredLimits::new(&self.layers, false, self.fs.clone(), &path(STATE_DIR)).unwrap();
+            ConfiguredLimits::new(&self.layers, false, self.fs.clone(), &path(state_dir)).unwrap();
         JournalBuilder::new(
             self.fs.clone(),
             self.admission.clone(),
             self.clock.clone(),
             Arc::new(HomeJournal),
             Arc::new(limits),
-            path(STATE_DIR),
+            path(state_dir),
         )
         .lock_timeout(LOCK_TIMEOUT)
+    }
+
+    /// Journal of a second account that works on the same volume.
+    fn other_account(&self) -> Journal {
+        self.fs.seed_dir(&path(OTHER_STATE_DIR)).unwrap();
+        self.builder_in(OTHER_STATE_DIR).build().unwrap()
     }
 
     fn journal(&self) -> Journal {
@@ -840,4 +854,53 @@ fn undo_of_an_entry_with_a_damaged_manifest_reports_corruption_and_changes_nothi
         .unwrap_err();
     assert_eq!(error.code, ErrorCode::JournalCorrupt);
     assert_eq!(env.read(&notes), b"final");
+}
+
+#[test]
+fn undo_without_a_number_leaves_the_entries_of_another_account_alone() {
+    let env = Env::new(&json!({}));
+    let notes = env.seed(NOTES, b"draft");
+    let other_file = env.seed(OTHER_FILE, b"theirs");
+    let mine = env.journal();
+    let theirs = env.other_account();
+    write(&mine, &notes, b"final");
+    let foreign = write(&theirs, &other_file, b"changed").op.unwrap();
+    assert!(foreign > OpId(1));
+
+    let undone = mine.undo(&undo_last()).unwrap();
+    assert_eq!(undone.sources, [OpId(1)]);
+    assert_eq!(env.read(&notes), b"draft");
+    assert_eq!(env.read(&other_file), b"changed");
+    let error = mine.undo(&undo_last()).unwrap_err();
+    assert_eq!(error.code, ErrorCode::JournalNoop);
+    assert_eq!(env.read(&other_file), b"changed");
+    assert_eq!(env.state(foreign.0), EntryState::Committed);
+}
+
+#[test]
+fn history_and_undo_by_number_see_the_entries_of_the_account_only() {
+    let env = Env::new(&json!({}));
+    let notes = env.seed(NOTES, b"draft");
+    let other_file = env.seed(OTHER_FILE, b"theirs");
+    let mine = env.journal();
+    let theirs = env.other_account();
+    write(&mine, &notes, b"final");
+    let foreign = write(&theirs, &other_file, b"changed").op.unwrap();
+
+    let listed = |journal: &Journal| {
+        journal
+            .history(&HistoryQuery::default())
+            .unwrap()
+            .iter()
+            .map(|record| record.id)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(listed(&mine), [1]);
+    assert_eq!(listed(&theirs), [foreign.0]);
+    let by_number = UndoRequest {
+        selector: UndoSelector::Op(foreign),
+        ..undo_last()
+    };
+    assert!(mine.undo(&by_number).is_err());
+    assert_eq!(env.read(&other_file), b"changed");
 }

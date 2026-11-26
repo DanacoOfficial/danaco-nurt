@@ -51,6 +51,7 @@ pub(crate) fn entry(op: u64, volume: &str) -> EntryFacts {
         volume: mount(volume),
         state: EntryState::Committed,
         reason: None,
+        account: None,
         kind: OpKind::command("write"),
         time: stamp.wall,
         basis: EntryTimeBasis {

@@ -57,7 +57,7 @@ summary = "Value sent as a JSON body with the matching Content-Type header."
 [[command.param]]
 name = "save"
 type = "path"
-summary = "Write the response body to this file."
+summary = "Write the response body to this file; the body of an answer with a status outside 200 to 299 is not written and the record has no `saved` field."
 
 [[command.param]]
 name = "as"

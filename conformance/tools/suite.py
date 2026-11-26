@@ -25,7 +25,10 @@ SNAPSHOT_FORMAT = "nurt-fs-snapshot/1"
 LANGUAGE = "1.0"
 
 KINDS = ("exec", "journal", "correction", "parity")
-METHODS = ("run", "check", "correct", "page", "parse", "history", "cancel", "testkit.clock.advance")
+METHODS = (
+    "run", "check", "correct", "page", "parse", "history", "cancel", "testkit.clock.advance",
+    "testkit.failpoint.set",
+)
 STATUSES = ("ok", "planned", "running", "partial", "rolled_back", "failed")
 FEATURES = ("journal", "testkit")
 REQUIREMENTS = re.compile(r"^(os:(linux|macos|windows|unix)|feature:[a-z0-9-]+|fixture:(http|second-volume))$")
@@ -501,12 +504,17 @@ def resolve_name(
     return Resolution("fuzzy", target, best, tied)
 
 
-_RESOLVED: dict[tuple[int, str], Resolution] = {}
+_RESOLVED: dict[tuple[frozenset[tuple[str, bool]], str], Resolution] = {}
 
 
 def resolve_command(written: str, commands: dict[str, Command]) -> Resolution:
-    """Applies the command name rules, with synonyms and shell habits as competitors."""
-    key = (id(commands), written)
+    """Applies the command name rules, with synonyms and shell habits as competitors.
+
+    The result is cached by the content the rules read, the names and whether
+    each command changes something, and not by the identity of the mapping: an
+    identity can be handed to another mapping once the first one is gone.
+    """
+    key = (frozenset((name, command.changing) for name, command in commands.items()), written)
     if key in _RESOLVED:
         return _RESOLVED[key]
     norm = snake(written)

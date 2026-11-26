@@ -568,7 +568,7 @@ impl BuildState {
             let index = repo.index_from_tree(&tree).expect("index from tree");
             let mut index = index;
             index
-                .write(gix::index::write::Options::default())
+                .write(gix::index::write::Options::default(), Default::default())
                 .expect("index written");
         }
     }

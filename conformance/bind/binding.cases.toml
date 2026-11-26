@@ -36,12 +36,12 @@ fs_after = "unchanged"
 [[case]]
 id = "bind/expansion/short-remove"
 kind = "bind"
-summary = "The short form of remove binds to a find of depth 0 followed by remove."
+summary = "The short form of remove binds to an info head followed by remove."
 method = "check"
 program = 'remove "old.log"'
 fs_before = { entries = [{ path = "old.log", type = "file", content_utf8 = "x" }] }
 expect_at = "/bound/program/statements/0"
-expect = { head = { name = "find" }, stages = [{ name = "remove", phase = "mutate", effect = "local" }] }
+expect = { head = { name = "info" }, stages = [{ name = "remove", phase = "mutate", effect = "local" }] }
 fs_after = "unchanged"
 
 [[case]]

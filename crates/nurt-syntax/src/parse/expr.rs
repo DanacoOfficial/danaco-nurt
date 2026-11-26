@@ -676,7 +676,7 @@ fn parse_literal(p: &mut Parser<'_>) -> Result<Boxed, SyntaxError> {
             span: None,
         }),
         TokenKind::Null => Ok(Expr::Null { span: None }),
-        TokenKind::Text => lex::decode_text(source),
+        TokenKind::Text => p.decode_text(source),
         TokenKind::RawText => lex::decode_raw(source),
         TokenKind::Regex => lex::decode_regex(source),
         TokenKind::Int => lex::parse_int(source),
@@ -770,7 +770,7 @@ fn text_key(p: &Parser<'_>) -> Result<String, SyntaxError> {
     let token = p.current();
     let source = p.slice(token);
     let decoded = if token.kind == TokenKind::Text {
-        lex::decode_text(source)
+        p.decode_text(source)
     } else {
         lex::decode_raw(source)
     };

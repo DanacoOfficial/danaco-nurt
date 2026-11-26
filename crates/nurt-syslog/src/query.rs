@@ -545,6 +545,14 @@ impl Iterator for LogStream<'_> {
             Some(Ok(event)) => {
                 self.emitted += 1;
                 self.last_cursor = Some(event.cursor.clone());
+                if event.flags.unformatted {
+                    // Counted here, not when the store reads the event: the
+                    // event peeked at to learn whether older ones remain is
+                    // not returned and would be counted again on the next page.
+                    let mut notice = LogNotice::new(NoticeCode::Unformatted);
+                    notice.count = Some(1);
+                    self.notices.add(notice);
+                }
                 Some(Ok(event))
             }
             Some(Err(error)) => {
@@ -644,6 +652,24 @@ mod tests {
         assert!(stream.next_cursor().is_none());
         assert_eq!(stream.notices()[0].code, NoticeCode::LimitReached);
         assert_eq!(stream.notices()[0].count, Some(0));
+    }
+
+    #[test]
+    fn unformatted_events_are_counted_when_returned_and_not_when_peeked_at() {
+        let events = (0..5).map(|n| {
+            let mut item = event(n);
+            item.flags.unformatted = true;
+            Ok(item)
+        });
+        let notices = Notices::new();
+        let mut stream = LogStream::new(events, notices, 3);
+        assert_eq!(stream.by_ref().count(), 3);
+        let counted = stream
+            .notices()
+            .into_iter()
+            .find(|notice| notice.code == NoticeCode::Unformatted)
+            .unwrap();
+        assert_eq!(counted.count, Some(3));
     }
 
     #[test]

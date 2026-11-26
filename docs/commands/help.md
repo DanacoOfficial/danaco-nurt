@@ -29,6 +29,12 @@ code, `syntax`, `corrections`, `commands`, `pipelines`, `let`, `paths`, `records
 command and a group (`verify`): `help verify` answers for the command,
 `help verify kind: group` and `help group: verify` answer for the group.
 
+With `kind` given, the topic is looked up among that kind only. `kind: syntax`
+accepts the topic `syntax` and the topics of its parts (`pipelines`, `let`,
+`paths`, `records`, `lists`); `kind: corrections` accepts the topic
+`corrections`. Any other name fails with `E_UNKNOWN_NAME` and the names that
+the kind accepts.
+
 | Topic | Answer |
 |---|---|
 | a command | signature, parameters with defaults, input and output kinds, effect, the first `examples` examples of the command page, typical errors, related commands |
@@ -40,6 +46,11 @@ command and a group (`verify`): `help verify` answers for the command,
 | `commands` | every command of the catalog under its group, with its summary |
 | `pipelines`, `let`, `paths`, `records`, `lists` | the part of the syntax that the name says, the lines of `syntax` that apply; the hints of errors point at these topics |
 | `search` | commands, error codes and guides that match the words, best first |
+
+With `kind: syntax` the topic is empty, `syntax` or one of the topics
+`pipelines`, `let`, `paths`, `records`, `lists`; with `kind: corrections` it is
+empty or `corrections`. Any other name fails with `E_UNKNOWN_NAME` and is not
+ignored.
 
 The topics `group`, `skill` and `search` exclude each other and the positional
 topic. An unknown topic fails with `E_UNKNOWN_NAME`; the error lists up to

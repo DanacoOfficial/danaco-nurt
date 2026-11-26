@@ -293,3 +293,41 @@ fn hides_noindex_directory_and_keys_it_case_insensitively() {
         );
     }
 }
+
+#[test]
+fn metadata_of_a_file_without_read_permission_is_changed_by_path() {
+    use nurt_contracts::fs::MetaChange;
+
+    let fs = MacosFs::new();
+    let (_dir, root) = root();
+    let file = root.join_name("sealed").unwrap();
+    write(&fs, &file, b"x");
+    let seal = MetaChange {
+        mode: Some(0o000),
+        ..MetaChange::default()
+    };
+    fs.set_meta(&scope(), &file, &seal).unwrap();
+    let wanted = MetaChange {
+        mode: Some(0o640),
+        modified_ns: Some(MODIFIED_NS),
+        set_xattrs: vec![Xattr {
+            name: OsString::from("user.kept"),
+            value: b"1".to_vec(),
+        }],
+        ..MetaChange::default()
+    };
+    fs.set_meta(&scope(), &file, &wanted).unwrap();
+    let meta = fs.extended_metadata(&file, Follow::NoFollow).unwrap();
+    assert_eq!(meta.basic.mode, 0o640);
+    assert_eq!(meta.basic.modified_ns, MODIFIED_NS);
+    fs.set_meta(&scope(), &file, &seal).unwrap();
+    let report = fs.restore_meta(&scope(), &file, &meta).unwrap();
+    assert!(report.not_transferred.is_empty(), "{report:?}");
+    assert_eq!(
+        fs.extended_metadata(&file, Follow::NoFollow)
+            .unwrap()
+            .basic
+            .mode,
+        0o640
+    );
+}

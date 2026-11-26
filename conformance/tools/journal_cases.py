@@ -125,8 +125,9 @@ NO_EXPIRY_FIELDS = [f"/report/records/rows/*/fields/{name}" for name in (
 def call(program: str | None = None, *, report: dict | None = None, after: object = None,
          method: str | None = None, params: dict | None = None, options: dict | None = None,
          expect_at: str | None = None, validate: str | None = None, expect: dict | None = None,
-         absent: list[str] | None = None, second_after: object = None) -> dict:
-    """Returns one step of a case."""
+         absent: list[str] | None = None, second_after: object = None,
+         setup_only: bool = False) -> dict:
+    """Returns one step of a case; `setup_only` marks a step that states no expectation."""
     out: dict = {}
     if method is not None:
         out["method"] = method
@@ -150,6 +151,8 @@ def call(program: str | None = None, *, report: dict | None = None, after: objec
         out["second_volume_after"] = second_after
     if absent is not None:
         out["absent"] = absent
+    if setup_only:
+        out["setup_only"] = True
     return out
 
 
@@ -263,7 +266,7 @@ def core_rows(b: Coverage) -> None:
         undo(2, tree({})),
         call(f'info ["{REGISTRY}/value", "{REGISTRY}/copy"]',
              report={"status": "ok", "records": entry_rows(True, False)}),
-        call(f'remove "{REGISTRY}"'),
+        call(f'remove "{REGISTRY}"', setup_only=True),
     ], requires=windows)
     b.reversible("move", "Undo of a move onto an existing file restores both files.", text,
                  'move "b.txt" to: "a.txt"', "move", changed(TEXT, b_dot_txt=REMOVED, a_dot_txt="bravo\n"))
@@ -275,7 +278,7 @@ def core_rows(b: Coverage) -> None:
         undo(2, tree({})),
         call(f'info ["{REGISTRY}/value", "{REGISTRY}/moved"]',
              report={"status": "ok", "records": entry_rows(True, False)}),
-        call(f'remove "{REGISTRY}"'),
+        call(f'remove "{REGISTRY}"', setup_only=True),
     ], requires=windows)
     b.reversible("remove", "Undo of a removed directory tree restores every entry.", dirs, 'remove "dir"', "remove",
                  changed(DIRS, dir__c_dot_txt=REMOVED, dir__sub__d_dot_txt=REMOVED))
@@ -288,7 +291,7 @@ def core_rows(b: Coverage) -> None:
         call(f'remove "{REGISTRY}/value"', report=ok("remove")),
         undo(2, tree({})),
         call(f'info "{REGISTRY}/value"', report={"status": "ok", "records": entry_rows(True)}),
-        call(f'remove "{REGISTRY}"'),
+        call(f'remove "{REGISTRY}"', setup_only=True),
     ], requires=windows)
     unix = ("os:unix",)
     b.steps("remove-job", "Removing a finished job is reported as irreversible.", tree({}), [
@@ -434,13 +437,13 @@ def group_rows(b: Coverage) -> None:
     b.steps("suspend", "Suspending a job is reported as irreversible.", tree({}), [
         call(SLEEPER),
         call(f'jobs "{job(1)}" |> suspend', report=irreversible("suspend", "process_state_changed")),
-        call(f'jobs "{job(1)}" |> stop signal: kill'),
+        call(f'jobs "{job(1)}" |> stop signal: kill', setup_only=True),
     ], requires=unix)
     b.steps("resume", "Resuming a job is reported as irreversible.", tree({}), [
         call(SLEEPER),
         call(f'jobs "{job(1)}" |> suspend'),
         call(f'jobs "{job(1)}" |> resume', report=irreversible("resume", "process_state_changed")),
-        call(f'jobs "{job(1)}" |> stop signal: kill'),
+        call(f'jobs "{job(1)}" |> stop signal: kill', setup_only=True),
     ], requires=unix)
     for command in ("start", "restart", "enable", "disable"):
         b.marked(command, f"The command {command} on a service is reported as irreversible.",

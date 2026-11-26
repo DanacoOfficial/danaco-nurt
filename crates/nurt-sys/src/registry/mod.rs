@@ -22,6 +22,7 @@
 //! Outside Windows, paths of the provider are rejected while binding
 //! ([`bind_path`]).
 
+mod access;
 pub mod api;
 pub mod broadcast;
 pub mod mem;
@@ -811,6 +812,10 @@ impl ProviderWrite for RegistryProvider {
         }
         target.notify(address.key());
         Ok(())
+    }
+
+    fn duplicate(&self, scope: &TxScope, from: &ProviderKey, to: &ProviderKey) -> FsResult<()> {
+        self.copy(scope, from, to, self.view)
     }
 }
 

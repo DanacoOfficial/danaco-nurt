@@ -194,6 +194,63 @@ fn a_changing_command_is_not_named_by_let() -> Outcome {
 }
 
 #[test]
+fn a_request_with_a_changing_method_is_not_named_by_let() -> Outcome {
+    let context = TranslateContext::default();
+    for method in ["Delete", "Post", "Put", "Patch"] {
+        let text = format!("$r = Invoke-WebRequest https://example.com/x -Method {method}");
+        let failure = error(&text, &context)?;
+        assert_eq!(failure.problem.as_deref(), Some("effect_in_let"), "{text}");
+    }
+    for text in [
+        "$r = Invoke-WebRequest https://example.com/x",
+        "$r = Invoke-WebRequest https://example.com/x -Method Get",
+        "$r = Invoke-WebRequest https://example.com/x -Method Head",
+    ] {
+        let reading = translate_with(text, &context).ok_or("no translation")??;
+        assert!(reading.text().starts_with("let r ="), "{}", reading.text());
+    }
+    Ok(())
+}
+
+#[test]
+fn a_dollar_sign_of_a_new_name_is_not_a_group_reference() -> Outcome {
+    let renamed = live("Rename-Item /srv/a.txt -NewName ($_.Name + 'x$1')")?;
+    assert!(renamed.text().contains("\"x$$1\""), "{}", renamed.text());
+    let prefixed = live("Rename-Item /srv/a.txt -NewName ('$y' + $_.Name)")?;
+    assert!(prefixed.text().contains("\"$$y\""), "{}", prefixed.text());
+    Ok(())
+}
+
+#[test]
+fn the_directory_of_a_quoted_wildcard_path_is_located_without_the_quote() -> Outcome {
+    let found = live(r"gci 'C:\logs\*.log'")?;
+    let converted = found
+        .rules
+        .iter()
+        .find(|correction| correction.rule == "L19")
+        .ok_or_else(|| format!("no path correction in {:?}", found.rules))?;
+    assert!(
+        converted.from.starts_with(r"C:\logs") && !converted.from.contains('\''),
+        "{converted:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_wildcard_in_the_path_of_compress_archive_selects_the_files() -> Outcome {
+    let archive = live(r"Compress-Archive C:\logs\*.log -DestinationPath C:\a.zip")?;
+    let program = archive.text();
+    assert!(
+        program.starts_with("find \"C:/logs\" glob: \"*.log\""),
+        "{program}"
+    );
+    assert!(program.contains("archive.create \"C:/a.zip\""), "{program}");
+    let literal = live(r"Compress-Archive -LiteralPath C:\logs\*.log -DestinationPath C:\a.zip")?;
+    assert!(!literal.text().contains("glob:"), "{}", literal.text());
+    Ok(())
+}
+
+#[test]
 fn size_multipliers_are_binary() -> Outcome {
     let mega = live("Get-ChildItem /srv | Where-Object { $_.Length -gt 1MB }")?;
     assert!(
@@ -276,28 +333,18 @@ fn detection_keeps_posix_flags_with_bash() {
     assert!(!detect("copy \"/a\" to: \"/b\""));
 }
 
-/// Time limit of reading one input; a debug build tokenizes, detects and
-/// translates each of them in a few milliseconds.
-const LIMIT: std::time::Duration = std::time::Duration::from_secs(2);
-
-/// Whether the lexer, `detect` and a live translation of `text` return
-/// within [`LIMIT`]; the work runs on its own thread so that a regression
-/// fails the test instead of stopping the test run.
-fn returns_in_time(text: String) -> bool {
-    let (sender, receiver) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = lex(&text);
-        let _ = detect(&text);
-        let _ = translate(&text);
-        let _ = sender.send(());
-    });
-    receiver.recv_timeout(LIMIT).is_ok()
+/// Runs the lexer, `detect` and a live translation of `text`; the call
+/// returns only when they end, and a regression that does not end is stopped
+/// by the time limit that the test runner has for this test binary.
+fn read_text(text: &str) {
+    let _ = lex(text);
+    let _ = detect(text);
+    let _ = translate(text);
 }
 
 #[test]
-fn unicode_space_after_a_string_is_read_in_time() -> Outcome {
-    let text = "find \"/a\\\"\u{2003}|> count";
-    assert!(returns_in_time(text.to_owned()), "{text:?}");
+fn unicode_space_after_a_string_is_read() -> Outcome {
+    read_text("find \"/a\\\"\u{2003}|> count");
     let kinds: Vec<TokenKind> = lex("gci\u{2003}/srv\u{3000}-Force")?
         .into_iter()
         .map(|token| token.kind)
@@ -323,13 +370,13 @@ proptest::proptest! {
     })]
 
     #[test]
-    fn any_text_is_read_in_time(
+    fn any_text_is_read(
         text in proptest::prop_oneof![
             proptest::arbitrary::any::<String>(),
             "[ \\t\\u{a0}\\u{2000}-\\u{200b}\\u{3000}a-zA-Z0-9$\"'`|;,&(){}@\\[\\]<>#.:=+*\\u{2013}\\u{201c}\\u{2018}-]{0,48}",
         ]
     ) {
-        proptest::prop_assert!(returns_in_time(text));
+        read_text(&text);
     }
 }
 
@@ -800,6 +847,44 @@ fn a_program_without_a_working_directory_is_refused_in_a_script() -> Outcome {
         .ok_or("no translation")??;
     assert!(given.text().contains("cwd:"), "{}", given.text());
     assert!(translate("Start-Process app.exe").is_some());
+    Ok(())
+}
+
+#[test]
+fn error_action_of_a_reading_command_is_dropped_with_a_note() -> Outcome {
+    let translation = live("Get-Item /srv/a -ErrorAction SilentlyContinue")?;
+    assert!(
+        !translation.text().contains("on_missing"),
+        "{}",
+        translation.text()
+    );
+    assert!(
+        translation
+            .notes
+            .iter()
+            .any(|note| note.text.contains("missing target")),
+        "{:?}",
+        translation.notes
+    );
+    Ok(())
+}
+
+#[test]
+fn registry_numbers_keep_their_registry_type() -> Outcome {
+    for (written, named) in [("DWord", "dword"), ("QWord", "qword")] {
+        let text =
+            format!("Set-ItemProperty -Path HKCU:\\Software\\A -Name N -Value 2 -Type {written}");
+        let registry = live(&text)?;
+        let program = registry.text();
+        assert!(
+            program.contains("\"registry:/HKCU/Software/A/N\" \"2\""),
+            "{program}"
+        );
+        assert!(
+            program.contains(&format!("value_type: {named}")),
+            "{program}"
+        );
+    }
     Ok(())
 }
 

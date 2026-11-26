@@ -131,7 +131,10 @@ fn etag_expect(_path: &Path, _node: Node, meta: &std::fs::Metadata) -> Result<Ex
     const NANOS_PER_SECOND: i64 = 1_000_000_000;
     Ok(Expect::Etag(Etag {
         size: meta.size(),
-        modified_ns: meta.mtime() * NANOS_PER_SECOND + meta.mtime_nsec(),
+        modified_ns: meta
+            .mtime()
+            .saturating_mul(NANOS_PER_SECOND)
+            .saturating_add(meta.mtime_nsec()),
         file_id: FileId {
             volume: meta.dev(),
             low: meta.ino(),
@@ -191,7 +194,7 @@ pub(crate) fn verify_expect(path: &Path, expect: &Expect) -> Result<()> {
 /// files compare to index entries.
 pub(crate) struct Worktree<'r> {
     pub(crate) root: PathBuf,
-    pub(crate) caps: gix::fs::Capabilities,
+    pub(crate) caps: gix_fs::Capabilities,
     repo: &'r gix::Repository,
     stat_options: gix_index::entry::stat::Options,
     index_timestamp: (i64, u32),
@@ -386,4 +389,26 @@ pub(crate) fn stat_of(path: &Path) -> Result<Stat> {
     let meta =
         gix_index::fs::Metadata::from_path_no_follow(path).map_err(|err| io_error(&err, path))?;
     Stat::from_fs(&meta).map_err(|err| repo_error(err, "read file times"))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn modification_time_after_the_year_2262_saturates_like_the_file_system_back_ends() {
+        let dir = tempfile::tempdir().expect("directory");
+        let path = dir.path().join("late");
+        let file = std::fs::File::create(&path).expect("file");
+        let late = std::time::UNIX_EPOCH + std::time::Duration::from_secs(10_000_000_000);
+        if file.set_modified(late).is_err() {
+            return;
+        }
+        let meta = std::fs::symlink_metadata(&path).expect("metadata");
+        let Ok(Expect::Etag(etag)) = etag_expect(&path, Node::File { executable: false }, &meta)
+        else {
+            panic!("an entity tag was expected");
+        };
+        assert_eq!(etag.modified_ns, i64::MAX);
+    }
 }

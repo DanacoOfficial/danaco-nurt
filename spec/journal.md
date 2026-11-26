@@ -20,9 +20,14 @@ reference semantics of test implementations.
    anything is changed. At every instant of a crash the previous content exists
    in at least one place.
 3. Space priority. Free space for the user has priority over the journal.
-   The journal never causes a user operation to fail; when it cannot keep the
-   previous content, the operation proceeds unpreserved and the target is
-   marked irreversible.
+   The journal never causes a user operation to fail for lack of space,
+   eligibility or limits: when admission declines to keep the previous
+   content, the operation proceeds unpreserved and the target is marked
+   irreversible. A failure of the journal itself while it moves a removed
+   target into the journal (any error other than a cross-device rename, which
+   falls back to a copy, and a lack of space for that copy) fails the
+   operation with the target still in place; a removal never deletes data
+   after the journal failed to keep it.
 4. Explicitness. Missing coverage is always visible in the result. Results
    never state until when an operation can be undone.
 
@@ -41,6 +46,20 @@ The term change is defined in the [glossary](glossary.md#change).
 Operation numbers form one sequence per account, starting at 1. Reads and
 previews do not consume numbers. Numbers are unique but not necessarily dense.
 
+The journal directory of a volume is shared by every account that works on the
+volume. An entry and its tombstone record the account that made it (the state
+directory of the account). `history`, `undo` and `redo` see only the entries of
+the calling account; entries written before the account was recorded have no
+such record and are seen by every account. Recovery completes an entry of
+another account but leaves its index row, and its marker, to that account.
+
+Accounts with separate state directories number their operations locally. The
+exclusive creation of the marker `pending/<N>` decides who owns a number. A
+transaction that loses that claim (the marker or an entry of the number
+already exists) takes a new number and tries again, at most eight times, while
+it has no part open yet; only then is the journal given up for the operation
+and the target marked irreversible with `journal_error`.
+
 ## 3. Transaction protocol
 
 The executor opens a transaction with `JournalStore::begin`, passes it to the
@@ -52,12 +71,25 @@ stage returns. The stage never commits.
    journal chooses a preserve mode, consulting `Admission`; it assigns the
    operation number at the first call, writes the entry in the `prepared`
    state and preserves the previous state of all declared targets before
-   returning. `preserve` is not allowed after the first change.
+   returning. `preserve` is not allowed after the first change. In a call that
+   declares at least 64 targets, the previous content of a small file (at most
+   4096 bytes, a single name, no extended attributes, ACL or streams) is kept in
+   the manifest of the entry instead of a block per file (store `copy`, section
+   5); the manifest is written again, durably, before `preserve` returns.
 2. Apply. The stage changes targets with `MutationTx::apply`. New content
    is written to a staged file in the directory of the target, either filled
    by the journal (`Mutation::WriteBytes`) or by the stage through the handle
    returned by `MutationTx::stage` (`Mutation::CommitStaged`), and switched in
    atomically. The metadata of the previous file is transferred by the journal.
+   In a transaction with at least 64 targets the journal does not flush each
+   new file and directory right after the change; it flushes all of them with
+   one `FsWrite::sync_paths` call before any other kind of change and before
+   the commit. This is safe because the previous state of every target is
+   durable before its change and the entry is `prepared` until the commit: a
+   crash before the flush is rolled back by recovery, which restores every
+   target that does not hold the recorded previous state, whatever part of the
+   new content reached the disk (section 4). Nothing is committed before the
+   flush returned; a failed flush rolls the transaction back.
 3. Expected state. `TargetSpec::expect` (`unchecked`, `absent`, an entity
    tag or a content hash) is checked atomically with the change. A mismatch
    fails with `E_STALE` and rolls the whole transaction back.
@@ -109,6 +141,8 @@ with `E_STAGE_FAILED` and roll back.
 | Create a directory or link | `create` / `link` | `create_dir`, `create_link`, `create_hard_link` |
 | Change metadata | `attributes` | `set_meta` |
 | Set or remove a provider value | `modify` / `delete` on a provider target | `provider_set` / `provider_remove` |
+| Copy a provider key with its subtree, or a value | `create`, `absent`, on the destination | `provider_copy` from the source key |
+| Undo a change of a provider target | `modify` on the changed target | `provider_restore` with the kept snapshot |
 | Library writes the file itself | `external_write` | `observe_external` after the write |
 | New tree populated by the operation | `create_tree` | writes inside are not declared |
 
@@ -146,6 +180,12 @@ not repeat the `stat`.
 | During reclaim (`expiring`) | The removal of the entry data is completed. |
 | Manifest fails its integrity check | The entry becomes `corrupt`; its data is kept for manual salvage. |
 
+The manifest of an operation with at least 256 targets has format version 2:
+the target records are packed (`targets_z`: the JSON array compressed with
+Zstandard, Base64), and the digest covers the unpacked manifest. A journal
+written before this format is read unchanged (version 1); a reader of version 1
+rejects version 2 and changes nothing.
+
 `JournalStore::recover` runs before the first transaction of a process and
 before the first operation after a reboot; it also expires overdue entries.
 File systems without durable metadata after a flush have the journal disabled
@@ -160,7 +200,7 @@ by default.
 | `replace_backup` | overwrite on Windows, backup name of the replace call | as `exchange` |
 | `hardlink` | overwrite, hard link to the old content before replacement | as `exchange` |
 | `clone` | block-sharing clone of the old content | writes the clone back |
-| `copy` | byte copy of the old content | writes the copy back |
+| `copy` | byte copy of the old content, in a block of the entry or, for small files of an operation with many targets, in the manifest (`inline`, hex) | writes the copy back |
 | `none` | previous content not kept; always with an irreversible marker | not possible |
 | `created` | the target did not exist | moves the new entry into the undo entry |
 | `meta` | metadata change only | restores the recorded metadata |
@@ -243,7 +283,7 @@ details of journal errors carry the types of the journal module:
 | Code | When | Details |
 |---|---|---|
 | `E_STALE` | expected state does not match | `path`, `expected`, `actual` |
-| `E_NOT_FOUND`, `E_EXISTS`, `E_PERMISSION`, `E_PRIVILEGE`, `E_IN_USE`, `E_NO_SPACE`, `E_IO` | failure of a target | `path`, `kind` (file system error kind), `os_code`, `holders` |
+| `E_NOT_FOUND`, `E_EXISTS`, `E_PERMISSION`, `E_PRIVILEGE`, `E_IN_USE`, `E_NO_SPACE`, `E_IO` | failure of a target | `path`, `kind` (file system error kind), `os_error`, `holders` |
 | `E_CANCELLED` | the operation was cancelled; rolled back | none |
 | `E_ROLLED_BACK` | call on a transaction that was rolled back; failed check after the change | `reason` |
 | `E_ROLLBACK_FAILED` | rollback or undo could not restore every item | `failed`: list of `TargetPath` |

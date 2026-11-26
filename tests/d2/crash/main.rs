@@ -18,6 +18,7 @@ mod failpoints;
 mod inject;
 mod journal;
 mod journal_faults;
+mod journal_many;
 mod journal_prior;
 mod journal_reclaim;
 mod journal_scale;

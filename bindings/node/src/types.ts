@@ -31,6 +31,8 @@ export interface ResponseEnvelope {
   readonly nurt: string;
   /** Effect report `nurt-report/1`. */
   readonly report: Report;
+  /** Reports of the pipelines of a script that ran several operations, in program order. */
+  readonly reports?: readonly Report[];
   /** Rendered text, present for the text formats. */
   readonly rendered?: RequestRendered;
 }

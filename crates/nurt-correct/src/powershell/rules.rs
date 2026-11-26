@@ -47,6 +47,12 @@ const RUN_COMMAND: &str = "run";
 /// Parameter of `run` that names the working directory.
 const CWD_PARAMETER: &str = "cwd";
 
+/// Nurt stage of a web request, a read or a change by its method.
+const HTTP_REQUEST: &str = "http.request";
+
+/// Methods of a request that do not change the server, in lower case.
+const READ_ONLY_METHODS: [&str; 3] = ["get", "head", "options"];
+
 /// Nurt stage that reads a file as a whole.
 const READ_COMMAND: &str = "read";
 
@@ -640,12 +646,32 @@ impl<'a> Session<'a> {
 
     pub(crate) fn pipeline_effect(&self, pipeline: &NurtPipeline) -> bool {
         let head = match &pipeline.head {
-            Head::Stage(stage) => Some(stage.name.as_str()),
+            Head::Stage(stage) => Some(stage),
             _ => None,
         };
         head.into_iter()
-            .chain(pipeline.stages.iter().map(|stage| stage.name.as_str()))
-            .any(|name| self.table.is_effect(name))
+            .chain(pipeline.stages.iter())
+            .any(|stage| self.stage_effect(stage))
+    }
+
+    /// Whether a stage changes the world or runs a program. A request is a
+    /// change unless its method is a literal `get`, `head` or `options`; a
+    /// method that is not a literal, such as a variable, is not known to read.
+    fn stage_effect(&self, stage: &NurtStage) -> bool {
+        if stage.name == HTTP_REQUEST {
+            let reads = stage
+                .args
+                .iter()
+                .find(|arg| arg.name.as_deref() == Some("method"))
+                .is_none_or(|arg| match &arg.value {
+                    Expr::Ident { v, .. } | Expr::Text { v, .. } => {
+                        READ_ONLY_METHODS.contains(&v.to_ascii_lowercase().as_str())
+                    }
+                    _ => false,
+                });
+            return !reads;
+        }
+        self.table.is_effect(&stage.name)
     }
 
     /// Translates a pipeline; returns it with the record kind of its output.
@@ -2339,10 +2365,17 @@ impl<'a> Session<'a> {
                 HELP_CORRECTIONS,
             )
         })?;
+        // The directory starts after the opening quote of a quoted path and
+        // ends before the closing one.
+        let quote = usize::from(matches!(
+            value.kind,
+            ValueKind::Literal(_) | ValueKind::Expandable(_)
+        ));
+        let directory_start = value.start + quote;
         let directory_value = Value {
             kind: ValueKind::Bare(directory.to_owned()),
-            start: value.start,
-            end: value.start + directory.len().min(value.end - value.start),
+            start: directory_start,
+            end: (directory_start + directory.len()).min(value.end.saturating_sub(quote)),
         };
         let directory_expr = self.path_expr(&directory_value)?;
         let span = self.span(value.start, value.end);
@@ -2550,9 +2583,12 @@ impl<'a> Session<'a> {
         let affix = inner.and_then(|inner| match &inner.kind {
             ValueKind::Binary { op, left, right } if op == "+" => {
                 if is_item_name(left) {
-                    right.plain_text().map(|suffix| ("$", suffix))
+                    right
+                        .plain_text()
+                        .map(|suffix| ("$", suffix.replace('$', "$$")))
                 } else if is_item_name(right) {
-                    left.plain_text().map(|prefix| ("^", prefix))
+                    left.plain_text()
+                        .map(|prefix| ("^", prefix.replace('$', "$$")))
                 } else {
                     None
                 }

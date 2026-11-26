@@ -349,51 +349,85 @@ impl OutputSink for Capture {
 /// Size and modification time of a file.
 type FileStamp = (u64, Option<SystemTime>);
 
-/// Files below `root`, without the names of `run.track_ignore` and without
-/// following symbolic links.
-fn scan(root: &Path) -> BTreeMap<PathBuf, FileStamp> {
-    let ignored = RunConfig::default().track_ignore;
-    let mut files = BTreeMap::new();
-    let mut pending = vec![root.to_path_buf()];
-    while let Some(dir) = pending.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            if files.len() >= MAX_SCANNED_FILES {
-                return files;
-            }
-            let name = entry.file_name();
-            if ignored
-                .iter()
-                .any(|ignored| OsString::from(ignored) == name)
-            {
-                continue;
-            }
-            let Ok(metadata) = entry.metadata() else {
-                continue;
-            };
-            if metadata.is_dir() {
-                pending.push(entry.path());
-            } else {
-                files.insert(entry.path(), (metadata.len(), metadata.modified().ok()));
-            }
-        }
-    }
-    files
+/// Files found by [`scan`].
+struct Scan {
+    files: BTreeMap<PathBuf, FileStamp>,
+    /// Last path of a scan cut short by the file limit; the scan saw every
+    /// file up to this path and none after it.
+    complete_to: Option<PathBuf>,
 }
 
-/// Files created, changed or removed between two scans, in path order.
-fn changed(
-    before: &BTreeMap<PathBuf, FileStamp>,
-    after: &BTreeMap<PathBuf, FileStamp>,
-) -> Vec<PathBuf> {
+/// Files below `root`, without the names of `run.track_ignore` and without
+/// following symbolic links, visited in path order, so that a scan cut short
+/// by the file limit holds the first files in that order.
+fn scan(root: &Path) -> Scan {
+    scan_limited(root, MAX_SCANNED_FILES)
+}
+
+fn scan_limited(root: &Path, limit: usize) -> Scan {
+    let ignored = RunConfig::default().track_ignore;
+    let mut files = BTreeMap::new();
+    let mut stack = vec![sorted_entries(root)];
+    while let Some(entries) = stack.last_mut() {
+        let Some(entry) = entries.next() else {
+            stack.pop();
+            continue;
+        };
+        if files.len() >= limit {
+            let complete_to = files.keys().next_back().cloned();
+            return Scan { files, complete_to };
+        }
+        if ignored
+            .iter()
+            .any(|ignored| OsString::from(ignored) == entry.file_name())
+        {
+            continue;
+        }
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        if metadata.is_dir() {
+            stack.push(sorted_entries(&entry.path()));
+        } else {
+            files.insert(entry.path(), (metadata.len(), metadata.modified().ok()));
+        }
+    }
+    Scan {
+        files,
+        complete_to: None,
+    }
+}
+
+fn sorted_entries(dir: &Path) -> std::vec::IntoIter<std::fs::DirEntry> {
+    let mut entries: Vec<_> = std::fs::read_dir(dir)
+        .map(|entries| entries.flatten().collect())
+        .unwrap_or_default();
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+    entries.into_iter()
+}
+
+/// Files created, changed or removed between two scans, in path order. Two
+/// scans are compared only where both are complete: of a scan cut short by
+/// the file limit, files after its last path are unknown, not absent.
+fn changed(before: &Scan, after: &Scan) -> Vec<PathBuf> {
+    let bound = match (&before.complete_to, &after.complete_to) {
+        (Some(left), Some(right)) => Some(left.min(right)),
+        (Some(only), None) | (None, Some(only)) => Some(only),
+        (None, None) => None,
+    };
+    let compared = |path: &PathBuf| bound.is_none_or(|bound| path <= bound);
     let mut paths: BTreeSet<&PathBuf> = after
+        .files
         .iter()
-        .filter(|(path, stamp)| before.get(*path) != Some(stamp))
+        .filter(|(path, stamp)| compared(path) && before.files.get(*path) != Some(stamp))
         .map(|(path, _)| path)
         .collect();
-    paths.extend(before.keys().filter(|path| !after.contains_key(*path)));
+    paths.extend(
+        before
+            .files
+            .keys()
+            .filter(|path| compared(path) && !after.files.contains_key(*path)),
+    );
     paths.into_iter().cloned().collect()
 }
 
@@ -531,7 +565,7 @@ mod tests {
     use nurt_contracts::services::{ProcessHost, ProgramInput, ProgramSpec, ServiceSpawnSpec};
     use nurt_contracts::stage::{CancelToken, OutputStream};
 
-    use super::{Capture, SystemProcessHost, changed, lock, scan};
+    use super::{Capture, SystemProcessHost, changed, lock, scan, scan_limited};
     use crate::iface::{Components, OutputSink};
     use crate::spawn::testing::{StdControl, fixture_path};
 
@@ -787,7 +821,22 @@ mod tests {
             ]
         );
         assert!(changed(&after, &after).is_empty());
-        assert!(scan(&dir.path().join("missing")).is_empty());
+        assert!(scan(&dir.path().join("missing")).files.is_empty());
+    }
+
+    #[test]
+    fn scans_cut_short_by_the_file_limit_are_compared_only_where_both_are_complete() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["a", "b", "c", "d"] {
+            std::fs::write(dir.path().join(name), "x").unwrap();
+        }
+        let before = scan_limited(dir.path(), 3);
+        assert_eq!(before.complete_to, Some(dir.path().join("c")));
+        std::fs::write(dir.path().join("a0"), "new").unwrap();
+        let after = scan_limited(dir.path(), 3);
+        assert_eq!(after.complete_to, Some(dir.path().join("b")));
+        assert_eq!(changed(&before, &after), vec![dir.path().join("a0")]);
+        assert!(changed(&scan(dir.path()), &scan(dir.path())).is_empty());
     }
 
     #[cfg(unix)]
@@ -798,7 +847,7 @@ mod tests {
         std::fs::write(dir.path().join("real").join("file.txt"), "x").unwrap();
         std::os::unix::fs::symlink(dir.path().join("real"), dir.path().join("link")).unwrap();
         std::os::unix::fs::symlink(dir.path(), dir.path().join("real").join("loop")).unwrap();
-        let files: Vec<_> = scan(dir.path()).into_keys().collect();
+        let files: Vec<_> = scan(dir.path()).files.into_keys().collect();
         assert_eq!(
             files,
             vec![

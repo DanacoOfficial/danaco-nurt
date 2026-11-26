@@ -207,7 +207,12 @@ impl Scheduler {
     /// Decides about all schedules at `now` and returns the runs to start.
     pub fn tick(&mut self, now: Instant) -> Vec<Launch> {
         let ids: Vec<String> = self.slots.keys().cloned().collect();
-        ids.iter().filter_map(|id| self.tick_one(id, now)).collect()
+        ids.iter()
+            .filter_map(|id| {
+                self.tick_one(id, now)
+                    .or_else(|| self.start_queued(id, now))
+            })
+            .collect()
     }
 
     fn tick_one(&mut self, id: &str, now: Instant) -> Option<Launch> {
@@ -377,7 +382,11 @@ impl Scheduler {
     fn start_queued(&mut self, id: &str, now: Instant) -> Option<Launch> {
         let slot = self.slots.get(id)?.clone();
         let entry = self.state.schedules.get_mut(id)?;
-        if !entry.queued || slot.definition.paused || self.running_of(id).is_some() {
+        if !entry.queued
+            || slot.definition.paused
+            || self.running_of(id).is_some()
+            || self.at_capacity()
+        {
             return None;
         }
         let entry = self.state.schedules.get_mut(id)?;

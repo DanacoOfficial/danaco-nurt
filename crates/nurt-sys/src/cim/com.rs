@@ -17,8 +17,8 @@ use nurt_contracts::stage::ExecCtx;
 use windows::Win32::Foundation::{RPC_E_CHANGED_MODE, RPC_E_TOO_LATE, VARIANT_BOOL};
 use windows::Win32::System::Com::{
     CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx,
-    CoInitializeSecurity, CoSetProxyBlanket, CoUninitialize, EOAC_NONE, RPC_C_AUTHN_LEVEL_CALL,
-    RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, SAFEARRAY,
+    CoInitializeSecurity, CoSetProxyBlanket, CoUninitialize, EOAC_NONE, IDispatch,
+    RPC_C_AUTHN_LEVEL_CALL, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, SAFEARRAY,
 };
 use windows::Win32::System::Ole::{
     SafeArrayGetDim, SafeArrayGetElement, SafeArrayGetLBound, SafeArrayGetUBound,
@@ -50,6 +50,10 @@ const RPC_C_AUTHZ_NONE: u32 = 0;
 
 /// Query language name passed to `IWbemServices::ExecQuery`.
 const QUERY_LANGUAGE: &str = "WQL";
+
+/// Most elements read from one array property; a larger array ends the query
+/// with `E_LIMIT` instead of exhausting memory.
+const MAX_ARRAY_ELEMENTS: i64 = 65_536;
 
 /// System property with the class of an object.
 const CLASS_PROPERTY: &str = "__CLASS";
@@ -415,6 +419,12 @@ fn read_array(array: *mut SAFEARRAY, element_type: VARENUM, depth: usize) -> Res
         return Ok(RawValue::Null);
     }
     let (lower, upper) = bounds.map_err(|error| com_error("SafeArrayGetLBound", &error))?;
+    if i64::from(upper) - i64::from(lower) >= MAX_ARRAY_ELEMENTS {
+        return Err(Error::new(
+            ErrorCode::Limit,
+            format!("a property holds an array of more than {MAX_ARRAY_ELEMENTS} elements"),
+        ));
+    }
     let mut items = Vec::new();
     for index in lower..=upper {
         // SAFETY: the element type of each arm is the layout of the array
@@ -435,6 +445,11 @@ fn read_array(array: *mut SAFEARRAY, element_type: VARENUM, depth: usize) -> Res
                 VT_R4 => RawValue::Real(f64::from(element::<f32>(array, index)?)),
                 VT_R8 => RawValue::Real(element::<f64>(array, index)?),
                 VT_UNKNOWN => embedded(element::<Option<IUnknown>>(array, index)?.as_ref(), depth)?,
+                VT_DISPATCH => {
+                    let dispatch = element::<Option<IDispatch>>(array, index)?;
+                    let unknown = dispatch.and_then(|dispatch| dispatch.cast::<IUnknown>().ok());
+                    embedded(unknown.as_ref(), depth)?
+                }
                 VT_VARIANT => {
                     let variant = OwnedVariant(element::<VARIANT>(array, index)?);
                     read_variant(&variant, depth)?

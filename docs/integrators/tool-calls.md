@@ -25,7 +25,7 @@ The host returns `rendered.text` of the response to the model; for `format: "jso
 
 ## Corrections and `accept`
 
-The console corrects common mistakes of notation before binding. A correction that touches a target of a change is not applied; the report carries `E_AMBIGUOUS` with ranked candidates:
+The console corrects common mistakes of notation before binding. A correction that touches a target of a change is not applied; the report carries `E_AMBIGUOUS` with ranked candidates. This holds for a misspelt name of a command that changes the file system or a remote state or runs a program: `remvoe "/home/user/app/build"` does not run, and the first candidate is `remove "/home/user/app/build"`. A misspelt name of a command that only reads (`fnid`) is corrected and the program runs. The same holds for a text with an unknown escape that a place reads as a regular expression or a Windows path (`"\d+"`, `"C:\temp\new"`): a reading program runs with the correction shown, a changing program is offered as a candidate.
 
 <!-- schema: response -->
 ```json

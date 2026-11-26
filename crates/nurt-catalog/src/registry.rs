@@ -6,7 +6,7 @@ use std::fmt;
 
 use nurt_contracts::error::Result;
 use nurt_contracts::spec::{
-    CORE_GROUP, CatalogFile, CatalogIndex, CatalogIssue, StageSpec, is_identifier,
+    CATALOG_FORMAT, CORE_GROUP, CatalogFile, CatalogIndex, CatalogIssue, StageSpec, is_identifier,
 };
 use serde::Serialize;
 
@@ -75,6 +75,10 @@ pub enum NameEntry<'a> {
 pub struct Registry {
     index: CatalogIndex,
     pub(crate) groups: Vec<Group>,
+    /// Catalog files as written, before the group of a command is resolved,
+    /// followed by one file per registered extension: the input of the
+    /// catalog revision.
+    pub(crate) listed: Vec<CatalogFile>,
     group_by_name: HashMap<String, usize>,
     command_by_name: HashMap<String, (usize, usize)>,
     pub(crate) impls: Vec<RegisteredImpl>,
@@ -91,10 +95,15 @@ impl fmt::Debug for Registry {
 }
 
 impl Registry {
-    pub(crate) fn from_files(index: CatalogIndex, files: Vec<CatalogFile>) -> Self {
+    pub(crate) fn from_files(
+        index: CatalogIndex,
+        files: Vec<CatalogFile>,
+        written: Vec<CatalogFile>,
+    ) -> Self {
         let mut registry = Self {
             index,
             groups: Vec::new(),
+            listed: written,
             group_by_name: HashMap::new(),
             command_by_name: HashMap::new(),
             impls: Vec::new(),
@@ -239,13 +248,19 @@ impl Registry {
         if !issues.is_empty() {
             return Err(invalid(&format!("extension `{prefix}`"), &issues));
         }
-        let commands = commands
+        let commands: Vec<StageSpec> = commands
             .into_iter()
             .map(|mut command| {
                 command.group = prefix.to_owned();
                 command
             })
             .collect();
+        self.listed.push(CatalogFile {
+            format: CATALOG_FORMAT.to_owned(),
+            group: prefix.to_owned(),
+            summary: summary.to_owned(),
+            commands: commands.clone(),
+        });
         self.push_group(Group {
             name: prefix.to_owned(),
             summary: summary.to_owned(),

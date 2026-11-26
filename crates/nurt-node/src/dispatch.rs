@@ -210,10 +210,26 @@ struct Relay(Sink);
 
 impl EventListener for Relay {
     fn deliver(&self, event: DeliveredEvent) {
-        if let Ok(text) = encode_event(&event) {
-            (self.0)(Message::Event(text));
-        }
+        (self.0)(Message::Event(encode_or_mark_lost(&event, encode_event)));
     }
+}
+
+/// Encodes `event` with `encode`; when that fails, the text is an event of the
+/// type `event.lost` that keeps `seq` and `request`, so that the receiver does
+/// not see a gap in the numbers without a cause.
+fn encode_or_mark_lost(
+    event: &DeliveredEvent,
+    encode: impl FnOnce(&DeliveredEvent) -> Result<String, Failure>,
+) -> String {
+    encode(event).unwrap_or_else(|failure| {
+        json!({
+            "t": "event.lost",
+            "seq": event.seq,
+            "request": event.request_id,
+            "reason": failure.message(),
+        })
+        .to_string()
+    })
 }
 
 /// Result of an operation that can fail with a language error.
@@ -543,7 +559,9 @@ mod tests {
     use nurt_core::{DeliveredEvent, EngineConfig, EventListener};
     use serde_json::{Value, json};
 
-    use super::{Failure, Message, Native, Sink, Status, encode_event, finish, guarded};
+    use super::{
+        Failure, Message, Native, Sink, Status, encode_event, encode_or_mark_lost, finish, guarded,
+    };
     use crate::system::{SystemClock, SystemHost};
 
     #[test]
@@ -579,6 +597,24 @@ mod tests {
             assert_eq!(document["request"], handle.request_id());
             assert!(document.get("request_id").is_none());
         }
+    }
+
+    #[test]
+    fn an_event_that_cannot_be_encoded_is_reported_as_lost_with_its_number() {
+        let event = DeliveredEvent {
+            seq: 7,
+            time: nurt_contracts::env::WallTime::from_unix_nanos(1),
+            request_id: "r9".to_owned(),
+            body: nurt_core::events::EventBody::Lifecycle(nurt_core::events::Lifecycle::Started),
+        };
+        let text = encode_or_mark_lost(&event, |_| Err(Failure::internal("no encoding")));
+        let document: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(
+            document,
+            json!({"t": "event.lost", "seq": 7, "request": "r9", "reason": "no encoding"})
+        );
+        let intact = encode_or_mark_lost(&event, encode_event);
+        assert!(intact.contains("exec.started"));
     }
 
     #[test]

@@ -690,7 +690,7 @@ fn two_way_keeps_skip_worktree_of_changed_entry_without_writing_it() {
         reason = "test fixtures prepare the index directly, outside a transaction"
     )]
     index
-        .write(gix_index::write::Options::default())
+        .write(gix_index::write::Options::default(), Default::default())
         .expect("write index");
     std::fs::remove_dir_all(dir.path().join("other")).expect("remove");
     switch(&repo, &journal, old, new);
@@ -767,7 +767,7 @@ fn make_unmerged(repo: &gix::Repository, path: &str) {
         reason = "test fixtures prepare the index directly, outside a transaction"
     )]
     index
-        .write(gix_index::write::Options::default())
+        .write(gix_index::write::Options::default(), Default::default())
         .expect("write index");
 }
 
@@ -807,6 +807,72 @@ fn paths_refuse_unmerged_worktree_restore_and_staged_restore_resolves_it() {
     let index = repo.open_index().expect("index");
     assert_eq!(index.entries().len(), 1);
     assert_eq!(index.entries()[0].stage_raw(), 0);
+}
+
+#[test]
+fn excluding_pathspecs_need_no_match_and_leave_their_paths_alone() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    checkout(
+        &repo,
+        &journal,
+        tree(&repo, &[("a.txt", F, "a\n"), ("b.txt", F, "b\n")]),
+    );
+    let root = repo.workdir().expect("workdir").to_path_buf();
+    std::fs::write(root.join("a.txt"), "changed a\n").expect("write");
+    std::fs::write(root.join("b.txt"), "changed b\n").expect("write");
+    for pathspec in [
+        vec![":!b.txt"],
+        vec!["*.txt", ":!b.txt"],
+        vec![":(exclude)b.txt"],
+    ] {
+        let ctx = ApplyContext::open(&repo).expect("context");
+        let plan = plan_paths(
+            &ctx,
+            &PathsRequest {
+                source: PathSource::Index,
+                pathspec: pathspec.iter().map(|spec| (*spec).into()).collect(),
+                to_index: false,
+                to_worktree: true,
+            },
+        )
+        .expect("an exclusion is not required to match");
+        run(&repo, &journal, plan);
+        assert_eq!(std::fs::read(root.join("a.txt")).expect("read"), b"a\n");
+        assert_eq!(
+            std::fs::read(root.join("b.txt")).expect("read"),
+            b"changed b\n"
+        );
+        std::fs::write(root.join("a.txt"), "changed a\n").expect("write");
+    }
+}
+
+#[test]
+fn restoring_the_index_from_itself_keeps_conflict_stages() {
+    let (_dir, repo) = init();
+    let journal = RecordingJournal::new();
+    let base = tree(&repo, &[("f.txt", F, "1\n")]);
+    checkout(&repo, &journal, base);
+    make_unmerged(&repo, "f.txt");
+    let ctx = ApplyContext::open(&repo).expect("context");
+    let plan = plan_paths(
+        &ctx,
+        &PathsRequest {
+            source: PathSource::Index,
+            pathspec: vec!["f.txt".into()],
+            to_index: true,
+            to_worktree: false,
+        },
+    )
+    .expect("plan");
+    run(&repo, &journal, plan);
+    let index = repo.open_index().expect("index");
+    let stages: Vec<u32> = index
+        .entries()
+        .iter()
+        .map(|entry| entry.stage_raw())
+        .collect();
+    assert_eq!(stages, [1, 2, 3]);
 }
 
 #[test]
@@ -970,6 +1036,40 @@ fn reference_names_are_validated_and_logs_follow_the_configuration() {
     assert!(keeps_log(&always, "refs/tags/v1").expect("always"));
     let never = reopen_with_config(dir.path(), "[core]\n\tlogAllRefUpdates = false\n");
     assert!(!keeps_log(&never, "refs/heads/topic").expect("false"));
+}
+
+#[test]
+fn log_setting_is_read_as_git_reads_it() {
+    let (dir, _repo) = init();
+    for (value, expected) in [
+        ("2", true),
+        ("0x1", true),
+        ("-1", true),
+        ("TRUE", true),
+        ("0", false),
+        ("", false),
+    ] {
+        let repo = reopen_with_config(
+            dir.path(),
+            &format!("[core]\n\tlogAllRefUpdates = {value}\n"),
+        );
+        assert_eq!(
+            keeps_log(&repo, "refs/heads/topic").expect(value),
+            expected,
+            "value `{value}`"
+        );
+    }
+    let bare = tempfile::tempdir().expect("directory");
+    gix::init_bare(bare.path()).expect("bare repository");
+    let config = bare.path().join("config");
+    let mut text = std::fs::read_to_string(&config).expect("config");
+    text.push_str("[core]\n\tlogAllRefUpdates = true\n");
+    std::fs::write(&config, text).expect("config");
+    let repo = gix::open_opts(bare.path(), gix::open::Options::isolated()).expect("reopen");
+    assert!(keeps_log(&repo, "refs/heads/topic").expect("bare with true"));
+    let repo = reopen_with_config(dir.path(), "[core]\n\tlogAllRefUpdates = never\n");
+    let error = keeps_log(&repo, "refs/heads/topic").expect_err("never is not a boolean");
+    assert_eq!(error.code(), ErrorCode::GitUnsupported);
 }
 
 #[test]

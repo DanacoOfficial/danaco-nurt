@@ -20,7 +20,8 @@ use nurt_contracts::kinds::SyntaxVariant;
 use nurt_correct::tables::{Tables, load_embedded};
 use nurt_help::catalog::Catalog as HelpCatalog;
 use nurt_help::describe::{Layer, Length, layer};
-use nurt_help::help::{HelpQuery, render};
+use nurt_help::help::{HelpQuery, TopicKind, render};
+use nurt_syntax::fmt::convert;
 use nurt_syntax::parse::{ParseOptions, parse};
 use nurt_syntax::print::{PositionalNames, PrintError, name_positional, try_print};
 use serde_json::json;
@@ -165,6 +166,24 @@ impl Frontend for LanguageFrontend {
         try_print(&named, variant).map_err(print_error)
     }
 
+    fn format(
+        &self,
+        text: &str,
+        from: Option<SyntaxVariant>,
+        to: Option<SyntaxVariant>,
+        config: &Config,
+    ) -> Result<String, Error> {
+        let from = from.unwrap_or(config.syntax.variant);
+        let to = to.unwrap_or(config.syntax.variant);
+        let formatted = if to == SyntaxVariant::C {
+            let catalog = self.help_catalog()?;
+            convert(text, from, to, Some(&CatalogNames(&catalog)))
+        } else {
+            convert(text, from, to, None)
+        };
+        formatted.map_err(Error::from)
+    }
+
     fn describe(&self, subject: &str, language: Language) -> Result<serde_json::Value, Error> {
         let catalog = self.help_catalog()?;
         let (kind, name) = match subject {
@@ -181,12 +200,34 @@ impl Frontend for LanguageFrontend {
     }
 
     fn help(&self, topic: &str, language: Language) -> Result<String, Error> {
+        self.help_query(topic, None, None, language)
+    }
+
+    fn help_query(
+        &self,
+        topic: &str,
+        kind: Option<&str>,
+        examples: Option<usize>,
+        language: Language,
+    ) -> Result<String, Error> {
         let topic = unquoted(topic.trim());
-        let query = if topic.is_empty() {
+        let mut query = if topic.is_empty() {
             HelpQuery::new()
         } else {
             HelpQuery::topic(topic)
         };
+        if let Some(name) = kind {
+            let kind = TopicKind::from_name(name).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::UnknownName,
+                    format!("`{name}` is not a kind of help topic"),
+                )
+            })?;
+            query = query.with_kind(kind);
+        }
+        if let Some(count) = examples {
+            query = query.with_examples(count);
+        }
         let catalog = self.help_catalog()?;
         render(&query.with_language(language), &catalog).map(|help| help.body)
     }
@@ -227,6 +268,34 @@ mod tests {
         assert!(commands.contains("program.catalog — "));
         let page = frontend.help("replace", Language::En).unwrap();
         assert!(page.contains("examples:"));
+    }
+
+    #[test]
+    fn help_query_honours_the_kind_and_the_number_of_examples() {
+        let frontend = LanguageFrontend::new().unwrap();
+        let plain = frontend.help("replace", Language::En).unwrap();
+        let typed = frontend
+            .help_query("replace", Some("command"), None, Language::En)
+            .unwrap();
+        assert_eq!(typed, plain);
+        let none = frontend
+            .help_query("replace", Some("command"), Some(0), Language::En)
+            .unwrap();
+        assert!(
+            none.len() < plain.len(),
+            "zero examples must shorten the page"
+        );
+        assert!(
+            frontend
+                .help_query("replace", Some("error"), None, Language::En)
+                .is_err(),
+            "a command is not an error code"
+        );
+        assert!(
+            frontend
+                .help_query("replace", Some("page"), None, Language::En)
+                .is_err()
+        );
     }
 
     #[test]

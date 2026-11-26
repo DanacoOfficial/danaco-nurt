@@ -33,6 +33,10 @@ pub(crate) struct Tombstone {
     pub(crate) op: OpId,
     /// Commit time.
     pub(crate) time: WallTime,
+    /// Account that made the operation; `None` in tombstones written before
+    /// the account was recorded, which every account sees.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) account: Option<String>,
     /// Kind of the operation.
     pub(crate) kind: OpKind,
     /// Number of items.
@@ -53,6 +57,7 @@ impl Tombstone {
         Self {
             op: entry.op,
             time: entry.time,
+            account: entry.account.clone(),
             kind: entry.kind.clone(),
             files: entry.files,
             bytes: entry.bytes_held,

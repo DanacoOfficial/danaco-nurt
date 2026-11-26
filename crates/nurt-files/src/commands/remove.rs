@@ -32,8 +32,9 @@ use super::conflict::{
 };
 use crate::common::etag::{Observed, check_if_match, parse_etag, stale_error};
 use crate::common::params::{EncodingParam, OnMissing, on_missing_param};
-use crate::common::path::{PATH_FIELD, path_list_arg, record_path};
+use crate::common::path::{PATH_FIELD, path_list_arg_for_change, record_path};
 use crate::common::text::{TextFile, encode_preserving, read_text, text_change};
+use crate::registry;
 
 const COMMAND: &str = "remove";
 const PATH: &str = "path";
@@ -59,7 +60,12 @@ impl StageImpl for Remove {
         StageDescriptor {
             command: COMMAND.to_owned(),
             source: true,
-            input: InputKinds::Only(vec![RecordKind::Entry, RecordKind::Line, RecordKind::Match]),
+            input: InputKinds::Only(vec![
+                RecordKind::Entry,
+                RecordKind::RegistryValue,
+                RecordKind::Line,
+                RecordKind::Match,
+            ]),
         }
     }
 
@@ -116,7 +122,7 @@ impl EffectStage for Remove {
         let fs = ctx.require_fs()?;
         let on_missing = on_missing_param(args)?;
         let check_references = flag(args, CHECK_REFERENCES, false)?;
-        let (entries, edits) = read_input(args, input, ctx)?;
+        let (entries, edits, registered) = read_input(args, input, ctx)?;
         let mut planner = Planner {
             fs,
             ctx,
@@ -129,6 +135,7 @@ impl EffectStage for Remove {
             summary: Summary::default(),
         };
         planner.plan_entries(entries)?;
+        planner.plan_registry(&registered)?;
         planner.plan_edits(edits)?;
         let mut notable = Vec::new();
         if check_references && let Some(entry) = references_left(ctx, &planner.removed)? {
@@ -167,22 +174,25 @@ impl EffectStage for Remove {
     }
 }
 
+/// Entries, text edits and registry paths of the input.
+type Input = (Vec<Source>, BTreeMap<AbsPath, TextEdit>, Vec<String>);
+
 /// Entries and text edits of the input, in input order for entries and by
-/// path for edits.
-fn read_input(
-    args: &BoundArgs,
-    input: StageInput<'_>,
-    ctx: &ExecCtx,
-) -> Result<(Vec<Source>, BTreeMap<AbsPath, TextEdit>)> {
+/// path for edits, and the registry paths to remove.
+fn read_input(args: &BoundArgs, input: StageInput<'_>, ctx: &ExecCtx) -> Result<Input> {
     let mut entries = Vec::new();
     let mut edits = BTreeMap::new();
+    let mut registered = Vec::new();
     if input.is_none() {
         args.require(PATH)?;
-        entries = path_list_arg(args, PATH, ctx)?
+        if let Some(texts) = registry::path_texts(args, PATH)? {
+            return Ok((entries, edits, texts));
+        }
+        entries = path_list_arg_for_change(args, PATH, ctx)?
             .into_iter()
             .map(Source::from_path)
             .collect();
-        return Ok((entries, edits));
+        return Ok((entries, edits, registered));
     }
     for (index, item) in input.into_records()?.enumerate() {
         if index % CHECKPOINT_INTERVAL == 0 {
@@ -190,7 +200,13 @@ fn read_input(
         }
         let record = item?;
         match record.kind {
-            RecordKind::Entry => entries.push(Source::from_record(record, ctx)?),
+            RecordKind::Entry | RecordKind::RegistryValue => match registry::record_text(&record) {
+                Some(text) => registered.push(text),
+                None if record.kind == RecordKind::Entry => {
+                    entries.push(Source::from_record(record, ctx)?);
+                }
+                None => return Err(input_kind_error(COMMAND, &record)),
+            },
             RecordKind::Line | RecordKind::Match => {
                 let path = record_path(&record, ctx)?;
                 edits
@@ -201,7 +217,7 @@ fn read_input(
             _ => return Err(input_kind_error(COMMAND, &record)),
         }
     }
-    Ok((entries, edits))
+    Ok((entries, edits, registered))
 }
 
 struct Planner<'a> {
@@ -293,6 +309,17 @@ impl Planner<'_> {
         }
         self.steps.push(step);
         self.removed.push(path.clone());
+        Ok(())
+    }
+
+    fn plan_registry(&mut self, texts: &[String]) -> Result<()> {
+        let removals =
+            registry::plan_removals(self.ctx, texts, self.on_missing == OnMissing::Skip)?;
+        self.summary.removed += removals.keys + removals.values;
+        self.summary.directories += removals.keys;
+        self.summary.files += removals.values;
+        self.summary.missing += removals.missing;
+        self.steps.extend(removals.steps);
         Ok(())
     }
 
@@ -468,13 +495,15 @@ impl TextEdit {
         }
         for span in &self.matches {
             let line = line_range(span.line)?;
-            let rest = &text[line.start..];
-            let offset = rest
+            // The column counts within the line, up to its line ending; the
+            // text of a match may run on into the following lines.
+            let within = text[line.clone()].trim_end_matches(['\n', '\r']);
+            let offset = within
                 .char_indices()
                 .map(|(offset, _)| offset)
-                .chain(std::iter::once(rest.len()))
+                .chain(std::iter::once(within.len()))
                 .nth(usize::try_from(span.column - 1).unwrap_or(usize::MAX))
-                .filter(|offset| rest[*offset..].starts_with(&span.text))
+                .filter(|offset| text[line.start + offset..].starts_with(&span.text))
                 .ok_or_else(|| self.moved_match_error(span))?;
             let start = line.start + offset;
             ranges.push(start..start + span.text.len());
@@ -828,6 +857,26 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Stale);
         assert_eq!(test.fs().read_file(&path).unwrap(), b"foo bar\n");
         assert_untouched(&test);
+    }
+
+    #[test]
+    fn a_column_past_the_end_of_its_line_does_not_reach_the_next_line() {
+        let test = TestContext::new();
+        let path = file(&test, "/data/a.txt", b"ab\nfoo\n");
+        let records = vec![found(&test, &path, 1, 4, "foo")];
+        let error = run(&Remove, &test, &BoundArgs::new(COMMAND), Some(records)).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"ab\nfoo\n");
+        assert_untouched(&test);
+    }
+
+    #[test]
+    fn a_match_that_starts_at_a_line_ending_is_removed() {
+        let test = TestContext::new();
+        let path = file(&test, "/data/a.txt", b"ab\nfoo\n");
+        let records = vec![found(&test, &path, 1, 3, "\nfoo")];
+        run(&Remove, &test, &BoundArgs::new(COMMAND), Some(records)).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"ab\n");
     }
 
     #[test]

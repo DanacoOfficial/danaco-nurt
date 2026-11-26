@@ -75,6 +75,8 @@ struct Script {
     delay: Duration,
     /// Project loading reported after `initialized`.
     loading: Option<Duration>,
+    /// Answer requests from the handlers during project loading as well.
+    answer_while_loading: bool,
     /// Write an error line and end when this method is requested.
     crash_on: Option<String>,
     fail_initialize: bool,
@@ -240,7 +242,7 @@ fn on_request(
     if script.mute {
         return true;
     }
-    let answer = if mock.loading.load(Ordering::SeqCst) {
+    let answer = if mock.loading.load(Ordering::SeqCst) && !script.answer_while_loading {
         json!({"jsonrpc": "2.0", "id": id, "result": null})
     } else {
         match script.handlers.get(method).map(|handler| handler(params)) {
@@ -1438,6 +1440,28 @@ fn hover_joins_markup_and_marked_strings() {
 }
 
 #[test]
+fn a_relative_path_is_refused_before_the_server_is_asked() {
+    let s = setup();
+    let requests = Arc::new(AtomicUsize::new(0));
+    let counted = requests.clone();
+    s.mock.handle("textDocument/hover", move |_| {
+        counted.fetch_add(1, Ordering::SeqCst);
+        Ok(json!({"contents": "x"}))
+    });
+    let ctx = context(CancelToken::new());
+    let at = DocumentPosition {
+        path: PathBuf::from("pkg/use.py"),
+        position: TextPosition {
+            line: 5,
+            column: 12,
+        },
+    };
+    let error = s.provider.hover(&ctx, &s.project.scope(), &at).unwrap_err();
+    assert_eq!(error.kind, SemanticErrorKind::Failed);
+    assert_eq!(requests.load(Ordering::SeqCst), 0);
+}
+
+#[test]
 fn implementations_type_definitions_and_unsupported_requests() {
     let s = setup();
     let shapes = s.project.uri("pkg/shapes.py");
@@ -1684,6 +1708,32 @@ fn answers_during_project_loading_are_repeated_after_loading_ends() {
     let shapes = s.project.uri("pkg/shapes.py");
     s.mock.handle("textDocument/definition", move |_| {
         Ok(json!([{"uri": shapes, "range": range(9, 4, 8)}]))
+    });
+    let ctx = context(CancelToken::new());
+    let found = s
+        .provider
+        .definition(&ctx, &s.project.scope(), &s.project.at("pkg/use.py", 5, 12))
+        .unwrap();
+    assert_eq!(found.len(), 1);
+    assert!(s.mock.messages("textDocument/definition").len() >= 2);
+}
+
+#[test]
+fn a_failed_repetition_keeps_the_answer_given_during_project_loading() {
+    let s = setup();
+    {
+        let mut script = s.mock.script.lock().unwrap();
+        script.loading = Some(Duration::from_millis(400));
+        script.answer_while_loading = true;
+    }
+    let shapes = s.project.uri("pkg/shapes.py");
+    let calls = Arc::new(AtomicUsize::new(0));
+    s.mock.handle("textDocument/definition", move |_| {
+        if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+            Ok(json!([{"uri": shapes, "range": range(9, 4, 8)}]))
+        } else {
+            Err("content modified".to_owned())
+        }
     });
     let ctx = context(CancelToken::new());
     let found = s

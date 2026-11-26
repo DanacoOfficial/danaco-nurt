@@ -29,8 +29,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: stable
           cache-dependency-path: bindings/go/go.mod
@@ -60,8 +60,8 @@ jobs:
         go: ["1.23", stable]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: ${{ matrix.go }}
           cache-dependency-path: bindings/go/go.mod
@@ -84,8 +84,8 @@ jobs:
           - windows/amd64
           - windows/arm64
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: stable
           cache-dependency-path: bindings/go/go.mod
@@ -100,12 +100,12 @@ jobs:
   conformance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: stable
           cache-dependency-path: bindings/go/go.mod
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
           toolchain: stable
       - name: Build nurt-conformance
@@ -115,18 +115,19 @@ jobs:
         env:
           NURT_CONFORMANCE_BINDINGS: ${{ github.workspace }}/conformance/bindings
         run: |
-          export NURT_TEST_COMMAND="[\"$GITHUB_WORKSPACE/target/release/nurt-conformance\",\"fake-serve\",\"--cases\",\"$GITHUB_WORKSPACE/conformance/bindings\"]"
+          # The test sets NURT_CONFORMANCE_CASES and NURT_CONFORMANCE_CASE for each case.
+          export NURT_TEST_COMMAND="[\"$GITHUB_WORKSPACE/target/release/nurt-conformance\",\"serve\",\"--stdio\"]"
           go test -race -count=1 -run 'TestConformanceBindings' -v .
 
   library:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: stable
           cache-dependency-path: bindings/go/go.mod
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
           toolchain: stable
       - name: Build the libnurt stub

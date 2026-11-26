@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Data set of pairs "task → Danaco Nurt program", `nurt-bench-pair/1`.
+//! Data set of pairs "task → Danaco Nurt program", `nurt-bench-pair/2`.
 //!
 //! Candidate pairs come from the public tasks (description and reference
 //! solutions in bash and PowerShell), the examples of `docs/commands`, the
@@ -31,8 +31,11 @@ use crate::runner::sha256_hex;
 use crate::snapshot::{self, Tree};
 use crate::task::TaskFile;
 
-/// Format identifier of a pair.
-pub const PAIR_FORMAT: &str = "nurt-bench-pair/1";
+/// Format identifier of a pair. Version 2 derives the identifier from the
+/// trimmed texts with their lengths, so that texts that differ only in white
+/// space share an identifier and a line break inside the input cannot be
+/// mistaken for the separator.
+pub const PAIR_FORMAT: &str = "nurt-bench-pair/2";
 
 /// Format identifier of a habit table.
 pub const HABITS_FORMAT: &str = "nurt-bench-habits/1";
@@ -137,7 +140,12 @@ fn candidate(
     tree: Option<Tree>,
 ) -> Candidate {
     let script = program.trim().contains('\n');
-    let id_source = format!("{input_kind:?}\n{input}\n{program}");
+    let (input, program) = (input.trim(), program.trim());
+    let id_source = format!(
+        "{input_kind:?}\n{}\n{input}\n{}\n{program}",
+        input.len(),
+        program.len()
+    );
     Candidate {
         pair: Pair {
             format: PAIR_FORMAT.to_owned(),
@@ -145,8 +153,8 @@ fn candidate(
             source,
             origin: origin.to_owned(),
             input_kind,
-            input: input.trim().to_owned(),
-            program: program.trim().to_owned(),
+            input: input.to_owned(),
+            program: program.to_owned(),
             script,
             validation: Validation::default(),
             license: LICENSE.to_owned(),
@@ -859,7 +867,16 @@ mod tests {
             "find \".\"\n",
             None,
         );
-        assert_ne!(first.pair.id, second.pair.id);
+        assert_eq!(first.pair.id, second.pair.id);
+        let split_differently = |input: &str, program: &str| {
+            candidate(Source::Habit, "c", InputKind::Nl, input, program, None)
+                .pair
+                .id
+        };
+        assert_ne!(
+            split_differently("a\nb", "c"),
+            split_differently("a", "b\nc")
+        );
         assert_eq!(deduplicate(vec![first.clone(), second]).len(), 1);
         let dir = tempfile::tempdir().unwrap();
         build(vec![first.clone()], None, dir.path()).unwrap();

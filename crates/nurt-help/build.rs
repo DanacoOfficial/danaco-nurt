@@ -8,6 +8,11 @@
 //! with `include_str!`, so that `help` can show examples and guides without
 //! reading files at run time. Files whose name starts with `_` and
 //! `README.md` are not documentation pages.
+//!
+//! The documentation lies outside the crate directory, so the crate builds
+//! inside the repository only. That is intended: the workspace has
+//! `publish = false`, and a build without the directories fails with the
+//! path that is missing.
 
 use std::env;
 use std::fmt::Write as _;
@@ -57,7 +62,13 @@ fn main() -> Result<(), String> {
 
 /// Names and paths of the documentation pages of a directory, by name.
 fn markdown_files(dir: &Path) -> Result<Vec<(String, PathBuf)>, String> {
-    let entries = fs::read_dir(dir).map_err(|error| format!("{}: {error}", dir.display()))?;
+    let entries = fs::read_dir(dir).map_err(|error| {
+        format!(
+            "{}: {error}; the help crate embeds the documentation of the repository, so it \
+             builds only inside the workspace (it is not published)",
+            dir.display()
+        )
+    })?;
     let mut files = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| format!("{}: {error}", dir.display()))?;

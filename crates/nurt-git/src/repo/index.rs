@@ -16,10 +16,10 @@ use std::path::{Path, PathBuf};
 
 use bstr::{BStr, BString, ByteSlice};
 use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::journal::{Applied, MutationTx};
+use nurt_contracts::journal::{Applied, Expect, MutationTx};
 use sha1::Digest as _;
 
-use super::lock::{LockedWrite, LockedWrites};
+use super::lock::{LockedWrite, LockedWrites, content_hash};
 use super::{GitRepo, error};
 
 /// Signature of the resolve-undo extension.
@@ -69,6 +69,9 @@ pub struct IndexFile {
     pub resolve_undo: Vec<ResolveUndo>,
     /// Location of the index file.
     pub path: PathBuf,
+    /// Content of the file when it was read, which a later write must still
+    /// find: another process may have replaced the index in between.
+    pub expect: Expect,
 }
 
 impl GitRepo {
@@ -89,16 +92,30 @@ impl GitRepo {
                     state: gix::index::State::new(hash),
                     resolve_undo: Vec::new(),
                     path,
+                    expect: Expect::Absent,
                 });
             }
             Err(failure) => return Err(error::io(&path, &failure)),
         };
         let file = self.index_file()?;
-        let resolve_undo = read_resolve_undo(&bytes, hash).unwrap_or_default();
+        let resolve_undo = match resolve_undo_extension(&bytes, hash) {
+            Some(data) => decode_resolve_undo(data, hash).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Io,
+                    format!(
+                        "the resolve-undo data of {} cannot be decoded and would be lost by the next write; repair or remove the index",
+                        error::quote_path(&path)
+                    ),
+                )
+                .with_problem("corrupt_index")
+            })?,
+            None => Vec::new(),
+        };
         Ok(IndexFile {
             state: file.into(),
             resolve_undo,
             path,
+            expect: Expect::Hash(content_hash(&bytes)),
         })
     }
 }
@@ -174,7 +191,7 @@ fn push_extension(out: &mut Vec<u8>, signature: [u8; 4], data: &[u8]) {
 /// As [`serialize`].
 pub fn locked_write(file: &mut IndexFile) -> Result<LockedWrite, Error> {
     let bytes = serialize(&mut file.state, &file.resolve_undo)?;
-    Ok(LockedWrite::new(&file.path, bytes))
+    Ok(LockedWrite::new(&file.path, bytes).expecting(file.expect.clone()))
 }
 
 /// Replaces the index with `file` in a transaction with no other targets:
@@ -301,6 +318,17 @@ pub fn extensions(mut data: &[u8]) -> Vec<([u8; 4], &[u8])> {
         data = &data[end..];
     }
     found
+}
+
+/// Data of the `REUC` extension of a complete index file; `None` when there
+/// is none or the layout of the file cannot be read.
+fn resolve_undo_extension(file: &[u8], hash: gix::hash::Kind) -> Option<&[u8]> {
+    let body = file.get(..file.len().checked_sub(hash.len_in_bytes())?)?;
+    let start = entries_end(body)?;
+    extensions(&body[start..])
+        .into_iter()
+        .find(|(signature, _)| *signature == RESOLVE_UNDO)
+        .map(|(_, data)| data)
 }
 
 /// Resolve-undo records of a complete index file; `None` when the file
@@ -475,7 +503,7 @@ pub fn expand_sparse(
         let path = entry.path(state);
         if entry.mode == gix::index::entry::Mode::DIR {
             let prefix = path.trim_end_with(|ch| ch == '/');
-            push_tree(repo, &mut expanded, entry.id, prefix.as_bstr())?;
+            push_tree(repo, &mut expanded, entry.id, prefix.as_bstr(), 0)?;
         } else {
             expanded.dangerously_push_entry(entry.stat, entry.id, entry.flags, entry.mode, path);
         }
@@ -484,12 +512,25 @@ pub fn expand_sparse(
     Ok(expanded)
 }
 
+/// Deepest nesting of trees below a sparse directory entry that
+/// [`expand_sparse`] follows; a deeper tree is corrupt or hostile and would
+/// exhaust the stack.
+const MAX_TREE_DEPTH: usize = 512;
+
 fn push_tree(
     repo: &GitRepo,
     state: &mut gix::index::State,
     tree: gix::ObjectId,
     prefix: &BStr,
+    depth: usize,
 ) -> Result<(), Error> {
+    if depth > MAX_TREE_DEPTH {
+        return Err(Error::new(
+            ErrorCode::Io,
+            format!("the trees below `{prefix}` are nested deeper than {MAX_TREE_DEPTH} levels"),
+        )
+        .with_problem("tree_too_deep"));
+    }
     let read_error = |failure: gix::Error| error::from_gix("read a tree", &failure);
     let object = repo.gix().find_tree(tree).map_err(read_error)?;
     let decoded = object.decode().map_err(read_error)?;
@@ -499,7 +540,7 @@ fn push_tree(
         path.extend_from_slice(item.filename);
         let id = item.oid.to_owned();
         if item.mode.is_tree() {
-            push_tree(repo, state, id, path.as_bstr())?;
+            push_tree(repo, state, id, path.as_bstr(), depth + 1)?;
             continue;
         }
         let mode = gix::index::entry::Mode::from_bits(u32::from(item.mode.value()))
@@ -633,6 +674,58 @@ mod tests {
         assert_eq!(reread.state.entries().len(), 1);
     }
 
+    #[test]
+    fn a_sparse_directory_with_too_deep_trees_is_refused() {
+        use gix::objs::tree::{Entry, EntryKind};
+        let fixture = RepoBuilder::new()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
+        let repo = open(&fixture);
+        let write = |name: &str, kind: EntryKind, oid: gix::ObjectId| {
+            let tree = gix::objs::Tree {
+                entries: vec![Entry {
+                    mode: kind.into(),
+                    filename: name.into(),
+                    oid,
+                }],
+            };
+            repo.gix().write_object(&tree).unwrap().detach()
+        };
+        let blob = repo.gix().write_blob(b"x").unwrap().detach();
+        let mut tree = write("f", EntryKind::Blob, blob);
+        for _ in 0..=MAX_TREE_DEPTH + 1 {
+            tree = write("d", EntryKind::Tree, tree);
+        }
+        let mut state = gix::index::State::new(gix::hash::Kind::Sha1);
+        state.dangerously_push_entry(
+            gix::index::entry::Stat::default(),
+            tree,
+            gix::index::entry::Flags::empty(),
+            gix::index::entry::Mode::DIR,
+            "sparse/".into(),
+        );
+        let error = expand_sparse(&repo, &state).unwrap_err();
+        assert_eq!(error.problem.as_deref(), Some("tree_too_deep"));
+    }
+
+    #[test]
+    fn undecodable_resolve_undo_data_is_an_error_not_a_silent_loss() {
+        let fixture = RepoBuilder::new()
+            .file("a.txt", "1\n")
+            .commit("one")
+            .build();
+        let repo = open(&fixture);
+        let mut index = repo.read_index().unwrap();
+        let bytes = serialize(&mut index.state, &[]).unwrap();
+        let mut body = bytes[..bytes.len() - 20].to_vec();
+        push_extension(&mut body, RESOLVE_UNDO, b"a.txt\x00100644\x00");
+        let sum = checksum(gix::hash::Kind::Sha1, &body);
+        body.extend_from_slice(&sum);
+        std::fs::write(repo.index_path(), body).unwrap();
+        let error = repo.read_index().unwrap_err();
+        assert_eq!(error.problem.as_deref(), Some("corrupt_index"));
+    }
     #[test]
     fn written_index_has_a_valid_checksum_and_no_cached_tree() {
         let fixture = RepoBuilder::new()

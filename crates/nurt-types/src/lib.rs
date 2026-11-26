@@ -34,7 +34,9 @@
 //!   operand is `null`.
 //! * In a comparison, a text literal facing a `path`, `glob`, `instant`,
 //!   `key`, `size` or `duration` converts to that type
-//!   (`modified > "2026-11-01"`); other values never convert.
+//!   (`modified > "2026-11-01"`); other values never convert. The binder
+//!   raises the errors of such a comparison before the evaluation, for a
+//!   field of a known type, with [`operation_error`] and [`function_error`].
 //! * `~` and `!~` match text-like values against a `regex`.
 //! * `in` tests membership in a list, an integer range or the keys of a
 //!   map.
@@ -65,6 +67,7 @@
 mod access;
 mod arith;
 mod builtins;
+mod check;
 mod coerce;
 mod compare;
 mod display;
@@ -79,6 +82,7 @@ mod units;
 pub use access::{field_names, get_field, get_path};
 pub use arith::{add, div, mul, neg, sub};
 pub use builtins::FUNCTIONS;
+pub use check::{Operand, function_error, operation_error};
 pub use coerce::{ValueType, coerce, coerce_in, converts_implicitly};
 pub use compare::{OrderedValue, comparable, compare, equal};
 pub use display::display_short;

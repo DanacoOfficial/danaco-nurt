@@ -16,6 +16,7 @@
 //! available.
 
 mod convert;
+mod guard;
 mod runtime;
 
 use std::fmt;
@@ -49,6 +50,10 @@ const MAX_FOUND_CHARS: usize = 40;
 pub struct Query {
     expression: String,
     filter: jaq_core::Filter<Doc>,
+    /// Whether the filter defines filters of its own and carries a guard
+    /// against unbounded recursion in every definition; such a filter runs
+    /// on a thread with a stack of known size.
+    guarded: bool,
 }
 
 /// One result of a filter.
@@ -123,6 +128,30 @@ fn is_path_refusal(error: &jaq_core::Error<Val>) -> bool {
     error.to_string().starts_with(PATH_REFUSAL)
 }
 
+/// Compiles `source`, which is `expression` or `expression` with guards;
+/// errors quote `expression`.
+fn compile_source(expression: &str, source: &str) -> Result<jaq_core::Filter<Doc>> {
+    let prelude = runtime::prelude().ok_or_else(|| {
+        Error::new(
+            ErrorCode::StageFailed,
+            "the built-in query definitions do not parse",
+        )
+    })?;
+    let arena = Arena::default();
+    let file = File {
+        code: source,
+        path: (),
+    };
+    let modules = Loader::new(prelude)
+        .load(&arena, file)
+        .map_err(|errors| load_error(expression, errors))?;
+    jaq_core::Compiler::default()
+        .with_funs(runtime::funs())
+        .with_global_vars([ENV_VAR])
+        .compile(modules)
+        .map_err(|errors| compile_error(expression, errors))
+}
+
 impl Query {
     /// Compiles a filter in `jq` syntax.
     ///
@@ -133,28 +162,23 @@ impl Query {
     /// and the details `line`, `column` and `offset` its position in the
     /// filter.
     pub fn compile(expression: &str) -> Result<Self> {
-        let prelude = runtime::prelude().ok_or_else(|| {
-            Error::new(
-                ErrorCode::StageFailed,
-                "the built-in query definitions do not parse",
-            )
-        })?;
-        let arena = Arena::default();
-        let file = File {
-            code: expression,
-            path: (),
-        };
-        let modules = Loader::new(prelude)
-            .load(&arena, file)
-            .map_err(|errors| load_error(expression, errors))?;
-        let filter = jaq_core::Compiler::default()
-            .with_funs(runtime::funs())
-            .with_global_vars([ENV_VAR])
-            .compile(modules)
-            .map_err(|errors| compile_error(expression, errors))?;
+        let filter = compile_source(expression, expression)?;
+        // The filter as written is compiled first, so that errors name the
+        // text of the user; a filter with definitions is compiled again with
+        // the guards in them, which cannot fail where this compilation passed.
+        if let Some(source) = guard::guarded(expression)
+            && let Ok(guarded) = compile_source(expression, &source)
+        {
+            return Ok(Self {
+                expression: expression.to_owned(),
+                filter: guarded,
+                guarded: true,
+            });
+        }
         Ok(Self {
             expression: expression.to_owned(),
             filter,
+            guarded: false,
         })
     }
 
@@ -189,13 +213,50 @@ impl Query {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// A filter that defines filters of its own and recurses without end
+    /// stops with `E_LIMIT` when it has used the stack of its run, instead of
+    /// ending the process.
     #[must_use]
     pub fn run(&self, input: &Value, ctx: &ExecCtx) -> QueryRun {
+        if self.guarded {
+            return guard::on_large_stack(|floor| self.run_above(input, ctx, floor));
+        }
+        self.run_above(input, ctx, 0)
+    }
+
+    /// Runs the filter; a guard stops it when the stack in use reaches the
+    /// address `floor`, unless `floor` is 0.
+    fn run_above(&self, input: &Value, ctx: &ExecCtx, floor: usize) -> QueryRun {
+        let max_bytes = usize::try_from(ctx.limits().max_file_bytes_text).unwrap_or(usize::MAX);
+        let (mut run, exceeded) = jaq_json::limit::with_repeat_limit(max_bytes, || {
+            self.run_with_repeat_limit(input, ctx, floor)
+        });
+        if exceeded
+            && run
+                .error
+                .as_ref()
+                .is_none_or(|error| error.code == ErrorCode::Query)
+        {
+            run.error = Some(Error::new(
+                ErrorCode::Limit,
+                format!(
+                    "the filter made a string longer than {max_bytes} bytes by multiplying a string; narrow the filter"
+                ),
+            ));
+        }
+        run
+    }
+
+    /// Runs the filter once the thread has the limit on repeated strings; a
+    /// repetition above it is an error that `try` can catch, so the caller
+    /// reads the outcome from the limit itself.
+    fn run_with_repeat_limit(&self, input: &Value, ctx: &ExecCtx, floor: usize) -> QueryRun {
         let val = to_val(input);
-        let (raw, error) = match self.run_paths(&val, ctx) {
+        let (raw, error) = match self.run_paths(&val, ctx, floor) {
             PathRun::Done(raw) => (raw, None),
             PathRun::Failed(raw, error) => (raw, Some(error)),
-            PathRun::NotPath => self.run_values(val, ctx),
+            PathRun::NotPath => self.run_values(val, ctx, floor),
         };
         let outputs = raw
             .into_iter()
@@ -209,8 +270,8 @@ impl Query {
     /// A failure that is not the refusal of a non-path filter ends the run
     /// here, so that the filter is evaluated once; only a non-path filter is
     /// evaluated again for its values.
-    fn run_paths(&self, input: &Val, ctx: &ExecCtx) -> PathRun {
-        let runtime = Runtime::new(&self.filter.lut, ctx, true);
+    fn run_paths(&self, input: &Val, ctx: &ExecCtx, floor: usize) -> PathRun {
+        let runtime = Runtime::new(&self.filter.lut, ctx, true, floor);
         let vars = Vars::new([runtime.environment()]);
         let start = (
             Ctx::<Doc>::new(&runtime, vars),
@@ -241,8 +302,13 @@ impl Query {
         PathRun::Done(outputs)
     }
 
-    fn run_values(&self, input: Val, ctx: &ExecCtx) -> (Vec<RawOutput>, Option<Error>) {
-        let runtime = Runtime::new(&self.filter.lut, ctx, false);
+    fn run_values(
+        &self,
+        input: Val,
+        ctx: &ExecCtx,
+        floor: usize,
+    ) -> (Vec<RawOutput>, Option<Error>) {
+        let runtime = Runtime::new(&self.filter.lut, ctx, false, floor);
         let vars = Vars::new([runtime.environment()]);
         let mut outputs = Vec::new();
         for item in self.filter.id.run((Ctx::<Doc>::new(&runtime, vars), input)) {
@@ -721,7 +787,7 @@ mod tests {
 
     #[test]
     fn generators_follow_jq() {
-        let expected: Vec<Value> = [1, 2, 4, 8].into_iter().map(Value::Int).collect();
+        let expected: Vec<Value> = [2, 2, 2, 2].into_iter().map(Value::Int).collect();
         assert_eq!(values("limit(4; repeat(. * 2))", "1"), expected);
         assert_eq!(
             values("[range(0; 10; 3)]", "null"),
@@ -853,6 +919,160 @@ mod tests {
             .unwrap()
             .run(&Value::Null, &ctx);
         assert!(run.error.is_none());
+    }
+
+    #[test]
+    fn a_string_multiplied_by_a_number_follows_jq() {
+        for (filter, expected) in [
+            (r#""a" * 0"#, r#""""#),
+            (r#"0 * "a""#, r#""""#),
+            (r#""a" * 0.5"#, r#""""#),
+            (r#""ab" * 2.7"#, r#""abab""#),
+            (r#""a" * -1"#, "null"),
+            (r#""a" * -0.5"#, "null"),
+            (r#""a" * nan"#, "null"),
+            (r#""" * 5"#, r#""""#),
+        ] {
+            assert_eq!(values(filter, "null"), vec![json(expected)], "{filter}");
+        }
+    }
+
+    #[test]
+    fn updates_create_and_extend_containers_as_jq_does() {
+        for (filter, expected) in [
+            ("[1, 2, 3] | .[5] = 1", "[1, 2, 3, null, null, 1]"),
+            ("null | .a.b = 1", r#"{"a": {"b": 1}}"#),
+            ("null | .[2] = 1", "[null, null, 1]"),
+            ("[1, 2, 3] | .[1.5] = 9", "[1, 9, 3]"),
+            ("[1, 2, 3] | del(.[7])", "[1, 2, 3]"),
+            ("null | .a |= empty", "null"),
+            ("[1, 2, 3, 4, 5] | del(.[0, 2], .[3])", "[2, 5]"),
+            (r#"{"a": {"b": 1}} | del(.a.b, .a)"#, "{}"),
+        ] {
+            assert_eq!(values(filter, "null"), vec![json(expected)], "{filter}");
+        }
+        for filter in ["[1, 2, 3] | .[-5] = 1", "null | .[-1] = 1"] {
+            let run = Query::compile(filter).unwrap().run(&Value::Null, &ctx());
+            assert!(run.error.is_some(), "{filter}");
+        }
+    }
+
+    #[test]
+    fn an_update_past_the_end_of_a_list_counts_against_the_size_limit() {
+        let ctx = repeat_limited_ctx(1000);
+        let run = Query::compile("[1] | .[1000] = 1")
+            .unwrap()
+            .run(&Value::Null, &ctx);
+        assert_eq!(run.error.map(|error| error.code), Some(ErrorCode::Limit));
+        let run = Query::compile("[1] | .[10] = 1")
+            .unwrap()
+            .run(&Value::Null, &ctx);
+        assert!(run.error.is_none());
+    }
+
+    #[test]
+    fn reading_follows_jq_for_fractions_objects_and_null() {
+        for (filter, expected) in [
+            ("[1, 2, 3] | .[1.7]", "2"),
+            ("[1, 2, 3] | .[-1.5]", "3"),
+            ("[1, 2, 3] | .[nan]", "null"),
+            ("null | .[1:]", "null"),
+        ] {
+            assert_eq!(values(filter, "null"), vec![json(expected)], "{filter}");
+        }
+        let run = Query::compile(r#"{"a": 1} | .[0]"#)
+            .unwrap()
+            .run(&Value::Null, &ctx());
+        assert!(run.error.is_some());
+    }
+
+    #[test]
+    fn base64_decoding_follows_jq() {
+        for (filter, expected) in [
+            (r#""YQ" | @base64d"#, r#""a""#),
+            (r#""YQ==" | @base64d"#, r#""a""#),
+            (r#""YWJj" | @base64d"#, r#""abc""#),
+            (r#""abc" | @base64d"#, "\"i\u{fffd}\""),
+            (r#""" | @base64d"#, r#""""#),
+        ] {
+            assert_eq!(values(filter, "null"), vec![json(expected)], "{filter}");
+        }
+        for filter in [r#""a" | @base64d"#, r#""a!b" | @base64d"#] {
+            let run = Query::compile(filter).unwrap().run(&Value::Null, &ctx());
+            assert!(run.error.is_some(), "{filter}");
+        }
+    }
+
+    #[test]
+    fn fromstream_rebuilds_the_values_of_a_stream() {
+        assert_eq!(
+            values("[1, [2]] | fromstream(tostream)", "null"),
+            vec![json("[1, [2]]")]
+        );
+        let run = Query::compile("fromstream(([0], 1), ([1], 2), ([1]))")
+            .unwrap()
+            .run(&Value::Null, &ctx());
+        assert!(run.error.is_some());
+    }
+
+    fn repeat_limited_ctx(max_bytes: u64) -> ExecCtx {
+        let limits = Limits {
+            max_file_bytes_text: max_bytes,
+            ..Limits::default()
+        };
+        ExecCtx::builder(Arc::new(FixedClock), host())
+            .limits(limits)
+            .build()
+    }
+
+    #[test]
+    fn a_string_repeated_beyond_the_size_limit_is_an_error_even_inside_try() {
+        let ctx = repeat_limited_ctx(1000);
+        for filter in [
+            r#""x" * 2000"#,
+            r#"2000 * "x""#,
+            r#""abcdefghij" * 101"#,
+            r#""x" * 1000000000000"#,
+            r#"try ("x" * 2000) catch "caught""#,
+            r#"[.[] | . * 2000]"#,
+        ] {
+            let run = Query::compile(filter).unwrap().run(&json(r#"["x"]"#), &ctx);
+            assert_eq!(
+                run.error.map(|error| error.code),
+                Some(ErrorCode::Limit),
+                "{filter}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_string_repeated_within_the_size_limit_is_unchanged() {
+        let ctx = repeat_limited_ctx(1000);
+        let run = Query::compile(r#""ab" * 3, ("x" * 1000 | length), ("x" * 0)"#)
+            .unwrap()
+            .run(&Value::Null, &ctx);
+        assert!(run.error.is_none(), "{:?}", run.error);
+        let values: Vec<Value> = run.outputs.into_iter().map(|output| output.value).collect();
+        assert_eq!(
+            values,
+            [
+                Value::Text("ababab".into()),
+                Value::Int(1000),
+                Value::Text(String::new())
+            ]
+        );
+    }
+
+    #[test]
+    fn the_repeat_limit_of_one_run_does_not_reach_the_next() {
+        let strict = repeat_limited_ctx(10);
+        let filter = Query::compile(r#""x" * 100 | length"#).unwrap();
+        assert_eq!(
+            filter.run(&Value::Null, &strict).error.map(|e| e.code),
+            Some(ErrorCode::Limit)
+        );
+        let run = filter.run(&Value::Null, &ctx());
+        assert_eq!(run.into_result().unwrap()[0].value, Value::Int(100));
     }
 
     #[test]

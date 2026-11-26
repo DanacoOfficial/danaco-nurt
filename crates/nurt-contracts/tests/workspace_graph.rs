@@ -16,6 +16,8 @@ use std::path::{Path, PathBuf};
 use toml::{Table, Value};
 
 const INTERNAL_PREFIX: &str = "nurt-";
+/// Crates of other projects kept in the workspace with their own names.
+const VENDORED: [&str; 1] = ["jaq-json"];
 const FACADE: &str = "nurt";
 
 fn workspace_root() -> PathBuf {
@@ -217,7 +219,7 @@ fn entries_use_known_layers_and_areas() {
             entry.area
         );
         assert!(
-            is_internal(name),
+            is_internal(name) || VENDORED.contains(&name.as_str()),
             "entry `{name}` is not a workspace crate name"
         );
     }

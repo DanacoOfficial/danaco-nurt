@@ -63,6 +63,7 @@ fn parse_index(text: &str) -> Result<CatalogIndex> {
 fn assemble(index: CatalogIndex, sources: &[(&str, &str)]) -> Result<Registry> {
     let mut issues: Vec<CatalogIssue> = Vec::new();
     let mut files: Vec<CatalogFile> = Vec::new();
+    let mut written: Vec<CatalogFile> = Vec::new();
     for entry in &index.files {
         let Some((_, text)) = sources.iter().find(|(name, _)| *name == entry.file) else {
             issues.push(CatalogIssue::new(
@@ -84,6 +85,7 @@ fn assemble(index: CatalogIndex, sources: &[(&str, &str)]) -> Result<Registry> {
                         ),
                     ));
                 }
+                written.push(file.clone());
                 file.resolve_groups();
                 files.push(file);
             }
@@ -96,7 +98,7 @@ fn assemble(index: CatalogIndex, sources: &[(&str, &str)]) -> Result<Registry> {
     }
     issues.extend(check_catalog(&index, &files));
     if issues.is_empty() {
-        Ok(Registry::from_files(index, files))
+        Ok(Registry::from_files(index, files, written))
     } else {
         Err(invalid("catalog", &issues))
     }

@@ -66,7 +66,6 @@ nurt-types = { workspace = true }
 nurt-syslog = { workspace = true }
 nurt-programs = { workspace = true }
 sysinfo = { workspace = true }
-netstat2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 plist = { workspace = true }

@@ -36,7 +36,7 @@ use std::borrow::Cow;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path, PathBuf, Prefix};
 use std::time::Duration;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
@@ -66,11 +66,12 @@ impl AbsPath {
     ///
     /// # Errors
     ///
-    /// Fails with [`FsErrorKind::InvalidPath`] when the path is relative or
-    /// when a `..` component would escape the root.
+    /// Fails with [`FsErrorKind::InvalidPath`] when the path is relative,
+    /// when a `..` component would escape the root, when it contains a NUL
+    /// character or, on Windows, when it carries the long-path prefix `\\?\`.
     pub fn new(path: impl Into<PathBuf>) -> FsResult<Self> {
         let path: PathBuf = path.into();
-        if !path.is_absolute() {
+        if !path.is_absolute() || path.to_string_lossy().contains('\0') {
             return Err(FsError::new(
                 FsErrorKind::InvalidPath,
                 "abs_path",
@@ -80,6 +81,18 @@ impl AbsPath {
         let mut out = PathBuf::new();
         for component in path.components() {
             match component {
+                Component::Prefix(prefix)
+                    if matches!(
+                        prefix.kind(),
+                        Prefix::Verbatim(_) | Prefix::VerbatimUNC(..) | Prefix::VerbatimDisk(_)
+                    ) =>
+                {
+                    return Err(FsError::new(
+                        FsErrorKind::InvalidPath,
+                        "abs_path",
+                        Some(&path),
+                    ));
+                }
                 Component::CurDir => {}
                 Component::ParentDir => {
                     let at_root = out.parent().is_none();
@@ -117,14 +130,14 @@ impl AbsPath {
     /// # Errors
     ///
     /// Fails with [`FsErrorKind::InvalidPath`] when `name` is empty, is `.`
-    /// or `..`, or contains a separator. On Windows a colon is rejected as
+    /// or `..`, or contains a separator or a NUL character. On Windows a colon is rejected as
     /// well, because a name that starts with a drive prefix replaces the
     /// whole path when it is joined.
     pub fn join_name(&self, name: &str) -> FsResult<AbsPath> {
         let invalid = name.is_empty()
             || name == "."
             || name == ".."
-            || name.contains('/')
+            || name.contains(['/', '\0'])
             || (cfg!(windows) && name.contains(['\\', ':']));
         if invalid {
             return Err(FsError::new(
@@ -978,7 +991,9 @@ pub trait Fs: Send + Sync {
     /// # Errors
     ///
     /// Fails as [`Fs::metadata`], with [`FsErrorKind::IsADirectory`] for a
-    /// directory and with [`FsErrorKind::InUse`] for a file locked against
+    /// directory, with [`FsErrorKind::Unsupported`] for a special file (a
+    /// device, FIFO or socket), which is refused without waiting for a
+    /// writer, and with [`FsErrorKind::InUse`] for a file locked against
     /// reading.
     fn open_read(&self, path: &AbsPath) -> FsResult<Box<dyn ReadHandle>>;
 
@@ -1128,7 +1143,9 @@ pub trait FsWrite: Fs {
     /// # Errors
     ///
     /// Fails with [`FsErrorKind::NotFound`], [`FsErrorKind::PermissionDenied`]
-    /// or [`FsErrorKind::InUse`].
+    /// or [`FsErrorKind::InUse`], and with [`FsErrorKind::Loop`] when `path`
+    /// is a symbolic link: the link is not followed. `truncate` refuses a link
+    /// the same way.
     fn open_in_place(&self, scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>>;
 
     /// Opens an alternate data stream for writing.
@@ -1148,8 +1165,9 @@ pub trait FsWrite: Fs {
     /// # Errors
     ///
     /// Fails with [`FsErrorKind::CrossDevice`] across volumes or overlay
-    /// layers, with [`FsErrorKind::Exists`] for [`RenameMode::NoReplace`] and
-    /// with [`FsErrorKind::InUse`].
+    /// layers, with [`FsErrorKind::Exists`] for [`RenameMode::NoReplace`],
+    /// with [`FsErrorKind::InvalidPath`] for a directory moved into its own
+    /// subtree and with [`FsErrorKind::InUse`].
     fn rename(
         &self,
         scope: &TxScope,
@@ -1292,6 +1310,41 @@ pub trait FsWrite: Fs {
     ///
     /// Fails with [`FsErrorKind::Io`].
     fn sync_dir(&self, scope: &TxScope, dir: &AbsPath) -> FsResult<()>;
+
+    /// Flushes the content of `files` and then the directories `dirs`, so
+    /// that every listed file holds its content durably and every rename or
+    /// creation in the listed directories is durable.
+    ///
+    /// The default implementation flushes each file through a write handle,
+    /// then each directory with [`FsWrite::sync_dir`]; a file that cannot be
+    /// opened for writing (read-only permission bits) is flushed through its
+    /// directory. A backend that can flush many entries at once, such as a
+    /// whole-volume flush, overrides it for long lists. The durability
+    /// guarantee is the same, only the number of flushes differs.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`FsErrorKind::NotFound`] when a listed directory does not
+    /// exist, and, when entries are flushed one by one, when a listed file does
+    /// not exist; with [`FsErrorKind::Io`] or [`FsErrorKind::NoSpace`] when a
+    /// flush fails.
+    fn sync_paths(&self, scope: &TxScope, files: &[AbsPath], dirs: &[AbsPath]) -> FsResult<()> {
+        for file in files {
+            match self.open_in_place(scope, file) {
+                Ok(mut handle) => handle.sync(Durability::Full)?,
+                Err(error) if error.kind == FsErrorKind::PermissionDenied => {
+                    if let Some(parent) = file.parent() {
+                        self.sync_dir(scope, &parent)?;
+                    }
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        for dir in dirs {
+            self.sync_dir(scope, dir)?;
+        }
+        Ok(())
+    }
 
     /// Takes an exclusive advisory lock on `path`, creating the file when
     /// needed, and waits no longer than `timeout`.
@@ -1450,4 +1503,117 @@ pub trait ProviderWrite: Provider {
     ///
     /// Fails with [`FsErrorKind::PermissionDenied`] or [`FsErrorKind::Io`].
     fn restore(&self, scope: &TxScope, snapshot: &ProviderSnapshot) -> FsResult<()>;
+
+    /// Copies a key with its subtree, or a value, to `to`, creating the
+    /// missing keys above it. A provider that cannot copy keeps the default,
+    /// which fails.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`FsErrorKind::Unsupported`] by default; providers fail
+    /// with [`FsErrorKind::NotFound`] for a missing source and
+    /// [`FsErrorKind::Exists`] for an existing destination.
+    fn duplicate(&self, scope: &TxScope, from: &ProviderKey, to: &ProviderKey) -> FsResult<()> {
+        let _ = (scope, from, to);
+        Err(FsError::new(FsErrorKind::Unsupported, "copy", None))
+    }
+}
+
+/// Kind of a registry address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RegistryKind {
+    /// A key, which holds subkeys and values.
+    Key,
+    /// A value of a key; the default value has the empty name.
+    Value,
+}
+
+/// Key or value of the registry, as the provider key the journal declares.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RegistryTarget {
+    /// Address in the form of the provider: the root key and the keys in
+    /// `segments`, the name of the value in `value`.
+    pub key: ProviderKey,
+    /// Whether the address names a key or a value.
+    pub kind: RegistryKind,
+}
+
+/// Kind of a node found by [`RegistryAccess::walk`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RegistryNodeKind {
+    /// A key.
+    Key,
+    /// A symbolic link key, which is reported but not entered.
+    Link,
+    /// A value.
+    Value,
+}
+
+/// Key or value below a walked key.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RegistryNode {
+    /// The `entry` record of a key or the `registry_value` record of a value.
+    pub record: crate::value::Record,
+    /// Kind of the node.
+    pub kind: RegistryNodeKind,
+    /// Name of the key or value; empty for the default value.
+    pub name: String,
+    /// Path below the walked key, with `/` between the segments.
+    pub relative: String,
+}
+
+/// Read access to the Windows registry for the file commands, which address
+/// it with `registry:` paths.
+///
+/// The host registers an implementation in the extensions of the execution
+/// context; where none is registered the registry does not exist and the
+/// commands reject `registry:` paths with `E_OS_ONLY`. Changes are not made
+/// here: the commands declare them to the journal as targets of a provider
+/// key, and the journal writes them through [`ProviderWrite`].
+///
+/// # Errors
+///
+/// Every method fails with `E_INVALID_VALUE` for a path that does not parse
+/// and with the code of the [`FsErrorKind`] of the failure otherwise.
+pub trait RegistryAccess: Send + Sync {
+    /// The `registry_value` record of the value a path names.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_IS_A_DIRECTORY` when the path names a key and with
+    /// `E_NOT_FOUND` when it names nothing.
+    fn read_value(&self, path: &str) -> crate::error::Result<crate::value::Record>;
+
+    /// Description of a key (an `entry` record) or of a value (a
+    /// `registry_value` record); `None` when the path names nothing.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the errors of the registry other than `E_NOT_FOUND`.
+    fn describe(&self, path: &str) -> crate::error::Result<Option<crate::value::Record>>;
+
+    /// Keys and values below a key, depth first, down to `max_depth`
+    /// levels, or without a limit for `None`; symbolic link keys are
+    /// reported and not entered.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_NOT_FOUND` for a missing key and `E_NOT_A_DIRECTORY`
+    /// when the path names a value.
+    fn walk(&self, path: &str, max_depth: Option<u32>) -> crate::error::Result<Vec<RegistryNode>>;
+
+    /// The key or value a path names, which must exist.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_NOT_FOUND` when the path names nothing.
+    fn locate(&self, path: &str) -> crate::error::Result<RegistryTarget>;
+
+    /// The address a path names read as `kind`, whether or not it exists.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_INVALID_VALUE` when the path cannot name that kind, for
+    /// example a value at the root key.
+    fn address(&self, path: &str, kind: RegistryKind) -> crate::error::Result<RegistryTarget>;
 }

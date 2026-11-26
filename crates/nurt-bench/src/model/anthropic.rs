@@ -144,6 +144,10 @@ impl ModelClient for AnthropicClient {
         let response = self.http.post(&url, &self.headers(), &body)?;
         Ok(response["input_tokens"].as_u64())
     }
+
+    fn set_time_limit(&mut self, remaining: std::time::Duration) {
+        self.http.set_time_limit(Some(remaining));
+    }
 }
 
 #[cfg(test)]

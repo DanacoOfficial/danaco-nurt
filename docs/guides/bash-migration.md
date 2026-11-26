@@ -11,7 +11,9 @@ commands: [remove, move, copy, create, read, find, search, replace, write, run, 
 
 ## What is corrected
 
-A line that starts with a bash command is read with the rules of the POSIX shell and translated to a Nurt program. The result shows `corrected` and `ran`, the program that was executed. A translation that touches the target of a change is not applied: the answer is E_AMBIGUOUS with ready programs.
+A line that starts with a bash command is read with the rules of the POSIX shell and translated to a Nurt program. The result shows `corrected` and `ran`, the program that was executed. A translation that rests on an assumption and touches the target of a change is not applied: the answer is E_AMBIGUOUS with ready programs.
+
+A line is a bash command when its first word is a bash command and it shows notation that only the shell has: a flag such as `-rf`, an operator such as `&&` or `>`, a quoted `'text'`, `$NAME`, an assignment before the program (`CI=1 npm test`) or an unquoted pattern. A first word that Nurt does not know at all (`touch`, `gzip`, `sha256sum`) needs none of these, and a word that Nurt reads as a synonym (`cat`, `ps`, `which`) is a bash command when its argument is a bare word that Nurt cannot take (`ps aux`, `which git`). A line with Nurt notation, a pipe `|>` or a named argument such as `glob:`, is always a Nurt program.
 
 ```text
 rm -rf /srv/app/build

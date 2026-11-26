@@ -286,7 +286,11 @@ impl Session<'_> {
             script.push('\n');
         }
         script.push_str(&output);
-        if let Err(error) = self.translator.check(&script) {
+        // A statement that only sets the strict mode of the shell translates
+        // to no program; there is nothing to parse, and an empty program is
+        // not a valid one.
+        let nothing_to_check = translation.tree.program.statements.is_empty();
+        if let (false, Err(error)) = (nothing_to_check, self.translator.check(&script)) {
             let mut item = error_item(unit, Status::Error, &error);
             item.reason = Some(Reason::Translation);
             item.output = Some(output);

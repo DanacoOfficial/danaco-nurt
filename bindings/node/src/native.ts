@@ -315,10 +315,8 @@ export class NativeChannel implements Channel {
     }
     const document = parseJson(text);
     if (isObject(document) && isObject(document["error"])) {
-      const error = document["error"];
-      const code = typeof error["code"] === "string" ? error["code"] : "E_INTERNAL";
-      const message = typeof error["message"] === "string" ? error["message"] : "the operation failed";
-      throw new NurtError("NURT_E_ARG", `${code}: ${message}`, { detail: error });
+      // The same answer as of `nurt serve`: a response whose report failed.
+      return { nurt: "1.0", report: { nurt: "1.0", status: "failed", kind: method, error: document["error"] } };
     }
     return isObject(document) ? document["result"] : undefined;
   }

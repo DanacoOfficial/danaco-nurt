@@ -120,10 +120,22 @@ impl Algorithm {
 ///
 /// Six bytes are enough for every supported algorithm; a shorter prefix
 /// matches only when it contains the whole signature.
+///
+/// The bzip2 signature is three ASCII letters, which also begin the name of
+/// the first member of a tar archive; bzip2 is recognised only when the level
+/// digit and the magic number of the first block (or of an empty stream)
+/// follow, six bytes in all.
 pub fn detect(prefix: &[u8]) -> Option<Algorithm> {
-    ALGORITHMS
-        .into_iter()
-        .find(|algorithm| prefix.starts_with(algorithm.signature()))
+    ALGORITHMS.into_iter().find(|algorithm| match algorithm {
+        Algorithm::Bzip2 => is_bzip2(prefix),
+        _ => prefix.starts_with(algorithm.signature()),
+    })
+}
+
+fn is_bzip2(prefix: &[u8]) -> bool {
+    prefix.starts_with(BZIP2_SIGNATURE)
+        && matches!(prefix.get(3), Some(b'1'..=b'9'))
+        && matches!(prefix.get(4..6), Some([0x31, 0x41] | [0x17, 0x72]))
 }
 
 /// Returns a reader that yields the decompressed content of `inner`.
@@ -732,6 +744,15 @@ mod tests {
         for algorithm in ALGORITHMS {
             assert_eq!(round_trip(algorithm, &data), data, "{}", algorithm.name());
         }
+    }
+
+    #[test]
+    fn the_start_of_a_file_name_is_not_taken_for_bzip2() {
+        assert_eq!(detect(b"BZh_notes.txt"), None);
+        assert_eq!(detect(b"BZhello"), None);
+        assert_eq!(detect(b"BZh9"), None);
+        assert_eq!(detect(b"BZh91A"), Some(Algorithm::Bzip2));
+        assert_eq!(detect(b"BZh0\x31\x41"), None);
     }
 
     #[test]

@@ -9,6 +9,8 @@
 nurt schema tool [--format <format>] [--language en|pl] [--groups core|all|<group>,<group>...]
 ```
 
+`nurt schema tool` without options prints the published schema `nurt-tool/1` (the schema of the `json-schema` format below), like every other name of `nurt schema`. With at least one option it prints the definition of the tool; an option that is not given takes its default. The description texts and the catalog version come from the installed engine.
+
 ## Parameters
 
 | Parameter | Type | Default | Meaning |
@@ -16,6 +18,8 @@ nurt schema tool [--format <format>] [--language en|pl] [--groups core|all|<grou
 | `--format` | enum | `json-schema` | output format, see below |
 | `--language` | `en`, `pl` | `en` | language of the description; also the default of the `language` argument |
 | `--groups` | text | `core` | command groups described in addition to the core group |
+
+The value follows the option as a separate argument or after `=`. An unknown format, language or group is the error `E_UNKNOWN_VALUE` with the accepted values; an unknown option or a missing value is a usage error (exit code 2).
 
 The Rust crate `nurt-tooldef` produces the same output: `render(ToolFormat, &RenderOptions)`. The output is deterministic for the same inputs.
 

@@ -345,3 +345,101 @@ fn environment_list_separator_is_configurable() {
     let resolved = resolve(&[environment], false).unwrap();
     assert_eq!(resolved.config.scope.project_roots, ["C:/a", "C:/b"]);
 }
+
+#[test]
+fn a_higher_level_cannot_lower_a_floor() {
+    let floor = |level: ConfigLevel, ops: &str, age: &str| {
+        layer(
+            level,
+            &format!("[journal.floor]\nmax_ops = {ops}\nmax_age = \"{age}\"\n"),
+        )
+    };
+
+    let layers = [
+        floor(ConfigLevel::System, "200", "1h"),
+        floor(ConfigLevel::User, "20", "5m"),
+    ];
+    let resolved = resolve(&layers, false).unwrap();
+    let kept = &resolved.config.journal.floor;
+    assert_eq!(kept.max_ops, Some(StepLimit::Limited(200)));
+    assert_eq!(
+        kept.max_age,
+        Some(AgeLimit::Limited(DurationSetting::from_secs(3600)))
+    );
+    assert_eq!(
+        resolved.source("journal.floor.max_ops"),
+        ConfigLevel::System
+    );
+    assert_eq!(
+        resolved.source("journal.floor.max_age"),
+        ConfigLevel::System
+    );
+
+    let layers = [
+        floor(ConfigLevel::System, "200", "1h"),
+        floor(ConfigLevel::User, "300", "2h"),
+    ];
+    let resolved = resolve(&layers, false).unwrap();
+    let raised = &resolved.config.journal.floor;
+    assert_eq!(raised.max_ops, Some(StepLimit::Limited(300)));
+    assert_eq!(
+        raised.max_age,
+        Some(AgeLimit::Limited(DurationSetting::from_secs(7200)))
+    );
+    assert_eq!(resolved.source("journal.floor.max_ops"), ConfigLevel::User);
+
+    let layers = [
+        floor(ConfigLevel::System, "\"unlimited\"", "unlimited"),
+        floor(ConfigLevel::Runtime, "5", "10s"),
+    ];
+    let resolved = resolve(&layers, false).unwrap();
+    assert_eq!(
+        resolved.config.journal.floor.max_ops,
+        Some(StepLimit::Unlimited)
+    );
+    assert_eq!(
+        resolved.config.journal.floor.max_age,
+        Some(AgeLimit::Unlimited)
+    );
+
+    let layers = [layer(ConfigLevel::User, "[journal.floor]\nmax_ops = 20\n")];
+    let resolved = resolve(&layers, false).unwrap();
+    assert_eq!(
+        resolved.config.journal.floor.max_ops,
+        Some(StepLimit::Limited(20))
+    );
+}
+
+#[test]
+fn unknown_fields_of_open_table_entries_are_noted_and_skipped() {
+    let user = layer(
+        ConfigLevel::User,
+        "[journal.volume.\"/mnt\"]\nmax_ops = 40\nbogus = 1\n\
+         [code.servers.lua]\ncommand = [\"lua-ls\"]\nbogus = true\n\
+         [code.servers.lua.init]\nany = { depth = 2 }\n\
+         [run.env_defaults]\nANY_NAME = \"x\"\n",
+    );
+    let resolved = resolve(&[user], false).unwrap();
+    let keys: Vec<&str> = resolved
+        .notes
+        .iter()
+        .map(|note| note.key.as_str())
+        .collect();
+    assert_eq!(
+        keys,
+        ["code.servers.lua.bogus", "journal.volume.\"/mnt\".bogus"]
+    );
+    assert!(
+        resolved
+            .notes
+            .iter()
+            .all(|note| note.kind == ConfigNoteKind::UnknownKey)
+    );
+    let volume = &resolved.config.journal.volume["/mnt"];
+    assert_eq!(volume.max_ops, Some(StepLimit::Limited(40)));
+    assert_eq!(
+        resolved.config.code.servers["lua"].command,
+        ["lua-ls".to_owned()]
+    );
+    assert_eq!(resolved.config.run.env_defaults["ANY_NAME"], "x");
+}

@@ -96,7 +96,7 @@ impl<'r> Worktree<'r> {
             .with_problem("special_file")
             .with_found(absolute.display().to_string()));
         }
-        let (data, kind) = if metadata.file_type().is_symlink() && self.symlinks {
+        let (data, kind) = if metadata.file_type().is_symlink() {
             let target =
                 std::fs::read_link(&absolute).map_err(|error| repo_error::io(&absolute, &error))?;
             let target = gix::path::into_bstr(target)

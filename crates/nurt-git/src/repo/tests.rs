@@ -253,3 +253,12 @@ fn ceiling_directories_stop_discovery() {
     let error = GitRepo::discover(&fixture.path().join("sub"), &test_ctx_with(host)).unwrap_err();
     assert_eq!(error.code, ErrorCode::GitNotRepository);
 }
+
+#[test]
+fn unreadable_ownership_is_not_trusted() {
+    assert!(ownership_trusted(Ok(true)));
+    assert!(!ownership_trusted(Ok(false)));
+    assert!(!ownership_trusted(Err(std::io::Error::other(
+        "stat failed"
+    ))));
+}

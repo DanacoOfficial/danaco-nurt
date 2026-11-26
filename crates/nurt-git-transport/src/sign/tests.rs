@@ -11,16 +11,6 @@ use nurt_contracts::config::Config;
 use nurt_contracts::env::WallTime;
 use nurt_testkit::ctx::TestContext;
 use nurt_testkit::host::TestHost;
-use pgp::bytes::Bytes;
-use pgp::composed::{ArmorOptions, SignedKeyDetails, SignedSecretKey};
-use pgp::crypto::hash::HashAlgorithm;
-use pgp::crypto::public_key::PublicKeyAlgorithm;
-use pgp::crypto::sym::SymmetricKeyAlgorithm;
-use pgp::packet::{PubKeyInner, SignatureConfig, SignatureType, Subpacket, SubpacketData, UserId};
-use pgp::types::{
-    Ed25519PublicParams, KeyDetails, KeyVersion, Password, PlainSecretParams, PublicParams,
-    S2kParams, SecretParams, SignedUser, StringToKey, Tag, Timestamp,
-};
 
 use super::sshsig::fixtures::{FINGERPRINT, PUBLIC, private_key_pem};
 use super::*;
@@ -265,165 +255,6 @@ fn reports_x509_and_unknown_signatures_as_unsupported() {
     assert_eq!(error.data().problem.as_deref(), Some("unsupported_format"));
 }
 
-/// An Ed25519 OpenPGP key derived from a fixed seed, with the certified
-/// user ID `Test Key <key@example.test>`, protected by `passphrase` when
-/// one is given.
-fn openpgp_key(passphrase: Option<&str>) -> SignedSecretKey {
-    let created = Timestamp::from_secs(u32::try_from(CREATED).expect("time"));
-    let secret = pgp::crypto::ed25519::SecretKey::try_from_bytes(
-        [9; 32],
-        pgp::crypto::ed25519::Mode::Ed25519,
-    )
-    .expect("seed");
-    let public_params = PublicParams::Ed25519(Ed25519PublicParams::from(&secret));
-    let inner = PubKeyInner::new(
-        KeyVersion::V4,
-        PublicKeyAlgorithm::Ed25519,
-        created,
-        None,
-        public_params,
-    )
-    .expect("public key");
-    let public = pgp::packet::PublicKey::from_inner(inner).expect("public key packet");
-    let mut primary = pgp::packet::SecretKey::new(
-        public.clone(),
-        SecretParams::Plain(PlainSecretParams::Ed25519(secret)),
-    )
-    .expect("secret key packet");
-    let user_id =
-        UserId::from_str(Default::default(), "Test Key <key@example.test>").expect("user id");
-    let mut certification = SignatureConfig::v4(
-        SignatureType::CertPositive,
-        PublicKeyAlgorithm::Ed25519,
-        HashAlgorithm::Sha256,
-    );
-    certification.hashed_subpackets = vec![
-        Subpacket::regular(SubpacketData::SignatureCreationTime(created)).expect("subpacket"),
-        Subpacket::regular(SubpacketData::IssuerFingerprint(public.fingerprint()))
-            .expect("subpacket"),
-    ];
-    let certification = certification
-        .sign_certification(&primary, &public, &Password::empty(), Tag::UserId, &user_id)
-        .expect("certification");
-    if let Some(passphrase) = passphrase {
-        let s2k = S2kParams::Cfb {
-            sym_alg: SymmetricKeyAlgorithm::AES128,
-            s2k: StringToKey::IteratedAndSalted {
-                hash_alg: HashAlgorithm::Sha256,
-                salt: [1; 8],
-                count: 96,
-            },
-            iv: Bytes::from(vec![2; 16]),
-        };
-        primary
-            .set_password_with_s2k(&Password::from(passphrase), s2k)
-            .expect("protect key");
-    }
-    let details = SignedKeyDetails::new(
-        Vec::new(),
-        Vec::new(),
-        vec![SignedUser::new(user_id, vec![certification])],
-        Vec::new(),
-    );
-    SignedSecretKey::new(primary, details, Vec::new(), Vec::new())
-}
-
-/// OpenPGP settings naming the secret key file `key`, written to `dir`.
-fn openpgp_config(dir: &Path, key: &SignedSecretKey) -> SigningConfig {
-    let path = dir.join("secret.asc");
-    std::fs::write(
-        &path,
-        key.to_armored_bytes(ArmorOptions::default())
-            .expect("armor"),
-    )
-    .expect("write");
-    let mut config = SigningConfig::new(SignatureFormat::Openpgp, CREATED);
-    config.openpgp_sources = vec![OpenPgpSource::KeyFile];
-    config.key_file = Some(path);
-    config.signing_key = Some("key@example.test".into());
-    config
-}
-
-#[test]
-fn signs_commit_with_openpgp_key_file_and_verifies_it() {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let key = openpgp_key(None);
-    let mut commit = parse_commit(UNSIGNED_COMMIT);
-    let signature = sign_commit(
-        &mut commit,
-        &BuiltinSigner,
-        &openpgp_config(dir.path(), &key),
-    )
-    .expect("signed");
-    let fingerprint = hex::encode_upper(key.primary_key.fingerprint().as_bytes());
-    assert!(
-        signature
-            .armored
-            .starts_with(b"-----BEGIN PGP SIGNATURE-----\n")
-    );
-    assert_eq!(signature.key, fingerprint);
-    assert_eq!(signature.source, KeySource::KeyFile);
-    let public = dir.path().join("public.asc");
-    std::fs::write(
-        &public,
-        key.to_public_key()
-            .to_armored_bytes(ArmorOptions::default())
-            .expect("armor"),
-    )
-    .expect("write");
-    let config = VerifyConfig {
-        public_key_files: vec![public],
-        ..VerifyConfig::default()
-    };
-    let bytes = encode(&commit);
-    let result = verify_commit(&bytes, SHA1, &BuiltinSigner, &config).expect("verify");
-    assert_eq!(result.status, SignatureStatus::Good);
-    assert_eq!(result.key.as_deref(), Some(fingerprint.as_str()));
-    assert_eq!(
-        result.signer.as_deref(),
-        Some("Test Key <key@example.test>")
-    );
-    let changed = String::from_utf8(bytes)
-        .expect("utf-8")
-        .replace("signed commit", "other");
-    let result = verify_commit(changed.as_bytes(), SHA1, &BuiltinSigner, &config).expect("verify");
-    assert_eq!(result.status, SignatureStatus::Bad);
-}
-
-#[test]
-fn reports_key_file_without_matching_user_as_missing_key() {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let mut config = openpgp_config(dir.path(), &openpgp_key(None));
-    config.signing_key = Some("someone@example.test".into());
-    let error = BuiltinSigner
-        .sign(b"payload", &config)
-        .expect_err("no match");
-    assert_eq!(error.data().problem.as_deref(), Some("no_key"));
-    config.signing_key = None;
-    assert!(BuiltinSigner.sign(b"payload", &config).is_ok());
-}
-
-#[cfg(unix)]
-#[test]
-fn unlocks_openpgp_key_file_with_passphrase_file() {
-    use std::os::unix::fs::PermissionsExt;
-    let dir = tempfile::tempdir().expect("tempdir");
-    let mut config = openpgp_config(dir.path(), &openpgp_key(Some("correct horse")));
-    let error = BuiltinSigner.sign(b"payload", &config).expect_err("locked");
-    assert_eq!(error.data().problem.as_deref(), Some("key_locked"));
-    let passphrase = dir.path().join("passphrase");
-    std::fs::write(&passphrase, "wrong\n").expect("write");
-    std::fs::set_permissions(&passphrase, std::fs::Permissions::from_mode(0o600)).expect("chmod");
-    config.passphrase_file = Some(passphrase.clone());
-    let error = BuiltinSigner
-        .sign(b"payload", &config)
-        .expect_err("wrong passphrase");
-    assert_eq!(error.data().problem.as_deref(), Some("key_locked"));
-    std::fs::write(&passphrase, "correct horse\n").expect("write");
-    let signature = BuiltinSigner.sign(b"payload", &config).expect("signed");
-    assert_eq!(signature.format, SignatureFormat::Openpgp);
-}
-
 fn git_config(text: &str) -> gix::config::File {
     text.parse().expect("git configuration parses")
 }
@@ -508,13 +339,21 @@ fn reports_ignored_signing_programs_as_notable() {
     let ctx = context(TestHost::linux(), None);
     let git = git_config("[gpg]\n\tprogram = gpg2\n[gpg \"ssh\"]\n\tprogram = ssh-keygen\n");
     let config = SigningConfig::resolve(&git, &ctx, None).expect("resolve");
+    assert_eq!(config.gpg_program.as_deref(), Some("gpg2"));
     let note = config.ignored_programs_note().expect("note");
     assert_eq!(
         note.code,
         nurt_contracts::report::Notable::SigningProgramIgnored
     );
-    assert_eq!(note.count, Some(2));
+    assert_eq!(note.count, Some(1));
     assert!(note.detail.expect("detail").contains("gpg.ssh.program"));
+    let specific =
+        git_config("[gpg]\n\tprogram = gpg2\n[gpg \"openpgp\"]\n\tprogram = /usr/bin/gpg\n");
+    let config = SigningConfig::resolve(&specific, &ctx, None).expect("resolve");
+    assert_eq!(config.gpg_program.as_deref(), Some("/usr/bin/gpg"));
+    assert!(config.ignored_programs_note().is_none());
+    let verify = VerifyConfig::resolve(&specific, &ctx);
+    assert_eq!(verify.gpg_program.as_deref(), Some("/usr/bin/gpg"));
     let plain = SigningConfig::resolve(&git_config(""), &ctx, None).expect("resolve");
     assert!(plain.ignored_programs_note().is_none());
 }
@@ -599,4 +438,33 @@ fn resolves_verify_config_from_git_configuration() {
     assert_eq!(config.gnupg_home, Some(PathBuf::from("/home/user/.gnupg")));
     assert_eq!(config.signed_at, None);
     assert_eq!(config.utc_offset, 0);
+}
+
+#[test]
+fn signers_without_a_program_service_refuse_openpgp_signatures() {
+    let config = SigningConfig::new(SignatureFormat::Openpgp, CREATED);
+    let program = ProgramSigner::new(None, nurt_contracts::stage::CancelToken::new());
+    for error in [
+        BuiltinSigner
+            .sign(b"payload", &config)
+            .expect_err("builtin"),
+        program.sign(b"payload", &config).expect_err("program"),
+    ] {
+        assert_eq!(error.data().problem.as_deref(), Some("program_unavailable"));
+    }
+    let armored = b"-----BEGIN PGP SIGNATURE-----\n\nAAAA\n-----END PGP SIGNATURE-----\n";
+    let result = program
+        .verify(b"payload", armored, &VerifyConfig::default())
+        .expect("verify");
+    assert_eq!(result.status, SignatureStatus::Unsupported);
+    assert_eq!(result.format, Some(SignatureFormat::Openpgp));
+}
+
+#[test]
+fn program_signer_signs_commits_with_ssh_keys_like_the_builtin_signer() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let program = ProgramSigner::new(None, nurt_contracts::stage::CancelToken::new());
+    let mut commit = parse_commit(UNSIGNED_COMMIT);
+    sign_commit(&mut commit, &program, &ssh_config(dir.path())).expect("signed");
+    assert_eq!(encode(&commit), SIGNED_COMMIT.as_bytes());
 }

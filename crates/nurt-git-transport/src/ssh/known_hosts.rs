@@ -23,6 +23,7 @@ use sha1::{Digest, Sha1};
 use super::SshNotice;
 use super::config::Location;
 use super::pattern::match_list;
+use crate::send_pack::FilePlan;
 
 /// Block size of SHA-1 in bytes, used by HMAC (RFC 2104).
 const SHA1_BLOCK: usize = 64;
@@ -76,9 +77,36 @@ pub struct HostKeyAddition {
 /// }
 /// ```
 pub fn record_host_key(tx: &mut dyn MutationTx, addition: &HostKeyAddition) -> Result<()> {
-    let file = AbsPath::new(&addition.file)?;
+    reserve_host_key_file(tx, &addition.file)?.record(tx, std::slice::from_ref(addition))
+}
+
+/// Targets of a known hosts file declared in a transaction before its first
+/// change, for keys that a command may still accept while it runs.
+///
+/// A transaction declares every target before its first change, but a key is
+/// accepted only when the connection is made, which can come later (a clone
+/// creates its directory first). Reserving the file keeps the write
+/// journaled; nothing changes unless [`HostKeyReservation::record`] has keys
+/// to write.
+#[derive(Debug)]
+pub struct HostKeyReservation {
+    file: PathBuf,
+    directories: Vec<nurt_contracts::journal::TargetIndex>,
+    target: nurt_contracts::journal::TargetIndex,
+    existed: bool,
+    needs_newline: bool,
+}
+
+/// Declares the known hosts file `file` and its missing parent directories.
+///
+/// # Errors
+///
+/// Fails with the errors of [`MutationTx::preserve`] and with `E_ARG` when
+/// `file` is not absolute.
+pub fn reserve_host_key_file(tx: &mut dyn MutationTx, file: &Path) -> Result<HostKeyReservation> {
+    let path = AbsPath::new(file)?;
     let mut directories = Vec::new();
-    let mut parent = file.parent();
+    let mut parent = path.parent();
     while let Some(dir) = parent {
         if dir.as_path().exists() {
             break;
@@ -87,48 +115,105 @@ pub fn record_host_key(tx: &mut dyn MutationTx, addition: &HostKeyAddition) -> R
         directories.push(dir);
     }
     directories.reverse();
-    let existing = std::fs::read(file.as_path()).ok();
+    let existing = std::fs::read(file).ok();
     let mut targets: Vec<TargetSpec> = directories
         .iter()
         .map(|dir| spec(dir.clone(), TargetAction::Create, Expect::Absent))
         .collect();
-    let mut content = Vec::new();
-    let file_action = match &existing {
-        Some(bytes) => {
-            if bytes.last().is_some_and(|&last| last != b'\n') {
-                content.push(b'\n');
-            }
-            TargetAction::Append
-        }
-        None => TargetAction::Create,
-    };
-    content.extend_from_slice(addition.line.as_bytes());
-    content.push(b'\n');
-    let expect = if existing.is_some() {
-        Expect::Unchecked
+    let (action, expect) = if existing.is_some() {
+        (TargetAction::Append, Expect::Unchecked)
     } else {
-        Expect::Absent
+        (TargetAction::Create, Expect::Absent)
     };
-    targets.push(spec(file, file_action, expect));
+    targets.push(spec(path, action, expect));
     let preserved = tx.preserve(&targets)?;
-    let (file_target, dir_targets) = preserved
+    let (target, dir_targets) = preserved
         .split_last()
         .ok_or_else(|| Error::new(ErrorCode::Internal, "journal returned no preserved target"))?;
-    for dir in dir_targets {
-        tx.apply(
-            dir.index,
-            Mutation::CreateDir {
-                mode: DIRECTORY_MODE,
-            },
-        )?;
+    Ok(HostKeyReservation {
+        file: file.to_path_buf(),
+        directories: dir_targets.iter().map(|dir| dir.index).collect(),
+        target: target.index,
+        existed: existing.is_some(),
+        needs_newline: existing
+            .as_deref()
+            .and_then(<[u8]>::last)
+            .is_some_and(|&last| last != b'\n'),
+    })
+}
+
+impl HostKeyReservation {
+    /// Appends the lines of the `additions` made for the reserved file; keys
+    /// of other files are left to their own reservations.
+    ///
+    /// # Errors
+    ///
+    /// Fails with the errors of [`MutationTx::apply`].
+    pub fn record(&self, tx: &mut dyn MutationTx, additions: &[HostKeyAddition]) -> Result<()> {
+        let mut content = Vec::new();
+        for addition in additions
+            .iter()
+            .filter(|addition| addition.file == self.file)
+        {
+            if content.is_empty() && self.needs_newline {
+                content.push(b'\n');
+            }
+            content.extend_from_slice(addition.line.as_bytes());
+            content.push(b'\n');
+        }
+        if content.is_empty() {
+            return Ok(());
+        }
+        for dir in &self.directories {
+            tx.apply(
+                *dir,
+                Mutation::CreateDir {
+                    mode: DIRECTORY_MODE,
+                },
+            )?;
+        }
+        let mutation = if self.existed {
+            Mutation::AppendBytes(content)
+        } else {
+            Mutation::WriteBytes(content)
+        };
+        tx.apply(self.target, mutation)?;
+        Ok(())
     }
-    let mutation = if existing.is_some() {
-        Mutation::AppendBytes(content)
-    } else {
-        Mutation::WriteBytes(content)
-    };
-    tx.apply(file_target.index, mutation)?;
-    Ok(())
+}
+
+/// Plan that appends the `additions` to their known hosts files, for a
+/// command that declares its targets with [`FilePlan::targets`] and applies
+/// them with [`FilePlan::apply`].
+///
+/// # Errors
+///
+/// Fails with `E_ARG` when a file path is not absolute.
+pub fn host_keys_plan(additions: &[HostKeyAddition]) -> Result<FilePlan> {
+    let mut grouped: Vec<(PathBuf, Vec<u8>)> = Vec::new();
+    for addition in additions {
+        let line = format!("{}\n", addition.line);
+        if let Some((_, bytes)) = grouped.iter_mut().find(|(file, _)| *file == addition.file) {
+            bytes.extend_from_slice(line.as_bytes());
+            continue;
+        }
+        let mut bytes = Vec::new();
+        let unterminated = std::fs::read(&addition.file)
+            .ok()
+            .is_some_and(|content| content.last().is_some_and(|&last| last != b'\n'));
+        if unterminated {
+            bytes.push(b'\n');
+        }
+        bytes.extend_from_slice(line.as_bytes());
+        grouped.push((addition.file.clone(), bytes));
+    }
+    let mut plan = FilePlan::new();
+    for (file, bytes) in grouped {
+        let mut root = file.parent().map(Path::to_path_buf).unwrap_or_default();
+        while !root.is_dir() && root.pop() {}
+        plan.append(&root, &file, bytes)?;
+    }
+    Ok(plan)
 }
 
 fn spec(path: AbsPath, action: TargetAction, expect: Expect) -> TargetSpec {
@@ -422,7 +507,10 @@ impl HostKeyCheck {
     fn unknown(&self, key: &PublicKey) -> Decision {
         let presented = fingerprint(key);
         let explicit = self.accept_fingerprint.as_deref() == Some(presented.as_str());
-        if explicit || self.policy == Policy::AcceptNew {
+        // A fingerprint given by the caller pins the key: a different key is
+        // refused even when the policy would accept any new host.
+        let pinned = self.accept_fingerprint.is_some();
+        if explicit || (self.policy == Policy::AcceptNew && !pinned) {
             return match self.addition(key, &presented) {
                 Ok(addition) => Decision::Accept {
                     addition,
@@ -560,6 +648,73 @@ mod tests {
         }
     }
 
+    fn addition(file: &Path, line: &str) -> HostKeyAddition {
+        HostKeyAddition {
+            file: file.to_path_buf(),
+            line: line.to_owned(),
+            host: "example.com".to_owned(),
+            fingerprint: "SHA256:x".to_owned(),
+        }
+    }
+
+    #[test]
+    fn reserved_file_takes_keys_after_other_changes() {
+        use crate::send_pack::testing::RecordingTx;
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("nurt").join("known_hosts");
+        let other = dir.path().join("other.txt");
+        let mut tx = RecordingTx::new();
+        let reservation = reserve_host_key_file(&mut tx, &file).unwrap();
+        let preserved = tx
+            .preserve(&[spec(
+                AbsPath::new(&other).unwrap(),
+                TargetAction::Create,
+                Expect::Absent,
+            )])
+            .unwrap();
+        tx.apply(preserved[0].index, Mutation::WriteBytes(b"x".to_vec()))
+            .unwrap();
+        let elsewhere = dir.path().join("elsewhere");
+        reservation
+            .record(
+                &mut tx,
+                &[
+                    addition(&file, "one ssh-ed25519 AAAA"),
+                    addition(&elsewhere, "ignored ssh-ed25519 BBBB"),
+                    addition(&file, "two ssh-ed25519 CCCC"),
+                ],
+            )
+            .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&file).unwrap(),
+            "one ssh-ed25519 AAAA\ntwo ssh-ed25519 CCCC\n"
+        );
+        assert!(!elsewhere.exists());
+        reservation.record(&mut tx, &[]).unwrap();
+    }
+
+    #[test]
+    fn plan_appends_keys_to_one_file_with_its_directories() {
+        use crate::send_pack::testing::RecordingTx;
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("nurt").join("known_hosts");
+        let plan = host_keys_plan(&[
+            addition(&file, "one ssh-ed25519 AAAA"),
+            addition(&file, "two ssh-ed25519 CCCC"),
+        ])
+        .unwrap();
+        assert_eq!(plan.targets().len(), 2, "directory and file");
+        let mut tx = RecordingTx::new();
+        crate::send_pack::preserve_and_apply(&mut tx, &[&plan]).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&file).unwrap(),
+            "one ssh-ed25519 AAAA\ntwo ssh-ed25519 CCCC\n"
+        );
+        let appended = host_keys_plan(&[addition(&file, "three ssh-ed25519 DDDD")]).unwrap();
+        assert_eq!(appended.targets().len(), 1, "the file exists");
+        assert!(host_keys_plan(&[]).unwrap().is_empty());
+    }
+
     #[test]
     fn hmac_sha1_matches_rfc_2202_vectors() {
         let digest = hmac_sha1(&[0x0b; 20], b"Hi There");
@@ -691,6 +846,28 @@ mod tests {
                 .iter()
                 .any(|program| program.ends_with(&fix))
         );
+    }
+
+    #[test]
+    fn accept_new_refuses_a_key_that_differs_from_the_accepted_fingerprint() {
+        let mut pinned = check(KnownHosts::default(), Policy::AcceptNew);
+        pinned.accept_fingerprint = Some(fingerprint(&key(2)));
+        let Decision::Reject(error) = pinned.decide(&key(1)) else {
+            panic!("a key other than the accepted fingerprint was accepted");
+        };
+        assert_eq!(error.code(), ErrorCode::GitHostKey);
+        assert_eq!(
+            error.data().problem.as_deref(),
+            Some("fingerprint_mismatch")
+        );
+        pinned.accept_fingerprint = Some(fingerprint(&key(1)));
+        assert!(matches!(
+            pinned.decide(&key(1)),
+            Decision::Accept {
+                addition: Some(_),
+                ..
+            }
+        ));
     }
 
     #[test]

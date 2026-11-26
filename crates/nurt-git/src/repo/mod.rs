@@ -91,12 +91,7 @@ impl GitRepo {
             match_ceiling_dir_or_error: false,
             ..Default::default()
         };
-        let options = open_options();
-        let mapping = gix::sec::trust::Mapping {
-            full: options.clone(),
-            reduced: options,
-        };
-        let repo = gix::ThreadSafeRepository::discover_opts(path, upwards, mapping)
+        let repo = gix::ThreadSafeRepository::discover_opts(path, upwards, |_, _| open_options())
             .map_err(|_| error::not_repository(path, &nearby_repositories(path), command(ctx)))?
             .to_thread_local();
         if crosses_ceiling(path, root_of(&repo), env.ceiling_dirs()) {
@@ -303,7 +298,7 @@ pub fn open_options() -> gix::open::Options {
     gix::open::Options::isolated()
         .permissions(permissions)
         .config_overrides(config::OPEN_OVERRIDES)
-        .with(gix::sec::Trust::Full)
+        .with_enforced_trust(gix::sec::Trust::Full)
 }
 
 fn root_of(repo: &gix::Repository) -> &Path {
@@ -332,6 +327,13 @@ fn command(ctx: &ExecCtx) -> &str {
     &ctx.frame().command
 }
 
+/// Whether a path is trusted as belonging to the current user. A path whose
+/// ownership cannot be read is not trusted, so that an unreadable state never
+/// grants access that a readable foreign account would be denied.
+fn ownership_trusted(read: std::io::Result<bool>) -> bool {
+    read.unwrap_or(false)
+}
+
 fn check_ownership(
     repo: &gix::Repository,
     outer: &gix::config::File,
@@ -340,7 +342,7 @@ fn check_ownership(
     let root = root_of(repo);
     let owned = [repo.git_dir(), root]
         .iter()
-        .all(|path| gix::sec::identity::is_path_owned_by_current_user(path).unwrap_or(true));
+        .all(|path| ownership_trusted(gix::sec::identity::is_path_owned_by_current_user(path)));
     if owned || config::is_safe_directory(outer, env, root) {
         return Ok(());
     }

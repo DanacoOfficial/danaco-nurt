@@ -47,8 +47,15 @@ pub fn plan_purge(
         None => kept,
         Some(names) => {
             for name in names {
-                if !kept.iter().any(|(full, _)| names_copy(full, name)) {
+                let exact = kept.iter().any(|(full, _)| is_copy(full, name));
+                let of_branch = kept
+                    .iter()
+                    .any(|(full, _)| !is_copy(full, name) && is_branch_copy(full, name));
+                if !exact && !of_branch {
                     return Err(missing(repo, name));
+                }
+                if exact && of_branch {
+                    return Err(ambiguous(repo, name, &kept));
                 }
             }
             kept.into_iter()
@@ -69,8 +76,18 @@ pub fn plan_purge(
 
 /// Whether `name` selects the copy kept as `full`.
 fn names_copy(full: &FullName, name: &str) -> bool {
-    let copy = short_name(full.as_bstr(), TRASH);
-    full.as_bstr() == name.as_bytes() || copy == name || split_copy_name(&copy).0 == name
+    is_copy(full, name) || is_branch_copy(full, name)
+}
+
+/// Whether `name` is the reference or the last component of the reference of
+/// the copy kept as `full`.
+fn is_copy(full: &FullName, name: &str) -> bool {
+    full.as_bstr() == name.as_bytes() || short_name(full.as_bstr(), TRASH) == name
+}
+
+/// Whether the copy kept as `full` is a copy of the branch `name`.
+fn is_branch_copy(full: &FullName, name: &str) -> bool {
+    split_copy_name(&short_name(full.as_bstr(), TRASH)).0 == name
 }
 
 /// Record of the copy kept as `full`.
@@ -119,6 +136,26 @@ fn trash_refs(repo: &gix::Repository) -> Result<Vec<(FullName, ObjectId)>> {
     }
     out.sort_by(|a, b| a.0.as_bstr().cmp(b.0.as_bstr()));
     Ok(out)
+}
+
+/// A name that is the copy of one branch and the branch name of other
+/// copies, such as `a-1`: the copy `a-1` and the copies `a-1-<seconds>`.
+fn ambiguous(repo: &gix::Repository, name: &str, kept: &[(FullName, ObjectId)]) -> Error {
+    let references: Vec<String> = kept
+        .iter()
+        .filter(|(full, _)| names_copy(full, name))
+        .map(|(full, _)| full.as_bstr().to_str_lossy().into_owned())
+        .collect();
+    Error::new(
+        ErrorCode::GitRef,
+        format!(
+            "{name} names a preserved copy and the copies of a branch; purge the references {}",
+            references.join(", ")
+        ),
+    )
+    .with_problem("ambiguous")
+    .with_found(name.to_owned())
+    .with_next_step(format!("git.branch {} trash: true", quoted_repo(repo)))
 }
 
 fn missing(repo: &gix::Repository, name: &str) -> Error {
@@ -176,6 +213,29 @@ mod tests {
         let plan = plan_purge(&repo.open(), None, repo.signature()).unwrap();
         repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap();
         assert!(list_trash(&repo.open()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_name_of_a_copy_and_of_a_branch_is_ambiguous() {
+        let repo = TestRepo::new();
+        let head = repo.commit("first");
+        for copy in ["a-1", "a-1-5"] {
+            repo.write(&format!("refs/nurt/trash/{copy}"), &format!("{head}\n"));
+        }
+        let error = plan_purge(&repo.open(), Some(&["a-1"]), repo.signature()).unwrap_err();
+        assert_eq!(error.problem.as_deref(), Some("ambiguous"));
+        assert!(
+            error.message.contains("refs/nurt/trash/a-1-5"),
+            "{}",
+            error.message
+        );
+        let plan = plan_purge(
+            &repo.open(),
+            Some(&["refs/nurt/trash/a-1"]),
+            repo.signature(),
+        )
+        .unwrap();
+        assert_eq!(plan.outcomes().len(), 1);
     }
 
     #[test]

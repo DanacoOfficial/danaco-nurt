@@ -7,13 +7,12 @@
   "corrections": [
     {
       "id": "C1",
-      "rule": "L01",
-      "class": "F",
+      "rule": "L03",
+      "class": "C",
       "at": { "line": 1, "column": 1, "length": 6 },
-      "from": "remvoe",
+      "from": "Remove",
       "to": "remove",
-      "kind": "command",
-      "alternatives": ["move"]
+      "kind": "command"
     }
   ],
   "targets": { "count": 1, "files": 1, "bytes": 3277, "listed": 1 },

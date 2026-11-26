@@ -115,7 +115,14 @@ impl Notebook {
     /// Returns an error with code `E_FORMAT`: [`NotebookError::NotUtf8`],
     /// [`NotebookError::InvalidJson`], [`NotebookError::Version`] for
     /// nbformat other than 4, and [`NotebookError::Structure`] when a
-    /// required member is missing or has the wrong type.
+    /// required member is missing or has the wrong type, or when `cells`
+    /// occurs more than once in the root object.
+    ///
+    /// JSON nested deeper than 128 levels, the recursion limit of the JSON
+    /// reader, is reported as [`NotebookError::InvalidJson`]. Identifiers that
+    /// are not unique are not an error here, so that [`Notebook::normalize`]
+    /// can repair them; a cell addressed by such an identifier fails with
+    /// [`NotebookError::DuplicateId`].
     pub fn parse(bytes: &[u8]) -> Result<Self, NotebookError> {
         let document = Document::parse(bytes, &[CELLS])?;
         let nbformat = document
@@ -133,6 +140,9 @@ impl Notebook {
             return Err(NotebookError::structure(
                 "`nbformat_minor` is not a non-negative integer",
             ));
+        }
+        if document.root.keys().filter(|key| *key == CELLS).count() > 1 {
+            return Err(NotebookError::structure("`cells` occurs more than once"));
         }
         let start = document
             .member_value_start(CELLS)

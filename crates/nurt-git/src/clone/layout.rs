@@ -227,7 +227,7 @@ pub(super) fn head_target(
         Some(name) => name.to_owned(),
         None => match (&remote_head.id, refs.is_empty()) {
             (Some(id), _) => return HeadTarget::Detached(*id),
-            (None, false) => return HeadTarget::Detached(refs[0].id),
+            (None, false) => return HeadTarget::Detached(refs[0].peeled),
             (None, true) => DEFAULT_BRANCH.to_owned(),
         },
     };
@@ -261,7 +261,12 @@ pub(super) fn stored_url(url: &str) -> Result<String> {
         let stored = match rest[..host_end].rfind('@') {
             Some(at) => {
                 let user = rest[..at].split(':').next().unwrap_or_default();
-                format!("{}{user}@{}", &url[..scheme_end + 3], &rest[at + 1..])
+                let user_info = if user.is_empty() {
+                    String::new()
+                } else {
+                    format!("{user}@")
+                };
+                format!("{}{user_info}{}", &url[..scheme_end + 3], &rest[at + 1..])
             }
             None => url.to_owned(),
         };
@@ -525,6 +530,26 @@ mod tests {
             stored_url("git@host.example:org/app.git").unwrap(),
             "git@host.example:org/app.git"
         );
+    }
+
+    #[test]
+    fn stored_url_of_a_password_without_a_user_has_no_user_info() {
+        assert_eq!(
+            stored_url("https://:token@example.com/app.git").unwrap(),
+            "https://example.com/app.git"
+        );
+    }
+
+    #[test]
+    fn detached_head_without_remote_head_peels_the_first_reference() {
+        let head = head_target(
+            &[packed("refs/tags/v1", 1, 2)],
+            &RemoteHead::default(),
+            None,
+            false,
+        );
+        assert_eq!(head.branch(), None);
+        assert_eq!(head.commit(), Some(id(2)));
     }
 
     #[test]

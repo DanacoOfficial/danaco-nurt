@@ -10,6 +10,7 @@ The `nurt` executable runs programs of the language, offers an interactive sessi
 ```
 nurt [OPTIONS] <program>
 nurt <subcommand> [arguments]
+nurt <subcommand> -h | --help
 nurt -V | --version | -h | --help
 ```
 
@@ -21,13 +22,13 @@ Without arguments the executable starts the interactive session.
 |---|---|---|---|
 | `-V` | flag | | Print `nurt <version>`. |
 | `--version` | flag | | Print the version with the build data, the copyright and the license. |
-| `-h`, `--help` | flag | | Print the usage. |
+| `-h`, `--help` | flag | | Print the usage. As the first argument after the name of a subcommand it prints the usage of that subcommand and ends with exit code 0, without running it. |
 
 The options of a program (`--variant`, `--preview`, `--json`, `--format`, `--limit`, `--cursor`, `--verbosity`) are accepted before the first word of a program, so `nurt --preview remove ...` equals `nurt exec --preview remove ...`. Words after the first word of a program belong to the program. The language has no options with a dash.
 
 ## Output and colour
 
-The result is written to the standard output in the requested format. Errors of the command line are written to the standard error output. Colours follow `output.color` (`NURT_COLOR`): with `auto`, only a terminal is coloured and the variable `NO_COLOR` disables colours. The banner of an interactive session is written only to an interactive terminal.
+The result is written to the standard output in the requested format. Errors of the command line are written to the standard error output. A language error of `check`, `fmt`, `ast` and `schema` is written to the standard error output as text, except with an explicit `--format json` or `--json`: then it is a JSON document on the standard output (`{"error": {...}}`, and `{"diagnostics": [], "error": {...}}` for `check`, as in `docs/reference/c-abi.md`), the standard error output stays empty and the exit code is the one the error has in the text form. Errors that are not language errors, such as an invalid option or an unreadable file, are always written to the standard error output as text. Colours follow `output.color` (`NURT_COLOR`): with `auto`, only a terminal is coloured and the variable `NO_COLOR` disables colours. The banner of an interactive session is written only to an interactive terminal.
 
 ## Build features
 
@@ -138,7 +139,7 @@ nurt check <file | -e program> [--variant a|b|c] [--json | --format F]
 | `file` | path or `-` | none | Program file; `-` is the standard input. |
 | `-e` | text | none | Program text given on the command line. |
 
-Result: `ok`, the number of corrections and the summary of the check; with `--json`, the check document. Errors: a language error is written to the standard error output.
+Result: `ok`, the number of corrections and the summary of the check; with `--json`, the check document. Errors: a language error is written to the standard error output; with `--json` or `--format json` it is the document `{"diagnostics": [], "error": {...}}` on the standard output, with the same exit code. The check reports the errors of the program that the run would report at the binding of its stages, among them `E_INVALID_VALUE` and `E_TYPE` for a literal compared with a field of a known type (`filter size > "abc"`), at the position of the literal.
 
 Example:
 
@@ -153,10 +154,10 @@ Prints a program in canonical form.
 Syntax:
 
 ```
-nurt fmt <file | -> [--variant a|b|c]
+nurt fmt <file | -> [--variant a|b|c] [--json | --format F]
 ```
 
-Result: the program text in the given variant, by default the configured variant.
+Result: the program text in the given variant, by default the configured variant. Errors: a language error is written as described in "Output and colour"; the successful result is the program text in every format. Comments are kept: a comment on a line of its own stays before the statement or stage that follows it, and a comment at the end of a line stays at the end of the line of the stage that ended there; blank lines are removed.
 
 Example:
 
@@ -171,16 +172,17 @@ Converts a syntax tree between notations.
 Syntax:
 
 ```
-nurt ast [--from a|b|c|json] [--to json|cbor|a|b|c] <input | ->
+nurt ast [--from a|b|c|json] [--to json|cbor|a|b|c] [--json | --format F] <input | ->
 ```
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
 | `--from` | `a`, `b`, `c`, `json` | `json` | Notation of the input. |
 | `--to` | `json`, `cbor`, `a`, `b`, `c` | `json` | Notation of the output. |
+| `--json`, `--format` | flag, `text`, `json`, `markdown`, `compact` | `text` | With `json`, a language error is a JSON document. |
 | `input` | text or `-` | none | The input text; `-` is the standard input. |
 
-Result: the tree in the requested notation; `cbor` is binary.
+Result: the tree in the requested notation; `cbor` is binary. The format only selects the form of a language error, as described in "Output and colour"; the notation of a successful result is selected by `--to`.
 
 Example:
 
@@ -190,20 +192,24 @@ nurt ast --from a --to json 'find "/srv"'
 
 ## `schema`
 
-Prints a published JSON Schema.
+Prints a published JSON Schema, or the definition of the `nurt` tool for an AI platform.
 
 Syntax:
 
 ```
-nurt schema ast|bound|report|request|config|tool
+nurt schema ast|bound|report|request|config|tool [--json | --format json|text]
+nurt schema tool [--format <format>] [--language en|pl] [--groups core|all|<group>,<group>...]
 ```
 
-Errors: an unknown name is `E_UNKNOWN_VALUE` with the known names.
+`nurt schema tool` without options prints the published schema `nurt-tool/1`, the schema of the neutral definition. With at least one option other than `--json`, `--format json` or `--format text` it prints the definition of the tool, rendered from the description texts and the revision of the command catalog of the installed engine: `--format` selects the platform (`anthropic`, `openai`, `openai-strict`, `openai-responses`, `openai-responses-strict`, `gemini`, `mcp` or `json-schema`; default `json-schema`), `--language` the language of the description (default `en`) and `--groups` the command groups described besides the core group (default `core`). The formats, the arguments of the tool and the rules per platform are in [Tool definition](../integrators/tool-definition.md).
 
-Example:
+Errors: an unknown name, format, language or group is `E_UNKNOWN_VALUE` with the known values; an unknown option or a missing value is a usage error. With `--json` or `--format json` an unknown name is written as a JSON document on the standard output, as described in "Output and colour".
+
+Examples:
 
 ```
 nurt schema report
+nurt schema tool --format anthropic
 ```
 
 ## `catalog`
@@ -427,7 +433,7 @@ nurt ext list
 
 ## `doctor`
 
-Checks the installation and prints a table of checks: version, platform, formats, features, state directory (created and removed probe file), configuration files, services, journal, language components and the subcommands that are not available. A part that the build cannot examine is listed as `unavailable`. The exit code is 1 when a check failed, otherwise 0.
+Checks the installation and prints a table of checks: version, platform, formats, features, state directory (created and removed probe file), configuration files, services (the shared services that the engine registered, by name), journal, language components and the subcommands that are not available. A part that the build cannot examine is listed as `unavailable`. The exit code is 1 when a check failed, otherwise 0.
 
 Syntax:
 

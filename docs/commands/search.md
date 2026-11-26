@@ -62,6 +62,9 @@ Windows-1250, is decoded before matching. Lines longer than `max_line`
 characters are shortened around the first match, with a marker of the
 omitted characters (notable `truncated_lines`).
 
+`max_per_file` limits the matches reported for one file; `0`, like leaving it
+out, means no limit.
+
 `output: matches` gives `match` records. `output: counts` gives one `match`
 record per file, or per file and pattern, with `count`, the number of
 matches, and the position of the first match. `output: files` and
@@ -114,7 +117,7 @@ the order of the result does not depend on the number of threads.
 | `before` | `int` | none | Lines of context before each match. |
 | `after` | `int` | none | Lines of context after each match. |
 | `output` | `enum(matches\|files\|counts\|unmatched)` | `matches` | Matches, matching files, counts per file, or files without matches. |
-| `max_per_file` | `int` | none | Maximum number of matches per file. |
+| `max_per_file` | `int` | none | Maximum number of matches per file; `0` and no value mean no limit. |
 | `binary` | `enum(skip\|text)` | `skip` | Skip binary files or search them as text. |
 | `whitespace` | `enum(exact\|trailing\|indent\|normalize)` | `exact` | Tolerance of whitespace differences for literal patterns. |
 | `hidden` | `bool` | `true` | Include hidden files. |

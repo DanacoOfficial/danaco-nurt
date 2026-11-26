@@ -602,11 +602,24 @@ fn section_of(heading: &Heading, headings: &[Heading], total: u64) -> LineSpan {
     LineSpan::new(heading.line, end)
 }
 
+/// Last line of the YAML front matter that opens the text with `---`; its
+/// closing line is `---` or `...`. `None` for a text without front matter,
+/// including one whose opening line has no closing line.
+fn front_matter_end(lines: &Lines<'_>) -> Option<u64> {
+    if lines.content(1).trim_end() != "---" {
+        return None;
+    }
+    (2..=lines.total()).find(|line| matches!(lines.content(*line).trim_end(), "---" | "..."))
+}
+
 fn headings(lines: &Lines<'_>) -> Vec<Heading> {
     let mut found = Vec::new();
     let mut fence: Option<(char, usize)> = None;
     let mut underline_of_previous = false;
-    for line in 1..=lines.total() {
+    // The key before the closing `---` of the front matter would read as a
+    // heading with a setext underline.
+    let first = front_matter_end(lines).map_or(1, |end| end + 1);
+    for line in first..=lines.total() {
         let text = lines.content(line);
         if let Some(open) = fence {
             if closes_fence(text, open) {
@@ -964,6 +977,28 @@ end
     fn setext_headings_and_fenced_code_are_recognised() {
         assert_eq!(section("Notes").unwrap(), LineSpan::new(9, 14));
         assert!(section("not a heading").is_err());
+    }
+
+    #[test]
+    fn front_matter_is_not_a_setext_heading() {
+        let text = "---\ntitle: Guide\n---\n# Intro\ntext\n";
+        let lines = Lines::new(text);
+        assert_eq!(front_matter_end(&lines), Some(3));
+        assert!(section_span(&lines, "title: Guide", "a.md").is_err());
+        assert_eq!(
+            section_span(&lines, "Intro", "a.md").unwrap(),
+            LineSpan::new(4, 5)
+        );
+        let closed_by_dots = Lines::new("---\nkey: v\n...\n# Intro\n");
+        assert_eq!(front_matter_end(&closed_by_dots), Some(3));
+        let rule = "---\nnot front matter\n";
+        assert_eq!(front_matter_end(&Lines::new(rule)), None);
+        let heading_below = Lines::new("Title\n---\nbody\n");
+        assert_eq!(front_matter_end(&heading_below), None);
+        assert_eq!(
+            section_span(&heading_below, "Title", "a.md").unwrap(),
+            LineSpan::new(1, 3)
+        );
     }
 
     #[test]

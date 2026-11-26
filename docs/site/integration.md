@@ -18,10 +18,11 @@ A host program can call Danaco Nurt in four ways. The tool seen by a model is na
 
 ## The tool
 
-The tool takes a program in text, or a syntax tree, and returns the effect report. The schema of the tool is `nurt-tool/1`; `nurt schema tool` prints it. The description for the model is produced by the console from the catalog, so it always agrees with the installed version.
+The tool takes a program in text, or a syntax tree, and returns the effect report. The schema of the tool is `nurt-tool/1`; `nurt schema tool` prints it. The definition of the tool for a platform, with the description for the model, is produced by the console from the catalog with `nurt schema tool --format <format>`, so it always agrees with the installed version.
 
 ```text
 nurt schema tool
+nurt schema tool --format anthropic
 ```
 
 ## Policies of the engine

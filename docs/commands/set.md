@@ -34,7 +34,10 @@ apply to the result of the first; appends (`list[+]`) never conflict.
 In the stage form, after `read … key:` or `query`, every input `item`
 record names a file, a key path and the entity tag of the file. The value of
 each item is set to `value`, which may be an expression of the item.
-Items of one file are changed together, in input order.
+Items of one file are changed together, in input order. Items are assigned to
+a file by the identity of the file (device and file number), so two names of
+one file, such as a symbolic link or a path through a linked directory, are one
+file; a file that does not exist yet is identified by its normalised path.
 
 Key paths use the syntax of the `key` type: `a.b`, `list[0]`, `list[-1]`,
 `list[+]` to append, `list[*]` for every element, and `#1:` to select a

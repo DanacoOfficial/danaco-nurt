@@ -93,6 +93,20 @@ fn spec_of(ref_map: &RefMap, index: SpecIndex) -> Option<&RefSpec> {
     }
 }
 
+/// Refuses a local reference name that is not a valid reference name, such as
+/// one with a `..` component, before it is turned into a file path.
+fn checked_local(name: &str) -> Result<()> {
+    if gix::refs::FullName::try_from(name).is_ok() {
+        return Ok(());
+    }
+    Err(Error::new(
+        ErrorCode::GitRef,
+        format!("the refspec maps to `{name}`, which is not a valid reference name; fix the destination of the refspec"),
+    )
+    .with_problem("invalid_name")
+    .with_found(name.to_owned()))
+}
+
 /// Selects the updates of a fetch whose objects are in the object store.
 ///
 /// # Errors
@@ -124,6 +138,9 @@ pub(crate) fn select(
             .local
             .as_ref()
             .map(|name| name.to_str_lossy().into_owned());
+        if let Some(local) = &local {
+            checked_local(local)?;
+        }
         if implicit && !follows(repo.gix(), resolved.tags, local.as_deref(), &remote)? {
             continue;
         }
@@ -475,6 +492,14 @@ pub(crate) fn shallow_commits(content: &[u8]) -> HashSet<ObjectId> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn local_names_that_are_not_reference_names_are_refused() {
+        checked_local("refs/remotes/origin/main").unwrap();
+        for name in ["refs/heads/../../x", "refs/heads/a..b", "refs/heads//x"] {
+            let error = checked_local(name).unwrap_err();
+            assert_eq!(error.problem.as_deref(), Some("invalid_name"), "{name}");
+        }
+    }
     #[test]
     fn reverse_map_inverts_glob_refspecs() {
         assert_eq!(

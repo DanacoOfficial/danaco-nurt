@@ -24,6 +24,8 @@ pub enum NetworkProblem {
     HttpStatus,
     /// A redirect was refused by the redirect policy.
     Redirect,
+    /// Credentials would have been sent over plain `http://`.
+    InsecureCredentials,
 }
 
 impl NetworkProblem {
@@ -46,6 +48,7 @@ impl NetworkProblem {
             Self::Proxy => "proxy",
             Self::HttpStatus => "http_status",
             Self::Redirect => "redirect",
+            Self::InsecureCredentials => "insecure_credentials",
         }
     }
 }

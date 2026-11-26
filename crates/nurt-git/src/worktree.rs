@@ -44,6 +44,7 @@ use crate::checkpoint::support::{
     serialize_index, worktree_path,
 };
 use crate::checkpoint::{CreatePlan, CreateRequest, plan_create};
+use crate::refs_tx::LogAllRefUpdates;
 use crate::repo::pathspec::is_safe_path;
 
 /// Name of the command in the catalog.
@@ -208,7 +209,7 @@ pub fn plan_add(repo_path: &Path, request: &AddRequest, ctx: &ExecCtx) -> Result
     let (branch, start_point) = match (&request.branch, &request.start_point) {
         (None, Some(spec)) if is_local_branch(&repo, spec)? => (Some(spec.clone()), None),
         (None, Some(_)) => (None, request.start_point.clone()),
-        (None, None) => (Some(directory_name(&path)), None),
+        (None, None) => (Some(raw_directory_name(&path)), None),
         (Some(branch), start) => (Some(branch.clone()), start.clone()),
     };
     let Some(branch) = branch else {
@@ -321,9 +322,10 @@ pub fn apply_add(plan: &AddPlan, tx: &mut dyn MutationTx) -> Result<GitWorktree>
     let repo = open_repo(&plan.repo)?;
     let registration = plan.registration();
     let null = ObjectId::null(repo.object_hash());
+    let log_all = LogAllRefUpdates::of_repo(&repo)?;
     let mut writes = TxPlan::default();
     if let (Some(source), Some(full)) = (&plan.created_from, plan.full_branch()) {
-        declare_branch(&mut writes, plan, &full, null, source)?;
+        declare_branch(&mut writes, plan, &full, null, source, log_all)?;
     }
     writes.create_dirs(&registration.join(REFS_DIR))?;
     if plan.replaces_empty_dir {
@@ -350,7 +352,9 @@ pub fn apply_add(plan: &AddPlan, tx: &mut dyn MutationTx) -> Result<GitWorktree>
             RESET_MESSAGE,
         ));
     }
-    writes.create_file(&registration.join("logs").join("HEAD"), log)?;
+    if log_all.creates_log_for_name(b"HEAD") {
+        writes.create_file(&registration.join("logs").join("HEAD"), log)?;
+    }
     let index_path = registration.join("index");
     let index_target = writes.create_file(&index_path, Vec::new())?;
     writes.preserve(tx)?;
@@ -379,6 +383,7 @@ fn declare_branch(
     full: &str,
     null: ObjectId,
     source: &str,
+    log_all: LogAllRefUpdates,
 ) -> Result<()> {
     writes.write_locked(
         &ref_path(&plan.common_dir, full),
@@ -399,7 +404,9 @@ fn declare_branch(
             writes.write_file(&log, old, expect)?;
         }
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            writes.create_file(&log, line)?;
+            if log_all.creates_log_for_name(full.as_bytes()) {
+                writes.create_file(&log, line)?;
+            }
         }
         Err(err) => return Err(repo_error(&format!("read `{}`", log.display()), err)),
     }
@@ -979,6 +986,14 @@ fn registration_name(common_dir: &Path, path: &Path) -> String {
     }
 }
 
+/// Last component of `path` as written, the branch name `git worktree add`
+/// takes when none is given; a name git would refuse is refused as well.
+fn raw_directory_name(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
 fn directory_name(path: &Path) -> String {
     let raw = path
         .file_name()
@@ -1255,6 +1270,22 @@ mod tests {
     }
 
     #[test]
+    fn add_writes_no_reflogs_when_the_repository_does_not_log_ref_updates() {
+        let fixture = Fixture::build(
+            RepoBuilder::new()
+                .file("a.txt", "a\n")
+                .commit("initial")
+                .config("core.logAllRefUpdates", "false"),
+        );
+        let journal = RecordingJournal::default();
+        let path = fixture.base().join("wt");
+        add(&fixture, &journal, &request(&path, Some("feat"), None));
+        assert!(!fixture.root.join(".git/worktrees/wt/logs").exists());
+        assert!(!fixture.root.join(".git/logs/refs/heads/feat").exists());
+        assert!(fixture.root.join(".git/refs/heads/feat").is_file());
+    }
+
+    #[test]
     fn add_refuses_a_directory_with_entries() {
         let fixture = Fixture::new(&[("a.txt", "a\n")]);
         let path = fixture.base().join("wt");
@@ -1445,6 +1476,25 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.code(), ErrorCode::GitRevision);
+    }
+
+    #[test]
+    fn a_directory_name_that_is_not_a_branch_name_is_refused_like_git_does() {
+        let fixture = Fixture::new(&[("a.txt", "a\n")]);
+        for name in ["my tree", ".hidden", "a..b", "wip.lock", "tilde~1"] {
+            let path = fixture.base().join(name);
+            let err =
+                plan_add(&fixture.root, &request(&path, None, None), &test_ctx()).expect_err(name);
+            assert_eq!(err.code(), ErrorCode::GitRef, "{name}");
+            assert_eq!(err.problem.as_deref(), Some("invalid_name"), "{name}");
+        }
+        let branch = fixture.base().join("my tree");
+        let plan = plan_add(
+            &fixture.root,
+            &request(&branch, Some("fine"), None),
+            &test_ctx(),
+        );
+        assert!(plan.is_ok());
     }
 
     #[test]

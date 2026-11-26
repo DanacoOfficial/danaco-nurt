@@ -66,7 +66,7 @@ const DELETED_SUFFIX: &str = " (deleted)";
 /// How a process uses a matching path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
-    windows,
+    all(windows, not(test)),
     expect(
         dead_code,
         reason = "the Restart Manager does not report the kind of access"
@@ -143,6 +143,7 @@ impl Target {
 
     /// Returns `true` when `candidate` is the target or, for a directory,
     /// lies below it.
+    #[cfg(any(unix, test))]
     pub(crate) fn matches(&self, candidate: &Path) -> bool {
         if self.directory {
             candidate.starts_with(&self.path)
@@ -209,6 +210,7 @@ impl Holder {
     }
 
     /// Returns `true` when the process holds the target.
+    #[cfg(any(unix, test))]
     pub(crate) fn is_holding(&self) -> bool {
         !self.access.is_empty() || self.kind.is_some()
     }

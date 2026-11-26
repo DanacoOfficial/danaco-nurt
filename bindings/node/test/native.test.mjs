@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 import { fakeServe, internal, nurt, packageDirectory, withClient } from "./support.mjs";
 
 const require = createRequire(import.meta.url);
-const { Nurt, NurtError, Response } = nurt;
+const { Nurt, NurtError, NurtLanguageError, Response } = nurt;
 const { locateAddon, nativeFailure } = internal("native");
 
 const addonPath = join(packageDirectory, "test", "fixtures", "fake-addon.cjs");
@@ -107,13 +107,28 @@ describe("library backend", () => {
     });
   });
 
-  it("reports a language error of an operation as a call failure with the error code", async () => {
+  it("returns the language error of parse as a failed report, as the server does", async () => {
     await withClient(LIBRARY, async (client) => {
-      await assert.rejects(client.parse("bad"), (/** @type {any} */ error) => {
+      const result = await client.parse("bad");
+      assert.equal(result.report.status, "failed");
+      assert.equal(result.report.kind, "parse");
+      assert.equal(result.report.error.code, "E_SYNTAX");
+    });
+  });
+
+  it("throws the language error of a query", async () => {
+    await withClient(LIBRARY, async (client) => {
+      await assert.rejects(client.describe({ name: "missing" }), (/** @type {any} */ error) => {
+        assert.ok(error instanceof NurtLanguageError);
+        assert.equal(error.code, "E_NOT_FOUND");
+        assert.equal(error.response.report.kind, "describe");
+        return true;
+      });
+      await assert.rejects(client.describe({ name: "unknown" }), (/** @type {any} */ error) => {
         assert.ok(error instanceof NurtError);
         assert.equal(error.status, "NURT_E_ARG");
-        assert.match(error.message, /^E_SYNTAX: unexpected token$/);
-        assert.equal(error.detail.code, "E_SYNTAX");
+        assert.match(error.message, /^E_UNKNOWN_VALUE: unknown layer$/);
+        assert.equal(error.detail.code, "E_UNKNOWN_VALUE");
         return true;
       });
     });

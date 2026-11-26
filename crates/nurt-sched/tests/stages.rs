@@ -739,6 +739,26 @@ fn list_errors() {
 }
 
 #[test]
+fn frozen_clock_sets_the_wall_time_only_and_a_cancelled_sleep_ends_at_once() {
+    use nurt_contracts::env::Clock;
+    use nurt_contracts::stage::CancelReason;
+
+    let clock = VirtualClock::frozen(at(T0));
+    let before = clock.monotonic();
+    clock.set(at("2030-01-01T00:00:00Z"));
+    assert_eq!(clock.monotonic(), before);
+    assert_eq!(
+        clock.now().unix_nanos(),
+        i128::from(at("2030-01-01T00:00:00Z").as_unix_nanos())
+    );
+    let cancel = CancelToken::new();
+    cancel.cancel(CancelReason::Requested);
+    let slept = clock.sleep(std::time::Duration::from_secs(3600), &cancel);
+    assert_eq!(slept, Err(CancelReason::Requested));
+    assert_eq!(clock.monotonic(), before);
+}
+
+#[test]
 fn commands_without_state_directory_fail() {
     let clock = VirtualClock::frozen(at(T0));
     let ctx = ExecCtx::builder(clock, TestHost::new("UTC")).build();

@@ -409,8 +409,8 @@ impl HttpClient {
     ///
     /// - `E_ARG` for an invalid header or proxy;
     /// - `E_NETWORK` with `problem` `dns`, `connect`, `reset`, `tls`,
-    ///   `proxy`, `redirect_limit`, `bad_location`, `protocol` or `denied`
-    ///   (refused by the [`ConnectGate`]);
+    ///   `proxy`, `redirect_limit`, `scheme_downgrade`, `bad_location`,
+    ///   `protocol` or `denied` (refused by the [`ConnectGate`]);
     /// - `E_TIMEOUT` when the time limit of the request or of the program
     ///   elapses, `E_CANCELLED` when the execution is cancelled;
     /// - `E_CONFIG` when `ca_file` cannot be read.
@@ -494,6 +494,17 @@ impl HttpClient {
                 .with_problem("redirect_limit"));
             }
             let next = target.join(&location)?;
+            if lowers_scheme(&target, &next) {
+                return Err(Error::new(
+                    ErrorCode::Network,
+                    format!(
+                        "`{}` redirects from https to the unencrypted `{}`: give `follow_redirects: false` to read the redirect",
+                        target.display_url(),
+                        next.display_url()
+                    ),
+                )
+                .with_problem("scheme_downgrade"));
+            }
             redirects.push(RedirectStep {
                 status,
                 url: target.display_url(),
@@ -501,7 +512,7 @@ impl HttpClient {
                 addresses: connected.addresses.clone(),
             });
             drop(connected);
-            if status == SEE_OTHER || (matches!(status, 301 | 302) && method == Method::Post) {
+            if changes_to_get(status, method) {
                 method = Method::Get;
                 body = RequestBody::None;
                 headers.retain(|(name, _)| !name.eq_ignore_ascii_case("content-type"));
@@ -700,6 +711,23 @@ impl HttpClient {
 
 /// Status `303 See Other`.
 const SEE_OTHER: u16 = 303;
+
+/// Whether a redirect with `status` of a request with `method` is followed
+/// with `GET`: `303` asks for `GET` unless the request is `HEAD`, which stays
+/// `HEAD`, and a `POST` becomes `GET` after `301` and `302`.
+fn changes_to_get(status: u16, method: Method) -> bool {
+    match status {
+        SEE_OTHER => method != Method::Head,
+        301 | 302 => method == Method::Post,
+        _ => false,
+    }
+}
+
+/// Whether a redirect leaves `https` for `http`, which would send the request
+/// and the answer unencrypted.
+fn lowers_scheme(from: &Target, to: &Target) -> bool {
+    from.scheme() == "https" && to.scheme() == "http"
+}
 
 /// Resolver that answers every lookup with the one address chosen by the
 /// client for the current connection.
@@ -946,6 +974,28 @@ fn tls_error(url: &str, reason: &str) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_see_other_redirect_keeps_a_head_request_a_head_request() {
+        assert!(changes_to_get(303, Method::Post));
+        assert!(changes_to_get(303, Method::Get));
+        assert!(!changes_to_get(303, Method::Head));
+        assert!(changes_to_get(301, Method::Post));
+        assert!(changes_to_get(302, Method::Post));
+        assert!(!changes_to_get(302, Method::Head));
+        assert!(!changes_to_get(307, Method::Post));
+        assert!(!changes_to_get(308, Method::Post));
+    }
+
+    #[test]
+    fn only_a_redirect_from_https_to_http_lowers_the_scheme() {
+        let secure = Target::parse("https://example.test/a").unwrap();
+        let plain = Target::parse("http://example.test/b").unwrap();
+        assert!(lowers_scheme(&secure, &plain));
+        assert!(!lowers_scheme(&plain, &secure));
+        assert!(!lowers_scheme(&secure, &secure));
+        assert!(!lowers_scheme(&plain, &plain));
+    }
 
     #[test]
     fn methods_round_trip_and_classify() {

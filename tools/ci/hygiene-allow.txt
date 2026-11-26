@@ -29,6 +29,11 @@ style */LICENSE
 # accounts as input.
 user-path crates/nurt-report/tests/rules_paths.rs
 
+# The unit file of the user service names the home directory of the account
+# that installs it; the tests and the golden unit use a sample account.
+user-path crates/nurt-service/src/install/linux.rs
+user-path crates/nurt-service/tests/golden/nurt-service.user.service
+
 # The proptest constant strategy is a function whose name is a promotional
 # word; the test uses it as an identifier.
 promotional-word crates/nurt-types/tests/order.rs
@@ -147,3 +152,13 @@ work-marker tests/d1/correction/*
 
 # Test input: Rust source text that contains the attribute as data.
 allow-attribute crates/nurt-sys/tests/d7_static.rs
+
+# Source of pdf-extract 0.12.1 (MIT license, crates/nurt-pdf-extract/LICENSE-MIT,
+# NOTICE), copied because its release requires lopdf 0.42 and with it the
+# unmaintained ttf-parser crate. The files keep the wording and the comments of
+# the upstream project and carry its origin instead of the producer header.
+* crates/nurt-pdf-extract/*
+
+# Vendored third-party crate kept as published, without the producer header, the
+# style rules of this repository and the other checks.
+* crates/jaq-json/*

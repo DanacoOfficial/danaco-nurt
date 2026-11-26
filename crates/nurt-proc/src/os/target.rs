@@ -119,6 +119,10 @@ impl Target {
             .is_none_or(|identity| identity.ended || !same_start(self.started, identity.started))
     }
 
+    #[allow(
+        clippy::useless_conversion,
+        reason = "the result of the system call is 32 bits wide on 32-bit Linux"
+    )]
     fn send(&self, number: c_int) -> Result<()> {
         let pid = u64::try_from(self.pid).unwrap_or_default();
         #[cfg(target_os = "linux")]
@@ -136,6 +140,10 @@ impl Target {
                         0_u32,
                     )
                 };
+                #[allow(
+                    clippy::useless_conversion,
+                    reason = "`libc::syscall` returns `c_long`, which is 32 bits wide on 32-bit targets"
+                )]
                 return check(i64::from(status), pid);
             }
         }

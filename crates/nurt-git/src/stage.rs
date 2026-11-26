@@ -93,6 +93,7 @@ pub struct StagePlan {
     blobs: BTreeMap<ObjectId, Vec<u8>>,
     changes: Vec<StagedPath>,
     excluded: u64,
+    ignored: Vec<BString>,
 }
 
 impl StagePlan {
@@ -112,6 +113,15 @@ impl StagePlan {
     #[must_use]
     pub fn excluded(&self) -> u64 {
         self.excluded
+    }
+
+    /// Ignored files that were named explicitly and staged anyway.
+    ///
+    /// `git add` refuses such files unless it is given `-f`; the plan stages
+    /// them, so the caller reports them.
+    #[must_use]
+    pub fn ignored(&self) -> &[BString] {
+        &self.ignored
     }
 
     /// Number of stage 0 entries of the planned index.
@@ -202,9 +212,12 @@ pub fn plan(repo: &GitRepo, action: Action, request: &StageRequest) -> Result<St
         changes: Vec::new(),
     };
     let mut excluded = 0u64;
+    let mut ignored = Vec::new();
     for path in &request.paths {
         let path = normalize(repo, path.as_bstr())?;
-        for file in builder.files_of(path.as_bstr(), action)? {
+        let files = builder.files_of(path.as_bstr(), action)?;
+        let named = files.len() == 1 && files[0] == path;
+        for file in files {
             if action == Action::Add
                 && request
                     .exclude
@@ -215,7 +228,13 @@ pub fn plan(repo: &GitRepo, action: Action, request: &StageRequest) -> Result<St
                 continue;
             }
             match action {
-                Action::Add => builder.add_file(file.as_bstr(), request.intent_to_add)?,
+                Action::Add => {
+                    let new = builder.is_new(file.as_bstr());
+                    builder.add_file(file.as_bstr(), request.intent_to_add)?;
+                    if named && new && builder.is_ignored(file.as_bstr())? {
+                        ignored.push(file);
+                    }
+                }
                 Action::Unstage => builder.unstage_file(file.as_bstr())?,
             }
         }
@@ -229,6 +248,7 @@ pub fn plan(repo: &GitRepo, action: Action, request: &StageRequest) -> Result<St
         blobs: builder.blobs,
         changes: builder.changes,
         excluded,
+        ignored,
     })
 }
 
@@ -264,6 +284,23 @@ impl Builder<'_> {
         self.index.state.entries().iter().any(|entry| {
             entry.stage() != Stage::Unconflicted && entry.path(&self.index.state) == path
         })
+    }
+
+    /// Whether `path` has no entry in the index at any stage.
+    fn is_new(&self, path: &BStr) -> bool {
+        self.current(path).is_none() && !self.conflicted(path)
+    }
+
+    /// Whether the file `path`, absent from the index, is excluded by the
+    /// ignore rules: the walk for untracked files leaves it out.
+    fn is_ignored(&mut self, path: &BStr) -> Result<bool> {
+        let relative = gix_path::from_bstr(path).map_err(read_error)?;
+        let on_disk = self
+            .workdir
+            .join(&*relative)
+            .symlink_metadata()
+            .is_ok_and(|meta| !meta.is_dir());
+        Ok(on_disk && !self.untracked()?.iter().any(|file| file == path))
     }
 
     fn is_worktree_dir(&self, path: &BStr) -> Result<bool> {
@@ -757,6 +794,24 @@ mod tests {
         let repo = open(&fixture);
         assert!(entry(&repo, "n.txt").is_some());
         assert!(entry(&repo, "b.txt").is_none());
+    }
+
+    #[test]
+    fn an_ignored_file_named_explicitly_is_staged_and_reported() {
+        let fixture = RepoBuilder::new()
+            .file(".gitignore", "*.log\n")
+            .file("a.txt", "a\n")
+            .commit("first")
+            .worktree_file("debug.log", "log\n")
+            .worktree_file("new.txt", "n\n")
+            .build();
+        let repo = open(&fixture);
+        let planned = plan(&repo, Action::Add, &request(&["debug.log", "new.txt"], &[])).unwrap();
+        assert_eq!(paths_of(planned.changes()), ["debug.log", "new.txt"]);
+        assert_eq!(planned.ignored(), [BString::from("debug.log")]);
+        let planned = plan(&repo, Action::Add, &request(&["."], &[])).unwrap();
+        assert_eq!(paths_of(planned.changes()), ["new.txt"]);
+        assert!(planned.ignored().is_empty());
     }
 
     #[test]

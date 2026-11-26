@@ -124,6 +124,12 @@ class RenderedManifestsTest(unittest.TestCase):
         self.assertEqual(len(re.findall(r'url "https://github\.com/DanacoOfficial/nurt/releases/download/', text)), 4)
         self.assertIn('assert_match(/\\Anurt \\d/, shell_output("#{bin}/nurt version"))', text)
 
+    def test_homebrew_formula_takes_the_glibc_archives_of_linux(self):
+        text = self.read("homebrew/nurt.rb")
+        for target in ("x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"):
+            self.assertIn(f"nurt-{VERSION}-{target}.tar.gz", text)
+        self.assertNotIn("musl", text)
+
     def test_homebrew_core_formula_builds_from_source_archive(self):
         text = self.read("homebrew/core/nurt.rb")
         self.assertIn(f'url "https://github.com/DanacoOfficial/nurt/archive/refs/tags/v{VERSION}.tar.gz"', text)

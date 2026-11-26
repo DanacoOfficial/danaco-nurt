@@ -35,11 +35,10 @@ use std::io::{Read, SeekFrom};
 use std::sync::Arc;
 
 use nurt_contracts::config;
-use nurt_contracts::env::Os;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{
-    AbsPath, Durability, FileKind, FileMeta, Follow, Fs, FsErrorKind, ProviderKey, ProviderScheme,
-    ProviderValue, WriteHandle,
+    AbsPath, Durability, FileKind, FileMeta, Follow, Fs, FsErrorKind, ProviderValue, RegistryKind,
+    WriteHandle,
 };
 use nurt_contracts::journal::{
     Applied, Expect, FileOp, Mutation, MutationTx, Preserved, TargetAction, TargetPath, TargetSpec,
@@ -66,9 +65,10 @@ use crate::common::notable::{at_path, preserved_text};
 use crate::common::params::{
     EncodingParam, IfMatch, LineEndingParam, encoding_param, if_match_param, line_ending_param,
 };
-use crate::common::path::{path_arg, resolve};
+use crate::common::path::{path_arg_for_change, resolve, resolve_for_change};
 use crate::common::text::{TextFile, read_text, record_line_ending, text_codec};
 use crate::details::content::count_lines;
+use crate::registry;
 
 const COMMAND: &str = "write";
 
@@ -118,10 +118,6 @@ const VALUE_COLUMN: &str = "value";
 const CSV_DELIMITER: char = ',';
 const TSV_DELIMITER: char = '\t';
 
-const REGISTRY_PREFIX: &str = "registry:";
-const REGISTRY_SCHEME: &str = "registry";
-/// Hive and value name: the shortest registry path that names a value.
-const REGISTRY_MIN_SEGMENTS: usize = 2;
 /// Platform type code of `REG_BINARY`.
 const REG_BINARY: u32 = 3;
 
@@ -775,7 +771,7 @@ struct Item {
 }
 
 fn items(args: &BoundArgs, input: StageInput<'_>, ctx: &ExecCtx) -> Result<Vec<Item>> {
-    let path = path_arg(args, PATH, ctx)?;
+    let path = path_arg_for_change(args, PATH, ctx)?;
     let files = args
         .value(FILES)
         .filter(|value| !matches!(value, Value::Null));
@@ -1186,7 +1182,7 @@ fn batch_item(number: usize, entry: &Value, default: Option<Mode>, ctx: &ExecCtx
         .with_found(name.as_str()));
     }
     let path = match fields.get(PATH) {
-        Some(Value::Path(text) | Value::Text(text)) => resolve(ctx, text)?,
+        Some(Value::Path(text) | Value::Text(text)) => resolve_for_change(ctx, text)?,
         Some(_) => return Err(item_error(number, "has a `path` that is not a path")),
         None => return Err(item_error(number, "has no `path`")),
     };
@@ -1791,9 +1787,7 @@ impl<'c> Planner<'c> {
 fn registry_path(args: &BoundArgs) -> Option<&str> {
     match args.value(PATH) {
         Some(Value::Path(text) | Value::Text(text))
-            if text
-                .get(..REGISTRY_PREFIX.len())
-                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(REGISTRY_PREFIX)) =>
+            if registry::is_registry_path(text.as_str()) =>
         {
             Some(text.as_str())
         }
@@ -1802,13 +1796,7 @@ fn registry_path(args: &BoundArgs) -> Option<&str> {
 }
 
 fn plan_registry(args: &BoundArgs, raw: &str, mut planner: Planner<'_>) -> Result<EffectPlan> {
-    if planner.ctx.host().info().os != Os::Windows {
-        return Err(Error::new(
-            ErrorCode::OsOnly,
-            format!("`{raw}` is a registry path, and the registry exists only on Windows"),
-        )
-        .with_found(raw));
-    }
+    let registry = registry::access(planner.ctx, raw)?;
     if let Some(name) = [FROM, SIZE, OFFSET, FILES]
         .into_iter()
         .find(|name| present(args, name))
@@ -1832,7 +1820,7 @@ fn plan_registry(args: &BoundArgs, raw: &str, mut planner: Planner<'_>) -> Resul
         }
     };
     let target = TargetSpec {
-        path: TargetPath::Provider(registry_key(raw)?),
+        path: TargetPath::Provider(registry.address(raw, RegistryKind::Value)?.key),
         action,
         expect,
         size_hint: None,
@@ -1841,28 +1829,6 @@ fn plan_registry(args: &BoundArgs, raw: &str, mut planner: Planner<'_>) -> Resul
     let change = planned_change(&target);
     planner.push(target, Work::Apply(Mutation::ProviderSet(value)), change);
     Ok(planner.finish())
-}
-
-fn registry_key(raw: &str) -> Result<ProviderKey> {
-    let rest = raw.get(REGISTRY_PREFIX.len()..).unwrap_or_default();
-    let mut segments: Vec<String> = rest
-        .split(['/', '\\'])
-        .filter(|segment| !segment.is_empty())
-        .map(str::to_owned)
-        .collect();
-    if segments.len() < REGISTRY_MIN_SEGMENTS {
-        return Err(Error::new(
-            ErrorCode::InvalidValue,
-            format!("`{raw}` names no registry value: write `registry:/<hive>/<key>/<value>`"),
-        )
-        .with_found(raw));
-    }
-    let value = segments.pop();
-    Ok(ProviderKey {
-        scheme: ProviderScheme(REGISTRY_SCHEME.to_owned()),
-        segments,
-        value,
-    })
 }
 
 fn registry_value(args: &BoundArgs, ctx: &ExecCtx) -> Result<ProviderValue> {
@@ -2887,7 +2853,10 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::OsOnly);
 
         let windows = TestContext::with_host(TestHost::windows());
-        let ctx = windows.ctx();
+        let ctx = windows
+            .builder()
+            .extensions(crate::registry::testing::MemRegistry::new(&[], &[]).extensions())
+            .build();
         let mut plan = Write
             .plan(&registry_args("dword", "0x10"), StageInput::none(), &ctx)
             .unwrap();

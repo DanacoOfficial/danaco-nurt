@@ -240,21 +240,35 @@ pub(crate) async fn establish(
         let opened =
             tokio::time::timeout(timeout, open_hop(&hop, previous.as_deref(), handler)).await;
         let decision = decision.lock().ok().and_then(|mut slot| slot.take());
-        let mut handle = match (opened, decision) {
-            (_, Some(Decision::Reject(error))) => return Err(error),
-            (Err(_), _) => return Err(connect_timeout_error(&hop.config, timeout)),
-            (Ok(Err(error)), _) => return Err(error),
-            (Ok(Ok(handle)), Some(Decision::Accept { addition, notice })) => {
-                established.additions.extend(addition);
-                established.notices.extend(notice);
-                handle
-            }
-            (Ok(Ok(handle)), None) => handle,
-        };
+        let (mut handle, addition, notice) = settle_hop(opened, decision, &hop, timeout)?;
+        established.additions.extend(addition);
+        established.notices.extend(notice);
         authenticate(&mut handle, &hop.config, &auth).await?;
         established.sessions.push(Arc::new(handle));
     }
     Ok(established)
+}
+
+/// Joins the outcome of opening a hop with the decision on its host key.
+///
+/// A connection without a recorded decision is refused: `russh` asks the
+/// handler for every server key, so a missing decision means the key was not
+/// checked.
+fn settle_hop<T, E>(
+    opened: std::result::Result<Result<T>, E>,
+    decision: Option<Decision>,
+    hop: &HopPlan,
+    timeout: Duration,
+) -> Result<(T, Option<HostKeyAddition>, Option<SshNotice>)> {
+    match (opened, decision) {
+        (_, Some(Decision::Reject(error))) => Err(error),
+        (Err(_), _) => Err(connect_timeout_error(&hop.config, timeout)),
+        (Ok(Err(error)), _) => Err(error),
+        (Ok(Ok(handle)), Some(Decision::Accept { addition, notice })) => {
+            Ok((handle, addition, notice))
+        }
+        (Ok(Ok(_)), None) => Err(unchecked_host_key_error(&hop.check)),
+    }
 }
 
 async fn open_hop(
@@ -538,6 +552,18 @@ fn network_error(config: &HostConfig, reason: &str) -> Error {
     .with_problem("ssh_connect")
 }
 
+fn unchecked_host_key_error(check: &HostKeyCheck) -> Error {
+    Error::new(
+        ErrorCode::GitHostKey,
+        format!(
+            "the host key of `{}` was not checked, so the connection is refused",
+            check.host
+        ),
+    )
+    .with_problem("unchecked")
+    .with_help("git.ssh")
+}
+
 fn connect_timeout_error(config: &HostConfig, timeout: Duration) -> Error {
     Error::new(
         ErrorCode::Timeout,
@@ -554,6 +580,37 @@ fn connect_timeout_error(config: &HostConfig, timeout: Duration) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_connection_without_a_host_key_decision_is_refused() {
+        use super::super::config::tests_support::host_config;
+        use super::super::known_hosts::Policy;
+        let hop = HopPlan {
+            config: host_config("example.com"),
+            check: HostKeyCheck {
+                host: "example.com".into(),
+                name: "example.com".into(),
+                known: Default::default(),
+                files: Vec::new(),
+                policy: Policy::Off,
+                accept_fingerprint: None,
+                record_file: None,
+                retry_command: None,
+            },
+        };
+        let timeout = Duration::from_secs(1);
+        let opened: std::result::Result<Result<u8>, ()> = Ok(Ok(1));
+        let error = settle_hop(opened, None, &hop, timeout).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::GitHostKey);
+        let opened: std::result::Result<Result<u8>, ()> = Ok(Ok(7));
+        let accepted = Decision::Accept {
+            addition: None,
+            notice: None,
+        };
+        let (handle, addition, notice) = settle_hop(opened, Some(accepted), &hop, timeout).unwrap();
+        assert_eq!(handle, 7);
+        assert!(addition.is_none() && notice.is_none());
+    }
 
     #[test]
     fn defaults_exclude_sha1_rsa_host_keys() {

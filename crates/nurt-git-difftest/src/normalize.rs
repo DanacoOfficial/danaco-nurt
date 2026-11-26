@@ -1029,19 +1029,31 @@ fn is_lower_hex(byte: u8) -> bool {
     byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
 }
 
-/// Replaces the case directory in every value by [`ROOT_PLACEHOLDER`].
+/// Replaces the case directory in every value by [`ROOT_PLACEHOLDER`], also
+/// where git reports it with its links resolved (`/private/var` for `/var`).
 fn substitute_root(section: SectionState, case_root: &Path) -> SectionState {
-    let native = case_root.to_string_lossy().into_owned();
-    let forward = native.replace('\\', "/");
-    let quoted = format!("{native:?}");
-    let quoted = quoted.trim_matches('"').to_owned();
+    let mut roots = vec![case_root.to_path_buf()];
+    if let Ok(resolved) = std::fs::canonicalize(case_root)
+        && resolved != case_root
+    {
+        roots.push(resolved);
+    }
+    let spellings: Vec<String> = roots
+        .iter()
+        .flat_map(|root| {
+            let native = root.to_string_lossy().into_owned();
+            let forward = native.replace('\\', "/");
+            let quoted = format!("{native:?}");
+            let quoted = quoted.trim_matches('"').to_owned();
+            [native, forward, quoted]
+        })
+        .collect();
     section
         .into_iter()
         .map(|(key, value)| {
-            let value = value
-                .replace(&native, ROOT_PLACEHOLDER)
-                .replace(&forward, ROOT_PLACEHOLDER)
-                .replace(&quoted, ROOT_PLACEHOLDER);
+            let value = spellings.iter().fold(value, |text, spelling| {
+                text.replace(spelling, ROOT_PLACEHOLDER)
+            });
             (key, value)
         })
         .collect()
@@ -1153,6 +1165,23 @@ mod tests {
         let section =
             SectionState::from([("k".to_owned(), "gitdir: /tmp/case/a/repo/.git".to_owned())]);
         let replaced = substitute_root(section, Path::new("/tmp/case/a"));
+        assert_eq!(replaced["k"], "gitdir: $ROOT/repo/.git");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn substitutes_the_case_directory_spelled_with_resolved_links() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("real");
+        std::fs::create_dir(&real).unwrap();
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let resolved = std::fs::canonicalize(&link).unwrap();
+        let section = SectionState::from([(
+            "k".to_owned(),
+            format!("gitdir: {}/repo/.git", resolved.display()),
+        )]);
+        let replaced = substitute_root(section, &link);
         assert_eq!(replaced["k"], "gitdir: $ROOT/repo/.git");
     }
 

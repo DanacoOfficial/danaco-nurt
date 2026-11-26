@@ -19,6 +19,15 @@ export class Response {
     return this.raw.report;
   }
 
+  /**
+   * Reports of the pipelines of a script that ran several operations, in
+   * program order; empty for a program with a single operation. They are not
+   * paged and carry no `next_cursor`.
+   */
+  get reports(): readonly Report[] {
+    return this.raw.reports ?? [];
+  }
+
   /** Rendered text, present for the formats `text`, `markdown` and `compact`. */
   get text(): string | undefined {
     return this.raw.rendered?.text;

@@ -166,9 +166,32 @@ impl Normalizer {
             return text.to_owned();
         };
         let native = base.replace('/', "\\");
-        text.replace(base.as_str(), BASE_MARK)
-            .replace(native.as_str(), BASE_MARK)
+        replace_prefix_at_boundary(
+            &replace_prefix_at_boundary(text, base.as_str()),
+            native.as_str(),
+        )
     }
+}
+
+/// Replaces `needle` by [`BASE_MARK`] where it ends a path component, so that
+/// the base `/tmp/run-1` does not rewrite the start of `/tmp/run-10/a`.
+fn replace_prefix_at_boundary(text: &str, needle: &str) -> String {
+    let ends_with_separator = needle.ends_with(['/', '\\']);
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(needle) {
+        let after = &rest[at + needle.len()..];
+        let boundary = ends_with_separator
+            || after
+                .chars()
+                .next()
+                .is_none_or(|next| !(next.is_alphanumeric() || matches!(next, '-' | '_' | '.')));
+        out.push_str(&rest[..at]);
+        out.push_str(if boundary { BASE_MARK } else { needle });
+        rest = after;
+    }
+    out.push_str(rest);
+    out
 }
 
 /// One case directory.
@@ -553,6 +576,21 @@ mod tests {
         assert_eq!(
             Normalizer::none().with_base("").normalize(&json!("a")),
             json!("a")
+        );
+    }
+
+    #[test]
+    fn normalizer_replaces_the_base_only_at_the_end_of_a_component() {
+        let normalizer = Normalizer::none().with_base("/tmp/run-1");
+        let value = json!([
+            "/tmp/run-1/a",
+            "/tmp/run-10/a",
+            "/tmp/run-1",
+            "x /tmp/run-1: y"
+        ]);
+        assert_eq!(
+            normalizer.normalize(&value),
+            json!(["<base>/a", "/tmp/run-10/a", "<base>", "x <base>: y"])
         );
     }
 

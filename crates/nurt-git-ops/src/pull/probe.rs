@@ -645,7 +645,7 @@ pub(crate) mod tests {
             );
         }
         index.sort_entries();
-        index.write(Default::default()).unwrap();
+        index.write(Default::default(), Default::default()).unwrap();
         assert_eq!(fixture.open().unmerged_paths().unwrap(), ["c.txt"]);
     }
 
@@ -668,11 +668,45 @@ pub(crate) mod tests {
             "sub".into(),
         );
         index.sort_entries();
-        index.write(Default::default()).unwrap();
+        index.write(Default::default(), Default::default()).unwrap();
         fs::create_dir(fixture.root().join("sub")).unwrap();
         let repo = fixture.open();
         assert!(repo.unstaged_paths().unwrap().is_empty());
         assert!(repo.staged_paths(Some(first)).unwrap().is_empty());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "the fixture adds an entry with a raw path by writing the index directly, outside a transaction"
+    )]
+    fn finds_unstaged_changes_in_a_path_that_is_not_utf8() {
+        use std::os::unix::ffi::OsStrExt;
+        let mut fixture = Fixture::new();
+        let first = fixture.commit(&[("a.txt", "a\n")], &[], "init");
+        fixture.set_ref("refs/heads/main", first);
+        fixture.checkout(first);
+        let name: &[u8] = b"bad\xff.txt";
+        let file = fixture.root().join(std::ffi::OsStr::from_bytes(name));
+        fs::write(&file, "one\n").unwrap();
+        let blob = fixture.repo.write_blob(b"one\n").unwrap().detach();
+        let mut index = fixture.repo.open_index().unwrap();
+        index.dangerously_push_entry(
+            Default::default(),
+            blob,
+            gix::index::entry::Flags::empty(),
+            gix::index::entry::Mode::FILE,
+            name.into(),
+        );
+        index.sort_entries();
+        index.write(Default::default(), Default::default()).unwrap();
+        assert!(fixture.open().unstaged_paths().unwrap().is_empty());
+        fs::write(&file, "two\n").unwrap();
+        assert_eq!(
+            fixture.open().unstaged_paths().unwrap(),
+            ["bad\u{fffd}.txt"]
+        );
     }
 
     #[test]

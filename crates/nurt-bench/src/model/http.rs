@@ -4,7 +4,7 @@
 //! JSON over HTTP with repeated attempts for the provider adapters.
 
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -36,6 +36,9 @@ pub(crate) struct Settings {
 pub(crate) struct HttpClient {
     agent: ureq::Agent,
     settings: Settings,
+    /// Moment after which no request is sent or waited for, when the run has
+    /// a time limit.
+    deadline: Option<Instant>,
 }
 
 impl HttpClient {
@@ -47,7 +50,20 @@ impl HttpClient {
         Self {
             agent: ureq::Agent::new_with_config(config),
             settings,
+            deadline: None,
         }
+    }
+
+    /// Limits the requests that follow to the time `remaining` of the run, or
+    /// lifts the limit. The attempts, their time limits and the pauses between
+    /// them then fit in that time.
+    pub(crate) fn set_time_limit(&mut self, remaining: Option<Duration>) {
+        self.deadline = remaining.and_then(|left| Instant::now().checked_add(left));
+    }
+
+    fn time_left(&self) -> Option<Duration> {
+        self.deadline
+            .map(|deadline| deadline.saturating_duration_since(Instant::now()))
     }
 
     /// Sends a JSON body with `POST` and returns the JSON response, repeating
@@ -61,8 +77,21 @@ impl HttpClient {
         let mut delay = self.settings.retry_delay;
         let mut attempt = 0;
         loop {
-            match self.post_once(url, headers, body) {
-                Err(error) if error.is_retryable() && attempt < self.settings.retries => {
+            let allowed = match self.time_left() {
+                Some(left) if left.is_zero() => {
+                    return Err(self.error(
+                        "the time limit of the run passed before the request".to_owned(),
+                        false,
+                    ));
+                }
+                Some(left) => Some(left.min(self.settings.timeout)),
+                None => None,
+            };
+            let pause_fits = self.time_left().is_none_or(|left| delay < left);
+            match self.post_once(url, headers, body, allowed) {
+                Err(error)
+                    if error.is_retryable() && attempt < self.settings.retries && pause_fits =>
+                {
                     attempt += 1;
                     thread::sleep(delay);
                     delay = delay.saturating_mul(2);
@@ -72,8 +101,17 @@ impl HttpClient {
         }
     }
 
-    fn post_once(&self, url: &str, headers: &[(&str, String)], body: &Value) -> Result<Value> {
+    fn post_once(
+        &self,
+        url: &str,
+        headers: &[(&str, String)],
+        body: &Value,
+        allowed: Option<Duration>,
+    ) -> Result<Value> {
         let mut request = self.agent.post(url).content_type("application/json");
+        if let Some(limit) = allowed {
+            request = request.config().timeout_global(Some(limit)).build();
+        }
         for (name, value) in headers {
             request = request.header(*name, value.as_str());
         }
@@ -220,6 +258,35 @@ mod tests {
         assert_eq!(log[0].path, "/v1");
         assert_eq!(log[0].header("x-key"), Some("k"));
         assert_eq!(log[0].body["a"], 1);
+    }
+
+    #[test]
+    fn does_not_send_a_request_after_the_time_limit_of_the_run() {
+        let (base, log) = testserver::serve(vec![(200, "{}".into())]);
+        let mut limited = client();
+        limited.set_time_limit(Some(Duration::ZERO));
+        let error = limited
+            .post(&base, &[], &serde_json::json!({}))
+            .unwrap_err();
+        assert!(!error.is_retryable());
+        assert!(error.to_string().contains("time limit of the run"));
+        assert!(log.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn does_not_wait_for_a_retry_pause_longer_than_the_time_left() {
+        let (base, log) = testserver::serve(vec![(503, "busy".into()), (200, "{}".into())]);
+        let mut settings = client().settings;
+        settings.retry_delay = Duration::from_secs(3600);
+        let mut limited = HttpClient::new(settings);
+        limited.set_time_limit(Some(Duration::from_secs(30)));
+        let started = Instant::now();
+        let error = limited
+            .post(&base, &[], &serde_json::json!({}))
+            .unwrap_err();
+        assert!(error.is_retryable());
+        assert!(started.elapsed() < Duration::from_secs(10));
+        assert_eq!(log.lock().unwrap().len(), 1);
     }
 
     #[test]

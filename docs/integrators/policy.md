@@ -90,7 +90,7 @@ if "git.push" in commands:
 response = nurt.run(program)
 ```
 
-`check` runs after correction and binding and names every command with its full name, so an alias, a different notation or a corrected spelling of the command is caught. A host that allows no effect outside the local file system compares `effect` with `external` instead.
+`check` runs after correction and binding and names every command with its full name, so an alias, a different notation or a corrected spelling of a command that only reads is caught. A misspelt name of a command that changes something is not corrected: `check` answers `E_AMBIGUOUS` and the first candidate is the program with the name written right, so a forbidden command cannot be reached by a typing error either. A host that allows no effect outside the local file system compares `effect` with `external` instead.
 
 ## Allowed directories
 

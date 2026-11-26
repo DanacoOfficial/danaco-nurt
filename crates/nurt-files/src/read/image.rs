@@ -34,6 +34,29 @@ pub fn image_mime(prefix: &[u8]) -> Option<&'static str> {
     infer::get(prefix)
         .filter(|kind| kind.matcher_type() == infer::MatcherType::Image)
         .map(|kind| kind.mime_type())
+        .filter(|mime| match *mime {
+            "image/bmp" => is_bmp_header(prefix),
+            "image/gif" => prefix.starts_with(b"GIF87a") || prefix.starts_with(b"GIF89a"),
+            _ => true,
+        })
+}
+
+/// Sizes of the header that follows the file header of a BMP image.
+const BMP_HEADER_SIZES: [u32; 7] = [12, 40, 52, 56, 64, 108, 124];
+
+/// Whether the bytes start with the whole header of a BMP file, not only with
+/// the two letters `BM` that a text can start with as well: the file header
+/// has a zero reserved field, and the size of the following header is one of
+/// the sizes that exist.
+fn is_bmp_header(prefix: &[u8]) -> bool {
+    let Some(size) = prefix.get(14..18) else {
+        return false;
+    };
+    prefix.starts_with(b"BM")
+        && prefix.get(6..10) == Some(&[0; 4][..])
+        && size
+            .try_into()
+            .is_ok_and(|bytes| BMP_HEADER_SIZES.contains(&u32::from_le_bytes(bytes)))
 }
 
 /// Media type and dimensions of an image.
@@ -282,6 +305,25 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Io);
         assert!(std::error::Error::source(&error).is_some());
         assert_eq!(error.to_string(), "cannot read the image: device error");
+    }
+
+    #[test]
+    fn letters_that_start_a_text_are_not_an_image_signature() {
+        let polish = "BM zażółć gęślą jaźń\n".as_bytes();
+        assert_eq!(image_mime(polish), None);
+        assert_eq!(image_mime("GIF zażółć\n".as_bytes()), None);
+        assert_eq!(image_mime(b"GIF89"), None);
+        assert_eq!(image_mime(b"GIF87a"), Some("image/gif"));
+        let mut bmp = vec![0_u8; 54];
+        bmp[..2].copy_from_slice(b"BM");
+        bmp[14] = 40;
+        assert_eq!(image_mime(&bmp), Some("image/bmp"));
+        bmp[14] = 41;
+        assert_eq!(image_mime(&bmp), None);
+        bmp[14] = 40;
+        bmp[7] = 1;
+        assert_eq!(image_mime(&bmp), None);
+        assert_eq!(image_mime(&bmp[..10]), None);
     }
 
     #[test]

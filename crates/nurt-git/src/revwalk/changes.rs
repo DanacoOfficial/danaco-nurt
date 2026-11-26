@@ -128,9 +128,17 @@ fn pair_copies(repo: &OpenRepo, changes: &mut [FileChange]) -> Result<(), Error>
                 .map(|side| (change.path.clone(), side))
         })
         .collect();
-    if sources.is_empty() {
+    let targets = changes
+        .iter()
+        .filter(|change| change.status == GitFileState::Added)
+        .count();
+    if sources.is_empty() || !copy_search_allowed(targets, sources.len()) {
         return Ok(());
     }
+    let contents = sources
+        .iter()
+        .map(|(_, side)| repo.blob(side.id))
+        .collect::<Result<Vec<_>, Error>>()?;
     for change in changes
         .iter_mut()
         .filter(|change| change.status == GitFileState::Added)
@@ -143,8 +151,8 @@ fn pair_copies(repo: &OpenRepo, changes: &mut [FileChange]) -> Result<(), Error>
         };
         let target = repo.blob(new.id)?;
         let mut best: Option<(f32, &(BString, Side))> = None;
-        for source in &sources {
-            let score = similarity(&repo.blob(source.1.id)?, &target);
+        for (source, content) in sources.iter().zip(&contents) {
+            let score = similarity(content, &target);
             if score >= SIMILARITY && best.is_none_or(|(top, _)| score > top) {
                 best = Some((score, source));
             }
@@ -156,6 +164,13 @@ fn pair_copies(repo: &OpenRepo, changes: &mut [FileChange]) -> Result<(), Error>
         }
     }
     Ok(())
+}
+
+/// Whether copies are searched among `targets` added files and `sources`
+/// modified files; `git` skips the inexact search when the number of pairs
+/// exceeds the square of `diff.renameLimit`.
+fn copy_search_allowed(targets: usize, sources: usize) -> bool {
+    targets.saturating_mul(sources) <= RENAME_LIMIT * RENAME_LIMIT
 }
 
 /// Fraction of the larger content that the two contents share as lines.
@@ -356,6 +371,13 @@ mod tests {
 
     const TEXT: &str = "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n";
 
+    #[test]
+    fn copy_search_stops_above_the_square_of_the_rename_limit() {
+        assert!(copy_search_allowed(1000, 1000));
+        assert!(!copy_search_allowed(1001, 1000));
+        assert!(!copy_search_allowed(usize::MAX, 2));
+        assert!(copy_search_allowed(0, usize::MAX));
+    }
     #[test]
     fn lists_added_modified_deleted_and_renamed_files() {
         let mut fixture = Fixture::new();

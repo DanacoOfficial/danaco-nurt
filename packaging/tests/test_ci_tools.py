@@ -4,6 +4,7 @@
 """Tests of tools/ci/check-commits.sh and tools/ci/repo-hygiene.sh."""
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -206,6 +207,95 @@ class WorkflowCopiesTest(unittest.TestCase):
         workflows = support.PACKAGING.parent / ".github" / "workflows"
         for name in ("packaging.yml", "release.yml"):
             self.assertNotIn("Danaco Nurt", (workflows / name).read_text(encoding="utf-8"), name)
+
+
+class DependencyStatementTest(unittest.TestCase):
+    def test_readme_names_the_libraries_that_the_glibc_build_links(self):
+        readme = (support.PACKAGING.parent / "README.md").read_text(encoding="utf-8")
+        self.assertNotIn("without runtime dependencies", readme)
+        build = (support.PACKAGING / "deb" / "build-deb.sh").read_text(encoding="utf-8")
+        for library in ("libc.so.6", "libgcc_s.so.1", "liblzma.so.5"):
+            self.assertIn(library, readme)
+        for package in ("libgcc-s1", "liblzma5"):
+            self.assertIn(package, build)
+
+
+class WorkflowSupplyChainTest(unittest.TestCase):
+    ROOT = support.PACKAGING.parent
+
+    def workflow_files(self):
+        patterns = (
+            ".github/workflows/*.yml",
+            "integrations/*/ci/*.yml",
+            "bindings/*/ci/*.yml",
+            "packaging/ci/*.yml",
+            "bench/oracles/ci/*.yml",
+        )
+        files = sorted(path for pattern in patterns for path in self.ROOT.glob(pattern))
+        self.assertGreaterEqual(len(files), 25)
+        return files
+
+    def test_every_action_is_pinned_to_a_commit_with_its_tag_in_a_comment(self):
+        reference = re.compile(r"^\s*(?:-\s+)?uses:\s+(\S+)(.*)$")
+        for path in self.workflow_files():
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                match = reference.match(line)
+                if match is None or match.group(1).startswith(("./", "docker://")):
+                    continue
+                where = f"{path.relative_to(self.ROOT)}:{number}"
+                self.assertRegex(match.group(1), r"^[\w./-]+@[0-9a-f]{40}$", where)
+                self.assertRegex(match.group(2), r"^\s+# \S+$", where)
+
+    def test_the_toolchain_action_is_told_which_toolchain_to_install(self):
+        # Pinned to a commit, the action no longer takes the toolchain from the name of the branch.
+        for path in self.workflow_files():
+            lines = path.read_text(encoding="utf-8").splitlines()
+            for number, line in enumerate(lines):
+                if "dtolnay/rust-toolchain@" in line:
+                    self.assertTrue(
+                        any("toolchain:" in following for following in lines[number + 1 : number + 4]),
+                        f"{path.relative_to(self.ROOT)}:{number + 1}",
+                    )
+
+    def test_global_npm_tools_are_installed_with_an_exact_version(self):
+        found = 0
+        for path in self.workflow_files():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if "npm install --global" not in line:
+                    continue
+                packages = [word for word in line.split() if re.match(r"^@?[a-z][\w./-]*(@[^\s]*)?$", word)]
+                packages = [word for word in packages if "/" in word or word.count("@") or word == "ovsx"]
+                for package in packages:
+                    found += 1
+                    self.assertRegex(package, r"@\d+\.\d+\.\d+$", f"{path.relative_to(self.ROOT)}: {line.strip()}")
+        self.assertGreaterEqual(found, 3)
+
+    def test_the_publishing_job_of_the_vscode_extension_does_not_resolve_a_dependency_tree(self):
+        text = (self.ROOT / "integrations" / "vscode" / "ci" / "vscode.yml").read_text(encoding="utf-8")
+        publish = text[text.index("  publish:") :]
+        self.assertNotIn("npm install --no-audit --no-fund\n", publish)
+        self.assertIn("npm install --global --no-audit --no-fund --ignore-scripts @vscode/vsce@", publish)
+
+    def test_workspace_wide_test_runs_fail_when_no_test_runs(self):
+        text = (self.ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if "--workspace" in line and "nextest" in line:
+                self.assertNotIn("--no-tests=warn", line)
+                self.assertIn("--no-tests=fail", line)
+
+    def test_the_differential_tests_of_the_file_commands_run_in_the_ci(self):
+        text = (self.ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("-p nurt-files --features differential", text)
+        manifest = (self.ROOT / "crates" / "nurt-files" / "Cargo.toml").read_text(encoding="utf-8")
+        self.assertRegex(manifest, r"(?m)^differential = \[\]")
+
+    def test_base_images_of_the_container_scenarios_are_named_by_digest(self):
+        text = (self.ROOT / "integrations" / "devcontainer" / "test" / "nurt" / "scenarios.json").read_text(
+            encoding="utf-8"
+        )
+        for image in re.findall(r'"image":\s*"([^"]+)"', text):
+            if image.startswith("alpine"):
+                self.assertRegex(image, r"@sha256:[0-9a-f]{64}$")
 
 
 if __name__ == "__main__":

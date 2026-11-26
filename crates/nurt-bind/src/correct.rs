@@ -21,10 +21,10 @@ use nurt_contracts::config::CorrectionConfig;
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::kinds::SyntaxVariant;
 use nurt_contracts::report::TextPosition;
-use nurt_contracts::spec::{ScalarType, StageSpec};
+use nurt_contracts::spec::{ParamType, ScalarType, StageSpec};
 use nurt_correct::distance::{EXPECTED_LIMIT, NameEntry, NameIndex, NameKind, Options, expected};
 use nurt_correct::lexical::Rule;
-use nurt_correct::lexical::paths::normalize_path;
+use nurt_correct::lexical::paths::{EscapePlace, LiteralFix, normalize_path, read_escapes_at};
 use nurt_correct::policy::{Class, MODE_PARAMS, is_effecting};
 use nurt_correct::record::{Correction, CorrectionKind, RuleId};
 use nurt_correct::tables::Tables;
@@ -52,15 +52,20 @@ const REF_SIGIL: &str = "@";
 pub(crate) struct Corrector<'t> {
     pub(crate) tables: &'t Tables,
     pub(crate) options: Options,
+    /// The program text the bound tree was read from; the spans of the tree
+    /// refer to it.
+    pub(crate) source: &'t str,
     commands: OnceCell<NameIndex>,
 }
 
 impl<'t> Corrector<'t> {
-    /// Creates the corrector of one binding call.
-    pub(crate) fn new(tables: &'t Tables, config: &CorrectionConfig) -> Self {
+    /// Creates the corrector of one binding call for the tree read from
+    /// `source`.
+    pub(crate) fn new(tables: &'t Tables, config: &CorrectionConfig, source: &'t str) -> Self {
         Self {
             tables,
             options: Options::from(config),
+            source,
             commands: OnceCell::new(),
         }
     }
@@ -78,6 +83,34 @@ impl<'t> Corrector<'t> {
                 self.tables,
             )
         })
+    }
+}
+
+/// How the written literal of a path was read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PathReading {
+    /// A text, as written.
+    Text,
+    /// A regular expression written in a path place (`L22`).
+    Regex,
+    /// A text with escapes, read as written (`L24`).
+    Escapes,
+}
+
+/// Place of a text literal for the reading of its escapes: a regular
+/// expression when the type takes one, else a path when it takes one.
+fn escape_place(ty: &ParamType) -> EscapePlace {
+    let takes = |scalar| {
+        ty.alternatives()
+            .iter()
+            .any(|alternative| matches!(alternative, ParamType::Scalar(found) if *found == scalar))
+    };
+    if takes(ScalarType::Regex) {
+        EscapePlace::Regex
+    } else if takes(ScalarType::Path) {
+        EscapePlace::Path
+    } else {
+        EscapePlace::Text
     }
 }
 
@@ -110,24 +143,23 @@ pub(crate) struct Applied {
     pub(crate) edit: Edit,
     /// Other readings of a probable correction, as surface expressions.
     pub(crate) alternatives: Vec<Expr>,
-    /// Edit distance of a fuzzy name correction.
-    pub(crate) distance: usize,
     /// The corrected name is a command that changes the world or runs a
     /// program.
     pub(crate) effecting: bool,
-    /// Surface text of a regular expression read as a path (`L22`).
-    pub(crate) regex_path: Option<String>,
+    /// The text that the literal of the correction was read as before the
+    /// correction: the regular expression written in a path place (`L22`),
+    /// or the characters of a text with escapes (`L24`).
+    pub(crate) reading: Option<String>,
 }
 
 impl Applied {
-    fn new(correction: Correction, span: Option<Span>, change: Change) -> Self {
+    pub(crate) fn new(correction: Correction, span: Option<Span>, change: Change) -> Self {
         Self {
             correction: located(correction, span, None),
             edit: Edit { span, change },
             alternatives: Vec::new(),
-            distance: 0,
             effecting: false,
-            regex_path: None,
+            reading: None,
         }
     }
 
@@ -166,7 +198,7 @@ fn name_length(name: &str) -> Option<u32> {
 }
 
 /// Canonical text of a text literal.
-fn quoted(text: &str) -> String {
+pub(crate) fn quoted(text: &str) -> String {
     print_expr(
         &Expr::Text {
             v: text.to_owned(),
@@ -295,7 +327,6 @@ impl<'a> Binder<'a> {
                             Change::Command(found.to.clone()),
                         )
                         .named(&stage.name);
-                        applied.distance = found.distance;
                         applied.effecting = found.effecting;
                         self.record(applied);
                         return Ok(spec);
@@ -525,10 +556,9 @@ impl<'a> Binder<'a> {
                     format!("{REF_SIGIL}{}", found.to),
                     CorrectionKind::Ref,
                 );
-                let mut applied =
+                let applied =
                     Applied::new(correction, reference.span, Change::Ref(found.to.clone()))
                         .named(&from);
-                applied.distance = found.distance;
                 self.record(applied);
                 return Ok((found.to, flow));
             }
@@ -601,6 +631,29 @@ impl<'a> Binder<'a> {
         nurt_correct::lexical::paths::regex_to_path(&written, at).map(|_| written)
     }
 
+    /// Reads a text literal that has escapes changing a pattern or a path
+    /// (`L24`) according to the place of its type; `None` when the literal
+    /// needs no other reading, or when correction is off.
+    ///
+    /// The literal is taken from the program text at the span of the node.
+    /// A text place never reads it another way: the unknown escape is then
+    /// reported by [`crate::facade`] after binding.
+    ///
+    /// # Errors
+    ///
+    /// `E_ESCAPE` when the place cannot read an unknown escape, with the whole
+    /// program as the fix.
+    pub(crate) fn escape_reading(
+        &self,
+        span: Option<Span>,
+        ty: &ParamType,
+    ) -> Result<Option<LiteralFix>, BindError> {
+        let (Some(corrector), Some(span)) = (self.active(), span) else {
+            return Ok(None);
+        };
+        read_escapes_at(corrector.source, span, escape_place(ty)).map_err(BindError::from)
+    }
+
     /// Records the corrections of a path: `L22` for a regular expression
     /// read as a path, `L19` for its notation and `L23` for its resolution
     /// against `base` or the home directory.
@@ -609,7 +662,7 @@ impl<'a> Binder<'a> {
         written: &str,
         resolved: &str,
         span: Option<Span>,
-        from_regex: bool,
+        reading: PathReading,
     ) {
         if self.active().is_none() {
             return;
@@ -619,7 +672,7 @@ impl<'a> Binder<'a> {
             span: None,
         });
         let mut chain = Vec::new();
-        if from_regex {
+        if reading == PathReading::Regex {
             chain.push((Rule::L22, written.to_owned(), quoted(written)));
         }
         let absolute = PathHost {
@@ -656,8 +709,8 @@ impl<'a> Binder<'a> {
             let correction =
                 Correction::new(rule.rule_id(), rule.class(), from, to, CorrectionKind::Path);
             let mut applied = Applied::new(correction, span, change.clone());
-            if from_regex {
-                applied.regex_path = Some(written.to_owned());
+            if reading != PathReading::Text {
+                applied.reading = Some(written.to_owned());
             }
             self.record(applied);
         }

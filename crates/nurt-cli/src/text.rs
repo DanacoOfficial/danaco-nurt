@@ -72,6 +72,141 @@ pub fn usage() -> String {
     )
 }
 
+/// Description and arguments of each subcommand, as in
+/// `tables/cli-subcommands.toml`; a test of the crate compares the two.
+const SUBCOMMAND_USAGE: &[(&str, &str, &[&str])] = &[
+    (
+        "exec",
+        "Run a program given as arguments.",
+        &[
+            "[--variant a|b|c]",
+            "[--preview]",
+            "[--json | --format F]",
+            "[--limit N]",
+            "[--cursor C]",
+            "[--verbosity V]",
+            "<program>",
+        ],
+    ),
+    (
+        "script",
+        "Run a script file, each pipeline as its own operation.",
+        &[
+            "<file | ->",
+            "[--preview]",
+            "[--json | --format F]",
+            "[--limit N]",
+            "[--verbosity V]",
+        ],
+    ),
+    ("repl", "Start an interactive session.", &[]),
+    (
+        "check",
+        "Parse, correct and bind a program without running it.",
+        &[
+            "<file | -e program>",
+            "[--variant a|b|c]",
+            "[--json | --format F]",
+        ],
+    ),
+    (
+        "fmt",
+        "Print a program in canonical form.",
+        &["<file | ->", "[--variant a|b|c]"],
+    ),
+    (
+        "ast",
+        "Convert a syntax tree between notations.",
+        &[
+            "[--from a|b|c|json]",
+            "[--to json|cbor|a|b|c]",
+            "<input | ->",
+        ],
+    ),
+    (
+        "schema",
+        "Print a published JSON Schema or the tool definition.",
+        &[
+            "ast|bound|report|request|config|tool",
+            "[--format F]",
+            "[--language en|pl]",
+            "[--groups G]",
+        ],
+    ),
+    (
+        "catalog",
+        "Describe the command catalog, a group or a command.",
+        &["[command | group | check-distance]"],
+    ),
+    ("help", "Show the built-in help.", &["[topic]"]),
+    (
+        "history",
+        "List the recorded operations.",
+        &["[arguments of the history command]"],
+    ),
+    (
+        "undo",
+        "Undo recorded operations.",
+        &["[arguments of the undo command]"],
+    ),
+    (
+        "redo",
+        "Redo undone operations.",
+        &["[arguments of the redo command]"],
+    ),
+    (
+        "serve",
+        "Serve the request protocol to a client process.",
+        &[
+            "--stdio | --socket <path>",
+            "[--framing ndjson|content-length]",
+            "[--stub <directory>]",
+        ],
+    ),
+    (
+        "mcp",
+        "Serve the tool interface of the Model Context Protocol.",
+        &["[--stdio | --http <address>]"],
+    ),
+    ("lsp", "Serve the language protocol for editors.", &[]),
+    (
+        "migrate",
+        "Translate a shell script to a Nurt script.",
+        &["<file.sh | file.ps1>"],
+    ),
+    (
+        "service",
+        "Manage the background service.",
+        &["install | uninstall | start | stop | status | run"],
+    ),
+    ("journal", "Maintain the journal.", &["salvage <volume>"]),
+    ("ext", "Manage extensions.", &["install | remove | list"]),
+    ("doctor", "Check the installation.", &[]),
+    (
+        "version",
+        "Print the full version, the same text as `nurt --version`.",
+        &[],
+    ),
+];
+
+/// Output of `nurt <subcommand> --help`; `None` for a name that is not a
+/// subcommand.
+#[must_use]
+pub fn subcommand_usage(name: &str) -> Option<String> {
+    let (_, description, arguments) = SUBCOMMAND_USAGE.iter().find(|(known, ..)| *known == name)?;
+    let mut synopsis = format!("nurt {name}");
+    for argument in *arguments {
+        synopsis.push(' ');
+        synopsis.push_str(argument);
+    }
+    Some(format!(
+        "{description}\n\n\
+         Usage: {synopsis}\n\
+         \x20      nurt {name} -h | --help\n\n\
+         Run 'nurt --help' for the options of a program and the other commands."
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

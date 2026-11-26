@@ -191,7 +191,10 @@ impl<'a> Commits<'a> {
     /// Whether the entry `op` with the state `record` was rolled back before
     /// its commit.
     pub(crate) fn rolled_back(&self, op: OpId, record: &StateRecord) -> bool {
-        if record.state != EntryState::Undone || record.cause == Some(UndoneCause::Undo) {
+        if record.state != EntryState::Undone
+            || record.after_commit
+            || record.cause == Some(UndoneCause::Undo)
+        {
             return false;
         }
         self.committed
@@ -235,6 +238,7 @@ fn facts_of(part: &PartState<'_>, manifest: &Manifest, basis: EntryTimeBasis) ->
         volume: part.volume.clone(),
         state: part.state,
         reason: part.reason,
+        account: manifest.account.clone(),
         kind: manifest.kind.clone(),
         time: manifest.time,
         basis,
@@ -264,6 +268,7 @@ fn facts_of_tombstone(
         volume: part.volume.clone(),
         state: part.state,
         reason: part.reason.or(Some(tombstone.reason)),
+        account: tombstone.account.clone(),
         kind: tombstone.kind.clone(),
         time: tombstone.time,
         basis: EntryTimeBasis {
@@ -874,6 +879,7 @@ mod tests {
                     time_basis: stamp.clone(),
                     kind: OpKind::command("write"),
                     session: None,
+                    account: None,
                     ast_hash: ContentHash([0; 32]),
                     ast: serde_json::Value::Null,
                     corrections: Vec::new(),

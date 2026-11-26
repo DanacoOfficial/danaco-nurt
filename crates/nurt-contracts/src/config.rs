@@ -2500,7 +2500,9 @@ impl Resolved {
 /// [`allowed_at`] (keys under `journal.*` of a project file need
 /// `project_trusted`); keys that are not applied, and keys the format does
 /// not define, are returned as notes. Tables merge key by key; scalars and
-/// arrays replace the lower value.
+/// arrays replace the lower value, except that `journal.floor.max_ops` and
+/// `journal.floor.max_age` keep the highest value of all layers, because a
+/// floor can only raise protection.
 ///
 /// # Errors
 ///
@@ -2527,6 +2529,9 @@ pub fn resolve(layers: &[ConfigLayer], project_trusted: bool) -> Result<Resolved
                 None => {
                     probe(&defaults, &segments, value.clone())
                         .map_err(|message| ConfigError::at(layer, &key, message))?;
+                    if lowers_floor(&merged, &segments, &value) {
+                        continue;
+                    }
                     set_path(&mut merged, &segments, value);
                     sources.insert(key, layer.level);
                 }
@@ -2626,6 +2631,43 @@ fn gate(
         .err())
 }
 
+/// Whether `value` for a key of `journal.floor.*` is lower than the floor
+/// that a lower level already set: a floor can only raise protection, so the
+/// higher floor stays.
+fn lowers_floor(merged: &Map<String, Json>, segments: &[String], value: &Json) -> bool {
+    let [section, table, field] = segments else {
+        return false;
+    };
+    if section != "journal" || table != "floor" {
+        return false;
+    }
+    let Some(current) = merged
+        .get(section)
+        .and_then(|journal| journal.get(table))
+        .and_then(|floor| floor.get(field))
+    else {
+        return false;
+    };
+    let parsed = |json: &Json| -> Option<(u8, u64)> {
+        match field.as_str() {
+            "max_ops" => serde_json::from_value::<StepLimit>(json.clone())
+                .ok()
+                .map(|limit| match limit {
+                    StepLimit::Limited(steps) => (0, u64::from(steps)),
+                    StepLimit::Unlimited => (1, 0),
+                }),
+            "max_age" => serde_json::from_value::<AgeLimit>(json.clone())
+                .ok()
+                .map(|limit| match limit {
+                    AgeLimit::Limited(age) => (0, age.as_millis()),
+                    AgeLimit::Unlimited => (1, 0),
+                }),
+            _ => None,
+        }
+    };
+    matches!((parsed(value), parsed(current)), (Some(new), Some(old)) if new < old)
+}
+
 fn probe(defaults: &Map<String, Json>, segments: &[String], value: Json) -> Result<(), String> {
     let mut candidate = defaults.clone();
     set_path(&mut candidate, segments, value);
@@ -2643,6 +2685,16 @@ enum KeyKind {
 struct KnownKeys {
     values: HashSet<String>,
     tables: HashSet<String>,
+    volume_fields: HashSet<String>,
+    server_fields: HashSet<String>,
+}
+
+/// Names of the fields of a table entry, from its serialized default.
+fn field_names<T: Serialize + Default>() -> HashSet<String> {
+    match serde_json::to_value(T::default()) {
+        Ok(Json::Object(fields)) => fields.into_iter().map(|(name, _)| name).collect(),
+        _ => HashSet::new(),
+    }
 }
 
 impl KnownKeys {
@@ -2650,6 +2702,8 @@ impl KnownKeys {
         let mut known = Self {
             values: HashSet::new(),
             tables: HashSet::new(),
+            volume_fields: field_names::<VolumeOverride>(),
+            server_fields: field_names::<LanguageServerConfig>(),
         };
         known.walk(&mut Vec::new(), defaults);
         known
@@ -2669,6 +2723,20 @@ impl KnownKeys {
         }
     }
 
+    /// Whether a key inside an open table names a field of its entry:
+    /// `journal.volume."<mount>".<field>` and `code.servers."<language>".<field>`
+    /// have fixed fields, `run.env_defaults` takes any name.
+    fn is_entry_field(&self, segments: &[String]) -> bool {
+        let [section, table, _, field, ..] = segments else {
+            return true;
+        };
+        match (section.as_str(), table.as_str()) {
+            ("journal", "volume") => self.volume_fields.contains(field),
+            ("code", "servers") => self.server_fields.contains(field),
+            _ => true,
+        }
+    }
+
     fn classify(&self, segments: &[String], key: &str) -> KeyKind {
         let open = OPEN_TABLES.iter().any(|table| {
             let table: Vec<&str> = table.split('.').collect();
@@ -2678,7 +2746,14 @@ impl KnownKeys {
                     .zip(&table)
                     .all(|(segment, name)| segment == name)
         });
-        if open || self.values.contains(key) {
+        if open {
+            return if self.is_entry_field(segments) {
+                KeyKind::Value
+            } else {
+                KeyKind::Unknown
+            };
+        }
+        if self.values.contains(key) {
             KeyKind::Value
         } else if self.tables.contains(key) {
             KeyKind::Table

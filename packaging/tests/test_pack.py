@@ -103,13 +103,41 @@ class PackTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("NOTICE", result.stderr)
 
-    def test_library_is_packed_for_glibc_targets_only(self):
-        for target in ("x86_64-pc-windows-msvc", "aarch64-apple-darwin", "x86_64-unknown-linux-musl"):
+    def test_library_is_not_packed_for_static_musl_targets(self):
+        for target in ("x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"):
             result = self.pack(target, self.root / "out", "--library", str(self.library))
             self.assertEqual(result.returncode, 1, target)
-            self.assertIn("glibc targets only", result.stderr)
+            self.assertIn("glibc Linux, macOS and Windows targets only", result.stderr)
         result = self.pack("x86_64-unknown-linux-gnu", self.root / "out", "--library", str(self.library))
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_library_is_named_after_the_platform_of_the_target(self):
+        for target, library in (
+            ("aarch64-apple-darwin", "libnurt.1.dylib"),
+            ("x86_64-apple-darwin", "libnurt.1.dylib"),
+        ):
+            result = self.pack(target, self.root / "out", "--library", str(self.library))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            top = f"nurt-0.1.0-{target}"
+            with tarfile.open(self.root / "out" / f"{top}.tar.gz") as archive:
+                names = {member.name for member in archive.getmembers() if member.isfile()}
+            self.assertIn(f"{top}/{library}", names)
+            self.assertIn(f"{top}/nurt.h", names)
+            self.assertIn(f"{top}/nurt.pc", names)
+        target = "x86_64-pc-windows-msvc"
+        result = self.pack(target, self.root / "out", "--library", str(self.library))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with zipfile.ZipFile(self.root / "out" / f"nurt-0.1.0-{target}.zip") as archive:
+            names = set(archive.namelist())
+        self.assertIn("nurt.dll", names)
+        self.assertIn("nurt.h", names)
+        self.assertNotIn("nurt.pc", names)
+
+    def test_zip_entries_do_not_depend_on_the_platform_that_packed_them(self):
+        target = "x86_64-pc-windows-msvc"
+        self.assertEqual(self.pack(target, self.root / "out").returncode, 0)
+        with zipfile.ZipFile(self.root / "out" / f"nurt-0.1.0-{target}.zip") as archive:
+            self.assertEqual({info.create_system for info in archive.infolist()}, {3})
 
     def test_rejects_a_source_date_epoch_that_is_not_a_number(self):
         for value in ("yesterday", "-5", ""):

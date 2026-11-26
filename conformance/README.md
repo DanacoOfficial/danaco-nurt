@@ -251,6 +251,7 @@ parser on the tree alone.
 | `events` | list of tables | none | Expected events `nurt/event` of the call, see "Events". |
 | `events_match` | text | `"ordered"` | `ordered` or `exact`, see "Events". |
 | `second_volume_after` | text or table | none | Expected state of the directory of the case on the second volume after the call; `"unchanged"` requires the state before the call. Requires `fixture:second-volume`. |
+| `setup_only` | boolean | `false` | Marks a step that states no expectation because it only prepares or cleans up the state. The last step of a case must state an expectation or carry this key. |
 
 For the methods `run` and `check` the runner builds the request
 `{"nurt": "1.0", "program": …, "variant": …, "options": {…}}` and sets
@@ -307,7 +308,7 @@ fs_after = "unchanged"
 An entry has the keys of `case.toml`. A case of one call may give the keys of
 the step (`method`, `program`, `variant`, `options`, `params`, `expect`,
 `expect_at`, `match`, `expect_error`, `validate`, `fs_after`, `absent`,
-`events`, `events_match`, `second_volume_after`) directly in the entry;
+`events`, `events_match`, `second_volume_after`, `setup_only`) directly in the entry;
 otherwise it lists its calls in `step`. Text values that name files are
 resolved against the directory of the collection file.
 

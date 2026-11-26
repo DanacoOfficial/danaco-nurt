@@ -25,7 +25,7 @@ use nurt_contracts::journal::{
 use nurt_contracts::report::{Irreversible, IrreversibleEntry, Notable, NotableEntry};
 use nurt_contracts::services::{EnvVar, ProcessHost, ProgramInput};
 use nurt_contracts::stage::ExecCtx;
-use nurt_git_transport::sign::{BuiltinSigner, Signer, SigningConfig, sign_commit};
+use nurt_git_transport::sign::{ProgramSigner, Signer, SigningConfig, sign_commit};
 
 use super::access;
 use super::prepare::Prepared;
@@ -178,7 +178,7 @@ fn sign(repo: &GitRepo, object: &mut gix::objs::Commit) -> Result<Vec<NotableEnt
     let signer: Arc<dyn Signer> = ctx
         .extensions()
         .get::<dyn Signer>()
-        .unwrap_or_else(|| Arc::new(BuiltinSigner));
+        .unwrap_or_else(|| Arc::new(ProgramSigner::from_ctx(ctx)));
     let signature = sign_commit(object, signer.as_ref(), &config)?;
     let mut note = NotableEntry::new(Notable::Signed);
     note.detail = Some(format!("signed with key {}", signature.key));
@@ -311,14 +311,15 @@ fn pre_commit(
         prepared.request.selection,
         Selection::Staged | Selection::All
     ) {
-        let resolve_undo = match prepared.index.take() {
-            Some(index) => index.resolve_undo,
-            None => repo.read_index()?.resolve_undo,
+        let read = match prepared.index.take() {
+            Some(index) => index,
+            None => repo.read_index()?,
         };
         prepared.index = Some(IndexFile {
             state: state.clone(),
-            resolve_undo,
+            resolve_undo: read.resolve_undo,
             path: repo.index_path(),
+            expect: read.expect,
         });
     }
     prepared.state = Some(state);
@@ -418,7 +419,7 @@ impl Scratch {
                 "nurt-commit-{}-{stamp}-{attempt}",
                 std::process::id()
             ));
-            match std::fs::create_dir(&dir) {
+            match create_private_dir(&dir) {
                 Ok(()) => return Ok(Self { dir }),
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
                 Err(error) => return Err(crate::repo::error::io(&dir, &error)),
@@ -445,5 +446,36 @@ impl Scratch {
 impl Drop for Scratch {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// Creates `path` accessible to the creating account only, so that the index and the
+/// message the hooks work on are not visible to other users of the host.
+#[cfg(unix)]
+fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    std::fs::DirBuilder::new().mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    std::fs::create_dir(path)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::os::unix::fs::PermissionsExt;
+
+    use super::*;
+    use crate::testutil::test_ctx;
+
+    #[test]
+    fn scratch_directory_is_private_to_its_account() {
+        let scratch = Scratch::create(&test_ctx()).unwrap();
+        let mode = std::fs::metadata(&scratch.dir)
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o700);
     }
 }

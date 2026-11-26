@@ -199,13 +199,69 @@ fn removes_runs_next_to_entries_that_share_a_line() {
     assert_eq!(remove_runs_in(source, &[0, 2]).unwrap(), "[\n  2\n]");
 }
 
-#[test]
-fn containers_with_comments_are_left_to_the_one_by_one_removal() {
-    assert_eq!(remove_runs_in("[1, 2]", &[0]).unwrap(), "[2]");
-    let document = JsonDocument::parse("[1, /* c */ 2]", Dialect::Jsonc).unwrap();
+/// Text of the root container after removing the entries at `indices` in
+/// one step; `None` when the container needs them one at a time.
+fn remove_runs_commented(source: &str, indices: &[usize]) -> Option<String> {
+    let document = JsonDocument::parse(source, Dialect::Jsonc).unwrap();
     let layout = super::layout::Layout::new(document.text(), &document.tree);
     let editor = super::editor::Editor::new(layout);
-    assert!(editor.remove_runs(document.tree.root, &[0]).is_none());
+    let changes = editor.remove_runs(document.tree.root, indices)?;
+    let text = apply(document.text(), &changes).unwrap();
+    JsonDocument::parse(text.clone(), Dialect::Jsonc)
+        .unwrap_or_else(|error| panic!("removal does not parse: {error:?}\n{text}"));
+    Some(text)
+}
+
+/// Text of the root container after removing the entries at `indices` one
+/// at a time, last first, as the removal of single keys does.
+fn removed_one_by_one(source: &str, indices: &[usize]) -> String {
+    let mut text = source.to_owned();
+    for index in indices.iter().rev() {
+        let document = JsonDocument::parse(text, Dialect::Jsonc).unwrap();
+        let layout = super::layout::Layout::new(document.text(), &document.tree);
+        let changes = super::editor::Editor::new(layout).remove(document.tree.root, *index);
+        text = apply(document.text(), &changes).unwrap();
+    }
+    text
+}
+
+#[test]
+fn containers_with_comments_are_removed_in_one_step_like_one_entry_at_a_time() {
+    let object = "{\n  // lead a\n  \"a\": 1, // trail a\n  \"b\": 2,\n\n  // detached\n\n  // lead c\n  \"c\": 3,\n  \"d\": 4, /* x */\n  // lead e\n  \"e\": 5,\n  \"f\": 6 // trail f\n}";
+    let sources = [
+        object.to_owned(),
+        object.replace("\"f\": 6 //", "\"f\": 6, //"),
+        object.replace('\n', "\r\n"),
+        "[\n  // one\n  1,\n  2, // two\n  // detached\n\n  3,\n  4,\n  // five\n  5\n]".to_owned(),
+        "[1, /* a */ 2, 3 /* b */, 4, /* c */ 5]".to_owned(),
+        "{\n  \"a\": 1, \"b\": 2, // t\n  // lead\n  \"c\": 3,\n  \"d\": 4, \"e\": 5\n}".to_owned(),
+    ];
+    let (mut together, mut apart) = (0_usize, 0_usize);
+    for source in &sources {
+        let document = JsonDocument::parse(source.as_str(), Dialect::Jsonc).unwrap();
+        let count = document.tree.nodes[document.tree.root]
+            .entries()
+            .unwrap()
+            .len();
+        for mask in 1_u32..(1 << count) {
+            let indices: Vec<usize> = (0..count).filter(|index| mask >> index & 1 == 1).collect();
+            match remove_runs_commented(source, &indices) {
+                Some(text) => {
+                    together += 1;
+                    assert_eq!(
+                        text,
+                        removed_one_by_one(source, &indices),
+                        "{indices:?} of\n{source}"
+                    );
+                }
+                None => apart += 1,
+            }
+        }
+    }
+    assert!(
+        together > 4 * apart,
+        "{together} removals in one step, {apart} one at a time"
+    );
 }
 
 #[test]

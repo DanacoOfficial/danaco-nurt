@@ -21,9 +21,11 @@
 //! place; [`JournalStore::recover`] completes or reverts interrupted entries
 //! before the first new operation is admitted.
 //!
-//! The journal never fails a user operation: [`JournalStore::begin`] is
-//! infallible, and when the previous state cannot be kept the operation
-//! proceeds with [`PreserveMode::None`] and an explicit irreversible marker.
+//! The journal never fails a user operation for lack of space, eligibility or
+//! limits: [`JournalStore::begin`] is infallible, and when the previous state
+//! cannot be kept the operation proceeds with [`PreserveMode::None`] and an
+//! explicit irreversible marker. A removal whose target the journal agreed to
+//! keep but failed to move into itself fails with the target still in place.
 //! Results carry no expiry time; retention state is reported only by
 //! [`JournalStore::status`].
 //!
@@ -45,7 +47,7 @@ use crate::env::WallTime;
 use crate::error::{Error, ErrorCode, Result};
 use crate::fs::{
     AbsPath, ContentHash, Etag, FileKind, FileMeta, LinkKind, MetaChange, ProviderKey,
-    ProviderValue, VolumeId, VolumeInfo, WriteHandle,
+    ProviderSnapshot, ProviderValue, VolumeId, VolumeInfo, WriteHandle,
 };
 use crate::report::{Correction, Irreversible, IrreversibleEntry};
 
@@ -564,6 +566,12 @@ pub enum Mutation {
     ProviderSet(ProviderValue),
     /// Remove a provider key or value.
     ProviderRemove,
+    /// Copy a provider key with its subtree, or a value, from the given key
+    /// to the target, creating the missing keys above it.
+    ProviderCopy(ProviderKey),
+    /// Restore the exact state kept in a snapshot of the target, including
+    /// its absence; used by undo.
+    ProviderRestore(ProviderSnapshot),
 }
 
 /// Result of applying one mutation.

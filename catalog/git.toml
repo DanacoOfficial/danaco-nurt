@@ -151,6 +151,7 @@ implementation = "builtin"
 input = ["none"]
 output = ["commit", "group"]
 summary = "List commits of a revision, optionally limited to files, authors, dates or content."
+external = { kind = "user_program", programs = ["gpg"], note = "Runs gpg (gpg.openpgp.program or gpg.program) to verify OpenPGP signatures when the signature field of the commits is selected." }
 
 [[command.param]]
 name = "repo"
@@ -262,6 +263,7 @@ implementation = "builtin"
 input = ["none"]
 output = ["commit", "hunk", "git_tag", "content"]
 summary = "Show commits with their changes, or the content of a file at a revision."
+external = { kind = "user_program", programs = ["gpg"], note = "Runs gpg (gpg.openpgp.program or gpg.program) to verify OpenPGP signatures when the signature field of the commits or tags is selected." }
 
 [[command.param]]
 name = "repo"
@@ -768,7 +770,7 @@ input = ["none"]
 output = ["effect", "commit"]
 summary = "Record a commit and report its branch and files."
 reversibility_note = "Undo moves the branch reference back; the working tree is not changed and written objects remain in the repository."
-external = { kind = "user_program", when = "hooks", note = "Runs the pre-commit, prepare-commit-msg, commit-msg and post-commit hooks of the repository as user programs." }
+external = { kind = "user_program", programs = ["gpg"], note = "Runs gpg (gpg.openpgp.program or gpg.program) when the commit is signed with an OpenPGP key, whether sign is given or commit.gpgSign is set; runs the pre-commit, prepare-commit-msg, commit-msg and post-commit hooks of the repository as user programs when hooks is given." }
 
 [[command.param]]
 name = "repo"
@@ -862,6 +864,7 @@ implementation = "builtin"
 input = ["none"]
 output = ["git_tag", "effect"]
 summary = "List tags, or create or delete a tag."
+external = { kind = "user_program", programs = ["gpg"], note = "Runs gpg (gpg.openpgp.program or gpg.program) when an annotated tag is signed with an OpenPGP key, whether sign is given or tag.gpgSign is set." }
 reversibility_note = "Tag changes are reversible from the journal, which keeps the previous value of each reference."
 effects = [
   { action = "name", effect = "local", reversibility = "reversible", note = "Applies when name is given; creates the tag." },

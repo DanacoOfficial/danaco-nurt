@@ -27,6 +27,7 @@
 //! ```
 
 mod awk;
+mod catalog;
 mod detect;
 mod engine;
 mod find;
@@ -62,7 +63,10 @@ pub enum Mode {
     Live,
     /// A script: every statement becomes its own pipeline and the script
     /// stops at the first error; probable translations are applied with
-    /// their assumptions.
+    /// their assumptions. The caller states that the text is a script in the
+    /// language of the translator, so a statement is not checked for being a
+    /// habit of that language; `nurt migrate` is the caller and it refuses
+    /// program files (`.nurt`) before any translation.
     Script,
 }
 
@@ -148,6 +152,63 @@ pub fn detect(input: &str) -> bool {
         return false;
     };
     lex(input).is_ok_and(|tokens| detect::is_habit(table, &tokens))
+}
+
+/// Whether the text starts with a word of the habit word set and shows no
+/// Nurt notation, whether or not it shows a feature of the shell.
+///
+/// For a first word that has a meaning in Nurt, such as `cat`, this is not
+/// enough to tell a habit from a program: use [`detect`]. For a word that
+/// has none, such as `touch`, it is.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_correct::bash::{detect, detect_by_word};
+///
+/// assert!(detect_by_word("touch /srv/app/a.txt"));
+/// assert!(!detect("touch /srv/app/a.txt"));
+/// assert!(!detect_by_word("touch /srv/app/a.txt glob: \"*\""));
+/// ```
+#[must_use]
+pub fn detect_by_word(input: &str) -> bool {
+    let Ok(table) = BashTable::embedded() else {
+        return false;
+    };
+    lex(input).is_ok_and(|tokens| detect::is_habit_by_word(table, &tokens))
+}
+
+/// Translates a statement that [`detect_by_word`] recognizes, with the
+/// embedded table.
+///
+/// Returns `None` when the text does not start with a habit word.
+///
+/// # Errors
+///
+/// As [`translate_with`].
+///
+/// # Examples
+///
+/// ```
+/// use nurt_correct::bash::{TranslateContext, translate_by_word};
+///
+/// let translation = translate_by_word("touch /srv/app/a.txt", &TranslateContext::default())
+///     .expect("a habit word")
+///     .expect("a translation");
+/// assert_eq!(translation.text(), "create \"/srv/app/a.txt\" type: file on_exists: touch");
+/// ```
+#[must_use]
+pub fn translate_by_word(
+    input: &str,
+    context: &TranslateContext<'_>,
+) -> Option<Result<Translation, Error>> {
+    match BashTable::embedded() {
+        Ok(table) => session::translate_by_word(input, context, table),
+        Err(error) => Some(Err(Error::new(
+            nurt_contracts::error::ErrorCode::InternalCorrection,
+            format!("invalid bash translation table: {error}"),
+        ))),
+    }
 }
 
 /// Translates a bash command in a live call without `base` and without

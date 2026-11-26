@@ -80,7 +80,16 @@ install_release() {
   WORK_DIR=$work
 
   printf 'downloading %s\n' "$url"
-  fetch "$url" "$work/$name" || die "cannot download $name for version $version"
+  if ! fetch "$url" "$work/$name"; then
+    # A release without the static musl archive is installed from the glibc
+    # archive of the same architecture.
+    [[ $target == *-unknown-linux-musl ]] || die "cannot download $name for version $version"
+    target=${target%-musl}-gnu
+    name=$(archive_name "$version" "$target")
+    url="$base/v$version/$name"
+    printf 'no musl archive in version %s, downloading %s\n' "$version" "$url"
+    fetch "$url" "$work/$name" || die "cannot download $name for version $version"
+  fi
 
   if [[ $verify == true ]]; then
     fetch "$base/v$version/checksums.txt" "$work/checksums.txt" ||

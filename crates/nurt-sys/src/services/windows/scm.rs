@@ -46,6 +46,10 @@ pub(crate) const SERVICE_USERSERVICE_INSTANCE: u32 = 0x80;
 
 /// `ERROR_ACCESS_DENIED`.
 pub(crate) const ERROR_ACCESS_DENIED: u32 = 5;
+/// `ERROR_INVALID_NAME`: the manager refuses an empty or too long name.
+pub(crate) const ERROR_INVALID_NAME: u32 = 123;
+/// `ERROR_SERVICE_SPECIFIC_ERROR`: the real code is `dwServiceSpecificExitCode`.
+pub(crate) const ERROR_SERVICE_SPECIFIC_ERROR: u32 = 1066;
 /// `ERROR_SERVICE_REQUEST_TIMEOUT`.
 pub(crate) const ERROR_SERVICE_REQUEST_TIMEOUT: u32 = 1053;
 /// `ERROR_SERVICE_ALREADY_RUNNING`.
@@ -85,7 +89,7 @@ pub(crate) enum Failure {
 /// Class of a Win32 error code.
 pub(crate) fn classify(code: u32) -> Failure {
     match code {
-        ERROR_SERVICE_DOES_NOT_EXIST => Failure::NotFound,
+        ERROR_SERVICE_DOES_NOT_EXIST | ERROR_INVALID_NAME => Failure::NotFound,
         ERROR_ACCESS_DENIED => Failure::Privilege,
         _ => Failure::Manager,
     }
@@ -170,6 +174,35 @@ pub(crate) struct ServiceFacts {
     pub(crate) description: Option<String>,
     /// `dwWin32ExitCode` of the last stop.
     pub(crate) exit_code: u32,
+    /// `dwServiceSpecificExitCode`, meaningful when `exit_code` is
+    /// [`ERROR_SERVICE_SPECIFIC_ERROR`].
+    pub(crate) specific_exit_code: u32,
+}
+
+/// Result of the last stop for `ServiceStatus::result`: the Win32 code, with
+/// the service specific code when the Win32 code defers to it; `None` for a
+/// clean stop.
+pub(crate) fn exit_result(exit_code: u32, specific_exit_code: u32) -> Option<String> {
+    match (exit_code, specific_exit_code) {
+        (0, _) => None,
+        (ERROR_SERVICE_SPECIFIC_ERROR, specific) if specific != 0 => {
+            Some(format!("{exit_code} (service exit code {specific})"))
+        }
+        _ => Some(exit_code.to_string()),
+    }
+}
+
+/// Command line of a service with the separators of the program path written
+/// as `/`; the arguments are kept as they are. The program is the quoted text
+/// at the start or the text up to the first white space.
+fn slash_program(command_line: &str) -> String {
+    let split = match command_line.strip_prefix('"') {
+        Some(rest) => rest.find('"').map(|end| end + 2),
+        None => command_line.find(char::is_whitespace),
+    }
+    .unwrap_or(command_line.len());
+    let (program, arguments) = command_line.split_at(split);
+    format!("{}{arguments}", program.replace('\\', "/"))
 }
 
 impl ServiceFacts {
@@ -191,6 +224,12 @@ impl ServiceFacts {
                 Value::Int(i64::from(self.exit_code)),
             ));
         }
+        if self.exit_code == ERROR_SERVICE_SPECIFIC_ERROR && self.specific_exit_code != 0 {
+            os_raw.push((
+                "service_exit_code".to_owned(),
+                Value::Int(i64::from(self.specific_exit_code)),
+            ));
+        }
         Service {
             name: self.name.clone(),
             state: map_state(self.state),
@@ -203,8 +242,8 @@ impl ServiceFacts {
             scope: scope_of(self.service_type),
             path: self
                 .path
-                .clone()
-                .map(|path| Path::new(path.replace('\\', "/"))),
+                .as_deref()
+                .map(|line| Path::new(slash_program(line))),
             account: self.account.clone().filter(|name| !name.is_empty()),
             os_raw: Some(os_raw.into_iter().collect()),
         }
@@ -238,6 +277,9 @@ pub(crate) enum RestartError {
     Os(OsError),
     /// The service did not stop within [`STOP_TIMEOUT`].
     StopTimeout,
+    /// The service did not leave the start pending state within
+    /// [`STOP_TIMEOUT`].
+    StartTimeout,
 }
 
 impl RestartError {
@@ -246,7 +288,7 @@ impl RestartError {
         match self {
             Self::Dependents(_) => "dependent_services_running".to_owned(),
             Self::Os(error) => error.code.to_string(),
-            Self::StopTimeout => ERROR_SERVICE_REQUEST_TIMEOUT.to_string(),
+            Self::StopTimeout | Self::StartTimeout => ERROR_SERVICE_REQUEST_TIMEOUT.to_string(),
         }
     }
 
@@ -262,6 +304,10 @@ impl RestartError {
                 "the service did not stop within {} seconds",
                 STOP_TIMEOUT.as_secs()
             ),
+            Self::StartTimeout => format!(
+                "the service did not finish starting within {} seconds",
+                STOP_TIMEOUT.as_secs()
+            ),
         }
     }
 }
@@ -271,7 +317,13 @@ impl RestartError {
 /// A stopped service is only started. A service with active dependent
 /// services is left running, because stopping it would stop them as well.
 pub(crate) fn restart(ops: &dyn ScmOps, name: &str) -> Result<(), RestartError> {
-    if ops.state(name).map_err(RestartError::Os)? != SERVICE_STOPPED {
+    let mut state = ops.state(name).map_err(RestartError::Os)?;
+    if matches!(state, SERVICE_START_PENDING | SERVICE_CONTINUE_PENDING) {
+        state = wait_settled(ops, name)?;
+    }
+    if state == SERVICE_STOP_PENDING {
+        wait_stopped(ops, name)?;
+    } else if state != SERVICE_STOPPED {
         let dependents = ops.running_dependents(name).map_err(RestartError::Os)?;
         if !dependents.is_empty() {
             return Err(RestartError::Dependents(dependents));
@@ -280,6 +332,20 @@ pub(crate) fn restart(ops: &dyn ScmOps, name: &str) -> Result<(), RestartError> 
         wait_stopped(ops, name)?;
     }
     tolerate(ops.start(name), ERROR_SERVICE_ALREADY_RUNNING).map_err(RestartError::Os)
+}
+
+/// Waits until the service leaves the start pending states and returns its
+/// state; a stop request in those states is refused by the manager.
+fn wait_settled(ops: &dyn ScmOps, name: &str) -> Result<u32, RestartError> {
+    let attempts = STOP_TIMEOUT.as_millis() / POLL_INTERVAL.as_millis();
+    for _ in 0..attempts {
+        let state = ops.state(name).map_err(RestartError::Os)?;
+        if !matches!(state, SERVICE_START_PENDING | SERVICE_CONTINUE_PENDING) {
+            return Ok(state);
+        }
+        ops.pause(POLL_INTERVAL);
+    }
+    Err(RestartError::StartTimeout)
 }
 
 fn wait_stopped(ops: &dyn ScmOps, name: &str) -> Result<(), RestartError> {
@@ -421,7 +487,63 @@ mod tests {
         assert_eq!(scope_of(0xd0), Some(ServiceScope::User));
         assert_eq!(classify(ERROR_SERVICE_DOES_NOT_EXIST), Failure::NotFound);
         assert_eq!(classify(ERROR_ACCESS_DENIED), Failure::Privilege);
+        assert_eq!(classify(ERROR_INVALID_NAME), Failure::NotFound);
         assert_eq!(classify(ERROR_SERVICE_REQUEST_TIMEOUT), Failure::Manager);
+    }
+
+    #[test]
+    fn scm_restart_waits_for_a_service_that_is_starting_before_it_stops_it() {
+        let scm = MockScm::with_states(&[SERVICE_START_PENDING, SERVICE_RUNNING, SERVICE_STOPPED]);
+        restart(&scm, "Spooler").unwrap();
+        assert_eq!(*scm.calls.borrow(), ["dependents", "stop", "start"]);
+        let stuck = MockScm::with_states(&[SERVICE_START_PENDING]);
+        assert_eq!(
+            restart(&stuck, "Spooler").unwrap_err(),
+            RestartError::StartTimeout
+        );
+        assert!(!stuck.calls.borrow().contains(&"stop"));
+    }
+
+    #[test]
+    fn scm_restart_waits_for_a_service_that_is_stopping_without_a_second_stop() {
+        let scm =
+            MockScm::with_states(&[SERVICE_STOP_PENDING, SERVICE_STOP_PENDING, SERVICE_STOPPED]);
+        restart(&scm, "Spooler").unwrap();
+        assert_eq!(*scm.calls.borrow(), ["pause", "start"]);
+    }
+
+    #[test]
+    fn scm_empty_or_invalid_names_are_not_found_and_specific_exit_codes_are_reported() {
+        assert_eq!(classify(ERROR_INVALID_NAME), Failure::NotFound);
+        assert_eq!(exit_result(0, 5), None);
+        assert_eq!(exit_result(1067, 0).as_deref(), Some("1067"));
+        assert_eq!(exit_result(1066, 0).as_deref(), Some("1066"));
+        assert_eq!(
+            exit_result(1066, 42).as_deref(),
+            Some("1066 (service exit code 42)")
+        );
+        let record = ServiceFacts {
+            name: "Custom".to_owned(),
+            exit_code: ERROR_SERVICE_SPECIFIC_ERROR,
+            specific_exit_code: 42,
+            ..ServiceFacts::default()
+        }
+        .to_record();
+        assert_eq!(record.os_raw.unwrap()["service_exit_code"], Value::Int(42));
+    }
+
+    #[test]
+    fn only_the_program_of_a_command_line_gets_slashes() {
+        assert_eq!(
+            slash_program("\"C:\\Program Files\\App\\svc.exe\" -config C:\\conf\\a.ini"),
+            "\"C:/Program Files/App/svc.exe\" -config C:\\conf\\a.ini"
+        );
+        assert_eq!(
+            slash_program("C:\\Windows\\svc.exe /path D:\\x"),
+            "C:/Windows/svc.exe /path D:\\x"
+        );
+        assert_eq!(slash_program("C:\\Windows\\svc.exe"), "C:/Windows/svc.exe");
+        assert_eq!(slash_program("\"C:\\unterminated"), "\"C:/unterminated");
     }
 
     #[test]
@@ -587,6 +709,7 @@ mod tests {
             account: Some("LocalSystem".to_owned()),
             description: Some(String::new()),
             exit_code: 1067,
+            specific_exit_code: 0,
         };
         let record = facts.to_record();
         assert_eq!(record.state, ServiceState::Running);

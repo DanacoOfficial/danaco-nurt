@@ -11,7 +11,8 @@
 //!   pending/<N>         marker of the non-terminal entry <N>
 //!   ops/<N>.tmp/        entry not yet prepared
 //!   ops/<N>/            op.json  STATE  ITEMS  tmp/  displaced/
-//!   ops/<N>/blobs/      <id>.blob  <id>.meta  <id>.tree
+//!   ops/<N>/blobs/      <id>.blob  <id>.meta  <id>.tree  (none for content
+//!                       kept in op.json, see `BeforeRecord::inline`)
 //!   reap/<N>/           entry being reclaimed
 //!   tomb/<N>.json       metrics of an expired entry
 //! ```
@@ -626,6 +627,14 @@ impl StateLayout {
     #[must_use]
     pub fn root(&self) -> &AbsPath {
         &self.root
+    }
+
+    /// Identifier of the account: the text of its state directory. Entries
+    /// record it, because the journal directory of a volume is shared by
+    /// every account that works on the volume.
+    #[must_use]
+    pub fn account_id(&self) -> String {
+        self.root.as_path().to_string_lossy().into_owned()
     }
 
     /// Sequence file: eight bytes of the last assigned number in

@@ -28,6 +28,7 @@ use super::conflict::{
     same_entry_error, sources,
 };
 use crate::common::path::PATH_FIELD;
+use crate::registry;
 
 const COMMAND: &str = "move";
 const FROM: &str = "from";
@@ -91,6 +92,9 @@ impl EffectStage for Move {
     ) -> Result<EffectPlan> {
         let fs = ctx.require_fs()?;
         let on_conflict = on_conflict_param(args, OnConflict::Overwrite)?;
+        if let Some((registered, destination)) = registry::transfer_request(args, FROM)? {
+            return plan_registry(ctx, &registered, &destination);
+        }
         let sources = sources(args, input, ctx, FROM)?;
         reject_nested(&sources)?;
         let shared = sources.len() > 1 && args.expr(TO).is_none();
@@ -131,6 +135,30 @@ impl EffectStage for Move {
         outcome.changes = changes;
         Ok(outcome)
     }
+}
+
+/// Plan of a move between registry paths: a copy and the removal of the
+/// source in one transaction. The destination must not exist, so
+/// `on_conflict` does not apply.
+fn plan_registry(
+    ctx: &ExecCtx,
+    sources: &[String],
+    destination: &registry::Destination,
+) -> Result<EffectPlan> {
+    let transfers = registry::plan_transfers(ctx, sources, destination, true)?;
+    let summary = Summary {
+        moved: transfers.keys + transfers.values,
+        ..Summary::default()
+    };
+    let changes = transfers.steps.iter().map(Step::change).collect();
+    let bulk = transfers.steps.len() > 1;
+    let mut plan = EffectPlan::new().with_state(MoveState {
+        steps: transfers.steps,
+        summary,
+    });
+    plan.changes = changes;
+    plan.bulk = bulk;
+    Ok(plan)
 }
 
 /// Rejects a source that lies inside another source, which would no longer
@@ -177,11 +205,23 @@ impl Planner<'_> {
         let replace = match self.placer.occupant(&meta, &target)? {
             Occupant::Free => false,
             Occupant::Same(_) if is_case_variant(&source.path, &target) => false,
+            // Renaming onto another hard link of the same file removes
+            // nothing, so the source would stay while the plan reports it
+            // moved.
+            Occupant::Same(_) => match self.on_conflict {
+                OnConflict::Skip => {
+                    self.summary.skipped += 1;
+                    return Ok(());
+                }
+                OnConflict::Overwrite | OnConflict::Error => {
+                    return Err(same_entry_error(&source.path));
+                }
+            },
             Occupant::Directory(_) => return Err(directory_exists_error(&target)),
-            Occupant::Same(_) | Occupant::Other(_) if meta.kind == FileKind::Directory => {
+            Occupant::Other(_) if meta.kind == FileKind::Directory => {
                 return Err(kind_mismatch_error(&target));
             }
-            Occupant::Same(_) | Occupant::Other(_) => match self.on_conflict {
+            Occupant::Other(_) => match self.on_conflict {
                 OnConflict::Overwrite => {
                     self.summary.overwritten += 1;
                     true
@@ -230,7 +270,8 @@ impl Planner<'_> {
 
 #[cfg(test)]
 mod tests {
-    use nurt_contracts::fs::Follow;
+    use nurt_contracts::fs::{Follow, FsWrite, ScopePurpose, TxScope};
+    use nurt_contracts::journal::OpId;
     use nurt_contracts::record::ChangeAction;
     use nurt_contracts::value::Value;
     use nurt_testkit::ctx::TestContext;
@@ -260,7 +301,14 @@ mod tests {
         assert!(!test.fs().exists(&source));
         assert_eq!(test.fs().read_file(&target).unwrap(), b"alpha");
         assert_eq!(run.changes[0].action, ChangeAction::Rename);
-        assert_eq!(run.changes[0].path.as_str(), source.to_language_string());
+        assert_eq!(run.changes[0].path.as_str(), target.to_language_string());
+        assert_eq!(
+            run.changes[0]
+                .from
+                .as_ref()
+                .map(|from| from.as_str().to_owned()),
+            Some(source.to_language_string())
+        );
         assert_eq!(
             run.changes[0]
                 .to
@@ -287,10 +335,12 @@ mod tests {
             .collect();
         assert_eq!(renames.len(), 2);
         for change in renames {
-            assert_eq!(
-                change.from.as_ref().map(|path| path.as_str().to_owned()),
-                Some(change.path.as_str().to_owned())
-            );
+            let from = change
+                .from
+                .as_ref()
+                .expect("a rename names the previous path");
+            assert_ne!(from.as_str(), change.path.as_str());
+            assert!(change.path.as_str().starts_with("/out"));
         }
     }
 
@@ -341,6 +391,45 @@ mod tests {
         assert_eq!(error.problem.as_deref(), Some("duplicate_destination"));
         assert!(test.fs().exists(&first));
         assert_untouched(&test);
+    }
+
+    // The virtual file system needs a transaction scope to create a hard
+    // link; no journal takes part in this test.
+    #[allow(clippy::disallowed_methods)]
+    #[test]
+    fn another_hard_link_of_the_source_is_not_a_destination() {
+        let test = TestContext::new();
+        let source = file(&test, "/data/a.txt", b"a");
+        let link = abs("/data/b.txt");
+        let scope = TxScope::new_for_journal(OpId(1), ScopePurpose::Operation);
+        test.fs().hard_link(&scope, &source, &link).unwrap();
+        let error = run(&Move, &test, &to(args(&[&source]), &link), None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert!(test.fs().exists(&source));
+        assert_untouched(&test);
+        let skipping = to(args(&[&source]), &link).with(ON_CONFLICT, choice_arg("skip"), false);
+        let skipped = run(&Move, &test, &skipping, None).unwrap();
+        assert_eq!(skipped.summary("skipped"), Some(1));
+        assert_eq!(skipped.summary("moved"), Some(0));
+        assert!(skipped.changes.is_empty());
+        assert!(test.fs().exists(&source));
+    }
+
+    #[test]
+    fn a_source_named_twice_is_moved_once() {
+        let test = TestContext::new();
+        let source = file(&test, "/data/a.txt", b"a");
+        let call = args(&[&source, &source]).with(INTO, path_arg(&abs("/out")), false);
+        let moved = run(&Move, &test, &call, None).unwrap();
+        let renames = moved
+            .changes
+            .iter()
+            .filter(|change| change.action == ChangeAction::Rename)
+            .count();
+        assert_eq!(renames, 1);
+        assert_eq!(moved.summary("moved"), Some(1));
+        assert!(test.fs().exists(&abs("/out/a.txt")));
+        assert_journaled(&test);
     }
 
     #[test]

@@ -331,6 +331,17 @@ fn tc_27_remote_action_fired_to_its_client_and_acknowledged() {
 }
 
 #[test]
+fn an_acknowledgement_accepts_only_the_states_of_a_finished_action() {
+    let harness = Harness::start(vec![reminder("s1")], TestRunner::printing("", 0));
+    for state in ["skipped", "rejected", "bogus"] {
+        let error = harness
+            .request("schedule/ack", json!({ "token": "t", "state": state }))
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Arg, "{state}");
+    }
+}
+
+#[test]
 fn remote_action_ack_timeout_skipped() {
     let settings = ScheduleSettings {
         action_ack_timeout: Duration::ZERO,
@@ -410,7 +421,24 @@ fn tc_13_run_now_through_the_service() {
     );
     assert_eq!(text(&record, "id"), "s1");
 
-    let state = harness.store().read_state().unwrap();
+    // The creation does not wait for the first run, so the record of the run
+    // appears in the history a moment later.
+    let begun = std::time::Instant::now();
+    let state = loop {
+        let state = harness.store().read_state().unwrap();
+        if state
+            .history
+            .get("s1")
+            .is_some_and(|history| !history.is_empty())
+        {
+            break state;
+        }
+        assert!(
+            begun.elapsed() < std::time::Duration::from_secs(20),
+            "the run of the new schedule left no record"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
     let entry = &state.schedules["s1"];
     assert_eq!(entry.next_run, Some(time("14:40:00")));
     assert_eq!(entry.run_count, 0);

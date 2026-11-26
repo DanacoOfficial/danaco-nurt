@@ -46,10 +46,16 @@ pub fn quote(text: &str) -> String {
 }
 
 /// Writes a path as a text literal with `/` separators, the form paths take
-/// in programs on every system.
+/// in programs on every system. A backslash is a separator on Windows only;
+/// in a name on another system it stays.
 #[must_use]
 pub fn quote_path(path: &Path) -> String {
-    quote(&path.to_string_lossy().replace('\\', "/"))
+    let text = path.to_string_lossy();
+    if cfg!(windows) {
+        quote(&text.replace('\\', "/"))
+    } else {
+        quote(&text)
+    }
 }
 
 /// Name of the command used in ready calls when the running stage has no
@@ -311,9 +317,17 @@ mod tests {
         assert_eq!(quote("\u{1}"), r#""\u{1}""#);
     }
 
+    #[cfg(windows)]
     #[test]
     fn quote_path_uses_forward_slashes() {
         assert_eq!(quote_path(Path::new(r"C:\repo\x")), r#""C:/repo/x""#);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn quote_path_keeps_a_backslash_in_a_name() {
+        assert_eq!(quote_path(Path::new(r"/r/a\b")), r#""/r/a\\b""#);
+        assert_eq!(quote_path(Path::new("/r/a/b")), r#""/r/a/b""#);
     }
 
     #[test]

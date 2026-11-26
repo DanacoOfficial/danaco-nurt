@@ -518,6 +518,41 @@ fn renaming_the_current_branch_moves_head_and_reflog_like_git() {
 }
 
 #[test]
+fn renaming_overwrites_a_leftover_reflog_of_the_new_name_like_git() {
+    let fx = Fixture::new();
+    fx.write("refs/heads/side", &format!("{B}\n"));
+    fx.write("logs/refs/heads/side", &entry(NULL, B, "created"));
+    fx.write("logs/refs/heads/other", "leftover\n");
+    fx.run(vec![RefEdit::rename(
+        name("refs/heads/side"),
+        name("refs/heads/other"),
+        "rename",
+    )])
+    .unwrap();
+    assert_eq!(
+        fx.read("logs/refs/heads/other").unwrap(),
+        format!("{}{}", entry(NULL, B, "created"), entry(B, B, "rename"))
+    );
+}
+
+#[test]
+fn renaming_a_reference_without_reflog_appends_to_a_leftover_reflog_like_git() {
+    let fx = Fixture::new();
+    fx.write("refs/heads/side", &format!("{B}\n"));
+    fx.write("logs/refs/heads/other", "leftover\n");
+    fx.run(vec![RefEdit::rename(
+        name("refs/heads/side"),
+        name("refs/heads/other"),
+        "rename",
+    )])
+    .unwrap();
+    assert_eq!(
+        fx.read("logs/refs/heads/other").unwrap(),
+        format!("leftover\n{}", entry(B, B, "rename"))
+    );
+}
+
+#[test]
 fn renaming_updates_head_of_a_linked_worktree() {
     let fx = Fixture::new();
     fx.write("refs/heads/side", &format!("{B}\n"));
@@ -748,6 +783,24 @@ fn symbolic_loops_are_detected() {
         ])
         .unwrap_err();
     assert_eq!(error.problem.as_deref(), Some("symref_loop"));
+}
+
+#[test]
+fn update_follows_a_long_symbolic_chain_like_git() {
+    let fx = Fixture::new();
+    for level in 0..5 {
+        fx.write(
+            &format!("refs/heads/s{level}"),
+            &format!("ref: refs/heads/s{}\n", level + 1),
+        );
+    }
+    fx.write("refs/heads/s5", &format!("{A}\n"));
+    fx.run(vec![
+        set("refs/heads/s0", obj(B), PreviousValue::Any, "m").deref(),
+    ])
+    .unwrap();
+    assert_eq!(fx.read("refs/heads/s5").unwrap(), format!("{B}\n"));
+    assert_eq!(fx.read("refs/heads/s0").unwrap(), "ref: refs/heads/s1\n");
 }
 
 #[test]

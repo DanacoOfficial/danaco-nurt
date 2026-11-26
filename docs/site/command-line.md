@@ -19,6 +19,7 @@ nurt check <file.nurt | -e '<program>'>
 nurt fmt <file.nurt> [--variant a|b|c]
 nurt ast [--from a|b|c|json] [--to json|cbor|a|b|c] <input>
 nurt schema ast|bound|report|request|config|tool
+nurt schema tool [--format <format>] [--language en|pl] [--groups core|all|<group>,<group>...]
 nurt catalog [command | group]
 nurt help [topic]
 nurt history|undo|redo [arguments]
@@ -67,7 +68,7 @@ License: Apache-2.0
 | `check` | parses, corrects and binds a program, prints the canonical form, changes nothing |
 | `fmt` | prints a file in canonical form |
 | `ast` | converts a program between the text variants and the syntax tree formats |
-| `schema` | prints a JSON schema |
+| `schema` | prints a JSON schema, or the definition of the tool for an AI platform |
 | `catalog` | prints the catalog, a group or one command |
 | `help` | built-in help |
 | `history`, `undo`, `redo` | shortcuts for the journal commands |

@@ -167,7 +167,7 @@ for all files below it that pass the exclusions, whether or not they match
 
 | Form | Input | Output |
 |---|---|---|
-| default | `none` | `entry` |
+| default | `none` | `entry`, `registry_value` |
 
 ## Effect
 

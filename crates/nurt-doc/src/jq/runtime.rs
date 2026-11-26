@@ -21,6 +21,8 @@ use jaq_json::{Map, Val};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::stage::{Event, ExecCtx, LogEvent, LogLevel};
 
+use super::guard;
+
 /// Generator steps between two checks of cancellation and the deadline.
 const CHECK_INTERVAL: u64 = 256;
 
@@ -45,12 +47,19 @@ const REPLACED_DEFS: [(&str, usize); 6] = [
 ];
 
 /// Native filters of the libraries replaced by filters of this module.
-const REPLACED_FUNS: [&str; 5] = ["range", "env", "now", "debug_empty", "stderr_empty"];
+const REPLACED_FUNS: [&str; 6] = [
+    "range",
+    "env",
+    "now",
+    "debug_empty",
+    "stderr_empty",
+    "decode_base64",
+];
 
-/// Checkpointed generators; `repeat` follows `jq`, which emits the input
-/// before each application of `f`.
+/// Checkpointed generators; `repeat` follows `jq` 1.8, which applies `f` to
+/// the same input again and again.
 const CHECKED_DEFS: &str = r"
-def repeat(f): def rec: __checkpoint | ., (f | rec); rec;
+def repeat(f): def rec: __checkpoint | f, rec; rec;
 def recurse(f): def rec: __checkpoint | ., (f | rec); rec;
 def recurse: recurse(.[]?);
 def recurse(f; cond): recurse(f | select(cond));
@@ -66,6 +75,15 @@ def IN(src; s): first((src | IN(s) | select(.)), false);
 def INDEX(stream; idx_expr): reduce stream as $row ({}; . + {($row | idx_expr | tostring): $row});
 def INDEX(idx_expr): INDEX(.[]; idx_expr);
 def tostream: path(def r: (.[]? | r), .; r) as $p | getpath($p) | reduce path(.[]?) as $q ([$p, .]; [$p + $q]);
+def fromstream(i): {x: null, e: false} as $init |
+  foreach i as $i ($init
+  ; if .e then $init else . end
+  | if $i | length == 2
+    then setpath(["e"]; $i[0] | length == 0) | setpath(["x"] + $i[0]; $i[1])
+    else setpath(["e"]; $i[0] | length == 1) end
+  ; if .e then .x else empty end);
+def delpaths($paths): reduce ($paths | sort | reverse | .[]) as $path (.; getpath($path) |= empty);
+def del(f): delpaths([path(f)]);
 def from_entries: reduce .[] as $x ({};
   . + {($x | if .key == null then .k // .name // .Name // .K // .Key else .key end
           | if isstring then . else tojson end):
@@ -104,12 +122,16 @@ pub(crate) struct Runtime<'a> {
     ctx: &'a ExecCtx,
     /// Generator steps allowed in one run, from `limits.max_records`.
     max_steps: u64,
+    /// Lowest stack address a guarded filter may reach; 0 for a run that is
+    /// not guarded.
+    floor: usize,
     state: RefCell<RunState>,
 }
 
 #[derive(Default)]
 struct RunState {
     steps: u64,
+    calls: u64,
     stopped: Option<Error>,
     buffered: Option<Vec<LogEvent>>,
     last_stderr: Option<String>,
@@ -122,8 +144,10 @@ impl<'a> HasLut<'a, Doc> for &'a Runtime<'a> {
 }
 
 impl<'a> Runtime<'a> {
-    /// Runtime of one run; log events are held back while `buffered`.
-    pub(crate) fn new(lut: &'a Lut<Doc>, ctx: &'a ExecCtx, buffered: bool) -> Self {
+    /// Runtime of one run; log events are held back while `buffered`. A
+    /// `floor` other than 0 is the lowest stack address that the filter may
+    /// reach before a guard stops it.
+    pub(crate) fn new(lut: &'a Lut<Doc>, ctx: &'a ExecCtx, buffered: bool, floor: usize) -> Self {
         let state = RunState {
             buffered: buffered.then(Vec::new),
             ..RunState::default()
@@ -132,6 +156,7 @@ impl<'a> Runtime<'a> {
             lut,
             ctx,
             max_steps: ctx.limits().max_records,
+            floor,
             state: RefCell::new(state),
         }
     }
@@ -196,6 +221,35 @@ impl<'a> Runtime<'a> {
             }
         }
         Err(Exn::halt(STOP_EXIT_CODE))
+    }
+
+    /// Guards the call of a definition of the filter: stops the filter, as
+    /// [`Runtime::step`] does, when the stack in use reaches the floor of the
+    /// run, and checks the context at every [`CHECK_INTERVAL`] calls. Calls
+    /// are not counted against the steps, which bound the values a filter
+    /// generates.
+    fn guard(&self) -> Result<(), Exn<'a, Val>> {
+        let mut state = self.state.borrow_mut();
+        if state.stopped.is_none() {
+            if self.floor != 0 && guard::stack_address() < self.floor {
+                state.stopped = Some(Error::new(
+                    ErrorCode::Limit,
+                    "the filter recurses deeper than the stack of the run allows; give the recursion an end",
+                ));
+            } else {
+                state.calls += 1;
+                if state.calls.is_multiple_of(CHECK_INTERVAL)
+                    && let Err(error) = self.ctx.checkpoint()
+                {
+                    state.stopped = Some(error);
+                }
+            }
+        }
+        if state.stopped.is_some() {
+            Err(Exn::halt(STOP_EXIT_CODE))
+        } else {
+            Ok(())
+        }
     }
 
     fn log(&self, level: LogLevel, message: String) {
@@ -273,7 +327,21 @@ pub(crate) fn funs() -> Vec<Fun<Doc>> {
             Ok(()) => update(cv.1),
             Err(exn) => box_once(Err(exn)),
         });
-    let own: [Fun<Doc>; 6] = [
+    let guard_filter = Native::<Doc>::new(|cv| pass_guarded(cv.0.data(), cv.1))
+        .with_paths(|cv| match cv.0.data().guard() {
+            Ok(()) => box_once(Ok(cv.1)),
+            Err(exn) => box_once(Err(exn)),
+        })
+        .with_update(|cv, update| match cv.0.data().guard() {
+            Ok(()) => update(cv.1),
+            Err(exn) => box_once(Err(exn)),
+        });
+    let own: [Fun<Doc>; 8] = [
+        (
+            "decode_base64",
+            v(0),
+            Native::new(|cv| box_once(decode_base64(&cv.1).map_err(Exn::from))),
+        ),
         (
             "range",
             v(3),
@@ -312,12 +380,66 @@ pub(crate) fn funs() -> Vec<Fun<Doc>> {
             }),
         ),
         ("__checkpoint", v(0), checkpoint),
+        (guard::GUARD_NAME, v(0), guard_filter),
     ];
     library.chain(own).collect()
 }
 
+/// `@base64d` as `jq` 1.8 decodes it: padding ends the text, a last group of
+/// two or three characters gives one or two bytes, and bytes that are not
+/// UTF-8 become the replacement character.
+fn decode_base64(input: &Val) -> Result<Val, jaq_core::Error<Val>> {
+    let Val::TStr(text) = input else {
+        return Err(jaq_core::Error::str(format!(
+            "{input} cannot be base64-decoded, only a string can be"
+        )));
+    };
+    let mut bytes = Vec::with_capacity(text.len() / 4 * 3 + 2);
+    let mut group = 0_u32;
+    let mut count = 0_u8;
+    for &byte in text.iter().take_while(|byte| **byte != b'=') {
+        let sextet = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            _ => {
+                return Err(jaq_core::Error::str(format!(
+                    "string ({input}) is not valid base64 data"
+                )));
+            }
+        };
+        group = group << 6 | u32::from(sextet);
+        count += 1;
+        if count == 4 {
+            bytes.extend_from_slice(&group.to_be_bytes()[1..]);
+            group = 0;
+            count = 0;
+        }
+    }
+    match count {
+        0 => {}
+        1 => {
+            return Err(jaq_core::Error::str(format!(
+                "string ({input}) trailing base64 byte found"
+            )));
+        }
+        2 => bytes.push((group >> 4).to_be_bytes()[3]),
+        _ => bytes.extend_from_slice(&(group >> 2).to_be_bytes()[2..]),
+    }
+    Ok(Val::from(String::from_utf8_lossy(&bytes).into_owned()))
+}
+
 fn pass<'a>(runtime: &&'a Runtime<'a>, value: Val) -> ValXs<'a, Val> {
     match runtime.step() {
+        Ok(()) => box_once(Ok(value)),
+        Err(exn) => box_once(Err(exn)),
+    }
+}
+
+fn pass_guarded<'a>(runtime: &&'a Runtime<'a>, value: Val) -> ValXs<'a, Val> {
+    match runtime.guard() {
         Ok(()) => box_once(Ok(value)),
         Err(exn) => box_once(Err(exn)),
     }

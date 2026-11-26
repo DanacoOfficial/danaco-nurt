@@ -48,6 +48,7 @@ nurt-bind = { workspace = true, optional = true }
 nurt-catalog = { workspace = true, optional = true }
 nurt-help = { workspace = true, optional = true }
 nurt-ext = { workspace = true }
+nurt-tooldef = { workspace = true }
 ciborium = { workspace = true }
 comfy-table = { workspace = true }
 crossterm = { workspace = true }

@@ -204,11 +204,56 @@ fn pointer_token(key: &str) -> String {
     key.replace('~', "~0").replace('/', "~1")
 }
 
+/// Largest magnitude below which every integer has an exact `f64`.
+const EXACT_IN_F64: i128 = 1 << 53;
+
+fn integer_of(number: &serde_json::Number) -> Option<i128> {
+    number
+        .as_i64()
+        .map(i128::from)
+        .or_else(|| number.as_u64().map(i128::from))
+}
+
+/// Whether `float` is exactly the integer `integer`; an integer beyond
+/// [`EXACT_IN_F64`] has no exact `f64`, so a float never equals it.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "the integer is below 2^53 and exact in f64"
+)]
+fn float_equals(integer: i128, float: &serde_json::Number) -> bool {
+    integer.abs() <= EXACT_IN_F64 && float.as_f64().is_some_and(|value| value == integer as f64)
+}
+
+/// Equality of numbers, exact for integers: two integers are equal when they
+/// are the same integer, not when their `f64` approximations are.
 fn same_number(nurt: &serde_json::Number, yq: &serde_json::Number) -> bool {
-    nurt == yq
-        || nurt
-            .as_f64()
-            .is_some_and(|value| Some(value) == yq.as_f64())
+    match (integer_of(nurt), integer_of(yq)) {
+        (Some(left), Some(right)) => left == right,
+        (Some(integer), None) => float_equals(integer, yq),
+        (None, Some(integer)) => float_equals(integer, nurt),
+        (None, None) => nurt == yq || nurt.as_f64() == yq.as_f64(),
+    }
+}
+
+#[test]
+fn numbers_are_compared_exactly() {
+    let number = |text: &str| serde_json::from_str::<serde_json::Number>(text).unwrap();
+    assert!(same_number(&number("1"), &number("1.0")));
+    assert!(same_number(&number("-3"), &number("-3")));
+    assert!(same_number(&number("0.5"), &number("0.50")));
+    assert!(!same_number(
+        &number("9007199254740993"),
+        &number("9007199254740992")
+    ));
+    assert!(!same_number(
+        &number("9007199254740993"),
+        &number("9007199254740992.0")
+    ));
+    assert!(!same_number(
+        &number("18446744073709551615"),
+        &number("1.8446744073709552e19")
+    ));
+    assert!(!same_number(&number("1"), &number("2")));
 }
 
 fn compare(pointer: &str, nurt: &Json, yq: &Json, out: &mut Vec<Mismatch>) {

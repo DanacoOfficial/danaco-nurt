@@ -29,7 +29,8 @@ use crate::common::etag::{Observed, check_if_match, observe, parse_etag};
 use crate::common::mutation::{applied_change, planned_change};
 use crate::common::notable::at_path;
 use crate::common::path::{
-    PATH_FIELD, base_dir, path_arg, path_field, path_list_arg, record_path, resolve,
+    PATH_FIELD, base_dir, path_arg_for_change, path_field, path_list_arg, path_list_arg_for_change,
+    record_path, resolve_for_change,
 };
 use crate::walk::{Entry as WalkEntry, KindFilter, WalkItem, WalkOptions, Walker};
 
@@ -205,6 +206,9 @@ pub(crate) fn same_entry_error(path: &AbsPath) -> Error {
     .with_detail(PATH_FIELD, Json::from(path.to_language_string()))
 }
 
+/// Name of the command that only reads its sources.
+const COPY_COMMAND: &str = "copy";
+
 /// Entry the command works on.
 #[derive(Debug, Clone)]
 pub(crate) struct Source {
@@ -276,6 +280,9 @@ impl Source {
 ///
 /// Fails with `E_MISSING_PARAM` when the source form has no paths, with
 /// `E_TYPE` for records of another kind, and as [`Source::from_record`].
+///
+/// An entry named more than once is one source: planned twice it would be
+/// moved or copied twice and the second step would fail when applied.
 pub(crate) fn sources(
     args: &BoundArgs,
     input: StageInput<'_>,
@@ -284,10 +291,15 @@ pub(crate) fn sources(
 ) -> Result<Vec<Source>> {
     if input.is_none() {
         args.require(param)?;
-        return Ok(path_list_arg(args, param, ctx)?
-            .into_iter()
-            .map(Source::from_path)
-            .collect());
+        // A copy only reads its sources; every other command changes them.
+        let paths = if args.command() == COPY_COMMAND {
+            path_list_arg(args, param, ctx)?
+        } else {
+            path_list_arg_for_change(args, param, ctx)?
+        };
+        return Ok(first_of_each_path(
+            paths.into_iter().map(Source::from_path).collect(),
+        ));
     }
     let mut found = Vec::new();
     for (index, item) in input.into_records()?.enumerate() {
@@ -300,7 +312,16 @@ pub(crate) fn sources(
         }
         found.push(Source::from_record(record, ctx)?);
     }
-    Ok(found)
+    Ok(first_of_each_path(found))
+}
+
+/// Keeps the first source of every path, in order.
+fn first_of_each_path(found: Vec<Source>) -> Vec<Source> {
+    let mut seen = HashSet::with_capacity(found.len());
+    found
+        .into_iter()
+        .filter(|source| seen.insert(source.path.clone()))
+        .collect()
 }
 
 /// Destination given by `to` or `into`.
@@ -325,10 +346,10 @@ pub(crate) fn destination(
     ctx: &ExecCtx,
 ) -> Result<Destination> {
     let command = args.command();
-    let into = path_arg(args, INTO, ctx)?;
+    let into = path_arg_for_change(args, INTO, ctx)?;
     let to = match args.eval(TO, record, ctx)? {
         None | Some(Value::Null) => None,
-        Some(Value::Path(text) | Value::Text(text)) => Some(resolve(ctx, &text)?),
+        Some(Value::Path(text) | Value::Text(text)) => Some(resolve_for_change(ctx, &text)?),
         Some(_) => return Err(type_error(command, TO, "a path")),
     };
     match (to, into) {
@@ -783,7 +804,12 @@ impl Step {
             change.from = Some(path_field(source));
         }
         if change.action == ChangeAction::Rename && change.from.is_none() {
+            // A detail that names only the source and the destination: the path of
+            // the record is the path after the change.
             change.from = Some(change.path.clone());
+            if let Some(to) = &change.to {
+                change.path = to.clone();
+            }
         }
         change
     }
@@ -1568,12 +1594,27 @@ mod tests {
     }
 
     #[test]
+    fn a_rename_detail_that_names_only_its_source_and_destination_gets_the_new_path() {
+        let source = abs("/a.txt");
+        let target = abs("/b.txt");
+        let step = Step::op(FileOp::rename(source.clone(), target.clone(), false));
+        let mut detail = Change::new(source.to_language_string(), ChangeAction::Rename);
+        detail.to = Some(path_field(&target));
+        let change = step.with_detail(detail).change();
+        assert_eq!(change.path.as_str(), target.to_language_string());
+        assert_eq!(
+            change.from.map(|path| path.as_str().to_owned()),
+            Some(source.to_language_string())
+        );
+    }
+
+    #[test]
     fn a_rename_step_gives_the_previous_path_and_the_destination() {
         let source = abs("/a.txt");
         let target = abs("/b.txt");
         let change = Step::op(FileOp::rename(source.clone(), target.clone(), false)).change();
         assert_eq!(change.action, ChangeAction::Rename);
-        assert_eq!(change.path.as_str(), source.to_language_string());
+        assert_eq!(change.path.as_str(), target.to_language_string());
         assert_eq!(
             change.from.map(|path| path.as_str().to_owned()),
             Some(source.to_language_string())

@@ -52,7 +52,24 @@ impl Catalog {
                 let Some(name) = command.get("name").and_then(Item::as_str) else {
                     continue;
                 };
-                if command.get("effect").and_then(Item::as_str) != Some("read") {
+                // The same rule as `policy::is_effecting`: the category, the
+                // effect of the command or the effect of one of its actions.
+                let by_category = matches!(
+                    command.get("category").and_then(Item::as_str),
+                    Some("change" | "run")
+                );
+                let by_actions = command
+                    .get("effects")
+                    .and_then(Item::as_array_of_tables)
+                    .is_some_and(|actions| {
+                        actions.iter().any(|action| {
+                            action.get("effect").and_then(Item::as_str) != Some("read")
+                        })
+                    });
+                if by_category
+                    || by_actions
+                    || command.get("effect").and_then(Item::as_str) != Some("read")
+                {
                     mutating.insert(name.to_owned());
                 }
                 names.push(&*Box::leak(name.to_owned().into_boxed_str()));

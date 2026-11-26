@@ -188,7 +188,7 @@ deps = ["nurt-contracts", "nurt-types"]
 layer = "library"
 area = "structured"
 summary = "Structured formats with preserved layout, SQLite and queries."
-deps = ["nurt-contracts", "nurt-types"]
+deps = ["nurt-contracts", "nurt-types", "jaq-json"]
 
 [crate.nurt-code]
 layer = "library"
@@ -263,11 +263,23 @@ area = "files"
 summary = "Notebook cells and export."
 deps = ["nurt-contracts", "nurt-types", "nurt-text"]
 
+[crate.jaq-json]
+layer = "library"
+area = "structured"
+summary = "JSON values of jaq (jaq-json 2.0.3, MIT license)."
+deps = []
+
+[crate.nurt-pdf-extract]
+layer = "library"
+area = "files"
+summary = "Text extraction from PDF documents (pdf-extract, MIT license)."
+deps = []
+
 [crate.nurt-files]
 layer = "component"
 area = "files"
 summary = "File commands."
-deps = ["nurt-contracts", "nurt-types", "nurt-text", "nurt-archive", "nurt-notebook"]
+deps = ["nurt-contracts", "nurt-types", "nurt-text", "nurt-archive", "nurt-notebook", "nurt-pdf-extract"]
 
 [crate.nurt-lspclient]
 layer = "component"

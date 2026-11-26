@@ -43,7 +43,7 @@ use crate::common::etag::{Observed, check_if_match, parse_etag, stale_error};
 use crate::common::mutation::applied_change;
 use crate::common::notable::{at_path, preserved_text};
 use crate::common::params::{self, EncodingParam, IfMatch};
-use crate::common::path::{path_arg, path_field};
+use crate::common::path::{path_arg_for_change, path_field};
 use crate::common::text::{TextFile, encode_preserving, read_text, text_change};
 
 const COMMAND: &str = "edit";
@@ -127,7 +127,8 @@ impl EffectStage for Edit {
         _input: StageInput<'a>,
         ctx: &'a ExecCtx,
     ) -> Result<EffectPlan> {
-        let path = path_arg(args, PATH, ctx)?.ok_or_else(|| missing_param(COMMAND, PATH))?;
+        let path =
+            path_arg_for_change(args, PATH, ctx)?.ok_or_else(|| missing_param(COMMAND, PATH))?;
         let changes = changes_param(args, range_param(args, EXPECT)?)?;
         let options = EditOptions {
             whitespace: whitespace_param(args)?,

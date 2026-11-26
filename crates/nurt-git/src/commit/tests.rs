@@ -1161,6 +1161,19 @@ fn all_records_the_text_of_a_link_byte_for_byte() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn a_real_link_is_recorded_as_a_link_when_symlinks_are_disabled() {
+    let fixture = with_identity(RepoBuilder::new())
+        .file("a.txt", "1\n")
+        .config("core.symlinks", "false")
+        .commit("one")
+        .build();
+    std::os::unix::fs::symlink("a.txt", fixture.path().join("link")).unwrap();
+    let outcome = commit(&fixture, &CommitRequest::new("two", Selection::All)).unwrap();
+    assert!(tree_paths(&fixture, outcome.id).contains(&("link".to_owned(), "a.txt".to_owned())));
+}
+
 #[test]
 fn a_message_with_a_zero_byte_is_refused_before_anything_is_written() {
     let fixture = with_identity(RepoBuilder::new())

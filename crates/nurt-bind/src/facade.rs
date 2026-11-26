@@ -18,10 +18,14 @@ use nurt_contracts::bound::{BoundDocument, BoundHead, BoundPipeline, BoundStatem
 use nurt_contracts::config::Config;
 use nurt_contracts::error::{At, Candidate as ErrorCandidate, Error, ErrorCode, Stage};
 use nurt_contracts::kinds::SyntaxVariant;
+use nurt_contracts::report::TextPosition;
 use nurt_contracts::spec::{ParamType, ScalarType};
 use nurt_correct::candidates::{self, Candidate, Clock, Store};
+use nurt_correct::lexical::paths::{escape_error_in, escaped_texts};
 use nurt_correct::lexical::tree::{TreeChange, TreeRule, reorder_arguments, split_missing_pipes};
-use nurt_correct::lexical::{ArgumentShape, CatalogView, Front, Rule, front, number_corrections};
+use nurt_correct::lexical::{
+    ArgumentShape, CatalogView, Front, Rule, front_for_binding, number_corrections,
+};
 use nurt_correct::policy::{
     Budget, Class, Decision, Facts, InvariantInput, ProgramKind, check_invariants, decide,
     is_effecting, over_budget,
@@ -105,11 +109,18 @@ pub fn bind_with_correction(
     let mut syntax = config.syntax.clone();
     syntax.variant = variant;
     let view = CommandView::new(catalog);
-    let read = front(text, &syntax, &config.correction, tables, &view)?;
     let mut context = context.clone();
     if context.base.is_none() {
         context.base.clone_from(&config.scope.base);
     }
+    let read = front_for_binding(
+        text,
+        &syntax,
+        &config.correction,
+        tables,
+        &view,
+        context.base.as_deref(),
+    )?;
     if !config.correction.enabled {
         let context = context.with_corr_rev(UNCORRECTED_REV);
         let bound = bind_document(&read.document, catalog, &context).map_err(Error::from)?;
@@ -122,7 +133,7 @@ pub fn bind_with_correction(
         });
     }
     let context = context.with_corr_rev(tables.corr_rev());
-    let corrector = Corrector::new(tables, &config.correction);
+    let corrector = Corrector::new(tables, &config.correction, &read.source);
     let Tree {
         document,
         changes,
@@ -136,6 +147,7 @@ pub fn bind_with_correction(
         &view,
         variant,
     )?;
+    check_escapes(&read.source, &applied)?;
     let mut surface = document.clone();
     write_edits(&mut surface, applied.iter().map(|applied| &applied.edit))?;
     if !applied.is_empty() {
@@ -213,6 +225,24 @@ pub fn offer_candidates<C: Clock>(mut error: Error, store: &mut Store<C>) -> Err
         .collect();
     error.candidates = store.insert(ranked);
     error
+}
+
+/// Fails with `E_ESCAPE` for the first text of the program that has an escape
+/// the language does not have and that no place read as written (`L24`).
+fn check_escapes(source: &str, applied: &[Applied]) -> Result<(), Error> {
+    let read = |at: TextPosition| {
+        applied.iter().any(|applied| {
+            applied.correction.rule == Rule::L24.rule_id()
+                && applied
+                    .correction
+                    .at
+                    .is_some_and(|found| (found.line, found.column) == (at.line, at.column))
+        })
+    };
+    match escaped_texts(source).iter().find(|text| !read(text.at)) {
+        Some(text) => Err(escape_error_in(source, text)),
+        None => Ok(()),
+    }
 }
 
 /// A tree bound with corrections, after the rules applied to the parsed
@@ -318,7 +348,7 @@ impl Request<'_> {
             .applied
             .iter()
             .filter_map(|applied| {
-                applied.regex_path.as_ref().map(|written| Edit {
+                applied.reading.as_ref().map(|written| Edit {
                     span: applied.edit.span,
                     change: Change::Expr(Expr::Text {
                         v: written.clone(),
@@ -358,8 +388,8 @@ impl Request<'_> {
             let correction = &applied.correction;
             let facts =
                 if correction.kind == CorrectionKind::Command && correction.class == Class::Fuzzy {
-                    general.fuzzy(applied.effecting, applied.distance)
-                } else if applied.regex_path.is_some() {
+                    general.fuzzy(applied.effecting)
+                } else if applied.reading.is_some() {
                     general.structural(self.read.alternatives.is_empty(), false)
                 } else {
                     general
@@ -492,7 +522,7 @@ impl Request<'_> {
     }
 
     fn corrected_reading(&self, reading: &Front) -> Option<String> {
-        let corrector = Corrector::new(self.tables, &self.config.correction);
+        let corrector = Corrector::new(self.tables, &self.config.correction, &reading.source);
         let tree = bind_tree(
             &reading.document,
             self.catalog,

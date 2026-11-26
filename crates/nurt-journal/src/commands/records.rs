@@ -109,7 +109,8 @@ pub(super) fn change(outcome: &TargetOutcome, fs: Option<&dyn Fs>) -> Change {
     let mut change = Change::new(target_text(&outcome.path), change_action(&outcome.action));
     if let TargetAction::Rename { to, .. } = &outcome.action {
         change.from = Some(change.path.clone());
-        change.to = Some(Path::from(to.to_language_string()));
+        change.path = Path::from(to.to_language_string());
+        change.to = Some(change.path.clone());
     }
     change.size_before = outcome.before.size.map(Size::from_bytes);
     change.hash_before = outcome.before.hash.as_ref().map(ToString::to_string);
@@ -152,9 +153,9 @@ pub(super) fn change(outcome: &TargetOutcome, fs: Option<&dyn Fs>) -> Change {
 fn reversal(item: &ItemDetail) -> Change {
     let mut change = match &item.action {
         TargetAction::Rename { to, .. } => {
-            let mut change = Change::new(to.to_language_string(), ChangeAction::Rename);
-            change.from = Some(change.path.clone());
-            change.to = Some(Path::from(target_text(&item.path)));
+            let mut change = Change::new(target_text(&item.path), ChangeAction::Rename);
+            change.from = Some(Path::from(to.to_language_string()));
+            change.to = Some(change.path.clone());
             change
         }
         action => Change::new(target_text(&item.path), reverse_action(action)),
@@ -434,7 +435,7 @@ mod tests {
             changes[0].hash_after,
             Some(ContentHash([1; 32]).to_string())
         );
-        assert_eq!(changes[1].path, Path::from("/d/e.txt"));
+        assert_eq!(changes[1].path, Path::from("/d/b.txt"));
         assert_eq!(changes[1].to, Some(Path::from("/d/b.txt")));
         assert_eq!(changes[1].from, Some(Path::from("/d/e.txt")));
         let only = [path("/d/b.txt")];
@@ -560,6 +561,7 @@ mod tests {
             None,
         );
         assert_eq!(moved.action, ChangeAction::Rename);
+        assert_eq!(moved.path, Path::from("/d/b.txt"));
         assert_eq!(moved.to, Some(Path::from("/d/b.txt")));
         assert_eq!(moved.from, Some(Path::from("/d/a.txt")));
 

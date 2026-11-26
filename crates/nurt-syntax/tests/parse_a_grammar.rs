@@ -497,16 +497,16 @@ fn let_span_covers_the_keyword_and_the_pipeline() {
     );
 }
 
-/// `first` with `n` nested lists around an integer: the tree depth is
-/// `n + 3` (pipeline, stage, lists, integer).
+/// `first` with `n` nested lists around an integer: each list adds an object
+/// and an array to the JSON form, so the JSON depth is about `2 * n + 10`.
 fn nested_lists(n: usize) -> String {
     format!("first {}1{}", "[".repeat(n), "]".repeat(n))
 }
 
 #[test]
-fn accepts_tree_depth_128_and_rejects_129() {
-    assert!(parse_a(&nested_lists(125)).is_ok());
-    let error = parse_a(&nested_lists(126)).expect_err("too deep");
+fn accepts_nesting_up_to_the_json_depth_limit_and_rejects_deeper() {
+    assert!(parse_a(&nested_lists(55)).is_ok());
+    let error = parse_a(&nested_lists(65)).expect_err("too deep");
     assert_eq!(error.problem.as_deref(), Some("nesting_too_deep"));
     assert_eq!(
         error.message,

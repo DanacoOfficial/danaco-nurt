@@ -51,7 +51,10 @@ key `git.trash_refs` is `true`, the value of each deleted branch is kept as
 `refs/nurt/trash/<name>-<seconds>`; `trash: true` lists the kept copies and
 `purge` removes them, or all of them with `purge: all`. A `purge` name selects
 a copy by its reference, by the last component of the reference
-(`<name>-<seconds>`), or every copy of a deleted branch by the branch name.
+(`<name>-<seconds>`), or every copy of a deleted branch by the branch name. A
+name that is both the last component of one copy and the branch name of other
+copies, such as `a-1` for the copy `a-1` and the copies `a-1-<seconds>`, is
+refused with the problem `ambiguous`; name the references instead.
 
 With `check_references` the command reports references that still name a
 renamed or deleted branch: symbolic references to it and `branch.<name>.merge`

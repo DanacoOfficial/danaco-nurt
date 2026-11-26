@@ -57,23 +57,20 @@ with `E_QUERY` and the text written by the filter.
 of the session, and `debug` and `stderr` write log events. `input`,
 `inputs` and modules are not available.
 
-The filter language follows `jq` 1.8. Results of the following kinds differ
-from `jq`:
+The filter language follows `jq` 1.8.1. A string multiplied by a number, a
+deletion of several paths, an update below `null` or past the end of a list, a
+fractional list index, the index of an object by a number, the slice of `null`,
+`@base64d`, `repeat` and `fromstream` give the results of `jq` 1.8.1. Two
+results differ from it:
 
-| Case | `query` | `jq` |
+| Case | `query` | `jq` 1.8.1 |
 |---|---|---|
-| update of a list past its end, `.[5] = 1` on a shorter list | `E_QUERY` | extends the list with `null` |
-| update below `null`, `null \| .a.b = 1` | `E_QUERY` | creates the containers |
-| deletion of several paths, `del(.[0, 2])` | deletes the paths one after another, so later indices shift | deletes all paths of the original value |
-| text multiplied by zero, `"a" * 0` | `null` | `""` |
 | `captures` of `match` | groups that did not take part are omitted | groups that did not take part are `null` |
-| fractional index, `.[1.5]` | `E_QUERY` | the index is rounded down |
-| number index of an object, `{"a":1} \| .[0]` | `null` | error |
-| slice of `null`, `null \| .[1:]` | `E_QUERY` | `null` |
-| invalid Base64 text in `@base64d` | `E_QUERY` | decodes the valid prefix |
-| `repeat(f)` | emits the input, then applies `f` to each output, as the `jq` manual describes | `jq` 1.8.1 applies `f` to the original input |
 | `@base32`, `@base32d` | the filter does not compile | runtime error |
-| `fromstream` | not available | available |
+
+An update that extends a list, and a string made by multiplying a string, are
+limited in size by `limits.max_file_bytes_text`; a larger result fails with
+`E_LIMIT`.
 
 ## Parameters
 
@@ -167,7 +164,7 @@ query "[.[] | objects] | length" path: "/home/user/app/config.toml"
 | `E_TYPE` | an input record is of another kind, or an entry is not a file | pass `content`, `entry`, `item` or `response` records |
 | `E_MISSING_PARAM` | the source form has no `path` | add `path:` |
 | `E_STALE` | the file changed while it was read | run the command again |
-| `E_LIMIT` | the filter produces more results than one execution may hold, or the file is larger than the document size limit | narrow the filter, use `limit(n; f)`, or raise the limit |
+| `E_LIMIT` | the filter produces more results than one execution may hold, multiplies a string into a result longer than `limits.max_file_bytes_text` bytes (`"x" * n`), or the file is larger than the document size limit | narrow the filter, use `limit(n; f)`, or raise the limit |
 | `E_CANCELLED` | the execution was cancelled or its time limit passed, including inside endless generators such as `repeat` | run the command again with a narrower filter |
 | `E_TIMEOUT` | the execution was cancelled or its time limit passed, including inside endless generators such as `repeat` | run the command again with a narrower filter |
 

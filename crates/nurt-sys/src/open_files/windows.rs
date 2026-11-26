@@ -108,6 +108,10 @@ fn array_text(units: &[u16]) -> String {
     String::from_utf16_lossy(units.get(..end).unwrap_or_default())
 }
 
+#[expect(
+    non_upper_case_globals,
+    reason = "windows-sys names the application types as the Restart Manager header does"
+)]
 fn app_kind(kind: RM_APP_TYPE) -> &'static str {
     match kind {
         RmMainWindow | RmOtherWindow => "application",

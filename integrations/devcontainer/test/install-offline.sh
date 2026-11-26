@@ -16,13 +16,17 @@ failures=0
 status=0
 
 host_target() {
-  case $(uname -m) in
+  case ${1:-$(uname -m)} in
     x86_64 | amd64) echo x86_64-unknown-linux-musl ;;
-    *) echo aarch64-unknown-linux-musl ;;
+    aarch64 | arm64) echo aarch64-unknown-linux-musl ;;
+    *)
+      printf 'unsupported architecture: %s\n' "${1:-$(uname -m)}" >&2
+      return 1
+      ;;
   esac
 }
 
-target=$(host_target)
+target=$(host_target) || exit 1
 
 expect() {
   local description=$1
@@ -49,6 +53,14 @@ failed_with() {
 
 missing() {
   [[ ! -e $1 ]]
+}
+
+refused_architecture() {
+  ! host_target "$1" >/dev/null 2>&1
+}
+
+prints_target() {
+  [[ $(host_target amd64) == x86_64-unknown-linux-musl && $(host_target arm64) == aarch64-unknown-linux-musl ]]
 }
 
 make_release() {
@@ -115,9 +127,25 @@ run_install 3.0.0 "$work/bin-nested"
 expect 'installs an archive with the top directory of the release layout' succeeded
 expect 'executable of the nested archive runs' prints "$work/bin-nested/nurt" 'Danaco Nurt 3.0.0'
 
+if ! { command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl; }; then
+  gnu=${target%-musl}-gnu
+  glibc=$(mktemp -d "$work/stage.XXXXXX")
+  mkdir -p "$glibc/nurt-3.1.0-$gnu" "$work/release/v3.1.0"
+  printf '#!/bin/sh\necho "Danaco Nurt 3.1.0"\n' >"$glibc/nurt-3.1.0-$gnu/nurt"
+  chmod +x "$glibc/nurt-3.1.0-$gnu/nurt"
+  tar -czf "$work/release/v3.1.0/nurt-3.1.0-$gnu.tar.gz" -C "$glibc" "nurt-3.1.0-$gnu"
+  (cd "$work/release/v3.1.0" && sha256sum "nurt-3.1.0-$gnu.tar.gz" >checksums.txt)
+  run_install 3.1.0 "$work/bin-glibc"
+  expect 'installs the glibc archive of a release without a musl archive' succeeded
+  expect 'executable of the glibc archive runs' prints "$work/bin-glibc/nurt" 'Danaco Nurt 3.1.0'
+fi
+
 printf '%064d  nurt-1.2.3-%s.tar.gz\n' 0 "$target" >"$work/release/v1.2.3/checksums.txt"
 run_install 1.2.3 "$work/bin-tampered"
 expect 'fails on checksum mismatch' failed_with 'checksum mismatch'
 expect 'installs nothing after a checksum mismatch' missing "$work/bin-tampered/nurt"
+
+expect 'maps the supported architectures' prints_target
+expect 'refuses an unknown architecture' refused_architecture riscv64
 
 ((failures == 0))

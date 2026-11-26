@@ -321,10 +321,41 @@ fn subject<'a>(query: &'a HelpQuery, catalog: &'a Catalog) -> Result<Subject<'a>
         Some(TopicKind::Group) => named_group(catalog, topic),
         Some(TopicKind::Error) => named_error(topic),
         Some(TopicKind::Skill) => named_guide(catalog, topic),
-        Some(TopicKind::Syntax) => Ok(Subject::Syntax),
-        Some(TopicKind::Corrections) => Ok(Subject::Corrections),
+        Some(TopicKind::Syntax) => named_syntax(topic),
+        Some(TopicKind::Corrections) => named_corrections(topic),
         None => detect(catalog, topic),
     }
+}
+
+/// Answer for `kind: syntax`: the whole syntax for an empty topic or the
+/// topic `syntax`, or the part that a part topic names. Any other name is an
+/// unknown topic instead of being ignored.
+fn named_syntax<'a>(topic: &str) -> Result<Subject<'a>, Error> {
+    if topic.is_empty() || topic == "syntax" {
+        return Ok(Subject::Syntax);
+    }
+    if let Some(name) = text::PART_TOPICS.into_iter().find(|name| *name == topic) {
+        return Ok(Subject::Part(name));
+    }
+    let names: Vec<String> = ["syntax"]
+        .into_iter()
+        .chain(text::PART_TOPICS)
+        .map(str::to_owned)
+        .collect();
+    Err(lookup::unknown("syntax topic", topic, &names))
+}
+
+/// Answer for `kind: corrections`: the corrections topic for an empty topic
+/// or the topic `corrections`; any other name is an unknown topic.
+fn named_corrections<'a>(topic: &str) -> Result<Subject<'a>, Error> {
+    if topic.is_empty() || topic == "corrections" {
+        return Ok(Subject::Corrections);
+    }
+    Err(lookup::unknown(
+        "corrections topic",
+        topic,
+        &["corrections".to_owned()],
+    ))
 }
 
 fn named_command<'a>(catalog: &'a Catalog, name: &str) -> Result<Subject<'a>, Error> {

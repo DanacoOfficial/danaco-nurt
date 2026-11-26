@@ -19,6 +19,9 @@ use nurt_contracts::journal::{
 use nurt_contracts::stage::ExecCtx;
 use sha2::{Digest, Sha256};
 
+use crate::commit::identity::sanitize as sanitize_identity;
+use crate::refs_tx::normalize_reflog_message;
+
 /// Permission bits of directories created inside the repository.
 pub(crate) const DIR_MODE: u32 = 0o755;
 
@@ -253,14 +256,19 @@ pub(crate) fn verify_checkout_paths(entries: &BTreeMap<BString, TreeEntry>) -> R
 pub(crate) fn committer(repo: &gix::Repository, ctx: &ExecCtx) -> gix::actor::Signature {
     let global = global_config(ctx);
     let lookup = |env: &str, key: &str, fallback: &str| -> BString {
-        if let Some(value) = ctx.host().env_var(env).filter(|value| !value.is_empty()) {
-            return BString::from(value.to_string_lossy().into_owned());
-        }
-        repo.config_snapshot()
-            .string(key)
-            .or_else(|| global.as_ref().and_then(|file| file.string(key)))
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| BString::from(fallback))
+        let found = match ctx.host().env_var(env).filter(|value| !value.is_empty()) {
+            Some(value) => Some(value.to_string_lossy().into_owned()),
+            None => repo
+                .config_snapshot()
+                .string(key)
+                .or_else(|| global.as_ref().and_then(|file| file.string(key)))
+                .filter(|value| !value.is_empty())
+                .map(|value| value.to_str_lossy().into_owned()),
+        };
+        let clean = found
+            .map(|text| sanitize_identity(&text))
+            .filter(|text| !text.is_empty());
+        BString::from(clean.unwrap_or_else(|| fallback.to_owned()))
     };
     gix::actor::Signature {
         name: lookup("GIT_COMMITTER_NAME", "user.name", FALLBACK_NAME),
@@ -312,9 +320,10 @@ pub(crate) fn reflog_line(
     line.extend_from_slice(&who.email);
     line.extend_from_slice(b"> ");
     line.extend_from_slice(format_time(who.time).as_bytes());
+    let message = normalize_reflog_message(message.as_bytes().as_bstr());
     if !message.is_empty() {
         line.push(b'\t');
-        line.extend_from_slice(message.as_bytes());
+        line.extend_from_slice(&message);
     }
     line.push(b'\n');
     line
@@ -1030,6 +1039,40 @@ mod tests {
         assert_eq!(who.email, "config@example.com");
     }
 
+    #[test]
+    fn identity_characters_that_break_a_log_line_are_removed() {
+        use crate::testutil::{TestHost, test_ctx_with};
+        let dir = tempfile::tempdir().unwrap();
+        gix::init(dir.path()).unwrap();
+        let repo = gix::open_opts(dir.path(), gix::open::Options::isolated()).unwrap();
+        let host = TestHost::new("/nonexistent-home")
+            .with_var("GIT_COMMITTER_NAME", "Ada <Lovelace>\n")
+            .with_var("GIT_COMMITTER_EMAIL", "<ada@example.com>");
+        let who = committer(&repo, &test_ctx_with(host));
+        assert_eq!(who.name, "Ada Lovelace");
+        assert_eq!(who.email, "ada@example.com");
+        let host = TestHost::new("/nonexistent-home")
+            .with_var("GIT_COMMITTER_NAME", "<>")
+            .with_var("GIT_COMMITTER_EMAIL", "\n");
+        let who = committer(&repo, &test_ctx_with(host));
+        assert_eq!(who.name, FALLBACK_NAME);
+        assert_eq!(who.email, FALLBACK_EMAIL);
+    }
+
+    #[test]
+    fn reflog_line_folds_the_message_to_one_line() {
+        let who = gix::actor::Signature {
+            name: "A".into(),
+            email: "a@example.com".into(),
+            time: gix::date::Time {
+                seconds: 1,
+                offset: 0,
+            },
+        };
+        let null = ObjectId::null(gix::hash::Kind::Sha1);
+        let line = reflog_line(null, null, &who, "branch: Created from\n a  b \n");
+        assert!(line.ends_with(b"\tbranch: Created from a b\n"));
+    }
     #[test]
     fn lexical_resolves_dots_without_touching_the_file_system() {
         assert_eq!(lexical(Path::new("/a/./b/../c")), PathBuf::from("/a/c"));

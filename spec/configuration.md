@@ -88,7 +88,9 @@ to the floor and the change is noted in `journal.status`; `unlimited` is
 above every floor. Values that come from a project file are raised to at
 least 10 steps and 5 minutes even when no floor is set. Floors are normally
 set by an administrator (system file) or by an embedding application when it
-opens the engine; a floor can only raise protection.
+opens the engine; a floor can only raise protection: when several levels set
+the same floor, the highest value wins, whatever the precedence of the levels,
+so that a user file cannot lower a floor set in the system file.
 
 ## 5. Values
 
@@ -324,8 +326,8 @@ behaviour in the meaning column applies.
 | `git.hooks.timeout` | duration | `10m` | time limit of a repository hook |
 | `git.ssh.known_hosts` | `strict`, `accept_new` | `strict` | verification of SSH host keys |
 | `git.ssh.identity_files` | list of paths | `[]`: standard identity files | private key files |
-| `git.signing.key_file` | path | none | key file for signing commits when the repository configuration does not name one |
-| `git.signing.openpgp_source` | `gpg_agent`, `key_file` | none: gpg-agent, then the key file | the only holder of the secret key used for OpenPGP signatures |
+| `git.signing.key_file` | path | none | OpenPGP secret key file, imported into a temporary GnuPG home directory for signing commits when the repository configuration does not name a key held by `gpg-agent` |
+| `git.signing.openpgp_source` | `gpg_agent`, `key_file` | none: gpg-agent, then the key file | the only holder of the secret key used for OpenPGP signatures; GnuPG (`gpg.openpgp.program` or `gpg.program`) makes the signature in both cases |
 | `git.checkpoint.keep` | integer | `50` | checkpoints kept per repository |
 | `git.status.limit` | integer | `200` | entries listed by `git.status` before paging |
 | `git.network.timeout` | duration | `5m` | time limit of a network operation |

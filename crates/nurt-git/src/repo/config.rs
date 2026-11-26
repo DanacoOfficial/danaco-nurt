@@ -9,7 +9,9 @@
 //! and environment layers are loaded here from the variables of the execution
 //! context and merged into the repository configuration with the precedence
 //! of `git`: a value of the system or global layer is applied only when no
-//! repository-local layer defines the same key; values from
+//! repository-local layer defines the same key, except for the list
+//! variables (such as `credential.helper`), whose values every layer
+//! contributes; values from
 //! `GIT_CONFIG_COUNT` override every file.
 
 use std::path::{Path, PathBuf};
@@ -124,10 +126,7 @@ pub fn merge_overrides(
             if !seen.insert(value_name.to_ascii_lowercase()) {
                 continue;
             }
-            if local
-                .raw_value_by(&*name.to_str_lossy(), subsection, value_name.as_str())
-                .is_ok()
-            {
+            if defined_locally(local, &name.to_str_lossy(), subsection, value_name.as_str()) {
                 continue;
             }
             if section.body().value_implicit(&value_name) == Some(None) {
@@ -156,6 +155,56 @@ pub fn merge_overrides(
     };
     plan.paths = path_fixes(local, outer, env);
     plan
+}
+
+/// Variables of `git` that hold a list: the values of every layer are summed
+/// instead of the last layer replacing the others. A name is matched without
+/// the subsection, in lower case.
+const MULTI_VALUED: [(&str, &str); 14] = [
+    ("credential", "helper"),
+    ("remote", "fetch"),
+    ("remote", "push"),
+    ("remote", "url"),
+    ("remote", "pushurl"),
+    ("url", "insteadof"),
+    ("url", "pushinsteadof"),
+    ("http", "extraheader"),
+    ("safe", "directory"),
+    ("transfer", "hiderefs"),
+    ("uploadpack", "hiderefs"),
+    ("receive", "hiderefs"),
+    ("push", "pushoption"),
+    ("branch", "merge"),
+];
+
+/// Whether the repository-local layers already decide the value of a key, so
+/// that the value of an outer layer must not be applied.
+///
+/// A list variable is never decided locally, because `git` sums the values of
+/// every layer; the exception is an empty value, which resets the list
+/// accumulated by the layers before it.
+fn defined_locally(
+    local: &gix::config::File,
+    section: &str,
+    subsection: Option<&BStr>,
+    name: &str,
+) -> bool {
+    let defined = local.raw_value_by(section, subsection, name).is_ok();
+    if !defined {
+        return false;
+    }
+    let lower_section = section.to_ascii_lowercase();
+    let lower_name = name.to_ascii_lowercase();
+    let multi = MULTI_VALUED.iter().any(|(known_section, known_name)| {
+        *known_section == lower_section && *known_name == lower_name
+    });
+    if !multi {
+        return true;
+    }
+    match local.raw_values_by(section, subsection, name) {
+        Ok(values) => values.iter().any(|value| value.is_empty()),
+        Err(_) => true,
+    }
 }
 
 /// Overrides computed by [`merge_overrides`], grouped by the source they are
@@ -375,6 +424,24 @@ mod tests {
             gix::config::file::init::Options::default(),
         )
         .expect("valid configuration")
+    }
+
+    #[test]
+    fn list_variables_sum_the_outer_and_local_layers() {
+        let local = parse("[credential]\n\thelper = local\n[user]\n\tname = Local\n");
+        let outer = parse("[credential]\n\thelper = global\n[user]\n\tname = Global\n");
+        let env = GitEnv::from_host(&TestHost::new("/home/user"));
+        let plan = merge_overrides(&local, &outer, &env);
+        assert_eq!(plan.outer, vec![BString::from("credential.helper=global")]);
+    }
+
+    #[test]
+    fn empty_local_list_value_resets_the_outer_list() {
+        let local = parse("[credential]\n\thelper =\n\thelper = local\n");
+        let outer = parse("[credential]\n\thelper = global\n");
+        let env = GitEnv::from_host(&TestHost::new("/home/user"));
+        let plan = merge_overrides(&local, &outer, &env);
+        assert!(plan.outer.is_empty());
     }
 
     #[test]

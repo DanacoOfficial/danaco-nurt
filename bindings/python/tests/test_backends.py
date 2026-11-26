@@ -118,11 +118,12 @@ class BackendContract:
         self.assertEqual(result.ast["program"], "list here")
         self.assertEqual(result.diagnostics, [])
 
-    def test_parse_failure_has_diagnostics_and_no_tree(self) -> None:
+    def test_parse_failure_has_the_language_error_and_no_tree(self) -> None:
         result = self.nurt.parse("fail")
         self.assertFalse(result.ok)
         self.assertIsNone(result.ast)
-        self.assertEqual(result.diagnostics[0]["severity"], "error")
+        assert result.error is not None
+        self.assertEqual(result.error["code"], "E_SYNTAX")
 
     def test_print_accepts_tree_as_object_or_json(self) -> None:
         tree = self.nurt.parse("list here").ast
@@ -148,11 +149,12 @@ class BackendContract:
         self.assertEqual(result.diagnostics, [])
         self.assertIsNone(result.error)
 
-    def test_check_failure_has_diagnostics(self) -> None:
+    def test_check_failure_has_the_language_error(self) -> None:
         result = self.nurt.check("fail")
         self.assertFalse(result.ok)
         self.assertIsNone(result.bound)
-        self.assertEqual(len(result.diagnostics), 1)
+        assert result.error is not None
+        self.assertEqual(result.error["code"], "E_SYNTAX")
 
     def test_text_queries(self) -> None:
         self.assertEqual(self.nurt.help("journal"), "help journal")
@@ -168,7 +170,7 @@ class BackendContract:
         self.assertEqual(self.nurt.catalog({"name": "find"})["catalog_rev"], "mock")
         self.assertEqual(self.nurt.schema("report"), {"title": "nurt-report/1"})
         self.assertEqual(self.nurt.history({"limit": 1})["entries"], [])
-        self.assertEqual(self.nurt.history("last 5")["entries"], [])
+        self.assertEqual(self.nurt.history('{"limit": 5}')["entries"], [])
         self.assertEqual(self.nurt.space("/home/user"), {"volumes": []})
         self.assertEqual(self.nurt.info()["implementation"], "mock")
 

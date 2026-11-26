@@ -24,6 +24,13 @@ pub trait Backend: Send + Sync + 'static {
     /// Returns the version and the limits of the engine.
     fn info(&self) -> BackendInfo;
 
+    /// Returns the revision of the command catalog the descriptions come
+    /// from, for the metadata of the tool definition; `None` when the backend
+    /// has no catalog revision.
+    fn catalog_rev(&self) -> Option<String> {
+        None
+    }
+
     /// Runs a request and returns the response.
     ///
     /// Progress, output of launched programs and log messages are emitted to

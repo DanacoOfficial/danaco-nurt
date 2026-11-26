@@ -27,6 +27,25 @@ TYPES: dict[str, tuple[type, ...]] = {
 }
 
 
+class SchemaError(ValueError):
+    """The schema itself is invalid, for example it names an unknown type."""
+
+
+def json_equal(first: Any, second: Any) -> bool:
+    """Returns whether two JSON values are equal.
+
+    Unlike ``==`` in Python, a boolean never equals a number (``True`` is not
+    ``1``), also inside arrays and objects.
+    """
+    if isinstance(first, bool) or isinstance(second, bool):
+        return isinstance(first, bool) and isinstance(second, bool) and first == second
+    if isinstance(first, list) and isinstance(second, list):
+        return len(first) == len(second) and all(json_equal(a, b) for a, b in zip(first, second))
+    if isinstance(first, dict) and isinstance(second, dict):
+        return first.keys() == second.keys() and all(json_equal(first[key], second[key]) for key in first)
+    return bool(first == second)
+
+
 class Validator:
     """Validates values against one root schema."""
 
@@ -59,9 +78,9 @@ class Validator:
         if "type" in schema and not type_matches(value, schema["type"]):
             found.append(f"{where}: expected {schema['type']}")
             return
-        if "const" in schema and value != schema["const"]:
+        if "const" in schema and not json_equal(value, schema["const"]):
             found.append(f"{where}: expected {schema['const']!r}")
-        if "enum" in schema and value not in schema["enum"]:
+        if "enum" in schema and not any(json_equal(value, option) for option in schema["enum"]):
             found.append(f"{where}: {value!r} not in {schema['enum']}")
         if isinstance(value, str):
             self.validate_string(value, schema, where, found)
@@ -132,6 +151,9 @@ def type_matches(value: Any, expected: str | list[str]) -> bool:
     for name in names:
         if isinstance(value, bool) and name in ("integer", "number"):
             continue
-        if isinstance(value, TYPES[name]):
+        types = TYPES.get(name)
+        if types is None:
+            raise SchemaError(f"unknown type {name!r} in a schema")
+        if isinstance(value, types):
             return True
     return False

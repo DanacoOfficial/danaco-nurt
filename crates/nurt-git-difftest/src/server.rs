@@ -31,6 +31,9 @@ const MAX_LINE_BYTES: usize = 16 * 1024;
 /// Largest number of header lines accepted in one request.
 const MAX_HEADERS: usize = 100;
 
+/// Largest request body accepted, in bytes.
+const MAX_BODY: usize = 256 << 20;
+
 /// Time after which a silent client is disconnected.
 const READ_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -261,6 +264,9 @@ fn read_request(reader: &mut impl BufRead) -> io::Result<Request> {
                 .map_err(|_| invalid("Content-Length is not a number"))?,
             None => 0,
         };
+        if length > MAX_BODY {
+            return Err(invalid("the request body is too large"));
+        }
         let mut body = vec![0; length];
         reader.read_exact(&mut body)?;
         body
@@ -287,6 +293,9 @@ fn read_chunked(reader: &mut impl BufRead) -> io::Result<Vec<u8>> {
             return Ok(body);
         }
         let start = body.len();
+        if size > MAX_BODY - start {
+            return Err(invalid("the request body is too large"));
+        }
         body.resize(start + size, 0);
         reader.read_exact(&mut body[start..])?;
         if !read_line(reader)?.is_empty() {
@@ -396,6 +405,26 @@ mod tests {
         assert!(parse(b"GET / HTTP/1.1\r\nbroken\r\n\r\n").is_err());
         assert!(parse(b"GET / HTTP/1.1\r\nContent-Length: x\r\n\r\n").is_err());
         assert!(parse(b"POST / HTTP/1.1\r\nContent-Length: 9\r\n\r\nshort").is_err());
+    }
+
+    #[test]
+    fn refuses_bodies_above_the_limit_before_allocating_them() {
+        let declared = format!(
+            "POST / HTTP/1.1\r\nContent-Length: {}\r\n\r\n",
+            MAX_BODY + 1
+        );
+        let error = parse(declared.as_bytes()).unwrap_err();
+        assert!(error.to_string().contains("too large"), "{error}");
+        let chunk = format!(
+            "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n",
+            MAX_BODY + 1
+        );
+        assert!(
+            parse(chunk.as_bytes())
+                .unwrap_err()
+                .to_string()
+                .contains("too large")
+        );
     }
 
     #[test]

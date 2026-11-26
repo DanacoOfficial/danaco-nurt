@@ -520,7 +520,7 @@ fn from_is_required_only_for_renames() {
 #[test]
 fn rolled_back_partial_running_and_planned_reports_with_their_members_are_valid() {
     let mut report = Report::new(ReportStatus::RolledBack, "replace");
-    report.error = Some(sample_error("E_ROLLED_BACK"));
+    report.error = Some(rolled_back_error());
     assert!(report.validate().is_ok());
 
     let mut report = Report::new(ReportStatus::Partial, "undo");
@@ -533,6 +533,71 @@ fn rolled_back_partial_running_and_planned_reports_with_their_members_are_valid(
     assert!(report.validate().is_ok());
 
     let report = Report::new(ReportStatus::Planned, "remove");
+    assert!(report.validate().is_ok());
+}
+
+fn rolled_back_error() -> nurt_contracts::error::Error {
+    serde_json::from_value(serde_json::json!({
+        "code": "E_ROLLED_BACK",
+        "message": "the verification failed and the effect was rolled back",
+        "cause": { "code": "E_ASSERT", "message": "exit code 1" }
+    }))
+    .unwrap()
+}
+
+#[test]
+fn rolled_back_carries_the_rolled_back_error_with_its_cause() {
+    let mut report = Report::new(ReportStatus::RolledBack, "replace");
+    report.error = Some(sample_error("E_STALE"));
+    assert_eq!(
+        report.validate(),
+        Err(ReportViolation::RolledBackWithoutCause)
+    );
+
+    report.error = Some(sample_error("E_ROLLED_BACK"));
+    let violation = report.validate().unwrap_err();
+    assert_eq!(violation, ReportViolation::RolledBackWithoutCause);
+    assert_eq!(
+        violation.to_string(),
+        "a report with status `rolled_back` must carry the error `E_ROLLED_BACK` with a cause"
+    );
+
+    let mut cause_only = rolled_back_error();
+    cause_only.code = nurt_contracts::error::ErrorCode::Stale;
+    report.error = Some(cause_only);
+    assert_eq!(
+        report.validate(),
+        Err(ReportViolation::RolledBackWithoutCause)
+    );
+
+    report.error = Some(rolled_back_error());
+    assert!(report.validate().is_ok());
+}
+
+#[test]
+fn rename_with_from_equal_to_path_is_valid_when_to_gives_the_destination() {
+    // Producers write the source in `path`, repeat it in `from` and give the
+    // destination in `to`; the format does not forbid the repetition.
+    let mut report = ok_report();
+    let mut change = Change::new("/d/a.txt", ChangeAction::Rename);
+    change.from = Some("/d/a.txt".into());
+    change.to = Some("/d/b.txt".into());
+    report.changes.push(change);
+    assert!(report.validate().is_ok());
+}
+
+#[test]
+fn hunks_admit_the_no_newline_marker() {
+    let mut report = ok_report();
+    report.diff.push(nurt_contracts::report::Hunk {
+        path: "/d/a.txt".into(),
+        lines: vec![
+            "-a".to_owned(),
+            "\\ No newline at end of file".to_owned(),
+            "+a".to_owned(),
+        ],
+        ..Default::default()
+    });
     assert!(report.validate().is_ok());
 }
 

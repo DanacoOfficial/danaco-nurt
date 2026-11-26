@@ -21,6 +21,7 @@ use nurt_contracts::envelope::{
     DiffMode, Language, OutputFormat, Request, RequestOptions, Response, Verbosity,
 };
 use nurt_contracts::error::{AbiStatus, Candidate, Error, ErrorCode};
+use nurt_contracts::fs::RegistryAccess;
 use nurt_contracts::journal::{HistoryQuery, JournalStore};
 use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
 use nurt_contracts::report::ReportStatus;
@@ -30,6 +31,8 @@ use nurt_core::readcache::ReadCache;
 use nurt_core::{
     Compiled, Corrected, DeliveredEvent, Engine, EngineConfig, EventListener, ExecHandle, Frontend,
 };
+use nurt_sys::registry::RegistryProvider;
+use nurt_sys::registry::mem::MemRegistry;
 use nurt_testkit::clock::VirtualClock;
 use nurt_testkit::ctx::TestContext;
 use nurt_testkit::host::TestHost;
@@ -324,6 +327,43 @@ fn context_carries_the_facilities_of_the_engine() {
     assert_eq!(ctx.state_dir(), Some(h.temp.path().join("state").as_path()));
     assert!(ctx.deadline().is_some());
     assert_eq!(ctx.config().limits.max_records, 1000);
+}
+
+#[test]
+fn context_gives_access_to_the_registry_of_an_engine_that_has_one() {
+    #[cfg(not(windows))]
+    {
+        let without = harness();
+        let ctx = without.engine.context(&Request::program(FIND)).unwrap();
+        assert!(ctx.extensions().get::<dyn RegistryAccess>().is_none());
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let context = TestContext::new();
+    let journal: Arc<dyn JournalStore> = context.journal().clone();
+    let engine = Engine::open(
+        EngineConfig::new(
+            Arc::new(VirtualClock::new()) as Arc<dyn Clock>,
+            Arc::new(TestHost::windows()),
+        )
+        .with_sources(ConfigSources::isolated())
+        .with_state_dir(temp.path().join("state"))
+        .with_frontend(Arc::new(ScriptedFrontend::default()))
+        .with_fs(context.fs().clone())
+        .with_journal(journal)
+        .with_services(test_services())
+        .with_registry(Arc::new(RegistryProvider::new(
+            Arc::new(MemRegistry::new()),
+        ))),
+    )
+    .unwrap();
+    let ctx = engine.context(&Request::program(FIND)).unwrap();
+    let access = ctx.extensions().get::<dyn RegistryAccess>().unwrap();
+    assert!(
+        access
+            .describe("registry:/HKCU/Software/Absent")
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]

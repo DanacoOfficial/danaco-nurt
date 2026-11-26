@@ -965,6 +965,47 @@ fn flushes_files_and_directories() {
 }
 
 #[test]
+fn flushes_many_paths_at_once_and_few_one_by_one() {
+    let fixture = Fixture::new();
+    let few = vec![fixture.file("a", b"a")];
+    fixture
+        .fs
+        .sync_paths(&fixture.scope, &few, std::slice::from_ref(&fixture.root))
+        .expect("few entries are flushed one by one");
+    let many: Vec<AbsPath> = (0..SYNC_PATHS_MANY)
+        .map(|index| fixture.file(&format!("many-{index}"), b"x"))
+        .collect();
+    fixture
+        .fs
+        .sync_paths(&fixture.scope, &many, std::slice::from_ref(&fixture.root))
+        .expect("many entries are flushed with the file system");
+    let read_only = fixture.file("read-only", b"x");
+    std::fs::set_permissions(
+        read_only.as_path(),
+        std::os::unix::fs::PermissionsExt::from_mode(0o444),
+    )
+    .expect("permissions");
+    fixture
+        .fs
+        .sync_paths(&fixture.scope, &[read_only], &[])
+        .expect("a file that cannot be opened for writing is flushed through its directory");
+    let missing = fixture.path("missing");
+    let error = fixture
+        .fs
+        .sync_paths(&fixture.scope, &[missing], &[])
+        .expect_err("a missing file cannot be flushed");
+    assert_eq!(error.kind, FsErrorKind::NotFound);
+    let error = fixture
+        .fs
+        .sync_paths(&fixture.scope, &[], &[fixture.path("missing-dir")])
+        .expect_err("a missing directory cannot be flushed");
+    assert_eq!(error.kind, FsErrorKind::NotFound);
+}
+
+/// Number of entries that makes `sync_paths` flush the whole file system.
+const SYNC_PATHS_MANY: usize = 80;
+
+#[test]
 fn creates_unique_private_temporary_files() {
     let fixture = Fixture::new();
     let first = fixture
@@ -1561,6 +1602,34 @@ fn lock_refuses_a_symbolic_link_at_the_lock_path() {
         .expect("link refused");
     assert_eq!(error.kind, FsErrorKind::Loop);
     assert!(!target.as_path().exists());
+}
+
+#[test]
+fn reading_a_fifo_is_refused_without_waiting_for_a_writer() {
+    let fixture = Fixture::new();
+    let fifo = fixture.path("fifo");
+    make_fifo(&fifo);
+    let error = fixture.fs.open_read(&fifo).err().expect("fifo");
+    assert_eq!(error.kind, FsErrorKind::Unsupported);
+    assert_eq!(error.op, "open_read");
+}
+
+#[test]
+fn a_directory_cannot_be_renamed_into_its_own_subtree() {
+    let fixture = Fixture::new();
+    let outer = fixture.dir("outer");
+    let inner = outer.join_name("inner").expect("name");
+    fs::create_dir(&inner).expect("create the inner directory");
+    for mode in [RenameMode::NoReplace, RenameMode::Replace] {
+        let target = inner.join_name("moved").expect("name");
+        let error = fixture
+            .fs
+            .rename(&fixture.scope, &outer, &target, mode)
+            .expect_err("rename into the subtree");
+        assert_eq!(error.kind, FsErrorKind::InvalidPath, "{mode:?}");
+        assert!(outer.as_path().is_dir());
+        assert!(inner.as_path().is_dir());
+    }
 }
 
 #[test]

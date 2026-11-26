@@ -179,7 +179,7 @@ pub fn shim_application(text: &str) -> Option<String> {
                 .get(index + 2)
                 .is_some_and(|part| part.eq_ignore_ascii_case("current"))
         })
-        .or_else(|| (0..parts.len()).filter(is_apps).next_back())?;
+        .or_else(|| (0..parts.len()).rfind(is_apps))?;
     parts.get(at + 1).map(|app| (*app).to_owned())
 }
 
@@ -262,7 +262,7 @@ impl ScoopSource {
             let Some(command) = file.strip_suffix(SHIM_EXTENSION) else {
                 continue;
             };
-            let Ok(text) = std::fs::read_to_string(env.sys_path(shims.join(&file))) else {
+            let Some(text) = super::read_lossy(&env.sys_path(shims.join(&file))) else {
                 continue;
             };
             if let Some(app) = shim_application(&text) {
@@ -277,7 +277,7 @@ impl ScoopSource {
             deadline.check(&self.id)?;
             let current = apps.join(&app).join("current");
             let manifest_path = current.join(MANIFEST);
-            let Ok(text) = std::fs::read_to_string(env.sys_path(&manifest_path)) else {
+            let Some(text) = super::read_lossy(&env.sys_path(&manifest_path)) else {
                 continue;
             };
             let manifest = match parse_manifest(&text) {
@@ -291,8 +291,7 @@ impl ScoopSource {
                     continue;
                 }
             };
-            let bucket = std::fs::read_to_string(env.sys_path(current.join(INSTALL)))
-                .ok()
+            let bucket = super::read_lossy(&env.sys_path(current.join(INSTALL)))
                 .and_then(|text| {
                     serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')).ok()
                 })

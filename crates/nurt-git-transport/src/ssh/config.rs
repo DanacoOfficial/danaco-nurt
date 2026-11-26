@@ -3,13 +3,16 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Subset of the OpenSSH client configuration (`ssh_config(5)`).
 //!
-//! Supported: `Host`, `Match` with the criteria `all`, `canonical`, `final`,
-//! `host`, `originalhost`, `user` and `localuser`, `Include`, `HostName`,
+//! Supported: `Host`, `Match` with the criteria `all`, `final` (always true),
+//! `canonical` (never true, as the host name is not canonicalized), `host`,
+//! `originalhost`, `user` and `localuser`, `Include`, `HostName`,
 //! `User`, `Port`, `IdentityFile`, `IdentitiesOnly`, `IdentityAgent`,
 //! `UserKnownHostsFile`, `GlobalKnownHostsFile`, `StrictHostKeyChecking`,
 //! `HostKeyAlias`, `ConnectTimeout`, `ServerAliveInterval`,
 //! `ServerAliveCountMax`, `HostKeyAlgorithms`, `PubkeyAcceptedAlgorithms`,
-//! `ProxyJump` and `ProxyCommand`. Other keywords are read and ignored.
+//! `ProxyJump` and `ProxyCommand` (refused for the target and for a jump
+//! host). Other keywords are read and ignored. A `#` that starts an argument
+//! begins a comment.
 //!
 //! The first value obtained for a keyword is used, except for
 //! `IdentityFile`, whose values accumulate. The user file is read before the
@@ -188,6 +191,9 @@ pub(crate) fn route(sources: &ConfigSources, query: &Query<'_>) -> Result<Vec<Ho
                 port: jump.port,
             },
         )?;
+        if let Some(command) = &hop.proxy_command {
+            return Err(proxy_command_error(&hop.original_host, command));
+        }
         hops.push(hop);
     }
     hops.push(target);
@@ -306,7 +312,11 @@ impl Walker<'_> {
             };
             let value = args.get(index + 1).map(String::as_str).unwrap_or_default();
             let (matched, consumed) = match criterion.as_str() {
-                "all" | "canonical" | "final" => (true, 1),
+                // The configuration is read once, after the host name is
+                // final and without canonicalization, so `canonical` (the
+                // pass after canonicalization) never matches.
+                "all" | "final" => (true, 1),
+                "canonical" => (false, 1),
                 "exec" => {
                     self.collected.match_exec.push(location.clone());
                     (false, 2)
@@ -403,6 +413,9 @@ fn split_args(text: &str) -> Vec<String> {
                 in_quotes = !in_quotes;
                 pending = true;
             }
+            // A `#` that starts an argument begins a comment to the end of
+            // the line, as in OpenSSH.
+            '#' if !in_quotes && !pending => break,
             c if c.is_whitespace() && !in_quotes => {
                 if pending {
                     args.push(std::mem::take(&mut current));
@@ -936,6 +949,38 @@ mod tests {
         let error = route(&f.sources, &query("target")).unwrap_err();
         assert_eq!(error.code(), ErrorCode::GitUnsupported);
         assert!(error.to_string().contains("ProxyJump"));
+    }
+
+    #[test]
+    fn proxy_command_of_a_jump_host_is_refused() {
+        let f = fixture(
+            "Host target\n  ProxyJump bastion\nHost bastion\n  ProxyCommand nc %h %p\n",
+            None,
+        );
+        let error = route(&f.sources, &query("target")).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::GitUnsupported);
+    }
+
+    #[test]
+    fn trailing_comment_does_not_become_an_argument() {
+        let f = fixture(
+            "Match all # remark\n  User commented\nHost *\n  User plain\n  Port 2200 # remark\n",
+            None,
+        );
+        let config = resolve(&f.sources, &query("example.com")).unwrap();
+        assert_eq!(config.user, "commented");
+        assert_eq!(config.port, 2200);
+    }
+
+    #[test]
+    fn match_canonical_never_matches_and_final_does() {
+        let f = fixture(
+            "Match canonical\n  User canonical\nMatch final\n  Port 2201\nHost *\n  User plain\n",
+            None,
+        );
+        let config = resolve(&f.sources, &query("example.com")).unwrap();
+        assert_eq!(config.user, "plain");
+        assert_eq!(config.port, 2201);
     }
 
     #[test]

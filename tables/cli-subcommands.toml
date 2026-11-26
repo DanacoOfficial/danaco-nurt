@@ -43,8 +43,8 @@ arguments = ["[--from a|b|c|json]", "[--to json|cbor|a|b|c]", "<input | ->"]
 
 [[subcommand]]
 name = "schema"
-description = "Print a published JSON Schema."
-arguments = ["ast|bound|report|request|config|tool"]
+description = "Print a published JSON Schema or the tool definition."
+arguments = ["ast|bound|report|request|config|tool", "[--format F]", "[--language en|pl]", "[--groups G]"]
 
 [[subcommand]]
 name = "catalog"

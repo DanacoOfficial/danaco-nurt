@@ -202,6 +202,7 @@ impl UreqHttp {
         let tail = url.strip_prefix(base_url).unwrap_or_default().to_owned();
         let mut current = effective.clone();
         for _ in 0..=MAX_REDIRECTS {
+            guard_plain_http(&current, &headers).map_err(NetworkFailure::into_io)?;
             let mut request = agent.get(&current);
             for (name, value) in &headers {
                 request = request.header(name.as_str(), value.as_str());
@@ -310,6 +311,13 @@ impl Http for UreqHttp {
             strip_authorization(&mut headers);
         }
         let (post_writer, post_reader) = pipe::unidirectional(PIPE_WRITES_IN_FLIGHT);
+        if let Err(failure) = guard_plain_http(&effective, &headers) {
+            return Ok(PostResponse {
+                post_body: post_writer,
+                headers: ResponseHeaders::failed(failure.into_io()),
+                body: Box::new(io::empty()),
+            });
+        }
         let agent = match self.agent(url) {
             Ok(agent) => agent,
             Err(failure) => {
@@ -490,6 +498,42 @@ fn split_header(line: &str) -> Option<(String, String)> {
 /// request that goes to another server.
 fn strip_authorization(headers: &mut Vec<(String, String)>) {
     headers.retain(|(name, _)| !name.eq_ignore_ascii_case("authorization"));
+}
+
+/// Refuses to send an `Authorization` header, whether from a token or from
+/// `http.extraHeader`, over `http://` to a host other than this machine.
+fn guard_plain_http(url: &str, headers: &[(String, String)]) -> Result<(), NetworkFailure> {
+    let sends_credentials = headers
+        .iter()
+        .any(|(name, _)| name.eq_ignore_ascii_case("authorization"));
+    if !sends_credentials {
+        return Ok(());
+    }
+    let Ok(parsed) = url::Url::parse(url) else {
+        return Ok(());
+    };
+    if parsed.scheme() != "http" || is_local_host(&parsed) {
+        return Ok(());
+    }
+    Err(NetworkFailure::new(
+        NetworkProblem::InsecureCredentials,
+        url,
+        "refusing to send credentials over http://; use an https:// address",
+    ))
+}
+
+/// Whether the address names this machine, where plain `http://` exposes
+/// nothing to the network.
+fn is_local_host(url: &url::Url) -> bool {
+    match url.host() {
+        Some(url::Host::Domain(name)) => {
+            name.eq_ignore_ascii_case("localhost")
+                || name.to_ascii_lowercase().ends_with(".localhost")
+        }
+        Some(url::Host::Ipv4(address)) => address.is_loopback(),
+        Some(url::Host::Ipv6(address)) => address.is_loopback(),
+        None => false,
+    }
 }
 
 fn is_redirect(status: u16) -> bool {
@@ -834,6 +878,36 @@ mod tests {
         assert_eq!(text, "Basic abc");
     }
 
+    #[test]
+    fn authorization_is_not_sent_over_plain_http_to_another_host() {
+        let mut http = UreqHttp::new(HttpSettings {
+            bearer: Some(super::super::settings::BearerToken::new("tok")),
+            ..settings()
+        });
+        let GetResponse { mut headers, .. } = http
+            .get(
+                "http://git.example.invalid/r/x",
+                "http://git.example.invalid/r",
+                Vec::<String>::new(),
+            )
+            .expect("request started");
+        let error = read_headers(&mut headers).expect_err("refused before connecting");
+        let failure = NetworkFailure::find(&error).expect("classified failure");
+        assert_eq!(failure.problem(), NetworkProblem::InsecureCredentials);
+        let extra = UreqHttp::new(HttpSettings {
+            extra_headers: vec!["Authorization: Bearer x".to_owned()],
+            ..settings()
+        });
+        let headers = extra.request_headers(Vec::<String>::new());
+        assert!(guard_plain_http("http://git.example.invalid/r", &headers).is_err());
+        assert!(guard_plain_http("https://git.example.invalid/r", &headers).is_ok());
+        assert!(guard_plain_http("http://127.0.0.1:8080/r", &headers).is_ok());
+        assert!(guard_plain_http("http://[::1]/r", &headers).is_ok());
+        assert!(guard_plain_http("http://localhost/r", &headers).is_ok());
+        assert!(guard_plain_http("http://git.example.invalid/r", &[]).is_ok());
+    }
+
+    /// Origin server that redirects the reference discovery to another server,
     /// Origin server that redirects the reference discovery to another server,
     /// which answers every request with the `Authorization` header it received.
     fn redirecting_origin() -> (TestServer, TestServer) {

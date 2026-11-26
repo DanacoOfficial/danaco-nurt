@@ -38,7 +38,7 @@ use super::write::{
 };
 use crate::common::etag::{Observed, observe};
 use crate::common::notable::at_path;
-use crate::common::path::{path_field, path_list_arg};
+use crate::common::path::{path_field, path_list_arg_for_change};
 
 const COMMAND: &str = "create";
 
@@ -90,7 +90,7 @@ impl EffectStage for Create {
         ctx: &'a ExecCtx,
     ) -> Result<EffectPlan> {
         let spec = Spec::read(args, ctx)?;
-        let paths = path_list_arg(args, PATH, ctx)?;
+        let paths = path_list_arg_for_change(args, PATH, ctx)?;
         let mut planner = Planner::new(ctx, spec);
         if planner.spec.temporary {
             planner.temporaries(paths)?;
@@ -239,7 +239,7 @@ fn missing_type(args: &BoundArgs, ctx: &ExecCtx) -> Error {
         ErrorCode::MissingParam,
         "`create` needs `type`: file, directory, link or junction; there is no default",
     );
-    let Ok(paths) = path_list_arg(args, PATH, ctx) else {
+    let Ok(paths) = path_list_arg_for_change(args, PATH, ctx) else {
         return error;
     };
     let Some(path) = paths.first() else {

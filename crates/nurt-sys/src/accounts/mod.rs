@@ -34,7 +34,9 @@ use std::io;
 use indexmap::IndexMap;
 use nurt_contracts::env::Os;
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::record::{Account, AccountKind};
+use nurt_contracts::record::Account;
+#[cfg(unix)]
+use nurt_contracts::record::AccountKind;
 #[cfg(unix)]
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::{
@@ -54,9 +56,11 @@ pub(crate) const KIND: &str = "kind";
 /// Parameter with the account name.
 pub(crate) const NAME: &str = "name";
 /// Identifiers of macOS accounts below this value belong to the system.
+#[cfg(any(unix, test))]
 const MACOS_UID_MIN: u32 = 500;
 /// Accounts without privileges that are system accounts regardless of their
 /// identifier.
+#[cfg(any(unix, test))]
 const UNPRIVILEGED_NAMES: [&str; 3] = ["nobody", "nogroup", "nfsnobody"];
 /// Shadow password database.
 #[cfg(unix)]
@@ -185,6 +189,7 @@ fn same_name(wanted: &str, name: &str, os: Os) -> bool {
 
 /// Whether the account `name` with the identifier `id` belongs to the
 /// operating system rather than to a person.
+#[cfg(any(unix, test))]
 pub(crate) fn is_system(id: u32, name: &str, os: Os, uid_min: u32) -> bool {
     if UNPRIVILEGED_NAMES.contains(&name) {
         return true;

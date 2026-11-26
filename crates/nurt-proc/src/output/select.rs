@@ -457,6 +457,11 @@ pub(super) fn respond(
             cursor.set_position(source.stream, scan.end);
         }
         shortened += scan.shortened;
+        let covered = scan.end.offset.saturating_sub(from.offset);
+        match source.stream {
+            OutputStream::Stdout => output.stdout_read = covered,
+            OutputStream::Stderr => output.stderr_read = covered,
+        }
         if encoding.unit() != LineUnit::Byte
             && from == Position::default()
             && source.ended

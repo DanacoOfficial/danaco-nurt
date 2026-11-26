@@ -386,7 +386,7 @@ mod tests {
         pairs
             .iter()
             .fold(Record::new(RecordKind::Item), |record, (name, value)| {
-                record.with(*name, value.clone())
+                record.with(name, value.clone())
             })
     }
 

@@ -54,7 +54,7 @@ use super::validate::{self, Validate};
 use crate::common::etag::{Observed, check_if_match};
 use crate::common::notable::{at_path, counted};
 use crate::common::params::{self, EncodingParam, IfMatch, OnMissing};
-use crate::common::path::{path_list_arg, record_path};
+use crate::common::path::{path_list_arg_for_change, record_path};
 use crate::common::text::{TextFile, read_text};
 use crate::walk::{KindFilter, WalkItem, WalkOptions, Walker};
 
@@ -429,7 +429,7 @@ struct Target {
 /// Files of the source form: files listed in `in`, and the files in the
 /// directories of `in` that match `glob` and `file_type`, each once.
 fn source_targets(args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Target>> {
-    let roots = path_list_arg(args, IN, ctx)?;
+    let roots = path_list_arg_for_change(args, IN, ctx)?;
     if roots.is_empty() {
         return Err(missing_param(COMMAND, IN));
     }
@@ -690,8 +690,12 @@ fn locate(
     let text = file.text.as_str();
     let lines = LineStarts::new(text);
     let ending = line_ending_of(text);
+    // An empty match inside a `\r\n` line ending would split the ending.
     let wanted = |span: &Span<usize>| {
-        (!options.whole_word || at_word_boundaries(text, span))
+        !(span.is_empty()
+            && text[..span.start].ends_with('\r')
+            && text[span.start..].starts_with('\n'))
+            && (!options.whole_word || at_word_boundaries(text, span))
             && (options.multiline || !text[span.clone()].contains('\n'))
     };
     let mut hits = Vec::new();
@@ -826,6 +830,10 @@ fn in_scope(ctx: &ExecCtx, file: &TextFile, hits: Vec<Hit>, scope: Scope) -> Res
 
 /// Groups of an input match: group 0 is the matched text, the numbered
 /// groups follow, then the named groups in their order.
+///
+/// The `groups` of a `match` record already start with the whole match, as
+/// `search` writes them, so `$n` is `groups[n]` and the whole match is
+/// taken from `text`.
 struct RecordCaptures<'r> {
     whole: &'r str,
     numbered: Vec<Option<&'r str>>,
@@ -840,6 +848,7 @@ impl<'r> RecordCaptures<'r> {
                 .groups
                 .iter()
                 .flatten()
+                .skip(1)
                 .map(Option::as_deref)
                 .collect(),
             named: found
@@ -1018,6 +1027,9 @@ struct Run<'o> {
     found: usize,
     replaced: usize,
     files: u64,
+    /// Path of the file read last; the path a call with one target names
+    /// when nothing matched.
+    last_read: Option<AbsPath>,
     binary_skipped: u64,
     candidates: Vec<String>,
     references: Vec<String>,
@@ -1035,6 +1047,7 @@ impl<'o> Run<'o> {
             found: 0,
             replaced: 0,
             files: 0,
+            last_read: None,
             binary_skipped: 0,
             candidates: Vec::new(),
             references: Vec::new(),
@@ -1076,6 +1089,7 @@ impl<'o> Run<'o> {
             return Ok(());
         };
         self.files += 1;
+        self.last_read = Some(file.path.clone());
         if let Some(if_match) = if_match {
             check_if_match(
                 &target.path,
@@ -1196,10 +1210,8 @@ impl<'o> Run<'o> {
             if options.on_missing == OnMissing::Error {
                 return Err(self.occurrence_missing());
             }
-            self.notable.push(match self.edits.first() {
-                Some(edit) if self.targets == 1 => {
-                    at_path(Notable::NothingMatched, &edit.file.path)
-                }
+            self.notable.push(match &self.last_read {
+                Some(path) if self.targets == 1 => at_path(Notable::NothingMatched, path),
                 _ => counted(Notable::NothingMatched, self.files),
             });
         }
@@ -1930,7 +1942,11 @@ mod tests {
             start: 6,
             end: 14,
             text: "name=ann".to_owned(),
-            groups: Some(vec![Some("name".to_owned()), None]),
+            groups: Some(vec![
+                Some("name=ann".to_owned()),
+                Some("name".to_owned()),
+                None,
+            ]),
             named: Some(
                 [("value".to_owned(), Some("ann".to_owned()))]
                     .into_iter()
@@ -2118,6 +2134,27 @@ mod tests {
         let outcome = run(&test, &given).unwrap();
         assert_eq!(test.fs().read_file(&path).unwrap(), b"-a-b-");
         assert_eq!(outcome.changes[0].replacements, Some(3));
+    }
+
+    #[test]
+    fn an_empty_match_never_splits_a_crlf_line_ending() {
+        let (test, path) = with_file("/data/a.txt", b"a\r\nb\r\n");
+        let given = args(regex("x*"), "-", &[in_paths(&[&path])]);
+        run(&test, &given).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"-a-\r\n-b-\r\n-");
+    }
+
+    #[test]
+    fn a_search_without_a_match_in_one_file_names_the_file() {
+        let (test, path) = with_file("/data/a.txt", b"alpha\n");
+        let given = args(text("missing"), "x", &[in_paths(&[&path])]);
+        let plan = plan(&test, &given, StageInput::none()).unwrap();
+        assert_eq!(plan.notable[0].code, Notable::NothingMatched);
+        assert_eq!(
+            plan.notable[0].path.as_deref(),
+            Some(path.to_language_string().as_str())
+        );
+        assert_eq!(plan.notable[0].count, None);
     }
 
     #[test]

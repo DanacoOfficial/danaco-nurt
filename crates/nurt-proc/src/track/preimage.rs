@@ -140,14 +140,23 @@ impl Keeper<'_> {
         self.ctx.clock().monotonic().saturating_sub(started) >= limits.budget
     }
 
-    /// Keeps watched files in order until a limit or the budget stops it.
+    /// Keeps watched files in order until the entry limit or the budget stops
+    /// it. A file too large to copy is skipped, not the files after it; it is
+    /// kept afterwards when the volume turns out to clone.
     fn watched(&mut self, files: &[Candidate], limits: Limits, started: Duration) -> Result<()> {
         let mut batch: Vec<Candidate> = Vec::new();
         let mut batch_bytes = 0;
-        for (entries, (path, size)) in files.iter().enumerate() {
-            if batch.is_empty() && self.over_budget(started, limits) {
+        let mut accepted: u64 = 0;
+        let mut oversize: Vec<Candidate> = Vec::new();
+        for (path, size) in files {
+            if self.over_budget(started, limits) {
+                self.declare(&batch)?;
                 self.preimage.shortfall = Some(Shortfall::Budget);
                 return Ok(());
+            }
+            if accepted >= limits.max_entries {
+                self.preimage.shortfall = Some(Shortfall::Limit);
+                return self.declare(&batch);
             }
             if !self.cloning && self.copied + batch_bytes + size > limits.copy_max {
                 // The first declared batch tells whether the volume clones;
@@ -156,12 +165,11 @@ impl Keeper<'_> {
                 batch.clear();
                 batch_bytes = 0;
             }
-            let copy_exceeded = !self.cloning && self.copied + size > limits.copy_max;
-            let entries = u64::try_from(entries).unwrap_or(u64::MAX);
-            if entries >= limits.max_entries || copy_exceeded {
-                self.preimage.shortfall = Some(Shortfall::Limit);
-                break;
+            if !self.cloning && self.copied + size > limits.copy_max {
+                oversize.push((path.clone(), *size));
+                continue;
             }
+            accepted += 1;
             batch_bytes += size;
             batch.push((path.clone(), *size));
             if batch.len() == PRESERVE_BATCH {
@@ -170,7 +178,41 @@ impl Keeper<'_> {
                 batch_bytes = 0;
             }
         }
-        self.declare(&batch)
+        self.declare(&batch)?;
+        self.keep_oversize(&oversize, accepted, limits, started)
+    }
+
+    /// Keeps the files skipped for their size when the volume clones, within
+    /// the entry limit and the budget; otherwise they count as a shortfall.
+    fn keep_oversize(
+        &mut self,
+        oversize: &[Candidate],
+        accepted: u64,
+        limits: Limits,
+        started: Duration,
+    ) -> Result<()> {
+        if oversize.is_empty() {
+            return Ok(());
+        }
+        if !self.cloning {
+            self.preimage.shortfall = Some(Shortfall::Limit);
+            return Ok(());
+        }
+        let mut room = limits.max_entries.saturating_sub(accepted);
+        for batch in oversize.chunks(PRESERVE_BATCH) {
+            if self.over_budget(started, limits) {
+                self.preimage.shortfall = Some(Shortfall::Budget);
+                return Ok(());
+            }
+            let take = usize::try_from(room).unwrap_or(usize::MAX).min(batch.len());
+            self.declare(&batch[..take])?;
+            room = room.saturating_sub(u64::try_from(take).unwrap_or(u64::MAX));
+            if take < batch.len() {
+                self.preimage.shortfall = Some(Shortfall::Limit);
+                return Ok(());
+            }
+        }
+        Ok(())
     }
 }
 

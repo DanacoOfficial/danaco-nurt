@@ -1091,7 +1091,8 @@ pub trait GitQueryService: Send + Sync {
 pub enum LineEnding {
     /// `\n`.
     Lf,
-    /// `\r\n`.
+    /// `\r\n`; written `crlf`, as in the record enumeration.
+    #[serde(rename = "crlf")]
     CrLf,
     /// `\r`.
     Cr,
@@ -1355,6 +1356,12 @@ impl Services {
     /// Process host.
     pub fn process_host(&self) -> Option<&dyn ProcessHost> {
         self.process_host.as_deref()
+    }
+
+    /// Process host as a shared handle, for objects that outlive the borrow
+    /// of the services.
+    pub fn process_host_shared(&self) -> Option<Arc<dyn ProcessHost>> {
+        self.process_host.clone()
     }
 
     /// File listing service.

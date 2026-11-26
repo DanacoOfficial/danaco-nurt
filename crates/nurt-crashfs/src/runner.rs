@@ -15,6 +15,7 @@ use std::ffi::{OsStr, OsString};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
 use std::time::Duration;
 
@@ -36,6 +37,12 @@ pub fn signal_ready() -> io::Result<()> {
     stdout.write_all(READY_MARKER)?;
     stdout.flush()
 }
+
+/// Longest wait for [`READY_MARKER`] by default.
+pub const DEFAULT_MARKER_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Most output bytes a child may write before [`READY_MARKER`].
+const MAX_OUTPUT_BEFORE_MARKER: usize = 1 << 20;
 
 /// Kill delay for a point: uniform in `0..max`, derived from `seed`.
 #[must_use]
@@ -61,6 +68,7 @@ pub struct ProcessRunner {
     program: PathBuf,
     args: Vec<OsString>,
     envs: Vec<(OsString, OsString)>,
+    marker_timeout: Duration,
 }
 
 impl ProcessRunner {
@@ -77,7 +85,16 @@ impl ProcessRunner {
                 .map(|arg| arg.as_ref().to_os_string())
                 .collect(),
             envs: Vec::new(),
+            marker_timeout: DEFAULT_MARKER_TIMEOUT,
         }
+    }
+
+    /// Sets the longest wait for the ready marker; a child that stays silent
+    /// longer is killed and the run fails with [`io::ErrorKind::TimedOut`].
+    #[must_use]
+    pub fn marker_timeout(mut self, timeout: Duration) -> Self {
+        self.marker_timeout = timeout;
+        self
     }
 
     /// Adds an environment variable of the child.
@@ -105,10 +122,11 @@ impl ProcessRunner {
     /// # Errors
     ///
     /// Fails when the child cannot be started, ends before writing the
-    /// marker, or cannot be killed or waited for.
+    /// marker, stays silent for the marker timeout, writes more than one
+    /// mebibyte before the marker, or cannot be killed or waited for.
     pub fn run_and_kill(&self, delay: Duration) -> io::Result<KillOutcome> {
         let mut child = self.spawn()?;
-        if let Err(err) = wait_for_marker(&mut child) {
+        if let Err(err) = wait_for_marker(&mut child, self.marker_timeout) {
             child.kill().ok();
             child.wait().ok();
             return Err(err);
@@ -144,23 +162,69 @@ impl ProcessRunner {
     }
 }
 
-fn wait_for_marker(child: &mut Child) -> io::Result<()> {
-    let stdout = child
+/// Waits until the child wrote [`READY_MARKER`]. A thread reads the output, so
+/// the wait ends at the timeout also while the child writes nothing; after the
+/// marker the thread keeps discarding the output so that the child never
+/// blocks on a full pipe.
+fn wait_for_marker(child: &mut Child, timeout: Duration) -> io::Result<()> {
+    let mut stdout = child
         .stdout
-        .as_mut()
+        .take()
         .ok_or_else(|| io::Error::other("child output is not captured"))?;
-    let mut seen = Vec::new();
-    let mut byte = [0_u8; 1];
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let found = find_marker(&mut stdout);
+        let ready = found.is_ok();
+        let _ = sender.send(found);
+        if ready {
+            let _ = io::copy(&mut stdout, &mut io::sink());
+        }
+    });
+    match receiver.recv_timeout(timeout) {
+        Ok(found) => found,
+        Err(RecvTimeoutError::Timeout) => Err(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "child did not start the scenario in time",
+        )),
+        Err(RecvTimeoutError::Disconnected) => Err(io::Error::other("output reader ended")),
+    }
+}
+
+/// Reads `stdout` until [`READY_MARKER`] appeared, keeping only the bytes that
+/// can still be the start of the marker.
+fn find_marker(stdout: &mut impl Read) -> io::Result<()> {
+    let mut window: Vec<u8> = Vec::new();
+    let mut chunk = [0_u8; 4096];
+    let mut total = 0_usize;
     loop {
-        if stdout.read(&mut byte)? == 0 {
+        let read = match stdout.read(&mut chunk) {
+            Ok(0) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "child ended before the scenario started",
+                ));
+            }
+            Ok(read) => read,
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+            Err(err) => return Err(err),
+        };
+        window.extend_from_slice(&chunk[..read]);
+        if window
+            .windows(READY_MARKER.len())
+            .any(|part| part == READY_MARKER)
+        {
+            return Ok(());
+        }
+        total += read;
+        if total > MAX_OUTPUT_BEFORE_MARKER {
             return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "child ended before the scenario started",
+                io::ErrorKind::InvalidData,
+                "child wrote too much output before the scenario started",
             ));
         }
-        seen.push(byte[0]);
-        if seen.ends_with(READY_MARKER) {
-            return Ok(());
+        let keep = READY_MARKER.len() - 1;
+        if window.len() > keep {
+            window.drain(..window.len() - keep);
         }
     }
 }
@@ -192,6 +256,52 @@ mod tests {
         let runner = ProcessRunner::new("sh", ["-c", "exit 0"]);
         let error = runner.run_and_kill(Duration::ZERO).unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_silent_child_ends_the_wait_at_the_timeout() {
+        let runner = ProcessRunner::new("sh", ["-c", "exec sleep 30"])
+            .marker_timeout(Duration::from_millis(200));
+        let error = runner.run_and_kill(Duration::ZERO).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_child_that_floods_the_output_without_the_marker_is_refused() {
+        let runner = ProcessRunner::new(
+            "sh",
+            [
+                "-c",
+                "while :; do echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx; done",
+            ],
+        );
+        let error = runner.run_and_kill(Duration::ZERO).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn the_marker_is_found_across_chunk_borders() {
+        struct Pieces(Vec<Vec<u8>>);
+        impl Read for Pieces {
+            fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+                if self.0.is_empty() {
+                    return Ok(0);
+                }
+                let piece = self.0.remove(0);
+                buffer[..piece.len()].copy_from_slice(&piece);
+                Ok(piece.len())
+            }
+        }
+        let (head, tail) = READY_MARKER.split_at(5);
+        let mut source = Pieces(vec![b"noise".to_vec(), head.to_vec(), tail.to_vec()]);
+        assert!(find_marker(&mut source).is_ok());
+        let mut partial = Pieces(vec![head.to_vec()]);
+        assert_eq!(
+            find_marker(&mut partial).unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
+        );
     }
 
     #[cfg(unix)]

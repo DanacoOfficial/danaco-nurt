@@ -28,6 +28,7 @@
 //! apply. With `recursive`, the entries below a directory are changed as
 //! well; links below it are not followed and not changed.
 
+use std::collections::HashSet;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 
@@ -49,7 +50,7 @@ use serde_json::Value as Json;
 use crate::common::etag::{check_if_match, observe, parse_etag};
 use crate::common::mutation::{apply_changes, fs_target, planned_change};
 use crate::common::notable::{at_path, counted};
-use crate::common::path::{path_list_arg, record_path};
+use crate::common::path::{path_list_arg_for_change, record_path};
 use crate::details::accounts::{Accounts, SUPERUSER_UID};
 use crate::details::acl::{self, ACCESS_XATTR, AclEntry};
 use crate::details::mode::{ModeSpec, PERMISSION_BITS};
@@ -161,6 +162,7 @@ impl EffectStage for Attributes {
             accounts,
             acl,
             planned: Vec::new(),
+            visited: HashSet::new(),
             notable: Vec::new(),
             unchanged_below: 0,
             denied: 0,
@@ -385,7 +387,7 @@ struct Root {
 
 fn roots(args: &BoundArgs, input: StageInput<'_>, ctx: &ExecCtx) -> Result<Vec<Root>> {
     if input.is_none() {
-        return Ok(path_list_arg(args, PATH, ctx)?
+        return Ok(path_list_arg_for_change(args, PATH, ctx)?
             .into_iter()
             .map(|path| Root {
                 path,
@@ -441,6 +443,7 @@ struct Planner<'a> {
     accounts: Accounts,
     acl: Option<Vec<AclEntry>>,
     planned: Vec<Planned>,
+    visited: HashSet<AbsPath>,
     notable: Vec<NotableEntry>,
     unchanged_below: u64,
     denied: u64,
@@ -549,7 +552,14 @@ impl Planner<'_> {
 
     /// Plans the change of one entry; returns `false` when the entry
     /// already has the requested metadata.
+    ///
+    /// An entry reached twice, as two roots or as a root and an entry below
+    /// a recursive root, is planned once: two targets with one path cannot
+    /// be preserved in one pass.
     fn plan_entry(&mut self, path: &AbsPath, meta: &FileMeta) -> Result<bool> {
+        if !self.visited.insert(path.clone()) {
+            return Ok(true);
+        }
         let current = self.current(path, meta)?;
         let mut draft = Draft::default();
         self.plan_permissions(&current, &mut draft);
@@ -1058,6 +1068,29 @@ mod tests {
         let outcome = run(&test, &call, StageInput::none()).unwrap();
         assert_eq!(outcome.applied.len(), 1);
         assert_eq!(meta(&test, "/data/a.txt").mode, 0o600);
+    }
+
+    #[test]
+    fn an_entry_reached_twice_is_one_target() {
+        let test = TestContext::new();
+        file(&test, "/site/index.html");
+        let twice = args(
+            &["/site/index.html", "/site/index.html"],
+            &[(MODE, text("0600"))],
+        );
+        let outcome = run(&test, &twice, StageInput::none()).unwrap();
+        assert_eq!(outcome.applied.len(), 1);
+        assert_eq!(outcome.effect.targets, Some(1));
+        let below = args(
+            &["/site", "/site/index.html"],
+            &[(MODE, text("0640")), (RECURSIVE, Value::Bool(true))],
+        );
+        let outcome = run(&test, &below, StageInput::none()).unwrap();
+        let mut paths: Vec<_> = outcome.applied.iter().map(|c| c.path.as_str()).collect();
+        paths.sort_unstable();
+        paths.dedup();
+        assert_eq!(paths.len(), outcome.applied.len());
+        assert_eq!(meta(&test, "/site/index.html").mode, 0o640);
     }
 
     #[test]

@@ -1014,7 +1014,7 @@
           "minimum": 0
         },
         "lines": {
-          "description": "Lines with the prefixes `+`, `-` and space.",
+          "description": "Lines with the prefixes `+`, `-` and space, and the marker line\n`\\ No newline at end of file`.",
           "type": "array",
           "items": {
             "type": "string"
@@ -2813,7 +2813,7 @@
       "$ref": "#/$defs/ErrorData"
     },
     "ErrorData": {
-      "description": "Content of an [`Error`].\n\n[`Error`] dereferences to this structure, so the fields are read as\n`error.code`, `error.message` and so on.",
+      "description": "Content of an [`Error`].\n\n[`Error`] dereferences to this structure, so the fields are read as\n`error.code`, `error.message` and so on.\n\nA reader ignores fields it does not know: a later minor version of the\nformat may add optional error fields.",
       "type": "object",
       "properties": {
         "code": {
@@ -2922,7 +2922,6 @@
           ]
         }
       },
-      "additionalProperties": false,
       "required": [
         "code",
         "message"
@@ -3485,8 +3484,7 @@
             }
           ]
         }
-      },
-      "additionalProperties": false
+      }
     },
     "Stage": {
       "description": "Execution stage of a program, in execution order.\n\nThe JSON form is the stage number as text: `\"0\"` to `\"7\"` and `\"5a\"`. The\nexecutor uses the same type for its execution steps\n([`crate::stage::ExecStep`]). The set of stages is fixed by the language.",
@@ -3592,7 +3590,6 @@
           "minimum": 0
         }
       },
-      "additionalProperties": false,
       "required": [
         "path"
       ]
@@ -3626,7 +3623,6 @@
           ]
         }
       },
-      "additionalProperties": false,
       "required": [
         "rank",
         "program"

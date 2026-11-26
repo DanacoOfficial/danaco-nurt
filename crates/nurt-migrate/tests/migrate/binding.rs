@@ -24,7 +24,7 @@ use crate::golden::{assert_matches_file, data_directory};
 /// Directory of the command catalog, relative to the crate.
 const CATALOG_DIRECTORY: &str = "../../catalog";
 
-fn translator(host_os: Os) -> TableTranslator {
+pub(crate) fn translator(host_os: Os) -> TableTranslator {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(CATALOG_DIRECTORY);
     let catalog = match Catalog::load_dir(&dir) {
         Ok(catalog) => catalog,
@@ -36,7 +36,7 @@ fn translator(host_os: Os) -> TableTranslator {
     }
 }
 
-fn migrate_bound(
+pub(crate) fn migrate_bound(
     source: &str,
     language: ScriptLanguage,
     translator: &TableTranslator,

@@ -33,7 +33,9 @@ use nurt_contracts::value::{Instant, Path as RecordPath};
 pub use command::GitBranchCommand;
 pub use trash::{list_trash, plan_purge};
 
+use crate::checkpoint::support::lexical;
 use crate::refs_tx::{PreparedRefTx, PreviousValue, RefEdit, RefLayout, RefOutcome, RefTx};
+use crate::repo::lock::ensure_unlocked;
 use switch::SwitchPart;
 
 const HEADS: &str = "refs/heads/";
@@ -155,6 +157,7 @@ impl BranchPlan {
         self.refs.declare(tx)?;
         let config = match &self.config {
             Some(write) => {
+                ensure_unlocked(write.path.as_path())?;
                 let spec = TargetSpec {
                     path: TargetPath::Fs(write.path.clone()),
                     action: TargetAction::Modify,
@@ -173,6 +176,9 @@ impl BranchPlan {
         }
         let outcomes = self.refs.apply(tx)?;
         if let Some((index, bytes)) = config {
+            if let Some(write) = &self.config {
+                ensure_unlocked(write.path.as_path())?;
+            }
             tx.apply(index, Mutation::WriteBytes(bytes))?;
         }
         Ok(outcomes)
@@ -641,13 +647,19 @@ fn head_branch(repo: &gix::Repository) -> Result<Option<FullName>> {
 }
 
 /// Branches checked out in the other working trees, with their directories.
+///
+/// The `HEAD` of a bare main repository checks nothing out, as in `git`.
 fn worktree_heads(repo: &gix::Repository) -> Result<Vec<(FullName, AbsPath)>> {
-    let own = repo.git_dir().to_path_buf();
-    let mut dirs = vec![repo.common_dir().to_path_buf()];
-    let linked = repo.common_dir().join("worktrees");
-    if let Ok(entries) = std::fs::read_dir(&linked) {
+    let own = lexical(repo.git_dir());
+    let common = lexical(repo.common_dir());
+    let main_is_bare = repo.config_snapshot().boolean("core.bare") == Some(true);
+    let mut dirs = Vec::new();
+    if !main_is_bare {
+        dirs.push(common.clone());
+    }
+    if let Ok(entries) = std::fs::read_dir(common.join("worktrees")) {
         for entry in entries.flatten() {
-            dirs.push(entry.path());
+            dirs.push(lexical(&entry.path()));
         }
     }
     let mut out = Vec::new();
@@ -661,7 +673,7 @@ fn worktree_heads(repo: &gix::Repository) -> Result<Vec<(FullName, AbsPath)>> {
         let Ok(branch) = FullName::try_from(target.trim().as_bstr()) else {
             continue;
         };
-        if let Some(path) = worktree_dir(repo, &dir) {
+        if let Some(path) = worktree_dir(&common, &dir) {
             out.push((branch, path));
         }
     }
@@ -669,13 +681,17 @@ fn worktree_heads(repo: &gix::Repository) -> Result<Vec<(FullName, AbsPath)>> {
 }
 
 /// Working tree directory of a repository directory of the common
-/// repository or of a linked working tree.
-fn worktree_dir(repo: &gix::Repository, dir: &std::path::Path) -> Option<AbsPath> {
-    if dir == repo.common_dir() {
-        return repo
-            .common_dir()
-            .parent()
-            .and_then(|path| AbsPath::new(path).ok());
+/// repository `common` or of a linked working tree.
+///
+/// The main working tree is the parent of a common directory named `.git`;
+/// for any other common directory, `git` reports the directory itself.
+fn worktree_dir(common: &std::path::Path, dir: &std::path::Path) -> Option<AbsPath> {
+    if dir == common {
+        let tree = match common.parent() {
+            Some(parent) if common.file_name().is_some_and(|name| name == ".git") => parent,
+            _ => common,
+        };
+        return AbsPath::new(tree).ok();
     }
     let gitdir = std::fs::read(dir.join("gitdir")).ok()?;
     let gitfile = gix_path::from_bstr(gitdir.trim().as_bstr()).ok()?;
@@ -1020,6 +1036,61 @@ mod tests {
         let remotes = list(&repo.open(), true).unwrap();
         assert_eq!(remotes[0].name, "origin/feature");
         assert!(remotes[0].remote);
+    }
+
+    #[test]
+    fn main_working_tree_of_a_linked_one_follows_the_common_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let common = dir.path().join("main.git");
+        gix::init_bare(&common).unwrap();
+        let registration = common.join("worktrees/wt");
+        let tree = dir.path().join("wt");
+        std::fs::create_dir_all(&registration).unwrap();
+        std::fs::create_dir_all(&tree).unwrap();
+        std::fs::write(registration.join("HEAD"), "ref: refs/heads/side\n").unwrap();
+        std::fs::write(registration.join("commondir"), "../..\n").unwrap();
+        std::fs::write(
+            registration.join("gitdir"),
+            format!("{}\n", tree.join(".git").display()),
+        )
+        .unwrap();
+        std::fs::write(
+            tree.join(".git"),
+            format!("gitdir: {}\n", registration.display()),
+        )
+        .unwrap();
+        let repo = gix::open(&tree).unwrap();
+        let heads = worktree_heads(&repo).unwrap();
+        assert!(
+            heads.is_empty(),
+            "{heads:?} {:?} {:?} {:?}",
+            repo.git_dir(),
+            repo.common_dir(),
+            repo.config_snapshot().boolean("core.bare")
+        );
+        let config = common.join("config");
+        let mut text = std::fs::read_to_string(&config).unwrap();
+        text.push_str("[core]\n\tbare = false\n");
+        std::fs::write(&config, text).unwrap();
+        let repo = gix::open(&tree).unwrap();
+        let heads = worktree_heads(&repo).unwrap();
+        assert_eq!(heads.len(), 1);
+        assert_eq!(heads[0].1.as_path(), common.as_path());
+    }
+
+    #[test]
+    fn a_config_lock_stops_the_configuration_write() {
+        let repo = TestRepo::new();
+        let head = repo.commit("first");
+        repo.append_config("[remote \"origin\"]\n\turl = /nowhere\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n");
+        repo.write("refs/remotes/origin/feature", &format!("{head}\n"));
+        let plan =
+            plan_create(&repo.open(), "feature", "origin/feature", repo.signature()).unwrap();
+        assert!(plan.changes_config());
+        repo.write("config.lock", "");
+        let error = repo.apply(|tx| plan.apply(&repo.open(), tx)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::GitLocked);
+        assert!(!repo.read("config").contains("[branch \"feature\"]"));
     }
 
     #[test]

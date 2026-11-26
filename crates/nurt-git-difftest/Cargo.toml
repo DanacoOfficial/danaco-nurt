@@ -35,6 +35,9 @@ indexmap = { workspace = true }
 russh = { workspace = true }
 tokio = { workspace = true, features = ["rt", "net", "process", "io-util", "sync", "macros"] }
 
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true, features = ["process"] }
+
 [[test]]
 name = "scenarios"
 harness = false

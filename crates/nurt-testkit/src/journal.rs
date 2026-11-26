@@ -66,6 +66,9 @@ const REMOVE_PARALLELISM: usize = 1;
 /// Permission bits of a mode, including the set-id and sticky bits.
 const PERMISSION_BITS: u32 = 0o7777;
 
+/// Read, write and search permission bits of the account of an entry.
+const OWNER_RWX: u32 = 0o700;
+
 /// Converts a file system error into the language error with the code given
 /// by [`FsError::code_id`]; the kind and the path become error details.
 ///
@@ -353,7 +356,10 @@ impl PreImage {
                 fs.restore_meta(scope, path, meta).map(|_| ())
             }
             Self::Directory { meta, children } => {
-                fs.create_dir(scope, path, meta.basic.mode)?;
+                // The recorded mode is applied by `restore_meta` after the
+                // children exist; a directory without write permission would
+                // refuse them.
+                fs.create_dir(scope, path, meta.basic.mode | OWNER_RWX)?;
                 for (name, child) in children {
                     child.create(fs, scope, &child_path(path, name)?)?;
                 }
@@ -907,6 +913,8 @@ fn mutation_name(mutation: &Mutation) -> &'static str {
         Mutation::SetMeta(_) => "set_meta",
         Mutation::ProviderSet(_) => "provider_set",
         Mutation::ProviderRemove => "provider_remove",
+        Mutation::ProviderCopy(_) => "provider_copy",
+        Mutation::ProviderRestore(_) => "provider_restore",
         _ => "other",
     }
 }
@@ -923,13 +931,18 @@ fn allowed(action: &TargetAction, mutation: &Mutation) -> bool {
         Mutation::CreateDir { .. } | Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. }
     );
     match action {
-        TargetAction::Create => writes_content || creates_entry,
+        TargetAction::Create => {
+            writes_content || creates_entry || matches!(mutation, Mutation::ProviderCopy(_))
+        }
         TargetAction::CreateTree => matches!(mutation, Mutation::CreateDir { .. }),
         TargetAction::Modify => {
             writes_content
                 || matches!(
                     mutation,
-                    Mutation::WriteAt { .. } | Mutation::SetLength(_) | Mutation::ProviderSet(_)
+                    Mutation::WriteAt { .. }
+                        | Mutation::SetLength(_)
+                        | Mutation::ProviderSet(_)
+                        | Mutation::ProviderRestore(_)
                 )
         }
         TargetAction::Append => matches!(mutation, Mutation::AppendBytes(_)),

@@ -14,6 +14,7 @@
 //! `find "/a" glob: "*.go"` stays a Nurt program while `find /a -name "*.go"`
 //! is a habit.
 
+use super::catalog::is_parameter_name;
 use super::lex::{PosixToken, PosixTokenKind, Quoting, RedirectOp, Word, WordPart};
 use super::table::BashTable;
 
@@ -21,10 +22,31 @@ pub(crate) fn is_habit(table: &BashTable, tokens: &[PosixToken]) -> bool {
     let Some(first) = first_command_word(tokens) else {
         return false;
     };
-    if !table.is_habit(&first.raw) || has_nurt_notation(tokens) {
+    if has_nurt_notation(tokens) {
         return false;
     }
+    if !table.is_habit(&first.raw) {
+        return starts_with_assignment(tokens);
+    }
     table.is_shell_only(&first.raw) || has_shell_feature(tokens)
+}
+
+/// Whether the statement starts with a habit word and shows no Nurt
+/// notation, whatever else it shows. The caller uses this for a first word
+/// that has no meaning in Nurt (`touch`, `gzip`), where no features are needed
+/// to tell that the statement is written for a shell.
+pub(crate) fn is_habit_by_word(table: &BashTable, tokens: &[PosixToken]) -> bool {
+    first_command_word(tokens)
+        .is_some_and(|first| table.is_habit(&first.raw) && !has_nurt_notation(tokens))
+}
+
+/// An assignment before the program (`CI=1 npm test`) exists only in the
+/// shell, so the program that follows it may be any program.
+fn starts_with_assignment(tokens: &[PosixToken]) -> bool {
+    tokens.iter().find_map(|token| match &token.kind {
+        PosixTokenKind::Word(word) => Some(is_assignment(word)),
+        _ => None,
+    }) == Some(true)
 }
 
 /// First word that is not an assignment.
@@ -62,6 +84,9 @@ fn has_nurt_notation(tokens: &[PosixToken]) -> bool {
     })
 }
 
+/// A bare word `name:` where `name` is a parameter of some command. Another
+/// word that ends in a colon, such as the `error:` of `grep -i error: /a`, is
+/// text of the command.
 fn is_named_argument(word: &Word) -> bool {
     word.is_bare()
         && word.raw.strip_suffix(':').is_some_and(|name| {
@@ -69,6 +94,7 @@ fn is_named_argument(word: &Word) -> bool {
                 && name
                     .chars()
                     .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+                && is_parameter_name(name)
         })
 }
 
@@ -161,6 +187,14 @@ mod tests {
     }
 
     #[test]
+    fn a_word_that_ends_in_a_colon_is_a_named_argument_only_for_a_known_parameter() {
+        assert!(habit("grep -i error: /var/log/x"));
+        assert!(habit("grep -n 'TODO:' /srv/a"));
+        assert!(!habit("find /a -name x glob: \"*.go\""));
+        assert!(!habit("ls -l hidden: true"));
+    }
+
+    #[test]
     fn plain_words_without_features_go_the_nurt_way() {
         assert!(!habit("cat /a/b"));
         assert!(!habit("rm /a/b"));
@@ -184,7 +218,9 @@ mod tests {
     #[test]
     fn assignment_before_a_habit_word() {
         assert!(habit("LC_ALL=C sort /a"));
-        assert!(!habit("LC_ALL=C make"));
+        assert!(habit("LC_ALL=C make"));
+        assert!(habit("CI=1 npm test"));
+        assert!(!habit("CI=1"));
     }
 
     #[test]

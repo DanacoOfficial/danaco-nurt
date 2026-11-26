@@ -128,6 +128,8 @@ pub(crate) struct Session<'a> {
     cwd: RefCell<Option<String>>,
     log: RefCell<Log>,
     followed: Cell<bool>,
+    /// A `set` of the strict mode was the whole statement of a script line.
+    strict_only: Cell<bool>,
     depth: Cell<usize>,
 }
 
@@ -146,8 +148,29 @@ pub(crate) fn translate(
     if context.mode == Mode::Live && !detect::is_habit(table, &tokens) {
         return None;
     }
+    Some(translate_tokens(input, &tokens, context, table))
+}
+
+/// Translates a statement that starts with a habit word and shows no Nurt
+/// notation, whether or not it shows a feature of the shell.
+pub(crate) fn translate_by_word(
+    input: &str,
+    context: &TranslateContext<'_>,
+    table: &BashTable,
+) -> Option<Result<Translation, Error>> {
+    let tokens = lex(input).ok()?;
+    detect::is_habit_by_word(table, &tokens)
+        .then(|| translate_tokens(input, &tokens, context, table))
+}
+
+fn translate_tokens(
+    input: &str,
+    tokens: &[super::lex::PosixToken],
+    context: &TranslateContext<'_>,
+    table: &BashTable,
+) -> Result<Translation, Error> {
     let session = Session::new(table, context, input);
-    let result = match syntax::parse(&tokens) {
+    match syntax::parse(tokens) {
         Ok(script) => session.script(&script),
         Err(error) => Err(session.error(
             ErrorCode::Uncorrectable,
@@ -155,8 +178,7 @@ pub(crate) fn translate(
             error.span,
             &[("reason", error.message)],
         )),
-    };
-    Some(result)
+    }
 }
 
 /// A step of a list: a pipeline with the connector before it.
@@ -218,12 +240,15 @@ impl<'a> Session<'a> {
             table,
             context,
             lines: input
+                .strip_prefix('\u{feff}')
+                .unwrap_or(input)
                 .split('\n')
                 .map(|line| line.chars().collect())
                 .collect(),
             cwd: RefCell::new(None),
             log: RefCell::new(Log::default()),
             followed: Cell::new(false),
+            strict_only: Cell::new(false),
             depth: Cell::new(0),
         }
     }
@@ -306,10 +331,15 @@ impl<'a> Session<'a> {
                         index += 1;
                         continue;
                     }
-                    Some("set") if !last && self.is_strict_mode(simple) => {
+                    Some("set")
+                        if self.is_strict_mode(simple)
+                            && (!last || self.context.mode == Mode::Script) =>
+                    {
                         // Nurt stops a program at the first error, which is
-                        // what `set -e` and `pipefail` ask a shell for.
+                        // what `set -e` and `pipefail` ask a shell for. In a
+                        // script the line may hold nothing else.
                         self.assume("B22", "script_stops");
+                        self.strict_only.set(last);
                         index += 1;
                         continue;
                     }
@@ -460,6 +490,14 @@ impl<'a> Session<'a> {
                 &[("reason", "negated pipeline")],
             ));
         }
+        if pipe.merges_stderr {
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_syntax",
+                pipe.span,
+                &[("reason", "standard error in a pipe (`|&`)")],
+            ));
+        }
         if let Some(result) = produce::echo_into_tee(self, pipe) {
             return result;
         }
@@ -556,6 +594,17 @@ impl<'a> Session<'a> {
                 &[("reason", "no command")],
             ));
         };
+        // The shell expands a brace expansion into several words; read as one
+        // word it would name a path that does not exist, and a change would
+        // silently select nothing.
+        if let Some(word) = words.iter().find(|word| word.value.has_brace_expansion()) {
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_syntax",
+                word.span,
+                &[("reason", "brace expansion")],
+            ));
+        }
         let name = first
             .value
             .literal()
@@ -629,7 +678,7 @@ impl<'a> Session<'a> {
                     &[("command", &name)],
                 ));
             }
-            None => self.run_program(simple, words, None)?,
+            None => self.run_program_with(simple, words, None, options)?,
         };
         self.apply_run_options(translated, options, simple.span)
     }
@@ -840,6 +889,19 @@ impl<'a> Session<'a> {
         words: &[Located<Word>],
         cwd: Option<String>,
     ) -> Result<Variants, Error> {
+        self.run_program_with(simple, words, cwd, &RunOptions::default())
+    }
+
+    /// Like [`Session::run_program`]; the options of the program (`env`,
+    /// `timeout`, …) are part of the fixes of the missing directory, as they
+    /// are part of the translation that has one.
+    fn run_program_with(
+        &self,
+        simple: &Simple,
+        words: &[Located<Word>],
+        cwd: Option<String>,
+        options: &RunOptions,
+    ) -> Result<Variants, Error> {
         self.reject_glob(words)?;
         let mut items = Vec::new();
         for word in words {
@@ -854,7 +916,7 @@ impl<'a> Session<'a> {
         let command = Expr::List { items, span: None };
         let cwd = cwd.or_else(|| self.cwd.borrow().clone());
         let Some(directory) = cwd else {
-            return Err(self.missing_directory(simple, command, words));
+            return Err(self.missing_directory(simple, command, words, options));
         };
         let stage = Stage {
             name: "run".to_owned(),
@@ -880,7 +942,13 @@ impl<'a> Session<'a> {
         Ok(Variants::one(vec![stage], "exec"))
     }
 
-    fn missing_directory(&self, simple: &Simple, command: Expr, words: &[Located<Word>]) -> Error {
+    fn missing_directory(
+        &self,
+        simple: &Simple,
+        command: Expr,
+        words: &[Located<Word>],
+        options: &RunOptions,
+    ) -> Error {
         let mut error = self.error(
             ErrorCode::Uncorrectable,
             "working_directory",
@@ -888,18 +956,20 @@ impl<'a> Session<'a> {
             &[],
         );
         for candidate in self.directory_candidates(words) {
+            let mut args = vec![
+                positional(command.clone()),
+                named(
+                    "cwd",
+                    Expr::Text {
+                        v: candidate,
+                        span: None,
+                    },
+                ),
+            ];
+            args.extend(self.run_args(options));
             let stage = Stage {
                 name: "run".to_owned(),
-                args: vec![
-                    positional(command.clone()),
-                    named(
-                        "cwd",
-                        Expr::Text {
-                            v: candidate,
-                            span: None,
-                        },
-                    ),
-                ],
+                args,
                 span: None,
             };
             error = error.with_fix(super::tree::print_stage(&stage));
@@ -1366,7 +1436,7 @@ impl<'a> Session<'a> {
     /// Translation of a line that only names results; without them the line
     /// has no program.
     fn results_only(&self) -> Result<Translation, Error> {
-        if self.log.borrow().lets.is_empty() {
+        if self.log.borrow().lets.is_empty() && !self.strict_only.get() {
             return Err(self.error(
                 ErrorCode::Uncorrectable,
                 "current_directory",
@@ -1530,9 +1600,11 @@ impl Convert for Session<'_> {
                 v: text.clone(),
                 span: Some(span),
             }),
-            Conversion::Int => text
-                .parse::<i64>()
-                .ok()
+            // Digits only: `str::parse` also takes a plus sign, and the `+5` of
+            // `tail -n +5` means "from line 5", not the last 5 lines.
+            Conversion::Int => Some(text)
+                .filter(|text| text.bytes().all(|b| b.is_ascii_digit()))
+                .and_then(|text| text.parse::<i64>().ok())
                 .filter(|v| *v >= 0)
                 .map(|v| Expr::Int {
                     v,

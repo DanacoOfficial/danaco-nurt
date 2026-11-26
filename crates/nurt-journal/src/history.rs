@@ -22,6 +22,7 @@ use nurt_contracts::journal::{
 };
 use nurt_contracts::report::IrreversibleEntry;
 use nurt_contracts::value::{Instant, Size};
+use sha2::{Digest, Sha256};
 
 use crate::conflict::{self, ItemKey, TargetProbe};
 use crate::layout::{self, EntryLayout};
@@ -92,6 +93,9 @@ pub(crate) struct JournalEntry {
     pub(crate) kind: OpKind,
     /// Session of the request that created the entry.
     pub(crate) session: Option<SessionId>,
+    /// Account that made the operation; `None` for entries written before the
+    /// account was recorded.
+    pub(crate) account: Option<String>,
     /// Persistent state.
     pub(crate) state: EntryState,
     /// Bulk operation.
@@ -136,6 +140,15 @@ impl JournalEntry {
     /// Whether the entry records an undo.
     pub(crate) fn is_undo(&self) -> bool {
         self.kind == OpKind::undo()
+    }
+
+    /// Whether another account than `account` made the entry. The journal
+    /// directory of a volume is shared by all accounts; entries that record no
+    /// account belong to every account.
+    pub(crate) fn is_foreign_to(&self, account: &str) -> bool {
+        self.account
+            .as_deref()
+            .is_some_and(|recorded| recorded != account)
     }
 
     /// Whether the entry belongs to the session; without a session every
@@ -206,6 +219,7 @@ impl JournalEntry {
             time: first.time,
             kind: first.kind.clone(),
             session: first.session.clone(),
+            account: first.account.clone(),
             state: merged_state(parts.iter().map(|(_, state, _)| state.state)),
             bulk: first.bulk,
             volumes: first.parts.iter().map(|part| part.vol.clone()).collect(),
@@ -361,9 +375,17 @@ pub(crate) fn record_index(parts: &[StoredPart]) -> RecordIndex<'_> {
     index
 }
 
-/// Files holding the content preserved for the targets `indexes` of entry
-/// `op`; targets for which the entry keeps no content are left out. The
-/// entry is read once.
+/// Preserved content of one target.
+pub(crate) enum PreservedData {
+    /// File holding the content.
+    File(AbsPath),
+    /// Content kept in the manifest, represented by its hash.
+    Inline(ContentHash),
+}
+
+/// Preserved content of the targets `indexes` of entry `op`: the files that
+/// hold it and the hashes of content kept in the manifest. Targets for which
+/// the entry keeps no content are left out. The entry is read once.
 ///
 /// Fails when the entry cannot be read or names a file outside its
 /// directory.
@@ -371,15 +393,19 @@ pub(crate) fn preserved_files(
     ctx: &JournalCtx,
     op: OpId,
     indexes: &[TargetIndex],
-) -> Result<Vec<(TargetIndex, AbsPath)>> {
+) -> Result<Vec<(TargetIndex, PreservedData)>> {
     let (parts, _) = stored_parts(ctx, op)?;
     let records = record_index(&parts);
     let mut files = Vec::with_capacity(indexes.len());
     for index in indexes {
-        if let Some((entry, record)) = records.get(index)
-            && let Some(name) = &record.before.blob
-        {
-            files.push((*index, entry.resolve(name)?));
+        let Some((entry, record)) = records.get(index) else {
+            continue;
+        };
+        if let Some(name) = &record.before.blob {
+            files.push((*index, PreservedData::File(entry.resolve(name)?)));
+        } else if let Some(bytes) = &record.before.inline {
+            let hash = ContentHash(Sha256::digest(bytes).into());
+            files.push((*index, PreservedData::Inline(hash)));
         }
     }
     Ok(files)
@@ -425,12 +451,15 @@ impl EntrySource for JournalCtx {
             .into_iter()
             .map(|part| (part.manifest, part.state, part.items))
             .collect();
-        Ok(JournalEntry::from_parts(&joined).map(|mut entry| {
-            if damaged {
-                entry.state = EntryState::Corrupt;
-            }
-            entry
-        }))
+        let account = self.state.account_id();
+        Ok(JournalEntry::from_parts(&joined)
+            .filter(|entry| !entry.is_foreign_to(&account))
+            .map(|mut entry| {
+                if damaged {
+                    entry.state = EntryState::Corrupt;
+                }
+                entry
+            }))
     }
 
     fn pins(&self) -> Result<PinSet> {
@@ -452,11 +481,19 @@ fn tombstone_entry(ctx: &JournalCtx, op: OpId) -> Result<Option<JournalEntry>> {
     for journal in ctx.active_journals() {
         let mount = ctx.fs.volume(journal.root())?.mount;
         if let Some(found) = tomb::read(&store, &mount, op)? {
+            if found
+                .account
+                .as_deref()
+                .is_some_and(|recorded| recorded != ctx.state.account_id())
+            {
+                continue;
+            }
             return Ok(Some(JournalEntry {
                 op,
                 time: found.time,
                 kind: found.kind,
                 session: None,
+                account: found.account,
                 state: found.state,
                 bulk: found.files > 1,
                 volumes: Vec::new(),
@@ -493,6 +530,7 @@ fn corrupt_from_index(ctx: &JournalCtx, op: OpId) -> Result<Option<JournalEntry>
             time: row.time,
             kind: row.kind,
             session: row.session,
+            account: None,
             state: EntryState::Corrupt,
             bulk: row.bulk,
             volumes: row.parts.into_iter().map(|part| part.vol).collect(),
@@ -992,6 +1030,19 @@ mod tests {
     #[test]
     fn an_entry_without_parts_does_not_exist() {
         assert!(JournalEntry::from_parts(&[]).is_none());
+    }
+
+    #[test]
+    fn an_entry_with_a_committed_and_a_prepared_part_is_in_progress_and_stays_unlisted() {
+        for parts in [
+            [part(EntryState::Committed), part(EntryState::Prepared)],
+            [part(EntryState::Prepared), part(EntryState::Committed)],
+        ] {
+            let entry = JournalEntry::from_parts(&parts).unwrap();
+            assert_eq!(entry.state, EntryState::Prepared);
+            assert!(!entry.is_available());
+            assert!(!entry.is_expired());
+        }
     }
 
     #[test]

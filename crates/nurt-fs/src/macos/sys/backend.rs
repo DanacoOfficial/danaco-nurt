@@ -24,8 +24,8 @@ use sha2::{Digest, Sha256};
 
 use super::handle::{MacosLock, MacosReadHandle, MacosWriteHandle, full_sync};
 use super::metadata::{
-    apply_change, apply_extended, file_meta, open_for_meta, read_extended, read_link, stat_fd,
-    stat_path,
+    apply_change, apply_change_by_path, apply_extended, apply_extended_by_path, file_meta,
+    needs_path_calls, open_for_meta, read_extended, read_link, stat_fd, stat_path,
 };
 use super::volume::{case_sensitive_at, describe, nearest_statfs, read_only, space};
 use super::{c_path, ffi, io_error, retry, retry_io, sys_error, tree};
@@ -263,7 +263,7 @@ impl FsWrite for MacosFs {
     }
 
     fn open_in_place(&self, _scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>> {
-        let flags = OFlags::RDWR | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+        let flags = OFlags::WRONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
         let file = Self::open(path.as_path(), flags, 0, "open_in_place")?;
         Ok(Self::write_handle(file, path.clone()))
     }
@@ -459,8 +459,11 @@ impl FsWrite for MacosFs {
     }
 
     fn set_meta(&self, _scope: &TxScope, path: &AbsPath, change: &MetaChange) -> FsResult<()> {
-        let file = open_for_meta(path.as_path(), "set_meta")?;
-        apply_change(&file, change, path.as_path())
+        match open_for_meta(path.as_path(), "set_meta") {
+            Ok(file) => apply_change(&file, change, path.as_path()),
+            Err(error) if needs_path_calls(&error) => apply_change_by_path(path.as_path(), change),
+            Err(error) => Err(error),
+        }
     }
 
     fn restore_meta(
@@ -469,8 +472,11 @@ impl FsWrite for MacosFs {
         path: &AbsPath,
         meta: &ExtendedMeta,
     ) -> FsResult<MetaTransferReport> {
-        let file = open_for_meta(path.as_path(), "restore_meta")?;
-        apply_extended(&file, meta, path.as_path())
+        match open_for_meta(path.as_path(), "restore_meta") {
+            Ok(file) => apply_extended(&file, meta, path.as_path()),
+            Err(error) if needs_path_calls(&error) => apply_extended_by_path(path.as_path(), meta),
+            Err(error) => Err(error),
+        }
     }
 
     fn truncate(&self, _scope: &TxScope, path: &AbsPath, length: u64) -> FsResult<()> {

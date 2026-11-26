@@ -223,7 +223,7 @@ Match of a search.
 | `text` | text | yes | Matched text. |
 | `line` | text | yes | Whole line. |
 | `etag` | text | yes | Entity tag of the file. |
-| `groups` | list<text> | no | Capture groups by number; `null` for a group that did not match. |
+| `groups` | list<text> | no | Capture groups by number; index 0 is the whole match and `null` marks a group that did not match. |
 | `named` | map<text> | no | Named capture groups. |
 | `before` | list<text> | no | Lines before the match. |
 | `after` | list<text> | no | Lines after the match. |
@@ -271,7 +271,9 @@ Row of a table, a CSV file or a query.
 
 ### node
 
-Node of a syntax tree.
+Node of a syntax tree. The kind is reserved: the catalog lists `node` among the input kinds of
+some commands, but no command of this release produces node records, so a pipeline cannot supply
+one.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
@@ -373,7 +375,7 @@ Hunk of a unified difference.
 | `old_len` | int | yes | Number of lines before. |
 | `new_start` | int | yes | First line after, from 1. |
 | `new_len` | int | yes | Number of lines after. |
-| `lines` | list<text> | yes | Lines with the prefixes `+`, `-` and space. |
+| `lines` | list<text> | yes | Lines with the prefixes `+`, `-` and space, and the marker line `\ No newline at end of file`. |
 | `id` | text | no | Stable identifier, `path#number`. |
 | `header` | text | no | Section heading after `@@`. |
 | `old_path` | path | no | File before a rename. |

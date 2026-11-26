@@ -25,8 +25,14 @@ mod apply;
 
 pub(super) use apply::Step;
 
-/// Longest chain of symbolic references followed, as in Git.
+/// Longest chain of symbolic references followed when a value is read, as
+/// in Git: a chain of four hops resolves, one of five does not.
 const MAX_SYMREF_DEPTH: usize = 5;
+
+/// Longest chain followed when an update goes through symbolic references.
+/// Git updates every level of the chain in turn and refuses only a loop, so
+/// this bound exceeds [`MAX_SYMREF_DEPTH`] and only stops loops.
+const MAX_DEREF_CHAIN: usize = 64;
 
 /// Directories `refs/<category>` and `logs/refs/<category>` are kept when
 /// they become empty; deeper directories are removed.
@@ -67,6 +73,9 @@ struct Expanded {
 struct LogWrite {
     exists: bool,
     bytes: Vec<u8>,
+    /// Content of an existing reflog the new file replaces: the log of a
+    /// renamed reference overwrites a leftover log of its new name.
+    replaces: Option<Vec<u8>>,
 }
 
 pub(super) fn prepare(tx: RefTx) -> Result<super::PreparedRefTx> {
@@ -220,7 +229,7 @@ impl<'a> Builder<'a> {
     /// Last reference of the symbolic chain starting at `name`.
     fn referent(&mut self, name: &FullNameRef) -> Result<FullName> {
         let mut current = name.to_owned();
-        for _ in 0..MAX_SYMREF_DEPTH {
+        for _ in 0..MAX_DEREF_CHAIN {
             match self.value(current.as_ref())? {
                 Some(Target::Symbolic(next)) => current = next,
                 Some(Target::Object(_)) | None => return Ok(current),
@@ -463,13 +472,18 @@ impl<'a> Builder<'a> {
         self.schedule_write(path, loose_content(&Target::Object(id)))?;
         let entry = format_reflog_entry(&id, &id, self.committer, edit.message.as_bstr());
         let log_path = self.layout.log_path(to.as_ref())?;
+        let leftover = match self.loose(&log_path)? {
+            Loose::File(content) => Some(content),
+            Loose::Absent | Loose::Dir => None,
+        };
         match old_log {
             Some(mut log) => {
                 log.extend_from_slice(&entry);
-                self.schedule_log_file(log_path, log)?;
+                self.schedule_log_file(log_path, log, leftover)?;
             }
+            None if leftover.is_some() => self.append_log(log_path, true, &entry)?,
             None if self.layout.log_all.creates_log_for(to.as_ref()) => {
-                self.schedule_log_file(log_path, entry.into())?;
+                self.schedule_log_file(log_path, entry.into(), None)?;
             }
             None => {}
         }
@@ -611,8 +625,20 @@ impl<'a> Builder<'a> {
     }
 
     /// Schedules a new reflog file with the complete content `bytes`.
-    fn schedule_log_file(&mut self, path: AbsPath, bytes: Vec<u8>) -> Result<()> {
-        self.append_log(path, false, &bytes)
+    ///
+    /// `replaces` is the content of a reflog already at `path`, which the new
+    /// file overwrites as `git` does when it renames a reference.
+    fn schedule_log_file(
+        &mut self,
+        path: AbsPath,
+        bytes: Vec<u8>,
+        replaces: Option<Vec<u8>>,
+    ) -> Result<()> {
+        self.append_log(path.clone(), false, &bytes)?;
+        if let Some(write) = self.logs.get_mut(&path) {
+            write.replaces = replaces;
+        }
+        Ok(())
     }
 
     /// Schedules creation of the missing parent directories of `path`.
@@ -662,6 +688,12 @@ impl<'a> Builder<'a> {
             if write.exists {
                 Step::AppendLog {
                     path,
+                    bytes: write.bytes,
+                }
+            } else if let Some(old) = write.replaces {
+                Step::ReplaceLog {
+                    path,
+                    old,
                     bytes: write.bytes,
                 }
             } else {

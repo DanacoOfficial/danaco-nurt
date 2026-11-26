@@ -82,9 +82,11 @@ pub struct Change {
     pub new: Range<usize>,
 }
 
-/// White space as classified by the C locale, including the vertical tab.
+/// White space as `git` classifies it (`sane_ctype`): space, horizontal tab,
+/// line feed and carriage return. The vertical tab and the form feed are not
+/// white space to `git`.
 pub(crate) fn is_space(byte: u8) -> bool {
-    byte.is_ascii_whitespace() || byte == 0x0b
+    matches!(byte, b' ' | b'\t' | b'\n' | b'\r')
 }
 
 /// Splits a text into lines that keep their line feed.
@@ -219,8 +221,10 @@ mod tests {
     }
 
     #[test]
-    fn classifies_white_space_like_the_c_locale() {
-        assert!(is_blank(b" \t\x0b\x0c\r\n"));
+    fn classifies_white_space_like_git() {
+        assert!(is_blank(b" \t\r\n"));
+        assert!(!is_blank(b" \x0b\n"));
+        assert!(!is_blank(b"\x0c\n"));
         assert!(!is_blank(b" x\n"));
         assert_eq!(line_body(b"x\n"), b"x");
         assert_eq!(line_body(b"x"), b"x");

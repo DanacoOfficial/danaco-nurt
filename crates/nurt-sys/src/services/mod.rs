@@ -249,6 +249,7 @@ pub(crate) fn service_privilege(manager: ServiceManager, name: &str, required: &
 
 /// `E_UNSUPPORTED` for a scope that the manager of the system does not
 /// offer.
+#[cfg(target_os = "linux")]
 pub(crate) fn scope_unsupported(manager: ServiceManager, scope: ServiceScope) -> Error {
     Error::new(
         ErrorCode::Unsupported,

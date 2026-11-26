@@ -53,10 +53,13 @@ fn text_pair(seed: u64) -> (String, String) {
 
 /// Body of a unified diff after the two header lines, which carry time stamps.
 fn body(diff: &str) -> String {
-    diff.lines()
-        .skip(HEADER_LINES)
-        .map(|line| format!("{line}\n"))
-        .collect()
+    diff.split_inclusive('\n').skip(HEADER_LINES).collect()
+}
+
+#[test]
+fn the_body_of_a_diff_keeps_carriage_returns_and_a_missing_final_newline() {
+    assert_eq!(body("--- a\n+++ b\n-x\r\n+y\n"), "-x\r\n+y\n");
+    assert_eq!(body("--- a\n+++ b\n-x\n\\ No newline"), "-x\n\\ No newline");
 }
 
 fn reference_diff(diff: &Path, dir: &Path, old: &str, new: &str, context: usize) -> String {

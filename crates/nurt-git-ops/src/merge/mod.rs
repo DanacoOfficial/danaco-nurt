@@ -22,7 +22,6 @@ mod driver;
 mod finish;
 #[cfg(test)]
 mod fixture;
-mod layout;
 mod message;
 mod source;
 mod stage;

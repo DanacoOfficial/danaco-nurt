@@ -335,6 +335,16 @@ def command_typos(catalog: dict[str, suite.Command]) -> Writer:
             if r.outcome == "fuzzy" and r.name == name and r.distance == 1:
                 accepted.append(typo)
         for typo in accepted[:3]:
+            if cmd.changing:
+                w.add(
+                    f"{slug(name)}/{slug(typo)}",
+                    f"The command name {typo} is one edit from the changing command {name}; the correction is offered, not applied.",
+                    seed(name, typo),
+                    error="E_AMBIGUOUS",
+                    candidate=seed(name),
+                    requires=requires_for(cmd),
+                )
+                continue
             w.add(
                 f"{slug(name)}/{slug(typo)}",
                 f"The command name {typo} is one edit from {name} and from no other name.",

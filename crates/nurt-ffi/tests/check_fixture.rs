@@ -28,3 +28,25 @@ fn recorded_check_answer_has_every_required_member() {
     }
     assert_eq!(document["format"], "nurt-check/1");
 }
+
+#[test]
+fn recorded_syntax_error_points_into_the_program_text() {
+    let path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/stub/run-syntax-error.json");
+    let case: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    let program = case["input"]["program"].as_str().unwrap();
+    let error = &case["output"][0]["report"]["error"];
+    let chars = program.chars().count();
+
+    assert_eq!(error["found"], "end of program");
+    let column = error["at"]["column"].as_u64().unwrap();
+    assert_eq!(column, u64::try_from(chars).unwrap() + 1);
+
+    let problem = error["problem"].as_str().unwrap();
+    let opened: usize = problem
+        .strip_prefix("the list started at column ")
+        .and_then(|rest| rest.split(' ').next())
+        .and_then(|text| text.parse().ok())
+        .unwrap();
+    assert_eq!(program.chars().nth(opened - 1), Some('['));
+}

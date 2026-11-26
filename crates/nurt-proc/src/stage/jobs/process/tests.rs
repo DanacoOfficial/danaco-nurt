@@ -55,6 +55,7 @@ fn execute(kind: Kind, processes: Vec<Process>, extra: Vec<(&str, Value)>) -> Re
     })
 }
 
+#[cfg(unix)]
 fn word(value: &str) -> Value {
     Value::Enum(value.to_owned())
 }

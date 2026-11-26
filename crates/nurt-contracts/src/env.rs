@@ -24,11 +24,11 @@
 //! for records.
 
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
 use crate::stage::{CancelReason, CancelToken};
 
@@ -165,6 +165,12 @@ pub enum PathStyle {
     Windows,
 }
 
+/// Serializes a path as text, replacing invalid Unicode, instead of failing
+/// the serialization of the whole structure.
+fn serialize_lossy<S: Serializer>(path: &Path, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&path.to_string_lossy())
+}
+
 /// Stable facts about the host, fixed for the lifetime of an engine.
 ///
 /// Values that change while the program runs (free memory, uptime, load) are
@@ -183,9 +189,12 @@ pub struct HostInfo {
     /// Name of the account running the engine.
     pub user: String,
     /// Absolute home directory of that account, for example `/home/user` or
-    /// `C:/Users/user`.
+    /// `C:/Users/user`. A name that is not valid Unicode is serialized
+    /// lossily.
+    #[serde(serialize_with = "serialize_lossy")]
     pub home: PathBuf,
-    /// Absolute directory for temporary files.
+    /// Absolute directory for temporary files; serialized like `home`.
+    #[serde(serialize_with = "serialize_lossy")]
     pub temp: PathBuf,
     /// Native path notation.
     pub path_style: PathStyle,

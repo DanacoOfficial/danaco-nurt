@@ -50,6 +50,9 @@ mod commands {
     pub(crate) mod write;
 }
 mod details;
+mod registry;
+#[cfg(test)]
+mod registry_tests;
 
 /// Stage implementations of the commands of this crate.
 ///

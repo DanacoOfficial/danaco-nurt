@@ -58,7 +58,7 @@ use crate::common::etag::{Observed, check_if_match, observe};
 use crate::common::mutation::{apply_changes, planned_change};
 use crate::common::notable::{at_path, preserved_text};
 use crate::common::params::{EncodingParam, IfMatch, if_match_param};
-use crate::common::path::path_arg;
+use crate::common::path::{path_arg, path_arg_for_change};
 use crate::common::text::{TextFile, read_text, text_change};
 
 /// Name of the command in the catalog.
@@ -247,7 +247,7 @@ struct Settings {
 
 impl Settings {
     fn from_args(args: &BoundArgs, ctx: &ExecCtx) -> Result<Self> {
-        let root = path_arg(args, ROOT, ctx)?.ok_or_else(|| {
+        let root = path_arg_for_change(args, ROOT, ctx)?.ok_or_else(|| {
             Error::new(
                 ErrorCode::MissingParam,
                 format!(
@@ -967,6 +967,23 @@ mod tests {
             args.insert(*name, ArgValue::Value(value.clone()), false);
         }
         args
+    }
+
+    #[test]
+    fn a_root_with_dot_dot_after_a_link_is_refused() {
+        let test = with_files(&[("/work/a.txt", b"x\n")]);
+        test.fs().create_dir_all(&abs("/other/deep")).unwrap();
+        test.fs()
+            .symlink("/other/deep", &abs("/work/link"))
+            .unwrap();
+        let through = format!("{}/link/..", abs("/work").to_language_string());
+        let given = args("", &[(ROOT, Value::Path(through))]);
+        let error = run(&test, &given).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert_eq!(
+            error.fix,
+            [format!("\"{}\"", abs("/work").to_language_string())]
+        );
     }
 
     fn strip_one() -> (&'static str, Value) {

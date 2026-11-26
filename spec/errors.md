@@ -154,3 +154,9 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_GIT_WORKTREE` | 4 | `NURT_OK` | A worktree is unknown, is the main worktree, is locked or contains the working directory. |
 | `E_GIT_CONFIG` | 2, 4, 5 | `NURT_OK` | The configuration of the repository is not valid: a value cannot be parsed or a required key is missing. |
 | `E_INTERNAL` | 0, 1, 2, 3, 4, 5, 5a, 6, 7 | `NURT_E_INTERNAL` | An internal error; the report is complete up to this point. |
+
+## Errors of the correction
+
+A misspelt name of a command that changes the file system or a remote state, or runs a program (`remvoe "/srv/a.txt"`), is never corrected on its own. The answer is `E_AMBIGUOUS` in stage 1; nothing runs and the first of `candidates` is the program with the name written right, ready to be sent again or accepted with `accept`. A misspelt name of a command that only reads is corrected and the program runs, as are the names written in another letter case or by a synonym.
+
+A text with an escape that the language does not have (`"\d+"`, `"C:\proj\data"`) is read according to its place. In a place of a regular expression it is that expression (`search "\d+" "/srv"` runs as `search /\d+/ "/srv"`), and a text written as a Windows path (`"C:\temp\new"`) in a place of a path is that path with its backslashes as separators. These readings are probable: in a program that reads they are applied and shown, in a program that changes something the answer is `E_AMBIGUOUS` with the corrected program. In every other place an unknown escape is `E_ESCAPE` in stage 0, and `fix` lists the whole program with the text written as raw text (`r"\d"`) and, for a Windows path, with `/`.

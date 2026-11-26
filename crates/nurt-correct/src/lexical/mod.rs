@@ -26,7 +26,7 @@ pub mod spacing;
 pub mod tokens;
 pub mod tree;
 
-pub use front::{Front, front};
+pub use front::{Front, front, front_for_binding};
 pub use rules::{RULES, Rule, RuleInfo, number_corrections};
 
 /// Shape of a token that may follow the arguments of a stage.

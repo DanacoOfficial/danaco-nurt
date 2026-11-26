@@ -14,10 +14,12 @@
 //! buffered; past that limit they read only the directory the caller is
 //! waiting for, which bounds memory without blocking progress.
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::mem;
 use std::ops::ControlFlow;
+use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
@@ -153,6 +155,8 @@ struct State {
     done: HashMap<u64, Listing>,
     buffered: usize,
     wanted: Option<u64>,
+    /// Panic of a worker, taken over by the calling thread.
+    panic: Option<Box<dyn Any + Send>>,
 }
 
 impl State {
@@ -225,6 +229,13 @@ impl Shared {
         }
         self.ready.notify_all();
         self.push(jobs);
+    }
+
+    /// Hands the panic of a worker to the calling thread, which waits for a
+    /// listing the worker no longer delivers.
+    fn fail(&self, payload: Box<dyn Any + Send>) {
+        self.lock().panic.get_or_insert(payload);
+        self.ready.notify_all();
     }
 
     fn shutdown(&self) {
@@ -440,6 +451,10 @@ where
         state.wanted = Some(id);
         shared.work.notify_all();
         loop {
+            if let Some(payload) = state.panic.take() {
+                drop(state);
+                panic::resume_unwind(payload);
+            }
             if let Some(listing) = state.done.remove(&id) {
                 state.buffered = state.buffered.saturating_sub(listing.events.len());
                 state.wanted = None;
@@ -508,8 +523,13 @@ impl Context<'_> {
     fn work(&self) {
         while let Some(job) = self.shared.next_job() {
             let id = job.id;
-            let (listing, jobs) = self.read(job);
-            self.shared.finish(id, listing, jobs);
+            match panic::catch_unwind(AssertUnwindSafe(|| self.read(job))) {
+                Ok((listing, jobs)) => self.shared.finish(id, listing, jobs),
+                Err(payload) => {
+                    self.shared.fail(payload);
+                    return;
+                }
+            }
         }
     }
 

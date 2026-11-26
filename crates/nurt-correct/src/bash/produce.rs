@@ -412,15 +412,20 @@ fn echo(words: &[(String, Span)]) -> String {
         .map(|(word, _)| word.as_str())
         .collect::<Vec<_>>()
         .join(" ");
-    let mut text = if escapes { unescape(&joined) } else { joined };
+    let mut text = if escapes {
+        unescape(&joined, false)
+    } else {
+        joined
+    };
     if newline {
         text.push('\n');
     }
     text
 }
 
-/// Backslash escapes of `echo -e` and `printf`.
-fn unescape(text: &str) -> String {
+/// Backslash escapes of `echo -e` and `printf`. The escape `\"` belongs to
+/// `printf` only: `echo -e` prints the backslash and the quote.
+fn unescape(text: &str, quote_escape: bool) -> String {
     let mut out = String::new();
     let mut chars = text.chars();
     while let Some(c) = chars.next() {
@@ -433,7 +438,7 @@ fn unescape(text: &str) -> String {
             Some('t') => out.push('\t'),
             Some('r') => out.push('\r'),
             Some('\\') => out.push('\\'),
-            Some('"') => out.push('"'),
+            Some('"') if quote_escape => out.push('"'),
             Some(other) => {
                 out.push('\\');
                 out.push(other);
@@ -467,7 +472,10 @@ fn printf(
     };
     let mut out = String::new();
     let mut args = args.iter();
-    let mut chars = unescape(format).chars().collect::<Vec<_>>().into_iter();
+    let mut chars = unescape(format, true)
+        .chars()
+        .collect::<Vec<_>>()
+        .into_iter();
     while let Some(c) = chars.next() {
         if c != '%' {
             out.push(c);
@@ -1074,8 +1082,15 @@ mod tests {
 
     #[test]
     fn unescape_keeps_unknown_escapes() {
-        assert_eq!(unescape("a\\qb\\"), "a\\qb\\");
-        assert_eq!(unescape("\\r\\\\\\\""), "\r\\\"");
+        assert_eq!(unescape("a\\qb\\", true), "a\\qb\\");
+        assert_eq!(unescape("\\r\\\\\\\"", true), "\r\\\"");
+    }
+
+    #[test]
+    fn echo_keeps_a_backslash_before_a_quote_and_printf_does_not() {
+        assert_eq!(unescape("a\\\"b", false), "a\\\"b");
+        assert_eq!(unescape("a\\\"b", true), "a\"b");
+        assert_eq!(echo(&words(&["-e", "a\\\"b\\n"])), "a\\\"b\n\n");
     }
 
     #[test]

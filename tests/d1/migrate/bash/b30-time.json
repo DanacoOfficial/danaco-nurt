@@ -35,7 +35,7 @@
       "reason": "rule",
       "problem": "the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)",
       "fix": [
-        "run [\"/srv/app/bin/check\"] cwd: \"/srv/app/bin\""
+        "run [\"/srv/app/bin/check\"] cwd: \"/srv/app/bin\" timeout: 30s"
       ]
     }
   ],

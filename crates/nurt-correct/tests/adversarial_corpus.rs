@@ -1144,7 +1144,7 @@ fn name_check(world: &World, probe: &Value, program: ProgramKind) -> Verdict {
         Match::Tie(_) | Match::Unknown => Verdict::Kept,
         Match::Same => Verdict::Mismatch(format!("`{written}` is a command")),
         Match::Corrected(found) => {
-            let facts = Facts::default().fuzzy(found.effecting, found.distance);
+            let facts = Facts::default().fuzzy(found.effecting);
             match decide(found.class, program, &facts) {
                 Decision::Ambiguous => Verdict::Ambiguous,
                 _ => Verdict::FalseCorrection(format!("`{written}` -> `{}`", found.to)),

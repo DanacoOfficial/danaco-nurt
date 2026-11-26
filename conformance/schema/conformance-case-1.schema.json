@@ -109,6 +109,11 @@
         "second_volume_after": {
           "description": "Expected state of the directory of the case on the second volume after the call.",
           "$ref": "#/$defs/data"
+        },
+        "setup_only": {
+          "description": "Marks a last step that states no expectation because it only prepares or cleans up the state.",
+          "type": "boolean",
+          "default": false
         }
       },
       "dependentRequired": { "events_match": ["events"] }
@@ -138,7 +143,8 @@
               { "required": ["fs_after"] },
               { "required": ["absent"] },
               { "required": ["events"] },
-              { "required": ["second_volume_after"] }
+              { "required": ["second_volume_after"] },
+              { "required": ["setup_only"] }
             ]
           }
         }

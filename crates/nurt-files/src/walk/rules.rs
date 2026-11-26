@@ -235,8 +235,14 @@ fn read_rules(
     }
 }
 
+/// Byte order mark of UTF-8 text.
+const UTF8_MARK: &[u8] = b"\xEF\xBB\xBF";
+
 fn build_rules(root: &Path, source: &AbsPath, bytes: &[u8]) -> Option<Gitignore> {
     let mut builder = GitignoreBuilder::new(nfc_path(root));
+    // Git skips a byte order mark at the start of an exclude file; kept, it
+    // would become part of the first pattern.
+    let bytes = bytes.strip_prefix(UTF8_MARK).unwrap_or(bytes);
     for line in String::from_utf8_lossy(bytes).lines() {
         // Git skips a pattern it cannot parse and applies the remaining
         // ones, so the error of a single line is dropped here as well.
@@ -300,6 +306,21 @@ mod tests {
         let frame = frame(&root, &format!("{root}/.ignore"), "*.log\n");
         let path = Path::new(&root).join("a.log");
         assert!(frame.is_ignored(&path, false, None));
+    }
+
+    #[test]
+    fn a_byte_order_mark_is_not_part_of_the_first_pattern() {
+        let source = AbsPath::new("/work/.ignore").expect("absolute source");
+        let rules = build_rules(Path::new("/work"), &source, b"\xEF\xBB\xBF*.log\nbuild/\n");
+        let frame = Frame {
+            parent: None,
+            ignore: rules,
+            gitignore: None,
+            repo: None,
+            repo_root: false,
+        };
+        assert!(frame.is_ignored(Path::new("/work/a.log"), false, None));
+        assert!(frame.is_ignored(Path::new("/work/build"), true, None));
     }
 
     #[test]

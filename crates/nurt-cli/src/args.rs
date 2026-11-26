@@ -37,10 +37,13 @@ pub const SCRIPT_FLAGS: &[&str] = &["--preview", "--json", "--format", "--limit"
 pub const CHECK_FLAGS: &[&str] = &["-e", "--variant", "--json", "--format"];
 
 /// Options of `fmt`.
-pub const FMT_FLAGS: &[&str] = &["--variant"];
+pub const FMT_FLAGS: &[&str] = &["--variant", "--json", "--format"];
 
 /// Options of `ast`.
-pub const AST_FLAGS: &[&str] = &["--from", "--to"];
+pub const AST_FLAGS: &[&str] = &["--from", "--to", "--json", "--format"];
+
+/// Options of `schema`.
+pub const SCHEMA_FLAGS: &[&str] = &["--json", "--format"];
 
 /// How the command line is interpreted.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,6 +94,13 @@ pub fn resolve(args: &[String]) -> Invocation {
             },
         },
     }
+}
+
+/// Whether the arguments after the name of a subcommand ask for its usage: the
+/// first one is `-h` or `--help`.
+#[must_use]
+pub fn wants_help(args: &[String]) -> bool {
+    matches!(args.first().map(String::as_str), Some("-h" | "--help"))
 }
 
 /// Values of the options of a command line.
@@ -410,6 +420,15 @@ mod tests {
         );
         assert_eq!(resolve(&words("-h")), Invocation::Help);
         assert_eq!(resolve(&words("--help check")), Invocation::Help);
+    }
+
+    #[test]
+    fn help_is_asked_by_the_first_argument_after_the_subcommand() {
+        assert!(wants_help(&words("--help")));
+        assert!(wants_help(&words("-h extra")));
+        assert!(!wants_help(&words("")));
+        assert!(!wants_help(&words("-e count --help")));
+        assert!(!wants_help(&words("help")));
     }
 
     #[test]

@@ -71,6 +71,34 @@ fn usage_text_names_every_subcommand() {
 }
 
 #[test]
+fn subcommand_usage_repeats_the_description_and_arguments_of_the_table() {
+    for entry in table() {
+        let name = entry["name"].as_str().unwrap();
+        let usage = text::subcommand_usage(name).unwrap_or_else(|| panic!("no usage of `{name}`"));
+        assert!(
+            usage.starts_with(entry["description"].as_str().unwrap()),
+            "{name}"
+        );
+        let arguments: Vec<&str> = entry["arguments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|argument| argument.as_str().unwrap())
+            .collect();
+        let synopsis = [format!("nurt {name}")]
+            .into_iter()
+            .chain(arguments.iter().map(|argument| (*argument).to_owned()))
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(
+            usage.contains(&format!("Usage: {synopsis}\n")),
+            "{name}: {usage}"
+        );
+    }
+    assert_eq!(text::subcommand_usage("not-a-subcommand"), None);
+}
+
+#[test]
 fn unconnected_subcommands_are_subcommands() {
     for name in NOT_CONNECTED {
         assert!(SUBCOMMANDS.contains(name), "{name}");
@@ -120,7 +148,10 @@ fn required_dependencies_are_crates_of_the_core_and_the_extensions() {
         })
         .map(|(name, _)| name.as_str())
         .collect();
-    assert_eq!(required, ["nurt-contracts", "nurt-core", "nurt-ext"]);
+    assert_eq!(
+        required,
+        ["nurt-contracts", "nurt-core", "nurt-ext", "nurt-tooldef"]
+    );
 }
 
 #[test]

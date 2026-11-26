@@ -643,6 +643,15 @@ impl Image {
                     return;
                 }
                 let bytes = torn.map_or(data.as_slice(), |prefix| &data[..prefix.min(data.len())]);
+                // Model of ext4 with `data=ordered`: the size of a file after
+                // a crash is the one of the last persisted inode, and bytes
+                // beyond it are not visible. The size grows only with data
+                // that became durable, so a write that persisted no byte, as
+                // a write torn at a sector border before its first sector,
+                // changes neither the size nor the times.
+                if bytes.is_empty() {
+                    return;
+                }
                 self.set_data(*id, |content| write_at(content, *offset, bytes));
                 self.touch(*id, *time, seq);
             }
@@ -662,8 +671,16 @@ impl Image {
                 if self.ensure(*id, inits)
                     && let Some(node) = self.nodes.get_mut(id)
                 {
+                    let (modified_ns, changed_ns) = (node.meta.modified_ns, node.meta.changed_ns);
                     node.meta = (**meta).clone();
-                    node.stamp = seq;
+                    if node.stamp > seq {
+                        // A later write is durable already; the snapshot taken
+                        // before it must not move the times back.
+                        node.meta.modified_ns = modified_ns;
+                        node.meta.changed_ns = changed_ns;
+                    } else {
+                        node.stamp = seq;
+                    }
                 }
             }
             op => self.apply_entries(op, inits),
@@ -2474,6 +2491,83 @@ mod tests {
             },
             unsynced_dirs: Vec::new(),
         }
+    }
+
+    #[test]
+    fn a_torn_write_grows_the_file_only_by_the_bytes_that_became_durable() {
+        let id = 2;
+        let file = Node {
+            body: Body::File(Arc::new(vec![7; 4])),
+            meta: Meta::new(0o644, 100),
+            nlink: 0,
+            stamp: 0,
+        };
+        let inits = HashMap::from([(id, file)]);
+        let write = Pending {
+            seq: 1,
+            op: Op::Write {
+                id,
+                offset: 10,
+                data: vec![1; 8],
+                time: 900,
+            },
+            unsynced_dirs: Vec::new(),
+        };
+        let length = |image: &Image| match &image.nodes[&id].body {
+            Body::File(data) => data.len(),
+            _ => usize::MAX,
+        };
+        let mut none = Image::new(0);
+        none.apply(&write, &inits, Some(0));
+        assert_eq!(length(&none), 4);
+        assert_eq!(none.nodes[&id].meta.modified_ns, 100);
+        let mut part = Image::new(0);
+        part.apply(&write, &inits, Some(3));
+        assert_eq!(length(&part), 13);
+        let mut whole = Image::new(0);
+        whole.apply(&write, &inits, None);
+        assert_eq!(length(&whole), 18);
+    }
+
+    #[test]
+    fn an_older_metadata_snapshot_does_not_move_the_times_of_a_later_write_back() {
+        let id = 2;
+        let file = Node {
+            body: Body::File(Arc::new(Vec::new())),
+            meta: Meta::new(0o644, 100),
+            nlink: 0,
+            stamp: 0,
+        };
+        let inits = HashMap::from([(id, file)]);
+        let meta_op = |seq: u64, mode: u32, now: i64| Pending {
+            seq,
+            op: Op::Meta {
+                id,
+                meta: Box::new(Meta::new(mode, now)),
+            },
+            unsynced_dirs: Vec::new(),
+        };
+        let write = Pending {
+            seq: 5,
+            op: Op::Write {
+                id,
+                offset: 0,
+                data: vec![1],
+                time: 900,
+            },
+            unsynced_dirs: Vec::new(),
+        };
+        let mut image = Image::new(0);
+        image.apply(&write, &inits, None);
+        image.apply(&meta_op(3, 0o600, 100), &inits, None);
+        let node = &image.nodes[&id];
+        assert_eq!(node.meta.mode, 0o600);
+        assert_eq!(node.meta.modified_ns, 900);
+        assert_eq!(node.meta.changed_ns, 900);
+        image.apply(&meta_op(7, 0o640, 1_000), &inits, None);
+        let node = &image.nodes[&id];
+        assert_eq!(node.meta.mode, 0o640);
+        assert_eq!(node.meta.modified_ns, 1_000);
     }
 
     #[test]

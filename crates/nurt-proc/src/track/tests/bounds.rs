@@ -348,3 +348,150 @@ fn the_scan_after_the_program_may_outlast_a_time_limit_that_the_program_used_up(
     assert_eq!(h.actions(&outcome).len(), 1);
     assert_eq!(outcome.tracking, Tracking::Scan);
 }
+
+/// File system that panics when it lists one directory.
+struct PanickingFs {
+    directory: std::path::PathBuf,
+}
+
+impl nurt_contracts::fs::Fs for PanickingFs {
+    fn metadata(
+        &self,
+        path: &AbsPath,
+        follow: nurt_contracts::fs::Follow,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::FileMeta> {
+        DiskFs.metadata(path, follow)
+    }
+
+    fn extended_metadata(
+        &self,
+        path: &AbsPath,
+        follow: nurt_contracts::fs::Follow,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::ExtendedMeta> {
+        DiskFs.extended_metadata(path, follow)
+    }
+
+    fn open_read(
+        &self,
+        path: &AbsPath,
+    ) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::ReadHandle>> {
+        DiskFs.open_read(path)
+    }
+
+    fn open_stream_read(
+        &self,
+        path: &AbsPath,
+        stream: &str,
+    ) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::ReadHandle>> {
+        DiskFs.open_stream_read(path, stream)
+    }
+
+    fn read_dir<'a>(
+        &'a self,
+        path: &AbsPath,
+    ) -> nurt_contracts::fs::FsResult<
+        Box<
+            dyn Iterator<Item = nurt_contracts::fs::FsResult<nurt_contracts::fs::DirEntry>>
+                + Send
+                + 'a,
+        >,
+    > {
+        assert!(path.as_path() != self.directory, "listing failed");
+        DiskFs.read_dir(path)
+    }
+
+    fn read_link(&self, path: &AbsPath) -> nurt_contracts::fs::FsResult<std::path::PathBuf> {
+        DiskFs.read_link(path)
+    }
+
+    fn real_path(&self, path: &AbsPath) -> nurt_contracts::fs::FsResult<AbsPath> {
+        DiskFs.real_path(path)
+    }
+
+    fn content_hash(
+        &self,
+        path: &AbsPath,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::ContentHash> {
+        DiskFs.content_hash(path)
+    }
+
+    fn volume(
+        &self,
+        path: &AbsPath,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::VolumeInfo> {
+        DiskFs.volume(path)
+    }
+
+    fn space(
+        &self,
+        volume: &nurt_contracts::fs::VolumeId,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::SpaceInfo> {
+        DiskFs.space(volume)
+    }
+
+    fn path_key(
+        &self,
+        path: &AbsPath,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::PathKey> {
+        DiskFs.path_key(path)
+    }
+
+    fn holders(
+        &self,
+        path: &AbsPath,
+    ) -> nurt_contracts::fs::FsResult<Vec<nurt_contracts::fs::Holder>> {
+        DiskFs.holders(path)
+    }
+
+    fn can_write_dir(&self, dir: &AbsPath) -> nurt_contracts::fs::FsResult<bool> {
+        DiskFs.can_write_dir(dir)
+    }
+}
+
+#[test]
+fn a_listing_that_panics_ends_the_scan_instead_of_blocking_the_other_threads() {
+    let h = Harness::new();
+    tree(&h);
+    let fs = PanickingFs {
+        directory: h.root.join("d07"),
+    };
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let root = h.root.clone();
+    std::thread::spawn(move || {
+        let roots = [AbsPath::new(&root).unwrap()];
+        let ignore: Vec<String> = Vec::new();
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            scan(
+                &fs,
+                Scope {
+                    roots: &roots,
+                    ignore: &ignore,
+                    hash: false,
+                    bound: None,
+                },
+            )
+        }));
+        let _ = sender.send(outcome.is_err());
+    });
+    let panicked = receiver
+        .recv_timeout(Duration::from_secs(30))
+        .expect("the scan did not end after a panic in a listing");
+    assert!(panicked);
+}
+
+#[test]
+fn the_listing_of_files_to_keep_ends_when_the_execution_is_cancelled() {
+    let h = Harness::new();
+    tree(&h);
+    let roots = [AbsPath::new(&h.root).unwrap()];
+    let cancel = CancelToken::new();
+    let unbounded = Bound::new(ScanLimits::UNLIMITED, None, cancel.clone());
+    let all = crate::track::files_under(&DiskFs, &roots, &[], &unbounded);
+    assert_eq!(all.len(), DIRECTORIES * FILES);
+    assert_eq!(unbounded.stopped(), None);
+    cancel.cancel(CancelReason::Requested);
+    let bound = Bound::new(ScanLimits::UNLIMITED, None, cancel);
+    let listed = crate::track::files_under(&DiskFs, &roots, &[], &bound);
+    assert!(listed.len() < all.len());
+    assert_eq!(bound.stopped(), Some(Stop::Cancelled));
+}

@@ -339,7 +339,7 @@ pub static RULES: [RuleInfo; 24] = [
     rule(
         "L24",
         Probable,
-        "A text with unknown escapes in a regular expression or path place keeps its characters as a regular expression or path.",
+        "A text with an unknown escape in a regular expression place, or a text written as a Windows path with an unknown or control escape in a path place, keeps its characters as a regular expression or path.",
         "search \"\\d+\" \"/srv\"",
         "search /\\d+/ \"/srv\"",
     ),

@@ -51,10 +51,16 @@ is optional; the `nurt` tool accepts programs without it.";
 /// the tool is annotated as destructive, not idempotent and open-world. A
 /// definition that cannot be built, for example for an empty core
 /// description, is reported as text.
-pub(crate) fn run_tool(core_description: &str) -> Result<Tool, String> {
-    let definition =
-        nurt_tooldef::definition(ToolFormat::Mcp, &RenderOptions::new(core_description))
-            .map_err(|error| format!("tool definition: {error}"))?;
+pub(crate) fn run_tool(
+    core_description: &str,
+    catalog_version: Option<&str>,
+) -> Result<Tool, String> {
+    let mut options = RenderOptions::new(core_description);
+    if let Some(version) = catalog_version {
+        options = options.with_catalog_version(version);
+    }
+    let definition = nurt_tooldef::definition(ToolFormat::Mcp, &options)
+        .map_err(|error| format!("tool definition: {error}"))?;
     let tool: Tool = serde_json::from_value(definition)
         .map_err(|error| format!("tool definition does not match the protocol: {error}"))?;
     let annotations = ToolAnnotations::with_title(RUN_TITLE)
@@ -236,13 +242,16 @@ mod tests {
 
     #[test]
     fn run_tool_matches_the_mcp_definition() {
-        let tool = run_tool("Runs programs of the Nurt language.").unwrap();
+        let tool = run_tool("Runs programs of the Nurt language.", Some("sha256:ab")).unwrap();
         let expected = nurt_tooldef::definition(
             ToolFormat::Mcp,
-            &RenderOptions::new("Runs programs of the Nurt language."),
+            &RenderOptions::new("Runs programs of the Nurt language.")
+                .with_catalog_version("sha256:ab"),
         )
         .unwrap();
         let actual = serde_json::to_value(&tool).unwrap();
+        assert_eq!(actual["_meta"], expected["_meta"]);
+        assert_eq!(actual["_meta"].as_object().map(|meta| meta.len()), Some(1));
         assert_eq!(actual["name"], expected["name"]);
         assert_eq!(actual["description"], expected["description"]);
         assert_eq!(actual["inputSchema"], expected["inputSchema"]);
@@ -260,7 +269,7 @@ mod tests {
 
     #[test]
     fn run_tool_rejects_an_empty_description() {
-        let error = run_tool("  ").unwrap_err();
+        let error = run_tool("  ", None).unwrap_err();
         assert!(error.starts_with("tool definition: "), "{error}");
     }
 

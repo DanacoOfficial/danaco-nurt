@@ -26,42 +26,11 @@ use serde_json::Value as Json;
 /// Smallest number of filters of the data file.
 const MIN_CASES: usize = 300;
 
-/// Filters whose results differ from `jq` by design, with the reason.
+/// Filters whose results differ from `jq` 1.8.1, with the reason.
 const KNOWN_DIFFERENCES: &[(&str, &str)] = &[
-    (".b[5] = 1", "an update does not extend a list past its end"),
-    (
-        ".b | .[length] = 99",
-        "an update does not extend a list past its end",
-    ),
-    (
-        "null | .a.b = 1",
-        "an update does not create containers from null",
-    ),
-    (
-        "null | .[2] = 1",
-        "an update does not create containers from null",
-    ),
-    ("del(.[0, 2])", "paths are deleted one after another"),
-    (". * 0", "text times zero is null, as in jq 1.7"),
-    ("\"a\" * 0", "text times zero is null, as in jq 1.7"),
     (
         "[match(\"(d)(x)?\").captures[].string]",
         "groups that did not take part are omitted",
-    ),
-    ("[1,2,3] | .[1.5]", "an index must be an integer"),
-    (
-        "{\"a\":1} | .[0]",
-        "a number index of an object yields null",
-    ),
-    ("null | .[1:]", "a slice of null is an error"),
-    ("\"abc\" | @base64d", "invalid Base64 input is an error"),
-    (
-        "[limit(5; .a | repeat(. * 2))]",
-        "repeat emits its input first, as the jq manual specifies",
-    ),
-    (
-        "[limit(3; repeat(1))]",
-        "repeat emits its input first, as the jq manual specifies",
     ),
     (
         ".g | @base32",
@@ -70,11 +39,6 @@ const KNOWN_DIFFERENCES: &[(&str, &str)] = &[
     (
         ".g | @base32 | @base32d",
         "an unknown format fails when the filter is compiled",
-    ),
-    ("fromstream(tostream)", "fromstream is not provided"),
-    (
-        "fromstream(([0], 1), ([1], 2), ([1]))",
-        "fromstream is not provided",
     ),
 ];
 
@@ -265,24 +229,43 @@ fn installed_jq() -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-fn jq_outputs(jq: &PathBuf, filter: &str, input: &Json) -> (Vec<Json>, Option<&'static str>) {
-    let mut child = Command::new(jq)
-        .arg("-c")
-        .arg(filter)
+/// Runs `command` with `input` on its standard input and returns its output.
+///
+/// The input is written from a thread while the output is read: a child that
+/// answers before it has read everything would otherwise block on a full
+/// output pipe while the harness blocks on a full input pipe. A child that
+/// exits without reading its input, as `jq` does after a compile error, closes
+/// the pipe; a broken pipe means the end of the input and the exit status
+/// tells what happened.
+fn run_with_input(mut command: Command, input: Vec<u8>) -> std::process::Output {
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
     let mut stdin = child.stdin.take().unwrap();
-    // `jq` exits without reading its input after a compile error, so a broken
-    // pipe means the end of the input; the exit status tells what happened.
-    match stdin.write_all(input.to_string().as_bytes()) {
+    let writer = std::thread::spawn(move || match stdin.write_all(&input) {
         Err(error) if error.kind() != std::io::ErrorKind::BrokenPipe => panic!("{error}"),
         Ok(()) | Err(_) => {}
-    }
-    drop(stdin);
+    });
     let output = child.wait_with_output().unwrap();
+    writer.join().unwrap();
+    output
+}
+
+#[cfg(unix)]
+#[test]
+fn a_child_that_answers_while_it_reads_does_not_block_the_harness() {
+    let input = vec![b'x'; 4 * 1024 * 1024];
+    let output = run_with_input(Command::new("cat"), input.clone());
+    assert_eq!(output.stdout, input);
+}
+
+fn jq_outputs(jq: &PathBuf, filter: &str, input: &Json) -> (Vec<Json>, Option<&'static str>) {
+    let mut command = Command::new(jq);
+    command.arg("-c").arg(filter);
+    let output = run_with_input(command, input.to_string().into_bytes());
     let outputs = String::from_utf8_lossy(&output.stdout)
         .lines()
         .filter(|line| !line.is_empty())

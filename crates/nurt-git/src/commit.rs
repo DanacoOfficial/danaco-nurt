@@ -42,7 +42,7 @@
 
 pub(crate) mod access;
 mod apply;
-mod identity;
+pub(crate) mod identity;
 mod prepare;
 #[cfg(test)]
 mod tests;

@@ -8,10 +8,10 @@
 //! key `scope.base`. The language has no current directory, so a relative
 //! path without a base directory fails with `E_PATH_RELATIVE`.
 
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::AbsPath;
+use nurt_contracts::fs::{AbsPath, FileKind, Follow, Fs};
 use nurt_contracts::stage::{BoundArgs, ExecCtx};
 use nurt_contracts::value::{self, Record, Value};
 
@@ -58,11 +58,80 @@ pub fn base_dir(ctx: &ExecCtx) -> Result<Option<AbsPath>> {
 /// directory, with `E_INVALID_VALUE` for an empty path and for a path that
 /// leads above the root directory, and as [`base_dir`].
 pub fn resolve(ctx: &ExecCtx, text: &str) -> Result<AbsPath> {
+    normalise(text, join_text(ctx, text)?)
+}
+
+/// Resolves a path that a changing command acts on.
+///
+/// As [`resolve`], and moreover refuses a path in which `..` follows a
+/// symbolic link: the system continues from the target of the link, the
+/// normalisation of the language from the directory that holds the link, so
+/// the command could remove, replace or write another entry than the one
+/// written. The error carries the path without `..` as its fix. Commands that
+/// only read keep the lexical meaning of [`resolve`].
+///
+/// # Errors
+///
+/// Fails with `E_INVALID_VALUE` for a `..` after a link, and as [`resolve`].
+pub fn resolve_for_change(ctx: &ExecCtx, text: &str) -> Result<AbsPath> {
+    let joined = join_text(ctx, text)?;
+    let lexical = normalise(text, joined.clone())?;
+    if let Some(fs) = ctx.fs() {
+        ensure_same_entry(fs, text, &joined, &lexical)?;
+    }
+    Ok(lexical)
+}
+
+/// Fails when a `..` of `joined` follows a symbolic link or a junction.
+fn ensure_same_entry(fs: &dyn Fs, text: &str, joined: &Path, lexical: &AbsPath) -> Result<()> {
+    let mut walked = PathBuf::new();
+    for component in joined.components() {
+        match component {
+            Component::ParentDir => {
+                if is_link(fs, &walked) {
+                    return Err(Error::new(
+                        ErrorCode::InvalidValue,
+                        format!(
+                            "`..` in `{text}` follows the link `{}`: the system continues from the target of the link, the language from the directory that holds it; write `{lexical}` or the path through the target",
+                            walked.display()
+                        ),
+                    )
+                    .with_found(text)
+                    .with_fix(format!("\"{}\"", lexical.to_language_string())));
+                }
+                walked.pop();
+            }
+            Component::CurDir => {}
+            other => walked.push(other.as_os_str()),
+        }
+    }
+    Ok(())
+}
+
+fn is_link(fs: &dyn Fs, path: &Path) -> bool {
+    AbsPath::new(path)
+        .ok()
+        .and_then(|abs| fs.metadata(&abs, Follow::NoFollow).ok())
+        .is_some_and(|meta| matches!(meta.kind, FileKind::Symlink | FileKind::Junction))
+}
+
+/// Absolute path written in `text`, relative paths joined to the base
+/// directory, before normalisation.
+fn join_text(ctx: &ExecCtx, text: &str) -> Result<PathBuf> {
     if text.is_empty() {
         return Err(Error::new(
             ErrorCode::InvalidValue,
             "a path cannot be empty: give a file or directory",
         ));
+    }
+    if crate::registry::is_registry_path(text) {
+        return Err(Error::new(
+            ErrorCode::InvalidValue,
+            format!(
+                "`{text}` is a registry path, which only `list`, `find`, `read`, `info`, `write`, `remove`, `copy` and `move` take: give a file path here"
+            ),
+        )
+        .with_found(text));
     }
     let written = PathBuf::from(text);
     let joined = if written.is_absolute() {
@@ -79,6 +148,10 @@ pub fn resolve(ctx: &ExecCtx, text: &str) -> Result<AbsPath> {
         };
         base.as_path().join(written)
     };
+    Ok(joined)
+}
+
+fn normalise(text: &str, joined: PathBuf) -> Result<AbsPath> {
     AbsPath::new(joined).map_err(|_| {
         Error::new(
             ErrorCode::InvalidValue,
@@ -98,7 +171,20 @@ pub fn resolve(ctx: &ExecCtx, text: &str) -> Result<AbsPath> {
 pub fn path_arg(args: &BoundArgs, name: &str, ctx: &ExecCtx) -> Result<Option<AbsPath>> {
     match args.value(name) {
         None | Some(Value::Null) => Ok(None),
-        Some(value) => path_value(args.command(), name, value, ctx).map(Some),
+        Some(value) => path_value(args.command(), name, value, ctx, resolve).map(Some),
+    }
+}
+
+/// As [`path_arg`], for a path a changing command acts on; see
+/// [`resolve_for_change`].
+///
+/// # Errors
+///
+/// As [`path_arg`] and [`resolve_for_change`].
+pub fn path_arg_for_change(args: &BoundArgs, name: &str, ctx: &ExecCtx) -> Result<Option<AbsPath>> {
+    match args.value(name) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => path_value(args.command(), name, value, ctx, resolve_for_change).map(Some),
     }
 }
 
@@ -110,19 +196,50 @@ pub fn path_arg(args: &BoundArgs, name: &str, ctx: &ExecCtx) -> Result<Option<Ab
 /// Fails with `E_TYPE` when an item is neither a path nor a text, and as
 /// [`resolve`].
 pub fn path_list_arg(args: &BoundArgs, name: &str, ctx: &ExecCtx) -> Result<Vec<AbsPath>> {
+    path_list(args, name, ctx, resolve)
+}
+
+/// As [`path_list_arg`], for paths a changing command acts on; see
+/// [`resolve_for_change`].
+///
+/// # Errors
+///
+/// As [`path_list_arg`] and [`resolve_for_change`].
+pub fn path_list_arg_for_change(
+    args: &BoundArgs,
+    name: &str,
+    ctx: &ExecCtx,
+) -> Result<Vec<AbsPath>> {
+    path_list(args, name, ctx, resolve_for_change)
+}
+
+fn path_list(
+    args: &BoundArgs,
+    name: &str,
+    ctx: &ExecCtx,
+    resolver: fn(&ExecCtx, &str) -> Result<AbsPath>,
+) -> Result<Vec<AbsPath>> {
     match args.value(name) {
         None | Some(Value::Null) => Ok(Vec::new()),
         Some(Value::List(items)) => items
             .iter()
-            .map(|item| path_value(args.command(), name, item, ctx))
+            .map(|item| path_value(args.command(), name, item, ctx, resolver))
             .collect(),
-        Some(value) => path_value(args.command(), name, value, ctx).map(|path| vec![path]),
+        Some(value) => {
+            path_value(args.command(), name, value, ctx, resolver).map(|path| vec![path])
+        }
     }
 }
 
-fn path_value(command: &str, name: &str, value: &Value, ctx: &ExecCtx) -> Result<AbsPath> {
+fn path_value(
+    command: &str,
+    name: &str,
+    value: &Value,
+    ctx: &ExecCtx,
+    resolver: fn(&ExecCtx, &str) -> Result<AbsPath>,
+) -> Result<AbsPath> {
     match value {
-        Value::Path(text) | Value::Text(text) => resolve(ctx, text),
+        Value::Path(text) | Value::Text(text) => resolver(ctx, text),
         _ => Err(Error::new(
             ErrorCode::Type,
             format!("`{command}` expects a path for `{name}`"),
@@ -190,6 +307,66 @@ mod tests {
 
     fn args(value: Value) -> BoundArgs {
         BoundArgs::new("info").with("path", ArgValue::Value(value), false)
+    }
+
+    fn world_with_a_link() -> TestContext {
+        let test = TestContext::new();
+        test.fs().create_dir_all(&abs("/real/inner")).unwrap();
+        test.fs().create_dir_all(&abs("/area")).unwrap();
+        test.fs().write_file(&abs("/area/b.txt"), b"b").unwrap();
+        test.fs().write_file(&abs("/real/b.txt"), b"r").unwrap();
+        test.fs()
+            .symlink("/real/inner", &abs("/area/link"))
+            .unwrap();
+        test
+    }
+
+    #[test]
+    fn a_changing_command_refuses_dot_dot_after_a_link_and_offers_the_path_without_it() {
+        let test = world_with_a_link();
+        let ctx = test.ctx();
+        let written = format!("{}/link/../b.txt", language("/area"));
+        assert_eq!(resolve(&ctx, &written).unwrap(), abs("/area/b.txt"));
+        let error = resolve_for_change(&ctx, &written).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert_eq!(error.found.as_deref(), Some(written.as_str()));
+        assert_eq!(error.fix, [format!("\"{}\"", language("/area/b.txt"))]);
+    }
+
+    #[test]
+    fn dot_dot_after_a_directory_or_without_a_link_is_kept_for_a_changing_command() {
+        let test = world_with_a_link();
+        let ctx = test.ctx();
+        for written in [
+            format!("{}/./b.txt", language("/area")),
+            format!("{}/../b.txt", language("/real/inner")),
+            format!("{}/link/x/../../b.txt", language("/area")),
+            language("/area/b.txt"),
+        ] {
+            let outcome = resolve_for_change(&ctx, &written);
+            if written.contains("/link/") {
+                assert!(outcome.is_err(), "{written}");
+            } else {
+                assert!(outcome.is_ok(), "{written}: {outcome:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn path_arguments_for_change_use_the_same_rule() {
+        let test = world_with_a_link();
+        let ctx = test.ctx();
+        let written = format!("{}/link/../b.txt", language("/area"));
+        let given = args(Value::Path(written.clone()));
+        assert!(path_arg(&given, "path", &ctx).is_ok());
+        assert!(path_arg_for_change(&given, "path", &ctx).is_err());
+        let listed = BoundArgs::new("remove").with(
+            "path",
+            ArgValue::Value(Value::List(vec![Value::Path(written)])),
+            false,
+        );
+        assert!(path_list_arg(&listed, "path", &ctx).is_ok());
+        assert!(path_list_arg_for_change(&listed, "path", &ctx).is_err());
     }
 
     #[test]

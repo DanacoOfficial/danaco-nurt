@@ -38,7 +38,11 @@ Lines are compared with the algorithm set by `diff.algorithm` (`myers` by
 default, `minimal`, `histogram`; `patience` is computed with `histogram` and
 noted as `semantic_fallback`) and the indentation heuristic
 (`diff.indentHeuristic`, on by default). Changes at most twice the context
-apart, plus `diff.interHunkContext`, share a hunk. The text after `@@` is the
+apart, plus `diff.interHunkContext`, share a hunk; a request for the canonical
+layout (no `from` and `to`, the default context of 3 lines, without
+`function_context`, `ignore_whitespace` and `symbol`) ignores
+`diff.interHunkContext`, so its hunks and their identifiers do not depend on
+the configuration. The text after `@@` is the
 nearest function line above the hunk, found by the pattern of the `diff`
 driver of the path (`diff.<driver>.xfuncname`, the built-in patterns for
 `rust`, `python`, `golang`, `java`, `cpp`, `markdown` and `bash`, or the

@@ -400,7 +400,7 @@ fn level_spans(
 ) -> Result<Vec<Found>, MatchError> {
     let case = options.case_sensitive;
     let found = match level {
-        Tolerance::Exact => exact_spans(text, pattern, case)?,
+        Tolerance::Exact => exact_spans(text, pattern, case, options.whole_word)?,
         Tolerance::LineEnding => line_ending_spans(text, unified, case)?,
         Tolerance::Trailing | Tolerance::Indent => window_spans(text, lines, unified, level, case),
         Tolerance::Whitespace => {
@@ -445,7 +445,15 @@ fn regex_spans(regex: &Regex, text: &str) -> Vec<Found> {
         .collect()
 }
 
-fn exact_spans(text: &str, pattern: &str, case_sensitive: bool) -> Result<Vec<Found>, MatchError> {
+fn exact_spans(
+    text: &str,
+    pattern: &str,
+    case_sensitive: bool,
+    whole_word: bool,
+) -> Result<Vec<Found>, MatchError> {
+    if whole_word {
+        return whole_word_spans(text, pattern, case_sensitive);
+    }
     if case_sensitive {
         return Ok(text
             .match_indices(pattern)
@@ -456,6 +464,55 @@ fn exact_spans(text: &str, pattern: &str, case_sensitive: bool) -> Result<Vec<Fo
             .collect());
     }
     Ok(regex_spans(&compile(&regex::escape(pattern), false)?, text))
+}
+
+/// Occurrences of `pattern` that are whole words, left to right and without
+/// overlap.
+///
+/// An occurrence that is not a whole word is skipped by one character, not
+/// by its length, so that an occurrence that overlaps it is still found:
+/// `a a` in `xa a a` starts inside a word at its first position and is a
+/// word at its second.
+fn whole_word_spans(
+    text: &str,
+    pattern: &str,
+    case_sensitive: bool,
+) -> Result<Vec<Found>, MatchError> {
+    let regex = if case_sensitive {
+        None
+    } else {
+        Some(compile(&regex::escape(pattern), false)?)
+    };
+    let find = |from: usize| -> Option<Span<usize>> {
+        match &regex {
+            None => text[from..]
+                .find(pattern)
+                .map(|at| from + at..from + at + pattern.len()),
+            Some(regex) => regex.find_at(text, from).map(|found| found.range()),
+        }
+    };
+    let after_character = |at: usize| at + text[at..].chars().next().map_or(1, char::len_utf8);
+    let mut found = Vec::new();
+    let mut from = 0;
+    while from <= text.len() {
+        let Some(span) = find(from) else {
+            break;
+        };
+        if at_word_boundaries(text, span.clone()) {
+            from = if span.is_empty() {
+                after_character(span.end)
+            } else {
+                span.end
+            };
+            found.push(Found {
+                span,
+                whole_lines: false,
+            });
+        } else {
+            from = after_character(span.start);
+        }
+    }
+    Ok(found)
 }
 
 fn line_ending_spans(
@@ -1315,6 +1372,23 @@ mod tests {
         let matches = find("count counter recount count_x count", "count", &options).unwrap();
         let starts: Vec<usize> = matches.iter().map(|item| item.start).collect();
         assert_eq!(starts, [0, 30]);
+    }
+
+    #[test]
+    fn whole_word_finds_an_occurrence_that_overlaps_a_rejected_one() {
+        for case_sensitive in [true, false] {
+            let options = MatchOptions {
+                whole_word: true,
+                case_sensitive,
+                ..MatchOptions::new(Whitespace::Exact)
+            };
+            let matches = find("xa a a", "a a", &options).unwrap();
+            let spans: Vec<(usize, usize)> =
+                matches.iter().map(|item| (item.start, item.end)).collect();
+            assert_eq!(spans, [(3, 6)], "case_sensitive: {case_sensitive}");
+            let apart = find("a a a", "a a", &options).unwrap();
+            assert_eq!(apart.len(), 1, "an accepted occurrence is not overlapped");
+        }
     }
 
     #[test]

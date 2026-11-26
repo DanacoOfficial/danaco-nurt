@@ -235,10 +235,11 @@ expect = { report = { status = "ok", records = { rows = [
 [[case]]
 id = "exec/core/read/binary"
 kind = "exec"
-summary = "read of binary content in a text place reports the binary content without decoding it."
+summary = "read of binary content fails with E_BINARY and changes nothing."
 fs_before = { entries = [{ path = "b.bin", type = "file", content_base64 = "AAECAwQ=" }] }
 program = 'read "b.bin" |> search "x"'
-expect = { report = { status = "ok", records = { matched = 0 } } }
+expect = { report = { status = "failed", error = { code = "E_BINARY" } } }
+fs_after = "unchanged"
 
 [[case]]
 id = "exec/core/lines/records"

@@ -113,22 +113,14 @@ impl OutputEvents {
             return Ok(());
         };
         if self.cursor.as_deref() != Some(cursor.as_str()) {
-            for (stream, text) in [
-                (OutputStream::Stdout, &output.stdout),
-                (OutputStream::Stderr, &output.stderr),
+            for (stream, text, bytes) in [
+                (OutputStream::Stdout, &output.stdout, output.stdout_read),
+                (OutputStream::Stderr, &output.stderr, output.stderr_read),
             ] {
                 if text.is_empty() {
                     continue;
                 }
                 let lines: Vec<String> = text.lines().map(str::to_owned).collect();
-                let bytes = lines
-                    .iter()
-                    .map(|line| {
-                        u64::try_from(line.len())
-                            .unwrap_or(u64::MAX)
-                            .saturating_add(1)
-                    })
-                    .sum();
                 ctx.emit(Event::JobOutput(JobOutput {
                     id: self.id.clone(),
                     stream,

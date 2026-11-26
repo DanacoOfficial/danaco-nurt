@@ -25,7 +25,7 @@ pub fn normalize_reflog_message(message: &BStr) -> BString {
     let mut out = BString::default();
     let mut pending_space = false;
     for &byte in message.iter() {
-        if byte.is_ascii_whitespace() || byte == 0x0b {
+        if matches!(byte, b' ' | b'\t' | b'\n' | b'\r') {
             pending_space = !out.is_empty();
             continue;
         }
@@ -119,5 +119,9 @@ mod tests {
     fn whitespace_runs_collapse_to_one_space() {
         assert_eq!(normalize_reflog_message("a\t\tb\r\nc".into()), "a b c");
         assert_eq!(normalize_reflog_message("   ".into()), "");
+        assert_eq!(
+            normalize_reflog_message("a\x0bb\x0cc  d\t\te ".into()),
+            "a\x0bb\x0cc d e"
+        );
     }
 }

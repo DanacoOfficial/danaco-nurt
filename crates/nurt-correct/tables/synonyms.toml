@@ -385,6 +385,13 @@ to = "timeout"
 rule = "L06"
 class = "C"
 kind = "param"
+from = ["op", "operation"]
+to = "id"
+
+[[entry]]
+rule = "L06"
+class = "C"
+kind = "param"
 from = ["sort_by", "order_by"]
 to = "by"
 

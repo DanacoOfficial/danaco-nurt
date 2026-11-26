@@ -21,6 +21,7 @@ use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::kinds::SyntaxVariant;
 use nurt_contracts::spec::Os;
 use nurt_correct::candidates::{ManualClock, Store};
+use nurt_correct::policy::Class;
 use nurt_correct::tables::load_embedded;
 use nurt_syntax::parse::{ParseOptions, parse};
 
@@ -233,4 +234,139 @@ fn keeps_multi_byte_paths_unchanged_without_corrections() {
     let outcome = corrected("find \"/srv/ünï/日本語\" glob: \"*.rs\"").unwrap();
     assert!(outcome.corrections.is_empty());
     assert!(outcome.canonical.contains("/srv/ünï/日本語"));
+}
+
+#[test]
+fn offers_a_misspelt_name_of_a_changing_command_and_does_not_apply_it() {
+    for (written, corrected) in [
+        ("remvoe \"/srv/app/a.txt\"", "remove \"/srv/app/a.txt\""),
+        (
+            "mvoe \"/srv/app/a.txt\" to: \"/srv/b.txt\"",
+            "move \"/srv/app/a.txt\" to: \"/srv/b.txt\"",
+        ),
+    ] {
+        let error = corrected_with(written, &Config::default(), &linux()).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Ambiguous, "{written}");
+        let programs: Vec<&str> = error
+            .data()
+            .candidates
+            .iter()
+            .map(|candidate| candidate.program.as_str())
+            .collect();
+        assert_eq!(programs, [corrected], "{written}");
+    }
+}
+
+#[test]
+fn applies_a_misspelt_name_of_a_reading_command() {
+    let outcome = corrected("fnid \"/srv/app\" glob: \"*.go\"").unwrap();
+    assert_eq!(rules(&outcome), ["L01"]);
+    assert_eq!(outcome.canonical, "find \"/srv/app\" glob: \"*.go\"");
+}
+
+#[test]
+fn applies_a_misspelt_name_of_a_reading_command_in_a_changing_program() {
+    let error = corrected("fnid \"/srv/app\" glob: \"*.tmp\" |> remvoe").unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Ambiguous);
+    assert_eq!(
+        error.data().candidates[0].program,
+        "find \"/srv/app\" glob: \"*.tmp\"\n|> remove"
+    );
+}
+
+#[test]
+fn reads_a_text_with_unknown_escapes_as_a_regular_expression_in_a_regex_place() {
+    let outcome = corrected("search \"\\d+\" \"/srv\"").unwrap();
+    assert_eq!(rules(&outcome), ["L24"]);
+    assert_eq!(outcome.corrections[0].class, Class::Probable);
+    assert_eq!(outcome.canonical, "search /\\d+/ \"/srv\"");
+    let at = outcome.corrections[0].at.unwrap();
+    assert_eq!((at.line, at.column), (1, 8));
+}
+
+#[test]
+fn reads_the_text_after_a_match_operator_as_a_regular_expression() {
+    let outcome = corrected("find \"/srv\" |> filter name ~ \"\\w+\\.go\"").unwrap();
+    assert_eq!(rules(&outcome), ["L24"]);
+    assert!(
+        outcome.canonical.ends_with("filter name ~ /\\w+\\.go/"),
+        "{}",
+        outcome.canonical
+    );
+}
+
+#[test]
+fn reports_an_unknown_escape_in_a_text_place_with_the_fixed_program() {
+    let error = corrected("write \"/srv/a.txt\" \"a\\d\" mode: append").unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Escape);
+    assert_eq!(
+        error.data().fix,
+        ["write \"/srv/a.txt\" r\"a\\d\" mode: append"]
+    );
+}
+
+#[test]
+fn reports_an_unknown_escape_in_a_path_that_is_not_a_windows_path() {
+    let error = corrected("list \"/srv/a\\q\"").unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Escape);
+    assert_eq!(error.data().fix, ["list r\"/srv/a\\q\""]);
+}
+
+#[test]
+fn keeps_the_escape_error_when_correction_is_disabled() {
+    let mut config = Config::default();
+    config.correction.enabled = false;
+    let error = corrected_with("search \"\\d+\" \"/srv\"", &config, &linux()).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Escape);
+}
+
+#[test]
+fn reads_a_windows_path_with_control_escapes_as_written() {
+    let windows = BindContext::new(Os::Windows);
+    let outcome = corrected_with("list \"C:\\temp\\new\"", &Config::default(), &windows).unwrap();
+    assert_eq!(rules(&outcome), ["L24", "L19"]);
+    assert_eq!(outcome.canonical, "list \"C:/temp/new\"");
+}
+
+#[test]
+fn reads_a_windows_path_with_unknown_escapes_as_written() {
+    let windows = BindContext::new(Os::Windows);
+    let outcome = corrected_with("list \"C:\\proj\\data\"", &Config::default(), &windows).unwrap();
+    assert_eq!(rules(&outcome), ["L24", "L19"]);
+    assert_eq!(outcome.canonical, "list \"C:/proj/data\"");
+}
+
+#[test]
+fn offers_the_path_of_a_changing_program_with_escapes_instead_of_applying_it() {
+    let windows = BindContext::new(Os::Windows);
+    let error = corrected_with(
+        "write \"C:\\temp\\new.txt\" \"x\" mode: overwrite",
+        &Config::default(),
+        &windows,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Ambiguous);
+    assert_eq!(
+        error.data().candidates[0].program,
+        "write \"C:/temp/new.txt\" \"x\" mode: overwrite"
+    );
+}
+
+#[test]
+fn keeps_valid_escapes_and_an_escaped_backslash_as_written() {
+    let outcome = corrected("write \"/srv/a.txt\" \"a\\tb\\n\" mode: overwrite").unwrap();
+    assert!(outcome.corrections.is_empty());
+    let outcome = corrected("search \"a\\\\d\" \"/srv\"").unwrap();
+    assert!(outcome.corrections.is_empty());
+    let outcome = corrected("list \"/srv/a\\nb\"").unwrap();
+    assert!(outcome.corrections.is_empty());
+}
+
+#[test]
+fn reads_an_unknown_escape_together_with_a_lexical_correction() {
+    let outcome = corrected("Search \"\\d+\" /srv/app").unwrap();
+    let found = rules(&outcome);
+    assert!(found.contains(&"L03".to_owned()), "{found:?}");
+    assert!(found.contains(&"L24".to_owned()), "{found:?}");
+    assert_eq!(outcome.canonical, "search /\\d+/ \"/srv/app\"");
 }

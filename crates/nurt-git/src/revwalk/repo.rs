@@ -14,7 +14,7 @@ use gix::ObjectId;
 use gix::prelude::ObjectIdExt as _;
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::stage::ExecCtx;
-use nurt_git_transport::sign::{BuiltinSigner, Signer, VerifyConfig};
+use nurt_git_transport::sign::{ProgramSigner, Signer, VerifyConfig};
 
 use super::graph::CommitCache;
 use crate::repo::GitRepo;
@@ -77,7 +77,7 @@ impl OpenRepo {
         let signer: Arc<dyn Signer> = ctx
             .extensions()
             .get::<dyn Signer>()
-            .unwrap_or_else(|| Arc::new(BuiltinSigner));
+            .unwrap_or_else(|| Arc::new(ProgramSigner::from_ctx(ctx)));
         Ok(Self {
             repo,
             commits,
@@ -513,6 +513,19 @@ mod tests {
         assert!(repo.sorted.get().is_some_and(Option::is_some));
         assert_eq!(before, after);
         assert!(before.iter().all(|short| short.len() >= MIN_ABBREVIATION));
+    }
+
+    #[test]
+    fn automatic_abbreviation_counts_packed_objects_only_like_git() {
+        // `git` sizes the automatic abbreviation from the packed objects: a
+        // repository of 80000 loose objects still abbreviates to 7 digits.
+        let mut fixture = Fixture::new();
+        fixture.commit("first", &[("a.txt", Some("a\n"))]);
+        let repo = fixture.open();
+        for number in 0..17_000_u32 {
+            repo.repo.write_blob(format!("{number}\n")).unwrap();
+        }
+        assert_eq!(repo.abbreviation_length(), AUTO_ABBREVIATION);
     }
 
     #[test]

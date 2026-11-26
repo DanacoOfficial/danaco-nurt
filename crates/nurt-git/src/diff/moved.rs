@@ -20,6 +20,11 @@ use super::lines::is_space;
 /// Fewest lines of a moved block.
 pub const MOVED_MIN_LINES: usize = 3;
 
+/// Largest number of added lines with one key tried as the start of a moved
+/// block; it bounds the work for keys that occur very often, such as a closing
+/// brace.
+const MOVED_MAX_CANDIDATES: usize = 128;
+
 /// A changed line with its place.
 #[derive(Debug, Clone)]
 struct Located {
@@ -69,7 +74,11 @@ fn best_match(
 ) -> Option<(usize, usize)> {
     let candidates = by_key.get(removed[at].key.as_slice())?;
     let mut best: Option<(usize, usize)> = None;
-    for &start in candidates {
+    for &start in candidates
+        .iter()
+        .filter(|&&start| !used[start])
+        .take(MOVED_MAX_CANDIDATES)
+    {
         let mut length = 0;
         while let (Some(from), Some(to)) = (removed.get(at + length), added.get(start + length)) {
             let continues =
@@ -249,6 +258,33 @@ mod tests {
             &FileOptions::default(),
             &Driver::default(),
         )
+    }
+
+    fn located(key: &str, line: u32, run: usize) -> Located {
+        Located {
+            key: key.as_bytes().to_vec(),
+            file: 0,
+            hunk: 0,
+            line,
+            run,
+        }
+    }
+
+    #[test]
+    fn only_the_first_added_lines_with_the_key_are_tried_as_block_starts() {
+        let removed = vec![located("x", 1, 0), located("y", 2, 0), located("z", 3, 0)];
+        let mut added: Vec<Located> = (0..=MOVED_MAX_CANDIDATES)
+            .map(|number| located("x", 1, number + 1))
+            .collect();
+        let late = added.len();
+        added.extend([located("x", 1, 0), located("y", 2, 0), located("z", 3, 0)]);
+        let mut by_key: HashMap<&[u8], Vec<usize>> = HashMap::new();
+        for (index, line) in added.iter().enumerate() {
+            by_key.entry(line.key.as_slice()).or_default().push(index);
+        }
+        let used = vec![false; added.len()];
+        let (start, length) = best_match(&removed, 0, &added, &by_key, &used).unwrap();
+        assert_eq!((start < late, length), (true, 1));
     }
 
     #[test]

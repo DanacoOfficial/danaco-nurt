@@ -44,7 +44,10 @@ the environment of the console (`inherit_env: all`), the table
 removed; an empty text sets an empty value. With `inherit_env: none` the
 program receives only `run.env_defaults` and `env`; on Windows `SystemRoot`,
 `ComSpec` and `PATHEXT` are kept as well, because programs fail to start
-without them. The result lists the names given in `env` in `env_keys`; values
+without them. A program given by name is looked up in the `PATH` of that
+environment, so on Unix it needs `PATH` in `env` (or in `run.env_defaults`)
+with `inherit_env: none`, otherwise the result is `E_PROGRAM_NOT_FOUND`. The
+result lists the names given in `env` in `env_keys`; values
 never appear in the result or in the journal. The static check reports the
 variables of `run.env_defaults` in `env_defaults`.
 
@@ -221,7 +224,7 @@ find "/home/user/app" glob: "**/*.go" |> run ["gofmt", "-w"] batch: 20 parallel:
 Give text on standard input, with an environment of its own:
 
 ```nurt example
-run ["sort"] cwd: "/home/user" stdin: "b\na\n" inherit_env: none env: {"LC_ALL": "C"}
+run ["sort"] cwd: "/home/user" stdin: "b\na\n" inherit_env: none env: {"LC_ALL": "C", "PATH": "/usr/bin:/bin"}
 ```
 
 Fail when the program exits with a code other than zero:

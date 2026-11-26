@@ -79,7 +79,9 @@ fn command(probe: &Probe, root: &Path, env: &[(String, String)]) -> Result<Value
 /// the processes of the run are counted: those that work in the task root or
 /// carry the home directory of the run in their environment, so that the
 /// processes of other runs and of the host are not counted. The other
-/// systems give no such view and count every process.
+/// systems give no working directory or environment, so they count the
+/// descendants of this process and the processes whose command line names the
+/// task root or the home directory of the run (see [`select_run_rows`]).
 fn count_processes(
     pattern: &str,
     root: &Path,
@@ -95,28 +97,86 @@ fn count_processes(
         HostOs::Macos => {
             let spec = ProcessSpec::new(
                 "ps",
-                vec!["-A".into(), "-o".into(), "command=".into()],
+                vec!["-A".into(), "-o".into(), "pid=,ppid=,command=".into()],
                 root.to_path_buf(),
                 PROBE_TIMEOUT,
             );
-            normalize_stdout(&process::run(&spec)?.stdout)
-                .lines()
-                .map(str::to_owned)
-                .collect()
+            let output = process::run(&spec)?;
+            select_run_rows(
+                &parse_rows(&normalize_stdout(&output.stdout)),
+                std::process::id(),
+                root,
+                home,
+            )
         }
         HostOs::Windows => {
-            let script = "Get-CimInstance Win32_Process | ForEach-Object { $_.CommandLine }";
+            let script = "Get-CimInstance Win32_Process | ForEach-Object { \"$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)\" }";
             let output = process::run(&pwsh(script, root))?;
-            normalize_stdout(&output.stdout)
-                .lines()
-                .map(str::to_owned)
-                .collect()
+            select_run_rows(
+                &parse_rows(&normalize_stdout(&output.stdout)),
+                std::process::id(),
+                root,
+                home,
+            )
         }
     };
     Ok(lines
         .iter()
         .filter(|line| line.contains(pattern) && !line.contains("Win32_Process"))
         .count())
+}
+
+/// One process of a listing: identifier, parent identifier and command line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ProcessRow {
+    pid: u32,
+    ppid: u32,
+    command: String,
+}
+
+/// Parses lines of the form `<pid> <ppid> <command line>`; other lines are
+/// skipped.
+fn parse_rows(text: &str) -> Vec<ProcessRow> {
+    text.lines()
+        .filter_map(|line| {
+            let mut parts = line.trim_start().splitn(3, char::is_whitespace);
+            let pid = parts.next()?.parse().ok()?;
+            let rest = parts.next()?;
+            let ppid = rest.parse().ok()?;
+            let command = parts.next().unwrap_or_default().trim().to_owned();
+            Some(ProcessRow { pid, ppid, command })
+        })
+        .collect()
+}
+
+/// Command lines of the processes of the run: the descendants of `own` and the
+/// processes whose command line names `root` or `home`. The process `own`, the
+/// listing command and the process that queries the processes are left out.
+fn select_run_rows(rows: &[ProcessRow], own: u32, root: &Path, home: Option<&str>) -> Vec<String> {
+    let root = root.to_string_lossy();
+    let descends = |start: &ProcessRow| {
+        let mut current = start.ppid;
+        for _ in 0..rows.len() {
+            if current == own {
+                return true;
+            }
+            match rows.iter().find(|row| row.pid == current) {
+                Some(parent) if parent.pid != parent.ppid => current = parent.ppid,
+                _ => return false,
+            }
+        }
+        false
+    };
+    rows.iter()
+        .filter(|row| row.pid != own && !row.command.is_empty())
+        .filter(|row| !row.command.contains("Win32_Process") && !row.command.starts_with("ps -A"))
+        .filter(|row| {
+            descends(row)
+                || row.command.contains(root.as_ref())
+                || home.is_some_and(|home| !home.is_empty() && row.command.contains(home))
+        })
+        .map(|row| row.command.clone())
+        .collect()
 }
 
 /// Whether the process whose `/proc` directory is `directory` works in
@@ -279,6 +339,36 @@ mod tests {
         // process of another directory and another home is not counted.
         assert_eq!(counted["count"], 2);
         assert_eq!(without_home["count"], 1);
+    }
+
+    #[test]
+    fn rows_of_a_process_listing_are_parsed_and_filtered_to_the_run() {
+        let listing = "  100 1 /sbin/launchd\n 200 100 bench --run\n 300 200 sleep 99\n\
+                       400 300 sleep 98\n 500 1 sleep 97\n 600 1 sleep /tmp/run-1/x\n\
+                       700 1 sleep /home/run-1/y\n 800 200 ps -A -o pid=,ppid=,command=\n\
+                       not a row\n 900 1\n";
+        let rows = parse_rows(listing);
+        assert_eq!(rows.len(), 9);
+        assert_eq!(rows[2].command, "sleep 99");
+        let own = 200;
+        let selected = select_run_rows(&rows, own, Path::new("/tmp/run-1"), Some("/home/run-1"));
+        assert_eq!(
+            selected,
+            vec![
+                "sleep 99",
+                "sleep 98",
+                "sleep /tmp/run-1/x",
+                "sleep /home/run-1/y"
+            ]
+        );
+        let without_home = select_run_rows(&rows, own, Path::new("/tmp/run-1"), None);
+        assert_eq!(without_home.len(), 3);
+    }
+
+    #[test]
+    fn a_cyclic_listing_does_not_hang_the_selection() {
+        let rows = parse_rows("10 20 a\n20 10 b\n30 30 c\n");
+        assert!(select_run_rows(&rows, 1, Path::new("/x"), None).is_empty());
     }
 
     #[test]

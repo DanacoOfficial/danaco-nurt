@@ -26,12 +26,24 @@ feature.
 
 | Operation | Behaviour | Errors |
 |---|---|---|
-| install | Reads and checks the manifest of a source directory, checks that every file it names exists, copies the directory to `<ext.dir>/<name>` through a staging directory and switches it in by rename. An installed version is replaced only on request. | `E_CATALOG` (rejected manifest), `E_NOT_FOUND` (manifest or named file missing), `E_EXISTS` (installed, replacement not requested), `E_UNSUPPORTED` (symbolic link or special file in the source, native extension not allowed), `E_IO` |
+| install | Reads and checks the manifest of a source directory, checks that every file it names exists, copies the directory to `<ext.dir>/<name>` through a staging directory and switches it in by rename. An installed version is replaced only on request. | `E_CATALOG` (rejected manifest), `E_NOT_FOUND` (manifest or named file missing), `E_EXISTS` (installed, replacement not requested), `E_UNSUPPORTED` (symbolic link or special file in the source, native extension not allowed), `E_INVALID_VALUE` (the source directory holds `<ext.dir>`), `E_IO` |
 | remove | Deletes `<ext.dir>/<name>`, usable or not. | `E_INVALID_VALUE` (malformed name), `E_NOT_FOUND`, `E_IO` |
 | list | Lists every subdirectory of `ext.dir` in name order with name, directory, version, API version, kind and full command names. An unusable extension is listed with the member `problem`. | `E_IO` |
 
 An interrupted installation leaves the previous version in place. Directories
-whose names start with `.` are staging areas and are not listed.
+whose names start with `.` are staging areas and are not listed; every
+installation uses a staging directory of its own, so installations of one
+extension do not overwrite each other's copies.
+
+### Trust
+
+Installation does not verify a signature or a checksum of the source: the
+account that installs an extension trusts its source directory. A WebAssembly
+extension runs in a sandbox and reaches files only through the host calls
+below, within `permissions.read` and `permissions.write`; the grants are
+checked when the extension asks for a path and again when its writes are
+applied. A native extension runs in the process of the engine without such
+restrictions, which is why `ext.native` is off by default.
 
 ## Manifest
 
@@ -211,7 +223,7 @@ Members other than `kind` and `fields` are rejected.
 |---|---|---|
 | `read-file` | below `permissions.read` or `permissions.write` | Whole file content, at most `limits.max_file_bytes_text` bytes. |
 | `list-dir` | below `permissions.read` or `permissions.write` | Entry names in byte order. |
-| `write-file` | below `permissions.write`, commands with `writes = true` | The write is recorded, not performed. The preview shows it as a change; the apply step writes it through the journal, so the change can be undone. |
+| `write-file` | below `permissions.write`, commands with `writes = true` | The write is recorded, not performed. The preview shows it as a change; the apply step writes it through the journal, so the change can be undone. The recorded writes of one call hold at most `limits.max_file_bytes_text` bytes together; a further write is refused with `E_LIMIT`. |
 | `log` | always | Adds a `log` event with the command as source. |
 
 A refused call returns `failure` with the code `E_PERMISSION`, `E_PATH_RELATIVE`,

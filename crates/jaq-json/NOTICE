@@ -1,0 +1,19 @@
+jaq-json 2.0.3
+Copyright Michael Färber <michael.faerber@gedenkt.at> (authors of the upstream crate)
+https://github.com/01mf02/jaq
+License: MIT (the text is in LICENSE).
+
+This directory is a copy of the crate jaq-json 2.0.3 published on crates.io,
+kept in the workspace of Danaco Nurt because the multiplication of a string by
+a number (`"x" * n`) is implemented in the value type of the crate and cannot
+be limited from outside. Changes to the upstream source:
+
+- src/limit.rs (new): thread-local limit on the length of a repeated string.
+- src/lib.rs: the multiplication of a string consults that limit and gives the
+  results of jq 1.8.1 (`"a" * 0` is `""`); an update below `null` or past the
+  end of an array creates or extends the container; a fractional array index
+  drops its fraction; an object is indexed by strings only; the slice of `null`
+  is `null`. The module
+  `limit` and its functions are exported.
+- Cargo.toml: manifest normalized for the workspace; the crate stays publishable in metadata so that cargo-deny checks its license.
+- The tests and the README of the upstream package are not included.

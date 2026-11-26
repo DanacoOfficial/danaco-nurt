@@ -273,7 +273,6 @@ clone = true
 
 [values.sed]
 substitute = "replace $pattern $with in: [$all]"
-occurrence = "replace occurrence: $occurrence"
 ignore_case = "replace case_sensitive: false"
 print_range = "read $1 lines: $range"
 print_last = "read $1 last: 1"

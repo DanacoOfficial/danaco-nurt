@@ -349,3 +349,96 @@ fn converts_structured_keys_of_the_syntax_tree() {
         KeyPathErrorKind::Unsupported
     );
 }
+
+fn field(name: &str) -> Box<FilterExpr> {
+    Box::new(FilterExpr::Field {
+        path: vec![name.to_owned()],
+    })
+}
+
+/// Filter whose canonical text needs `levels` nested levels: negations
+/// followed by a leaf.
+fn negations(levels: usize) -> FilterExpr {
+    let mut expr = FilterExpr::Field {
+        path: vec!["x".to_owned()],
+    };
+    for _ in 0..levels {
+        expr = FilterExpr::Not {
+            operand: Box::new(expr),
+        };
+    }
+    expr
+}
+
+/// Filter whose canonical text needs `levels` nested parenthesised groups:
+/// a comparison whose left operand is a comparison, and so on.
+fn groups(levels: usize) -> FilterExpr {
+    let compare = |left: FilterExpr| FilterExpr::Compare {
+        op: CompareOp::Eq,
+        left: Box::new(left),
+        right: field("x"),
+    };
+    let mut expr = compare(*field("x"));
+    for _ in 0..levels {
+        expr = compare(expr);
+    }
+    expr
+}
+
+#[test]
+fn constructors_enforce_the_filter_depth_of_the_parser() {
+    use nurt_contracts::keypath::MAX_FILTER_DEPTH;
+
+    for build in [negations, groups] {
+        let admitted = KeyPath::new(None, vec![KeySegment::Filter(build(MAX_FILTER_DEPTH))])
+            .expect("the deepest admitted filter");
+        let text = admitted.to_string();
+        assert_eq!(KeyPath::parse(&text).unwrap(), admitted, "{text}");
+
+        let error =
+            KeyPath::new(None, vec![KeySegment::Filter(build(MAX_FILTER_DEPTH + 1))]).unwrap_err();
+        assert_eq!(error.kind, KeyPathErrorKind::InvalidFilter);
+        let mut key = KeyPath::root();
+        let error = key
+            .push(KeySegment::Filter(build(MAX_FILTER_DEPTH + 1)))
+            .unwrap_err();
+        assert_eq!(error.kind, KeyPathErrorKind::InvalidFilter);
+        assert!(key.is_root());
+    }
+}
+
+#[test]
+fn a_negative_literal_of_the_syntax_tree_becomes_a_filter_literal() {
+    let negated = |x: Expr| Expr::Un {
+        op: UnOp::Neg,
+        x: Box::new(x),
+        span: None,
+    };
+    let compare = |right: Expr| KeySeg::Filter {
+        filter: Box::new(Expr::Bin {
+            op: BinOp::Gt,
+            l: ident("x"),
+            r: Box::new(right),
+            span: None,
+        }),
+    };
+    let int = |v: i64| Expr::Int { v, span: None };
+
+    let key = KeyPath::from_key_segs(&[compare(negated(int(1)))]).unwrap();
+    assert_eq!(key.to_string(), "[?x > -1]");
+    assert_eq!(KeyPath::parse(&key.to_string()).unwrap(), key);
+
+    let key =
+        KeyPath::from_key_segs(&[compare(negated(Expr::Num { v: 2.5, span: None }))]).unwrap();
+    assert_eq!(key.to_string(), "[?x > -2.5]");
+
+    assert_eq!(
+        KeyPath::from_key_segs(&[compare(negated(Expr::Ident {
+            v: "y".to_owned(),
+            span: None,
+        }))])
+        .unwrap_err()
+        .kind,
+        KeyPathErrorKind::Unsupported
+    );
+}

@@ -165,14 +165,8 @@ impl<S: EventSource> LogStore for EventLogStore<S> {
         let max_open = sources.len().max(1);
         let filter = EventFilter::new(query).with_unit(None);
         let limits = &self.limits;
-        let counted = notices.clone();
         let events = Merge::new(sources, max_open).filter_map(move |item| match item {
             Ok(mut event) if filter.matches(&event) => {
-                if event.flags.unformatted {
-                    let mut notice = LogNotice::new(NoticeCode::Unformatted);
-                    notice.count = Some(1);
-                    counted.add(notice);
-                }
                 limits.apply(&mut event);
                 Some(Ok(event))
             }
