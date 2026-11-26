@@ -101,7 +101,10 @@ impl Backend for Engine {
             .and_then(serde_json::Value::as_str)
             .map(str::to_owned)
             .ok_or_else(|| {
-                CallError::new(AbiStatus::Internal, "the description of the engine has no text")
+                CallError::new(
+                    AbiStatus::Internal,
+                    "the description of the engine has no text",
+                )
             })
     }
 
