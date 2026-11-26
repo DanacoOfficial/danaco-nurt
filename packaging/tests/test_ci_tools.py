@@ -168,6 +168,11 @@ class WorkflowCopiesTest(unittest.TestCase):
         for number in commits:
             self.assertIn("git diff --cached --quiet", lines[number - 1])
 
+    def test_rpm_build_takes_its_times_from_source_date_epoch(self):
+        text = (support.PACKAGING / "ci" / "packaging.yml").read_text(encoding="utf-8")
+        self.assertIn('--define "use_source_date_epoch_as_buildtime 1"', text)
+        self.assertIn('--define "clamp_mtime_to_source_date_epoch 1"', text)
+
     def test_apt_upload_keeps_the_packages_of_older_releases(self):
         text = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8")
         self.assertIn('--delete-after --filter="P /pool/"', text)
