@@ -145,11 +145,13 @@ fn request_of(args: &BoundArgs, root: &Path) -> Result<RestoreRequest> {
         .iter()
         .map(|path| relative_path(root, path))
         .collect::<Result<Vec<_>>>()?;
+    let staged = args::flag(args, "staged")?;
     Ok(RestoreRequest {
         paths,
         source: args::text(args, "source")?,
-        staged: args::flag(args, "staged")?,
-        worktree: args.bool("worktree")?.unwrap_or(true),
+        staged,
+        // As in Git, `staged` alone leaves the working tree untouched.
+        worktree: args.bool("worktree")?.unwrap_or(!staged),
         hunks: args::list(args, "hunks")?,
     })
 }
@@ -405,6 +407,34 @@ mod tests {
         .expect("request");
         assert!(staged.staged);
         assert!(!staged.worktree);
+    }
+
+    #[test]
+    fn staged_alone_leaves_the_working_tree_alone() {
+        let root = Path::new("/r");
+        let only_index = request_of(
+            &args(
+                root,
+                &[("paths", paths(&["a"])), ("staged", Value::Bool(true))],
+            ),
+            root,
+        )
+        .expect("request");
+        assert!(only_index.staged);
+        assert!(!only_index.worktree);
+        let both = request_of(
+            &args(
+                root,
+                &[
+                    ("paths", paths(&["a"])),
+                    ("staged", Value::Bool(true)),
+                    ("worktree", Value::Bool(true)),
+                ],
+            ),
+            root,
+        )
+        .expect("request");
+        assert!(both.staged && both.worktree);
     }
 
     #[test]

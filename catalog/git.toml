@@ -1092,7 +1092,7 @@ summary = "Restore the index."
 [[command.param]]
 name = "worktree"
 type = "bool"
-default = "true"
+default_note = "true, or false with staged"
 summary = "Restore the working tree."
 
 [[command.param]]

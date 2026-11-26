@@ -51,7 +51,7 @@ restoration of both sides cannot be combined with `hunks`.
 | `paths` | `list<path>` | required | Files or directories to restore. |
 | `source` | `text` | the index, or HEAD with staged | Revision to restore from. |
 | `staged` | `bool` | `false` | Restore the index. |
-| `worktree` | `bool` | `true` | Restore the working tree. |
+| `worktree` | `bool` | true, or false with staged | Restore the working tree. |
 | `hunks` | `list<text>` | none | Only these hunks, by identifier as in git.stage. |
 | `checkpoint` | `bool` | `false` | Create a checkpoint of the changes before they are discarded. |
 | `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
