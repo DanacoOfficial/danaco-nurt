@@ -533,7 +533,9 @@ impl Execution {
         self.events.try_recv().ok()
     }
 
-    /// Waits for the response. Further calls return the same result.
+    /// Waits for the response. Further calls return the same result. A
+    /// cancelled execution returns its response, whose error has the code
+    /// `E_CANCELLED`.
     ///
     /// # Errors
     ///
