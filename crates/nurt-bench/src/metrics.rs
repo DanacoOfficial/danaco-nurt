@@ -363,17 +363,21 @@ mod tests {
         assert!(shell_uses_script("python3 fix.py"));
         assert!(shell_uses_script("cd src && perl -pi -e 's/a/b/' x"));
         assert!(shell_uses_script("py.exe -3 x.py"));
-        assert!(!shell_uses_script("sed -i 's/python/py/' a.txt"));
-        assert!(!shell_uses_script("ls python"));
         assert!(shell_uses_script("env python3 fix.py"));
         assert!(shell_uses_script("env -i LC_ALL=C python fix.py"));
         assert!(shell_uses_script("sudo perl -e 1"));
         assert!(shell_uses_script("ls | xargs -n1 python3 check.py"));
         assert!(shell_uses_script("cd src && nohup ruby run.rb"));
+        assert!(nurt_uses_script("run \"bash\" args: [\"-c\", \"ls\"]"));
+    }
+
+    #[test]
+    fn does_not_detect_scripts_in_commands_that_only_name_them() {
+        assert!(!shell_uses_script("sed -i 's/python/py/' a.txt"));
+        assert!(!shell_uses_script("ls python"));
         assert!(!shell_uses_script("env FOO=1 ls python"));
         assert!(!shell_uses_script("sudo"));
         assert!(!shell_uses_script("xargs grep python"));
-        assert!(nurt_uses_script("run \"bash\" args: [\"-c\", \"ls\"]"));
         assert!(!nurt_uses_script("run \"cargo\" args: [\"test\"]"));
     }
 
