@@ -375,7 +375,14 @@ impl Walker {
 
 #[cfg(test)]
 mod tests {
+    use std::panic::{self, AssertUnwindSafe};
+    use std::time::{Duration, Instant};
+
     use nurt_contracts::error::{Error, ErrorCode};
+    use nurt_contracts::fs::{
+        ContentHash, DirEntry, ExtendedMeta, Follow, FsResult, Holder, PathKey, ReadHandle,
+        SpaceInfo, VolumeId, VolumeInfo,
+    };
     use nurt_testkit::ctx::TestContext;
     use nurt_testkit::vfs::test_path;
 
@@ -665,6 +672,111 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(error.code(), ErrorCode::Cancelled);
+    }
+
+    /// File system whose listing of one directory panics.
+    struct PanickingFs<'a> {
+        inner: &'a dyn Fs,
+        directory: AbsPath,
+    }
+
+    impl Fs for PanickingFs<'_> {
+        fn metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<FileMeta> {
+            self.inner.metadata(path, follow)
+        }
+
+        fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
+            self.inner.extended_metadata(path, follow)
+        }
+
+        fn open_read(&self, path: &AbsPath) -> FsResult<Box<dyn ReadHandle>> {
+            self.inner.open_read(path)
+        }
+
+        fn open_stream_read(&self, path: &AbsPath, stream: &str) -> FsResult<Box<dyn ReadHandle>> {
+            self.inner.open_stream_read(path, stream)
+        }
+
+        fn read_dir<'b>(
+            &'b self,
+            path: &AbsPath,
+        ) -> FsResult<Box<dyn Iterator<Item = FsResult<DirEntry>> + Send + 'b>> {
+            assert!(
+                *path != self.directory,
+                "the listing of the directory failed"
+            );
+            self.inner.read_dir(path)
+        }
+
+        fn read_link(&self, path: &AbsPath) -> FsResult<std::path::PathBuf> {
+            self.inner.read_link(path)
+        }
+
+        fn real_path(&self, path: &AbsPath) -> FsResult<AbsPath> {
+            self.inner.real_path(path)
+        }
+
+        fn content_hash(&self, path: &AbsPath) -> FsResult<ContentHash> {
+            self.inner.content_hash(path)
+        }
+
+        fn volume(&self, path: &AbsPath) -> FsResult<VolumeInfo> {
+            self.inner.volume(path)
+        }
+
+        fn space(&self, volume: &VolumeId) -> FsResult<SpaceInfo> {
+            self.inner.space(volume)
+        }
+
+        fn path_key(&self, path: &AbsPath) -> FsResult<PathKey> {
+            self.inner.path_key(path)
+        }
+
+        fn holders(&self, path: &AbsPath) -> FsResult<Vec<Holder>> {
+            self.inner.holders(path)
+        }
+
+        fn can_write_dir(&self, dir: &AbsPath) -> FsResult<bool> {
+            self.inner.can_write_dir(dir)
+        }
+    }
+
+    #[test]
+    fn the_panic_of_a_worker_reaches_the_caller_instead_of_a_wait_without_end() {
+        let test = tree(&["/w/a/x.txt", "/w/b/y.txt", "/w/c/z.txt"]);
+        let fs = PanickingFs {
+            inner: test.fs().as_ref(),
+            directory: abs("/w/b"),
+        };
+        let walker = Walker::new(WalkOptions {
+            threads: 2,
+            kind: KindFilter::Any,
+            ..WalkOptions::default()
+        })
+        .expect("no patterns to compile");
+        let started = Instant::now();
+        // The walk waits for a listing that never arrives; the checkpoint
+        // ends the wait so that a regression fails instead of hanging.
+        let checkpoint = || {
+            if started.elapsed() > Duration::from_secs(20) {
+                Err(Error::new(
+                    ErrorCode::Internal,
+                    "the walk waits without end",
+                ))
+            } else {
+                Ok(())
+            }
+        };
+        let outcome = panic::catch_unwind(AssertUnwindSafe(|| {
+            walker.run(
+                &fs,
+                &[abs("/w")],
+                &checkpoint,
+                |_| ControlFlow::Continue(()),
+            )
+        }));
+        assert!(outcome.is_err(), "the walk returned {outcome:?}");
+        assert!(started.elapsed() < Duration::from_secs(20));
     }
 
     #[test]
