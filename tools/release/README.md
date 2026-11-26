@@ -38,9 +38,19 @@ tools/release/build-release.sh 0.1.1 /tmp/release-0.1.1
 tools/release/build-release.sh 0.1.1 /tmp/release-0.1.1 --sign /path/to/gnupg-home KEYID
 ```
 
-Steps: build of `nurt-cli` and `nurt-ffi` for `x86_64-unknown-linux-gnu`, for `x86_64-unknown-linux-musl` when the target is installed (`NURT_RELEASE_MUSL=auto`, `1` or `0`) and for `x86_64-pc-windows-msvc` with `cargo xwin build` (skipped with `--no-windows`); `nurt-docgen man`, `completions` and `site`; `packaging/release/pack.py` for each target; `checksums.txt`; with `--sign` a detached armored signature `checksums.txt.asc` and `gpg --verify`; `nurt version` and `nurt doctor` from the unpacked Linux archive; then `examples/c/hello.c` is built against the unpacked library archive of the glibc target and of the musl target (flags from `pkg-config`, `--static` for musl) and run. For the musl check the C compiler is `$CC_x86_64_unknown_linux_musl` (`musl-gcc` when unset).
+Steps: build of `nurt-cli` and `nurt-ffi` for the targets of the table below; `nurt-docgen man`, `completions` and `site`; `packaging/release/pack.py` for each target; `checksums.txt`; with `--sign` a detached armored signature `checksums.txt.asc` and `gpg --verify`; then, for the target of the host only, `nurt version` and `nurt doctor` from the unpacked archive of the program and `examples/c/hello.c` built (flags from `pkg-config`) and run against the unpacked archive of the library. On an x86_64 Linux host with a glibc target the static musl library `libnurt.a` of `x86_64-unknown-linux-musl` is checked as well (`pkg-config --static`, `-static`, C compiler `$CC_x86_64_unknown_linux_musl` or `packaging/release/zig-cc-musl.sh`).
 
-The layout has two archives per target that has a shared library: `nurt-<version>-<target>` with the executable and `nurt-lib-<version>-<target>` with the shared library (`libnurt.so.1`, `libnurt.1.dylib` or `nurt.dll`) and the header. On musl targets the library is static: the build passes `libnurt_ffi.a`, and the archive holds `libnurt.a`, `nurt.h` and a `nurt.pc` whose `Libs.private` lists the libraries of a static link. One call of `pack.py` with `--library` writes both archives. Both archives are listed in `checksums.txt`.
+| Target | Built | C compiler and linker |
+|---|---|---|
+| `x86_64-unknown-linux-gnu` | always | `cc` of the host |
+| `x86_64-unknown-linux-musl` | `NURT_RELEASE_MUSL=auto` (target installed), `1` or `0` | compiler `packaging/release/zig-cc-musl.sh` (zig cc), linker `cc` |
+| `aarch64-unknown-linux-gnu` | `NURT_RELEASE_AARCH64=auto` (both aarch64 Linux targets installed and zig available), `1` or `0` | `packaging/release/zig-cc-aarch64-linux-gnu.sh` (`-target aarch64-linux-gnu.2.31`) |
+| `aarch64-unknown-linux-musl` | together with the previous one | `packaging/release/zig-cc-aarch64-linux-musl.sh` |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | unless `--no-windows` | `cargo xwin build --target <target>` |
+
+For the targets built with zig the script sets `CC_<target>`, `AR_<target>` (`packaging/release/zig-ar.sh`, `zig ar`) and `CFLAGS_<target>=-fno-sanitize=undefined` and, for aarch64, `CARGO_TARGET_<TARGET>_LINKER`, unless the caller has set them; `ZIG` names the zig executable (`zig` by default). The wrappers drop the option `--target=...` of the `cc` crate and, for aarch64, the linker options `-Wl,--fix-cortex-a53-843419` and `-Wl,-O1`, which zig rejects or warns about.
+
+The layout has two archives per target: `nurt-<version>-<target>` with the executable and `nurt-lib-<version>-<target>` with the shared library (`libnurt.so.1`, `libnurt.1.dylib` or `nurt.dll`) and the header. On musl targets the library is static: the build passes `libnurt_ffi.a`, and the archive holds `libnurt.a`, `nurt.h` and a `nurt.pc` whose `Libs.private` lists the libraries of a static link. One call of `pack.py` with `--library` writes both archives. Both archives are listed in `checksums.txt`.
 
 The environment of the build (`CARGO_TARGET_DIR`, `RUSTUP_TOOLCHAIN`, `RUSTC_WRAPPER`) is taken from the caller. The output directory must be empty or absent. A key is never read from a default location: `--sign` requires an explicit GnuPG home.
 
