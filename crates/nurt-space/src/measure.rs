@@ -55,14 +55,19 @@ pub(crate) fn measure(fs: &dyn Fs, volume: &VolumeId, quota_aware: bool) -> FsRe
         .map(|space| Measurement::from_space(&space, quota_aware))
 }
 
+/// Shortest period between two iterations of the service, so that a period
+/// of zero in the configuration cannot make the service spin.
+pub(crate) const MIN_POLL_PERIOD: Duration = Duration::from_millis(10);
+
 /// Measurement period of the service: the fast period at or below the soft
-/// threshold, the normal period above it.
+/// threshold, the normal period above it, never shorter than
+/// [`MIN_POLL_PERIOD`].
 pub(crate) fn poll_period(state: VolumeState, config: &SpaceConfig) -> Duration {
     let millis = match state {
         VolumeState::Normal => config.poll_ms,
         VolumeState::Soft | VolumeState::Hard | VolumeState::Emergency => config.poll_fast_ms,
     };
-    Duration::from_millis(u64::from(millis))
+    Duration::from_millis(u64::from(millis)).max(MIN_POLL_PERIOD)
 }
 
 /// Waits until free space reaches `target` or `window` elapses, measuring
@@ -908,6 +913,29 @@ mod tests {
         for state in [VolumeState::Soft, VolumeState::Hard, VolumeState::Emergency] {
             assert_eq!(poll_period(state, &config), Duration::from_millis(50));
         }
+    }
+
+    #[test]
+    fn poll_period_never_falls_below_the_minimum() {
+        let mut config = SpaceConfig::default();
+        config.poll_ms = 0;
+        config.poll_fast_ms = 3;
+        assert_eq!(poll_period(VolumeState::Normal, &config), MIN_POLL_PERIOD);
+        assert_eq!(poll_period(VolumeState::Soft, &config), MIN_POLL_PERIOD);
+        config.poll_fast_ms = 40;
+        assert_eq!(
+            poll_period(VolumeState::Hard, &config),
+            Duration::from_millis(40)
+        );
+    }
+
+    #[test]
+    fn extreme_figures_of_the_file_system_do_not_overflow() {
+        let reading = Measurement::from_space(&space(u64::MAX, u64::MAX, Some(0)), true);
+        assert_eq!(reading.free, 0);
+        assert_eq!(reading.total, u64::MAX);
+        let empty = Measurement::from_space(&space(0, 0, None), true);
+        assert_eq!((empty.free, empty.total), (0, 0));
     }
 
     #[test]
