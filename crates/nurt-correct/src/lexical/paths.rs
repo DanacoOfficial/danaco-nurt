@@ -26,6 +26,10 @@ use crate::record::{Correction, CorrectionKind};
 /// pattern rather than as a path.
 const PATTERN_CHARACTERS: &str = "*?[](){}+^$|\\";
 
+/// Control characters produced by the escapes `\t`, `\n`, `\r` and `\0` of a
+/// text, with the letter of the escape.
+const CONTROL_ESCAPES: [(char, char); 4] = [('\t', 't'), ('\n', 'n'), ('\r', 'r'), ('\0', '0')];
+
 /// Literal produced by a path rule, with the record of the correction.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LiteralFix {
@@ -243,7 +247,7 @@ pub fn resolve_relative(
 }
 
 fn relative_error(path: &str, at: TextPosition, problem: &str) -> Error {
-    Error::new(
+    let error = Error::new(
         ErrorCode::PathRelative,
         format!("relative path `{path}`: {problem}"),
     )
@@ -251,7 +255,37 @@ fn relative_error(path: &str, at: TextPosition, problem: &str) -> Error {
     .with_at(to_at(at))
     .with_found(path)
     .with_problem(problem)
-    .with_help("help corrections")
+    .with_help("help corrections");
+    match drive_path_from_escapes(path) {
+        Some(written) => error
+            .with_fix(text_literal(&written))
+            .with_fix(text_literal(&canonical_path(&written))),
+        None => error,
+    }
+}
+
+/// The path as it was written when a drive letter is followed by a control
+/// character that an escape of a text produced: `C:\temp` read as `C:`, a tab
+/// and `emp`. `None` for any other path.
+fn drive_path_from_escapes(path: &str) -> Option<String> {
+    let mut chars = path.chars();
+    let (Some(letter), Some(':'), Some(first)) = (chars.next(), chars.next(), chars.next()) else {
+        return None;
+    };
+    if !letter.is_ascii_alphabetic() || !CONTROL_ESCAPES.iter().any(|(c, _)| *c == first) {
+        return None;
+    }
+    let mut written = String::with_capacity(path.len() + 2);
+    for c in path.chars() {
+        match CONTROL_ESCAPES.iter().find(|(control, _)| *control == c) {
+            Some((_, escape)) => {
+                written.push('\\');
+                written.push(*escape);
+            }
+            None => written.push(c),
+        }
+    }
+    Some(written)
 }
 
 /// Whether a path is absolute: `/x`, `C:/x`, `//server/share` or a provider
@@ -287,12 +321,11 @@ fn split_root(path: &str) -> (&str, &str) {
     if let Some(rest) = path.strip_prefix("//") {
         return (&path[..2], rest);
     }
-    if let Some(index) = path.find(":/") {
-        let end = index + 2;
-        return (&path[..end], &path[end..]);
+    if let Some(rest) = path.strip_prefix('/') {
+        return (&path[..1], rest);
     }
-    match path.strip_prefix('/') {
-        Some(rest) => (&path[..1], rest),
+    match path.find(":/") {
+        Some(index) => (&path[..index + 2], &path[index + 2..]),
         None => ("", path),
     }
 }
@@ -550,6 +583,39 @@ mod tests {
             relative_base.map(|error| error.code()),
             Some(ErrorCode::PathRelative)
         );
+    }
+
+    #[test]
+    fn control_characters_after_a_drive_letter_give_the_written_path_as_a_fix() {
+        let error = resolve_relative("C:\temp\new.txt", None, None, AT).err();
+        assert_eq!(
+            error.as_ref().map(Error::code),
+            Some(ErrorCode::PathRelative)
+        );
+        assert_eq!(
+            error.map(|error| error.fix),
+            Some(vec![
+                r#"r"C:\temp\new.txt""#.to_owned(),
+                "\"C:/temp/new.txt\"".to_owned()
+            ])
+        );
+        let drive_only = resolve_relative("C:data", None, None, AT).err();
+        assert_eq!(drive_only.map(|error| error.fix), Some(Vec::new()));
+        let later = resolve_relative("a\tb", None, None, AT).err();
+        assert_eq!(later.map(|error| error.fix), Some(Vec::new()));
+    }
+
+    #[test]
+    fn root_of_a_posix_base_is_the_leading_slash_even_when_a_segment_has_a_colon() {
+        assert_eq!(split_root("/mnt/a:/b"), ("/", "mnt/a:/b"));
+        assert_eq!(split_root("C:/proj"), ("C:/", "proj"));
+        assert_eq!(split_root("//server/share"), ("//", "server/share"));
+        assert_eq!(split_root("registry:/HKCU"), ("registry:/", "HKCU"));
+        let resolved = resolve_relative("../../c", Some("/mnt/a:/b"), None, AT)
+            .ok()
+            .flatten()
+            .map(|fix| fix.correction.to);
+        assert_eq!(resolved.as_deref(), Some("\"/mnt/c\""));
     }
 
     #[test]

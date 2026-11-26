@@ -340,6 +340,24 @@ mod tests {
     }
 
     #[test]
+    fn splits_a_stage_inside_a_let_statement() {
+        let mut document = parsed("let r = find \"/a\" search /x/");
+        let changes = split_missing_pipes(&mut document, &Commands);
+        assert_eq!(changes.len(), 1);
+        let Some(Statement::Let(binding)) = document.program.statements.first() else {
+            panic!("a let statement is expected");
+        };
+        assert_eq!(binding.value.stages.len(), 1);
+        assert_eq!(binding.value.stages[0].name, "search");
+    }
+
+    #[test]
+    fn does_not_split_before_the_first_argument() {
+        let mut document = parsed("find search");
+        assert!(split_missing_pipes(&mut document, &Commands).is_empty());
+    }
+
+    #[test]
     fn keeps_command_names_that_the_stage_takes_as_values() {
         let mut document = parsed("find \"/a\" |> sort count");
         assert!(split_missing_pipes(&mut document, &Commands).is_empty());
