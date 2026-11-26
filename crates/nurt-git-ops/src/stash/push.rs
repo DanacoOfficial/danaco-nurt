@@ -305,6 +305,20 @@ fn messages(
     })
 }
 
+/// Whether a path of `scope` differs between `HEAD`, the index and the
+/// working tree version of the tracked files.
+fn scope_changed(scope: &Scope, head: &State, current: &State, work: &State) -> bool {
+    let paths: BTreeSet<BString> = paths_of(head)
+        .chain(paths_of(current))
+        .chain(paths_of(work))
+        .filter(|path| scope.contains(path.as_bstr()))
+        .collect();
+    paths.iter().any(|path| {
+        let key = |state: &State| merged_entry(state, path.as_bstr()).map(|e| (e.id, e.mode));
+        key(head) != key(current) || key(current) != key(work)
+    })
+}
+
 /// Pathspecs naming exactly the tracked paths of `scope`.
 fn literal_specs(current: &State, head: &State, scope: &Scope) -> Vec<BString> {
     paths_of(current)
@@ -368,7 +382,8 @@ pub(crate) fn plan_push(
     };
     let mut change = Change::new();
     change.objects = true;
-    if index_tree == head_tree && work_tree == index_tree && untracked.is_empty() {
+    let work_state = index::from_tree(repo, work_tree)?;
+    if untracked.is_empty() && !scope_changed(&scope, &head_state, current, &work_state) {
         outcome.nothing_to_do = true;
         return Ok((change, outcome));
     }

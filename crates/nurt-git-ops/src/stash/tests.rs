@@ -206,6 +206,24 @@ fn push_of_paths_saves_and_resets_only_those_paths() {
 }
 
 #[test]
+fn push_of_paths_without_changes_there_saves_nothing() {
+    let fx = base();
+    let journal = Journal::new();
+    write(&fx, "b.txt", "b-staged\n");
+    stage(&fx, "b.txt");
+    let before = state(&fx);
+    let request = StashRequest {
+        paths: vec![PathBuf::from("a.txt")],
+        ..StashRequest::new(StashAction::Push)
+    };
+    let outcome = run(&fx, &journal, &request).unwrap();
+    assert!(outcome.nothing_to_do);
+    assert_eq!(outcome.created, None);
+    assert_eq!(state(&fx), before);
+    assert!(list(fx.path(), &ctx()).unwrap().is_empty());
+}
+
+#[test]
 fn push_of_an_unknown_path_is_rejected() {
     let fx = base();
     let journal = Journal::new();
@@ -467,6 +485,18 @@ fn drop_of_a_missing_entry_is_rejected() {
     push(&fx, &journal);
     let err = run(&fx, &journal, &on_entry(StashAction::Drop, "stash@{5}")).unwrap_err();
     assert_eq!(err.code, ErrorCode::GitRevision);
+}
+
+#[test]
+fn an_entry_number_beyond_the_range_of_integers_does_not_exist() {
+    let fx = base();
+    let journal = Journal::new();
+    write(&fx, "a.txt", "x\n");
+    push(&fx, &journal);
+    let name = format!("stash@{{{}}}", usize::MAX);
+    let err = run(&fx, &journal, &on_entry(StashAction::Drop, &name)).unwrap_err();
+    assert_eq!(err.code, ErrorCode::GitRevision);
+    assert_eq!(list(fx.path(), &ctx()).unwrap().len(), 1);
 }
 
 #[test]

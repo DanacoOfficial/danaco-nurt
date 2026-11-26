@@ -180,9 +180,9 @@ pub(crate) fn resolve(repo: &GitRepo, spec: Option<&str>) -> Result<(Option<usiz
             .with_problem("no_stash")
             .with_fix(format!("git.stash {root} action: push")));
     }
-    let Some(entry) = entries
-        .len()
-        .checked_sub(position + 1)
+    let Some(entry) = position
+        .checked_add(1)
+        .and_then(|count| entries.len().checked_sub(count))
         .and_then(|at| entries.get(at))
     else {
         return Err(error(
@@ -245,12 +245,15 @@ pub(crate) fn plan_drop(
     position: usize,
 ) -> Result<ObjectId> {
     let mut entries = reflog(repo)?;
-    let at = entries.len().checked_sub(position + 1).ok_or_else(|| {
-        error(
-            ErrorCode::GitRevision,
-            format!("stash@{{{position}}} does not exist"),
-        )
-    })?;
+    let at = position
+        .checked_add(1)
+        .and_then(|count| entries.len().checked_sub(count))
+        .ok_or_else(|| {
+            error(
+                ErrorCode::GitRevision,
+                format!("stash@{{{position}}} does not exist"),
+            )
+        })?;
     let removed = entries.remove(at);
     if entries.is_empty() {
         delete_stash(refs)?;
