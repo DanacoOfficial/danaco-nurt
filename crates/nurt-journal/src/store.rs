@@ -738,8 +738,9 @@ pub(crate) mod test_support {
 
     #[cfg(unix)]
     fn meta_mtime_ns(meta: &std::fs::Metadata) -> i64 {
-        std::os::unix::fs::MetadataExt::mtime(meta) * 1_000_000_000
-            + std::os::unix::fs::MetadataExt::mtime_nsec(meta)
+        std::os::unix::fs::MetadataExt::mtime(meta)
+            .saturating_mul(1_000_000_000)
+            .saturating_add(std::os::unix::fs::MetadataExt::mtime_nsec(meta))
     }
 
     #[cfg(not(unix))]

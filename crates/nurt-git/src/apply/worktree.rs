@@ -131,7 +131,10 @@ fn etag_expect(_path: &Path, _node: Node, meta: &std::fs::Metadata) -> Result<Ex
     const NANOS_PER_SECOND: i64 = 1_000_000_000;
     Ok(Expect::Etag(Etag {
         size: meta.size(),
-        modified_ns: meta.mtime() * NANOS_PER_SECOND + meta.mtime_nsec(),
+        modified_ns: meta
+            .mtime()
+            .saturating_mul(NANOS_PER_SECOND)
+            .saturating_add(meta.mtime_nsec()),
         file_id: FileId {
             volume: meta.dev(),
             low: meta.ino(),
@@ -386,4 +389,23 @@ pub(crate) fn stat_of(path: &Path) -> Result<Stat> {
     let meta =
         gix_index::fs::Metadata::from_path_no_follow(path).map_err(|err| io_error(&err, path))?;
     Stat::from_fs(&meta).map_err(|err| repo_error(err, "read file times"))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_modification_time_after_the_year_2262_saturates() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("late");
+        let file = std::fs::File::create(&path).unwrap();
+        let late = std::time::UNIX_EPOCH + std::time::Duration::from_secs(10_000_000_000);
+        file.set_modified(late).unwrap();
+        let observation = observe_native(&path).unwrap();
+        let Expect::Etag(etag) = expect_of(&path, &observation).unwrap() else {
+            unreachable!("an existing file expects an etag");
+        };
+        assert_eq!(etag.modified_ns, i64::MAX);
+    }
 }
