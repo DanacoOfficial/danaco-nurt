@@ -575,6 +575,9 @@ const COMMAND_CODES: &[ErrorCode] = &[
 /// Name of the detail of an error that holds the command.
 const COMMAND_DETAIL: &str = "command";
 
+/// Prefix that some errors write before the topic, as in `help syntax`.
+const HELP_PREFIX: &str = "help ";
+
 /// The line `help: help "<topic>"` that points an error at the part of the
 /// help that applies.
 ///
@@ -600,7 +603,7 @@ const COMMAND_DETAIL: &str = "command";
 pub fn help_reference(error: &Error) -> String {
     let code = error.code();
     let topic = if let Some(topic) = error.help.as_deref() {
-        topic.to_owned()
+        topic.strip_prefix(HELP_PREFIX).unwrap_or(topic).to_owned()
     } else if COMMAND_CODES.contains(&code) {
         error
             .details
@@ -679,6 +682,12 @@ mod tests {
     fn other_codes_point_at_their_own_entry() {
         let error = Error::new(ErrorCode::Stale, "changed");
         assert_eq!(help_reference(&error), "help: help \"E_STALE\"");
+    }
+
+    #[test]
+    fn topic_written_as_a_call_loses_its_prefix() {
+        let error = Error::new(ErrorCode::Syntax, "bad").with_help("help syntax");
+        assert_eq!(help_reference(&error), "help: help \"syntax\"");
     }
 
     #[test]

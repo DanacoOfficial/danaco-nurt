@@ -315,3 +315,58 @@ fn overview_and_unknown_topics_name_the_commands_topic() {
     let expected = error.expected.clone().unwrap();
     assert_eq!(expected.as_array().unwrap()[0], "commands");
 }
+
+/// Topics that the sources of other crates write as the help of an error.
+fn topics_in(directory: &std::path::Path, found: &mut Vec<(String, String)>) {
+    const MARKS: [&str; 3] = [".help(\"", ".with_help(\"", "help: \""];
+    for entry in std::fs::read_dir(directory).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            topics_in(&path, found);
+            continue;
+        }
+        if path.extension().is_none_or(|extension| extension != "rs") {
+            continue;
+        }
+        let source = std::fs::read_to_string(&path).unwrap();
+        for line in source.lines().filter(|line| !line.trim_start().starts_with("//")) {
+            for mark in MARKS {
+                let mut rest = line;
+                while let Some(position) = rest.find(mark) {
+                    rest = &rest[position + mark.len()..];
+                    let Some(end) = rest.find('"') else { break };
+                    found.push((path.display().to_string(), rest[..end].to_owned()));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn every_topic_an_error_points_at_exists() {
+    let catalog = common::catalog();
+    let mut found = Vec::new();
+    for krate in ["nurt-bind", "nurt-correct", "nurt-syntax", "nurt-cli"] {
+        let directory = common::root().join("crates").join(krate).join("src");
+        topics_in(&directory, &mut found);
+    }
+    assert!(found.len() > 10, "{found:?}");
+    for (file, topic) in found {
+        let topic = topic.strip_prefix("help ").unwrap_or(&topic);
+        if topic.is_empty() {
+            continue;
+        }
+        let result = help::render(&HelpQuery::topic(topic), &catalog);
+        assert!(result.is_ok(), "{file}: help \"{topic}\" fails: {result:?}");
+    }
+}
+
+#[test]
+fn part_topics_answer_in_both_languages() {
+    for topic in ["pipelines", "let", "paths", "records", "lists"] {
+        let english = text(&HelpQuery::topic(topic));
+        let polish = text(&HelpQuery::topic(topic).with_language(Language::Pl));
+        assert!(!english.is_empty() && !polish.is_empty(), "{topic}");
+        assert_ne!(english, polish, "{topic}");
+    }
+}

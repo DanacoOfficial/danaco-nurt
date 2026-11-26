@@ -367,6 +367,35 @@ pub(crate) const fn corrections(language: Language) -> &'static [&'static str] {
     }
 }
 
+/// Names of the topics that explain one part of the syntax; errors of the
+/// binder and of the lexer point at them.
+pub(crate) const PART_TOPICS: [&str; 5] = ["pipelines", "let", "paths", "records", "lists"];
+
+/// Lines of the topic of one part of the syntax, taken from the core layer so
+/// that both agree; `None` for a name that is not in [`PART_TOPICS`].
+pub(crate) fn part_topic(name: &str, language: Language) -> Option<Vec<&'static str>> {
+    let program = |index: &[usize]| -> Vec<&'static str> {
+        index
+            .iter()
+            .filter_map(|position| PROGRAM.lines.get(*position))
+            .map(|line| line.text(language))
+            .collect()
+    };
+    let mut lines = match name {
+        "pipelines" | "let" => program(&[0, 1]),
+        "paths" => program(&[2]),
+        "lists" => program(&[3]),
+        "records" => program(&[1]),
+        _ => return None,
+    };
+    match name {
+        "pipelines" => lines.extend(RULES.lines.first().map(|line| line.text(language))),
+        "records" => lines.extend(RECORDS.lines.first().map(|line| line.text(language))),
+        _ => {}
+    }
+    Some(lines)
+}
+
 /// Lines of the `syntax` topic: the grammar, the literals, the expressions
 /// and the first rule, taken from the core layer so that both agree.
 pub(crate) fn syntax(language: Language) -> Vec<&'static str> {

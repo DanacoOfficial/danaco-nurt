@@ -233,6 +233,7 @@ enum Subject<'a> {
     Syntax,
     Corrections,
     Commands,
+    Part(&'static str),
     Search(&'a str),
 }
 
@@ -275,6 +276,13 @@ pub fn render(query: &HelpQuery, catalog: &Catalog) -> Result<HelpText, Error> {
             text::corrections(query.language).join("\n"),
         ),
         Subject::Commands => command_list(catalog, labels),
+        Subject::Part(name) => plain(
+            "topic",
+            name,
+            text::part_topic(name, query.language)
+                .unwrap_or_default()
+                .join("\n"),
+        ),
         Subject::Search(words) => search(catalog, words, labels),
     };
     let body = match query.format {
@@ -371,6 +379,9 @@ fn detect<'a>(catalog: &'a Catalog, topic: &str) -> Result<Subject<'a>, Error> {
         COMMANDS_TOPIC => return Ok(Subject::Commands),
         _ => {}
     }
+    if let Some(name) = text::PART_TOPICS.into_iter().find(|name| *name == topic) {
+        return Ok(Subject::Part(name));
+    }
     if let Some(file) = catalog.group(topic) {
         return Ok(Subject::Group(file.group.as_str()));
     }
@@ -389,6 +400,7 @@ fn detect<'a>(catalog: &'a Catalog, topic: &str) -> Result<Subject<'a>, Error> {
         names.extend(
             ["syntax", "corrections", COMMANDS_TOPIC]
                 .into_iter()
+                .chain(text::PART_TOPICS)
                 .map(str::to_owned),
         );
         names

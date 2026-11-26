@@ -25,7 +25,7 @@ line is `Danaco Nurt <version> - command shell and language where every change
 can be undone`.
 
 A topic is resolved in this order when `kind` is not given: command, error
-code, `syntax`, `corrections`, `commands`, group, guide. The same name can denote a
+code, `syntax`, `corrections`, `commands`, `pipelines`, `let`, `paths`, `records`, `lists`, group, guide. The same name can denote a
 command and a group (`verify`): `help verify` answers for the command,
 `help verify kind: group` and `help group: verify` answer for the group.
 
@@ -38,6 +38,7 @@ command and a group (`verify`): `help verify` answers for the command,
 | `syntax` | grammar, literals and expressions, and the rule on stages after the effect |
 | `corrections` | classes and policy of corrections, the rule families and the result fields |
 | `commands` | every command of the catalog under its group, with its summary |
+| `pipelines`, `let`, `paths`, `records`, `lists` | the part of the syntax that the name says, the lines of `syntax` that apply; the hints of errors point at these topics |
 | `search` | commands, error codes and guides that match the words, best first |
 
 The topics `group`, `skill` and `search` exclude each other and the positional
