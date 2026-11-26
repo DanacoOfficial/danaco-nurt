@@ -125,12 +125,24 @@ enum Markup {
     Comment,
     CData,
     Pi,
+    /// Document type declaration; `subset` is set between `[` and `]`.
+    Doctype {
+        quote: Option<char>,
+        subset: bool,
+    },
 }
 
-const OPENERS: [(&str, Markup); 4] = [
+const OPENERS: [(&str, Markup); 5] = [
     ("<!--", Markup::Comment),
     ("<![CDATA[", Markup::CData),
     ("<?", Markup::Pi),
+    (
+        "<!DOCTYPE",
+        Markup::Doctype {
+            quote: None,
+            subset: false,
+        },
+    ),
     ("<", Markup::Tag),
 ];
 
@@ -138,12 +150,65 @@ impl Markup {
     fn context(self) -> XmlContext {
         match self {
             Self::Text => XmlContext::Text,
-            Self::Tag => XmlContext::Name,
+            Self::Tag | Self::Doctype { .. } => XmlContext::Name,
             Self::Value(_) => XmlContext::Attribute,
             Self::Comment => XmlContext::Comment,
             Self::CData => XmlContext::CData,
             Self::Pi => XmlContext::ProcessingInstruction,
         }
+    }
+
+    /// Step inside a document type declaration: `>` inside a quoted literal,
+    /// a comment or a processing instruction of the internal subset does not
+    /// end it, and `>` inside the subset ends only a markup declaration.
+    fn doctype_step(
+        &mut self,
+        rest: &str,
+        first: usize,
+        quote: Option<char>,
+        subset: bool,
+    ) -> usize {
+        if let Some(open) = quote {
+            if rest.starts_with(open) {
+                *self = Self::Doctype {
+                    quote: None,
+                    subset,
+                };
+            }
+            return first;
+        }
+        if subset {
+            for (opener, closer) in [("<!--", "-->"), ("<?", "?>")] {
+                if rest.starts_with(opener) {
+                    return rest[opener.len()..]
+                        .find(closer)
+                        .map_or(rest.len(), |at| opener.len() + at + closer.len());
+                }
+            }
+        }
+        match rest.as_bytes().first() {
+            Some(&literal @ (b'"' | b'\'')) => {
+                *self = Self::Doctype {
+                    quote: Some(char::from(literal)),
+                    subset,
+                };
+            }
+            Some(b'[') => {
+                *self = Self::Doctype {
+                    quote: None,
+                    subset: true,
+                };
+            }
+            Some(b']') => {
+                *self = Self::Doctype {
+                    quote: None,
+                    subset: false,
+                };
+            }
+            Some(b'>') if !subset => *self = Self::Text,
+            _ => {}
+        }
+        first
     }
 
     /// Consumes the token at the start of a non-empty `rest` and returns
@@ -172,6 +237,9 @@ impl Markup {
                     *self = Self::Tag;
                 }
                 return first;
+            }
+            Self::Doctype { quote, subset } => {
+                return self.doctype_step(rest, first, quote, subset);
             }
             Self::Comment => "-->",
             Self::CData => "]]>",
@@ -903,6 +971,39 @@ mod tests {
         assert!(contexts.contains(&XmlContext::Comment));
         assert!(contexts.contains(&XmlContext::CData));
         assert!(contexts.contains(&XmlContext::ProcessingInstruction));
+    }
+
+    #[test]
+    fn document_type_declaration_ends_at_its_own_closing_bracket() {
+        let declaration = "<!DOCTYPE a [<!ENTITY e \"x>y\"><!-- > \" --><?p > ?><!ENTITY f 'a>']]>";
+        let text = format!("{declaration}<a/>");
+        let mut state = Markup::Text;
+        let mut rest = text.as_str();
+        let mut consumed = 0;
+        while consumed < declaration.len() {
+            let len = state.step(rest);
+            consumed += len;
+            rest = &rest[len..];
+        }
+        assert_eq!(consumed, declaration.len());
+        assert_eq!(state, Markup::Text);
+        while !rest.is_empty() {
+            let len = state.step(rest);
+            rest = &rest[len..];
+        }
+        assert_eq!(state, Markup::Text);
+    }
+
+    #[test]
+    fn declaration_without_an_internal_subset_ends_at_the_first_bracket() {
+        let mut state = Markup::Text;
+        let mut rest = "<!DOCTYPE a SYSTEM \"x>y.dtd\">t";
+        while rest.len() > 1 {
+            let len = state.step(rest);
+            rest = &rest[len..];
+        }
+        assert_eq!(state, Markup::Text);
+        assert_eq!(rest, "t");
     }
 
     #[test]

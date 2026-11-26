@@ -12,6 +12,7 @@
 //! standalone, because the unread entity could have declared the same names
 //! first (XML 1.0, section 5.1).
 
+use std::collections::HashMap;
 use std::ops::Range;
 
 use nurt_contracts::error::{Error, ErrorCode, Location, Result};
@@ -134,7 +135,9 @@ pub struct Dtd {
     span: Range<usize>,
     internal_subset: Option<Range<usize>>,
     entities: Vec<EntityDecl>,
+    entity_index: HashMap<String, usize>,
     attributes: Vec<AttributeDecl>,
+    attribute_index: HashMap<String, HashMap<String, usize>>,
     unread_declarations: bool,
     standalone: bool,
 }
@@ -206,15 +209,37 @@ impl Dtd {
     /// Binding declaration of a general entity.
     #[must_use]
     pub fn entity(&self, name: &str) -> Option<&EntityDecl> {
-        self.entities.iter().find(|decl| decl.name == name)
+        self.entity_index
+            .get(name)
+            .and_then(|index| self.entities.get(*index))
     }
 
     /// Binding declaration of an attribute of an element.
     #[must_use]
     pub fn attribute(&self, element: &str, name: &str) -> Option<&AttributeDecl> {
-        self.attributes
-            .iter()
-            .find(|decl| decl.element == element && decl.name == name)
+        self.attribute_index
+            .get(element)
+            .and_then(|names| names.get(name))
+            .and_then(|index| self.attributes.get(*index))
+    }
+
+    fn add_entity(&mut self, decl: EntityDecl) {
+        if !self.entity_index.contains_key(&decl.name) {
+            self.entity_index
+                .insert(decl.name.clone(), self.entities.len());
+            self.entities.push(decl);
+        }
+    }
+
+    fn add_attribute(&mut self, decl: AttributeDecl) {
+        let names = self
+            .attribute_index
+            .entry(decl.element.clone())
+            .or_default();
+        if !names.contains_key(&decl.name) {
+            names.insert(decl.name.clone(), self.attributes.len());
+            self.attributes.push(decl);
+        }
     }
 
     /// Binding attribute declarations of an element in document order.
@@ -393,7 +418,9 @@ impl<'a> Parser<'a> {
                 span: base..base + text.len(),
                 internal_subset: None,
                 entities: Vec::new(),
+                entity_index: HashMap::new(),
                 attributes: Vec::new(),
+                attribute_index: HashMap::new(),
                 unread_declarations: false,
                 standalone,
             },
@@ -664,11 +691,12 @@ impl<'a> Parser<'a> {
         };
         self.skip_space();
         self.expect(">", "at the end of the entity declaration")?;
-        if !parameter && self.processing && self.dtd.entity(name).is_none() {
-            self.dtd.entities.push(EntityDecl {
+        if !parameter && self.processing {
+            let span = self.base + start..self.base + self.pos;
+            self.dtd.add_entity(EntityDecl {
                 name: name.to_owned(),
                 definition,
-                span: self.base + start..self.base + self.pos,
+                span,
             });
         }
         Ok(())
@@ -866,8 +894,8 @@ impl<'a> Parser<'a> {
             let kind = self.attribute_type()?;
             self.require_space("after the attribute type")?;
             let default = self.attribute_default()?;
-            if self.processing && self.dtd.attribute(element, name).is_none() {
-                self.dtd.attributes.push(AttributeDecl {
+            if self.processing {
+                self.dtd.add_attribute(AttributeDecl {
                     element: element.to_owned(),
                     name: name.to_owned(),
                     kind,
@@ -1015,6 +1043,33 @@ mod tests {
             EntityDefinition::Internal("one".to_owned())
         );
         assert_eq!(dtd.entities().len(), 1);
+    }
+
+    #[test]
+    fn first_attribute_declaration_is_binding_and_lookup_is_by_name() {
+        let text = "<!DOCTYPE a [<!ATTLIST e x CDATA #IMPLIED y ID #IMPLIED>\
+                    <!ATTLIST e x ID #IMPLIED><!ATTLIST f x NMTOKEN #IMPLIED>]>";
+        let dtd = Dtd::parse(text, 0, false).unwrap();
+        assert_eq!(dtd.attribute("e", "x").unwrap().kind, AttributeType::CData);
+        assert_eq!(dtd.attribute("e", "y").unwrap().kind, AttributeType::Id);
+        assert_eq!(dtd.attribute("f", "x").unwrap().kind, AttributeType::NmToken);
+        assert!(dtd.attribute("g", "x").is_none());
+        assert!(dtd.attribute("e", "z").is_none());
+        assert_eq!(dtd.attributes_of("e").count(), 2);
+    }
+
+    #[test]
+    fn many_entity_declarations_are_looked_up_by_name() {
+        let declarations: String = (0..3000)
+            .map(|index| format!("<!ENTITY e{index} \"v{index}\">"))
+            .collect();
+        let dtd = Dtd::parse(&format!("<!DOCTYPE a [{declarations}]>"), 0, false).unwrap();
+        assert_eq!(dtd.entities().len(), 3000);
+        assert_eq!(
+            dtd.entity("e2999").unwrap().definition,
+            EntityDefinition::Internal("v2999".to_owned())
+        );
+        assert!(dtd.entity("e3000").is_none());
     }
 
     #[test]
