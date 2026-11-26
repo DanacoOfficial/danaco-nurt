@@ -427,3 +427,32 @@ fn time_helpers_saturate() {
     let far = WallTime::from_unix_nanos(i128::MAX);
     assert_eq!(instant_from_wall(far).as_unix_nanos(), i64::MAX);
 }
+
+#[test]
+fn a_saved_interval_of_zero_does_not_compile() {
+    for expression in ["", "0s", "0ms", "0d0h"] {
+        let def = TriggerDef {
+            kind: TriggerKind::Every,
+            expression: expression.to_owned(),
+            timezone: "UTC".to_owned(),
+        };
+        let error = Trigger::compile(&def).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue, "{expression}");
+    }
+    let valid = TriggerDef {
+        kind: TriggerKind::Every,
+        expression: "1ms".to_owned(),
+        timezone: "UTC".to_owned(),
+    };
+    assert!(Trigger::compile(&valid).is_ok());
+}
+
+#[test]
+fn a_saved_interval_with_a_multibyte_unit_is_invalid() {
+    let def = TriggerDef {
+        kind: TriggerKind::Every,
+        expression: "5ł".to_owned(),
+        timezone: "UTC".to_owned(),
+    };
+    assert!(Trigger::compile(&def).is_err());
+}
