@@ -210,12 +210,31 @@ fn config(case: &Case) -> Config {
     config
 }
 
+/// Whether a program is written with a drive letter (`C:\x`, `c:/x`) or a
+/// registry path, which only a Windows host accepts. A case without
+/// `context.os` that shows such a path runs on a Windows host.
+fn windows_notation(input: &str) -> bool {
+    if input.contains("registry:/") {
+        return true;
+    }
+    let chars: Vec<char> = input.chars().collect();
+    chars.windows(3).enumerate().any(|(index, window)| {
+        let alone = index == 0 || !chars[index - 1].is_alphanumeric();
+        alone
+            && window[0].is_ascii_alphabetic()
+            && window[1] == ':'
+            && matches!(window[2], '\\' | '/')
+    })
+}
+
 /// Binding context of a case.
 pub(crate) fn context(case: &Case) -> BindContext {
     let os = match case.context["os"].as_str() {
         Some("windows") => Os::Windows,
         Some("macos") => Os::Macos,
-        _ => Os::Linux,
+        Some(_) => Os::Linux,
+        None if windows_notation(&case.input) => Os::Windows,
+        None => Os::Linux,
     };
     let mut context = BindContext::new(os);
     if let Some(base) = case.context["base"].as_str() {

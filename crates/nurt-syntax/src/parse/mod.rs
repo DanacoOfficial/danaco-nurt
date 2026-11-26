@@ -141,9 +141,34 @@ pub fn parse_keeping_escapes(
     variant: Variant,
     options: &ParseOptions,
 ) -> Result<AstDocument, SyntaxError> {
-    let mut parser = Parser::with_escapes(text, variant, options, false, true)?;
+    parse_with_escapes(text, variant, options, true)
+}
+
+pub(crate) fn parse_with_escapes(
+    text: &str,
+    variant: Variant,
+    options: &ParseOptions,
+    keep_escapes: bool,
+) -> Result<AstDocument, SyntaxError> {
+    let mut parser = Parser::with_escapes(text, variant, options, false, keep_escapes)?;
     let program = parse_variant(&mut parser)?;
     Ok(parser.document(program, options))
+}
+
+/// Parses and repairs like [`parse_tolerant`], except that a text with escapes
+/// the language does not have keeps the characters of those escapes, as in
+/// [`parse_keeping_escapes`].
+///
+/// # Errors
+///
+/// As [`parse_tolerant`], without `E_ESCAPE` for an unknown escape.
+pub fn parse_tolerant_keeping_escapes(
+    text: &str,
+    variant: Variant,
+    options: &ParseOptions,
+    policy: &dyn RepairPolicy,
+) -> Result<Repaired, SyntaxError> {
+    repair::parse_with_repairs(text, variant, options, policy, true)
 }
 
 /// Parses program text and repairs it with `policy` when strict parsing
@@ -178,7 +203,7 @@ pub fn parse_tolerant(
     options: &ParseOptions,
     policy: &dyn RepairPolicy,
 ) -> Result<Repaired, SyntaxError> {
-    repair::parse_with_repairs(text, variant, options, policy)
+    repair::parse_with_repairs(text, variant, options, policy, false)
 }
 
 fn parse_variant(parser: &mut Parser<'_>) -> Result<Program, SyntaxError> {
