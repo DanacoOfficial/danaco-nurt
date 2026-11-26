@@ -73,6 +73,13 @@ for example `create`, `modify` or `rename`), `mode` (how the previous content
 is kept, for example `clone` or `none`), `before_hash` and `after_hash` (absent
 when there was no content), `undone` and `released`.
 
+The text form of the result shows the columns `id`, `time`, `kind`, `state`,
+`files`, `bytes` and `summary`, and `items` with `details: true`. The other
+fields of the operation (`action`, `irreversible`, `bulk`, `session`,
+`undo_of`, `redo_of`, `undo_scope`, `ast_hash`, `manifest_sha256`, `chain`
+and `pinned`) stay in the JSON form and appear in the text with verbosity
+`detailed` or when the request names them in `fields`.
+
 ## Effect
 
 | Property | Value |

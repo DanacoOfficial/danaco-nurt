@@ -123,6 +123,12 @@ hexadecimal digits of the SHA-256 of the returned body. A `row` record holds
 the cells of one table row by column name, the row number `no` and the table
 number `table`.
 
+The text form of the result shows the columns `url`, `status`, `bytes`,
+`content_type` and `elapsed`, and never the body. The body and the other
+fields stay in the JSON form and appear in the text with verbosity `detailed`
+or when the request names them in `fields`, for example `fields: ["status",
+"body"]`.
+
 ## Effect
 
 | Property | Value |
