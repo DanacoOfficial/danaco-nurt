@@ -15,7 +15,7 @@ reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["entry"]
+output = ["entry", "registry_value"]
 summary = "List the entries of a directory."
 
 [[command.param]]
@@ -72,7 +72,7 @@ reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["entry"]
+output = ["entry", "registry_value"]
 summary = "Find entries under a directory by name pattern and attributes."
 
 [[command.param]]
@@ -178,7 +178,7 @@ reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["entry"]
+output = ["entry", "registry_value"]
 summary = "Describe paths, including paths that do not exist."
 
 [[command.param]]
@@ -1342,9 +1342,9 @@ category = "change"
 reversibility = "reversible"
 effect = "local"
 implementation = "builtin"
-input = ["none", "entry", "line", "match", "item", "node", "job"]
+input = ["none", "entry", "registry_value", "line", "match", "item", "node", "job"]
 output = ["effect"]
-summary = "Remove files, directories, lines, matches, document items, syntax nodes or finished jobs."
+summary = "Remove files, directories, registry keys and values, lines, matches, document items, syntax nodes or finished jobs."
 reversibility_note = "Removed files, directories and content are kept in the journal."
 effects = [
   { action = "job", effect = "local", reversibility = "irreversible", note = "Removing a job deletes its record and output files without a journal copy." },
@@ -1381,7 +1381,7 @@ summary = "Remove the given paths."
 
 [[command.form]]
 name = "stage"
-input = ["entry", "line", "match", "item", "node", "job"]
+input = ["entry", "registry_value", "line", "match", "item", "node", "job"]
 params = ["on_missing", "check_references"]
 summary = "Remove the input entries, lines, matches, items, nodes or jobs."
 

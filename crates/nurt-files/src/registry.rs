@@ -30,7 +30,7 @@ use nurt_contracts::fs::{
 use nurt_contracts::journal::{Expect, Mutation, TargetAction, TargetPath, TargetSpec};
 use nurt_contracts::record::Entry;
 use nurt_contracts::stage::{BoundArgs, ExecCtx, RecordStream, StageOutput};
-use nurt_contracts::value::{Path, Record, Value};
+use nurt_contracts::value::{Path, Record, RecordKind, Value};
 
 use crate::commands::conflict::{INTO, Step, TO};
 use crate::common::mutation::planned_change;
@@ -49,14 +49,25 @@ pub(crate) fn is_registry_path(text: &str) -> bool {
         .is_some_and(|head| head.eq_ignore_ascii_case(PREFIX))
 }
 
-/// The registry path an `entry` record describes; `None` for a file.
+/// The registry path an `entry` or `registry_value` record describes; `None`
+/// for a file. The path of a value record is its key, so the name of the
+/// value is appended, escaped as in a path, and `(default)` stands for the
+/// empty name.
 pub(crate) fn record_text(record: &Record) -> Option<String> {
-    match record.get(PATH_FIELD) {
-        Some(Value::Path(text) | Value::Text(text)) if is_registry_path(text.as_str()) => {
-            Some(text.as_str().to_owned())
-        }
-        _ => None,
+    let Some(Value::Path(text) | Value::Text(text)) = record.get(PATH_FIELD) else {
+        return None;
+    };
+    if !is_registry_path(text.as_str()) {
+        return None;
     }
+    if record.kind != RecordKind::RegistryValue {
+        return Some(text.as_str().to_owned());
+    }
+    let name = match record.get("name") {
+        Some(Value::Text(name)) if !name.is_empty() => name.replace('%', "%25").replace('/', "%2F"),
+        _ => "(default)".to_owned(),
+    };
+    Some(format!("{}/{name}", text.as_str().trim_end_matches('/')))
 }
 
 /// The `registry:` paths of the parameter `name`; `None` when it holds no

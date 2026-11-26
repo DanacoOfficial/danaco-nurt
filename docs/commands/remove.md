@@ -1,7 +1,7 @@
 ---
 command: remove
 group: core
-summary: Remove files, directories, lines, matches, document items, syntax nodes or finished jobs.
+summary: Remove files, directories, registry keys and values, lines, matches, document items, syntax nodes or finished jobs.
 since: 0.1.0
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
@@ -14,7 +14,7 @@ since: 0.1.0
 
 ```text
 remove <path>... [name: value]...
-entry|line|match|item|node|job |> remove [name: value]...
+entry|registry_value|line|match|item|node|job |> remove [name: value]...
 ```
 
 ## Description
@@ -67,7 +67,7 @@ the result reports `nothing_matched`.
 | Form | Input | Output |
 |---|---|---|
 | `source` | `none` | `effect` |
-| `stage` | `entry`, `line`, `match`, `item`, `node`, `job` | `effect` |
+| `stage` | `entry`, `registry_value`, `line`, `match`, `item`, `node`, `job` | `effect` |
 
 The `effect` record has one `change` with action `delete` per removed entry;
 a directory removed with its content has the flag `recursive`. A file edited

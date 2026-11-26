@@ -6,7 +6,9 @@
 
 use nurt_contracts::error::{ErrorCode, Result};
 use nurt_contracts::record::ChangeAction;
-use nurt_contracts::stage::{ArgValue, BoundArgs, EffectStage, ExecCtx, ReadStage, StageInput};
+use nurt_contracts::stage::{
+    ArgValue, BoundArgs, EffectStage, ExecCtx, ReadStage, RecordStream, StageInput,
+};
 use nurt_contracts::value::{Record, RecordKind, Value};
 use nurt_testkit::ctx::TestContext;
 use nurt_testkit::host::TestHost;
@@ -226,6 +228,40 @@ fn remove_declares_one_delete_target_for_the_outermost_paths() {
         )
         .unwrap();
     assert_eq!(two.changes.len(), 2);
+}
+
+#[test]
+fn remove_takes_value_records_from_the_pipeline() {
+    let test = windows();
+    let ctx = with_registry(&test);
+    let value = Record::new(RecordKind::RegistryValue)
+        .with("path", path(KEY))
+        .with("name", Value::Text("Mode".to_owned()));
+    let plan = Remove
+        .plan(
+            &call("remove", &[]),
+            StageInput::records(RecordStream::from_records(vec![value])),
+            &ctx,
+        )
+        .unwrap();
+    assert_eq!(plan.changes.len(), 1);
+    assert_eq!(plan.changes[0].action, ChangeAction::Delete);
+    assert_eq!(
+        plan.changes[0].path.as_str(),
+        "registry:/HKCU/Software/Nurt/Mode"
+    );
+}
+
+#[test]
+fn a_value_record_names_its_path_with_an_escaped_name_or_the_default() {
+    let record = |name: &str| {
+        Record::new(RecordKind::RegistryValue)
+            .with("path", path(KEY))
+            .with("name", Value::Text(name.to_owned()))
+    };
+    let text = |name: &str| crate::registry::record_text(&record(name)).unwrap();
+    assert_eq!(text(""), format!("{KEY}/(default)"));
+    assert_eq!(text("a/b%"), format!("{KEY}/a%2Fb%25"));
 }
 
 #[test]

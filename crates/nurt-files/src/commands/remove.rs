@@ -60,7 +60,12 @@ impl StageImpl for Remove {
         StageDescriptor {
             command: COMMAND.to_owned(),
             source: true,
-            input: InputKinds::Only(vec![RecordKind::Entry, RecordKind::Line, RecordKind::Match]),
+            input: InputKinds::Only(vec![
+                RecordKind::Entry,
+                RecordKind::RegistryValue,
+                RecordKind::Line,
+                RecordKind::Match,
+            ]),
         }
     }
 
@@ -195,9 +200,12 @@ fn read_input(args: &BoundArgs, input: StageInput<'_>, ctx: &ExecCtx) -> Result<
         }
         let record = item?;
         match record.kind {
-            RecordKind::Entry => match registry::record_text(&record) {
+            RecordKind::Entry | RecordKind::RegistryValue => match registry::record_text(&record) {
                 Some(text) => registered.push(text),
-                None => entries.push(Source::from_record(record, ctx)?),
+                None if record.kind == RecordKind::Entry => {
+                    entries.push(Source::from_record(record, ctx)?);
+                }
+                None => return Err(input_kind_error(COMMAND, &record)),
             },
             RecordKind::Line | RecordKind::Match => {
                 let path = record_path(&record, ctx)?;
