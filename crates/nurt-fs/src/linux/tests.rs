@@ -1564,6 +1564,34 @@ fn lock_refuses_a_symbolic_link_at_the_lock_path() {
 }
 
 #[test]
+fn reading_a_fifo_is_refused_without_waiting_for_a_writer() {
+    let fixture = Fixture::new();
+    let fifo = fixture.path("fifo");
+    make_fifo(&fifo);
+    let error = fixture.fs.open_read(&fifo).err().expect("fifo");
+    assert_eq!(error.kind, FsErrorKind::Unsupported);
+    assert_eq!(error.op, "open_read");
+}
+
+#[test]
+fn a_directory_cannot_be_renamed_into_its_own_subtree() {
+    let fixture = Fixture::new();
+    let outer = fixture.dir("outer");
+    let inner = outer.join_name("inner").expect("name");
+    fs::create_dir(&inner).expect("create the inner directory");
+    for mode in [RenameMode::NoReplace, RenameMode::Replace] {
+        let target = inner.join_name("moved").expect("name");
+        let error = fixture
+            .fs
+            .rename(&fixture.scope, &outer, &target, mode)
+            .expect_err("rename into the subtree");
+        assert_eq!(error.kind, FsErrorKind::InvalidPath, "{mode:?}");
+        assert!(outer.as_path().is_dir());
+        assert!(inner.as_path().is_dir());
+    }
+}
+
+#[test]
 fn copy_and_clone_refuse_a_fifo_source_without_waiting_for_a_writer() {
     let fixture = Fixture::new();
     let fifo = fixture.path("fifo");

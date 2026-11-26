@@ -978,7 +978,9 @@ pub trait Fs: Send + Sync {
     /// # Errors
     ///
     /// Fails as [`Fs::metadata`], with [`FsErrorKind::IsADirectory`] for a
-    /// directory and with [`FsErrorKind::InUse`] for a file locked against
+    /// directory, with [`FsErrorKind::Unsupported`] for a special file (a
+    /// device, FIFO or socket), which is refused without waiting for a
+    /// writer, and with [`FsErrorKind::InUse`] for a file locked against
     /// reading.
     fn open_read(&self, path: &AbsPath) -> FsResult<Box<dyn ReadHandle>>;
 
@@ -1148,8 +1150,9 @@ pub trait FsWrite: Fs {
     /// # Errors
     ///
     /// Fails with [`FsErrorKind::CrossDevice`] across volumes or overlay
-    /// layers, with [`FsErrorKind::Exists`] for [`RenameMode::NoReplace`] and
-    /// with [`FsErrorKind::InUse`].
+    /// layers, with [`FsErrorKind::Exists`] for [`RenameMode::NoReplace`],
+    /// with [`FsErrorKind::InvalidPath`] for a directory moved into its own
+    /// subtree and with [`FsErrorKind::InUse`].
     fn rename(
         &self,
         scope: &TxScope,

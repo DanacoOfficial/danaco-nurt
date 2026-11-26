@@ -183,17 +183,25 @@ impl Fs for LinuxFs {
 
     fn open_read(&self, path: &AbsPath) -> FsResult<Box<dyn ReadHandle>> {
         const OP: &str = "open_read";
-        let fd = open(path.as_path(), OFlags::RDONLY, 0, OP)?;
+        // `O_NONBLOCK` keeps the open of a FIFO from waiting for a writer; the
+        // kind check below refuses every special file, so no read can block.
+        let fd = open(path.as_path(), OFlags::RDONLY | OFlags::NONBLOCK, 0, OP)?;
         let meta = meta::stat_fd(fd.as_fd(), OP, path.as_path())?;
-        if meta.kind == FileKind::Directory {
-            return Err(kind_error(
+        match meta.kind {
+            FileKind::Directory => Err(kind_error(
                 FsErrorKind::IsADirectory,
                 Errno::ISDIR,
                 OP,
                 path.as_path(),
-            ));
+            )),
+            FileKind::Special => Err(kind_error(
+                FsErrorKind::Unsupported,
+                Errno::NXIO,
+                OP,
+                path.as_path(),
+            )),
+            _ => Ok(Box::new(LinuxReadHandle::new(fd, path.clone()))),
         }
-        Ok(Box::new(LinuxReadHandle::new(fd, path.clone())))
     }
 
     fn open_stream_read(&self, path: &AbsPath, _stream: &str) -> FsResult<Box<dyn ReadHandle>> {
@@ -364,13 +372,25 @@ impl FsWrite for LinuxFs {
         const OP: &str = "rename";
         let (from, to) = (from.as_path(), to.as_path());
         match mode {
-            RenameMode::Replace => retry(|| rustix::fs::renameat(CWD, from, CWD, to))
-                .map_err(|errno| sys_error(errno, OP, from)),
+            RenameMode::Replace => {
+                retry(|| rustix::fs::renameat(CWD, from, CWD, to)).map_err(|errno| match errno {
+                    Errno::INVAL if to != from && to.starts_with(from) => {
+                        kind_error(FsErrorKind::InvalidPath, errno, OP, to)
+                    }
+                    errno => sys_error(errno, OP, from),
+                })
+            }
             RenameMode::NoReplace => {
                 match retry(|| {
                     rustix::fs::renameat_with(CWD, from, CWD, to, RenameFlags::NOREPLACE)
                 }) {
                     Ok(()) => Ok(()),
+                    // A directory moved into its own subtree is refused with
+                    // `EINVAL` whatever the flags: a path error, not a missing
+                    // feature to emulate.
+                    Err(errno @ Errno::INVAL) if to != from && to.starts_with(from) => {
+                        Err(kind_error(FsErrorKind::InvalidPath, errno, OP, to))
+                    }
                     Err(errno @ (Errno::INVAL | Errno::NOSYS | Errno::OPNOTSUPP)) => {
                         emulate_noreplace(from, to, errno)
                     }
