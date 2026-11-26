@@ -162,6 +162,27 @@ fn systemd_name_suffix_and_template_instance() {
 }
 
 #[test]
+fn systemd_empty_name_is_not_found_without_a_call_to_the_manager() {
+    let fixture = Fixture::new(host_units());
+    for name in ["", ".service"] {
+        let scope = ServiceScope::System;
+        let errors = [
+            fixture.backend.get(name, scope).map(|_| ()),
+            fixture.backend.status(name, scope).map(|_| ()),
+            fixture.backend.start(name, scope),
+            fixture.backend.stop(name, scope),
+            fixture.backend.restart(name, scope),
+            fixture.backend.enable(name, scope),
+            fixture.backend.disable(name, scope),
+        ];
+        for result in errors {
+            assert_eq!(result.unwrap_err().code, ErrorCode::NotFound, "{name:?}");
+        }
+    }
+    assert!(fixture.calls().lock().unwrap().is_empty());
+}
+
+#[test]
 fn systemd_unit_names_with_escapes_and_non_ascii_text_are_passed_unchanged() {
     for escaped in [
         r"systemd-cryptsetup@dev-disk-by\x2duuid-1",
