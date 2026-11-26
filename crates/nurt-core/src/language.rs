@@ -21,6 +21,7 @@ use nurt_correct::tables::{Tables, load_embedded};
 use nurt_help::catalog::Catalog as HelpCatalog;
 use nurt_help::describe::{Layer, Length, layer};
 use nurt_help::help::{HelpQuery, render};
+use nurt_syntax::fmt::convert;
 use nurt_syntax::parse::{ParseOptions, parse};
 use nurt_syntax::print::{PositionalNames, PrintError, name_positional, try_print};
 use serde_json::json;
@@ -163,6 +164,24 @@ impl Frontend for LanguageFrontend {
         let catalog = self.help_catalog()?;
         let named = name_positional(ast, &CatalogNames(&catalog)).map_err(print_error)?;
         try_print(&named, variant).map_err(print_error)
+    }
+
+    fn format(
+        &self,
+        text: &str,
+        from: Option<SyntaxVariant>,
+        to: Option<SyntaxVariant>,
+        config: &Config,
+    ) -> Result<String, Error> {
+        let from = from.unwrap_or(config.syntax.variant);
+        let to = to.unwrap_or(config.syntax.variant);
+        let formatted = if to == SyntaxVariant::C {
+            let catalog = self.help_catalog()?;
+            convert(text, from, to, Some(&CatalogNames(&catalog)))
+        } else {
+            convert(text, from, to, None)
+        };
+        formatted.map_err(Error::from)
     }
 
     fn describe(&self, subject: &str, language: Language) -> Result<serde_json::Value, Error> {

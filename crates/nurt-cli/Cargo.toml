@@ -20,7 +20,7 @@ workspace = true
 default = ["mcp", "lsp", "migrate", "service", "journal"]
 # Components of other command groups. Each feature links the crate that
 # implements one subcommand; without it the subcommand is not available.
-mcp = ["dep:nurt-mcp"]
+mcp = ["dep:nurt-mcp", "dep:nurt-tooldef"]
 mcp-http = ["mcp", "nurt-mcp/http"]
 lsp = ["dep:nurt-langserver", "dep:nurt-bind", "dep:nurt-catalog", "dep:nurt-help"]
 migrate = ["dep:nurt-migrate", "dep:nurt-bind", "dep:nurt-catalog"]
@@ -48,6 +48,7 @@ nurt-bind = { workspace = true, optional = true }
 nurt-catalog = { workspace = true, optional = true }
 nurt-help = { workspace = true, optional = true }
 nurt-ext = { workspace = true }
+nurt-tooldef = { workspace = true, optional = true }
 ciborium = { workspace = true }
 comfy-table = { workspace = true }
 crossterm = { workspace = true }

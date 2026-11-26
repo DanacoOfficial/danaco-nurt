@@ -111,6 +111,26 @@ pub trait Frontend: Send + Sync {
     /// Returns `E_AST_SCHEMA` for a tree that cannot be printed.
     fn print(&self, ast: &AstDocument, variant: SyntaxVariant) -> Result<String, Error>;
 
+    /// Formats program text written in `from` as canonical text of `to`; a
+    /// missing variant is the configured one.
+    ///
+    /// A front end that keeps comments overrides this method. The default
+    /// parses and prints the tree, which does not carry comments.
+    ///
+    /// # Errors
+    ///
+    /// Returns the syntax error of the text, or the error of printing it.
+    fn format(
+        &self,
+        text: &str,
+        from: Option<SyntaxVariant>,
+        to: Option<SyntaxVariant>,
+        config: &Config,
+    ) -> Result<String, Error> {
+        let tree = self.parse(text, from, config)?;
+        self.print(&tree, to.unwrap_or(config.syntax.variant))
+    }
+
     /// Description of a command, a group or the language (`core`) as JSON.
     ///
     /// # Errors

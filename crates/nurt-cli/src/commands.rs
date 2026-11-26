@@ -4,8 +4,12 @@
 //! Handlers of the subcommands and of the program shortcut.
 
 use nurt_contracts::ast::AstDocument;
+#[cfg(feature = "mcp")]
+use nurt_contracts::envelope::Language;
 use nurt_contracts::envelope::{OutputFormat, Request, RequestOptions};
 use nurt_contracts::kinds::SyntaxVariant;
+#[cfg(feature = "mcp")]
+use nurt_tooldef::{CORE_GROUP, GroupSelection, RenderOptions, ToolFormat};
 use serde_json::Value as Json;
 
 use crate::EngineSource;
@@ -198,13 +202,13 @@ fn fmt(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8
     let context = Context::open(io.terminal, source)?;
     // The text is read in the requested variant; a text that is not in it is
     // read in the configured variant and printed in the requested one.
-    let tree = match context.engine.parse(&text, flags.variant) {
-        Err(first) if flags.variant.is_some() => {
-            context.engine.parse(&text, None).map_err(|_| first)?
-        }
+    let printed = match context.engine.format(&text, flags.variant, flags.variant) {
+        Err(first) if flags.variant.is_some() => context
+            .engine
+            .format(&text, None, flags.variant)
+            .map_err(|_| first)?,
         other => other?,
     };
-    let printed = context.engine.print(&tree, flags.variant)?;
     writeln!(io.out, "{}", printed.trim_end())?;
     Ok(exit::SUCCESS)
 }
@@ -274,6 +278,9 @@ fn ast(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8
 }
 
 fn schema(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {
+    if args.first().map(String::as_str) == Some("tool") && args.len() > 1 {
+        return tool_definition(&args[1..], io, source);
+    }
     let name = single(
         "schema",
         "a name: ast, bound, report, request, config or tool",
@@ -282,6 +289,105 @@ fn schema(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result
     let context = Context::open(io.terminal, source)?;
     let schema = context.engine.schema(&name)?;
     writeln!(io.out, "{}", schema.trim_end())?;
+    Ok(exit::SUCCESS)
+}
+
+/// Without the component of the protocol server the tool definition is not
+/// part of the build.
+#[cfg(not(feature = "mcp"))]
+fn tool_definition(
+    _options: &[String],
+    _io: &mut Io<'_>,
+    _source: &dyn EngineSource,
+) -> Result<u8, CliError> {
+    Err(integrations::unavailable("schema tool options"))
+}
+
+/// `schema tool` with options: the definition of the `nurt` tool in the format
+/// of a platform, with the descriptions of the selected command groups.
+#[cfg(feature = "mcp")]
+fn tool_definition(
+    options: &[String],
+    io: &mut Io<'_>,
+    source: &dyn EngineSource,
+) -> Result<u8, CliError> {
+    let mut format = ToolFormat::JsonSchema;
+    let mut language = None;
+    let mut groups = GroupSelection::Core;
+    let mut rest = options.iter();
+    while let Some(option) = rest.next() {
+        let (name, inline) = match option.split_once('=') {
+            Some((name, value)) => (name, Some(value.to_owned())),
+            None => (option.as_str(), None),
+        };
+        if !matches!(name, "--format" | "--language" | "--groups") {
+            return Err(CliError::Usage(format!("unknown option `{name}`")));
+        }
+        let value = inline
+            .or_else(|| rest.next().cloned())
+            .ok_or_else(|| CliError::Usage(format!("option `{name}` needs a value")))?;
+        match name {
+            "--format" => {
+                format = value
+                    .parse()
+                    .map_err(|error| CliError::Usage(format!("{error}")))?;
+            }
+            "--language" => {
+                language = Some(
+                    Language::ALL
+                        .iter()
+                        .copied()
+                        .find(|known| known.as_str() == value)
+                        .ok_or_else(|| {
+                            CliError::Usage(format!(
+                                "`{value}` is not a language; expected en or pl"
+                            ))
+                        })?,
+                );
+            }
+            _ => {
+                groups = value
+                    .parse()
+                    .map_err(|error| CliError::Usage(format!("{error}")))?;
+            }
+        }
+    }
+    let context = Context::open(io.terminal, source)?;
+    let described = |subject: &str| -> Result<String, CliError> {
+        let description = context.engine.describe(subject, language)?;
+        description
+            .get("text")
+            .and_then(Json::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| CliError::Failure(format!("`{subject}` has no description text")))
+    };
+    let names: Vec<String> = match &groups {
+        GroupSelection::Only(names) => names.clone(),
+        GroupSelection::All => context
+            .engine
+            .catalog()?
+            .get("groups")
+            .and_then(Json::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|group| group.get("name").and_then(Json::as_str))
+            .filter(|name| *name != CORE_GROUP)
+            .map(str::to_owned)
+            .collect(),
+        _ => Vec::new(),
+    };
+    let mut render_options = RenderOptions::new(described("core")?).with_groups(groups);
+    if let Some(language) = language {
+        render_options = render_options.with_language(language);
+    }
+    for name in names {
+        let description = described(&name)?;
+        render_options = render_options.with_group_description(name, description);
+    }
+    let definition = nurt_tooldef::render(format, &render_options).map_err(|error| {
+        CliError::Failure(format!("cannot render the tool definition: {error}"))
+    })?;
+    writeln!(io.out, "{definition}")?;
     Ok(exit::SUCCESS)
 }
 

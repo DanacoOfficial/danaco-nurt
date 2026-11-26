@@ -157,6 +157,9 @@ nurt fmt <file | -> [--variant a|b|c]
 ```
 
 Result: the program text in the given variant, by default the configured variant.
+Comments are kept: a comment on a line of its own stays before the statement or
+stage that follows it, and a comment at the end of a line stays at the end of
+the line of the stage that ended there; blank lines are removed.
 
 Example:
 
@@ -196,9 +199,18 @@ Syntax:
 
 ```
 nurt schema ast|bound|report|request|config|tool
+nurt schema tool [--format <format>] [--language en|pl] [--groups core|all|<group>,<group>...]
 ```
 
-Errors: an unknown name is `E_UNKNOWN_VALUE` with the known names.
+`schema tool` without options prints the published schema of the tool. With
+any of the options it prints the definition of the `nurt` tool in the format of
+a platform, with the descriptions of the selected command groups; the options
+and the formats are described in `docs/integrators/tool-definition.md`. The
+options are available when the components of the protocol server are part of
+the build.
+
+Errors: an unknown name is `E_UNKNOWN_VALUE` with the known names; an unknown
+format, language, group name or option is a usage error.
 
 Example:
 

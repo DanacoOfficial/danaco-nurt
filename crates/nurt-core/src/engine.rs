@@ -767,6 +767,21 @@ impl Engine {
             .print(ast, variant.unwrap_or(self.config().syntax.variant))
     }
 
+    /// Formats program text written in `from` as canonical text of `to`,
+    /// keeping its comments; a missing variant is the configured one.
+    ///
+    /// # Errors
+    ///
+    /// Returns the syntax error of the text, or the error of printing it.
+    pub fn format(
+        &self,
+        text: &str,
+        from: Option<SyntaxVariant>,
+        to: Option<SyntaxVariant>,
+    ) -> Result<String, Error> {
+        self.inner.frontend.format(text, from, to, self.config())
+    }
+
     /// Parses and corrects program text without running it.
     ///
     /// # Errors

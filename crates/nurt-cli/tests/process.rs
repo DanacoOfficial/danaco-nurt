@@ -376,6 +376,80 @@ fn fmt_prints_a_program_of_the_configured_variant_in_the_requested_one() {
     assert!(stdout(&output).contains("kind="), "{}", stdout(&output));
 }
 
+#[test]
+fn fmt_keeps_the_comments_of_the_program() {
+    let output = nurt(
+        &["fmt", "-"],
+        "# all files\nfind \"/srv\"   |> count # total\n",
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(
+        stdout(&output),
+        "# all files\nfind \"/srv\"\n|> count # total\n"
+    );
+}
+
+#[test]
+fn fmt_keeps_the_comments_when_it_changes_the_variant() {
+    let output = nurt(&["fmt", "--variant", "b", "-"], "find \"/srv\" # all\n");
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "find(\"/srv\") # all\n");
+}
+
+fn tool_definition(arguments: &[&str]) -> serde_json::Value {
+    let mut command = vec!["schema", "tool"];
+    command.extend_from_slice(arguments);
+    let output = nurt(&command, "");
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    serde_json::from_str(&stdout(&output)).unwrap()
+}
+
+#[test]
+fn schema_tool_prints_the_definition_in_the_requested_format() {
+    let anthropic = tool_definition(&["--format", "anthropic"]);
+    assert_eq!(anthropic["name"], "nurt");
+    assert_eq!(anthropic["input_schema"]["type"], "object");
+    assert!(!anthropic["description"].as_str().unwrap().is_empty());
+    let responses = tool_definition(&["--format=openai-responses"]);
+    assert_eq!(responses["type"], "function");
+    assert_eq!(responses["strict"], false);
+    let neutral = tool_definition(&["--format", "json-schema"]);
+    assert_eq!(neutral["name"], "nurt");
+    assert!(neutral["input_schema"]["$schema"].is_string());
+}
+
+#[test]
+fn schema_tool_describes_the_selected_groups_in_the_selected_language() {
+    let core = tool_definition(&["--format", "mcp"]);
+    let all = tool_definition(&["--format", "mcp", "--groups", "all"]);
+    let polish = tool_definition(&["--format", "mcp", "--language", "pl"]);
+    let length = |definition: &serde_json::Value| definition["description"].as_str().unwrap().len();
+    assert!(length(&all) > length(&core));
+    assert_ne!(polish["description"], core["description"]);
+    assert_eq!(
+        polish["inputSchema"]["properties"]["language"]["default"],
+        "pl"
+    );
+}
+
+#[test]
+fn schema_tool_rejects_an_unknown_format_and_an_unknown_option() {
+    for arguments in [
+        &["schema", "tool", "--format", "yaml"][..],
+        &["schema", "tool", "--output", "x"][..],
+        &["schema", "tool", "--language", "de"][..],
+        &["schema", "tool", "--format"][..],
+    ] {
+        let output = nurt(arguments, "");
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "{arguments:?}: {}",
+            stderr(&output)
+        );
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn argument_that_is_not_utf8_is_a_usage_error() {
