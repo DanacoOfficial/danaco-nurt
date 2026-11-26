@@ -217,7 +217,15 @@ fn summary(
         if record.before.meta.is_some() {
             summary.files += 1;
         }
-        if !holds_data(record.before.store) || record.before.blob.is_none() {
+        if !holds_data(record.before.store) {
+            continue;
+        }
+        if record.before.blob.is_none() {
+            // Content kept in the manifest is counted with the entry but has
+            // no file of its own.
+            if record.before.inline.is_some() && !unavailable(&items, record.index) {
+                summary.bytes = summary.bytes.saturating_add(record.bytes_held);
+            }
             continue;
         }
         blobs = true;

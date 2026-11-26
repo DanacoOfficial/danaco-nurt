@@ -16,10 +16,14 @@
 //! 4. The previous content of every target that is cloned or copied, and the
 //!    previous metadata, are preserved before `preserve` returns. Content
 //!    kept by moving or exchanging names is preserved atomically with its
-//!    change.
+//!    change. In a `preserve` call with many targets the content of small
+//!    files is kept in the manifest, which is then written again durably.
 //! 5. New content is written to `.nurt-tmp-<op>-<n>` in the directory of the
 //!    target, receives the previous metadata, is flushed, the expected state
-//!    is checked and the file is switched in.
+//!    is checked and the file is switched in. In a transaction with many
+//!    targets the flush of the new content and of the directories is deferred
+//!    to one `sync_paths` call that precedes every other kind of change and the
+//!    commit; see [`Unsynced`] for why this is safe.
 //! 6. At commit, under the account lock: the final manifests of all parts
 //!    are written, then `STATE = committed` of every part, then the index
 //!    row; then the markers are removed and the entry locks released.
@@ -31,7 +35,8 @@
 //! targets are changed without preservation and carry the irreversible
 //! reason `journal_error`.
 
-use std::io::{Seek, SeekFrom};
+use std::collections::{HashMap, HashSet};
+use std::io::{Read as _, Seek, SeekFrom};
 
 use nurt_contracts::config::{AgeLimit, ByteLimit, Oversize, StepLimit};
 use nurt_contracts::env::ClockStamp;
@@ -67,6 +72,26 @@ const JOURNAL_DIR_MODE: u32 = 0o700;
 
 /// Workers removing the directory of an entry that could not be written.
 const REMOVE_WORKERS: usize = 1;
+
+/// Number of targets of a transaction from which its changes are made
+/// durable together: the flushes of the new content and of the directories
+/// run once before the commit instead of once per target.
+const BATCH_MIN_TARGETS: usize = 64;
+
+/// Number of targets of one `preserve` call from which the previous content of
+/// small files is kept in the manifest instead of in a block per file.
+const INLINE_MIN_TARGETS: usize = 64;
+
+/// Largest previous content kept in the manifest.
+const INLINE_MAX_BYTES: u64 = 4096;
+
+/// Write permission bit of the account of a file; a file without it cannot be
+/// reopened for writing to flush it.
+const ACCOUNT_WRITE: u32 = 0o200;
+
+/// File flags that the kernel sets on its own (`FS_EXTENT_FL`) and that
+/// restoring a file does not need to bring back.
+const KERNEL_FILE_FLAGS: u64 = 0x0008_0000;
 
 /// Opens a transaction of a user operation.
 pub(crate) fn begin(ctx: &JournalCtx, request: BeginRequest) -> Box<dyn MutationTx + '_> {
@@ -104,6 +129,8 @@ pub(crate) struct Link {
 pub(crate) struct RecordedMeta {
     /// Block with the extended metadata kept with the previous content.
     pub(crate) blob: Option<AbsPath>,
+    /// Metadata rebuilt from the record of a previous state kept inline.
+    pub(crate) inline: Option<Box<ExtendedMeta>>,
     /// Modification time of the previous state, nanoseconds since the Unix
     /// epoch.
     pub(crate) modified_ns: Option<i64>,
@@ -158,6 +185,8 @@ struct Target {
     created: bool,
     copied_on_move: bool,
     observed: bool,
+    /// The previous content is kept in the manifest.
+    inline: bool,
 }
 
 impl Target {
@@ -172,6 +201,8 @@ impl Target {
     fn degrade(&mut self, reason: Irreversible) {
         self.record.before.store = PreserveMode::None;
         self.record.before.blob = None;
+        self.record.before.inline = None;
+        self.inline = false;
         self.record.irreversible = Some(reason);
         self.record.bytes_held = 0;
     }
@@ -222,6 +253,49 @@ pub(crate) struct Tx<'a> {
     /// Volumes for which entries were expired to make room for this
     /// operation.
     budgeted: Vec<nurt_contracts::fs::VolumeId>,
+    /// Volumes of the directories of the targets seen so far.
+    volumes: HashMap<AbsPath, VolumeInfo>,
+    /// The targets declared by the running `preserve` call keep small
+    /// previous content in the manifest.
+    inline_batch: bool,
+    /// Targets of the running `preserve` call that keep their previous
+    /// content in the manifest and wait for one admission, with the bytes
+    /// they add.
+    inline_admission: Vec<(usize, u64)>,
+    /// New content and directory changes not yet flushed.
+    unsynced: Unsynced,
+}
+
+/// Changes of a transaction whose flush is deferred to one flush of all of
+/// them before the commit.
+///
+/// A deferred change is safe because the previous state of its target is
+/// durable before the change is made (the blob, the inline content or the
+/// recorded file identity) and the entry is `prepared`: a crash before the
+/// flush rolls the entry back, and recovery restores every target whose
+/// state is not the recorded previous state, whatever part of the new content
+/// reached the disk. Nothing is committed before the flush returned.
+#[derive(Default)]
+struct Unsynced {
+    files: Vec<AbsPath>,
+    dirs: Vec<AbsPath>,
+    known_dirs: HashSet<AbsPath>,
+}
+
+impl Unsynced {
+    fn file(&mut self, path: AbsPath) {
+        self.files.push(path);
+    }
+
+    fn dir(&mut self, path: AbsPath) {
+        if self.known_dirs.insert(path.clone()) {
+            self.dirs.push(path);
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.files.is_empty() && self.dirs.is_empty()
+    }
 }
 
 fn misuse(problem: &str) -> Error {
@@ -277,6 +351,21 @@ fn ast_hash(ast: &serde_json::Value) -> ContentHash {
     let stripped = nurt_contracts::ast::strip_for_hash(ast);
     let canonical = serde_json_canonicalizer::to_vec(&stripped).unwrap_or_default();
     manifest::hash_bytes(&canonical)
+}
+
+/// Whether the metadata of a file is fully described by the record of its
+/// state before the change: no extended attributes, ACL, streams or
+/// attributes beyond the ones the kernel sets itself. Only such a file keeps
+/// its previous content in the manifest.
+fn plain_meta(meta: &ExtendedMeta) -> bool {
+    meta.xattrs.is_empty()
+        && meta.acl.is_none()
+        && meta.account_sid.is_none()
+        && meta.streams.is_empty()
+        && meta.link_target.is_none()
+        && meta
+            .flags
+            .is_none_or(|flags| flags & !KERNEL_FILE_FLAGS == 0)
 }
 
 fn writes_content(action: &TargetAction) -> bool {
@@ -387,6 +476,10 @@ impl<'a> Tx<'a> {
             stamp: ctx.clock.stamp(),
             external_since: None,
             budgeted: Vec::new(),
+            volumes: HashMap::new(),
+            inline_batch: false,
+            inline_admission: Vec::new(),
+            unsynced: Unsynced::default(),
         }
     }
 
@@ -617,7 +710,11 @@ impl<'a> Tx<'a> {
         parts.sort_by(|a, b| a.vol.cmp(&b.vol));
         let expires = final_form.then(|| self.expires(&self.parts[part].volume));
         Manifest {
-            v: manifest::FORMAT_VERSION,
+            v: if records.len() >= manifest::PACKED_MIN_TARGETS {
+                manifest::PACKED_FORMAT_VERSION
+            } else {
+                manifest::FORMAT_VERSION
+            },
             op: self.op.unwrap_or(OpId(0)),
             uuid: self.uuid,
             time: self.stamp.wall,
@@ -872,6 +969,7 @@ impl Tx<'_> {
             store: PreserveMode::None,
             blob: None,
             meta: None,
+            inline: None,
         };
         let mut snapshot = None;
         match &spec.path {
@@ -971,6 +1069,7 @@ impl Tx<'_> {
             created: false,
             copied_on_move: false,
             observed: false,
+            inline: false,
         };
         if let TargetAction::Rename { to, replace } = &spec.action {
             let existing = match fs.metadata(to, Follow::NoFollow) {
@@ -1001,6 +1100,7 @@ impl Tx<'_> {
                 store: PreserveMode::None,
                 blob: None,
                 meta: None,
+                inline: None,
             };
             target.dest = Some(Dest {
                 path: to.clone(),
@@ -1024,7 +1124,7 @@ impl Tx<'_> {
         let Some(path) = self.targets[position].path.clone() else {
             return Ok(());
         };
-        let volume = match ctx.fs.volume(&path) {
+        let volume = match self.volume_of(position, &path) {
             Ok(volume) => volume,
             Err(_) => {
                 self.targets[position].degrade(Irreversible::JournalError);
@@ -1074,49 +1174,131 @@ impl Tx<'_> {
                 return Ok(());
             }
             (TargetAction::Modify | TargetAction::Truncate, true) => {
-                let plan = overwrite::plan(
-                    ctx.settings.overwrite,
-                    &volume.features,
-                    before.links.unwrap_or(1),
-                );
-                let mode = plan.planned_mode();
-                self.targets[position].record.in_place = plan.in_place;
-                self.targets[position].plan = Some(plan);
-                (mode, before.size.unwrap_or(0))
+                if self.keeps_inline(position, &path) {
+                    self.targets[position].plan = Some(Plan {
+                        exchange: Vec::new(),
+                        clone: false,
+                        in_place: false,
+                    });
+                    self.targets[position].inline = true;
+                    (PreserveMode::Copy, before.size.unwrap_or(0))
+                } else {
+                    let plan = overwrite::plan(
+                        ctx.settings.overwrite,
+                        &volume.features,
+                        before.links.unwrap_or(1),
+                    );
+                    let mode = plan.planned_mode();
+                    self.targets[position].record.in_place = plan.in_place;
+                    self.targets[position].plan = Some(plan);
+                    (mode, before.size.unwrap_or(0))
+                }
             }
             (_, _) => (PreserveMode::Created, 0),
         };
         let index = self.targets[position].index();
         let id = BlobId::new(index, BlobRole::Previous);
+        let inline = self.targets[position].inline;
         let record = &mut self.targets[position].record;
         record.before.store = mode;
-        if matches!(
-            mode,
-            PreserveMode::Moved
-                | PreserveMode::Exchange
-                | PreserveMode::ReplaceBackup
-                | PreserveMode::Hardlink
-                | PreserveMode::Clone
-                | PreserveMode::Copy
-        ) {
+        if !inline
+            && matches!(
+                mode,
+                PreserveMode::Moved
+                    | PreserveMode::Exchange
+                    | PreserveMode::ReplaceBackup
+                    | PreserveMode::Hardlink
+                    | PreserveMode::Clone
+                    | PreserveMode::Copy
+            )
+        {
             record.before.blob = Some(id.content_name());
         }
-        if matches!(
-            mode,
-            PreserveMode::Moved
-                | PreserveMode::Meta
-                | PreserveMode::Exchange
-                | PreserveMode::ReplaceBackup
-                | PreserveMode::Hardlink
-                | PreserveMode::Clone
-                | PreserveMode::Copy
-        ) {
+        if !inline
+            && matches!(
+                mode,
+                PreserveMode::Moved
+                    | PreserveMode::Meta
+                    | PreserveMode::Exchange
+                    | PreserveMode::ReplaceBackup
+                    | PreserveMode::Hardlink
+                    | PreserveMode::Clone
+                    | PreserveMode::Copy
+            )
+        {
             record.before.meta = Some(id.meta_name());
         }
-        if extra > 0 || mode.is_preserved() && record.before.blob.is_some() {
-            self.admit(position, &volume, extra, op_size);
+        if inline {
+            self.inline_admission.push((position, extra));
+        } else if extra > 0 || mode.is_preserved() && record.before.blob.is_some() {
+            self.admit(&[position], &volume, extra, op_size);
         }
         Ok(())
+    }
+
+    /// Volume of a target. Entries of one directory share their volume, so the
+    /// description of a volume, which reads the mount table, is made once per
+    /// directory instead of once per target; directories are described
+    /// individually because a directory can be a mount point.
+    fn volume_of(&mut self, position: usize, path: &AbsPath) -> FsResult<VolumeInfo> {
+        let ctx = self.ctx;
+        let is_directory = self.targets[position].record.before.kind == Some(FileKind::Directory);
+        let Some(parent) = path.parent().filter(|_| !is_directory) else {
+            return ctx.fs.volume(path);
+        };
+        if let Some(volume) = self.volumes.get(&parent) {
+            return Ok(volume.clone());
+        }
+        let volume = ctx.fs.volume(path)?;
+        self.volumes.insert(parent, volume.clone());
+        Ok(volume)
+    }
+
+    /// Whether the previous content of the target is kept in the manifest: a
+    /// small regular file with one name and plain metadata, in a `preserve`
+    /// call with many targets. The metadata read for the decision is kept for
+    /// the metadata transfer to the new file.
+    fn keeps_inline(&mut self, position: usize, path: &AbsPath) -> bool {
+        let target = &self.targets[position];
+        let before = &target.record.before;
+        let candidate = self.inline_batch
+            && target.spec.action == TargetAction::Modify
+            && before.kind == Some(FileKind::File)
+            && before.links.unwrap_or(1) <= 1
+            && before.size.is_some_and(|size| size <= INLINE_MAX_BYTES);
+        if !candidate {
+            return false;
+        }
+        match self.ctx.fs.extended_metadata(path, Follow::NoFollow) {
+            Ok(meta) if plain_meta(&meta) => {
+                self.targets[position].old_meta = Some(meta);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Asks admission once for the inline targets of the running `preserve`
+    /// call of each volume, with the bytes they add together.
+    fn admit_inline(&mut self, op_size: u64) {
+        let waiting = std::mem::take(&mut self.inline_admission);
+        let mut groups: Vec<(usize, Vec<usize>, u64)> = Vec::new();
+        for (position, extra) in waiting {
+            let Some(part) = self.targets[position].part else {
+                continue;
+            };
+            match groups.iter_mut().find(|group| group.0 == part) {
+                Some(group) => {
+                    group.1.push(position);
+                    group.2 = group.2.saturating_add(extra);
+                }
+                None => groups.push((part, vec![position], extra)),
+            }
+        }
+        for (part, positions, extra) in groups {
+            let volume = self.parts[part].volume.clone();
+            self.admit(&positions, &volume, extra, op_size);
+        }
     }
 
     fn external_budget_spent(&mut self) -> bool {
@@ -1128,7 +1310,7 @@ impl Tx<'_> {
         now.saturating_sub(since) > budget
     }
 
-    fn admit(&mut self, position: usize, volume: &VolumeInfo, extra: u64, op_size: u64) {
+    fn admit(&mut self, positions: &[usize], volume: &VolumeInfo, extra: u64, op_size: u64) {
         let limits = self.ctx.limits.effective(volume);
         let op_size_limit = match limits.max_op_size.value {
             ByteLimit::Bytes(size) => Some(size.bytes()),
@@ -1151,7 +1333,9 @@ impl Tx<'_> {
             if reason == Irreversible::TooLargeForJournal {
                 self.note_oversize(op_size, &limits);
             }
-            self.targets[position].degrade(reason);
+            for &position in positions {
+                self.targets[position].degrade(reason);
+            }
         }
     }
 
@@ -1274,7 +1458,7 @@ impl Tx<'_> {
         }
         if cross && self.targets[position].mode() == PreserveMode::Moved {
             let size = self.targets[position].record.before.size.unwrap_or(0);
-            self.admit(position, volume, size, op_size);
+            self.admit(&[position], volume, size, op_size);
         }
         // The prepared manifest names the block of the replaced destination,
         // so that recovery can put it back after a crash at any later step.
@@ -1339,6 +1523,26 @@ impl Tx<'_> {
         let (Some(path), Some(part)) = (target.path.clone(), target.part) else {
             return Ok(());
         };
+        if target.inline {
+            // The content is read into the manifest. A previous content that
+            // changed since the target was inspected fails the expected state
+            // check of the change, so it is recorded as read.
+            let mut bytes = Vec::new();
+            fs.open_read(&path)?
+                .take(INLINE_MAX_BYTES + 1)
+                .read_to_end(&mut bytes)
+                .map_err(|_| FsError::new(FsErrorKind::Io, "read", Some(path.as_path())))?;
+            if bytes.len() as u64 > INLINE_MAX_BYTES {
+                return Err(
+                    FsError::new(FsErrorKind::Io, "inline_size", Some(path.as_path())).into(),
+                );
+            }
+            ctx.hit(FailPoint::PreserveMoved, Some(index.0))?;
+            let record = &mut self.targets[position].record;
+            record.bytes_held = bytes.len() as u64;
+            record.before.inline = Some(bytes);
+            return Ok(());
+        }
         let entry = self.parts[part].entry.clone();
         let mode = target.mode();
         let id = BlobId::new(index, BlobRole::Previous);
@@ -1408,6 +1612,7 @@ impl Tx<'_> {
 
 impl Tx<'_> {
     fn do_preserve(&mut self, specs: &[TargetSpec]) -> Result<Vec<Preserved>> {
+        self.inline_batch = specs.len() >= INLINE_MIN_TARGETS;
         let start = self.targets.len();
         let mut inspected = Vec::with_capacity(specs.len());
         for (offset, spec) in specs.iter().enumerate() {
@@ -1438,13 +1643,29 @@ impl Tx<'_> {
                 return Err(self.halt());
             }
         }
+        self.admit_inline(op_size);
+        // Targets that keep their content in the manifest write no file into the
+        // entry, so the entry is first written with the content in it.
+        let manifest_waits = range.clone().all(|position| self.targets[position].inline);
         let steps = self
             .ctx
             .hit(FailPoint::PlanDecided, None)
-            .and_then(|()| self.prepare_parts(range.clone()))
+            .and_then(|()| {
+                if manifest_waits {
+                    Ok(())
+                } else {
+                    self.prepare_parts(range.clone())
+                }
+            })
             .and_then(|()| self.preserve_content(range.clone()))
             .and_then(|degraded| {
-                if degraded {
+                // The inline content is part of the manifest, so the manifest
+                // is written again before the first change: a crash after a
+                // change finds the previous content in the durable manifest.
+                let inline = range
+                    .clone()
+                    .any(|position| self.targets[position].record.before.inline.is_some());
+                if degraded || inline {
                     self.prepare_parts(range.clone())
                 } else {
                     Ok(())
@@ -1556,6 +1777,18 @@ impl Tx<'_> {
         let provider = self.targets[position].snapshot.is_some();
         if !accepts(&self.targets[position].spec.action, &mutation, provider) {
             return Err(misuse("the mutation does not match the declared action"));
+        }
+        if !matches!(
+            mutation,
+            Mutation::WriteBytes(_)
+                | Mutation::CommitStaged
+                | Mutation::CopyFrom { .. }
+                | Mutation::WriteAt { .. }
+                | Mutation::SetLength(_)
+        ) {
+            // Other changes order their own flushes against the names that
+            // deferred changes may still use.
+            self.flush_unsynced()?;
         }
         self.phase = Phase::Applying;
         match mutation {
@@ -1748,14 +1981,24 @@ impl Tx<'_> {
         }
         self.step(FailPoint::StageWritten, index)?;
         let previous = self.targets[position].old_meta.as_ref().filter(|_| existed);
+        let mut writable = true;
         let complete = match self
             .metadata_for(index, previous, &staged, copied.as_ref())
             .map_err(as_target)?
         {
-            Some(meta) => handle.apply_meta(&meta).map_err(as_target)?.is_complete(),
+            Some(meta) => {
+                writable = meta.basic.mode & ACCOUNT_WRITE != 0;
+                handle.apply_meta(&meta).map_err(as_target)?.is_complete()
+            }
             None => true,
         };
-        handle.sync(Durability::Full).map_err(as_target)?;
+        // In a transaction with many targets the flush of the new content and
+        // of the directories is left to one flush before the commit; a file
+        // that cannot be reopened for writing is flushed through its handle.
+        let deferred = writable && self.batched();
+        if !deferred {
+            handle.sync(Durability::Full).map_err(as_target)?;
+        }
         drop(handle);
         self.step(FailPoint::StageSynced, index)?;
         let hash = if hashed {
@@ -1767,7 +2010,7 @@ impl Tx<'_> {
             self.check_expect(&self.targets[position])?;
         }
         if existed {
-            self.switch_existing(position, &path, &staged, complete)?;
+            self.switch_existing(position, &path, &staged, complete, deferred)?;
         } else {
             match fs.rename(&scope, &staged, &path, RenameMode::NoReplace) {
                 Ok(()) => {}
@@ -1785,10 +2028,37 @@ impl Tx<'_> {
         }
         self.targets[position].changed = true;
         self.step(FailPoint::ApplySwitched, index)?;
-        if let Some(parent) = path.parent() {
+        if deferred {
+            self.unsynced.file(path.clone());
+            if let Some(parent) = path.parent() {
+                self.unsynced.dir(parent);
+            }
+        } else if let Some(parent) = path.parent() {
             fs.sync_dir(&scope, &parent).map_err(as_target)?;
         }
         self.finish(position, Some(hash))
+    }
+
+    /// Whether the transaction has so many targets that the flushes of its
+    /// changes are made together.
+    fn batched(&self) -> bool {
+        self.targets.len() >= BATCH_MIN_TARGETS
+    }
+
+    /// Flushes the new content and the directories changed since the last
+    /// flush, in one call, so that they are durable before the entry is
+    /// committed.
+    fn flush_unsynced(&mut self) -> Result<()> {
+        if self.unsynced.is_empty() {
+            return Ok(());
+        }
+        let unsynced = std::mem::take(&mut self.unsynced);
+        let flushed = self
+            .ctx
+            .fs
+            .sync_paths(&self.scope(), &unsynced.files, &unsynced.dirs)
+            .map_err(Error::from);
+        flushed
     }
 
     /// Metadata the new content of a target receives before it is switched
@@ -1813,8 +2083,12 @@ impl Tx<'_> {
             .ok()
             .and_then(|position| self.link.recorded.get(position));
         let kept = recorded
-            .and_then(|recorded| recorded.blob.as_ref())
-            .and_then(|blob| manifest::read_meta(fs, blob).ok());
+            .and_then(|recorded| recorded.inline.as_deref().cloned())
+            .or_else(|| {
+                recorded
+                    .and_then(|recorded| recorded.blob.as_ref())
+                    .and_then(|blob| manifest::read_meta(fs, blob).ok())
+            });
         if kept.is_some() {
             return Ok(kept);
         }
@@ -1848,6 +2122,7 @@ impl Tx<'_> {
         path: &AbsPath,
         staged: &AbsPath,
         complete: bool,
+        deferred: bool,
     ) -> Result<()> {
         let ctx = self.ctx;
         let fs = ctx.fs.as_ref();
@@ -1893,10 +2168,13 @@ impl Tx<'_> {
                             && let Ok(blobs) = self.parts[self.targets[position].part.unwrap_or(0)]
                                 .entry
                                 .blobs()
-                            && fs.sync_dir(&scope, &blobs).is_err()
                         {
-                            self.targets[position].record.irreversible =
-                                Some(Irreversible::JournalError);
+                            if deferred {
+                                self.unsynced.dir(blobs);
+                            } else if fs.sync_dir(&scope, &blobs).is_err() {
+                                self.targets[position].record.irreversible =
+                                    Some(Irreversible::JournalError);
+                            }
                         }
                         return Ok(());
                     }
@@ -2268,6 +2546,7 @@ impl Tx<'_> {
     fn restore_all(&mut self, cause: UndoneCause) -> std::result::Result<RollbackReport, Fault> {
         let ctx = self.ctx;
         let fs = ctx.fs.as_ref();
+        self.unsynced = Unsynced::default();
         let journal_scope = self.journal_scope();
         for part in 0..self.parts.len() {
             if self.parts[part].prepared && !self.parts[part].broken {
@@ -2414,6 +2693,9 @@ impl Tx<'_> {
                 let blob = blob_path(BlobRole::Previous, target.part)?;
                 fs.rename(&scope, &blob, &path, RenameMode::Replace)
             }
+            PreserveMode::Copy if target.record.before.inline.is_some() => {
+                self.restore_inline(position, &path)
+            }
             PreserveMode::Clone | PreserveMode::Copy if target.copied_on_move => {
                 let blob = blob_path(BlobRole::Previous, target.part)?;
                 blob::copy_entry(fs, &scope, &blob, &path)?;
@@ -2458,6 +2740,29 @@ impl Tx<'_> {
             }
             _ => Err(unsupported()),
         }
+    }
+
+    /// Writes the previous content kept in the manifest back over the target:
+    /// a new file with the previous metadata is flushed and renamed over it.
+    fn restore_inline(&self, position: usize, path: &AbsPath) -> FsResult<()> {
+        let fs = self.ctx.fs.as_ref();
+        let scope = self.scope();
+        let target = &self.targets[position];
+        let bytes = target.record.before.inline.as_deref().ok_or_else(|| {
+            FsError::new(FsErrorKind::Unsupported, "restore", Some(path.as_path()))
+        })?;
+        let staged = self
+            .staged_path(position)
+            .map_err(|_| FsError::new(FsErrorKind::InvalidPath, "restore", Some(path.as_path())))?;
+        let _ = blob::discard(fs, &scope, &staged);
+        let mut handle = fs.create_new(&scope, &staged)?;
+        manifest::write_all(handle.as_mut(), bytes)?;
+        if let Some(meta) = &target.old_meta {
+            handle.apply_meta(meta)?;
+        }
+        handle.sync(Durability::Full)?;
+        drop(handle);
+        fs.rename(&scope, &staged, path, RenameMode::Replace)
     }
 
     /// Flushes what [`Self::restore`] changed for one target: the directories
@@ -2525,6 +2830,9 @@ impl Tx<'_> {
     fn do_commit(&mut self) -> Result<OpHandle> {
         let ctx = self.ctx;
         let fs = ctx.fs.as_ref();
+        if let Err(error) = self.flush_unsynced() {
+            return Err(self.fail(error));
+        }
         let dropped: Vec<usize> = self
             .targets
             .iter()
@@ -3067,6 +3375,163 @@ mod tests {
         assert!(env.pending(0).is_empty());
         assert_eq!(env.index().len(), 1);
         assert!(!handle.irreversible.iter().any(|entry| entry.path.is_some()));
+    }
+
+    /// Creates `count` small files `vol-a/bulk/f<N>.txt`.
+    fn bulk_files(env: &Env, count: usize) -> Vec<AbsPath> {
+        std::fs::create_dir_all(env.fixture.fs.path("vol-a/bulk").as_path()).unwrap();
+        (0..count)
+            .map(|index| {
+                let path = env.file(
+                    &format!("vol-a/bulk/f{index}.txt"),
+                    format!("old {index}\n").as_bytes(),
+                );
+                let mut permissions = std::fs::metadata(path.as_path()).unwrap().permissions();
+                std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o640);
+                std::fs::set_permissions(path.as_path(), permissions).unwrap();
+                path
+            })
+            .collect()
+    }
+
+    fn mode_of(path: &AbsPath) -> u32 {
+        std::os::unix::fs::PermissionsExt::mode(
+            &std::fs::metadata(path.as_path()).unwrap().permissions(),
+        ) & 0o777
+    }
+
+    #[test]
+    fn bulk_overwrite_keeps_small_previous_content_in_a_packed_manifest() {
+        let env = Env::new();
+        let count = manifest::PACKED_MIN_TARGETS + 4;
+        let paths = bulk_files(&env, count);
+        let specs: Vec<TargetSpec> = paths
+            .iter()
+            .map(|path| spec(path, TargetAction::Modify))
+            .collect();
+        let mut tx = begin(&env.ctx, request("replace"));
+        let preserved = tx.preserve(&specs).unwrap();
+        assert!(preserved.iter().all(|kept| kept.mode == PreserveMode::Copy));
+        for (index, kept) in preserved.iter().enumerate() {
+            tx.apply(
+                kept.index,
+                Mutation::WriteBytes(format!("new {index}\n").into_bytes()),
+            )
+            .unwrap();
+        }
+        let handle = tx.commit().unwrap();
+        let op = handle.op.unwrap();
+        for (index, path) in paths.iter().enumerate() {
+            assert_eq!(env.read(path), format!("new {index}\n").as_bytes());
+            assert_eq!(mode_of(path), 0o640);
+        }
+        let entry = env.layout(0).entry(op).unwrap();
+        assert_eq!(
+            std::fs::read_dir(entry.blobs().unwrap().as_path())
+                .unwrap()
+                .count(),
+            0,
+            "no block is written for inline content"
+        );
+        let bytes = manifest::read_bytes(&env.fixture.fs, &entry.manifest().unwrap()).unwrap();
+        assert!(matches!(
+            crate::integrity::verify_manifest(&bytes),
+            crate::integrity::ManifestVerdict::Intact { .. }
+        ));
+        let manifest = env.manifest(0, op.0);
+        assert_eq!(manifest.v, manifest::PACKED_FORMAT_VERSION);
+        assert_eq!(manifest.targets.len(), count);
+        for (index, record) in manifest.targets.iter().enumerate() {
+            assert_eq!(
+                record.before.inline.as_deref(),
+                Some(format!("old {index}\n").as_bytes())
+            );
+            assert!(record.before.blob.is_none() && record.before.meta.is_none());
+            assert_eq!(record.before.store, PreserveMode::Copy);
+        }
+        assert_eq!(env.state(0, op.0).state, EntryState::Committed);
+    }
+
+    #[test]
+    fn rollback_of_a_bulk_overwrite_restores_inline_content_and_permissions() {
+        let env = Env::new();
+        let paths = bulk_files(&env, BATCH_MIN_TARGETS + 6);
+        let specs: Vec<TargetSpec> = paths
+            .iter()
+            .map(|path| spec(path, TargetAction::Modify))
+            .collect();
+        let mut tx = begin(&env.ctx, request("replace"));
+        let preserved = tx.preserve(&specs).unwrap();
+        for kept in &preserved {
+            tx.apply(kept.index, Mutation::WriteBytes(b"replaced\n".to_vec()))
+                .unwrap();
+        }
+        assert_eq!(env.read(&paths[0]), b"replaced\n");
+        tx.rollback(RollbackReason::ValidateFailed).unwrap();
+        for (index, path) in paths.iter().enumerate() {
+            assert_eq!(env.read(path), format!("old {index}\n").as_bytes());
+            assert_eq!(mode_of(path), 0o640);
+        }
+        assert_eq!(env.state(0, 1).state, EntryState::Undone);
+        assert!(env.pending(0).is_empty());
+    }
+
+    #[test]
+    fn failed_flush_before_the_commit_rolls_the_bulk_operation_back() {
+        let env = Env::new();
+        let paths = bulk_files(&env, BATCH_MIN_TARGETS + 2);
+        let specs: Vec<TargetSpec> = paths
+            .iter()
+            .map(|path| spec(path, TargetAction::Modify))
+            .collect();
+        let mut tx = begin(&env.ctx, request("replace"));
+        let preserved = tx.preserve(&specs).unwrap();
+        for kept in &preserved {
+            tx.apply(kept.index, Mutation::WriteBytes(b"replaced\n".to_vec()))
+                .unwrap();
+        }
+        // The directory flush of the deferred changes is the first flush of the
+        // directory of the targets: no change was made durable before the commit.
+        env.fixture
+            .fs
+            .fail("sync_dir", "vol-a/bulk", FsErrorKind::Io);
+        tx.commit().unwrap_err();
+        for (index, path) in paths.iter().enumerate() {
+            assert_eq!(env.read(path), format!("old {index}\n").as_bytes());
+        }
+        assert_eq!(env.state(0, 1).state, EntryState::Undone);
+        assert!(env.pending(0).is_empty());
+        assert!(env.index().is_empty());
+    }
+
+    #[test]
+    fn small_operations_keep_the_block_per_file_layout() {
+        let env = Env::new();
+        let paths = bulk_files(&env, INLINE_MIN_TARGETS - 1);
+        let specs: Vec<TargetSpec> = paths
+            .iter()
+            .map(|path| spec(path, TargetAction::Modify))
+            .collect();
+        let mut tx = begin(&env.ctx, request("replace"));
+        let preserved = tx.preserve(&specs).unwrap();
+        assert!(
+            preserved
+                .iter()
+                .all(|kept| kept.mode == PreserveMode::Exchange)
+        );
+        for kept in &preserved {
+            tx.apply(kept.index, Mutation::WriteBytes(b"new\n".to_vec()))
+                .unwrap();
+        }
+        let op = tx.commit().unwrap().op.unwrap();
+        let manifest = env.manifest(0, op.0);
+        assert_eq!(manifest.v, manifest::FORMAT_VERSION);
+        assert!(
+            manifest
+                .targets
+                .iter()
+                .all(|record| record.before.inline.is_none() && record.before.blob.is_some())
+        );
     }
 
     #[test]

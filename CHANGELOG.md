@@ -13,6 +13,19 @@ their own version numbers, described in the specification.
 
 ## [Unreleased]
 
+### Changed
+
+- Journal: an operation with many small files (a `replace` over thousands of
+  files and its `undo`) is several times faster and its entry is proportional to
+  the changed content. In a `preserve` call with at least 64 targets the
+  previous content of small files (up to 4096 bytes) is kept in the manifest
+  instead of a block and a metadata file per file; a transaction with at least
+  64 targets flushes its new files and directories with one call before the
+  commit instead of one flush per file; the volume of a directory is described
+  once per directory. Manifests of operations with at least 256 targets have
+  format version 2 (packed target records, same digest rule); journals written
+  by 0.1.0 are read unchanged, and a reader of version 1 rejects version 2.
+
 ## [0.1.0] - 2026-11-22
 
 First release.

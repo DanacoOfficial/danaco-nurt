@@ -52,12 +52,25 @@ stage returns. The stage never commits.
    journal chooses a preserve mode, consulting `Admission`; it assigns the
    operation number at the first call, writes the entry in the `prepared`
    state and preserves the previous state of all declared targets before
-   returning. `preserve` is not allowed after the first change.
+   returning. `preserve` is not allowed after the first change. In a call that
+   declares at least 64 targets, the previous content of a small file (at most
+   4096 bytes, a single name, no extended attributes, ACL or streams) is kept in
+   the manifest of the entry instead of a block per file (store `copy`, section
+   5); the manifest is written again, durably, before `preserve` returns.
 2. Apply. The stage changes targets with `MutationTx::apply`. New content
    is written to a staged file in the directory of the target, either filled
    by the journal (`Mutation::WriteBytes`) or by the stage through the handle
    returned by `MutationTx::stage` (`Mutation::CommitStaged`), and switched in
    atomically. The metadata of the previous file is transferred by the journal.
+   In a transaction with at least 64 targets the journal does not flush each
+   new file and directory right after the change; it flushes all of them with
+   one `FsWrite::sync_paths` call before any other kind of change and before
+   the commit. This is safe because the previous state of every target is
+   durable before its change and the entry is `prepared` until the commit: a
+   crash before the flush is rolled back by recovery, which restores every
+   target that does not hold the recorded previous state, whatever part of the
+   new content reached the disk (section 4). Nothing is committed before the
+   flush returned; a failed flush rolls the transaction back.
 3. Expected state. `TargetSpec::expect` (`unchecked`, `absent`, an entity
    tag or a content hash) is checked atomically with the change. A mismatch
    fails with `E_STALE` and rolls the whole transaction back.
@@ -146,6 +159,12 @@ not repeat the `stat`.
 | During reclaim (`expiring`) | The removal of the entry data is completed. |
 | Manifest fails its integrity check | The entry becomes `corrupt`; its data is kept for manual salvage. |
 
+The manifest of an operation with at least 256 targets has format version 2:
+the target records are packed (`targets_z`: the JSON array compressed with
+Zstandard, Base64), and the digest covers the unpacked manifest. A journal
+written before this format is read unchanged (version 1); a reader of version 1
+rejects version 2 and changes nothing.
+
 `JournalStore::recover` runs before the first transaction of a process and
 before the first operation after a reboot; it also expires overdue entries.
 File systems without durable metadata after a flush have the journal disabled
@@ -160,7 +179,7 @@ by default.
 | `replace_backup` | overwrite on Windows, backup name of the replace call | as `exchange` |
 | `hardlink` | overwrite, hard link to the old content before replacement | as `exchange` |
 | `clone` | block-sharing clone of the old content | writes the clone back |
-| `copy` | byte copy of the old content | writes the copy back |
+| `copy` | byte copy of the old content, in a block of the entry or, for small files of an operation with many targets, in the manifest (`inline`, hex) | writes the copy back |
 | `none` | previous content not kept; always with an irreversible marker | not possible |
 | `created` | the target did not exist | moves the new entry into the undo entry |
 | `meta` | metadata change only | restores the recorded metadata |

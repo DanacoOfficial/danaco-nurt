@@ -22,6 +22,7 @@ use nurt_contracts::journal::{
 };
 use nurt_contracts::report::IrreversibleEntry;
 use nurt_contracts::value::{Instant, Size};
+use sha2::{Digest, Sha256};
 
 use crate::conflict::{self, ItemKey, TargetProbe};
 use crate::layout::{self, EntryLayout};
@@ -361,9 +362,17 @@ pub(crate) fn record_index(parts: &[StoredPart]) -> RecordIndex<'_> {
     index
 }
 
-/// Files holding the content preserved for the targets `indexes` of entry
-/// `op`; targets for which the entry keeps no content are left out. The
-/// entry is read once.
+/// Preserved content of one target.
+pub(crate) enum PreservedData {
+    /// File holding the content.
+    File(AbsPath),
+    /// Content kept in the manifest, represented by its hash.
+    Inline(ContentHash),
+}
+
+/// Preserved content of the targets `indexes` of entry `op`: the files that
+/// hold it and the hashes of content kept in the manifest. Targets for which
+/// the entry keeps no content are left out. The entry is read once.
 ///
 /// Fails when the entry cannot be read or names a file outside its
 /// directory.
@@ -371,15 +380,19 @@ pub(crate) fn preserved_files(
     ctx: &JournalCtx,
     op: OpId,
     indexes: &[TargetIndex],
-) -> Result<Vec<(TargetIndex, AbsPath)>> {
+) -> Result<Vec<(TargetIndex, PreservedData)>> {
     let (parts, _) = stored_parts(ctx, op)?;
     let records = record_index(&parts);
     let mut files = Vec::with_capacity(indexes.len());
     for index in indexes {
-        if let Some((entry, record)) = records.get(index)
-            && let Some(name) = &record.before.blob
-        {
-            files.push((*index, entry.resolve(name)?));
+        let Some((entry, record)) = records.get(index) else {
+            continue;
+        };
+        if let Some(name) = &record.before.blob {
+            files.push((*index, PreservedData::File(entry.resolve(name)?)));
+        } else if let Some(bytes) = &record.before.inline {
+            let hash = ContentHash(Sha256::digest(bytes).into());
+            files.push((*index, PreservedData::Inline(hash)));
         }
     }
     Ok(files)

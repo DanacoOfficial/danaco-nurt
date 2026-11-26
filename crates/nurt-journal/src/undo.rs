@@ -1707,6 +1707,20 @@ fn restore_step(
             let shared = target.mode == PreserveMode::Moved
                 && record.before.kind == Some(FileKind::File)
                 && record.before.links.unwrap_or(1) > 1;
+            if let (Some(bytes), TargetPath::Fs(_)) = (&record.before.inline, &target.path) {
+                // Content kept in the manifest is written back from memory.
+                let mut restored = step(
+                    target.path.clone(),
+                    TargetAction::Modify,
+                    Mutation::WriteBytes(bytes.clone()),
+                );
+                restored.meta = RecordedMeta {
+                    blob: None,
+                    inline: record.before.plain_meta().map(Box::new),
+                    modified_ns: record.before.modified_ns,
+                };
+                return Ok(restored);
+            }
             let data = preserved_path(entry, record, op)?;
             if let (true, Expect::Absent, TargetPath::Fs(path)) =
                 (shared, &item.expect, &target.path)
@@ -1729,6 +1743,7 @@ fn restore_step(
                     .meta
                     .as_deref()
                     .and_then(|name| entry.resolve(name).ok()),
+                inline: None,
                 modified_ns: record.before.modified_ns,
             };
             Ok(restored)
@@ -4235,6 +4250,7 @@ mod tests {
                 store: PreserveMode::Exchange,
                 blob: None,
                 meta: None,
+                inline: None,
             },
             replaced: None,
             after: Some(AfterRecord {

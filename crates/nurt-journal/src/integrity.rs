@@ -168,9 +168,14 @@ impl ManifestVerdict {
 /// Accepts arbitrary bytes and never panics; nesting deeper than the limit of
 /// the JSON parser yields [`ManifestDefect::NotJson`].
 pub(crate) fn verify_manifest(bytes: &[u8]) -> ManifestVerdict {
-    let Ok(manifest) = serde_json::from_slice::<Value>(bytes) else {
+    let Ok(mut manifest) = serde_json::from_slice::<Value>(bytes) else {
         return ManifestVerdict::Unreadable(ManifestDefect::NotJson);
     };
+    // The digest covers the unpacked manifest, so that both forms of a
+    // manifest have the same digest.
+    if manifest::unpack_targets(&mut manifest).is_err() {
+        return ManifestVerdict::Unreadable(ManifestDefect::NotCanonical);
+    }
     let Some(members) = manifest.as_object() else {
         return ManifestVerdict::Unreadable(ManifestDefect::NotObject);
     };
