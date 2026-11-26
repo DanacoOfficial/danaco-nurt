@@ -156,6 +156,10 @@ impl ModelClient for OpenAiClient {
     fn count_tokens(&mut self, _text: &str) -> Result<Option<u64>> {
         Ok(None)
     }
+
+    fn set_time_limit(&mut self, remaining: std::time::Duration) {
+        self.http.set_time_limit(Some(remaining));
+    }
 }
 
 #[cfg(test)]
