@@ -71,12 +71,13 @@ pub fn apply_changes(tx: &mut dyn MutationTx, ops: Vec<FileOp>) -> Result<Vec<Ch
 /// `change` record of a planned target: the path, the action, the
 /// destination of a rename and the known size.
 ///
-/// The path is the declared target; for a rename it is the source and `to`
-/// is the destination.
+/// The path is the declared target; for a rename it is the source, `from`
+/// repeats it as the report requires, and `to` is the destination.
 #[must_use]
 pub fn planned_change(target: &TargetSpec) -> Change {
     let mut change = Change::new(target_field(&target.path), change_action(&target.action));
     if let TargetAction::Rename { to, .. } = &target.action {
+        change.from = Some(change.path.clone());
         change.to = Some(path_field(to));
     }
     change.size_before = target.size_hint.map(Size::from_bytes);
@@ -280,6 +281,11 @@ mod tests {
         let change = planned_change(&rename.target);
         assert_eq!(change.action, ChangeAction::Rename);
         assert_eq!(change.path.as_str(), from.to_language_string());
+        assert_eq!(
+            change.from.as_ref().map(|path| path.as_str().to_owned()),
+            Some(from.to_language_string()),
+            "the report requires `from` on a rename"
+        );
         assert_eq!(
             change.to.map(|path| path.as_str().to_owned()),
             Some(to.to_language_string())
