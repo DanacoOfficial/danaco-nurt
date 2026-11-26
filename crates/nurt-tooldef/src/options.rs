@@ -127,6 +127,7 @@ pub struct RenderOptions {
     groups: GroupSelection,
     language: Language,
     catalog_version: Option<String>,
+    max_description_chars: Option<usize>,
 }
 
 impl RenderOptions {
@@ -140,7 +141,19 @@ impl RenderOptions {
             groups: GroupSelection::Core,
             language: Language::En,
             catalog_version: None,
+            max_description_chars: None,
         }
+    }
+
+    /// Sets the longest description, in characters, that the target platform
+    /// accepts. [`RenderOptions::description`] then fails with
+    /// [`ToolDefError::DescriptionTooLong`] instead of producing a definition
+    /// that the platform would reject. Without a limit the length is not
+    /// checked.
+    #[must_use]
+    pub fn with_max_description_chars(mut self, limit: usize) -> Self {
+        self.max_description_chars = Some(limit);
+        self
     }
 
     /// Supplies the description of an optional group.
@@ -208,7 +221,9 @@ impl RenderOptions {
     /// - [`ToolDefError::InvalidGroupName`] when a listed name is not a
     ///   valid group name;
     /// - [`ToolDefError::EmptyCatalogVersion`] when the catalog version is
-    ///   blank.
+    ///   blank;
+    /// - [`ToolDefError::DescriptionTooLong`] when the text is longer than
+    ///   the limit of [`RenderOptions::with_max_description_chars`].
     pub fn description(&self) -> Result<String, ToolDefError> {
         let core = self.core_description.trim();
         if core.is_empty() {
@@ -233,7 +248,14 @@ impl RenderOptions {
                 })?;
             parts.push(text);
         }
-        Ok(parts.join(PART_SEPARATOR))
+        let description = parts.join(PART_SEPARATOR);
+        if let Some(limit) = self.max_description_chars {
+            let chars = description.chars().count();
+            if chars > limit {
+                return Err(ToolDefError::DescriptionTooLong { chars, limit });
+            }
+        }
+        Ok(description)
     }
 
     fn selected_groups(&self) -> Result<Vec<&str>, ToolDefError> {
@@ -300,6 +322,25 @@ mod tests {
             options.description(),
             Ok("Core.\n\nText.\n\nGit.".to_owned())
         );
+    }
+
+    #[test]
+    fn rejects_a_description_longer_than_the_limit_of_the_platform() {
+        let options = RenderOptions::new("Core.")
+            .with_group_description("git", "Git.")
+            .with_groups(GroupSelection::All);
+        assert_eq!(options.description(), Ok("Core.\n\nGit.".to_owned()));
+        let limited = options.clone().with_max_description_chars(11);
+        assert_eq!(limited.description(), Ok("Core.\n\nGit.".to_owned()));
+        assert_eq!(
+            options.with_max_description_chars(10).description(),
+            Err(ToolDefError::DescriptionTooLong {
+                chars: 11,
+                limit: 10
+            })
+        );
+        let wide = RenderOptions::new("żółć").with_max_description_chars(4);
+        assert_eq!(wide.description(), Ok("żółć".to_owned()));
     }
 
     #[test]
