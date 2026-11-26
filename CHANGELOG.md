@@ -77,6 +77,9 @@ their own version numbers, described in the specification.
   shared libraries are `libc.so.6`, `libm.so.6`, `libgcc_s.so.1` and the
   dynamic loader, so the program runs on a system without `liblzma.so.5`. The
   `.deb` package no longer depends on `liblzma5`.
+- `nurt-service` compiles for the target `x86_64-unknown-linux-musl`
+  (`sched_param` and `pthread_t` differ from glibc), and the release procedure
+  builds the static musl archive `nurt-<version>-x86_64-unknown-linux-musl`.
 
 ## [0.1.0] - 2026-11-22
 

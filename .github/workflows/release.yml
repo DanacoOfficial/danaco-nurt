@@ -67,6 +67,13 @@ jobs:
             tar -xzf "archives/nurt-lib-${version}-${triple}.tar.gz" -C "checked/$triple" --strip-components=1
             bash tools/ci/check-dependencies.sh "checked/$triple/nurt" "checked/$triple/libnurt.so.1"
           done
+          for archive in archives/nurt-"${version}"-*-unknown-linux-musl.tar.gz; do
+            [ -e "$archive" ] || continue
+            mkdir -p checked/musl
+            tar -xzf "$archive" -C checked/musl --strip-components=1
+            bash tools/ci/check-dependencies.sh checked/musl/nurt
+            rm -rf checked/musl
+          done
       - name: Import the signing key
         env:
           SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}

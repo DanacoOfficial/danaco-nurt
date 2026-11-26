@@ -81,7 +81,21 @@ The library archive contains the directory `nurt-lib-<version>-<target>/` with:
 | `nurt.h`, `nurt.pc` | C header and pkg-config file; `nurt.pc` defines `prefix`, `libdir` and `includedir` on separate lines | yes |
 | `LICENSE`, `NOTICE` | license texts | yes |
 
-The library is not packed for musl targets. `build-deb.sh` takes the library archive with `--lib-artifact`; `nurt.spec.in` lists it as `Source1`.
+The library is not packed for musl targets.
+
+The musl archive is built with the target `x86_64-unknown-linux-musl` (`rustup target add x86_64-unknown-linux-musl`) and a C compiler for it. Without `musl-gcc`, `zig cc` works when the C compiler and the linker are set apart:
+
+```sh
+export CC_x86_64_unknown_linux_musl=<script that runs: zig cc -target x86_64-linux-musl, without the option --target=...>
+export CFLAGS_x86_64_unknown_linux_musl="-fno-sanitize=undefined"
+cargo build --release --target x86_64-unknown-linux-musl -p nurt-cli
+python3 -I packaging/release/pack.py --root . --version <version> --target x86_64-unknown-linux-musl \
+    --binary target/x86_64-unknown-linux-musl/release/nurt --output archives --completions <dir> --site <dir>
+```
+
+The linker stays the default `cc`: `zig cc` as the linker adds a second C runtime start file to the one of the Rust target and the link fails with a duplicate `_start`. `-fno-sanitize=undefined` is needed because `zig cc` enables the undefined behavior sanitizer by default and `aws-lc-sys` then leaves `__ubsan_handle_type_mismatch_v1` undefined. The result is a static-pie executable with no `NEEDED` entries; `release.yml` checks it with `check-dependencies.sh`.
+
+`build-deb.sh` takes the library archive with `--lib-artifact`; `nurt.spec.in` lists it as `Source1`.
 
 Windows archives hold their files at the top level: the program archive `nurt.exe`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `completions/` and `doc/`; the library archive `nurt.dll`, `nurt.h`, `LICENSE` and `NOTICE`. The packages only deliver the service files; `nurt service install` installs the service.
 
