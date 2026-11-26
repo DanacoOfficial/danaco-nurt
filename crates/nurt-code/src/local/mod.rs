@@ -859,6 +859,43 @@ mod tests {
     }
 
     #[test]
+    fn offsets_follow_lines_and_scalar_value_columns() {
+        let source = "é = 1\r\nλx\n\nlast".as_bytes();
+        let at = |line, column| offset_of(source, TextPosition { line, column });
+        assert_eq!(at(1, 1), Some(0));
+        assert_eq!(at(1, 2), Some(2));
+        assert_eq!(at(2, 2), Some(10));
+        assert_eq!(at(2, 3), Some(11));
+        assert_eq!(at(2, 50), Some(11));
+        assert_eq!(at(3, 1), Some(12));
+        assert_eq!(at(4, 3), Some(15));
+        assert_eq!(at(4, 99), Some(17));
+        assert_eq!(at(5, 1), None);
+        assert_eq!(at(0, 1), None);
+        assert_eq!(offset_of(b"", TextPosition { line: 1, column: 1 }), Some(0));
+        assert_eq!(offset_of(b"", TextPosition { line: 2, column: 1 }), None);
+    }
+
+    #[test]
+    fn offsets_and_positions_round_trip_on_multibyte_crlf_text() {
+        let source = "a = \"é\"\r\nb = \"λλ\"; c = 1\r\n";
+        let analysis = analysis("python", source);
+        for (line, column) in [(1, 1), (1, 6), (2, 11), (2, 16)] {
+            let offset = offset_of(source.as_bytes(), TextPosition { line, column }).unwrap();
+            let position = analysis.position(to_u64(offset));
+            assert_eq!((position.line, position.column), (line, column));
+        }
+        let c = source.find("c = 1").unwrap();
+        assert_eq!(analysis.line_text(to_u64(c)), "b = \"λλ\"; c = 1");
+        let found = analysis.references("c");
+        assert_eq!(found.len(), 1);
+        assert_eq!(
+            (found[0].span.start.line, found[0].span.start.column),
+            (2, 11)
+        );
+    }
+
+    #[test]
     fn scopes_nest_inside_the_file() {
         let analysis = analysis("rust", "fn f() { let a = 1; { let b = a; } }\n");
         assert!(analysis.scopes().len() >= 2);
