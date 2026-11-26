@@ -9,7 +9,9 @@
 //! When the file is missing or damaged, the sequence is rebuilt as the
 //! largest number named by the account index or by any entry, temporary
 //! entry, reclaimed entry, tombstone or marker of the known journals; a
-//! number is never assigned twice.
+//! number is never assigned twice. A recorded number below the largest number
+//! named by a known journal is raised to it, because the journal directory of
+//! a volume can be shared by several state directories of one account.
 
 use nurt_contracts::fs::{Durability, FsErrorKind, RenameMode, ScopePurpose};
 use nurt_contracts::journal::OpId;
@@ -53,8 +55,11 @@ pub(crate) fn decode(bytes: &[u8]) -> Option<OpId> {
 pub(crate) fn allocate(ctx: &JournalCtx) -> Result<OpId, Fault> {
     let path = ctx.state.seq()?;
     let current = match manifest::read_bytes(ctx.fs.as_ref(), &path) {
+        // A journal directory is named by the volume, not by the state
+        // directory, so entries of another state directory of the account
+        // can hold numbers above the recorded one.
         Ok(bytes) => match decode(&bytes) {
-            Some(op) => op,
+            Some(op) => op.max(journal_highest(ctx)?),
             None => rebuild(ctx)?,
         },
         Err(error) if error.kind == FsErrorKind::NotFound => rebuild(ctx)?,
@@ -97,7 +102,14 @@ fn rebuild(ctx: &JournalCtx) -> Result<OpId, Fault> {
             Some(index.as_path()),
         )),
     })?;
-    let mut highest = rows.iter().map(|row| row.op).max().unwrap_or(OpId(0));
+    let highest = rows.iter().map(|row| row.op).max().unwrap_or(OpId(0));
+    Ok(highest.max(journal_highest(ctx)?))
+}
+
+/// Largest number named by any known journal directory; zero when they name
+/// none.
+fn journal_highest(ctx: &JournalCtx) -> Result<OpId, Fault> {
+    let mut highest = OpId(0);
     for journal in ctx.active_journals() {
         if let Some(op) = layout::highest_number(ctx.fs.as_ref(), &journal)? {
             highest = highest.max(op);
@@ -171,6 +183,23 @@ mod tests {
         fixture.write(&ctx.state.seq().unwrap(), b"garbage");
         assert_eq!(allocate(&ctx), Ok(OpId(42)));
         assert_eq!(allocate(&ctx), Ok(OpId(43)));
+    }
+
+    #[test]
+    fn numbers_named_by_a_shared_journal_are_never_assigned() {
+        let fixture = Fixture::new();
+        let ctx = fixture.ctx();
+        assert_eq!(allocate(&ctx), Ok(OpId(1)));
+        let journal = &ctx.active_journals()[0];
+        let scope = store::scope(OpId(1), ScopePurpose::Maintenance);
+        fixture
+            .fs
+            .create_dir(&scope, &journal.ops_dir().unwrap(), 0o700)
+            .unwrap();
+        let foreign = journal.entry_tmp(OpId(7)).unwrap();
+        fixture.fs.create_dir(&scope, foreign.dir(), 0o700).unwrap();
+        assert_eq!(allocate(&ctx), Ok(OpId(8)));
+        assert_eq!(allocate(&ctx), Ok(OpId(9)));
     }
 
     #[test]

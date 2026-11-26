@@ -28,6 +28,7 @@ use crate::history::EntrySource;
 use crate::layout::JournalLayout;
 use crate::manifest;
 use crate::retention;
+use crate::retention::ctx::CtxStore;
 use crate::store::{self, JournalCtx};
 
 /// Version of the pin file format.
@@ -181,7 +182,8 @@ fn volume_journal(ctx: &JournalCtx, volume: &VolumeId) -> Result<Option<JournalL
 }
 
 /// Pin files in the journal directories of the journal store. The default
-/// pin duration is [`DEFAULT_PIN_MAX_AGE`]; releasing runs an expiry pass.
+/// pin duration is `journal.pin_max_age`, or [`DEFAULT_PIN_MAX_AGE`] when the
+/// configuration is invalid; releasing runs an expiry pass.
 impl PinBackend for JournalCtx {
     fn read_pins(&self, volume: &VolumeId) -> Result<PinSet> {
         match volume_journal(self, volume)? {
@@ -209,7 +211,9 @@ impl PinBackend for JournalCtx {
     }
 
     fn pin_max_age(&self) -> Duration {
-        DEFAULT_PIN_MAX_AGE
+        retention::expiry::resolve_config(&CtxStore(self)).map_or(DEFAULT_PIN_MAX_AGE, |resolved| {
+            resolved.config.journal.pin_max_age.as_std()
+        })
     }
 
     fn expire_over_limits(&self) -> Result<Vec<OpId>> {
