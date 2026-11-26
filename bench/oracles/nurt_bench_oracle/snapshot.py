@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from .paths import ancestors
+
 SNAPSHOT_FORMAT = "nurt-fs-snapshot/1"
 DEFAULT_FILE_MODE = "0644"
 DEFAULT_DIR_MODE = "0755"
@@ -196,6 +198,10 @@ def materialize(index: Mapping[str, Entry], root: Path) -> None:
     are applied to files; modes are applied on POSIX systems only.
     """
     full = with_parents(index)
+    links = {path for path, entry in full.items() if entry.kind == "symlink"}
+    for path in full:
+        if any(parent in links for parent in ancestors(path)):
+            raise SnapshotError(f"{path}: lies below a symbolic link of the snapshot")
     for path in sorted(p for p, e in full.items() if e.kind == "dir"):
         (root / path).mkdir(parents=True, exist_ok=True)
     for path in sorted(full):
@@ -239,6 +245,10 @@ def capture(root: Path) -> Index:
                 elif item.is_dir(follow_symlinks=False):
                     index[relative] = Entry("dir", mode=mode)
                     stack.append(path)
-                else:
+                elif stat.S_ISREG(info.st_mode):
                     index[relative] = Entry("file", path.read_bytes(), mode)
+                else:
+                    # A pipe, socket or device is recorded without being opened:
+                    # opening a pipe without a writer blocks for ever.
+                    index[relative] = Entry("special", mode=mode)
     return index
