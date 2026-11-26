@@ -15,12 +15,10 @@
 # Usage:
 #
 #   tools/release/build-release.sh <version> <output-dir>
-#       [--sign <gnupg-home> <key-id>] [--lib-archive] [--no-windows]
+#       [--sign <gnupg-home> <key-id>] [--no-windows]
 #
 #   --sign         sign checksums.txt with the key <key-id> of the GnuPG home
 #                  <gnupg-home> (checksums.txt.asc) and verify the signature
-#   --lib-archive  also assemble the archive of the nurt-lib library with the
-#                  command defined in lib_pack_command
 #   --no-windows   skip the Windows target
 #
 # Environment (all optional):
@@ -56,7 +54,6 @@ output=""
 sign=0
 gnupg_home=""
 key_id=""
-lib_archive=0
 windows=1
 
 while [ $# -gt 0 ]; do
@@ -68,7 +65,6 @@ while [ $# -gt 0 ]; do
       key_id="$3"
       shift 3
       ;;
-    --lib-archive) lib_archive=1; shift ;;
     --no-windows) windows=0; shift ;;
     -h | --help) usage ;;
     -*) usage ;;
@@ -117,15 +113,6 @@ esac
 if [ "$windows" -eq 1 ]; then targets+=("$WINDOWS"); fi
 log "version $version, targets: ${targets[*]}"
 
-# Archive of the nurt-lib library, run only with --lib-archive. The split of
-# the library archive (#58) is not merged: --kind is a placeholder that pack.py
-# does not accept yet. Adjust only this function after the merge of #58.
-# Arguments: target, library file, output directory.
-lib_pack_command() {
-  python3 -I "$root/packaging/release/pack.py" --root "$root" --version "$version" \
-    --target "$1" --binary "$2" --library "$2" --output "$3" --kind library
-}
-
 build_target() {
   case "$1" in
     "$WINDOWS") cargo xwin build --release --locked --target "$1" -p nurt-cli -p nurt-ffi ;;
@@ -157,7 +144,6 @@ for target in "${targets[@]}"; do
   if [ "$target" = "$WINDOWS" ]; then binary="$binary.exe"; fi
   [ -f "$binary" ] || die "missing $binary"
   library_args=()
-  library=""
   # The musl executable is static and has no library.
   if [ "$target" != "$LINUX_MUSL" ]; then
     library="$(library_file "$target")"
@@ -170,9 +156,6 @@ for target in "${targets[@]}"; do
   python3 -I "$root/packaging/release/pack.py" --root "$root" --version "$version" \
     --target "$target" --binary "$binary" "${library_args[@]}" "${man_args[@]}" \
     --completions "$work/completions" --site "$work/site" --output "$output"
-  if [ "$lib_archive" -eq 1 ] && [ -n "$library" ]; then
-    lib_pack_command "$target" "$library" "$output"
-  fi
 done
 
 log "checksums"
