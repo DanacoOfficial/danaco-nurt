@@ -24,7 +24,7 @@ test("runs the tool call and returns the answer", async () => {
     { content: [{ type: "tool_use", id: "t1", name: "nurt", input: { program: PROGRAM, limit: 5 } }] },
     { content: [{ type: "text", text: "There are 42 files." }] },
   ];
-  const client = { messages: { create: async (request: Record<string, unknown>) => (requests.push(request), responses.shift()!) } };
+  const client = { messages: { create: async (request: Record<string, unknown>) => (requests.push(structuredClone(request)), responses.shift()!) } };
   const nurt = new MockNurt();
   assert.equal(await runAgent(client, nurt, { name: "nurt" }, "count files"), "There are 42 files.");
   assert.deepEqual(nurt.calls, [[{ program: PROGRAM }, { limit: 5 }]]);
