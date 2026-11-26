@@ -15,7 +15,6 @@ implementation = "builtin"
 input = ["none"]
 output = ["program_location"]
 summary = "Locate programs in PATH, in the order the system resolves them."
-external = { kind = "user_program", when = "versions", note = "Runs a located program once with --version when its file metadata gives no version." }
 
 [[command.param]]
 name = "name"
@@ -30,6 +29,12 @@ name = "versions"
 type = "bool"
 default = "false"
 summary = "Read the version of each located program."
+
+[[command.param]]
+name = "all"
+type = "bool"
+default = "false"
+summary = "List every match in all_paths."
 
 [[command]]
 name = "program.search"
@@ -66,6 +71,18 @@ type = "int"
 default = "15"
 summary = "Maximum number of programs, best match first."
 
+[[command.param]]
+name = "kind"
+type = "enum(all|programs|apps|guides)"
+default = "all"
+values = ["all", "programs", "apps", "guides"]
+summary = "Kind of results."
+
+[[command.param]]
+name = "installed"
+type = "bool"
+summary = "Only installed programs (true) or only catalog entries (false)."
+
 [[command]]
 name = "program.describe"
 category = "source"
@@ -79,16 +96,36 @@ external = { kind = "user_program", note = "Runs the program once with --help, w
 
 [[command.param]]
 name = "name"
-type = "text"
+type = "text | list<text>"
 position = 1
 required = true
-summary = "Program name."
+summary = "Program name, or up to 12 names."
 
 [[command.param]]
 name = "include_guide"
 type = "bool"
 default = "true"
 summary = "Include the usage guide when one is available."
+
+[[command.param]]
+name = "section"
+type = "text"
+summary = "Return only the section of the guide with this heading."
+
+[[command.param]]
+name = "query"
+type = "text"
+summary = "Return only the sections of the guide that match these keywords."
+
+[[command.param]]
+name = "unchanged_since"
+type = "text"
+summary = "Etag of an earlier record; an unchanged program returns only unchanged."
+
+[[command.param]]
+name = "source"
+type = "text | list<text>"
+summary = "Only programs from these sources."
 
 [[command]]
 name = "program.catalog"

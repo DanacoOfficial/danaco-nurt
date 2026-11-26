@@ -46,6 +46,73 @@ use crate::value::{Record, RecordKind};
 
 pub use crate::record::{Change, ChangeAction, Hunk};
 
+/// Note of a change whose target is a directory. The report reads it for the
+/// kind of an entry that the journal did not describe, as in a preview or in
+/// the restoring of an undo.
+pub const FLAG_DIRECTORY: &str = "directory";
+/// Prefix of the note with the number of files held by a directory.
+const FILES_INSIDE_PREFIX: &str = "files_inside=";
+/// Prefix of the note with the number of directories held by a directory.
+const DIRECTORIES_INSIDE_PREFIX: &str = "directories_inside=";
+
+/// Notes of a change of a directory with its content: the kind of the
+/// target and the number of files (links included) and of directories
+/// below it.
+#[must_use]
+pub fn tree_flags(files: u64, directories: u64) -> Vec<String> {
+    vec![
+        FLAG_DIRECTORY.to_owned(),
+        format!("{FILES_INSIDE_PREFIX}{files}"),
+        format!("{DIRECTORIES_INSIDE_PREFIX}{directories}"),
+    ]
+}
+
+/// Number of files and of directories below a directory, from the notes
+/// written by [`tree_flags`]; `None` when the notes carry no counts.
+#[must_use]
+pub fn tree_counts(flags: &[String]) -> Option<(u64, u64)> {
+    let number = |prefix: &str| {
+        flags
+            .iter()
+            .find_map(|flag| flag.strip_prefix(prefix))
+            .and_then(|text| text.parse::<u64>().ok())
+    };
+    Some((
+        number(FILES_INSIDE_PREFIX)?,
+        number(DIRECTORIES_INSIDE_PREFIX)?,
+    ))
+}
+
+#[cfg(test)]
+mod tree_note_tests {
+    use super::*;
+
+    #[test]
+    fn counts_survive_a_round_trip_through_the_notes() {
+        let mut flags = vec!["recursive".to_owned()];
+        flags.extend(tree_flags(4, 2));
+        assert_eq!(tree_counts(&flags), Some((4, 2)));
+        assert!(flags.iter().any(|flag| flag == FLAG_DIRECTORY));
+    }
+
+    #[test]
+    fn notes_without_counts_or_with_damaged_counts_give_none() {
+        assert_eq!(tree_counts(&[]), None);
+        assert_eq!(tree_counts(&["recursive".to_owned()]), None);
+        let damaged = vec![
+            "files_inside=x".to_owned(),
+            "directories_inside=1".to_owned(),
+        ];
+        assert_eq!(tree_counts(&damaged), None);
+        assert_eq!(tree_counts(&["files_inside=3".to_owned()]), None);
+    }
+
+    #[test]
+    fn zero_counts_are_kept() {
+        assert_eq!(tree_counts(&tree_flags(0, 0)), Some((0, 0)));
+    }
+}
+
 /// Number of hexadecimal digits of a SHA-256 digest.
 const SHA256_HEX_DIGITS: usize = 64;
 

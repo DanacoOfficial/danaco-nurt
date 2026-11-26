@@ -247,7 +247,7 @@ fn surface_expr(place: &Place, expr: &Expr, list_item: bool) -> Checked {
         }
         Expr::Num { v, span } => {
             place.object(span.as_ref())?;
-            finite(&place.member("v"), *v)
+            non_negative(&place.member("v"), *v)
         }
         Expr::Size { v, span } | Expr::Dur { v, span } => {
             place.object(span.as_ref())?;
@@ -525,8 +525,8 @@ fn bound_expr(place: &Place, expr: &BoundExpr, list_item: bool) -> Checked {
             "a path must be absolute and canonical: `/` separators, no empty, `.` or `..` segments",
         ),
         BoundExpr::Instant { v } => place.member("v").ensure(
-            is_rfc3339(v),
-            "an instant must be an RFC 3339 date and time, for example `2026-01-31T12:00:00Z`",
+            is_canonical_instant(v),
+            "an instant must be an RFC 3339 time in UTC with the suffix `Z` and no trailing zero in the fraction, for example `2026-01-31T12:00:00Z`",
         ),
         BoundExpr::Ref(reference) => bound_ref(place, reference),
         _ => bound_composite(place, expr, list_item),
@@ -748,6 +748,16 @@ fn finite(place: &Place, value: f64) -> Checked {
     )
 }
 
+/// A number of a surface tree: finite and not below zero, since a negative
+/// number is written as a negation (`un` with `op: "neg"`).
+fn non_negative(place: &Place, value: f64) -> Checked {
+    finite(place, value)?;
+    place.ensure(
+        value >= 0.0,
+        "the number must not be negative; write a negative number as a negation",
+    )
+}
+
 fn range(place: &Place, lo: Option<i64>, hi: Option<i64>, min: i64) -> Checked {
     if let Some(lo) = lo {
         integer(&place.member("lo"), lo, min)?;
@@ -913,6 +923,23 @@ pub fn is_rfc3339(text: &str) -> bool {
                 && number(numeric, 3..5) < MINUTES
         });
     valid_date && valid_time && valid_offset
+}
+
+/// Returns `true` for an instant in the canonical form of a bound tree: an
+/// RFC 3339 time in UTC with the suffix `Z`, seconds from 00 to 59 and a
+/// fraction of at most nine digits without a trailing zero.
+#[must_use]
+pub fn is_canonical_instant(text: &str) -> bool {
+    let Some(body) = text.strip_suffix('Z') else {
+        return false;
+    };
+    if !is_rfc3339(text) || body.as_bytes().get(17..19) == Some(b"60".as_slice()) {
+        return false;
+    }
+    match body.split_once('.') {
+        Some((_, fraction)) => fraction.len() <= 9 && !fraction.ends_with('0'),
+        None => true,
+    }
 }
 
 /// Checks that every member of a received document is kept by its typed form.

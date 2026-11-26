@@ -183,8 +183,74 @@ fn encode_error(error: impl fmt::Display) -> SyntaxError {
         .with_problem("the tree holds a value without a JSON form; use finite numbers only")
 }
 
+/// A JSON value read without accepting an object that repeats a key: a
+/// repeated key would be settled in favour of the last one, while the CBOR
+/// decoder refuses it.
+struct Strict(Value);
+
+impl<'de> Deserialize<'de> for Strict {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(StrictVisitor)
+    }
+}
+
+struct StrictVisitor;
+
+impl<'de> serde::de::Visitor<'de> for StrictVisitor {
+    type Value = Strict;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a JSON value")
+    }
+
+    fn visit_bool<E>(self, value: bool) -> Result<Strict, E> {
+        Ok(Strict(Value::Bool(value)))
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Strict, E> {
+        Ok(Strict(Value::from(value)))
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Strict, E> {
+        Ok(Strict(Value::from(value)))
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Strict, E> {
+        Ok(Strict(Value::from(value)))
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Strict, E> {
+        Ok(Strict(Value::String(value.to_owned())))
+    }
+
+    fn visit_unit<E>(self) -> Result<Strict, E> {
+        Ok(Strict(Value::Null))
+    }
+
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Strict, A::Error> {
+        let mut items = Vec::new();
+        while let Some(Strict(item)) = seq.next_element()? {
+            items.push(item);
+        }
+        Ok(Strict(Value::Array(items)))
+    }
+
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Strict, A::Error> {
+        let mut members = serde_json::Map::new();
+        while let Some(key) = map.next_key::<String>()? {
+            let Strict(value) = map.next_value()?;
+            if members.insert(key.clone(), value).is_some() {
+                return Err(serde::de::Error::custom(format!(
+                    "the key `{key}` is repeated in an object"
+                )));
+            }
+        }
+        Ok(Strict(Value::Object(members)))
+    }
+}
+
 fn parse_json(text: &str) -> Result<Value, SyntaxError> {
-    serde_json::from_str(text).map_err(|error| {
+    serde_json::from_str::<Strict>(text).map(|Strict(value)| value).map_err(|error| {
         Fault::new(
             String::new(),
             format!("invalid JSON: {error}; send one JSON object nested at most {MAX_JSON_DEPTH} levels deep"),

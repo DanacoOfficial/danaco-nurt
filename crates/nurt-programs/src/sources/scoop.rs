@@ -149,7 +149,8 @@ fn file_stem(path: &str) -> Option<String> {
 }
 
 /// Application started by a shim file. The application is the directory
-/// name after `apps` in the value of the `path` line.
+/// name after the `apps` directory of the installation in the value of the
+/// `path` line.
 ///
 /// # Examples
 ///
@@ -167,9 +168,18 @@ pub fn shim_application(text: &str) -> Option<String> {
     let (_, value) = line.split_once('=')?;
     let path = value.trim().trim_matches('"');
     let parts: Vec<&str> = path.split(['\\', '/']).collect();
-    let at = parts
-        .iter()
-        .position(|part| part.eq_ignore_ascii_case("apps"))?;
+    let is_apps = |index: &usize| parts[*index].eq_ignore_ascii_case("apps");
+    // The root of the installation may itself contain a directory `apps`
+    // (`D:\apps\scoop`): the one that holds applications is followed by the
+    // application and `current`, otherwise it is the last one.
+    let at = (0..parts.len())
+        .filter(is_apps)
+        .find(|index| {
+            parts
+                .get(index + 2)
+                .is_some_and(|part| part.eq_ignore_ascii_case("current"))
+        })
+        .or_else(|| (0..parts.len()).filter(is_apps).next_back())?;
     parts.get(at + 1).map(|app| (*app).to_owned())
 }
 
@@ -203,6 +213,39 @@ fn names_in(dir: &Path) -> Vec<String> {
         .collect();
     names.sort();
     names
+}
+
+/// Extensions of the files Scoop creates in `shims`, in the order they are
+/// looked for.
+const SHIM_FILE_EXTENSIONS: [&str; 3] = [".exe", ".cmd", ".ps1"];
+/// Extensions of manifest targets that Scoop wraps in a `.cmd` shim.
+const SCRIPT_TARGETS: [&str; 3] = [".cmd", ".bat", ".ps1"];
+
+/// The `shims` directory of an installation.
+struct ShimDir<'a> {
+    env: &'a HostEnv,
+    path: &'a Path,
+}
+
+impl ShimDir<'_> {
+    /// Host path of the shim file of `command`: the existing file with an
+    /// extension of [`SHIM_FILE_EXTENSIONS`], otherwise the file that Scoop
+    /// creates for the extension of `target`, `.exe` by default.
+    fn file(&self, command: &str, target: Option<&str>) -> PathBuf {
+        for extension in SHIM_FILE_EXTENSIONS {
+            let file = self.path.join(format!("{command}{extension}"));
+            if self.env.sys_path(&file).is_file() {
+                return file;
+            }
+        }
+        let lower = target.map(str::to_ascii_lowercase).unwrap_or_default();
+        let extension = if SCRIPT_TARGETS.iter().any(|ext| lower.ends_with(ext)) {
+            ".cmd"
+        } else {
+            ".exe"
+        };
+        self.path.join(format!("{command}{extension}"))
+    }
 }
 
 impl ScoopSource {
@@ -262,14 +305,15 @@ impl ScoopSource {
             let shim_commands = shims_by_app
                 .remove(&app.to_ascii_lowercase())
                 .unwrap_or_default();
-            self.add_app(&shims, &app, manifest, bucket, &shim_commands, data);
+            let shim_dir = ShimDir { env, path: &shims };
+            self.add_app(&shim_dir, &app, manifest, bucket, &shim_commands, data);
         }
         Ok(())
     }
 
     fn add_app(
         &self,
-        shims: &Path,
+        shims: &ShimDir<'_>,
         app: &str,
         manifest: Manifest,
         bucket: Option<String>,
@@ -280,33 +324,33 @@ impl ScoopSource {
             manager: self.id.clone(),
             name: app.to_owned(),
         };
-        let mut commands: Vec<(String, Option<String>)> = manifest
+        let mut commands: Vec<(String, Option<String>, Option<&str>)> = manifest
             .bin
             .iter()
             .map(|entry| {
                 let stem = file_stem(&entry.target)
                     .filter(|stem| !stem.eq_ignore_ascii_case(&entry.command));
-                (entry.command.clone(), stem)
+                (entry.command.clone(), stem, Some(entry.target.as_str()))
             })
             .collect();
         for command in shim_commands {
             if !commands
                 .iter()
-                .any(|(known, _)| known.eq_ignore_ascii_case(command))
+                .any(|(known, _, _)| known.eq_ignore_ascii_case(command))
             {
-                commands.push((command.clone(), None));
+                commands.push((command.clone(), None, None));
             }
         }
         let summary = manifest.description.as_deref().map(LocalizedText::new);
         let mut executables = Vec::new();
-        for (command, target) in commands {
-            let path = shims.join(format!("{command}.exe")).display().to_string();
+        for (command, alias_of, target) in commands {
+            let path = shims.file(&command, target).display().to_string();
             data.file_packages.push((path.clone(), package.clone()));
             executables.push(path.clone());
             data.programs.push(RawProgram {
                 path: Some(path),
-                alias_of: target,
-                alias_kind: None,
+                alias_kind: alias_of.as_ref().map(|_| AliasKind::Shim),
+                alias_of,
                 summary: summary.clone(),
                 version: manifest.version.clone(),
                 package: Some(package.clone()),
@@ -315,13 +359,6 @@ impl ScoopSource {
                 category_hints: vec![CategoryHint::new(CategoryScheme::Keyword, app)],
                 ..RawProgram::new(command)
             });
-        }
-        for program in data
-            .programs
-            .iter_mut()
-            .filter(|program| program.alias_of.is_some())
-        {
-            program.alias_kind = Some(AliasKind::Shim);
         }
         data.packages.push(RawPackage {
             name: app.to_owned(),

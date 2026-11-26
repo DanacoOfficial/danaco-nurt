@@ -39,6 +39,10 @@ use crate::transport::{Frame, FrameReader, FrameWriter};
 /// Longest single wait between checks of the cancellation token.
 const CANCEL_POLL: Duration = Duration::from_millis(25);
 
+/// Time a server is given to answer `shutdown`; the protocol sends `exit`
+/// only after the answer, so that the server can finish its work.
+const SHUTDOWN_REPLY_WAIT: Duration = Duration::from_secs(2);
+
 /// Time a server is given to exit after `exit` before its process tree is
 /// stopped.
 const EXIT_GRACE: Duration = Duration::from_millis(200);
@@ -497,10 +501,13 @@ impl LanguageServer {
         if self.is_closed() {
             return;
         }
-        let id = self.shared.next_id.fetch_add(1, Ordering::Relaxed);
-        send(
-            &self.shared,
-            &Message::request(RequestId::Number(id), "shutdown", Value::Null),
+        // The answer is not used; waiting for it is what the protocol asks
+        // before `exit`, and an unresponsive server is stopped after the wait.
+        let _ = self.request(
+            "shutdown",
+            Value::Null,
+            SHUTDOWN_REPLY_WAIT,
+            &CancelToken::new(),
         );
         send(&self.shared, &Message::notification("exit", Value::Null));
         mark_closed(&self.shared, None);

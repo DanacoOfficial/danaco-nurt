@@ -230,8 +230,7 @@ impl Default for DesktopSource {
 pub fn application_dirs(env: &HostEnv) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     let user_data = env
-        .var_text("XDG_DATA_HOME")
-        .map(PathBuf::from)
+        .xdg_dir("XDG_DATA_HOME")
         .or_else(|| env.home().map(|home| home.join(USER_DATA_DIR)));
     if let Some(data) = user_data {
         dirs.push(data.join(APPLICATIONS));
@@ -240,6 +239,7 @@ pub fn application_dirs(env: &HostEnv) -> Vec<PathBuf> {
     dirs.extend(
         env.split_paths(data_dirs)
             .into_iter()
+            .filter(|dir| env.is_absolute(dir))
             .map(|dir| dir.join(APPLICATIONS)),
     );
     if let Some(home) = env.home() {

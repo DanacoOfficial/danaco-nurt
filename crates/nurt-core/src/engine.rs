@@ -1535,7 +1535,12 @@ fn add_operation<'c>(
             .notes(effect.notable)
             .irreversible_entries(effect.irreversible)
             .changes(effect.changes.into_iter().map(|facts| {
-                TargetChange::observed(facts.change, facts.entry, facts.replaced_existing)
+                let target =
+                    TargetChange::observed(facts.change, facts.entry, facts.replaced_existing);
+                match facts.inside {
+                    Some((files, directories)) => target.with_content(files, directories),
+                    None => target,
+                }
             }));
         if let Some(op) = effect.handle.as_ref().and_then(|handle| handle.op) {
             builder = builder.op(op.0);

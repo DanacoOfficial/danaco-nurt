@@ -94,6 +94,32 @@ pub fn relative_path(from_dir: &str, to: &str) -> String {
     parts.join("/")
 }
 
+/// Text of a link target with its `%XX` escapes replaced by the bytes they
+/// stand for; the target is left as written when the result is not UTF-8.
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut at = 0;
+    while at < bytes.len() {
+        let escaped = bytes
+            .get(at + 1..at + 3)
+            .filter(|_| bytes[at] == b'%')
+            .and_then(|pair| std::str::from_utf8(pair).ok())
+            .and_then(|pair| u8::from_str_radix(pair, 16).ok());
+        match escaped {
+            Some(byte) => {
+                out.push(byte);
+                at += 3;
+            }
+            None => {
+                out.push(bytes[at]);
+                at += 1;
+            }
+        }
+    }
+    String::from_utf8(out).unwrap_or_else(|_| text.to_owned())
+}
+
 struct Resolver<'a> {
     outputs: HashMap<String, String>,
     layout: &'a Layout,
@@ -109,6 +135,7 @@ impl Resolver<'_> {
             Some((path, fragment)) => (path, format!("#{fragment}")),
             None => (url, String::new()),
         };
+        let path = percent_decode(path);
         let key = normalize(&format!("{}/{path}", directory_of(source)));
         if let Some(target) = self.outputs.get(&key) {
             return format!("{}{fragment}", relative_path(directory_of(output), target));
@@ -544,6 +571,32 @@ mod tests {
             relative_path("spec", "commands/x.html"),
             "../commands/x.html"
         );
+    }
+
+    #[test]
+    fn decodes_percent_escapes_of_link_targets() {
+        assert_eq!(percent_decode("my%20page.md"), "my page.md");
+        assert_eq!(percent_decode("z%C5%82y.md"), "z\u{142}y.md");
+        assert_eq!(percent_decode("100%.md"), "100%.md");
+        assert_eq!(percent_decode("a%zzb"), "a%zzb");
+        assert_eq!(percent_decode("bad%ff.md"), "bad%ff.md");
+        assert_eq!(percent_decode("%"), "%");
+    }
+
+    #[test]
+    fn resolves_a_link_that_percent_encodes_the_name_of_the_page() {
+        let root = tempfile::tempdir().unwrap();
+        let layout = Layout::new(root.path());
+        let mut outputs = HashMap::new();
+        outputs.insert("docs/site/my page.md".to_owned(), "my-page.html".to_owned());
+        let resolver = Resolver {
+            outputs,
+            layout: &layout,
+            unresolved: RefCell::new(Vec::new()),
+        };
+        let link = resolver.rewrite("docs/site/index.md", "index.html", "my%20page.md#top");
+        assert_eq!(link, "my-page.html#top");
+        assert!(resolver.unresolved.borrow().is_empty());
     }
 
     #[test]

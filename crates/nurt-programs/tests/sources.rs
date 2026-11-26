@@ -897,3 +897,45 @@ fn alias_entry_with_a_known_target_resolves_to_the_target() {
     assert_eq!(alias, Some(AliasKind::Shim));
     assert_eq!(index.card(position).unwrap().name, "fd");
 }
+
+#[test]
+fn process_cache_does_not_keep_an_index_with_a_failed_provider() {
+    let fixture = Fixture::new();
+    let registry = registry(vec![Arc::new(StaticSource::failing("broken"))]);
+    let env = fixture.env();
+    let options = options(None);
+    let clock = TestClock::new();
+    let cache = nurt_programs::index::IndexCache::new();
+    let first = cache.get(&registry, &env, &options, &clock);
+    assert!(!first.is_complete());
+    assert!(!first.warnings().is_empty());
+    let second = cache.get(&registry, &env, &options, &clock);
+    assert!(!Arc::ptr_eq(&first, &second));
+}
+
+#[test]
+fn index_of_healthy_providers_is_complete() {
+    let fixture = Fixture::new();
+    let index = load_index(&fixture, vec![Arc::new(PathSource::new())], None);
+    assert!(index.is_complete());
+}
+
+#[test]
+fn relative_xdg_directories_are_ignored() {
+    let env = HostEnv::new(Os::Linux)
+        .with_home("/home/user")
+        .with_var("XDG_DATA_HOME", "data")
+        .with_var("XDG_DATA_DIRS", "rel/share:/opt/share:./x")
+        .with_var("XDG_CACHE_HOME", "cache");
+    let dirs = nurt_programs::sources::desktop::application_dirs(&env);
+    assert_eq!(
+        dirs[0],
+        PathBuf::from("/home/user/.local/share/applications")
+    );
+    assert!(dirs.contains(&PathBuf::from("/opt/share/applications")));
+    assert!(dirs.iter().all(|dir| dir.is_absolute()), "{dirs:?}");
+    assert_eq!(
+        nurt_programs::index::default_cache_dir(&env),
+        Some(PathBuf::from("/home/user/.cache/nurt/programs"))
+    );
+}

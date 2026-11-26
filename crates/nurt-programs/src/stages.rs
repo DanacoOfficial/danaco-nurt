@@ -17,7 +17,7 @@
 //! `program_location` contracts are added to the dynamic records.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -41,7 +41,7 @@ use crate::search::{
     find_section, guide_sections, match_sections, search, similar,
 };
 use crate::source::{HostEnv, SourceId, SourceKind, SourceRegistry, SourceWarning};
-use crate::sources::path::resolve;
+use crate::sources::path::resolve_from;
 use crate::taxonomy::OTHER_SUBCATEGORY;
 
 /// Command `program.find`.
@@ -342,17 +342,19 @@ fn find(setup: &ProgramsSetup, args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Re
     let all = args.bool("all")?.unwrap_or(false);
     let env = setup.env(ctx);
     let index = versions.then(|| setup.index(ctx, &env));
+    let base = base_directory(ctx);
     let mut records = Vec::with_capacity(names.len());
     for name in names {
         ctx.checkpoint()?;
-        let resolution = resolve(&env, &name);
+        let resolution = resolve_from(&env, &name, base.as_deref());
         let first = resolution
             .paths
             .first()
             .map(|path| path.to_string_lossy().into_owned());
-        let version = index
+        let located = index
             .as_deref()
             .and_then(|index| location_version(index, &name, first.as_deref()));
+        let version = located.as_ref().map(|(version, _)| version.clone());
         let location = ProgramLocation {
             name: name.clone(),
             found: first.is_some(),
@@ -368,8 +370,8 @@ fn find(setup: &ProgramsSetup, args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Re
             }),
         };
         let mut record = Record::from(location);
-        if version.is_some() {
-            record.set("version_source", Value::Enum("package".to_owned()));
+        if let Some((_, source)) = located {
+            record.set("version_source", Value::Enum(source.as_str().to_owned()));
         }
         if let Some(alias) = resolution.alias_of {
             record.set("alias_of", Value::Text(alias));
@@ -379,13 +381,31 @@ fn find(setup: &ProgramsSetup, args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Re
     Ok(records)
 }
 
-fn location_version(index: &ProgramIndex, name: &str, path: Option<&str>) -> Option<String> {
+/// Directory a relative name with a path separator is taken relative to: the
+/// `base` option of the request, otherwise `scope.base` of the configuration;
+/// only an absolute directory counts.
+fn base_directory(ctx: &ExecCtx) -> Option<PathBuf> {
+    ctx.options()
+        .base
+        .as_deref()
+        .or(ctx.config().scope.base.as_deref())
+        .map(PathBuf::from)
+        .filter(|base| base.is_absolute())
+}
+
+/// Version of the program at `path` and the kind of provider that gave it.
+fn location_version(
+    index: &ProgramIndex,
+    name: &str,
+    path: Option<&str>,
+) -> Option<(String, SourceKind)> {
     let path = path?;
     let (position, _) = index.resolve(name)?;
     let card = index.card(position)?;
-    (card.path.as_deref() == Some(path) || card.alternatives.iter().any(|known| known == path))
-        .then(|| card.version.clone())
-        .flatten()
+    if card.path.as_deref() != Some(path) && !card.alternatives.iter().any(|known| known == path) {
+        return None;
+    }
+    Some((card.version.clone()?, card.version_source?))
 }
 
 fn source_filter(index: &ProgramIndex, args: &BoundArgs, command: &str) -> Result<SourceFilter> {

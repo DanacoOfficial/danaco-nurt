@@ -307,7 +307,7 @@ fn instant() -> impl Strategy<Value = String> {
     prop::sample::select(vec![
         "2026-11-22T10:00:00Z",
         "2024-02-29T23:59:59.5Z",
-        "2026-01-01T00:00:00+01:00",
+        "2026-01-01T00:00:00.25Z",
     ])
     .prop_map(str::to_owned)
 }

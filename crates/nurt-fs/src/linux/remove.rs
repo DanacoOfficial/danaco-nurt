@@ -150,6 +150,15 @@ impl State {
             Err(Errno::NOENT) => return,
             Err(errno) => return self.fail(sys_error(errno, OP, path)),
         };
+        // A mount point inside the tree holds another file system, whose
+        // content is not part of the tree and is never removed.
+        let same_volume = match (rustix::fs::fstat(parent), rustix::fs::fstat(&fd)) {
+            (Ok(outer), Ok(inner)) => outer.st_dev == inner.st_dev,
+            (Err(errno), _) | (_, Err(errno)) => return self.fail(sys_error(errno, OP, path)),
+        };
+        if !same_volume {
+            return self.fail(FsError::new(FsErrorKind::InUse, OP, Some(path)));
+        }
         self.remove_contents(fd.as_fd(), path);
         drop(fd);
         if self.failed() {

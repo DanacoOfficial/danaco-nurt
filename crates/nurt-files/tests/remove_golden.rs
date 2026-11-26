@@ -169,7 +169,14 @@ fn example_2_removes_a_tree_as_one_target_and_skips_a_missing_path() {
     assert!(!test.fs().exists(&cache));
     assert_eq!(effect.targets, Some(1));
     let changes = effect.changes.clone().unwrap();
-    assert_eq!(changes[0].flags, Some(vec!["recursive".to_owned()]));
+    assert_eq!(
+        changes[0].flags,
+        Some(
+            ["recursive", "directory", "files_inside=2", "directories_inside=1"]
+                .map(str::to_owned)
+                .to_vec()
+        )
+    );
     assert_eq!(counter(&effect, "directories"), Some(2));
     assert_eq!(counter(&effect, "files"), Some(2));
     assert_eq!(counter(&effect, "bytes"), Some(6));
@@ -241,4 +248,70 @@ fn entries_changed_since_they_were_read_are_stale() {
     assert_eq!(error.code(), ErrorCode::Stale);
     assert_eq!(test.fs().read_file(&path).unwrap(), b"version 2");
     assert_untouched(&test);
+}
+
+/// The change of a removed tree names the kind of the target and counts the
+/// files and directories inside, in the plan and in the applied change.
+#[test]
+fn removed_tree_reports_the_entries_inside_in_plan_and_result() {
+    let test = TestContext::new();
+    write(&test, "/home/user/app/cache/a.bin", b"1234");
+    write(&test, "/home/user/app/cache/sub/b.bin", b"56");
+    write(&test, "/home/user/app/cache/sub/deep/c.bin", b"7");
+    let cache = abs("/home/user/app/cache");
+    let args = BoundArgs::new("remove").with("path", paths(&[&cache]), false);
+    let stage = stage("remove");
+    let effect_stage = stage.as_effect().expect("an effect stage");
+    let ctx = test.ctx();
+    let plan = effect_stage
+        .plan(&args, StageInput::none(), &ctx)
+        .expect("planned");
+    let planned = plan.changes[0].clone();
+    assert_eq!(planned.size_before.map(|size| size.bytes()), Some(7));
+    let flags = planned.flags.clone().expect("notes of a directory");
+    assert_eq!(nurt_contracts::report::tree_counts(&flags), Some((3, 2)));
+    assert!(flags.iter().any(|flag| flag == nurt_contracts::report::FLAG_DIRECTORY));
+
+    let applied = execute(&test, &args, None).unwrap();
+    let change = applied.changes.clone().unwrap().remove(0);
+    assert_eq!(change.size_before.map(|size| size.bytes()), Some(7));
+    assert_eq!(change.flags, planned.flags);
+    assert_eq!(counter(&applied, "files"), Some(3));
+    assert_eq!(counter(&applied, "directories"), Some(3));
+    assert_eq!(counter(&applied, "bytes"), Some(7));
+}
+
+/// An empty directory is a directory in the plan too, and holds nothing.
+#[test]
+fn removed_empty_directory_is_marked_as_a_directory() {
+    let test = TestContext::new();
+    let empty = abs("/home/user/app/empty");
+    test.fs().create_dir_all(&empty).expect("directory created");
+    let args = BoundArgs::new("remove").with("path", paths(&[&empty]), false);
+    let stage = stage("remove");
+    let ctx = test.ctx();
+    let plan = stage
+        .as_effect()
+        .expect("an effect stage")
+        .plan(&args, StageInput::none(), &ctx)
+        .expect("planned");
+    let flags = plan.changes[0].flags.clone().expect("notes of a directory");
+    assert_eq!(flags, nurt_contracts::report::tree_flags(0, 0));
+    assert_eq!(plan.changes[0].size_before.map(|size| size.bytes()), Some(0));
+}
+
+/// A file carries no notes of a directory.
+#[test]
+fn removed_file_has_no_directory_notes() {
+    let test = TestContext::new();
+    let file = write(&test, "/home/user/app/plain.txt", b"abc");
+    let args = BoundArgs::new("remove").with("path", paths(&[&file]), false);
+    let stage = stage("remove");
+    let ctx = test.ctx();
+    let plan = stage
+        .as_effect()
+        .expect("an effect stage")
+        .plan(&args, StageInput::none(), &ctx)
+        .expect("planned");
+    assert_eq!(plan.changes[0].flags, None);
 }

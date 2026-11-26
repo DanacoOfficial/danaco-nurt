@@ -212,7 +212,7 @@ impl EffectStage for Undo {
         ctx.checkpoint()?;
         let request = request(&parse(args)?, ctx)?;
         let result = super::store(ctx)?.undo(&request)?;
-        Ok(records::undo_outcome(NAME, result))
+        Ok(records::undo_outcome(NAME, result, ctx.fs()))
     }
 }
 

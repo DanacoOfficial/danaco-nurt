@@ -24,14 +24,20 @@ The name is looked up in the program index: first as a card name, then as an ali
 
 The record merges every provider that knows the program: path and alternatives from `PATH`, version, homepage, licence and package description from the package database, application name and identifier from the application entry, the `NAME` line of the manual page in the field `man`, and description, situations of use, tasks the program is not meant for, an example, pitfalls and the usage guide from external catalogs. `guide_sections` lists the headings of the guide; `etag` identifies the content of the record and `guide_etag` that of the guide. Programs that share one guide list each other in `guide_shared_with`.
 
+With a list of names the command emits one record per name that exists and reports the others as warnings; it fails with `E_NOT_FOUND` only when no name exists. `section` selects one section of the guide by heading, `query` the sections of the guide that match its words, and `include_guide: false` leaves the guide out. When `unchanged_since` equals the `etag` of the record, the record carries `unchanged: true` and nothing else of the description. `source` restricts the lookup to the listed sources, named as in `program.catalog`.
+
 The help text of a program is never read on its own: `program.describe` starts no program unless the help text is requested explicitly by the embedding application.
 
 ## Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `name` | `text` | required | Program name. |
+| `name` | `text \| list<text>` | required | Program name, or up to 12 names. |
 | `include_guide` | `bool` | `true` | Include the usage guide when one is available. |
+| `section` | `text` | none | Return only the section of the guide with this heading. |
+| `query` | `text` | none | Return only the sections of the guide that match these keywords. |
+| `unchanged_since` | `text` | none | Etag of an earlier record; an unchanged program returns only unchanged. |
+| `source` | `text \| list<text>` | none | Only programs from these sources. |
 
 ## Input and output
 

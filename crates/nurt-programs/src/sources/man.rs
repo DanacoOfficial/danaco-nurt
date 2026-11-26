@@ -26,7 +26,7 @@ use crate::source::{
     Deadline, Fingerprint, FingerprintBuilder, HostEnv, ProgramSource, SourceError,
     SourceErrorKind, SourceId, SourceKind,
 };
-use crate::sources::{Compression, decompress, is_dir, list_dir, read_file, read_prefix};
+use crate::sources::{Compression, decompress_reader, is_dir, list_dir, read_file};
 use crate::text::{decode, flatten};
 
 /// Sections whose pages describe commands.
@@ -419,13 +419,14 @@ fn read_page(env: &HostEnv, id: &SourceId, path: &Path, dir: &Path) -> Result<St
 }
 
 fn read_page_file(env: &HostEnv, id: &SourceId, path: &Path) -> Result<String, SourceError> {
-    let (bytes, _) = read_prefix(env, id, path, crate::sources::MAX_METADATA_BYTES)?;
+    let file = std::fs::File::open(env.sys_path(path))
+        .map_err(|error| SourceError::io(id, path, &error))?;
     let name = path
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
     let (compression, _) = Compression::of(name);
-    let raw = decompress(&bytes, compression, PAGE_PREFIX_BYTES).map_err(|error| {
+    let raw = decompress_reader(file, compression, PAGE_PREFIX_BYTES).map_err(|error| {
         SourceError::new(id, SourceErrorKind::Corrupt, error.to_string())
             .at(path.display().to_string())
     })?;

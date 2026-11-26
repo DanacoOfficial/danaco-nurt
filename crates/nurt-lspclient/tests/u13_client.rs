@@ -1887,3 +1887,30 @@ fn dropping_the_last_handle_stops_the_server_and_removes_its_temporary_directory
     assert!(!temp[0].exists());
     assert!(s.host.kills.load(Ordering::SeqCst) >= 1);
 }
+
+#[test]
+fn shutdown_sends_exit_after_the_server_answered_shutdown() {
+    use nurt_lspclient::server::{LanguageServer, ServerSpec};
+
+    let s = setup();
+    let spec = ServerSpec {
+        name: "mock-py".to_owned(),
+        program: "/opt/bin/mock-py".to_owned(),
+        args: Vec::new(),
+        root: s.project.root.clone(),
+        init_options: None,
+        env: Vec::new(),
+    };
+    let server = LanguageServer::spawn(s.host.as_ref(), &spec).unwrap();
+    server
+        .initialize(None, Duration::from_secs(5), &CancelToken::new())
+        .unwrap();
+    server.shutdown();
+    assert!(server.is_closed());
+    assert!(s.mock.wait_for("exit"));
+    let methods = s.mock.methods();
+    let shutdown = methods.iter().position(|method| method == "shutdown");
+    let exit = methods.iter().position(|method| method == "exit");
+    assert!(shutdown.is_some() && shutdown < exit, "{methods:?}");
+    server.shutdown();
+}

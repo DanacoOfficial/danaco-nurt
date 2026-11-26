@@ -26,6 +26,8 @@ Query words are compared after folding: lower case, compatibility decomposition 
 
 A list of queries gives one ranked list per query; each record then has the field `query`.
 
+`kind` keeps only programs, applications or standalone guides of the catalogs; the default `all` keeps every kind. `installed: true` keeps the programs that exist on this computer and `installed: false` the entries that do not; without it both are listed.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -34,6 +36,8 @@ A list of queries gives one ranked list per query; each record then has the fiel
 | `category` | `text` | none | Only programs in this category. |
 | `source` | `list<enum(path\|package\|app\|catalog)>` | `[path, package, app, catalog]` | Sources searched. |
 | `limit` | `int` | `15` | Maximum number of programs, best match first. |
+| `kind` | `enum(all\|programs\|apps\|guides)` | `all` | Kind of results. |
+| `installed` | `bool` | none | Only installed programs (true) or only catalog entries (false). |
 
 ## Input and output
 

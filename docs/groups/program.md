@@ -112,7 +112,6 @@ three systems and a source that does not exist on the system is skipped.
 
 | Command | Marker | Condition |
 |---|---|---|
-| `program.find` | [U] | `versions: true` runs a located program once with `--version` when its file metadata gives no version |
 | `program.describe` | [U] | runs the program once with `--help`, within a time limit, when no other description is available |
 
 The time limit of reading the help is the setting `programs.help_timeout`

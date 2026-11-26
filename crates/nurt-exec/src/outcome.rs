@@ -292,6 +292,10 @@ pub struct ChangeFacts {
     /// replacement that existed before, or a change carrying the flag
     /// `overwrote_existing`.
     pub replaced_existing: bool,
+    /// Number of files (links included) and of directories below a directory
+    /// that the change removed or restored with its content, from the notes
+    /// of the change; `None` when the change does not say.
+    pub inside: Option<(u64, u64)>,
 }
 
 /// Effect of an operation.

@@ -310,3 +310,21 @@ fn canonical_encoding_sorts_members_and_drops_insignificant_white_space() {
         r#"{"span":[1,1,1,4],"t":"num","v":1.5}"#
     );
 }
+
+#[test]
+fn rejects_an_object_that_repeats_a_key_at_any_depth() {
+    let program = r#""program":{"statements":[{"t":"pipeline","head":{"t":"stage","name":"count","args":[]},"stages":[]}]}"#;
+    let documents = [
+        format!(r#"{{"nurt":"1.0","nurt":"1.1",{program}}}"#),
+        format!(
+            r#"{{"nurt":"1.0",{program},"meta":{{"a":1,"b":{{"c":1,"c":2}}}}}}"#
+        ),
+    ];
+    for text in documents {
+        let error = json::decode_surface(&text).unwrap_err();
+        assert_eq!(error.code, ErrorCode::AstSchema, "{text}");
+        assert!(error.message.contains("repeated"), "{}", error.message);
+    }
+    let fine = format!(r#"{{"nurt":"1.0",{program},"meta":{{"a":1,"b":{{"c":1}}}}}}"#);
+    json::decode_surface(&fine).unwrap();
+}
