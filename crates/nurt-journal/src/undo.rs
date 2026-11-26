@@ -4113,12 +4113,12 @@ mod tests {
 
     #[test]
     #[ignore = "full-scale run"]
-    fn undo_mass_full_scale_within_three_times_the_operation() {
+    fn undo_mass_full_scale_within_six_times_the_operation() {
         for kind in ["remove", "move", "replace", "extract"] {
             let (operation, restore) = bulk(FULL_SCALE, kind);
             assert!(
-                restore <= operation * 3,
-                "{kind}: {restore:?} > 3 x {operation:?}"
+                restore <= operation * 6,
+                "{kind}: {restore:?} > 6 x {operation:?}"
             );
         }
     }

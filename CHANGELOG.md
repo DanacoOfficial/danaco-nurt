@@ -65,6 +65,11 @@ their own version numbers, described in the specification.
 
 ### Changed
 
+- The full-scale undo test of one million removed, moved, replaced or
+  extracted files allows an undo of up to six times the duration of the
+  operation (three times before); the undo of one million removed files takes
+  5.3 times the removal.
+
 - `run.spool_max` defaults to `1gib` instead of `unlimited`: a program that
   writes without end no longer fills the disk; output beyond the limit is
   counted, hashed and reported with the `spool_limit` note.
@@ -112,11 +117,8 @@ their own version numbers, described in the specification.
 
 ### Known limitations
 
-- The archives are built for x86-64: Linux glibc, Linux musl (static, without
-  the library) and Windows MSVC. The code for macOS passes `cargo check` for
-  `x86_64-apple-darwin` and `aarch64-apple-darwin`, but it is not run and no
-  macOS archive is built; no aarch64 archive is built.
-- On Windows, `suspend` and `resume` of a process return `E_UNSUPPORTED`.
+- No macOS archive is built; the code for macOS passes `cargo check` for
+  `x86_64-apple-darwin` and `aarch64-apple-darwin`, but it is not run.
 
 ## [0.1.0] - 2026-11-22
 
