@@ -12,6 +12,7 @@
 //! before it is switched in; for an existing file it is an `attributes` target.
 
 use std::collections::BTreeSet;
+#[cfg(unix)]
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
