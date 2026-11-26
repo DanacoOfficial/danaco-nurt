@@ -165,3 +165,39 @@ fn every_line_of_the_header_precedes_the_first_statement() {
         .unwrap_or_else(|| panic!("the comment is lost in\n{program}"));
     assert!(last_header_line < first_statement, "{program}");
 }
+
+#[test]
+fn strict_mode_lines_are_an_assumption_not_an_impossible_statement() {
+    for strict in [
+        "set -e",
+        "set -u",
+        "set -o pipefail",
+        "set -eu",
+        "set -euo pipefail",
+    ] {
+        let source = format!("{strict}\nmkdir -p /srv/out\n");
+        let migration = migrate(&source);
+        assert_only_the_script_and_the_migration(&source, &migration);
+        let item = &migration.report.items[0];
+        assert_eq!(item.source, strict);
+        assert_eq!(item.status, Status::Assumption, "{strict}");
+        assert!(
+            item.output.as_deref().is_some_and(str::is_empty),
+            "{strict}"
+        );
+        assert!(
+            migration
+                .report
+                .items
+                .iter()
+                .all(|item| item.status.is_translated()),
+            "{strict}: {:?}",
+            migration.report.items
+        );
+        assert!(
+            !migration.nurt.contains("working directory"),
+            "{}",
+            migration.nurt
+        );
+    }
+}

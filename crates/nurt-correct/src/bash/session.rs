@@ -128,6 +128,8 @@ pub(crate) struct Session<'a> {
     cwd: RefCell<Option<String>>,
     log: RefCell<Log>,
     followed: Cell<bool>,
+    /// A `set` of the strict mode was the whole statement of a script line.
+    strict_only: Cell<bool>,
     depth: Cell<usize>,
 }
 
@@ -224,6 +226,7 @@ impl<'a> Session<'a> {
             cwd: RefCell::new(None),
             log: RefCell::new(Log::default()),
             followed: Cell::new(false),
+            strict_only: Cell::new(false),
             depth: Cell::new(0),
         }
     }
@@ -306,10 +309,15 @@ impl<'a> Session<'a> {
                         index += 1;
                         continue;
                     }
-                    Some("set") if !last && self.is_strict_mode(simple) => {
+                    Some("set")
+                        if self.is_strict_mode(simple)
+                            && (!last || self.context.mode == Mode::Script) =>
+                    {
                         // Nurt stops a program at the first error, which is
-                        // what `set -e` and `pipefail` ask a shell for.
+                        // what `set -e` and `pipefail` ask a shell for. In a
+                        // script the line may hold nothing else.
                         self.assume("B22", "script_stops");
+                        self.strict_only.set(last);
                         index += 1;
                         continue;
                     }
@@ -1366,7 +1374,7 @@ impl<'a> Session<'a> {
     /// Translation of a line that only names results; without them the line
     /// has no program.
     fn results_only(&self) -> Result<Translation, Error> {
-        if self.log.borrow().lets.is_empty() {
+        if self.log.borrow().lets.is_empty() && !self.strict_only.get() {
             return Err(self.error(
                 ErrorCode::Uncorrectable,
                 "current_directory",
