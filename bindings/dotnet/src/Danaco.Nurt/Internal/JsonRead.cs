@@ -23,6 +23,10 @@ internal static class JsonRead
         }
     }
 
+    /// <summary>Returns <see langword="null"/> for a JSON <c>null</c>, which the library writes for a missing result.</summary>
+    public static JsonElement? WithoutNull(JsonElement? value) =>
+        value is { ValueKind: JsonValueKind.Null } ? null : value;
+
     public static JsonElement? Property(JsonElement element, string name)
     {
         if (element.ValueKind == JsonValueKind.Object

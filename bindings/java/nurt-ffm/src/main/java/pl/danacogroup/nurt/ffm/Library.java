@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import pl.danacogroup.nurt.NurtCallException;
 import pl.danacogroup.nurt.CallStatus;
 import pl.danacogroup.nurt.internal.Json;
+import pl.danacogroup.nurt.internal.JsonException;
 
 /**
  * Functions of {@code libnurt} as declared in {@code nurt.h}.
@@ -115,10 +116,25 @@ final class Library {
     static Library load(Path path) {
         try {
             return new Library(path, SymbolLookup.libraryLookup(path, Arena.global()));
-        } catch (IllegalArgumentException e) {
-            throw new NurtCallException(NurtCallException.Kind.IO,
-                    "cannot load " + path + ": " + e.getMessage() + "; check NURT_LIBRARY", e);
+        } catch (IllegalArgumentException | IllegalCallerException | UnsupportedOperationException e) {
+            throw loadFailure(path, e);
         }
+    }
+
+    /**
+     * Call error for a library that cannot be loaded or bound.
+     *
+     * @param path the library
+     * @param cause the failure; {@link IllegalCallerException} means that native
+     *     access is not enabled for the module of this backend
+     * @return the exception, of kind {@link NurtCallException.Kind#IO}
+     */
+    static NurtCallException loadFailure(Path path, RuntimeException cause) {
+        String hint = cause instanceof IllegalCallerException || cause instanceof UnsupportedOperationException
+                ? "; allow native access with --enable-native-access"
+                : "; check NURT_LIBRARY";
+        return new NurtCallException(NurtCallException.Kind.IO,
+                "cannot load " + path + ": " + cause.getMessage() + hint, cause);
     }
 
     private static MethodHandle bind(Linker linker, SymbolLookup lookup, String name, FunctionDescriptor descriptor) {
@@ -158,8 +174,7 @@ final class Library {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment buffer = arena.allocate(BUF);
             if (invokeInt(lastError, engine, buffer) == 0) {
-                String json = take(buffer);
-                String message = json.isEmpty() ? null : Json.string(Json.parse(json), "message");
+                String message = messageOf(take(buffer));
                 if (message != null) {
                     detail = function + ": " + message;
                 }
@@ -169,6 +184,24 @@ final class Library {
                 .map(NurtCallException.Kind::of)
                 .orElse(NurtCallException.Kind.INTERNAL);
         throw new NurtCallException(kind, detail + " (status " + status + ")");
+    }
+
+    /**
+     * Message of the record that {@code nurt_last_error} returned.
+     *
+     * @param json the record
+     * @return the message, or {@code null} when the record is empty, is not
+     *     JSON or has no message
+     */
+    static String messageOf(String json) {
+        if (json.isEmpty()) {
+            return null;
+        }
+        try {
+            return Json.string(Json.parse(json), "message");
+        } catch (JsonException e) {
+            return null;
+        }
     }
 
     /**

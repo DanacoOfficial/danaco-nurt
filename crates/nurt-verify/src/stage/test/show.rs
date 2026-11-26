@@ -17,6 +17,9 @@ use super::output;
 use super::run::{DEFAULT_FAILURES, DEFAULT_MESSAGE_LINES};
 use crate::iface::{EntryKind, StoredEntry, VerifyStore, verify_store};
 
+/// Values of the `status` parameter.
+const STATUSES: [&str; 3] = ["failed", "passed", "skipped"];
+
 pub(super) struct TestShow;
 
 impl StageImpl for TestShow {
@@ -84,6 +87,19 @@ impl ReadStage for TestShow {
         let store = verify_store();
         let entry = run_entry(ctx, store.as_ref(), args::text(args, "run_id")?.as_deref())?;
         let status = args::text(args, "status")?;
+        if let Some(unknown) = status
+            .as_deref()
+            .filter(|status| !STATUSES.contains(status))
+        {
+            return Err(Error::new(
+                ErrorCode::InvalidValue,
+                format!(
+                    "unknown status `{unknown}`; use {}",
+                    STATUSES.join(", ")
+                ),
+            )
+            .with_fix("status: failed"));
+        }
         let test = args::text(args, "test")?;
         let shape = Shape {
             failures: args::count(args, "failures", DEFAULT_FAILURES)?,

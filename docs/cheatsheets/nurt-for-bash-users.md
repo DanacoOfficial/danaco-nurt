@@ -74,7 +74,7 @@ Every row pairs a Bash command with its form in Nurt. The last column states whe
 
 | Rule | Bash | Nurt | Result |
 |---|---|---|---|
-| B32 | `curl -fsS https://example.com/health` | `http.request "https://example.com/health"` | corrected automatically |
+| B32 | `curl -fsS https://example.com/health` | `http.request "https://example.com/health" follow_redirects: false` | corrected automatically |
 | B32b | `wget -O /home/user/a.tar.gz https://example.com/a.tar.gz` | `http.download "https://example.com/a.tar.gz" "/home/user/a.tar.gz"` | corrected automatically |
 
 ## Git

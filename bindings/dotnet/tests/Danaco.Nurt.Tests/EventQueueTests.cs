@@ -65,7 +65,7 @@ public sealed class EventQueueTests
     [TestMethod]
     public void EventFieldsAreRead()
     {
-        NurtExecutionEvent item = NurtExecutionEvent.Parse("""{"t": "job.output", "seq": 7, "time": "2026-01-01T00:00:00Z", "job_id": "j1", "lines": ["a"]}""");
+        NurtExecutionEvent item = NurtExecutionEvent.Parse("""{"t": "job.output", "seq": 7, "time": "2026-01-01T00:00:00Z", "id": "j1", "lines": ["a"]}""");
 
         Assert.AreEqual("job.output", item.Kind);
         Assert.AreEqual(7, item.Sequence);

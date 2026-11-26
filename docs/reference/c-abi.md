@@ -8,6 +8,10 @@ foreign function interface. The interface is declared in
 `crates/nurt-ffi/include/nurt.h`; the exported symbols are listed in
 `crates/nurt-ffi/nurt.symbols`. The crate `nurt-ffi` builds a shared library
 (`libnurt_ffi.so`, `libnurt_ffi.dylib`, `nurt_ffi.dll`) and a static library.
+The release packages carry the shared library as `libnurt.so` (also `libnurt.so.1`),
+`libnurt.dylib` and `nurt.dll`. The bindings for .NET and Java look for the name of the
+package first and for the name of the build second, so both are found; a path given in the
+options or in `NURT_LIBRARY` is used as given, whatever its name.
 
 ## Versioning
 
@@ -64,8 +68,10 @@ option (`base`, `save_to`) gives `E_PATH_RELATIVE`.
 | Two JSON documents (`nurt_parse`, `nurt_check`) | The first document is `null`; the diagnostics are `{"diagnostics": [], "error": {...}}`. |
 | Text (`nurt_print`, `nurt_describe`, `nurt_help`) and no result (`nurt_session_end`, `nurt_ext_load`) | The call fails with the status of the error code when the function may return it (`E_ARG`, `E_UNSUPPORTED`, `E_UNKNOWN_NAME`: `NURT_E_ARG`; `E_IO`: `NURT_E_IO` for `nurt_session_end` and `nurt_ext_load`), otherwise with `NURT_E_INTERNAL`. `nurt_last_error` holds the error object under `detail.error`. |
 
-The error object has the members of the effect report: `code`, `message`,
-`stage`, `found`, `fix`, `details`.
+The error object has the members of the error of the effect report
+(`spec/schemas/nurt-report-1.schema.json`): `code`, `message`, `at` (the position, with
+`stage`, `line`, `column` and `length`), `found`, `fix`, `help`, `details`. The execution
+stage is `at.stage`.
 
 A caller treats any unknown non-zero status as a failure; a later minor
 version may add codes.
@@ -207,18 +213,23 @@ Each event is one JSON object passed to the callback as `event_json`, valid
 only during the call:
 
 ```json
-{"seq": 1, "time": 1795392000000000000, "request_id": "r1", "t": "exec.started"}
-{"seq": 2, "time": 1795392000004000000, "request_id": "r1", "t": "progress", "command": "find", "phase": "scan", "done": 64, "total": 148, "bytes": null, "message": null}
-{"seq": 3, "time": 1795392000009000000, "request_id": "r1", "t": "exec.finished", "status": "ok"}
+{"seq": 1, "time": "2026-11-21T09:12:00Z", "request": "r1", "t": "exec.started"}
+{"seq": 2, "time": "2026-11-21T09:12:00Z", "request": "r1", "t": "progress", "command": "find", "phase": "scan", "done": 64, "total": 148, "bytes": null, "message": null}
+{"seq": 3, "time": "2026-11-21T09:12:00Z", "request": "r1", "t": "exec.finished", "status": "ok", "error": null}
 ```
+
+The members are those of `spec/schemas/nurt-event-1.schema.json`, the same document that
+`nurt serve` sends in the notifications `nurt/event`.
 
 | Member | Meaning |
 |---|---|
 | `seq` | Sequence number, from 1, increasing by 1 within the execution. |
-| `time` | Wall time of the event in the form of the clock of the engine (nanoseconds since the Unix epoch). |
-| `request_id` | Identifier of the request, the same for every event of the execution. |
+| `time` | Time of the event as text, RFC 3339 in UTC. |
+| `request` | Identifier of the request as text, the same for every event of the execution; `null` when the request has none. |
 | `t` | Event type: `exec.started`, `progress`, `job.started`, `job.output`, `job.progress`, `job.finished`, `log`, `exec.finished`. |
+| `id` | `job.*` events only: the identifier of the background job. |
 | `status` | `exec.finished` only: the status of the report (`ok`, `failed` and the other values of `report.status`). An execution that ends without a response has `failed`. |
+| `error` | `exec.finished` only: the code of the error that ended the execution, or `null`. |
 
 The first event is `exec.started` and the last is `exec.finished`. No callback
 follows `exec.finished`, and none follows `nurt_exec_free`. The callback may

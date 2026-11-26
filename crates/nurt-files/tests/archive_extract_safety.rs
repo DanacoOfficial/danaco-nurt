@@ -450,6 +450,32 @@ fn created_tar_archives_keep_the_modification_time_of_the_files() {
             input,
         )
         .expect("the archive is created");
+        // The archive stores the time of the file; extraction dates the file by
+        // its write, as the documentation of `archive.extract` says.
+        let mut stored = Vec::new();
+        std::io::Read::read_to_end(
+            &mut test
+                .fs()
+                .open_read(&abs(archive))
+                .expect("the archive exists"),
+            &mut stored,
+        )
+        .expect("the archive is read");
+        let mut times = Vec::new();
+        nurt_archive::list::list(std::io::Cursor::new(stored), None, |member| {
+            times.push((member.path, member.modified));
+            Ok(())
+        })
+        .expect("the archive is listed");
+        let member = times
+            .iter()
+            .find(|(path, _)| path.ends_with("secret.key"))
+            .expect("the member is stored");
+        assert_eq!(
+            member.1,
+            Some(nurt_contracts::value::Instant::from_unix_nanos(MODIFIED_NS)),
+            "{archive}"
+        );
         run_effect(
             &test,
             "archive.extract",
@@ -461,6 +487,6 @@ fn created_tar_archives_keep_the_modification_time_of_the_files() {
             .fs()
             .metadata(&abs("/restored/proj/secret.key"), Follow::NoFollow)
             .expect("the file is restored");
-        assert_eq!(meta.modified_ns, MODIFIED_NS, "{archive}");
+        assert_ne!(meta.modified_ns, MODIFIED_NS, "{archive}");
     }
 }

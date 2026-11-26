@@ -243,6 +243,11 @@ fn vitest_place(place: Place) -> Place {
 /// that is a Python file under the project directory; the rest are classes.
 fn pytest_place(dir: &Path, place: Place) -> Place {
     let parts: Vec<&str> = place.group.split('.').collect();
+    // An empty part would make the probe an absolute path or one with `//`,
+    // which leaves the project directory or names no module.
+    if parts.iter().any(|part| part.is_empty()) {
+        return place;
+    }
     for length in (1..=parts.len()).rev() {
         let file = format!("{}.py", parts[..length].join("/"));
         if dir.join(&file).is_file() {

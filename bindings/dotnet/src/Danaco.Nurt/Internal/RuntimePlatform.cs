@@ -18,6 +18,10 @@ internal sealed class RuntimePlatform
     private const string MuslLoaderDirectory = "/lib";
     private const string MuslLoaderPattern = "ld-musl-*.so.1";
 
+    private static readonly string[] WindowsLibraryNames = { "nurt.dll", "nurt_ffi.dll" };
+    private static readonly string[] MacLibraryNames = { "libnurt.dylib", "libnurt.1.dylib", "libnurt_ffi.dylib" };
+    private static readonly string[] UnixLibraryNames = { "libnurt.so", "libnurt.so.1", "libnurt_ffi.so" };
+
     public RuntimePlatform(OSFamily family, string? runtimeIdentifier)
     {
         Family = family;
@@ -43,11 +47,15 @@ internal sealed class RuntimePlatform
         ? new[] { "nurt.exe" }
         : new[] { "nurt" };
 
+    /// <summary>
+    /// File names of the library in the order they are tried: the names of the package first,
+    /// then the names that the build of <c>nurt-ffi</c> produces.
+    /// </summary>
     public IReadOnlyList<string> LibraryNames => Family switch
     {
-        OSFamily.Windows => new[] { "nurt.dll" },
-        OSFamily.MacOS => new[] { "libnurt.dylib", "libnurt.1.dylib" },
-        _ => new[] { "libnurt.so", "libnurt.so.1" },
+        OSFamily.Windows => WindowsLibraryNames,
+        OSFamily.MacOS => MacLibraryNames,
+        _ => UnixLibraryNames,
     };
 
     private static RuntimePlatform Detect()

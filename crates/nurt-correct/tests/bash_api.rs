@@ -76,6 +76,33 @@ fn script_mode_translates_every_statement_and_names_the_stop_rule() {
 }
 
 #[test]
+fn script_mode_drops_the_strict_mode_of_the_shell_and_names_the_stop_rule() {
+    for strict in [
+        "set -e",
+        "set -eu",
+        "set -euo pipefail",
+        "set -e -u -o pipefail",
+    ] {
+        let input = format!("{strict}\nmkdir -p /srv/out");
+        let translation = translate_with(&input, &SCRIPT)
+            .expect("a script")
+            .expect("a translation");
+        assert_eq!(translation.text(), "create \"/srv/out\" type: directory", "{strict}");
+        assert!(translation.assumptions.iter().any(|a| a.rule == "B22"));
+    }
+    for other in ["set -x", "set -o noclobber", "set -eo", "set -e foo", "set"] {
+        let input = format!("{other}\nmkdir -p /srv/out");
+        let outcome = translate_with(&input, &SCRIPT).expect("a script");
+        let text = outcome.ok().map(|translation| translation.text().to_owned());
+        assert_ne!(
+            text.as_deref(),
+            Some("create \"/srv/out\" type: directory"),
+            "{other}"
+        );
+    }
+}
+
+#[test]
 fn script_mode_keeps_the_directory_of_cd_for_later_lines() {
     let input = "cd /srv/app\nmake\nmake install";
     let translation = translate_with(input, &SCRIPT)

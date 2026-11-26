@@ -12,9 +12,10 @@
 use nurt_contracts::env::{Host, Os};
 
 /// System directories of Linux. A trailing `*` matches any suffix of the last
-/// component, so `/lib*` covers `/lib`, `/lib32` and `/lib64`.
+/// component; the library directories are named one by one, as `/lib*` would
+/// also cover `/library` and `/libexec`.
 const LINUX_SYSTEM: &[&str] = &[
-    "/etc", "/usr", "/bin", "/sbin", "/lib*", "/boot", "/sys", "/proc",
+    "/etc", "/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/boot", "/sys", "/proc",
 ];
 
 /// System directories of macOS.

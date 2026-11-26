@@ -528,7 +528,9 @@ pub enum Mutation {
     },
     /// Change the length of the file.
     SetLength(u64),
-    /// Copy the content of `source`.
+    /// Copy the content of `source`. The new content takes the times of
+    /// `source`; a new file takes its permission bits and attributes as
+    /// well, while a replaced file keeps its own.
     CopyFrom {
         /// Source file.
         source: AbsPath,

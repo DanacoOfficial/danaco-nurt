@@ -52,6 +52,8 @@ fn linux_system_directories() {
             ("/sys/class/net", true),
             ("/proc/1/environ", true),
             ("/etcetera/file", false),
+            ("/library/docs", false),
+            ("/libexec/tool", false),
             ("/Etc/hosts", false),
             ("/srv/usr/file", false),
             ("/home/user/etc/file", false),

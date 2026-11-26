@@ -79,6 +79,11 @@ impl Systemd {
         job_path()
     }
 
+    fn restart_unit(&self, name: String, mode: String) -> OwnedObjectPath {
+        self.0.record(format!("RestartUnit {name} {mode}"));
+        job_path()
+    }
+
     fn stop_unit(&self, name: String, mode: String) -> OwnedObjectPath {
         self.0.record(format!("StopUnit {name} {mode}"));
         job_path()
