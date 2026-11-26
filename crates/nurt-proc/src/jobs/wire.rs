@@ -182,6 +182,10 @@ struct RenderedOutputDef {
     stderr: String,
     stdout_bytes: u64,
     stderr_bytes: u64,
+    #[serde(default)]
+    stdout_read: u64,
+    #[serde(default)]
+    stderr_read: u64,
     stdout_lines: u64,
     stderr_lines: u64,
     decoded_as: String,

@@ -332,11 +332,15 @@ impl JobRun {
         cancel: &CancelToken,
     ) -> ProcessEnd {
         loop {
-            self.check_wait(job);
+            // The cancellation goes first: a call cancelled in the cycle in
+            // which its wait elapses must stop the run, not leave it in the
+            // background.
             if !job.file.detached
                 && let Some(reason) = self.ctx.cancel().reason()
             {
                 cancel.cancel(reason);
+            } else {
+                self.check_wait(job);
             }
             let mut stopped = None;
             for (name, action) in control::pending(&self.table, &self.id) {

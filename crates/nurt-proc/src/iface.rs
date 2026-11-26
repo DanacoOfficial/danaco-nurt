@@ -228,6 +228,11 @@ pub(crate) struct RenderedOutput {
     pub(crate) stdout_bytes: u64,
     /// Bytes written to standard error.
     pub(crate) stderr_bytes: u64,
+    /// Raw bytes of standard output (or of the merged output) that an
+    /// incremental read covered, from its start cursor to its output cursor.
+    pub(crate) stdout_read: u64,
+    /// Raw bytes of standard error that an incremental read covered.
+    pub(crate) stderr_read: u64,
     /// Lines written to standard output.
     pub(crate) stdout_lines: u64,
     /// Lines written to standard error.

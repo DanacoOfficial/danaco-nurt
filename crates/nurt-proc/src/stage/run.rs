@@ -40,6 +40,7 @@ use crate::jobs::{exec_record, external_effect};
 use crate::spawn::{self, ChildEnv, InheritEnv, Platform, batch};
 
 use self::params::Settings;
+pub(crate) use self::record::limit_error;
 use self::record::{BatchRun, LaunchInfo};
 
 /// Stages of the run group implemented here.

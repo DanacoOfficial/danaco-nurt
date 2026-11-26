@@ -140,11 +140,15 @@ impl EffectStage for Control {
         let mut records = Vec::with_capacity(ids.len());
         let mut irreversible = Vec::with_capacity(ids.len());
         for id in &ids {
-            let job = match self.kind {
-                Kind::Stop => store.stop(id, signal, grace)?,
-                Kind::Suspend => store.suspend(id)?,
-                Kind::Resume => store.resume(id)?,
+            let acted = match self.kind {
+                Kind::Stop => store.stop(id, signal, grace),
+                Kind::Suspend => store.suspend(id),
+                Kind::Resume => store.resume(id),
             };
+            let job = acted.map_err(|error| {
+                let applied = error.data().effect_applied || !records.is_empty();
+                error.with_effect_applied(applied)
+            })?;
             let entry = marker(self.kind, id);
             tx.mark_irreversible(entry.clone());
             irreversible.push(entry.clone());

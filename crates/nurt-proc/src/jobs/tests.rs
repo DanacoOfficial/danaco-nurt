@@ -472,6 +472,8 @@ impl FileStore {
             stderr_bytes: fs::metadata(&self.stderr)
                 .map(|meta| meta.len())
                 .unwrap_or(0),
+            stdout_read: line_bytes(out),
+            stderr_read: line_bytes(err),
             stdout_lines: u64::try_from(all_out).unwrap_or(0),
             stderr_lines: u64::try_from(all_err).unwrap_or(0),
             decoded_as: "utf-8".to_owned(),
@@ -483,6 +485,10 @@ impl FileStore {
             ..RenderedOutput::default()
         }
     }
+}
+
+fn line_bytes(lines: &[String]) -> u64 {
+    lines.iter().map(|line| line.len() as u64 + 1).sum()
 }
 
 impl OutputSink for FileStore {
@@ -1213,6 +1219,31 @@ mod jobs_wait {
             Some(job.id.clone())
         );
     }
+
+    #[test]
+    fn a_call_cancelled_when_its_wait_elapses_stops_the_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        ctx.cancel().cancel(CancelReason::Requested);
+        let outcome = run(
+            &ctx,
+            &components,
+            request(dir.path(), 10_000, 0, 1),
+            Some(Duration::ZERO),
+        );
+        assert!(
+            !matches!(outcome, Ok(RunWait::Background(_))),
+            "the cancelled run stayed in the background"
+        );
+        let (running, _) = read_jobs(
+            &components,
+            &ctx,
+            &BoundArgs::new("jobs").with("state", word("running"), false),
+        )
+        .unwrap();
+        assert!(running.is_empty());
+    }
 }
 
 fn stop_all(ctx: &ExecCtx, components: &Components) {
@@ -1427,6 +1458,21 @@ mod jobs_retry {
                 .any(|entry| entry.code == Notable::PostStagesDeferred)
         );
         stop_all(&ctx, &components);
+    }
+
+    #[test]
+    fn a_retry_ended_by_its_time_limit_fails_like_a_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let mut slow = request(dir.path(), 10_000, 0, 0);
+        slow.spawn.limits.timeout = Some(Duration::from_millis(20));
+        let job = background(&ctx, &components, slow);
+        wait_finished(dir.path(), &job.id);
+        let args = BoundArgs::new("retry").with("wait", word("forever"), false);
+        let error = effect_on(&components, &ctx, "retry", &args, vec![job]).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert!(error.effect_applied);
     }
 
     #[test]
@@ -1805,7 +1851,10 @@ mod jobs_remove {
         wait_finished(dir.path(), &stuck.id);
         let removable = background(&ctx, &components, request(dir.path(), 0, 0, 1));
         wait_finished(dir.path(), &removable.id);
-        let input = dir.path().join("jobs").join(format!("{}.input.json", stuck.id));
+        let input = dir
+            .path()
+            .join("jobs")
+            .join(format!("{}.input.json", stuck.id));
         fs::remove_file(&input).unwrap();
         fs::create_dir_all(input.join("blocker")).unwrap();
         std::thread::sleep(Duration::from_millis(20));

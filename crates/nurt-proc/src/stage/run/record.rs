@@ -191,13 +191,24 @@ pub(super) fn notes(result: &RunResult) -> Vec<NotableEntry> {
 /// Error of a run the console ended because of a limit or cancellation; the
 /// effect of the program stays and the error carries the `exec` record.
 pub(super) fn termination_error(info: &LaunchInfo, end: &ProcessEnd, exec: &Exec) -> Option<Error> {
+    limit_error(info.timeout, info.idle_timeout, end, exec)
+}
+
+/// [`termination_error`] for a caller that has the time limits of the run but
+/// not its launch information, such as `retry`.
+pub(crate) fn limit_error(
+    timeout: Option<Duration>,
+    idle_timeout: Option<Duration>,
+    end: &ProcessEnd,
+    exec: &Exec,
+) -> Option<Error> {
     let (code, reason, message) = match end.killed_by? {
         KilledBy::Timeout => (
             ErrorCode::Timeout,
             "timeout",
             format!(
                 "the program reached its time limit{}; raise `timeout` or start it with `background: true`",
-                limit_text(info.timeout)
+                limit_text(timeout)
             ),
         ),
         KilledBy::Idle => (
@@ -205,7 +216,7 @@ pub(super) fn termination_error(info: &LaunchInfo, end: &ProcessEnd, exec: &Exec
             "idle",
             format!(
                 "the program wrote no output and used no processor time{}; raise `idle_timeout`",
-                limit_text(info.idle_timeout)
+                limit_text(idle_timeout)
             ),
         ),
         KilledBy::Limit => {
