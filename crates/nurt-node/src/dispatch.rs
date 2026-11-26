@@ -313,7 +313,7 @@ impl Native {
         let waiting = handle.clone();
         std::thread::Builder::new()
             .name(RESPONSE_THREAD_NAME.to_owned())
-            .spawn(move || sink(Message::Response(finish(&waiting, None))))
+            .spawn(move || sink(Message::Response(guarded(|| finish(&waiting, None)))))
             .map_err(|error| {
                 Failure::internal(format!("cannot start the response thread: {error}"))
             })?;
@@ -337,6 +337,10 @@ impl Native {
     /// Returns `NURT_E_ARG` for an unknown operation or parameters that are
     /// not valid.
     pub fn call(&self, operation: &str, input: &str) -> Result<String, Failure> {
+        guarded(|| self.dispatch(operation, input))
+    }
+
+    fn dispatch(&self, operation: &str, input: &str) -> Result<String, Failure> {
         let input: Value = parse(input, "the parameters")?;
         let engine = &self.engine;
         let outcome: Answer = match operation {
@@ -452,6 +456,21 @@ pub fn encode_event(event: &DeliveredEvent) -> Result<String, Failure> {
     to_text(&document)
 }
 
+/// Runs `work` and turns a panic into `NURT_E_INTERNAL`.
+///
+/// A panic that leaves a worker thread of the addon aborts the Node.js process
+/// or, in the thread that reports a response, leaves the request without one.
+fn guarded<T>(work: impl FnOnce() -> Result<T, Failure>) -> Result<T, Failure> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)).unwrap_or_else(|payload| {
+        let cause = payload
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("unknown cause");
+        Err(Failure::internal(format!("the operation panicked: {cause}")))
+    })
+}
+
 fn answer<T: Serialize>(result: Result<T, Error>) -> Result<Answer, Failure> {
     match result {
         Ok(value) => Ok(Ok(to_value(&value)?)),
@@ -521,8 +540,54 @@ mod tests {
     use nurt_core::{DeliveredEvent, EngineConfig, EventListener};
     use serde_json::{Value, json};
 
-    use super::{Failure, Message, Native, Sink, Status, encode_event, finish};
+    use super::{Failure, Message, Native, Sink, Status, encode_event, finish, guarded};
     use crate::system::{SystemClock, SystemHost};
+
+    #[test]
+    fn a_panic_becomes_an_internal_failure_with_its_message() {
+        let literal: Result<(), Failure> = guarded(|| panic!("boom żółć"));
+        let failure = literal.unwrap_err();
+        assert_eq!(failure.status(), Status::Internal);
+        assert!(failure.message().contains("boom żółć"), "{failure}");
+        let owned: Result<(), Failure> = guarded(|| panic!("{}", String::from("owned cause")));
+        assert!(owned.unwrap_err().message().contains("owned cause"));
+        let opaque: Result<(), Failure> = guarded(|| std::panic::panic_any(7_u8));
+        assert!(opaque.unwrap_err().message().contains("unknown cause"));
+    }
+
+    #[test]
+    fn a_guarded_call_returns_its_result_and_its_failure_unchanged() {
+        assert_eq!(guarded(|| Ok::<_, Failure>(5)), Ok(5));
+        let failure = Failure::arg("bad");
+        assert_eq!(guarded(|| Err::<(), _>(failure.clone())), Err(failure));
+    }
+
+    #[test]
+    fn encoded_events_keep_their_time_in_utc_and_rename_the_request() {
+        let native = native();
+        let collector = Arc::new(Collector::default());
+        let request = serde_json::to_string(&Request::program("find \"/srv\"")).unwrap();
+        let handle = native.start(&request, collector.clone()).unwrap();
+        finish(&handle, Some(WAIT)).unwrap();
+        let events = collector.0.lock().unwrap_or_else(PoisonError::into_inner);
+        for event in events.iter() {
+            let document: Value = serde_json::from_str(&encode_event(event).unwrap()).unwrap();
+            assert!(document["time"].as_str().unwrap().ends_with('Z'));
+            assert_eq!(document["request"], handle.request_id());
+            assert!(document.get("request_id").is_none());
+        }
+    }
+
+    #[test]
+    fn history_and_space_reject_non_object_parameters() {
+        let native = native();
+        for input in ["5", "\"x\"", "true"] {
+            for operation in ["history", "space", "describe", "help"] {
+                let failure = native.call(operation, input).unwrap_err();
+                assert_eq!(failure.status(), Status::Arg, "{operation} {input}");
+            }
+        }
+    }
 
     const WAIT: Duration = Duration::from_secs(30);
 
