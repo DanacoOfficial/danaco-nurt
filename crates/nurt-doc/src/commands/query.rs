@@ -402,22 +402,23 @@ fn file_roots(ctx: &ExecCtx, registry: Option<&Registry>, path: &str) -> Result<
 pub(crate) fn read_file(ctx: &ExecCtx, path: &str) -> Result<FileContent> {
     let fs = ctx.require_fs()?;
     let abs = AbsPath::new(path)?;
-    let before = fs.content_hash(&abs)?;
     let mut handle = fs.open_read(&abs)?;
     let limit = ctx.limits().max_file_bytes_text;
     let size = handle.meta()?.size;
     if size > limit {
-        return Err(Error::new(
-            ErrorCode::Limit,
-            format!("{path} has {size} bytes, more than the limit of {limit} bytes for documents"),
-        ));
+        return Err(too_large(path, size, limit));
     }
+    let before = fs.content_hash(&abs)?;
     let mut bytes = Vec::new();
     handle
         .by_ref()
         .take(limit.saturating_add(1))
         .read_to_end(&mut bytes)
         .map_err(|error| Error::new(ErrorCode::Io, format!("reading {path} failed: {error}")))?;
+    let read = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+    if read > limit {
+        return Err(too_large(path, read, limit));
+    }
     let after = fs.content_hash(&abs)?;
     if before != after {
         return Err(Error::new(
@@ -429,6 +430,13 @@ pub(crate) fn read_file(ctx: &ExecCtx, path: &str) -> Result<FileContent> {
         bytes,
         etag: after.to_string(),
     })
+}
+
+fn too_large(path: &str, size: u64, limit: u64) -> Error {
+    Error::new(
+        ErrorCode::Limit,
+        format!("{path} has {size} bytes, more than the limit of {limit} bytes for documents"),
+    )
 }
 
 /// Values of a document: one root per document of a multi-document stream.

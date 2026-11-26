@@ -16,15 +16,16 @@ use std::path::Path;
 
 use nurt_contracts::error::{ErrorCode, Result};
 use nurt_contracts::journal::{Expect, OpKind, TargetAction};
-use nurt_contracts::record::ChangeAction;
+use nurt_contracts::record::{ChangeAction, Item};
 use nurt_contracts::report::Notable;
 use nurt_contracts::stage::{Event, LogLevel};
-use nurt_contracts::value::{RecordKind, Size, Value};
+use nurt_contracts::value::{Record, RecordKind, Size, Value};
 use nurt_doc::commands::set::{RemoveItemsStage, SetStage, VALIDATE_WARNING_FLAG};
 use nurt_testkit::hash::sha256;
 
 use u09_support::{
-    Fixture, Outcome, args, effect, effect_with, etag, failure, map, path, query, query_file, text,
+    Fixture, Outcome, args, effect, effect_with, etag, failure, items, map, path, query,
+    query_file, text,
 };
 
 const CONFIG: &str = "/data/config.json";
@@ -352,6 +353,44 @@ fn the_stage_form_sets_the_items_of_query() {
     )
     .unwrap();
     assert_eq!(fixture.text(CONFIG), CONFIG_TEXT.replace("80,", "8080,"));
+}
+
+#[test]
+fn items_of_one_file_under_different_spellings_change_it_once() {
+    let fixture = fixture();
+    let read = |expression: &str| {
+        query(
+            &fixture,
+            &args(
+                "query",
+                &[("expression", text(expression)), ("path", path(CONFIG))],
+            ),
+            None,
+        )
+        .unwrap()
+    };
+    let mut found = read(".port");
+    let respelled = items(&read(".name")).into_iter().map(|item| {
+        Record::from(Item {
+            path: nurt_contracts::value::Path::new("/data/./config.json"),
+            ..item
+        })
+    });
+    found.extend(respelled);
+    let stage = SetStage::new(fixture.registry.clone());
+    let outcome = effect(
+        &fixture,
+        &stage,
+        &args("set", &[("value", Value::Int(5))]),
+        Some(found),
+    )
+    .unwrap();
+    assert_eq!(outcome.changes.len(), 1);
+    assert_eq!(outcome.changes[0].replacements, Some(2));
+    assert_eq!(
+        json(&fixture, CONFIG),
+        serde_json::json!({"name": 5, "port": 5, "list": [1, 2, 3]})
+    );
 }
 
 #[test]
