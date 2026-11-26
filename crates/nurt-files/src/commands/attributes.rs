@@ -49,7 +49,7 @@ use serde_json::Value as Json;
 use crate::common::etag::{check_if_match, observe, parse_etag};
 use crate::common::mutation::{apply_changes, fs_target, planned_change};
 use crate::common::notable::{at_path, counted};
-use crate::common::path::{path_list_arg, record_path};
+use crate::common::path::{path_list_arg_for_change, record_path};
 use crate::details::accounts::{Accounts, SUPERUSER_UID};
 use crate::details::acl::{self, ACCESS_XATTR, AclEntry};
 use crate::details::mode::{ModeSpec, PERMISSION_BITS};
@@ -385,7 +385,7 @@ struct Root {
 
 fn roots(args: &BoundArgs, input: StageInput<'_>, ctx: &ExecCtx) -> Result<Vec<Root>> {
     if input.is_none() {
-        return Ok(path_list_arg(args, PATH, ctx)?
+        return Ok(path_list_arg_for_change(args, PATH, ctx)?
             .into_iter()
             .map(|path| Root {
                 path,

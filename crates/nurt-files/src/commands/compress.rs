@@ -35,7 +35,7 @@ use nurt_contracts::value::{Record, RecordKind};
 
 use crate::common::etag::{observe, stale_error};
 use crate::common::mutation::{applied_change, fs_target, planned_change};
-use crate::common::path::{path_list_arg, record_path};
+use crate::common::path::{path_list_arg_for_change, record_path};
 
 /// Name of the `compress` command in the catalog.
 const COMPRESS: &str = "compress";
@@ -299,7 +299,7 @@ fn sources(
         }
     };
     if input.is_none() {
-        let paths = path_list_arg(args, PATH, ctx)?;
+        let paths = path_list_arg_for_change(args, PATH, ctx)?;
         if paths.is_empty() {
             return Err(Error::new(
                 ErrorCode::MissingParam,

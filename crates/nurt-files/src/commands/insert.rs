@@ -38,7 +38,7 @@ use super::edit::{
 };
 use super::validate;
 use crate::common::params;
-use crate::common::path::{path_arg, record_path};
+use crate::common::path::{path_arg_for_change, record_path};
 
 const COMMAND: &str = "insert";
 const TEXT: &str = "text";
@@ -176,7 +176,7 @@ fn file_position(position: Position) -> Position {
 }
 
 fn source_target(args: &BoundArgs, ctx: &ExecCtx, position: Position) -> Result<Target> {
-    let path = path_arg(args, IN, ctx)?.ok_or_else(|| missing_param(COMMAND, IN))?;
+    let path = path_arg_for_change(args, IN, ctx)?.ok_or_else(|| missing_param(COMMAND, IN))?;
     let line = args.int(LINE)?;
     let place = match (line, position) {
         (Some(line), Position::Before | Position::After) => (Some(line), position),

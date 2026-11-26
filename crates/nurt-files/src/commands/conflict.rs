@@ -29,7 +29,8 @@ use crate::common::etag::{Observed, check_if_match, observe, parse_etag};
 use crate::common::mutation::{applied_change, planned_change};
 use crate::common::notable::at_path;
 use crate::common::path::{
-    PATH_FIELD, base_dir, path_arg, path_field, path_list_arg, record_path, resolve,
+    PATH_FIELD, base_dir, path_arg_for_change, path_field, path_list_arg, path_list_arg_for_change,
+    record_path, resolve_for_change,
 };
 use crate::walk::{Entry as WalkEntry, KindFilter, WalkItem, WalkOptions, Walker};
 
@@ -205,6 +206,9 @@ pub(crate) fn same_entry_error(path: &AbsPath) -> Error {
     .with_detail(PATH_FIELD, Json::from(path.to_language_string()))
 }
 
+/// Name of the command that only reads its sources.
+const COPY_COMMAND: &str = "copy";
+
 /// Entry the command works on.
 #[derive(Debug, Clone)]
 pub(crate) struct Source {
@@ -284,10 +288,13 @@ pub(crate) fn sources(
 ) -> Result<Vec<Source>> {
     if input.is_none() {
         args.require(param)?;
-        return Ok(path_list_arg(args, param, ctx)?
-            .into_iter()
-            .map(Source::from_path)
-            .collect());
+        // A copy only reads its sources; every other command changes them.
+        let paths = if args.command() == COPY_COMMAND {
+            path_list_arg(args, param, ctx)?
+        } else {
+            path_list_arg_for_change(args, param, ctx)?
+        };
+        return Ok(paths.into_iter().map(Source::from_path).collect());
     }
     let mut found = Vec::new();
     for (index, item) in input.into_records()?.enumerate() {
@@ -325,10 +332,10 @@ pub(crate) fn destination(
     ctx: &ExecCtx,
 ) -> Result<Destination> {
     let command = args.command();
-    let into = path_arg(args, INTO, ctx)?;
+    let into = path_arg_for_change(args, INTO, ctx)?;
     let to = match args.eval(TO, record, ctx)? {
         None | Some(Value::Null) => None,
-        Some(Value::Path(text) | Value::Text(text)) => Some(resolve(ctx, &text)?),
+        Some(Value::Path(text) | Value::Text(text)) => Some(resolve_for_change(ctx, &text)?),
         Some(_) => return Err(type_error(command, TO, "a path")),
     };
     match (to, into) {
