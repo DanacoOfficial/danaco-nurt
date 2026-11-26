@@ -596,6 +596,23 @@ mod tests {
     }
 
     #[test]
+    fn a_path_with_dot_dot_after_a_link_is_refused() {
+        let test = TestContext::new();
+        file(&test, "/data/a.txt", b"a");
+        let target = dir(&test, "/elsewhere/deep");
+        test.fs()
+            .symlink(target.as_path(), &abs("/data/link"))
+            .unwrap();
+        let written = format!("{}/link/../a.txt", abs("/data").to_language_string());
+        let call = BoundArgs::new(COMMAND)
+            .with(PATH, ArgValue::Value(Value::Path(written)), false)
+            .with(TO, text_arg("b.txt"), false);
+        let error = run(&Rename, &test, &call, None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert_untouched(&test);
+    }
+
+    #[test]
     fn literal_patterns_replace_every_occurrence() {
         let test = TestContext::new();
         let records = vec![
