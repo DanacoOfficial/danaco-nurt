@@ -25,7 +25,8 @@ use nurt_contracts::report::{Change, ChangeAction, Notable, NotableEntry};
 use super::snapshot::{Blobs, snapshot_worktree};
 use super::support::{
     Filters, TreeEntry, TxPlan, display_path, expect_current, flatten_tree, in_scope, open_repo,
-    problem, quote, repo_error, repo_path, repo_relative, workdir, worktree_path,
+    problem, quote, repo_error, repo_path, repo_relative, verify_checkout_paths, workdir,
+    worktree_path,
 };
 use super::{CreatePlan, read_commit, resolve};
 use crate::apply::{
@@ -218,6 +219,7 @@ pub fn plan_restore(repo_path: &Path, request: &RestoreRequest) -> Result<Restor
         .into_iter()
         .filter(|(path, _)| in_scope(path.as_bstr(), &scopes) && !excluded.excluded(path.as_bstr()))
         .collect();
+    verify_checkout_paths(&target)?;
     let mut removals = BTreeMap::new();
     let mut deleted = BTreeSet::new();
     let mut untracked_removed = 0;
@@ -496,16 +498,21 @@ fn restored_index(
             state.dangerously_push_entry(entry.stat, entry.id, entry.flags, entry.mode, path);
         }
     }
-    for (path, (kind, id)) in flatten_tree(repo, plan.tree)? {
-        if in_scope(path.as_bstr(), &plan.scopes) && !plan.excluded.excluded(path.as_bstr()) {
-            state.dangerously_push_entry(
-                gix::index::entry::Stat::default(),
-                id,
-                gix::index::entry::Flags::empty(),
-                index_mode(kind),
-                path.as_bstr(),
-            );
-        }
+    let recorded: BTreeMap<BString, TreeEntry> = flatten_tree(repo, plan.tree)?
+        .into_iter()
+        .filter(|(path, _)| {
+            in_scope(path.as_bstr(), &plan.scopes) && !plan.excluded.excluded(path.as_bstr())
+        })
+        .collect();
+    verify_checkout_paths(&recorded)?;
+    for (path, (kind, id)) in recorded {
+        state.dangerously_push_entry(
+            gix::index::entry::Stat::default(),
+            id,
+            gix::index::entry::Flags::empty(),
+            index_mode(kind),
+            path.as_bstr(),
+        );
     }
     state.sort_entries();
     state.remove_tree();
@@ -756,6 +763,80 @@ mod tests {
         fixture.write("item/inner.txt", "inner\n");
         restore(&fixture, &journal, &request(&[], false));
         assert_eq!(mode(&fixture, "item") & 0o111, 0);
+    }
+
+    /// Replaces `cp-1` by a commit whose tree holds `directory/payload`, as a
+    /// reference imported from another repository could.
+    fn plant_checkpoint(fixture: &Fixture, directory: &str) {
+        let repo = fixture.open();
+        let blob = repo.write_blob(b"payload\n").unwrap().detach();
+        let entry = |kind: EntryKind, name: &str, oid: ObjectId| gix::objs::tree::Entry {
+            mode: kind.into(),
+            filename: name.into(),
+            oid,
+        };
+        let inner = repo
+            .write_object(&gix::objs::Tree {
+                entries: vec![entry(EntryKind::Blob, "payload", blob)],
+            })
+            .unwrap()
+            .detach();
+        let outer = repo
+            .write_object(&gix::objs::Tree {
+                entries: vec![entry(EntryKind::Tree, directory, inner)],
+            })
+            .unwrap()
+            .detach();
+        let found = resolve(&repo, "cp-1", "repo").unwrap();
+        let message = repo
+            .find_commit(found.commit)
+            .unwrap()
+            .message_raw()
+            .unwrap()
+            .to_str_lossy()
+            .into_owned();
+        let who = gix::actor::Signature {
+            name: "Test".into(),
+            email: "test@example.com".into(),
+            time: gix::date::Time {
+                seconds: 1_700_000_000,
+                offset: 0,
+            },
+        };
+        let commit = super::super::write_commit(&repo, outer, Vec::new(), &who, message).unwrap();
+        std::fs::write(
+            fixture.root.join(".git/refs/nurt/checkpoints/cp-1"),
+            format!("{commit}\n"),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn restore_refuses_a_checkpoint_tree_with_paths_that_leave_the_working_tree() {
+        let fixture = Fixture::new(&[("a.txt", "one\n")]);
+        let journal = RecordingJournal::default();
+        checkpoint(&fixture, &journal, false);
+        for directory in ["..", ".git", ".GIT", ".git.", "git~1"] {
+            plant_checkpoint(&fixture, directory);
+            let before = fixture.state();
+            let error = plan_restore(&fixture.root, &request(&[], false)).unwrap_err();
+            assert_eq!(error.code(), ErrorCode::GitUnsupported, "{directory}");
+            assert_eq!(
+                error.data().problem.as_deref(),
+                Some("unsafe_path"),
+                "{directory}"
+            );
+            assert_eq!(fixture.state(), before, "{directory}");
+        }
+    }
+
+    #[test]
+    fn restore_of_other_paths_ignores_an_unsafe_path_outside_the_scope() {
+        let fixture = Fixture::new(&[("a.txt", "one\n")]);
+        let journal = RecordingJournal::default();
+        checkpoint(&fixture, &journal, false);
+        plant_checkpoint(&fixture, ".git");
+        assert!(plan_restore(&fixture.root, &request(&["a.txt"], false)).is_ok());
     }
 
     #[test]
