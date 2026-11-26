@@ -41,6 +41,8 @@ const TEMP_MODE: u32 = 0o600;
 const NEW_FILE_MODE: u32 = 0o666;
 /// Attempts to find an unused temporary name.
 const TEMP_NAME_ATTEMPTS: u32 = 64;
+/// Longest file name in bytes (`NAME_MAX`).
+const NAME_MAX_BYTES: usize = 255;
 /// Buffer used to hash content.
 const HASH_BUFFER: usize = 1 << 20;
 /// First pause between attempts to take a lock.
@@ -153,6 +155,17 @@ fn unique_suffix() -> String {
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.subsec_nanos());
     format!("{:x}-{counter:x}-{clock:08x}", process::id())
+}
+
+/// Name of a temporary file: the hint, shortened at a character boundary so
+/// that the whole name fits in [`NAME_MAX_BYTES`], and a unique suffix.
+fn temp_name(hint: &str) -> String {
+    let suffix = format!(".{}", unique_suffix());
+    let mut keep = hint.len().min(NAME_MAX_BYTES.saturating_sub(suffix.len()));
+    while !hint.is_char_boundary(keep) {
+        keep = keep.saturating_sub(1);
+    }
+    format!("{}{suffix}", hint.get(..keep).unwrap_or_default())
 }
 
 fn os_path(bytes: Vec<u8>) -> PathBuf {
@@ -305,7 +318,7 @@ impl FsWrite for LinuxFs {
         let flags = OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL;
         let mut last = Errno::EXIST;
         for _ in 0..TEMP_NAME_ATTEMPTS {
-            let path = dir.join_name(&format!("{name_hint}.{}", unique_suffix()))?;
+            let path = dir.join_name(&temp_name(name_hint))?;
             match open(path.as_path(), flags, TEMP_MODE, OP) {
                 Ok(fd) => return Ok(Box::new(LinuxWriteHandle::new(fd, path))),
                 Err(error) if error.kind == FsErrorKind::Exists => last = Errno::EXIST,

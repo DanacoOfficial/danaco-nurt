@@ -1005,6 +1005,19 @@ fn creates_unique_private_temporary_files() {
 }
 
 #[test]
+fn shortens_a_long_hint_of_a_temporary_file_to_the_name_limit() {
+    let fixture = Fixture::new();
+    let hint = "\u{e9}".repeat(127);
+    let handle = fixture
+        .fs
+        .create_temp_in(&fixture.scope, &fixture.root, &hint)
+        .expect("temporary file");
+    let name = handle.path().file_name().expect("name");
+    assert!(name.len() <= 255, "{}", name.len());
+    assert!(name.to_string_lossy().starts_with('\u{e9}'));
+}
+
+#[test]
 fn reads_files_directories_and_links() {
     let fixture = Fixture::new();
     let file = fixture.file("file", b"abc");
