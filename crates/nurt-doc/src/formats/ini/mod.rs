@@ -335,7 +335,7 @@ fn add_entry(map: &mut Map, parsed: &Parsed, id: usize, profile: IniProfile) -> 
             } else {
                 Node::Leaf(id)
             };
-            map.members.push((name, node));
+            map.push(name, node);
             Ok(())
         }
         Some(position) => {
