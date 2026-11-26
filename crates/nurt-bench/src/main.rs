@@ -19,10 +19,13 @@ use nurt_bench::rpc::{CommandLauncher, ServeLauncher};
 use nurt_bench::runner::{RunReport, RunSettings, RunStatus, Runner};
 use nurt_bench::stats::Bootstrap;
 use nurt_bench::task::{self, HostOs, TaskFile};
-use nurt_bench::{Condition, Result, variants};
+use nurt_bench::{BenchError, Condition, Result, variants};
 
 /// Confidence level of the intervals.
 const LEVEL: f64 = 0.95;
+
+/// Largest number of runs per task.
+const MAX_SEEDS: u64 = 1000;
 
 #[derive(Parser)]
 #[command(
@@ -182,7 +185,17 @@ fn progress(report: &RunReport) {
 }
 
 fn run(args: RunArgs) -> Result<bool> {
+    if args.seeds == 0 || args.seeds > MAX_SEEDS {
+        return Err(BenchError::Argument(format!(
+            "--seeds must be between 1 and {MAX_SEEDS}"
+        )));
+    }
     let tasks = select(task::load_tasks(&args.tasks)?, &args.filter);
+    if tasks.is_empty() {
+        return Err(BenchError::Argument(
+            "no task of the task set matches; check --tasks and --filter".to_owned(),
+        ));
+    }
     let settings = RunSettings {
         protocol: Protocol::load(&args.protocol)?,
         condition: args.condition,
@@ -226,7 +239,10 @@ fn analyze(args: &AnalyzeArgs) -> Result<bool> {
         analysis.excluded_errors,
         args.out.display()
     ));
-    Ok(true)
+    if analysis.runs == 0 {
+        note("nurt-bench: no complete run log was analysed");
+    }
+    Ok(analysis.runs > 0)
 }
 
 fn launch(command: &str) -> Result<(tempfile::TempDir, nurt_bench::rpc::RpcClient)> {
