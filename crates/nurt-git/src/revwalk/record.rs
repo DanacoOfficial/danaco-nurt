@@ -4,6 +4,7 @@
 //! Records of commits: identities mapped through `.mailmap`, subject,
 //! trailers, names of references, signature format and changed files.
 
+use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashMap};
 
 use bstr::{BStr, ByteSlice};
@@ -289,9 +290,11 @@ fn signature_format(text: &BStr) -> SignatureFormat {
 
 /// Names of the references that point to each commit, as `git log
 /// --decorate` writes them: `HEAD -> main` for the current branch, `HEAD`
-/// when detached, `tag: v1` for tags.
+/// when detached, `tag: v1` for tags. The names that follow are in reverse
+/// order of the full reference names.
 fn decorations(repo: &OpenRepo) -> HashMap<ObjectId, Vec<String>> {
-    let mut by_commit: HashMap<ObjectId, BTreeMap<(u8, String), String>> = HashMap::new();
+    let mut by_commit: HashMap<ObjectId, BTreeMap<(u8, Reverse<String>), String>> =
+        HashMap::new();
     let current = repo.repo.head_name().ok().flatten();
     if let Ok(platform) = repo.repo.references()
         && let Ok(all) = platform.all()
@@ -311,16 +314,14 @@ fn decorations(repo: &OpenRepo) -> HashMap<ObjectId, Vec<String>> {
             {
                 (0, format!("HEAD -> {short}"))
             } else if full.starts_with("refs/tags/") {
-                (3, format!("tag: {short}"))
-            } else if full.starts_with("refs/heads/") {
-                (1, short)
+                (1, format!("tag: {short}"))
             } else {
-                (2, short)
+                (1, short)
             };
             by_commit
                 .entry(commit)
                 .or_default()
-                .insert((rank, full), label);
+                .insert((rank, Reverse(full)), label);
         }
     }
     if current.is_none()
@@ -329,7 +330,7 @@ fn decorations(repo: &OpenRepo) -> HashMap<ObjectId, Vec<String>> {
         by_commit
             .entry(head.detach())
             .or_default()
-            .insert((0, "HEAD".to_owned()), "HEAD".to_owned());
+            .insert((0, Reverse("HEAD".to_owned())), "HEAD".to_owned());
     }
     by_commit
         .into_iter()
@@ -518,6 +519,21 @@ signed commit
         assert_eq!(files[0].status, GitFileState::Modified);
         assert_eq!(files[1].binary, Some(true));
         assert_eq!(files[1].added, None);
+    }
+
+    #[test]
+    fn decorations_follow_the_order_of_git() {
+        let mut fixture = Fixture::new();
+        let id = fixture.commit("first", &[("a", Some("a\n"))]);
+        fixture.branch("alpha", id);
+        fixture.branch("zeta", id);
+        fixture.tag("v1", id);
+        let repo = fixture.open();
+        let records = CommitRecords::new(&repo, &all());
+        assert_eq!(
+            records.commit(id).unwrap().refs.unwrap(),
+            ["HEAD -> main", "tag: v1", "zeta", "alpha"]
+        );
     }
 
     #[test]

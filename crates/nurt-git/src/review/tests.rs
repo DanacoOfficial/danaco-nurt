@@ -326,6 +326,16 @@ fn untracked_files_beyond_the_limit_are_counted_as_skipped() {
     assert_eq!(note.count, Some(2));
 }
 
+#[cfg(unix)]
+#[test]
+fn untracked_files_that_are_not_regular_are_left_out() {
+    let fixture = Fixture::new();
+    fixture.write("a.txt", "x \n");
+    let _socket = std::os::unix::net::UnixListener::bind(fixture.root().join("sock")).unwrap();
+    let output = run(&request(&fixture, Scope::All, &[Check::Whitespace]));
+    assert_eq!(summary(&output), [entry("a.txt", "whitespace", 1)]);
+}
+
 #[test]
 fn paths_select_and_exclude_leaves_out_files() {
     let fixture = Fixture::new();

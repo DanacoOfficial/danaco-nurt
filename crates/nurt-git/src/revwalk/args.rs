@@ -254,6 +254,41 @@ mod tests {
     }
 
     #[test]
+    fn reads_globs_defaults_and_rejects_values_of_other_types() {
+        let bound = args(
+            "git.log",
+            &[
+                (
+                    "exclude",
+                    Value::List(vec![
+                        Value::Glob("*.lock".into()),
+                        Value::Text("dist/**".into()),
+                    ]),
+                ),
+                ("single", Value::Glob("*.md".into())),
+                ("flag", Value::Bool(true)),
+                ("number", Value::Int(7)),
+            ],
+        );
+        assert_eq!(
+            globs(&bound, "exclude").unwrap(),
+            [BString::from("*.lock"), BString::from("dist/**")]
+        );
+        assert_eq!(globs(&bound, "single").unwrap(), [BString::from("*.md")]);
+        assert!(globs(&bound, "absent").unwrap().is_empty());
+        assert_eq!(globs(&bound, "number").unwrap_err().code(), ErrorCode::Type);
+        assert!(flag_or(&bound, "flag", false).unwrap());
+        assert!(flag_or(&bound, "absent", true).unwrap());
+        assert_eq!(
+            flag_or(&bound, "number", true).unwrap_err().code(),
+            ErrorCode::Type
+        );
+        assert_eq!(range(&bound, "flag").unwrap_err().code(), ErrorCode::Type);
+        assert_eq!(texts(&bound, "number").unwrap_err().code(), ErrorCode::Type);
+        assert_eq!(paths(&bound, "number").unwrap_err().code(), ErrorCode::Type);
+    }
+
+    #[test]
     fn rejects_negative_counts_and_reads_instants() {
         let bound = args(
             "git.log",
