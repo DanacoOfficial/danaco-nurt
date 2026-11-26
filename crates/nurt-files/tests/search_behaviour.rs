@@ -367,6 +367,17 @@ fn long_lines_are_shortened_and_counted() {
 }
 
 #[test]
+fn a_max_per_file_of_zero_means_no_limit() {
+    let test = tree(&[("/t/a.txt", b"x\nx\nx\n")]);
+    let ctx = test.ctx();
+    let limited = found(&ctx, text("x"), "/t", vec![("max_per_file", Value::Int(2))]);
+    assert_eq!(positions(&limited), [(1, 1), (2, 1)]);
+    let unlimited = found(&ctx, text("x"), "/t", vec![("max_per_file", Value::Int(0))]);
+    assert_eq!(positions(&unlimited), [(1, 1), (2, 1), (3, 1)]);
+    assert_eq!(positions(&found(&ctx, text("x"), "/t", vec![])).len(), 3);
+}
+
+#[test]
 fn a_pattern_that_exceeds_the_backtracking_limit_is_reported() {
     // The nested repetition before the back-reference makes the number of
     // steps of the backtracking engine grow exponentially with the run of `a`.
