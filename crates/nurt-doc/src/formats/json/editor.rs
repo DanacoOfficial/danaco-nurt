@@ -195,27 +195,115 @@ impl<'d> Editor<'d> {
     /// container in one step: each run of adjacent entries goes with its
     /// separator as a unit, and the runs are separated by entries that stay,
     /// so the changes do not overlap and need no repeated reading of the
-    /// text. Returns `None` for a container that holds comments, whose
-    /// handling needs one entry at a time ([`Editor::remove`]).
+    /// text. The result is the one of removing the entries one at a time
+    /// ([`Editor::remove`]), last first: in a container with comments, the
+    /// comments directly above an entry and after it on its line go with it,
+    /// and a comment of neither kind between two removed entries ends the
+    /// run and stays. Returns `None` for an arrangement that needs the
+    /// entries one at a time: removed entries that share their lines with
+    /// other content in a container whose entries all go, or at the end of a
+    /// container with a comment between them.
     pub(crate) fn remove_runs(&self, container: NodeId, indices: &[usize]) -> Option<Vec<Change>> {
         let tree = self.layout.tree;
         let span = tree.nodes[container].span;
         let interior = Span::new(span.start + 1, span.end - 1);
-        if self.layout.comments_in(interior).next().is_some() {
-            return None;
-        }
         let entries = tree.nodes[container].entries().unwrap_or_default();
+        let commented = self.layout.comments_in(interior).next().is_some();
+        let runs = self.runs(entries, indices, commented);
+        if commented {
+            return self.commented_runs(container, entries, interior, &runs);
+        }
         let mut changes = Vec::new();
-        let mut rest = indices;
-        while let Some((&first, tail)) = rest.split_first() {
-            let length = 1 + tail
-                .iter()
-                .zip(first + 1..)
-                .take_while(|(index, expected)| **index == *expected)
-                .count();
-            let last = first + length - 1;
+        for (first, last) in runs {
             changes.extend(self.run(span, entries, container, first, last)?);
-            rest = &rest[length..];
+        }
+        Some(changes)
+    }
+
+    /// Maximal runs `(first, last)` of adjacent positions in `indices`. With
+    /// `commented`, a comment between two entries that goes with neither of
+    /// them ends the run, because it stays when the entries go.
+    fn runs(&self, entries: &[Entry], indices: &[usize], commented: bool) -> Vec<(usize, usize)> {
+        let mut runs: Vec<(usize, usize)> = Vec::new();
+        for &index in indices {
+            match runs.last_mut() {
+                Some((_, last))
+                    if *last + 1 == index
+                        && (!commented || self.comments_go_with_entries(entries, *last)) =>
+                {
+                    *last = index;
+                }
+                _ => runs.push((index, index)),
+            }
+        }
+        runs
+    }
+
+    /// Every comment between the entry `index` and the next one is a comment
+    /// after the entry on its line or one of the lines directly above the
+    /// next entry.
+    fn comments_go_with_entries(&self, entries: &[Entry], index: usize) -> bool {
+        let layout = &self.layout;
+        let from = self.entry_end(&entries[index]);
+        let next = entries[index + 1].start(layout.tree);
+        let leading = layout.leading_comments(next);
+        let line = layout.line_start(from);
+        layout.comments_in(Span::new(from, next)).all(|comment| {
+            leading.is_some_and(|block| comment.start >= block.start)
+                || layout.line_start(comment.start) == line
+        })
+    }
+
+    /// Changes that remove `runs` of entries from a container with comments.
+    fn commented_runs(
+        &self,
+        container: NodeId,
+        entries: &[Entry],
+        interior: Span,
+        runs: &[(usize, usize)],
+    ) -> Option<Vec<Change>> {
+        let layout = &self.layout;
+        let count: usize = runs.iter().map(|(first, last)| last - first + 1).sum();
+        if count == entries.len() {
+            let mut lines = Vec::with_capacity(runs.len());
+            for &(first, last) in runs {
+                lines.push(self.whole_run_lines(container, entries, first, last)?);
+            }
+            let stays = layout.comments_in(interior).any(|comment| {
+                let at = lines.partition_point(|range| range.start <= comment.start);
+                !at.checked_sub(1)
+                    .is_some_and(|found| comment.end <= lines[found].end)
+            });
+            return Some(if stays {
+                lines.into_iter().map(Change::delete).collect()
+            } else {
+                vec![Change::delete(interior)]
+            });
+        }
+        let mut changes = Vec::new();
+        for (position, &(first, last)) in runs.iter().enumerate() {
+            let at_end = last + 1 == entries.len();
+            if at_end && position > 0 && runs[position - 1].1 + 1 == first {
+                return None;
+            }
+            match self.whole_run_lines(container, entries, first, last) {
+                Some(lines) => {
+                    changes.push(Change::delete(lines));
+                    if at_end
+                        && entries[last].comma.is_none()
+                        && let Some(comma) =
+                            first.checked_sub(1).and_then(|index| entries[index].comma)
+                    {
+                        changes.push(Change::delete(Span::new(comma, comma + 1)));
+                    }
+                }
+                // A comment inside a run that shares its line with other
+                // content stays when the entries go one at a time.
+                None if first == last => {
+                    changes.push(Change::delete(self.inline_run(entries, first, last)?));
+                }
+                None => return None,
+            }
         }
         Some(changes)
     }
@@ -274,8 +362,11 @@ impl<'d> Editor<'d> {
         ) {
             return None;
         }
+        let first_line = layout
+            .leading_comments(start)
+            .map_or(start, |block| block.start);
         Some(Span::new(
-            layout.line_start(start),
+            layout.line_start(first_line),
             layout.next_line_start(after),
         ))
     }
