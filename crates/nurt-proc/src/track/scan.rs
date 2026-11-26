@@ -135,7 +135,7 @@ impl Bound {
             self.halt(Stop::Entries);
             return true;
         }
-        count % CHECK_INTERVAL == 0 && self.check()
+        count.is_multiple_of(CHECK_INTERVAL) && self.check()
     }
 }
 

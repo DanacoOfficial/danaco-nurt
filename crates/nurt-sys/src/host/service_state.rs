@@ -36,7 +36,7 @@ pub(crate) const SOCKET_FILE: &str = "service.sock";
 /// Longest wait for the answer to `ping`.
 pub(crate) const PING_TIMEOUT: Duration = Duration::from_millis(50);
 /// Name of the systemd unit.
-#[cfg(any(target_os = "linux", test))]
+#[cfg(target_os = "linux")]
 pub(crate) const SYSTEMD_UNIT: &str = "nurt-service.service";
 /// File name of the launchd property list.
 #[cfg(target_os = "macos")]
@@ -50,7 +50,7 @@ pub(crate) const WINDOWS_SERVICE: &str = "NurtService";
 pub(crate) const PIPE_PREFIX: &str = r"\\.\pipe\nurt-service-";
 
 /// Directories of system-wide systemd units, relative to the system root.
-#[cfg(any(target_os = "linux", test))]
+#[cfg(target_os = "linux")]
 const SYSTEM_UNIT_DIRS: [&str; 3] = [
     "/etc/systemd/system",
     "/usr/lib/systemd/system",
@@ -92,8 +92,10 @@ pub(crate) struct Probe<'a> {
     /// State directory of the instance, when known.
     pub(crate) state_dir: Option<PathBuf>,
     /// Home directory of the account.
+    #[cfg(unix)]
     pub(crate) home: PathBuf,
     /// Configuration directory of the account (`XDG_CONFIG_HOME`), when set.
+    #[cfg(target_os = "linux")]
     pub(crate) config_home: Option<PathBuf>,
     /// Current wall time.
     pub(crate) now: WallTime,
@@ -111,7 +113,9 @@ impl<'a> Probe<'a> {
         Self {
             root,
             state_dir,
+            #[cfg(unix)]
             home: ctx.host().info().home.clone(),
+            #[cfg(target_os = "linux")]
             config_home: ctx
                 .host()
                 .env_var("XDG_CONFIG_HOME")

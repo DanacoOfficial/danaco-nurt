@@ -48,6 +48,7 @@ impl VirtualClock {
         })
     }
 
+    #[cfg(target_os = "linux")]
     pub(crate) fn cancel_at_sleep(&self, sleep: usize, token: CancelToken) {
         *self.cancel_at.lock().unwrap() = Some((sleep, token));
     }
