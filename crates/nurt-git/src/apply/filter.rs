@@ -163,11 +163,8 @@ impl<'r> Filters<'r> {
             }
             ToWorktreeOutcome::Process(_) => data.to_vec(),
         };
-        let bytes = PathAttributes::read(&platform).finish_worktree_content(
-            bytes,
-            self.repo.object_hash().len_in_hex(),
-            path,
-        )?;
+        let bytes = PathAttributes::read(&platform)
+            .finish_worktree_content(bytes, self.repo.object_hash().len_in_hex());
         Ok((bytes, skipped))
     }
 }

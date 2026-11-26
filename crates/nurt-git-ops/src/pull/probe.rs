@@ -645,7 +645,7 @@ pub(crate) mod tests {
             );
         }
         index.sort_entries();
-        index.write(Default::default()).unwrap();
+        index.write(Default::default(), Default::default()).unwrap();
         assert_eq!(fixture.open().unmerged_paths().unwrap(), ["c.txt"]);
     }
 
@@ -668,7 +668,7 @@ pub(crate) mod tests {
             "sub".into(),
         );
         index.sort_entries();
-        index.write(Default::default()).unwrap();
+        index.write(Default::default(), Default::default()).unwrap();
         fs::create_dir(fixture.root().join("sub")).unwrap();
         let repo = fixture.open();
         assert!(repo.unstaged_paths().unwrap().is_empty());

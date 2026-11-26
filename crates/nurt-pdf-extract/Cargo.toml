@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+[package]
+name = "nurt-pdf-extract"
+description = "Text extraction from PDF documents: pdf-extract 0.12.1 of Jeff Muizelaar, built on lopdf 0.47."
+version = "0.12.1"
+edition = "2021"
+license = "MIT"
+authors = ["Jeff Muizelaar <jmuizelaar@mozilla.com>"]
+repository = "https://github.com/jrmuizel/pdf-extract"
+publish = false
+
+[lib]
+name = "pdf_extract"
+
+[dependencies]
+adobe-cmap-parser = { workspace = true }
+cff-parser = { workspace = true }
+encoding_rs = { workspace = true }
+euclid = { workspace = true }
+log = { workspace = true }
+lopdf = { workspace = true }
+postscript = { workspace = true }
+type1-encoding-parser = { workspace = true }
+unicode-normalization = { workspace = true }

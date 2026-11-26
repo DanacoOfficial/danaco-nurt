@@ -13,6 +13,8 @@ pub(crate) const NO_KEY: &str = "no_key";
 pub(crate) const AGENT_UNAVAILABLE: &str = "agent_unavailable";
 pub(crate) const KEY_LOCKED: &str = "key_locked";
 pub(crate) const UNSUPPORTED_FORMAT: &str = "unsupported_format";
+pub(crate) const PROGRAM_UNAVAILABLE: &str = "program_unavailable";
+pub(crate) const PROGRAM_FAILED: &str = "program_failed";
 
 pub(crate) fn sign_error(problem: &str, message: impl Into<String>) -> Error {
     Error::new(ErrorCode::GitSign, message).with_problem(problem)
@@ -34,6 +36,14 @@ pub(crate) fn no_key(message: impl Into<String>) -> Error {
 
 pub(crate) fn agent_unavailable(message: impl Into<String>) -> Error {
     sign_error(AGENT_UNAVAILABLE, message)
+}
+
+pub(crate) fn program_unavailable(message: impl Into<String>) -> Error {
+    sign_error(PROGRAM_UNAVAILABLE, message)
+}
+
+pub(crate) fn program_failed(message: impl Into<String>) -> Error {
+    sign_error(PROGRAM_FAILED, message)
 }
 
 pub(crate) fn key_locked(message: impl Into<String>) -> Error {

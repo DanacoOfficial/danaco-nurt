@@ -32,12 +32,15 @@ the repository: `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL` and
 `GIT_COMMITTER_DATE`, then `user.name` and `user.email`, and the clock of the
 execution.
 
-With `sign: true` an annotated tag is signed by the built-in signer with the
-key named by `user.signingKey` in the format of `gpg.format` (`openpgp` or
-`ssh`); without `sign` the setting `tag.gpgSign` decides, and `sign: false`
-creates an unsigned tag when `tag.gpgSign` is `true`. Programs named by
-`gpg.program` and similar keys are not run. A signed tag needs a message; a
-tag without a message stays lightweight and unsigned.
+With `sign: true` an annotated tag is signed with the key named by
+`user.signingKey` in the format of `gpg.format` (`openpgp` or `ssh`); without
+`sign` the setting `tag.gpgSign` decides, and `sign: false` creates an
+unsigned tag when `tag.gpgSign` is `true`. An OpenPGP signature is made by the
+program named by `gpg.openpgp.program` or `gpg.program` (`gpg` by default),
+started through the program service as in `git.commit`; an SSH signature is
+made in the process, and `gpg.ssh.program` and similar keys are not run. A
+signed tag needs a message; a tag without a message stays lightweight and
+unsigned.
 
 `delete` removes the tag reference, from its loose file and from
 `packed-refs`; the tag object stays in the object database.
@@ -71,6 +74,7 @@ with the message `tag: tagging <id> (<subject>, <date>)` of `git tag`.
 | Reversibility | `read` |
 | Implementation | `builtin` |
 | Reversibility conditions | Tag changes are reversible from the journal, which keeps the previous value of each reference. |
+| External use | `user_program`: `gpg`; Runs gpg (gpg.openpgp.program or gpg.program) when an annotated tag is signed with an OpenPGP key, whether sign is given or tag.gpgSign is set. |
 
 | Action | Effect | Reversibility | Note |
 |---|---|---|---|

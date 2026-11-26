@@ -13,6 +13,32 @@ their own version numbers, described in the specification.
 
 ## [Unreleased]
 
+### Security
+
+- The Git library `gix` and its sub-crates are updated to the 0.91 generation,
+  which no longer depends on `heapless` 0.8 (nine advisories about unsound code,
+  RUSTSEC-2026-0574 to RUSTSEC-2026-0582).
+- The unused `netstat2` dependency and the AVIF encoder of the `image` crate
+  (`ravif`, `rav1e`) are removed, which removes the unmaintained `paste` macro
+  crate (RUSTSEC-2024-0436). Reading of AVIF files was never enabled.
+- OpenPGP signatures of commits and tags are made and checked by GnuPG instead
+  of the `pgp` crate, which removes `rsa` 0.9 (RUSTSEC-2023-0071) and
+  `crypto-bigint` 0.5 (RUSTSEC-2026-0387) from the dependency graph. The
+  program named by `gpg.openpgp.program` or `gpg.program` (`gpg` by default)
+  runs through the program service; `git.signing.key_file` is imported into a
+  temporary GnuPG home directory. A missing or failing program refuses the
+  signature with `E_GIT_SIGN` (problems `program_unavailable` and
+  `program_failed`); verification without the program reports the status
+  `unsupported`. SSH signatures are unchanged and still made in the process.
+- The text extraction of `pdf-extract` 0.12.1 is a crate of the workspace
+  (`crates/nurt-pdf-extract`, MIT license) built on `lopdf` 0.47, which no
+  longer needs the unmaintained `ttf-parser` crate (RUSTSEC-2026-0192).
+- The `chrono` feature is off for `croner`, `lopdf`, `rmcp` (updated to 3.12)
+  and, through it, `schemars`. `chrono` stays in the dependency graph only
+  through `macos-unifiedlogs` and `russh-util` (RUSTSEC-2026-0543), for which
+  `deny.toml` records the reason.
+- The lock files of the fuzz targets are regenerated.
+
 ## [0.1.0] - 2026-11-22
 
 First release.

@@ -171,11 +171,40 @@ lzma-rust2 = "0.25.0"
 
 # Media and document metadata.
 kamadak-exif = "0.6.2"
-image = "0.25.10"
+# Images are only inspected, never encoded: the default `avif` feature is the
+# AVIF encoder (ravif and rav1e) and does not enable AVIF decoding. The `rayon`
+# feature is left out because it lists ravif, which keeps the encoder in
+# Cargo.lock.
+image = { version = "0.25.10", default-features = false, features = [
+  "bmp",
+  "dds",
+  "exr",
+  "ff",
+  "gif",
+  "hdr",
+  "ico",
+  "jpeg",
+  "png",
+  "pnm",
+  "qoi",
+  "tga",
+  "tiff",
+  "webp",
+] }
 infer = "0.22.0"
 mime_guess = "2.0.5"
-pdf-extract = "0.12.1"
-lopdf = "0.47.0"
+# The text extraction of pdf-extract is a crate of this workspace, because the
+# release of pdf-extract requires lopdf 0.42 and with it the unmaintained
+# ttf-parser crate.
+pdf-extract = { package = "nurt-pdf-extract", path = "crates/nurt-pdf-extract", version = "0.12.1" }
+# Without the chrono clock: documents are read, not created with a date.
+lopdf = { version = "0.47.0", default-features = false, features = ["rayon"] }
+adobe-cmap-parser = "0.4.1"
+cff-parser = "0.2.0"
+euclid = "0.20.5"
+log = "0.4.22"
+postscript = "0.14"
+type1-encoding-parser = "0.1.1"
 
 # System logs.
 macos-unifiedlogs = "0.7.0"
@@ -202,14 +231,13 @@ file-id = "0.2.3"
 same-file = "1.0.6"
 notify = "9.0.0"
 sysinfo = "0.40.4"
-netstat2 = "0.11.2"
 which = "8.0.6"
 cap-primitives = "4.0.3"
 camino = { version = "1.2.6", features = ["serde1"] }
 dunce = "1.0.5"
 
 # Version control.
-gix = { version = "0.90.0", default-features = false, features = [
+gix = { version = "0.91.0", default-features = false, features = [
   "sha1",
   "sha256",
   "max-performance",
@@ -222,37 +250,38 @@ gix = { version = "0.90.0", default-features = false, features = [
   "worktree-mutation",
   "blocking-network-client",
 ] }
-gix-actor = "0.44.1"
-gix-attributes = "0.37.1"
-gix-blame = "0.20.0"
-gix-config = "0.62.2"
-gix-credentials = "0.42.1"
-gix-date = "0.18.1"
-gix-diff = "0.70.0"
-gix-dir = "0.32.0"
-gix-filter = "0.36.1"
-gix-hash = "0.28.1"
-gix-imara-diff = "0.3.3"
-gix-index = "0.58.0"
-gix-merge = "0.23.0"
-gix-object = "0.66.1"
-gix-odb = "0.87.0"
-gix-pack = { version = "0.77.0", default-features = false, features = ["generate", "streaming-input", "sha1"] }
-gix-packetline = { version = "0.24.1", features = ["blocking-io"] }
-gix-path = "0.14.1"
-gix-pathspec = "0.22.1"
-gix-protocol = { version = "0.68.0", features = ["blocking-client"] }
-gix-quote = "0.10.1"
-gix-ref = "0.69.1"
-gix-revision = "0.52.0"
-gix-revwalk = "0.38.0"
-gix-sec = "0.16.1"
-gix-status = "0.37.0"
-gix-transport = { version = "0.62.0", features = ["blocking-client", "http-client"] }
-gix-traverse = "0.64.0"
-gix-url = "0.40.1"
-gix-utils = "0.5.2"
-gix-worktree = "0.59.0"
+gix-actor = "0.45.0"
+gix-attributes = "0.38.0"
+gix-blame = "0.21.0"
+gix-config = "0.63.0"
+gix-credentials = "0.43.0"
+gix-date = "0.19.0"
+gix-diff = "0.71.0"
+gix-dir = "0.33.0"
+gix-filter = "0.37.0"
+gix-fs = "1.0.0"
+gix-hash = "0.29.0"
+gix-imara-diff = "0.3.4"
+gix-index = "0.59.0"
+gix-merge = "0.24.0"
+gix-object = "0.67.0"
+gix-odb = "0.88.0"
+gix-pack = { version = "0.78.0", default-features = false, features = ["generate", "streaming-input", "sha1"] }
+gix-packetline = { version = "0.24.2", features = ["blocking-io"] }
+gix-path = "0.14.2"
+gix-pathspec = "0.23.0"
+gix-protocol = { version = "0.69.0", features = ["blocking-client"] }
+gix-quote = "0.10.2"
+gix-ref = "0.70.0"
+gix-revision = "0.53.0"
+gix-revwalk = "0.39.0"
+gix-sec = "0.17.0"
+gix-status = "0.38.0"
+gix-transport = { version = "0.63.0", features = ["blocking-client", "http-client"] }
+gix-traverse = "0.65.0"
+gix-url = "0.41.0"
+gix-utils = "0.5.3"
+gix-worktree = "0.60.0"
 russh = { version = "0.65.4", default-features = false, features = ["aws-lc-rs", "flate2", "rsa"] }
 # Pinned to the release required by russh, so that a single copy is built.
 ssh-key = { version = "=0.7.0-rc.12", default-features = false, features = [
@@ -266,7 +295,6 @@ ssh-key = { version = "=0.7.0-rc.12", default-features = false, features = [
   "rsa",
   "encryption",
 ] }
-pgp = { version = "0.21.1", default-features = false }
 
 # Network.
 ureq = "3.5.2"
@@ -280,7 +308,8 @@ percent-encoding = "2.3.2"
 
 # Time and scheduling.
 jiff = "1.0.2"
-croner = "5.0.0"
+# Only the parser of cron expressions is used; its default chrono feature is off.
+croner = { version = "5.0.0", default-features = false, features = ["std"] }
 
 # Hashes, encodings and randomness.
 sha2 = "0.11.1"
@@ -335,7 +364,9 @@ chumsky = "0.14.2"
 winnow = "1.0.5"
 
 # Model Context Protocol server.
-rmcp = { version = "3.11.0", features = [
+# The default `chrono` feature is off: the server has no use for chrono types.
+rmcp = { version = "3.12.0", default-features = false, features = [
+  "base64",
   "server",
   "transport-io",
   "transport-streamable-http-server",

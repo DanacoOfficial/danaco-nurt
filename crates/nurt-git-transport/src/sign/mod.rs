@@ -4,12 +4,12 @@
 //! OpenPGP and SSH signatures of commits and tags.
 //!
 //! [`Signer`] creates detached signatures over the bytes of a commit or tag
-//! object and verifies them. [`BuiltinSigner`] implements it without running
-//! a program: OpenPGP signatures come from a running `gpg-agent` reached
-//! through its socket or from a secret key file, SSH signatures (`SSHSIG`,
-//! namespace `git`) from an SSH agent or a private key file. The armored
-//! output has the form written by `gpg --detach-sign --armor` and
-//! `ssh-keygen -Y sign`.
+//! object and verifies them. [`ProgramSigner`] makes OpenPGP signatures with
+//! GnuPG, run through the process host of the console as `gpg.program` names
+//! it, and SSH signatures (`SSHSIG`, namespace `git`) in process with an SSH
+//! agent or a private key file. [`BuiltinSigner`] makes the SSH signatures
+//! alone and runs no program. The armored output has the form written by
+//! `gpg --detach-sign --armor` and `ssh-keygen -Y sign`.
 //!
 //! [`sign_commit`] and [`sign_tag`] place a signature where Git expects it:
 //! in the `gpgsig` header (`gpgsig-sha256` in SHA-256 repositories) of a
@@ -33,8 +33,11 @@ mod openpgp;
 mod sshsig;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use nurt_contracts::error::Result;
+use nurt_contracts::services::ProcessHost;
+use nurt_contracts::stage::{CancelToken, ExecCtx};
 
 pub use nurt_contracts::record::{CommitSignature, SignatureFormat, SignatureStatus};
 pub use object::{sign_commit, sign_tag, verify_commit, verify_tag};
@@ -42,8 +45,7 @@ pub use object::{sign_commit, sign_tag, verify_commit, verify_tag};
 /// Place an OpenPGP secret key is taken from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OpenPgpSource {
-    /// A running `gpg-agent`, reached through its socket in the GnuPG home
-    /// directory or the user runtime directory.
+    /// The `gpg-agent` of the GnuPG home directory, reached through GnuPG.
     Agent,
     /// The secret key file named by `git.signing.key_file`.
     KeyFile,
@@ -69,7 +71,7 @@ pub struct SigningConfig {
     /// Signature format (`gpg.format`).
     pub format: SignatureFormat,
     /// Key named by `user.signingKey`. OpenPGP: a fingerprint, key ID, e-mail
-    /// address or user ID; a trailing `!` selects exactly that (sub)key. SSH:
+    /// address or user ID, as GnuPG takes them for `--local-user`. SSH:
     /// the path of a private or public key file, or `key::` followed by a
     /// public key literal.
     pub signing_key: Option<String>,
@@ -90,9 +92,9 @@ pub struct SigningConfig {
     /// GnuPG home directory (`GNUPGHOME`, otherwise `~/.gnupg`; on Windows
     /// `%APPDATA%\gnupg`).
     pub gnupg_home: Option<PathBuf>,
-    /// Directory of the `gpg-agent` socket when it is known in advance; the
-    /// standard locations are searched otherwise.
-    pub agent_socket_dir: Option<PathBuf>,
+    /// Program that makes OpenPGP signatures (`gpg.openpgp.program`,
+    /// otherwise `gpg.program`); `gpg` when unset.
+    pub gpg_program: Option<String>,
     /// SSH agent socket or Windows named pipe (`SSH_AUTH_SOCK`).
     pub ssh_auth_sock: Option<PathBuf>,
     /// Home directory used to expand `~/` in key paths.
@@ -103,7 +105,7 @@ pub struct SigningConfig {
     /// Creation time of the signature, seconds since the Unix epoch.
     pub created: i64,
     /// Configuration keys that name programs and were therefore not used,
-    /// for example `gpg.program`. The caller reports them as notable.
+    /// for example `gpg.ssh.program`. The caller reports them as notable.
     pub ignored_settings: Vec<String>,
 }
 
@@ -113,6 +115,9 @@ pub struct SigningConfig {
 pub struct VerifyConfig {
     /// GnuPG home directory whose public keyrings are searched.
     pub gnupg_home: Option<PathBuf>,
+    /// Program that checks OpenPGP signatures (`gpg.openpgp.program`,
+    /// otherwise `gpg.program`); `gpg` when unset.
+    pub gpg_program: Option<String>,
     /// Additional OpenPGP public or secret key files, ASCII-armored or binary.
     pub public_key_files: Vec<PathBuf>,
     /// SSH allowed signers file (`gpg.ssh.allowedSignersFile`).
@@ -145,17 +150,18 @@ pub struct Signature {
 
 /// Creation and verification of detached signatures.
 ///
-/// Implementations never run a program. The payload is the exact byte
-/// sequence covered by the signature; [`sign_commit`] and [`sign_tag`]
-/// build it from an object.
+/// The payload is the exact byte sequence covered by the signature;
+/// [`sign_commit`] and [`sign_tag`] build it from an object.
 pub trait Signer: Send + Sync {
     /// Signs `payload` with the key selected by `config`.
     ///
     /// # Errors
     ///
     /// `E_GIT_SIGN` with the problem `no_key` (no key configured or found),
-    /// `agent_unavailable` (no agent answers on the expected socket),
-    /// `key_locked` (an encrypted key without a usable passphrase) or
+    /// `agent_unavailable` (no SSH agent answers on the expected socket),
+    /// `key_locked` (an encrypted key without a usable passphrase),
+    /// `program_unavailable` (GnuPG cannot be started), `program_failed`
+    /// (GnuPG created no signature for another reason) or
     /// `unsupported_format` (`x509`, or a key algorithm that cannot sign).
     /// Nothing is written in any of these cases.
     fn sign(&self, payload: &[u8], config: &SigningConfig) -> Result<Signature>;
@@ -178,18 +184,15 @@ pub trait Signer: Send + Sync {
     ) -> Result<CommitSignature>;
 }
 
-/// The [`Signer`] of Nurt: OpenPGP through `gpg-agent` or a key file, SSH
-/// through an SSH agent or a key file.
+/// The [`Signer`] that runs no program: SSH through an SSH agent or a key
+/// file. OpenPGP signatures cannot be made (`program_unavailable`) and are
+/// reported as unsupported when verified; use [`ProgramSigner`] for them.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct BuiltinSigner;
 
 impl Signer for BuiltinSigner {
     fn sign(&self, payload: &[u8], config: &SigningConfig) -> Result<Signature> {
-        match config.format {
-            SignatureFormat::Openpgp => openpgp::sign(payload, config),
-            SignatureFormat::Ssh => sshsig::sign(payload, config),
-            other => Err(error::unsupported_format(other)),
-        }
+        sign_with(None, payload, config)
     }
 
     fn verify(
@@ -198,16 +201,81 @@ impl Signer for BuiltinSigner {
         signature: &[u8],
         config: &VerifyConfig,
     ) -> Result<CommitSignature> {
-        match gix_object::signature::Format::from_signature(signature) {
-            Some(gix_object::signature::Format::OpenPgp) => {
-                openpgp::verify(payload, signature, config)
-            }
-            Some(gix_object::signature::Format::Ssh) => sshsig::verify(payload, signature, config),
-            Some(gix_object::signature::Format::X509) => {
-                Ok(unsupported(Some(SignatureFormat::X509)))
-            }
-            None => Ok(unsupported(None)),
+        verify_with(None, payload, signature, config)
+    }
+}
+
+/// The [`Signer`] of Nurt: OpenPGP through GnuPG run by the process host of
+/// the console, SSH through an SSH agent or a key file.
+#[derive(Clone)]
+pub struct ProgramSigner {
+    host: Option<Arc<dyn ProcessHost>>,
+    cancel: CancelToken,
+}
+
+impl ProgramSigner {
+    /// A signer that runs GnuPG with `host`, stopped by `cancel`; `None` runs
+    /// no program.
+    #[must_use]
+    pub fn new(host: Option<Arc<dyn ProcessHost>>, cancel: CancelToken) -> Self {
+        Self { host, cancel }
+    }
+
+    /// A signer that runs GnuPG with the process host of `ctx`, stopped by
+    /// the cancellation of `ctx`.
+    #[must_use]
+    pub fn from_ctx(ctx: &ExecCtx) -> Self {
+        Self::new(ctx.services().process_host_shared(), ctx.cancel().clone())
+    }
+
+    fn runner(&self) -> Option<openpgp::Runner<'_>> {
+        self.host.as_deref().map(|host| openpgp::Runner {
+            host,
+            cancel: &self.cancel,
+        })
+    }
+}
+
+impl Signer for ProgramSigner {
+    fn sign(&self, payload: &[u8], config: &SigningConfig) -> Result<Signature> {
+        sign_with(self.runner(), payload, config)
+    }
+
+    fn verify(
+        &self,
+        payload: &[u8],
+        signature: &[u8],
+        config: &VerifyConfig,
+    ) -> Result<CommitSignature> {
+        verify_with(self.runner(), payload, signature, config)
+    }
+}
+
+fn sign_with(
+    runner: Option<openpgp::Runner<'_>>,
+    payload: &[u8],
+    config: &SigningConfig,
+) -> Result<Signature> {
+    match config.format {
+        SignatureFormat::Openpgp => openpgp::sign(runner, payload, config),
+        SignatureFormat::Ssh => sshsig::sign(payload, config),
+        other => Err(error::unsupported_format(other)),
+    }
+}
+
+fn verify_with(
+    runner: Option<openpgp::Runner<'_>>,
+    payload: &[u8],
+    signature: &[u8],
+    config: &VerifyConfig,
+) -> Result<CommitSignature> {
+    match gix_object::signature::Format::from_signature(signature) {
+        Some(gix_object::signature::Format::OpenPgp) => {
+            openpgp::verify(runner, payload, signature, config)
         }
+        Some(gix_object::signature::Format::Ssh) => sshsig::verify(payload, signature, config),
+        Some(gix_object::signature::Format::X509) => Ok(unsupported(Some(SignatureFormat::X509))),
+        None => Ok(unsupported(None)),
     }
 }
 

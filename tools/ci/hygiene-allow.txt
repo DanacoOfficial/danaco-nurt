@@ -147,3 +147,9 @@ work-marker tests/d1/correction/*
 
 # Test input: Rust source text that contains the attribute as data.
 allow-attribute crates/nurt-sys/tests/d7_static.rs
+
+# Source of pdf-extract 0.12.1 (MIT license, crates/nurt-pdf-extract/LICENSE-MIT,
+# NOTICE), copied because its release requires lopdf 0.42 and with it the
+# unmaintained ttf-parser crate. The files keep the wording and the comments of
+# the upstream project and carry its origin instead of the producer header.
+* crates/nurt-pdf-extract/*

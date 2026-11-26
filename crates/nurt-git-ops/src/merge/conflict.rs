@@ -167,6 +167,12 @@ fn failure_kind(conflict: &Conflict) -> Option<GitConflictKind> {
         ResolutionFailure::OursAddedTheirsAddedTypeMismatch { .. }
         | ResolutionFailure::OursModifiedTheirsRenamedTypeMismatch
         | ResolutionFailure::OursModifiedTheirsDeleted
+        | ResolutionFailure::ModeConflict { .. }
+        | ResolutionFailure::DistinctTypes { .. }
+        | ResolutionFailure::DirectoryRename { .. }
+        | ResolutionFailure::DirectoryRenameSplit { .. }
+        | ResolutionFailure::DirectoryRenameBlocked { .. }
+        | ResolutionFailure::DirectoryRenameCollision { .. }
         | ResolutionFailure::Unknown => None,
     }
 }

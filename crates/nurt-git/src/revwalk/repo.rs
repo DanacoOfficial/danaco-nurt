@@ -14,7 +14,7 @@ use gix::ObjectId;
 use gix::prelude::ObjectIdExt as _;
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::stage::ExecCtx;
-use nurt_git_transport::sign::{BuiltinSigner, Signer, VerifyConfig};
+use nurt_git_transport::sign::{ProgramSigner, Signer, VerifyConfig};
 
 use super::graph::CommitCache;
 use crate::repo::GitRepo;
@@ -77,7 +77,7 @@ impl OpenRepo {
         let signer: Arc<dyn Signer> = ctx
             .extensions()
             .get::<dyn Signer>()
-            .unwrap_or_else(|| Arc::new(BuiltinSigner));
+            .unwrap_or_else(|| Arc::new(ProgramSigner::from_ctx(ctx)));
         Ok(Self {
             repo,
             commits,

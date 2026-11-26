@@ -91,12 +91,7 @@ impl GitRepo {
             match_ceiling_dir_or_error: false,
             ..Default::default()
         };
-        let options = open_options();
-        let mapping = gix::sec::trust::Mapping {
-            full: options.clone(),
-            reduced: options,
-        };
-        let repo = gix::ThreadSafeRepository::discover_opts(path, upwards, mapping)
+        let repo = gix::ThreadSafeRepository::discover_opts(path, upwards, |_, _| open_options())
             .map_err(|_| error::not_repository(path, &nearby_repositories(path), command(ctx)))?
             .to_thread_local();
         if crosses_ceiling(path, root_of(&repo), env.ceiling_dirs()) {
@@ -303,7 +298,7 @@ pub fn open_options() -> gix::open::Options {
     gix::open::Options::isolated()
         .permissions(permissions)
         .config_overrides(config::OPEN_OVERRIDES)
-        .with(gix::sec::Trust::Full)
+        .with_enforced_trust(gix::sec::Trust::Full)
 }
 
 fn root_of(repo: &gix::Repository) -> &Path {

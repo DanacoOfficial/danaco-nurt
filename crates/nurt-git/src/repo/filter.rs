@@ -387,7 +387,7 @@ impl Filters<'_> {
         let converted = self.library_to_worktree(path, bytes)?;
         let attributes = self.attributes_of(path)?;
         let hex_len = self.repo.gix().object_hash().len_in_hex();
-        attributes.finish_worktree_content(converted, hex_len, path)
+        Ok(attributes.finish_worktree_content(converted, hex_len))
     }
 
     fn library_to_worktree(&mut self, path: &BStr, bytes: &[u8]) -> Result<Vec<u8>, Error> {
@@ -520,18 +520,13 @@ impl Drop for Filters<'_> {
 pub(crate) struct PathAttributes {
     filter: Option<String>,
     ident: bool,
-    encoding: Option<String>,
 }
 
 impl PathAttributes {
-    /// Reads `filter`, `ident` and `working-tree-encoding` for the path of
-    /// `platform`.
+    /// Reads `filter` and `ident` for the path of `platform`.
     pub(crate) fn read(platform: &gix_worktree::stack::Platform<'_>) -> Self {
         let mut outcome = gix_attributes::search::Outcome::default();
-        outcome.initialize_with_selection(
-            &Default::default(),
-            ["filter", "ident", "working-tree-encoding"],
-        );
+        outcome.initialize_with_selection(&Default::default(), ["filter", "ident"]);
         platform.matching_attributes(&mut outcome);
         let mut found = Self::default();
         for matched in outcome.iter_selected() {
@@ -543,88 +538,25 @@ impl PathAttributes {
             };
             match matched.assignment.name.as_str() {
                 "filter" => found.filter = value,
-                "ident" => {
+                _ => {
                     found.ident = matches!(matched.assignment.state, gix_attributes::StateRef::Set)
                 }
-                _ => found.encoding = value,
             }
         }
         found
     }
 
-    /// Completes the conversions of the library pipeline that it leaves out:
-    /// the space before the closing `$` of an expanded `$Id: <hex> $` and the
-    /// encoding of UTF-16 `working-tree-encoding` values.
+    /// Completes the conversion of the library pipeline that it leaves out:
+    /// the space before the closing `$` of an expanded `$Id: <hex> $`.
     ///
-    /// `converted` is the output of the pipeline for `path`; `hex_len` is the
-    /// length of an object identifier in hexadecimal digits.
-    ///
-    /// # Errors
-    ///
-    /// Returns `E_IO` when the content is not valid UTF-8 and the attribute
-    /// requires an encoding.
-    pub(crate) fn finish_worktree_content(
-        &self,
-        converted: Vec<u8>,
-        hex_len: usize,
-        path: &BStr,
-    ) -> Result<Vec<u8>, Error> {
-        let converted = if self.ident {
+    /// `converted` is the output of the pipeline for the path; `hex_len` is
+    /// the length of an object identifier in hexadecimal digits.
+    pub(crate) fn finish_worktree_content(&self, converted: Vec<u8>, hex_len: usize) -> Vec<u8> {
+        if self.ident {
             complete_ident(&converted, hex_len)
         } else {
             converted
-        };
-        match self.encoding.as_deref().and_then(Utf16::from_label) {
-            Some(form) => form.encode(&converted).ok_or_else(|| {
-                conversion_failed(
-                    path,
-                    &"the content is not valid UTF-8 and cannot be encoded as UTF-16",
-                )
-            }),
-            None => Ok(converted),
         }
-    }
-}
-
-/// UTF-16 forms of `working-tree-encoding`, which the encoding library of
-/// the pipeline decodes but does not encode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Utf16 {
-    /// Little endian without a byte order mark.
-    Le,
-    /// Big endian without a byte order mark.
-    Be,
-    /// Little endian after a byte order mark, as `iconv` writes `UTF-16`.
-    WithBom,
-}
-
-impl Utf16 {
-    fn from_label(label: &str) -> Option<Self> {
-        match label.to_ascii_lowercase().replace('-', "").as_str() {
-            "utf16le" => Some(Self::Le),
-            "utf16be" => Some(Self::Be),
-            "utf16" => Some(Self::WithBom),
-            _ => None,
-        }
-    }
-
-    /// Encodes UTF-8 text; `None` when `text` is not UTF-8.
-    fn encode(self, text: &[u8]) -> Option<Vec<u8>> {
-        const BOM_LE: [u8; 2] = [0xFF, 0xFE];
-        let text = std::str::from_utf8(text).ok()?;
-        let mut out = Vec::with_capacity(text.len() * 2 + BOM_LE.len());
-        if self == Self::WithBom {
-            out.extend_from_slice(&BOM_LE);
-        }
-        for unit in text.encode_utf16() {
-            let bytes = if self == Self::Be {
-                unit.to_be_bytes()
-            } else {
-                unit.to_le_bytes()
-            };
-            out.extend_from_slice(&bytes);
-        }
-        Some(out)
     }
 }
 
@@ -1105,6 +1037,18 @@ mod tests {
         let mut filters = repo.filters().unwrap();
         let encoded = filters.to_worktree("a.u16".into(), b"hi\n").unwrap();
         assert_eq!(encoded, [b'h', 0, b'i', 0, b'\n', 0]);
+        assert_eq!(filters.to_git("a.u16".into(), &encoded).unwrap(), b"hi\n");
+    }
+
+    #[test]
+    fn working_tree_encoding_converts_to_utf16_big_endian() {
+        let fixture = RepoBuilder::new()
+            .file(".gitattributes", "*.u16 working-tree-encoding=UTF-16BE\n")
+            .build();
+        let repo = GitRepo::open(fixture.path(), &ctx(None)).unwrap();
+        let mut filters = repo.filters().unwrap();
+        let encoded = filters.to_worktree("a.u16".into(), b"hi\n").unwrap();
+        assert_eq!(encoded, [0, b'h', 0, b'i', 0, b'\n']);
         assert_eq!(filters.to_git("a.u16".into(), &encoded).unwrap(), b"hi\n");
     }
 

@@ -14,7 +14,7 @@ use nurt_contracts::stage::{
     RecordStream, StageDescriptor, StageImpl, StageInput, StageOutput,
 };
 use nurt_contracts::value::Record;
-use nurt_git_transport::sign::{BuiltinSigner, Signer, SigningConfig};
+use nurt_git_transport::sign::{ProgramSigner, Signer, SigningConfig};
 
 use super::{NewTag, TagPlan, TagSigning, list, plan_create, plan_delete};
 use crate::branch::command::{effect_record, open_repo, wrong_plan};
@@ -130,7 +130,7 @@ impl EffectStage for GitTagCommand {
                 let signer: Arc<dyn Signer> = ctx
                     .extensions()
                     .get::<dyn Signer>()
-                    .unwrap_or_else(|| Arc::new(BuiltinSigner));
+                    .unwrap_or_else(|| Arc::new(ProgramSigner::from_ctx(ctx)));
                 new.signing = config.as_ref().map(|config| TagSigning {
                     signer: signer.as_ref(),
                     config,

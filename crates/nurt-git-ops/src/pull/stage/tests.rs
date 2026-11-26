@@ -665,7 +665,7 @@ fn refuses_a_rebase_with_uncommitted_changes_before_the_transfer() {
 #[allow(clippy::disallowed_methods)] // fixture setup writes the index outside the journal
 fn stage_tree(scenario: &Scenario, tree: gix::Id<'_>) {
     let mut index = scenario.fixture.repo.index_from_tree(&tree).unwrap();
-    index.write(Default::default()).unwrap();
+    index.write(Default::default(), Default::default()).unwrap();
 }
 
 #[test]

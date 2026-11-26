@@ -95,6 +95,7 @@ or per author day, most frequent first.
 | Effect | `read` |
 | Reversibility | `read` |
 | Implementation | `builtin` |
+| External use | `user_program`: `gpg`; Runs gpg (gpg.openpgp.program or gpg.program) to verify OpenPGP signatures when the signature field of the commits is selected. |
 
 ## Examples
 

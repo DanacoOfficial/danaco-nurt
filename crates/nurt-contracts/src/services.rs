@@ -1357,6 +1357,12 @@ impl Services {
         self.process_host.as_deref()
     }
 
+    /// Process host as a shared handle, for objects that outlive the borrow
+    /// of the services.
+    pub fn process_host_shared(&self) -> Option<Arc<dyn ProcessHost>> {
+        self.process_host.clone()
+    }
+
     /// File listing service.
     pub fn file_list(&self) -> Option<&dyn FileListService> {
         self.file_list.as_deref()

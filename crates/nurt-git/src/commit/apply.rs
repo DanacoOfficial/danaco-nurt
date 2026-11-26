@@ -25,7 +25,7 @@ use nurt_contracts::journal::{
 use nurt_contracts::report::{Irreversible, IrreversibleEntry, Notable, NotableEntry};
 use nurt_contracts::services::{EnvVar, ProcessHost, ProgramInput};
 use nurt_contracts::stage::ExecCtx;
-use nurt_git_transport::sign::{BuiltinSigner, Signer, SigningConfig, sign_commit};
+use nurt_git_transport::sign::{ProgramSigner, Signer, SigningConfig, sign_commit};
 
 use super::access;
 use super::prepare::Prepared;
@@ -178,7 +178,7 @@ fn sign(repo: &GitRepo, object: &mut gix::objs::Commit) -> Result<Vec<NotableEnt
     let signer: Arc<dyn Signer> = ctx
         .extensions()
         .get::<dyn Signer>()
-        .unwrap_or_else(|| Arc::new(BuiltinSigner));
+        .unwrap_or_else(|| Arc::new(ProgramSigner::from_ctx(ctx)));
     let signature = sign_commit(object, signer.as_ref(), &config)?;
     let mut note = NotableEntry::new(Notable::Signed);
     note.detail = Some(format!("signed with key {}", signature.key));

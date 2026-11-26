@@ -21,7 +21,7 @@ or a lower layer, and the graph is acyclic.
 | contract | `nurt-contracts` | types, traits and schemas shared by every crate; depends on no workspace crate |
 | foundation | `nurt-types`, `nurt-catalog` | values of the language and the command registry |
 | base | `nurt-fs`, `nurt-syntax`, `nurt-testkit` | file system layer, syntax, test support |
-| library | `nurt-journal`, `nurt-space`, `nurt-report`, `nurt-plan`, `nurt-correct`, `nurt-text`, `nurt-doc`, `nurt-code`, `nurt-proc`, `nurt-git-transport`, `nurt-syslog` | reusable services |
+| library | `nurt-journal`, `nurt-space`, `nurt-report`, `nurt-plan`, `nurt-correct`, `nurt-text`, `nurt-doc`, `nurt-code`, `nurt-proc`, `nurt-git-transport`, `nurt-syslog`, `nurt-pdf-extract` | reusable services |
 | component | `nurt-bind`, `nurt-help`, `nurt-langserver`, `nurt-migrate`, `nurt-exec`, `nurt-ext`, `nurt-archive`, `nurt-notebook`, `nurt-files`, `nurt-lspclient`, `nurt-verify`, `nurt-git`, `nurt-git-ops`, `nurt-sys`, `nurt-net`, `nurt-sched` | commands, binding, execution, extension points |
 | host | `nurt-core`, `nurt-service` | composition of all components: the engine facade and the background service |
 | interface | `nurt-ffi`, `nurt-cli`, `nurt-mcp` | entry points: C interface, command line, Model Context Protocol server |

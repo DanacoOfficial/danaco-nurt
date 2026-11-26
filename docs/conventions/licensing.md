@@ -58,6 +58,10 @@ allowed list below, its origin and license are stated in a comment at the top
 of the file, the notices required by its license are added to `NOTICE`, and
 the file is listed with a reason in `tools/ci/hygiene-allow.txt`.
 
+The crate `crates/nurt-pdf-extract` is such a copy: the source of pdf-extract
+0.12.1 (MIT), built on a newer release of lopdf than the upstream release
+allows. Its license text is `crates/nurt-pdf-extract/LICENSE-MIT`.
+
 ## Dependencies
 
 All dependencies are declared in `[workspace.dependencies]` of the root
@@ -112,7 +116,7 @@ The following crates are banned in `deny.toml`:
 
 | Crate | Reason | Used instead |
 |---|---|---|
-| `sequoia-openpgp` | LGPL-2.0-or-later | `pgp` |
+| `sequoia-openpgp` | LGPL-2.0-or-later | GnuPG, started as a program |
 | `openssl`, `openssl-sys` | system OpenSSL library | `rustls` |
 | `git2`, `libgit2-sys` | libgit2 (GPL-2.0 with a linking exception) | `gix` |
 | `serde_yaml` | deprecated and unmaintained | `yaml-edit`, `saphyr` |
