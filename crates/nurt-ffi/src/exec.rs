@@ -342,7 +342,7 @@ mod tests {
     use nurt_core::{DeliveredEvent, EventBody, EventListener, Lifecycle};
     use serde_json::Value;
 
-    use super::{Exec, Outcome};
+    use super::{encode_event, Exec, Outcome};
     use crate::backend::{Backend, Function, Run};
     use crate::error::{CallError, NurtStatus};
 

@@ -22,6 +22,7 @@
 //! program with effects also needs a journal, and fails at its apply step
 //! without one; a program that only reads runs without a journal.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -1151,7 +1152,7 @@ impl Engine {
     ) -> Result<Compiled, Error> {
         self.inner
             .frontend
-            .compile(text, variant, prepared.config.config())
+            .compile(text, variant, &request_config(prepared))
             .map_err(|mut error| {
                 self.offer(&mut error, prepared);
                 error
@@ -1161,7 +1162,7 @@ impl Engine {
     fn bind(&self, document: &AstDocument, prepared: &Prepared) -> Result<Compiled, Error> {
         self.inner
             .frontend
-            .bind(document, prepared.config.config())
+            .bind(document, &request_config(prepared))
             .map(|bound| Compiled {
                 bound,
                 ast_hash: crate::frontend::ast_hash(document),
@@ -1306,6 +1307,22 @@ impl Engine {
             "r{}",
             self.inner.requests.fetch_add(1, Ordering::Relaxed) + 1
         )
+    }
+}
+
+/// Configuration that binds the program of a request.
+///
+/// The call parameter `base` of the request replaces `scope.base` of the
+/// configuration, so relative paths of the program resolve against it.
+fn request_config(prepared: &Prepared) -> Cow<'_, Config> {
+    let config = prepared.config.config();
+    match prepared.options.base.as_deref() {
+        Some(base) if config.scope.base.as_deref() != Some(base) => {
+            let mut copy = config.clone();
+            copy.scope.base = Some(base.to_owned());
+            Cow::Owned(copy)
+        }
+        _ => Cow::Borrowed(config),
     }
 }
 

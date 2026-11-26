@@ -255,14 +255,14 @@ mod tests {
 
     #[test]
     fn index_labels_never_collide_with_header_names() {
-        let table = table("a,,1\nx,y,z\n", true);
-        let cells = table.row_cells(&table.rows()[0]);
+        let narrow = table("a,,1\nx,y,z\n", true);
+        let cells = narrow.row_cells(&narrow.rows()[0]);
         assert_eq!(cells.keys().collect::<Vec<_>>(), ["a", "#1", "1"]);
         assert_eq!(cells["a"], Value::Text("x".into()));
         assert_eq!(cells["#1"], Value::Text("y".into()));
         assert_eq!(cells["1"], Value::Text("z".into()));
-        assert_eq!(table.label_column("1"), Some(2));
-        assert_eq!(table.label_column("#1"), Some(1));
+        assert_eq!(narrow.label_column("1"), Some(2));
+        assert_eq!(narrow.label_column("#1"), Some(1));
         let wide = table("a,2\nw,x,y,z\n", true);
         let cells = wide.row_cells(&wide.rows()[0]);
         assert_eq!(cells.keys().collect::<Vec<_>>(), ["a", "2", "#2", "3"]);

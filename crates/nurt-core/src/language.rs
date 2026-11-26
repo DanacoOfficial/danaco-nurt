@@ -74,8 +74,18 @@ impl LanguageFrontend {
             &self.bind_catalog,
             &self.tables,
             config,
-            &BindContext::for_host(),
+            &bind_context(config),
         )
+    }
+}
+
+/// Context of binding for the host, with the call parameter `base` taken
+/// from `scope.base` of the configuration of the request.
+fn bind_context(config: &Config) -> BindContext {
+    let context = BindContext::for_host();
+    match config.scope.base.as_deref() {
+        Some(base) => context.with_base(base),
+        None => context,
     }
 }
 
@@ -117,8 +127,8 @@ impl Frontend for LanguageFrontend {
         })
     }
 
-    fn bind(&self, ast: &AstDocument, _config: &Config) -> Result<BoundDocument, Error> {
-        nurt_bind::bind(ast, &self.bind_catalog, &BindContext::for_host()).map_err(Error::from)
+    fn bind(&self, ast: &AstDocument, config: &Config) -> Result<BoundDocument, Error> {
+        nurt_bind::bind(ast, &self.bind_catalog, &bind_context(config)).map_err(Error::from)
     }
 
     fn print(&self, ast: &AstDocument, variant: SyntaxVariant) -> Result<String, Error> {
@@ -147,7 +157,8 @@ impl Frontend for LanguageFrontend {
         } else {
             HelpQuery::topic(topic)
         };
-        render(&query.with_language(language), &self.help_catalog()?).map(|help| help.body)
+        let catalog = self.help_catalog()?;
+        render(&query.with_language(language), &catalog).map(|help| help.body)
     }
 
     fn compile(
@@ -186,6 +197,20 @@ mod tests {
         assert!(commands.contains("program.catalog — "));
         let page = frontend.help("replace", Language::En).unwrap();
         assert!(page.contains("examples:"));
+    }
+
+    #[test]
+    fn a_relative_path_binds_against_the_base_of_the_configuration() {
+        let frontend = LanguageFrontend::new().unwrap();
+        let mut config = Config::default();
+        let error = frontend
+            .compile("read \"c.toml\"", None, &config)
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::PathRelative);
+        config.scope.base = Some("/srv/app".to_owned());
+        let compiled = frontend.compile("read \"c.toml\"", None, &config).unwrap();
+        let bound = serde_json::to_string(&compiled.bound).unwrap();
+        assert!(bound.contains("/srv/app/c.toml"), "{bound}");
     }
 
     #[test]

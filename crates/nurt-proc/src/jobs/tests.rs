@@ -30,7 +30,7 @@ use nurt_contracts::record::{
 use nurt_contracts::report::{Irreversible, Notable};
 use nurt_contracts::stage::{
     ArgValue, BoundArgs, CancelReason, CancelToken, Event, EventSink, ExecCtx, Extensions,
-    InputKinds, OutputStream, RecordStream, StageDescriptor, StageImpl, StageInput,
+    OutputStream, RecordStream, StageImpl, StageInput,
 };
 use nurt_contracts::value::{self, Record, RecordKind, Value};
 

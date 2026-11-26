@@ -260,9 +260,8 @@ mod tests {
                 false,
             );
         }
-        let output = HelpStage::embedded()
-            .execute(&args, StageInput::none(), &ctx)
-            .unwrap();
+        let stage = HelpStage::embedded();
+        let output = stage.execute(&args, StageInput::none(), &ctx).unwrap();
         let StageData::Value(Value::Text(text)) = output.data else {
             panic!("text expected");
         };

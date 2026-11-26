@@ -125,7 +125,8 @@ impl ReadStage for HelpStage {
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
         let query = query_from(args, ctx)?;
-        let answer = help::render(&query, &self.catalog()?)?;
+        let catalog = self.catalog()?;
+        let answer = help::render(&query, &catalog)?;
         Ok(StageOutput::value(Value::Text(answer.body)))
     }
 }

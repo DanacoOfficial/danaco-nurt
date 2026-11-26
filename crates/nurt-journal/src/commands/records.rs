@@ -350,7 +350,7 @@ mod tests {
             .build()
             .unwrap();
         for dir in ["/d/tree/sub/deep", "/d/tree/empty"] {
-            fs.create_dir_all(&AbsPath::new(dir).unwrap()).unwrap();
+            fs.seed_dir(&AbsPath::new(dir).unwrap()).unwrap();
         }
         fs.seed_file(&AbsPath::new("/d/tree/a.bin").unwrap(), b"1234")
             .unwrap();
@@ -519,7 +519,7 @@ mod tests {
 
     #[test]
     fn restored_items_are_reported_with_their_actions_sizes_and_hashes() {
-        let modified = change(&outcome_of("/d/a.txt", TargetAction::Append));
+        let modified = change(&outcome_of("/d/a.txt", TargetAction::Append), None);
         assert_eq!(modified.action, ChangeAction::Modify);
         assert_eq!(modified.size_before, Some(Size::from_bytes(6)));
         assert_eq!(modified.size_after, Some(Size::from_bytes(5)));
@@ -527,9 +527,9 @@ mod tests {
         assert_eq!(modified.hash_after, Some(ContentHash([2; 32]).to_string()));
         assert_eq!(modified.to, None);
 
-        let created = change(&outcome_of("/d/zażółć", TargetAction::CreateTree));
+        let created = change(&outcome_of("/d/ñüé", TargetAction::CreateTree), None);
         assert_eq!(created.action, ChangeAction::Create);
-        assert_eq!(created.path, Path::from("/d/zażółć"));
+        assert_eq!(created.path, Path::from("/d/ñüé"));
 
         let moved = change(&outcome_of(
             "/d/a.txt",
@@ -537,14 +537,14 @@ mod tests {
                 to: AbsPath::new("/d/b.txt").unwrap(),
                 replace: true,
             },
-        ));
+        ), None);
         assert_eq!(moved.action, ChangeAction::Rename);
         assert_eq!(moved.to, Some(Path::from("/d/b.txt")));
         assert_eq!(moved.from, Some(Path::from("/d/a.txt")));
 
         let mut unchanged = outcome_of("/d/a.txt", TargetAction::Delete);
         unchanged.after = None;
-        let removed = change(&unchanged);
+        let removed = change(&unchanged, None);
         assert_eq!(removed.action, ChangeAction::Delete);
         assert_eq!(removed.size_after, None);
         assert_eq!(removed.hash_after, None);
@@ -614,7 +614,7 @@ mod tests {
         let named = |kind: ConflictKind| {
             let conflict = Conflict {
                 op: OpId(3),
-                path: path("/d/zażółć.txt"),
+                path: path("/d/ñüé.txt"),
                 kind,
                 expected: Some(ContentHash([1; 32])),
                 actual: None,
@@ -634,7 +634,7 @@ mod tests {
             assert_eq!(value.get("op"), Some(&Value::Int(3)));
             assert_eq!(
                 value.get("path"),
-                Some(&Value::Path("/d/zażółć.txt".to_owned()))
+                Some(&Value::Path("/d/ñüé.txt".to_owned()))
             );
             assert_eq!(
                 value.get("expected"),
