@@ -81,9 +81,10 @@ their own version numbers, described in the specification.
   collapses lines that differ only in numbers, versions or the names after
   `Compiling` and similar words. After exit code 0, `show: auto` returns the
   last 5 lines and the field `digest` instead of the first 20 and last 40
-  lines. After a failure the output of `cargo`/`rustc` and `pytest` is
-  recognised: the field `diagnostics` holds the numbers of errors and warnings
-  and the first 10 distinct errors with file, line, column, code and message.
+  lines. After a failure with more than 20 lines of output, the output of
+  `cargo`/`rustc` and `pytest` is recognised: the field `diagnostics` holds
+  the numbers of errors and warnings and the first 10 distinct errors with
+  file, line, column, code and message, and the text keeps the last 10 lines.
   A cut response carries `read_hint`, a sentence with `read` and `search`
   commands that read the rest from the output file. Pass `dedupe: false`,
   `max_bytes: 0` or `head` and `tail` to get the earlier behaviour.

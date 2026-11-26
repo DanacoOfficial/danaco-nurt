@@ -145,7 +145,7 @@
               "name": "dedupe",
               "value": {
                 "t": "bool",
-                "v": false
+                "v": true
               },
               "default": true
             },

@@ -87,14 +87,17 @@ with the exit code, the time, and the lines and bytes of output (for a known
 tool also its counters, for example `cargo: 0 errors, 3 warnings`). A failed
 run returns the full budget.
 
-Known formats. After a failure, `show: auto` recognises the output of `cargo`
-and `rustc` (`error[E0308]` with `--> file:line:col`) and of `pytest`
-(`FAILED file::test - message` with the traceback line). The field
-`diagnostics` then has `tool`, `errors` and `warnings` (the numbers of all of
-them) and `first`, the first 10 distinct errors, each with the one-line fields
-`file`, `line`, `col`, `code`, `message` and `severity` (and `count` when the
-same error was reported in several places); the text keeps only the last 10
-lines of the output instead of hundreds of warnings.
+Known formats. After a failure of output longer than 20 lines, `show: auto`
+recognises the output of `cargo` and `rustc` (`error[E0308]` with
+`--> file:line:col`) and of `pytest` (`FAILED file::test - message` with the
+traceback line). The field `diagnostics` then has `tool`, `errors` and
+`warnings` (the numbers of all of them) and `first`, the first 10 distinct
+errors, each with the one-line fields `file`, `line`, `col`, `code`, `message`
+and `severity` (and `count` when the same error was reported in several
+places); the text keeps only the last 10 lines of the output instead of
+hundreds of warnings. A shorter output is returned whole and has no
+`diagnostics`. A line `error: message` without a code and a location counts as
+an error of `cargo` only when the output shows another mark of it.
 
 When the response leaves lines out or cuts lines, `read_hint` is one sentence
 with ready commands that read the rest from the output file without running

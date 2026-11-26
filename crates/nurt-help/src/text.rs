@@ -155,8 +155,8 @@ const RULES: Block = Block {
         },
         Line {
             priority: 1,
-            en: "8. Limits: the console does not prevent logic errors of the programs you run; changes made by run are detected only under `watch` (default: the working directory of the program) and may be marked irreversible. The text of the output of run is short (max_bytes: 4096 for all streams; repeated lines collapse): exit 0 gives the last 5 lines and `digest`, a failure of cargo or pytest gives `diagnostics` with file and line, and `read_hint` names the read and search commands for the rest of the output file.",
-            pl: "8. Ograniczenia: konsola nie zapobiega błędom logicznym uruchamianych programów; zmiany wykonane przez run są wykrywane tylko w `watch` (domyślnie katalog roboczy programu) i mogą być oznaczone jako nieodwracalne. Tekst wyjścia run jest krótki (max_bytes: 4096 dla wszystkich strumieni; powtarzające się wiersze są zwijane): kod 0 daje 5 ostatnich wierszy i `digest`, niepowodzenie cargo lub pytest daje `diagnostics` z plikiem i wierszem, a `read_hint` wskazuje polecenia read i search dla reszty pliku wyjścia.",
+            en: "8. Limits: the console does not prevent logic errors of the programs you run; changes made by run are detected only under `watch` (default: the working directory of the program) and may be marked irreversible.",
+            pl: "8. Ograniczenia: konsola nie zapobiega błędom logicznym uruchamianych programów; zmiany wykonane przez run są wykrywane tylko w `watch` (domyślnie katalog roboczy programu) i mogą być oznaczone jako nieodwracalne.",
         },
     ],
 };
