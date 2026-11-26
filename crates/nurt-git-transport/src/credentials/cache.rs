@@ -13,7 +13,7 @@ use std::io::{self, Read, Write};
 use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gix_credentials::protocol::Context;
 
@@ -23,6 +23,13 @@ const CACHE_TIMEOUT_SECONDS: u32 = 900;
 
 /// Time allowed for each read and write on the socket.
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Largest answer accepted from the daemon; a credential is a few lines.
+const MAX_ANSWER_BYTES: usize = 64 * 1024;
+
+/// Time allowed for the whole exchange, so that a daemon that answers a byte
+/// at a time cannot hold the operation.
+const TOTAL_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Directory used by `git` when it exists, before the XDG cache directory.
 const LEGACY_DIRECTORY: &str = ".git-credential-cache";
@@ -55,9 +62,35 @@ pub(crate) fn request(socket: &Path, action: &str, context: &Context) -> io::Res
     context.write_to(&mut message)?;
     stream.write_all(&message)?;
     stream.shutdown(Shutdown::Write)?;
+    read_answer(&mut stream, MAX_ANSWER_BYTES, TOTAL_TIMEOUT)
+}
+
+/// Reads `source` to its end; fails with `InvalidData` when more than `limit`
+/// bytes arrive and with `TimedOut` when the end does not come within
+/// `total`.
+fn read_answer(source: &mut impl Read, limit: usize, total: Duration) -> io::Result<Vec<u8>> {
+    let started = Instant::now();
     let mut answer = Vec::new();
-    stream.read_to_end(&mut answer)?;
-    Ok(answer)
+    let mut chunk = [0_u8; 4096];
+    loop {
+        let read = source.read(&mut chunk)?;
+        if read == 0 {
+            return Ok(answer);
+        }
+        answer.extend_from_slice(&chunk[..read]);
+        if answer.len() > limit {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "the answer of the credential cache is too large",
+            ));
+        }
+        if started.elapsed() > total {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "the credential cache did not finish its answer in time",
+            ));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -108,6 +141,34 @@ mod tests {
         assert!(request.starts_with("action=get\ntimeout=900\n"));
         assert!(request.contains("host=example.com\n"));
         assert_eq!(answer, b"username=bob\npassword=pw\n");
+    }
+
+    struct Dripping;
+
+    impl Read for Dripping {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            std::thread::sleep(Duration::from_millis(20));
+            buffer[0] = b'x';
+            Ok(1)
+        }
+    }
+
+    #[test]
+    fn oversized_answer_is_refused() {
+        let mut source = io::Cursor::new(vec![b'x'; 100]);
+        let error = read_answer(&mut source, 50, TOTAL_TIMEOUT).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        let mut source = io::Cursor::new(vec![b'x'; 50]);
+        assert_eq!(
+            read_answer(&mut source, 50, TOTAL_TIMEOUT).unwrap().len(),
+            50
+        );
+    }
+
+    #[test]
+    fn answer_that_never_ends_times_out() {
+        let error = read_answer(&mut Dripping, usize::MAX, Duration::from_millis(100)).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
     }
 
     #[test]
