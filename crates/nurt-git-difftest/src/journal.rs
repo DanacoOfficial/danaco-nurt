@@ -38,9 +38,19 @@ use crate::fsutil::{self, Entry};
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Saved {
     Absent,
-    File { copy: PathBuf, executable: bool },
-    Link { target: PathBuf, directory: bool },
-    Tree { copy: PathBuf },
+    File {
+        copy: PathBuf,
+        executable: bool,
+        /// Permission bits of the file; the stored copy has the default ones.
+        mode: u32,
+    },
+    Link {
+        target: PathBuf,
+        directory: bool,
+    },
+    Tree {
+        copy: PathBuf,
+    },
 }
 
 /// One declared target with its previous states.
@@ -686,6 +696,7 @@ fn save(path: &Path, store: &Path) -> io::Result<(Saved, BeforeState, u64)> {
     let saved = Saved::File {
         copy: store.to_path_buf(),
         executable: fsutil::is_executable(&meta),
+        mode: fsutil::mode_bits(&meta),
     };
     Ok((saved, before, meta.len()))
 }
@@ -695,8 +706,19 @@ fn restore(path: &Path, saved: &Saved) -> io::Result<()> {
     fsutil::remove_entry(path).map_err(as_io)?;
     match saved {
         Saved::Absent => Ok(()),
-        Saved::File { copy, executable } => {
+        Saved::File {
+            copy,
+            executable,
+            mode,
+        } => {
             fs::copy(copy, path)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt as _;
+                fs::set_permissions(path, fs::Permissions::from_mode(*mode))?;
+            }
+            #[cfg(not(unix))]
+            let _ = mode;
             fsutil::set_executable(path, *executable).map_err(as_io)
         }
         Saved::Link { target, directory } => {
@@ -1151,6 +1173,27 @@ mod tests {
         ));
         assert_eq!(snapshot(&work).unwrap(), before);
         assert_eq!(journal.undo_last().unwrap(), UndoResult::Nothing);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn undo_restores_the_permission_bits_of_a_file() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let (_dir, work, journal) = setup();
+        fs::write(work.join("a"), b"old").unwrap();
+        fs::set_permissions(work.join("a"), fs::Permissions::from_mode(0o640)).unwrap();
+        let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
+        tx.preserve(&[spec(&work.join("a"), TargetAction::Delete)])
+            .unwrap();
+        tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
+        tx.commit().unwrap();
+        assert!(matches!(
+            journal.undo_last().unwrap(),
+            UndoResult::Undone(_)
+        ));
+        let mode = fs::metadata(work.join("a")).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o640);
     }
 
     #[test]

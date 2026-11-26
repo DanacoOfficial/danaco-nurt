@@ -610,9 +610,12 @@ impl Runner {
             .bind(&scenario.nurt.command, &params, &repo)
             .map_err(|message| scenario_error(&scenario.source, message))?;
         if !binding.unknown.is_empty() {
-            findings.notes.push(format!(
-                "parameters missing from catalog/git.toml: {}",
-                binding.unknown.join(", ")
+            return Err(scenario_error(
+                &scenario.source,
+                format!(
+                    "parameters missing from catalog/git.toml: {}",
+                    binding.unknown.join(", ")
+                ),
             ));
         }
         let spec = self
