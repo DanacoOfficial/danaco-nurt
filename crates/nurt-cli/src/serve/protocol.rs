@@ -375,6 +375,81 @@ mod tests {
     }
 
     #[test]
+    fn parameters_may_be_an_array_and_numbers_may_be_fractions() {
+        let request = parse_message(br#"{"jsonrpc":"2.0","id":1.5,"method":"info","params":[1,2]}"#);
+        assert_eq!(
+            request,
+            Incoming::Message(Message {
+                id: Some(json!(1.5)),
+                method: "info".to_owned(),
+                params: Some(json!([1, 2])),
+            })
+        );
+    }
+
+    #[test]
+    fn a_message_without_the_version_is_rejected_with_its_identifier() {
+        let (id, error) = rejected_error(br#"{"id":3,"method":"info"}"#);
+        assert_eq!((id, error["code"].clone()), (json!(3), json!(INVALID_REQUEST)));
+        let (_, error) = rejected_error(br#"{"jsonrpc":2,"id":3,"result":null}"#);
+        assert_eq!(error["code"], INVALID_REQUEST);
+    }
+
+    #[test]
+    fn invalid_utf8_and_empty_messages_are_parse_errors() {
+        for bytes in [&b"\xff\xfe"[..], b"", b"   "] {
+            let (id, error) = rejected_error(bytes);
+            assert_eq!((id, error["code"].clone()), (Value::Null, json!(PARSE_ERROR)));
+        }
+    }
+
+    #[test]
+    fn identifiers_of_the_wrong_type_are_rejected_with_a_null_identifier() {
+        for id in ["true", "[1]", "{\"a\":1}"] {
+            let text = format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"info"}}"#);
+            let (reply_id, error) = rejected_error(text.as_bytes());
+            assert_eq!(reply_id, Value::Null, "{id}");
+            assert_eq!(error["code"], INVALID_REQUEST, "{id}");
+        }
+    }
+
+    #[test]
+    fn a_method_name_with_multi_byte_characters_is_kept() {
+        let text = "{\"jsonrpc\":\"2.0\",\"method\":\"\u{142}\u{f3}d\u{17a}\"}";
+        assert_eq!(
+            parse_message(text.as_bytes()),
+            Incoming::Message(Message {
+                id: None,
+                method: "\u{142}\u{f3}d\u{17a}".to_owned(),
+                params: None,
+            })
+        );
+    }
+
+    #[test]
+    fn the_success_status_has_the_base_code_and_unknown_codes_have_no_status() {
+        assert_eq!(application_code(AbiStatus::Ok), -32000);
+        assert_eq!(status_for_code(-32007), None);
+        assert_eq!(status_for_code(0), None);
+        assert_eq!(status_for_code(i64::MIN), None);
+        assert_eq!(status_for_code(i64::MAX), None);
+    }
+
+    #[test]
+    fn errors_with_data_serialize_the_members_in_a_data_object() {
+        let error = RpcError::invalid_params("bad").with_data("path", json!("/x"));
+        assert_eq!(
+            error_message(json!("a"), &error),
+            json!({"jsonrpc": "2.0", "id": "a", "error": {"code": INVALID_PARAMS, "message": "bad", "data": {"path": "/x"}}})
+        );
+        let plain = RpcError::invalid_request("no");
+        assert_eq!(
+            plain.to_json(),
+            json!({"code": INVALID_REQUEST, "message": "no"})
+        );
+    }
+
+    #[test]
     fn messages_have_the_shape_of_json_rpc() {
         assert_eq!(
             reply(json!(1), Ok(json!(true))),

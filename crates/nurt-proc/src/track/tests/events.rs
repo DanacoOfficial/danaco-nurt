@@ -42,7 +42,7 @@ fn lost_events_fall_back_to_a_full_scan() {
     let h = Harness::new();
     h.write("a.txt", "alpha");
     let mut tx = RecordingTx::new();
-    let prepared = Tracker
+    let prepared = Tracker::default()
         .capture(&h.ctx, &h.spec(TrackMode::Auto), &mut tx)
         .unwrap();
     if let Some(watch) = prepared.watch.as_ref() {

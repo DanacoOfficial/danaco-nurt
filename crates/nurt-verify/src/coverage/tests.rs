@@ -155,6 +155,33 @@ fn llvm_export_reads_summary_and_uncovered_segments() {
 }
 
 #[test]
+fn go_profile_block_with_an_unbounded_end_line_is_cut() {
+    let text = "mode: set\na.go:1.1,18446744073709551615.1 1 1\n";
+    let coverage = parse(text, CoverageFormat::Go, Path::new("/p")).unwrap();
+    assert!((coverage.lines_pct - 100.0).abs() < f64::EPSILON);
+    assert_eq!(coverage.files.unwrap().len(), 1);
+}
+
+#[test]
+fn llvm_segment_followed_by_an_unbounded_line_is_cut() {
+    let text = r#"{"data":[{"files":[{"filename":"/work/src/lib.rs",
+"segments":[[1,1,5,true,true,false],[18446744073709551615,2,0,true,true,false]],
+"summary":{"lines":{"count":2,"covered":1},"functions":{"count":1,"covered":1}}}]}]}"#;
+    let coverage = parse(text, CoverageFormat::Llvm, Path::new("/work")).unwrap();
+    assert!((coverage.lines_pct - 50.0).abs() < f64::EPSILON);
+    assert_eq!(coverage.files.unwrap()[0].path.as_str(), "src/lib.rs");
+}
+
+#[test]
+fn totals_that_overflow_are_saturated_instead_of_panicking() {
+    let text = "SF:a.ts\nLF:18446744073709551615\nLH:18446744073709551615\nend_of_record\n\
+                SF:b.ts\nLF:5\nLH:1\nend_of_record\n";
+    let coverage = parse(text, CoverageFormat::Lcov, Path::new("/p")).unwrap();
+    assert!((coverage.lines_pct - 100.0).abs() < f64::EPSILON);
+    assert_eq!(coverage.files.unwrap().len(), 2);
+}
+
+#[test]
 fn llvm_rejects_other_json() {
     assert!(parse("{\"a\":1}", CoverageFormat::Llvm, Path::new("/p")).is_err());
 }

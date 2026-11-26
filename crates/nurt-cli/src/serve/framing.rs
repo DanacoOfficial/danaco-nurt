@@ -343,6 +343,94 @@ mod tests {
     }
 
     #[test]
+    fn the_limit_counts_bytes_not_characters() {
+        let text = "{\"a\":\"\u{142}\u{1f600}\"}";
+        let bytes = text.len();
+        assert!(bytes > text.chars().count());
+        let line = format!("{text}\n");
+        assert_eq!(
+            frames(Framing::Ndjson, line.as_bytes(), bytes),
+            vec![message(text), Frame::End]
+        );
+        assert_eq!(
+            frames(Framing::Ndjson, line.as_bytes(), bytes - 1),
+            vec![Frame::TooLarge, Frame::End]
+        );
+        let framed = format!("Content-Length: {bytes}\r\n\r\n{text}");
+        assert_eq!(
+            frames(Framing::ContentLength, framed.as_bytes(), bytes),
+            vec![message(text), Frame::End]
+        );
+        assert_eq!(
+            frames(Framing::ContentLength, framed.as_bytes(), bytes - 1),
+            vec![Frame::TooLarge, Frame::End]
+        );
+    }
+
+    #[test]
+    fn a_body_of_zero_bytes_is_an_empty_message() {
+        assert_eq!(
+            frames(Framing::ContentLength, b"Content-Length: 0\r\n\r\n", 8),
+            vec![message(""), Frame::End]
+        );
+    }
+
+    #[test]
+    fn blank_lines_before_the_headers_and_repeated_lengths_are_tolerated() {
+        let input = b"\r\n\r\nContent-Length: 5\r\nContent-Length: 2\r\n\r\n{}";
+        assert_eq!(
+            frames(Framing::ContentLength, input, 8),
+            vec![message("{}"), Frame::End]
+        );
+    }
+
+    #[test]
+    fn header_names_are_compared_without_regard_to_case_and_white_space() {
+        let input = b"CONTENT-length :  2 \r\n\r\n{}";
+        assert_eq!(
+            frames(Framing::ContentLength, input, 8),
+            vec![message("{}"), Frame::End]
+        );
+    }
+
+    #[test]
+    fn lines_with_bytes_that_are_not_utf8_are_passed_on() {
+        assert_eq!(
+            frames(Framing::Ndjson, b"\xff\xfe\n", 8),
+            vec![Frame::Message(vec![0xff, 0xfe]), Frame::End]
+        );
+    }
+
+    #[test]
+    fn a_line_without_a_line_feed_at_the_end_of_the_input_is_a_message() {
+        assert_eq!(
+            frames(Framing::Ndjson, b"{}", 8),
+            vec![message("{}"), Frame::End]
+        );
+        assert_eq!(frames(Framing::Ndjson, b"", 8), vec![Frame::End]);
+        assert_eq!(frames(Framing::Ndjson, b"\n\r\n  \n", 8), vec![Frame::End]);
+    }
+
+    #[test]
+    fn a_header_that_ends_the_input_is_the_end_of_the_input() {
+        assert_eq!(frames(Framing::ContentLength, b"", 8), vec![Frame::End]);
+        assert_eq!(
+            frames(Framing::ContentLength, b"\r\n\r\n", 8),
+            vec![Frame::End]
+        );
+    }
+
+    #[test]
+    fn the_content_length_header_is_written_with_the_byte_length() {
+        let mut output = Vec::new();
+        write_frame(&mut output, Framing::ContentLength, "\u{142}".as_bytes()).unwrap();
+        assert_eq!(output, b"Content-Length: 2\r\n\r\n\xc5\x82");
+        let mut line = Vec::new();
+        write_frame(&mut line, Framing::Ndjson, b"{}").unwrap();
+        assert_eq!(line, b"{}\n");
+    }
+
+    #[test]
     fn written_frames_are_read_back() {
         for framing in Framing::ALL {
             let mut output = Vec::new();

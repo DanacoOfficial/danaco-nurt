@@ -9,6 +9,6 @@ set -e
 # shellcheck source=/dev/null
 source dev-container-features-test-lib
 
-check "installed version has the requested major" bash -c "nurt version | grep -E 'Danaco Nurt 1\.'"
+check "installed version has the requested major" bash -c "nurt version | grep -E '^nurt 1\.'"
 
 reportResults

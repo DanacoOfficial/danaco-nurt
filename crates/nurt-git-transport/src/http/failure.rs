@@ -62,14 +62,15 @@ pub struct NetworkFailure {
 impl NetworkFailure {
     /// Failure of `problem` for the request to `url`.
     ///
-    /// User name and password in `url` are removed.
+    /// User name and password in `url` and in the addresses of `message` are
+    /// removed.
     #[must_use]
     pub fn new(problem: NetworkProblem, url: &str, message: impl Into<String>) -> Self {
         Self {
             problem,
             status: None,
             url: redact_url(url),
-            message: message.into(),
+            message: redact_text(&message.into()),
         }
     }
 
@@ -229,6 +230,21 @@ mod tests {
             "a https://h/x and ssh://h:22/y; plain http://h/z"
         );
         assert_eq!(redact_text("no address here"), "no address here");
+    }
+
+    #[test]
+    fn removes_credentials_from_the_message_of_a_failure() {
+        let failure = NetworkFailure::new(
+            NetworkProblem::Proxy,
+            "https://u:secret@h/r",
+            "proxy http://pu:hidden@proxy.example:3128/ refused the connection",
+        );
+        assert_eq!(failure.url(), "https://h/r");
+        assert_eq!(
+            failure.message(),
+            "proxy http://proxy.example:3128/ refused the connection"
+        );
+        assert!(!failure.to_string().contains("secret"));
     }
 
     #[test]

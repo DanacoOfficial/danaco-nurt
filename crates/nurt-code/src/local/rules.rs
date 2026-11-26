@@ -116,17 +116,23 @@ pub(crate) fn callee_name(node: Node<'_>) -> Option<Node<'_>> {
     last_identifier(callee)
 }
 
+/// The identifier that ends the subtree of `node`, found depth first from the
+/// last child with an explicit stack, so that the depth of the tree is not
+/// limited by the stack of the thread. Argument lists are not searched.
 fn last_identifier(node: Node<'_>) -> Option<Node<'_>> {
-    if is_identifier(node) {
-        return Some(node);
+    let mut pending = vec![node];
+    while let Some(current) = pending.pop() {
+        if is_identifier(current) {
+            return Some(current);
+        }
+        let mut cursor = current.walk();
+        let children: Vec<Node<'_>> = current
+            .named_children(&mut cursor)
+            .filter(|child| !child.kind().contains("argument"))
+            .collect();
+        pending.extend(children);
     }
-    let mut cursor = node.walk();
-    let children: Vec<Node<'_>> = node.named_children(&mut cursor).collect();
-    children
-        .into_iter()
-        .rev()
-        .filter(|child| !child.kind().contains("argument"))
-        .find_map(last_identifier)
+    None
 }
 
 /// Declaration statements whose names become visible after the statement,
@@ -225,6 +231,27 @@ mod tests {
         assert_eq!(
             first_call_callee("rust", "fn f() { println!(\"x\"); }\n").as_deref(),
             Some("println")
+        );
+    }
+
+    #[test]
+    fn callee_of_a_deeply_chained_expression_is_found_without_recursion() {
+        let source = format!("a{}();\n", "[0]".repeat(100_000));
+        assert_eq!(
+            first_call_callee("javascript", &source).as_deref(),
+            Some("a")
+        );
+    }
+
+    #[test]
+    fn arguments_are_not_searched_for_the_callee() {
+        assert_eq!(
+            first_call_callee("javascript", "f(g)(h);\n").as_deref(),
+            Some("f")
+        );
+        assert_eq!(
+            first_call_callee("python", "obj.method(arg)\n").as_deref(),
+            Some("method")
         );
     }
 

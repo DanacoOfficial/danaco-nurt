@@ -81,6 +81,41 @@ mod tests {
     }
 
     #[test]
+    fn the_codes_are_those_of_the_reference() {
+        assert_eq!(
+            [SUCCESS, FAILURE, USAGE, UNAVAILABLE, TIMEOUT, INTERNAL, CANCELLED],
+            [0, 1, 2, 3, 4, 70, 130]
+        );
+    }
+
+    #[test]
+    fn errors_of_the_text_and_of_the_storage_exit_with_one() {
+        for code in [
+            ErrorCode::Syntax,
+            ErrorCode::NotFound,
+            ErrorCode::Unsupported,
+            ErrorCode::UnknownCommand,
+        ] {
+            assert_eq!(for_error_code(code), FAILURE, "{code:?}");
+        }
+    }
+
+    #[test]
+    fn a_failed_status_with_each_special_error_takes_its_code() {
+        for (code, expected) in [
+            (ErrorCode::Timeout, TIMEOUT),
+            (ErrorCode::Cancelled, CANCELLED),
+            (ErrorCode::Internal, INTERNAL),
+            (ErrorCode::Syntax, FAILURE),
+        ] {
+            assert_eq!(for_report(&failed(code)), expected, "{code:?}");
+            let mut rolled_back = Report::new(ReportStatus::RolledBack, "remove");
+            rolled_back.error = Some(Error::new(code, "failed"));
+            assert_eq!(for_report(&rolled_back), expected, "{code:?}");
+        }
+    }
+
+    #[test]
     fn failure_without_an_error_exits_with_one() {
         let report = Report::new(ReportStatus::RolledBack, "remove");
         assert_eq!(for_report(&report), FAILURE);

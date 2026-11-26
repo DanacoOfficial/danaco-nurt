@@ -87,11 +87,28 @@ pub(crate) fn run_isolated_with(
     run(command.env_clear().env("HOME", &home).env(name, value))
 }
 
+/// Name under which the dynamic loader of Linux searches the library: the
+/// SONAME that `build.rs` gives to the shared library.
+const LIBRARY_SONAME: &str = "libnurt.so.1";
+
 /// Compiles a C program with `clang` against the header and links it with
 /// the shared library.
+///
+/// The program records the SONAME of the library, not the file name
+/// `libnurt_ffi.so`, so a link of that name to the library is placed next to
+/// the output and its directory is the run path of the program.
 pub(crate) fn compile_c(clang: &Path, sources: &[PathBuf], output: &Path, extra: &[&str]) {
     let library = shared_library();
     let library_dir = library.parent().expect("directory of the library");
+    let output_dir = output.parent().expect("directory of the output");
+    #[cfg(unix)]
+    {
+        let soname_link = output_dir.join(LIBRARY_SONAME);
+        if !soname_link.exists() {
+            std::os::unix::fs::symlink(&library, &soname_link)
+                .expect("link of the library under its SONAME");
+        }
+    }
     let mut command = Command::new(clang);
     command
         .args([
@@ -106,7 +123,11 @@ pub(crate) fn compile_c(clang: &Path, sources: &[PathBuf], output: &Path, extra:
         .args(sources)
         .args(extra)
         .arg(&library)
-        .arg(format!("-Wl,-rpath,{}", library_dir.display()))
+        .arg(format!(
+            "-Wl,-rpath,{},-rpath,{}",
+            output_dir.display(),
+            library_dir.display()
+        ))
         .arg("-o")
         .arg(output);
     run(&mut command);

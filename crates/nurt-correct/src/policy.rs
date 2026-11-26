@@ -932,7 +932,9 @@ fn check_effects(
         .collect();
     let mut after: Vec<&str> = bound
         .iter()
-        .filter(|(_, phase)| matches!(phase, Phase::Mutate | Phase::Run))
+        .filter(|(name, phase)| {
+            matches!(phase, Phase::Mutate | Phase::Run) || effecting(name.as_str())
+        })
         .map(|(name, _)| name.as_str())
         .collect();
     before.sort_unstable();
@@ -1078,5 +1080,141 @@ mod tests {
             ProgramKind::from_phases([Phase::Check, Phase::Transform]),
             READ
         );
+    }
+
+    #[test]
+    fn compares_changing_stages_that_bind_as_a_source() {
+        let written = vec!["http.request".to_owned()];
+        let bound = vec![("http.request".to_owned(), Phase::Source)];
+        let effecting = |name: &str| name == "http.request";
+        assert_eq!(check_effects(&written, &bound, &effecting), Ok(()));
+    }
+
+    #[test]
+    fn reports_a_changing_stage_that_disappeared() {
+        let written = vec!["remove".to_owned()];
+        let bound = vec![("find".to_owned(), Phase::Source)];
+        let effecting = |name: &str| name == "remove";
+        let violation = check_effects(&written, &bound, &effecting).unwrap_err();
+        assert_eq!(violation.invariant, Invariant::EffectKind);
+        assert!(violation.detail.contains("[\"remove\"] to []"));
+    }
+
+    #[test]
+    fn reports_a_changing_stage_that_was_added() {
+        let written = vec!["find".to_owned()];
+        let bound = vec![
+            ("find".to_owned(), Phase::Source),
+            ("remove".to_owned(), Phase::Mutate),
+        ];
+        let effecting = |name: &str| name == "remove";
+        let violation = check_effects(&written, &bound, &effecting).unwrap_err();
+        assert_eq!(violation.invariant, Invariant::EffectKind);
+    }
+
+    #[test]
+    fn normalizes_written_paths() {
+        assert_eq!(normalize_path("c:\\proj\\src\\"), "C:/proj/src");
+        assert_eq!(normalize_path("//srv//share///dir/"), "//srv/share/dir");
+        assert_eq!(normalize_path("/"), "/");
+        assert_eq!(normalize_path("C:/"), "C:/");
+        assert_eq!(normalize_path("/zażółć//x/"), "/zażółć/x");
+        assert_eq!(normalize_path(""), "");
+    }
+
+    #[test]
+    fn classifies_absolute_paths_and_schemes() {
+        assert!(is_absolute("/srv"));
+        assert!(is_absolute("C:/x"));
+        assert!(is_absolute("file:///x"));
+        assert!(!is_absolute("C:"));
+        assert!(!is_absolute("src/a"));
+        assert!(!is_absolute(""));
+    }
+
+    #[test]
+    fn strips_current_directory_prefixes() {
+        assert_eq!(strip_current("./././a"), "a");
+        assert_eq!(strip_current("."), "");
+        assert_eq!(strip_current("../a"), "../a");
+    }
+
+    #[test]
+    fn checks_multibyte_and_home_paths() {
+        assert_eq!(
+            path_check("/zażółć//x/", "/zażółć/x", None),
+            PathCheck::Preserved
+        );
+        assert_eq!(
+            path_check("/zażółć/x", "/zazolc/x", None),
+            PathCheck::Changed
+        );
+        assert_eq!(
+            path_check("~/src", "/home/u/src", None),
+            PathCheck::Preserved
+        );
+        assert_eq!(path_check("~", "/home/u", None), PathCheck::Preserved);
+        assert_eq!(
+            path_check("~/src", "relative/src", None),
+            PathCheck::Changed
+        );
+        assert_eq!(
+            path_check("../x", "/srv/x", Some("/srv/app")),
+            PathCheck::Changed
+        );
+    }
+
+    #[test]
+    fn numbers_the_invariants() {
+        assert_eq!(Invariant::LiteralBytes.number(), 1);
+        assert_eq!(Invariant::Base.number(), 6);
+    }
+
+    #[test]
+    fn violations_become_internal_correction_errors() {
+        let violation = InvariantViolation::new(
+            Invariant::Numbers,
+            "the number 7 does not appear in the program",
+        );
+        assert_eq!(
+            violation.to_string(),
+            "the number 7 does not appear in the program"
+        );
+        assert_eq!(violation.to_error().code(), ErrorCode::InternalCorrection);
+    }
+
+    #[test]
+    fn a_mode_value_from_a_prefix_is_a_guess() {
+        let exact = Correction::new(
+            RuleId::V01,
+            Class::Fuzzy,
+            "overwrte",
+            "overwrite",
+            CorrectionKind::Value,
+        );
+        let prefix = Correction::new(
+            RuleId::L05,
+            Class::Fuzzy,
+            "over",
+            "overwrite",
+            CorrectionKind::Value,
+        );
+        assert!(is_mode_correction(&exact, "overwrite"));
+        assert!(!is_mode_correction(&prefix, "overwrite"));
+        assert!(!is_mode_correction(&exact, "append"));
+    }
+
+    #[test]
+    fn renames_commands_by_folded_name() {
+        let corrections = [Correction::new(
+            RuleId::L01,
+            Class::Fuzzy,
+            "Remvoe",
+            "remove",
+            CorrectionKind::Command,
+        )];
+        let renames = command_renames(&corrections);
+        assert_eq!(rename(&renames, "remvoe"), "remove");
+        assert_eq!(rename(&renames, "find"), "find");
     }
 }

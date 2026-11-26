@@ -263,3 +263,77 @@ fn registrar_trait_registers_into_the_registry_and_reports_conflicts() {
     assert!(registry.resolve("count", RecordKind::Entry).is_ok());
     assert_eq!(registry.implementations("count").count(), 1);
 }
+
+use nurt_catalog::descriptors_overlap;
+use nurt_contracts::stage::StageDescriptor;
+
+fn descriptor(command: &str, source: bool, input: InputKinds) -> StageDescriptor {
+    StageDescriptor {
+        command: command.to_owned(),
+        source,
+        input,
+    }
+}
+
+#[test]
+fn descriptors_of_different_commands_never_overlap() {
+    let any = descriptor("count", false, InputKinds::Any);
+    let other = descriptor("sort", false, InputKinds::Any);
+    assert!(!descriptors_overlap(&any, &other));
+    let source = descriptor("find", true, InputKinds::None);
+    assert!(!descriptors_overlap(&source, &descriptor("list", true, InputKinds::None)));
+}
+
+#[test]
+fn descriptors_overlap_when_both_are_sources_or_share_a_kind() {
+    let source = descriptor("remove", true, InputKinds::None);
+    assert!(descriptors_overlap(&source, &source.clone()));
+    let entries = descriptor("remove", false, InputKinds::Only(vec![RecordKind::Entry]));
+    let jobs = descriptor(
+        "remove",
+        false,
+        InputKinds::Only(vec![RecordKind::Job, RecordKind::Item]),
+    );
+    let both = descriptor(
+        "remove",
+        false,
+        InputKinds::Only(vec![RecordKind::Item, RecordKind::Entry]),
+    );
+    assert!(!descriptors_overlap(&entries, &jobs));
+    assert!(descriptors_overlap(&entries, &both));
+    assert!(descriptors_overlap(&jobs, &both));
+    assert!(descriptors_overlap(&entries, &entries.clone()));
+}
+
+#[test]
+fn descriptor_without_input_overlaps_no_record_descriptor() {
+    let source = descriptor("remove", true, InputKinds::None);
+    let any = descriptor("remove", false, InputKinds::Any);
+    let entries = descriptor("remove", false, InputKinds::Only(vec![RecordKind::Entry]));
+    assert!(!descriptors_overlap(&source, &any));
+    assert!(!descriptors_overlap(&entries, &source));
+    assert!(descriptors_overlap(&any, &entries));
+    assert!(descriptors_overlap(&any, &any.clone()));
+}
+
+#[test]
+fn accepted_kinds_of_an_unknown_command_are_empty() {
+    let registry = registry();
+    let accepted = registry.accepted_kinds("no_such_command");
+    assert!(accepted.kinds.is_empty());
+    assert!(!accepted.source);
+}
+
+#[test]
+fn accepted_kinds_list_each_kind_once_in_registration_order() {
+    let mut registry = registry();
+    registry
+        .register_impl(Fake::only("remove", &[RecordKind::Entry, RecordKind::Job]))
+        .unwrap();
+    registry
+        .register_impl(Fake::only("remove", &[RecordKind::Item]))
+        .unwrap();
+    let accepted = registry.accepted_kinds("remove");
+    assert_eq!(accepted.kinds, vec!["entry", "job", "item"]);
+    assert!(!accepted.source);
+}

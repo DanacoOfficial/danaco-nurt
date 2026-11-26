@@ -4,6 +4,7 @@
 //! Tests of change detection on real directories with a recording journal
 //! transaction.
 
+mod bounds;
 mod events;
 mod operations;
 mod preimage;

@@ -165,7 +165,7 @@ impl ReadStage for AccountsStage {
 
 fn name_filter(args: &BoundArgs) -> Result<Option<&str>> {
     match args.value(NAME) {
-        None => Ok(None),
+        None | Some(Value::Null) => Ok(None),
         Some(Value::Text(name)) => Ok(Some(name.as_str())),
         Some(_) => Err(Error::new(
             ErrorCode::Type,

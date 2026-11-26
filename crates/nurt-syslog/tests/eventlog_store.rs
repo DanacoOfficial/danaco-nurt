@@ -561,3 +561,85 @@ fn eventlog_records_convert_to_log_event_records() {
     assert_eq!(record.unit.as_deref(), Some("System"));
     assert_eq!(record.cursor.as_deref(), Some("v1:w:System:30"));
 }
+
+#[test]
+fn eventlog_cursor_channel_is_compared_without_regard_to_letter_case() {
+    let (store, queries) = open_store(two_channels());
+    let query = LogQuery {
+        cursor: Some(Cursor::EventLog {
+            channel: "system".to_owned(),
+            record_id: 20,
+        }),
+        ..LogQuery::default()
+    };
+    let (events, notices, _) = run(&store, &query);
+    assert_eq!(records(&events), ["v1:w:Application:6", "v1:w:System:10"]);
+    assert!(notice(&notices, NoticeCode::CursorApproximate).is_none());
+    let sent = taken(&queries);
+    let system: Vec<&String> = sent
+        .iter()
+        .filter(|(channel, xpath)| channel == "System" && xpath.contains("EventRecordID<20"))
+        .map(|(_, xpath)| xpath)
+        .collect();
+    assert_eq!(system.len(), 1);
+}
+
+#[test]
+fn eventlog_pattern_unit_skips_denied_channels_with_a_notice() {
+    let mut source =
+        two_channels().channel("Security", vec![event("Security", 1, 1, 0, "Example-A")]);
+    source.denied.push("Security".to_owned());
+    let (store, _) = open_store(source);
+    let query = LogQuery {
+        unit: name("*"),
+        ..LogQuery::default()
+    };
+    let (events, notices, _) = run(&store, &query);
+    assert_eq!(events.len(), 5);
+    let denied = notice(&notices, NoticeCode::PermissionDeniedSkipped).unwrap();
+    assert_eq!(denied.path.as_deref(), Some("Security"));
+    assert_eq!(denied.count, Some(1));
+}
+
+#[test]
+fn eventlog_events_of_equal_time_in_two_channels_keep_a_stable_order() {
+    let source = MockSource::default()
+        .channel("System", vec![event("System", 2, 10, 4, "Example-A")])
+        .channel("Application", vec![event("Application", 9, 10, 4, "Example-A")]);
+    let (store, _) = open_store(source);
+    let (first, _, _) = run(&store, &LogQuery::default());
+    let (second, _, _) = run(&store, &LogQuery::default());
+    assert_eq!(records(&first), records(&second));
+    assert_eq!(first.len(), 2);
+}
+
+#[test]
+fn eventlog_pattern_unit_reads_only_the_matching_channels() {
+    let (store, _) = open_store(two_channels());
+    let query = LogQuery {
+        unit: name("App*"),
+        ..LogQuery::default()
+    };
+    let (events, _, _) = run(&store, &query);
+    assert_eq!(records(&events), ["v1:w:Application:7", "v1:w:Application:6"]);
+}
+
+#[test]
+fn eventlog_limits_cut_long_messages_of_formatted_events() {
+    let mut source = two_channels();
+    source
+        .messages
+        .insert("Example-A".to_owned(), "m".repeat(200));
+    let limits = LogLimits {
+        max_message_bytes: 16,
+        ..LogLimits::default()
+    };
+    let store = EventLogStore::new(source, limits);
+    let (events, _, _) = run(&store, &LogQuery::default());
+    let formatted = events
+        .iter()
+        .find(|event| event.source == "Example-A")
+        .unwrap();
+    assert_eq!(formatted.message.len(), 16);
+    assert!(formatted.flags.truncated);
+}

@@ -271,7 +271,11 @@ fn modification(
     if previous_mode.is_tree() && mode.is_tree() {
         return None;
     }
-    let status = if previous_mode.kind() == mode.kind() {
+    let object_kind = |mode: EntryMode| match mode.kind() {
+        EntryKind::BlobExecutable => EntryKind::Blob,
+        other => other,
+    };
+    let status = if object_kind(previous_mode) == object_kind(mode) {
         GitFileState::Modified
     } else {
         GitFileState::TypeChanged
@@ -438,6 +442,29 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[test]
+    fn a_change_of_the_executable_bit_is_a_modification() {
+        let id = ObjectId::empty_blob(gix::hash::Kind::Sha1);
+        let chmod = modification(
+            "x".into(),
+            EntryKind::Blob.into(),
+            id,
+            EntryKind::BlobExecutable.into(),
+            id,
+        )
+        .unwrap();
+        assert_eq!(chmod.status, GitFileState::Modified);
+        let link = modification(
+            "x".into(),
+            EntryKind::BlobExecutable.into(),
+            id,
+            EntryKind::Link.into(),
+            id,
+        )
+        .unwrap();
+        assert_eq!(link.status, GitFileState::TypeChanged);
     }
 
     #[test]

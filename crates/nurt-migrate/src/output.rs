@@ -38,7 +38,10 @@ pub(crate) fn item_lines(item: &Item) -> Vec<String> {
     lines.push(format!("# untranslated: {code}: {first}"));
     lines.extend(source.map(|line| comment(line, "")));
     if let Some(problem) = &item.problem {
-        lines.push(format!("#   problem: {problem}"));
+        let mut problem_lines = problem.lines();
+        let first = problem_lines.next().unwrap_or_default();
+        lines.push(format!("#   problem: {first}"));
+        lines.extend(problem_lines.map(|line| comment(line, "           ")));
     }
     for fix in &item.fix {
         let mut fix_lines = fix.lines();
@@ -63,7 +66,8 @@ fn comment(line: &str, indent: &str) -> String {
 pub(crate) fn render(report: &MigrationReport, blocks: &[Block]) -> String {
     let summary = report.summary();
     let mut text = String::new();
-    let _ = writeln!(text, "# Source: {} ({})", report.script, report.language);
+    let script = report.script.replace(['\r', '\n'], " ");
+    let _ = writeln!(text, "# Source: {script} ({})", report.language);
     text.push_str("# Statements run in order; the first error stops the script.\n");
     let _ = writeln!(
         text,
@@ -75,10 +79,15 @@ pub(crate) fn render(report: &MigrationReport, blocks: &[Block]) -> String {
         summary.error,
     );
     if let Some(fallback) = &report.fallback {
+        let mut fallback_lines = fallback.lines();
+        let first = fallback_lines.next().unwrap_or_default();
         let _ = writeln!(
             text,
-            "# Untranslated statements run unchanged with: {fallback}"
+            "# Untranslated statements run unchanged with: {first}"
         );
+        for line in fallback_lines {
+            let _ = writeln!(text, "{}", comment(line, ""));
+        }
     }
     if let Some(base) = &report.base {
         let _ = writeln!(

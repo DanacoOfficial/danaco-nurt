@@ -90,6 +90,8 @@ struct TrackSpecDef {
     exact: Option<Vec<PathBuf>>,
     preimage: bool,
     scan_hash: bool,
+    #[serde(default)]
+    timeout: Option<Duration>,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -205,3 +205,28 @@ fn keeps_fields_of_unknown_records_unchecked() {
     .unwrap();
     assert!(bind(&document, catalog(), &linux()).is_ok());
 }
+
+#[test]
+fn positions_a_value_correction_in_characters_after_multi_byte_text() {
+    let outcome = corrected("find \"/srv/é\" |> sort size order: decs").unwrap();
+    assert_eq!(rules(&outcome), ["V01"]);
+    let at = outcome.corrections[0].at.unwrap();
+    assert_eq!((at.line, at.column, at.length), (1, 35, Some(4)));
+    assert!(outcome.canonical.contains("/srv/é"), "{}", outcome.canonical);
+    assert!(outcome.canonical.ends_with("order: desc"));
+}
+
+#[test]
+fn positions_a_command_correction_in_characters_after_multi_byte_text() {
+    let outcome = corrected("find \"/srv/日本語\" |> sotr size").unwrap();
+    assert_eq!(rules(&outcome), ["L01"]);
+    let at = outcome.corrections[0].at.unwrap();
+    assert_eq!((at.line, at.column, at.length), (1, 20, Some(4)));
+}
+
+#[test]
+fn keeps_multi_byte_paths_unchanged_without_corrections() {
+    let outcome = corrected("find \"/srv/ünï/日本語\" glob: \"*.rs\"").unwrap();
+    assert!(outcome.corrections.is_empty());
+    assert!(outcome.canonical.contains("/srv/ünï/日本語"));
+}

@@ -598,14 +598,17 @@ fn new_cell_at(position: usize, index: usize, id: Option<&str>) -> Value {
 
 #[cfg(test)]
 mod tests {
+    use nurt_contracts::fs::{Follow, Fs};
     use nurt_contracts::journal::JournalStore;
     use nurt_contracts::record::Effect;
     use nurt_contracts::stage::{ArgValue, StageInput};
+    use nurt_contracts::value::{Fields, Regex};
     use nurt_testkit::fixtures::begin_request;
     use nurt_testkit::journal::JournalCall;
 
     use super::*;
     use crate::commands::notebook::fixture::with_file;
+    use crate::common::etag::etag_text;
 
     const NOTEBOOK: &str = "{\n \"cells\": [\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": 3,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"x = 1\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Notes\"\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 4\n}\n";
 
@@ -709,6 +712,123 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Arg);
         assert_eq!(error.details.get("change"), Some(&json!(0)));
         assert_eq!(bytes, NOTEBOOK.as_bytes());
+    }
+
+    fn written(bytes: Vec<u8>) -> String {
+        String::from_utf8(bytes).unwrap()
+    }
+
+    #[test]
+    fn insert_places_the_cell_at_the_index_and_reports_it() {
+        let (effect, bytes, _) = run(
+            "notebook.insert",
+            &[
+                ("index", Value::Int(1)),
+                ("cell_type", Value::Enum("code".to_owned())),
+                ("source", Value::Text("print(2)".to_owned())),
+            ],
+        );
+        let effect = effect.unwrap();
+        assert_eq!(effect.kind, "notebook.insert");
+        assert_eq!(effect.targets, Some(1));
+        assert!(effect.after.is_some());
+        let text = written(bytes);
+        let first = text.find("\"x = 1\"").unwrap();
+        let inserted = text.find("print(2)").unwrap();
+        let last = text.find("\"# Notes\"").unwrap();
+        assert!(first < inserted && inserted < last);
+    }
+
+    #[test]
+    fn replace_changes_the_text_of_the_selected_cell() {
+        let (effect, bytes, _) = run(
+            "notebook.replace",
+            &[
+                ("index", Value::Int(0)),
+                ("find", Value::Text("x = 1".to_owned())),
+                ("with", Value::Text("x = 2".to_owned())),
+            ],
+        );
+        assert_eq!(effect.unwrap().targets, Some(1));
+        let text = written(bytes);
+        assert!(text.contains("\"x = 2\""));
+        assert!(!text.contains("\"x = 1\""));
+    }
+
+    #[test]
+    fn replace_expands_the_groups_of_a_regular_expression() {
+        let (effect, bytes, _) = run(
+            "notebook.replace",
+            &[
+                ("find", Value::Regex(Regex::new(r"x = (\d)", "").unwrap())),
+                ("with", Value::Text("y = $1$1".to_owned())),
+            ],
+        );
+        assert!(effect.is_ok());
+        assert!(written(bytes).contains("\"y = 11\""));
+    }
+
+    #[test]
+    fn replace_rejects_a_template_with_a_missing_group_and_writes_nothing() {
+        let (effect, bytes, _) = run(
+            "notebook.replace",
+            &[
+                ("find", Value::Regex(Regex::new(r"x = (\d)", "").unwrap())),
+                ("with", Value::Text("y = $2".to_owned())),
+            ],
+        );
+        assert_eq!(effect.unwrap_err().code(), ErrorCode::Regex);
+        assert_eq!(bytes, NOTEBOOK.as_bytes());
+    }
+
+    #[test]
+    fn copy_repeats_the_cell_at_the_target_index() {
+        let (effect, bytes, _) = run(
+            "notebook.copy",
+            &[("from", Value::Int(0)), ("to", Value::Int(2))],
+        );
+        assert_eq!(effect.unwrap().targets, Some(1));
+        assert_eq!(written(bytes).matches("\"x = 1\"").count(), 2);
+    }
+
+    #[test]
+    fn ops_apply_every_change_in_one_write() {
+        let mut remove = Fields::new();
+        remove.insert("action".to_owned(), Value::Text("remove".to_owned()));
+        remove.insert("index".to_owned(), Value::Int(1));
+        let (effect, bytes, _) = run(
+            "notebook.ops",
+            &[("changes", Value::List(vec![Value::Map(remove)]))],
+        );
+        assert_eq!(effect.unwrap().targets, Some(1));
+        let text = written(bytes);
+        assert!(text.contains("\"x = 1\""));
+        assert!(!text.contains("# Notes"));
+    }
+
+    #[test]
+    fn a_stale_tag_stops_the_edit_in_the_plan() {
+        let (test, path) = with_file("/data/a.ipynb", NOTEBOOK.as_bytes());
+        let before = test.fs().metadata(&path, Follow::NoFollow).unwrap().etag();
+        let changed = NOTEBOOK.replace("x = 1", "x = 100");
+        test.fs().write_file(&path, changed.as_bytes()).unwrap();
+        let args = BoundArgs::new("notebook.remove")
+            .with(
+                PATH,
+                ArgValue::Value(Value::Path(path.to_language_string())),
+                false,
+            )
+            .with("index", ArgValue::Value(Value::Int(0)), false)
+            .with(
+                "if_match",
+                ArgValue::Value(Value::Text(etag_text(&before))),
+                false,
+            );
+        let error = edit("notebook.remove")
+            .plan(&args, StageInput::none(), &test.ctx())
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(test.fs().read_file(&path).unwrap(), changed.as_bytes());
     }
 
     #[test]

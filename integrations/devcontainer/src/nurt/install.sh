@@ -92,6 +92,9 @@ resolve_version() {
       ;;
   esac
   [ -n "$resolved" ] || fail "no release matches version '$VERSION'"
+  case $resolved in
+    *[!0-9A-Za-z.+-]*) fail "invalid version '$VERSION'" ;;
+  esac
   printf '%s\n' "$resolved"
 }
 
@@ -118,8 +121,10 @@ main() {
 
   mkdir -p "$work/extract" "$INSTALL_DIR"
   tar -xzf "$work/$archive" -C "$work/extract"
-  [ -f "$work/extract/nurt" ] || fail "$archive does not contain nurt"
-  install -m 0755 "$work/extract/nurt" "$INSTALL_DIR/nurt"
+  root=$work/extract
+  [ -f "$root/nurt" ] || root=$root/nurt-$version-$target
+  [ -f "$root/nurt" ] || fail "$archive does not contain nurt"
+  install -m 0755 "$root/nurt" "$INSTALL_DIR/nurt"
   printf 'installed Danaco Nurt %s in %s\n' "$version" "$INSTALL_DIR"
 }
 

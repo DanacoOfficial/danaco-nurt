@@ -93,9 +93,7 @@ pub(crate) fn parse(text: &str, dir: &Path) -> Result<Vec<FileData>, String> {
             found: entry.statements,
             hit: covered,
         });
-        for line in entry.start..=entry.end {
-            file.hit_line(line, entry.count);
-        }
+        file.hit_range(entry.start, entry.end, entry.count);
     }
     for file in &mut files {
         file.line_tally = Some(file.statements);

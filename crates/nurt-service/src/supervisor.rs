@@ -183,6 +183,8 @@ impl Supervisor {
                 if !wait_for_reset(reset, stop) {
                     break;
                 }
+                // Reloads that arrived while the module was parked count once.
+                while reset.try_recv().is_ok() {}
                 recent.clear();
                 attempt = 0;
                 continue;
@@ -338,7 +340,84 @@ fn panic_message(payload: &(dyn Any + Send)) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use nurt_contracts::error::ErrorCode;
+
     use super::*;
+    use crate::clock::SystemClock;
+
+    /// Module whose every start fails at once.
+    struct AlwaysFails {
+        starts: AtomicUsize,
+    }
+
+    impl ServiceModule for AlwaysFails {
+        fn name(&self) -> &str {
+            "flaky"
+        }
+
+        fn start(&self, _ctx: ServiceCtx) -> ContractResult<()> {
+            self.starts.fetch_add(1, Ordering::SeqCst);
+            Err(Error::new(ErrorCode::Internal, "fails at every start"))
+        }
+
+        fn stop(&self) {}
+
+        fn health(&self) -> ModuleHealth {
+            ModuleHealth::Stopped
+        }
+
+        fn reload(&self, _config: &Config) -> ContractResult<()> {
+            Ok(())
+        }
+
+        fn request(&self, _request: ModuleRequest) -> ContractResult<Value> {
+            Ok(Value::Null)
+        }
+
+        fn client_closed(&self, _client: &str) {}
+    }
+
+    #[test]
+    fn reloads_queued_while_the_module_was_failed_start_it_again_once() {
+        let module = Arc::new(AlwaysFails {
+            starts: AtomicUsize::new(0),
+        });
+        let supervisor = Arc::new(Supervisor::new(Arc::clone(&module) as Arc<dyn ServiceModule>));
+        let shared = Shared {
+            clock: Arc::new(SystemClock::new()),
+            config: Arc::new(Mutex::new(Arc::new(Config::default()))),
+            state_dir: std::path::PathBuf::new(),
+            hub: Arc::new(Hub::default()),
+            extensions: Arc::new(Extensions::new()),
+            policy: RestartPolicy {
+                max_restarts: 0,
+                ..RestartPolicy::default()
+            },
+        };
+        let stop = CancelToken::new();
+        let (reload, queue) = mpsc::channel();
+        for _ in 0..3 {
+            reload.send(()).unwrap();
+        }
+        let worker = {
+            let supervisor = Arc::clone(&supervisor);
+            let stop = stop.clone();
+            thread::spawn(move || {
+                supervisor.supervise(&shared, &stop, &queue);
+                queue
+            })
+        };
+        while module.starts.load(Ordering::SeqCst) < 2 {
+            thread::yield_now();
+        }
+        stop.cancel(CancelReason::Shutdown);
+        let queue = worker.join().unwrap();
+        assert_eq!(module.starts.load(Ordering::SeqCst), 2);
+        assert!(queue.try_recv().is_err());
+        assert_eq!(supervisor.state(), ModuleState::Stopped);
+    }
 
     #[test]
     fn restart_delay_doubles_up_to_one_minute() {

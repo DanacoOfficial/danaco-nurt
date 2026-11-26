@@ -17,10 +17,11 @@ use std::time::{Duration, Instant};
 use nurt_contracts::error::Result;
 use nurt_contracts::stage::ExecCtx;
 
+use super::control::withdraw;
 use super::host::{StartReply, StartRequest, inbox_requests, write_start_reply};
 use super::runner::{self, POLL_INTERVAL};
 use super::store::JobStore;
-use super::table::{JobTable, PROTOCOL, read_json, remove_file};
+use super::table::{JobTable, PROTOCOL, read_json};
 use crate::iface::Components;
 
 /// Time without jobs and requests after which the supervisor ends.
@@ -74,7 +75,11 @@ fn accept(
     let count = requests.len();
     for (name, path) in requests {
         let request = read_json::<StartRequest>(&path);
-        remove_file(&path)?;
+        // The request belongs to whoever removes its file; a client that
+        // withdrew it first has stopped waiting for the run.
+        if !withdraw(&path)? {
+            continue;
+        }
         let reply = match request {
             Ok(Some(request)) if request.protocol == PROTOCOL => {
                 match runner::start(ctx, components, table, request.into_launch()) {

@@ -1057,7 +1057,7 @@ fn check_path_key(ctx: &Ctx<'_>) -> Check {
     let insensitive = !ctx.features.case_sensitive;
     ensure(
         (mixed == upper) == insensitive,
-        "case variants share a key exactly when the volume is case-sensitive",
+        "case variants share a key exactly when the volume is case-insensitive",
     )?;
     if insensitive {
         let decomposed = ctx.fs.path_key(&ctx.path("name\u{65}\u{301}")?)?;

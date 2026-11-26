@@ -526,6 +526,16 @@ mod tests {
     }
 
     #[test]
+    fn multi_byte_names_are_valid_components() {
+        for style in [PathStyle::Posix, PathStyle::Windows] {
+            assert_eq!(check_name("za\u{17c}\u{f3}\u{142}\u{107}.txt", style), Ok(()));
+            assert_eq!(check_name("\u{1f600}", style), Ok(()));
+        }
+        assert!(!windows_reserved_name("\u{142}\u{f3}d\u{17a}"));
+        assert!(windows_reserved_name("\u{142}\u{f3}d\u{17a}."));
+    }
+
+    #[test]
     fn name_error_messages_are_lower_case_without_period() {
         for error in [
             NameError::Empty,

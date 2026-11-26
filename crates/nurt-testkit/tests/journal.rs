@@ -395,3 +395,297 @@ fn apply_ops_rejects_a_stale_target() {
     assert!(matches!(error.code(), ErrorCode::Exists | ErrorCode::Stale));
     assert_eq!(fs.read_file(&file).unwrap(), b"old");
 }
+
+#[rustfmt::skip]
+type Listing<'a> =
+    Box<dyn Iterator<Item = nurt_contracts::fs::FsResult<nurt_contracts::fs::DirEntry>> + Send + 'a>;
+
+/// File system whose write handles apply the modification time of the
+/// metadata they receive, as the back end of Linux does.
+struct Stamping(Arc<VirtualFs>);
+
+struct StampedHandle {
+    inner: Box<dyn nurt_contracts::fs::WriteHandle>,
+    fs: Arc<VirtualFs>,
+}
+
+impl std::io::Write for StampedHandle {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.inner.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+impl std::io::Seek for StampedHandle {
+    fn seek(&mut self, position: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.inner.seek(position)
+    }
+}
+
+#[rustfmt::skip]
+impl nurt_contracts::fs::WriteHandle for StampedHandle {
+    fn path(&self) -> &AbsPath {
+        self.inner.path()
+    }
+
+    fn sync(&mut self, durability: nurt_contracts::fs::Durability) -> nurt_contracts::fs::FsResult<()> {
+        self.inner.sync(durability)
+    }
+
+    fn set_length(&mut self, length: u64) -> nurt_contracts::fs::FsResult<()> {
+        self.inner.set_length(length)
+    }
+
+    fn apply_meta(
+        &mut self,
+        meta: &nurt_contracts::fs::ExtendedMeta,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::MetaTransferReport> {
+        let report = self.inner.apply_meta(meta)?;
+        self.fs
+            .set_modified(self.inner.path(), meta.basic.modified_ns)?;
+        Ok(report)
+    }
+}
+
+#[rustfmt::skip]
+impl Stamping {
+    fn stamped(
+        &self,
+        handle: nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::WriteHandle>>,
+    ) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::WriteHandle>> {
+        handle.map(|inner| {
+            Box::new(StampedHandle {
+                inner,
+                fs: self.0.clone(),
+            }) as Box<dyn nurt_contracts::fs::WriteHandle>
+        })
+    }
+}
+
+#[rustfmt::skip]
+impl Fs for Stamping {
+    fn metadata(&self, path: &AbsPath, follow: Follow) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::FileMeta> {
+        self.0.metadata(path, follow)
+    }
+
+    fn extended_metadata(
+        &self,
+        path: &AbsPath,
+        follow: Follow,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::ExtendedMeta> {
+        self.0.extended_metadata(path, follow)
+    }
+
+    fn open_read(&self, path: &AbsPath) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::ReadHandle>> {
+        self.0.open_read(path)
+    }
+
+    fn open_stream_read(
+        &self,
+        path: &AbsPath,
+        stream: &str,
+    ) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::ReadHandle>> {
+        self.0.open_stream_read(path, stream)
+    }
+
+    fn read_dir<'a>(&'a self, path: &AbsPath) -> nurt_contracts::fs::FsResult<Listing<'a>> {
+        self.0.read_dir(path)
+    }
+
+    fn read_link(&self, path: &AbsPath) -> nurt_contracts::fs::FsResult<std::path::PathBuf> {
+        self.0.read_link(path)
+    }
+
+    fn real_path(&self, path: &AbsPath) -> nurt_contracts::fs::FsResult<AbsPath> {
+        self.0.real_path(path)
+    }
+
+    fn content_hash(&self, path: &AbsPath) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::ContentHash> {
+        self.0.content_hash(path)
+    }
+
+    fn volume(&self, path: &AbsPath) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::VolumeInfo> {
+        self.0.volume(path)
+    }
+
+    fn space(&self, volume: &nurt_contracts::fs::VolumeId) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::SpaceInfo> {
+        self.0.space(volume)
+    }
+
+    fn path_key(&self, path: &AbsPath) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::PathKey> {
+        self.0.path_key(path)
+    }
+
+    fn holders(&self, path: &AbsPath) -> nurt_contracts::fs::FsResult<Vec<nurt_contracts::fs::Holder>> {
+        self.0.holders(path)
+    }
+
+    fn can_write_dir(&self, dir: &AbsPath) -> nurt_contracts::fs::FsResult<bool> {
+        self.0.can_write_dir(dir)
+    }
+}
+
+#[rustfmt::skip]
+impl nurt_contracts::fs::FsWrite for Stamping {
+    fn create_temp_in(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        dir: &AbsPath,
+        name_hint: &str,
+    ) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::WriteHandle>> {
+        self.stamped(self.0.create_temp_in(scope, dir, name_hint))
+    }
+
+    fn create_new(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        path: &AbsPath,
+    ) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::WriteHandle>> {
+        self.stamped(self.0.create_new(scope, path))
+    }
+
+    fn open_in_place(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        path: &AbsPath,
+    ) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::WriteHandle>> {
+        self.stamped(self.0.open_in_place(scope, path))
+    }
+
+    fn open_stream_write(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        path: &AbsPath,
+        stream: &str,
+    ) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::WriteHandle>> {
+        self.0.open_stream_write(scope, path, stream)
+    }
+
+    fn rename(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        from: &AbsPath,
+        to: &AbsPath,
+        mode: nurt_contracts::fs::RenameMode,
+    ) -> nurt_contracts::fs::FsResult<()> {
+        self.0.rename(scope, from, to, mode)
+    }
+
+    fn exchange(&self, scope: &nurt_contracts::fs::TxScope, a: &AbsPath, b: &AbsPath) -> nurt_contracts::fs::FsResult<()> {
+        self.0.exchange(scope, a, b)
+    }
+
+    fn replace_with_backup(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        target: &AbsPath,
+        replacement: &AbsPath,
+        backup: &AbsPath,
+    ) -> nurt_contracts::fs::FsResult<()> {
+        self.0.replace_with_backup(scope, target, replacement, backup)
+    }
+
+    fn hard_link(&self, scope: &nurt_contracts::fs::TxScope, existing: &AbsPath, new: &AbsPath) -> nurt_contracts::fs::FsResult<()> {
+        self.0.hard_link(scope, existing, new)
+    }
+
+    fn clone_file(&self, scope: &nurt_contracts::fs::TxScope, src: &AbsPath, dst: &AbsPath) -> nurt_contracts::fs::FsResult<()> {
+        self.0.clone_file(scope, src, dst)
+    }
+
+    fn copy_file(&self, scope: &nurt_contracts::fs::TxScope, src: &AbsPath, dst: &AbsPath) -> nurt_contracts::fs::FsResult<u64> {
+        self.0.copy_file(scope, src, dst)
+    }
+
+    fn remove_file(&self, scope: &nurt_contracts::fs::TxScope, path: &AbsPath) -> nurt_contracts::fs::FsResult<()> {
+        self.0.remove_file(scope, path)
+    }
+
+    fn remove_dir(&self, scope: &nurt_contracts::fs::TxScope, path: &AbsPath) -> nurt_contracts::fs::FsResult<()> {
+        self.0.remove_dir(scope, path)
+    }
+
+    fn remove_tree(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        path: &AbsPath,
+        parallelism: usize,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::RemoveStats> {
+        self.0.remove_tree(scope, path, parallelism)
+    }
+
+    fn create_dir(&self, scope: &nurt_contracts::fs::TxScope, path: &AbsPath, mode: u32) -> nurt_contracts::fs::FsResult<()> {
+        self.0.create_dir(scope, path, mode)
+    }
+
+    fn create_link(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        target: &std::path::Path,
+        link: &AbsPath,
+        kind: nurt_contracts::fs::LinkKind,
+    ) -> nurt_contracts::fs::FsResult<()> {
+        self.0.create_link(scope, target, link, kind)
+    }
+
+    fn set_meta(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        path: &AbsPath,
+        change: &nurt_contracts::fs::MetaChange,
+    ) -> nurt_contracts::fs::FsResult<()> {
+        self.0.set_meta(scope, path, change)
+    }
+
+    fn restore_meta(
+        &self,
+        scope: &nurt_contracts::fs::TxScope,
+        path: &AbsPath,
+        meta: &nurt_contracts::fs::ExtendedMeta,
+    ) -> nurt_contracts::fs::FsResult<nurt_contracts::fs::MetaTransferReport> {
+        self.0.restore_meta(scope, path, meta)
+    }
+
+    fn truncate(&self, scope: &nurt_contracts::fs::TxScope, path: &AbsPath, length: u64) -> nurt_contracts::fs::FsResult<()> {
+        self.0.truncate(scope, path, length)
+    }
+
+    fn sync_dir(&self, scope: &nurt_contracts::fs::TxScope, dir: &AbsPath) -> nurt_contracts::fs::FsResult<()> {
+        self.0.sync_dir(scope, dir)
+    }
+
+    fn lock_exclusive(
+        &self,
+        path: &AbsPath,
+        timeout: std::time::Duration,
+    ) -> nurt_contracts::fs::FsResult<Box<dyn nurt_contracts::fs::FileLock>> {
+        self.0.lock_exclusive(path, timeout)
+    }
+
+    fn mark_hidden(&self, scope: &nurt_contracts::fs::TxScope, path: &AbsPath) -> nurt_contracts::fs::FsResult<()> {
+        self.0.mark_hidden(scope, path)
+    }
+}
+
+#[test]
+fn write_bytes_dates_the_new_content_and_keeps_the_mode_of_the_previous_file() {
+    let vfs = Arc::new(VirtualFs::default());
+    let file = path("/data/a.txt");
+    vfs.write_file(&file, b"old").unwrap();
+    vfs.set_mode(&file, 0o640).unwrap();
+    vfs.set_modified(&file, 1_000_000_000).unwrap();
+    let journal = NoopJournal::new(Arc::new(Stamping(vfs.clone())));
+    let mut tx = journal.begin(begin_request("write"));
+    tx.preserve(&[fs_target(&file, TargetAction::Modify)])
+        .unwrap();
+    tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new".to_vec()))
+        .unwrap();
+    tx.commit().unwrap();
+    let meta = vfs.metadata(&file, Follow::NoFollow).unwrap();
+    assert_eq!(vfs.read_file(&file).unwrap(), b"new");
+    assert_eq!(meta.mode, 0o640);
+    assert_ne!(meta.modified_ns, 1_000_000_000);
+}

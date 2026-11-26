@@ -561,15 +561,22 @@ impl<'a> FileStream<'a> {
         }
     }
 
-    fn decode(&mut self, entry: &EntryObject) -> Result<Vec<Field>, Fault> {
+    /// Fields of an entry and whether a payload was dropped because it
+    /// exceeds `max_data_bytes` and left no name to keep.
+    fn decode(&mut self, entry: &EntryObject) -> Result<(Vec<Field>, bool), Fault> {
         let max = self.shared.limits.max_data_bytes;
         let mut fields = Vec::with_capacity(entry.items.len());
+        let mut dropped = false;
         for item in &entry.items {
             let data = self.file.data(*item)?;
             let payload = self.file.payload(&data, max)?;
-            fields.extend(Field::split(payload));
+            let cut = payload.truncated;
+            match Field::split(payload) {
+                Some(field) => fields.push(field),
+                None => dropped |= cut,
+            }
         }
-        Ok(fields)
+        Ok((fields, dropped))
     }
 
     fn step(&mut self) -> Result<Option<JournalItem>, Fault> {
@@ -592,8 +599,8 @@ impl<'a> FileStream<'a> {
             if !self.admits_position(&entry) || !self.admits_items(&entry) {
                 continue;
             }
-            let fields = match self.decode(&entry) {
-                Ok(fields) => fields,
+            let (fields, dropped) = match self.decode(&entry) {
+                Ok(decoded) => decoded,
                 Err(Fault::Beyond) => continue,
                 Err(fault) => return Err(fault),
             };
@@ -602,7 +609,8 @@ impl<'a> FileStream<'a> {
                 file_id: header.file_id,
                 seqnum_id: header.seqnum_id,
             };
-            let event = mapping::to_event(origin, &entry, fields, &self.shared.limits);
+            let mut event = mapping::to_event(origin, &entry, fields, &self.shared.limits);
+            event.flags.truncated |= dropped;
             let filter = EventFilter::new(self.shared.query).with_unit(self.shared.unit.as_ref());
             if filter.matches(&event) {
                 return Ok(Some(JournalItem {

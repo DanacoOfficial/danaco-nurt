@@ -64,6 +64,8 @@ fn source(temp: &tempfile::TempDir) -> TestSource {
         frontend: FixtureFrontend::new()
             .with_bound("find \"/srv\"", empty_program())
             .with_bound("history limit: 5", empty_program())
+            .with_bound("undo", empty_program())
+            .with_bound("redo", empty_program())
             .with_error(
                 "remvoe \"/tmp/a\"",
                 Error::new(ErrorCode::UnknownCommand, "unknown command `remvoe`")
@@ -568,6 +570,197 @@ fn interrupt_cancels_the_running_program_and_the_session_continues() {
         session.last_exit_code(),
         exit::for_error_code(ErrorCode::Unsupported)
     );
+}
+
+#[test]
+fn undo_and_redo_shortcuts_run_the_journal_commands() {
+    for name in ["undo", "redo"] {
+        let outcome = call(&[name]);
+        assert!(outcome.out.contains("E_UNSUPPORTED"), "{name}: {}", outcome.out);
+        assert!(!outcome.out.contains("E_UNKNOWN_COMMAND"), "{name}");
+    }
+}
+
+#[test]
+fn check_accepts_a_program_from_the_command_line_a_file_and_the_input() {
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("find.nurt");
+    std::fs::write(&file, "find \"/srv\"").unwrap();
+    let line = invoke(
+        &source(&temp),
+        &["check", "-e", "find \"/srv\""],
+        "",
+        Terminal::default(),
+    );
+    assert_eq!(line.code, exit::SUCCESS, "{}", line.err);
+    assert!(line.out.starts_with("ok\ncorrections: "), "{}", line.out);
+    let path = file.to_str().unwrap();
+    let from_file = invoke(&source(&temp), &["check", path], "", Terminal::default());
+    assert_eq!((from_file.code, &from_file.out), (exit::SUCCESS, &line.out));
+    let piped = invoke(
+        &source(&temp),
+        &["check", "-"],
+        "find \"/srv\"",
+        Terminal::default(),
+    );
+    assert_eq!((piped.code, &piped.out), (exit::SUCCESS, &line.out));
+}
+
+#[test]
+fn check_prints_the_check_document_in_json() {
+    let temp = tempfile::tempdir().unwrap();
+    let outcome = invoke(
+        &source(&temp),
+        &["check", "-e", "find \"/srv\"", "--json"],
+        "",
+        Terminal::default(),
+    );
+    assert_eq!(outcome.code, exit::SUCCESS, "{}", outcome.err);
+    let document: serde_json::Value = serde_json::from_str(&outcome.out).unwrap();
+    assert_eq!(document["format"], "nurt-check/1");
+    let same = invoke(
+        &source(&temp),
+        &["check", "--format", "json", "-e", "find \"/srv\""],
+        "",
+        Terminal::default(),
+    );
+    assert_eq!(same.out, outcome.out);
+}
+
+#[test]
+fn check_of_a_missing_file_is_a_failure() {
+    let outcome = call(&["check", "/absent/dir/program.nurt"]);
+    assert_eq!(outcome.code, exit::FAILURE);
+    assert!(outcome.err.contains("cannot read `/absent/dir/program.nurt`"));
+    assert!(outcome.out.is_empty());
+}
+
+#[test]
+fn script_reads_the_standard_input_when_the_file_is_a_dash() {
+    let temp = tempfile::tempdir().unwrap();
+    let outcome = invoke(
+        &source(&temp),
+        &["script", "-"],
+        "#!/usr/bin/env nurt\nfind \"/srv\"\n",
+        Terminal::default(),
+    );
+    assert!(outcome.out.contains("E_UNSUPPORTED"), "{}", outcome.out);
+}
+
+#[test]
+fn script_needs_exactly_one_file_and_known_options() {
+    for args in [
+        &["script"][..],
+        &["script", "a.nurt", "b.nurt"],
+        &["script", "a.nurt", "--variant", "b"],
+        &["script", "a.nurt", "--cursor", "c_1"],
+        &["script", "a.nurt", "--limit"],
+    ] {
+        let outcome = call(args);
+        assert_eq!(outcome.code, exit::USAGE, "{args:?}");
+    }
+}
+
+#[test]
+fn notations_of_ast_are_checked_before_the_input_is_read() {
+    for args in [
+        &["ast", "--from", "cbor", "x"][..],
+        &["ast", "--to", "yaml", "x"],
+        &["ast", "--from", "json", "a", "b"],
+        &["ast", "--from"],
+    ] {
+        let outcome = call(args);
+        assert_eq!(outcome.code, exit::USAGE, "{args:?}");
+        assert!(outcome.out.is_empty(), "{args:?}");
+    }
+}
+
+#[test]
+fn an_unknown_catalog_entry_is_a_failure_naming_it() {
+    let outcome = call(&["catalog", "no-such-command"]);
+    assert_eq!(outcome.code, exit::FAILURE);
+    assert!(outcome.err.contains("the catalog has no entry `no-such-command`"));
+}
+
+#[test]
+fn options_after_the_first_word_of_a_program_belong_to_the_program() {
+    for args in [
+        &["exec", "find", "--preview"][..],
+        &["exec", "--", "--preview"],
+        &["--preview", "find", "--json"],
+    ] {
+        let outcome = call(args);
+        assert_ne!(outcome.code, exit::USAGE, "{args:?}");
+    }
+}
+
+#[test]
+fn a_cursor_without_a_program_is_read_as_a_further_page() {
+    let outcome = call(&["exec", "--cursor", "c_1", "--limit", "5"]);
+    assert_ne!(outcome.code, exit::USAGE, "{}", outcome.err);
+    assert!(!outcome.out.is_empty());
+}
+
+#[test]
+fn every_output_format_prints_the_error_of_the_program() {
+    for format in ["text", "markdown", "compact"] {
+        let outcome = call(&["exec", "--format", format, "find \"/srv\""]);
+        assert_eq!(
+            outcome.code,
+            exit::for_error_code(ErrorCode::Unsupported),
+            "{format}"
+        );
+        assert!(outcome.out.contains("E_UNSUPPORTED"), "{format}: {}", outcome.out);
+    }
+}
+
+#[test]
+fn doctor_lists_the_features_of_the_build() {
+    let outcome = call(&["doctor"]);
+    let row = outcome
+        .out
+        .lines()
+        .find(|line| line.trim_start().starts_with("features"))
+        .unwrap();
+    for (feature, linked) in [
+        ("mcp", cfg!(feature = "mcp")),
+        ("lsp", cfg!(feature = "lsp")),
+        ("migrate", cfg!(feature = "migrate")),
+        ("service", cfg!(feature = "service")),
+        ("journal", cfg!(feature = "journal")),
+    ] {
+        assert_eq!(row.contains(feature), linked, "{feature}: {row}");
+    }
+}
+
+#[test]
+fn jobs_lists_the_background_programs_with_their_numbers() {
+    let temp = tempfile::tempdir().unwrap();
+    let script = "bg find \"/srv\"\nbg find \"/srv\"\njobs\nkill 1\njobs\nexit\n";
+    let outcome = invoke(&source(&temp), &["repl"], script, Terminal::default());
+    assert!(outcome.out.contains("[1] started\n[2] started\n"), "{}", outcome.out);
+    let listed: Vec<&str> = outcome
+        .out
+        .lines()
+        .filter(|line| line.ends_with("find \"/srv\""))
+        .collect();
+    assert_eq!(listed.len(), 3, "{}", outcome.out);
+    assert!(outcome.out.contains("[1] cancelled"));
+    assert!(listed.iter().any(|line| line.starts_with("[2] ")));
+}
+
+#[test]
+fn session_help_with_a_topic_reports_the_error_of_the_front_end() {
+    let temp = tempfile::tempdir().unwrap();
+    let outcome = invoke(
+        &source(&temp),
+        &["repl"],
+        "help remove\nexit extra words\nfind \"/srv\"\n",
+        Terminal::default(),
+    );
+    assert!(outcome.err.contains("E_UNSUPPORTED"));
+    assert!(outcome.out.is_empty());
+    assert_eq!(outcome.code, exit::SUCCESS);
 }
 
 #[test]

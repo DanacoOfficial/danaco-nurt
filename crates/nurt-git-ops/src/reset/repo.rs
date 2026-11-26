@@ -133,7 +133,7 @@ pub(crate) fn is_ancestor(repo: &GitRepo, ancestor: ObjectId, descendant: Object
 
 /// Absolute path of a path relative to the working tree root.
 pub(crate) fn worktree_path(repo: &GitRepo, relative: &BStr) -> PathBuf {
-    join_slash(repo.root(), &relative.to_str_lossy())
+    join_slash(repo.root(), relative)
 }
 
 /// Path relative to the working tree root, with `/` separators, for a path
@@ -160,11 +160,24 @@ pub(crate) fn relative_path(repo: &GitRepo, path: &Path) -> Option<BString> {
     Some(out)
 }
 
-/// Joins a `/`-separated relative name to a directory.
-pub(crate) fn join_slash(base: &Path, name: &str) -> PathBuf {
-    name.split('/')
+/// Joins a `/`-separated relative name to a directory; the bytes of every
+/// component are kept, so names that are not UTF-8 reach the file they name.
+pub(crate) fn join_slash(base: &Path, name: impl AsRef<[u8]>) -> PathBuf {
+    name.as_ref()
+        .split(|byte| *byte == b'/')
         .filter(|part| !part.is_empty())
-        .fold(base.to_path_buf(), |path, part| path.join(part))
+        .fold(base.to_path_buf(), |path, part| path.join(os_name(part)))
+}
+
+#[cfg(unix)]
+fn os_name(part: &[u8]) -> std::ffi::OsString {
+    use std::os::unix::ffi::OsStrExt;
+    std::ffi::OsStr::from_bytes(part).to_owned()
+}
+
+#[cfg(not(unix))]
+fn os_name(part: &[u8]) -> std::ffi::OsString {
+    String::from_utf8_lossy(part).into_owned().into()
 }
 
 /// First paragraph of a commit message with its lines joined by spaces.
@@ -201,6 +214,15 @@ mod tests {
             joined,
             Path::new("/r").join("refs").join("heads").join("main")
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn join_slash_keeps_the_bytes_of_names_that_are_not_utf8() {
+        use std::os::unix::ffi::OsStrExt;
+        let joined = join_slash(Path::new("/r"), b"d//\xff.txt".as_bstr());
+        assert_eq!(joined.parent(), Some(Path::new("/r/d")));
+        assert_eq!(joined.file_name().unwrap().as_bytes(), b"\xff.txt");
     }
 
     #[test]

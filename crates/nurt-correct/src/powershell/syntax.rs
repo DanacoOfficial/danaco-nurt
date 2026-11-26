@@ -166,7 +166,11 @@ pub(crate) struct SyntaxError {
 
 /// Parses tokens into a script.
 pub(crate) fn parse(tokens: &[Token]) -> Result<Script, SyntaxError> {
-    let mut parser = Parser { tokens, pos: 0 };
+    let mut parser = Parser {
+        tokens,
+        pos: 0,
+        depth: 0,
+    };
     let script = parser.script()?;
     match parser.peek() {
         Some(token) => Err(parser.unexpected(token)),
@@ -177,14 +181,23 @@ pub(crate) fn parse(tokens: &[Token]) -> Result<Script, SyntaxError> {
 /// Parses one value in expression mode starting at `pos`; returns the value
 /// and the position after it.
 pub(crate) fn parse_value(tokens: &[Token], pos: usize) -> Result<(Value, usize), SyntaxError> {
-    let mut parser = Parser { tokens, pos };
+    let mut parser = Parser {
+        tokens,
+        pos,
+        depth: 0,
+    };
     let value = parser.value(true)?;
     Ok((value, parser.pos))
 }
 
+/// Deepest nesting of values that the parser reads; deeper text is an error
+/// instead of an overflow of the stack.
+pub(crate) const MAX_NESTING: usize = 64;
+
 struct Parser<'a> {
     tokens: &'a [Token],
     pos: usize,
+    depth: usize,
 }
 
 fn is_terminator(kind: &TokenKind) -> bool {
@@ -420,6 +433,7 @@ impl<'a> Parser<'a> {
     /// expression mode.
     fn expression(&mut self) -> Result<Value, SyntaxError> {
         let mut left = self.list_value_expr()?;
+        let mut operators = 0_usize;
         while let Some(token) = self.peek() {
             let op = match &token.kind {
                 TokenKind::Operator(op) => op.clone(),
@@ -427,6 +441,10 @@ impl<'a> Parser<'a> {
                 TokenKind::Word(word) if matches!(word.as_str(), "*" | "/" | "%") => word.clone(),
                 _ => break,
             };
+            operators += 1;
+            if self.depth + operators > MAX_NESTING {
+                return Err(too_deep(token));
+            }
             self.pos += 1;
             while self.peek_kind() == Some(&TokenKind::Newline) {
                 self.pos += 1;
@@ -466,6 +484,17 @@ impl<'a> Parser<'a> {
     }
 
     fn value(&mut self, expression_mode: bool) -> Result<Value, SyntaxError> {
+        if self.depth >= MAX_NESTING {
+            let token = self.peek().ok_or_else(|| self.end_of_input("value"))?;
+            return Err(too_deep(token));
+        }
+        self.depth += 1;
+        let value = self.nested_value(expression_mode);
+        self.depth -= 1;
+        value
+    }
+
+    fn nested_value(&mut self, expression_mode: bool) -> Result<Value, SyntaxError> {
         let token = self.next().ok_or_else(|| self.end_of_input("value"))?;
         let kind = match &token.kind {
             TokenKind::Word(word) => ValueKind::Bare(word.clone()),
@@ -560,12 +589,17 @@ impl<'a> Parser<'a> {
     }
 
     fn members(&mut self, mut value: Value) -> Result<Value, SyntaxError> {
+        let mut accesses = 0_usize;
         while let Some(token) = self.peek() {
             let TokenKind::Member(name) = &token.kind else {
                 break;
             };
             if token.start != value.end {
                 break;
+            }
+            accesses += 1;
+            if self.depth + accesses > MAX_NESTING {
+                return Err(too_deep(token));
             }
             self.pos += 1;
             let mut end = token.end;
@@ -599,6 +633,14 @@ impl<'a> Parser<'a> {
             };
         }
         Ok(value)
+    }
+}
+
+fn too_deep(token: &Token) -> SyntaxError {
+    SyntaxError {
+        message: "values are nested too deeply".to_owned(),
+        start: token.start,
+        end: token.end,
     }
 }
 
@@ -718,6 +760,7 @@ mod tests {
         let mut parser = Parser {
             tokens: &tokens,
             pos: 0,
+            depth: 0,
         };
         let value = parser.expression().ok();
         match value.map(|value| value.kind) {
@@ -786,6 +829,36 @@ mod tests {
         let tokens = lex("Get-Item (a").unwrap_or_default();
         let error = parse(&tokens).err();
         assert!(error.is_some_and(|e| e.message.contains("without its closing pair")));
+    }
+
+    #[test]
+    fn deeply_nested_values_are_a_syntax_error() {
+        let nested = format!("a {}b{}", "(".repeat(10_000), ")".repeat(10_000));
+        let tokens = lex(&nested).unwrap_or_default();
+        let error = parse(&tokens).err();
+        assert!(error.is_some_and(|e| e.message.contains("nested too deeply")));
+        let hashes = format!("a {}", "@{ a = ".repeat(10_000));
+        let tokens = lex(&hashes).unwrap_or_default();
+        assert!(parse(&tokens).is_err());
+    }
+
+    #[test]
+    fn long_chains_of_operators_and_members_are_a_syntax_error() {
+        let operators = format!("1{}", " + 1".repeat(10_000));
+        let tokens = lex(&operators).unwrap_or_default();
+        let error = parse(&tokens).err();
+        assert!(error.is_some_and(|e| e.message.contains("nested too deeply")));
+        let members = format!("$x{}", ".a".repeat(10_000));
+        let tokens = lex(&members).unwrap_or_default();
+        let error = parse(&tokens).err();
+        assert!(error.is_some_and(|e| e.message.contains("nested too deeply")));
+    }
+
+    #[test]
+    fn moderately_nested_values_are_read() {
+        let nested = format!("a {}b{}", "(".repeat(20), ")".repeat(20));
+        let tokens = lex(&nested).unwrap_or_default();
+        assert!(parse(&tokens).is_ok());
     }
 
     #[test]

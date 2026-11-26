@@ -168,6 +168,38 @@ mod tests {
     }
 
     #[test]
+    fn trims_the_text_and_lowercases_scheme_and_host() {
+        let target = parse_address("  HTTP://Example.COM/a#frag  ").unwrap();
+        assert_eq!(target.scheme, "http");
+        assert_eq!(target.host, "example.com");
+        assert_eq!(target.port, Some(80));
+        assert_eq!(target.url.as_deref(), Some("http://Example.COM/a#frag"));
+    }
+
+    #[test]
+    fn last_at_sign_of_the_authority_ends_the_user_information() {
+        let target = parse_address("https://a@b:c@example.org/x@y").unwrap();
+        assert_eq!(target.host, "example.org");
+        assert_eq!(target.url.as_deref(), Some("https://example.org/x@y"));
+    }
+
+    #[test]
+    fn query_without_a_path_ends_the_authority() {
+        let target = parse_address("https://example.org?q=1").unwrap();
+        assert_eq!(target.host, "example.org");
+        assert_eq!(target.url.as_deref(), Some("https://example.org?q=1"));
+    }
+
+    #[test]
+    fn multibyte_characters_do_not_break_the_split() {
+        let target = parse_address("https://ŻÓŁW.example/ą").unwrap();
+        assert_eq!(target.url.as_deref(), Some("https://ŻÓŁW.example/ą"));
+        let remote = parse_address("żółw@host.example:ścieżka/ą.git").unwrap();
+        assert_eq!(remote.host, "host.example");
+        assert_eq!(remote.scheme, "ssh");
+    }
+
+    #[test]
     fn rejects_names_paths_and_malformed_urls() {
         for text in [
             "origin",

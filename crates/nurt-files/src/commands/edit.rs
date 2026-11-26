@@ -1273,4 +1273,44 @@ mod tests {
         assert_eq!(beyond.expected, Some(Json::from("3")));
         assert_eq!(beyond.actual, Some(Json::from(2)));
     }
+
+    #[test]
+    fn edit_keeps_the_byte_order_mark_and_crlf_around_multibyte_text() {
+        let (test, path) = with_file(
+            "/data/a.txt",
+            "\u{feff}g\u{119}\u{15b}\r\n\u{17c}\u{f3}\u{142}\u{107}\r\n".as_bytes(),
+        );
+        let change = map(&[
+            (REPLACE, text("\u{17c}\u{f3}\u{142}\u{107}")),
+            (WITH, text("\u{17c}\u{f3}\u{142}w\nend")),
+        ]);
+        run(&test, &args(&path, vec![change])).unwrap();
+        assert_eq!(
+            test.fs().read_file(&path).unwrap(),
+            "\u{feff}g\u{119}\u{15b}\r\n\u{17c}\u{f3}\u{142}w\r\nend\r\n".as_bytes()
+        );
+    }
+
+    #[test]
+    fn regular_expression_changes_expand_groups() {
+        let (test, path) = with_file("/data/a.txt", b"a=1\n");
+        let change = map(&[
+            (
+                REPLACE,
+                Value::Regex(value::Regex::new(r"(\w+)=1", "").unwrap()),
+            ),
+            (WITH, text("$1=2")),
+        ]);
+        run(&test, &args(&path, vec![change])).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"a=2\n");
+    }
+
+    #[test]
+    fn binary_files_fail_with_binary_before_any_change() {
+        let (test, path) = with_file("/data/a.bin", b"\x7fELF\x00\x01\x02\x00");
+        let change = map(&[(REPLACE, text("a")), (WITH, text("b"))]);
+        let error = run(&test, &args(&path, vec![change])).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Binary);
+        assert!(test.journal().calls().is_empty());
+    }
 }
