@@ -41,6 +41,7 @@ ELF_ALLOWED_LIBRARIES=(
 )
 
 # DLLs a Windows binary may name. Filled in by the Windows check.
+# shellcheck disable=SC2034 # the list is read by check_pe once the Windows check exists
 WINDOWS_ALLOWED_DLLS=()
 
 readelf_program=${READELF:-readelf}
