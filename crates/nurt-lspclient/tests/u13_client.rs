@@ -1860,3 +1860,35 @@ fn identifiers_kinds_and_hover_contents_are_read() {
     assert_eq!(hover_text(&json!({"kind": "plaintext", "value": "v"})), "v");
     assert_eq!(hover_text(&Value::Null), "");
 }
+
+#[test]
+fn dropping_the_last_handle_stops_the_server_and_removes_its_temporary_directory() {
+    use nurt_lspclient::server::{LanguageServer, ServerSpec};
+
+    let s = setup();
+    let spec = ServerSpec {
+        name: "mock-py".to_owned(),
+        program: "/opt/bin/mock-py".to_owned(),
+        args: Vec::new(),
+        root: s.project.root.clone(),
+        init_options: None,
+        env: Vec::new(),
+    };
+    let server = LanguageServer::spawn(s.host.as_ref(), &spec).unwrap();
+    server
+        .initialize(None, Duration::from_secs(5), &CancelToken::new())
+        .unwrap();
+    let clone = server.clone();
+    drop(server);
+    assert!(!clone.is_closed());
+    assert!(!s.mock.methods().iter().any(|method| method == "exit"));
+    drop(clone);
+    assert!(s.mock.wait_for("exit"));
+    let temp = s.host.temp_dirs();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while temp[0].exists() && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(10));
+    }
+    assert!(!temp[0].exists());
+    assert!(s.host.kills.load(Ordering::SeqCst) >= 1);
+}
