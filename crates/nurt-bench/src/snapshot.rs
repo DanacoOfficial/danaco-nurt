@@ -119,7 +119,8 @@ pub fn check_path(path: &str) -> std::result::Result<(), String> {
 
 fn parse_mode(text: &str) -> std::result::Result<u32, String> {
     let digits = text.strip_prefix('0').unwrap_or(text);
-    if text.len() < 4 || text.len() > 5 || !text.starts_with('0') {
+    let octal = digits.bytes().all(|byte| (b'0'..=b'7').contains(&byte));
+    if text.len() < 4 || text.len() > 5 || !text.starts_with('0') || !octal {
         return Err(format!(
             "mode {text:?} must be an octal string such as \"0644\""
         ));
@@ -389,13 +390,17 @@ pub fn capture(root: &Path) -> Result<Tree> {
                     mode: mode_of(&meta),
                     ..directory_node()
                 }
-            } else {
+            } else if meta.is_file() {
                 Node {
                     kind: EntryKind::File,
                     content: fs::read(&path).map_err(|error| BenchError::io(&path, error))?,
                     mode: mode_of(&meta),
                     target: None,
                 }
+            } else {
+                // A named pipe, a socket or a device is not part of a
+                // snapshot, and reading a pipe would never end.
+                continue;
             };
             tree.insert(relative, node);
         }
@@ -516,6 +521,35 @@ mod tests {
         assert_eq!(captured["src/main.py"].mode, Some(DEFAULT_FILE_MODE));
         assert_eq!(captured["data/blob.bin"].content, vec![0xFF, 0]);
         assert_eq!(captured["latest"].target.as_deref(), Some("src"));
+    }
+
+    #[test]
+    fn modes_with_signs_or_non_octal_digits_are_rejected() {
+        for mode in ["0+64", "0-44", "0 64", "0789", "00 6"] {
+            let entry = json!({"entries": [{"path": "a", "type": "dir", "mode": mode}]});
+            assert!(
+                Snapshot::from_value(&entry).unwrap().to_tree().is_err(),
+                "{mode:?} accepted"
+            );
+        }
+        let ok = json!({"entries": [{"path": "a", "type": "dir", "mode": "01777"}]});
+        let tree = Snapshot::from_value(&ok).unwrap().to_tree().unwrap();
+        assert_eq!(tree["a"].mode, Some(0o1777));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn capture_skips_named_pipes_instead_of_blocking_on_them() {
+        let root = tempfile::tempdir().unwrap();
+        let made = std::process::Command::new("mkfifo")
+            .arg(root.path().join("pipe"))
+            .status();
+        if !made.is_ok_and(|status| status.success()) {
+            return;
+        }
+        fs::write(root.path().join("a.txt"), "a").unwrap();
+        let captured = capture(root.path()).unwrap();
+        assert_eq!(captured.keys().collect::<Vec<_>>(), ["a.txt"]);
     }
 
     #[test]
