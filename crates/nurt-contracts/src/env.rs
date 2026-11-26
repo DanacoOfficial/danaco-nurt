@@ -219,3 +219,36 @@ pub trait Host: Send + Sync {
     /// host reports them.
     fn env_vars(&self) -> Vec<(OsString, OsString)>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn saturating_since_clamps_negative_and_huge_differences() {
+        let early = WallTime::from_unix_nanos(i128::MIN);
+        let late = WallTime::from_unix_nanos(i128::MAX);
+        assert_eq!(late.saturating_since(early), Duration::MAX);
+        assert_eq!(early.saturating_since(late), Duration::ZERO);
+        let later = WallTime::from_unix_nanos(1_999_999_999);
+        assert_eq!(
+            later.saturating_since(WallTime::UNIX_EPOCH),
+            Duration::new(1, 999_999_999)
+        );
+        assert_eq!(WallTime::UNIX_EPOCH.saturating_since(later), Duration::ZERO);
+    }
+
+    #[test]
+    fn saturating_add_stops_at_the_largest_instant() {
+        let near = WallTime::from_unix_nanos(i128::MAX - 1);
+        let moved = near.saturating_add(Duration::from_secs(1));
+        assert_eq!(moved.unix_nanos(), i128::MAX);
+        let half = WallTime::UNIX_EPOCH.saturating_add(Duration::from_millis(1500));
+        assert_eq!(half.unix_nanos(), 1_500_000_000);
+        let longest = WallTime::UNIX_EPOCH.saturating_add(Duration::MAX);
+        assert_eq!(
+            longest.unix_nanos(),
+            i128::from(u64::MAX) * NANOS_PER_SEC + 999_999_999
+        );
+    }
+}
