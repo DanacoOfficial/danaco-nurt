@@ -15,7 +15,8 @@ pub(crate) fn segments(pointer: &str) -> Vec<String> {
         return Vec::new();
     }
     pointer
-        .trim_start_matches('/')
+        .strip_prefix('/')
+        .unwrap_or(pointer)
         .split('/')
         .map(|segment| segment.replace("~1", "/").replace("~0", "~"))
         .collect()
@@ -303,6 +304,15 @@ mod tests {
         assert_eq!(parts, vec!["a/b", "c~d", "0"]);
         assert_eq!(join(&parts), pointer);
         assert!(segments("").is_empty());
+    }
+
+    #[test]
+    fn empty_member_names_keep_their_segments() {
+        assert_eq!(segments("/"), vec![""]);
+        assert_eq!(segments("//a"), vec!["", "a"]);
+        assert_eq!(segments("/a//b"), vec!["a", "", "b"]);
+        let value = json!({"": {"a": 1}});
+        assert_eq!(find_matches(&value, &segments("//a")), ["//a"]);
     }
 
     #[test]
