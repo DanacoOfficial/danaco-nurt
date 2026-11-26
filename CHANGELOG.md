@@ -103,6 +103,14 @@ their own version numbers, described in the specification.
   (`sched_param` and `pthread_t` differ from glibc), and the release procedure
   builds the static musl archive `nurt-<version>-x86_64-unknown-linux-musl`.
 
+### Known limitations
+
+- The archives are built for x86-64: Linux glibc, Linux musl (static, without
+  the library) and Windows MSVC. The code for macOS passes `cargo check` for
+  `x86_64-apple-darwin` and `aarch64-apple-darwin`, but it is not run and no
+  macOS archive is built; no aarch64 archive is built.
+- On Windows, `suspend` and `resume` of a process return `E_UNSUPPORTED`.
+
 ## [0.1.0] - 2026-11-22
 
 First release.
