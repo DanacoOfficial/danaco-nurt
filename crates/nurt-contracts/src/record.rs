@@ -3171,6 +3171,8 @@ record_struct! {
     GitStatus (GitStatus) {
         /// Path in the repository.
         path: String,
+        /// Bytes of `path`; present only when it is not valid Unicode.
+        raw_path: Option<Bytes>,
         /// State in the index.
         index: GitFileState,
         /// State in the working tree.
@@ -3181,6 +3183,8 @@ record_struct! {
         repo: Path,
         /// Path before a rename.
         renamed_from: Option<String>,
+        /// Bytes of `renamed_from`; present only when it is not valid Unicode.
+        raw_renamed_from: Option<Bytes>,
         /// Kind of conflict.
         conflict: Option<GitConflictKind>,
         /// Status of a submodule.
@@ -4293,6 +4297,8 @@ record_struct! {
     GitConflict (GitConflict) {
         /// Path in the repository.
         path: String,
+        /// Bytes of `path`; present only when it is not valid Unicode.
+        raw_path: Option<Bytes>,
         /// Kind.
         kind: GitConflictKind,
         /// The file contains conflict markers.

@@ -80,6 +80,12 @@ pub const PACKED_MIN_TARGETS: usize = 256;
 const PACKED_TARGETS: &str = "targets_z";
 /// Member of an unpacked manifest that holds the target records.
 const TARGETS: &str = "targets";
+/// Member of a packed manifest that holds the compressed items of an undo or
+/// redo entry; absent when the entry has no items.
+const PACKED_ITEMS: &str = "items_z";
+/// Member of an unpacked manifest that holds the items of an undo or redo
+/// entry.
+const ITEMS: &str = "items";
 /// Zstandard level of packed target records; a low level is enough for
 /// records that repeat the same members.
 const PACK_LEVEL: i32 = 3;
@@ -568,55 +574,75 @@ impl Manifest {
 const COMMITTED_WORD: &str = "committed";
 
 /// Replaces the member `targets` of a manifest value by the packed member
-/// `targets_z`.
+/// `targets_z`, and a non-empty member `items` by `items_z`.
 fn pack_targets(manifest: &mut Value) -> Result<(), FormatError> {
-    use base64::Engine as _;
     let members = manifest
         .as_object_mut()
         .ok_or_else(|| FormatError::Encoding("the manifest is not an object".to_owned()))?;
     let targets = members
         .remove(TARGETS)
         .ok_or_else(|| FormatError::Encoding("the manifest has no targets".to_owned()))?;
-    let json =
-        serde_json::to_vec(&targets).map_err(|error| FormatError::Encoding(error.to_string()))?;
-    let packed = zstd::bulk::compress(&json, PACK_LEVEL)
-        .map_err(|error| FormatError::Encoding(error.to_string()))?;
-    members.insert(
-        PACKED_TARGETS.to_owned(),
-        Value::String(base64::engine::general_purpose::STANDARD.encode(packed)),
-    );
+    members.insert(PACKED_TARGETS.to_owned(), pack_value(&targets)?);
+    if members
+        .get(ITEMS)
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty())
+        && let Some(items) = members.remove(ITEMS)
+    {
+        members.insert(PACKED_ITEMS.to_owned(), pack_value(&items)?);
+    }
     Ok(())
 }
 
-/// Replaces the packed member `targets_z` of a manifest value by the member
-/// `targets`; a value without the packed member is left unchanged.
+/// JSON of `value`, compressed with Zstandard and encoded in Base64.
+fn pack_value(value: &Value) -> Result<Value, FormatError> {
+    use base64::Engine as _;
+    let json =
+        serde_json::to_vec(value).map_err(|error| FormatError::Encoding(error.to_string()))?;
+    let packed = zstd::bulk::compress(&json, PACK_LEVEL)
+        .map_err(|error| FormatError::Encoding(error.to_string()))?;
+    Ok(Value::String(
+        base64::engine::general_purpose::STANDARD.encode(packed),
+    ))
+}
+
+/// Replaces the packed members `targets_z` and `items_z` of a manifest value
+/// by the members `targets` and `items`; a value without a packed member is
+/// left unchanged.
 ///
 /// # Errors
 ///
-/// Fails with [`FormatError::Decoding`] when the packed member is not Base64,
+/// Fails with [`FormatError::Decoding`] when a packed member is not Base64,
 /// not a Zstandard frame, larger than the limit once unpacked, or not a JSON
 /// array.
 pub(crate) fn unpack_targets(manifest: &mut Value) -> Result<(), FormatError> {
-    use base64::Engine as _;
-    let damaged = |what: &str| FormatError::Decoding(format!("packed targets: {what}"));
     let Some(members) = manifest.as_object_mut() else {
         return Ok(());
     };
-    let Some(packed) = members.remove(PACKED_TARGETS) else {
-        return Ok(());
-    };
+    for (packed_name, name) in [(PACKED_TARGETS, TARGETS), (PACKED_ITEMS, ITEMS)] {
+        let Some(packed) = members.remove(packed_name) else {
+            continue;
+        };
+        members.insert(name.to_owned(), unpack_value(&packed, packed_name)?);
+    }
+    Ok(())
+}
+
+/// JSON array packed by [`pack_value`].
+fn unpack_value(packed: &Value, member: &str) -> Result<Value, FormatError> {
+    use base64::Engine as _;
+    let damaged = |what: &str| FormatError::Decoding(format!("packed {member}: {what}"));
     let text = packed.as_str().ok_or_else(|| damaged("not a string"))?;
     let compressed = base64::engine::general_purpose::STANDARD
         .decode(text)
         .map_err(|_| damaged("not Base64"))?;
     let json = zstd::bulk::decompress(&compressed, UNPACKED_LIMIT)
         .map_err(|_| damaged("not a Zstandard frame within the limit"))?;
-    let targets: Value = serde_json::from_slice(&json).map_err(|_| damaged("not JSON"))?;
-    if !targets.is_array() {
+    let array: Value = serde_json::from_slice(&json).map_err(|_| damaged("not JSON"))?;
+    if !array.is_array() {
         return Err(damaged("not an array"));
     }
-    members.insert(TARGETS.to_owned(), targets);
-    Ok(())
+    Ok(array)
 }
 
 /// Persistent state of an entry (`STATE`).
@@ -1993,6 +2019,35 @@ pub(crate) mod tests {
             bytes.len(),
             plain_bytes.len()
         );
+    }
+
+    #[test]
+    fn the_items_of_an_undo_entry_are_packed_with_the_targets() {
+        let mut manifest = packed_sample(1000);
+        manifest.items = (0..1000)
+            .map(|index| ItemRef {
+                op: OpId(7),
+                index: TargetIndex(index),
+                path: TargetPath::Fs(abs(&format!(
+                    "/srv/app/src/dir{}/file{index}.txt",
+                    index % 7
+                ))),
+            })
+            .collect();
+        manifest.seal().unwrap();
+        let bytes = manifest.encode().unwrap();
+        let text = std::str::from_utf8(&bytes).unwrap();
+        assert!(text.contains("\"items_z\"") && !text.contains("\"items\""));
+        assert_eq!(Manifest::decode(&bytes).unwrap(), manifest);
+        let mut plain = manifest.clone();
+        plain.v = FORMAT_VERSION;
+        assert!(bytes.len() * 4 < plain.encode().unwrap().len());
+        assert!(integrity::verify_manifest(&bytes).is_intact());
+        let mut without = packed_sample(300);
+        without.seal().unwrap();
+        let bytes = without.encode().unwrap();
+        assert!(!std::str::from_utf8(&bytes).unwrap().contains("items_z"));
+        assert_eq!(Manifest::decode(&bytes).unwrap(), without);
     }
 
     #[test]

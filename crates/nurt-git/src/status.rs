@@ -39,6 +39,7 @@ use crate::diff::{
     Driver, FileOptions, FilePair, RenameOptions, configured_lines, detect_renames, diff_contents,
 };
 use crate::repo::GitRepo;
+use crate::repo::records::raw_path_bytes;
 
 /// Default number of entries listed per repository.
 pub const DEFAULT_LIMIT: u32 = 200;
@@ -467,6 +468,7 @@ impl Tracked {
         let modes_differ = before != after && before.is_some() && after.is_some();
         StatusEntry {
             path: path.to_str_lossy().into_owned(),
+            raw_path: raw_path_bytes(path),
             index: self.index,
             worktree: self.worktree,
             kind,
@@ -475,6 +477,10 @@ impl Tracked {
                 .renamed_from
                 .as_ref()
                 .map(|old| old.to_str_lossy().into_owned()),
+            raw_renamed_from: self
+                .renamed_from
+                .as_ref()
+                .and_then(|old| raw_path_bytes(old.as_bstr())),
             conflict: self.conflict,
             submodule: self.submodule.clone(),
             mode_before: before.filter(|_| modes_differ).map(mode_octal),
@@ -500,6 +506,7 @@ fn listed(
         .iter()
         .map(|path| StatusEntry {
             path: path.to_str_lossy().into_owned(),
+            raw_path: raw_path_bytes(path.as_bstr()),
             index: state,
             worktree: state,
             kind,
@@ -906,6 +913,37 @@ mod tests {
         }
         index.sort_entries();
         fixture.save_index(&mut index);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_path_that_is_not_valid_unicode_keeps_its_bytes_beside_the_display_form() {
+        use std::os::unix::ffi::OsStrExt;
+        let fixture = Fixture::new();
+        fixture.commit(&[("tracked.txt", "one\n")]);
+        std::fs::write(
+            fixture
+                .root()
+                .join(std::ffi::OsStr::from_bytes(b"un\xfftracked.txt")),
+            "x\n",
+        )
+        .unwrap();
+        let entries = status(&fixture);
+        let found = entries
+            .iter()
+            .find(|entry| entry.path.contains('\u{fffd}'))
+            .expect("the untracked file is listed");
+        assert_eq!(found.path, "un\u{fffd}tracked.txt");
+        assert_eq!(
+            found.raw_path.as_ref().map(|raw| raw.as_slice().to_vec()),
+            Some(b"un\xfftracked.txt".to_vec())
+        );
+        assert!(
+            entries
+                .iter()
+                .filter(|entry| !entry.path.contains('\u{fffd}'))
+                .all(|entry| entry.raw_path.is_none() && entry.raw_renamed_from.is_none())
+        );
     }
 
     #[test]

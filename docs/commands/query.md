@@ -29,7 +29,7 @@ input record supplies the value given to the filter:
 | Input | Value given to the filter |
 |---|---|
 | `content` | the text read as a document of its format; JSON when no format is recognised |
-| `entry` | the file of the entry read as a document; entries other than files are refused |
+| `entry` | the file of the entry read as a document, from `raw_path` when the entry has it (a name that is not valid Unicode); entries other than files are refused |
 | `item` | the value of the item; result keys extend the key of the item |
 | `response` | the body read as a document; JSON when the content type names JSON or no format is recognised |
 

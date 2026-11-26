@@ -558,6 +558,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cognitive_complexity)] // one scenario with many checks
     fn restored_items_are_reported_with_their_actions_sizes_and_hashes() {
         let modified = change(&outcome_of("/d/a.txt", TargetAction::Append), None);
         assert_eq!(modified.action, ChangeAction::Modify);
