@@ -314,14 +314,55 @@ fn declare_ref(
     })
 }
 
+/// Whether Git keeps the file `name` of the repository directory once for
+/// all working trees (the common directory) and not per working tree.
+fn is_shared_state(name: &str) -> bool {
+    const PER_WORKTREE: [&str; 5] = [
+        "info/sparse-checkout",
+        "logs/HEAD",
+        "logs/refs/bisect",
+        "logs/refs/worktree",
+        "logs/refs/rewritten",
+    ];
+    const PER_WORKTREE_REFS: [&str; 3] = ["refs/bisect", "refs/worktree", "refs/rewritten"];
+    const SHARED_DIRECTORIES: [&str; 12] = [
+        "branches",
+        "hooks",
+        "info",
+        "logs",
+        "lost-found",
+        "modules",
+        "objects",
+        "refs",
+        "remotes",
+        "rr-cache",
+        "svn",
+        "worktrees",
+    ];
+    const SHARED_FILES: [&str; 4] = ["config", "gc.pid", "packed-refs", "shallow"];
+    let under = |prefix: &str| {
+        name == prefix
+            || name
+                .strip_prefix(prefix)
+                .is_some_and(|rest| rest.starts_with('/'))
+    };
+    if PER_WORKTREE.iter().chain(&PER_WORKTREE_REFS).any(|prefix| under(prefix)) {
+        return false;
+    }
+    SHARED_FILES.contains(&name) || SHARED_DIRECTORIES.iter().any(|prefix| under(prefix))
+}
+
 fn declare_state(
     repo: &gix::Repository,
     state: &StateFilePlan,
     targets: &mut Targets,
 ) -> Result<StateTargets> {
-    let path = repo
-        .git_dir()
-        .join(state.path.split('/').collect::<PathBuf>());
+    let base = if is_shared_state(&state.path) {
+        repo.common_dir()
+    } else {
+        repo.git_dir()
+    };
+    let path = base.join(state.path.split('/').collect::<PathBuf>());
     let exists = observe_native(&path)?.node.exists();
     let (dirs, file) = match (&state.content, exists) {
         (Some(_), true) => (
@@ -329,7 +370,7 @@ fn declare_state(
             Some(targets.push(&path, TargetAction::Modify, state.expect.clone())?),
         ),
         (Some(_), false) => (
-            targets.missing_dirs(repo.git_dir(), &path)?,
+            targets.missing_dirs(base, &path)?,
             Some(targets.push(&path, TargetAction::Create, Expect::Absent)?),
         ),
         (None, true) => (
@@ -687,5 +728,48 @@ mod mode {
             streams: Vec::new(),
             link_target: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod shared_state_tests {
+    use super::is_shared_state;
+
+    #[test]
+    fn state_files_of_a_working_tree_stay_in_its_directory() {
+        for name in [
+            "HEAD",
+            "ORIG_HEAD",
+            "MERGE_HEAD",
+            "MERGE_MSG",
+            "AUTO_MERGE",
+            "FETCH_HEAD",
+            "REBASE_HEAD",
+            "index",
+            "rebase-merge/head-name",
+            "logs/HEAD",
+            "refs/bisect/bad",
+            "refs/worktree/x",
+            "info/sparse-checkout",
+        ] {
+            assert!(!is_shared_state(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn files_shared_by_all_working_trees_live_in_the_common_directory() {
+        for name in [
+            "config",
+            "packed-refs",
+            "shallow",
+            "info/exclude",
+            "hooks/pre-commit",
+            "refs/stash",
+            "logs/refs/stash",
+            "objects/info/alternates",
+        ] {
+            assert!(is_shared_state(name), "{name}");
+        }
+        assert!(!is_shared_state("refsx"));
     }
 }
