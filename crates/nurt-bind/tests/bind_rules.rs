@@ -794,3 +794,138 @@ fn a_literal_that_can_be_compared_with_the_field_binds() {
         bound(&parsed(program));
     }
 }
+
+/// Binding fails with the code, in stage `1` and at a place of the program.
+fn assert_rejected(program: &str, code: ErrorCode) {
+    let error = failed(&parsed(program));
+    assert_eq!(error.code(), code, "{program}");
+    assert_eq!(error.error().stage(), Some(ExecStage::Bind), "{program}");
+    assert!(error.error().at.is_some(), "{program}");
+}
+
+#[test]
+fn membership_of_a_field_is_checked_against_a_literal() {
+    for program in [
+        "find \"/tmp\" |> filter size in 1..5",
+        "find \"/tmp\" |> filter name in 1..5",
+        "find \"/tmp\" |> filter modified in 0..9",
+        "find \"/tmp\" |> filter 5 in size",
+        "find \"/tmp\" |> filter name in \"abc\"",
+        "find \"/tmp\" |> filter name in 5",
+    ] {
+        assert_rejected(program, ErrorCode::Type);
+    }
+    for program in [
+        "find \"/tmp\" |> filter name in [\"a\", \"b\"]",
+        "find \"/tmp\" |> filter size in [\"abc\"]",
+        "find \"/tmp\" |> filter size in [1mb, 2mb]",
+        "jobs |> filter exit_code in 0..2",
+        "jobs |> filter pid in [1, 2]",
+        "find \"/tmp\" |> filter 5 in flags",
+        "find \"/tmp\" |> filter \"a\" in xattrs",
+    ] {
+        bound(&parsed(program));
+    }
+}
+
+#[test]
+fn arithmetic_with_a_field_is_checked_against_a_literal() {
+    for program in [
+        "find \"/tmp\" |> filter size + \"abc\" > 1mb",
+        "find \"/tmp\" |> filter size - 5 > 1mb",
+        "find \"/tmp\" |> filter size * \"2\" > 1mb",
+        "find \"/tmp\" |> filter modified - 5 > 1h",
+        "find \"/tmp\" |> filter 5 - modified > 1h",
+        "find \"/tmp\" |> filter name - 1 == \"a\"",
+        "find \"/tmp\" |> filter exists + 1 > 1",
+        "jobs |> filter elapsed + 5 > 1s",
+        "jobs |> filter pid + \"1\" > 1",
+        "find \"/tmp\" |> filter size + name > 1mb",
+    ] {
+        assert_rejected(program, ErrorCode::Type);
+    }
+    for program in [
+        "find \"/tmp\" |> filter size + 1mb > 5mb",
+        "find \"/tmp\" |> filter size * 2 > 5mb",
+        "find \"/tmp\" |> filter size / size > 1",
+        "find \"/tmp\" |> filter size / 0 > 1mb",
+        "find \"/tmp\" |> filter modified - 5m > \"2026-01-01\"",
+        "find \"/tmp\" |> filter modified - created > 1h",
+        "find \"/tmp\" |> filter name + \"x\" == \"ax\"",
+        "jobs |> filter pid + 1 > 1",
+        "jobs |> filter pid * 1.5 > 1",
+    ] {
+        bound(&parsed(program));
+    }
+}
+
+#[test]
+fn arguments_of_functions_are_checked_against_their_parameters() {
+    for program in [
+        "find \"/tmp\" |> filter lower(size) == \"a\"",
+        "find \"/tmp\" |> filter upper(exists) == \"A\"",
+        "find \"/tmp\" |> filter starts_with(size, \"a\")",
+        "find \"/tmp\" |> filter len(exists) > 1",
+        "find \"/tmp\" |> filter abs(name) > 1",
+    ] {
+        assert_rejected(program, ErrorCode::Type);
+    }
+    for program in [
+        "find \"/tmp\" |> filter modified > ago(\"abc\")",
+        "find \"/tmp\" |> filter modified > time(\"never\")",
+    ] {
+        assert_rejected(program, ErrorCode::InvalidValue);
+    }
+    assert_rejected("find \"/tmp\" |> filter len() > 1", ErrorCode::Arity);
+    for program in [
+        "find \"/tmp\" |> filter lower(name) == \"a\"",
+        "find \"/tmp\" |> filter len(name) > 3",
+        "find \"/tmp\" |> filter len(flags) > 0",
+        "find \"/tmp\" |> filter abs(size - 1mb) > 1",
+        "find \"/tmp\" |> filter modified > ago(\"1h\")",
+        "find \"/tmp\" |> filter modified > ago(1h)",
+        "find \"/tmp\" |> filter contains(name, \"a\")",
+        "find \"/tmp\" |> filter starts_with(name, \"a\")",
+        "jobs |> filter abs(exit_code) > 1",
+    ] {
+        bound(&parsed(program));
+    }
+}
+
+#[test]
+fn fields_of_lists_maps_bytes_and_ranges_are_checked_against_a_literal() {
+    for program in [
+        "find \"/tmp\" |> filter flags > 5",
+        "find \"/tmp\" |> filter flags ~ /a/",
+        "find \"/tmp\" |> filter xattrs < 5",
+        "find \"/tmp\" |> filter raw_name > \"abc\"",
+        "find \"/tmp\" |> filter raw_name < 5",
+        "find \"/tmp\" |> filter name in flags + 1",
+        "read \"/tmp/a\" |> filter range > 5",
+        "read \"/tmp/a\" |> filter range >= \"1..2\"",
+    ] {
+        assert_rejected(program, ErrorCode::Type);
+    }
+    for program in [
+        "find \"/tmp\" |> filter flags == [\"a\"]",
+        "find \"/tmp\" |> filter flags != null",
+        "find \"/tmp\" |> filter xattrs == 5",
+        "find \"/tmp\" |> filter raw_name == \"abc\"",
+        "read \"/tmp/a\" |> filter range == 1..2",
+        "read \"/tmp/a\" |> filter 3 in range",
+    ] {
+        bound(&parsed(program));
+    }
+}
+
+#[test]
+fn fields_of_any_type_are_left_to_the_evaluation() {
+    for program in [
+        "read \"/tmp/a\" |> filter value > 5",
+        "read \"/tmp/a\" |> filter value + \"abc\" > 5",
+        "read \"/tmp/a\" |> filter lower(value) == \"a\"",
+        "read \"/tmp/a\" |> filter value in 1..5",
+    ] {
+        bound(&parsed(program));
+    }
+}

@@ -17,7 +17,7 @@ use nurt_contracts::bound::{BoundExpr, BoundMapEntry};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::keypath::KeyPath;
 use nurt_contracts::spec::{ParamType, ScalarType};
-use nurt_types::{ValueType, literal_comparison_error};
+use nurt_types::{Operand, function_error, operation_error};
 
 use crate::binder::{Binder, unsupported};
 use crate::error::BindError;
@@ -386,6 +386,7 @@ impl Binder<'_> {
                 for arg in args {
                     bound.push(self.expression(arg)?);
                 }
+                self.check_call(&function, &bound, *span)?;
                 Ok(BoundExpr::Call {
                     function,
                     args: bound,
@@ -395,9 +396,9 @@ impl Binder<'_> {
                 op: *op,
                 x: Box::new(self.expression(x)?),
             }),
-            Expr::Bin { op, l, r, .. } => {
+            Expr::Bin { op, l, r, span } => {
                 let (bound_l, bound_r) = (self.expression(l)?, self.expression(r)?);
-                self.check_comparison(*op, (l, &bound_l), (r, &bound_r))?;
+                self.check_operation(*op, (l, &bound_l), (r, &bound_r), *span)?;
                 Ok(BoundExpr::Bin {
                     op: *op,
                     l: Box::new(bound_l),
@@ -413,35 +414,65 @@ impl Binder<'_> {
         }
     }
 
-    /// Rejects the comparison of a field of a known type with a literal that
-    /// cannot be compared with it, with the error that evaluating the
-    /// comparison raises for every record.
-    fn check_comparison(
+    /// Rejects an operation on a field of a known type and a literal that the
+    /// operator cannot take, with the error that evaluating it raises for
+    /// every record; the error is placed at the literal, or at the whole
+    /// operation when both operands are fields.
+    fn check_operation(
         &self,
         op: BinOp,
         left: (&Expr, &BoundExpr),
         right: (&Expr, &BoundExpr),
+        span: Option<Span>,
     ) -> Result<(), BindError> {
-        for (field_first, (_, field), (literal, bound)) in
-            [(true, left, right), (false, right, left)]
-        {
-            let Some(ty) = self.field_type(field) else {
-                continue;
-            };
-            let error =
-                literal_comparison_error(op, ty, bound, field_first, &self.context.local_tz);
-            if let Some(error) = error {
-                return Err(BindError::from(error).at(literal_span(literal)));
-            }
-        }
-        Ok(())
+        let (Some(first), Some(second)) = (self.operand(left.1), self.operand(right.1)) else {
+            return Ok(());
+        };
+        let Some(error) = operation_error(op, first, second, &self.context.local_tz) else {
+            return Ok(());
+        };
+        let at = match (first, second) {
+            (Operand::Field(_), Operand::Literal(_)) => expr_span(right.0),
+            (Operand::Literal(_), Operand::Field(_)) => expr_span(left.0),
+            _ => span,
+        };
+        Err(BindError::from(error).at(at))
     }
 
-    /// Type of a bound field of the input records, when it is known.
-    fn field_type(&self, expr: &BoundExpr) -> Option<ValueType> {
+    /// Rejects a call of a built-in function whose arguments are known and
+    /// are refused by the function for every record.
+    fn check_call(
+        &self,
+        function: &str,
+        args: &[BoundExpr],
+        span: Option<Span>,
+    ) -> Result<(), BindError> {
+        let operands: Option<Vec<Operand<'_>>> = args.iter().map(|arg| self.operand(arg)).collect();
+        let Some(operands) = operands else {
+            return Ok(());
+        };
+        match function_error(function, &operands, &self.context.local_tz) {
+            Some(error) => Err(BindError::from(error).at(span)),
+            None => Ok(()),
+        }
+    }
+
+    /// The operand of a bound expression: a field of a known type or a
+    /// literal; `None` for everything computed per record.
+    fn operand<'e>(&self, expr: &'e BoundExpr) -> Option<Operand<'e>> {
         match expr {
-            BoundExpr::Field { name, of: None } => self.field_types.get(name.as_str()).copied(),
-            _ => None,
+            BoundExpr::Field { name, of: None } => self
+                .field_types
+                .get(name.as_str())
+                .map(|ty| Operand::Field(*ty)),
+            BoundExpr::Field { .. }
+            | BoundExpr::Ref(_)
+            | BoundExpr::Call { .. }
+            | BoundExpr::Un { .. }
+            | BoundExpr::Bin { .. }
+            | BoundExpr::Sub { .. }
+            | BoundExpr::Spread { .. } => None,
+            literal => Some(Operand::Literal(literal)),
         }
     }
 
@@ -483,21 +514,6 @@ fn constant(expr: &Expr) -> Option<BoundExpr> {
             Expr::Num { v, .. } => Some(BoundExpr::Num { v: -v }),
             _ => None,
         },
-        _ => None,
-    }
-}
-
-/// Span of a written literal.
-fn literal_span(expr: &Expr) -> Option<Span> {
-    match expr {
-        Expr::Text { span, .. }
-        | Expr::Regex { span, .. }
-        | Expr::Int { span, .. }
-        | Expr::Num { span, .. }
-        | Expr::Size { span, .. }
-        | Expr::Dur { span, .. }
-        | Expr::Bool { span, .. }
-        | Expr::Un { span, .. } => *span,
         _ => None,
     }
 }

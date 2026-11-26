@@ -10,7 +10,7 @@ use jiff::tz::TimeZone;
 use nurt_contracts::ast::{BinOp, UnOp};
 use nurt_contracts::bound::{BoundExpr, BoundMapEntry, BoundRef};
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::value::{Duration, Fields, Instant, Range, Record, Regex, Size, Value};
+use nurt_contracts::value::{Duration, Fields, Range, Record, Regex, Size, Value};
 use serde_json::json;
 
 use crate::access::{get_field, get_path};
@@ -275,7 +275,7 @@ impl Scope<'_> {
     }
 }
 
-fn literal_value(expr: &BoundExpr, tz: &TimeZone) -> Result<Value> {
+pub(crate) fn literal_value(expr: &BoundExpr, tz: &TimeZone) -> Result<Value> {
     Ok(match expr {
         BoundExpr::Null => Value::Null,
         BoundExpr::Bool { v } => Value::Bool(*v),
@@ -313,14 +313,14 @@ fn truth(operator: &str, value: Value) -> Result<bool> {
     }
 }
 
-const fn is_comparison(op: BinOp) -> bool {
+pub(crate) const fn is_comparison(op: BinOp) -> bool {
     matches!(
         op,
         BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge
     )
 }
 
-const fn is_text_literal(expr: &BoundExpr) -> bool {
+pub(crate) const fn is_text_literal(expr: &BoundExpr) -> bool {
     matches!(expr, BoundExpr::Text { .. })
 }
 
@@ -333,73 +333,7 @@ fn convert_literal(literal: Value, other: &Value, tz: &TimeZone) -> Result<Value
     }
 }
 
-/// Error that every evaluation of a comparison of a field of the type
-/// `field` with the bound literal `literal` raises, found without a record.
-///
-/// The error is the one the evaluator raises: `E_INVALID_VALUE` for a text
-/// that does not form a value of the type of the field (see
-/// [`converts_implicitly`]), and `E_TYPE` for an ordering operator applied to
-/// a literal of another type family. `field_first` tells whether the field
-/// is the left operand. `None` when the comparison can succeed, when `op` is
-/// not a comparison, when `literal` is not a literal, and for the types of
-/// fields whose family this function does not know.
-///
-/// # Examples
-///
-/// ```rust
-/// use jiff::tz::TimeZone;
-/// use nurt_contracts::ast::BinOp;
-/// use nurt_contracts::bound::BoundExpr;
-/// use nurt_types::{ValueType, literal_comparison_error};
-///
-/// let literal = BoundExpr::Text { v: "abc".to_owned() };
-/// let error = literal_comparison_error(BinOp::Gt, ValueType::Size, &literal, true, &TimeZone::UTC);
-/// assert!(error.is_some());
-/// let literal = BoundExpr::Text { v: "1mb".to_owned() };
-/// assert!(literal_comparison_error(BinOp::Gt, ValueType::Size, &literal, true, &TimeZone::UTC).is_none());
-/// ```
-#[must_use]
-pub fn literal_comparison_error(
-    op: BinOp,
-    field: ValueType,
-    literal: &BoundExpr,
-    field_first: bool,
-    tz: &TimeZone,
-) -> Option<Error> {
-    if !is_comparison(op) {
-        return None;
-    }
-    let value = literal_value(literal, tz).ok()?;
-    if is_text_literal(literal) && converts_implicitly(ValueType::Text, field) {
-        return coerce_in(value, field, tz).err();
-    }
-    let sample = representative(field)?;
-    if field_first {
-        ordering_error(op, &sample, &value)
-    } else {
-        ordering_error(op, &value, &sample)
-    }
-}
-
-/// A value of the type, enough to tell which type family it belongs to.
-fn representative(ty: ValueType) -> Option<Value> {
-    Some(match ty {
-        ValueType::Bool => Value::Bool(false),
-        ValueType::Int => Value::Int(0),
-        ValueType::Number => Value::Number(0.0),
-        ValueType::Text => Value::Text(String::new()),
-        ValueType::Enum => Value::Enum(String::new()),
-        ValueType::Size => Value::Size(Size::from_bytes(0)),
-        ValueType::Duration => Value::Duration(Duration::from_millis(0)),
-        ValueType::Instant => Value::Instant(Instant::UNIX_EPOCH),
-        ValueType::Path => Value::Path(String::new()),
-        ValueType::Glob => Value::Glob(String::new()),
-        ValueType::Key => Value::Key(String::new()),
-        _ => return None,
-    })
-}
-
-fn apply(op: BinOp, left: &Value, right: &Value, regexes: &RegexCache) -> Result<Value> {
+pub(crate) fn apply(op: BinOp, left: &Value, right: &Value, regexes: &RegexCache) -> Result<Value> {
     match op {
         BinOp::Eq => Ok(Value::Bool(equal(left, right))),
         BinOp::Ne => Ok(Value::Bool(!equal(left, right))),

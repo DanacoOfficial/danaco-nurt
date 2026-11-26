@@ -139,6 +139,51 @@ fn running_reports_the_error_of_check_before_it_reads_anything() {
     assert_eq!(error["at"]["stage"], "1");
 }
 
+/// `check` and a run report the same error of the binding, and `check`
+/// writes it as a document with the exit code 1.
+fn assert_rejected_before_running(program: &str, code: &str) {
+    let (checked, check_code) = json_outcome(&["check", "--json", "-e", program], "");
+    assert_eq!(check_code, Some(1), "{program}");
+    assert_eq!(checked["error"]["code"], code, "{program}");
+    assert_eq!(checked["error"]["at"]["stage"], "1", "{program}");
+    let (response, run_code) = json_outcome(&["exec", "--json", program], "");
+    assert_eq!(run_code, Some(1), "{program}");
+    let error = &response["report"]["error"];
+    for member in ["code", "message", "expected"] {
+        assert_eq!(
+            error[member], checked["error"][member],
+            "{program}: {member}"
+        );
+    }
+    assert_eq!(error["at"], checked["error"]["at"], "{program}");
+}
+
+#[test]
+fn check_rejects_membership_of_a_field_that_cannot_hold() {
+    assert_rejected_before_running("find \"/tmp\" |> filter size in 1..5", "E_TYPE");
+}
+
+#[test]
+fn check_rejects_arithmetic_with_a_literal_of_another_type() {
+    assert_rejected_before_running("find \"/tmp\" |> filter size + \"abc\" > 1mb", "E_TYPE");
+    assert_rejected_before_running("find \"/tmp\" |> filter modified - 5 > 1h", "E_TYPE");
+}
+
+#[test]
+fn check_rejects_an_argument_that_the_function_does_not_take() {
+    assert_rejected_before_running("find \"/tmp\" |> filter lower(size) == \"a\"", "E_TYPE");
+    assert_rejected_before_running(
+        "find \"/tmp\" |> filter modified > ago(\"abc\")",
+        "E_INVALID_VALUE",
+    );
+}
+
+#[test]
+fn check_rejects_a_literal_that_does_not_fit_a_list_a_map_bytes_or_a_range() {
+    assert_rejected_before_running("find \"/tmp\" |> filter flags > 5", "E_TYPE");
+    assert_rejected_before_running("find \"/tmp\" |> filter raw_name > \"abc\"", "E_TYPE");
+}
+
 #[test]
 fn check_with_json_writes_a_language_error_as_a_document() {
     let text = nurt(&["check", "-e", SIZE_AGAINST_TEXT], "");
