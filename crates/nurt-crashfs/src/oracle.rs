@@ -56,6 +56,47 @@ pub enum EntrySnapshot {
     },
 }
 
+/// Whether `relative` is the manifest of a journal entry, `ops/<N>/op.json`.
+fn is_entry_manifest(relative: &Path) -> bool {
+    relative.file_name().is_some_and(|name| name == "op.json")
+        && relative
+            .parent()
+            .and_then(Path::parent)
+            .and_then(Path::file_name)
+            .is_some_and(|name| name == "ops")
+}
+
+/// Files that stand for the previous content kept in the manifest `path` of
+/// an entry; none when the manifest cannot be read or keeps no content.
+fn inline_entries(fs: &dyn Fs, path: &AbsPath, relative: &Path) -> Vec<(PathBuf, EntrySnapshot)> {
+    use std::io::Read as _;
+    let mut bytes = Vec::new();
+    let read = fs
+        .open_read(path)
+        .map_err(|_| ())
+        .and_then(|mut handle| handle.read_to_end(&mut bytes).map_err(|_| ()));
+    let manifest = read
+        .ok()
+        .and_then(|_| nurt_journal::manifest::Manifest::decode(&bytes).ok());
+    manifest
+        .into_iter()
+        .flat_map(|manifest| manifest.targets)
+        .filter_map(|record| record.before.inline)
+        .enumerate()
+        .map(|(position, content)| {
+            (
+                relative.with_file_name(format!("op.json.inline-{position}")),
+                EntrySnapshot::File {
+                    hash: ContentHash(Sha256::digest(&content).into()),
+                    size: content.len() as u64,
+                    mode: 0o600,
+                    xattrs: Vec::new(),
+                },
+            )
+        })
+        .collect()
+}
+
 /// Content and metadata of a tree, keyed by path relative to its root.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreeSnapshot {
@@ -65,7 +106,10 @@ pub struct TreeSnapshot {
 impl TreeSnapshot {
     /// Captures the tree below `root`, skipping relative paths listed in
     /// `exclude` and everything below them. Modification times are not
-    /// recorded: recovery may legitimately change them.
+    /// recorded: recovery may legitimately change them. The previous content
+    /// that a journal entry keeps in its manifest is listed as files named
+    /// `op.json.inline-<N>` next to the manifest, so that it counts as content
+    /// kept on the volume.
     ///
     /// # Errors
     ///
@@ -85,6 +129,9 @@ impl TreeSnapshot {
                 let snapshot = Self::entry(fs, &path)?;
                 if matches!(snapshot, EntrySnapshot::Directory { .. }) {
                     stack.push(child.clone());
+                }
+                if is_entry_manifest(&child) {
+                    entries.extend(inline_entries(fs, &path, &child));
                 }
                 entries.insert(child, snapshot);
             }

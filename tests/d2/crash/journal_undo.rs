@@ -47,8 +47,9 @@ const RANDOM_POINTS_PER_CASE: u64 = 6;
 const MANY_RANDOM_POINTS: u64 = 32;
 /// Random points of the long corpus, all cases together.
 const LONG_POINTS: u64 = 100_000;
-/// Files overwritten by the many-file case.
-const MANY_FILES: usize = 32;
+/// Files overwritten by the many-file case; above the number of targets from
+/// which the journal keeps small previous content in the manifest.
+const MANY_FILES: usize = 72;
 const MANY_DIR: &str = "data/many";
 const DIR_MODE: u32 = 0o755;
 /// Directory holding every target of the cases; previous content below it
