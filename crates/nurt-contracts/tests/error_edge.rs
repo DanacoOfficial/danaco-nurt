@@ -95,7 +95,8 @@ fn a_position_without_members_is_an_empty_object() {
     assert_eq!(at.line, Some(2));
     assert_eq!(at.column, None);
     assert_eq!(at.stage, None);
-    assert!(serde_json::from_value::<At>(json!({"line": 2, "row": 3})).is_err());
+    let newer: At = serde_json::from_value(json!({"line": 2, "row": 3})).unwrap();
+    assert_eq!(newer.line, Some(2));
     assert!(serde_json::from_value::<At>(json!({"stage": "8"})).is_err());
     assert_eq!(
         serde_json::to_value(At::new(1, 2, 3).with_stage(Stage::After)).unwrap(),
@@ -104,7 +105,7 @@ fn a_position_without_members_is_an_empty_object() {
 }
 
 #[test]
-fn a_location_requires_a_path_and_rejects_unknown_members() {
+fn a_location_requires_a_path_and_ignores_unknown_members() {
     let location: Location = serde_json::from_value(json!({
         "path": "/home/user/project/a.json",
         "line": 3,
@@ -120,7 +121,8 @@ fn a_location_requires_a_path_and_rejects_unknown_members() {
         location
     );
     assert!(serde_json::from_value::<Location>(json!({"line": 3})).is_err());
-    assert!(serde_json::from_value::<Location>(json!({"path": "/a", "row": 3})).is_err());
+    let newer: Location = serde_json::from_value(json!({"path": "/a", "row": 3})).unwrap();
+    assert_eq!(newer.path, "/a");
 }
 
 #[test]
@@ -146,10 +148,9 @@ fn a_candidate_names_its_reference_ref() {
             .is_none()
     );
     assert!(serde_json::from_value::<Candidate>(json!({"rank": 1})).is_err());
-    assert!(
-        serde_json::from_value::<Candidate>(json!({"rank": 1, "program": "x", "extra": true}))
-            .is_err()
-    );
+    let newer: Candidate =
+        serde_json::from_value(json!({"rank": 1, "program": "x", "extra": true})).unwrap();
+    assert_eq!(newer.program, "x");
 }
 
 #[test]

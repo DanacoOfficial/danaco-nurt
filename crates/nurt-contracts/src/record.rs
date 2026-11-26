@@ -2456,7 +2456,8 @@ record_struct! {
         new_start: u64,
         /// Number of lines after.
         new_len: u64,
-        /// Lines with the prefixes `+`, `-` and space.
+        /// Lines with the prefixes `+`, `-` and space, and the marker line
+        /// `\ No newline at end of file`.
         lines: Vec<String>,
         /// Stable identifier, `path#number`.
         id: Option<String>,
@@ -2488,8 +2489,13 @@ record_struct! {
     }
 }
 
+/// Line of a hunk that marks a missing line feed at the end of the preceding
+/// line, as in a unified difference.
+pub const NO_NEWLINE_MARKER: &str = "\\ No newline at end of file";
+
 impl Hunk {
-    /// Index of the first line without a valid prefix, if any.
+    /// Index of the first line that has neither a valid prefix nor is the
+    /// marker [`NO_NEWLINE_MARKER`], if any.
     ///
     /// ```
     /// use nurt_contracts::record::Hunk;
@@ -2503,7 +2509,10 @@ impl Hunk {
     #[must_use]
     pub fn first_invalid_line(&self) -> Option<usize> {
         self.lines.iter().position(|line| {
-            !(line.starts_with('+') || line.starts_with('-') || line.starts_with(' '))
+            !(line.starts_with('+')
+                || line.starts_with('-')
+                || line.starts_with(' ')
+                || line == NO_NEWLINE_MARKER)
         })
     }
 }
@@ -4538,5 +4547,23 @@ mod tests {
             ..Hunk::default()
         };
         assert_eq!(invalid.first_invalid_line(), Some(1));
+    }
+
+    #[test]
+    fn hunk_lines_admit_the_no_newline_marker_only_in_full() {
+        let marked = Hunk {
+            lines: vec![
+                "-a".to_owned(),
+                NO_NEWLINE_MARKER.to_owned(),
+                "+a".to_owned(),
+            ],
+            ..Hunk::default()
+        };
+        assert_eq!(marked.first_invalid_line(), None);
+        let altered = Hunk {
+            lines: vec!["\\ No newline".to_owned()],
+            ..Hunk::default()
+        };
+        assert_eq!(altered.first_invalid_line(), Some(0));
     }
 }

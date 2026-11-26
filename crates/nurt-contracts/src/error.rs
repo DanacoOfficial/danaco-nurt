@@ -626,7 +626,6 @@ impl fmt::Display for ErrorCode {
 /// assert_eq!(At::stage(Stage::After).line, None);
 /// ```
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct At {
     /// Line.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -676,7 +675,6 @@ impl At {
 /// Position in a data file, as opposed to [`At`], which points into the
 /// program.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Location {
     /// File.
     pub path: String,
@@ -700,7 +698,6 @@ pub struct Location {
 /// Ranked ready program offered instead of an ambiguous or uncorrectable
 /// one.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Candidate {
     /// Rank, from 1 for the most likely candidate.
     pub rank: u32,
@@ -718,8 +715,10 @@ pub struct Candidate {
 ///
 /// [`Error`] dereferences to this structure, so the fields are read as
 /// `error.code`, `error.message` and so on.
+///
+/// A reader ignores fields it does not know: a later minor version of the
+/// format may add optional error fields.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ErrorData {
     /// Stable code.
     pub code: ErrorCode,

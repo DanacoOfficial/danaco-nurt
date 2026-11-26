@@ -373,7 +373,7 @@ Hunk of a unified difference.
 | `old_len` | int | yes | Number of lines before. |
 | `new_start` | int | yes | First line after, from 1. |
 | `new_len` | int | yes | Number of lines after. |
-| `lines` | list<text> | yes | Lines with the prefixes `+`, `-` and space. |
+| `lines` | list<text> | yes | Lines with the prefixes `+`, `-` and space, and the marker line `\ No newline at end of file`. |
 | `id` | text | no | Stable identifier, `path#number`. |
 | `header` | text | no | Section heading after `@@`. |
 | `old_path` | path | no | File before a rename. |
