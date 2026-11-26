@@ -172,8 +172,8 @@ allow-attribute crates/nurt-code/src/commands/hover.rs
 * crates/jaq-json/*
 
 # Tests of path handling, history, undo, recovery and policy use home
-# directories of other accounts (/home/u, /home/other, /home/run-1) as input;
-# the tests depend on the paths differing from the placeholder account.
+# directories of other accounts as input; the tests depend on the paths
+# differing from the placeholder account.
 user-path crates/nurt-bench/src/probe.rs
 user-path crates/nurt-contracts/tests/fs_paths.rs
 user-path crates/nurt-correct/src/policy.rs
