@@ -101,7 +101,7 @@ pub(crate) fn split_command(bytes: &[u8]) -> Vec<String> {
 fn display_name(comm: &str, command: Option<&[String]>) -> String {
     match command {
         Some([]) => format!("[{comm}]"),
-        Some([program, ..]) if comm.chars().count() == COMM_MAX => {
+        Some([program, ..]) if comm.len() >= COMM_MAX => {
             let base = program.rsplit('/').next().unwrap_or(program);
             if base.starts_with(comm) {
                 base.to_owned()
@@ -196,9 +196,15 @@ impl ProcFsReader {
         self.fs.root.path(format!("/proc/{pid}/{name}"))
     }
 
+    /// Reads a file of `/proc/<pid>` as text; bytes that are not UTF-8, for
+    /// example a command name cut inside a character, become U+FFFD.
+    fn text(&self, pid: u64, name: &str) -> Option<String> {
+        let bytes = fs::read(self.process_path(pid, name)).ok()?;
+        Some(String::from_utf8_lossy(&bytes).into_owned())
+    }
+
     fn stat(&self, pid: u64) -> Option<Stat> {
-        let text = fs::read_to_string(self.process_path(pid, "stat")).ok()?;
-        parse_stat(&text)
+        parse_stat(&self.text(pid, "stat")?)
     }
 
     fn boot_seconds(&mut self) -> Option<u64> {
@@ -217,7 +223,7 @@ impl ProcFsReader {
     }
 
     fn effective_uid(&self, pid: u64) -> Option<u32> {
-        let text = fs::read_to_string(self.process_path(pid, "status")).ok()?;
+        let text = self.text(pid, "status")?;
         let line = text.lines().find_map(|line| line.strip_prefix("Uid:"))?;
         line.split_whitespace().nth(1)?.parse().ok()
     }
@@ -262,6 +268,11 @@ impl ProcessReader for ProcFsReader {
         let executable = link("exe");
         let cwd = if self.request.cwd { link("cwd") } else { None };
         let uid = self.effective_uid(pid);
+        // The identifier may have been reused while the files were read; the
+        // start time tells the process apart from its successor.
+        if self.stat(pid)?.start_ticks != stat.start_ticks {
+            return None;
+        }
         let (state, state_raw) = map_state(stat.state);
         Some(ProcessInfo {
             pid,
