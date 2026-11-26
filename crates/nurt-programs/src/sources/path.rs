@@ -20,7 +20,7 @@ use crate::source::{
     Deadline, Fingerprint, FingerprintBuilder, HostEnv, ProgramSource, SourceError, SourceId,
     SourceKind,
 };
-use crate::sources::{canonical_dir_path, list_dir, path_text, resolve_links};
+use crate::sources::{canonical_dir_path, list_dir, normalize, path_text, resolve_links};
 
 /// Directory of Debian alternatives links.
 const ALTERNATIVES_DIR: &str = "/etc/alternatives/";
@@ -253,17 +253,36 @@ fn link_target(
 
 /// Resolves `name` the way the system starts it: every directory of `PATH`
 /// in order; on Windows a name without extension is tried with each
-/// `PATHEXT` extension. A name with a path separator is checked as it is.
+/// `PATHEXT` extension. A name with a path separator is checked as it is,
+/// without a search of `PATH`; a relative one is taken relative to the base
+/// directory.
 #[must_use]
 pub fn resolve(env: &HostEnv, name: &str) -> Resolution {
+    resolve_from(env, name, None)
+}
+
+/// As [`resolve`], with the directory a relative name that contains a path
+/// separator is taken relative to; without it such a name is not found.
+#[must_use]
+pub fn resolve_from(env: &HostEnv, name: &str, base: Option<&Path>) -> Resolution {
     let mut resolution = Resolution {
         name: name.to_owned(),
         ..Resolution::default()
     };
     if name.contains('/') || (env.os() == Os::Windows && name.contains('\\')) {
-        let host = PathBuf::from(name);
-        if env.is_absolute(&host) && is_runnable(env, &host) {
-            resolution.paths.push(host);
+        let written = PathBuf::from(name);
+        let place = if env.is_absolute(&written) {
+            Some(written)
+        } else {
+            base.map(|base| normalize(&base.join(&written)))
+        };
+        if let Some(place) = place {
+            for candidate in candidate_names(env, &place.to_string_lossy()) {
+                let host = PathBuf::from(candidate);
+                if is_runnable(env, &host) && !resolution.paths.contains(&host) {
+                    resolution.paths.push(host);
+                }
+            }
         }
         return resolution;
     }

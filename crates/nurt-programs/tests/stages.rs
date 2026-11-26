@@ -1142,3 +1142,67 @@ fn describe_help_reports_timeout_and_empty_output() {
     assert_eq!(field(&silent, "help_status").as_deref(), Some("empty"));
     assert!(silent.get("help").is_none());
 }
+
+#[cfg(unix)]
+#[test]
+fn find_checks_names_with_a_separator_as_they_are() {
+    let fixture = Fixture::new();
+    fixture.executable("/work/bin/tool");
+    fixture.executable("/usr/bin/other");
+    fixture.write("/work/bin/plain", b"data");
+    let setup = fixture.setup(Vec::new());
+    let find_in = |base: Option<&str>, names: &[&str]| {
+        run(
+            &setup,
+            &fixture.ctx_with_base(base),
+            args(FIND, &[("name", texts(names))]),
+        )
+        .unwrap()
+    };
+    let records = find_in(
+        Some("/work"),
+        &["bin/tool", "./bin/tool", "bin/plain", "bin/absent", "/usr/bin/other"],
+    );
+    assert_eq!(field(&records[0], "path").as_deref(), Some("/work/bin/tool"));
+    assert_eq!(field(&records[1], "path").as_deref(), Some("/work/bin/tool"));
+    assert_eq!(field(&records[2], "found").as_deref(), Some("false"));
+    assert_eq!(field(&records[3], "found").as_deref(), Some("false"));
+    assert_eq!(field(&records[4], "path").as_deref(), Some("/usr/bin/other"));
+    let without_base = find_in(None, &["bin/tool"]);
+    assert_eq!(field(&without_base[0], "found").as_deref(), Some("false"));
+    let by_name = find_in(Some("/work"), &["tool"]);
+    assert_eq!(field(&by_name[0], "found").as_deref(), Some("false"));
+}
+
+#[cfg(unix)]
+#[test]
+fn find_labels_the_real_source_of_the_version() {
+    let fixture = Fixture::new();
+    debian_fixture(&fixture);
+    fixture.executable("/usr/bin/cataloged");
+    let mut entry = program("cataloged", "system", "Has a catalog version.", &[]);
+    entry.version = Some("7.1".to_owned());
+    let catalog = StaticSource::catalog(
+        "versions2",
+        SourceData {
+            programs: vec![entry],
+            ..SourceData::default()
+        },
+    );
+    let setup = fixture.setup(vec![Arc::new(catalog)]);
+    let records = run(
+        &setup,
+        &fixture.ctx(),
+        args(
+            FIND,
+            &[
+                ("name", texts(&["tar", "cataloged"])),
+                ("versions", Value::Bool(true)),
+            ],
+        ),
+    )
+    .unwrap();
+    assert_eq!(field(&records[0], "version_source").as_deref(), Some("package"));
+    assert_eq!(field(&records[1], "version").as_deref(), Some("7.1"));
+    assert_eq!(field(&records[1], "version_source").as_deref(), Some("catalog"));
+}

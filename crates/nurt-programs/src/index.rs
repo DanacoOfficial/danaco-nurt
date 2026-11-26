@@ -83,6 +83,8 @@ pub struct Card {
     pub catalog_path: Option<String>,
     /// Version.
     pub version: Option<String>,
+    /// Kind of the provider that gave `version`.
+    pub version_source: Option<SourceKind>,
     /// Alternative names.
     pub aliases: Vec<RawAlias>,
     /// Providers that contributed, in priority order.
@@ -906,8 +908,9 @@ fn apply_package(card: &mut Card, reference: &PackageRef, package: &RawPackage, 
     if !card.sources.contains(&reference.manager) {
         card.sources.push(reference.manager.clone());
     }
-    if card.version.is_none() {
+    if card.version.is_none() && package.version.is_some() {
         card.version.clone_from(&package.version);
+        card.version_source = Some(SourceKind::Package);
     }
     if card.homepage.is_none() {
         card.homepage.clone_from(&package.homepage);
@@ -1000,8 +1003,9 @@ fn merge_location(card: &mut Card, kind: SourceKind, raw: &RawProgram) {
             fill(&mut card.path, &raw.path);
             extend_unique(&mut card.alternatives, &raw.alternatives);
             card.installed |= raw.installed.unwrap_or(true);
-            if card.version.is_none() {
+            if card.version.is_none() && raw.version.is_some() {
                 card.version.clone_from(&raw.version);
+                card.version_source = Some(kind);
             }
         }
     }
@@ -1021,8 +1025,9 @@ fn merge_texts(card: &mut Card, kind: SourceKind, raw: &RawProgram) {
 }
 
 fn merge_catalog(card: &mut Card, id: &SourceId, raw: &RawProgram) {
-    if card.version.is_none() {
+    if card.version.is_none() && raw.version.is_some() {
         card.version.clone_from(&raw.version);
+        card.version_source = Some(SourceKind::Catalog);
     }
     fill(&mut card.verified, &raw.verified);
     fill(&mut card.overview, &raw.overview);
