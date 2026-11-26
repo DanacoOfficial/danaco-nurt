@@ -722,6 +722,7 @@ fn plutil() -> Option<PathBuf> {
 #[test]
 fn json_of_plutil_matches_the_read_values_skipped_without_plutil() {
     let Some(plutil) = plutil() else { return };
+    let (mut compared, mut skipped) = (0_usize, Vec::new());
     for kind in [PlistKind::Xml, PlistKind::Ascii] {
         for (path, _, document) in documents(kind) {
             let output = std::process::Command::new(&plutil)
@@ -730,8 +731,10 @@ fn json_of_plutil_matches_the_read_values_skipped_without_plutil() {
                 .output()
                 .unwrap();
             if !output.status.success() {
+                skipped.push(path.display().to_string());
                 continue;
             }
+            compared += 1;
             let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
             let expected = Value::from_plain_json(json);
             assert!(
@@ -741,4 +744,12 @@ fn json_of_plutil_matches_the_read_values_skipped_without_plutil() {
             );
         }
     }
+    // `plutil` refuses a file whose values JSON cannot hold (dates, data); a
+    // refusal of most files would leave the comparison without a subject.
+    assert!(
+        compared * 3 >= compared + skipped.len(),
+        "plutil refused {} of {} files: {skipped:?}",
+        skipped.len(),
+        compared + skipped.len()
+    );
 }
