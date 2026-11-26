@@ -540,8 +540,8 @@ mod tests {
     fn adding_a_result_drops_the_expired_ones_from_memory_and_disk() {
         let temp = tempfile::tempdir().unwrap();
         let store = CursorStore::new(Some(temp.path().to_path_buf()), TTL);
-        store.first_page(records(3), 1, &program(), at(0));
-        store.first_page(records(3), 1, &program(), at(TTL.as_secs()));
+        let _ = store.first_page(records(3), 1, &program(), at(0));
+        let _ = store.first_page(records(3), 1, &program(), at(TTL.as_secs()));
         let files = fs::read_dir(temp.path().join(CURSOR_DIR)).unwrap().count();
         assert_eq!(files, 1);
         assert_eq!(store.sweep(at(TTL.as_secs())), 0);

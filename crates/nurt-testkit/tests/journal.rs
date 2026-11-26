@@ -396,9 +396,6 @@ fn apply_ops_rejects_a_stale_target() {
     assert_eq!(fs.read_file(&file).unwrap(), b"old");
 }
 
-use nurt_contracts::fs::FsWrite as _;
-use std::io::Seek as _;
-
 #[rustfmt::skip]
 type Listing<'a> =
     Box<dyn Iterator<Item = nurt_contracts::fs::FsResult<nurt_contracts::fs::DirEntry>> + Send + 'a>;

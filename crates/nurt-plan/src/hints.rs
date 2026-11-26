@@ -551,7 +551,8 @@ mod tests {
     fn collects_nothing_from_literals() {
         let mut names = HashSet::new();
         collect_refs(&BoundExpr::Int { v: 1 }, &mut names);
-        collect_refs(&BoundExpr::Text { v: "a".to_owned() }, &mut names);
+        let text = BoundExpr::Text { v: "a".to_owned() };
+        collect_refs(&text, &mut names);
         assert!(names.is_empty());
     }
 

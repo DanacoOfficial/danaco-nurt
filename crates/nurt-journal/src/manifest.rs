@@ -1117,6 +1117,7 @@ pub(crate) mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::store::test_support::Fixture;
 
     fn abs(path: &str) -> AbsPath {
         AbsPath::new(path).unwrap()

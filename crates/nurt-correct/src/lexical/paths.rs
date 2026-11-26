@@ -593,16 +593,16 @@ mod tests {
             Some(ErrorCode::PathRelative)
         );
         assert_eq!(
-            error.map(|error| error.fix),
+            error.map(|error| error.fix.clone()),
             Some(vec![
                 r#"r"C:\temp\new.txt""#.to_owned(),
                 "\"C:/temp/new.txt\"".to_owned()
             ])
         );
         let drive_only = resolve_relative("C:data", None, None, AT).err();
-        assert_eq!(drive_only.map(|error| error.fix), Some(Vec::new()));
+        assert_eq!(drive_only.map(|error| error.fix.clone()), Some(Vec::new()));
         let later = resolve_relative("a\tb", None, None, AT).err();
-        assert_eq!(later.map(|error| error.fix), Some(Vec::new()));
+        assert_eq!(later.map(|error| error.fix.clone()), Some(Vec::new()));
     }
 
     #[test]
