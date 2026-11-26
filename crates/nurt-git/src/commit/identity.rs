@@ -95,7 +95,7 @@ impl Ident {
 
 /// Removes the characters `git` drops from identities (`<`, `>`, line
 /// feeds) and trims leading and trailing punctuation and white space.
-fn sanitize(value: &str) -> String {
+pub(crate) fn sanitize(value: &str) -> String {
     let kept: String = value
         .chars()
         .filter(|c| !matches!(c, '<' | '>' | '\n'))

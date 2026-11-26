@@ -418,7 +418,7 @@ impl Scratch {
                 "nurt-commit-{}-{stamp}-{attempt}",
                 std::process::id()
             ));
-            match std::fs::create_dir(&dir) {
+            match create_private_dir(&dir) {
                 Ok(()) => return Ok(Self { dir }),
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
                 Err(error) => return Err(crate::repo::error::io(&dir, &error)),
@@ -445,5 +445,36 @@ impl Scratch {
 impl Drop for Scratch {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// Creates `path` accessible to the creating account only, so that the index and the
+/// message the hooks work on are not visible to other users of the host.
+#[cfg(unix)]
+fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    std::fs::DirBuilder::new().mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    std::fs::create_dir(path)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::os::unix::fs::PermissionsExt;
+
+    use super::*;
+    use crate::testutil::test_ctx;
+
+    #[test]
+    fn scratch_directory_is_private_to_its_account() {
+        let scratch = Scratch::create(&test_ctx()).unwrap();
+        let mode = std::fs::metadata(&scratch.dir)
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o700);
     }
 }

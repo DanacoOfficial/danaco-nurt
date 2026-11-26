@@ -9,14 +9,11 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 
 use super::plan::{RefPlan, RefTarget, ReflogLine};
 use super::worktree::{expect_of, observe_native};
+use crate::refs_tx::LogAllRefUpdates;
 
 /// Reference names stored per working tree rather than in the common
 /// repository directory.
 const PER_WORKTREE_PREFIXES: [&str; 3] = ["refs/bisect/", "refs/worktree/", "refs/rewritten/"];
-
-/// Prefixes of references whose log `git` creates by default
-/// (`core.logAllRefUpdates=true`).
-const LOGGED_PREFIXES: [&str; 3] = ["refs/heads/", "refs/remotes/", "refs/notes/"];
 
 fn is_per_worktree(name: &str) -> bool {
     !name.starts_with("refs/")
@@ -75,26 +72,13 @@ fn native_name(name: &str) -> PathBuf {
 ///
 /// # Errors
 ///
-/// `E_GIT_REF` for an invalid reference name.
+/// `E_GIT_REF` for an invalid reference name and `E_GIT_UNSUPPORTED` when
+/// `core.logAllRefUpdates` has a value Git does not accept.
 pub fn keeps_log(repo: &gix::Repository, name: &str) -> Result<bool> {
     if log_path(repo, name)?.exists() {
         return Ok(true);
     }
-    let setting = repo
-        .config_snapshot()
-        .string("core.logAllRefUpdates")
-        .map(|value| value.to_ascii_lowercase());
-    Ok(match setting.as_deref() {
-        Some(b"always") => true,
-        Some(b"false" | b"no" | b"off" | b"0") => false,
-        _ => {
-            !repo.is_bare()
-                && (name == "HEAD"
-                    || LOGGED_PREFIXES
-                        .iter()
-                        .any(|prefix| name.starts_with(prefix)))
-        }
-    })
+    Ok(LogAllRefUpdates::of_repo(repo)?.creates_log_for_name(name.as_bytes()))
 }
 
 impl RefPlan {

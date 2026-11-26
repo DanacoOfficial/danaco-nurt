@@ -188,9 +188,19 @@ fn describe(repo: &gix::Repository, name: String, id: ObjectId) -> Result<GitTag
         kind: GitTagKind::Annotated,
         tagger: tagger.map(|s| format!("{} <{}>", s.name, s.email)),
         time,
-        message: Some(tag.message.to_str_lossy().into_owned()),
+        message: Some(record_message(tag.message)),
         signature: None,
     })
+}
+
+/// Message of a tag record without the final line feeds, as `git.show`
+/// reports it.
+fn record_message(message: impl AsRef<[u8]>) -> String {
+    message
+        .as_ref()
+        .to_str_lossy()
+        .trim_end_matches('\n')
+        .to_owned()
 }
 
 fn lightweight(name: String, id: ObjectId) -> GitTag {
@@ -247,7 +257,7 @@ pub fn plan_create(repo: &gix::Repository, new: NewTag<'_>) -> Result<TagPlan> {
             kind: GitTagKind::Annotated,
             tagger: Some(format!("{} <{}>", new.tagger.name, new.tagger.email)),
             time: Instant::from_unix_seconds(new.tagger.time.seconds),
-            message: Some(tag.message.to_str_lossy().into_owned()),
+            message: Some(record_message(&tag.message)),
             ..record
         };
         target = tag_id;
@@ -413,10 +423,7 @@ fn reflog_message(repo: &gix::Repository, id: ObjectId) -> Result<BString> {
         return Ok(format!("tag: tagging {short} ({what} object)").into());
     }
     let commit = object.into_commit();
-    let subject = commit
-        .message()
-        .map_err(read_error)?
-        .summary()
+    let subject = crate::message::first_nonblank_line(commit.message_raw_sloppy())
         .to_str_lossy()
         .into_owned();
     let time = commit.time().map_err(read_error)?;
@@ -560,7 +567,7 @@ mod tests {
         let tags = list(&repo.open()).unwrap();
         assert_eq!(tags[0].kind, GitTagKind::Annotated);
         assert_eq!(tags[0].target, head.to_string());
-        assert_eq!(tags[0].message.as_deref(), Some("release\n\nnotes\n"));
+        assert_eq!(tags[0].message.as_deref(), Some("release\n\nnotes"));
         assert!(tags[0].time.is_some());
     }
 
@@ -771,7 +778,7 @@ mod tests {
     #[test]
     fn reflog_message_names_the_commit_like_git() {
         let repo = TestRepo::new();
-        let head = repo.commit("subject line\n\nbody");
+        let head = repo.commit("subject line\ncontinued\n\nbody");
         repo.append_config("[core]\n\tlogAllRefUpdates = always\n");
         let plan = plan_create(
             &repo.open(),

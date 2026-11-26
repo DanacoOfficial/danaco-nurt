@@ -143,6 +143,17 @@ pub fn subject(message: &str) -> &str {
 pub fn reflog_subject(message: &str) -> &str {
     subject(message).trim_start_matches(is_git_space)
 }
+/// Returns the first line of a raw commit message that has a visible
+/// character, without its line feed, as Git's `find_commit_subject` does for
+/// the reflog message of `git tag`: lines of white space before it are
+/// skipped and a following line of the same paragraph is not joined.
+#[must_use]
+pub fn first_nonblank_line(message: &[u8]) -> &[u8] {
+    message
+        .split(|byte| *byte == b'\n')
+        .find(|line| !line.iter().all(|byte| matches!(byte, b' ' | b'\t' | b'\r')))
+        .unwrap_or_default()
+}
 
 /// One trailer line, `Token: value`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -384,6 +395,15 @@ mod tests {
 
     fn trailer(text: &str) -> Trailer {
         Trailer::parse(text).unwrap()
+    }
+
+    #[test]
+    fn first_nonblank_line_skips_blank_lines_and_does_not_join_lines() {
+        assert_eq!(first_nonblank_line(b"one\ntwo\n\nbody"), b"one");
+        assert_eq!(first_nonblank_line(b"\n \t\n  lead  \nsecond"), b"  lead  ");
+        assert_eq!(first_nonblank_line(b"cr\r\nsecond"), b"cr\r");
+        assert_eq!(first_nonblank_line(b"\n\n"), b"");
+        assert_eq!(first_nonblank_line(b""), b"");
     }
 
     #[test]

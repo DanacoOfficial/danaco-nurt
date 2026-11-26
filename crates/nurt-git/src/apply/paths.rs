@@ -68,7 +68,7 @@ pub fn plan_paths(ctx: &ApplyContext<'_>, request: &PathsRequest) -> Result<Appl
         let wanted = source.get(path).copied();
         let current = ctx.index.entry_by_path_and_stage(path, Stage::Unconflicted);
         let conflicted = current.is_none() && ctx.index.entry_by_path(path).is_some();
-        if request.to_index {
+        if request.to_index && !(conflicted && request.source == PathSource::Index) {
             restore_index(&mut changes, path, wanted, current);
         }
         if !request.to_worktree {
@@ -125,6 +125,11 @@ fn select(
             })
         })
         .collect::<Result<Vec<_>>>()?;
+    // An exclusion removes paths and need not match one, as in `git`.
+    let mut matched: Vec<bool> = patterns
+        .iter()
+        .map(gix_pathspec::Pattern::is_excluded)
+        .collect();
     let mut search =
         gix_pathspec::Search::from_specs(patterns, None, &ctx.root).map_err(|err| {
             Error::new(
@@ -132,7 +137,6 @@ fn select(
                 format!("invalid pathspec: {err}; give paths inside the repository"),
             )
         })?;
-    let mut matched = vec![false; pathspec.len()];
     let mut selected = BTreeSet::new();
     for path in candidates {
         let hit = search

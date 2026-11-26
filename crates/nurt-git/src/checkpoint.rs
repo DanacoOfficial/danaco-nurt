@@ -653,6 +653,7 @@ pub(crate) fn refs_with_prefix(
                 continue;
             };
             if name.starts_with(prefix)
+                && gix::refs::FullName::try_from(name.as_str()).is_ok()
                 && let Ok(oid) = ObjectId::from_hex(oid.as_bytes())
             {
                 out.insert(name, oid);
@@ -992,17 +993,20 @@ pub(crate) mod args {
             return Err(unsupported_option("symbol"));
         }
         let context = args.int("context")?.unwrap_or(3);
-        if !(0..=MAX_CONTEXT).contains(&context) {
-            return Err(Error::new(
-                ErrorCode::InvalidValue,
-                format!("`context` must be between 0 and {MAX_CONTEXT}"),
-            ));
-        }
+        let context = u32::try_from(context)
+            .ok()
+            .filter(|value| i64::from(*value) <= MAX_CONTEXT)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::InvalidValue,
+                    format!("`context` must be between 0 and {MAX_CONTEXT}"),
+                )
+            })?;
         Ok(CompareRequest {
             checkpoint: single_checkpoint(args)?,
             against: text(args, "against")?,
             stat: args.bool("stat")?.unwrap_or(false),
-            context: u32::try_from(context).unwrap_or(0),
+            context,
             paths: texts(args, "paths")?,
         })
     }
