@@ -327,6 +327,13 @@ fn command(ctx: &ExecCtx) -> &str {
     &ctx.frame().command
 }
 
+/// Whether a path is trusted as belonging to the current user. A path whose
+/// ownership cannot be read is not trusted, so that an unreadable state never
+/// grants access that a readable foreign account would be denied.
+fn ownership_trusted(read: std::io::Result<bool>) -> bool {
+    read.unwrap_or(false)
+}
+
 fn check_ownership(
     repo: &gix::Repository,
     outer: &gix::config::File,
@@ -335,7 +342,7 @@ fn check_ownership(
     let root = root_of(repo);
     let owned = [repo.git_dir(), root]
         .iter()
-        .all(|path| gix::sec::identity::is_path_owned_by_current_user(path).unwrap_or(true));
+        .all(|path| ownership_trusted(gix::sec::identity::is_path_owned_by_current_user(path)));
     if owned || config::is_safe_directory(outer, env, root) {
         return Ok(());
     }

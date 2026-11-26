@@ -16,10 +16,10 @@ use std::path::{Path, PathBuf};
 
 use bstr::{BStr, BString, ByteSlice};
 use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::journal::{Applied, MutationTx};
+use nurt_contracts::journal::{Applied, Expect, MutationTx};
 use sha1::Digest as _;
 
-use super::lock::{LockedWrite, LockedWrites};
+use super::lock::{LockedWrite, LockedWrites, content_hash};
 use super::{GitRepo, error};
 
 /// Signature of the resolve-undo extension.
@@ -69,6 +69,9 @@ pub struct IndexFile {
     pub resolve_undo: Vec<ResolveUndo>,
     /// Location of the index file.
     pub path: PathBuf,
+    /// Content of the file when it was read, which a later write must still
+    /// find: another process may have replaced the index in between.
+    pub expect: Expect,
 }
 
 impl GitRepo {
@@ -89,6 +92,7 @@ impl GitRepo {
                     state: gix::index::State::new(hash),
                     resolve_undo: Vec::new(),
                     path,
+                    expect: Expect::Absent,
                 });
             }
             Err(failure) => return Err(error::io(&path, &failure)),
@@ -111,6 +115,7 @@ impl GitRepo {
             state: file.into(),
             resolve_undo,
             path,
+            expect: Expect::Hash(content_hash(&bytes)),
         })
     }
 }
@@ -186,7 +191,7 @@ fn push_extension(out: &mut Vec<u8>, signature: [u8; 4], data: &[u8]) {
 /// As [`serialize`].
 pub fn locked_write(file: &mut IndexFile) -> Result<LockedWrite, Error> {
     let bytes = serialize(&mut file.state, &file.resolve_undo)?;
-    Ok(LockedWrite::new(&file.path, bytes))
+    Ok(LockedWrite::new(&file.path, bytes).expecting(file.expect.clone()))
 }
 
 /// Replaces the index with `file` in a transaction with no other targets:

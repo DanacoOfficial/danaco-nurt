@@ -311,14 +311,15 @@ fn pre_commit(
         prepared.request.selection,
         Selection::Staged | Selection::All
     ) {
-        let resolve_undo = match prepared.index.take() {
-            Some(index) => index.resolve_undo,
-            None => repo.read_index()?.resolve_undo,
+        let read = match prepared.index.take() {
+            Some(index) => index,
+            None => repo.read_index()?,
         };
         prepared.index = Some(IndexFile {
             state: state.clone(),
-            resolve_undo,
+            resolve_undo: read.resolve_undo,
             path: repo.index_path(),
+            expect: read.expect,
         });
     }
     prepared.state = Some(state);

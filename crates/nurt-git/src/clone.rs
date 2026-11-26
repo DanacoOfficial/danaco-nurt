@@ -144,6 +144,12 @@ pub fn clone(
         Some(depth) => Shallow::DepthAtRemote(depth.try_into().map_err(|_| zero_depth())?),
         None => Shallow::NoChange,
     };
+    // The key of a new SSH host is accepted only when the connection is made,
+    // after the first change, so the known hosts file is declared now.
+    let reservation = match ssh_known_hosts_file(request, ctx) {
+        Some(file) => Some(nurt_git_transport::ssh::reserve_host_key_file(tx, &file)?),
+        None => None,
+    };
     let preserved = tx.preserve(&[TargetSpec {
         path: TargetPath::Fs(abs_path(&request.to)?),
         action: TargetAction::CreateTree,
@@ -157,11 +163,23 @@ pub fn clone(
         )
     })?;
     tx.apply(index, Mutation::CreateDir { mode: DIR_MODE })?;
-    let outcome = populate(request, &stored, &shallow, ctx)?;
+    let (outcome, host_keys) = populate(request, &stored, &shallow, ctx)?;
+    if let Some(reservation) = &reservation {
+        reservation.record(tx, &host_keys)?;
+    }
     let mut marker = IrreversibleEntry::new(Irreversible::RemoteRefUpdated);
     marker.detail = Some(head::anonymize(&stored));
     tx.mark_irreversible(marker);
     Ok(outcome)
+}
+
+/// Known hosts file of Nurt, when the address of the clone is an SSH one.
+fn ssh_known_hosts_file(request: &CloneRequest, ctx: &ExecCtx) -> Option<PathBuf> {
+    let parsed = gix::url::parse(request.url.as_str()).ok()?;
+    if parsed.scheme != gix::url::Scheme::Ssh {
+        return None;
+    }
+    nurt_git_transport::ssh::SshOptions::from_ctx(ctx).nurt_known_hosts
 }
 
 /// Writes the repository into the created directory.
@@ -170,7 +188,7 @@ fn populate(
     stored: &str,
     shallow: &Shallow,
     ctx: &ExecCtx,
-) -> Result<CloneOutcome> {
+) -> Result<(CloneOutcome, Vec<nurt_git_transport::ssh::HostKeyAddition>)> {
     let kind = if request.bare {
         gix::create::Kind::Bare
     } else {
@@ -236,7 +254,7 @@ fn populate(
         ));
         notable.push(note);
     }
-    Ok(CloneOutcome {
+    let outcome = CloneOutcome {
         root: request.to.clone(),
         url: stored.to_owned(),
         head: head.commit(),
@@ -246,7 +264,8 @@ fn populate(
         bytes_received: received.bytes,
         files_written,
         notable,
-    })
+    };
+    Ok((outcome, network.host_key_additions()))
 }
 
 /// Branch to check out: the requested one, which must exist on the remote,

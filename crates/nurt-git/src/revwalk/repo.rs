@@ -516,6 +516,19 @@ mod tests {
     }
 
     #[test]
+    fn automatic_abbreviation_counts_packed_objects_only_like_git() {
+        // `git` sizes the automatic abbreviation from the packed objects: a
+        // repository of 80000 loose objects still abbreviates to 7 digits.
+        let mut fixture = Fixture::new();
+        fixture.commit("first", &[("a.txt", Some("a\n"))]);
+        let repo = fixture.open();
+        for number in 0..17_000_u32 {
+            repo.repo.write_blob(format!("{number}\n")).unwrap();
+        }
+        assert_eq!(repo.abbreviation_length(), AUTO_ABBREVIATION);
+    }
+
+    #[test]
     fn counts_the_digits_that_identifiers_share() {
         let id = |text: &str| ObjectId::from_hex(text.as_bytes()).unwrap();
         let base = id("abcdef0000000000000000000000000000000000");

@@ -338,12 +338,12 @@ fn whitespace(file: &Changed, added: &[AddedLine<'_>], out: &mut Vec<(Check, Fin
             "whitespace",
             |count| {
                 format!(
-                    "{} {} with white space; remove the trailing spaces and tabs",
+                    "{} {} with white space; remove the trailing spaces, tabs and carriage returns",
                     lines_text(count),
                     if count == 1 { "ends" } else { "end" }
                 )
             },
-            |text| text.ends_with(b" ") || text.ends_with(b"\t"),
+            ends_with_white_space,
         )
     {
         out.push((Check::Whitespace, found));
@@ -382,6 +382,12 @@ fn whitespace(file: &Changed, added: &[AddedLine<'_>], out: &mut Vec<(Check, Fin
             at(found, file, line.number, Some(line.hunk)),
         ));
     }
+}
+
+/// Whether a line ends with white space as `git diff --check` counts it by
+/// default: a space, a tab or the carriage return of a CRLF line ending.
+fn ends_with_white_space(text: &[u8]) -> bool {
+    matches!(text.last(), Some(b' ' | b'\t' | b'\r'))
 }
 
 /// Number of lines of `content`; a last line without line feed counts.
@@ -613,6 +619,15 @@ mod tests {
         );
         assert_eq!(test_key("app/index.ts".into()).as_deref(), Some("app"));
         assert_eq!(test_key("main.go".into()), None);
+    }
+
+    #[test]
+    fn carriage_return_before_the_line_feed_is_trailing_white_space() {
+        assert!(ends_with_white_space(b"text\r"));
+        assert!(ends_with_white_space(b"text "));
+        assert!(ends_with_white_space(b"text\t"));
+        assert!(!ends_with_white_space(b"text"));
+        assert!(!ends_with_white_space(b""));
     }
 
     #[test]

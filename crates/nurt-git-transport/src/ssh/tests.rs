@@ -426,6 +426,11 @@ impl Client {
         };
         let path = self.ssh_dir().join(name);
         std::fs::write(&path, stored.to_openssh(LineEnding::LF).unwrap().as_bytes()).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
         let public = self.ssh_dir().join(format!("{name}.pub"));
         std::fs::write(public, key.public_key().to_openssh().unwrap()).unwrap();
         path
@@ -590,6 +595,10 @@ fn accept_new_returns_the_key_to_record() {
     );
     assert_eq!(additions[0].line, server.known_hosts_line());
     assert_eq!(additions[0].fingerprint, fingerprint(&server.host_key));
+    // The keys also reach the shared log of the options, which the commands
+    // read once the transport is boxed and handed to `gix`.
+    assert_eq!(client.options.host_keys.take(), additions);
+    assert!(client.options.host_keys.take().is_empty());
     assert!(transport.take_host_key_additions().is_empty());
     drop(transport);
 

@@ -1174,7 +1174,7 @@ fn entry_map(index: &gix_index::State) -> BTreeMap<BString, (ObjectId, u32)> {
 }
 
 /// Tracked paths whose working tree file differs from the index.
-fn unstaged_paths(repo: &gix::Repository) -> Result<Vec<BString>> {
+pub(super) fn unstaged_paths(repo: &gix::Repository) -> Result<Vec<BString>> {
     use gix::status::index_worktree::Item;
     use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
     const WHAT: &str = "read the status of the working tree";

@@ -118,7 +118,7 @@ git.fetch "/home/user/app" depth: 50
 | `E_GIT_AUTH` | The remote requires credentials that are missing or were refused. | Set `NURT_GIT_TOKEN_<HOST>` and use an `https://` address. |
 | `E_GIT_HOST_KEY` | The SSH host key is unknown or changed. | Pass `accept_host_key` with the fingerprint of the host. |
 | `E_GIT_PROTOCOL` | The remote answered outside the protocol, or its object format differs. | Check that the address names a Git repository. |
-| `E_NETWORK` | The connection failed; the problem is `dns`, `connect`, `tls`, `timeout`, `proxy` or `http_status`. | Check the address, the proxy settings and the network. |
+| `E_NETWORK` | The connection failed; the problem is `dns`, `connect`, `tls`, `timeout`, `proxy`, `http_status` or `insecure_credentials` (an `Authorization` header or token would be sent over `http://` to a host other than this machine). | Check the address, the proxy settings and the network; use an `https://` address. |
 | `E_CANCELLED` | The transfer was interrupted; no reference was changed. | Repeat the call. |
 | `E_TIMEOUT` | The transfer was interrupted; no reference was changed. | Repeat the call. |
 

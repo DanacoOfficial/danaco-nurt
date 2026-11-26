@@ -187,6 +187,7 @@ pub fn connect(
         &limits,
     )?;
     notices.extend(established.notices);
+    options.host_keys.push_all(&established.additions);
     Ok(SshTransport {
         connection: None,
         url: url.to_bstring(),
@@ -201,15 +202,23 @@ pub fn connect(
     })
 }
 
+/// Checking of unknown hosts from the setting of Nurt and the
+/// `StrictHostKeyChecking` of the host: the setting of Nurt that accepts new
+/// hosts never weakens an explicit `StrictHostKeyChecking yes` of the user.
+fn host_key_policy(setting: KnownHostsSetting, strict: Option<StrictMode>) -> Policy {
+    match (setting, strict) {
+        (_, Some(StrictMode::Yes)) => Policy::Strict,
+        (KnownHostsSetting::AcceptNew, _) | (_, Some(StrictMode::AcceptNew)) => Policy::AcceptNew,
+        (_, Some(StrictMode::No)) => Policy::Off,
+        _ => Policy::Strict,
+    }
+}
+
 fn plan_hop(config: HostConfig, options: &SshOptions) -> HopPlan {
     let mut files = config.user_known_hosts.clone();
     files.extend(config.global_known_hosts.iter().cloned());
     files.extend(options.nurt_known_hosts.iter().cloned());
-    let policy = match (options.known_hosts, config.strict) {
-        (KnownHostsSetting::AcceptNew, _) | (_, Some(StrictMode::AcceptNew)) => Policy::AcceptNew,
-        (_, Some(StrictMode::No)) => Policy::Off,
-        _ => Policy::Strict,
-    };
+    let policy = host_key_policy(options.known_hosts, config.strict);
     let check = HostKeyCheck {
         host: config.original_host.clone(),
         name: config.known_hosts_name(),
@@ -323,5 +332,34 @@ impl Transport for SshTransport {
             .as_mut()
             .ok_or(client::Error::MissingHandshake)?
             .request(write_mode, on_into_read, trace)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accept_new_setting_does_not_weaken_an_explicit_strict_host() {
+        assert_eq!(
+            host_key_policy(KnownHostsSetting::AcceptNew, Some(StrictMode::Yes)),
+            Policy::Strict
+        );
+        assert_eq!(
+            host_key_policy(KnownHostsSetting::AcceptNew, None),
+            Policy::AcceptNew
+        );
+        assert_eq!(
+            host_key_policy(KnownHostsSetting::Strict, Some(StrictMode::AcceptNew)),
+            Policy::AcceptNew
+        );
+        assert_eq!(
+            host_key_policy(KnownHostsSetting::Strict, Some(StrictMode::No)),
+            Policy::Off
+        );
+        assert_eq!(
+            host_key_policy(KnownHostsSetting::Strict, None),
+            Policy::Strict
+        );
     }
 }
