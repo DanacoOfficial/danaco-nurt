@@ -65,6 +65,9 @@ use crate::store::{self, Fault, JournalCtx, JournalLocation};
 /// Permission bits of directories created inside a journal.
 const JOURNAL_DIR_MODE: u32 = 0o700;
 
+/// Workers removing the directory of an entry that could not be written.
+const REMOVE_WORKERS: usize = 1;
+
 /// Opens a transaction of a user operation.
 pub(crate) fn begin(ctx: &JournalCtx, request: BeginRequest) -> Box<dyn MutationTx + '_> {
     Box::new(Tx::new(ctx, request, Link::default()))
@@ -420,13 +423,48 @@ impl<'a> Tx<'a> {
                 return Ok(None);
             }
         };
-        match seq::allocate(self.ctx) {
+        match self.allocate_unused() {
             Ok(op) => self.op = Some(op),
             Err(Fault::Halt) => return Err(Fault::Halt),
             Err(Fault::Fs(_)) => self.unavailable = Some(Irreversible::JournalError),
         }
         drop(lock);
         Ok(self.op)
+    }
+
+    /// Assigns a number that no active journal names yet.
+    ///
+    /// A journal directory can be shared by accounts that keep separate
+    /// sequences. A number already named there is dropped and the sequence is
+    /// rebuilt from the journals, so that an entry of another account is never
+    /// overwritten or shadowed.
+    fn allocate_unused(&self) -> std::result::Result<OpId, Fault> {
+        let op = seq::allocate(self.ctx)?;
+        if !self.named_in_journals(op) {
+            return Ok(op);
+        }
+        let scope = store::scope(op, ScopePurpose::Maintenance);
+        self.ctx.fs.remove_file(&scope, &self.ctx.state.seq()?)?;
+        seq::allocate(self.ctx)
+    }
+
+    /// Whether an entry, a temporary entry, a marker, a reclaimed entry or a
+    /// tombstone of `op` exists in an active journal.
+    fn named_in_journals(&self, op: OpId) -> bool {
+        let fs = self.ctx.fs.as_ref();
+        self.ctx.active_journals().iter().any(|journal| {
+            let names = [
+                journal.entry(op).map(|entry| entry.dir().clone()),
+                journal.entry_tmp(op).map(|entry| entry.dir().clone()),
+                journal.reaped(op).map(|entry| entry.dir().clone()),
+                journal.pending(op),
+                journal.tomb(op),
+            ];
+            names
+                .into_iter()
+                .flatten()
+                .any(|name| fs.metadata(&name, Follow::NoFollow).is_ok())
+        })
     }
 
     /// Part of `volume`, opened on first use; `Err` names the reason why the
@@ -607,27 +645,15 @@ impl<'a> Tx<'a> {
         let tmp = target.layout.entry_tmp(op)?;
         let ops_dir = target.layout.ops_dir()?;
         let entry_dir = target.entry.dir().clone();
-        for dir in [tmp.dir().clone(), tmp.blobs()?, tmp.tmp()?] {
-            fs.create_dir(&scope, &dir, JOURNAL_DIR_MODE)?;
+        // A directory that exists already is not this entry's: it is left as
+        // found. A directory created here is removed when it cannot be
+        // completed, because no marker leads recovery to it afterwards.
+        fs.create_dir(&scope, tmp.dir(), JOURNAL_DIR_MODE)?;
+        let filled = fill_entry_tmp(ctx, &scope, &tmp, &bytes, (&entry_dir, &ops_dir));
+        if matches!(filled, Err(Fault::Fs(_))) {
+            let _ = fs.remove_tree(&scope, tmp.dir(), REMOVE_WORKERS);
         }
-        let mut handle = fs.create_new(&scope, &tmp.manifest()?)?;
-        manifest::write_all(handle.as_mut(), &bytes)?;
-        ctx.hit(FailPoint::ManifestWritten, None)?;
-        handle.sync(Durability::Full)?;
-        drop(handle);
-        let mut state = fs.create_new(&scope, &tmp.state()?)?;
-        manifest::write_all(
-            state.as_mut(),
-            &StateRecord::new(nurt_contracts::journal::EntryState::Prepared).encode(),
-        )?;
-        state.sync(Durability::Full)?;
-        drop(state);
-        fs.sync_dir(&scope, tmp.dir())?;
-        ctx.hit(FailPoint::ManifestSynced, None)?;
-        fs.rename(&scope, tmp.dir(), &entry_dir, RenameMode::NoReplace)?;
-        ctx.hit(FailPoint::PreparedRenamed, None)?;
-        fs.sync_dir(&scope, &ops_dir)?;
-        ctx.hit(FailPoint::PreparedDurable, None)?;
+        filled?;
         self.parts[part].prepared = true;
         Ok(())
     }
@@ -696,6 +722,40 @@ impl<'a> Tx<'a> {
         };
         if matches { Ok(()) } else { Err(stale(path)) }
     }
+}
+
+/// Fills the new directory `tmp` of an entry with its manifest and its
+/// prepared state, flushes it and renames it to the name of the entry.
+fn fill_entry_tmp(
+    ctx: &JournalCtx,
+    scope: &TxScope,
+    tmp: &EntryLayout,
+    manifest_bytes: &[u8],
+    (entry_dir, ops_dir): (&AbsPath, &AbsPath),
+) -> std::result::Result<(), Fault> {
+    let fs = ctx.fs.as_ref();
+    for dir in [tmp.blobs()?, tmp.tmp()?] {
+        fs.create_dir(scope, &dir, JOURNAL_DIR_MODE)?;
+    }
+    let mut handle = fs.create_new(scope, &tmp.manifest()?)?;
+    manifest::write_all(handle.as_mut(), manifest_bytes)?;
+    ctx.hit(FailPoint::ManifestWritten, None)?;
+    handle.sync(Durability::Full)?;
+    drop(handle);
+    let mut state = fs.create_new(scope, &tmp.state()?)?;
+    manifest::write_all(
+        state.as_mut(),
+        &StateRecord::new(nurt_contracts::journal::EntryState::Prepared).encode(),
+    )?;
+    state.sync(Durability::Full)?;
+    drop(state);
+    fs.sync_dir(scope, tmp.dir())?;
+    ctx.hit(FailPoint::ManifestSynced, None)?;
+    fs.rename(scope, tmp.dir(), entry_dir, RenameMode::NoReplace)?;
+    ctx.hit(FailPoint::PreparedRenamed, None)?;
+    fs.sync_dir(scope, ops_dir)?;
+    ctx.hit(FailPoint::PreparedDurable, None)?;
+    Ok(())
 }
 
 /// Outcome of locating the journal part of a target.
@@ -3682,6 +3742,46 @@ mod tests {
         let mut tx = begin(&env.ctx, request("write"));
         tx.preserve(&[spec(&a, TargetAction::Modify)]).unwrap();
         assert_eq!(tx.op(), Some(OpId(1)));
+    }
+
+    #[test]
+    fn number_named_in_a_shared_journal_is_never_assigned() {
+        let env = Env::new();
+        let layout = env.layout(0);
+        let used = [
+            layout.entry(OpId(1)).unwrap(),
+            layout.entry_tmp(OpId(2)).unwrap(),
+        ];
+        for entry in &used {
+            std::fs::create_dir_all(entry.dir().as_path()).unwrap();
+        }
+        env.fixture
+            .write(&env.ctx.state.seq().unwrap(), &seq::encode(OpId(0)));
+        let path = env.file("vol-a/a.txt", b"old");
+        let handle = env.overwrite(&path, b"new");
+        assert_eq!(handle.op, Some(OpId(3)));
+        assert_eq!(handle.targets[0].mode, PreserveMode::Exchange);
+        assert!(handle.irreversible.is_empty(), "{handle:?}");
+        assert_eq!(env.read(&env.blob(0, 3, 0, BlobRole::Previous)), b"old");
+        assert!(used.iter().all(|entry| env.fixture.exists(entry.dir())));
+    }
+
+    #[test]
+    fn failed_preparation_removes_its_temporary_entry_directory() {
+        let env = Env::new();
+        let path = env.file("vol-a/a.txt", b"old");
+        env.fixture
+            .fs
+            .fail("create_new", "op.json", FsErrorKind::NoSpace);
+        let handle = env.overwrite(&path, b"new");
+        assert_eq!(
+            handle.targets[0].irreversible,
+            Some(Irreversible::JournalError)
+        );
+        assert_eq!(env.read(&path), b"new");
+        let tmp = env.layout(0).entry_tmp(OpId(1)).unwrap();
+        assert!(!env.fixture.exists(tmp.dir()));
+        assert!(env.pending(0).is_empty());
     }
 
     #[test]
