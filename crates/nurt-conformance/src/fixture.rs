@@ -85,6 +85,9 @@ const TEXT_PLAIN: &str = "text/plain; charset=utf-8";
 /// codes cannot be final answers.
 const MIN_STATUS: u16 = 200;
 
+/// Largest status code that `/status/{code}` returns.
+const MAX_STATUS: u16 = 599;
+
 /// Name of the thread that runs the server.
 const THREAD_NAME: &str = "nurt-conformance-http";
 
@@ -232,7 +235,7 @@ async fn echo(method: Method, uri: Uri, headers: HeaderMap, body: Bytes) -> Resp
 
 async fn status(UrlPath(code): UrlPath<u16>) -> Response {
     match StatusCode::from_u16(code) {
-        Ok(status) if code >= MIN_STATUS => status.into_response(),
+        Ok(status) if (MIN_STATUS..=MAX_STATUS).contains(&code) => status.into_response(),
         _ => text(
             StatusCode::BAD_REQUEST,
             format!("status {code} is not a final status code\n"),
@@ -536,6 +539,10 @@ mod tests {
         let (status, _, _) = request(&base, "DELETE", "/status/418", b"");
         assert!(status.contains(" 418 "), "{status}");
         let (status, _, _) = request(&base, "GET", "/status/101", b"");
+        assert!(status.contains(" 400 "), "{status}");
+        let (status, _, _) = request(&base, "GET", "/status/599", b"");
+        assert!(status.contains(" 599 "), "{status}");
+        let (status, _, _) = request(&base, "GET", "/status/600", b"");
         assert!(status.contains(" 400 "), "{status}");
         let (_, _, body) = request(&base, "GET", "/bytes/300", b"");
         assert_eq!(body.len(), 300);
