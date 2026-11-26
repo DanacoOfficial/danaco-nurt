@@ -70,6 +70,18 @@ class Response:
         return cast(Report, self.raw.get("report", {}))
 
     @property
+    def reports(self) -> List[Report]:
+        """Reports of the pipelines of a script that ran several operations, in program order.
+
+        Empty for a program with a single operation, whose ``report`` holds its
+        records. The reports are not paged and have no ``next_cursor``.
+        """
+        reports = self.raw.get("reports")
+        if not isinstance(reports, list):
+            return []
+        return [cast(Report, item) for item in reports if isinstance(item, dict)]
+
+    @property
     def text(self) -> str:
         """Rendered text of the report; the report as JSON for the ``json`` format."""
         rendered = self.raw.get("rendered")

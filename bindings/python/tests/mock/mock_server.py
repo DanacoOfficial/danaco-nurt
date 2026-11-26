@@ -183,14 +183,13 @@ class Server:
         if program is None:
             raise CallFailure(3, "request has no program")
         if program == "fail":
-            return {"effects": [], "diagnostics": [{"severity": "error", "message": "unexpected end of program"}]}
+            return response("failed", "check", None, error=SYNTAX_ERROR)
         return {"bound": {"nurt": "1.0", "program": program}, "effects": [], "diagnostics": []}
 
     def on_parse(self, _identifier: Any, params: Dict[str, Any]) -> Dict[str, Any]:
         program = params.get("program")
         if program == "fail":
-            diagnostic = {"severity": "error", "message": "unexpected end of program", "at": {"line": 1, "column": 5}}
-            return {"ast": None, "diagnostics": [diagnostic]}
+            return response("failed", "parse", None, error=SYNTAX_ERROR)
         return {"ast": {"nurt": "1.0", "program": program}, "diagnostics": []}
 
     def on_print(self, _identifier: Any, params: Dict[str, Any]) -> Dict[str, Any]:
