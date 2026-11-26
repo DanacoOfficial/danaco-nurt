@@ -74,6 +74,10 @@ Archives for Linux and macOS contain the directory `nurt-<version>-<target>/` wi
 
 Windows archives contain `nurt.exe`, `LICENSE` and `NOTICE` at the top level, and `nurt.dll` with `nurt.h` when the library is packed. The packages only deliver the service files; `nurt service install` installs the service.
 
+## Dependency check
+
+`tools/ci/check-dependencies.sh [--format elf|pe] FILE...` reads the dynamic section of every file (`readelf -d`, entries `NEEDED`) and fails when a file names a shared library outside the permitted list: `libc.so.6`, `libm.so.6`, `libgcc_s.so.1`, `ld-linux-x86-64.so.2`, `ld-linux-aarch64.so.1` and `linux-vdso.so.1`. A statically linked file passes. The format is taken from the first bytes of the file when `--format` is omitted. The environment variable `READELF` replaces the `readelf` program. The workflow `release.yml` runs the script on `nurt` and `libnurt.so.1` of both glibc archives before it signs the checksums. The check of Windows files (`check_pe`, list `WINDOWS_ALLOWED_DLLS`) is reserved in the script and not implemented. The tests are in `tests/test_check_dependencies.py`.
+
 ## Directories
 
 | Directory | Content |

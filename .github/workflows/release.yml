@@ -58,6 +58,14 @@ jobs:
           gh release download "v${{ inputs.version }}" --repo "$GITHUB_REPOSITORY" --dir archives \
             --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern checksums.txt
           (cd archives && sha256sum --check --strict checksums.txt)
+      - name: Check the dependencies of the Linux binaries
+        run: |
+          version="${{ inputs.version }}"
+          for triple in x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu; do
+            mkdir -p "checked/$triple"
+            tar -xzf "archives/nurt-${version}-${triple}.tar.gz" -C "checked/$triple" --strip-components=1
+            bash tools/ci/check-dependencies.sh "checked/$triple/nurt" "checked/$triple/libnurt.so.1"
+          done
       - name: Import the signing key
         env:
           SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
