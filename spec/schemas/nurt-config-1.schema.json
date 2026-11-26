@@ -652,9 +652,9 @@
           "default": 1
         },
         "spool_max": {
-          "description": "Key `run.spool_max`: largest output kept per program; more output is\nreported. Default `unlimited`.",
+          "description": "Key `run.spool_max`: largest output kept per program; more output is\nreported. Default `1gib`.",
           "$ref": "#/$defs/ByteLimit",
-          "default": "unlimited"
+          "default": "1gib"
         },
         "supervisor": {
           "description": "Key `run.supervisor`: supervision of background programs (`auto` or\n`none`). Default `auto`.",
@@ -1713,7 +1713,7 @@
         ],
         "irreversible_patterns": [],
         "parallel": 1,
-        "spool_max": "unlimited",
+        "spool_max": "1gib",
         "supervisor": "auto",
         "waits_threshold": "3s"
       }

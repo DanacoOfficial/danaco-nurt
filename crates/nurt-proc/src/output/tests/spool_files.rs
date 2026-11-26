@@ -293,3 +293,17 @@ fn summary_lines_use_whole_cleaned_lines() {
     let out = store.render(&summary, Some(0)).unwrap();
     assert_eq!(out.summary_lines, ["ok 2"]);
 }
+
+#[test]
+fn the_default_spool_limit_is_one_gibibyte() {
+    let limit = Config::default().run.spool_max;
+    assert_eq!(limit, ByteLimit::Bytes(SizeSetting::from_gib(1)));
+    let bench = Bench::with_config(Config::default());
+    let store = bench.finished("default-limit", b"x\n", b"");
+    let out = store.render(&view(), Some(0)).unwrap();
+    assert!(
+        out.notes
+            .iter()
+            .all(|note| note.code != Notable::SpoolLimit)
+    );
+}
