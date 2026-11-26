@@ -254,23 +254,26 @@ impl Repo {
             if skip {
                 continue;
             }
-            let path = entry.path(&index).to_str_lossy().into_owned();
-            if self.worktree_differs(entry, &path, index_time, filemode)? {
-                paths.push(path);
+            let raw = entry.path(&index);
+            if self.worktree_differs(entry, raw, index_time, filemode)? {
+                paths.push(raw.to_str_lossy().into_owned());
             }
         }
         Ok(paths)
     }
 
+    /// Whether the file of `entry` differs from it; the file is found by the
+    /// bytes of `raw`, which need not be UTF-8.
     fn worktree_differs(
         &self,
         entry: &gix::index::Entry,
-        path: &str,
+        raw: &gix::bstr::BStr,
         index_time: Option<std::time::Duration>,
         filemode: bool,
     ) -> Result<bool> {
-        let relative = gix::path::from_bstr(path.as_bytes().as_bstr())
-            .map_err(|error| read_error(path, error))?;
+        let shown = raw.to_str_lossy();
+        let path: &str = &shown;
+        let relative = gix::path::from_bstr(raw).map_err(|error| read_error(path, error))?;
         let file = self.root.join(relative);
         let Ok(metadata) = std::fs::symlink_metadata(&file) else {
             return Ok(true);

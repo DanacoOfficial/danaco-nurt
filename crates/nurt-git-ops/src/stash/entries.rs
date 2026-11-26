@@ -166,11 +166,24 @@ fn position_of(spec: Option<&str>) -> Option<usize> {
     digits.parse().ok()
 }
 
+/// Shortest abbreviation of an object name.
+const MIN_ABBREVIATION: usize = 4;
+
+/// Whether a bare number names a commit: an abbreviated hash may consist of
+/// digits only, and then it is a hash and not a position.
+pub(crate) fn is_digit_only_hash(repo: &GitRepo, spec: Option<&str>) -> bool {
+    spec.is_some_and(|text| {
+        text.len() >= MIN_ABBREVIATION
+            && text.bytes().all(|byte| byte.is_ascii_digit())
+            && repo.resolve_commit(text).is_ok()
+    })
+}
+
 /// Entry named by `spec` with its position in the list; the position is
 /// `None` for a commit that is not in the list.
 pub(crate) fn resolve(repo: &GitRepo, spec: Option<&str>) -> Result<(Option<usize>, ObjectId)> {
     let root = root_literal(repo);
-    let Some(position) = position_of(spec) else {
+    let Some(position) = position_of(spec).filter(|_| !is_digit_only_hash(repo, spec)) else {
         let text = spec.unwrap_or_default();
         return Ok((None, repo.resolve_commit(text)?));
     };
