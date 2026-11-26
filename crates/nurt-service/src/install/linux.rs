@@ -30,6 +30,7 @@ const LOGIN_PATH: &str = "/org/freedesktop/login1";
 const LOGIN_MANAGER: &str = "org.freedesktop.login1.Manager";
 const LOGIN_USER: &str = "org.freedesktop.login1.User";
 const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
+const UNIT_PATH_PROPERTY: &str = "UnitPath";
 const JOB_MODE: &str = "replace";
 const BUS_TIMEOUT: Duration = Duration::from_secs(10);
 const SYSTEM_UNIT_DIR: &str = "/etc/systemd/system";
@@ -80,6 +81,9 @@ pub(crate) trait Manager {
     fn restart(&self, unit: &str) -> Result<(), BusError>;
     fn stop(&self, unit: &str) -> Result<(), BusError>;
     fn default_target(&self) -> Result<String, BusError>;
+    /// The `UnitPath` property: the directories the manager loads units from,
+    /// in the order of precedence.
+    fn unit_path(&self) -> Result<Vec<String>, BusError>;
 }
 
 /// `org.freedesktop.login1`.
@@ -175,6 +179,18 @@ impl Manager for DbusPeer {
         let reply = self.manager("GetDefaultTarget", &())?;
         reply.body().deserialize::<String>().map_err(BusError::from)
     }
+
+    fn unit_path(&self) -> Result<Vec<String>, BusError> {
+        let reply = self.call(
+            SYSTEMD_DESTINATION,
+            SYSTEMD_PATH,
+            PROPERTIES,
+            "Get",
+            &(SYSTEMD_MANAGER, UNIT_PATH_PROPERTY),
+        )?;
+        let value: OwnedVariant = reply.body().deserialize().map_err(BusError::from)?;
+        Vec::<String>::try_from(value).map_err(BusError::from)
+    }
 }
 
 impl Login for DbusPeer {
@@ -237,23 +253,34 @@ pub(crate) fn default_target() -> Option<String> {
     SystemBuses.system().ok()?.default_target().ok()
 }
 
-/// Locations of unit files and the account.
+/// Locations of unit files, the account and the environment of the clients.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Layout {
+    /// Directory of user units used when the manager does not report its own.
     pub(crate) user_unit_dir: PathBuf,
     pub(crate) system_unit_dir: PathBuf,
     pub(crate) uid: u32,
     pub(crate) user: String,
+    /// `HOME` of the installing process, from which the clients derive the
+    /// state directory.
+    pub(crate) home: Option<PathBuf>,
+    /// `XDG_STATE_HOME` of the installing process, when it is absolute.
+    pub(crate) state_home: Option<PathBuf>,
 }
 
 impl Layout {
     /// Locations of the running account: `$XDG_CONFIG_HOME/systemd/user`
-    /// (by default `~/.config/systemd/user`) and `/etc/systemd/system`.
+    /// (by default `$HOME/.config/systemd/user`) as the fallback directory of
+    /// user units, `/etc/systemd/system`, and the variables that select the
+    /// state directory.
     pub(crate) fn host() -> Result<Self, Error> {
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .filter(|dir| dir.is_absolute());
         let config_home = std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
             .filter(|dir| dir.is_absolute())
-            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+            .or_else(|| home.as_ref().map(|home| home.join(".config")))
             .ok_or_else(|| {
                 Error::new(
                     ErrorCode::Io,
@@ -271,8 +298,50 @@ impl Layout {
             system_unit_dir: PathBuf::from(SYSTEM_UNIT_DIR),
             uid: uid.as_raw(),
             user,
+            home,
+            state_home: std::env::var_os("XDG_STATE_HOME")
+                .map(PathBuf::from)
+                .filter(|dir| dir.is_absolute()),
         })
     }
+
+    /// `Environment=` assignments that give the service the state directory
+    /// of the clients, whatever `HOME` the systemd user manager has.
+    fn service_environment(&self) -> Vec<(&'static str, String)> {
+        let mut environment = Vec::new();
+        if let Some(home) = &self.home {
+            environment.push(("HOME", home.display().to_string()));
+        }
+        if let Some(state_home) = &self.state_home {
+            environment.push(("XDG_STATE_HOME", state_home.display().to_string()));
+        }
+        environment
+    }
+}
+
+/// Roots of the system and of the vendor, whose directories of user units
+/// `UnitPath` of the user manager lists besides those of the account.
+const SHARED_UNIT_ROOTS: &[&str] = &["/etc", "/run", "/usr", "/lib"];
+
+/// The directory of user units from the configuration of the account, taken
+/// from the `UnitPath` of the user manager: the first directory `user` inside
+/// a directory `systemd` outside the shared roots. The manager may run with
+/// another `HOME` than the installing process, so the environment of the
+/// installer does not decide.
+fn manager_user_unit_dir(unit_path: &[String]) -> Option<PathBuf> {
+    unit_path
+        .iter()
+        .map(Path::new)
+        .filter(|dir| dir.is_absolute())
+        .filter(|dir| {
+            dir.file_name().is_some_and(|name| name == "user")
+                && dir
+                    .parent()
+                    .and_then(Path::file_name)
+                    .is_some_and(|name| name == "systemd")
+        })
+        .find(|dir| !SHARED_UNIT_ROOTS.iter().any(|root| dir.starts_with(root)))
+        .map(Path::to_path_buf)
 }
 
 /// `ExecStart=` value: the program quoted when needed, then `service run`.
@@ -289,26 +358,46 @@ fn exec_start(executable: &Path) -> String {
     format!("{program} service run")
 }
 
-fn unit(executable: &Path, account: Option<(&str, &str)>, wanted_by: &str) -> String {
+/// `Environment=` line of one assignment; the assignment is quoted, and `\`,
+/// `"` and `%` are escaped.
+fn environment_line(name: &str, value: &str) -> String {
+    let assignment = format!("{name}={value}")
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('%', "%%");
+    format!("Environment=\"{assignment}\"\n")
+}
+
+fn unit(
+    executable: &Path,
+    account: Option<(&str, &str)>,
+    wanted_by: &str,
+    environment: &[(&str, String)],
+) -> String {
     let identity = account
         .map(|(user, group)| format!("User={user}\nGroup={group}\n"))
         .unwrap_or_default();
+    let environment: String = environment
+        .iter()
+        .map(|(name, value)| environment_line(name, value))
+        .collect();
     format!(
         "[Unit]\nDescription=Danaco Nurt background service\nDocumentation=https://github.com/DanacoOfficial/nurt\n\n\
-         [Service]\nType=simple\nExecStart={}\n{identity}Restart=on-failure\nRestartSec=5\n\n\
+         [Service]\nType=simple\nExecStart={}\n{environment}{identity}Restart=on-failure\nRestartSec=5\n\n\
          [Install]\nWantedBy={wanted_by}\n",
         exec_start(executable)
     )
 }
 
-/// User unit for mode `user`.
-pub(crate) fn user_unit(executable: &Path) -> String {
-    unit(executable, None, "default.target")
+/// User unit for mode `user`; `environment` holds the variables that select
+/// the state directory of the clients.
+pub(crate) fn user_unit(executable: &Path, environment: &[(&str, String)]) -> String {
+    unit(executable, None, "default.target", environment)
 }
 
 /// System unit for mode `system`, run as the account and its group.
 pub(crate) fn system_unit(executable: &Path, user: &str, group: &str) -> String {
-    unit(executable, Some((user, group)), "multi-user.target")
+    unit(executable, Some((user, group)), "multi-user.target", &[])
 }
 
 fn service_error(action: &str, error: &BusError) -> Error {
@@ -368,11 +457,21 @@ fn install_user(
     buses: &dyn Buses,
     layout: &Layout,
 ) -> Result<InstallReport, Error> {
-    let unit_file = layout.user_unit_dir.join(UNIT_NAME);
-    let changed = write_unit(&unit_file, &user_unit(executable))?;
+    let session = buses.session();
+    let unit_dir = session
+        .as_ref()
+        .ok()
+        .and_then(|manager| manager.unit_path().ok())
+        .and_then(|unit_path| manager_user_unit_dir(&unit_path))
+        .unwrap_or_else(|| layout.user_unit_dir.clone());
+    let unit_file = unit_dir.join(UNIT_NAME);
+    let changed = write_unit(
+        &unit_file,
+        &user_unit(executable, &layout.service_environment()),
+    )?;
     let mut manifest = Manifest::new(ServiceMode::User, Backend::SystemdUser, executable);
     manifest.files.push(unit_file.clone());
-    let manager = match buses.session() {
+    let manager = match session {
         Ok(manager) => manager,
         Err(error) => {
             manifest.write(&request.paths)?;
@@ -564,6 +663,8 @@ mod tests {
             system_unit_dir: dir.join("etc/systemd/system"),
             uid: 1000,
             user: "dev".to_owned(),
+            home: Some(dir.join("home")),
+            state_home: None,
         };
         (request, layout)
     }
@@ -577,7 +678,13 @@ mod tests {
 
     #[test]
     fn install_linux_user_unit_golden() {
-        assert_eq!(user_unit(Path::new("/opt/nurt/bin/nurt")), GOLDEN_USER);
+        assert_eq!(
+            user_unit(
+                Path::new("/opt/nurt/bin/nurt"),
+                &[("HOME", "/home/dev".to_owned())]
+            ),
+            GOLDEN_USER
+        );
         assert_eq!(
             exec_start(Path::new("/opt/My Tools/nurt")),
             "\"/opt/My Tools/nurt\" service run"
@@ -586,6 +693,111 @@ mod tests {
             exec_start(Path::new("/opt/100%/nurt")),
             "\"/opt/100%%/nurt\" service run"
         );
+    }
+
+    #[test]
+    fn the_unit_environment_is_quoted_and_escaped() {
+        assert_eq!(
+            environment_line("HOME", "/home/dev"),
+            "Environment=\"HOME=/home/dev\"\n"
+        );
+        assert_eq!(
+            environment_line("HOME", "/srv/My \"home\"/100%\\"),
+            "Environment=\"HOME=/srv/My \\\"home\\\"/100%%\\\\\"\n"
+        );
+        let unit = user_unit(
+            Path::new("/opt/nurt/bin/nurt"),
+            &[
+                ("HOME", "/home/dev".to_owned()),
+                ("XDG_STATE_HOME", "/state".to_owned()),
+            ],
+        );
+        assert!(unit.contains(
+            "ExecStart=/opt/nurt/bin/nurt service run\nEnvironment=\"HOME=/home/dev\"\nEnvironment=\"XDG_STATE_HOME=/state\"\nRestart="
+        ));
+        assert!(!user_unit(Path::new("/opt/nurt/bin/nurt"), &[]).contains("Environment="));
+    }
+
+    #[test]
+    fn the_service_environment_follows_the_installing_account() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, mut layout) = fixture(dir.path());
+        assert_eq!(
+            layout.service_environment(),
+            [("HOME", dir.path().join("home").display().to_string())]
+        );
+        layout.state_home = Some(PathBuf::from("/var/state"));
+        layout.home = None;
+        assert_eq!(
+            layout.service_environment(),
+            [("XDG_STATE_HOME", "/var/state".to_owned())]
+        );
+    }
+
+    #[test]
+    fn the_manager_unit_path_selects_the_unit_directory_of_the_account() {
+        let unit_path: Vec<String> = [
+            "/srv/manager-home/.config/systemd/user.control",
+            "/run/user/1000/systemd/transient",
+            "/srv/manager-home/.config/systemd/user",
+            "/etc/systemd/user",
+            "/run/user/1000/systemd/user",
+            "/usr/lib/systemd/user",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        assert_eq!(
+            manager_user_unit_dir(&unit_path),
+            Some(PathBuf::from("/srv/manager-home/.config/systemd/user"))
+        );
+        assert_eq!(manager_user_unit_dir(&unit_path[3..]), None);
+        assert_eq!(
+            manager_user_unit_dir(&["/var/lib/service/.config/systemd/user".to_owned()]),
+            Some(PathBuf::from("/var/lib/service/.config/systemd/user"))
+        );
+        assert_eq!(
+            manager_user_unit_dir(&["relative/systemd/user".to_owned()]),
+            None
+        );
+        assert_eq!(manager_user_unit_dir(&[]), None);
+    }
+
+    #[test]
+    fn install_writes_the_unit_where_the_manager_reads_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let (request, layout) = fixture(dir.path());
+        let manager_dir = dir.path().join("manager-home/.config/systemd/user");
+        let buses = FakeBuses {
+            system: FakeSystem::start_with_unit_path(
+                LingerPolicy::Allow,
+                vec![
+                    "/etc/systemd/user".to_owned(),
+                    manager_dir.display().to_string(),
+                ],
+            ),
+            session_available: true,
+        };
+        install_with(
+            &request,
+            Path::new("/opt/nurt/bin/nurt"),
+            user_choice(),
+            &buses,
+            &layout,
+            false,
+        )
+        .unwrap();
+        let unit_file = manager_dir.join(UNIT_NAME);
+        assert!(!layout.user_unit_dir.join(UNIT_NAME).exists());
+        let text = std::fs::read_to_string(&unit_file).unwrap();
+        assert!(text.contains(&format!(
+            "Environment=\"HOME={}\"\n",
+            dir.path().join("home").display()
+        )));
+        let manifest = Manifest::read(&request.paths.install_manifest())
+            .unwrap()
+            .unwrap();
+        assert_eq!(manifest.files, [unit_file]);
     }
 
     #[test]
