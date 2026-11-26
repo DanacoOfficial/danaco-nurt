@@ -141,7 +141,7 @@ impl Handle {
         }
         // SAFETY: `kill` takes a positive process identifier and a signal
         // number; the identifier was checked against the start time of the
-        // process just before.
+        // process before the call.
         let status = unsafe { libc::kill(self.pid, number) };
         delivered(status == 0, self.pid)
     }
@@ -164,7 +164,7 @@ fn number(signal: Signal) -> Result<c_int> {
 }
 
 /// Outcome of a signal call that succeeded when `succeeded`; reads the error
-/// of the call that just failed otherwise. A process that is gone counts as
+/// of the call that failed otherwise. A process that is gone counts as
 /// signalled.
 fn delivered(succeeded: bool, pid: pid_t) -> Result<()> {
     if succeeded {

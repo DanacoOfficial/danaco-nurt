@@ -34,7 +34,7 @@ reader never sees a partial file and takes no lock.
    run may take before it moves to the background.
 2. When `host.lock` is free the client starts the supervisor with the command
    registered by the host application, and starts it again when the lock is
-   still free after 3 s. A supervisor that has just been started tries the lock
+   still free after 3 s. A supervisor that has been started tries the lock
    up to 10 times, 10 ms apart, so that the instant in which a client probes the
    lock does not make it give up.
 3. The supervisor takes a request by removing its file. Whoever removes the file
