@@ -31,7 +31,7 @@ The result is written to the standard output in the requested format. Errors of 
 
 ## Build features
 
-The subcommands `mcp`, `lsp`, `migrate`, `service` and `journal` are implemented by optional components. Each component is linked by a Cargo feature of the `nurt-cli` crate; the default build links none of them. A subcommand whose component is not part of the build writes `nurt: <subcommand> is not available in this build` to the standard error output and ends with exit code 3. `nurt doctor` lists these subcommands with the feature each one needs.
+The subcommands `mcp`, `lsp`, `migrate`, `service` and `journal` are implemented by optional components. Each component is linked by a Cargo feature of the `nurt-cli` crate; the default build links all of them (the default features of `nurt-cli`); a build with `--no-default-features` links none. A subcommand whose component is not part of the build writes `nurt: <subcommand> is not available in this build` to the standard error output and ends with exit code 3. `nurt doctor` lists these subcommands with the feature each one needs.
 
 | Feature | Links | Subcommand |
 |---|---|---|
@@ -378,7 +378,7 @@ Manages the background service.
 Syntax:
 
 ```
-nurt service install | uninstall | start | stop | status | run
+nurt service install | uninstall | status | run
 ```
 
 Without the component in the build the command ends with exit code 3.
