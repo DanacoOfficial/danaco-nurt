@@ -36,7 +36,9 @@ mod reference;
 mod render;
 mod syntax;
 
+use std::collections::HashMap;
 use std::path::Path;
+use std::sync::OnceLock;
 
 use indexmap::IndexMap;
 use nurt_contracts::error::{Error, ErrorCode, Location};
@@ -152,7 +154,18 @@ pub struct JsonDocument {
     text: String,
     dialect: Dialect,
     tree: Tree,
+    /// Positions of the members of large objects by name, built when a key
+    /// path first passes through such an object.
+    members: OnceLock<MemberIndex>,
 }
+
+/// Positions of the entries of an object by member name, in order, for each
+/// object of at least [`INDEXED_MEMBERS`] entries.
+type MemberIndex = HashMap<NodeId, HashMap<String, Vec<usize>>>;
+
+/// Smallest number of entries of an object whose member names are indexed;
+/// smaller objects are searched directly.
+const INDEXED_MEMBERS: usize = 32;
 
 /// Node addressed by a key path, or the place where it would be created.
 enum Target {
@@ -210,7 +223,33 @@ impl JsonDocument {
             text,
             dialect,
             tree,
+            members: OnceLock::new(),
         })
+    }
+
+    /// Positions of the entries named `name` in the object `id` when the
+    /// object is large; `None` when it is searched directly.
+    fn indexed_members(&self, id: NodeId, name: &str) -> Option<&[usize]> {
+        let index = self.members.get_or_init(|| {
+            let mut index = MemberIndex::new();
+            for (id, node) in self.tree.nodes.iter().enumerate() {
+                let NodeKind::Object(entries) = &node.kind else {
+                    continue;
+                };
+                if entries.len() < INDEXED_MEMBERS {
+                    continue;
+                }
+                let names = index.entry(id).or_default();
+                for (position, entry) in entries.iter().enumerate() {
+                    if let Some(key) = &entry.key {
+                        names.entry(key.text.clone()).or_default().push(position);
+                    }
+                }
+            }
+            index
+        });
+        let names = index.get(&id)?;
+        Some(names.get(name).map_or(&[][..], Vec::as_slice))
     }
 
     /// Current text of the document.
@@ -455,6 +494,15 @@ impl JsonDocument {
         let node = &self.tree.nodes[id];
         match (&node.kind, segment) {
             (NodeKind::Object(entries), KeySegment::Key(name)) => {
+                if let Some(positions) = self.indexed_members(id, name) {
+                    let Some(&last) = positions.last() else {
+                        return Ok(Step::Missing);
+                    };
+                    return Ok(Step::Child {
+                        id: entries[last].value,
+                        duplicate: positions.len() > 1,
+                    });
+                }
                 let mut matches = entries
                     .iter()
                     .filter(|e| e.key.as_ref().is_some_and(|k| &k.text == name));
