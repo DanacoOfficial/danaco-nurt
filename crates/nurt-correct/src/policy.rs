@@ -461,7 +461,7 @@ pub fn path_check(written: &str, bound: &str, base: Option<&str>) -> PathCheck {
     let relative = strip_current(&normalized);
     match base {
         Some(base) => {
-            if normalize_path(&format!("{base}/{relative}")) == bound {
+            if collapse_parent_segments(&normalize_path(&format!("{base}/{relative}"))) == bound {
                 PathCheck::Preserved
             } else {
                 PathCheck::Changed
@@ -470,6 +470,30 @@ pub fn path_check(written: &str, bound: &str, base: Option<&str>) -> PathCheck {
         None if bound.ends_with(&format!("/{relative}")) => PathCheck::BaseChosen,
         None => PathCheck::Changed,
     }
+}
+
+/// Removes the `..` segments of a path together with the segment each one
+/// leaves, so that a relative path resolved against a base compares equal to
+/// the bound path; `..` above the root stays at the root.
+fn collapse_parent_segments(path: &str) -> String {
+    if !path.split('/').any(|segment| segment == "..") {
+        return path.to_owned();
+    }
+    let rooted = path.starts_with('/');
+    let mut kept: Vec<&str> = Vec::new();
+    for segment in path.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                if kept.last().is_some_and(|last| !last.ends_with(':')) {
+                    kept.pop();
+                }
+            }
+            other => kept.push(other),
+        }
+    }
+    let joined = kept.join("/");
+    if rooted { format!("/{joined}") } else { joined }
 }
 
 fn strip_current(path: &str) -> &str {
