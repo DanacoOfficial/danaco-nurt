@@ -26,6 +26,11 @@ use super::guard;
 /// Generator steps between two checks of cancellation and the deadline.
 const CHECK_INTERVAL: u64 = 256;
 
+/// Calls of definitions that one run may make. A recursion that the evaluator
+/// runs without growing the stack, such as `def f: f; f`, is not seen by the
+/// stack measurement and ends only at this count.
+const CALL_LIMIT: u64 = 1_000_000;
+
 /// Exit code of the halt used internally to stop a filter at a checkpoint.
 const STOP_EXIT_CODE: i32 = i32::MIN;
 
@@ -225,7 +230,8 @@ impl<'a> Runtime<'a> {
 
     /// Guards the call of a definition of the filter: stops the filter, as
     /// [`Runtime::step`] does, when the stack in use reaches the floor of the
-    /// run, and checks the context at every [`CHECK_INTERVAL`] calls. Calls
+    /// run or when the calls reach [`CALL_LIMIT`], and checks the context at
+    /// every [`CHECK_INTERVAL`] calls. Calls
     /// are not counted against the steps, which bound the values a filter
     /// generates.
     fn guard(&self) -> Result<(), Exn<'a, Val>> {
@@ -235,6 +241,13 @@ impl<'a> Runtime<'a> {
                 state.stopped = Some(Error::new(
                     ErrorCode::Limit,
                     "the filter recurses deeper than the stack of the run allows; give the recursion an end",
+                ));
+            } else if state.calls >= CALL_LIMIT {
+                state.stopped = Some(Error::new(
+                    ErrorCode::Limit,
+                    format!(
+                        "the filter recurses without end: more than {CALL_LIMIT} calls of definitions; give the recursion an end"
+                    ),
                 ));
             } else {
                 state.calls += 1;

@@ -166,3 +166,20 @@ allow-attribute crates/nurt-code/src/commands/hover.rs
 # Vendored third-party crate kept as published, without the producer header, the
 # style rules of this repository and the other checks.
 * crates/jaq-json/*
+
+# Tests of path handling, history, undo, recovery and policy use home
+# directories of other accounts (/home/u, /home/other, /home/run-1) as input;
+# the tests depend on the paths differing from the placeholder account.
+user-path crates/nurt-bench/src/probe.rs
+user-path crates/nurt-contracts/tests/fs_paths.rs
+user-path crates/nurt-correct/src/policy.rs
+user-path crates/nurt-doc/src/registry/mod.rs
+user-path crates/nurt-journal/src/commands/history.rs
+user-path crates/nurt-journal/src/commands/mod.rs
+user-path crates/nurt-journal/src/commands/undo.rs
+user-path crates/nurt-journal/src/conflict.rs
+user-path crates/nurt-journal/src/recovery.rs
+user-path crates/nurt-journal/src/salvage.rs
+user-path crates/nurt-journal/src/store/tests.rs
+user-path crates/nurt-journal/src/undo.rs
+user-path crates/nurt-tooldef/tests/equivalence.rs

@@ -24,12 +24,12 @@ pub(crate) const GUARD_NAME: &str = "__guard";
 const GUARD_CALL: &str = " __guard |";
 
 /// Size of the stack of the thread that runs a guarded filter.
-const STACK_BYTES: usize = 256 * 1024 * 1024;
+const STACK_BYTES: usize = 1280 * 1024 * 1024;
 
 /// Stack that a guarded filter may use; the rest is left for the frames
 /// between two guards and for the release of the structures of the filter
 /// when it stops.
-const STACK_BUDGET: usize = 128 * 1024 * 1024;
+const STACK_BUDGET: usize = 1024 * 1024 * 1024;
 
 /// Stack that a filter may use on the calling thread when the thread of a
 /// guarded filter cannot be started: the part of the stack of any thread of
