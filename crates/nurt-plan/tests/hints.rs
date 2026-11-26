@@ -20,7 +20,7 @@ use common::{
     operation, pipeline, run, single, source, text, transform,
 };
 use nurt_catalog::Registry;
-use nurt_contracts::bound::{BoundDocument, BoundExpr};
+use nurt_contracts::bound::{BoundDocument, BoundExpr, BoundMapEntry, BoundRef};
 use nurt_contracts::config::Config;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::stage::{
@@ -193,6 +193,48 @@ fn named_result_used_by_a_change_needs_entity_tags() {
     let binding_plan = plan_counted.lets().next().unwrap();
     assert!(!binding_plan.pipeline.stages[0].demand.etag);
     assert_eq!(binding_plan.pipeline.stages[0].demand.limit, None);
+}
+
+#[test]
+fn named_result_used_inside_a_map_of_a_change_needs_entity_tags() {
+    let argument = BoundExpr::Map {
+        entries: vec![BoundMapEntry {
+            k: "keep".to_owned(),
+            v: BoundExpr::Ref(BoundRef {
+                name: "old".to_owned(),
+                fields: Vec::new(),
+            }),
+        }],
+    };
+    let changed = document(vec![
+        binding("old", pipeline(find("/a"), Vec::new())),
+        operation(pipeline(
+            find("/b"),
+            vec![mutate("remove", vec![given("except", argument)])],
+        )),
+    ]);
+    let plan_changed = plan(&changed, &PlanOptions::new());
+    let binding_plan = plan_changed.lets().next().unwrap();
+    assert!(
+        binding_plan
+            .pipeline
+            .stages
+            .iter()
+            .all(|stage| stage.demand.etag)
+    );
+}
+
+#[test]
+fn sort_needs_every_record_so_the_limit_does_not_reach_the_source() {
+    let by = BoundExpr::List {
+        items: vec![field("size")],
+    };
+    let sort = transform("sort", vec![given("by", by)]);
+    let program = single(pipeline(find("/a"), vec![sort, first(3)]));
+    let demands = demands(&plan(&program, &PlanOptions::new()));
+    assert_eq!(demands[0].limit, None);
+    assert_eq!(demands[1].limit, Some(3));
+    assert_eq!(demands[2].limit, None);
 }
 
 #[test]

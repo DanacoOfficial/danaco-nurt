@@ -123,6 +123,33 @@ fn program_computed_per_record_is_dynamic() {
 }
 
 #[test]
+fn command_given_as_one_text_names_the_program() {
+    let single_text = common::stage(
+        "run",
+        EffectKind::Process,
+        Phase::Run,
+        vec![given("command", text("make"))],
+    );
+    let summary = summarize(&single(pipeline(single_text, Vec::new())));
+    assert_eq!(summary.programs.len(), 1);
+    assert_eq!(summary.programs[0].program.as_deref(), Some("make"));
+    assert_eq!(summary.programs[0].source, TargetSource::Literal);
+}
+
+#[test]
+fn empty_command_list_names_no_program() {
+    let empty = nurt_contracts::bound::BoundExpr::List { items: Vec::new() };
+    let none = common::stage(
+        "run",
+        EffectKind::Process,
+        Phase::Run,
+        vec![given("command", empty)],
+    );
+    let summary = summarize(&single(pipeline(none, Vec::new())));
+    assert!(summary.programs.is_empty());
+}
+
+#[test]
 fn git_push_to_named_remote_is_resolved_later() {
     let summary = summarize(&single(pipeline(push("origin"), Vec::new())));
     assert_eq!(summary.network.len(), 1);

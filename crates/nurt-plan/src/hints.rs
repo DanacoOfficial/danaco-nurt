@@ -530,4 +530,41 @@ mod tests {
         collect_refs(&value, &mut names);
         assert!(names.contains("keep"));
     }
+
+    #[test]
+    fn collects_references_inside_maps() {
+        let value = BoundExpr::Map {
+            entries: vec![nurt_contracts::bound::BoundMapEntry {
+                k: "with".to_owned(),
+                v: BoundExpr::Ref(BoundRef {
+                    name: "keep".to_owned(),
+                    fields: Vec::new(),
+                }),
+            }],
+        };
+        let mut names = HashSet::new();
+        collect_refs(&value, &mut names);
+        assert!(names.contains("keep"));
+    }
+
+    #[test]
+    fn collects_nothing_from_literals() {
+        let mut names = HashSet::new();
+        collect_refs(&BoundExpr::Int { v: 1 }, &mut names);
+        collect_refs(&BoundExpr::Text { v: "a".to_owned() }, &mut names);
+        assert!(names.is_empty());
+    }
+
+    #[test]
+    fn count_gives_a_limit_only_as_a_non_negative_literal() {
+        let absent = stage("first", Vec::new());
+        assert_eq!(int_arg(&absent, COUNT_PARAM), None);
+        let negative = BoundArg::given(COUNT_PARAM, BoundExpr::Int { v: -1 });
+        assert_eq!(int_arg(&stage("first", vec![negative]), COUNT_PARAM), None);
+        let literal = BoundArg::given(COUNT_PARAM, BoundExpr::Int { v: 4 });
+        assert_eq!(
+            int_arg(&stage("first", vec![literal]), COUNT_PARAM),
+            Some(4)
+        );
+    }
 }
