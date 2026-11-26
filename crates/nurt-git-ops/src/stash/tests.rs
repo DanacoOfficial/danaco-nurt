@@ -257,6 +257,19 @@ fn push_of_an_unknown_path_is_rejected() {
 }
 
 #[test]
+fn push_of_a_path_outside_the_repository_is_an_invalid_value() {
+    let fx = base();
+    let journal = Journal::new();
+    write(&fx, "a.txt", "x\n");
+    let request = StashRequest {
+        paths: vec![PathBuf::from("/nurt-outside-the-repository/a.txt")],
+        ..StashRequest::new(StashAction::Push)
+    };
+    let err = run(&fx, &journal, &request).unwrap_err();
+    assert_eq!(err.code, ErrorCode::InvalidValue);
+}
+
+#[test]
 fn push_counts_and_keeps_excluded_files() {
     let fx = base();
     let journal = Journal::new();

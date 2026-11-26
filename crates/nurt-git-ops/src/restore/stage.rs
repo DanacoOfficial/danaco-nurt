@@ -165,7 +165,7 @@ fn relative_path(root: &Path, path: &str) -> Result<BString> {
     }
     let outside = || {
         Error::new(
-            ErrorCode::Arg,
+            ErrorCode::InvalidValue,
             format!(
                 "{path} is outside the repository at {}; give paths inside it",
                 root.display()
@@ -447,6 +447,7 @@ mod tests {
         assert_eq!(relative_path(root, "/r/repo").expect("root"), ".");
         assert_eq!(relative_path(root, "*.txt").expect("pattern"), "*.txt");
         let error = relative_path(root, "/elsewhere/a.txt").expect_err("outside");
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
         assert_eq!(error.data().problem.as_deref(), Some("outside_repository"));
     }
 
