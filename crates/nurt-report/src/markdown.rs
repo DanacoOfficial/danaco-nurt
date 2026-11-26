@@ -147,12 +147,30 @@ fn diff_block(blocks: &mut Vec<String>, shaped: &Shaped) {
         plural(total, "hunk", "hunks")
     ));
     for hunk in &report.diff {
+        let body = hunk.lines.join("\n");
+        let fence = fence_for(&body);
         blocks.push(format!(
-            "`{}`\n{FENCE}diff\n{}\n{FENCE}",
-            hunk_location(hunk),
-            hunk.lines.join("\n")
+            "`{}`\n{fence}diff\n{body}\n{fence}",
+            hunk_location(hunk)
         ));
     }
+}
+
+/// Fence of a fenced block that holds `text`: at least three backticks and
+/// longer than every run of backticks in the text, so the text cannot close
+/// the block.
+fn fence_for(text: &str) -> String {
+    let mut longest = 0;
+    let mut run = 0;
+    for character in text.chars() {
+        if character == '`' {
+            run += 1;
+            longest = longest.max(run);
+        } else {
+            run = 0;
+        }
+    }
+    "`".repeat((longest + 1).max(FENCE.len()))
 }
 
 fn bulk_block(blocks: &mut Vec<String>, report: &Report) {
@@ -195,10 +213,9 @@ fn exec_block(blocks: &mut Vec<String>, report: &Report) {
     blocks.push(list(items.into_iter()));
     for stream in ["stdout", "stderr"] {
         if let Some(text) = field_str(exec, stream).filter(|text| !text.is_empty()) {
-            blocks.push(format!(
-                "**{stream}**\n{FENCE}\n{}\n{FENCE}",
-                text.trim_end_matches('\n')
-            ));
+            let body = text.trim_end_matches('\n');
+            let fence = fence_for(body);
+            blocks.push(format!("**{stream}**\n{fence}\n{body}\n{fence}"));
         }
     }
     if !report.changes.is_empty() {
@@ -225,10 +242,9 @@ fn records_block(blocks: &mut Vec<String>, report: &Report) {
         return;
     }
     if page.record_type == RecordKind::Entry && tree::is_tree(&page.rows) {
-        blocks.push(format!(
-            "{FENCE}\n{}\n{FENCE}",
-            tree::draw(&page.rows).join("\n")
-        ));
+        let body = tree::draw(&page.rows).join("\n");
+        let fence = fence_for(&body);
+        blocks.push(format!("{fence}\n{body}\n{fence}"));
         return;
     }
     blocks.push(rows_table(page));
@@ -264,4 +280,27 @@ fn error_block(error: &Error, label: &str) -> String {
         text.push_str(&error_block(cause, "cause"));
     }
     text
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fence_has_three_backticks_for_text_without_backticks() {
+        assert_eq!(fence_for(""), "```");
+        assert_eq!(fence_for("a\nb"), "```");
+        assert_eq!(fence_for("`code` and ``more``"), "```");
+    }
+
+    #[test]
+    fn fence_is_longer_than_every_run_of_backticks_in_the_text() {
+        assert_eq!(fence_for("before ``` after"), "````");
+        assert_eq!(fence_for("`` a ````` b"), "``````");
+    }
+
+    #[test]
+    fn pipes_and_line_breaks_of_a_cell_stay_in_the_cell() {
+        assert_eq!(cell("a|b\nc\r\nd"), "a\\|b c  d");
+    }
 }

@@ -105,9 +105,10 @@ pub(super) fn similar(wanted: &str, name: &str) -> bool {
     const PREFIX: usize = 3;
     let stem = wanted.split('.').next().unwrap_or(wanted);
     name.contains(stem)
-        || (stem.len() >= PREFIX
-            && name.len() >= PREFIX
-            && stem.get(..PREFIX) == name.get(..PREFIX))
+        || matches!(
+            (stem.get(..PREFIX), name.get(..PREFIX)),
+            (Some(left), Some(right)) if left == right
+        )
 }
 
 /// Identity of the entry in its file.
@@ -363,5 +364,62 @@ mod tests {
         assert!(!similar("cron", "dbus.service"));
         assert_eq!(exe_name(b"/usr/bin/env"), b"env");
         assert_eq!(exe_name(b"env"), b"env");
+    }
+
+    #[test]
+    fn names_without_a_prefix_on_a_character_boundary_are_not_similar() {
+        assert!(!similar("\u{e9}\u{e9}.service", "\u{e0}\u{e0}.service"));
+        assert!(similar("caf\u{e9}", "caf\u{e9}.service"));
+        assert!(!similar("ab", "ba"));
+        assert!(similar("abcx", "abcd"));
+    }
+
+    #[test]
+    fn source_of_an_executable_path_ends_at_the_last_separator() {
+        assert_eq!(exe_name(b"/usr/bin/"), b"");
+        assert_eq!(exe_name(b""), b"");
+        assert_eq!(exe_name(b"/"), b"");
+    }
+
+    #[test]
+    fn priority_outside_zero_to_seven_or_with_signs_gives_info() {
+        let values: [&[u8]; 5] = [b"8", b"-1", b"+3x", b"", b"256"];
+        for value in values {
+            assert_eq!(map(vec![field("PRIORITY", value)]).priority, 6, "{value:?}");
+        }
+        assert_eq!(map(vec![field("PRIORITY", b"7")]).priority, 7);
+    }
+
+    #[test]
+    fn pid_that_is_not_a_number_is_absent() {
+        let event = map(vec![field("_PID", b"12x"), field("TID", b"-5")]);
+        assert_eq!((event.pid, event.tid), (None, None));
+    }
+
+    #[test]
+    fn fields_keep_their_order_and_repeated_names() {
+        let event = map(vec![
+            field("A", b"1"),
+            field("MESSAGE", b"m"),
+            field("A", b"2"),
+            field("_BOOT_ID", b"x"),
+        ]);
+        assert_eq!(
+            event.fields,
+            [
+                ("A".to_owned(), "1".to_owned()),
+                ("A".to_owned(), "2".to_owned())
+            ]
+        );
+    }
+
+    #[test]
+    fn unit_names_with_a_known_suffix_are_not_extended() {
+        for name in ["a.slice", "b.timer", "c.scope", "d.swap"] {
+            let unit = normalize_unit(&NameMatch::parse(name).unwrap()).unwrap();
+            assert_eq!(unit.as_str(), name);
+        }
+        let plain = normalize_unit(&NameMatch::parse("a.b").unwrap()).unwrap();
+        assert_eq!(plain.as_str(), "a.b.service");
     }
 }
