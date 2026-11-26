@@ -85,7 +85,10 @@ impl Layout {
         match value {
             Value::Null => out.push_str("null"),
             Value::Bool(flag) => out.push_str(if *flag { "true" } else { "false" }),
-            Value::Number(number) => out.push_str(&number.to_string()),
+            Value::Number(number) => match number.as_f64().filter(|_| number.is_f64()) {
+                Some(float) => out.push_str(&python_float(float)),
+                None => out.push_str(&number.to_string()),
+            },
             Value::String(text) => self.push_string(out, text),
             Value::Array(items) if items.is_empty() => out.push_str("[]"),
             Value::Array(items) => {
@@ -149,6 +152,59 @@ impl Layout {
 
 fn push_unicode_escape(out: &mut String, unit: u32) {
     out.push_str(&format!("\\u{unit:04x}"));
+}
+
+/// Largest decimal point position written without an exponent by Python
+/// `repr(float)`; `1e16` is the first value written as `1e+16`.
+const PYTHON_FIXED_MAX_POINT: i32 = 16;
+
+/// Smallest decimal point position written without an exponent; values below
+/// `1e-4` are written with an exponent, as in `1e-05`.
+const PYTHON_FIXED_MIN_POINT: i32 = -3;
+
+/// Writes a finite float as Python `repr(float)` does: the shortest digits
+/// that read back, an exponent with a sign and at least two digits outside the
+/// fixed range, and a `.0` after a whole number.
+fn python_float(value: f64) -> String {
+    if value == 0.0 {
+        return if value.is_sign_negative() {
+            "-0.0"
+        } else {
+            "0.0"
+        }
+        .to_owned();
+    }
+    let scientific = format!("{:e}", value.abs());
+    let (mantissa, exponent) = scientific
+        .split_once('e')
+        .unwrap_or((scientific.as_str(), "0"));
+    let exponent: i32 = exponent.parse().unwrap_or_default();
+    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
+    let point = exponent + 1;
+    let sign = if value < 0.0 { "-" } else { "" };
+    let width = i32::try_from(digits.len()).unwrap_or(i32::MAX);
+    if point > PYTHON_FIXED_MAX_POINT || point < PYTHON_FIXED_MIN_POINT {
+        let (head, tail) = digits.split_at(1);
+        let fraction = if tail.is_empty() {
+            String::new()
+        } else {
+            format!(".{tail}")
+        };
+        let exponent_sign = if exponent < 0 { '-' } else { '+' };
+        return format!(
+            "{sign}{head}{fraction}e{exponent_sign}{:02}",
+            exponent.abs()
+        );
+    }
+    let zeros = |count: i32| "0".repeat(usize::try_from(count).unwrap_or_default());
+    if point <= 0 {
+        format!("{sign}0.{}{digits}", zeros(-point))
+    } else if point >= width {
+        format!("{sign}{digits}{}.0", zeros(point - width))
+    } else {
+        let (whole, fraction) = digits.split_at(usize::try_from(point).unwrap_or_default());
+        format!("{sign}{whole}.{fraction}")
+    }
 }
 
 /// Whitespace around the items of a container, taken from the original text
@@ -889,6 +945,38 @@ mod tests {
         let layout = Layout::default();
         let text = layout.write_value(&json!("a\"\\\n\t\u{1b}é"), 0);
         assert_eq!(text, "\"a\\\"\\\\\\n\\t\\u001bé\"");
+    }
+
+    #[test]
+    fn writes_floats_like_python() {
+        let cases = [
+            (1e-7, "1e-07"),
+            (1e16, "1e+16"),
+            (1.5e16, "1.5e+16"),
+            (1e15, "1000000000000000.0"),
+            (123_456_789_012_345_680.0, "1.2345678901234568e+17"),
+            (0.0001, "0.0001"),
+            (0.00001, "1e-05"),
+            (1.5e-10, "1.5e-10"),
+            (1e-100, "1e-100"),
+            (1e300, "1e+300"),
+            (0.5, "0.5"),
+            (1.0, "1.0"),
+            (-2.5, "-2.5"),
+            (-1e-7, "-1e-07"),
+            (123.456, "123.456"),
+            (0.0, "0.0"),
+            (-0.0, "-0.0"),
+        ];
+        let layout = Layout::default();
+        for (value, expected) in cases {
+            assert_eq!(layout.write_value(&json!(value), 0), expected, "{value:e}");
+        }
+        assert_eq!(layout.write_value(&json!(42), 0), "42");
+        assert_eq!(
+            layout.write_value(&json!(u64::MAX), 0),
+            "18446744073709551615"
+        );
     }
 
     #[test]
