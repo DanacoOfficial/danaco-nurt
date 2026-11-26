@@ -377,8 +377,14 @@ impl Session<'_> {
             if !ready {
                 break;
             }
-            answer = self.attempt(method, params)?;
+            let retried = self.attempt(method, params)?;
             round += 1;
+            // A failed repetition does not take back an answer that was
+            // already given: the server only had not finished loading.
+            if retried.error.is_some() && answer.error.is_none() && !answer.empty {
+                break;
+            }
+            answer = retried;
         }
         match answer.error {
             Some(error) => Err(error),
@@ -1111,7 +1117,9 @@ pub fn from_lsp(text: Option<&str>, position: &Value, unit: PositionUnit) -> Opt
                 units = units.saturating_add(width(current, unit));
                 columns += 1;
             }
-            columns.saturating_add(character.saturating_sub(units))
+            // A character beyond the end of the line stands for the end of the
+            // line (LSP 3.17, `Position`), not for a column past it.
+            columns
         }
         None => character,
     };
@@ -1250,6 +1258,22 @@ mod tests {
         );
         let negative = json!({"line": -1, "character": 0});
         assert!(from_lsp(Some(text), &negative, PositionUnit::Utf16).is_none());
+    }
+
+    #[test]
+    fn a_character_beyond_the_end_of_the_line_is_the_end_of_the_line() {
+        let end = TextPosition { line: 1, column: 3 };
+        for character in [2, 40, 2_147_483_647] {
+            assert_eq!(
+                from_lsp(
+                    Some("ab\n"),
+                    &json!({"line": 0, "character": character}),
+                    PositionUnit::Utf16
+                ),
+                Some(end),
+                "{character}"
+            );
+        }
     }
 
     #[test]
