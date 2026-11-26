@@ -191,7 +191,10 @@ impl<'a> Commits<'a> {
     /// Whether the entry `op` with the state `record` was rolled back before
     /// its commit.
     pub(crate) fn rolled_back(&self, op: OpId, record: &StateRecord) -> bool {
-        if record.state != EntryState::Undone || record.cause == Some(UndoneCause::Undo) {
+        if record.state != EntryState::Undone
+            || record.after_commit
+            || record.cause == Some(UndoneCause::Undo)
+        {
             return false;
         }
         self.committed

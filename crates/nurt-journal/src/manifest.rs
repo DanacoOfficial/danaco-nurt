@@ -456,11 +456,18 @@ impl Manifest {
     }
 }
 
+/// Word of the state file that marks an entry undone after its commit.
+const COMMITTED_WORD: &str = "committed";
+
 /// Persistent state of an entry (`STATE`).
 ///
 /// The file holds the snake-case name of the state, followed for `undone`
 /// and `rolling_back` by a space and the cause, and a line feed:
-/// `committed`, `rolling_back rolled_back`, `undone crash`.
+/// `committed`, `rolling_back rolled_back`, `undone crash`. An entry undone
+/// after its commit (by `undo`, `redo` or the rollback of a committed entry)
+/// carries the further word `committed`: `undone undo committed`. The causes
+/// `rolled_back` and `validate_failed` name both a rollback before the commit
+/// and a rollback after it, so only this word tells them apart.
 ///
 /// # Examples
 ///
@@ -475,6 +482,9 @@ impl Manifest {
 ///     StateRecord::decode(b"committed\n").map(|r| r.state),
 ///     Ok(EntryState::Committed)
 /// );
+/// let after = StateRecord::undone_after_commit(UndoneCause::Undo);
+/// assert_eq!(after.encode(), b"undone undo committed\n");
+/// assert_eq!(StateRecord::decode(b"undone undo committed\n"), Ok(after));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StateRecord {
@@ -482,13 +492,19 @@ pub struct StateRecord {
     pub state: EntryState,
     /// Cause of `undone`, or the cause recorded when `rolling_back` started.
     pub cause: Option<UndoneCause>,
+    /// The entry was committed before it was undone.
+    pub after_commit: bool,
 }
 
 impl StateRecord {
     /// State without cause.
     #[must_use]
     pub const fn new(state: EntryState) -> Self {
-        Self { state, cause: None }
+        Self {
+            state,
+            cause: None,
+            after_commit: false,
+        }
     }
 
     /// `rolling_back` with the cause the completed rollback will record.
@@ -497,15 +513,26 @@ impl StateRecord {
         Self {
             state: EntryState::RollingBack,
             cause: Some(cause),
+            after_commit: false,
         }
     }
 
-    /// `undone` with its cause.
+    /// `undone` with its cause, for an entry that was not committed.
     #[must_use]
     pub const fn undone(cause: UndoneCause) -> Self {
         Self {
             state: EntryState::Undone,
             cause: Some(cause),
+            after_commit: false,
+        }
+    }
+
+    /// `undone` with its cause, for an entry that was committed first.
+    #[must_use]
+    pub const fn undone_after_commit(cause: UndoneCause) -> Self {
+        Self {
+            after_commit: true,
+            ..Self::undone(cause)
         }
     }
 
@@ -516,6 +543,10 @@ impl StateRecord {
         if let Some(cause) = &self.cause {
             text.push(' ');
             text.push_str(&snake_name(cause));
+            if self.after_commit {
+                text.push(' ');
+                text.push_str(COMMITTED_WORD);
+            }
         }
         text.push('\n');
         text.into_bytes()
@@ -538,11 +569,24 @@ impl StateRecord {
             Some(word) => Some(from_snake_name(Some(word)).ok_or_else(malformed)?),
             None => None,
         };
+        let after_commit = match words.next() {
+            Some(COMMITTED_WORD) => true,
+            Some(_) => return Err(malformed()),
+            None => false,
+        };
         let cause_allowed = matches!(state, EntryState::Undone | EntryState::RollingBack);
-        if words.next().is_some() || (cause.is_some() && !cause_allowed) {
+        let word_allowed = state == EntryState::Undone && cause.is_some();
+        if words.next().is_some()
+            || (cause.is_some() && !cause_allowed)
+            || (after_commit && !word_allowed)
+        {
             return Err(malformed());
         }
-        Ok(Self { state, cause })
+        Ok(Self {
+            state,
+            cause,
+            after_commit,
+        })
     }
 }
 
@@ -1590,6 +1634,25 @@ pub(crate) mod tests {
             StateRecord::decode(b"undone\n"),
             Ok(StateRecord::new(EntryState::Undone))
         );
+    }
+
+    #[test]
+    fn state_files_mark_an_entry_undone_after_its_commit() {
+        let after = StateRecord::undone_after_commit(UndoneCause::ValidateFailed);
+        assert_eq!(after.encode(), b"undone validate_failed committed\n");
+        assert_eq!(StateRecord::decode(&after.encode()), Ok(after));
+        let before = StateRecord::undone(UndoneCause::ValidateFailed);
+        assert_ne!(after, before);
+        assert_eq!(before.encode(), b"undone validate_failed\n");
+        for garbage in [
+            &b"committed committed\n"[..],
+            b"undone committed\n",
+            b"rolling_back crash committed\n",
+            b"undone crash done\n",
+            b"undone crash committed extra\n",
+        ] {
+            assert!(StateRecord::decode(garbage).is_err(), "{garbage:?}");
+        }
     }
 
     #[test]
