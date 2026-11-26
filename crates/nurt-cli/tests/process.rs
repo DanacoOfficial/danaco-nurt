@@ -331,8 +331,19 @@ fn mcp_server_answers_initialize_and_tools_list_and_ends_at_the_end_of_the_input
     let printed: serde_json::Value =
         serde_json::from_str(&stdout(&nurt(&["schema", "tool", "--format", "mcp"], ""))).unwrap();
     let listed = &reply["result"]["tools"][0];
-    for member in ["name", "description", "inputSchema"] {
-        assert_eq!(listed[member], printed[member], "{member}");
+    let members = printed.as_object().unwrap();
+    for member in ["name", "description", "inputSchema", "_meta"] {
+        assert!(members.contains_key(member), "{member} is not printed");
+    }
+    for (member, value) in members {
+        assert_eq!(&listed[member.as_str()], value, "{member}");
+    }
+    let listed_members = listed.as_object().unwrap();
+    for member in listed_members.keys() {
+        assert!(
+            members.contains_key(member) || ["title", "annotations"].contains(&member.as_str()),
+            "{member} is listed but not printed"
+        );
     }
     assert!(
         !printed["description"].as_str().unwrap().starts_with('{'),

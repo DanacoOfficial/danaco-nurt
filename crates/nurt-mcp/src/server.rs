@@ -322,7 +322,9 @@ impl<B: Backend> ServerHandler for NurtServer<B> {
             .map_err(|error| {
                 ErrorData::internal_error(format!("core description unavailable: {error}"), None)
             })?;
-        let run = run_tool(&core).map_err(|message| ErrorData::internal_error(message, None))?;
+        let revision = self.shared.call(|backend| backend.catalog_rev()).await?;
+        let run = run_tool(&core, revision.as_deref())
+            .map_err(|message| ErrorData::internal_error(message, None))?;
         Ok(ListToolsResult::with_all_items(vec![
             run,
             help_tool(),

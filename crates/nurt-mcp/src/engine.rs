@@ -57,6 +57,10 @@ impl Backend for Engine {
         }
     }
 
+    fn catalog_rev(&self) -> Option<String> {
+        Some(Engine::catalog_rev(self).to_owned())
+    }
+
     fn run(
         &self,
         request: &Request,
