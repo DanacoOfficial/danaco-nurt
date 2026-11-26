@@ -12,4 +12,4 @@
 #   fix: run ["make", "-C", "/srv/app"] cwd: "/srv"
 # untranslated: E_UNCORRECTABLE: timeout 30 /srv/app/bin/check
 #   problem: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
-#   fix: run ["/srv/app/bin/check"] cwd: "/srv/app/bin"
+#   fix: run ["/srv/app/bin/check"] cwd: "/srv/app/bin" timeout: 30s

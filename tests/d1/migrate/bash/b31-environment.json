@@ -21,7 +21,7 @@
       "reason": "rule",
       "problem": "the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)",
       "fix": [
-        "run [\"/srv/app/bin/run\"] cwd: \"/srv/app/bin\""
+        "run [\"/srv/app/bin/run\"] cwd: \"/srv/app/bin\" env: {\"DEBUG\": \"1\"}"
       ]
     },
     {
@@ -47,7 +47,7 @@
       "reason": "rule",
       "problem": "the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)",
       "fix": [
-        "run [\"go\", \"build\", \"-C\", \"/srv/app\"] cwd: \"/srv\""
+        "run [\"go\", \"build\", \"-C\", \"/srv/app\"] cwd: \"/srv\" env: {\"GOFLAGS\": \"-mod=vendor\"}"
       ]
     }
   ],

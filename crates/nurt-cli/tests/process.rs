@@ -693,16 +693,16 @@ fn schema_tool_describes_the_selected_groups_in_the_selected_language() {
 
 #[test]
 fn schema_tool_rejects_an_unknown_format_and_an_unknown_option() {
-    for arguments in [
-        &["schema", "tool", "--format", "yaml"][..],
-        &["schema", "tool", "--output", "x"][..],
-        &["schema", "tool", "--language", "de"][..],
-        &["schema", "tool", "--format"][..],
+    for (arguments, code) in [
+        (&["schema", "tool", "--format", "yaml"][..], 1),
+        (&["schema", "tool", "--output", "x"][..], 2),
+        (&["schema", "tool", "--language", "de"][..], 1),
+        (&["schema", "tool", "--format"][..], 2),
     ] {
         let output = nurt(arguments, "");
         assert_eq!(
             output.status.code(),
-            Some(2),
+            Some(code),
             "{arguments:?}: {}",
             stderr(&output)
         );

@@ -125,8 +125,13 @@ const SUBCOMMAND_USAGE: &[(&str, &str, &[&str])] = &[
     ),
     (
         "schema",
-        "Print a published JSON Schema.",
-        &["ast|bound|report|request|config|tool"],
+        "Print a published JSON Schema or the tool definition.",
+        &[
+            "ast|bound|report|request|config|tool",
+            "[--format F]",
+            "[--language en|pl]",
+            "[--groups G]",
+        ],
     ),
     (
         "catalog",

@@ -527,7 +527,7 @@ summary = "Matches, matching files, counts per file, or files without matches."
 [[command.param]]
 name = "max_per_file"
 type = "int"
-summary = "Maximum number of matches per file."
+summary = "Maximum number of matches per file; `0` and no value mean no limit."
 
 [[command.param]]
 name = "binary"

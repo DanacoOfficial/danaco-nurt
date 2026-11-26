@@ -9,9 +9,9 @@
 # B31: environment variables for one command.
 # untranslated: E_UNCORRECTABLE: DEBUG=1 /srv/app/bin/run
 #   problem: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
-#   fix: run ["/srv/app/bin/run"] cwd: "/srv/app/bin"
+#   fix: run ["/srv/app/bin/run"] cwd: "/srv/app/bin" env: {"DEBUG": "1"}
 # untranslated: E_UNCORRECTABLE: env LANG=C sort /srv/a.txt
 #   problem: environment, time limit and output options apply only to a program run with `run` (options_without_program)
 # untranslated: E_UNCORRECTABLE: export GOFLAGS=-mod=vendor; go build -C /srv/app
 #   problem: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
-#   fix: run ["go", "build", "-C", "/srv/app"] cwd: "/srv"
+#   fix: run ["go", "build", "-C", "/srv/app"] cwd: "/srv" env: {"GOFLAGS": "-mod=vendor"}

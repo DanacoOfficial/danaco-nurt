@@ -9,7 +9,7 @@
 # B29: commands in the background.
 # untranslated: E_UNCORRECTABLE: /srv/app/bin/server --port 8080 &
 #   problem: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
-#   fix: run ["/srv/app/bin/server", "--port", "8080"] cwd: "/srv/app/bin"
+#   fix: run ["/srv/app/bin/server", "--port", "8080"] cwd: "/srv/app/bin" background: true
 # untranslated: E_UNCORRECTABLE: nohup /srv/app/bin/worker &
 #   problem: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
-#   fix: run ["/srv/app/bin/worker"] cwd: "/srv/app/bin"
+#   fix: run ["/srv/app/bin/worker"] cwd: "/srv/app/bin" background: true
