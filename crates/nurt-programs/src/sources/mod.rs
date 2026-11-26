@@ -125,6 +125,15 @@ pub fn read_prefix(
     Ok((bytes, complete))
 }
 
+/// Text of a small file given as a system path; bytes that are not UTF-8 are
+/// replaced, so that one damaged byte does not hide the whole file. `None`
+/// when the file cannot be read.
+#[must_use]
+pub fn read_lossy(system_path: &Path) -> Option<String> {
+    let bytes = std::fs::read(system_path).ok()?;
+    Some(String::from_utf8_lossy(&bytes).into_owned())
+}
+
 /// Entries of a directory given as a host path, sorted by name: file name
 /// and host path. A missing or unreadable directory has no entries.
 #[must_use]
