@@ -246,6 +246,28 @@ mod tests {
     }
 
     #[test]
+    fn shared_aliases_with_quoted_forward_slash_paths_are_nurt() {
+        assert!(!detected(r#"move "C:/a.txt" "C:/b""#));
+        assert!(!detected(r#"write "C:/x.txt" "tekst""#));
+        assert!(!detected(r#"copy "C:/a.txt" "C:/b""#));
+        assert!(!detected(r#"copy "C:/a.txt" to: "C:/b""#));
+        assert!(!detected(r#"copy "C:/a.txt" into: "C:/b""#));
+        assert!(!detected(r#"move "C:/a.txt" to: "C:/b/c.txt""#));
+        assert!(!detected(r#"write "C:/x.txt" "tekst" mode: append"#));
+    }
+
+    #[test]
+    fn shared_aliases_with_raw_backslash_paths_are_nurt() {
+        assert!(!detected(r#"move r"C:\a\b.txt" r"C:\b""#));
+        assert!(!detected(r#"write r"C:\x.txt" "tekst""#));
+        assert!(!detected(r#"copy r"C:\a\x.txt" r"C:\b""#));
+        assert!(!detected(r#"copy r"C:\a\x.txt" to: r"C:\b""#));
+        assert!(!detected(r#"copy r"C:\a\x.txt" into: r"C:\b""#));
+        assert!(!detected(r##"move r#"C:\a\b.txt"# r#"C:\b"#"##));
+        assert!(!detected(r#"write r"\\server\share\x.txt" "tekst""#));
+    }
+
+    #[test]
     fn shared_aliases_with_powershell_paths_stay_powershell() {
         assert!(detected(r"move C:\a\b.go C:\a\c.go"));
         assert!(detected(r"write C:\a\m.txt"));
