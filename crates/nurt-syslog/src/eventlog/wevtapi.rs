@@ -299,3 +299,71 @@ fn from_wide(buffer: &[u16], used: u32) -> String {
         .unwrap_or(text.len());
     String::from_utf16_lossy(text.get(..end).unwrap_or_default())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn error_of(code: WIN32_ERROR) -> windows::core::Error {
+        windows::core::Error::from(HRESULT::from_win32(code.0))
+    }
+
+    #[test]
+    fn wide_text_ends_with_a_nul_unit() {
+        assert_eq!(wide("ab"), [97, 98, 0]);
+        assert_eq!(wide(""), [0]);
+        assert_eq!(wide("\u{1f600}").len(), 3);
+    }
+
+    #[test]
+    fn from_wide_stops_at_the_first_nul_and_at_the_used_length() {
+        let buffer: Vec<u16> = "ab\0cd".encode_utf16().collect();
+        assert_eq!(from_wide(&buffer, 5), "ab");
+        assert_eq!(from_wide(&buffer, 1), "a");
+        assert_eq!(from_wide(&buffer, 99), "ab");
+        assert_eq!(from_wide(&buffer, 0), "");
+        assert_eq!(from_wide(&[], 3), "");
+    }
+
+    #[test]
+    fn from_wide_replaces_unpaired_surrogates() {
+        assert_eq!(from_wide(&[0x61, 0xd800, 0x62], 3), "a\u{fffd}b");
+    }
+
+    #[test]
+    fn win32_errors_map_to_source_errors() {
+        assert_eq!(
+            source_error(&error_of(ERROR_EVT_CHANNEL_NOT_FOUND)),
+            SourceError::ChannelNotFound
+        );
+        assert_eq!(
+            source_error(&error_of(ERROR_ACCESS_DENIED)),
+            SourceError::AccessDenied
+        );
+        assert_eq!(
+            source_error(&error_of(WIN32_ERROR(RPC_S_SERVER_UNAVAILABLE))),
+            SourceError::ServiceUnavailable
+        );
+        assert_eq!(
+            source_error(&error_of(ERROR_EVT_INVALID_QUERY)),
+            SourceError::InvalidQuery
+        );
+        assert!(matches!(
+            source_error(&error_of(ERROR_NO_MORE_ITEMS)),
+            SourceError::System { .. }
+        ));
+    }
+
+    #[test]
+    fn error_codes_are_compared_as_win32_codes() {
+        let error = error_of(ERROR_INSUFFICIENT_BUFFER);
+        assert!(is(&error, ERROR_INSUFFICIENT_BUFFER));
+        assert!(!is(&error, ERROR_NO_MORE_ITEMS));
+    }
+
+    #[test]
+    fn counts_larger_than_the_address_space_are_clamped() {
+        assert_eq!(units(0), 0);
+        assert_eq!(units(u32::MAX), usize::try_from(u32::MAX).unwrap());
+    }
+}

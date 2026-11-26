@@ -258,6 +258,48 @@ mod tests {
     }
 
     #[test]
+    fn zero_limits_empty_the_event_without_cutting_a_character() {
+        let limits = LogLimits {
+            max_message_bytes: 0,
+            max_field_bytes: 1,
+            max_fields: 1,
+            ..LogLimits::default()
+        };
+        let mut event = event_with("m\u{e9}", 2, "\u{e9}v");
+        event.unit = Some("\u{e9}".to_owned());
+        limits.apply(&mut event);
+        assert_eq!(event.message, "");
+        assert_eq!(event.fields.len(), 1);
+        assert_eq!(event.fields[0].1, "");
+        assert_eq!(event.unit.as_deref(), Some(""));
+        assert!(event.flags.truncated);
+    }
+
+    #[test]
+    fn limit_check_follows_the_configured_maximum() {
+        let limits = LogLimits {
+            max_limit: 5,
+            ..LogLimits::default()
+        };
+        assert_eq!(limits.check_limit(5).unwrap(), 5);
+        let error = limits.check_limit(6).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Limit);
+        assert_eq!(error.details["max"], 5);
+        assert_eq!(error.details["key"], KEY_MAX_LIMIT);
+        assert!(limits.check_limit(i64::MIN).is_err());
+    }
+
+    #[test]
+    fn text_of_exactly_the_limit_is_not_cut() {
+        let mut text = String::from("\u{e9}\u{e9}");
+        assert!(!truncate_text(&mut text, 4));
+        assert!(truncate_text(&mut text, 3));
+        assert_eq!(text, "\u{e9}");
+        let mut empty = String::new();
+        assert!(!truncate_text(&mut empty, 0));
+    }
+
+    #[test]
     fn leaves_event_within_limits_unchanged() {
         let limits = LogLimits::default();
         let mut event = event_with("message", 3, "v");
