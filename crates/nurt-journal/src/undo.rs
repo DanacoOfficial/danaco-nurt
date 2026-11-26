@@ -5436,7 +5436,7 @@ mod journal_ctx_tests {
         );
         undo(&world.ctx, &select(UndoSelector::Op(op))).unwrap();
         assert_eq!(xattrs_of(&world, "/a/m"), before.set_xattrs);
-
+    }
     fn provider_set(value: &str) -> FileOp {
         FileOp {
             target: TargetSpec {

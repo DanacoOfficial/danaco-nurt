@@ -700,7 +700,7 @@ pub(crate) mod tests {
             name.into(),
         );
         index.sort_entries();
-        index.write(Default::default()).unwrap();
+        index.write(Default::default(), Default::default()).unwrap();
         assert!(fixture.open().unstaged_paths().unwrap().is_empty());
         fs::write(&file, "two\n").unwrap();
         assert_eq!(

@@ -683,7 +683,7 @@ fn changed_submodule_is_not_an_unstaged_change() {
         "sub".into(),
     );
     index.sort_entries();
-    index.write(Default::default()).expect("index written");
+    index.write(Default::default(), Default::default()).expect("index written");
     let fresh = gix::open(repo.root()).expect("reopen");
     let unstaged = super::command::unstaged_paths(&fresh).expect("status");
     assert!(
