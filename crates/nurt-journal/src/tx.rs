@@ -232,6 +232,13 @@ fn misuse(problem: &str) -> Error {
     .with_problem(problem)
 }
 
+/// Failure of the journal while it moves a target it had agreed to keep: the
+/// operation stops before anything is removed, so no data is lost.
+fn journal_kept_nothing(index: TargetIndex, error: FsError) -> Error {
+    target_error(index, error)
+        .with_problem("the journal could not keep the previous content; nothing was removed")
+}
+
 fn rolled_back() -> Error {
     Error::new(
         ErrorCode::RolledBack,
@@ -2027,8 +2034,10 @@ impl Tx<'_> {
     }
 
     /// Moves the entry at `path` into the journal as the previous content of
-    /// the target, by rename or, across layers, by copy; removes it without
-    /// preservation when the journal cannot hold it.
+    /// the target, by rename or, across layers, by copy. A target the journal
+    /// was not asked to keep, or cannot hold for lack of space, is removed
+    /// without preservation; any other failure of the journal fails the
+    /// operation with the entry still in place.
     fn move_into_journal(&mut self, position: usize, path: &AbsPath) -> Result<()> {
         let ctx = self.ctx;
         let fs = ctx.fs.as_ref();
@@ -2080,18 +2089,20 @@ impl Tx<'_> {
                                     &tmp.join_name(&format!("{id}.blob"))?,
                                 )
                             });
-                            self.targets[position].degrade(if error.kind == FsErrorKind::NoSpace {
-                                Irreversible::NoSpaceForCopy
-                            } else {
-                                Irreversible::JournalError
-                            });
+                            if error.kind != FsErrorKind::NoSpace {
+                                return Err(journal_kept_nothing(index, error));
+                            }
+                            self.targets[position].degrade(Irreversible::NoSpaceForCopy);
                         }
                     }
                 }
-                Err(_) => self.targets[position].degrade(Irreversible::JournalError),
+                Err(error) => return Err(journal_kept_nothing(index, error)),
             }
         } else if self.targets[position].mode() == PreserveMode::Moved {
-            self.targets[position].degrade(Irreversible::JournalError);
+            return Err(journal_kept_nothing(
+                index,
+                FsError::new(FsErrorKind::Io, "journal", None),
+            ));
         }
         blob::remove_entry(fs, &scope, path).map_err(|error| target_error(index, error))?;
         self.targets[position].changed = true;
@@ -4847,6 +4858,39 @@ mod tests {
         assert_eq!(report.rolled_back, vec![OpId(1)]);
         assert_eq!(env.read(&from), b"from");
         assert_eq!(env.read(&to), b"to");
+    }
+
+    #[test]
+    fn failed_move_of_a_removed_file_into_the_journal_keeps_the_file() {
+        let env = Env::new();
+        let a = env.file("vol-a/a.txt", b"precious");
+        env.fixture.fs.fail("rename", ".blob", FsErrorKind::Io);
+        let mut tx = begin(&env.ctx, request("remove"));
+        tx.preserve(&[spec(&a, TargetAction::Delete)]).unwrap();
+        let error = tx.apply(TargetIndex(0), Mutation::Remove).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Io);
+        assert_eq!(env.read(&a), b"precious");
+        assert_eq!(
+            env.state(0, 1),
+            StateRecord::undone(UndoneCause::RolledBack)
+        );
+    }
+
+    #[test]
+    fn removal_the_journal_declined_up_front_proceeds_unpreserved() {
+        let env = Env::new();
+        *env.fixture.admission.eligibility.lock().unwrap() =
+            Eligibility::Inactive(InactiveReason::NoAnchor);
+        let a = env.file("vol-a/a.txt", b"a");
+        let mut tx = begin(&env.ctx, request("remove"));
+        let preserved = tx.preserve(&[spec(&a, TargetAction::Delete)]).unwrap();
+        assert_eq!(
+            preserved[0].irreversible,
+            Some(Irreversible::JournalInactive)
+        );
+        tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
+        tx.commit().unwrap();
+        assert!(!env.fixture.exists(&a));
     }
 
     #[test]

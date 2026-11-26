@@ -20,9 +20,14 @@ reference semantics of test implementations.
    anything is changed. At every instant of a crash the previous content exists
    in at least one place.
 3. Space priority. Free space for the user has priority over the journal.
-   The journal never causes a user operation to fail; when it cannot keep the
-   previous content, the operation proceeds unpreserved and the target is
-   marked irreversible.
+   The journal never causes a user operation to fail for lack of space,
+   eligibility or limits: when admission declines to keep the previous
+   content, the operation proceeds unpreserved and the target is marked
+   irreversible. A failure of the journal itself while it moves a removed
+   target into the journal (any error other than a cross-device rename, which
+   falls back to a copy, and a lack of space for that copy) fails the
+   operation with the target still in place; a removal never deletes data
+   after the journal failed to keep it.
 4. Explicitness. Missing coverage is always visible in the result. Results
    never state until when an operation can be undone.
 
