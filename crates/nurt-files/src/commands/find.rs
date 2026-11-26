@@ -694,6 +694,35 @@ mod tests {
     }
 
     #[test]
+    fn depth_limits_the_levels_walked() {
+        let test = project();
+        let found = run(&test, &args("/proj", &[("depth", Value::Int(1))])).unwrap();
+        assert_eq!(
+            relatives(&found),
+            [".gitignore", "Makefile", "a.txt", "build.log", "main.rs"]
+        );
+        let negative = run(&test, &args("/proj", &[("depth", Value::Int(-1))]))
+            .err()
+            .unwrap();
+        assert_eq!(negative.code(), ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn a_glob_list_with_the_match_all_pattern_selects_every_entry() {
+        let test = project();
+        let all = run(&test, &args("/proj", &[])).unwrap();
+        let listed = run(
+            &test,
+            &args(
+                "/proj",
+                &[(GLOB, Value::List(vec![glob("*.rs"), glob(MATCH_ALL)]))],
+            ),
+        )
+        .unwrap();
+        assert_eq!(relatives(&listed), relatives(&all));
+    }
+
+    #[test]
     fn descriptor_names_a_source_stage() {
         let descriptor = Find.descriptor();
         assert_eq!(descriptor.command, COMMAND);

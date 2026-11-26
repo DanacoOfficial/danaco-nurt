@@ -1533,6 +1533,48 @@ mod tests {
     }
 
     #[test]
+    fn a_relative_link_target_is_resolved_against_the_directory_of_the_link() {
+        let test = tree();
+        test.fs().symlink("src", &abs("/app/code")).unwrap();
+        let listed = run(&test, &args("/app", &[(TYPE, choice_value("link"))])).unwrap();
+        assert_eq!(
+            listed.entries[0]
+                .link_target
+                .as_ref()
+                .map(|target| target.as_str().to_owned()),
+            Some(abs("/app/src").to_language_string())
+        );
+    }
+
+    #[test]
+    fn order_desc_reverses_the_name_order() {
+        let test = tree();
+        let listed = run(&test, &args("/app", &[(ORDER, choice_value("desc"))])).unwrap();
+        assert_eq!(relatives(&listed), ["src", "docs", "README.md", ".env"]);
+    }
+
+    #[test]
+    fn names_are_sorted_by_the_code_points_of_the_name() {
+        let test = TestContext::new();
+        for name in ["z.txt", "\u{e9}.txt", "a.txt"] {
+            test.fs()
+                .write_file(&abs(&format!("/names/{name}")), b"")
+                .unwrap();
+        }
+        let listed = run(&test, &args("/names", &[])).unwrap();
+        assert_eq!(relatives(&listed), ["a.txt", "z.txt", "\u{e9}.txt"]);
+    }
+
+    #[test]
+    fn an_empty_directory_produces_no_records() {
+        let test = TestContext::new();
+        test.fs().create_dir_all(&abs("/empty")).unwrap();
+        let listed = run(&test, &args("/empty", &[])).unwrap();
+        assert!(listed.entries.is_empty());
+        assert!(listed.notes.is_empty());
+    }
+
+    #[test]
     fn descriptor_names_a_source_stage() {
         let descriptor = List.descriptor();
         assert_eq!(descriptor.command, COMMAND);
