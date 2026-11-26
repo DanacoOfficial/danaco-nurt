@@ -55,7 +55,10 @@ pub fn minutes(count: u64) -> Duration {
 }
 
 /// Virtual clock. In advancing mode `sleep` moves the time forward at once;
-/// in frozen mode it waits until the cancellation token is cancelled.
+/// in frozen mode it waits until the cancellation token is cancelled, or for
+/// [`WAIT`] of real time, and then returns `Ok` without moving the time.
+/// `set` changes the wall time only; the monotonic reading moves with
+/// `advance` and with `sleep` in advancing mode.
 pub struct VirtualClock {
     now: Mutex<i128>,
     monotonic: Mutex<Duration>,
