@@ -9,6 +9,7 @@
 //! index and of the files, which a build embeds or a test reads.
 
 use std::fmt;
+use std::sync::{Arc, OnceLock};
 
 use nurt_contracts::spec::{
     CORE_GROUP, CatalogFile, CatalogIndex, CatalogIssue, StageSpec, check_catalog,
@@ -101,6 +102,27 @@ impl Catalog {
             files: parsed,
             docs,
         })
+    }
+
+    /// The catalog and the documentation compiled into the executable,
+    /// built on first use and shared afterwards.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatalogError`] when the embedded catalog or documentation
+    /// is inconsistent, which indicates a damaged build.
+    pub fn embedded() -> Result<Arc<Self>, CatalogError> {
+        static EMBEDDED: OnceLock<Result<Arc<Catalog>, CatalogError>> = OnceLock::new();
+        EMBEDDED
+            .get_or_init(|| {
+                let docs = Docs::embedded().map_err(|error| CatalogError::Parse {
+                    source: error.source,
+                    message: error.message,
+                })?;
+                let (index, files) = nurt_catalog::embedded_sources();
+                Self::from_sources(index, files, docs).map(Arc::new)
+            })
+            .clone()
     }
 
     /// Documentation pages and guides.

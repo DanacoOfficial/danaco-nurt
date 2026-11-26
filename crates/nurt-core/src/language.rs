@@ -8,6 +8,8 @@
 //! catalog) and `nurt-help` (descriptions and help). It holds the catalog and
 //! the correction tables, which are loaded once.
 
+use std::sync::Arc;
+
 use nurt_bind::{BindContext, Catalog as BindCatalog, bind_with_correction};
 use nurt_contracts::ast::AstDocument;
 use nurt_contracts::bound::BoundDocument;
@@ -18,7 +20,6 @@ use nurt_contracts::kinds::SyntaxVariant;
 use nurt_correct::tables::{Tables, load_embedded};
 use nurt_help::catalog::Catalog as HelpCatalog;
 use nurt_help::describe::{Layer, Length, layer};
-use nurt_help::docs::Docs;
 use nurt_help::help::{HelpQuery, render};
 use nurt_syntax::parse::{ParseOptions, parse};
 use nurt_syntax::print::try_print;
@@ -30,7 +31,6 @@ use crate::frontend::{Compiled, Corrected, Frontend, ast_hash};
 #[derive(Debug)]
 pub struct LanguageFrontend {
     bind_catalog: BindCatalog,
-    help_catalog: HelpCatalog,
     tables: Tables,
 }
 
@@ -49,14 +49,17 @@ impl LanguageFrontend {
         let texts: Vec<&str> = files.iter().map(|(_, text)| *text).collect();
         let bind_catalog = BindCatalog::from_toml(index, &texts)
             .map_err(|error| internal("embedded catalog", error))?;
-        let help_catalog = HelpCatalog::from_sources(index, files, Docs::empty())
-            .map_err(|error| internal("embedded catalog", error))?;
         let tables = load_embedded().map_err(|error| internal("correction tables", error))?;
         Ok(Self {
             bind_catalog,
-            help_catalog,
             tables,
         })
+    }
+
+    /// The help catalog with the documentation compiled into the executable,
+    /// loaded on first use.
+    fn help_catalog(&self) -> Result<Arc<HelpCatalog>, Error> {
+        HelpCatalog::embedded().map_err(|error| internal("embedded help", error))
     }
 
     fn outcome(
@@ -74,6 +77,14 @@ impl LanguageFrontend {
             &BindContext::for_host(),
         )
     }
+}
+
+/// The topic of `help` without the quotes a program writes around it.
+fn unquoted(topic: &str) -> &str {
+    topic
+        .strip_prefix('"')
+        .and_then(|rest| rest.strip_suffix('"'))
+        .unwrap_or(topic)
 }
 
 impl Frontend for LanguageFrontend {
@@ -115,12 +126,13 @@ impl Frontend for LanguageFrontend {
     }
 
     fn describe(&self, subject: &str, language: Language) -> Result<serde_json::Value, Error> {
+        let catalog = self.help_catalog()?;
         let (kind, name) = match subject {
             "" | "core" => (Layer::Core, ""),
-            name if self.help_catalog.group(name).is_some() => (Layer::Group, name),
+            name if catalog.group(name).is_some() => (Layer::Group, name),
             name => (Layer::Reference, name),
         };
-        let description = layer(&self.help_catalog, kind, name, language, Length::Default)?;
+        let description = layer(&catalog, kind, name, language, Length::Default)?;
         Ok(json!({
             "text": description.text,
             "tokens": description.tokens,
@@ -129,12 +141,13 @@ impl Frontend for LanguageFrontend {
     }
 
     fn help(&self, topic: &str, language: Language) -> Result<String, Error> {
+        let topic = unquoted(topic.trim());
         let query = if topic.is_empty() {
             HelpQuery::new()
         } else {
             HelpQuery::topic(topic)
         };
-        render(&query.with_language(language), &self.help_catalog).map(|help| help.body)
+        render(&query.with_language(language), &self.help_catalog()?).map(|help| help.body)
     }
 
     fn compile(
@@ -151,5 +164,34 @@ impl Frontend for LanguageFrontend {
             corrections: outcome.corrections.into_iter().map(Into::into).collect(),
             ran,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quotes_around_a_help_topic_are_removed() {
+        assert_eq!(unquoted("\"commands\""), "commands");
+        assert_eq!(unquoted("commands"), "commands");
+        assert_eq!(unquoted("\""), "\"");
+        assert_eq!(unquoted("\"\""), "");
+    }
+
+    #[test]
+    fn help_answers_a_quoted_topic_with_the_embedded_documentation() {
+        let frontend = LanguageFrontend::new().unwrap();
+        let commands = frontend.help("\"commands\"", Language::En).unwrap();
+        assert!(commands.contains("program.catalog — "));
+        let page = frontend.help("replace", Language::En).unwrap();
+        assert!(page.contains("examples:"));
+    }
+
+    #[test]
+    fn describe_of_a_group_uses_the_documentation() {
+        let frontend = LanguageFrontend::new().unwrap();
+        let described = frontend.describe("core", Language::Pl).unwrap();
+        assert!(described["text"].as_str().is_some_and(|text| !text.is_empty()));
     }
 }

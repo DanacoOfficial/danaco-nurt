@@ -10,9 +10,6 @@
 
 use std::sync::Arc;
 
-use nurt_catalog::embedded_sources;
-use nurt_contracts::config::Language as ConfigLanguage;
-use nurt_contracts::envelope::Language;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::{Evaluation, FieldInfo};
 use nurt_contracts::stage::{
@@ -20,22 +17,9 @@ use nurt_contracts::stage::{
     StageImpl, StageInput, StageOutput, StageRegistrar, StaticInfo,
 };
 use nurt_contracts::value::{Record, Value};
-use nurt_help::catalog::Catalog as HelpCatalog;
-use nurt_help::docs::Docs;
-use nurt_help::help::{HelpQuery, TopicKind, render};
+use nurt_help::commands::HelpStage;
 
 const EXPRESSION: &str = "expression";
-
-/// Language of the fixed texts: the `language` of the request, then
-/// `output.language` of the configuration.
-fn language_of(ctx: &ExecCtx) -> Language {
-    ctx.options()
-        .language
-        .unwrap_or(match ctx.config().output.language {
-            ConfigLanguage::Pl => Language::Pl,
-            _ => Language::En,
-        })
-}
 
 fn source(command: &str) -> StageDescriptor {
     StageDescriptor {
@@ -93,69 +77,6 @@ impl ReadStage for Evaluate {
         })?;
         let kind = value.type_name().to_owned();
         Ok(output(vec![Record::from(Evaluation { value, kind })]))
-    }
-}
-
-/// `help`: the help text of a command, a group, an error code, a guide or a
-/// topic.
-#[derive(Debug, Clone)]
-pub(crate) struct Help {
-    catalog: Arc<HelpCatalog>,
-}
-
-impl Help {
-    fn new() -> Result<Self> {
-        let (index, files) = embedded_sources();
-        let catalog = HelpCatalog::from_sources(index, files, Docs::empty()).map_err(|error| {
-            Error::new(ErrorCode::Internal, format!("embedded catalog: {error}"))
-        })?;
-        Ok(Self {
-            catalog: Arc::new(catalog),
-        })
-    }
-
-    fn query(args: &BoundArgs, ctx: &ExecCtx) -> Result<HelpQuery> {
-        let text = |name: &str| args.text(name).map(|value| value.map(str::to_owned));
-        let mut query = HelpQuery::new().with_language(language_of(ctx));
-        query.topic = text("topic")?;
-        query.group = text("group")?;
-        query.skill = text("skill")?;
-        query.search = text("search")?;
-        if let Some(count) = args.int("examples")? {
-            query.examples = usize::try_from(count).unwrap_or_default();
-        }
-        if let Some(Value::Enum(kind) | Value::Text(kind)) = args.value("kind") {
-            query.kind = TopicKind::from_name(kind);
-        }
-        Ok(query)
-    }
-}
-
-impl StageImpl for Help {
-    fn descriptor(&self) -> StageDescriptor {
-        source("help")
-    }
-
-    fn as_read(&self) -> Option<&dyn ReadStage> {
-        Some(self)
-    }
-}
-
-impl ReadStage for Help {
-    fn execute<'a>(
-        &'a self,
-        args: &'a BoundArgs,
-        _input: StageInput<'a>,
-        ctx: &'a ExecCtx,
-    ) -> Result<StageOutput<'a>> {
-        let query = Self::query(args, ctx)?;
-        let answer = render(&query, &self.catalog)?;
-        Ok(StageOutput {
-            data: StageData::Value(Value::Text(answer.body)),
-            header: None,
-            order: None,
-            render: None,
-        })
     }
 }
 
@@ -240,16 +161,16 @@ impl ReadStage for Describe {
 ///
 /// # Errors
 ///
-/// Returns `E_INTERNAL` when the embedded help catalog is invalid, and the
-/// error of the registrar.
+/// Returns the error of the registrar.
 pub(crate) fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
     registrar.register(Arc::new(Evaluate))?;
-    registrar.register(Arc::new(Help::new()?))?;
+    registrar.register(Arc::new(HelpStage::embedded()))?;
     registrar.register(Arc::new(Describe))
 }
 
 #[cfg(test)]
 mod tests {
+    use nurt_contracts::envelope::Language;
     use nurt_contracts::value::RecordKind;
     use nurt_testkit::ctx::TestContext;
 
@@ -339,8 +260,7 @@ mod tests {
                 false,
             );
         }
-        let output = Help::new()
-            .unwrap()
+        let output = HelpStage::embedded()
             .execute(&args, StageInput::none(), &ctx)
             .unwrap();
         let StageData::Value(Value::Text(text)) = output.data else {
@@ -364,6 +284,20 @@ mod tests {
         assert!(text.contains("help — "));
         assert!(text.contains("git.log — "));
         assert!(text.contains("program.catalog — "));
+    }
+
+    #[test]
+    fn help_shows_the_examples_and_the_guides_of_the_embedded_documentation() {
+        let page = help_text(None, Some("replace"));
+        assert!(page.contains("examples:"), "{page}");
+        let guide = help_text(None, Some("bash-migration"));
+        assert!(guide.contains("bash"));
+    }
+
+    #[test]
+    fn help_does_not_mistake_a_topic_for_the_default_kind() {
+        assert!(help_text(None, Some("syntax")).contains("program ="));
+        assert!(help_text(None, Some("E_ASSERT")).contains("E_ASSERT"));
     }
 
     #[test]

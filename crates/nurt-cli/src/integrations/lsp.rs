@@ -10,7 +10,6 @@
 
 use nurt_bind::Catalog as BindCatalog;
 use nurt_help::catalog::Catalog as HelpCatalog;
-use nurt_help::docs::Docs;
 use nurt_langserver::{Options, ServerError, run_stdio};
 
 use crate::app::CliError;
@@ -24,9 +23,9 @@ fn options() -> Result<Options, CliError> {
     let texts: Vec<&str> = files.iter().map(|(_, text)| *text).collect();
     let bind = BindCatalog::from_toml(index, &texts)
         .map_err(|error| CliError::Failure(format!("cannot load the embedded catalog: {error}")))?;
-    let help = HelpCatalog::from_sources(index, files, Docs::empty())
-        .map_err(|error| CliError::Failure(format!("cannot load the embedded catalog: {error}")))?;
-    Ok(Options::from_catalog(bind).with_help(help))
+    let help = HelpCatalog::embedded()
+        .map_err(|error| CliError::Failure(format!("cannot load the embedded help: {error}")))?;
+    Ok(Options::from_catalog(bind).with_help(HelpCatalog::clone(&help)))
 }
 
 /// Maps the error that ended a session to a command line error.

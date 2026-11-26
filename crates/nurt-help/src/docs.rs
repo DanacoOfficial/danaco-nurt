@@ -22,6 +22,11 @@ const FENCE: &str = "```";
 /// Marker of the front matter block.
 const FRONT_MATTER_MARK: &str = "---";
 
+/// Files of `docs/commands` and `docs/guides`, embedded by the build script.
+mod embedded {
+    include!(concat!(env!("OUT_DIR"), "/embedded_docs.rs"));
+}
+
 /// Error in a documentation file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DocsError {
@@ -148,6 +153,17 @@ impl Docs {
     #[must_use]
     pub fn empty() -> Self {
         Self::default()
+    }
+
+    /// Parses the command pages and the guides of the repository that were
+    /// embedded in the build.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first embedded file whose front matter or structure is
+    /// invalid.
+    pub fn embedded() -> Result<Self, DocsError> {
+        Self::from_sources(embedded::PAGES, embedded::GUIDES)
     }
 
     /// Parses pages and guides given as `(file name, text)` pairs.

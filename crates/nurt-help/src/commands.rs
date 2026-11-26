@@ -6,7 +6,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use nurt_contracts::envelope::OutputFormat;
+use nurt_contracts::config::Language as ConfigLanguage;
+use nurt_contracts::envelope::{Language, OutputFormat};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::{Evaluation, FieldInfo};
 use nurt_contracts::stage::{
@@ -36,14 +37,32 @@ const NULL_TYPE: &str = "null";
 /// The `help` command: a source that returns the answer as text.
 #[derive(Debug, Clone)]
 pub struct HelpStage {
-    catalog: Arc<Catalog>,
+    catalog: Option<Arc<Catalog>>,
 }
 
 impl HelpStage {
     /// Creates the command over a catalog.
     #[must_use]
     pub fn new(catalog: Arc<Catalog>) -> Self {
-        Self { catalog }
+        Self {
+            catalog: Some(catalog),
+        }
+    }
+
+    /// Creates the command over the catalog and the documentation compiled
+    /// into the executable, which are loaded when the command first runs.
+    #[must_use]
+    pub fn embedded() -> Self {
+        Self { catalog: None }
+    }
+
+    fn catalog(&self) -> Result<Arc<Catalog>> {
+        match &self.catalog {
+            Some(catalog) => Ok(Arc::clone(catalog)),
+            None => Catalog::embedded().map_err(|error| {
+                Error::new(ErrorCode::Internal, format!("embedded help: {error}"))
+            }),
+        }
     }
 }
 
@@ -74,7 +93,12 @@ fn query_from(args: &BoundArgs, ctx: &ExecCtx) -> Result<HelpQuery> {
         } else {
             HelpFormat::Text
         },
-        language: options.language.unwrap_or_default(),
+        language: options
+            .language
+            .unwrap_or(match ctx.config().output.language {
+                ConfigLanguage::Pl => Language::Pl,
+                _ => Language::En,
+            }),
         variant: ctx.config().syntax.variant,
     })
 }
@@ -101,7 +125,7 @@ impl ReadStage for HelpStage {
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
         let query = query_from(args, ctx)?;
-        let answer = help::render(&query, &self.catalog)?;
+        let answer = help::render(&query, &self.catalog()?)?;
         Ok(StageOutput::value(Value::Text(answer.body)))
     }
 }
