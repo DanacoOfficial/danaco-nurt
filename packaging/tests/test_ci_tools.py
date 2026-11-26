@@ -192,6 +192,12 @@ class WorkflowCopiesTest(unittest.TestCase):
         self.assertIn('--define "use_source_date_epoch_as_buildtime 1"', text)
         self.assertIn('--define "clamp_mtime_to_source_date_epoch 1"', text)
 
+    def test_only_the_job_that_uploads_to_the_release_can_write_to_the_repository(self):
+        text = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8")
+        self.assertEqual(text.count("contents: write"), 1)
+        self.assertLess(text.index("contents: read"), text.index("jobs:"))
+        self.assertGreater(text.index("contents: write"), text.index("  prepare:"))
+
     def test_apt_upload_keeps_the_packages_of_older_releases(self):
         text = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8")
         self.assertIn('--delete-after --filter="P /pool/"', text)

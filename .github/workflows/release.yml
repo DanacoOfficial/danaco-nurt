@@ -17,7 +17,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: publish-${{ inputs.version }}
@@ -26,6 +26,10 @@ concurrency:
 jobs:
   prepare:
     name: Render and sign
+    # Uploads the rendered files to the release; the other jobs publish with
+    # their own credentials.
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release

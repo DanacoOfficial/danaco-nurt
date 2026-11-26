@@ -13,6 +13,7 @@ use nurt_contracts::envelope::{Request, RequestOptions};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::HistoryQuery;
+use nurt_contracts::report::ReportStatus;
 use nurt_contracts::stage::{CancelToken, DeliveredEvent, Event, ExecFinished};
 use nurt_contracts::value::Instant;
 use nurt_core::{Engine, EventBody, EventListener, Lifecycle};
@@ -323,7 +324,6 @@ mod tests {
     use std::sync::mpsc;
 
     use nurt_contracts::env::WallTime;
-    use nurt_contracts::report::ReportStatus;
     use nurt_contracts::stage::{LogEvent, LogLevel};
     use serde_json::json;
 
