@@ -195,8 +195,17 @@ impl RecordingJournal {
             entry.undone = true;
             entry.clone()
         };
-        restore_all(&entry.targets, &entry.created_dirs)
-            .map_err(|(path, error)| format!("cannot restore `{}`: {error}", path.display()))?;
+        if let Err((path, error)) = restore_all(&entry.targets, &entry.created_dirs) {
+            if let Some(failed) = self
+                .lock()
+                .entries
+                .iter_mut()
+                .find(|candidate| candidate.op == entry.op)
+            {
+                failed.undone = false;
+            }
+            return Err(format!("cannot restore `{}`: {error}", path.display()));
+        }
         Ok(UndoResult::Undone(entry.op))
     }
 }
@@ -1142,6 +1151,21 @@ mod tests {
         ));
         assert_eq!(snapshot(&work).unwrap(), before);
         assert_eq!(journal.undo_last().unwrap(), UndoResult::Nothing);
+    }
+
+    #[test]
+    fn an_entry_that_could_not_be_restored_stays_undoable() {
+        let (dir, work, journal) = setup();
+        fs::write(work.join("a"), b"old").unwrap();
+        let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
+        tx.preserve(&[spec(&work.join("a"), TargetAction::Modify)])
+            .unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new".to_vec()))
+            .unwrap();
+        tx.commit().unwrap();
+        fs::remove_dir_all(dir.path().join("store")).unwrap();
+        assert!(journal.undo_last().is_err());
+        assert!(journal.undo_last().is_err());
     }
 
     #[test]

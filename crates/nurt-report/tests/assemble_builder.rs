@@ -10,6 +10,7 @@
 use nurt_contracts::config::ReportConfig;
 use nurt_contracts::env::Os;
 use nurt_contracts::error::{Error, ErrorCode};
+use nurt_contracts::kinds::EffectKind;
 use nurt_contracts::record::Operation;
 use nurt_contracts::report::{
     Change, ChangeAction, Hunk, Irreversible, IrreversibleEntry, Notable, NotableEntry,
@@ -137,6 +138,34 @@ fn changing_program_without_targets_reports_nothing_matched() {
         .unwrap();
     assert_eq!(planned.notable[0].code, Notable::NothingMatched);
     assert_eq!(planned.notable[0].severity, Severity::Notice);
+}
+
+#[test]
+fn programs_with_a_process_effect_do_not_report_nothing_matched() {
+    let ctx = ctx();
+    let run = ReportBuilder::changing(&ctx, "run", ReportStatus::Ok)
+        .effect(EffectKind::Process)
+        .build()
+        .unwrap();
+    assert!(run.notable.is_empty());
+    assert_eq!(run.targets, Some(Targets::default()));
+    for effect in [EffectKind::Local, EffectKind::External] {
+        let report = ReportBuilder::changing(&ctx, "start", ReportStatus::Ok)
+            .effect(effect)
+            .build()
+            .unwrap();
+        assert_eq!(report.notable[0].code, Notable::NothingMatched, "{effect:?}");
+    }
+}
+
+#[test]
+fn a_program_that_ran_a_process_reports_no_nothing_matched() {
+    let ctx = ctx();
+    let report = ReportBuilder::changing(&ctx, "run", ReportStatus::Ok)
+        .exec(Record::new(RecordKind::Exec))
+        .build()
+        .unwrap();
+    assert!(report.notable.is_empty());
 }
 
 #[test]

@@ -41,7 +41,7 @@ use nurt_contracts::envelope::{
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::{AbsPath, Fs};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
-use nurt_contracts::kinds::SyntaxVariant;
+use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
 use nurt_contracts::report::{REPORT_VERSION, RecordsPage, Report, ReportStatus, Timing};
 use nurt_contracts::schema;
 use nurt_contracts::services::Services;
@@ -955,6 +955,14 @@ impl Engine {
             }
         };
         let kind = ProgramKind::of(&compiled.bound);
+        if request.options.script != Some(true) && effect_pipelines(&compiled.bound) > 1 {
+            let error = Error::new(
+                ErrorCode::OneEffect,
+                "the program has several pipelines that change the world; run them as separate calls or set `script: true`",
+            );
+            let report = failure(&reports, &kind, Some(&compiled), error);
+            return self.finish(report, &prepared, None, started);
+        }
         let program = ProgramRef::of(
             &compiled.bound.program,
             compiled.ran.clone().or_else(|| request.program.clone()),
@@ -1407,6 +1415,53 @@ fn kind_of(bound: &BoundDocument) -> (String, bool) {
     (kind, changing)
 }
 
+/// Number of pipelines of a bound program that have an effect stage.
+fn effect_pipelines(bound: &BoundDocument) -> usize {
+    bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => Some(pipeline),
+            _ => None,
+        })
+        .filter(|pipeline| {
+            let head = match &pipeline.head {
+                BoundHead::Stage(stage) => Some(stage),
+                _ => None,
+            };
+            head.into_iter()
+                .chain(&pipeline.stages)
+                .any(|stage| stage.phase.is_effect())
+        })
+        .count()
+}
+
+/// Effect kind of the last effect command of a bound program.
+fn effect_kind_of(bound: &BoundDocument) -> Option<EffectKind> {
+    bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => Some(pipeline),
+            BoundStatement::Let(binding) => Some(&binding.value),
+            _ => None,
+        })
+        .filter_map(|pipeline| {
+            let head = match &pipeline.head {
+                BoundHead::Stage(stage) => Some(stage),
+                _ => None,
+            };
+            head.into_iter()
+                .chain(&pipeline.stages)
+                .rev()
+                .find(|stage| stage.phase.is_effect())
+                .map(|stage| stage.effect)
+        })
+        .last()
+}
+
 /// Inputs of one program execution.
 struct Run<'a> {
     compiled: &'a Compiled,
@@ -1488,6 +1543,9 @@ fn report_of(
     } else {
         ReportBuilder::reading(ctx, program.kind.clone(), status)
     };
+    if let Some(effect) = effect_kind_of(&compiled.bound) {
+        builder = builder.effect(effect);
+    }
     if !compiled.corrections.is_empty() {
         builder = builder.corrections(compiled.corrections.clone());
         if let Some(ran) = &compiled.ran {
@@ -1996,5 +2054,47 @@ mod tests {
             kind_of(&nurt_testkit::fixtures::empty_program()),
             (PROGRAM_KIND.to_owned(), false)
         );
+    }
+
+    #[test]
+    fn effect_pipelines_counts_the_pipelines_with_an_effect_stage() {
+        let stage = |name: &str, effect: &str, phase: &str| {
+            json!({"t": "stage", "name": name, "effect": effect, "phase": phase, "args": []})
+        };
+        let pipeline = |head: serde_json::Value, stages: Vec<serde_json::Value>| {
+            json!({"t": "pipeline", "head": head, "stages": stages})
+        };
+        let bound = |statements: Vec<serde_json::Value>| -> BoundDocument {
+            serde_json::from_value(json!({
+                "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+                "program": {"statements": statements}
+            }))
+            .unwrap()
+        };
+        let read = || pipeline(stage("find", "read", "source"), Vec::new());
+        let change = || {
+            pipeline(
+                stage("find", "read", "source"),
+                vec![stage("remove", "local", "mutate")],
+            )
+        };
+        assert_eq!(effect_pipelines(&bound(vec![read(), read()])), 0);
+        assert_eq!(effect_pipelines(&bound(vec![read(), change()])), 1);
+        assert_eq!(effect_pipelines(&bound(vec![change(), change()])), 2);
+    }
+
+    #[test]
+    fn the_effect_kind_is_the_one_of_the_effect_command() {
+        let bound: BoundDocument = serde_json::from_value(json!({
+            "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+            "program": {"statements": [{
+                "t": "pipeline",
+                "head": {"t": "stage", "name": "find", "effect": "read", "phase": "source", "args": []},
+                "stages": [{"t": "stage", "name": "run", "effect": "process", "phase": "run", "args": []}]
+            }]}
+        }))
+        .unwrap();
+        assert_eq!(effect_kind_of(&bound), Some(EffectKind::Process));
+        assert_eq!(effect_kind_of(&nurt_testkit::fixtures::empty_program()), None);
     }
 }

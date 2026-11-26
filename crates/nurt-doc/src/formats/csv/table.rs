@@ -109,9 +109,14 @@ impl Table {
             .find(|index| label_of(&names, *index) == label)
             .or_else(|| {
                 label
+                    .trim_start_matches(INDEX_MARK)
                     .parse()
                     .ok()
-                    .filter(|index| *index >= names.len() && *index < MAX_COLUMNS)
+                    .filter(|index| {
+                        *index >= names.len()
+                            && *index < MAX_COLUMNS
+                            && label_of(&names, *index) == label
+                    })
             })
     }
 
@@ -159,18 +164,36 @@ impl Table {
     }
 }
 
-/// Label of column `index` given the header `names`: the header name when it
-/// is not empty and no earlier column has it, the decimal index otherwise,
-/// so that every column of a row map has its own label.
+/// Prefix of an index label that would equal a header name.
+const INDEX_MARK: char = '#';
+
+/// Label of column `index` given the header `names`, so that every column of
+/// a row map has its own label.
+///
+/// The rule has two steps:
+///
+/// 1. A column is labelled with its header name when the name is not empty
+///    and no earlier column has it. Header names always keep their own text
+///    as the label, so a name such as `1` is never taken over by an index.
+/// 2. Any other column (empty name, repeated name, or a column past the
+///    header) is labelled with its decimal index. When a header name equals
+///    that text, the label gets the prefix `#` once more per collision, so
+///    the header `a,,1` labels its columns `a`, `#1` and `1`.
 pub(crate) fn label_of<S: AsRef<str>>(names: &[S], index: usize) -> String {
-    match names.get(index).map(AsRef::as_ref) {
-        Some(name)
-            if !name.is_empty() && !names[..index].iter().any(|other| other.as_ref() == name) =>
-        {
-            name.to_owned()
-        }
-        _ => index.to_string(),
+    if let Some(name) = names.get(index).map(AsRef::as_ref)
+        && !name.is_empty()
+        && !names[..index].iter().any(|other| other.as_ref() == name)
+    {
+        return name.to_owned();
     }
+    let mut label = index.to_string();
+    while names
+        .iter()
+        .any(|name| !name.as_ref().is_empty() && name.as_ref() == label)
+    {
+        label.insert(0, INDEX_MARK);
+    }
+    label
 }
 
 /// Text value of a field.
@@ -228,6 +251,24 @@ mod tests {
         assert_eq!(table.label_column("1"), Some(1));
         assert_eq!(table.label_column("7"), Some(7));
         assert_eq!(table.label_column("c"), None);
+    }
+
+    #[test]
+    fn index_labels_never_collide_with_header_names() {
+        let table = table("a,,1\nx,y,z\n", true);
+        let cells = table.row_cells(&table.rows()[0]);
+        assert_eq!(cells.keys().collect::<Vec<_>>(), ["a", "#1", "1"]);
+        assert_eq!(cells["a"], Value::Text("x".into()));
+        assert_eq!(cells["#1"], Value::Text("y".into()));
+        assert_eq!(cells["1"], Value::Text("z".into()));
+        assert_eq!(table.label_column("1"), Some(2));
+        assert_eq!(table.label_column("#1"), Some(1));
+        let wide = table("a,2\nw,x,y,z\n", true);
+        let cells = wide.row_cells(&wide.rows()[0]);
+        assert_eq!(cells.keys().collect::<Vec<_>>(), ["a", "2", "#2", "3"]);
+        assert_eq!(wide.label_column("2"), Some(1));
+        assert_eq!(wide.label_column("#2"), Some(2));
+        assert_eq!(wide.label_column("3"), Some(3));
     }
 
     #[test]

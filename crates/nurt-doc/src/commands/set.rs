@@ -26,7 +26,7 @@
 //! Nothing is written when any step fails for any key of any file.
 
 use std::collections::BTreeMap;
-use std::path::Path as FsPath;
+use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 
 use nurt_contracts::error::{Error, ErrorCode, Location, Result, Stage};
@@ -395,7 +395,7 @@ fn item_requests<'a>(
     value_of: impl Fn(&Record) -> Result<Option<Value>>,
 ) -> Result<Vec<FileRequest>> {
     let mut requests: Vec<FileRequest> = Vec::new();
-    let mut index: BTreeMap<String, usize> = BTreeMap::new();
+    let mut index: BTreeMap<PathBuf, usize> = BTreeMap::new();
     for record in input.into_records()? {
         ctx.checkpoint()?;
         let record = record?;
@@ -418,7 +418,7 @@ fn item_requests<'a>(
             Some(expect) => Some(expect),
             None => text_field(&record, "etag").and_then(|etag| ContentHash::parse(etag).ok()),
         };
-        let slot = *index.entry(path.clone()).or_insert_with(|| {
+        let slot = *index.entry(group_key(&path)).or_insert_with(|| {
             requests.push(FileRequest {
                 path,
                 format: text_field(&record, FORMAT).map(str::to_owned),
@@ -432,6 +432,14 @@ fn item_requests<'a>(
         }
     }
     Ok(requests)
+}
+
+/// Key that groups the items of one file: the path after lexical
+/// normalisation (`.` and `..` components), so that `/d/a.json` and
+/// `/d/./a.json` are one file. Symbolic links are not followed. A path that
+/// cannot be normalised groups by its text and fails later when planned.
+fn group_key(path: &str) -> PathBuf {
+    AbsPath::new(path).map_or_else(|_| PathBuf::from(path), |abs| abs.as_path().to_path_buf())
 }
 
 /// Fails with `E_KEY_CONFLICT` when one key path of a file is equal to
@@ -909,6 +917,14 @@ mod tests {
             },
             kind: Some(kind.to_owned()),
         }
+    }
+
+    #[test]
+    fn paths_of_one_file_share_a_group_key() {
+        assert_eq!(group_key("/d/a.json"), group_key("/d/./a.json"));
+        assert_eq!(group_key("/d/a.json"), group_key("/d/x/../a.json"));
+        assert_ne!(group_key("/d/a.json"), group_key("/d/b.json"));
+        assert_eq!(group_key("rel/a.json"), PathBuf::from("rel/a.json"));
     }
 
     #[test]

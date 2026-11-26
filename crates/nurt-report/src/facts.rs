@@ -7,8 +7,8 @@
 use nurt_contracts::error::Error;
 use nurt_contracts::record::{Change, ChangeAction, Hunk};
 use nurt_contracts::report::{
-    Bulk, Correction, IrreversibleEntry, NotableEntry, Report, ReportStatus, Summary, Targets,
-    Timing,
+    Bulk, Correction, IrreversibleEntry, Notable, NotableEntry, Report, ReportStatus, Summary,
+    Targets, Timing,
 };
 use nurt_contracts::value::{Record, Value};
 
@@ -380,14 +380,47 @@ fn join_cut(mut items: Vec<String>, cut: bool) -> String {
     items.join(SEPARATOR)
 }
 
-/// Writes the parts of the line of a notable effect.
+/// Standard message of a code, for entries that carry no detail of their
+/// own; `None` for codes that every command explains with a detail.
+pub(crate) fn notable_message(code: Notable) -> Option<&'static str> {
+    Some(match code {
+        Notable::OutsideProject => "the target is outside the project directories",
+        Notable::SystemPath => "the target is in a system directory",
+        Notable::HomeConfig => "the target is configuration in the home directory",
+        Notable::MassDelete => "many files were deleted",
+        Notable::DeleteTree => "a directory was deleted with all its content",
+        Notable::OverwroteExisting => "existing files were replaced",
+        Notable::FileEmptied => "a file with content is now empty",
+        Notable::SizeShrunk => "the file became much smaller",
+        Notable::ManyPerFile => "many replacements in one file",
+        Notable::TargetCountHigh => "the number of targets is high",
+        Notable::NothingMatched => "the program had no targets, so nothing was changed",
+        Notable::Unchanged => "the written content is identical to the existing content",
+        Notable::DetectionScope => {
+            "changes made by the program outside the watched directories are not detected"
+        }
+        Notable::KeysCreated => "intermediate keys were created",
+        Notable::DuplicateKey => "the document has a repeated key; the last occurrence was changed",
+        Notable::AliasShared => "the change is visible through every alias of the node",
+        _ => return None,
+    })
+}
+
+/// Writes the parts of the line of a notable effect: the code, the target,
+/// the count, and the detail of the entry or, when it has none, the standard
+/// message of the code.
 pub(crate) fn notable_parts(entry: &NotableEntry) -> Vec<String> {
     let mut parts = vec![entry.code.to_string()];
     parts.extend(entry.path.clone());
     if let Some(count) = entry.count {
         parts.push(format_count(count));
     }
-    parts.extend(entry.detail.clone());
+    parts.extend(
+        entry
+            .detail
+            .clone()
+            .or_else(|| notable_message(entry.code).map(str::to_owned)),
+    );
     parts
 }
 

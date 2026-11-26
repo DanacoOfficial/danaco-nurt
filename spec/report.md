@@ -138,7 +138,7 @@ command that observed the condition.
 | `size_shrunk` | warning | report | size shrank by `shrink_ratio` (50%, files from 1 KiB) or more |
 | `many_per_file` | notice | report | `per_file_repl` (100) or more replacements in one file |
 | `target_count_high` | notice | report | `targets_high` (500) or more targets |
-| `nothing_matched` | notice | report | a changing stage received no targets |
+| `nothing_matched` | notice | report | a changing stage received no targets; never for `run`, which has no targets to select |
 | `unchanged` | info | command | a write produced identical content |
 | `binary_target` | warning | command | a binary file was changed |
 | `binary_skipped` | notice | command | binary files were skipped (`count`) |
@@ -168,7 +168,7 @@ command that observed the condition.
 | `semantic_fallback` | notice | command | a code operation fell back to syntax analysis |
 | `references_left` | notice | command | textual references to the old name remain |
 | `rename_incomplete` | warning | command | a rename did not reach every reference |
-| `detection_scope` | info | command | after `run`: changes outside `watch` are not detected |
+| `detection_scope` | info | command | after `run`: changes outside `watch` are not detected; with `track_changes: auto` the note also names the directories of other file systems that were not entered, or, when detection was skipped (file system root, more than 200 000 entries, a scan longer than 3 s), the reason and what to do |
 | `exit_nonzero` | notice | command | a program exited with a code other than zero; `count` holds the code |
 | `post_stages_deferred` | info | command | stages after the effect were skipped because the program moved to the background |
 | `rollback_partial` | warning | command | a rollback restored only part of the changes |

@@ -179,12 +179,19 @@ fn big_integer(text: &str) -> Result<Integer, Error> {
 }
 
 fn decimal(text: &str) -> Result<f64, Error> {
-    text.parse::<f64>().map_err(|_| {
+    let number = text.parse::<f64>().map_err(|_| {
         Error::new(
             ErrorCode::InvalidValue,
             format!("{text} is not a decimal number; pass a number such as 1.5"),
         )
-    })
+    })?;
+    if number.is_infinite() && !text.to_ascii_lowercase().contains("inf") {
+        return Err(Error::new(
+            ErrorCode::InvalidValue,
+            format!("{text} is outside the range of a property list real; pass a smaller number"),
+        ));
+    }
+    Ok(number)
 }
 
 /// Date from RFC 3339 text.
@@ -290,6 +297,18 @@ mod tests {
         assert_eq!(
             from_value(&huge, Hint::Other).unwrap_err().code().as_str(),
             "E_INVALID_VALUE"
+        );
+        for text in ["1e400", "-1e400"] {
+            let error = from_value(&Value::Decimal(text.into()), Hint::Other).unwrap_err();
+            assert_eq!(error.code().as_str(), "E_INVALID_VALUE", "{text}");
+        }
+        assert_eq!(
+            from_value(&Value::Decimal("1e300".into()), Hint::Other).unwrap(),
+            plist::Value::Real(1e300)
+        );
+        assert_eq!(
+            from_value(&Value::Decimal("-inf".into()), Hint::Other).unwrap(),
+            plist::Value::Real(f64::NEG_INFINITY)
         );
         let decimal = Value::Decimal("1.25".into());
         assert_eq!(

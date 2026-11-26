@@ -83,12 +83,18 @@ diff (3 hunks)
     - func oldName(x int) {
     + func newName(x int) {
 notable
-  ! many_per_file  /srv/app/src/c/d.go  2
+  ! many_per_file  /srv/app/src/c/d.go  2  many replacements in one file
 next cursor c_5d2e
 ```
 
+A line of `notable` has the code, the target, the count and the detail of the
+entry. An entry without a detail shows the standard message of its code.
+
 A reading program writes the header `<kind>  matched N · shown N · next cursor
-C` and a table of the rows. A failed program without an operation number
+C` and a table of the rows. The table of the records `operation` (`history`),
+`match` (`search`) and `response` (`http.request`) has the essential columns
+only; verbosity `detailed` or the option `fields` shows the others, and the
+JSON form always holds all fields. A failed program without an operation number
 starts with the line `error <code>`. A report with status `ok` and an error
 (failure after the effect) writes the effect first and the error block with
 the line `effect applied` after it.

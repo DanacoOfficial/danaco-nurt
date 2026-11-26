@@ -36,16 +36,27 @@ pub fn for_error_code(code: ErrorCode) -> u8 {
     }
 }
 
-/// Exit code of a report: success for `ok`, `planned` and `running`, the code
-/// of the error otherwise.
+/// Exit code of a report: success for `ok`, `planned` and `running` without an
+/// error, the code of the error otherwise. A report with status `ok` that
+/// carries an error (a check that failed after the effect was applied) exits
+/// with the code of the error, so that a script does not go on after it.
 #[must_use]
 pub fn for_report(report: &Report) -> u8 {
-    match report.status {
-        ReportStatus::Ok | ReportStatus::Planned | ReportStatus::Running => SUCCESS,
-        _ => report
+    let error = |report: &Report| {
+        report
             .error
             .as_ref()
-            .map_or(FAILURE, |error| for_error_code(error.code)),
+            .map_or(FAILURE, |error| for_error_code(error.code))
+    };
+    match report.status {
+        ReportStatus::Ok | ReportStatus::Planned | ReportStatus::Running => {
+            if report.error.is_some() {
+                error(report)
+            } else {
+                SUCCESS
+            }
+        }
+        _ => error(report),
     }
 }
 
@@ -70,6 +81,15 @@ mod tests {
         ] {
             assert_eq!(for_report(&Report::new(status, "find")), SUCCESS);
         }
+    }
+
+    #[test]
+    fn a_check_that_failed_after_the_effect_exits_with_its_error_code() {
+        let mut report = Report::new(ReportStatus::Ok, "remove");
+        report.error = Some(Error::new(ErrorCode::Assert, "check failed"));
+        assert_eq!(for_report(&report), FAILURE);
+        report.error = Some(Error::new(ErrorCode::Timeout, "too slow"));
+        assert_eq!(for_report(&report), TIMEOUT);
     }
 
     #[test]

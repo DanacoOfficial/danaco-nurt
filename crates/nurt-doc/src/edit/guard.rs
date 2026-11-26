@@ -368,10 +368,13 @@ pub fn check_scope(
     surroundings: Surroundings,
 ) -> Result<()> {
     let reaches = reaches(original, targets, surroundings);
+    // The reaches are sorted and disjoint, so only the last one that starts at
+    // or before the edit can hold it.
     let outside = edits.iter().find(|edit| {
-        !reaches
-            .iter()
-            .any(|reach| reach.start <= edit.span.start && edit.span.end <= reach.end)
+        let candidate = reaches.partition_point(|reach| reach.start <= edit.span.start);
+        !candidate
+            .checked_sub(1)
+            .is_some_and(|at| edit.span.end <= reaches[at].end)
     });
     match outside {
         None => Ok(()),

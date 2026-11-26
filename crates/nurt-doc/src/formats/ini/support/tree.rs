@@ -6,6 +6,8 @@
 //! A format builds the tree from its parsed form: leaves refer to scalar
 //! entries of the format by index, maps keep the order of the document.
 
+use std::collections::HashMap;
+
 use nurt_contracts::error::Error;
 use nurt_contracts::keypath::{CompareOp, FilterExpr, FilterLiteral, KeyPath, KeySegment};
 use nurt_contracts::value::Value;
@@ -29,7 +31,14 @@ pub(crate) enum Node {
 /// Members of a map node.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct Map {
+    /// Members in document order; add members only with [`Map::push`], which
+    /// keeps the lookup indexes in step.
     pub(crate) members: Vec<(String, Node)>,
+    /// Position of the first member of each exact name.
+    exact_index: HashMap<String, usize>,
+    /// Positions of the members of each name in lower case, in order; filled
+    /// only when `fold_case` is set.
+    folded_index: HashMap<String, Vec<usize>>,
     /// Member names are compared without regard to ASCII case; an exact
     /// match takes precedence.
     pub(crate) fold_case: bool,
@@ -46,23 +55,43 @@ impl Map {
     pub(crate) fn new(fold_case: bool) -> Self {
         Self {
             members: Vec::new(),
+            exact_index: HashMap::new(),
+            folded_index: HashMap::new(),
             fold_case,
             exact_maps: false,
             ids: Vec::new(),
         }
     }
 
-    /// Position of the member named `name`.
+    /// Adds a member after the existing ones.
+    pub(crate) fn push(&mut self, name: String, node: Node) {
+        let position = self.members.len();
+        self.exact_index.entry(name.clone()).or_insert(position);
+        if self.fold_case {
+            self.folded_index
+                .entry(name.to_ascii_lowercase())
+                .or_default()
+                .push(position);
+        }
+        self.members.push((name, node));
+    }
+
+    /// Position of the member named `name`: the first member with exactly
+    /// that name, otherwise, when names fold case, the first member whose
+    /// name differs only in ASCII case.
     pub(crate) fn position(&self, name: &str) -> Option<usize> {
-        self.members
+        if let Some(&position) = self.exact_index.get(name) {
+            return Some(position);
+        }
+        if !self.fold_case {
+            return None;
+        }
+        self.folded_index
+            .get(&name.to_ascii_lowercase())?
             .iter()
-            .position(|(member, _)| member == name)
-            .or_else(|| {
-                self.members.iter().position(|(member, node)| {
-                    self.fold_case
-                        && !(self.exact_maps && matches!(node, Node::Map(_)))
-                        && member.eq_ignore_ascii_case(name)
-                })
+            .copied()
+            .find(|&position| {
+                !(self.exact_maps && matches!(self.members[position].1, Node::Map(_)))
             })
     }
 
@@ -99,7 +128,7 @@ impl Map {
         let index = match found {
             Some(index) => index,
             None => {
-                self.members.push((name.to_owned(), make()));
+                self.push(name.to_owned(), make());
                 self.members.len() - 1
             }
         };
@@ -451,18 +480,48 @@ mod tests {
 
     fn sample() -> Node {
         let mut section = Map::new(false);
-        section.members.push(("a".into(), Node::Leaf(0)));
-        section.members.push((
+        section.push("a".into(), Node::Leaf(0));
+        section.push(
             "dup".into(),
             Node::Repeated(vec![Node::Leaf(1), Node::Leaf(2)]),
-        ));
-        section.members.push((
+        );
+        section.push(
             "list".into(),
             Node::List(vec![Node::Leaf(3), Node::Leaf(4)]),
-        ));
+        );
         let mut root = Map::new(true);
-        root.members.push(("Sec".into(), Node::Map(section)));
+        root.push("Sec".into(), Node::Map(section));
         Node::Map(root)
+    }
+
+    #[test]
+    fn looks_names_up_exactly_first_and_then_without_case() {
+        let mut map = Map::new(true).with_exact_maps();
+        map.push("Name".into(), Node::Leaf(0));
+        map.push("name".into(), Node::Leaf(1));
+        map.push("Sub".into(), Node::Map(Map::new(false)));
+        map.push("NAME".into(), Node::Leaf(2));
+        assert_eq!(map.position("name"), Some(1));
+        assert_eq!(map.position("Name"), Some(0));
+        assert_eq!(map.position("nAmE"), Some(0));
+        assert_eq!(map.position("sub"), None);
+        assert_eq!(map.position("Sub"), Some(2));
+        assert_eq!(map.position("missing"), None);
+        let exact = Map::new(false);
+        assert_eq!(exact.position("a"), None);
+    }
+
+    #[test]
+    fn finds_members_of_a_large_map_by_name() {
+        let mut map = Map::new(false);
+        for index in 0..50_000 {
+            map.push(format!("key{index}"), Node::Leaf(index));
+        }
+        assert_eq!(map.position("key49999"), Some(49_999));
+        assert_eq!(map.get("key7"), Some(&Node::Leaf(7)));
+        let duplicate = map.entry("key3", || Node::Leaf(0));
+        assert_eq!(*duplicate, Node::Leaf(3));
+        assert_eq!(map.members.len(), 50_000);
     }
 
     fn value_of(node: &Node) -> Value {

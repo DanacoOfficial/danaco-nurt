@@ -154,6 +154,111 @@ fn sets_every_element_of_a_large_single_line_array() {
     );
 }
 
+/// Text of the root container after removing the entries at `indices` in
+/// one step, checked to parse; `None` when the container needs the removal
+/// of one entry at a time.
+fn remove_runs_in(source: &str, indices: &[usize]) -> Option<String> {
+    let document = JsonDocument::parse(source, Dialect::Json).unwrap();
+    let layout = super::layout::Layout::new(document.text(), &document.tree);
+    let editor = super::editor::Editor::new(layout);
+    let changes = editor.remove_runs(document.tree.root, indices)?;
+    let text = apply(document.text(), &changes).unwrap();
+    JsonDocument::parse(text.clone(), Dialect::Json)
+        .unwrap_or_else(|error| panic!("removal does not parse: {error:?}\n{text}"));
+    Some(text)
+}
+
+#[test]
+fn removes_runs_of_entries_on_one_line_with_their_separators() {
+    let source = "[1, 2, 3, 4, 5]";
+    assert_eq!(remove_runs_in(source, &[1, 2]).unwrap(), "[1, 4, 5]");
+    assert_eq!(remove_runs_in(source, &[0]).unwrap(), "[2, 3, 4, 5]");
+    assert_eq!(remove_runs_in(source, &[3, 4]).unwrap(), "[1, 2, 3]");
+    assert_eq!(remove_runs_in(source, &[0, 2, 4]).unwrap(), "[2, 4]");
+    assert_eq!(remove_runs_in(source, &[0, 1, 2, 3, 4]).unwrap(), "[]");
+    assert_eq!(
+        remove_runs_in("{\"a\": 1, \"b\": 2, \"c\": 3}", &[0, 2]).unwrap(),
+        "{\"b\": 2}"
+    );
+}
+
+#[test]
+fn removes_runs_of_entries_on_their_own_lines() {
+    let source = "[\n  1,\n  2,\n  3\n]";
+    assert_eq!(remove_runs_in(source, &[0, 2]).unwrap(), "[\n  2\n]");
+    assert_eq!(remove_runs_in(source, &[1, 2]).unwrap(), "[\n  1\n]");
+    assert_eq!(remove_runs_in(source, &[1]).unwrap(), "[\n  1,\n  3\n]");
+    assert_eq!(remove_runs_in(source, &[0, 1, 2]).unwrap(), "[]");
+    let crlf = "[\r\n  1,\r\n  2,\r\n  3\r\n]";
+    assert_eq!(remove_runs_in(crlf, &[1, 2]).unwrap(), "[\r\n  1\r\n]");
+}
+
+#[test]
+fn removes_runs_next_to_entries_that_share_a_line() {
+    let source = "[\n  1, 2,\n  3\n]";
+    assert_eq!(remove_runs_in(source, &[0, 2]).unwrap(), "[\n  2\n]");
+}
+
+#[test]
+fn containers_with_comments_are_left_to_the_one_by_one_removal() {
+    assert_eq!(remove_runs_in("[1, 2]", &[0]).unwrap(), "[2]");
+    let document = JsonDocument::parse("[1, /* c */ 2]", Dialect::Jsonc).unwrap();
+    let layout = super::layout::Layout::new(document.text(), &document.tree);
+    let editor = super::editor::Editor::new(layout);
+    assert!(editor.remove_runs(document.tree.root, &[0]).is_none());
+}
+
+#[test]
+fn removes_a_member_of_every_element_in_one_step() {
+    use crate::model::DocHandle;
+
+    let source = "[\n  {\n    \"a\": 1,\n    \"b\": 2\n  },\n  {\n    \"a\": 3,\n    \"b\": 4\n  }\n]";
+    let mut handle = super::JsonHandle::new(JsonDocument::parse(source, Dialect::Json).unwrap());
+    let report = handle.remove(&key("[*].a")).unwrap();
+    assert_eq!(report.replacements, 2);
+    assert_eq!(
+        handle.text(),
+        b"[\n  {\n    \"b\": 2\n  },\n  {\n    \"b\": 4\n  }\n]"
+    );
+}
+
+#[test]
+fn removes_every_element_of_a_large_array_in_one_step() {
+    use crate::model::DocHandle;
+
+    let source = format!("[{}]", vec!["1"; 100_000].join(",\n"));
+    let mut handle = super::JsonHandle::new(JsonDocument::parse(source, Dialect::Json).unwrap());
+    let report = handle.remove(&key("[*]")).unwrap();
+    assert_eq!(report.replacements, 100_000);
+    assert_eq!(handle.text(), b"[]");
+}
+
+#[test]
+fn removes_every_member_of_a_large_object() {
+    use crate::model::DocHandle;
+
+    let members: Vec<String> = (0..20_000).map(|n| format!("\"k{n}\": {n}")).collect();
+    let source = format!("{{{}}}", members.join(", "));
+    let mut handle = super::JsonHandle::new(JsonDocument::parse(source, Dialect::Json).unwrap());
+    handle.remove(&key("*")).unwrap();
+    assert_eq!(handle.text(), b"{}");
+}
+
+#[test]
+fn large_objects_find_members_by_name_and_report_repeated_names() {
+    let members: Vec<String> = (0..64).map(|n| format!("\"m{n}\": {n}")).collect();
+    let source = format!("{{{}, \"m3\": 99}}", members.join(", "));
+    let document = JsonDocument::parse(source, Dialect::Json).unwrap();
+    let outcome = document.plan_set(&key("m3"), &int(7), true).unwrap();
+    assert!(outcome.duplicate_key);
+    assert!(checked(&document, &outcome).ends_with("\"m3\": 7}"));
+    let outcome = document.plan_set(&key("m40"), &int(40), true).unwrap();
+    assert!(!outcome.duplicate_key);
+    assert!(outcome.changes.is_empty());
+    let error = document.plan_set(&key("absent"), &int(1), false).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::KeyNotFound);
+}
+
 #[test]
 fn builds_the_tree_of_a_large_array() {
     let source = format!("[{}]", vec!["1"; 100_000].join(","));

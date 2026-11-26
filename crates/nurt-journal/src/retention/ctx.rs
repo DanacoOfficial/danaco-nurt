@@ -111,10 +111,15 @@ impl CtxStore<'_> {
         })
     }
 
-    fn pins(&self, layout: &JournalLayout) -> Result<PinSet> {
+    /// Pins of a journal directory and whether its pin file is damaged. The
+    /// pins of a damaged file are unknown, so the caller keeps every entry.
+    fn pins(&self, layout: &JournalLayout) -> Result<(PinSet, bool)> {
         match manifest::read_bytes(self.fs(), &layout.pins()?) {
-            Ok(content) => Ok(PinSet::parse(&content).unwrap_or_default()),
-            Err(error) if error.kind == FsErrorKind::NotFound => Ok(PinSet::default()),
+            Ok(content) => Ok(match PinSet::parse(&content) {
+                Ok(pins) => (pins, false),
+                Err(_) => (PinSet::default(), true),
+            }),
+            Err(error) if error.kind == FsErrorKind::NotFound => Ok((PinSet::default(), false)),
             Err(error) => Err(error.into()),
         }
     }
@@ -391,7 +396,7 @@ impl RetentionStore for CtxStore<'_> {
         let layout = self.journal(volume)?;
         let now = self.0.clock.stamp();
         let age = self.age_state()?;
-        let pins = self.pins(&layout)?;
+        let (pins, pins_damaged) = self.pins(&layout)?;
         let fs = self.fs();
         let commits = Commits::new(self.0);
         let mut entries = Vec::new();
@@ -417,7 +422,7 @@ impl RetentionStore for CtxStore<'_> {
                 op,
                 state,
                 reason: None,
-                pinned: pins.is_pinned(op, now.wall),
+                pinned: pins_damaged || pins.is_pinned(op, now.wall),
                 rolled_back,
             };
             entries.push(facts_of(
@@ -1025,6 +1030,18 @@ mod tests {
         let ctx = env.ctx();
         assert!(sweep(&ctx).unwrap().expired.is_empty());
         assert_eq!(env.live(HOME).first(), Some(&1));
+    }
+
+    #[test]
+    fn sweep_keeps_every_entry_while_the_pin_file_is_damaged() {
+        let env = Env::new(json!({}));
+        env.commit_all(HOME, 1..=31);
+        env.fs
+            .seed_file(&journal_of(HOME).pins().unwrap(), b"not a pin file")
+            .unwrap();
+        let ctx = env.ctx();
+        assert!(sweep(&ctx).unwrap().expired.is_empty());
+        assert_eq!(env.live(HOME).len(), 31);
     }
 
     #[test]

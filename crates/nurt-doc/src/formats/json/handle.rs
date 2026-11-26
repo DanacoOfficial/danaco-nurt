@@ -13,7 +13,10 @@ use nurt_contracts::report::Notable;
 use nurt_contracts::services::DocFormatId;
 use nurt_contracts::value::Value;
 
-use super::syntax::{self, Entry, Tree};
+use std::collections::{BTreeMap, HashMap, HashSet};
+
+use super::layout::Layout as TextLayout;
+use super::syntax::{self, Entry, NodeId, Tree};
 use super::{Dialect, JsonDocument, Outcome, Target, editor, lexeme, reference};
 use crate::constructs::{self, DOC_SEMANTIC_MISMATCH};
 use crate::edit::guard::{self, EditPlan, Expectation, ReferenceParser};
@@ -207,8 +210,9 @@ impl JsonHandle {
             return Ok(vec![key.clone()]);
         }
         let mut keys: Vec<KeyPath> = Vec::new();
+        let mut seen: HashSet<String> = HashSet::new();
         for resolved in self.tree.resolve(key, &SEMANTICS)? {
-            if !keys.contains(&resolved.key) {
+            if seen.insert(resolved.key.to_string()) {
                 keys.push(resolved.key);
             }
         }
@@ -259,17 +263,88 @@ impl JsonHandle {
             let container = tree.nodes[id].parent.unwrap_or(id);
             located.push((tree.nodes[id].span, span(tree.nodes[container].span), key));
         }
-        let spans: Vec<syntax::Span> = located.iter().map(|(node, _, _)| *node).collect();
-        located.retain(|(node, _, _)| {
-            !spans
-                .iter()
-                .any(|outer| outer != node && outer.start <= node.start && node.end <= outer.end)
-        });
-        located.sort_by_key(|(node, _, _)| std::cmp::Reverse(node.start));
-        Ok(located
+        located.sort_by_key(|(node, _, _)| (node.start, std::cmp::Reverse(node.end)));
+        let mut kept: Vec<(syntax::Span, Span, KeyPath)> = Vec::with_capacity(located.len());
+        for item in located {
+            let nested = kept
+                .last()
+                .is_some_and(|(outer, _, _)| outer.start <= item.0.start && item.0.end <= outer.end);
+            if !nested {
+                kept.push(item);
+            }
+        }
+        Ok(kept
             .into_iter()
+            .rev()
             .map(|(_, container, key)| (key, container))
             .collect())
+    }
+
+    /// Removes `keys`, which are in reverse document order, from the
+    /// containers that hold them in one step. Returns `None` when a key
+    /// needs the entry-by-entry removal: a repeated member name, the root,
+    /// or a container with comments.
+    fn batch_removal(&self, keys: &[KeyPath]) -> Result<Option<(EditPlan, Expectation<'static>)>> {
+        let tree = &self.document.tree;
+        let mut selected: Vec<(NodeId, &KeyPath)> = Vec::with_capacity(keys.len());
+        for key in keys {
+            match self.document.locate(key)? {
+                Target::Node {
+                    id,
+                    duplicate: false,
+                } if tree.nodes[id].parent.is_some() => selected.push((id, key)),
+                _ => return Ok(None),
+            }
+        }
+        let chosen: HashSet<NodeId> = selected.iter().map(|(id, _)| *id).collect();
+        selected.retain(|(id, _)| {
+            let mut parent = tree.nodes[*id].parent;
+            while let Some(outer) = parent {
+                if chosen.contains(&outer) {
+                    return false;
+                }
+                parent = tree.nodes[outer].parent;
+            }
+            true
+        });
+        selected.sort_by_key(|(id, _)| std::cmp::Reverse(tree.nodes[*id].span.start));
+        let mut by_container: BTreeMap<NodeId, Vec<NodeId>> = BTreeMap::new();
+        for (id, _) in &selected {
+            if let Some(container) = tree.nodes[*id].parent {
+                by_container.entry(container).or_default().push(*id);
+            }
+        }
+        let editor = editor::Editor::new(TextLayout::new(self.document.text(), tree));
+        let mut plan = EditPlan::new();
+        for (container, members) in by_container {
+            let entries = tree.nodes[container].entries().unwrap_or_default();
+            let positions: HashMap<NodeId, usize> = entries
+                .iter()
+                .enumerate()
+                .map(|(position, entry)| (entry.value, position))
+                .collect();
+            let mut indices: Vec<usize> = members
+                .iter()
+                .filter_map(|member| positions.get(member).copied())
+                .collect();
+            indices.sort_unstable();
+            let Some(changes) = editor.remove_runs(container, &indices) else {
+                return Ok(None);
+            };
+            plan.target(span(tree.nodes[container].span));
+            for change in changes {
+                plan.edit(ByteEdit::replace(
+                    span(change.span),
+                    change.text.into_bytes(),
+                ));
+            }
+        }
+        plan.report.replacements = u64::try_from(selected.len()).unwrap_or(u64::MAX);
+        let mut expectation = self.expectation();
+        for (_, key) in &selected {
+            expectation = expectation.remove((*key).clone());
+        }
+        Ok(Some((plan, expectation)))
     }
 }
 
@@ -313,6 +388,10 @@ impl DocHandle for JsonHandle {
 
     fn remove(&mut self, key: &KeyPath) -> Result<EditReport> {
         let keys = self.removal_order(self.concrete_keys(key)?)?;
+        let ordered: Vec<KeyPath> = keys.iter().map(|(concrete, _)| concrete.clone()).collect();
+        if let Some((plan, expectation)) = self.batch_removal(&ordered)? {
+            return self.commit(plan, &expectation);
+        }
         let original = self.document.text().to_owned();
         let mut current = self.document.clone();
         let mut plan = EditPlan::new();

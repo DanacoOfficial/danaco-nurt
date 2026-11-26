@@ -62,12 +62,12 @@ impl Clock for SystemClock {
     }
 
     fn stamp(&self) -> ClockStamp {
-        let elapsed = self.monotonic();
+        let since_boot = uptime().unwrap_or_else(|| self.monotonic());
         ClockStamp {
             wall: self.now(),
             boot: self.boot.clone(),
-            since_boot_with_suspend: elapsed,
-            since_boot_active: elapsed,
+            since_boot_with_suspend: since_boot,
+            since_boot_active: since_boot,
         }
     }
 
@@ -153,6 +153,19 @@ impl Host for SystemHost {
     fn env_vars(&self) -> Vec<(OsString, OsString)> {
         std::env::vars_os().collect()
     }
+}
+
+/// Time since boot of Linux, suspended time included; `None` where the file
+/// does not exist. A reading that counts from the creation of the clock would
+/// make the ages of journal entries made by other processes of the same boot
+/// wrong.
+fn uptime() -> Option<Duration> {
+    parse_uptime(&read_trimmed("/proc/uptime")?)
+}
+
+fn parse_uptime(text: &str) -> Option<Duration> {
+    let seconds: f64 = text.split_whitespace().next()?.parse().ok()?;
+    (seconds.is_finite() && seconds >= 0.0).then(|| Duration::from_secs_f64(seconds))
 }
 
 fn read_trimmed(path: &str) -> Option<String> {

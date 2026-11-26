@@ -79,6 +79,23 @@ take their values from the configuration keys `run.timeout`, `run.wait`,
 `run.idle_timeout`, `run.track_changes`, `run.parallel`, `output.head` and
 `output.tail`.
 
+Changes made by the program are detected with `track_changes`. The mode
+`auto` is bounded so that it never stalls a run: it does not scan the file
+system root, does not enter directories of other file systems, and gives up
+when the watched directories hold more than 200 000 entries or one scan takes
+longer than 3 s. The program then runs without detection and the report
+carries a `detection_scope` note that gives the reason and says what to do:
+name the directories the program changes in `watch`, or use
+`track_changes: scan`. A tracked run carries a `detection_scope` note that
+names the watched directories and the directories of other file systems that
+were not entered. The scans before and after the program end at cancellation
+and at `timeout`; a scan before the program that reaches `timeout` fails the
+run with `E_TIMEOUT` and one that is cancelled with `E_CANCELLED`. The scan
+after the program may exceed `timeout` by up to 5 s, so that the changes of a
+program ended by the limit are still recorded; a scan that stops early records
+no changes and says so in a note. A `run` that changes no file does not report
+`nothing_matched`, because the program is not a stage that selects targets.
+
 An exit code other than zero is a result, not an error: the status is `ok`,
 `exec.exit_code` holds the code and the report notes `exit_nonzero`. Use
 `|> assert exit_code: 0` to fail on it. A program that the console ends

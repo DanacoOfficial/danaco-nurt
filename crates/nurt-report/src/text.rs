@@ -7,7 +7,7 @@ use nurt_contracts::envelope::Verbosity;
 use nurt_contracts::error::Error;
 use nurt_contracts::record::Change;
 use nurt_contracts::report::{RecordsPage, Report, ReportStatus, Severity};
-use nurt_contracts::value::Record;
+use nurt_contracts::value::{Record, RecordKind};
 
 use crate::facts::{
     SEPARATOR, bulk_directories, bulk_extensions, bulk_sample, change_cells, change_marker,
@@ -43,7 +43,7 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
     targets(&mut out, report);
     exec_block(&mut out, report, options);
     job_block(&mut out, report);
-    records(&mut out, report);
+    records(&mut out, report, options);
     changes(&mut out, shaped, options.verbosity);
     diff(&mut out, shaped);
     bulk(&mut out, report);
@@ -308,7 +308,21 @@ fn job_block(out: &mut Lines, report: &Report) {
     }
 }
 
-fn records(out: &mut Lines, report: &Report) {
+/// Columns of the table of a record type in the text view, in order. The
+/// other fields of the records stay in the JSON form and appear in the text
+/// with verbosity `detailed` or when the request names the `fields`.
+fn default_columns(kind: RecordKind) -> Option<&'static [&'static str]> {
+    match kind {
+        RecordKind::Operation => Some(&[
+            "id", "time", "kind", "state", "files", "bytes", "summary", "items",
+        ]),
+        RecordKind::Match => Some(&["path", "no", "column", "text", "count"]),
+        RecordKind::Response => Some(&["url", "status", "bytes", "content_type", "elapsed"]),
+        _ => None,
+    }
+}
+
+fn records(out: &mut Lines, report: &Report, options: &RenderOptions) {
     let Some(page) = &report.records else {
         return;
     };
@@ -330,6 +344,17 @@ fn records(out: &mut Lines, report: &Report) {
             if !names.contains(&name) {
                 names.push(name);
             }
+        }
+    }
+    let narrowed = options.fields.is_none() && options.verbosity != Verbosity::Detailed;
+    if narrowed && let Some(columns) = default_columns(page.record_type) {
+        let kept: Vec<&str> = columns
+            .iter()
+            .copied()
+            .filter(|column| names.contains(column))
+            .collect();
+        if !kept.is_empty() {
+            names = kept;
         }
     }
     let mut table = vec![

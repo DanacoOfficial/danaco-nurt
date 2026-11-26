@@ -4,6 +4,7 @@
 //! Builder of `nurt-report/1` reports.
 
 use nurt_contracts::error::Error;
+use nurt_contracts::kinds::EffectKind;
 use nurt_contracts::record::Operation;
 use nurt_contracts::report::{
     Change, Correction, Hunk, IrreversibleEntry, Notable, NotableEntry, RecordsPage, Report,
@@ -34,7 +35,9 @@ enum Mode {
 /// * `bulk`, when the number of targets reaches `report.mass_threshold`;
 /// * the notable effects computed from changes, merged with the entries
 ///   emitted by commands, and `nothing_matched` when a program that
-///   finished or was previewed had no targets;
+///   finished or was previewed had no targets, unless it runs a program
+///   ([`ReportBuilder::effect`] with a process effect, or an `exec` or `job`
+///   record);
 /// * `irreversible`, from the changes and the entries of commands and the
 ///   journal;
 /// * `diff`, from the hunks carried by the listed changes.
@@ -57,6 +60,7 @@ pub struct ReportBuilder<'c> {
     notes: Vec<NotableEntry>,
     irreversible: Vec<IrreversibleEntry>,
     list_limit: Option<usize>,
+    effect: Option<EffectKind>,
 }
 
 impl<'c> ReportBuilder<'c> {
@@ -86,7 +90,18 @@ impl<'c> ReportBuilder<'c> {
             notes: Vec::new(),
             irreversible: Vec::new(),
             list_limit: None,
+            effect: None,
         }
+    }
+
+    /// Sets the kind of effect of the changing command. A command that runs a
+    /// program has no targets to match, so the report does not say
+    /// `nothing_matched` for it. Commands with an external effect that act on
+    /// input records, such as `start`, still report it.
+    #[must_use]
+    pub fn effect(mut self, effect: EffectKind) -> Self {
+        self.effect = Some(effect);
+        self
     }
 
     /// Sets the number of the journal entry of the operation.
@@ -299,6 +314,7 @@ impl<'c> ReportBuilder<'c> {
             notes,
             irreversible,
             list_limit,
+            effect,
             ..
         } = self;
         let targets = targets.unwrap_or_else(|| count_targets(&changes));
@@ -308,7 +324,13 @@ impl<'c> ReportBuilder<'c> {
             report.bulk = Some(summarize_bulk(&changes));
         }
         let mut derived = derive_notable(ctx, &changes, targets.count, &scope_directories);
-        if targets.count == 0 && matches!(report.status, ReportStatus::Ok | ReportStatus::Planned) {
+        let matches_targets = effect != Some(EffectKind::Process)
+            && report.exec.is_none()
+            && report.job.is_none();
+        if matches_targets
+            && targets.count == 0
+            && matches!(report.status, ReportStatus::Ok | ReportStatus::Planned)
+        {
             derived.push(NotableEntry::new(Notable::NothingMatched));
         }
         report.notable = merge_notable(derived, notes);
