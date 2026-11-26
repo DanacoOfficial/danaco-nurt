@@ -19,6 +19,13 @@ const SLEEP_SLICE: Duration = Duration::from_millis(10);
 const BOOT_ID_FILE: &str = "/proc/sys/kernel/random/boot_id";
 const UNKNOWN: &str = "unknown";
 
+/// Whether the output code page of the console of this process is UTF-8. On a
+/// system other than Windows the answer is `false`.
+#[must_use]
+pub fn console_output_is_utf8() -> bool {
+    nurt_sys::console::output_is_utf8()
+}
+
 /// Clock of the running process.
 ///
 /// The monotonic reading counts from the creation of the clock and runs while

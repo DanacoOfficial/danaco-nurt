@@ -15,6 +15,7 @@
 pub mod accounts;
 pub mod cim;
 mod common;
+pub mod console;
 pub mod disks;
 pub mod environment;
 pub mod host;

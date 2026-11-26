@@ -1,0 +1,29 @@
+{
+  "name": "Danaco Nurt",
+  "short_name": "Nurt",
+  "description": "Command shell and language where every change can be undone.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0B0C0E",
+  "background_color": "#0B0C0E",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

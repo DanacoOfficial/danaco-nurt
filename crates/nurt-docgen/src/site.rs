@@ -23,6 +23,16 @@ use crate::page::{compose, load_page};
 /// Base address of the repository files linked from the site.
 pub const REPOSITORY_BLOB: &str = "https://github.com/DanacoOfficial/nurt/blob/main";
 
+/// Files of the identity that the build copies unchanged next to the pages: the
+/// touch icon, the application icons and the web manifest.
+pub const SITE_ASSETS: [&str; 5] = [
+    "apple-touch-icon.png",
+    "icon-192.png",
+    "icon-512.png",
+    "icon-maskable-512.png",
+    "site.webmanifest",
+];
+
 /// Sections of the site in navigation order.
 pub const SECTIONS: [&str; 5] = [
     "Guide",
@@ -485,6 +495,16 @@ fn summary_of(markdown: &str) -> String {
     text.chars().take(200).collect()
 }
 
+/// Copies a file byte for byte and creates the parent directories.
+fn copy_file(from: &Path, to: &Path) -> Result<()> {
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent).map_err(|source| DocgenError::io(parent, source))?;
+    }
+    std::fs::copy(from, to)
+        .map(|_| ())
+        .map_err(|source| DocgenError::io(from, source))
+}
+
 /// Builds the site into a directory.
 ///
 /// # Errors
@@ -546,6 +566,9 @@ pub fn build(layout: &Layout, catalog: &Catalog, out: &Path, version: &str) -> R
     }
     write_text(&out.join("style.css"), &style)?;
     write_text(&out.join("favicon.svg"), &favicon)?;
+    for name in SITE_ASSETS {
+        copy_file(&layout.site().join(name), &out.join(name))?;
+    }
     let index = serde_json::to_string_pretty(&search)
         .map_err(|e| DocgenError::invalid("search index", e.to_string()))?;
     write_text(&out.join("search-index.json"), &index)?;

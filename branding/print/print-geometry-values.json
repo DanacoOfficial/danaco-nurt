@@ -1,0 +1,319 @@
+{
+  "document": "Danaco Nurt print geometry in millimetres",
+  "date": "2026-11-26",
+  "rules": {
+    "foil_min_line_mm": 0.25,
+    "foil_min_gap_mm": 0.4,
+    "foil_min_mark_height_mm": 6.0,
+    "emboss_depth_min_mm": 0.3,
+    "emboss_depth_max_mm": 0.5,
+    "emboss_depth_nominal_mm": 0.4,
+    "emboss_min_line_mm": 0.5,
+    "emboss_wall_min_deg": 45.0,
+    "emboss_wall_max_deg": 55.0,
+    "emboss_wall_nominal_deg": 50.0,
+    "emboss_min_inner_radius_mm": 0.15,
+    "ink_min_line_mm": 0.15,
+    "ink_min_gap_mm": 0.15
+  },
+  "mark_box_units": {
+    "x0": 14.500000000000004,
+    "y0": 9.360321306644922,
+    "x1": 81.5,
+    "y1": 86.63967869335508,
+    "width": 67.0,
+    "height": 77.27935738671016
+  },
+  "mark_features_units": {
+    "stroke_units": 11.0,
+    "stream_units": 5.5,
+    "stream_measured_units": 5.499666944376435,
+    "inner_corner_radius_units": 0.6,
+    "outer_corner_radius_units": 5.5,
+    "end_corner_radius_units": 1.2,
+    "grid_units": 96.0
+  },
+  "mark_at_reference_heights": [
+    {
+      "mark_height_mm": 6.0,
+      "mark_width_mm": 5.20190660991615,
+      "canvas_96_mm": 7.45347812764105,
+      "mm_per_grid_unit": 0.0776403971629276,
+      "stroke_mm": 0.8540443687922036,
+      "stream_mm": 0.4270221843961018,
+      "inner_radius_mm": 0.04658423829775656,
+      "outer_radius_mm": 0.4270221843961018,
+      "emboss_plateau_mm": 0.1827646638503796,
+      "emboss_channel_floor_mm": -0.2442575205457222,
+      "inner_radius_alt_canvas_mm": 0.0375
+    },
+    {
+      "mark_height_mm": 12.0,
+      "mark_width_mm": 10.4038132198323,
+      "canvas_96_mm": 14.9069562552821,
+      "mm_per_grid_unit": 0.1552807943258552,
+      "stroke_mm": 1.7080887375844072,
+      "stream_mm": 0.8540443687922036,
+      "inner_radius_mm": 0.09316847659551312,
+      "outer_radius_mm": 0.8540443687922036,
+      "emboss_plateau_mm": 1.0368090326425832,
+      "emboss_channel_floor_mm": 0.1827646638503796,
+      "inner_radius_alt_canvas_mm": 0.075
+    },
+    {
+      "mark_height_mm": 20.0,
+      "mark_width_mm": 17.339688699720497,
+      "canvas_96_mm": 24.844927092136835,
+      "mm_per_grid_unit": 0.25880132387642535,
+      "stroke_mm": 2.8468145626406787,
+      "stream_mm": 1.4234072813203393,
+      "inner_radius_mm": 0.1552807943258552,
+      "outer_radius_mm": 1.4234072813203393,
+      "emboss_plateau_mm": 2.175534857698855,
+      "emboss_channel_floor_mm": 0.7521275763785154,
+      "inner_radius_alt_canvas_mm": 0.125
+    },
+    {
+      "mark_height_mm": 30.0,
+      "mark_width_mm": 26.00953304958075,
+      "canvas_96_mm": 37.267390638205256,
+      "mm_per_grid_unit": 0.38820198581463805,
+      "stroke_mm": 4.270221843961019,
+      "stream_mm": 2.1351109219805093,
+      "inner_radius_mm": 0.23292119148878282,
+      "outer_radius_mm": 2.1351109219805093,
+      "emboss_plateau_mm": 3.5989421390191945,
+      "emboss_channel_floor_mm": 1.4638312170386854,
+      "inner_radius_alt_canvas_mm": 0.1875
+    }
+  ],
+  "mark_minimum_heights_mm": {
+    "foil_line": 1.75634903151614,
+    "foil_gap": 5.620316900851649,
+    "foil_rule_height": 6.0,
+    "emboss_line": 3.51269806303228,
+    "emboss_channel_nominal": 9.432011677208102,
+    "emboss_channel_worst_case": 14.050792252129122,
+    "emboss_plateau_nominal": 4.716005838604051,
+    "emboss_inner_radius": 19.31983934667754,
+    "wall_run_nominal_mm": 0.335639852470912,
+    "wall_run_worst_case_mm": 0.5000000000000001
+  },
+  "wordmark_measurements": {
+    "first": {
+      "word": "Danaco",
+      "letter_pairs": [
+        "Da",
+        "an",
+        "na",
+        "ac",
+        "co"
+      ],
+      "stem_mode_units": 12.25,
+      "bar_mode_units": 11.75,
+      "ridge_p05_units": 10.130399794677405,
+      "ridge_median_units": 12.0,
+      "letter_gaps_units": [
+        16.4,
+        17.04,
+        18.59,
+        18.11,
+        13.34
+      ],
+      "min_letter_gap_units": 13.337779125373837,
+      "apertures": [
+        {
+          "x_units": 4.0,
+          "aperture_units": 8.0
+        },
+        {
+          "x_units": 98.125,
+          "aperture_units": 12.0
+        },
+        {
+          "x_units": 183.875,
+          "aperture_units": 12.0
+        },
+        {
+          "x_units": 261.75,
+          "aperture_units": 12.0
+        },
+        {
+          "x_units": 343.25,
+          "aperture_units": 30.0
+        },
+        {
+          "x_units": 421.625,
+          "aperture_units": 9.0
+        }
+      ]
+    },
+    "second": {
+      "word": "Nurt",
+      "letter_pairs": [
+        "Nu",
+        "ur",
+        "rt"
+      ],
+      "stem_mode_units": 21.25,
+      "bar_mode_units": 15.75,
+      "ridge_p05_units": 15.75,
+      "ridge_median_units": 21.25,
+      "letter_gaps_units": [
+        17.38,
+        18.7,
+        10.68
+      ],
+      "min_letter_gap_units": 10.6754150390625,
+      "apertures": [
+        {
+          "x_units": 4.0,
+          "aperture_units": 8.0
+        },
+        {
+          "x_units": 248.0,
+          "aperture_units": 9.0
+        },
+        {
+          "x_units": 106.25,
+          "aperture_units": 12.0
+        },
+        {
+          "x_units": 192.0,
+          "aperture_units": 40.0
+        }
+      ]
+    }
+  },
+  "layouts": {
+    "horizontal": {
+      "viewbox_units": [
+        1088.836,
+        220.0
+      ],
+      "mark_height_units": 220.0,
+      "thinnest_line_units": 10.13,
+      "narrowest_gap_units": 10.68,
+      "foil_min_width_mm": 40.78,
+      "foil_min_height_mm": 8.24,
+      "foil_limited_by": "line / gap",
+      "emboss_min_width_mm": 95.62,
+      "emboss_min_height_mm": 19.32,
+      "emboss_limited_by": "mark inner radius",
+      "ink_min_width_mm": 16.12,
+      "ink_min_height_mm": 3.26,
+      "foil_min_u_mm": 0.03745318352059925,
+      "emboss_min_u_mm": 0.087817451575807,
+      "kit_min_print_mm": 28.0,
+      "kit_min_note": "width",
+      "narrowest_gap_at_kit_min_mm": 0.275
+    },
+    "vertical": {
+      "viewbox_units": [
+        823.099,
+        576.69
+      ],
+      "mark_height_units": 380.0,
+      "thinnest_line_units": 10.13,
+      "narrowest_gap_units": 10.68,
+      "foil_min_width_mm": 30.83,
+      "foil_min_height_mm": 21.6,
+      "foil_limited_by": "line / gap",
+      "emboss_min_width_mm": 51.74,
+      "emboss_min_height_mm": 36.25,
+      "emboss_limited_by": "channel",
+      "ink_min_width_mm": 12.19,
+      "ink_min_height_mm": 8.54,
+      "foil_min_u_mm": 0.03745318352059925,
+      "emboss_min_u_mm": 0.06285390495709962,
+      "kit_min_print_mm": 20.0,
+      "kit_min_note": "width",
+      "narrowest_gap_at_kit_min_mm": 0.26
+    },
+    "compact": {
+      "viewbox_units": [
+        538.581,
+        200.0
+      ],
+      "mark_height_units": 200.0,
+      "thinnest_line_units": 15.75,
+      "narrowest_gap_units": 10.68,
+      "foil_min_width_mm": 20.17,
+      "foil_min_height_mm": 7.49,
+      "foil_limited_by": "line / gap",
+      "emboss_min_width_mm": 52.03,
+      "emboss_min_height_mm": 19.32,
+      "emboss_limited_by": "mark inner radius",
+      "ink_min_width_mm": 7.56,
+      "ink_min_height_mm": 2.81,
+      "foil_min_u_mm": 0.03745318352059925,
+      "emboss_min_u_mm": 0.09659919673338771,
+      "kit_min_print_mm": 20.0,
+      "kit_min_note": "width",
+      "narrowest_gap_at_kit_min_mm": 0.397
+    },
+    "wordmark": {
+      "viewbox_units": [
+        823.099,
+        101.69
+      ],
+      "mark_height_units": null,
+      "thinnest_line_units": 10.13,
+      "narrowest_gap_units": 10.68,
+      "foil_min_width_mm": 30.83,
+      "foil_min_height_mm": 3.81,
+      "foil_limited_by": "line / gap",
+      "emboss_min_width_mm": 51.74,
+      "emboss_min_height_mm": 6.39,
+      "emboss_limited_by": "channel",
+      "ink_min_width_mm": 12.19,
+      "ink_min_height_mm": 1.51,
+      "foil_min_u_mm": 0.03745318352059925,
+      "emboss_min_u_mm": 0.06285390495709962,
+      "kit_min_print_mm": 22.0,
+      "kit_min_note": "width",
+      "narrowest_gap_at_kit_min_mm": 0.285
+    },
+    "mark": {
+      "viewbox_units": [
+        67.0,
+        77.279
+      ],
+      "mark_height_units": 77.27935738671016,
+      "thinnest_line_units": 11.0,
+      "narrowest_gap_units": 5.5,
+      "foil_min_width_mm": 5.2,
+      "foil_min_height_mm": 6.0,
+      "foil_limited_by": "mark height 6 mm",
+      "emboss_min_width_mm": 16.75,
+      "emboss_min_height_mm": 19.32,
+      "emboss_limited_by": "mark inner radius",
+      "ink_min_width_mm": 1.83,
+      "ink_min_height_mm": 2.11,
+      "foil_min_u_mm": 0.0776403971629276,
+      "emboss_min_u_mm": 0.25,
+      "kit_min_print_mm": 6.0,
+      "kit_min_note": "drawing for 16 px up to 31 px, drawing for 24 px from 24 px, main drawing from 48 px"
+    },
+    "_features": {
+      "wordmark_thinnest_line_units": 10.13,
+      "wordmark_narrowest_letter_gap_units": 10.68,
+      "wordmark_narrowest_letter_pair": "rt",
+      "wordmark_gaps_by_pair_units": {
+        "Da": 16.4,
+        "an": 17.04,
+        "na": 18.59,
+        "ac": 18.11,
+        "co": 13.34,
+        "Nu": 17.38,
+        "ur": 18.7,
+        "rt": 10.68
+      },
+      "wordmark_narrowest_aperture_units": 8.0
+    }
+  },
+  "notes": {
+    "mark_height": "height of the mark box (outer extent of both chevrons), not the 96 unit canvas",
+    "wall_run": "horizontal run of an emboss wall = depth / tan(wall angle)"
+  }
+}

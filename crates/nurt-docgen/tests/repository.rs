@@ -129,6 +129,11 @@ fn site_builds_valid_pages_without_unresolved_links() {
         );
         assert!(!html.contains("http://fonts") && !html.contains("https://fonts"));
     }
+    for name in std::iter::once("favicon.svg").chain(site::SITE_ASSETS) {
+        let copied = std::fs::read(out.path().join(name)).expect("identity file is copied");
+        let source = std::fs::read(layout.site().join(name)).expect("identity file exists");
+        assert_eq!(copied, source, "{name} differs from the source");
+    }
     let index =
         std::fs::read_to_string(out.path().join("search-index.json")).expect("index exists");
     let parsed: serde_json::Value = serde_json::from_str(&index).expect("index is JSON");

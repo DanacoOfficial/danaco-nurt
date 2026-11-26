@@ -32,6 +32,7 @@ use reedline::{
 
 use crate::EngineSource;
 use crate::app::{CliError, Context, Io, Terminal};
+use crate::banner;
 use crate::complete::{TokenKind, Vocabulary};
 use crate::exit;
 use crate::output::{self, Style as Palette};
@@ -472,37 +473,6 @@ impl<'a> Session<'a> {
     }
 }
 
-/// Number of columns of the banner art that are painted in silver.
-const SILVER_COLUMNS: usize = 14;
-
-/// Paints the drawing of the banner with the colours of the mark: the first
-/// two letters in silver, the last two in gold. Without colour the banner is
-/// returned unchanged.
-#[must_use]
-pub fn coloured_banner(banner: &str, enabled: bool, theme: Theme) -> String {
-    if !enabled {
-        return banner.to_owned();
-    }
-    let art_rows = nurt_contracts::product::BANNER_ART.len();
-    let (silver, gold) = (theme.silver_escape(), theme.gold_escape());
-    banner
-        .lines()
-        .enumerate()
-        .map(|(index, line)| {
-            if index >= art_rows {
-                return line.to_owned();
-            }
-            let split = line
-                .char_indices()
-                .nth(SILVER_COLUMNS)
-                .map_or(line.len(), |(at, _)| at);
-            let (left, right) = line.split_at(split);
-            format!("{silver}{left}{gold}{right}\x1b[0m")
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 /// The prompt of the session: the default prompt with the colours of the
 /// identity, the name in gold and the indicator in silver.
 struct BrandPrompt {
@@ -571,11 +541,16 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
     let interrupt = Interrupt::new();
     let mut session =
         Session::new(&context.engine, context.out_style).with_interrupt(interrupt.clone());
-    if let Some(banner) = banner_for(*terminal) {
+    if banner_for(*terminal).is_some() {
         writeln!(
             out,
             "{}",
-            coloured_banner(&banner, context.out_style.is_enabled(), Theme::detect())
+            banner::session_banner(
+                text::VERSION,
+                &|name| std::env::var(name).ok(),
+                context.out_style.is_enabled(),
+                Theme::detect(),
+            )
         )?;
         if let Err(problem) = interrupt.install_handler() {
             let _ = writeln!(err, "nurt: Ctrl-C does not cancel programs: {problem}");
@@ -612,37 +587,6 @@ mod tests {
     }
 
     #[test]
-    fn banner_art_is_painted_in_two_colours_and_the_text_is_not() {
-        let banner = nurt_contracts::product::banner("1.2.3");
-        let painted = coloured_banner(&banner, true, Theme::new(false));
-        let lines: Vec<&str> = painted.lines().collect();
-        assert!(
-            lines[0].starts_with("\x1b[38;5;251m _   _  _   _ \x1b[38;5;179m"),
-            "{}",
-            lines[0]
-        );
-        assert!(lines[0].ends_with("\x1b[0m"));
-        assert_eq!(lines[6], "Danaco Nurt 1.2.3");
-    }
-
-    #[test]
-    fn banner_art_has_the_exact_colours_of_the_mark_on_a_truecolor_terminal() {
-        let banner = nurt_contracts::product::banner("1.2.3");
-        let painted = coloured_banner(&banner, true, Theme::new(true));
-        let first = painted.lines().next().unwrap();
-        assert!(
-            first.starts_with("\x1b[38;2;195;200;206m _   _  _   _ \x1b[38;2;212;174;110m"),
-            "{first}"
-        );
-    }
-
-    #[test]
-    fn banner_is_unchanged_without_colour() {
-        let banner = nurt_contracts::product::banner("1.2.3");
-        assert_eq!(coloured_banner(&banner, false, Theme::new(true)), banner);
-    }
-
-    #[test]
     fn interrupt_is_taken_once() {
         let interrupt = Interrupt::new();
         assert!(!interrupt.take());
@@ -668,29 +612,6 @@ mod tests {
         assert_eq!(split_word("bg\tfind \"/srv\""), ("bg", "find \"/srv\""));
         assert_eq!(split_word("pom\u{f3}c  \u{15b}"), ("pom\u{f3}c", "\u{15b}"));
         assert_eq!(split_word(""), ("", ""));
-    }
-
-    #[test]
-    fn banner_lines_shorter_than_the_silver_part_are_painted_whole() {
-        let theme = Theme::new(false);
-        let painted = coloured_banner("ab", true, theme);
-        assert_eq!(
-            painted,
-            format!("{}ab{}\x1b[0m", theme.silver_escape(), theme.gold_escape())
-        );
-    }
-
-    #[test]
-    fn banner_rows_below_the_art_are_not_painted() {
-        let rows = nurt_contracts::product::BANNER_ART.len();
-        let mut text = vec!["x"; rows].join("\n");
-        text.push_str("\nDanaco Nurt 1.0.0\n\u{142}");
-        let painted = coloured_banner(&text, true, Theme::new(true));
-        let lines: Vec<&str> = painted.lines().collect();
-        assert_eq!(lines.len(), rows + 2);
-        assert!(lines[0].starts_with("\x1b[38;2;"));
-        assert_eq!(lines[rows], "Danaco Nurt 1.0.0");
-        assert_eq!(lines[rows + 1], "\u{142}");
     }
 
     #[test]

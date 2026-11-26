@@ -1,4 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Danaco Nurt mark in black"><title>Danaco Nurt mark in black</title><path fill="#0B0C0E" d="M43.43 13.06L16.73 32.81A5.5 5.5 0 0 0 16.73 41.65L43.43 61.41A1.3 1.3 0 0 0 45.5 60.36L45.5 49.92A1.3 1.3 0 0 0 44.97 48.87L29.79 37.64A0.5 0.5 0 0 1 29.79 36.83L44.97 25.6A1.3 1.3 0 0 0 45.5 24.55L45.5 14.1A1.3 1.3 0 0 0 43.43 13.06Z"/><path fill="#0B0C0E" d="M52.57 82.94L79.27 63.19A5.5 5.5 0 0 0 79.27 54.35L52.57 34.59A1.3 1.3 0 0 0 50.5 35.64L50.5 46.08A1.3 1.3 0 0 0 51.03 47.13L66.21 58.36A0.5 0.5 0 0 1 66.21 59.17L51.03 70.4A1.3 1.3 0 0 0 50.5 71.45L50.5 81.9A1.3 1.3 0 0 0 52.57 82.94Z"/></svg>
+<!-- -->
+<!-- Module:           branding.svg.mark-black -->
+<!-- Responsibility:   Danaco Nurt mark: one colour, black. -->
+<!-- Dependencies:     none. -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          production identity 1.0.0, release 0.1.1 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Danaco Nurt mark: one colour, black"><title>Danaco Nurt mark: one colour, black</title><desc>Danaco Nurt identity, production version 1.0.0; the wordmark is converted to curves.</desc><path fill="#000000" d="M47.78 9.603L16.7 32.913C13.767 35.113 13.767 39.512 16.7 41.712L47.78 65.023C48.571 65.616 49.7 65.051 49.7 64.062L49.7 53.313C49.7 52.935 49.522 52.579 49.22 52.353L29.807 37.792C29.487 37.552 29.487 37.073 29.807 36.833L49.22 22.272C49.522 22.046 49.7 21.69 49.7 21.312L49.7 10.563C49.7 9.574 48.571 9.009 47.78 9.603Z"/><path fill="#000000" d="M48.22 86.398L79.3 63.087C82.233 60.887 82.233 56.487 79.3 54.287L48.22 30.977C47.429 30.384 46.3 30.949 46.3 31.938L46.3 42.687C46.3 43.065 46.478 43.421 46.78 43.647L66.193 58.208C66.513 58.448 66.513 58.927 66.193 59.167L46.78 73.728C46.478 73.954 46.3 74.31 46.3 74.688L46.3 85.438C46.3 86.426 47.429 86.991 48.22 86.398Z"/></svg>
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->
