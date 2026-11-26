@@ -38,7 +38,7 @@ fn embedded_catalog_has_148_commands_in_15_groups() {
 #[test]
 fn embedded_catalog_equals_catalog_loaded_from_directory() {
     let embedded = Registry::load_embedded().unwrap();
-    let from_disk = Registry::load_dir(&catalog_dir()).unwrap();
+    let from_disk = Registry::load_dir(catalog_dir()).unwrap();
     assert_eq!(
         embedded.catalog_rev().unwrap(),
         from_disk.catalog_rev().unwrap()

@@ -30,7 +30,7 @@ fn catalog_dir() -> std::path::PathBuf {
 #[test]
 fn bound_tree_and_registry_report_the_same_revision() {
     let catalog = Catalog::load_dir(&catalog_dir()).unwrap();
-    let registry = Registry::load_dir(&catalog_dir()).unwrap();
+    let registry = Registry::load_dir(catalog_dir()).unwrap();
     assert_eq!(catalog.revision(), registry.catalog_rev().unwrap());
     assert_eq!(
         Registry::load_embedded().unwrap().catalog_rev().unwrap(),
@@ -41,7 +41,7 @@ fn bound_tree_and_registry_report_the_same_revision() {
 #[test]
 fn an_extension_changes_the_registry_revision_only() {
     let catalog = Catalog::load_dir(&catalog_dir()).unwrap();
-    let mut registry = Registry::load_dir(&catalog_dir()).unwrap();
+    let mut registry = Registry::load_dir(catalog_dir()).unwrap();
     let mut spec: StageSpec = registry.command("count").cloned().unwrap();
     spec.name = "metrics.count".to_owned();
     spec.group.clear();
