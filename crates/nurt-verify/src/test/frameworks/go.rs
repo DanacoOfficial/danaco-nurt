@@ -34,7 +34,11 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
                 packages.push(package);
             }
         }
-        packages
+        if packages.iter().any(String::is_empty) {
+            vec![ALL_PACKAGES.to_owned()]
+        } else {
+            packages
+        }
     } else if request.targets.is_empty() {
         vec![ALL_PACKAGES.to_owned()]
     } else {
