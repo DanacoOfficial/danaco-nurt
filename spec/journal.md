@@ -243,7 +243,7 @@ details of journal errors carry the types of the journal module:
 | Code | When | Details |
 |---|---|---|
 | `E_STALE` | expected state does not match | `path`, `expected`, `actual` |
-| `E_NOT_FOUND`, `E_EXISTS`, `E_PERMISSION`, `E_PRIVILEGE`, `E_IN_USE`, `E_NO_SPACE`, `E_IO` | failure of a target | `path`, `kind` (file system error kind), `os_code`, `holders` |
+| `E_NOT_FOUND`, `E_EXISTS`, `E_PERMISSION`, `E_PRIVILEGE`, `E_IN_USE`, `E_NO_SPACE`, `E_IO` | failure of a target | `path`, `kind` (file system error kind), `os_error`, `holders` |
 | `E_CANCELLED` | the operation was cancelled; rolled back | none |
 | `E_ROLLED_BACK` | call on a transaction that was rolled back; failed check after the change | `reason` |
 | `E_ROLLBACK_FAILED` | rollback or undo could not restore every item | `failed`: list of `TargetPath` |

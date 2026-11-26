@@ -24,8 +24,8 @@ Windows. The job state becomes `suspended`. Time spent suspended is not
 counted against the time limit of the job and is reported in
 `suspended_total` of the final record.
 
-Only running jobs can be suspended. Process records are handled by the
-implementation of the system commands.
+Only running jobs can be suspended. Job and process records are handled by
+this implementation.
 
 ## Parameters
 

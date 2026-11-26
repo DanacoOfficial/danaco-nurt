@@ -23,10 +23,10 @@ or job object of the program, and after `grace` the remaining processes are
 killed. The command returns after the job has ended and its final record,
 its detected changes and its journal entry are written.
 
-Only running and suspended jobs can be stopped. Job records are handled by
-this implementation; process and service records are handled by the
-implementations of the system commands, selected by the record kind of the
-input.
+Only running and suspended jobs can be stopped. Job and process records are
+handled by this implementation (the signal goes to the process of a `process`
+record); service records are handled by the implementations of the system
+commands, selected by the record kind of the input.
 
 On Windows `terminate`, `interrupt` and `hangup` request the end of the
 console program group; `kill` ends the job object.

@@ -23,8 +23,8 @@ Resumes the process tree of every input job suspended by `suspend`:
 of the job object on Windows. The job state becomes `running` again and its
 time limit continues from where it stopped.
 
-Only suspended jobs can be resumed. Process records are handled by the
-implementation of the system commands.
+Only suspended jobs can be resumed. Job and process records are handled by
+this implementation.
 
 ## Parameters
 
