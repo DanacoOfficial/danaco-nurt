@@ -188,3 +188,17 @@ fn rejects_cursor_of_other_spool_and_past_end() {
     let error = first.read_since(Some(&past), &view()).unwrap_err();
     assert_eq!(error.code(), ErrorCode::InvalidValue);
 }
+
+#[test]
+fn utf16_line_count_covers_output_beyond_the_first_read() {
+    const LINES: u64 = 40_000;
+    let bench = Bench::new();
+    let text = numbered("record with some padding to pass the read budget", 40_000);
+    let bytes: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    let store = bench.finished("utf16-long", &bytes, b"");
+    let page = store.read_since(None, &view()).unwrap();
+    assert!(page.stdout.lines().count() < 40_000);
+    assert!(page.stdout_lines >= LINES, "{}", page.stdout_lines);
+    let whole = store.render(&view(), Some(0)).unwrap();
+    assert_eq!(whole.stdout_lines, LINES);
+}

@@ -140,6 +140,13 @@ fn rejects_another_major_version() {
 }
 
 #[test]
+fn reports_a_minor_version_of_five_digits_as_newer() {
+    let error = decode_error(minimal("1.70000"));
+    assert_eq!(error.code, ErrorCode::AstVersion);
+    assert_eq!(error.found.as_deref(), Some("/nurt"));
+}
+
+#[test]
 fn rejects_a_malformed_version() {
     let error = decode_error(minimal("1.01"));
     assert_eq!(error.code, ErrorCode::AstSchema);
@@ -165,6 +172,15 @@ fn rejects_an_unknown_member_with_its_pointer() {
     let mut value = minimal("1.0");
     value["bound"] = json!("1.0");
     assert_eq!(decode_error(value).found.as_deref(), Some("/bound"));
+}
+
+#[test]
+fn escapes_the_member_name_in_the_pointer_of_an_unknown_member() {
+    let mut value = minimal("1.0");
+    value["program"]["a/b~c"] = json!(1);
+    let error = decode_error(value);
+    assert_eq!(error.code, ErrorCode::AstSchema);
+    assert_eq!(error.found.as_deref(), Some("/program/a~1b~0c"));
 }
 
 #[test]
@@ -222,6 +238,28 @@ fn rejects_invalid_json_and_non_objects() {
         json::decode_bound("1").expect_err("invalid").code,
         ErrorCode::AstSchema
     );
+}
+
+#[test]
+fn rejects_a_metadata_integer_that_canonical_json_cannot_represent() {
+    let mut value = minimal("1.0");
+    value["meta"] = json!({"source": 9_007_199_254_740_993_i64});
+    let error = decode_error(value);
+    assert_eq!(error.code, ErrorCode::AstSchema);
+    assert_eq!(error.found.as_deref(), Some("/meta"));
+}
+
+#[test]
+fn lists_ident_among_the_unknown_node_kinds_of_a_newer_bound_tree() {
+    let value = json!({"nurt": "1.0", "bound": "1.9", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+        "program": {"statements": [{"t": "pipeline",
+            "head": {"t": "stage", "name": "list", "effect": "read", "phase": "source",
+                "args": [{"name": "value", "value": {"t": "ident", "v": "x"}}]},
+            "stages": []}]}});
+    let error = json::decode_bound_value(value).expect_err("newer minor version");
+    assert_eq!(error.code, ErrorCode::AstVersion);
+    assert_eq!(error.found.as_deref(), Some("/bound"));
+    assert_eq!(error.expected, ["ident"]);
 }
 
 #[test]

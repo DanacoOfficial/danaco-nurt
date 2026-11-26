@@ -13,8 +13,9 @@
 //! which plain signature keys never match. Empty lines and lines starting
 //! with `#` are comments.
 //!
-//! A revoked keys file lists one public key per line. A configured file
-//! that does not exist accepts no signer and revokes no key.
+//! A revoked keys file lists one public key per line; a binary key
+//! revocation list (KRL) is not evaluated. A configured file that does not
+//! exist accepts no signer and revokes no key.
 
 use std::path::Path;
 
@@ -24,6 +25,8 @@ use ssh_key::PublicKey;
 use super::NAMESPACE;
 use crate::sign::error::io_error;
 
+/// Start of the magic number of a binary key revocation list (KRL).
+const KRL_MAGIC: &[u8] = b"SSHKRL\n";
 const DATE_DIGITS: usize = 8;
 const MINUTE_DIGITS: usize = 12;
 const SECOND_DIGITS: usize = 14;
@@ -46,6 +49,16 @@ pub(super) fn find_principal(
         .filter_map(|line| parse_line(line, utc_offset))
         .find(|entry| entry.accepts(public, signed_at))
         .map(|entry| entry.principals))
+}
+
+/// Whether the revoked keys file `path` is a binary key revocation list,
+/// which is not evaluated: its keys would be taken for valid.
+pub(super) fn is_krl(path: &Path) -> Result<bool> {
+    match std::fs::read(path) {
+        Ok(bytes) => Ok(bytes.starts_with(KRL_MAGIC)),
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(source) => Err(io_error(path, &source)),
+    }
 }
 
 /// Whether the revoked keys file `path` lists `public`.

@@ -519,7 +519,7 @@ fn get_reads_dates_numbers_and_tables_with_their_positions() {
 }
 
 #[test]
-fn malformed_documents_are_rejected_with_a_position() {
+fn malformed_documents_are_rejected_as_parse_errors() {
     for content in ["a = \n", "[a\n", "a = 1\na = 2\n", "[a]\n[a]\n"] {
         let error = TomlDocument::parse(content).unwrap_err();
         assert_eq!(error.code(), ErrorCode::DocParse, "{content:?}");

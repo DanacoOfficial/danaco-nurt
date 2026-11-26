@@ -96,6 +96,28 @@ class AnthropicExampleTest(unittest.TestCase):
         self.assertEqual(agent.call_nurt(MockNurt(), {"program": PROGRAM, "command": "ls"}), ("unknown option 'command'", True))
         self.assertEqual(agent.call_nurt(MockNurt(ok=False), {"program": PROGRAM}), ("42 files", True))
 
+    def test_ignores_tool_calls_of_other_tools(self):
+        agent = load("anthropic-python")
+        create = Scripted(
+            SimpleNamespace(content=[block("tool_use", id="t1", name="bash", input={"command": "ls"}), block("text", text="done")])
+        )
+        client = SimpleNamespace(messages=SimpleNamespace(create=create))
+        nurt = MockNurt()
+        self.assertEqual(agent.run_agent(client, nurt, {"name": "nurt"}, "list"), "done")
+        self.assertEqual(nurt.calls, [])
+
+    def test_stops_after_the_turn_limit(self):
+        agent = load("anthropic-python")
+        turns = [
+            SimpleNamespace(content=[block("tool_use", id=f"t{index}", name="nurt", input={"program": PROGRAM})])
+            for index in range(agent.MAX_TURNS)
+        ]
+        create = Scripted(*turns)
+        client = SimpleNamespace(messages=SimpleNamespace(create=create))
+        with self.assertRaisesRegex(RuntimeError, "no answer after 20 turns"):
+            agent.run_agent(client, MockNurt(), {"name": "nurt"}, "loop")
+        self.assertEqual(len(create.requests), agent.MAX_TURNS)
+
 
 class OpenAIExampleTest(unittest.TestCase):
     def test_strict_arguments_with_null_reach_the_console_without_null(self):

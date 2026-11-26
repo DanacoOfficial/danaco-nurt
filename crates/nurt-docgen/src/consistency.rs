@@ -340,6 +340,62 @@ mod tests {
     }
 
     #[test]
+    fn numbers_with_separators_and_punctuation_are_parsed() {
+        assert_eq!(parse_number("2,230"), Some(2230));
+        assert_eq!(parse_number("(148)"), Some(148));
+        assert_eq!(parse_number("1.0"), None);
+        assert_eq!(parse_number("word"), None);
+        assert_eq!(parse_number(""), None);
+    }
+
+    #[test]
+    fn prose_lines_skip_fenced_blocks_and_code_spans_and_keep_line_numbers() {
+        let lines = prose_lines("a `x` b\n```\nhidden\n```\nlast\n");
+        assert_eq!(
+            lines,
+            vec![(1, "a   b".to_owned()), (5, "last".to_owned())]
+        );
+    }
+
+    #[test]
+    fn group_counts_are_checked_in_both_phrasings() {
+        let facts = facts();
+        assert!(check_text("a.md", "There are 1 optional groups.", &facts).is_empty());
+        assert_eq!(
+            check_text("a.md", "There are 3 command groups.", &facts).len(),
+            1
+        );
+    }
+
+    #[test]
+    fn markdown_files_are_listed_in_sorted_order() {
+        let dir = tempfile::tempdir().expect("temporary directory");
+        std::fs::create_dir(dir.path().join("sub")).expect("create");
+        for name in ["b.md", "a.md", "sub/c.md"] {
+            std::fs::write(dir.path().join(name), "x").expect("write");
+        }
+        let files = markdown_files(dir.path()).expect("tree readable");
+        let names: Vec<String> = files
+            .iter()
+            .map(|path| {
+                path.strip_prefix(dir.path())
+                    .expect("below the root")
+                    .components()
+                    .map(|part| part.as_os_str().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join("/")
+            })
+            .collect();
+        assert_eq!(names, ["a.md", "b.md", "sub/c.md"]);
+    }
+
+    #[test]
+    fn a_missing_directory_is_an_error() {
+        let dir = tempfile::tempdir().expect("temporary directory");
+        assert!(markdown_files(&dir.path().join("absent")).is_err());
+    }
+
+    #[test]
     fn lists_markdown_files_recursively() {
         let dir = tempfile::tempdir().expect("temporary directory");
         std::fs::create_dir(dir.path().join("sub")).expect("create");

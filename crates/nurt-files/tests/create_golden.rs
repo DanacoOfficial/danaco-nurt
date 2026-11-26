@@ -6,6 +6,8 @@
 // Test code unwraps results so that a failure aborts the test with the original error.
 #![allow(clippy::unwrap_used)]
 
+mod support_report;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -53,8 +55,10 @@ fn run(test: &TestContext, args: &BoundArgs) -> Result<Vec<Change>> {
     let effect = stage.as_effect().unwrap();
     let ctx = test.ctx();
     let plan = effect.plan(args, StageInput::none(), &ctx)?;
+    support_report::assert_plan_valid(args.command(), &plan.changes);
     let mut tx = test.journal().begin(begin_request(COMMAND));
     let changes = effect.apply(args, plan, tx.as_mut(), &ctx)?.changes;
+    support_report::assert_changes_valid(args.command(), &changes);
     tx.commit()?;
     Ok(changes)
 }

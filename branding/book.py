@@ -22,12 +22,14 @@ SIL Open Font License 1.1).
 import argparse
 import importlib.util
 import math
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+PDF_DATE_EPOCH = "1767225600"  # 2026-01-01T00:00:00Z, the date given to the PDF when none is set.
 
 
 def load(name):
@@ -340,7 +342,6 @@ def terminal(f):
 
 
 def build_banner_rows():
-    sys.path.insert(0, "")
     return [
         " _   _  _   _  ____   _____",
         r"| \ | || | | ||  _ \ |_   _|",
@@ -744,9 +745,15 @@ def main(argv):
         files = []
         for index, document in enumerate(pages, 1):
             path = Path(directory) / f"page-{index:02d}.svg"
-            path.write_text(document, encoding="utf-8")
+            path.write_text(document, encoding="utf-8", newline="\n")
             files.append(str(path))
-        subprocess.run(["rsvg-convert", "-f", "pdf", "-o", str(arguments.out), *files], check=True)
+        # The date of creation of the PDF is the time of the run unless it is fixed,
+        # so that two runs on the same sources write the same bytes.
+        environment = dict(os.environ)
+        environment.setdefault("SOURCE_DATE_EPOCH", PDF_DATE_EPOCH)
+        subprocess.run(
+            ["rsvg-convert", "-f", "pdf", "-o", str(arguments.out), *files], check=True, env=environment
+        )
     print(f"{arguments.out} written ({len(pages)} pages)")
     return 0
 

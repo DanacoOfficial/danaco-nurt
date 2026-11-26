@@ -760,22 +760,30 @@ fn compare_entry(
         out,
     );
     if options.mode {
-        compare_member(
-            path,
-            "mode",
-            expected.mode.as_ref(),
-            actual.mode.as_ref(),
-            out,
-        );
+        // Spellings of one number (`755` and `0755`) are not a difference.
+        match (expected.mode_bits(), actual.mode_bits()) {
+            (Ok(Some(left)), Ok(Some(right))) if left == right => {}
+            _ => compare_member(
+                path,
+                "mode",
+                expected.mode.as_ref(),
+                actual.mode.as_ref(),
+                out,
+            ),
+        }
     }
     if options.mtime {
-        compare_member(
-            path,
-            "mtime",
-            expected.mtime.as_ref(),
-            actual.mtime.as_ref(),
-            out,
-        );
+        // One instant has several spellings (`Z`, `+00:00`, fractions).
+        match (expected.mtime_ns(), actual.mtime_ns()) {
+            (Ok(Some(left)), Ok(Some(right))) if left == right => {}
+            _ => compare_member(
+                path,
+                "mtime",
+                expected.mtime.as_ref(),
+                actual.mtime.as_ref(),
+                out,
+            ),
+        }
     }
 }
 
@@ -922,6 +930,33 @@ mod tests {
             expected.compare(&actual, CompareOptions::default()).len(),
             3
         );
+    }
+
+    #[test]
+    fn compare_treats_spellings_of_one_mode_and_one_instant_as_equal() {
+        let spelled = |mode: &str, mtime: &str| {
+            let mut entry = SnapshotEntry::file("f", "x");
+            entry.mode = Some(mode.to_owned());
+            entry.mtime = Some(mtime.to_owned());
+            FsSnapshot::from_entries(vec![entry])
+        };
+        let options = CompareOptions {
+            mtime: true,
+            ..CompareOptions::default()
+        };
+        let expected = spelled("755", "2026-01-01T00:00:00+00:00");
+        let same = spelled("0755", "2026-01-01T00:00:00.000Z");
+        assert!(expected.compare(&same, options).is_empty());
+        let other = spelled("0700", "2026-01-01T00:00:01Z");
+        let members: Vec<&str> = expected
+            .compare(&other, options)
+            .iter()
+            .filter_map(|difference| match difference {
+                SnapshotDifference::Member { member, .. } => Some(*member),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(members, ["mode", "mtime"]);
     }
 
     #[test]

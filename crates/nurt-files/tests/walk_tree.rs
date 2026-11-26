@@ -764,3 +764,11 @@ fn entry_reports_kind_and_effective_kind() {
         ]
     );
 }
+
+#[test]
+#[should_panic(expected = "the path to deny exists")]
+fn denying_a_path_that_does_not_exist_fails_the_test() {
+    let mut fs = MemFs::new();
+    fs.file("r/a.txt", "x");
+    fs.deny("r/typo");
+}

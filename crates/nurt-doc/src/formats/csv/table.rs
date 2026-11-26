@@ -15,6 +15,10 @@ use super::scan::{Dialect, Field, Record, Scan, scan_file};
 /// Line terminator written when the file has none.
 const DEFAULT_TERMINATOR: &str = "\n";
 
+/// Largest number of columns a change may create past the end of a row; a
+/// column index beyond it would make the new text as long as the index.
+pub(crate) const MAX_COLUMNS: usize = 16_384;
+
 /// Parsed delimited file with the byte range of every field.
 #[derive(Debug, Clone)]
 pub(crate) struct Table {
@@ -98,12 +102,17 @@ impl Table {
     }
 
     /// Column named `label` by [`Table::column_label`], or the column with
-    /// that decimal index past the header.
+    /// that decimal index past the header, up to [`MAX_COLUMNS`].
     pub(crate) fn label_column(&self, label: &str) -> Option<usize> {
         let names = self.column_names();
         (0..names.len())
             .find(|index| label_of(&names, *index) == label)
-            .or_else(|| label.parse().ok().filter(|index| *index >= names.len()))
+            .or_else(|| {
+                label
+                    .parse()
+                    .ok()
+                    .filter(|index| *index >= names.len() && *index < MAX_COLUMNS)
+            })
     }
 
     /// Name of column `index` in rows read as maps; see [`label_of`].
@@ -219,6 +228,15 @@ mod tests {
         assert_eq!(table.label_column("1"), Some(1));
         assert_eq!(table.label_column("7"), Some(7));
         assert_eq!(table.label_column("c"), None);
+    }
+
+    #[test]
+    fn numeric_labels_past_the_header_stop_at_the_column_limit() {
+        let table = table("a,b\n1,2\n", true);
+        let last = (MAX_COLUMNS - 1).to_string();
+        assert_eq!(table.label_column(&last), Some(MAX_COLUMNS - 1));
+        assert_eq!(table.label_column(&MAX_COLUMNS.to_string()), None);
+        assert_eq!(table.label_column("99999999999"), None);
     }
 
     #[test]

@@ -182,10 +182,10 @@ pub fn os_code(kind: FsErrorKind) -> Option<i32> {
             FsErrorKind::PermissionDenied => Some(13),
             FsErrorKind::CrossDevice => Some(18),
             FsErrorKind::InUse => Some(16),
-            FsErrorKind::Stale => Some(116),
-            FsErrorKind::Unsupported => Some(95),
+            FsErrorKind::Stale => Some(if cfg!(target_os = "macos") { 70 } else { 116 }),
+            FsErrorKind::Unsupported => Some(if cfg!(target_os = "macos") { 45 } else { 95 }),
             FsErrorKind::NoSpace => Some(28),
-            FsErrorKind::QuotaExceeded => Some(122),
+            FsErrorKind::QuotaExceeded => Some(if cfg!(target_os = "macos") { 69 } else { 122 }),
             FsErrorKind::Interrupted => Some(4),
             _ => None,
         }
@@ -757,5 +757,197 @@ impl Seek for ShortReader {
 impl ReadHandle for ShortReader {
     fn meta(&self) -> FsResult<FileMeta> {
         self.inner.meta()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use nurt_contracts::fs::{ScopePurpose, TxScope};
+    use nurt_contracts::journal::OpId;
+
+    use super::*;
+    use crate::crash::{CrashFs, CrashProfile, VolumeSpec};
+
+    fn root() -> AbsPath {
+        AbsPath::new(if cfg!(windows) { "C:\\vol" } else { "/vol" }).unwrap()
+    }
+
+    fn scope() -> TxScope {
+        TxScope::new_for_journal(OpId(1), ScopePurpose::Maintenance)
+    }
+
+    fn inner() -> CrashFs {
+        CrashFs::new(CrashProfile::PosixWorstCase, 3, vec![VolumeSpec::new(root())]).unwrap()
+    }
+
+    fn at(name: &str) -> AbsPath {
+        root().join_name(name).unwrap()
+    }
+
+    fn rule(call: Call, fault: Fault) -> InjectRule {
+        InjectRule {
+            call: Some(call),
+            below: None,
+            occurrence: None,
+            fault,
+        }
+    }
+
+    fn plan(rules: Vec<InjectRule>) -> InjectPlan {
+        InjectPlan {
+            rules,
+            ..InjectPlan::default()
+        }
+    }
+
+    #[test]
+    fn every_call_has_a_distinct_name() {
+        let names: HashSet<&str> = Call::ALL.iter().map(|call| call.as_str()).collect();
+        assert_eq!(names.len(), Call::ALL.len());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_error_numbers_are_reported() {
+        assert_eq!(os_code(FsErrorKind::Stale), Some(116));
+        assert_eq!(os_code(FsErrorKind::Unsupported), Some(95));
+        assert_eq!(os_code(FsErrorKind::QuotaExceeded), Some(122));
+        assert_eq!(os_code(FsErrorKind::NoSpace), Some(28));
+        assert_eq!(os_code(FsErrorKind::NotFound), None);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_error_numbers_differ_from_linux() {
+        assert_eq!(os_code(FsErrorKind::Stale), Some(70));
+        assert_eq!(os_code(FsErrorKind::Unsupported), Some(45));
+        assert_eq!(os_code(FsErrorKind::QuotaExceeded), Some(69));
+        assert_eq!(os_code(FsErrorKind::NoSpace), Some(28));
+    }
+
+    #[test]
+    fn an_error_rule_fails_only_the_chosen_occurrence() {
+        let fs = InjectFs::new(
+            inner(),
+            plan(vec![InjectRule::error_at(
+                Call::CreateDir,
+                1,
+                FsErrorKind::PermissionDenied,
+            )]),
+        );
+        fs.create_dir(&scope(), &at("a"), 0o755).unwrap();
+        let err = fs.create_dir(&scope(), &at("b"), 0o755).unwrap_err();
+        assert_eq!(err.kind, FsErrorKind::PermissionDenied);
+        assert_eq!(err.os_code, os_code(FsErrorKind::PermissionDenied));
+        fs.create_dir(&scope(), &at("c"), 0o755).unwrap();
+        assert!(fs.inner().metadata(&at("b"), Follow::NoFollow).is_err());
+        assert_eq!(fs.calls(Call::CreateDir), 3);
+        let injected = fs.injected();
+        assert_eq!(injected.len(), 1);
+        assert_eq!(injected[0].seq, 1);
+        assert_eq!(injected[0].call, Call::CreateDir);
+    }
+
+    #[test]
+    fn a_rule_applies_only_below_its_path() {
+        let mut limited = rule(
+            Call::CreateDir,
+            Fault::Error {
+                kind: FsErrorKind::Io,
+            },
+        );
+        limited.below = Some(at("x").as_path().to_path_buf());
+        let fs = InjectFs::new(inner(), plan(vec![limited]));
+        fs.create_dir(&scope(), &at("y"), 0o755).unwrap();
+        let err = fs.create_dir(&scope(), &at("x"), 0o755).unwrap_err();
+        assert_eq!(err.kind, FsErrorKind::Io);
+    }
+
+    #[test]
+    fn short_writes_are_completed_by_write_all() {
+        let fs = InjectFs::new(
+            inner(),
+            plan(vec![rule(Call::Write, Fault::ShortWrite { max: 2 })]),
+        );
+        let mut handle = fs.create_new(&scope(), &at("f")).unwrap();
+        handle.write_all(b"hello").unwrap();
+        drop(handle);
+        let mut stored = Vec::new();
+        fs.open_read(&at("f"))
+            .unwrap()
+            .read_to_end(&mut stored)
+            .unwrap();
+        assert_eq!(stored, b"hello");
+        assert_eq!(fs.injected().len(), 3);
+    }
+
+    #[test]
+    fn short_reads_return_at_most_the_limit() {
+        let fs = InjectFs::new(
+            inner(),
+            plan(vec![rule(Call::Read, Fault::ShortRead { max: 3 })]),
+        );
+        let mut handle = fs.create_new(&scope(), &at("f")).unwrap();
+        handle.write_all(b"abcdef").unwrap();
+        drop(handle);
+        let mut reader = fs.open_read(&at("f")).unwrap();
+        let mut buffer = [0_u8; 10];
+        assert_eq!(reader.read(&mut buffer).unwrap(), 3);
+        assert_eq!(&buffer[..3], b"abc");
+        assert!(reader.meta().is_ok());
+    }
+
+    #[test]
+    fn delays_are_passed_to_the_sink() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let sink_seen = Arc::clone(&seen);
+        let sink: DelaySink = Arc::new(move |delay| {
+            sink_seen.lock().unwrap().push(delay);
+        });
+        let fs = InjectFs::with_delay(
+            inner(),
+            plan(vec![rule(Call::CreateDir, Fault::Delay { millis: 5 })]),
+            Some(sink),
+        );
+        fs.create_dir(&scope(), &at("a"), 0o755).unwrap();
+        assert_eq!(*seen.lock().unwrap(), [Duration::from_millis(5)]);
+    }
+
+    #[test]
+    fn random_errors_follow_the_probability_and_the_kinds() {
+        let always = InjectPlan {
+            seed: 9,
+            rules: Vec::new(),
+            error_per_million: 1_000_000,
+            error_kinds: vec![FsErrorKind::Io],
+        };
+        let fs = InjectFs::new(inner(), always);
+        let err = fs.create_dir(&scope(), &at("a"), 0o755).unwrap_err();
+        assert_eq!(err.kind, FsErrorKind::Io);
+        let without_kinds = InjectPlan {
+            error_per_million: 1_000_000,
+            ..InjectPlan::default()
+        };
+        let fs = InjectFs::new(inner(), without_kinds);
+        fs.create_dir(&scope(), &at("a"), 0o755).unwrap();
+        assert!(fs.injected().is_empty());
+    }
+
+    #[test]
+    fn a_failed_write_reports_the_error_through_the_io_interface() {
+        let fs = InjectFs::new(
+            inner(),
+            plan(vec![rule(
+                Call::Write,
+                Fault::Error {
+                    kind: FsErrorKind::NoSpace,
+                },
+            )]),
+        );
+        let mut handle = fs.create_new(&scope(), &at("f")).unwrap();
+        let err = handle.write(b"x").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::StorageFull);
     }
 }

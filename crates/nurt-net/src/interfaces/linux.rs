@@ -131,6 +131,7 @@ pub fn from_sysfs(root: &SysRoot, addresses: &[InterfaceAddress]) -> Result<Vec<
     let entries = fs::read_dir(&class).map_err(|error| read_error(&class, &error))?;
     let mut names: Vec<String> = entries
         .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().is_dir())
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
         .collect();
     names.sort();
@@ -288,6 +289,20 @@ mod tests {
         let unreachable =
             format!("{zero} 00 {zero} 00 {zero} ffffffff 00000001 00000000 00200200 lo");
         assert_eq!(ipv6_default_route(&unreachable), None);
+    }
+
+    #[test]
+    fn files_in_the_interface_directory_are_not_interfaces() {
+        let dir = tempfile::tempdir().unwrap();
+        let class = dir.path().join("sys/class/net");
+        fs::create_dir_all(class.join("eth0")).unwrap();
+        fs::write(class.join("bonding_masters"), "bond0\n").unwrap();
+        let interfaces = from_sysfs(&SysRoot::new(dir.path()), &[]).unwrap();
+        let names: Vec<&str> = interfaces
+            .iter()
+            .map(|interface| interface.name.as_str())
+            .collect();
+        assert_eq!(names, ["eth0"]);
     }
 
     #[test]

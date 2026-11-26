@@ -48,9 +48,11 @@ def social_card(lockup, destination):
         f'<svg x="330" y="50" width="540" height="530" viewBox="{view}">{inner}</svg></svg>'
     )
     source = destination.with_suffix(".svg")
-    source.write_text(document, encoding="utf-8")
-    render(source, destination, 1200, 630)
-    source.unlink()
+    source.write_text(document, encoding="utf-8", newline="\n")
+    try:
+        render(source, destination, 1200, 630)
+    finally:
+        source.unlink()
 
 
 def write_ico(path, images):
@@ -84,7 +86,7 @@ def main(argv):
     (out / "favicon-32.png").write_bytes(pngs[32])
     render(svg / "app-icon-graphite.svg", out / "apple-touch-icon.png", 180)
     social_card(svg / "lockup-stacked-dark.svg", out / "social-card.png")
-    for name in sorted(path.name for path in out.rglob("*") if path.is_file()):
+    for name in sorted(path.relative_to(out).as_posix() for path in out.rglob("*") if path.is_file()):
         print(out / name)
     return 0
 

@@ -30,9 +30,22 @@ jobs:
     timeout-minutes: 30
     environment: release
     steps:
+      - name: Validate the release version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          case "$VERSION" in
+            '' | *[!0-9A-Za-z.-]*) echo "invalid version: $VERSION" >&2; exit 1 ;;
+          esac
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Take the build time from the release tag
-        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct "v${{ inputs.version }}")" >> "$GITHUB_ENV"
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          epoch=$(git log -1 --format=%ct "refs/tags/v${VERSION}")
+          echo "SOURCE_DATE_EPOCH=$epoch" >> "$GITHUB_ENV"
       - name: Download the release archives
         env:
           GH_TOKEN: ${{ github.token }}
@@ -206,8 +219,8 @@ jobs:
           - name: install.sh
             runner: ubuntu-latest
             run: |
-              curl -fsSL https://nurt.danaco-group.pl/install.sh | NURT_INSTALL_DIR="$RUNNER_TEMP/bin" sh
-              "$RUNNER_TEMP/bin/nurt" version | head -n 1 | grep -q '^Danaco Nurt'
+              curl -fsSL https://nurt.danaco-group.pl/install.sh | NURT_VERSION="${{ inputs.version }}" NURT_INSTALL_DIR="$RUNNER_TEMP/bin" sh
+              "$RUNNER_TEMP/bin/nurt" version | head -n 1 | grep -q '^nurt [0-9]'
           - name: Homebrew
             runner: macos-latest
             run: |
@@ -226,7 +239,7 @@ jobs:
                   -o /etc/apt/sources.list.d/nurt.sources
                 apt-get update -qq
                 apt-get install -y -qq nurt
-                nurt version | head -n 1 | grep -q "^Danaco Nurt"
+                nurt version | head -n 1 | grep -q "^nurt [0-9]"
               '
     steps:
       - name: Install and run

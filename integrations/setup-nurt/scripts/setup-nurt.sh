@@ -91,11 +91,13 @@ install_release() {
 
   mkdir -p "$work/extract"
   extract_archive "$work/$name" "$work/extract"
-  [[ -f $work/extract/$binary ]] || die "$name does not contain $binary"
+  local root=$work/extract
+  [[ -f $root/$binary ]] || root=$root/nurt-$version-$target
+  [[ -f $root/$binary ]] || die "$name does not contain $binary"
 
   rm -rf "$install_dir"
   mkdir -p "$install_dir"
-  cp -R "$work/extract/." "$install_dir/"
+  cp -R "$root/." "$install_dir/"
   chmod +x "$install_dir/$binary"
 }
 

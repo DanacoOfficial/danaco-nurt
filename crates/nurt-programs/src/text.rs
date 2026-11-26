@@ -230,8 +230,19 @@ pub fn decode(bytes: &[u8]) -> String {
         let (text, _) = encoding.decode_without_bom_handling(&bytes[bom..]);
         return text.into_owned();
     }
-    if let Ok(text) = std::str::from_utf8(bytes) {
-        return text.to_owned();
+    match std::str::from_utf8(bytes) {
+        Ok(text) => return text.to_owned(),
+        // Input cut inside a character, such as a prefix of a file: the part
+        // before the cut is UTF-8 when it already holds non-ASCII text.
+        Err(error) if error.error_len().is_none() => {
+            let valid = &bytes[..error.valid_up_to()];
+            if let Ok(text) = std::str::from_utf8(valid)
+                && !text.is_ascii()
+            {
+                return text.to_owned();
+            }
+        }
+        Err(_) => {}
     }
     let mut detector = chardetng::EncodingDetector::new(chardetng::Iso2022JpDetection::Deny);
     detector.feed(bytes, true);
@@ -315,6 +326,25 @@ mod tests {
         assert_eq!(text.chars().count(), latin2.len());
         assert_eq!(decode(&[0xef, 0xbb, 0xbf, b'x']), "x");
         assert_eq!(decode(&[0xfe, 0xff, 0, b'y']), "y");
+    }
+
+    #[test]
+    fn decode_keeps_utf8_text_cut_inside_a_character() {
+        let text = "Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l\u{105}";
+        let bytes = text.as_bytes();
+        assert!(std::str::from_utf8(&bytes[..bytes.len() - 1]).is_err());
+        assert_eq!(
+            decode(&bytes[..bytes.len() - 1]),
+            "Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l"
+        );
+    }
+
+    #[test]
+    fn decode_treats_a_lone_trailing_lead_byte_as_legacy_text() {
+        let latin1 = [b'c', b'a', b'f', 0xe9];
+        let text = decode(&latin1);
+        assert!(text.starts_with("caf"));
+        assert_eq!(text.chars().count(), latin1.len());
     }
 
     #[test]

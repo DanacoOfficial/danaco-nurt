@@ -23,8 +23,19 @@ assert_eq 'Windows ARM64 target' aarch64-pc-windows-msvc "$(release_target Windo
 assert_eq 'uname Linux x86_64 target' x86_64-unknown-linux-musl "$(release_target Linux x86_64)"
 assert_eq 'uname Darwin arm64 target' aarch64-apple-darwin "$(release_target Darwin arm64)"
 assert_eq 'uname MSYS target' x86_64-pc-windows-msvc "$(release_target MINGW64_NT-10.0 AMD64)"
-assert_fails 'rejects unknown system' bash -c "source '$here/../scripts/lib.sh'; release_target FreeBSD X64"
-assert_fails 'rejects unknown architecture' bash -c "source '$here/../scripts/lib.sh'; release_target Linux riscv64"
+# lib_run FUNCTION ARGUMENT...: runs a function of lib.sh in a new shell; the path
+# and the arguments are passed as words, so no quoting depends on their text.
+lib_run() {
+  bash -c 'source "$1"; shift; "$@"' _ "$here/../scripts/lib.sh" "$@"
+}
+
+assert_fails 'rejects unknown system' lib_run release_target FreeBSD X64
+out=$(lib_run release_target FreeBSD X64 2>&1 || true)
+assert_contains 'names the unknown system' "unsupported operating system 'FreeBSD'" "$out"
+assert_fails 'rejects unknown architecture' lib_run release_target Linux riscv64
+out=$(lib_run release_target Linux riscv64 2>&1 || true)
+assert_contains 'names the unknown architecture' "unsupported architecture 'riscv64'" "$out"
+assert_fails 'rejects unknown cache architecture' lib_run cache_arch riscv64
 
 assert_eq 'tool-cache name for X64' x64 "$(cache_arch X64)"
 assert_eq 'tool-cache name for aarch64' arm64 "$(cache_arch aarch64)"
@@ -52,7 +63,7 @@ assert_succeeds 'accepts binary-mode marker' verify_checksum "$work/data.bin" da
 printf '%064d  data.bin\n' 0 >"$work/sums-bad"
 out=$( (verify_checksum "$work/data.bin" data.bin "$work/sums-bad") 2>&1 || true)
 assert_contains 'reports checksum mismatch' 'checksum mismatch for data.bin' "$out"
-assert_fails 'rejects wrong checksum' bash -c "source '$here/../scripts/lib.sh'; verify_checksum '$work/data.bin' data.bin '$work/sums-bad'"
+assert_fails 'rejects wrong checksum' lib_run verify_checksum "$work/data.bin" data.bin "$work/sums-bad"
 
 printf '%s  other.bin\n' "$abc_digest" >"$work/sums-other"
 out=$( (verify_checksum "$work/data.bin" data.bin "$work/sums-other") 2>&1 || true)

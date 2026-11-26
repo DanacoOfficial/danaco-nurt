@@ -392,8 +392,11 @@ impl<'a> Planner<'a> {
                 None => new_lines.extend(self.new_entry_lines(section, name, value)?),
             }
         }
-        for (name, node) in &map.members {
-            if !fields.keys().any(|field| field == name) {
+        for (position, (_, node)) in map.members.iter().enumerate() {
+            if !fields
+                .keys()
+                .any(|field| map.position(field) == Some(position))
+            {
                 let (mut sections, mut entries) = (Vec::new(), Vec::new());
                 collect_ids(node, &mut sections, &mut entries);
                 let parsed = self.parsed();

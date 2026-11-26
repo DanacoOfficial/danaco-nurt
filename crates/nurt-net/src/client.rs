@@ -487,7 +487,7 @@ impl HttpClient {
                     ErrorCode::Network,
                     format!(
                         "`{}` redirected more than {} times",
-                        spec.target.as_str(),
+                        spec.target.display_url(),
                         spec.max_redirects
                     ),
                 )
@@ -496,8 +496,8 @@ impl HttpClient {
             let next = target.join(&location)?;
             redirects.push(RedirectStep {
                 status,
-                url: target.as_str().to_owned(),
-                location: next.as_str().to_owned(),
+                url: target.display_url(),
+                location: next.display_url(),
                 addresses: connected.addresses.clone(),
             });
             drop(connected);
@@ -534,8 +534,8 @@ impl HttpClient {
             .collect();
         let head = ResponseHead {
             status: parts.status.as_u16(),
-            url: spec.target.as_str().to_owned(),
-            final_url: target.as_str().to_owned(),
+            url: spec.target.display_url(),
+            final_url: target.display_url(),
             redirects,
             remote_address: Some(connected.remote),
             proxy: connected.proxy.map(|proxy| proxy.as_str().to_owned()),
@@ -606,7 +606,10 @@ impl HttpClient {
         Err(last.unwrap_or_else(|| {
             Error::new(
                 ErrorCode::Network,
-                format!("no address to connect to for `{}`", hop.target.as_str()),
+                format!(
+                    "no address to connect to for `{}`",
+                    hop.target.display_url()
+                ),
             )
             .with_problem("connect")
         }))
@@ -811,8 +814,9 @@ fn check_gate(
         return Ok(());
     };
     let host = hop.target.host();
+    let url = hop.target.display_url();
     let request = ConnectRequest {
-        url: hop.target.as_str(),
+        url: &url,
         host: &host,
         port: hop.target.port(),
         addresses,
@@ -838,7 +842,7 @@ fn emit_retry(ctx: &ExecCtx, spec: &RequestSpec, attempt: u32, retries: u32, rea
         bytes: None,
         message: Some(format!(
             "retry {attempt}/{retries} of {} after {reason}",
-            spec.target.as_str()
+            spec.target.display_url()
         )),
     }));
 }
@@ -856,7 +860,7 @@ fn timeout_error(target: &Target) -> Error {
         ErrorCode::Timeout,
         format!(
             "the request to `{}` exceeded its time limit",
-            target.as_str()
+            target.display_url()
         ),
     )
 }
@@ -865,7 +869,8 @@ fn map_error(error: ureq::Error, ctx: &ExecCtx, target: &Target, limit: Duration
     if let Some(reason) = ctx.cancel().reason() {
         return reason.to_error();
     }
-    let url = target.as_str();
+    let shown = target.display_url();
+    let url = shown.as_str();
     let network = |problem: &str, message: String| {
         Error::new(ErrorCode::Network, message).with_problem(problem)
     };

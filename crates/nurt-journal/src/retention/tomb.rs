@@ -146,10 +146,11 @@ pub(crate) fn prune(store: &dyn RetentionStore, volume: &AbsPath, keep: u32) -> 
 
 fn parse_name(name: &str) -> Option<OpId> {
     let digits = name.strip_suffix(SUFFIX)?;
-    if digits.len() != NUMBER_WIDTH || !digits.bytes().all(|b| b.is_ascii_digit()) {
+    if digits.len() < NUMBER_WIDTH || !digits.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
-    digits.parse().ok().map(OpId)
+    let op = OpId(digits.parse().ok()?);
+    (file_name(op).strip_prefix(TOMB_DIR)?.strip_prefix('/')? == name).then_some(op)
 }
 
 #[cfg(test)]
@@ -227,5 +228,122 @@ mod tests {
         assert_eq!(left.first(), Some(&OpId(6)));
         assert_eq!(left.last(), Some(&OpId(1005)));
         assert_eq!(prune(&store, &volume, 1000).unwrap(), 0);
+    }
+
+    #[test]
+    fn names_of_numbers_above_twelve_digits_round_trip() {
+        for op in [999_999_999_999, 1_000_000_000_000, u64::MAX] {
+            let name = file_name(OpId(op));
+            let file = name.strip_prefix("tomb/").unwrap();
+            assert_eq!(parse_name(file), Some(OpId(op)), "{name}");
+        }
+        assert_eq!(file_name(OpId(1_000_000_000_000)), "tomb/1000000000000.json");
+    }
+
+    #[test]
+    fn names_with_superfluous_zeros_or_foreign_characters_are_not_tombstones() {
+        for name in [
+            "0000000000012.json",
+            "00000000000000000012.json",
+            "000000000012.JSON",
+            "000000000012",
+            ".json",
+            "",
+            "00000000001é.json",
+            "000000000012\n.json",
+            "99999999999999999999999.json",
+        ] {
+            assert_eq!(parse_name(name), None, "{name:?}");
+        }
+    }
+
+    #[test]
+    fn listing_ignores_files_that_are_not_tombstones() {
+        let store = MemStore::new();
+        let volume = mount("/home");
+        for op in [3, 1_000_000_000_001, 2] {
+            write(
+                &store,
+                &volume,
+                &Tombstone::of(&entry(op, "/home"), ExpiryReason::Size),
+            )
+            .unwrap();
+        }
+        store
+            .write_file(Area::Journal(&volume), "tomb/notes.txt", b"x")
+            .unwrap();
+        store
+            .write_file(Area::Journal(&volume), "tomb/0000000000003.json", b"{}")
+            .unwrap();
+        assert_eq!(
+            list(&store, &volume).unwrap(),
+            [OpId(2), OpId(3), OpId(1_000_000_000_001)]
+        );
+    }
+
+    #[test]
+    fn pruning_keeps_the_newest_tombstones_at_every_boundary() {
+        let volume = mount("/home");
+        let filled = |count: u64| {
+            let store = MemStore::new();
+            for op in 1..=count {
+                write(
+                    &store,
+                    &volume,
+                    &Tombstone::of(&entry(op, "/home"), ExpiryReason::Ops),
+                )
+                .unwrap();
+            }
+            store
+        };
+        let store = filled(0);
+        assert_eq!(prune(&store, &volume, 0).unwrap(), 0);
+        let store = filled(3);
+        assert_eq!(prune(&store, &volume, 3).unwrap(), 0);
+        assert_eq!(prune(&store, &volume, u32::MAX).unwrap(), 0);
+        assert_eq!(prune(&store, &volume, 2).unwrap(), 1);
+        assert_eq!(list(&store, &volume).unwrap(), [OpId(2), OpId(3)]);
+        assert_eq!(prune(&store, &volume, 0).unwrap(), 2);
+        assert!(list(&store, &volume).unwrap().is_empty());
+    }
+
+    #[test]
+    fn writing_a_tombstone_twice_keeps_one_file() {
+        let store = MemStore::new();
+        let volume = mount("/home");
+        let tombstone = Tombstone::of(&entry(4, "/home"), ExpiryReason::Purge);
+        write(&store, &volume, &tombstone).unwrap();
+        write(&store, &volume, &tombstone).unwrap();
+        assert_eq!(list(&store, &volume).unwrap(), [OpId(4)]);
+        assert_eq!(read(&store, &volume, OpId(4)).unwrap(), Some(tombstone));
+    }
+
+    #[test]
+    fn tombstone_keeps_multibyte_kind_and_the_metrics_of_the_entry() {
+        let store = MemStore::new();
+        let volume = mount("/home");
+        let mut facts = entry(5, "/home");
+        facts.kind = OpKind::with_action("zapisz", "nadpisz-żółć");
+        facts.files = 7;
+        facts.bytes_held = u64::MAX;
+        let tombstone = Tombstone::of(&facts, ExpiryReason::Time);
+        assert_eq!(tombstone.files, 7);
+        assert_eq!(tombstone.bytes, u64::MAX);
+        assert_eq!(tombstone.state, EntryState::Expired);
+        write(&store, &volume, &tombstone).unwrap();
+        assert_eq!(read(&store, &volume, OpId(5)).unwrap(), Some(tombstone));
+    }
+
+    #[test]
+    fn unreadable_tombstone_content_is_reported_as_corrupt() {
+        let store = MemStore::new();
+        let volume = mount("/home");
+        for content in [&b""[..], b"\xff\xfe", b"[]", b"{\"op\":1"] {
+            store
+                .write_file(Area::Journal(&volume), &file_name(OpId(6)), content)
+                .unwrap();
+            let error = read(&store, &volume, OpId(6)).unwrap_err();
+            assert_eq!(error.code(), ErrorCode::JournalCorrupt, "{content:?}");
+        }
     }
 }

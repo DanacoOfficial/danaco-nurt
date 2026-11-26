@@ -109,15 +109,19 @@ impl Anchors {
 /// aliases of a document expand to too many nodes.
 pub fn check_expansion(model: &YamlModel) -> Result<()> {
     let anchors = Anchors::new(model);
-    let mut sizes = vec![None; model.node_ids().count()];
-    let mut open = vec![false; sizes.len()];
+    let total = model.node_ids().count();
+    let mut sizes = vec![None; total];
+    let mut open = vec![false; total];
+    let mut own = vec![0_usize; model.documents().len()];
+    for id in model.node_ids() {
+        if let Some(count) = own.get_mut(model.node(id).document) {
+            *count += 1;
+        }
+    }
     for (index, document) in model.documents().iter().enumerate() {
-        let size = expanded_size(model, &anchors, document.root, &mut sizes, &mut open)?;
-        let own = model
-            .node_ids()
-            .filter(|&id| model.node(id).document == index)
-            .count();
-        if size.saturating_sub(own) > ALIAS_EXPANSION_LIMIT {
+        let size = expanded_size(model, &anchors, document.root, total, &mut sizes, &mut open)?;
+        let written = own.get(index).copied().unwrap_or_default();
+        if size.saturating_sub(written) > ALIAS_EXPANSION_LIMIT {
             return Err(expansion_error(index));
         }
     }
@@ -139,6 +143,7 @@ fn expanded_size(
     model: &YamlModel,
     anchors: &Anchors,
     root: NodeId,
+    total: usize,
     sizes: &mut [Option<usize>],
     open: &mut [bool],
 ) -> Result<usize> {
@@ -154,7 +159,7 @@ fn expanded_size(
                 .iter()
                 .map(|dependency| sizes[dependency.index()].unwrap_or(0))
                 .fold(own_weight(model, id), usize::saturating_add);
-            if size > ALIAS_EXPANSION_LIMIT.saturating_add(model.node_ids().count()) {
+            if size > ALIAS_EXPANSION_LIMIT.saturating_add(total) {
                 return Err(expansion_error(model.node(id).document));
             }
             sizes[index] = Some(size);
@@ -390,4 +395,91 @@ pub fn note_shared(report: &mut EditReport, paths: &[KeyPath]) {
         entry.count = u64::try_from(paths.len()).ok();
     }
     report.flag(ALIAS_SHARED_FLAG);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::formats::yaml::model::MAX_EXPANSION_DEPTH;
+    use crate::formats::yaml::{YamlDoc, YamlVersion};
+
+    #[test]
+    fn alias_refers_to_the_closest_preceding_anchor() {
+        let doc = YamlDoc::parse("a: &x 1\nb: *x\nc: &x 2\nd: *x\n", YamlVersion::V1_2).unwrap();
+        let model = doc.model();
+        let anchors = Anchors::new(model);
+        let targets: Vec<String> = model
+            .node_ids()
+            .filter(|id| matches!(model.node(*id).kind, NodeKind::Alias(_)))
+            .filter_map(|id| anchors.target(id))
+            .filter_map(|target| model.node(target).as_scalar().map(|s| s.value.clone()))
+            .collect();
+        assert_eq!(targets, ["1", "2"]);
+    }
+
+    #[test]
+    fn alias_inside_its_own_anchor_is_a_cycle() {
+        let Err(error) = YamlDoc::parse("a: &x [*x]\n", YamlVersion::V1_2) else {
+            panic!("a cycle was accepted");
+        };
+        assert_eq!(error.found.as_deref(), Some(YAML_ALIAS_CYCLE));
+    }
+
+    #[test]
+    fn deeply_nested_alias_chain_is_refused_when_expanded() {
+        let levels = MAX_EXPANSION_DEPTH + 10;
+        let mut text = String::from("l0: &l0 [x]\n");
+        for level in 1..=levels {
+            text.push_str(&format!("l{level}: &l{level} [*l{}]\n", level - 1));
+        }
+        let model = YamlModel::parse(&text).unwrap();
+        let error = model.document_value(0).unwrap_err();
+        assert_eq!(error.found.as_deref(), Some(YAML_ALIAS_EXPANSION_LIMIT));
+    }
+
+    #[test]
+    fn alias_chain_within_the_depth_limit_expands() {
+        let mut text = String::from("l0: &l0 [x]\n");
+        for level in 1..=20 {
+            text.push_str(&format!("l{level}: &l{level} [*l{}]\n", level - 1));
+        }
+        let model = YamlModel::parse(&text).unwrap();
+        assert!(model.document_value(0).is_ok());
+    }
+
+    #[test]
+    fn stream_of_many_documents_is_checked() {
+        let text = vec!["a: 1\n"; 3000].join("---\n");
+        let doc = YamlDoc::parse(text, YamlVersion::V1_2).unwrap();
+        assert_eq!(doc.model().documents().len(), 3000);
+    }
+
+    #[test]
+    fn expansion_limit_applies_to_each_document_separately() {
+        let mut text = String::from("l0: &l0 [x, x, x, x, x, x, x, x, x, x]\n");
+        for level in 1..9 {
+            let items = vec![format!("*l{}", level - 1); 10].join(", ");
+            text.push_str(&format!("l{level}: &l{level} [{items}]\n"));
+        }
+        let stream = format!("a: 1\n---\n{text}");
+        let Err(error) = YamlDoc::parse(stream, YamlVersion::V1_2) else {
+            panic!("an exponential expansion was accepted");
+        };
+        assert_eq!(error.found.as_deref(), Some(YAML_ALIAS_EXPANSION_LIMIT));
+    }
+
+    #[test]
+    fn shared_paths_name_every_alias_of_a_changed_anchor() {
+        let doc = YamlDoc::parse("a: &x 1\nb: *x\nc: [*x]\n", YamlVersion::V1_2).unwrap();
+        let model = doc.model();
+        let anchored = model
+            .node_ids()
+            .find(|id| model.node(*id).anchor.is_some())
+            .unwrap();
+        let paths: Vec<String> = shared_by(model, anchored)
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert_eq!(paths, ["b", "c[0]"]);
+    }
 }

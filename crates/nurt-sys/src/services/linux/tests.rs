@@ -17,7 +17,8 @@ use nurt_contracts::value::{Record, Regex, Value};
 
 use super::mock::{MockUnit, Plan, Served, serve};
 use super::{
-    SYSTEMD_RUNTIME_DIR, SystemdBackend, connect, map_active_state, map_unit_file_state, unit_name,
+    OS_CODE_DBUS, SYSTEMD_RUNTIME_DIR, SystemdBackend, connect, map_active_state, map_dbus_error,
+    map_unit_file_state, unit_name,
 };
 use crate::services::tests::{BackendControl, RecordingTx, VirtualClock, context};
 use crate::services::{
@@ -158,6 +159,33 @@ fn systemd_name_suffix_and_template_instance() {
     assert_eq!(unit_name("nginx.service"), "nginx.service");
     let loaded_on_demand = fixture.service("backup");
     assert_eq!(loaded_on_demand.start_type, StartType::Disabled);
+}
+
+#[test]
+fn systemd_unit_names_with_escapes_and_non_ascii_text_are_passed_unchanged() {
+    for escaped in [
+        r"systemd-cryptsetup@dev-disk-by\x2duuid-1",
+        r"home-caf\xc3\xa9",
+        "caf\u{e9}-\u{65e5}\u{672c}",
+    ] {
+        let unit = format!("{escaped}.service");
+        assert_eq!(unit_name(escaped), unit);
+        assert_eq!(unit_name(&unit), unit);
+        let fixture = Fixture::new(vec![MockUnit::new(escaped, "active", "running")]);
+        let service = fixture.service(escaped);
+        assert_eq!(service.name, escaped);
+        assert_eq!(service.state, ServiceState::Running);
+        assert_eq!(fixture.service(&unit), service);
+    }
+}
+
+#[test]
+fn systemd_failure_without_a_dbus_error_name_is_a_service_error() {
+    let failure = zbus::Error::Failure("the connection was closed".to_owned());
+    let error = map_dbus_error(&failure, "nginx.service");
+    assert_eq!(error.code(), ErrorCode::Service);
+    assert_eq!(error.details["os_code"], OS_CODE_DBUS);
+    assert_eq!(error.details["manager"], "systemd");
 }
 
 #[test]

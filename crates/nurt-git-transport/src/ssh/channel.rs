@@ -45,13 +45,13 @@ impl RemoteStatus {
         self.stderr.extend_from_slice(&data[..data.len().min(room)]);
     }
 
-    /// Last non-empty line of standard error.
+    /// Last non-empty line of standard error, without control characters.
     pub(crate) fn last_stderr_line(&self) -> Option<String> {
         String::from_utf8_lossy(&self.stderr)
             .lines()
             .map(str::trim)
             .rfind(|line| !line.is_empty())
-            .map(str::to_owned)
+            .map(without_control_characters)
     }
 
     /// Error to report when the command ended abnormally.
@@ -77,6 +77,12 @@ impl RemoteStatus {
         };
         Some(classify(message, &String::from_utf8_lossy(&self.stderr)))
     }
+}
+
+/// Removes the characters that a terminal would act on, so that text sent by
+/// the server cannot carry escape sequences into messages.
+fn without_control_characters(text: &str) -> String {
+    text.chars().filter(|c| !c.is_control()).collect()
 }
 
 fn classify(message: String, stderr: &str) -> Error {
@@ -276,8 +282,9 @@ async fn receive(
                 error_message,
                 ..
             } => {
-                status.lock().signal =
-                    Some(format!("{signal_name:?} {error_message}").trim().to_owned())
+                status.lock().signal = Some(without_control_characters(
+                    format!("{signal_name:?} {error_message}").trim(),
+                ))
             }
             ChannelMsg::Failure => {
                 status.lock().refused = true;
@@ -371,6 +378,22 @@ mod tests {
             io_error(&Error::new(ErrorCode::Cancelled, "x")).kind(),
             io::ErrorKind::Interrupted
         );
+    }
+
+    #[test]
+    fn control_characters_of_remote_text_are_removed_from_messages() {
+        let mut status = RemoteStatus {
+            exit_status: Some(1),
+            ..RemoteStatus::default()
+        };
+        status.push_stderr("fatal: \u{1b}[2Jdenied\u{7} zażółć\n".as_bytes());
+        assert_eq!(
+            status.last_stderr_line().as_deref(),
+            Some("fatal: [2Jdenied zażółć")
+        );
+        let message = status.failure("c").unwrap().to_string();
+        assert!(!message.contains('\u{1b}') && !message.contains('\u{7}'));
+        assert_eq!(without_control_characters("a\r\tb\u{0}c"), "abc");
     }
 
     #[test]

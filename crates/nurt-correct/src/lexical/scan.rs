@@ -713,6 +713,50 @@ mod tests {
     }
 
     #[test]
+    fn a_lone_carriage_return_is_a_foreign_space_and_a_line_end_pair_is_a_newline() {
+        assert_eq!(
+            kinds("a\rb"),
+            vec![
+                (PieceKind::Word, "a"),
+                (PieceKind::ForeignSpace, "\r"),
+                (PieceKind::Word, "b"),
+            ]
+        );
+        assert_eq!(
+            kinds("a\r\nb"),
+            vec![
+                (PieceKind::Word, "a"),
+                (PieceKind::Newline, "\r\n"),
+                (PieceKind::Word, "b"),
+            ]
+        );
+    }
+
+    #[test]
+    fn quotes_without_a_closing_quote_are_other_characters() {
+        assert_eq!(
+            significant("„abc"),
+            vec![(PieceKind::Other, "„"), (PieceKind::Word, "abc")]
+        );
+        assert_eq!(
+            significant("'abc"),
+            vec![(PieceKind::Other, "'"), (PieceKind::Word, "abc")]
+        );
+    }
+
+    #[test]
+    fn numbers_stop_before_multibyte_characters_and_words_keep_combining_marks() {
+        assert_eq!(
+            significant("10é"),
+            vec![(PieceKind::Number, "10"), (PieceKind::ForeignWord, "é")]
+        );
+        assert_eq!(
+            significant("e\u{301}x"),
+            vec![(PieceKind::ForeignWord, "e\u{301}x")]
+        );
+    }
+
+    #[test]
     fn byte_order_mark_and_comments_are_trivia() {
         assert_eq!(
             kinds("\u{feff}a # „x”\r\nb"),

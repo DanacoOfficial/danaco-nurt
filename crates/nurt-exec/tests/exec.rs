@@ -45,6 +45,7 @@ const LIST: &str = "mock.list";
 const MAP: &str = "mock.map";
 const WRITE: &str = "mock.write";
 const RUN: &str = "mock.run";
+const STOP: &str = "mock.stop";
 const ORIGINAL: &[u8] = b"original";
 const PATHS: &str = "paths";
 
@@ -161,10 +162,13 @@ struct WriteState(Vec<(AbsPath, Etag, Vec<u8>)>);
 
 /// Writes `written <path>` into every listed file, checking the entity tag
 /// read in the plan. With `sabotage` another program changes the last
-/// target between the plan and the apply step.
+/// target between the plan and the apply step; with `cancel` the execution is
+/// cancelled and with `tick` the clock advances at the end of the plan.
 #[derive(Default)]
 struct Writer {
     sabotage: Option<Arc<VirtualFs>>,
+    cancel: Option<CancelToken>,
+    tick: Option<(Arc<VirtualClock>, Duration)>,
 }
 
 impl StageImpl for Writer {
@@ -201,6 +205,12 @@ impl EffectStage for Writer {
         }
         if let (Some(vfs), Some((path, _, _))) = (&self.sabotage, targets.last()) {
             vfs.write_file(path, b"changed by another program")?;
+        }
+        if let Some(token) = &self.cancel {
+            token.cancel(CancelReason::Requested);
+        }
+        if let Some((clock, step)) = &self.tick {
+            clock.advance(*step);
         }
         let mut plan = EffectPlan::new();
         plan.bulk = targets.len() > 1;
@@ -282,6 +292,33 @@ impl EffectStage for Runner {
     }
 }
 
+/// Cancels the execution when it runs and passes its input on.
+struct Stopper {
+    cancel: CancelToken,
+}
+
+impl StageImpl for Stopper {
+    fn descriptor(&self) -> StageDescriptor {
+        descriptor(STOP, false, InputKinds::Any)
+    }
+
+    fn as_read(&self) -> Option<&dyn ReadStage> {
+        Some(self)
+    }
+}
+
+impl ReadStage for Stopper {
+    fn execute<'a>(
+        &'a self,
+        _args: &'a BoundArgs,
+        input: StageInput<'a>,
+        _ctx: &'a ExecCtx,
+    ) -> Result<StageOutput<'a>> {
+        self.cancel.cancel(CancelReason::Requested);
+        input.map_records(|records| records)
+    }
+}
+
 struct World {
     clock: Arc<VirtualClock>,
     vfs: Arc<VirtualFs>,
@@ -335,7 +372,7 @@ impl World {
 fn registry(stages: Vec<Arc<dyn StageImpl>>) -> Arc<Registry> {
     let mut registry = Registry::load_embedded().unwrap();
     let base = registry.command("count").cloned().unwrap();
-    let specs = [LIST, MAP, WRITE, RUN]
+    let specs = [LIST, MAP, WRITE, RUN, STOP]
         .into_iter()
         .map(|name| {
             let mut spec = base.clone();
@@ -619,6 +656,7 @@ fn stale_target_rolls_back_the_whole_operation() {
     let files = [world.file("a.txt"), world.file("b.txt")];
     let writer = Writer {
         sabotage: Some(world.vfs.clone()),
+        ..Writer::default()
     };
     let env = world.env(vec![Arc::new(Source::default()), Arc::new(writer)]);
     let outcome = Executor::new().run(
@@ -858,6 +896,95 @@ fn cancelled_execution_runs_no_stage() {
     assert_eq!(error_of(&outcome).code(), ErrorCode::Cancelled);
     assert!(outcome.operations.is_empty());
     assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn cancellation_after_the_plan_stops_before_the_apply_step() {
+    let world = World::new();
+    let file = world.file("a.txt");
+    let cancel = CancelToken::new();
+    let writer = Writer {
+        cancel: Some(cancel.clone()),
+        ..Writer::default()
+    };
+    let env = world
+        .env(vec![Arc::new(Source::default()), Arc::new(writer)])
+        .with_cancel(cancel);
+    let outcome = Executor::new().run(
+        &single(vec![
+            list(&[&file]),
+            stage(WRITE, Phase::Mutate, Vec::new()),
+        ]),
+        &env,
+    );
+    let error = error_of(&outcome);
+    assert_eq!(error.code(), ErrorCode::Cancelled);
+    assert_eq!(error.stage(), Some(ExecStep::Plan));
+    assert_eq!(outcome.status, ReportStatus::Failed);
+    assert!(!outcome.last().unwrap().effect.as_ref().unwrap().applied);
+    assert_eq!(world.begins(), 0);
+    assert_eq!(world.content(&file), ORIGINAL);
+}
+
+#[test]
+fn time_limit_elapsed_during_the_plan_stops_before_the_apply_step() {
+    let world = World::new();
+    let file = world.file("a.txt");
+    let writer = Writer {
+        tick: Some((world.clock.clone(), Duration::from_secs(2))),
+        ..Writer::default()
+    };
+    let env = world
+        .env(vec![Arc::new(Source::default()), Arc::new(writer)])
+        .with_timeout(Duration::from_secs(1));
+    let outcome = Executor::new().run(
+        &single(vec![
+            list(&[&file]),
+            stage(WRITE, Phase::Mutate, Vec::new()),
+        ]),
+        &env,
+    );
+    let error = error_of(&outcome);
+    assert_eq!(error.code(), ErrorCode::Timeout);
+    assert_eq!(error.stage(), Some(ExecStep::Plan));
+    assert_eq!(outcome.status, ReportStatus::Failed);
+    assert_eq!(world.begins(), 0);
+    assert_eq!(world.content(&file), ORIGINAL);
+}
+
+#[test]
+fn stop_after_the_effect_fails_the_program_and_keeps_the_effect() {
+    let world = World::new();
+    let cancel = CancelToken::new();
+    let env = world
+        .env(vec![
+            Arc::new(Runner {
+                exit_code: 0,
+                detached: false,
+            }),
+            Arc::new(Stopper {
+                cancel: cancel.clone(),
+            }),
+        ])
+        .with_cancel(cancel);
+    let outcome = Executor::new().run(
+        &single(vec![
+            stage(RUN, Phase::Run, Vec::new()),
+            stage(STOP, Phase::After, Vec::new()),
+        ]),
+        &env,
+    );
+    let error = error_of(&outcome);
+    assert_eq!(error.code(), ErrorCode::Cancelled);
+    assert_eq!(error.stage(), Some(ExecStep::After));
+    assert!(error.effect_applied);
+    assert_eq!(outcome.status, ReportStatus::Failed);
+    let operation = outcome.last().unwrap();
+    assert!(operation.effect.as_ref().unwrap().applied);
+    assert_eq!(operation.result.records[0].kind, RecordKind::Exec);
+    let transactions = world.journal.transactions();
+    assert_eq!(transactions.len(), 1);
+    assert_eq!(transactions[0].state, TxState::Committed);
 }
 
 #[test]

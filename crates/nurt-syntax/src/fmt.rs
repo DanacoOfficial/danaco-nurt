@@ -33,6 +33,9 @@ use crate::print::{self, PositionalNames, PrintError, Segment};
 /// Start of an interpreter line on the first line of a program file.
 const SHEBANG: &str = "#!";
 
+/// Byte order mark, which the lexer skips at the start of the text.
+const BYTE_ORDER_MARK: char = '\u{FEFF}';
+
 /// Formats program text of `variant` into its canonical text, keeping
 /// comments.
 ///
@@ -297,8 +300,9 @@ fn assemble(
     statements: &[Vec<Segment>],
     comments: Vec<Comment>,
 ) -> String {
-    let lines: Vec<&str> = source.split('\n').collect();
-    let shebang = source.starts_with(SHEBANG);
+    let content = source.strip_prefix(BYTE_ORDER_MARK).unwrap_or(source);
+    let lines: Vec<&str> = content.split('\n').collect();
+    let shebang = content.starts_with(SHEBANG);
     let (elements, extents) = elements(document);
     let mut placed: BTreeMap<Anchor, Vec<String>> = BTreeMap::new();
     let mut taken = Vec::new();

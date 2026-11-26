@@ -88,7 +88,7 @@ pub(crate) fn violation(pointer: &str, message: impl Into<String>) -> SyntaxErro
 }
 
 /// Escapes a member name for a JSON Pointer (RFC 6901, section 3).
-fn escape_pointer_segment(name: &str) -> String {
+pub(crate) fn escape_pointer_segment(name: &str) -> String {
     name.replace('~', "~0").replace('/', "~1")
 }
 
@@ -236,8 +236,9 @@ fn surface_expr(place: &Place, expr: &Expr, list_item: bool) -> Checked {
             place.object(span.as_ref())?;
             name(&place.member("v"), v)
         }
-        Expr::Regex { flags, span, .. } => {
+        Expr::Regex { v, flags, span } => {
             place.object(span.as_ref())?;
+            non_empty(&place.member("v"), v, EMPTY_PATTERN_MESSAGE)?;
             regex_flags(&place.member("flags"), flags)
         }
         Expr::Int { v, span } => {
@@ -508,13 +509,16 @@ fn bound_expr(place: &Place, expr: &BoundExpr, list_item: bool) -> Checked {
         BoundExpr::Null
         | BoundExpr::Bool { .. }
         | BoundExpr::Text { .. }
-        | BoundExpr::Glob { .. }
-        | BoundExpr::Key { .. }
         | BoundExpr::Enum { .. } => Ok(()),
+        BoundExpr::Glob { v } => non_empty(&place.member("v"), v, EMPTY_GLOB_MESSAGE),
+        BoundExpr::Key { v } => non_empty(&place.member("v"), v, EMPTY_KEY_MESSAGE),
         BoundExpr::Int { v } => integer(&place.member("v"), *v, -MAX_SAFE_INTEGER),
         BoundExpr::Num { v } => finite(&place.member("v"), *v),
         BoundExpr::Size { v } | BoundExpr::Dur { v } => unsigned(&place.member("v"), *v),
-        BoundExpr::Regex { flags, .. } => regex_flags(&place.member("flags"), flags),
+        BoundExpr::Regex { v, flags } => {
+            non_empty(&place.member("v"), v, EMPTY_PATTERN_MESSAGE)?;
+            regex_flags(&place.member("flags"), flags)
+        }
         BoundExpr::Range { lo, hi } => range(place, *lo, *hi, -MAX_SAFE_INTEGER),
         BoundExpr::Path { v } => place.member("v").ensure(
             is_canonical_path(v),
@@ -590,6 +594,16 @@ const MAP_KEY_MESSAGE: &str = "duplicate map key; keep a single entry per key";
 
 const SPREAD_MESSAGE: &str = "a spread is admissible only as a list element";
 
+const EMPTY_PATTERN_MESSAGE: &str = "a regular expression pattern must not be empty";
+
+const EMPTY_GLOB_MESSAGE: &str = "a glob must not be empty";
+
+const EMPTY_KEY_MESSAGE: &str = "a key must not be empty";
+
+fn non_empty(place: &Place, text: &str, message: &str) -> Checked {
+    place.ensure(!text.is_empty(), message)
+}
+
 fn reference_names(place: &Place, reference: &str, fields: &[String]) -> Checked {
     name(&place.member("name"), reference)?;
     let fields_place = place.member("fields");
@@ -624,10 +638,26 @@ fn free_form(place: &Place, meta: &Meta) -> Checked {
                 pending.extend(members.values().map(|member| (member, level + 1)));
             }
             Value::Array(items) => pending.extend(items.iter().map(|item| (item, level + 1))),
+            Value::Number(number) => place.ensure(is_safe_number(number), META_INTEGER_MESSAGE)?,
             _ => {}
         }
     }
     Ok(())
+}
+
+const META_INTEGER_MESSAGE: &str =
+    "an integer of the metadata must lie within -(2^53 - 1)..=2^53 - 1";
+
+/// Returns `true` for a floating-point number and for an integer within
+/// ±(2^53 - 1), which deterministic CBOR and canonical JSON represent exactly.
+fn is_safe_number(number: &serde_json::Number) -> bool {
+    if number.is_i64() || number.is_u64() {
+        number
+            .as_i64()
+            .is_some_and(|value| (-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&value))
+    } else {
+        true
+    }
 }
 
 /// Returns `true` for an identifier: `[a-z][a-z0-9_]*`, at most

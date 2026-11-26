@@ -745,3 +745,99 @@ fn user_scope_without_a_configuration_file_is_unsupported() {
         StepLimit::Limited(30)
     );
 }
+
+#[test]
+fn undo_of_another_session_finds_nothing_to_undo() {
+    let env = Env::new(&json!({}));
+    let notes = env.seed(NOTES, b"draft");
+    let journal = env.journal();
+    write(&journal, &notes, b"final");
+    let error = journal
+        .undo(&UndoRequest {
+            session: Some(SessionId("other".to_owned())),
+            ..undo_last()
+        })
+        .unwrap_err();
+    assert_eq!(error.code, ErrorCode::JournalNoop);
+    assert_eq!(env.read(&notes), b"final");
+    assert_eq!(env.state(1), EntryState::Committed);
+}
+
+#[test]
+fn undo_is_redone_by_another_process_of_the_account() {
+    let env = Env::new(&json!({}));
+    let notes = env.seed(NOTES, b"draft");
+    let first = env.journal();
+    write(&first, &notes, b"final");
+    let undone = first.undo(&undo_last()).unwrap();
+    assert_eq!(env.read(&notes), b"draft");
+    drop(first);
+
+    let second = env.journal();
+    let redone = second
+        .redo(&RedoRequest {
+            undo_entry: None,
+            session: None,
+            program: program(),
+        })
+        .unwrap();
+    assert_eq!(redone.sources, [undone.entry]);
+    assert_eq!(env.read(&notes), b"final");
+    assert_eq!(env.state(undone.entry.0), EntryState::Undone);
+}
+
+#[test]
+fn undo_interrupted_at_each_point_is_rolled_back_by_recovery_and_can_be_repeated() {
+    for point in [
+        FailPoint::PreserveDurable,
+        FailPoint::ApplySwitched,
+        FailPoint::ApplyDone,
+    ] {
+        let env = Env::new(&json!({}));
+        let notes = env.seed(NOTES, b"draft");
+        let first = env.journal();
+        write(&first, &notes, b"final");
+        drop(first);
+
+        let crashed = env.crashing_at(point);
+        assert!(crashed.undo(&undo_last()).is_err(), "{point:?}");
+        drop(crashed);
+
+        let journal = env.journal();
+        journal.recover().unwrap();
+        assert_eq!(env.read(&notes), b"final", "{point:?}");
+        assert_eq!(env.state(1), EntryState::Committed, "{point:?}");
+        let interrupted = journal_layout().entry(OpId(2)).unwrap();
+        if env.exists(&interrupted.state().unwrap()) {
+            assert_eq!(env.state(2), EntryState::Undone, "{point:?}");
+        }
+        let undone = journal.undo(&undo_last()).unwrap();
+        assert_eq!(undone.sources, [OpId(1)], "{point:?}");
+        assert_eq!(env.read(&notes), b"draft", "{point:?}");
+    }
+}
+
+#[test]
+fn undo_of_an_entry_with_a_damaged_manifest_reports_corruption_and_changes_nothing() {
+    let env = Env::new(&json!({}));
+    let notes = env.seed(NOTES, b"draft");
+    let journal = env.journal();
+    write(&journal, &notes, b"final");
+    let entry = journal_layout().entry(OpId(1)).unwrap();
+    manifest::write_atomic(
+        env.fs.as_ref(),
+        &scope(OpId(1), ScopePurpose::Maintenance),
+        entry.dir(),
+        &entry.manifest().unwrap(),
+        b"damaged",
+    )
+    .unwrap();
+    let error = journal
+        .undo(&UndoRequest {
+            selector: UndoSelector::Op(OpId(1)),
+            ..undo_last()
+        })
+        .unwrap_err();
+    assert_eq!(error.code, ErrorCode::JournalCorrupt);
+    assert_eq!(env.read(&notes), b"final");
+}

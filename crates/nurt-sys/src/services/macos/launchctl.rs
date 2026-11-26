@@ -406,6 +406,32 @@ mod tests {
     }
 
     #[test]
+    fn launchd_parse_tolerates_stray_braces_quoted_labels_and_unreadable_rows() {
+        let overrides = parse_disabled(
+            "}\ndisabled services = {\n\t\"org.example.a\" => disabled\n\t\"org.example.b\" => enabled\n\t\"org.example.c\" => later\n\tnot a pair\n}\n}\n",
+        );
+        assert_eq!(overrides.len(), 2);
+        assert_eq!(overrides.get("org.example.a"), Some(&true));
+        assert_eq!(overrides.get("org.example.b"), Some(&false));
+
+        let listing = parse_domain(
+            "}\nsystem = {\n\tservices = {\n\t\t-5 0 org.example.negative\n\t\t   7   -9   org.example.signal\n\t\t   0   -   org.example.zero\n\t}\n}\n}\n",
+        );
+        assert_eq!(listing.skipped, 1);
+        assert_eq!(listing.services.as_ref().unwrap().len(), 2);
+        let signalled = row(&listing, "org.example.signal");
+        assert_eq!(signalled.pid, Some(7));
+        assert_eq!(signalled.last_exit, LastExit::Signal("9".to_owned()));
+        let zero = row(&listing, "org.example.zero");
+        assert_eq!(zero.pid, None);
+        assert_eq!(zero.last_exit, LastExit::Never);
+        assert_eq!(
+            LastExit::Signal("9".to_owned()).describe().as_deref(),
+            Some("signal 9")
+        );
+    }
+
+    #[test]
     fn launchd_parse_unknown_keys_tolerated_warns() {
         let text = "gui/501 = {\n\tfuture key = 7\n\tnested future = {\n\t\tx = 1\n\t}\n}\n";
         assert_eq!(parse_domain(text).services, None);

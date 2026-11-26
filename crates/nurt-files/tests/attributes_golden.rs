@@ -7,6 +7,8 @@
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+mod support_report;
+
 use std::sync::Arc;
 
 use nurt_contracts::error::{ErrorCode, Result};
@@ -74,8 +76,10 @@ fn run(
     let effect_stage = stage.as_effect().expect("`attributes` changes entries");
     let ctx = test.ctx();
     let plan = effect_stage.plan(args, input, &ctx)?;
+    support_report::assert_plan_valid(args.command(), &plan.changes);
     let mut tx = test.journal().begin(begin_request("attributes"));
     let outcome = effect_stage.apply(args, plan, tx.as_mut(), &ctx)?;
+    support_report::assert_changes_valid(args.command(), &outcome.changes);
     let StageData::Records(mut records) = outcome.output.data else {
         panic!("`attributes` returns an effect record");
     };

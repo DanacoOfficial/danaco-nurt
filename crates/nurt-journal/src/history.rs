@@ -977,4 +977,201 @@ mod tests {
             ErrorCode::JournalCorrupt
         );
     }
+
+    fn part(state: EntryState) -> (Manifest, StateRecord, Items) {
+        (
+            crate::manifest::tests::sample(),
+            StateRecord::new(state),
+            Items::default(),
+        )
+    }
+
+    use super::JournalEntry;
+    use crate::manifest::{ItemState, Items, Manifest, StateRecord};
+
+    #[test]
+    fn an_entry_without_parts_does_not_exist() {
+        assert!(JournalEntry::from_parts(&[]).is_none());
+    }
+
+    #[test]
+    fn an_entry_takes_the_most_advanced_state_of_its_parts() {
+        let table = [
+            (EntryState::Committed, EntryState::Partial, EntryState::Partial),
+            (EntryState::Partial, EntryState::Undone, EntryState::Undone),
+            (EntryState::Undone, EntryState::Expiring, EntryState::Expiring),
+            (EntryState::Expiring, EntryState::Expired, EntryState::Expired),
+            (EntryState::Committed, EntryState::Corrupt, EntryState::Corrupt),
+            (EntryState::Committed, EntryState::Committed, EntryState::Committed),
+        ];
+        for (first, second, merged) in table {
+            for parts in [[part(first), part(second)], [part(second), part(first)]] {
+                let entry = JournalEntry::from_parts(&parts).unwrap();
+                assert_eq!(entry.state, merged, "{first:?} {second:?}");
+            }
+        }
+        let single = JournalEntry::from_parts(&[part(EntryState::Committed)]).unwrap();
+        assert!(single.is_available());
+        assert!(!single.is_expired());
+        let expired = JournalEntry::from_parts(&[part(EntryState::Expiring)]).unwrap();
+        assert!(!expired.is_available());
+        assert!(expired.is_expired());
+    }
+
+    #[test]
+    fn an_entry_reports_the_metrics_hash_and_items_of_its_manifest() {
+        use nurt_contracts::journal::{SessionId, TargetIndex};
+        use nurt_contracts::report::Irreversible;
+
+        let mut manifest = crate::manifest::tests::sample();
+        manifest.targets[0].irreversible = Some(Irreversible::JournalError);
+        let digest = manifest.seal().unwrap();
+        let states = Items {
+            items: vec![ItemState {
+                index: TargetIndex(0),
+                released: true,
+                undone_by: Some(OpId(40)),
+            }],
+        };
+        let entry = JournalEntry::from_parts(&[(
+            manifest,
+            StateRecord::new(EntryState::Committed),
+            states,
+        )])
+        .unwrap();
+        assert_eq!(entry.op, OpId(18));
+        assert_eq!((entry.files, entry.bytes), (1, 1131));
+        assert_eq!(entry.manifest_hash, digest);
+        assert_eq!(entry.volumes.len(), 1);
+        assert_eq!(entry.items.len(), 1);
+        assert!(entry.items[0].released);
+        assert_eq!(entry.items[0].undone_by, Some(OpId(40)));
+        assert!(!entry.items[0].is_restorable());
+        assert!(!entry.items[0].is_in_effect());
+        assert_eq!(entry.irreversible.len(), 1);
+        assert_eq!(entry.irreversible[0].reason, Irreversible::JournalError);
+        assert_eq!(entry.irreversible[0].path.as_deref(), Some("/srv/app/src/a.go"));
+        assert!(entry.in_session(None));
+        assert!(entry.in_session(Some(&SessionId("s-1".to_owned()))));
+        assert!(!entry.in_session(Some(&SessionId("other".to_owned()))));
+    }
+
+    #[test]
+    fn an_unsealed_manifest_has_the_zero_hash_and_untouched_items_are_restorable() {
+        let entry = JournalEntry::from_parts(&[part(EntryState::Committed)]).unwrap();
+        assert_eq!(entry.manifest_hash, super::UNSEALED);
+        assert!(entry.items[0].is_restorable());
+        assert!(entry.items[0].is_in_effect());
+        assert!(!entry.is_undo());
+    }
+
+    fn ids(records: &[nurt_contracts::journal::OperationRecord]) -> Vec<u64> {
+        records.iter().map(|record| record.id).collect()
+    }
+
+    #[test]
+    fn history_bounds_exclude_the_named_entry_and_a_zero_limit_lists_nothing() {
+        let journal = TestJournal::new();
+        for n in 0..5 {
+            journal
+                .op(None)
+                .create(&format!("/home/user/f{n}"), b"x")
+                .commit();
+        }
+        let with = |query: HistoryQuery| ids(&history(&journal, &query).unwrap());
+        assert_eq!(
+            with(HistoryQuery {
+                before: Some(OpId(3)),
+                ..query()
+            }),
+            [2, 1]
+        );
+        assert!(
+            with(HistoryQuery {
+                before: Some(OpId(1)),
+                ..query()
+            })
+            .is_empty()
+        );
+        assert!(
+            with(HistoryQuery {
+                since: Some(OpId(5)),
+                ..query()
+            })
+            .is_empty()
+        );
+        assert_eq!(
+            with(HistoryQuery {
+                since: Some(OpId(0)),
+                ..query()
+            }),
+            [5, 4, 3, 2, 1]
+        );
+        assert_eq!(
+            with(HistoryQuery {
+                limit: Some(1),
+                ..query()
+            }),
+            [5]
+        );
+        assert!(
+            with(HistoryQuery {
+                limit: Some(0),
+                ..query()
+            })
+            .is_empty()
+        );
+        assert_eq!(
+            with(HistoryQuery {
+                limit: Some(u32::MAX),
+                ..query()
+            })
+            .len(),
+            5
+        );
+    }
+
+    #[test]
+    fn history_of_an_empty_journal_is_empty() {
+        let journal = TestJournal::new();
+        assert!(history(&journal, &query()).unwrap().is_empty());
+        let by_path = HistoryQuery {
+            path: Some(abs("/home/user/none")),
+            ..query()
+        };
+        assert!(history(&journal, &by_path).unwrap().is_empty());
+    }
+
+    #[test]
+    fn details_of_an_expired_entry_list_no_items() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        journal.expire(OpId(1));
+        let found = details(&journal, OpId(1)).unwrap();
+        assert_eq!(found.record.state, OpState::Expired);
+        assert_eq!(found.record.files, 1);
+        assert_eq!(found.record.summary, "1 item");
+        assert!(found.items.is_empty());
+    }
+
+    #[test]
+    fn history_state_filter_separates_available_and_expired_entries() {
+        let journal = TestJournal::new();
+        journal.op(None).create("/home/user/a", b"a").commit();
+        journal.op(None).create("/home/user/b", b"b").commit();
+        journal.expire(OpId(1));
+        let listed = |state: OpState| {
+            ids(&history(
+                &journal,
+                &HistoryQuery {
+                    state: Some(state),
+                    ..query()
+                },
+            )
+            .unwrap())
+        };
+        assert_eq!(listed(OpState::Available), [2]);
+        assert_eq!(listed(OpState::Expired), [1]);
+        assert!(listed(OpState::Partial).is_empty());
+    }
 }

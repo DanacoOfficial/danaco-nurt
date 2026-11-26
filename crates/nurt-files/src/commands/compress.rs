@@ -1097,6 +1097,28 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_file_round_trips_through_both_commands() {
+        let test = with_files(&[("/data/empty.txt", b"")]);
+        let pack = args(COMPRESS, &["/data/empty.txt"], &[(KEEP, Value::Bool(false))]);
+        compress_run(&test, &pack).unwrap();
+        assert!(!test.fs().exists(&abs("/data/empty.txt")));
+        assert!(test.fs().exists(&abs("/data/empty.txt.gz")));
+        let unpack = args(DECOMPRESS, &["/data/empty.txt.gz"], &[]);
+        decompress_run(&test, &unpack).unwrap();
+        assert_eq!(test.fs().read_file(&abs("/data/empty.txt")).unwrap(), b"");
+    }
+
+    #[test]
+    fn an_algorithm_that_is_not_a_name_is_rejected() {
+        let test = with_files(&[("/data/a.txt", TEXT)]);
+        let given = args(COMPRESS, &["/data/a.txt"], &[(ALGORITHM, Value::Int(3))]);
+        let error = Compress
+            .plan(&given, StageInput::none(), &test.ctx())
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Type);
+    }
+
+    #[test]
     fn io_errors_name_the_command_and_the_path() {
         let error = io_error(&io::Error::other("disk"), &abs("/data/a.txt"), COMPRESS);
         assert_eq!(error.code(), ErrorCode::Io);

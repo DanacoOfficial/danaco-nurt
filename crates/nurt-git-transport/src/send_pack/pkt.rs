@@ -110,6 +110,9 @@ pub(crate) fn trim_newline(data: &[u8]) -> &[u8] {
 }
 
 fn decode_length(prefix: &[u8; PREFIX]) -> io::Result<usize> {
+    if !prefix.iter().all(u8::is_ascii_hexdigit) {
+        return Err(invalid("packet length is not hexadecimal"));
+    }
     let text =
         std::str::from_utf8(prefix).map_err(|_| invalid("packet length is not hexadecimal"))?;
     let length =
@@ -164,6 +167,13 @@ mod tests {
         };
         assert_eq!(first.len(), MAX_DATA);
         assert_eq!(first[0], BAND_DATA);
+    }
+
+    #[test]
+    fn rejects_length_prefixes_with_a_sign() {
+        assert!(parse_all(b"+004").is_err());
+        assert!(parse_all(b"+000").is_err());
+        assert_eq!(parse_all(b"0004").unwrap(), vec![Packet::Data(Vec::new())]);
     }
 
     #[test]
