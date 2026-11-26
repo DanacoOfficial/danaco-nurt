@@ -300,7 +300,7 @@ pub(super) fn allocate(windows: &mut [Window], budget: usize, tails: &[usize], h
             let drop = tail.len() - end_keep[at];
             tail.drain(..drop);
         }
-        if let (Some(limit), Some(last)) = (clipped[at], tail.last_mut()) {
+        if let (Some(limit), Some(last)) = (clipped[at], tail.last_mut().or(head.last_mut())) {
             last.text = clip_to_bytes(&last.text, limit);
             window.cut_lines += 1;
             window.first_cut.get_or_insert(last.raw_start);

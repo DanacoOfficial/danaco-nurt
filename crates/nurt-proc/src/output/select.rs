@@ -442,7 +442,7 @@ pub(super) fn respond(
     }
     fit_budget(view, diagnostics.as_mut(), &mut shown);
     let cuts = cuts_of(&shown);
-    shortened += cuts.iter().map(|cut| cut.cut_lines).sum::<u64>();
+    shortened = shortened.max(cuts.iter().map(|cut| cut.cut_lines).sum::<u64>());
     for (stream, _, text) in shown {
         place(&mut output, stream, text);
     }

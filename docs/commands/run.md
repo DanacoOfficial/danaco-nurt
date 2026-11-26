@@ -60,17 +60,48 @@ object); `timeout`, `idle_timeout`, `max_cpu` and `max_memory` apply to the
 whole process tree.
 
 Output processing. The full output is kept in spool files; the parameters
-below shape only the response. Each line is decoded (`output_encoding`),
-cleaned (terminal control sequences, carriage return redraws and trailing
-white space are removed), checked against `summary` and `progress`, collapsed
-with repeats when `dedupe` is set, selected by `filter` with `context` lines
-around each match (or, for `show: errors` and for `show: auto` after a
-failure of output longer than 20 lines, by the built-in error line patterns
-with 2 lines of context), and finally limited to the first `head` and the
-last `tail` lines. `quiet_on_success` and `show: none` return no text but
-keep the counters, `summary_lines` and `progress`. `shown` reports, per
-stream, the lines kept from the start and from the end, the lines left out
-between them and the lines removed by the filters.
+below shape only the response, which is short by default. Each line is
+decoded (`output_encoding`), cleaned (terminal control sequences, carriage
+return redraws, which keep only the last state of the line, and trailing white
+space are removed), checked against `summary` and `progress`, collapsed with
+repeats when `dedupe` is set (the default: consecutive lines that are
+identical, or that differ only in numbers, versions or the names after a step
+word such as `Compiling`, become the first of them followed by ` (×N)`),
+selected by `filter` with `context` lines around each match (or, for `show:
+errors` and for `show: auto` after a failure of output longer than 20 lines,
+by the built-in error line patterns with 2 lines of context), limited to the
+first `head` and the last `tail` lines, and cut to 400 characters per line
+(the rest becomes `… [+N znaków]`). The text of all streams together then
+fits in `max_bytes` bytes (4096 by default, key `output.max_bytes`, `0` is no
+limit), filled in this order: the errors found in the output of a known tool,
+the end of standard error, the end of standard output, the beginning of the
+output; the end has precedence over the beginning. `quiet_on_success` and
+`show: none` return no text but keep the counters, `summary_lines` and
+`progress`. `shown` reports, per stream, the lines kept from the start and
+from the end, the lines left out between them and the lines removed by the
+filters.
+
+With `show: auto` and without `head`, `tail` and `filter`, a run that exits
+with 0 returns the last 5 lines of its output and the field `digest`, one line
+with the exit code, the time, and the lines and bytes of output (for a known
+tool also its counters, for example `cargo: 0 errors, 3 warnings`). A failed
+run returns the full budget.
+
+Known formats. After a failure, `show: auto` recognises the output of `cargo`
+and `rustc` (`error[E0308]` with `--> file:line:col`) and of `pytest`
+(`FAILED file::test - message` with the traceback line). The field
+`diagnostics` then has `tool`, `errors` and `warnings` (the numbers of all of
+them) and `first`, the first 10 distinct errors, each with the one-line fields
+`file`, `line`, `col`, `code`, `message` and `severity` (and `count` when the
+same error was reported in several places); the text keeps only the last 10
+lines of the output instead of hundreds of warnings.
+
+When the response leaves lines out or cuts lines, `read_hint` is one sentence
+with ready commands that read the rest from the output file without running
+the program again, for example `read "/state/spool/r1.out" lines: 200..260`,
+and `search /error|FAILED/ "/state/spool/r1.out"` for the lines that contain
+a word. Line numbers are those of the file, so lines collapsed by `dedupe`
+count as the lines they stand for.
 
 `run` waits up to `wait` for the program. A program that ends within `wait`
 yields an `exec` record. A program still running after `wait` continues as a
@@ -79,8 +110,8 @@ stages after the effect are then skipped and the report notes
 `post_stages_deferred`. `background: true` is the same as `wait: 0s`;
 `wait: forever` waits until `timeout`. Parameters the program does not give
 take their values from the configuration keys `run.timeout`, `run.wait`,
-`run.idle_timeout`, `run.track_changes`, `run.parallel`, `output.head` and
-`output.tail`.
+`run.idle_timeout`, `run.track_changes`, `run.parallel`, `output.head`,
+`output.tail` and `output.max_bytes`.
 
 Changes made by the program are detected with `track_changes`. The mode
 `auto` is bounded so that it never stalls a run: it does not scan the file
@@ -155,9 +186,10 @@ engine.
 | `show` | `enum(auto\|both\|stdout\|stderr\|errors\|summary\|none)` | `auto` | Output returned in the result; the full output is always kept in a file. |
 | `head` | `int` | `20` | Number of first output lines returned. |
 | `tail` | `int` | `40` | Number of last output lines returned. |
+| `max_bytes` | `int` | `4096` | Bytes of output text returned in all streams together; 0 is no limit. |
 | `filter` | `regex` | none | Return only output lines that match. |
 | `context` | `int` | `0` | Lines of context around lines matching filter. |
-| `dedupe` | `bool` | `false` | Collapse repeated identical output lines. |
+| `dedupe` | `bool` | `true` | Collapse repeated output lines, also lines that differ only in numbers. |
 | `quiet_on_success` | `bool` | `false` | Return no output when the exit code is 0. |
 | `output_encoding` | `text` | `"auto"` | Encoding of the program output; auto detects it. |
 | `watch` | `list<path>` | none | Directories in which changes made by the program are detected. |

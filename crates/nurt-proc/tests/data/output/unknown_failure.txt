@@ -1,0 +1,24 @@
+build start
+task 1: ok
+task 2: ok
+task 3: ok
+task 4: ok
+task 5: ok
+task 6: ok
+task 7: failed with status 2
+task 8: ok
+task 9: ok
+task 10: ok
+task 11: ok
+task 12: ok
+task 13: ok
+task 14: ok
+task 15: ok
+task 16: ok
+task 17: ok
+task 18: ok
+task 19: ok
+task 20: ok
+task 21: ok
+task 22: ok
+build finished with errors

@@ -73,6 +73,20 @@ their own version numbers, described in the specification.
   once per directory. Manifests of operations with at least 256 targets have
   format version 2 (packed target records, same digest rule); journals written
   by 0.1.0 are read unchanged, and a reader of version 1 rejects version 2.
+- `run`: the response is short by default. The text of all streams together
+  fits in `max_bytes` (new parameter, key `output.max_bytes`, 4096 bytes, `0`
+  is no limit), filled with the errors found, the end of standard error, the
+  end of standard output and the beginning; a line longer than 400 characters
+  is cut and ends with `… [+N znaków]`. `dedupe` is on by default and also
+  collapses lines that differ only in numbers, versions or the names after
+  `Compiling` and similar words. After exit code 0, `show: auto` returns the
+  last 5 lines and the field `digest` instead of the first 20 and last 40
+  lines. After a failure the output of `cargo`/`rustc` and `pytest` is
+  recognised: the field `diagnostics` holds the numbers of errors and warnings
+  and the first 10 distinct errors with file, line, column, code and message.
+  A cut response carries `read_hint`, a sentence with `read` and `search`
+  commands that read the rest from the output file. Pass `dedupe: false`,
+  `max_bytes: 0` or `head` and `tail` to get the earlier behaviour.
 
 ## [0.1.0] - 2026-11-22
 

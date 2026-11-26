@@ -15,6 +15,7 @@ struct Patterns {
     head: Regex,
     location: Regex,
     finished: Regex,
+    step: Regex,
 }
 
 fn patterns() -> &'static Patterns {
@@ -25,6 +26,7 @@ fn patterns() -> &'static Patterns {
             head: compile(r"^(error|warning)(?:\[([A-Za-z]\d+)\])?: (.+)$"),
             location: compile(r"^\s*--> (.+?):(\d+):(\d+)\s*$"),
             finished: compile(r"^\s+Finished `?\w+`? "),
+            step: compile(r"^\s+(?:Compiling|Checking) \S+ v\d"),
         }
     })
 }
@@ -38,15 +40,23 @@ struct Pending {
 }
 
 /// What the recogniser remembers between lines.
+///
+/// A line `error: message` or `warning: message` is also printed by many
+/// other tools, so one without a location counts only when the output
+/// shows another mark of `cargo`: an error code, a `-->` line, a step line
+/// or one of the closing lines.
 #[derive(Debug, Default)]
 pub(super) struct State {
     pending: Option<Pending>,
+    loose: Vec<Pending>,
+    evidence: bool,
 }
 
 /// Takes one line; returns whether it belongs to the format.
 pub(super) fn observe(state: &mut State, tally: &mut Tally, line: &str) -> bool {
     let patterns = patterns();
     if let Some(found) = patterns.location.captures(line) {
+        state.evidence = true;
         if let Some(pending) = state.pending.take() {
             settle(
                 tally,
@@ -61,8 +71,9 @@ pub(super) fn observe(state: &mut State, tally: &mut Tally, line: &str) -> bool 
         return true;
     }
     if let Some(found) = patterns.head.captures(line) {
-        flush(state, tally);
+        flush(state);
         let message = found[3].to_owned();
+        state.evidence |= found.get(2).is_some() || is_summary(&message);
         if !is_summary(&message) {
             state.pending = Some(Pending {
                 error: &found[1] == "error",
@@ -73,20 +84,30 @@ pub(super) fn observe(state: &mut State, tally: &mut Tally, line: &str) -> bool 
         return true;
     }
     if patterns.finished.is_match(line) {
+        state.evidence = true;
         tally.recognised();
+        return true;
+    }
+    if patterns.step.is_match(line) {
+        state.evidence = true;
         return true;
     }
     false
 }
 
-/// Settles the error or warning that no `-->` line followed.
+/// Settles the errors and warnings that no `-->` line followed.
 pub(super) fn finish(state: &mut State, tally: &mut Tally) {
-    flush(state, tally);
+    flush(state);
+    for pending in std::mem::take(&mut state.loose) {
+        if state.evidence {
+            settle(tally, pending, None);
+        }
+    }
 }
 
-fn flush(state: &mut State, tally: &mut Tally) {
+fn flush(state: &mut State) {
     if let Some(pending) = state.pending.take() {
-        settle(tally, pending, None);
+        state.loose.push(pending);
     }
 }
 
