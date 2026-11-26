@@ -135,12 +135,12 @@ impl Tracker {
                 ),
             ));
         }
-        let limits = if automatic {
+        let scan_limits = if automatic {
             self.automatic
         } else {
             ScanLimits::UNLIMITED
         };
-        let bound = Bound::new(limits, deadline, ctx.cancel().clone());
+        let bound = Bound::new(scan_limits, deadline, ctx.cancel().clone());
         let scope = Scope {
             roots: &roots,
             ignore: &ignore,
@@ -159,7 +159,7 @@ impl Tracker {
                         "automatic change detection skipped: scanning the watched directories \
                          took longer than {} s; name the directories the program changes in \
                          `watch` or use `track_changes: scan`",
-                        limits.budget.unwrap_or_default().as_secs()
+                        scan_limits.budget.unwrap_or_default().as_secs()
                     ),
                 ));
             }
@@ -170,7 +170,7 @@ impl Tracker {
                         "automatic change detection skipped: the watched directories hold more \
                          than {} entries; name the directories the program changes in `watch` \
                          or use `track_changes: scan`",
-                        limits.max_entries
+                        scan_limits.max_entries
                     ),
                 ));
             }
@@ -208,7 +208,7 @@ impl Tracker {
             preimage,
             op: tx.op().map(|op| op.0),
             roots,
-            limits,
+            limits: scan_limits,
             deadline,
             foreign: scanned.foreign,
             skipped: None,

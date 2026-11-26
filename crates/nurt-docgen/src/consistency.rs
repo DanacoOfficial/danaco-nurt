@@ -396,7 +396,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn lists_markdown_files_recursively() {
         let dir = tempfile::tempdir().expect("temporary directory");
         std::fs::create_dir(dir.path().join("sub")).expect("create");

@@ -263,8 +263,6 @@ fn error_data_converts_into_an_error() {
 
 #[test]
 fn nested_causes_form_a_chain() {
-    use std::error::Error as _;
-
     let root = Error::new(ErrorCode::Io, "disk error");
     let middle = Error::new(ErrorCode::InUse, "file is in use").with_cause(root);
     let top = Error::new(ErrorCode::Stale, "the file changed")
