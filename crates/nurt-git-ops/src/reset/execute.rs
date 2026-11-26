@@ -119,7 +119,7 @@ fn parents(path: &[u8]) -> impl Iterator<Item = BString> + '_ {
 }
 
 fn is_emptied(root: &Path, dir: &BString, gone: &BTreeSet<BString>) -> bool {
-    let Ok(reader) = std::fs::read_dir(join_slash(root, &dir.to_str_lossy())) else {
+    let Ok(reader) = std::fs::read_dir(join_slash(root, dir)) else {
         return false;
     };
     reader.into_iter().all(|child| {
@@ -145,7 +145,7 @@ pub(crate) fn remove_files(plan: &mut ApplyPlan, root: &Path, files: &[BString])
         .collect();
     let mut deletes = Vec::new();
     for path in files {
-        let data = std::fs::read(join_slash(root, &path.to_str_lossy()))
+        let data = std::fs::read(join_slash(root, path))
             .map_err(|cause| io_error("cannot read file", cause))?;
         deletes.push(PlanEntry {
             path: path.clone(),
