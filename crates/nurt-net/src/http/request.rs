@@ -162,7 +162,7 @@ impl EffectStage for HttpRequest {
         let (records, changes) = match &params.save {
             Some(save) => {
                 let (records, change) = runner.run_saving(ctx, save, tx)?;
-                (records, vec![change])
+                (records, change.into_iter().collect())
             }
             None => (runner.run_all(ctx)?, Vec::new()),
         };
@@ -484,23 +484,40 @@ fn request_body(args: &BoundArgs, mode: &Addresses<'_>) -> Result<(RequestBody, 
     }
 }
 
+/// Largest file read into memory as the body of a request.
+const MAX_BODY_FILE_BYTES: u64 = 256 * 1024 * 1024;
+
 fn read_body_file(path: &str, mode: &Addresses<'_>) -> Result<RequestBody> {
     let Addresses::Evaluated(ctx) = mode else {
         return Ok(RequestBody::None);
     };
     let path = AbsPath::new(path)?;
     let mut handle = ctx.require_fs()?.open_read(&path)?;
-    let mut data = Vec::new();
-    handle.read_to_end(&mut data).map_err(|error| {
-        Error::new(
-            ErrorCode::Io,
-            format!("reading `{}` failed: {error}", path.to_language_string()),
-        )
-    })?;
+    let data = read_within(&mut handle, &path.to_language_string(), MAX_BODY_FILE_BYTES)?;
     Ok(RequestBody::Bytes {
         data,
         content_type: Some("application/octet-stream".to_owned()),
     })
+}
+
+/// Reads `reader` to its end; a stream longer than `limit` bytes fails with
+/// `E_LIMIT` after `limit` and one more byte, so that a file that grows while
+/// it is read does not fill the memory either.
+fn read_within(reader: &mut dyn Read, shown: &str, limit: u64) -> Result<Vec<u8>> {
+    let mut data = Vec::new();
+    reader
+        .take(limit.saturating_add(1))
+        .read_to_end(&mut data)
+        .map_err(|error| Error::new(ErrorCode::Io, format!("reading `{shown}` failed: {error}")))?;
+    if u64::try_from(data.len()).is_ok_and(|length| length > limit) {
+        return Err(Error::new(
+            ErrorCode::Limit,
+            format!(
+                "`{shown}` is larger than {limit} bytes, the largest request body read from a file: send a smaller file"
+            ),
+        ));
+    }
+    Ok(data)
 }
 
 fn pins(args: &BoundArgs) -> Result<Pins> {
@@ -921,7 +938,7 @@ impl<'p> Runner<'p> {
         ctx: &ExecCtx,
         path: &AbsPath,
         tx: &mut dyn MutationTx,
-    ) -> Result<(Vec<Record>, Change)> {
+    ) -> Result<(Vec<Record>, Option<Change>)> {
         let targets = self.targets(ctx)?;
         let target = targets
             .first()
@@ -945,6 +962,13 @@ impl<'p> Runner<'p> {
             Ok(written)
         };
         let records = self.fetch(target, ctx, Some(&mut saver))?;
+        // The record names the file only when the body was written.
+        if !records
+            .first()
+            .is_some_and(|record| record.get("saved").is_some())
+        {
+            return Ok((records, None));
+        }
         let written = records
             .first()
             .and_then(|record| record.get("bytes"))
@@ -954,7 +978,7 @@ impl<'p> Runner<'p> {
             });
         Ok((
             records,
-            save_change(path, before.exists, before.size, written),
+            Some(save_change(path, before.exists, before.size, written)),
         ))
     }
 
@@ -1053,6 +1077,16 @@ impl<'p> Runner<'p> {
             from_cache: false,
         };
         if let Some(saver) = saver {
+            // The body of an error answer is not the file asked for and
+            // must not replace it; the status is the result.
+            if !(200..300).contains(&head.status) {
+                return Ok(Obtained {
+                    head,
+                    bytes: Vec::new(),
+                    truncated: false,
+                    saved: None,
+                });
+            }
             let written = saver(&mut exchange.body)?;
             return Ok(Obtained {
                 head,
@@ -1288,6 +1322,7 @@ impl Render<'_> {
             .params
             .save
             .as_ref()
+            .filter(|_| obtained.saved.is_some())
             .map(|path| value::Path::from(path.to_language_string().as_str()));
         Record::from(record)
     }
@@ -1591,6 +1626,21 @@ fn parse_http_date(text: &str) -> Option<value::Instant> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_body_file_above_the_limit_fails_instead_of_filling_the_memory() {
+        let mut within = std::io::Cursor::new(b"12345".to_vec());
+        assert_eq!(read_within(&mut within, "/f", 5).unwrap(), b"12345");
+        let mut above = std::io::Cursor::new(b"123456".to_vec());
+        let error = read_within(&mut above, "/f", 5).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Limit);
+        assert!(error.message.contains("`/f`"), "{}", error.message);
+        let mut endless = std::io::repeat(b'x');
+        assert_eq!(
+            read_within(&mut endless, "/f", 1000).unwrap_err().code(),
+            ErrorCode::Limit
+        );
+    }
 
     #[test]
     fn joins_repeated_headers_and_lists_cookies() {

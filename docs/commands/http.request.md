@@ -34,7 +34,11 @@ A status of 400 or above is a result, not an error: the status is the field
 `status` of the record. Redirects with the statuses 301, 302, 303, 307 and 308
 are followed up to `max_redirects`; the addresses passed are listed in
 `redirects` and the last one is `final_url`. A redirect to another host drops
-the headers `Authorization`, `Cookie` and `Proxy-Authorization`. With
+the headers `Authorization`, `Cookie` and `Proxy-Authorization`. A redirect
+from `https` to `http` is not followed: the request fails with `E_NETWORK` and
+the problem `scheme_downgrade`, and `follow_redirects: false` returns the
+redirect itself. A `303` turns a request into a `get` unless it is a `head`,
+which is sent again as a `head`. With
 `retries`, a request that fails to connect, is reset, or receives the status
 429 or a status of 500 and above is sent again after a pause; `Retry-After`
 sets the pause when the server gives one. Requests with the methods `post` and
@@ -83,7 +87,7 @@ that controls network access can refuse connections before they are opened.
 | `headers` | `map<text>` | none | Request headers. |
 | `body` | `text \| path` | none | Request body as text or from a file. |
 | `json` | `any` | none | Value sent as a JSON body with the matching Content-Type header. |
-| `save` | `path` | none | Write the response body to this file. |
+| `save` | `path` | none | Write the response body to this file; the body of an answer with a status outside 200 to 299 is not written and the record has no `saved` field. |
 | `as` | `enum(raw\|text\|markdown)` | `raw` | Return an HTML page unchanged, as plain text or as Markdown with an outline. |
 | `extract` | `enum(content\|headers\|links\|headings\|meta\|tables)` | `content` | Part of the page returned: content, headers, links, headings, metadata or tables. |
 | `table` | `int` | `0` | Number of the table returned with extract set to tables, counted from 1; 0 returns all tables. |
@@ -191,7 +195,7 @@ http.request "https://api.example.com/items" method: post json: {name: "demo"} |
 | `E_UNKNOWN_VALUE` | A parameter has a value outside its enumeration. | Use one of the listed values. |
 | `E_TYPE` | A parameter has a value of another type. | Give a value of the type in the table. |
 | `E_REGEX` | The pattern of `find` or `links_filter` is not valid. | Correct the pattern. |
-| `E_NETWORK` | The request failed. `problem` tells why: `dns`, `connect`, `reset`, `tls`, `proxy`, `redirect_limit`, `bad_location`, `protocol`, `decode` or `denied`. | Check the address, the proxy and the certificate, or raise `max_redirects`. |
+| `E_NETWORK` | The request failed. `problem` tells why: `dns`, `connect`, `reset`, `tls`, `proxy`, `redirect_limit`, `scheme_downgrade`, `bad_location`, `protocol`, `decode` or `denied`. | Check the address, the proxy and the certificate, or raise `max_redirects`. |
 | `E_TIMEOUT` | The request did not finish within `timeout`. | Raise `timeout`. |
 | `E_CANCELLED` | The program was cancelled during the request. | Run the program again. |
 | `E_NOT_FOUND` | `cache: only` found no cached response, the page has no section `section`, or the page has fewer tables than `table`. | Fetch the page with `cache: use` first, or use a section or table from `expected`. |
