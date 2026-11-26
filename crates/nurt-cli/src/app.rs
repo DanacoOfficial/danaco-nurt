@@ -207,10 +207,11 @@ fn dispatch(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resu
 /// code. A failure to write the message is ignored: nothing else can report
 /// it.
 fn report(error: &CliError, io: &mut Io<'_>) -> u8 {
+    let no_color = std::env::var_os("NO_COLOR").is_some_and(|value| !value.is_empty());
     let style = Style::resolve(
         nurt_contracts::config::ColorMode::Auto,
         io.terminal.stderr,
-        false,
+        no_color,
     );
     let (code, lines) = match error {
         CliError::Usage(message) => (
