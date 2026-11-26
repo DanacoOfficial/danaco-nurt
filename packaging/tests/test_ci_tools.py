@@ -161,6 +161,17 @@ class WorkflowCopiesTest(unittest.TestCase):
                 source.read_text(encoding="utf-8"), installed.read_text(encoding="utf-8"), name
             )
 
+    def test_release_jobs_that_commit_to_a_repository_can_be_run_again(self):
+        lines = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8").splitlines()
+        commits = [number for number, line in enumerate(lines) if line.strip().startswith("git commit")]
+        self.assertEqual(len(commits), 2)
+        for number in commits:
+            self.assertIn("git diff --cached --quiet", lines[number - 1])
+
+    def test_apt_upload_keeps_the_packages_of_older_releases(self):
+        text = (support.PACKAGING / "ci" / "release.yml").read_text(encoding="utf-8")
+        self.assertIn('--delete-after --filter="P /pool/"', text)
+
     def test_release_checks_use_the_first_line_of_nurt_version(self):
         workflows = support.PACKAGING.parent / ".github" / "workflows"
         for name in ("packaging.yml", "release.yml"):
