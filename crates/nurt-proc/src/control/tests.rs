@@ -336,7 +336,13 @@ fn timeout_ends_the_whole_tree() {
     let begin = Instant::now();
     let end = finish(&mut started);
     assert_eq!(end.killed_by, Some(KilledBy::Timeout));
-    assert_eq!(end.signal, Some(Signal::Terminate));
+    // Windows has no signals: the job object is ended and reported as a kill.
+    let expected = if cfg!(windows) {
+        Signal::Kill
+    } else {
+        Signal::Terminate
+    };
+    assert_eq!(end.signal, Some(expected));
     assert!(begin.elapsed() < TEST_BOUND);
     let pids = started.sink.pids();
     assert_eq!(pids.len(), 3, "the tree has three levels: {pids:?}");

@@ -87,6 +87,7 @@ fn detach(args: &[String]) -> Option<ExitCode> {
     command.args(["silent-sleep", &millis.to_string()]);
     if !keep {
         command.stdout(Stdio::null()).stderr(Stdio::null());
+        release_inherited_output();
     }
     match command.spawn().map(|child| child.id()) {
         Ok(pid) => {
@@ -96,6 +97,29 @@ fn detach(args: &[String]) -> Option<ExitCode> {
         Err(_) => Some(ExitCode::from(CHILD_FAILED)),
     }
 }
+
+/// Keeps the output handles of this process out of the child: on Windows a
+/// child inherits every inheritable handle, so the pipe of the run would stay
+/// open in it even with its own standard handles replaced.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn release_inherited_output() {
+    use windows_sys::Win32::Foundation::{HANDLE_FLAG_INHERIT, SetHandleInformation};
+    use windows_sys::Win32::System::Console::{
+        GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+    };
+    for which in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+        // SAFETY: plain calls on the standard handles of this process; a
+        // failure leaves the handle as it is.
+        unsafe {
+            let handle = GetStdHandle(which);
+            SetHandleInformation(handle, HANDLE_FLAG_INHERIT, 0);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn release_inherited_output() {}
 
 fn ignore_term(args: &[String]) -> Option<ExitCode> {
     let millis = number(args, 0)?;

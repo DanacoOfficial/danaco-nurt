@@ -175,6 +175,7 @@ impl Condition {
     /// with the given features and a runner that provides the given
     /// fixtures.
     #[must_use]
+    #[allow(clippy::match_like_matches_macro)] // the arms of the system are constants that differ per target
     pub fn holds(&self, features: &BTreeSet<String>, fixtures: &[Fixture]) -> bool {
         match self {
             Self::Os(os) => match os.as_str() {

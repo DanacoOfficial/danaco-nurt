@@ -490,7 +490,7 @@ fn plan_start(ctx: &ApplyContext<'_>, request: &MergeRequest) -> Result<MergePla
     };
     let bases = merge_bases(repo, head_commit, target.commit)?;
     if target.commit == head_commit || bases.contains(&target.commit) {
-        return Ok(plan_up_to_date(&head));
+        return Ok(plan_up_to_date(&head, head_commit));
     }
     if bases.contains(&head_commit) && request.fast_forward != FastForward::Never {
         return plan_fast_forward(ctx, request, target, &head, &action);
@@ -571,9 +571,14 @@ fn with_dirty_fixes(error: Error, label: &str) -> Error {
         .with_next_step(format!("git.status {}", quote(label)))
 }
 
-/// Plan of a merge that changes nothing; Git leaves `ORIG_HEAD` alone here.
-fn plan_up_to_date(head: &Head) -> MergePlan {
-    MergePlan::new(GitEffectState::UpToDate, head)
+/// Plan of a merge that changes nothing but `ORIG_HEAD`: Git records the
+/// current commit there before it tests for "Already up to date".
+fn plan_up_to_date(head: &Head, head_commit: ObjectId) -> MergePlan {
+    let mut plan = MergePlan::new(GitEffectState::UpToDate, head);
+    plan.apply
+        .state_files
+        .push(write_state(StateFile::OrigHead, id_content(&head_commit)));
+    plan
 }
 
 fn plan_fast_forward(
@@ -743,12 +748,10 @@ fn plan_three_way_in(
         write_state(StateFile::MergeMsg, merge_msg.into_bytes()),
         write_state(StateFile::MergeMode, mode),
     ]);
-    // Git records the tree with conflict markers only for a conflicted merge.
-    if !outcome.is_clean() {
-        plan.apply
-            .state_files
-            .push(write_state(StateFile::AutoMerge, id_content(&outcome.tree)));
-    }
+    // A merge stopped before the commit records its result tree, clean or not.
+    plan.apply
+        .state_files
+        .push(write_state(StateFile::AutoMerge, id_content(&outcome.tree)));
     plan.merge_head = Some(sides.target.commit);
     plan.conflicts = outcome.conflicts;
     Ok(plan)

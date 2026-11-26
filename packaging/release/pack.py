@@ -23,10 +23,13 @@ The C library goes to its own archive nurt-lib-<version>-<target>, written
 when --library is given:
 
   libnurt.so.1,           shared library (named libnurt.so.1 on glibc Linux,
-  libnurt.1.dylib or      libnurt.1.dylib on macOS and nurt.dll on Windows)
-  nurt.dll
+  libnurt.1.dylib,        libnurt.1.dylib on macOS and nurt.dll on Windows) or,
+  nurt.dll or             on musl Linux, the static library libnurt.a that
+  libnurt.a               --library takes from libnurt_ffi.a
   nurt.h                  C header
-  nurt.pc                 pkg-config file (not packed for Windows)
+  nurt.pc                 pkg-config file (not packed for Windows); on musl
+                          it lists the libraries of a static link in
+                          Libs.private
   LICENSE, NOTICE         texts of the repository
 
 Usage:
@@ -67,6 +70,12 @@ Cflags: -I${{includedir}}
 Libs: -L${{libdir}} -lnurt
 """
 
+# System libraries that a static link of libnurt.a needs on musl Linux; the
+# output of `cargo rustc -p nurt-ffi --target <musl target> --release
+# --crate-type staticlib -- --print native-static-libs`.
+MUSL_PRIVATE_LIBS = "-lunwind -lc"
+PKG_CONFIG_MUSL = PKG_CONFIG + "Libs.private: {private}\n"
+
 
 class PackError(Exception):
     """A reason the archive cannot be assembled."""
@@ -79,7 +88,7 @@ def parse_arguments(argv):
     parser.add_argument("--target", required=True)
     parser.add_argument("--binary", required=True, type=Path, help="nurt or nurt.exe")
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--library", type=Path, help="shared library; packed with the header into nurt-lib-<version>-<target>")
+    parser.add_argument("--library", type=Path, help="shared library, or libnurt_ffi.a on musl; packed with the header into nurt-lib-<version>-<target>")
     parser.add_argument("--man", type=Path, help="directory with the manual pages")
     parser.add_argument("--completions", type=Path, help="directory with the completion scripts")
     parser.add_argument("--site", type=Path, help="directory of the documentation site")
@@ -88,15 +97,17 @@ def parse_arguments(argv):
 
 
 def library_name(target):
-    """Return the file name of the shared library in the archive of a target."""
+    """Return the file name of the library in the archive of a target."""
     if target.endswith("-unknown-linux-gnu"):
         return "libnurt.so.1"
     if target.endswith("-apple-darwin"):
         return "libnurt.1.dylib"
     if "windows" in target:
         return "nurt.dll"
+    if target.endswith("-linux-musl"):
+        return "libnurt.a"
     raise PackError(
-        f"--library belongs to glibc Linux, macOS and Windows targets only, not {target}"
+        f"--library belongs to Linux (glibc and musl), macOS and Windows targets only, not {target}"
     )
 
 
@@ -135,7 +146,10 @@ def collect_library(arguments):
     if not header.is_file():
         raise PackError(f"{header} does not exist")
     entries = {library: arguments.library, "nurt.h": header}
-    if "windows" not in arguments.target:
+    if arguments.target.endswith("-linux-musl"):
+        pkg_config = PKG_CONFIG_MUSL.format(version=arguments.version, private=MUSL_PRIVATE_LIBS)
+        entries["nurt.pc"] = pkg_config.encode("utf-8")
+    elif "windows" not in arguments.target:
         entries["nurt.pc"] = PKG_CONFIG.format(version=arguments.version).encode("utf-8")
     for text in LIBRARY_TEXTS:
         source = arguments.root / text

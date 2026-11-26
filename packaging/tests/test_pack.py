@@ -127,13 +127,36 @@ class PackTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("NOTICE", result.stderr)
 
-    def test_library_is_not_packed_for_static_musl_targets(self):
+    def test_musl_library_archive_holds_the_static_library_and_a_static_pkg_config_file(self):
+        static_library = self.root / "libnurt_ffi.a"
+        static_library.write_bytes(b"static library")
         for target in ("x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"):
-            result = self.pack(target, self.root / "out", "--library", str(self.library))
-            self.assertEqual(result.returncode, 1, target)
-            self.assertIn("glibc Linux, macOS and Windows targets only", result.stderr)
+            result = self.pack(target, self.root / "out", "--library", str(static_library))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            top = f"nurt-lib-0.1.0-{target}"
+            with tarfile.open(self.root / "out" / f"{top}.tar.gz") as archive:
+                names = {member.name for member in archive.getmembers() if member.isfile()}
+                library = archive.extractfile(f"{top}/libnurt.a").read()
+                pc = archive.extractfile(f"{top}/nurt.pc").read().decode()
+            self.assertEqual(names, {f"{top}/{name}" for name in ("libnurt.a", "nurt.h", "nurt.pc", "LICENSE", "NOTICE")})
+            self.assertEqual(library, b"static library")
+            self.assertIn("\nLibs: -L${libdir} -lnurt\n", pc)
+            private = [line for line in pc.splitlines() if line.startswith("Libs.private:")]
+            self.assertEqual(len(private), 1, pc)
+            for flag in ("-lunwind", "-lc"):
+                self.assertIn(flag, private[0].split())
+
+    def test_glibc_pkg_config_file_has_no_private_libraries(self):
         result = self.pack("x86_64-unknown-linux-gnu", self.root / "out", "--library", str(self.library))
         self.assertEqual(result.returncode, 0, result.stderr)
+        top = "nurt-lib-0.1.0-x86_64-unknown-linux-gnu"
+        with tarfile.open(self.root / "out" / f"{top}.tar.gz") as archive:
+            self.assertNotIn("Libs.private", archive.extractfile(f"{top}/nurt.pc").read().decode())
+
+    def test_library_is_rejected_for_unsupported_targets(self):
+        result = self.pack("x86_64-unknown-freebsd", self.root / "out", "--library", str(self.library))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Linux (glibc and musl), macOS and Windows targets only", result.stderr)
 
     def test_library_is_named_after_the_platform_of_the_target(self):
         for target, library in (

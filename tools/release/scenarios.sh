@@ -389,11 +389,11 @@ for id in $scenarios; do
     exit 2
   fi
   dir="$BASE/$id"
-  mkdir -p "$dir/work" "$dir/home"
+  mkdir -p "$dir/work" "$dir/account"
   (
     cd "$dir/work" || exit 1
-    export HOME="$dir/home" XDG_STATE_HOME="$dir/home/state" XDG_CONFIG_HOME="$dir/home/config"
-    export XDG_DATA_HOME="$dir/home/data" XDG_CACHE_HOME="$dir/home/cache" LANG=C.UTF-8
+    export HOME="$dir/account" XDG_STATE_HOME="$dir/account/state" XDG_CONFIG_HOME="$dir/account/config"
+    export XDG_DATA_HOME="$dir/account/data" XDG_CACHE_HOME="$dir/account/cache" LANG=C.UTF-8
     export LOG="$RESULTS/$id.log" REASON="$dir/reason"
     : > "$LOG"
     "$function_name"

@@ -128,6 +128,22 @@ class ScriptArgumentsTest(unittest.TestCase):
         done = self.run_script("build-release.sh", "1.2.3", "/nonexistent/out", "--sign", "home")
         self.assertEqual(done.returncode, 2)
 
+    def test_the_library_archive_has_no_flag_and_no_placeholder(self):
+        done = self.run_script("build-release.sh", "1.2.3", "/nonexistent/out", "--lib-archive")
+        self.assertEqual(done.returncode, 2)
+        self.assertNotIn("--lib-archive", (RELEASE / "build-release.sh").read_text())
+        self.assertNotIn("lib_pack_command", (RELEASE / "build-release.sh").read_text())
+
+    def test_the_scripts_use_the_account_directory_and_no_home_directory_path(self):
+        for name in ("scenarios.sh", "build-release.sh"):
+            with self.subTest(script=name):
+                text = (RELEASE / name).read_text(encoding="utf-8")
+                self.assertNotIn("/home/", text)
+                self.assertNotIn('$dir/home"', text)
+                self.assertNotIn('$run/home"', text)
+        scenarios = (RELEASE / "scenarios.sh").read_text(encoding="utf-8")
+        self.assertIn('export HOME="$dir/account" XDG_STATE_HOME="$dir/account/state"', scenarios)
+
     def test_an_unknown_scenario_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             executable = Path(directory) / "nurt"

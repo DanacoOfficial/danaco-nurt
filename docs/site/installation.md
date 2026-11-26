@@ -65,6 +65,7 @@ The scope `machine` installs into `%ProgramFiles%\Nurt` and changes the `PATH` o
 | Program, Linux and macOS, directory `nurt-<version>-<target>/` | `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `man/`, `completions/`, `doc/` |
 | Program, Windows, files at the top level | `nurt.exe`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `completions/`, `doc/` |
 | C library, Linux and macOS, directory `nurt-lib-<version>-<target>/` | `libnurt.so.1` or `libnurt.1.dylib`, `nurt.h`, `nurt.pc`, `LICENSE`, `NOTICE` |
+| C library, Linux musl, directory `nurt-lib-<version>-<target>/` | `libnurt.a` (static), `nurt.h`, `nurt.pc`, `LICENSE`, `NOTICE` |
 | C library, Windows, files at the top level | `nurt.dll`, `nurt.h`, `LICENSE`, `NOTICE` |
 
 The C library archives are published for the targets that have a library; the installers `install.sh` and `install.ps1` install the program archive only.
