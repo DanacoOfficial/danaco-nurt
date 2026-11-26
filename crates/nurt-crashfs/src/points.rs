@@ -494,3 +494,261 @@ fn recovery_trigger(rng: &mut SplitMix64) -> Trigger {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+    use std::path::PathBuf;
+
+    use nurt_contracts::fs::{Durability, Follow, Fs, FsWrite, ScopePurpose, TxScope};
+    use nurt_contracts::journal::OpId;
+
+    use super::*;
+
+    fn root() -> AbsPath {
+        AbsPath::new(if cfg!(windows) { "C:\\vol" } else { "/vol" }).unwrap()
+    }
+
+    fn scope() -> TxScope {
+        TxScope::new_for_journal(OpId(1), ScopePurpose::Maintenance)
+    }
+
+    /// Creates a durable file `f`; with `broken`, its oracle rejects every state.
+    struct Writer {
+        broken: bool,
+    }
+
+    impl Scenario for Writer {
+        fn name(&self) -> &str {
+            "writer"
+        }
+
+        fn volumes(&self) -> Vec<VolumeSpec> {
+            vec![VolumeSpec::new(root())]
+        }
+
+        fn setup(&self, _fs: &CrashFs) -> FsResult<()> {
+            Ok(())
+        }
+
+        fn run(&self, fs: &CrashFs, _failpoints: &Arc<SeededFailpoints>) -> OpOutcome {
+            let path = root().join_name("f").unwrap();
+            let done = fs
+                .create_new(&scope(), &path)
+                .and_then(|mut handle| {
+                    handle.write_all(b"data").ok();
+                    handle.sync(Durability::Full)
+                })
+                .and_then(|()| fs.sync_dir(&scope(), &root()))
+                .is_ok();
+            if done {
+                OpOutcome::Committed {
+                    irreversible: false,
+                }
+            } else {
+                OpOutcome::Crashed
+            }
+        }
+
+        fn recover(&self, _fs: &CrashFs, _failpoints: &Arc<SeededFailpoints>) -> FsResult<()> {
+            Ok(())
+        }
+
+        fn check(&self, fs: &CrashFs, _phase: Phase, outcome: OpOutcome) -> Result<(), Violation> {
+            if self.broken {
+                return Err(Violation::SilentError);
+            }
+            let path = root().join_name("f").unwrap();
+            let present = fs.metadata(&path, Follow::NoFollow).is_ok();
+            if matches!(outcome, OpOutcome::Committed { .. }) && !present {
+                return Err(Violation::PreviousContentLost {
+                    path: PathBuf::from("f"),
+                });
+            }
+            Ok(())
+        }
+    }
+
+    fn failure() -> Failure {
+        Failure {
+            scenario: "s".to_owned(),
+            profile: CrashProfile::Xfs,
+            seed: 1,
+            point: CrashPoint {
+                run: Trigger::FsCall { call: 1 },
+                recovery: None,
+            },
+            phase: Phase::AfterCrash,
+            violation: Violation::SilentError,
+        }
+    }
+
+    #[test]
+    fn derived_seeds_are_stable_and_differ_by_index_and_base() {
+        assert_eq!(derive_seed(5, 1), derive_seed(5, 1));
+        assert_ne!(derive_seed(5, 1), derive_seed(5, 2));
+        assert_ne!(derive_seed(5, 1), derive_seed(6, 1));
+    }
+
+    #[test]
+    fn triggers_list_protocol_hits_before_file_system_calls() {
+        let hit = Trigger::Protocol {
+            point: FailPoint::RecoveryStarted,
+            n: None,
+            occurrence: 0,
+        };
+        let enumeration = Enumeration {
+            protocol: vec![hit],
+            fs_calls: 2,
+        };
+        assert_eq!(
+            enumeration.triggers(),
+            [hit, Trigger::FsCall { call: 1 }, Trigger::FsCall { call: 2 }]
+        );
+        assert!(Enumeration::default().triggers().is_empty());
+    }
+
+    #[test]
+    fn random_points_are_deterministic_and_stay_in_their_windows() {
+        let triggers: Vec<Trigger> = (1..=20).map(|call| Trigger::FsCall { call }).collect();
+        assert_eq!(random_point(&triggers, 11), random_point(&triggers, 11));
+        assert_eq!(random_point(&[], 11).run, Trigger::FsCall { call: 1 });
+        let mut with_recovery = 0;
+        for seed in 0..400 {
+            let point = random_point(&triggers, seed);
+            assert!(triggers.contains(&point.run));
+            match point.recovery {
+                Some(Trigger::FsCall { call }) => {
+                    assert!((1..=RECOVERY_CALL_WINDOW).contains(&call));
+                    with_recovery += 1;
+                }
+                Some(Trigger::Protocol {
+                    point: FailPoint::RecoveryEntry,
+                    occurrence,
+                    ..
+                }) => {
+                    assert!(u64::from(occurrence) < RECOVERY_ENTRY_WINDOW);
+                    with_recovery += 1;
+                }
+                Some(Trigger::Protocol {
+                    point: FailPoint::RecoveryStarted,
+                    occurrence: 0,
+                    ..
+                }) => with_recovery += 1,
+                Some(other) => panic!("unexpected recovery trigger {other:?}"),
+                None => {}
+            }
+        }
+        assert!(with_recovery > 0 && with_recovery < 400);
+    }
+
+    #[test]
+    fn crash_points_survive_a_round_trip_through_json() {
+        let point = CrashPoint {
+            run: Trigger::Protocol {
+                point: FailPoint::RecoveryEntry,
+                n: Some(2),
+                occurrence: 1,
+            },
+            recovery: Some(Trigger::FsCall { call: 3 }),
+        };
+        let text = serde_json::to_string(&point).unwrap();
+        assert_eq!(serde_json::from_str::<CrashPoint>(&text).unwrap(), point);
+        let failed = failure();
+        let text = serde_json::to_string(&failed).unwrap();
+        assert_eq!(serde_json::from_str::<Failure>(&text).unwrap(), failed);
+    }
+
+    #[test]
+    fn reports_count_points_crashes_and_failures_and_merge() {
+        let mut report = CorpusReport::new("s", CrashProfile::Xfs, 1);
+        report.record(Ok(PointReport {
+            crashes: 2,
+            outcome: OpOutcome::Crashed,
+        }));
+        report.record(Err(failure()));
+        assert_eq!(
+            (report.points, report.crashes, report.failures.len()),
+            (2, 3, 1)
+        );
+        let mut total = CorpusReport::new("s", CrashProfile::Xfs, 1);
+        total.merge(report.clone());
+        total.merge(report);
+        assert_eq!(
+            (total.points, total.crashes, total.failures.len()),
+            (4, 6, 2)
+        );
+    }
+
+    #[test]
+    fn a_report_is_written_as_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("report.json");
+        let report = CorpusReport::new("s", CrashProfile::Btrfs, 4);
+        report.write_json(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(serde_json::from_str::<CorpusReport>(&text).unwrap(), report);
+    }
+
+    #[test]
+    fn a_scenario_is_enumerated_and_every_point_passes_its_oracle() {
+        let harness = Harness::new(CrashProfile::PosixWorstCase);
+        let scenario = Writer { broken: false };
+        let enumeration = harness.enumerate(&scenario, 1).unwrap();
+        assert_eq!(enumeration.fs_calls, 4);
+        assert!(enumeration.protocol.is_empty());
+        let report = harness.run_all(&scenario, &enumeration, 1);
+        assert_eq!(report.points, 4);
+        assert!(report.failures.is_empty(), "{:?}", report.failures);
+        let random = harness.run_random(&scenario, &enumeration, 2, 20);
+        assert_eq!(random.points, 20);
+        assert!(random.failures.is_empty(), "{:?}", random.failures);
+    }
+
+    #[test]
+    fn a_point_after_the_end_of_the_operation_checks_the_returned_state() {
+        let harness = Harness::new(CrashProfile::PosixWorstCase);
+        let point = CrashPoint {
+            run: Trigger::FsCall { call: 99 },
+            recovery: None,
+        };
+        let report = harness
+            .run_point(&Writer { broken: false }, 1, point)
+            .unwrap();
+        assert_eq!(report.crashes, 0);
+        assert_eq!(
+            report.outcome,
+            OpOutcome::Committed {
+                irreversible: false
+            }
+        );
+    }
+
+    #[test]
+    fn a_recovery_that_makes_no_call_is_not_crashed_again() {
+        let harness = Harness::new(CrashProfile::PosixWorstCase);
+        let point = CrashPoint {
+            run: Trigger::FsCall { call: 2 },
+            recovery: Some(Trigger::FsCall { call: 1 }),
+        };
+        let report = harness
+            .run_point(&Writer { broken: false }, 1, point)
+            .unwrap();
+        assert_eq!(report.crashes, 1);
+        assert_eq!(report.outcome, OpOutcome::Crashed);
+    }
+
+    #[test]
+    fn oracle_failures_are_recorded_and_replayed() {
+        let harness = Harness::new(CrashProfile::Ext4Ordered);
+        let scenario = Writer { broken: true };
+        let enumeration = harness.enumerate(&scenario, 1).unwrap();
+        let report = harness.run_all(&scenario, &enumeration, 1);
+        assert_eq!(report.failures.len() as u64, report.points);
+        let first = report.failures[0].clone();
+        assert_eq!(first.scenario, "writer");
+        assert_eq!(first.profile, CrashProfile::Ext4Ordered);
+        let again = harness.replay(&scenario, &first).unwrap_err();
+        assert_eq!(again, first);
+    }
+}
