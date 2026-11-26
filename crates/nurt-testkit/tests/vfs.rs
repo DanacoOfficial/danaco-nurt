@@ -411,3 +411,123 @@ fn truncation_dates_the_file_and_restoring_metadata_brings_back_mode_and_time() 
     let restored = fs.metadata(&file, Follow::NoFollow).unwrap();
     assert_eq!((restored.mode, restored.modified_ns), (0o600, 5));
 }
+
+fn changed(fs: &VirtualFs, target: &str) -> i64 {
+    fs.metadata(&path(target), Follow::NoFollow)
+        .unwrap()
+        .changed_ns
+        .unwrap()
+}
+
+fn modified(fs: &VirtualFs, target: &str) -> i64 {
+    fs.metadata(&path(target), Follow::NoFollow)
+        .unwrap()
+        .modified_ns
+}
+
+fn wall(clock: &VirtualClock) -> i64 {
+    i64::try_from(clock.now().unix_nanos()).unwrap()
+}
+
+#[test]
+fn operations_that_change_an_entry_update_its_change_time() {
+    let (clock, fs, scope) = setup();
+    fs.write_file(&path("/data/a.txt"), b"abc").unwrap();
+    let created = changed(&fs, "/data/a.txt");
+
+    clock.advance(Duration::from_secs(1));
+    fs.write_file(&path("/data/a.txt"), b"abcd").unwrap();
+    assert_eq!(changed(&fs, "/data/a.txt"), wall(&clock));
+
+    clock.advance(Duration::from_secs(1));
+    fs.truncate(&scope, &path("/data/a.txt"), 1).unwrap();
+    assert_eq!(changed(&fs, "/data/a.txt"), wall(&clock));
+
+    clock.advance(Duration::from_secs(1));
+    let mode = MetaChange {
+        mode: Some(0o600),
+        ..MetaChange::default()
+    };
+    fs.set_meta(&scope, &path("/data/a.txt"), &mode).unwrap();
+    assert_eq!(changed(&fs, "/data/a.txt"), wall(&clock));
+
+    clock.advance(Duration::from_secs(1));
+    fs.hard_link(&scope, &path("/data/a.txt"), &path("/data/b.txt"))
+        .unwrap();
+    assert_eq!(changed(&fs, "/data/a.txt"), wall(&clock));
+
+    clock.advance(Duration::from_secs(1));
+    fs.rename(
+        &scope,
+        &path("/data/b.txt"),
+        &path("/data/c.txt"),
+        RenameMode::Replace,
+    )
+    .unwrap();
+    assert_eq!(changed(&fs, "/data/c.txt"), wall(&clock));
+    assert!(changed(&fs, "/data/c.txt") > created);
+}
+
+#[test]
+fn adding_and_removing_an_entry_dates_the_directory() {
+    let (clock, fs, scope) = setup();
+    fs.write_file(&path("/data/a.txt"), b"a").unwrap();
+
+    clock.advance(Duration::from_secs(1));
+    fs.write_file(&path("/data/b.txt"), b"b").unwrap();
+    assert_eq!(modified(&fs, "/data"), wall(&clock));
+    assert_eq!(changed(&fs, "/data"), wall(&clock));
+
+    clock.advance(Duration::from_secs(1));
+    fs.rename(
+        &scope,
+        &path("/data/b.txt"),
+        &path("/data/c.txt"),
+        RenameMode::Replace,
+    )
+    .unwrap();
+    assert_eq!(modified(&fs, "/data"), wall(&clock));
+
+    clock.advance(Duration::from_secs(1));
+    fs.hard_link(&scope, &path("/data/a.txt"), &path("/data/d.txt"))
+        .unwrap();
+    assert_eq!(modified(&fs, "/data"), wall(&clock));
+
+    clock.advance(Duration::from_secs(1));
+    fs.remove_file(&scope, &path("/data/c.txt")).unwrap();
+    assert_eq!(modified(&fs, "/data"), wall(&clock));
+    assert_eq!(changed(&fs, "/data"), wall(&clock));
+}
+
+#[test]
+fn an_unprivileged_account_cannot_restore_the_ownership_of_another_user() {
+    let (_clock, fs, scope) = setup();
+    fs.write_file(&path("/data/a.txt"), b"a").unwrap();
+    let mut recorded = fs
+        .extended_metadata(&path("/data/a.txt"), Follow::NoFollow)
+        .unwrap();
+    recorded.basic.uid = Some(4242);
+    fs.set_account(1000, 1000);
+    let report = fs
+        .restore_meta(&scope, &path("/data/a.txt"), &recorded)
+        .unwrap();
+    assert_eq!(report.not_transferred, ["owner"]);
+    assert_ne!(
+        fs.metadata(&path("/data/a.txt"), Follow::NoFollow)
+            .unwrap()
+            .uid,
+        Some(4242)
+    );
+
+    fs.set_account(0, 0);
+    let report = fs
+        .restore_meta(&scope, &path("/data/a.txt"), &recorded)
+        .unwrap();
+    assert!(report.is_complete());
+    assert_eq!(
+        fs.metadata(&path("/data/a.txt"), Follow::NoFollow)
+            .unwrap()
+            .uid,
+        Some(4242)
+    );
+}

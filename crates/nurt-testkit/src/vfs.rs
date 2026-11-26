@@ -494,11 +494,23 @@ impl Volume {
         }
     }
 
-    fn unlink(&mut self, key: &[OsString]) {
+    /// Sets the modification and change times of the directory that holds
+    /// `key`, as every system does when an entry is added or removed.
+    fn touch_parent(&mut self, key: &[OsString], now: i64) {
+        if let Some((_, parent)) = key.split_last()
+            && let Some(inode) = self.inode_mut_at(parent)
+        {
+            inode.modified_ns = now;
+            inode.changed_ns = now;
+        }
+    }
+
+    fn unlink(&mut self, key: &[OsString], now: i64) {
         if let Some(name) = self.names.remove(key) {
             let drop_inode = match self.inodes.get_mut(&name.inode) {
                 Some(inode) => {
                     inode.links = inode.links.saturating_sub(1);
+                    inode.changed_ns = now;
                     inode.links == 0
                 }
                 None => false,
@@ -506,10 +518,11 @@ impl Volume {
             if drop_inode {
                 self.inodes.remove(&name.inode);
             }
+            self.touch_parent(key, now);
         }
     }
 
-    fn move_subtree(&mut self, from: &[OsString], to: &[OsString], stored: OsString) {
+    fn move_subtree(&mut self, from: &[OsString], to: &[OsString], stored: OsString, now: i64) {
         let stored = self.stored(&stored);
         let keys = self.subtree(from);
         let mut moved = Vec::with_capacity(keys.len());
@@ -526,6 +539,11 @@ impl Volume {
             }
             self.names.insert(key, name);
         }
+        if let Some(inode) = self.inode_mut_at(to) {
+            inode.changed_ns = now;
+        }
+        self.touch_parent(from, now);
+        self.touch_parent(to, now);
     }
 
     fn file_id(&self, inode: u64) -> FileId {
@@ -859,12 +877,14 @@ impl State {
 
     fn insert(&mut self, slot: &Slot, inode: Inode) -> u64 {
         let volume = &mut self.volumes[slot.vol];
+        let created = inode.created_ns;
         let id = volume.alloc_id();
         volume.inodes.insert(id, inode);
         let stored = volume.stored(&slot.name);
         volume
             .names
             .insert(slot.key.clone(), Name { stored, inode: id });
+        volume.touch_parent(&slot.key, created);
         id
     }
 
@@ -1113,6 +1133,7 @@ impl VirtualFs {
             }
             inode.content = content.to_vec();
             inode.modified_ns = now;
+            inode.changed_ns = now;
             return Ok(());
         }
         let mut inode = Inode::new(FileKind::File, DEFAULT_FILE_MODE, account, now);
@@ -1225,6 +1246,7 @@ impl VirtualFs {
     /// Fails with [`FsErrorKind::NotFound`], and with [`FsErrorKind::InUse`]
     /// for the root of a volume.
     pub fn remove_entry(&self, path: &AbsPath) -> FsResult<()> {
+        let now = self.shared.now();
         let mut state = self.lock();
         let resolved = state.existing(path.as_path(), false, "remove_entry")?;
         if resolved.key.is_empty() {
@@ -1232,7 +1254,7 @@ impl VirtualFs {
         }
         let volume = &mut state.volumes[resolved.vol];
         for key in volume.subtree(&resolved.key).into_iter().rev() {
-            volume.unlink(&key);
+            volume.unlink(&key, now);
         }
         Ok(())
     }
@@ -1407,7 +1429,11 @@ impl VirtualFs {
             .inode(&resolved)
             .map(|(id, _)| id)
             .ok_or_else(|| fs_error(FsErrorKind::NotFound, op, native))?;
-        change(&mut state.volumes[resolved.vol], id, now)?;
+        let volume = &mut state.volumes[resolved.vol];
+        change(volume, id, now)?;
+        if let Some(inode) = volume.inodes.get_mut(&id) {
+            inode.changed_ns = now;
+        }
         state.record(scope, op, &[path]);
         Ok(())
     }
@@ -1563,6 +1589,9 @@ impl Fs for VirtualFs {
             Some((_, inode)) if inode.is_dir() => {
                 Err(fs_error(FsErrorKind::IsADirectory, "content_hash", native))
             }
+            Some((_, inode)) if inode.kind != FileKind::File => {
+                Err(fs_error(FsErrorKind::Unsupported, "content_hash", native))
+            }
             Some((_, inode)) => Ok(sha256(&inode.content)),
             None => Err(fs_error(FsErrorKind::NotFound, "content_hash", native)),
         }
@@ -1700,21 +1729,41 @@ impl FsWrite for VirtualFs {
         mode: RenameMode,
     ) -> FsResult<()> {
         let op = "rename";
+        let now = self.shared.now();
         let mut state = self.lock();
         state.check_fault(op, from.as_path())?;
         state.check_fault(op, to.as_path())?;
         let source = state.slot(from, op)?;
         let dest = state.slot(to, op)?;
-        let Some((_, source_inode)) = state.slot_inode(&source) else {
+        let Some((source_id, source_inode)) = state.slot_inode(&source) else {
             return Err(fs_error(FsErrorKind::NotFound, op, from.as_path()));
         };
         let source_is_dir = source_inode.is_dir();
         if source.vol != dest.vol {
             return Err(fs_error(FsErrorKind::CrossDevice, op, to.as_path()));
         }
+        if mode == RenameMode::NoReplace
+            && !state.volumes[source.vol].info.features.rename_noreplace
+        {
+            return Err(fs_error(FsErrorKind::Unsupported, op, from.as_path()));
+        }
+        if mode != RenameMode::NoReplace
+            && source.key != dest.key
+            && state
+                .slot_inode(&dest)
+                .is_some_and(|(dest_id, _)| dest_id == source_id)
+        {
+            state.record(scope, op, &[from, to]);
+            return Ok(());
+        }
         if source.key == dest.key {
             if source.name != dest.name {
-                state.volumes[source.vol].move_subtree(&source.key, &dest.key, dest.name.clone());
+                state.volumes[source.vol].move_subtree(
+                    &source.key,
+                    &dest.key,
+                    dest.name.clone(),
+                    now,
+                );
             }
             state.record(scope, op, &[from, to]);
             return Ok(());
@@ -1736,15 +1785,16 @@ impl FsWrite for VirtualFs {
                 }
                 _ => {}
             }
-            state.volumes[dest.vol].unlink(&dest.key);
+            state.volumes[dest.vol].unlink(&dest.key, now);
         }
-        state.volumes[source.vol].move_subtree(&source.key, &dest.key, dest.name.clone());
+        state.volumes[source.vol].move_subtree(&source.key, &dest.key, dest.name.clone(), now);
         state.record(scope, op, &[from, to]);
         Ok(())
     }
 
     fn exchange(&self, scope: &TxScope, a: &AbsPath, b: &AbsPath) -> FsResult<()> {
         let op = "exchange";
+        let now = self.shared.now();
         let mut state = self.lock();
         state.check_fault(op, a.as_path())?;
         state.check_fault(op, b.as_path())?;
@@ -1769,9 +1819,9 @@ impl FsWrite for VirtualFs {
         // NUL never occurs in a file name, so the parking key cannot collide
         // with an entry.
         let parked: Key = vec![OsString::from("\u{0}exchange")];
-        volume.move_subtree(&first.key, &parked, first.name.clone());
-        volume.move_subtree(&second.key, &first.key, first.name.clone());
-        volume.move_subtree(&parked, &second.key, second.name.clone());
+        volume.move_subtree(&first.key, &parked, first.name.clone(), now);
+        volume.move_subtree(&second.key, &first.key, first.name.clone(), now);
+        volume.move_subtree(&parked, &second.key, second.name.clone(), now);
         state.record(scope, op, &[a, b]);
         Ok(())
     }
@@ -1784,6 +1834,7 @@ impl FsWrite for VirtualFs {
         backup: &AbsPath,
     ) -> FsResult<()> {
         let op = "replace_with_backup";
+        let now = self.shared.now();
         let mut state = self.lock();
         for path in [target, replacement, backup] {
             state.check_fault(op, path.as_path())?;
@@ -1811,12 +1862,18 @@ impl FsWrite for VirtualFs {
             return Err(fs_error(FsErrorKind::CrossDevice, op, target.as_path()));
         }
         let volume = &mut state.volumes[target_slot.vol];
-        volume.unlink(&backup_slot.key);
-        volume.move_subtree(&target_slot.key, &backup_slot.key, backup_slot.name.clone());
+        volume.unlink(&backup_slot.key, now);
+        volume.move_subtree(
+            &target_slot.key,
+            &backup_slot.key,
+            backup_slot.name.clone(),
+            now,
+        );
         volume.move_subtree(
             &replacement_slot.key,
             &target_slot.key,
             target_slot.name.clone(),
+            now,
         );
         state.record(scope, op, &[target, replacement, backup]);
         Ok(())
@@ -1824,6 +1881,7 @@ impl FsWrite for VirtualFs {
 
     fn hard_link(&self, scope: &TxScope, existing: &AbsPath, new: &AbsPath) -> FsResult<()> {
         let op = "hard_link";
+        let now = self.shared.now();
         let mut state = self.lock();
         state.check_fault(op, existing.as_path())?;
         state.check_fault(op, new.as_path())?;
@@ -1851,6 +1909,7 @@ impl FsWrite for VirtualFs {
         let volume = &mut state.volumes[dest.vol];
         if let Some(inode) = volume.inodes.get_mut(&id) {
             inode.links = inode.links.saturating_add(1);
+            inode.changed_ns = now;
         }
         volume.names.insert(
             dest.key.clone(),
@@ -1859,6 +1918,7 @@ impl FsWrite for VirtualFs {
                 inode: id,
             },
         );
+        volume.touch_parent(&dest.key, now);
         state.record(scope, op, &[existing, new]);
         Ok(())
     }
@@ -1883,7 +1943,6 @@ impl FsWrite for VirtualFs {
         }
         let mut inode = Inode::new(FileKind::File, copy.mode, state.account, now);
         inode.content = copy.content;
-        inode.xattrs = copy.xattrs;
         state.insert(&dest, inode);
         state.record(scope, op, &[src, dst]);
         Ok(())
@@ -1919,6 +1978,7 @@ impl FsWrite for VirtualFs {
 
     fn remove_file(&self, scope: &TxScope, path: &AbsPath) -> FsResult<()> {
         let op = "remove_file";
+        let now = self.shared.now();
         let mut state = self.lock();
         state.check_fault(op, path.as_path())?;
         let slot = state.slot(path, op)?;
@@ -1929,13 +1989,14 @@ impl FsWrite for VirtualFs {
             }
             Some(_) => {}
         }
-        state.volumes[slot.vol].unlink(&slot.key);
+        state.volumes[slot.vol].unlink(&slot.key, now);
         state.record(scope, op, &[path]);
         Ok(())
     }
 
     fn remove_dir(&self, scope: &TxScope, path: &AbsPath) -> FsResult<()> {
         let op = "remove_dir";
+        let now = self.shared.now();
         let mut state = self.lock();
         state.check_fault(op, path.as_path())?;
         let slot = state.slot(path, op)?;
@@ -1949,7 +2010,7 @@ impl FsWrite for VirtualFs {
         if !state.volumes[slot.vol].children(&slot.key).is_empty() {
             return Err(fs_error(FsErrorKind::NotEmpty, op, path.as_path()));
         }
-        state.volumes[slot.vol].unlink(&slot.key);
+        state.volumes[slot.vol].unlink(&slot.key, now);
         state.record(scope, op, &[path]);
         Ok(())
     }
@@ -1961,6 +2022,7 @@ impl FsWrite for VirtualFs {
         _parallelism: usize,
     ) -> FsResult<RemoveStats> {
         let op = "remove_tree";
+        let now = self.shared.now();
         let mut state = self.lock();
         state.check_fault(op, path.as_path())?;
         let slot = state.slot(path, op)?;
@@ -1979,7 +2041,7 @@ impl FsWrite for VirtualFs {
                     stats.bytes = stats.bytes.saturating_add(inode.size());
                 }
             }
-            volume.unlink(key);
+            volume.unlink(key, now);
         }
         state.record(scope, op, &[path]);
         Ok(stats)
@@ -2057,13 +2119,14 @@ impl FsWrite for VirtualFs {
         let op = "restore_meta";
         let native = path.as_path().to_path_buf();
         let mut report = MetaTransferReport::default();
+        let account = self.lock().account;
         self.change_inode(scope, op, path, false, |volume, id, _now| {
             let features = volume.info.features;
             let inode = volume
                 .inodes
                 .get_mut(&id)
                 .ok_or_else(|| fs_error(FsErrorKind::NotFound, op, &native))?;
-            report = restore_into(inode, meta, features);
+            report = restore_into(inode, meta, features, account);
             Ok(())
         })?;
         Ok(report)
@@ -2147,7 +2210,6 @@ impl FsWrite for VirtualFs {
 struct CopySource {
     content: Vec<u8>,
     mode: u32,
-    xattrs: Vec<Xattr>,
     streams: BTreeMap<String, Vec<u8>>,
 }
 
@@ -2160,7 +2222,6 @@ fn copy_source(state: &State, source: &Resolved, op: &str, path: &AbsPath) -> Fs
         Some((_, inode)) => Ok(CopySource {
             content: inode.content.clone(),
             mode: inode.mode,
-            xattrs: inode.xattrs.clone(),
             streams: inode.streams.clone(),
         }),
     }
@@ -2202,19 +2263,32 @@ fn apply_change(inode: &mut Inode, change: &MetaChange) {
     inode.windows_attributes &= !change.clear_windows_attributes;
 }
 
+/// Applies `meta` to `inode`. An account other than the superuser cannot hand
+/// an entry to another user or group, so the ownership of such a record is
+/// reported as not transferred, as the real back-ends do.
 fn restore_into(
     inode: &mut Inode,
     meta: &ExtendedMeta,
     features: FsFeatures,
+    account: Account,
 ) -> MetaTransferReport {
     let mut report = MetaTransferReport::default();
     let basic = &meta.basic;
     inode.mode = basic.mode;
-    if let Some(uid) = basic.uid {
-        inode.uid = uid;
+    let privileged = account.uid == SUPERUSER_UID;
+    let mut ownership_kept_back = false;
+    for (current, wanted, own) in [
+        (&mut inode.uid, basic.uid, account.uid),
+        (&mut inode.gid, basic.gid, account.gid),
+    ] {
+        match wanted {
+            Some(id) if privileged || id == own || id == *current => *current = id,
+            Some(_) => ownership_kept_back = true,
+            None => {}
+        }
     }
-    if let Some(gid) = basic.gid {
-        inode.gid = gid;
+    if ownership_kept_back {
+        report.not_transferred.push("owner".to_owned());
     }
     inode.modified_ns = basic.modified_ns;
     if let Some(accessed) = basic.accessed_ns {
@@ -2333,6 +2407,7 @@ impl VfsWriter {
         };
         if result.is_ok() {
             inode.modified_ns = now;
+            inode.changed_ns = now;
         }
         volume.inodes.insert(self.inode, inode);
         result
@@ -2424,6 +2499,7 @@ impl WriteHandle for VfsWriter {
 
     fn apply_meta(&mut self, meta: &ExtendedMeta) -> FsResult<MetaTransferReport> {
         let mut state = self.shared.lock();
+        let account = state.account;
         let volume = state
             .volumes
             .get_mut(self.vol)
@@ -2434,7 +2510,7 @@ impl WriteHandle for VfsWriter {
             .get_mut(&self.inode)
             .ok_or_else(|| fs_error(FsErrorKind::Io, "apply_meta", self.path.as_path()))?;
         let modified = inode.modified_ns;
-        let report = restore_into(inode, meta, features);
+        let report = restore_into(inode, meta, features, account);
         inode.modified_ns = modified;
         Ok(report)
     }
