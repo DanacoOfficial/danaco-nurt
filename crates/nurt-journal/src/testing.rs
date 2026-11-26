@@ -115,7 +115,7 @@ impl VolumeJournals for Journals {
 }
 
 fn abs(text: &str) -> AbsPath {
-    AbsPath::new(text).expect("the path is absolute")
+    AbsPath::for_test(text)
 }
 
 fn features() -> FsFeatures {

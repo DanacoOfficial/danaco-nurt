@@ -964,15 +964,14 @@ mod tests {
         let test = TestContext::new();
         let ctx = test.ctx();
         let fs = test.fs();
-        fs.create_dir_all(&AbsPath::new("/d").unwrap()).unwrap();
-        fs.write_file(&AbsPath::new("/d/a.json").unwrap(), b"{}")
+        fs.create_dir_all(&AbsPath::for_test("/d")).unwrap();
+        fs.write_file(&AbsPath::for_test("/d/a.json"), b"{}")
             .unwrap();
-        fs.write_file(&AbsPath::new("/d/b.json").unwrap(), b"{}")
+        fs.write_file(&AbsPath::for_test("/d/b.json"), b"{}")
             .unwrap();
-        fs.symlink("/d/a.json", &AbsPath::new("/d/link.json").unwrap())
+        fs.symlink("/d/a.json", &AbsPath::for_test("/d/link.json"))
             .unwrap();
-        fs.symlink("/d", &AbsPath::new("/dir-link").unwrap())
-            .unwrap();
+        fs.symlink("/d", &AbsPath::for_test("/dir-link")).unwrap();
         let direct = group_key(&ctx, "/d/a.json");
         assert!(matches!(direct, FileKey::Identity(_)));
         assert_eq!(direct, group_key(&ctx, "/d/link.json"));

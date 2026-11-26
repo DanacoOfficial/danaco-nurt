@@ -1370,7 +1370,7 @@ pub(crate) mod tests {
     use crate::store::test_support::Fixture;
 
     fn abs(path: &str) -> AbsPath {
-        AbsPath::new(path).unwrap()
+        AbsPath::for_test(path)
     }
 
     /// Manifest of a single overwrite with fixed values, used by the digest

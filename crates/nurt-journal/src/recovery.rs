@@ -2415,7 +2415,7 @@ mod pass_tests {
     const NEW: &[u8] = b"new content of the operation";
 
     fn abs(text: &str) -> AbsPath {
-        AbsPath::new(text).unwrap()
+        AbsPath::for_test(text)
     }
 
     fn features() -> FsFeatures {

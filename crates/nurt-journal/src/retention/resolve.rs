@@ -1210,12 +1210,12 @@ mod tests {
 
     #[test]
     fn configured_limits_combine_configuration_and_session_files() {
-        let root = AbsPath::new("/").unwrap();
+        let root = AbsPath::for_test("/");
         let fs = MemFs::builder()
             .volume(VolumeSpec::posix(root).with_capacity(500 * GIB))
             .build()
             .unwrap();
-        let state = AbsPath::new("/state").unwrap();
+        let state = AbsPath::for_test("/state");
         let sessions = state.join_name(SESSION_DIR).unwrap();
         fs.seed_dir(&state).unwrap();
         fs.seed_dir(&sessions).unwrap();
@@ -1249,7 +1249,7 @@ mod tests {
             ConfigLevel::User,
             json!({ "journal": { "max_ops": 0 } }),
         )];
-        let state = AbsPath::new("/state").unwrap();
+        let state = AbsPath::for_test("/state");
         let error = ConfiguredLimits::new(&layers, false, fs, &state)
             .err()
             .unwrap();

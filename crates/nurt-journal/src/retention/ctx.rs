@@ -738,7 +738,7 @@ mod tests {
     const LOCK_TIMEOUT: Duration = Duration::from_millis(20);
 
     fn mount(path: &str) -> AbsPath {
-        AbsPath::new(path).unwrap()
+        AbsPath::for_test(path)
     }
 
     fn state_dir() -> AbsPath {

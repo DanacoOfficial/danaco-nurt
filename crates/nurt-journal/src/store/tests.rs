@@ -44,7 +44,7 @@ const PAST_AGE_LIMIT: Duration = Duration::from_secs(31 * 60);
 const LOCK_TIMEOUT: Duration = Duration::from_millis(20);
 
 fn path(text: &str) -> AbsPath {
-    AbsPath::new(text).unwrap()
+    AbsPath::for_test(text)
 }
 
 fn journal_root() -> AbsPath {

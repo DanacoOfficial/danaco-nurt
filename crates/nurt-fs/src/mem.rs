@@ -2978,7 +2978,7 @@ mod tests {
     }
 
     fn p(text: &str) -> AbsPath {
-        AbsPath::new(text).expect("absolute test path")
+        AbsPath::for_test(text)
     }
 
     fn read(fs: &MemFs, path: &str) -> Vec<u8> {

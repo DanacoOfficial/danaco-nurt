@@ -374,17 +374,17 @@ mod tests {
 
     fn tree_fs() -> nurt_fs::mem::MemFs {
         let fs = nurt_fs::mem::MemFs::builder()
-            .volume(nurt_fs::mem::VolumeSpec::posix(AbsPath::new("/").unwrap()))
+            .volume(nurt_fs::mem::VolumeSpec::posix(AbsPath::for_test("/")))
             .build()
             .unwrap();
         for dir in ["/d/tree/sub/deep", "/d/tree/empty"] {
             fs.seed_dir(&AbsPath::new(dir).unwrap()).unwrap();
         }
-        fs.seed_file(&AbsPath::new("/d/tree/a.bin").unwrap(), b"1234")
+        fs.seed_file(&AbsPath::for_test("/d/tree/a.bin"), b"1234")
             .unwrap();
-        fs.seed_file(&AbsPath::new("/d/tree/sub/b.bin").unwrap(), b"56")
+        fs.seed_file(&AbsPath::for_test("/d/tree/sub/b.bin"), b"56")
             .unwrap();
-        fs.seed_file(&AbsPath::new("/d/tree/sub/deep/c.bin").unwrap(), b"7")
+        fs.seed_file(&AbsPath::for_test("/d/tree/sub/deep/c.bin"), b"7")
             .unwrap();
         fs
     }
@@ -423,8 +423,8 @@ mod tests {
     #[test]
     fn tree_count_gives_up_when_a_directory_is_missing() {
         let fs = tree_fs();
-        assert_eq!(count_tree(&fs, &AbsPath::new("/d/none").unwrap()), None);
-        let content = count_tree(&fs, &AbsPath::new("/d/tree/empty").unwrap()).unwrap();
+        assert_eq!(count_tree(&fs, &AbsPath::for_test("/d/none")), None);
+        let content = count_tree(&fs, &AbsPath::for_test("/d/tree/empty")).unwrap();
         assert_eq!(
             (content.files, content.directories, content.bytes),
             (0, 0, 0)
@@ -442,7 +442,7 @@ mod tests {
                 detail(
                     "/d/b.txt",
                     TargetAction::Rename {
-                        to: AbsPath::new("/d/e.txt").unwrap(),
+                        to: AbsPath::for_test("/d/e.txt"),
                         replace: false,
                     },
                 ),
@@ -579,7 +579,7 @@ mod tests {
             &outcome_of(
                 "/d/a.txt",
                 TargetAction::Rename {
-                    to: AbsPath::new("/d/b.txt").unwrap(),
+                    to: AbsPath::for_test("/d/b.txt"),
                     replace: true,
                 },
             ),

@@ -868,7 +868,7 @@ mod tests {
     use crate::mem::MemFs;
 
     fn p(text: &str) -> AbsPath {
-        AbsPath::new(text).expect("absolute test path")
+        AbsPath::for_test(text)
     }
 
     fn provider_with(name: &str, bytes: &[u8]) -> ArchiveProvider {

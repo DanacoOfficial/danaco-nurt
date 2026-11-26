@@ -1978,7 +1978,7 @@ pub(crate) mod testkit {
     const DIR_MODE: u32 = 0o755;
 
     pub(crate) fn abs(path: &str) -> AbsPath {
-        AbsPath::new(path).unwrap()
+        AbsPath::for_test(path)
     }
 
     pub(crate) fn fs_path(path: &str) -> TargetPath {
@@ -4730,7 +4730,7 @@ mod journal_ctx_tests {
     const JOURNAL: &str = "/a/.nurt-journal";
 
     fn abs(text: &str) -> AbsPath {
-        AbsPath::new(text).unwrap()
+        AbsPath::for_test(text)
     }
 
     fn fs_path(text: &str) -> TargetPath {

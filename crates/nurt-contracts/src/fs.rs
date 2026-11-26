@@ -65,6 +65,28 @@ pub type FsResult<T> = std::result::Result<T, FsError>;
 pub struct AbsPath(PathBuf);
 
 impl AbsPath {
+    /// Absolute path from a POSIX-style literal of a test. On Windows a
+    /// leading `/` gets the drive `C:`, so one literal names an absolute
+    /// path on every platform.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the literal is not an absolute path.
+    #[doc(hidden)]
+    #[must_use]
+    #[allow(clippy::expect_used)] // test-support constructor; a wrong literal is a defect of the test
+    pub fn for_test(text: &str) -> Self {
+        #[cfg(windows)]
+        let text = if text.starts_with('/') && !text.starts_with("//") {
+            format!("C:{text}")
+        } else {
+            text.to_owned()
+        };
+        #[cfg(not(windows))]
+        let text = text.to_owned();
+        Self::new(text).expect("absolute test path")
+    }
+
     /// Creates an absolute path after lexical normalisation.
     ///
     /// # Errors

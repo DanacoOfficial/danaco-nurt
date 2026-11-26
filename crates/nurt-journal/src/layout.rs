@@ -1002,7 +1002,7 @@ mod tests {
     fn journal_fs() -> nurt_fs::mem::MemFs {
         use nurt_fs::mem::{MemFs, VolumeSpec};
         MemFs::builder()
-            .volume(VolumeSpec::posix(AbsPath::new("/v").unwrap()))
+            .volume(VolumeSpec::posix(AbsPath::for_test("/v")))
             .build()
             .unwrap()
     }
@@ -1014,7 +1014,7 @@ mod tests {
     #[test]
     fn listings_of_a_missing_journal_are_empty() {
         let fs = journal_fs();
-        let journal = JournalLayout::new(AbsPath::new("/v/j").unwrap());
+        let journal = JournalLayout::new(AbsPath::for_test("/v/j"));
         assert_eq!(pending_entries(&fs, &journal), Ok(Vec::new()));
         assert_eq!(entries(&fs, &journal), Ok(Vec::new()));
         assert_eq!(highest_number(&fs, &journal), Ok(None));
@@ -1023,7 +1023,7 @@ mod tests {
     #[test]
     fn listings_return_sorted_entry_numbers_and_ignore_foreign_names() {
         let fs = journal_fs();
-        let journal = JournalLayout::new(AbsPath::new("/v/j").unwrap());
+        let journal = JournalLayout::new(AbsPath::for_test("/v/j"));
         for path in [
             "/v/j/ops/000000000010/STATE",
             "/v/j/ops/000000000002/STATE",
@@ -1046,7 +1046,7 @@ mod tests {
     #[test]
     fn highest_number_covers_every_directory_of_the_journal() {
         let fs = journal_fs();
-        let journal = JournalLayout::new(AbsPath::new("/v/j").unwrap());
+        let journal = JournalLayout::new(AbsPath::for_test("/v/j"));
         seeded(&fs, "/v/j/ops/000000000003/STATE");
         assert_eq!(highest_number(&fs, &journal), Ok(Some(OpId(3))));
         seeded(&fs, "/v/j/ops/000000000004.tmp/op.json");

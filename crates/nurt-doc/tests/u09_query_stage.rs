@@ -212,7 +212,7 @@ fn an_entry_whose_name_is_not_valid_unicode_is_read_through_its_raw_path() {
     let fixture = Fixture::new();
     let abs = AbsPath::from_raw_bytes(b"/data/n\xffotes.json").unwrap();
     let fs = fixture.test.fs();
-    fs.create_dir_all(&AbsPath::new("/data").unwrap()).unwrap();
+    fs.create_dir_all(&AbsPath::for_test("/data")).unwrap();
     fs.write_file(&abs, b"{\"a\": 7}").unwrap();
     let record = Record::from(Entry {
         path: Path::new(abs.to_language_string()),

@@ -724,7 +724,7 @@ fn path_resolution_handles_parent_components_and_links() {
     fs.symlink("../a/file", &path("/w/a/up")).unwrap();
     assert_eq!(fs.read_file(&path("/w/link/file")).unwrap(), b"f");
     assert_eq!(fs.read_file(&path("/w/a/up")).unwrap(), b"f");
-    let sneaky = AbsPath::new("/w/a/../a/file").unwrap();
+    let sneaky = AbsPath::for_test("/w/a/../a/file");
     assert_eq!(fs.metadata(&sneaky, Follow::Follow).unwrap().size, 1);
     assert_eq!(fs.real_path(&path("/w/link")).unwrap(), path("/w/a"));
     assert!(fs.path_key(&path("/w/a")).is_ok());

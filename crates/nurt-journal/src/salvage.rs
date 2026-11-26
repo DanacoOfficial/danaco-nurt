@@ -655,7 +655,7 @@ mod tests {
     use crate::store;
 
     fn abs(text: &str) -> AbsPath {
-        AbsPath::new(text).unwrap()
+        AbsPath::for_test(text)
     }
 
     fn mem() -> Arc<MemFs> {

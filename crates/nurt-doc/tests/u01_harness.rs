@@ -612,7 +612,7 @@ fn target(path: &AbsPath, action: TargetAction) -> TargetSpec {
 }
 
 fn settings() -> AbsPath {
-    AbsPath::new("/srv/app/settings.kv").expect("absolute path")
+    AbsPath::for_test("/srv/app/settings.kv")
 }
 
 #[test]
@@ -662,7 +662,7 @@ fn transaction_without_changes_records_no_operation() {
 #[test]
 fn rollback_restores_changed_targets() {
     let path = settings();
-    let created = AbsPath::new("/srv/app/new.kv").expect("absolute path");
+    let created = AbsPath::for_test("/srv/app/new.kv");
     let journal = MemoryJournal::new().with_file(path.as_path(), SAMPLE.to_vec());
     let mut tx = journal.begin(OpKind::command("set"));
     tx.preserve(&[
@@ -683,7 +683,7 @@ fn rollback_restores_changed_targets() {
 #[test]
 fn removal_and_creation_are_undone() {
     let path = settings();
-    let created = AbsPath::new("/srv/app/new.kv").expect("absolute path");
+    let created = AbsPath::for_test("/srv/app/new.kv");
     let journal = MemoryJournal::new().with_file(path.as_path(), SAMPLE.to_vec());
     let mut tx = journal.begin(OpKind::command("remove"));
     tx.preserve(&[
@@ -704,7 +704,7 @@ fn removal_and_creation_are_undone() {
 #[test]
 fn transaction_rejects_misuse() {
     let path = settings();
-    let missing = AbsPath::new("/srv/app/missing.kv").expect("absolute path");
+    let missing = AbsPath::for_test("/srv/app/missing.kv");
     let journal = MemoryJournal::new().with_file(path.as_path(), SAMPLE.to_vec());
     let mut tx = journal.begin(OpKind::command("set"));
     let exists = tx

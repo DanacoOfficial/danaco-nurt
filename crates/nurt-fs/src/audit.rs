@@ -569,7 +569,7 @@ mod tests {
     use crate::mem::MemFs;
 
     fn p(text: &str) -> AbsPath {
-        AbsPath::new(text).expect("absolute test path")
+        AbsPath::for_test(text)
     }
 
     // Tests stand in for the journal, the only producer of scopes.

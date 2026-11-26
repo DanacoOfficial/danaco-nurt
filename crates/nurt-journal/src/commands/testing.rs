@@ -54,7 +54,7 @@ const DATA: &str = "/mnt/data";
 const GIB: u64 = 1 << 30;
 
 pub(super) fn path(text: &str) -> AbsPath {
-    AbsPath::new(text).unwrap()
+    AbsPath::for_test(text)
 }
 
 /// Path value used where a parameter needs any path.

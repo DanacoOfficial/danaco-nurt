@@ -469,7 +469,7 @@ mod tests {
     type Events = Arc<Mutex<Vec<String>>>;
 
     fn abs(path: &str) -> AbsPath {
-        AbsPath::new(path).unwrap()
+        AbsPath::for_test(path)
     }
 
     /// Two volumes (`/home`, `/mnt/data`) with journal directories recorded

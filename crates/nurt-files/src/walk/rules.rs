@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn a_byte_order_mark_is_not_part_of_the_first_pattern() {
-        let source = AbsPath::new("/work/.ignore").expect("absolute source");
+        let source = AbsPath::for_test("/work/.ignore");
         let rules = build_rules(Path::new("/work"), &source, b"\xEF\xBB\xBF*.log\nbuild/\n");
         let frame = Frame {
             parent: None,
@@ -331,10 +331,10 @@ mod tests {
 
     #[test]
     fn global_rules_match_names_in_either_form() {
-        let source = AbsPath::new("/config/ignore").expect("absolute source");
+        let source = AbsPath::for_test("/config/ignore");
         let global = build_rules(Path::new(""), &source, format!("{COMPOSED}\n").as_bytes());
         let repo = Arc::new(Repo {
-            dir: AbsPath::new("/work").expect("absolute repository"),
+            dir: AbsPath::for_test("/work"),
             exclude: None,
         });
         let frame = Frame {

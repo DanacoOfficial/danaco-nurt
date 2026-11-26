@@ -746,12 +746,12 @@ mod tests {
     fn entry_files(state: &[u8], manifest_bytes: &[u8], items: &[u8]) -> EntryCheck {
         use nurt_contracts::fs::AbsPath;
         use nurt_fs::mem::{MemFs, VolumeSpec};
-        let mount = AbsPath::new("/v").unwrap();
+        let mount = AbsPath::for_test("/v");
         let fs = MemFs::builder()
             .volume(VolumeSpec::posix(mount))
             .build()
             .unwrap();
-        let entry = EntryLayout::new(AbsPath::new("/v/ops/000000000001").unwrap());
+        let entry = EntryLayout::new(AbsPath::for_test("/v/ops/000000000001"));
         fs.seed_file(&entry.state().unwrap(), state).unwrap();
         fs.seed_file(&entry.manifest().unwrap(), manifest_bytes)
             .unwrap();

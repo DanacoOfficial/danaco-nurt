@@ -1223,7 +1223,7 @@ mod tests {
     }
 
     fn p(text: &str) -> AbsPath {
-        AbsPath::new(text).expect("absolute test path")
+        AbsPath::for_test(text)
     }
 
     /// Memory file system with POSIX volumes at `/` and `/other` and an

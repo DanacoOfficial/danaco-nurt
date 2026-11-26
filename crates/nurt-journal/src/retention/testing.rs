@@ -28,7 +28,7 @@ const NANOS_PER_SECOND: i128 = 1_000_000_000;
 
 /// Absolute path from a literal.
 pub(crate) fn mount(path: &str) -> AbsPath {
-    AbsPath::new(path).unwrap()
+    AbsPath::for_test(path)
 }
 
 /// Clock readings at `secs` seconds after [`START`] in boot `boot-a`, with

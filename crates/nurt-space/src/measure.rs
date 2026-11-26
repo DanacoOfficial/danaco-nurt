@@ -266,7 +266,7 @@ pub(crate) mod testing {
     }
 
     pub(crate) fn path(text: &str) -> AbsPath {
-        AbsPath::new(Path::new("/").join(text)).expect("absolute test path")
+        AbsPath::for_test(&format!("/{text}"))
     }
 
     pub(crate) fn volume_id() -> VolumeId {

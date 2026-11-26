@@ -164,7 +164,7 @@ pub(crate) fn volume_info(dev: u64, mount: &str, fs_type: &str, kind: VolumeKind
 
 /// Absolute path from a literal.
 pub(crate) fn abs(path: &str) -> AbsPath {
-    AbsPath::new(path).unwrap()
+    AbsPath::for_test(path)
 }
 
 impl TestFs {

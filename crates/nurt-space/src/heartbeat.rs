@@ -264,7 +264,7 @@ mod tests {
     use crate::reclaim::maintenance_scope;
 
     fn abs(path: &str) -> AbsPath {
-        AbsPath::new(path).unwrap()
+        AbsPath::for_test(path)
     }
 
     /// File system with the journal directory `/data/.nurt-journal` and a

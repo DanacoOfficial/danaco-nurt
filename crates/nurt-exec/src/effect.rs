@@ -385,7 +385,7 @@ mod tests {
 
     #[test]
     fn rollback_error_lists_targets() {
-        let error = rollback_failed(&[TargetPath::Fs(AbsPath::new("/x").unwrap())]);
+        let error = rollback_failed(&[TargetPath::Fs(AbsPath::for_test("/x"))]);
         assert_eq!(error.code(), ErrorCode::RollbackFailed);
         assert_eq!(error.details["failed"], json!(["/x"]));
         assert_eq!(error.stage(), Some(ExecStep::Apply));

@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn keeps_noindex_suffix_in_journal_directory_name() {
         assert!(JOURNAL_DIR.ends_with(NOINDEX_SUFFIX));
-        let root = AbsPath::new("/Volumes/data").unwrap();
+        let root = AbsPath::for_test("/Volumes/data");
         let journal = root.join_name(JOURNAL_DIR).unwrap();
         assert_eq!(journal.file_name(), Some(OsStr::new(JOURNAL_DIR)));
         let temp = temp_name(JOURNAL_DIR, 1, 1).unwrap();

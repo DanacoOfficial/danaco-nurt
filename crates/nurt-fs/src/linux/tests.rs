@@ -411,11 +411,7 @@ fn clone_and_copy_refuse_directories_and_special_files() {
     assert_eq!(error.kind, FsErrorKind::IsADirectory);
     let error = fixture
         .fs
-        .copy_file(
-            &fixture.scope,
-            &AbsPath::new("/dev/null").expect("path"),
-            &target,
-        )
+        .copy_file(&fixture.scope, &AbsPath::for_test("/dev/null"), &target)
         .expect_err("device source");
     assert_eq!(error.kind, FsErrorKind::Unsupported);
     assert!(!target.as_path().exists());
@@ -627,16 +623,12 @@ fn remove_tree_removes_single_entries_and_reports_errors() {
     assert_eq!(error.kind, FsErrorKind::NotFound);
     let error = fixture
         .fs
-        .remove_tree(&fixture.scope, &AbsPath::new("/").expect("root"), 1)
+        .remove_tree(&fixture.scope, &AbsPath::for_test("/"), 1)
         .expect_err("root");
     assert_eq!(error.kind, FsErrorKind::InvalidPath);
     let error = fixture
         .fs
-        .remove_tree(
-            &fixture.scope,
-            &AbsPath::new("/proc/self/fd").expect("path"),
-            1,
-        )
+        .remove_tree(&fixture.scope, &AbsPath::for_test("/proc/self/fd"), 1)
         .expect_err("pseudo file system");
     assert_ne!(error.kind, FsErrorKind::NotFound);
 }
@@ -1132,7 +1124,7 @@ fn reports_metadata_kinds_and_error_classes() {
     assert!(meta.changed_ns.is_some() && meta.accessed_ns.is_some());
     assert_eq!(meta.file_id.low, inode_of(&file));
     assert_eq!(meta.file_id.volume, fs::metadata(&file).expect("std").dev());
-    let null = AbsPath::new("/dev/null").expect("path");
+    let null = AbsPath::for_test("/dev/null");
     assert_eq!(
         fixture
             .fs
@@ -1292,7 +1284,7 @@ fn reports_writable_directories() {
                 .can_write_dir(&locked)
                 .expect("read-only directory")
         );
-        let proc = AbsPath::new("/proc").expect("path");
+        let proc = AbsPath::for_test("/proc");
         assert!(!fixture.fs.can_write_dir(&proc).expect("procfs"));
     }
 }
@@ -1364,14 +1356,14 @@ fn classifies_volumes_of_the_host() {
         assert_eq!(root.kind, VolumeKind::Overlay);
         let entry = fixture
             .fs
-            .mount_entry(&AbsPath::new("/").expect("root"))
+            .mount_entry(&AbsPath::for_test("/"))
             .expect("root mount");
         let layers = entry.overlay_layers().expect("overlay layers");
         assert!(!layers.lower.is_empty());
     }
     let error = fixture
         .fs
-        .volume(&AbsPath::new("/proc/self/fd/999999/x").expect("path"))
+        .volume(&AbsPath::for_test("/proc/self/fd/999999/x"))
         .map(|volume| volume.kind);
     assert_eq!(error.ok(), Some(VolumeKind::Other));
 }
@@ -1430,7 +1422,7 @@ fn space_of_unknown_volume_fails_with_not_found() {
         fs.space(&id).expect_err("unknown").kind,
         FsErrorKind::NotFound
     );
-    let root = AbsPath::new("/").expect("root");
+    let root = AbsPath::for_test("/");
     let volume = LinuxFs::new().volume(&root).expect("volume");
     let space = fs
         .space(&volume.id)
