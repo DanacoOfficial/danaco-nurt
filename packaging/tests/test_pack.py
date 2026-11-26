@@ -3,6 +3,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 """Tests of packaging/release/pack.py."""
 
+import os
 import subprocess
 import sys
 import tarfile
@@ -101,6 +102,20 @@ class PackTest(unittest.TestCase):
         result = self.pack("x86_64-unknown-linux-gnu", self.root / "out")
         self.assertEqual(result.returncode, 1)
         self.assertIn("NOTICE", result.stderr)
+
+    def test_rejects_a_source_date_epoch_that_is_not_a_number(self):
+        for value in ("yesterday", "-5", ""):
+            environment = dict(os.environ, SOURCE_DATE_EPOCH=value)
+            result = subprocess.run(
+                [sys.executable, "-I", str(SCRIPT), "--root", str(self.repository),
+                 "--version", "0.1.0", "--target", "x86_64-unknown-linux-gnu",
+                 "--binary", str(self.binary), "--output", str(self.root / "out"),
+                 "--completions", str(self.completions), "--site", str(self.site)],
+                capture_output=True, text=True, check=False, env=environment,
+            )
+            self.assertEqual(result.returncode, 1, value)
+            self.assertIn("SOURCE_DATE_EPOCH", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
 
     def test_rejects_an_invalid_version(self):
         result = subprocess.run(

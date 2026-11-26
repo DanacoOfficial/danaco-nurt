@@ -164,7 +164,13 @@ def main(argv):
         raise PackError(f"invalid target: {arguments.target}")
     epoch = arguments.epoch
     if epoch is None:
-        epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "0"))
+        text = os.environ.get("SOURCE_DATE_EPOCH", "0")
+        try:
+            epoch = int(text)
+        except ValueError:
+            raise PackError(f"SOURCE_DATE_EPOCH is not a number of seconds: {text!r}") from None
+        if epoch < 0:
+            raise PackError(f"SOURCE_DATE_EPOCH is negative: {epoch}")
     entries = collect(arguments)
     arguments.output.mkdir(parents=True, exist_ok=True)
     stem = f"nurt-{arguments.version}-{arguments.target}"
