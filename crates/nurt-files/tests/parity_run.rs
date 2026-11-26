@@ -596,7 +596,7 @@ fn comparisons_follow_the_report_conventions() {
         "entry".into(),
         json!({ "path": "src/a.ts" }),
     )]);
-    assert_listing_comparisons(&listing);
+    assert_listing_comparisons(listing);
 }
 
 fn assert_failed_report_comparisons() {
@@ -642,7 +642,7 @@ fn a_failure_without_a_rollback_is_not_a_rollback() {
     assert!(status(&reverted, "failed").is_err());
 }
 
-fn assert_listing_comparisons(listing: &Report) {
+fn assert_listing_comparisons(listing: Report) {
     assert_eq!(
         check_field(
             &listing,
