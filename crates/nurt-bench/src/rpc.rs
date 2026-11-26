@@ -19,6 +19,7 @@ use serde_json::{Value, json};
 
 use crate::error::{BenchError, Result};
 use crate::process::{self, ProcessSpec};
+use crate::tool::run_environment;
 
 /// Protocol identifier sent in `initialize`.
 pub const PROTOCOL: &str = "nurt-rpc/1";
@@ -112,15 +113,21 @@ impl RpcClient {
         let deadline = Instant::now() + timeout;
         loop {
             let left = deadline.saturating_duration_since(Instant::now());
-            let line = self.lines.recv_timeout(left).map_err(|error| match error {
-                RecvTimeoutError::Timeout => BenchError::Serve(format!(
-                    "no answer to {method} within {}s",
-                    timeout.as_secs()
-                )),
-                RecvTimeoutError::Disconnected => {
-                    BenchError::Serve(format!("the server closed the connection during {method}"))
+            let line = match self.lines.recv_timeout(left) {
+                Ok(line) => line,
+                Err(RecvTimeoutError::Timeout) => {
+                    self.cancel(id);
+                    return Err(BenchError::Serve(format!(
+                        "no answer to {method} within {}s",
+                        timeout.as_secs()
+                    )));
                 }
-            })?;
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(BenchError::Serve(format!(
+                        "the server closed the connection during {method}"
+                    )));
+                }
+            };
             let response: Value = serde_json::from_str(&line)
                 .map_err(|error| BenchError::Serve(format!("invalid message: {error}")))?;
             if response.get("id").and_then(Value::as_u64) != Some(id) {
@@ -134,6 +141,24 @@ impl RpcClient {
                 )));
             }
             return Ok(response.get("result").cloned().unwrap_or(Value::Null));
+        }
+    }
+
+    /// Asks the server to stop the request `id` that exceeded its time limit,
+    /// so that the program does not keep changing files after the call has
+    /// been reported as timed out. The answer to `cancel` and the late
+    /// answer to the request carry other identifiers than the next call and
+    /// are skipped by it.
+    fn cancel(&mut self, id: u64) {
+        self.next_id += 1;
+        let message = json!({
+            "jsonrpc": "2.0",
+            "id": self.next_id,
+            "method": "cancel",
+            "params": {"request_id": id},
+        });
+        if let Some(writer) = self.writer.as_mut() {
+            let _ = writeln!(writer, "{message}").and_then(|()| writer.flush());
         }
     }
 
@@ -254,7 +279,8 @@ impl ServeLauncher for CommandLauncher {
     fn launch(&self, scratch: &Path) -> Result<RpcClient> {
         let state = scratch.join("state");
         let config_dir = scratch.join("config");
-        for directory in [&state, &config_dir] {
+        let home = scratch.join("home");
+        for directory in [&state, &config_dir, &home] {
             std::fs::create_dir_all(directory).map_err(|error| BenchError::io(directory, error))?;
         }
         let config = config_dir.join("config.toml");
@@ -265,10 +291,14 @@ impl ServeLauncher for CommandLauncher {
             PathBuf::from(scratch),
             CALL_TIMEOUT,
         );
-        spec.env = vec![
+        // The server gets the locale, the time zone and a home directory of
+        // the same kind as the shell conditions, so that the conditions
+        // differ only in the tool.
+        spec.env = run_environment(&home);
+        spec.env.extend([
             ("NURT_STATE_DIR".to_owned(), state.display().to_string()),
             ("NURT_CONFIG".to_owned(), config.display().to_string()),
-        ];
+        ]);
         let mut client = RpcClient::spawn(&spec)?;
         client.initialize()?;
         Ok(client)
@@ -387,6 +417,34 @@ mod tests {
     }
 
     #[test]
+    fn a_request_that_exceeds_its_limit_is_cancelled() {
+        let cancelled = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = Arc::clone(&cancelled);
+        let mut client = connect(Arc::new(move |method: &str, params: &Value| match method {
+            "slow" => {
+                thread::sleep(Duration::from_millis(200));
+                Ok(json!("late"))
+            }
+            "cancel" => {
+                seen.lock().unwrap().push(params["request_id"].clone());
+                Ok(json!({"cancelled": true}))
+            }
+            "other" => Ok(json!("next")),
+            _ => Err((-32601, "method not found".to_owned())),
+        }));
+        client.initialize().unwrap();
+        let error = client
+            .call("slow", json!({}), Duration::from_millis(20))
+            .unwrap_err();
+        assert!(error.to_string().contains("no answer"));
+        // The next answer arrives after the server handled the cancellation
+        // and skips the late answer of the slow request.
+        let next = client.call("other", json!({}), CALL_TIMEOUT).unwrap();
+        assert_eq!(next, json!("next"));
+        assert_eq!(*cancelled.lock().unwrap(), [json!(2)]);
+    }
+
+    #[test]
     fn rejects_another_protocol() {
         let (client_reader, mut server_writer) = std::io::pipe().unwrap();
         let (_server_reader, client_writer) = std::io::pipe().unwrap();
@@ -407,6 +465,29 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn the_server_runs_in_the_same_locale_and_time_zone_as_the_shells() {
+        let scratch = tempfile::tempdir().unwrap();
+        let script = r#"read -r line; printf '{"jsonrpc":"2.0","id":1,"result":{"protocol":"nurt-rpc/1","env":"%s %s %s"}}\n' "$LC_ALL" "$TZ" "$HOME"; read -r line; printf '{"jsonrpc":"2.0","id":2,"result":{}}\n'"#;
+        std::fs::write(scratch.path().join("server.sh"), script).unwrap();
+        let mut spec = ProcessSpec::new(
+            "sh",
+            vec!["server.sh".to_owned()],
+            scratch.path().to_path_buf(),
+            CALL_TIMEOUT,
+        );
+        spec.env = run_environment(&scratch.path().join("home"));
+        let mut client = RpcClient::spawn(&spec).unwrap();
+        let result = client.initialize().unwrap();
+        let home = scratch.path().join("home");
+        assert_eq!(
+            result["env"],
+            format!("C.UTF-8 UTC {}", home.display()).as_str()
+        );
+        client.shutdown();
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn launches_a_server_process_with_isolated_state() {
         let scratch = tempfile::tempdir().unwrap();
         let script = r#"read -r line; printf '{"jsonrpc":"2.0","id":1,"result":{"protocol":"nurt-rpc/1","state":"%s"}}\n' "$NURT_STATE_DIR"; read -r line; printf '{"jsonrpc":"2.0","id":2,"result":{}}\n'"#;
@@ -414,6 +495,7 @@ mod tests {
         let launcher = CommandLauncher::new("sh server.sh").unwrap();
         let client = launcher.launch(scratch.path()).unwrap();
         assert!(scratch.path().join("config/config.toml").is_file());
+        assert!(scratch.path().join("home").is_dir());
         client.shutdown();
         assert!(CommandLauncher::new("").is_err());
         let missing = CommandLauncher::new("nurt-bench-no-such-server").unwrap();
