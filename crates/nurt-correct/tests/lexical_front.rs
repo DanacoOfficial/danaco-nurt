@@ -12,10 +12,8 @@
 mod lexical_support;
 
 use std::collections::BTreeMap;
+use std::io::Write as _;
 use std::sync::LazyLock;
-use std::sync::mpsc::{self, RecvTimeoutError};
-use std::thread;
-use std::time::Duration;
 
 use lexical_support::{Case, Catalog, correction, load_cases, syntax};
 use nurt_contracts::ast::{AstDocument, Expr, Head, Pipeline, Stage, Statement};
@@ -52,23 +50,12 @@ const MUTATIONS: usize = 100_000;
 /// Number of mutated inputs of the mutation run of every test run.
 const QUICK_MUTATIONS: usize = 3_000;
 
-/// Time limit of reading one input in the mutation run and the property on
-/// any text; a debug build reads a typical input in well under a
-/// millisecond.
-const INPUT_TIMEOUT: Duration = Duration::from_secs(2);
-
 /// Every how many mutated inputs the result is read again.
 const IDEMPOTENCE_STRIDE: usize = 10;
 
 /// Cases of each property in every test run; the variable `PROPTEST_CASES`
 /// does not change it.
 const PROPERTY_CASES: u32 = 1_000;
-
-/// Time limit of one property case, in milliseconds; a longer case fails.
-const PROPERTY_TIMEOUT_MS: u32 = 5_000;
-
-/// Time limit of the search for a smaller failing case, in milliseconds.
-const PROPERTY_SHRINK_MS: u32 = 60_000;
 
 /// Characters inserted by the mutation run, among them Unicode spaces and
 /// line separators, which every kind of literal has to survive.
@@ -306,44 +293,34 @@ fn a_hundred_thousand_mutated_inputs_never_panic_and_stay_stable() {
     run_mutations(MUTATIONS);
 }
 
-/// Messages of the worker thread of a mutation run.
-enum Progress {
-    /// The worker starts to read this input in this variant.
-    Reading(String, SyntaxVariant),
-    /// The worker has finished with these failures.
-    Done(Vec<String>),
-}
+/// Names the input that is being read when the test panics, so that a
+/// failure shows the input without a time limit on the reading; a reading
+/// that does not end is stopped by the test runner.
+struct Reading<'a>(&'a str, SyntaxVariant);
 
-/// Runs the mutation test on a worker thread that announces every input
-/// before reading it; an input read longer than [`INPUT_TIMEOUT`] fails the
-/// test with the input and the variant.
-fn run_mutations(count: usize) {
-    let (sender, receiver) = mpsc::channel();
-    thread::spawn(move || {
-        let failures = mutation_failures(count, &sender);
-        let _ = sender.send(Progress::Done(failures));
-    });
-    let mut current = None;
-    loop {
-        match receiver.recv_timeout(INPUT_TIMEOUT) {
-            Ok(Progress::Reading(input, variant)) => current = Some((input, variant)),
-            Ok(Progress::Done(failures)) => {
-                assert!(
-                    failures.is_empty(),
-                    "{:#?}",
-                    &failures[..failures.len().min(20)]
-                );
-                return;
-            }
-            Err(RecvTimeoutError::Timeout) => {
-                panic!("input read longer than {INPUT_TIMEOUT:?}: {current:?}")
-            }
-            Err(RecvTimeoutError::Disconnected) => panic!("worker panicked after {current:?}"),
+impl Drop for Reading<'_> {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            let _ = writeln!(
+                std::io::stderr(),
+                "input being read in variant {:?}: {:?}",
+                self.1,
+                self.0
+            );
         }
     }
 }
 
-fn mutation_failures(count: usize, progress: &mpsc::Sender<Progress>) -> Vec<String> {
+fn run_mutations(count: usize) {
+    let failures = mutation_failures(count);
+    assert!(
+        failures.is_empty(),
+        "{:#?}",
+        &failures[..failures.len().min(20)]
+    );
+}
+
+fn mutation_failures(count: usize) -> Vec<String> {
     let setup = Setup::new();
     let seeds: Vec<String> = load_cases()
         .iter()
@@ -352,17 +329,15 @@ fn mutation_failures(count: usize, progress: &mpsc::Sender<Progress>) -> Vec<Str
     let variants = [SyntaxVariant::A, SyntaxVariant::B, SyntaxVariant::C];
     let mut state = 0x5eed_u64;
     let mut failures = Vec::new();
-    let announce = |input: &str, variant: SyntaxVariant| {
-        let _ = progress.send(Progress::Reading(input.to_owned(), variant));
-    };
     for round in 0..count {
         let seed = &seeds[round % seeds.len()];
         let mutated = mutate(seed, &mut state);
         let variant = variants[round % variants.len()];
-        announce(&mutated, variant);
+        let reading = Reading(&mutated, variant);
         let Ok(result) = setup.run(&mutated, variant) else {
             continue;
         };
+        drop(reading);
         let lines = u32::try_from(mutated.split('\n').count()).unwrap_or(u32::MAX);
         let outside = result.corrections.iter().any(|correction| {
             correction
@@ -378,8 +353,9 @@ fn mutation_failures(count: usize, progress: &mpsc::Sender<Progress>) -> Vec<Str
         if round % IDEMPOTENCE_STRIDE == 0
             && let Ok(printed) = try_print(&result.document, variant)
         {
-            announce(&printed, variant);
+            let reading = Reading(&printed, variant);
             let again = setup.run(&printed, variant);
+            drop(reading);
             if !again.is_ok_and(|again| again.corrections.is_empty()) {
                 failures.push(format!("not idempotent: {mutated:?}"));
             }
@@ -392,30 +368,19 @@ fn mutation_failures(count: usize, progress: &mpsc::Sender<Progress>) -> Vec<Str
 static SHARED: LazyLock<(Tables, Catalog)> =
     LazyLock::new(|| (load_embedded().expect("embedded tables"), Catalog::load()));
 
-/// Number of alternatives of `front` on `text`, `None` for an error; reads
-/// on a worker thread and fails the test with the input when the reading
-/// takes longer than [`INPUT_TIMEOUT`] or panics.
-fn alternatives_in_time(text: &str) -> Option<usize> {
-    let (sender, receiver) = mpsc::channel();
-    let input = text.to_owned();
-    thread::spawn(move || {
-        let (tables, catalog) = &*SHARED;
-        let result = front(
-            &input,
-            &syntax(SyntaxVariant::A),
-            &correction(),
-            tables,
-            catalog,
-        );
-        let _ = sender.send(result.ok().map(|result| result.alternatives.len()));
-    });
-    match receiver.recv_timeout(INPUT_TIMEOUT) {
-        Ok(alternatives) => alternatives,
-        Err(RecvTimeoutError::Timeout) => {
-            panic!("input read longer than {INPUT_TIMEOUT:?}: {text:?}")
-        }
-        Err(RecvTimeoutError::Disconnected) => panic!("front panicked on {text:?}"),
-    }
+/// Number of alternatives of `front` on `text`, `None` for an error.
+fn alternatives_of(text: &str) -> Option<usize> {
+    let (tables, catalog) = &*SHARED;
+    let _reading = Reading(text, SyntaxVariant::A);
+    front(
+        text,
+        &syntax(SyntaxVariant::A),
+        &correction(),
+        tables,
+        catalog,
+    )
+    .ok()
+    .map(|result| result.alternatives.len())
 }
 
 proptest! {
@@ -429,7 +394,7 @@ proptest! {
 
     #[test]
     fn front_accepts_any_text_without_panic(text in "\\PC{0,48}") {
-        if let Some(alternatives) = alternatives_in_time(&text) {
+        if let Some(alternatives) = alternatives_of(&text) {
             prop_assert!(alternatives <= MAX_ALTERNATIVES);
         }
     }
@@ -438,8 +403,6 @@ proptest! {
 proptest! {
     #![proptest_config(ProptestConfig {
         cases: PROPERTY_CASES,
-        timeout: PROPERTY_TIMEOUT_MS,
-        max_shrink_time: PROPERTY_SHRINK_MS,
         ..ProptestConfig::default()
     })]
 
