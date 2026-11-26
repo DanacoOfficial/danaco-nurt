@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
@@ -901,28 +901,43 @@ pub(crate) fn material(root: &Root, guide: &str, limits: &Limits) -> Vec<String>
         return Vec::new();
     };
     let mut files = Vec::new();
-    let mut pending = vec![(start, 1usize)];
-    while let Some((dir, depth)) = pending.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else {
+    collect_material(root, &start, 1, limits, &mut files);
+    files.sort();
+    files
+}
+
+/// Adds the files below `dir` to `files` in the order of their names, and
+/// stops as soon as `limits.guide_files` files are listed.
+fn collect_material(
+    root: &Root,
+    dir: &Path,
+    depth: usize,
+    limits: &Limits,
+    files: &mut Vec<String>,
+) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut paths: Vec<PathBuf> = entries.flatten().map(|entry| entry.path()).collect();
+    paths.sort();
+    for path in paths {
+        if files.len() >= limits.guide_files {
+            return;
+        }
+        let Some(relative) = root.relative(&path) else {
             continue;
         };
-        for entry in entries.flatten() {
-            let Some(relative) = root.relative(&entry.path()) else {
-                continue;
-            };
-            let Ok(resolved) = root.resolve(&relative) else {
-                continue;
-            };
-            if resolved.is_dir() && depth < limits.guide_files_depth {
-                pending.push((resolved, depth + 1));
-            } else if resolved.is_file() {
-                files.push(relative);
+        let Ok(resolved) = root.resolve(&relative) else {
+            continue;
+        };
+        if resolved.is_dir() {
+            if depth < limits.guide_files_depth {
+                collect_material(root, &resolved, depth + 1, limits, files);
             }
+        } else if resolved.is_file() {
+            files.push(relative);
         }
     }
-    files.sort();
-    files.truncate(limits.guide_files);
-    files
 }
 
 /// Etag of a guide file: the first eight hexadecimal digits of the SHA-256

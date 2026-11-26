@@ -543,6 +543,9 @@ pub fn section_label(kind: SectionKind) -> &'static str {
 #[must_use]
 pub fn find_section<'a>(sections: &'a [Section], wanted: &str) -> Option<&'a Section> {
     let key = fold(wanted.trim_start_matches('#').trim());
+    if key.is_empty() {
+        return None;
+    }
     sections
         .iter()
         .find(|section| fold(&section.heading) == key)
@@ -610,6 +613,9 @@ mod tests {
             Some("Pitfalls")
         );
         assert!(find_section(&sections, "missing").is_none());
+        for empty in ["", "#", "## ", "   "] {
+            assert!(find_section(&sections, empty).is_none(), "{empty:?}");
+        }
         let matched = match_sections(&sections, "beware use");
         assert_eq!(matched.len(), 2);
         assert_eq!(matched[0].heading, "Use");

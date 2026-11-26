@@ -763,11 +763,14 @@ impl HostEnv {
     }
 
     /// Splits a list of paths written in a variable; empty items are
-    /// dropped.
+    /// dropped. Quotes around an item are removed on Windows only, where
+    /// they are the way to write a directory that contains `;`; on other
+    /// systems a quote is part of a name.
     #[must_use]
     pub fn split_paths(&self, list: &str) -> Vec<PathBuf> {
+        let quote = if self.os == Os::Windows { '"' } else { '\0' };
         list.split(self.list_separator())
-            .map(|item| item.trim_matches('"'))
+            .map(|item| item.trim_matches(quote))
             .filter(|item| !item.is_empty())
             .map(PathBuf::from)
             .collect()
@@ -1271,6 +1274,24 @@ mod tests {
         assert!(dirs.contains(&PathBuf::from("/usr/bin")));
         assert!(dirs.contains(&PathBuf::from("/bin")));
         assert_eq!(dirs.len(), 3);
+    }
+
+    #[test]
+    fn quotes_are_removed_from_path_items_on_windows_only() {
+        let windows = HostEnv::new(Os::Windows);
+        assert_eq!(
+            windows.split_paths("\"C:\\Program Files\";D:\\x"),
+            vec![PathBuf::from("C:\\Program Files"), PathBuf::from("D:\\x")]
+        );
+        let linux = HostEnv::new(Os::Linux);
+        assert_eq!(
+            linux.split_paths("/opt/\"odd\":/bin"),
+            vec![PathBuf::from("/opt/\"odd\""), PathBuf::from("/bin")]
+        );
+        assert_eq!(
+            linux.split_paths("\"/quoted\":/bin"),
+            vec![PathBuf::from("\"/quoted\""), PathBuf::from("/bin")]
+        );
     }
 
     #[test]

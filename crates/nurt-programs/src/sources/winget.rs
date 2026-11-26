@@ -141,7 +141,13 @@ pub fn read_tracking_db(path: &Path) -> Result<Vec<TrackedPackage>, String> {
 /// ```
 #[must_use]
 pub fn package_of_dir(name: &str) -> Option<String> {
-    let (id, source) = name.split_once('_')?;
+    // The source family name is `<name>_<publisher hash>` and holds one
+    // underscore, so the identifier ends at the second underscore from the
+    // end; an identifier may contain underscores itself.
+    let (id, source) = match name.rmatch_indices('_').nth(1) {
+        Some((at, _)) => (&name[..at], &name[at + 1..]),
+        None => name.split_once('_')?,
+    };
     (!id.is_empty() && !source.is_empty()).then(|| id.to_owned())
 }
 

@@ -1101,3 +1101,72 @@ fn brew_ignores_relative_xdg_cache_directory() {
         Path::new("/home/user/.cache/Homebrew")
     );
 }
+
+#[test]
+fn scoop_shim_application_with_apps_in_the_root_path() {
+    let shim = |path: &str| scoop::shim_application(&format!("path = \"{path}\"\n"));
+    assert_eq!(
+        shim("D:\\apps\\scoop\\apps\\ripgrep\\current\\rg.exe").as_deref(),
+        Some("ripgrep")
+    );
+    assert_eq!(
+        shim("D:\\apps\\apps\\fd\\current\\fd.exe").as_deref(),
+        Some("fd")
+    );
+    assert_eq!(
+        shim("C:\\Users\\user\\scoop\\apps\\jq\\1.7\\jq.exe").as_deref(),
+        Some("jq")
+    );
+    assert_eq!(shim("C:\\Tools\\jq.exe"), None);
+}
+
+#[test]
+fn scoop_shim_files_follow_the_target_and_the_files_present() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let scoop_root = "d/apps/scoop";
+    write(
+        root,
+        &format!("{scoop_root}/apps/tools/current/manifest.json"),
+        r#"{"version": "1.0", "bin": ["tool.exe", "script.cmd", ["wrap.ps1", "wp"], "present.exe"]}"#,
+    );
+    write(root, &format!("{scoop_root}/shims/present.cmd"), "x");
+    write(
+        root,
+        &format!("{scoop_root}/shims/tool.shim"),
+        "path = \"D:\\apps\\scoop\\apps\\tools\\current\\tool.exe\"\n",
+    );
+    let env = windows_env(root).with_var("SCOOP", "D:\\apps\\scoop");
+    let data = load(&ScoopSource::new(), &env);
+    let path_of = |name: &str| program(&data, name).path.clone().unwrap();
+    assert!(path_of("tool").ends_with("tool.exe"));
+    assert!(path_of("script").ends_with("script.cmd"));
+    assert!(path_of("wp").ends_with("wp.cmd"));
+    assert!(path_of("present").ends_with("present.cmd"));
+    assert_eq!(program(&data, "wp").alias_kind, Some(AliasKind::Shim));
+    assert_eq!(program(&data, "wp").alias_of.as_deref(), Some("wrap"));
+    assert_eq!(program(&data, "tool").alias_kind, None);
+    assert_eq!(package(&data, "tools").executables.len(), 4);
+}
+
+#[test]
+fn winget_identifiers_may_contain_underscores() {
+    let source = "Microsoft.Winget.Source_8wekyb3d8bbwe";
+    assert_eq!(
+        winget::package_of_dir(&format!("Vendor.My_Tool_{source}")).as_deref(),
+        Some("Vendor.My_Tool")
+    );
+    assert_eq!(
+        winget::package_of_dir(&format!("Vendor.Tool_{source}")).as_deref(),
+        Some("Vendor.Tool")
+    );
+    assert_eq!(winget::package_of_dir("Vendor.Tool_x").as_deref(), Some("Vendor.Tool"));
+    assert_eq!(winget::package_of_dir("_Microsoft.Winget.Source_8wekyb3d8bbwe"), None);
+    assert_eq!(
+        winget::package_of_link(&format!(
+            "C:\\L\\Packages\\Vendor.My_Tool_{source}\\tool.exe"
+        ))
+        .as_deref(),
+        Some("Vendor.My_Tool")
+    );
+}

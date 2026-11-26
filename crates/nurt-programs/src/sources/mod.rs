@@ -312,13 +312,28 @@ impl Compression {
 /// Fails with the error of the decoder when the data is damaged before
 /// `limit` bytes were produced.
 pub fn decompress(bytes: &[u8], compression: Compression, limit: u64) -> std::io::Result<Vec<u8>> {
-    let reader: Box<dyn Read + '_> = match compression {
-        Compression::None => Box::new(bytes),
-        Compression::Gzip => Box::new(flate2::read::MultiGzDecoder::new(bytes)),
-        Compression::Xz => Box::new(liblzma::read::XzDecoder::new(bytes)),
-        Compression::Bzip2 => Box::new(bzip2::read::BzDecoder::new(bytes)),
-        Compression::Zstd => Box::new(zstd::stream::read::Decoder::new(bytes)?),
-        Compression::Lz4 => Box::new(lz4_flex::frame::FrameDecoder::new(bytes)),
+    decompress_reader(bytes, compression, limit)
+}
+
+/// Decompresses at most `limit` bytes of the stream `source`, reading only
+/// as much of it as the decoder needs for them.
+///
+/// # Errors
+///
+/// Fails with the error of the decoder or of `source` when the data is
+/// damaged before `limit` bytes were produced.
+pub fn decompress_reader<'a>(
+    source: impl Read + 'a,
+    compression: Compression,
+    limit: u64,
+) -> std::io::Result<Vec<u8>> {
+    let reader: Box<dyn Read + 'a> = match compression {
+        Compression::None => Box::new(source),
+        Compression::Gzip => Box::new(flate2::read::MultiGzDecoder::new(source)),
+        Compression::Xz => Box::new(liblzma::read::XzDecoder::new(source)),
+        Compression::Bzip2 => Box::new(bzip2::read::BzDecoder::new(source)),
+        Compression::Zstd => Box::new(zstd::stream::read::Decoder::new(source)?),
+        Compression::Lz4 => Box::new(lz4_flex::frame::FrameDecoder::new(source)),
     };
     let mut out = Vec::new();
     reader.take(limit).read_to_end(&mut out)?;
@@ -372,6 +387,45 @@ mod tests {
         );
         std::os::unix::fs::symlink("loop", dir.path().join("loop")).unwrap_or_default();
         assert_eq!(resolve_links(&env, Path::new("/loop")), None);
+    }
+
+    /// Reader that counts the bytes taken from it.
+    struct Counting<'a> {
+        data: &'a [u8],
+        taken: usize,
+    }
+
+    impl Read for Counting<'_> {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            let count = self.data.len().min(buffer.len());
+            buffer[..count].copy_from_slice(&self.data[..count]);
+            self.data = &self.data[count..];
+            self.taken += count;
+            Ok(count)
+        }
+    }
+
+    #[test]
+    fn decompress_reader_stops_reading_at_the_limit() {
+        use std::io::Write;
+        let mut state = 0x9e37_79b9_u32;
+        let noise: Vec<u8> = (0..2 * 1024 * 1024)
+            .map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                (state >> 24) as u8
+            })
+            .collect();
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        encoder.write_all(&noise).unwrap_or_default();
+        let packed = encoder.finish().unwrap_or_default();
+        assert!(packed.len() > 1024 * 1024);
+        let mut source = Counting {
+            data: &packed,
+            taken: 0,
+        };
+        let head = decompress_reader(&mut source, Compression::Gzip, 1024).unwrap_or_default();
+        assert_eq!(head, &noise[..1024]);
+        assert!(source.taken < 256 * 1024, "{} bytes read", source.taken);
     }
 
     #[test]
