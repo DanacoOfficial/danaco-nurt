@@ -58,6 +58,22 @@ suite("manifest", () => {
     assert.deepStrictEqual(telemetry, []);
   });
 
+  test("pairs only the double quote because texts are written in double quotes", () => {
+    const language = manifest.contributes.languages.find((entry) => entry.id === "nurt");
+    assert.ok(language !== undefined);
+    const configuration = JSON.parse(
+      fs.readFileSync(path.join(root, language.configuration), "utf8"),
+    ) as { autoClosingPairs: { open: string }[]; surroundingPairs: string[][] };
+    assert.deepStrictEqual(
+      configuration.autoClosingPairs.map((pair) => pair.open).filter((open) => /['"]/.test(open)),
+      ['"'],
+    );
+    assert.deepStrictEqual(
+      configuration.surroundingPairs.filter((pair) => /['"]/.test(pair[0])),
+      [['"', '"']],
+    );
+  });
+
   test("defines no telemetry setting", () => {
     const keys = Object.keys(manifest.contributes.configuration.properties);
     assert.deepStrictEqual(
