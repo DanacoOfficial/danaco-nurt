@@ -91,13 +91,13 @@ def paragraph(f, lines, x, y, dark=True, size=17, leading=28):
 
 def cover(f):
     stacked = lockup.files(HERE.parent / "branding" / "x", "caps") if False else None
-    text_d, width = lockup.words(f.words_font, B.SILVER, B.WHITE, "title")
+    text_d, width = lockup.words("custom", B.SILVER, B.WHITE)
     scale = 1.9
     mark_size = 230
     body = B.place(B.mark(B.STANDARD, B.SILVER, B.GOLD), (W - mark_size) / 2, 90, mark_size)
     body += f'<g transform="translate({(W - width * scale) / 2:.1f} {90 + mark_size + 70}) scale({scale})">{text_d}</g>'
     body += text(f.inter, "IDENTITY GUIDELINES  /  VERSION 1.0  /  2026", 13, (W - 440) / 2, H - 90, MUTED, tracking=2.0)
-    return page(body)
+    return body, None
 
 
 def idea(f):
@@ -118,7 +118,7 @@ def idea(f):
     body += text(f.inter, "180", 13, 1020, 284, MUTED, tracking=1.0)
     rotated = f'<g transform="rotate(180 48 48)">{mark}</g>'
     body += B.place(rotated, 1090 - 20, 150, 300 * 0.62)
-    return page(body, number=2, title="Idea", fonts=f)
+    return body, "Idea"
 
 
 def construction(f):
@@ -153,7 +153,7 @@ def construction(f):
         "",
         "Every file is written by build.py from these values.",
     ], 64, 200)
-    return page(body, number=3, title="Construction", fonts=f)
+    return body, "Construction"
 
 
 def clear_space(f):
@@ -178,7 +178,7 @@ def clear_space(f):
         body += B.place(B.mark(spec_, B.SILVER, B.GOLD), x + 8, 508, size)
         body += text(f.inter, f"{size} px", 12, x, 500 + size + 40, MUTED)
         x += size + 56
-    return page(body, number=4, title="Clear space and minimum size", fonts=f)
+    return body, "Clear space and minimum size"
 
 
 def colour(f):
@@ -204,21 +204,61 @@ def colour(f):
         body += text(f.mono, value, 14, x, y + 174, "#B7BDC6")
         body += text(f.inter, f"RGB {rgb[0]} {rgb[1]} {rgb[2]}", 12, x, y + 192, MUTED)
         body += text(f.inter, use, 12, x, y + 208, MUTED)
-    return page(body, number=5, title="Colour", fonts=f)
+    return body, "Colour"
 
 
 def typography(f):
+    L = lockup.load_letters()
     body = heading(f, "Typography")
-    body += text(f.inter, "JETBRAINS MONO  /  THE NAME, CODE AND THE TERMINAL", 12, 64, 190, MUTED, tracking=1.6)
-    first = width_of(f.mono, "Danaco ", 64)
-    body += text(f.mono, "Danaco ", 64, 64, 270, B.SILVER, tracking=-0.8) + text(f.mono_bold, "Nurt", 64, 64 + first, 270, B.WHITE, tracking=-0.8)
-    body += text(f.mono, 'find "/srv/app" glob: "*.go" |> filter size > 1mb |> first 5', 20, 64, 340, B.GOLD)
-    body += text(f.inter, "INTER DISPLAY AND INTER  /  HEADINGS, TEXT AND INTERFACE", 12, 64, 430, MUTED, tracking=1.6)
-    body += text(f.sora[600], "Every change can be undone", 34, 64, 480, B.WHITE)
-    body += text(f.inter, "Command shell and language where every change can be undone.", 22, 64, 530, "#D6DAE0")
-    body += text(f.inter_bold, "Semibold for emphasis, regular for running text.", 17, 64, 566, "#B7BDC6")
-    body += paragraph(f, ["The name is set in JetBrains Mono:", "Danaco in the weight Regular and", "Nurt in the weight Bold. The same", "typeface sets the terminal, so the", "name looks like the program it", "names.", "", "All typefaces are licensed under", "the SIL Open Font License 1.1."], 900, 200, size=15, leading=24)
-    return page(body, number=6, title="Typography", fonts=f)
+    body += text(f.inter, "DRAWN LETTERS  /  THE NAME", 12, 64, 190, MUTED, tracking=1.6)
+    name, width = L.words(B.SILVER, B.WHITE, cap_height=64.0)
+    body += f'<g transform="translate(64 276)">{name}</g>'
+    body += text(f.inter, "JETBRAINS MONO  /  CODE AND THE TERMINAL", 12, 64, 350, MUTED, tracking=1.6)
+    body += text(f.mono, 'find "/srv/app" glob: "*.go" |> filter size > 1mb |> first 5', 20, 64, 390, B.GOLD)
+    body += text(f.inter, "INTER DISPLAY AND INTER  /  HEADINGS, TEXT AND INTERFACE", 12, 64, 450, MUTED, tracking=1.6)
+    body += text(f.sora[600], "Every change can be undone", 34, 64, 500, B.WHITE)
+    body += text(f.inter, "Command shell and language where every change can be undone.", 22, 64, 548, "#D6DAE0")
+    body += text(f.inter_bold, "Semibold for emphasis, regular for running text.", 17, 64, 584, "#B7BDC6")
+    body += paragraph(f, ["The name is not typed in a font: its nine", "letters are drawn on the grid of the mark", "(next page). Code and the terminal use", "JetBrains Mono, headings and text use Inter.", "", "The three typefaces are licensed under the", "SIL Open Font License 1.1."], 900, 200, size=15, leading=24)
+    return body, "Typography"
+
+
+def lettering(f):
+    L = lockup.load_letters()
+    k = 14.3
+    base = 340
+    body = heading(f, "The letters")
+    name, width = L.words(B.SILVER, B.WHITE, cap_height=L.C * k)
+    for label, height in (("cap height", L.C), ("x-height", L.X), ("baseline", 0.0)):
+        y = base - height * k
+        body += f'<path d="M64 {y:.1f} H{64 + width + 8:.1f}" stroke="#30343B" stroke-width="1"/>'
+        body += text(f.inter, label.upper(), 10, 64 + width + 20, y + 4, MUTED, tracking=1.2)
+    body += f'<g transform="translate(64 {base})">{name}</g>'
+    # n and u: the same letter turned by 180 degrees.
+    k2 = 22.0
+    n_path, n_units, _ = L.word("n", 1.1, k2)
+    u_path, u_units, _ = L.word("u", 1.1, k2)
+    n_end = n_units * k2
+    y0 = 598
+    nx = 64
+    ux = nx + n_end + 170
+    body += f'<g transform="translate({nx} {y0})"><path fill="{B.SILVER}" d="{n_path}"/></g>'
+    body += f'<g transform="translate({ux:.1f} {y0})"><path fill="{B.GOLD}" d="{u_path}"/></g>'
+    ax = nx + n_end + 40
+    ay = y0 - L.X * k2 / 2
+    body += f'<path d="M{ax:.1f} {ay:.1f} h66" stroke="{MUTED}" stroke-width="2"/><path d="M{ax + 56:.1f} {ay - 8:.1f} l12 8 l-12 8" fill="none" stroke="{MUTED}" stroke-width="2"/>'
+    body += text(f.inter, "180", 13, ax + 22, ay - 14, MUTED, tracking=1.0)
+    body += paragraph(f, [
+        "Nine different letters: D, a, n, c, o, N, u, r, t.",
+        "One stroke, true circular arcs, stems with flat ends.",
+        "The ends of the strokes are cut by vertical lines,",
+        "as the arms of the chevrons are.",
+        "",
+        "The letter u is the letter n turned by 180 degrees,",
+        "as the right chevron is the left one turned by 180.",
+        "Stroke: Danaco 0.85, Nurt 1.35 (x-height 5.4).",
+    ], 560, 478, size=15, leading=22)
+    return body, "The letters"
 
 
 def variants(f):
@@ -236,7 +276,7 @@ def variants(f):
         body += f'<rect x="{x}" y="{y}" width="372" height="210" rx="6" fill="{background}" stroke="#30343B" stroke-width="1"/>'
         body += B.place(mark, x + 118, y + 25, 136)
         body += text(f.inter, name.upper(), 11, x + 14, y + 200, MUTED if background != "#FFFFFF" else "#6B727C", tracking=1.4)
-    return page(body, number=7, title="Variants", fonts=f)
+    return body, "Variants"
 
 
 def icons(f):
@@ -260,7 +300,7 @@ def icons(f):
         body += text(f.inter, f"{size}", 12, x, 460 + size + 24, MUTED)
         x += size + 36
     body += paragraph(f, ["The file nurt.ico holds the sizes 16 to 256 pixels.", "Sizes up to 32 pixels use app-icon-16.svg."], 880, 480, size=15, leading=24)
-    return page(body, number=8, title="Application icons", fonts=f)
+    return body, "Application icons"
 
 
 def terminal(f):
@@ -296,7 +336,7 @@ def terminal(f):
         "cyan #4FD1F5. Other terminals: palette 250, 179, 81.",
         "NO_COLOR turns the colours off.",
     ], 880, 220, size=14, leading=22)
-    return page(body, number=9, title="Terminal", fonts=f)
+    return body, "Terminal"
 
 
 def build_banner_rows():
@@ -329,7 +369,7 @@ def misuse(f):
         body += B.place(drawing, x + 128, y + 22, 116)
         body += f'<path d="M{x + 340} {y + 20} l14 14 M{x + 354} {y + 20} l-14 14" stroke="#E5484D" stroke-width="2.5"/>'
         body += text(f.inter, name.upper(), 11, x + 14, y + 196, MUTED, tracking=1.4)
-    return page(body, number=10, title="Do not", fonts=f)
+    return body, "Do not"
 
 
 def material(f, image):
@@ -339,7 +379,349 @@ def material(f, image):
     body += f'<rect x="0" y="0" width="{W}" height="120" fill="{B.GRAPHITE}" opacity="0.55"/>'
     body += text(f.sora[600], "Material study", 40, 64, 100, B.WHITE)
     body += text(f.inter, "The left chevron in silver, the right chevron in gold; rendered from the mark with Blender (Cycles).", 14, 64, H - 70, B.SILVER)
-    return page(body, number=11, title="Material study", fonts=f)
+    return body, "Material study"
+
+
+def label(f, string, x, y, fill=None):
+    return text(f.inter, string.upper(), 11, x, y, fill or MUTED, tracking=1.4)
+
+
+def card(x, y, w, h, fill, stroke="#30343B", rx=6):
+    return f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}" fill="{fill}" stroke="{stroke}" stroke-width="1"/>'
+
+
+def _channel(value):
+    value = value / 255
+    return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+
+
+def luminance(colour):
+    red, green, blue = (int(colour[i : i + 2], 16) for i in (1, 3, 5))
+    return 0.2126 * _channel(red) + 0.7152 * _channel(green) + 0.0722 * _channel(blue)
+
+
+def contrast(first, second):
+    high, low = sorted((luminance(first), luminance(second)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def embed(document, x, y, width):
+    """Place an SVG document of the lockups with its upper left corner at x, y."""
+    view = document.split('viewBox="')[1].split('"')[0].split()
+    ratio = float(view[3]) / float(view[2])
+    inner = document[document.index(">", document.index("<svg")) + 1 : document.rindex("</svg>")]
+    return (
+        f'<svg x="{x:.1f}" y="{y:.1f}" width="{width:.1f}" height="{width * ratio:.1f}" '
+        f'viewBox="{" ".join(view)}">{inner}</svg>'
+    ), width * ratio
+
+
+def contents(f, titles):
+    body = heading(f, "Contents")
+    entries = [(index + 1, title) for index, title in enumerate(titles) if title and title != "Contents"]
+    half = (len(entries) + 1) // 2
+    for index, (number, title) in enumerate(entries):
+        column, row = divmod(index, half)
+        x, y = 64 + column * 560, 210 + row * 34
+        body += text(f.mono, f"{number:02d}", 15, x, y, B.GOLD)
+        body += text(f.inter, title, 17, x + 56, y, "#D6DAE0")
+    return body, "Contents"
+
+
+def intro(f):
+    body = heading(f, "Danaco Nurt")
+    body += B.place(B.mark(B.STANDARD, B.SILVER, B.GOLD), 1090, 70, 110)
+    body += text(f.inter, "Command shell and language where every change can be undone.", 22, 64, 190, "#D6DAE0")
+    columns = [
+        ("A shell and a language", ["One program for Linux, Windows and", "macOS. Commands are joined with the", "pipe |> and return structured results."]),
+        ("Every change can be undone", ["The undo journal records changes to files,", "provider values and repository state; a", "change can be reviewed, undone and redone."]),
+        ("For people and AI agents", ["The same program, the same results and", "the same journal for a person at a", "terminal and for an agent in a script."]),
+    ]
+    for index, (title, lines) in enumerate(columns):
+        x = 64 + index * 392
+        body += f'<path d="M{x} 280 h350" stroke="#30343B" stroke-width="1"/>'
+        body += text(f.mono, f"0{index + 1}", 14, x, 320, B.GOLD)
+        body += text(f.sora[600], title, 22, x, 358, B.WHITE)
+        body += paragraph(f, lines, x, 400, size=15, leading=24)
+    body += paragraph(f, ["This book describes the identity of the product: the mark, the name, the colours, the type,", "the icons, the terminal, the documents and the voice. Every drawing in it is written by the scripts", "in the directory branding, so a change of the construction changes every file at once."], 64, 520, size=15, leading=24)
+    return body, "The product"
+
+
+def anatomy(f):
+    spec = B.STANDARD
+    theta = math.radians(spec["theta"])
+    sin, cos, tan = math.sin(theta), math.cos(theta), math.tan(theta)
+    xa, width, gap = spec["apex_x"], spec["width"], spec["gap"]
+    ya = (B.GRID - ((B.GRID - 2 * xa) * sin - (width + gap)) / cos) / 2
+    k, ox, oy = 5.0, 390, 150
+
+    def point(x, y):
+        return ox + x * k, oy + y * k
+
+    body = heading(f, "Anatomy of the mark")
+    body += f'<rect x="{ox}" y="{oy}" width="{96 * k:.0f}" height="{96 * k:.0f}" fill="none" stroke="#2A2E35" stroke-width="1" stroke-dasharray="5 5"/>'
+    body += f'<g transform="translate({ox} {oy}) scale({k})">{B.mark(spec, B.SILVER, B.GOLD)}</g>'
+    notes = [
+        ("left", 215, point(xa + 15, ya - 15 * tan), "Step back", "The left chevron, silver, raised."),
+        ("left", 345, point(xa - 9.2 + 2.5, ya), "Round corner", "Radius of half the stroke width."),
+        ("left", 470, point(47.2, 49.5), "The stream", "The channel between the arms: nurt."),
+        ("right", 215, point(spec["end_x"], ya - (spec["end_x"] - xa) * tan), "Vertical cut", "Every arm ends on a vertical line."),
+        ("right", 400, point(70, 96 - ya + 4), "Turn by 180", "The right chevron is the left one turned."),
+        ("right", 540, point(B.GRID - (xa + 15), B.GRID - (ya - 15 * tan)), "Step forward", "The right chevron, gold, lowered."),
+    ]
+    for side, y, (tx, ty), title, line in notes:
+        x = 64 if side == "left" else 940
+        end = x + 250 if side == "left" else x - 14
+        body += f'<path d="M{end:.1f} {y - 5} L{tx:.1f} {ty:.1f}" stroke="{MUTED}" stroke-width="1"/><circle cx="{tx:.1f}" cy="{ty:.1f}" r="3" fill="{B.WHITE}"/>'
+        body += text(f.sora[600], title, 17, x, y, B.WHITE)
+        body += text(f.inter, line, 13, x, y + 22, "#B7BDC6")
+    body += label(f, "Grid 96 x 96", ox, oy + 96 * k + 22)
+    return body, "Anatomy of the mark"
+
+
+def lockups(f):
+    documents = lockup.files("custom")
+    body = heading(f, "Lockups")
+    placements = [
+        ("lockup-horizontal-dark.svg", B.GRAPHITE, 64, 170, 560, 190, 400),
+        ("lockup-horizontal-light.svg", "#FFFFFF", 656, 170, 560, 190, 400),
+        ("lockup-stacked-dark.svg", B.GRAPHITE, 64, 390, 330, 250, 220),
+        ("lockup-stacked-light.svg", "#FFFFFF", 410, 390, 330, 250, 220),
+    ]
+    for name, background, x, y, w, h, width in placements:
+        body += card(x, y, w, h, background)
+        height = embed(documents[name], 0, 0, width)[1]
+        body += embed(documents[name], x + (w - width) / 2, y + (h - height) / 2, width)[0]
+    body += paragraph(f, ["The horizontal lockup is the default.", "The stacked lockup is for square and", "narrow formats.", "", "The smallest width of a lockup is 160 px.", "The clear space equals the stroke width", "of the mark.", "", "Two lockups are not combined and the", "name is never set in another typeface.", "(The variant -mono exists for the terminal", "and for places that cannot show outlines.)"], 790, 420, size=14, leading=22)
+    return body, "Lockups"
+
+
+def backgrounds(f):
+    body = heading(f, "Backgrounds")
+    cells = [
+        ("Graphite", B.GRAPHITE, B.mark(B.STANDARD, B.SILVER, B.GOLD), (B.SILVER, B.GOLD)),
+        ("White", "#FFFFFF", B.mark(B.STANDARD, B.INK, B.GOLD_DEEP), (B.INK, B.GOLD_DEEP)),
+        ("Silver", B.SILVER, B.mark(B.STANDARD, B.GRAPHITE, B.GRAPHITE), (B.GRAPHITE,)),
+        ("Gold", B.GOLD, B.mark(B.STANDARD, B.GRAPHITE, B.GRAPHITE), (B.GRAPHITE,)),
+        ("Navy", B.NAVY, B.mark(B.STANDARD, "url(#stream)", "url(#stream)", B.blue_defs()), (B.CYAN, B.BLUE)),
+        ("Gradient or photo", "url(#field)", B.mark(B.STANDARD, B.WHITE, B.WHITE), None),
+    ]
+    body += '<defs><linearGradient id="field" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0A1224"/><stop offset="1" stop-color="#2F80ED"/></linearGradient></defs>'
+    for index, (name, background, drawing, colours) in enumerate(cells):
+        x, y = 64 + (index % 3) * 396, 170 + (index // 3) * 245
+        body += card(x, y, 372, 215, background)
+        body += B.place(drawing, x + 124, y + 22, 124)
+        ink = B.WHITE if background in (B.GRAPHITE, B.NAVY, "url(#field)") else B.GRAPHITE
+        note = "White mark, never on a busy area" if colours is None else "Contrast " + " / ".join(f"{contrast(c, background):.1f}:1" for c in colours)
+        body += text(f.inter, f"{name.upper()}  /  {note}", 11, x + 14, y + 203, ink, tracking=1.2)
+    return body, "Backgrounds"
+
+
+def colour_use(f):
+    body = heading(f, "Colour in use")
+    bar = [(B.GRAPHITE, 0.70, "Graphite 70"), (B.SILVER, 0.17, "Silver 17"), (B.GOLD, 0.09, "Gold 9"), (B.CYAN, 0.04, "Cyan 4")]
+    x = 64
+    for colour, share, name in bar:
+        w = 1152 * share
+        body += f'<rect x="{x:.1f}" y="170" width="{w:.1f}" height="54" fill="{colour}" stroke="#30343B"/>'
+        body += label(f, name, x + 8, 246)
+        x += w
+    body += paragraph(f, ["Graphite carries the surface, silver the text, gold marks the step forward and cyan appears only in", "strings and in the blue variant of the mark."], 64, 290, size=15, leading=24)
+    pairs = [
+        ("Silver on graphite", B.SILVER, B.GRAPHITE), ("White on graphite", B.WHITE, B.GRAPHITE), ("Gold on graphite", B.GOLD, B.GRAPHITE),
+        ("Cyan on graphite", B.CYAN, B.GRAPHITE), ("Ink on white", B.INK, "#FFFFFF"), ("Gold deep on white", B.GOLD_DEEP, "#FFFFFF"), ("Graphite on gold", B.GRAPHITE, B.GOLD),
+    ]
+    body += label(f, "Contrast of text colours (WCAG 2.1)", 64, 366)
+    for index, (name, fg, bg) in enumerate(pairs):
+        y = 392 + index * 34
+        ratio = contrast(fg, bg)
+        rating = "AAA" if ratio >= 7 else "AA" if ratio >= 4.5 else "large text only" if ratio >= 3 else "fails"
+        body += f'<rect x="64" y="{y - 20}" width="44" height="26" rx="3" fill="{bg}" stroke="#30343B"/>'
+        body += text(f.sora[600], "Aa", 15, 72, y, fg)
+        body += text(f.inter, name, 15, 124, y, "#D6DAE0")
+        body += text(f.mono, f"{ratio:4.1f} : 1", 15, 400, y, B.GOLD)
+        body += text(f.inter, rating, 15, 540, y, "#B7BDC6")
+    return body, "Colour in use"
+
+
+def platforms(f):
+    body = heading(f, "Icons on every platform")
+    columns = [
+        ("Windows", ["nurt.ico holds 16, 24, 32, 48,", "64, 128 and 256 px and is", "embedded in nurt.exe by the", "resource script of the build."]),
+        ("Linux", ["hicolor sizes 16 to 512 px:", "nurt-16.png ... nurt-512.png.", "The package installs them", "next to the executable."]),
+        ("macOS", ["The tile is the same drawing;", "nurt.icns is made from the", "512 px file on a macOS host.", "(Not built in this release.)"]),
+        ("Web", ["favicon.svg follows the colour", "scheme of the browser;", "favicon.ico, apple-touch-icon.png", "and the card 1200 x 630 px."]),
+    ]
+    for index, (name, lines) in enumerate(columns):
+        x = 64 + index * 292
+        body += card(x, 170, 272, 470, "#0F1114")
+        body += label(f, name, x + 18, 200)
+        big = B.tile(B.GRAPHITE, B.scaled(B.mark(B.STANDARD, B.SILVER, B.GOLD), B.TILE_SCALE), 21 if name != "macOS" else 22)
+        body += B.place(big, x + 18, 224, 120 if name != "Web" else 90)
+        sizes = (64, 48, 32, 24, 16)
+        px = x + 18
+        for size in sizes:
+            spec = B.SMALL if size <= 32 else B.STANDARD
+            tile = B.tile(B.GRAPHITE, B.scaled(B.mark(spec, B.SILVER, B.GOLD), B.TILE_SCALE_SMALL if size <= 32 else B.TILE_SCALE), 18 if size <= 32 else 21)
+            body += B.place(tile, px, 380, size)
+            body += text(f.inter, str(size), 11, px, 380 + size + 20, MUTED)
+            px += size + 14
+        body += paragraph(f, lines, x + 18, 520, size=13, leading=21)
+    return body, "Icons on every platform"
+
+
+def web(f):
+    documents = lockup.files("custom")
+    body = heading(f, "Documentation site")
+    body += card(64, 160, 1152, 480, "#0F1114", rx=10)
+    body += f'<rect x="64" y="160" width="1152" height="44" rx="10" fill="#1A1D22"/><rect x="64" y="194" width="1152" height="10" fill="#1A1D22"/>'
+    tab = B.tile(B.GRAPHITE, B.scaled(B.mark(B.SMALL, B.SILVER, B.GOLD), B.TILE_SCALE_SMALL), 18)
+    body += card(82, 170, 220, 34, B.GRAPHITE, rx=8) + B.place(tab, 96, 179, 16) + text(f.inter, "Installation - Danaco Nurt", 13, 122, 192, "#D6DAE0")
+    body += card(330, 172, 560, 24, "#0B0C0E", rx=12) + text(f.inter, "nurt.danaco-group.pl/installation", 12, 348, 189, MUTED)
+    header, height = embed(documents["lockup-horizontal-dark.svg"], 96, 228, 200)
+    body += header
+    for index, item in enumerate(("Installation", "Language", "Commands", "Journal", "Security")):
+        body += text(f.inter, item, 14, 640 + index * 110, 262, "#B7BDC6")
+    body += f'<path d="M64 296 H1216" stroke="#262A31" stroke-width="1"/>'
+    body += text(f.sora[600], "Every change can be undone", 40, 96, 380, B.WHITE)
+    body += text(f.inter, "Command shell and language where every change can be undone.", 18, 96, 416, "#B7BDC6")
+    body += card(96, 450, 640, 150, "#0B0C0E")
+    body += text(f.mono, "curl -fsSL https://nurt.danaco-group.pl/install.sh | sh", 15, 118, 490, B.SILVER)
+    body += text(f.mono, 'nurt', 15, 118, 540, B.GOLD) + text(f.mono, ">", 15, 118 + width_of(f.mono, "nurt", 15), 540, B.SILVER)
+    px = 118 + width_of(f.mono, "nurt> ", 15)
+    for string, font, colour in (("find", f.mono_bold, B.GOLD), (' "/srv/app"', f.mono, B.CYAN), (" |> ", f.mono_bold, B.SILVER), ("first 5", f.mono, "#D6DAE0")):
+        body += text(font, string, 15, px, 540, colour)
+        px += width_of(font, string, 15)
+    body += paragraph(f, ["The documentation is a site", "that works offline: the folder", "doc in every archive."], 800, 480, size=14, leading=22)
+    return body, "Documentation site"
+
+
+def print_pages(f):
+    documents = lockup.files("custom")
+    body = heading(f, "Documents")
+    # Business card, front and back, 85 x 55 mm at 4 px per mm.
+    body += card(64, 170, 340, 220, B.GRAPHITE, rx=4)
+    body += embed(documents["lockup-stacked-dark.svg"], 64 + 95, 170 + 28, 150)[0]
+    body += card(424, 170, 340, 220, "#FFFFFF", rx=4)
+    body += B.place(B.mark(B.SMALL, B.INK, B.GOLD_DEEP), 446, 190, 40)
+    body += text(f.sora[600], "Name Surname", 19, 446, 276, B.GRAPHITE)
+    body += text(f.inter, "Title", 13, 446, 298, "#5A616B")
+    body += text(f.mono, "support@danaco-group.pl", 12, 446, 340, B.INK)
+    body += text(f.inter, "Danaco Holding Group Sp. z o.o.", 11, 446, 362, "#5A616B")
+    # Letterhead, A4 at 1.2 px per mm.
+    body += card(810, 170, 252, 372, "#FFFFFF", rx=2)
+    body += embed(documents["lockup-horizontal-light.svg"], 830, 188, 112)[0]
+    for row in range(12):
+        body += f'<rect x="830" y="{250 + row * 18}" width="{212 - (row % 4) * 24}" height="5" rx="2" fill="#D6DAE0"/>'
+    body += f'<path d="M830 496 H1042" stroke="{B.GOLD_DEEP}" stroke-width="1.5"/>'
+    body += text(f.inter, "Danaco Holding Group Sp. z o.o.", 7.5, 830, 514, "#5A616B") + text(f.mono, "support@danaco-group.pl", 7.5, 830, 526, "#5A616B")
+    # Envelope DL, 220 x 110 mm at 2 px per mm.
+    body += card(64, 430, 440, 210, "#FFFFFF", rx=2)
+    body += embed(documents["lockup-horizontal-light.svg"], 84, 448, 120)[0]
+    for row in range(4):
+        body += f'<rect x="300" y="{540 + row * 18}" width="{150 - row * 14}" height="5" rx="2" fill="#B7BDC6"/>'
+    body += paragraph(f, ["Business card 85 x 55 mm,", "letterhead A4, envelope DL.", "", "White paper; graphite and gold", "deep in print. Silver and cyan", "are screen colours and are not", "printed.", "", "Print files: the black and the", "light variants of the lockups."], 540, 450, size=14, leading=22)
+    return body, "Documents"
+
+
+def social(f):
+    documents = lockup.files("custom")
+    body = heading(f, "Social and repository")
+    card_path = HERE / "raster" / "social-card.png"
+    import base64
+    encoded = base64.b64encode(card_path.read_bytes()).decode("ascii")
+    body += f'<image href="data:image/png;base64,{encoded}" x="64" y="170" width="560" height="294" /><rect x="64" y="170" width="560" height="294" fill="none" stroke="#30343B"/>'
+    body += label(f, "Card 1200 x 630 px", 64, 486)
+    avatar = B.tile(B.GRAPHITE, B.scaled(B.mark(B.STANDARD, B.SILVER, B.GOLD), B.TILE_SCALE))
+    body += card(664, 160, 352, 214, "#22262C", rx=8)
+    body += B.place(avatar, 680, 176, 150)
+    body += f'<clipPath id="circle"><circle cx="925" cy="251" r="75"/></clipPath><g clip-path="url(#circle)">{B.place(B.tile(B.GRAPHITE, B.scaled(B.mark(B.STANDARD, B.SILVER, B.GOLD), 0.95), 0), 850, 176, 150)}</g>'
+    body += label(f, "Avatar, square and round", 680, 360)
+    # README banner 1280 x 320 at half size.
+    body += card(64, 520, 640, 120, B.GRAPHITE, rx=2)
+    body += B.place(B.mark(B.STANDARD, B.SILVER, B.GOLD), 90, 534, 92)
+    body += text(f.mono, "Danaco ", 22, 206, 586, B.SILVER) + text(f.mono_bold, "Nurt", 22, 206 + width_of(f.mono, "Danaco ", 22), 586, B.WHITE)
+    body += text(f.inter, "Command shell and language where", 12, 206, 610, "#B7BDC6") + text(f.inter, "every change can be undone.", 12, 206, 626, "#B7BDC6")
+    body += label(f, "Repository banner", 64, 660)
+    body += paragraph(f, ["The short description of the product", "is the sentence of the tagline:", "Command shell and language where", "every change can be undone", "", "On GitHub it ends with:", "for people and AI agents."], 724, 520, size=14, leading=22)
+    return body, "Social and repository"
+
+
+def voice(f):
+    body = heading(f, "Name and voice")
+    left = [
+        "Danaco Nurt in full in titles and at the first mention,",
+        "Nurt afterwards. The program and its command are nurt,",
+        "set in a code font.",
+        "",
+        "The capitals NURT exist only in the drawing of the banner.",
+        "",
+        "The tagline is one sentence and is quoted exactly:",
+        "Command shell and language where every change can be undone",
+    ]
+    right = [
+        "Short and exact. A verb for an action: undo, redo, review.",
+        "No exclamation marks, no humour, no metaphors.",
+        "Say what happened and what the reader can do next.",
+        "",
+        "Text of the product, as it is printed:",
+        "Danaco Nurt 0.1.0",
+        "Type 'help' to get started.",
+    ]
+    body += label(f, "The name", 64, 190) + paragraph(f, left, 64, 224, size=16, leading=27)
+    body += label(f, "The voice", 660, 190) + paragraph(f, right, 660, 224, size=16, leading=27)
+    body += card(64, 480, 556, 140, "#0B0C0E") + text(f.mono, "nurt", 16, 84, 520, B.GOLD) + text(f.mono, " undo", 16, 84 + width_of(f.mono, "nurt", 16), 520, B.SILVER)
+    body += text(f.mono, "Undone: 3 changes in /srv/app", 16, 84, 552, "#D6DAE0")
+    body += card(660, 480, 556, 140, "#0B0C0E") + text(f.inter, "Not: \"Oops! Something went wrong\"", 16, 680, 520, "#B7BDC6") + text(f.inter, "But: what failed, where, and what to do.", 16, 680, 552, "#D6DAE0")
+    return body, "Name and voice"
+
+
+def family(f):
+    body = heading(f, "The family")
+    body += B.place(B.mark(B.STANDARD, B.SILVER, B.GOLD), 800, 150, 300)
+    body += paragraph(f, [
+        "Danaco Nurt is a product of Danaco Holding Group Sp. z o.o.",
+        "",
+        "The chevron is the sign that the marks of the Danaco family",
+        "share. The mark of the group is not used as the mark of the",
+        "product, and the mark of the product is not used for the group.",
+        "",
+        "The endorsement is a line of text under or beside the lockup:",
+    ], 64, 210, size=17, leading=29)
+    body += card(64, 470, 640, 150, B.GRAPHITE)
+    documents = lockup.files("custom")
+    body += embed(documents["lockup-horizontal-dark.svg"], 100, 500, 300)[0]
+    body += text(f.inter, "A Danaco Holding Group product", 14, 100, 590, "#B7BDC6")
+    return body, "The family"
+
+
+def files_page(f):
+    body = heading(f, "Files and regeneration")
+    rows = [
+        ("svg/", "marks, application icons, lockups, wordmarks, favicon"),
+        ("raster/", "nurt.ico, favicon.ico, hicolor PNG files, social card"),
+        ("render/", "the render of the mark in silver and gold, and its Blender script"),
+        ("guidelines.pdf", "this book"),
+        ("build.py", "the construction of the mark and the application icons"),
+        ("letters.py", "the drawn letters of the name"),
+        ("lockup.py", "the lockups and the wordmarks"),
+        ("export.py", "the raster files"),
+        ("book.py", "this book"),
+    ]
+    for index, (name, line) in enumerate(rows):
+        y = 200 + index * 32
+        body += text(f.mono, name, 15, 64, y, B.GOLD) + text(f.inter, line, 15, 280, y, "#D6DAE0")
+    body += card(64, 510, 1152, 120, "#0B0C0E")
+    for index, line in enumerate(["python3 -I branding/build.py", "python3 -I branding/lockup.py --font custom", "python3 -I branding/export.py", "python3 -I branding/book.py --fonts FONTS --hero branding/render/nurt-hero.png"]):
+        body += text(f.mono, line, 14, 84, 542 + index * 24, B.SILVER)
+    return body, "Files and regeneration"
+
+
+def closing(f):
+    body = B.place(B.mark(B.STANDARD, B.SILVER, B.GOLD), (W - 150) / 2, 160, 150)
+    body += text(f.inter, "DANACO NURT  /  IDENTITY GUIDELINES  /  VERSION 1.0", 13, (W - 470) / 2, 400, MUTED, tracking=2.0)
+    body += paragraph(f, ["The names Danaco and Danaco Nurt and the marks in this book are trademarks of Danaco Holding Group", "Sp. z o.o. The Apache License, Version 2.0 that covers the code does not grant rights to the names", "and the marks. Questions about the use of the identity: support@danaco-group.pl."], 172, 470, size=15, leading=26)
+    return body, None
 
 
 def main(argv):
@@ -349,9 +731,15 @@ def main(argv):
     parser.add_argument("--hero", type=Path, help="PNG of the rendered mark, added as the last page")
     arguments = parser.parse_args(argv)
     f = Fonts(arguments.fonts)
-    pages = [cover(f), idea(f), construction(f), clear_space(f), colour(f), typography(f), variants(f), icons(f), terminal(f), misuse(f)]
+    sequence = [cover, "contents", intro, idea, anatomy, construction, clear_space, variants, lockups, lettering, typography, colour, colour_use, backgrounds, icons, platforms, web, terminal, print_pages, social, voice, family, misuse]
+    results = [None if step == "contents" else step(f) for step in sequence]
     if arguments.hero is not None:
-        pages.append(material(f, arguments.hero))
+        results.append(material(f, arguments.hero))
+    results.append(files_page(f))
+    results.append(closing(f))
+    titles = ["Contents" if result is None else result[1] for result in results]
+    results[1] = contents(f, titles)
+    pages = [page(body, number=index + 1, title=title, fonts=f) if title else page(body) for index, (body, title) in enumerate(results)]
     with tempfile.TemporaryDirectory() as directory:
         files = []
         for index, document in enumerate(pages, 1):
