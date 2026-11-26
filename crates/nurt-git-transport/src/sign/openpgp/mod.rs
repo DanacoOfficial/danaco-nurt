@@ -272,8 +272,8 @@ fn sign_with_secret(
     armor(packet)
 }
 
-/// Reads a passphrase file; the file must grant no access to the group or
-/// to other accounts.
+/// Reads the first line of a passphrase file, as `gpg` does; the file must
+/// grant no access to the group or to other accounts.
 pub(crate) fn read_passphrase(path: &Path) -> Result<String> {
     let metadata = std::fs::metadata(path).map_err(|source| {
         with_path(
@@ -312,8 +312,7 @@ pub(crate) fn read_passphrase(path: &Path) -> Result<String> {
             path,
         )
     })?;
-    let line = text.strip_suffix('\n').unwrap_or(&text);
-    Ok(line.strip_suffix('\r').unwrap_or(line).to_owned())
+    Ok(text.lines().next().unwrap_or_default().to_owned())
 }
 
 fn parse_secret_key(bytes: &[u8]) -> Option<SignedSecretKey> {
@@ -905,5 +904,18 @@ mod tests {
         assert_eq!(error.data().problem.as_deref(), Some("key_locked"));
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).expect("chmod");
         assert_eq!(read_passphrase(&path).expect("read"), "secret");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reads_only_the_first_line_of_the_passphrase_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("passphrase");
+        std::fs::write(&path, "sécret\r\nsecond line\n").expect("write");
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).expect("chmod");
+        assert_eq!(read_passphrase(&path).expect("read"), "sécret");
+        std::fs::write(&path, "").expect("write");
+        assert_eq!(read_passphrase(&path).expect("read"), "");
     }
 }
