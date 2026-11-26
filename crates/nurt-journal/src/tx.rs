@@ -3475,8 +3475,7 @@ mod tests {
                 );
                 #[cfg(unix)]
                 {
-                    let mut permissions =
-                        std::fs::metadata(path.as_path()).unwrap().permissions();
+                    let mut permissions = std::fs::metadata(path.as_path()).unwrap().permissions();
                     std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o640);
                     std::fs::set_permissions(path.as_path(), permissions).unwrap();
                 }
