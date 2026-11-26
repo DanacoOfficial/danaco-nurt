@@ -316,17 +316,20 @@ enum ProviderChange {
     Restore(nurt_contracts::fs::ProviderSnapshot),
 }
 
+/// Whether a mutation of a provider target matches the declared action.
+fn provider_accepts(action: &TargetAction, mutation: &Mutation) -> bool {
+    match mutation {
+        Mutation::ProviderSet(_) => matches!(action, TargetAction::Modify | TargetAction::Create),
+        Mutation::ProviderRemove => matches!(action, TargetAction::Delete),
+        Mutation::ProviderCopy(_) => matches!(action, TargetAction::Create),
+        Mutation::ProviderRestore(_) => matches!(action, TargetAction::Modify),
+        _ => false,
+    }
+}
+
 fn accepts(action: &TargetAction, mutation: &Mutation, provider: bool) -> bool {
     if provider {
-        return match mutation {
-            Mutation::ProviderSet(_) => {
-                matches!(action, TargetAction::Modify | TargetAction::Create)
-            }
-            Mutation::ProviderRemove => matches!(action, TargetAction::Delete),
-            Mutation::ProviderCopy(_) => matches!(action, TargetAction::Create),
-            Mutation::ProviderRestore(_) => matches!(action, TargetAction::Modify),
-            _ => false,
-        };
+        return provider_accepts(action, mutation);
     }
     match mutation {
         Mutation::CommitStaged | Mutation::WriteBytes(_) | Mutation::CopyFrom { .. } => matches!(

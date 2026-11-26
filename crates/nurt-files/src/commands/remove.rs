@@ -169,13 +169,12 @@ impl EffectStage for Remove {
     }
 }
 
+/// Entries, text edits and registry paths of the input.
+type Input = (Vec<Source>, BTreeMap<AbsPath, TextEdit>, Vec<String>);
+
 /// Entries and text edits of the input, in input order for entries and by
 /// path for edits, and the registry paths to remove.
-fn read_input(
-    args: &BoundArgs,
-    input: StageInput<'_>,
-    ctx: &ExecCtx,
-) -> Result<(Vec<Source>, BTreeMap<AbsPath, TextEdit>, Vec<String>)> {
+fn read_input(args: &BoundArgs, input: StageInput<'_>, ctx: &ExecCtx) -> Result<Input> {
     let mut entries = Vec::new();
     let mut edits = BTreeMap::new();
     let mut registered = Vec::new();
