@@ -46,6 +46,14 @@ The term change is defined in the [glossary](glossary.md#change).
 Operation numbers form one sequence per account, starting at 1. Reads and
 previews do not consume numbers. Numbers are unique but not necessarily dense.
 
+Accounts with separate state directories can share the journal of a volume
+and number their operations locally. The exclusive creation of the marker
+`pending/<N>` decides who owns a number. A transaction that loses that claim
+(the marker or an entry of the number already exists) takes a new number and
+tries again, at most eight times, while it has no part open yet; only then is
+the journal given up for the operation and the target marked irreversible
+with `journal_error`.
+
 ## 3. Transaction protocol
 
 The executor opens a transaction with `JournalStore::begin`, passes it to the
