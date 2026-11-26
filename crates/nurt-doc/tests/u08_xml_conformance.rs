@@ -151,10 +151,34 @@ fn applies(attributes: &[(String, String)]) -> bool {
         && matches!(get("TYPE"), Some("valid" | "invalid" | "not-wf"))
 }
 
+/// The Sun catalogs are sequences of `TEST` elements without a root element:
+/// the suite includes them as external entities of `xmlconf.xml`. A sequence
+/// is wrapped in a `TESTCASES` element, placed after the XML declaration, so
+/// that it is a document; a catalog that has the element is left as it is.
+fn with_root(bytes: Vec<u8>) -> Vec<u8> {
+    if bytes.windows(10).any(|window| window == b"<TESTCASES") {
+        return bytes;
+    }
+    let start = if bytes.starts_with(b"<?xml") {
+        bytes
+            .windows(2)
+            .position(|window| window == b"?>")
+            .map_or(0, |end| end + 2)
+    } else {
+        0
+    };
+    let mut wrapped = bytes[..start].to_vec();
+    wrapped.extend_from_slice(b"<TESTCASES>");
+    wrapped.extend_from_slice(&bytes[start..]);
+    wrapped.extend_from_slice(b"</TESTCASES>");
+    wrapped
+}
+
 fn catalog_tests(root: &Path, catalog: &str) -> Vec<W3cTest> {
     let path = root.join(catalog);
     let base = path.parent().unwrap().to_path_buf();
-    let (_, tree) = parse_document(&std::fs::read(&path).unwrap(), Some(&Codec)).unwrap();
+    let bytes = with_root(std::fs::read(&path).unwrap());
+    let (_, tree) = parse_document(&bytes, Some(&Codec)).unwrap();
     let mut tests = Vec::new();
     for id in tree.node_ids() {
         let Some(element) = tree.element(id).filter(|_| tree.name(id) == "TEST") else {
