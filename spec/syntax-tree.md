@@ -266,7 +266,9 @@ written in syntax variants A and B, have the same surface `ast_hash`; programs
 in every syntax variant have the same bound tree. The report and the journal
 use `ast_hash` of the bound tree, which includes every default; a later change
 of a default value never changes the hash or the meaning of a recorded
-program.
+program. The member `ast_hash` of the result of `check` is the hash of the
+bound tree; it may be absent only when the tree is not known, never for a
+program given as text (`docs/reference/serve-protocol.md`).
 
 ## 7. Conformance files
 

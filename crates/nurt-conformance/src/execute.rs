@@ -571,7 +571,17 @@ impl CaseRun<'_, '_> {
         };
         self.check_schema(None, "bound", "/bound", tree);
         self.compare_tree(&check, bound, tree);
-        if let Some(reported) = result.get(member::AST_HASH).and_then(Value::as_str) {
+        let Some(reported) = result.get(member::AST_HASH).and_then(Value::as_str) else {
+            // The protocol allows the member to be absent only for a tree that is
+            // not known; here the program was bound from a text, so it is known.
+            self.failures.push(Failure {
+                check: Some(format!("{check} ast_hash")),
+                path: Some("/ast_hash".to_owned()),
+                ..Failure::new("the result has no ast_hash although the tree of the program is known")
+            });
+            return Ok(());
+        };
+        {
             let computed = compare::ast_hash(tree).unwrap_or_default();
             let recorded = golden
                 .bound_hash
@@ -1106,6 +1116,44 @@ mod tests {
             !checks.contains(&"parse c"),
             "variant c surface trees are not compared"
         );
+    }
+
+    #[test]
+    fn a_check_without_ast_hash_fails_for_a_program_text() {
+        let base = tempfile::tempdir().unwrap();
+        let ast = golden_tree("count");
+        let bound = json!({"nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+            "program": {"statements": []}});
+        let golden = Golden {
+            texts: vec![
+                ("a".to_owned(), "count".to_owned()),
+                ("c".to_owned(), "count".to_owned()),
+            ],
+            ast: ast.clone(),
+            ast_hash: None,
+            bound: Some(bound.clone()),
+            bound_hash: Some(compare::ast_hash(&bound).unwrap()),
+            c_ast: None,
+            c_ast_hash: None,
+        };
+        let case = case(Plan::Golden(Box::new(golden)));
+        let parsed = Ok(json!({"ast": ast}));
+        let unhashed = Ok(json!({"bound": bound}));
+        let mut connection = scripted(vec![
+            parsed.clone(),
+            unhashed.clone(),
+            parsed.clone(),
+            unhashed.clone(),
+            Ok(json!({"text": "count"})),
+            parsed.clone(),
+            Ok(json!({"text": "count"})),
+            parsed,
+            unhashed,
+        ]);
+        let failures = run(&case, &mut connection, base.path());
+        let checks: Vec<&str> = failures.iter().filter_map(|f| f.check.as_deref()).collect();
+        assert!(checks.contains(&"check a ast_hash"), "{checks:?}");
+        assert!(checks.contains(&"check c ast_hash"), "{checks:?}");
     }
 
     #[test]
