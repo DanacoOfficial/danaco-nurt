@@ -289,10 +289,13 @@ pub fn repo_status(
     let mut reader = Reader::new(repo.gix())?;
     let mut tracked = tracked_changes(repo, &mut reader)?;
     let mut scan = scan_worktree(repo.gix(), options)?;
-    scan.untracked
-        .retain(|path| !tracked.contains_key(path.as_bstr()));
-    scan.ignored
-        .retain(|path| !tracked.contains_key(path.as_bstr()));
+    let in_index = |path: &BString| {
+        tracked
+            .get(path.as_bstr())
+            .is_some_and(|item| item.staged.is_some() || item.conflict.is_some())
+    };
+    scan.untracked.retain(|path| !in_index(path));
+    scan.ignored.retain(|path| !in_index(path));
     for (path, change) in scan.changes {
         let item = tracked.entry(path).or_insert_with(Tracked::unchanged);
         item.worktree = change.state;
@@ -1032,6 +1035,31 @@ mod tests {
                 ("notes.txt", GitStatusKind::Untracked),
                 ("build/", GitStatusKind::Ignored),
                 ("run.log", GitStatusKind::Ignored),
+            ]
+        );
+    }
+
+    #[test]
+    fn file_removed_from_the_index_and_kept_on_disk_is_also_untracked() {
+        let fixture = Fixture::new();
+        fixture.commit(&[("a.txt", "a\n"), ("b.txt", "b\n")]);
+        let repo = fixture.repo();
+        let mut index = repo.open_index().unwrap();
+        index.remove_entries(|_, path, _| path == "a.txt");
+        fixture.save_index(&mut index);
+        assert_eq!(
+            summary(&status(&fixture)),
+            [
+                (
+                    "a.txt".to_owned(),
+                    GitFileState::Deleted,
+                    GitFileState::Unmodified
+                ),
+                (
+                    "a.txt".to_owned(),
+                    GitFileState::Untracked,
+                    GitFileState::Untracked
+                ),
             ]
         );
     }

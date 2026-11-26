@@ -356,8 +356,6 @@ fn program_input(function: Function, input: &Value) -> Result<(&str, SyntaxVaria
     Ok((text, variant_input(function, input)?))
 }
 
-/// Query of `nurt_history`: the members given by the caller over the
-/// defaults of the command `history`.
 /// Selection of `nurt_catalog`: `null` or an object with `group` or with
 /// `command`.
 fn catalog_query(input: &Value) -> Result<CatalogQuery<'_>, CallError> {
@@ -391,6 +389,8 @@ fn catalog_query(input: &Value) -> Result<CatalogQuery<'_>, CallError> {
     }
 }
 
+/// Query of `nurt_history`: the members given by the caller over the
+/// defaults of the command `history`.
 fn history_query(input: &Value) -> Result<HistoryQuery, CallError> {
     let invalid = |message: String| CallError::arg(message).with_detail("argument", "query_json");
     let Value::Object(given) = input else {

@@ -9,6 +9,7 @@ import codecs
 import datetime
 import os
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -61,6 +62,13 @@ class PathPatternTests(unittest.TestCase):
         self.assertFalse(matches("logA.txt", "log[0-9].txt"))
         self.assertTrue(matches("logA.txt", "log[!0-9].txt"))
         self.assertTrue(matches("a.c", "a?c"))
+
+    def test_a_bracket_without_a_class_stands_for_itself(self) -> None:
+        self.assertTrue(matches("a[].txt", "a[].txt"))
+        self.assertTrue(matches("[!]", "[!]"))
+        self.assertTrue(matches("a[b", "a[b"))
+        self.assertFalse(matches("ab", "a[]"))
+        self.assertTrue(matches("a]", "a]"))
 
     def test_any_of_several_patterns(self) -> None:
         self.assertTrue(matches_any("run/app.pid", ["logs/**", "run/*.pid"]))
@@ -181,6 +189,36 @@ class SnapshotTests(unittest.TestCase):
             captured = capture(Path(tmp))
         self.assertEqual(captured["link"].kind, "symlink")
         self.assertEqual(captured["link"].target, "target.txt")
+
+    @unittest.skipUnless(os.name == "posix", "symbolic links need POSIX")
+    def test_an_entry_below_a_symbolic_link_is_not_written_through_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            outside = Path(tmp) / "outside"
+            outside.mkdir()
+            root = Path(tmp) / "root"
+            root.mkdir()
+            raw = snap({}, {"path": "link", "type": "symlink", "target": str(outside)}, entry("link/x.txt", "x"))
+            with self.assertRaises(SnapshotError):
+                materialize(as_index(raw), root)
+            self.assertEqual(list(outside.iterdir()), [])
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "named pipes need POSIX")
+    def test_capture_records_a_pipe_without_opening_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "plain.txt").write_text("x", encoding="utf-8")
+            os.mkfifo(root / "pipe")
+            result: dict[str, dict[str, Entry]] = {}
+            worker = threading.Thread(target=lambda: result.update(index=capture(root)), daemon=True)
+            worker.start()
+            worker.join(10)
+            if worker.is_alive():
+                # Release a reader that is blocked in open() so that the directory can be removed.
+                os.close(os.open(root / "pipe", os.O_RDWR))
+                worker.join(10)
+                self.fail("capture blocked on a named pipe")
+        self.assertEqual(result["index"]["pipe"].kind, "special")
+        self.assertEqual(result["index"]["plain.txt"].content, b"x")
 
 
 if __name__ == "__main__":

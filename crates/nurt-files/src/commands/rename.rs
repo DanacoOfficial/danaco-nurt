@@ -713,6 +713,71 @@ mod tests {
     }
 
     #[test]
+    fn a_rename_change_gives_the_previous_path_and_the_new_one() {
+        let test = TestContext::new();
+        let source = file(&test, "/data/draft.txt", b"d");
+        let run = run(&Rename, &test, &named(&source, "final.txt"), None).unwrap();
+        let change = &run.changes[0];
+        assert_eq!(
+            change.from.as_ref().map(|path| path.as_str().to_owned()),
+            Some(source.to_language_string())
+        );
+        assert_eq!(
+            change.to.as_ref().map(|path| path.as_str().to_owned()),
+            Some(abs("/data/final.txt").to_language_string())
+        );
+    }
+
+    #[test]
+    fn names_that_do_not_change_are_counted_and_nothing_matches() {
+        let test = TestContext::new();
+        let source = file(&test, "/data/a.txt", b"a");
+        let run = run(&Rename, &test, &named(&source, "a.txt"), None).unwrap();
+        assert_eq!(run.summary("unchanged"), Some(1));
+        assert_eq!(run.summary("renamed"), Some(0));
+        assert_eq!(run.codes(), [Notable::NothingMatched]);
+        assert!(test.fs().exists(&source));
+    }
+
+    #[test]
+    fn dot_and_zero_byte_are_not_names() {
+        let test = TestContext::new();
+        let source = file(&test, "/data/a.txt", b"a");
+        for name in [".", "a\0b"] {
+            let error = run(&Rename, &test, &named(&source, name), None).unwrap_err();
+            assert_eq!(error.code(), ErrorCode::InvalidValue, "{name:?}");
+        }
+        assert_untouched(&test);
+    }
+
+    #[test]
+    fn multibyte_characters_are_replaced_literally() {
+        let test = TestContext::new();
+        let source = file(&test, "/data/caf\u{e9}.txt", b"c");
+        let call = by_pattern(Value::Text("\u{e9}".to_owned()), "e")
+            .with(PATH, path_arg(&source), false);
+        run(&Rename, &test, &call, None).unwrap();
+        assert!(test.fs().exists(&abs("/data/cafe.txt")));
+        assert!(!test.fs().exists(&source));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_name_that_is_not_unicode_is_rejected_with_a_hint() {
+        use std::os::unix::ffi::OsStrExt;
+
+        let test = TestContext::new();
+        let name = OsStr::from_bytes(b"data\xff.bin");
+        let path = AbsPath::new(abs("/raw").as_path().join(name)).unwrap();
+        test.fs().write_file(&path, b"x").unwrap();
+        assert!(run(&Rename, &test, &named(&path, "plain.bin"), None).is_err());
+        let hint = unnamed_error(&path);
+        assert_eq!(hint.code(), ErrorCode::InvalidValue);
+        assert!(hint.message.contains("`move`"));
+        assert!(test.fs().exists(&path));
+    }
+
+    #[test]
     fn capture_names_follow_the_group_order() {
         assert_eq!(
             capture_names(r"(a)(?:b)(?<c>c)(?P<d>d)[(](?=e)\((f)", false),

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Comparison of the state before and after a run.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use super::scan::{EntryState, Kind, Snapshot};
@@ -109,7 +109,7 @@ pub(super) fn compare(old: &Snapshot, new: &Snapshot) -> Vec<Detected> {
             }
         }
     }
-    let mut renamed_from = Vec::new();
+    let mut renamed_from: HashSet<&Path> = HashSet::new();
     for (path, after) in new.iter().filter(|(path, _)| !old.contains_key(*path)) {
         let from = identity(after)
             .and_then(|id| deleted.get(&id).map(|from| (id, *from)))
@@ -120,7 +120,7 @@ pub(super) fn compare(old: &Snapshot, new: &Snapshot) -> Vec<Detected> {
             });
         let action = match from {
             Some(from) => {
-                renamed_from.push(from);
+                renamed_from.insert(from);
                 Action::Rename {
                     from: from.to_path_buf(),
                     implied: false,
@@ -245,6 +245,63 @@ mod tests {
         assert_eq!(
             actions(file(7, 5, 100, Some(50)), file(7, 9, 120, Some(50))),
             delete_and_create()
+        );
+    }
+
+    #[test]
+    fn the_rename_of_many_files_is_reported_without_deletions() {
+        const COUNT: u64 = 3_000;
+        let mut old = Snapshot::new();
+        let mut new = Snapshot::new();
+        for inode in 1..=COUNT {
+            let state = file(inode, 5, 100, Some(50));
+            old.insert(PathBuf::from(format!("/w/old/f{inode:05}")), state.clone());
+            new.insert(PathBuf::from(format!("/w/new/f{inode:05}")), state);
+        }
+        let detected = compare(&old, &new);
+        assert_eq!(detected.len(), usize::try_from(COUNT).unwrap());
+        assert!(
+            detected
+                .iter()
+                .all(|change| matches!(change.action, Action::Rename { .. }))
+        );
+    }
+
+    #[test]
+    fn a_renamed_directory_marks_the_renames_below_it_as_implied() {
+        let directory = |inode| EntryState {
+            kind: Kind::Directory,
+            size: 0,
+            modified_ns: 100,
+            file_id: [1, inode, 0],
+            created_ns: Some(10),
+            mode: 0o755,
+            link: None,
+            hash: None,
+        };
+        let old = Snapshot::from([
+            (PathBuf::from("/w/dir"), directory(2)),
+            (PathBuf::from("/w/dir/a.txt"), file(3, 1, 100, Some(50))),
+        ]);
+        let new = Snapshot::from([
+            (PathBuf::from("/w/moved"), directory(2)),
+            (PathBuf::from("/w/moved/a.txt"), file(3, 1, 100, Some(50))),
+        ]);
+        let implied: Vec<(String, bool)> = compare(&old, &new)
+            .into_iter()
+            .filter_map(|change| match change.action {
+                Action::Rename { implied, .. } => {
+                    Some((change.path.to_string_lossy().into_owned(), implied))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            implied,
+            vec![
+                ("/w/moved".to_owned(), false),
+                ("/w/moved/a.txt".to_owned(), true)
+            ]
         );
     }
 

@@ -66,11 +66,16 @@ pub(crate) fn resolve(
         files: list_files(ctx, dir),
         ..Scope::default()
     };
-    let wanted: Vec<String> = paths
-        .iter()
-        .filter_map(|path| relative(dir, path))
-        .collect();
-    if !wanted.is_empty() {
+    let targets: Vec<Target> = paths.iter().map(|path| target(dir, path)).collect();
+    let whole_project = targets.iter().any(|target| matches!(target, Target::Project));
+    if !targets.is_empty() && !whole_project {
+        let wanted: Vec<&str> = targets
+            .iter()
+            .filter_map(|target| match target {
+                Target::Inside(path) => Some(path.as_str()),
+                _ => None,
+            })
+            .collect();
         scope.files.retain(|file| {
             wanted
                 .iter()
@@ -108,6 +113,29 @@ fn restrict_to_changed(ctx: &ExecCtx, dir: &Path, scope: &mut Scope) -> Result<(
     scope.files.retain(|file| changed.contains(file));
     scope.scoped = true;
     Ok(())
+}
+
+/// What a path of a command points at.
+enum Target {
+    /// The project directory itself: every file is in scope.
+    Project,
+    /// A file or directory of the project, relative to it.
+    Inside(String),
+    /// An absolute path outside the project: no file of the project is in
+    /// scope for it, and it does not widen the scope to the whole project.
+    Elsewhere,
+}
+
+fn target(dir: &Path, path: &str) -> Target {
+    if let Some(inside) = relative(dir, path) {
+        return Target::Inside(inside);
+    }
+    let candidate = Path::new(path);
+    if candidate.is_absolute() && candidate.strip_prefix(dir).is_err() {
+        Target::Elsewhere
+    } else {
+        Target::Project
+    }
 }
 
 /// Path relative to `dir` with forward slashes; `None` outside the

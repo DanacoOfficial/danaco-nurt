@@ -222,4 +222,94 @@ mod tests {
         assert!(!is_generated("src/build.rs"));
         assert!(!is_generated("build.gradle"));
     }
+
+    /// Files by absolute path.
+    struct MapTree(std::collections::HashMap<PathBuf, Vec<u8>>);
+
+    impl MapTree {
+        fn of(files: &[(&str, &str)]) -> Self {
+            Self(
+                files
+                    .iter()
+                    .map(|(path, content)| (PathBuf::from(path), content.as_bytes().to_vec()))
+                    .collect(),
+            )
+        }
+    }
+
+    impl TreeFiles for MapTree {
+        fn list(&self, _root: &Path, _max: usize) -> Result<(Vec<String>, bool)> {
+            Ok((Vec::new(), false))
+        }
+
+        fn read(&self, path: &Path, _max_bytes: u64) -> Option<Vec<u8>> {
+            self.0.get(path).cloned()
+        }
+
+        fn modified(&self, _path: &Path) -> Option<i64> {
+            None
+        }
+
+        fn is_dir(&self, _path: &Path) -> bool {
+            false
+        }
+    }
+
+    fn revision(files: &[(&str, &str)]) -> Option<String> {
+        head_revision(Path::new("/r"), &MapTree::of(files))
+    }
+
+    #[test]
+    fn detached_head_is_the_revision() {
+        assert_eq!(
+            revision(&[("/r/.git/HEAD", "0123abc\n")]).as_deref(),
+            Some("0123abc")
+        );
+    }
+
+    #[test]
+    fn loose_reference_is_preferred_to_the_packed_one() {
+        let files = [
+            ("/r/.git/HEAD", "ref: refs/heads/main\n"),
+            ("/r/.git/refs/heads/main", "loose\n"),
+            ("/r/.git/packed-refs", "packed refs/heads/main\n"),
+        ];
+        assert_eq!(revision(&files).as_deref(), Some("loose"));
+    }
+
+    #[test]
+    fn packed_reference_is_resolved_without_a_loose_file() {
+        let files = [
+            ("/r/.git/HEAD", "ref: refs/heads/main\n"),
+            (
+                "/r/.git/packed-refs",
+                "# pack-refs with: peeled\naaa refs/heads/other\nbbb refs/heads/main\n^ccc\n",
+            ),
+        ];
+        assert_eq!(revision(&files).as_deref(), Some("bbb"));
+    }
+
+    #[test]
+    fn linked_worktree_reads_head_from_its_own_directory_and_references_from_the_common_one() {
+        let files = [
+            ("/r/.git", "gitdir: /r/wt/one\n"),
+            ("/r/wt/one/HEAD", "ref: refs/heads/feature/x\n"),
+            ("/r/wt/one/commondir", "/r/common\n"),
+            ("/r/common/refs/heads/feature/x", "def456\n"),
+        ];
+        assert_eq!(revision(&files).as_deref(), Some("def456"));
+    }
+
+    #[test]
+    fn unresolvable_head_has_no_revision() {
+        assert_eq!(revision(&[]), None);
+        assert_eq!(
+            revision(&[("/r/.git/HEAD", "ref: refs/heads/main\n")]),
+            None
+        );
+        assert_eq!(
+            revision(&[("/r/.git", "not a link\n"), ("/r/.git/HEAD", "abc\n")]),
+            None
+        );
+    }
 }

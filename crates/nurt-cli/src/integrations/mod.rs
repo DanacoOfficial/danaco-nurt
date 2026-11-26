@@ -180,6 +180,54 @@ mod tests {
     }
 
     #[test]
+    fn components_are_listed_in_the_order_of_the_documentation() {
+        let names: Vec<&str> = COMPONENTS
+            .iter()
+            .map(|component| component.subcommand)
+            .collect();
+        assert_eq!(
+            names,
+            ["serve", "mcp", "lsp", "migrate", "service", "journal", "ext"]
+        );
+        assert_eq!(component("mcp").and_then(|c| c.feature), Some("mcp"));
+        assert_eq!(component("serve").and_then(|c| c.feature), None);
+        assert!(component("doctor").is_none());
+    }
+
+    #[test]
+    fn components_without_an_optional_crate_are_always_connected() {
+        for name in ["serve", "ext", "exec", "doctor"] {
+            assert!(is_connected(name), "{name}");
+        }
+        for component in COMPONENTS {
+            assert_eq!(
+                is_connected(component.subcommand),
+                component.linked,
+                "{}",
+                component.subcommand
+            );
+        }
+    }
+
+    #[test]
+    fn components_with_a_wrong_form_report_a_usage_error() {
+        assert!(matches!(run("serve", &[]), Err(CliError::Usage(_))));
+        assert!(matches!(run("ext", &[]), Err(CliError::Usage(_))));
+        assert!(matches!(
+            run("serve", &["--tcp".to_owned()]),
+            Err(CliError::Usage(_))
+        ));
+    }
+
+    #[test]
+    fn unavailable_names_what_is_not_available() {
+        assert_eq!(
+            unavailable("mcp --http"),
+            CliError::Unavailable("mcp --http".to_owned())
+        );
+    }
+
+    #[test]
     fn names_without_a_component_are_unavailable() {
         let error = run("unknown", &[]).unwrap_err();
         assert_eq!(error, CliError::Unavailable("unknown".to_owned()));

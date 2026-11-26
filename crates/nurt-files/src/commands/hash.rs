@@ -683,6 +683,36 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_file_with_a_multibyte_name_is_hashed() {
+        let name = "/data/pusty \u{142}\u{f3}d\u{17a}.txt";
+        let test = with_files(&[(name, b"")]);
+        let output = run(
+            &test.ctx(),
+            &args(Some(paths(&[name])), None),
+            StageInput::none(),
+        )
+        .unwrap();
+        assert_eq!(
+            hash_of(&output[0]).as_deref(),
+            Some("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        );
+        let entry = Entry::try_from(output[0].clone()).unwrap();
+        assert_eq!(entry.name, "pusty \u{142}\u{f3}d\u{17a}.txt");
+    }
+
+    #[test]
+    fn stage_form_fails_for_a_record_of_a_missing_file() {
+        let test = TestContext::new();
+        let error = run(
+            &test.ctx(),
+            &args(None, None),
+            entry_input(&["/data/none.txt"]),
+        )
+        .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+    }
+
+    #[test]
     fn cancellation_ends_the_stream_with_an_error() {
         let test = with_files(&[("/data/a.txt", b"abc")]);
         let ctx = test.ctx();

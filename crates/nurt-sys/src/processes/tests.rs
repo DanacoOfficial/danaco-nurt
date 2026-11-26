@@ -612,6 +612,46 @@ mod procfs_tree {
     }
 
     #[test]
+    fn processes_comm_cut_inside_a_character_does_not_hide_the_process() {
+        let dir = tree();
+        let mut bytes = stat_line(60, "ZZ", 'S', 1, 0).into_bytes();
+        let at = bytes.windows(2).position(|pair| pair == b"ZZ").unwrap();
+        bytes.splice(at..at + 2, [b'a', 0xC3]);
+        write(dir.path(), "/proc/60/stat", bytes);
+        let ctx = context(VirtualClock::at(NOW), Demand::default(), CancelToken::new());
+        let call = with(args(), PARAM_PID, Value::Int(60));
+        let records = processes(run(&stage(&dir), &call, &ctx).unwrap());
+        assert_eq!(records.len(), 1);
+        assert!(records[0].name.starts_with('a'));
+    }
+
+    #[test]
+    fn processes_long_multibyte_kernel_name_takes_program_name() {
+        let dir = tree();
+        let comm = "ßßßßßßßx";
+        assert_eq!(comm.len(), 15);
+        write(dir.path(), "/proc/61/stat", stat_line(61, comm, 'S', 1, 0));
+        write(
+            dir.path(),
+            "/proc/61/cmdline",
+            "/usr/bin/ßßßßßßßx-server\0".as_bytes(),
+        );
+        let ctx = context(VirtualClock::at(NOW), Demand::default(), CancelToken::new());
+        let call = with(args(), PARAM_PID, Value::Int(61));
+        let records = processes(run(&stage(&dir), &call, &ctx).unwrap());
+        assert_eq!(records[0].name, "ßßßßßßßx-server");
+    }
+
+    #[test]
+    fn processes_stat_with_a_negative_resident_size_reports_zero_pages() {
+        let line = stat_line(42, "x", 'R', 1, 5)
+            .replace(" 25 18446744073709551615", " -1 18446744073709551615");
+        assert_eq!(parse_stat(&line).unwrap().rss_pages, 0);
+        assert_eq!(parse_stat("42 (x) R 1 2"), None);
+        assert_eq!(parse_stat("42 x) R"), None);
+    }
+
+    #[test]
     fn processes_cpu_two_samples_virtual_clock() {
         let dir = tree();
         let clock = VirtualClock::at(NOW);
@@ -655,6 +695,30 @@ fn it_processes_contains_self_with_argv() {
     assert_eq!(records[0].pid, own);
     assert!(!records[0].command.is_empty());
     assert!(records[0].executable.is_some());
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "requires the process table of the running system"]
+fn it_windows_snapshot_lists_the_current_process() {
+    let own = std::process::id();
+    let entries = super::windows::snapshot().unwrap();
+    let entry = entries.iter().find(|entry| entry.pid == own).unwrap();
+    assert!(!entry.name.is_empty());
+    assert!(entry.threads >= 1);
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "requires the process table of the running system"]
+fn it_windows_reads_the_current_process_with_account_and_executable() {
+    let ctx = context(SystemClock::new(), Demand::default(), CancelToken::new());
+    let own = u64::from(std::process::id());
+    let call = with(args(), PARAM_PID, Value::Int(i64::try_from(own).unwrap()));
+    let records = processes(run(&Processes::new(), &call, &ctx).unwrap());
+    assert_eq!(records.len(), 1);
+    assert!(records[0].executable.is_some());
+    assert!(records[0].uid.as_deref().is_some_and(|sid| sid.starts_with("S-1-")));
 }
 
 #[test]

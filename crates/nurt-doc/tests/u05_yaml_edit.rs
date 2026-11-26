@@ -116,17 +116,19 @@ fn keeps_the_style_of_replaced_scalars() {
             "k: true\nz: 0\n",
         ),
         ("k: old\n", Value::Number(1e300), "k: 1.0e+300\n"),
-        ("k: [a, old]\n", text("x, y"), "k: [a, old]\n"),
     ];
     for (source, value, expected) in cases {
-        let path = if source.contains('[') { "k[1]" } else { "k" };
-        let out = set(source, path, &value);
-        if source.contains('[') {
-            assert_eq!(out, "k: [a, \"x, y\"]\n");
-        } else {
-            assert_eq!(out, expected, "{source:?} {value:?}");
-        }
+        let out = set(source, "k", &value);
+        assert_eq!(out, expected, "{source:?} {value:?}");
     }
+}
+
+#[test]
+fn quotes_an_element_of_a_flow_list_that_contains_the_separator() {
+    assert_eq!(
+        set("k: [a, old]\n", "k[1]", &text("x, y")),
+        "k: [a, \"x, y\"]\n"
+    );
 }
 
 #[test]

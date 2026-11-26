@@ -53,7 +53,7 @@ pub(crate) fn compute(ctx: &ExecCtx, dir: &Path, exclude: &[String]) -> Result<F
     };
     let (mut paths, truncated) = match listed {
         Some(paths) => paths,
-        None => walk_files(dir),
+        None => walk_files(dir, exclude),
     };
     paths.retain(|path| !excluded(path, exclude));
     let truncated = truncated || paths.len() > MANIFEST_MAX_FILES;
@@ -113,12 +113,22 @@ fn repository_files(
     Ok((files, false))
 }
 
-fn walk_files(dir: &Path) -> (Vec<String>, bool) {
+/// Files under `dir` that the ignore rules keep, without the entries named in
+/// `exclude`: excluded directories are not entered, so their files do not
+/// use up the limit of the files a fingerprint covers.
+fn walk_files(dir: &Path, exclude: &[String]) -> (Vec<String>, bool) {
     let mut files = Vec::new();
+    let skipped = exclude.to_vec();
     let walker = WalkBuilder::new(dir)
         .hidden(false)
         .require_git(false)
         .sort_by_file_name(std::cmp::Ord::cmp)
+        .filter_entry(move |entry| {
+            entry.depth() == 0
+                || !skipped
+                    .iter()
+                    .any(|name| entry.file_name() == name.as_str())
+        })
         .build();
     for entry in walker.flatten() {
         if !entry.file_type().is_some_and(|kind| kind.is_file()) {
@@ -206,6 +216,22 @@ mod tests {
         write(dir.path(), "skipped.txt", "noise");
         write(dir.path(), "node_modules/x.js", "noise");
         assert_eq!(before, fingerprint(dir.path(), &["node_modules"]));
+    }
+
+    #[test]
+    fn excluded_directories_do_not_use_up_the_limit_of_covered_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let ignored = dir.path().join("node_modules");
+        std::fs::create_dir_all(&ignored).unwrap();
+        for index in 0..=MANIFEST_MAX_FILES {
+            std::fs::File::create(ignored.join(format!("f{index}.js"))).unwrap();
+        }
+        write(dir.path(), "src/a.txt", "one");
+        let covered = fingerprint(dir.path(), &["node_modules"]);
+        assert_eq!(covered.files, 1);
+        assert!(!covered.truncated);
+        write(dir.path(), "src/a.txt", "two");
+        assert_ne!(covered.id, fingerprint(dir.path(), &["node_modules"]).id);
     }
 
     #[test]

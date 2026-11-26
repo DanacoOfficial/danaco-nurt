@@ -559,7 +559,9 @@ impl XmlTree {
             render.members(fields, prefix.as_deref(), &indent, &[])?;
         let mut change = XmlChange::default();
         for (name, text) in &attributes {
-            change.merge(self.set_attribute(element, name, text)?);
+            for edit in self.set_attribute(element, name, text)?.edits {
+                push_coalesced(&mut change, edit);
+            }
         }
         if let Some(el) = self.element(element) {
             for attribute in &el.attributes {
@@ -947,6 +949,21 @@ impl XmlTree {
     }
 }
 
+/// Adds `edit` to `change`; insertions at one position are joined in order,
+/// because [`XmlChange::apply`] rejects two insertions at the same position.
+fn push_coalesced(change: &mut XmlChange, edit: XmlEdit) {
+    if edit.range.is_empty()
+        && let Some(known) = change
+            .edits
+            .iter_mut()
+            .find(|known| known.range == edit.range)
+    {
+        known.replacement.push_str(&edit.replacement);
+        return;
+    }
+    change.push(edit);
+}
+
 /// Nested value that the missing segments after the first one describe.
 fn nest(rest: &[KeySegment], value: &Value) -> Result<Value> {
     let mut nested = value.clone();
@@ -1093,6 +1110,11 @@ impl<'a> Render<'a> {
                     let written = self.attribute_name(attribute, declared)?;
                     let value = scalar_text(value, "an attribute")?;
                     check_representable(&value)?;
+                    if attributes.iter().any(|(known, _)| *known == written) {
+                        return Err(invalid_value(format!(
+                            "attribute `{written}` is given twice; keep one `@{written}` member"
+                        )));
+                    }
                     attributes.push((written, value));
                 }
                 Member::Content => text = self.content_text(value)?,
@@ -1268,7 +1290,10 @@ fn as_number(value: &Value) -> Option<f64> {
     match value {
         Value::Int(number) => number.to_string().parse().ok(),
         Value::Number(number) => Some(*number),
-        Value::Text(text) => trim_xml(text).parse().ok(),
+        Value::Text(text) => trim_xml(text)
+            .parse::<f64>()
+            .ok()
+            .filter(|number| number.is_finite()),
         _ => None,
     }
 }
@@ -1362,6 +1387,67 @@ mod tests {
         ));
         assert!(compare(CompareOp::Eq, None, Some(&Value::Null)));
         assert!(!compare(CompareOp::Lt, None, Some(&Value::Int(1))));
+    }
+
+    #[test]
+    fn map_with_several_new_attributes_inserts_all_in_order() {
+        let tree = XmlTree::parse(r#"<a k="0"/>"#).unwrap();
+        let mut fields = Fields::new();
+        fields.insert("@x".into(), Value::Text("1".into()));
+        fields.insert("@y".into(), Value::Text("2".into()));
+        fields.insert("@k".into(), Value::Text("0".into()));
+        let key = KeyPath::parse("a").unwrap();
+        let change = tree.set(&key, &Value::Map(fields), false).unwrap();
+        assert_eq!(
+            change.apply(tree.text()).unwrap(),
+            r#"<a k="0" x="1" y="2"/>"#
+        );
+    }
+
+    #[test]
+    fn map_with_several_attributes_on_an_element_without_attributes() {
+        let tree = XmlTree::parse("<a/>").unwrap();
+        let mut fields = Fields::new();
+        fields.insert("+@x".into(), Value::Text("1".into()));
+        fields.insert("+@y".into(), Value::Text("2".into()));
+        let key = KeyPath::parse("a").unwrap();
+        let change = tree.set(&key, &Value::Map(fields), false).unwrap();
+        assert_eq!(change.apply(tree.text()).unwrap(), r#"<a x="1" y="2"/>"#);
+    }
+
+    #[test]
+    fn attribute_given_under_two_member_spellings_is_rejected() {
+        let tree = XmlTree::parse("<a/>").unwrap();
+        let mut fields = Fields::new();
+        fields.insert("@id".into(), Value::Text("1".into()));
+        fields.insert("+@id".into(), Value::Text("2".into()));
+        let error = tree
+            .insert_element(tree.root(), "b", &Value::Map(fields))
+            .unwrap_err();
+        assert_eq!(error.code().as_str(), "E_INVALID_VALUE");
+    }
+
+    #[test]
+    fn filter_does_not_treat_nan_and_infinity_words_as_numbers() {
+        let nan = Value::Text("NaN".into());
+        assert!(compare(CompareOp::Eq, Some(&nan), Some(&nan)));
+        let inf = Value::Text("inf".into());
+        let infinity = Value::Text("infinity".into());
+        assert!(!compare(CompareOp::Eq, Some(&inf), Some(&infinity)));
+        assert!(compare(CompareOp::Ne, Some(&inf), Some(&infinity)));
+    }
+
+    #[test]
+    fn document_value_holds_declaration_doctype_and_root() {
+        let tree = XmlTree::parse("<?xml version=\"1.0\"?>\n<!DOCTYPE r>\n<r/>").unwrap();
+        assert_eq!(
+            tree.to_value().unwrap().to_plain_json(),
+            serde_json::json!({
+                "+p_xml": "version=\"1.0\"",
+                "+directive": "DOCTYPE r",
+                "r": null
+            })
+        );
     }
 
     #[test]

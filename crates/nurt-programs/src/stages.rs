@@ -380,16 +380,12 @@ fn find(setup: &ProgramsSetup, args: &BoundArgs, ctx: &ExecCtx) -> Result<Vec<Re
 }
 
 fn location_version(index: &ProgramIndex, name: &str, path: Option<&str>) -> Option<String> {
+    let path = path?;
     let (position, _) = index.resolve(name)?;
     let card = index.card(position)?;
-    (path.is_none()
-        || card.path.as_deref() == path
-        || card
-            .alternatives
-            .iter()
-            .any(|known| Some(known.as_str()) == path))
-    .then(|| card.version.clone())
-    .flatten()
+    (card.path.as_deref() == Some(path) || card.alternatives.iter().any(|known| known == path))
+        .then(|| card.version.clone())
+        .flatten()
 }
 
 fn source_filter(index: &ProgramIndex, args: &BoundArgs, command: &str) -> Result<SourceFilter> {

@@ -1184,6 +1184,11 @@ pub(crate) mod test_support {
             self.fs.record("apply_meta", &[self.path.as_path()])?;
             set_path_mode(self.path.as_path(), meta.basic.mode)
                 .map_err(|error| fs_error("apply_meta", self.path.as_path(), &error))?;
+            if let Ok(nanos) = u64::try_from(meta.basic.modified_ns) {
+                self.file
+                    .set_modified(std::time::UNIX_EPOCH + Duration::from_nanos(nanos))
+                    .map_err(|error| fs_error("apply_meta", self.path.as_path(), &error))?;
+            }
             let ino = file_ino(&self.file.metadata().unwrap());
             let mut state = self.fs.state();
             if state.transfer_sid

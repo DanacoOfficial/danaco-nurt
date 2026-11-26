@@ -285,7 +285,8 @@ impl Request {
     }
 
     /// Time limit of the whole program, sent in whole seconds or, when the
-    /// duration has a fractional second, in milliseconds.
+    /// duration has a fractional second, in milliseconds rounded up, so that
+    /// a limit above zero never becomes `0ms`.
     #[must_use]
     pub fn timeout(self, timeout: Duration) -> Self {
         self.option("timeout", duration_text(timeout))
@@ -341,9 +342,12 @@ fn duration_text(duration: Duration) -> String {
     if duration.subsec_nanos() == 0 {
         format!("{}s", duration.as_secs())
     } else {
-        format!("{}ms", duration.as_millis())
+        format!("{}ms", duration.as_nanos().div_ceil(NANOS_PER_MILLI))
     }
 }
+
+/// Nanoseconds in a millisecond.
+const NANOS_PER_MILLI: u128 = 1_000_000;
 
 #[cfg(test)]
 mod tests {
@@ -423,6 +427,41 @@ mod tests {
         assert_eq!(duration_text(Duration::from_secs(120)), "120s");
         assert_eq!(duration_text(Duration::from_millis(250)), "250ms");
         assert_eq!(duration_text(Duration::ZERO), "0s");
+    }
+
+    #[test]
+    fn fractions_of_a_millisecond_round_up() {
+        assert_eq!(duration_text(Duration::from_nanos(1)), "1ms");
+        assert_eq!(duration_text(Duration::from_micros(100)), "1ms");
+        assert_eq!(duration_text(Duration::from_nanos(1_000_001)), "2ms");
+        assert_eq!(duration_text(Duration::from_nanos(1_000_000)), "1ms");
+        assert_eq!(duration_text(Duration::new(1, 1)), "1001ms");
+        assert!(duration_text(Duration::MAX).ends_with("ms"));
+        let request = Request::program("x").timeout(Duration::from_micros(10));
+        assert_eq!(request.to_value()["options"]["timeout"], "1ms");
+    }
+
+    #[test]
+    fn inputs_are_exclusive_and_the_variant_belongs_to_the_program() {
+        let value = Request::cursor("c_1").variant(Variant::B).to_value();
+        assert_eq!(value["variant"], "b");
+        assert!(value.get("program").is_none());
+        let value = Request::accept("c1").to_value();
+        assert!(value.get("variant").is_none() && value.get("options").is_none());
+    }
+
+    #[test]
+    fn text_values_keep_multi_byte_characters_and_quotes() {
+        let request = Request::program("find \"/home/user/\u{17c}\u{f3}\u{142}w\"")
+            .session("sesja-\u{105}")
+            .fields(["\u{15b}cie\u{17c}ka"]);
+        let parsed: Value = serde_json::from_str(&request.to_json()).unwrap();
+        assert_eq!(
+            parsed["program"],
+            "find \"/home/user/\u{17c}\u{f3}\u{142}w\""
+        );
+        assert_eq!(parsed["options"]["session"], "sesja-\u{105}");
+        assert_eq!(parsed["options"]["fields"][0], "\u{15b}cie\u{17c}ka");
     }
 
     #[test]

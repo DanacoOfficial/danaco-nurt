@@ -304,6 +304,77 @@ fn short_form_covers_every_kind_of_value() {
     assert_eq!(display_short(&map), "{a: 1}");
 }
 
+#[test]
+fn displays_the_extreme_instants_without_overflow() {
+    let smallest = Instant::from_unix_nanos(i64::MIN);
+    assert_eq!(display_instant(smallest), smallest.to_string());
+    let near_smallest = Instant::from_unix_nanos(i64::MIN + 1);
+    assert_eq!(display_instant(near_smallest), smallest.to_string());
+    let largest = Instant::from_unix_nanos(i64::MAX);
+    assert_eq!(display_instant(largest), "2262-04-11T23:47:16Z");
+}
+
+#[test]
+fn parses_the_day_and_week_durations_of_the_language() {
+    let cases: [(&str, i64); 6] = [
+        ("24h", 86_400_000),
+        ("1d", 86_400_000),
+        ("1w", 604_800_000),
+        ("2w3d", 1_468_800_000),
+        ("1w1d1h1m1s1ms", 694_861_001),
+        ("-1w", -604_800_000),
+    ];
+    for (text, millis) in cases {
+        assert_eq!(parse_duration(text).unwrap().as_millis(), millis, "{text}");
+    }
+}
+
+#[test]
+fn parses_sizes_at_the_boundaries_of_units_and_letter_case() {
+    let cases: [(&str, u64); 6] = [
+        ("1mb", 1_000_000),
+        ("1MB", 1_000_000),
+        ("1MiB", 1_048_576),
+        ("1_0b", 10),
+        ("0.000000001gb", 1),
+        ("18446744073.709551615gb", u64::MAX),
+    ];
+    for (text, bytes) in cases {
+        assert_eq!(parse_size(text).unwrap().bytes(), bytes, "{text}");
+    }
+}
+
+#[test]
+fn rejects_units_and_digits_written_with_multi_byte_characters() {
+    for text in ["1é", "10мб", "１０mb", "1mbé", "é1mb", "1\u{a0}mb"] {
+        let error = parse_size(text).unwrap_err();
+        assert_eq!(error.type_name, "size", "{text}");
+        assert_eq!(error.input, text);
+    }
+    for text in ["1ч", "1h30м", "１h", "1hé", "1\u{a0}h"] {
+        let error = parse_duration(text).unwrap_err();
+        assert_eq!(error.type_name, "duration", "{text}");
+        assert_eq!(error.input, text);
+    }
+}
+
+#[test]
+fn rejects_instants_cut_inside_a_multi_byte_character() {
+    let utc = TimeZone::UTC;
+    for text in ["2026-11-2é", "2026-11-21é", "2026-11-21T1é:00:00", "é026-11-21"] {
+        let error = parse_instant(text, &utc).unwrap_err();
+        assert_eq!(error.type_name, "instant", "{text}");
+        assert_eq!(error.input, text);
+    }
+}
+
+#[test]
+fn rejects_ranges_with_multi_byte_bounds() {
+    for text in ["é", "é..", "..é", "1..é", "１..５"] {
+        assert!(parse_range(text).is_err(), "{text}");
+    }
+}
+
 proptest! {
     #![proptest_config(config())]
 

@@ -122,6 +122,10 @@ pub(crate) fn find(files: &[String]) -> Vec<Found> {
     found
 }
 
+/// Characters that let a name read from a manifest end or extend the command
+/// line it is placed in.
+const SHELL_METACHARACTERS: [char; 11] = [';', '&', '|', '<', '>', '$', '`', '\\', '"', '\'', '\n'];
+
 /// Entries read from one manifest.
 #[derive(Debug, Default)]
 pub(crate) struct Extracted {
@@ -132,7 +136,13 @@ pub(crate) struct Extracted {
 }
 
 impl Extracted {
+    /// Adds a command; a command line with a shell metacharacter is left
+    /// out, because names read from manifests are untrusted and the command
+    /// line is meant to be run as written.
     fn command(&mut self, dir: &str, name: &str, command: String, origin: String) {
+        if command.contains(SHELL_METACHARACTERS) {
+            return;
+        }
         let mut entry = Entry::new(Section::Commands, name)
             .command(command)
             .origin(origin);
@@ -776,6 +786,23 @@ mod tests {
             Some("a.B")
         );
         assert_eq!(element_text("<mainClass></mainClass>", "mainClass"), None);
+    }
+
+    #[test]
+    fn command_lines_with_shell_metacharacters_are_left_out() {
+        let mut out = Extracted::default();
+        for name in ["x; rm -rf /", "a|b", "a&b", "$(id)", "`id`", "a\"b", "a'b", "a>b"] {
+            out.command("", name, format!("npm run {name}"), "package.json".to_owned());
+        }
+        assert!(out.commands.is_empty());
+        out.command(
+            "web",
+            "build:prod",
+            "npm run build:prod".to_owned(),
+            "web/package.json:scripts.build:prod".to_owned(),
+        );
+        assert_eq!(out.commands.len(), 1);
+        assert_eq!(out.commands[0].command.as_deref(), Some("npm run build:prod"));
     }
 
     #[test]

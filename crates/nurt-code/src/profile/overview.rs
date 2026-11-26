@@ -180,4 +180,37 @@ mod tests {
         assert_eq!(percent(2, 3), 67);
         assert_eq!(percent(0, 0), 0);
     }
+
+    fn listed(paths: &[&str]) -> Vec<String> {
+        paths.iter().map(|path| (*path).to_owned()).collect()
+    }
+
+    #[test]
+    fn languages_list_code_by_share_before_data_formats() {
+        let files = listed(&["a.rs", "src/b.rs", "tool.py", "data.json", "notes.txt"]);
+        let entries = languages(&files, Registry::builtin());
+        let found: Vec<(&str, &str)> = entries
+            .iter()
+            .map(|entry| (entry.name.as_str(), entry.origin.as_deref().unwrap_or("")))
+            .collect();
+        assert_eq!(
+            found,
+            [
+                ("Rust", "2 files, 67%"),
+                ("Python", "1 files, 33%"),
+                ("JSON", "1 files, data"),
+            ]
+        );
+        assert!(languages(&[], Registry::builtin()).is_empty());
+    }
+
+    #[test]
+    fn languages_with_equal_counts_are_ordered_by_name() {
+        let files = listed(&["x.rs", "y.go", "z.py"]);
+        let names: Vec<String> = languages(&files, Registry::builtin())
+            .into_iter()
+            .map(|entry| entry.name)
+            .collect();
+        assert_eq!(names, ["Go", "Python", "Rust"]);
+    }
 }

@@ -13,6 +13,7 @@
 //! most once. Empty files are never paired. With copy detection, modified
 //! files are also sources and may be copied more than once.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use bstr::{BStr, BString, ByteSlice};
@@ -193,6 +194,10 @@ fn pair_up(
     if open_sources > options.limit || open_destinations > options.limit {
         return matches;
     }
+    let source_chunks: Vec<Chunks<'_>> = sources
+        .iter()
+        .map(|(source, _)| chunk_keys(&source.content))
+        .collect();
     let mut scored = Vec::new();
     for (destination_index, (destination, _)) in destinations.iter().enumerate() {
         if destination_taken[destination_index] {
@@ -203,7 +208,12 @@ fn pair_up(
             if source_taken[source_index] || !compatible(&source.entry, &destination.entry) {
                 continue;
             }
-            let score = similarity(&source.content, &destination.content, &destination_chunks);
+            let score = similarity(
+                &source.content,
+                &destination.content,
+                &source_chunks[source_index],
+                &destination_chunks,
+            );
             if score >= options.threshold {
                 scored.push((source_index, destination_index, score));
             }
@@ -229,9 +239,14 @@ fn base_name(path: &BString) -> &[u8] {
     path.rsplit_str("/").next().unwrap_or(path.as_slice())
 }
 
-fn chunk_keys(data: &[u8]) -> HashMap<&[u8], u64> {
+/// Chunks of a content with the number of bytes each chunk accounts for.
+type Chunks<'a> = HashMap<Cow<'a, [u8]>, u64>;
+
+/// The chunks of a text keep the line feed and drop the carriage return that
+/// precedes it, so that a file has the same chunks with either line ending.
+fn chunk_keys(data: &[u8]) -> Chunks<'_> {
     let text = !looks_binary(data);
-    let mut counts: HashMap<&[u8], u64> = HashMap::new();
+    let mut counts: Chunks<'_> = HashMap::new();
     let mut start = 0;
     while start < data.len() {
         let rest = &data[start..];
@@ -240,25 +255,33 @@ fn chunk_keys(data: &[u8]) -> HashMap<&[u8], u64> {
             .take(CHUNK_MAX)
             .position(|&byte| byte == b'\n')
             .map_or(rest.len().min(CHUNK_MAX), |index| index + 1);
-        let mut chunk = &rest[..end];
+        let chunk = &rest[..end];
         let mut weight = chunk.len() as u64;
-        if text && chunk.ends_with(b"\r\n") {
-            chunk = &chunk[..chunk.len() - 2];
+        let key = if text && chunk.ends_with(b"\r\n") {
             weight -= 1;
-        }
-        *counts.entry(chunk).or_default() += weight;
+            let mut joined = chunk[..chunk.len() - 2].to_vec();
+            joined.push(b'\n');
+            Cow::Owned(joined)
+        } else {
+            Cow::Borrowed(chunk)
+        };
+        *counts.entry(key).or_default() += weight;
         start += end;
     }
     counts
 }
 
 /// Similarity of two contents in percent.
-fn similarity(source: &[u8], destination: &[u8], destination_chunks: &HashMap<&[u8], u64>) -> u32 {
+fn similarity(
+    source: &[u8],
+    destination: &[u8],
+    source_chunks: &Chunks<'_>,
+    destination_chunks: &Chunks<'_>,
+) -> u32 {
     let largest = source.len().max(destination.len()) as u64;
     if largest == 0 {
         return 0;
     }
-    let source_chunks = chunk_keys(source);
     let common: u64 = source_chunks
         .iter()
         .map(|(chunk, weight)| {
@@ -376,6 +399,22 @@ mod tests {
             &RenameOptions::default(),
         );
         assert_eq!(found.len(), 1);
+        let score = found[0].similarity.unwrap();
+        assert!((50..100).contains(&score), "{score}");
+    }
+
+    #[test]
+    fn treats_crlf_and_lf_text_as_similar() {
+        let lf = "line one\nline two\nline three\nline four\n";
+        let crlf = "line one\r\nline two\r\nline three\r\nline four\r\n";
+        let pairs = vec![pair("a.txt", true, false), pair("b.txt", false, true)];
+        let found = run(
+            pairs,
+            &[("a.txt", lf), ("b.txt", crlf)],
+            &RenameOptions::default(),
+        );
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].old_path, Some("a.txt".into()));
         let score = found[0].similarity.unwrap();
         assert!((50..100).contains(&score), "{score}");
     }

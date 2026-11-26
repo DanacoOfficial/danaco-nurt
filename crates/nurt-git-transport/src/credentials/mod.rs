@@ -1357,6 +1357,45 @@ mod tests {
     }
 
     #[test]
+    fn manager_helper_names_the_program_of_git_credential_manager() {
+        let helper = |definition: &str| Helper {
+            definition: definition.to_owned(),
+            kind: config::classify(definition),
+        };
+        assert_eq!(
+            manager_program(&helper("manager")),
+            ProgramHelper::Command {
+                program: "git-credential-manager".to_owned(),
+                args: Vec::new(),
+            }
+        );
+        assert_eq!(
+            manager_program(&helper("manager-core --verbose")),
+            ProgramHelper::Command {
+                program: "git-credential-manager-core".to_owned(),
+                args: vec!["--verbose".to_owned()],
+            }
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn manager_helper_keeps_an_absolute_program_path() {
+        let definition = "/opt/gcm/git-credential-manager --x";
+        let helper = Helper {
+            definition: definition.to_owned(),
+            kind: config::classify(definition),
+        };
+        assert_eq!(
+            manager_program(&helper),
+            ProgramHelper::Command {
+                program: "/opt/gcm/git-credential-manager".to_owned(),
+                args: vec!["--x".to_owned()],
+            }
+        );
+    }
+
+    #[test]
     fn expands_home_prefix() {
         assert_eq!(
             expand_home("~/x", Some(Path::new("/h"))),

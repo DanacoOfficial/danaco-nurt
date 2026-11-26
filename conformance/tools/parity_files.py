@@ -60,9 +60,15 @@ def hidden(path: str) -> bool:
     return any(part.startswith(".") for part in path.split("/"))
 
 
+def path_order(path: str) -> tuple[bytes, ...]:
+    """Returns the sort key of a path: its components in byte order, so that a directory
+    comes right before its contents, as `sort: path` of the specification requires."""
+    return tuple(path.encode().split(b"/"))
+
+
 def text_files(fs: dict) -> list[str]:
-    """Returns the paths of the text files of a tree in byte order."""
-    return sorted((p for p, c in fs.items() if isinstance(c, str)), key=lambda p: p.encode())
+    """Returns the paths of the text files of a tree in the order of the walk."""
+    return sorted((p for p, c in fs.items() if isinstance(c, str)), key=path_order)
 
 
 def matches(fs: dict, pattern: str, *, flags: int = 0, glob: str = "**", show_hidden: bool = True,
@@ -98,7 +104,7 @@ def found(fs: dict, glob: str, *, kind: str = "file", show_hidden: bool = True,
             paths.add(("f:" if is_file else "d:") + sub)
     g = glob_regex(glob)
     rows = []
-    for item in sorted(paths, key=lambda p: p[2:].encode()):
+    for item in sorted(paths, key=lambda p: path_order(p[2:])):
         t, path = item[:2], item[2:]
         if under:
             if not path.startswith(under + "/"):
@@ -351,7 +357,7 @@ def find_scenarios() -> Collection:
     ):
         if kw is None:
             rows = sorted(found(layout, "**/*.go") + found(layout, "**/*.md"),
-                          key=lambda r: r["fields"]["path"]["v"].encode())
+                          key=lambda r: path_order(r["fields"]["path"]["v"]))
         else:
             rows = found(layout, **kw)
         c.add(name, f"Finds entries with {program[5:].strip() or 'defaults'}.", fs, program,

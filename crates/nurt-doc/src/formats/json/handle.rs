@@ -413,8 +413,8 @@ fn node_spec(document: &JsonDocument, id: syntax::NodeId, entry: Option<&Entry>)
     };
     let key = entry.and_then(|entry| entry.key.as_ref());
     let start = key.map_or(node.span.start, |key| key.span.start);
-    let start = document
-        .leading_comment_start(id)
+    let start = entry
+        .and_then(|entry| document.leading_comment_start(entry))
         .map_or(start, |comments| comments.min(start));
     let mut spec = NodeSpec::new(kind, Span::new(start, node.span.end))
         .with_value_span(value_span)
@@ -431,7 +431,7 @@ fn node_spec(document: &JsonDocument, id: syntax::NodeId, entry: Option<&Entry>)
     if let Some(value) = value {
         spec = spec.with_value(value);
     }
-    if let Some(comment) = document.comment_of(id) {
+    if let Some(comment) = document.comment_of(id, entry) {
         spec = spec.with_comment(comment);
     }
     spec

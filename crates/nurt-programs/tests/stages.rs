@@ -25,7 +25,7 @@ use nurt_programs::model::{
 use nurt_programs::search::SearchOptions;
 use nurt_programs::source::{SourceKind, SourceRegistry};
 use nurt_programs::stages::{CATALOG, DESCRIBE, FIND, ProgramsSetup, SEARCH};
-use support::{Fixture, StaticSource, args, field, names, run, text, texts};
+use support::{Fixture, StaticSource, TestProcess, args, field, names, run, text, texts};
 
 fn program(name: &str, category: &str, summary: &str, when: &[&str]) -> RawProgram {
     let mut raw = RawProgram::new(name);
@@ -1055,4 +1055,90 @@ fn corrupt_source_warns_not_fails() {
         "{logs:?}"
     );
     assert_eq!(SourceKind::Package.as_str(), "package");
+}
+
+#[cfg(unix)]
+#[test]
+fn find_versions_only_for_located_programs() {
+    let fixture = Fixture::new();
+    fixture.executable("/usr/bin/present");
+    let mut absent = program("absent", "system", "Not installed here.", &[]);
+    absent.version = Some("26.07".to_owned());
+    let mut present = program("present", "system", "Installed here.", &[]);
+    present.version = Some("1.0".to_owned());
+    let catalog = StaticSource::catalog(
+        "versions",
+        SourceData {
+            programs: vec![absent, present],
+            ..SourceData::default()
+        },
+    );
+    let setup = fixture.setup(vec![Arc::new(catalog)]);
+    let records = run(
+        &setup,
+        &fixture.ctx(),
+        args(
+            FIND,
+            &[
+                ("name", texts(&["absent", "present"])),
+                ("versions", Value::Bool(true)),
+            ],
+        ),
+    )
+    .unwrap();
+    assert_eq!(field(&records[0], "found").as_deref(), Some("false"));
+    assert!(records[0].get("version").is_none());
+    assert!(records[0].get("version_source").is_none());
+    assert_eq!(field(&records[1], "version").as_deref(), Some("1.0"));
+}
+
+#[cfg(unix)]
+#[test]
+fn describe_help_is_refused_for_programs_with_effects_outside_the_computer() {
+    let fixture = Fixture::new();
+    fixture.executable("/usr/bin/shutdown");
+    let setup = fixture.setup(Vec::new());
+    let card = describe(
+        &setup,
+        &fixture,
+        &[("name", text("shutdown")), ("help", Value::Bool(true))],
+    );
+    assert_eq!(field(&card, "help_status").as_deref(), Some("refused"));
+    assert!(card.get("help").is_none());
+    assert!(fixture.process.calls.lock().unwrap().is_empty());
+    assert!(
+        fixture
+            .logs()
+            .iter()
+            .any(|message| message.contains("effects outside the computer"))
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn describe_help_reports_timeout_and_empty_output() {
+    let mut fixture = Fixture::new();
+    fixture.executable("/usr/bin/slow");
+    fixture.process = Arc::new(TestProcess {
+        stdout: b"partial usage\n".to_vec(),
+        timed_out: true,
+        ..TestProcess::default()
+    });
+    let setup = fixture.setup(Vec::new());
+    let timed_out = describe(
+        &setup,
+        &fixture,
+        &[("name", text("slow")), ("help", Value::Bool(true))],
+    );
+    assert_eq!(field(&timed_out, "help_status").as_deref(), Some("timeout"));
+    assert_eq!(field(&timed_out, "help").as_deref(), Some("partial usage"));
+
+    fixture.process = Arc::new(TestProcess::default());
+    let silent = describe(
+        &setup,
+        &fixture,
+        &[("name", text("slow")), ("help", Value::Bool(true))],
+    );
+    assert_eq!(field(&silent, "help_status").as_deref(), Some("empty"));
+    assert!(silent.get("help").is_none());
 }

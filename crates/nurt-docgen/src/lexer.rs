@@ -471,6 +471,58 @@ mod tests {
     }
 
     #[test]
+    fn keeps_multi_byte_text_and_skips_multi_byte_comments() {
+        assert_eq!(
+            kinds("say \"za\u{17c}\u{f3}\u{142}\u{107} \u{1f600}\" # \u{17c}\u{f3}\u{142}"),
+            vec![
+                Kind::Word("say".into()),
+                Kind::Text("za\u{17c}\u{f3}\u{142}\u{107} \u{1f600}".into())
+            ]
+        );
+    }
+
+    #[test]
+    fn rejects_non_ascii_identifiers() {
+        let (_, problems) = tokenize("\u{142}\u{f3}d\u{17a}");
+        assert_eq!(problems, vec!["unexpected character \u{142}"]);
+    }
+
+    #[test]
+    fn crlf_gives_one_newline_token_per_line() {
+        let (tokens, problems) = tokenize("count\r\ncount\r\n");
+        assert!(problems.is_empty());
+        let newlines = tokens
+            .iter()
+            .filter(|token| token.kind == Kind::Newline)
+            .count();
+        assert_eq!(newlines, 2);
+    }
+
+    #[test]
+    fn keeps_escapes_of_text_as_written() {
+        assert_eq!(
+            kinds("say \"a\\\"b\\\\\""),
+            vec![Kind::Word("say".into()), Kind::Text("a\\\"b\\\\".into())]
+        );
+    }
+
+    #[test]
+    fn reports_unterminated_raw_text_regex_and_empty_reference() {
+        assert_eq!(tokenize("r#\"abc\"").1, vec!["unterminated raw text"]);
+        assert_eq!(
+            tokenize("search /abc").1,
+            vec!["unterminated regular expression"]
+        );
+        assert_eq!(tokenize("@ x").1, vec!["reference without a name"]);
+        assert_eq!(tokenize("a | b").1, vec!["unexpected character |"]);
+    }
+
+    #[test]
+    fn reports_invalid_duration_parts() {
+        assert_eq!(tokenize("1h30").1, vec!["invalid duration near 30"]);
+    }
+
+    #[test]
     fn marks_whitespace_before_tokens() {
         let (tokens, _) = tokenize("ago(1h)");
         assert!(!tokens[1].space_before);

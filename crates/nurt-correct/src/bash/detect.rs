@@ -201,6 +201,20 @@ mod tests {
     }
 
     #[test]
+    fn crlf_and_multibyte_text_do_not_change_the_decision() {
+        assert!(habit("rm -rf \"/srv/zażółć\"\r\n"));
+        assert!(!habit("remove \"/srv/zażółć\"\r\n"));
+        assert!(!habit("\r\n"));
+    }
+
+    #[test]
+    fn named_arguments_and_pipes_of_nurt_are_not_habits() {
+        assert!(!habit("find \"/a\" glob: \"*.go\" |> count"));
+        assert!(!habit("sort size order: desc"));
+        assert!(habit("cat /a | grep -i x"));
+    }
+
+    #[test]
     fn negative_number_and_quoted_dash_are_not_flags() {
         let quoted = &lex("rm '-x'").unwrap()[1];
         let PosixTokenKind::Word(word) = &quoted.kind else {

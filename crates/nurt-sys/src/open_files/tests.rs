@@ -28,6 +28,31 @@ fn open_files_target_matches_file_or_subtree() {
     assert!(!dir.matches(Path::new("/data2/file.txt")));
 }
 
+#[cfg(unix)]
+#[test]
+fn open_files_holder_matches_paths_that_are_not_utf8() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let name = OsStr::from_bytes(b"/data/caf\xE9.txt");
+    let file = Target {
+        path: PathBuf::from(name),
+        directory: false,
+    };
+    let mut holder = Holder::new(1);
+    holder.check(&file, super::Access::Fd, name);
+    assert!(holder.is_holding());
+    assert!(holder.files.contains("/data/caf\u{FFFD}.txt"));
+
+    let deleted = OsStr::from_bytes(b"/data/caf\xE9.txt (deleted)");
+    let mut holder = Holder::new(2);
+    holder.check(&file, super::Access::Fd, deleted);
+    assert!(!holder.is_holding());
+    let directory = target("/data", true);
+    holder.check(&directory, super::Access::Fd, deleted);
+    assert!(holder.is_holding() && holder.deleted);
+}
+
 #[test]
 fn open_files_holder_raw_lists_access_files_and_kind() {
     let mut holder = Holder::new(7);
@@ -384,6 +409,45 @@ mod procfs_tree {
         let target = super::super::Target::resolve(&file).unwrap();
         let error = super::super::linux::scan(&SysRoot::new(empty.path()), &target).unwrap_err();
         assert_eq!(error.code(), nurt_contracts::error::ErrorCode::Io);
+    }
+
+    #[test]
+    fn open_files_linux_matches_paths_that_are_not_utf8() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let tree = Tree::new();
+        let bad = tree.data.join(OsStr::from_bytes(b"caf\xE9.txt"));
+        std::fs::write(&bad, "content\n").unwrap();
+        let link = bad.as_os_str().as_bytes().to_vec();
+        tree.process(900, "descriptor", &[], &[], "");
+        symlink(OsStr::from_bytes(&link), tree.root.join("proc/900/fd/3")).unwrap();
+        tree.process(901, "mapper", &[], &[], "");
+        let mut maps = b"7f00-7f10 r--p 00000000 08:01 42   ".to_vec();
+        maps.extend_from_slice(&link);
+        maps.push(b'\n');
+        std::fs::write(tree.root.join("proc/901/maps"), maps).unwrap();
+
+        let target = super::super::Target::resolve(&bad).unwrap();
+        let scan = super::super::linux::scan(&tree.sysroot(), &target).unwrap();
+        let found: Vec<u32> = scan.holders.iter().map(|holder| holder.pid).collect();
+        assert_eq!(found, [900, 901]);
+    }
+
+    #[test]
+    fn open_files_linux_maps_path_column_keeps_spaces_and_bytes() {
+        use super::super::linux::{mapped_path, mapped_path_bytes};
+
+        assert_eq!(
+            mapped_path("7f00-7f10 r--p 0 08:01 42   /opt/my app/lib.so"),
+            Some("/opt/my app/lib.so")
+        );
+        assert_eq!(
+            mapped_path_bytes(b"7f00-7f10 r--p 0 08:01 42 /tmp/\xFF.so"),
+            Some(&b"/tmp/\xFF.so"[..])
+        );
+        assert_eq!(mapped_path_bytes(b"7f00-7f10 r--p 0 08:01 42"), None);
+        assert_eq!(mapped_path_bytes(b""), None);
     }
 
     #[test]

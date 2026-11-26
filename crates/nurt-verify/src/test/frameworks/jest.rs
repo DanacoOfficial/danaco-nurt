@@ -32,7 +32,10 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
     if request.only.is_empty() {
         argv.extend(request.targets.iter().cloned());
     } else {
+        // Jest reads a plain argument as a regular expression of paths, in
+        // which a name such as `[id].test.tsx` selects other files.
         argv.extend(files_of(request.only));
+        argv.push("--runTestsByPath".to_owned());
     }
     argv.push("--json".to_owned());
     argv.push(format!("--outputFile={}", path_text(request.report)));

@@ -1381,6 +1381,35 @@ mod tests {
     }
 
     #[test]
+    fn known_and_details_need_values_of_the_right_type() {
+        let test = TestContext::new();
+        let wrong = with(args(&["/data/a.txt"]), KNOWN, Value::Int(1));
+        assert_eq!(
+            entries(&test.ctx(), &wrong).unwrap_err().code(),
+            ErrorCode::Type
+        );
+        let mut tags = Fields::new();
+        tags.insert("/data/a.txt".to_owned(), Value::Int(1));
+        let wrong = with(args(&["/data/a.txt"]), KNOWN, Value::Map(tags));
+        assert_eq!(
+            entries(&test.ctx(), &wrong).unwrap_err().code(),
+            ErrorCode::Type
+        );
+        let items = Value::List(vec![Value::Int(1)]);
+        let wrong = with(args(&["/data/a.txt"]), DETAILS, items);
+        assert_eq!(
+            entries(&test.ctx(), &wrong).unwrap_err().code(),
+            ErrorCode::Type
+        );
+    }
+
+    #[test]
+    fn relative_link_targets_keep_their_components() {
+        assert_eq!(link_text(Path::new("./a/../b")).as_str(), "./a/../b");
+        assert_eq!(link_text(Path::new("a/b")).as_str(), "a/b");
+    }
+
+    #[test]
     fn helpers_format_identifiers_and_values() {
         assert_eq!(
             file_id_text(FileId {

@@ -162,16 +162,23 @@ fn sign_with_agent(
     let data = SshSig::signed_data(NAMESPACE, HashAlg::Sha512, payload)
         .map_err(|error| unsupported(&error.to_string()))?;
     let signature = agent::sign(socket, public, &data)?;
-    finish(
-        SshSig::new(
-            public.key_data().clone(),
-            NAMESPACE,
-            HashAlg::Sha512,
-            signature,
-        ),
-        public,
-        KeySource::Agent,
+    let sshsig = SshSig::new(
+        public.key_data().clone(),
+        NAMESPACE,
+        HashAlg::Sha512,
+        signature,
     )
+    .map_err(|error| unsupported(&error.to_string()))?;
+    if public.verify(NAMESPACE, payload, &sshsig).is_err() {
+        return Err(sign_error(
+            AGENT_UNAVAILABLE,
+            format!(
+                "the SSH agent returned a signature that does not verify against {}; restart the agent or set `user.signingKey` to a private key file",
+                public.fingerprint(HashAlg::Sha256)
+            ),
+        ));
+    }
+    finish(Ok(sshsig), public, KeySource::Agent)
 }
 
 fn unsupported(detail: &str) -> Error {
@@ -223,10 +230,14 @@ pub(crate) fn verify(
     if sshsig.namespace() != NAMESPACE || public.verify(NAMESPACE, payload, &sshsig).is_err() {
         return Ok(result);
     }
-    if let Some(path) = &config.revocation_file
-        && allowed::is_revoked(path, &public)?
-    {
-        return Ok(result);
+    if let Some(path) = &config.revocation_file {
+        if allowed::is_krl(path)? {
+            result.status = SignatureStatus::Unsupported;
+            return Ok(result);
+        }
+        if allowed::is_revoked(path, &public)? {
+            return Ok(result);
+        }
     }
     let principal = match &config.allowed_signers_file {
         Some(path) => allowed::find_principal(path, &public, config.signed_at, config.utc_offset)?,
@@ -409,6 +420,18 @@ mod tests {
         let result = verify(PAYLOAD, PAYLOAD_SIGNATURE.as_bytes(), &config).expect("verify");
         assert_eq!(result.status, SignatureStatus::Good);
         assert_eq!(result.signer.as_deref(), Some("tester@example.test"));
+        assert_eq!(result.key.as_deref(), Some(FINGERPRINT));
+    }
+
+    #[test]
+    fn reports_a_binary_revocation_list_as_unsupported() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = allowed_config(dir.path(), &format!("tester@example.test {PUBLIC}\n"));
+        let krl = dir.path().join("revoked.krl");
+        std::fs::write(&krl, b"SSHKRL\n\0\0\0\0\x01").expect("write");
+        config.revocation_file = Some(krl);
+        let result = verify(PAYLOAD, PAYLOAD_SIGNATURE.as_bytes(), &config).expect("verify");
+        assert_eq!(result.status, SignatureStatus::Unsupported);
         assert_eq!(result.key.as_deref(), Some(FINGERPRINT));
     }
 

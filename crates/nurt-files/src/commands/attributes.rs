@@ -1048,6 +1048,52 @@ mod tests {
     }
 
     #[test]
+    fn recursive_on_a_file_changes_the_file_only() {
+        let test = TestContext::new();
+        file(&test, "/data/a.txt");
+        let call = args(
+            &["/data/a.txt"],
+            &[(MODE, text("0600")), (RECURSIVE, Value::Bool(true))],
+        );
+        let outcome = run(&test, &call, StageInput::none()).unwrap();
+        assert_eq!(outcome.applied.len(), 1);
+        assert_eq!(meta(&test, "/data/a.txt").mode, 0o600);
+    }
+
+    #[test]
+    fn entries_below_that_already_match_are_counted_once() {
+        let test = TestContext::new();
+        file(&test, "/site/index.html");
+        file(&test, "/site/css/main.css");
+        let call = args(
+            &["/site"],
+            &[(MODE, text("go-rwx")), (RECURSIVE, Value::Bool(true))],
+        );
+        run(&test, &call, StageInput::none()).unwrap();
+        let again = run(&test, &call, StageInput::none()).unwrap();
+        assert!(again.applied.is_empty());
+        let counted = again
+            .notable
+            .iter()
+            .rev()
+            .find(|entry| entry.code == Notable::Unchanged)
+            .unwrap();
+        assert_eq!(counted.count, Some(3));
+    }
+
+    #[test]
+    fn read_only_and_mode_combine_for_one_entry() {
+        let test = TestContext::with_host(TestHost::linux());
+        file(&test, "/data/a.txt");
+        let call = args(
+            &["/data/a.txt"],
+            &[(MODE, text("0664")), (READONLY, Value::Bool(true))],
+        );
+        run(&test, &call, StageInput::none()).unwrap();
+        assert_eq!(meta(&test, "/data/a.txt").mode, 0o444);
+    }
+
+    #[test]
     fn times_are_set_and_creation_time_is_partial_on_linux() {
         let test = TestContext::with_host(TestHost::linux());
         file(&test, "/data/a.txt");

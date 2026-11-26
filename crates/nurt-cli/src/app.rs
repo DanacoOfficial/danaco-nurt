@@ -203,15 +203,22 @@ fn dispatch(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resu
     }
 }
 
+/// Style of the error output: a terminal is coloured unless `NO_COLOR` holds
+/// a value.
+fn error_style(stderr_is_terminal: bool, no_color: Option<std::ffi::OsString>) -> Style {
+    let no_color = no_color.is_some_and(|value| !value.is_empty());
+    Style::resolve(
+        nurt_contracts::config::ColorMode::Auto,
+        stderr_is_terminal,
+        no_color,
+    )
+}
+
 /// Writes the message of an error to the error output and returns its exit
 /// code. A failure to write the message is ignored: nothing else can report
 /// it.
 fn report(error: &CliError, io: &mut Io<'_>) -> u8 {
-    let style = Style::resolve(
-        nurt_contracts::config::ColorMode::Auto,
-        io.terminal.stderr,
-        false,
-    );
+    let style = error_style(io.terminal.stderr, std::env::var_os("NO_COLOR"));
     let (code, lines) = match error {
         CliError::Usage(message) => (
             exit::USAGE,
@@ -357,6 +364,24 @@ mod tests {
             report(&CliError::Failure("x".to_owned()), &mut io),
             exit::FAILURE
         );
+    }
+
+    #[test]
+    fn no_color_with_a_value_turns_the_colours_of_errors_off() {
+        let set = |value: &str| Some(std::ffi::OsString::from(value));
+        assert!(!error_style(true, set("1")).is_enabled());
+        assert!(error_style(true, set("")).is_enabled());
+        assert!(error_style(true, None).is_enabled());
+        assert!(!error_style(false, None).is_enabled());
+        assert!(!error_style(false, set("")).is_enabled());
+    }
+
+    #[test]
+    fn terminal_error_output_is_coloured_without_no_color() {
+        let style = error_style(true, None);
+        assert_eq!(style.error("failed"), "\u{1b}[31mfailed\u{1b}[0m");
+        let plain = error_style(true, Some(std::ffi::OsString::from("yes")));
+        assert_eq!(plain.error("failed"), "failed");
     }
 
     #[test]
