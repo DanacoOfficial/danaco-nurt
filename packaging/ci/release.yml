@@ -24,6 +24,64 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  musl:
+    name: Build the musl archive
+    # Builds nurt-<version>-x86_64-unknown-linux-musl.tar.gz from the tag
+    # v<version>. The C compiler of the target is "zig cc", started through
+    # packaging/release/zig-cc-musl.sh; the linker stays the default cc.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MUSL_TARGET: x86_64-unknown-linux-musl
+      ZIG_VERSION: 0.16.0
+    steps:
+      - name: Validate the release version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          case "$VERSION" in
+            '' | *[!0-9A-Za-z.-]*) echo "invalid version: $VERSION" >&2; exit 1 ;;
+          esac
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: v${{ inputs.version }}
+          fetch-depth: 0
+      - name: Install the toolchain and the musl target
+        run: |
+          rustup toolchain install
+          rustup target add "$MUSL_TARGET"
+      - name: Install zig
+        run: |
+          python3 -m pip install --user "ziglang==$ZIG_VERSION"
+          zig_dir="$(python3 -I -c 'import os, ziglang; print(os.path.dirname(ziglang.__file__))')"
+          echo "ZIG=$zig_dir/zig" >> "$GITHUB_ENV"
+      - name: Build the executable
+        env:
+          CC_x86_64_unknown_linux_musl: ${{ github.workspace }}/packaging/release/zig-cc-musl.sh
+          CFLAGS_x86_64_unknown_linux_musl: -fno-sanitize=undefined
+        run: cargo build --release --locked --target "$MUSL_TARGET" -p nurt-cli
+      - name: Generate the completions and the documentation site
+        run: |
+          cargo run --release --locked -p nurt-docgen -- completions --root . --out work/completions
+          cargo run --release --locked -p nurt-docgen -- site --root . --out work/site --version "${{ inputs.version }}"
+      - name: Pack the archive
+        run: |
+          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH
+          python3 -I packaging/release/pack.py --root . --version "${{ inputs.version }}" \
+            --target "$MUSL_TARGET" --binary "target/$MUSL_TARGET/release/nurt" \
+            --completions work/completions --site work/site --output archives
+      - name: Check the dependencies of the executable
+        run: |
+          mkdir -p checked
+          tar -xzf "archives/nurt-${{ inputs.version }}-$MUSL_TARGET.tar.gz" -C checked --strip-components=1
+          bash tools/ci/check-dependencies.sh checked/nurt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: musl-archive
+          path: archives
+          retention-days: 7
+
   prepare:
     name: Render and sign
     # Uploads the rendered files to the release; the other jobs publish with
