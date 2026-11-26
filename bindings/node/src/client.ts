@@ -150,7 +150,7 @@ export class Nurt extends EventEmitter {
 
   /** Prints a syntax tree as program text in a notation variant. */
   async print(ast: Ast, variant: Variant = "a"): Promise<string> {
-    return textResult(await this.#call("print", { ast, variant }), "print");
+    return textResult(await this.#query("print", { ast, variant }), "print");
   }
 
   /** Corrects program text and returns the canonical program and the corrections. */
@@ -169,32 +169,32 @@ export class Nurt extends EventEmitter {
       subject: options.name ?? options.layer ?? "core",
       language: options.language ?? this.#options.language ?? "en",
     });
-    return descriptionText(await this.#call("describe", params));
+    return descriptionText(await this.#query("describe", params));
   }
 
   /** Returns a help topic, or the index of topics. */
   async help(topic?: string): Promise<string> {
-    return textResult(await this.#call("help", compact({ topic })), "help");
+    return textResult(await this.#query("help", compact({ topic })), "help");
   }
 
   /** Returns the command catalog, or a part of it. */
   async catalog(what?: string): Promise<JsonObject> {
-    return objectResult(await this.#call("catalog", compact({ what })), "catalog");
+    return objectResult(await this.#query("catalog", compact({ what })), "catalog");
   }
 
   /** Returns a JSON schema of the interface. */
   async schema(which: string): Promise<JsonObject> {
-    return objectResult(await this.#call("schema", { name: which }), "schema");
+    return objectResult(await this.#query("schema", { name: which }), "schema");
   }
 
   /** Returns operations of the journal. */
   async history(query?: string): Promise<JsonObject> {
-    return objectResult(await this.#call("history", compact({ query })), "history");
+    return objectResult(await this.#query("history", compact({ query })), "history");
   }
 
   /** Returns the space state of the journal volumes. */
   async space(volume?: string): Promise<JsonObject> {
-    return objectResult(await this.#call("space", compact({ volume })), "space");
+    return objectResult(await this.#query("space", compact({ volume })), "space");
   }
 
   /** Returns the version, interface versions and features of the server. */
@@ -226,6 +226,29 @@ export class Nurt extends EventEmitter {
   async #call(method: string, params: JsonObject): Promise<unknown> {
     const session = await this.#connect();
     return session.connection.call(method, params);
+  }
+
+  /**
+   * Calls a query. Both backends answer a language error of a query with a
+   * response whose report failed; the query has no response to return it in,
+   * so the error is thrown: as `NURT_E_ARG` when it names an unknown argument
+   * value, as {@link NurtLanguageError} otherwise.
+   */
+  async #query(method: string, params: JsonObject): Promise<unknown> {
+    const result = await this.#call(method, params);
+    const report = isObject(result) ? result["report"] : undefined;
+    if (!isObject(report) || report["status"] !== "failed" || !isObject(report["error"])) {
+      return result;
+    }
+    const response = toResponse(result);
+    const error = response.error;
+    if (error === undefined) {
+      return result;
+    }
+    if (error.code === "E_UNKNOWN_VALUE") {
+      throw new NurtError("NURT_E_ARG", `${error.code}: ${error.message}`, { detail: error, response });
+    }
+    throw new NurtLanguageError(response, error);
   }
 
   #connect(): Promise<Session> {

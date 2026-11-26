@@ -23,6 +23,23 @@ describe("Nurt", () => {
     });
   });
 
+  it("lists the report of every pipeline of a script", () => {
+    const script = new Response({
+      nurt: "1.0",
+      report: { nurt: "1.0", status: "ok", kind: "remove" },
+      reports: [
+        { nurt: "1.0", status: "ok", kind: "find" },
+        { nurt: "1.0", status: "ok", kind: "remove" },
+      ],
+    });
+    assert.deepEqual(
+      script.reports.map((report) => report.kind),
+      ["find", "remove"],
+    );
+    const single = new Response({ nurt: "1.0", report: { nurt: "1.0", status: "ok", kind: "find" } });
+    assert.deepEqual(single.reports, []);
+  });
+
   it("returns a language error in the response", async () => {
     await withClient(fakeServe(), async (client) => {
       const response = await client.run("fail");
