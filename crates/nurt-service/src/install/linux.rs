@@ -77,6 +77,7 @@ pub(crate) trait Manager {
     fn enable(&self, unit: &str) -> Result<(), BusError>;
     fn disable(&self, unit: &str) -> Result<(), BusError>;
     fn start(&self, unit: &str) -> Result<(), BusError>;
+    fn restart(&self, unit: &str) -> Result<(), BusError>;
     fn stop(&self, unit: &str) -> Result<(), BusError>;
     fn default_target(&self) -> Result<String, BusError>;
 }
@@ -160,6 +161,10 @@ impl Manager for DbusPeer {
 
     fn start(&self, unit: &str) -> Result<(), BusError> {
         self.manager("StartUnit", &(unit, JOB_MODE)).map(drop)
+    }
+
+    fn restart(&self, unit: &str) -> Result<(), BusError> {
+        self.manager("RestartUnit", &(unit, JOB_MODE)).map(drop)
     }
 
     fn stop(&self, unit: &str) -> Result<(), BusError> {
@@ -313,16 +318,31 @@ fn service_error(action: &str, error: &BusError) -> Error {
     )
 }
 
-fn register(manager: &dyn Manager) -> Result<(), Error> {
+/// Writes the unit file and tells whether a unit file with other content was
+/// there before, so that a running service has to be started again to use
+/// the new program or settings.
+fn write_unit(unit_file: &Path, content: &str) -> Result<bool, Error> {
+    let previous = std::fs::read(unit_file).ok();
+    write_file(unit_file, content.as_bytes())?;
+    Ok(previous.is_some_and(|old| old != content.as_bytes()))
+}
+
+fn register(manager: &dyn Manager, changed: bool) -> Result<(), Error> {
     manager
         .reload()
         .map_err(|error| service_error("reload before enabling", &error))?;
     manager
         .enable(UNIT_NAME)
         .map_err(|error| service_error("enable", &error))?;
-    manager
-        .start(UNIT_NAME)
-        .map_err(|error| service_error("start", &error))
+    if changed {
+        manager
+            .restart(UNIT_NAME)
+            .map_err(|error| service_error("restart", &error))
+    } else {
+        manager
+            .start(UNIT_NAME)
+            .map_err(|error| service_error("start", &error))
+    }
 }
 
 /// Installs the unit of the chosen mode.
@@ -349,7 +369,7 @@ fn install_user(
     layout: &Layout,
 ) -> Result<InstallReport, Error> {
     let unit_file = layout.user_unit_dir.join(UNIT_NAME);
-    write_file(&unit_file, user_unit(executable).as_bytes())?;
+    let changed = write_unit(&unit_file, &user_unit(executable))?;
     let mut manifest = Manifest::new(ServiceMode::User, Backend::SystemdUser, executable);
     manifest.files.push(unit_file.clone());
     let manager = match buses.session() {
@@ -368,7 +388,7 @@ fn install_user(
             .with_detail("unit", json!(unit_file.display().to_string())));
         }
     };
-    register(&*manager)?;
+    register(&*manager, changed)?;
     let mut notes = Vec::new();
     let linger = match buses.login() {
         Ok(login) => match login.set_linger(layout.uid) {
@@ -430,15 +450,12 @@ fn install_system(
             ),
         )
     })?;
-    write_file(
-        &unit_file,
-        system_unit(executable, &user, &group).as_bytes(),
-    )?;
+    let changed = write_unit(&unit_file, &system_unit(executable, &user, &group))?;
     let mut manifest = Manifest::new(ServiceMode::System, Backend::SystemdSystem, executable);
     manifest.files.push(unit_file);
     manifest.account = Some(user);
     manifest.write(&request.paths)?;
-    register(&*manager)?;
+    register(&*manager, changed)?;
     Ok(InstallReport {
         mode: ServiceMode::System,
         mode_reason: choice.reason,
@@ -664,6 +681,41 @@ mod tests {
         assert!(report.started);
         assert_eq!(report.linger, Some(false));
         assert!(report.notes[0].contains("service_not_running"));
+    }
+
+    #[test]
+    fn install_again_with_another_program_restarts_the_unit() {
+        let dir = tempfile::tempdir().unwrap();
+        let (request, layout) = fixture(dir.path());
+        let buses = FakeBuses {
+            system: FakeSystem::start(LingerPolicy::Allow),
+            session_available: true,
+        };
+        for program in ["/opt/nurt/bin/nurt", "/opt/nurt/bin/nurt", "/opt/other/nurt"] {
+            install_with(
+                &request,
+                Path::new(program),
+                user_choice(),
+                &buses,
+                &layout,
+                false,
+            )
+            .unwrap();
+        }
+        let started: Vec<String> = buses
+            .system
+            .calls()
+            .into_iter()
+            .filter(|call| call.starts_with("StartUnit") || call.starts_with("RestartUnit"))
+            .collect();
+        assert_eq!(
+            started,
+            [
+                "StartUnit nurt-service.service replace",
+                "StartUnit nurt-service.service replace",
+                "RestartUnit nurt-service.service replace",
+            ]
+        );
     }
 
     #[test]

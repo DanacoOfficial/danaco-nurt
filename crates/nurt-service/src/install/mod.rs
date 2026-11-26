@@ -250,7 +250,38 @@ pub fn install(request: &InstallRequest) -> Result<InstallReport, Error> {
         },
         None => detect::choose_mode(&detect::host_facts()),
     };
-    install_platform(request, &executable, choice)
+    let notes = remove_other_mode(request, choice.mode, &uninstall)?;
+    let mut report = install_platform(request, &executable, choice)?;
+    report.notes.splice(0..0, notes);
+    Ok(report)
+}
+
+/// Removes an installation of another mode than the one requested, with its
+/// manifest, so that the new manifest does not lose track of its files and
+/// the old service does not keep running beside the new one. An unreadable
+/// manifest counts as none: the installation overwrites it.
+fn remove_other_mode(
+    request: &InstallRequest,
+    mode: ServiceMode,
+    remove: &dyn Fn(&UninstallRequest) -> Result<UninstallReport, Error>,
+) -> Result<Vec<String>, Error> {
+    let previous = Manifest::read(&request.paths.install_manifest())
+        .ok()
+        .flatten();
+    let Some(previous) = previous.filter(|previous| previous.mode != mode) else {
+        return Ok(Vec::new());
+    };
+    let report = remove(&UninstallRequest {
+        mode: Some(previous.mode),
+        paths: request.paths.clone(),
+        process_host: request.process_host.clone(),
+    })?;
+    let mut notes = vec![format!(
+        "the installation in mode `{}` was removed",
+        mode_name(previous.mode)
+    )];
+    notes.extend(report.notes);
+    Ok(notes)
 }
 
 /// Stops the service, unregisters it and deletes the files listed in the
@@ -545,6 +576,66 @@ mod tests {
             Manifest::read(&paths.install_manifest()).unwrap_err().code,
             ErrorCode::Io
         );
+    }
+
+    fn removal(mode: ServiceMode) -> UninstallReport {
+        UninstallReport {
+            mode,
+            backend: Backend::SystemdUser,
+            removed: Vec::new(),
+            notes: vec!["unit stopped".to_owned()],
+        }
+    }
+
+    #[test]
+    fn installing_in_another_mode_removes_the_previous_installation_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = ServicePaths::new(dir.path());
+        let request = InstallRequest::new(paths.clone());
+        Manifest::new(
+            ServiceMode::User,
+            Backend::SystemdUser,
+            Path::new("/opt/nurt/bin/nurt"),
+        )
+        .write(&paths)
+        .unwrap();
+        let asked = std::cell::RefCell::new(Vec::new());
+        let remove = |removal_request: &UninstallRequest| -> Result<UninstallReport, Error> {
+            asked.borrow_mut().push(removal_request.mode);
+            Ok(removal(ServiceMode::User))
+        };
+        let same = remove_other_mode(&request, ServiceMode::User, &remove).unwrap();
+        assert!(same.is_empty() && asked.borrow().is_empty());
+        let other = remove_other_mode(&request, ServiceMode::System, &remove).unwrap();
+        assert_eq!(*asked.borrow(), [Some(ServiceMode::User)]);
+        assert_eq!(other.len(), 2);
+        assert!(other[0].contains("mode `user`"));
+        assert_eq!(other[1], "unit stopped");
+    }
+
+    #[test]
+    fn a_failed_removal_of_the_previous_installation_stops_the_new_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = ServicePaths::new(dir.path());
+        Manifest::new(
+            ServiceMode::System,
+            Backend::SystemdSystem,
+            Path::new("/opt/nurt/bin/nurt"),
+        )
+        .write(&paths)
+        .unwrap();
+        let request = InstallRequest::new(paths);
+        let remove = |_: &UninstallRequest| -> Result<UninstallReport, Error> {
+            Err(privilege_error("removing"))
+        };
+        let error = remove_other_mode(&request, ServiceMode::User, &remove).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Privilege);
+        let nothing = remove_other_mode(
+            &InstallRequest::new(ServicePaths::new(dir.path().join("none"))),
+            ServiceMode::User,
+            &remove,
+        );
+        assert!(nothing.unwrap().is_empty());
     }
 
     #[test]
