@@ -20,6 +20,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -218,6 +219,7 @@ pub struct ProgramIndex {
     warnings: Vec<SourceWarning>,
     sources: Vec<Arc<dyn ProgramSource>>,
     env: HostEnv,
+    complete: bool,
 }
 
 impl fmt::Debug for ProgramIndex {
@@ -281,8 +283,7 @@ pub fn default_cache_dir(env: &HostEnv) -> Option<PathBuf> {
             .home()
             .map(|home| home.join("Library/Caches/Nurt/programs")),
         _ => env
-            .var_text("XDG_CACHE_HOME")
-            .map(PathBuf::from)
+            .xdg_dir("XDG_CACHE_HOME")
             .or_else(|| env.home().map(|home| home.join(".cache")))
             .map(|dir| dir.join("nurt").join("programs")),
     }
@@ -394,10 +395,22 @@ fn write_cache(file: &Path, fingerprint: &Fingerprint, data: &SourceData) {
     if ciborium::into_writer(&cache, &mut bytes).is_err() {
         return;
     }
-    let temporary = file.with_extension(format!("{CACHE_SUFFIX}.{}.tmp", std::process::id()));
+    let temporary = temporary_path(file);
     if write_private(&temporary, &bytes).is_ok() && std::fs::rename(&temporary, file).is_err() {
         let _ignored = std::fs::remove_file(&temporary);
     }
+}
+
+/// Name of the temporary file of one writer of the cache file `file`: the
+/// process and a counter make it unique for every call, so concurrent
+/// writers of one provider never share a file.
+fn temporary_path(file: &Path) -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    file.with_extension(format!(
+        "{CACHE_SUFFIX}.{}.{}.tmp",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    ))
 }
 
 #[cfg(unix)]
@@ -479,7 +492,9 @@ impl ProgramIndex {
             let source = &sources[*position];
             builder.add(source.as_ref(), &item.data, rank);
         }
-        builder.finish(sources)
+        let mut index = builder.finish(sources);
+        index.complete = loaded.iter().all(|item| item.fingerprint.is_some());
+        index
     }
 
     /// Cards in index order.
@@ -556,6 +571,13 @@ impl ProgramIndex {
     #[must_use]
     pub fn warnings(&self) -> &[SourceWarning] {
         &self.warnings
+    }
+
+    /// Returns `false` when a provider failed or its state could not be
+    /// determined, so that a later call should read the providers again.
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        self.complete
     }
 
     /// Environment the index was built for.
@@ -827,6 +849,7 @@ impl<'a> Builder<'a> {
             warnings: self.warnings,
             sources,
             env: self.env.clone(),
+            complete: true,
         }
     }
 
@@ -1188,11 +1211,11 @@ impl IndexCache {
             return Arc::clone(index);
         }
         let index = Arc::new(ProgramIndex::load(registry, env, options, clock));
-        let complete = !index
+        let cut_short = index
             .warnings()
             .iter()
             .any(|warning| warning.code == WarningCode::IndexPartial);
-        if complete {
+        if index.is_complete() && !cut_short {
             *slot = Some((key, Arc::clone(&index)));
         }
         index
@@ -1217,6 +1240,17 @@ fn state_key(registry: &SourceRegistry, env: &HostEnv, options: &IndexOptions) -
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn temporary_cache_files_are_unique_per_writer() {
+        let file = Path::new("/c/dpkg.cbor");
+        let first = temporary_path(file);
+        let second = temporary_path(file);
+        assert_ne!(first, second);
+        assert_eq!(first.parent(), file.parent());
+        assert!(first.to_string_lossy().ends_with(".tmp"));
+        assert!(first.to_string_lossy().contains(&std::process::id().to_string()));
+    }
 
     fn category(id: &str, order: Option<i64>) -> RawCategory {
         RawCategory {

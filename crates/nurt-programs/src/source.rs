@@ -729,6 +729,15 @@ impl HostEnv {
             .filter(|value| !value.is_empty())
     }
 
+    /// Directory named by the variable `name` of the XDG base directory
+    /// specification; a relative value is invalid and ignored.
+    #[must_use]
+    pub fn xdg_dir(&self, name: &str) -> Option<PathBuf> {
+        self.var_text(name)
+            .map(PathBuf::from)
+            .filter(|dir| self.is_absolute(dir))
+    }
+
     /// Home directory of the account, as a host path.
     #[must_use]
     pub fn home(&self) -> Option<&Path> {

@@ -24,6 +24,7 @@ use crate::source::{
     Deadline, Fingerprint, FingerprintBuilder, HostEnv, ProgramSource, SourceError, SourceId,
     SourceKind, SourceWarning, WarningCode,
 };
+use crate::sources::{MAX_METADATA_BYTES, read_prefix};
 
 /// Prefixes searched when `HOMEBREW_PREFIX` is not set, in order.
 pub const DEFAULT_PREFIXES: [&str; 3] =
@@ -35,6 +36,8 @@ const CASK_API: &str = "cask.jws.json";
 /// Directory where casks install applications.
 const APPLICATIONS: &str = "/Applications";
 const APP_SUFFIX: &str = ".app";
+/// Largest receipt, formula or cask file read, in bytes.
+const MAX_SMALL_FILE_BYTES: u64 = 1024 * 1024;
 
 /// Provider of Homebrew formulae and casks.
 #[derive(Debug, Clone)]
@@ -104,9 +107,9 @@ pub fn cache_dir(env: &HostEnv) -> Option<PathBuf> {
         return Some(PathBuf::from(cache));
     }
     if env.os() != Os::Macos
-        && let Some(xdg) = env.var_text("XDG_CACHE_HOME")
+        && let Some(xdg) = env.xdg_dir("XDG_CACHE_HOME")
     {
-        return Some(Path::new(xdg).join("Homebrew"));
+        return Some(xdg.join("Homebrew"));
     }
     let home = env.home()?;
     Some(match env.os() {
@@ -320,7 +323,7 @@ impl Reader<'_> {
         let Some(path) = cache_dir(self.env).map(|dir| dir.join("api").join(file)) else {
             return BTreeMap::new();
         };
-        let Ok(text) = std::fs::read_to_string(self.env.sys_path(&path)) else {
+        let Some(text) = self.read_text(&path, MAX_METADATA_BYTES) else {
             return BTreeMap::new();
         };
         match parse_api_cache(&text) {
@@ -333,6 +336,26 @@ impl Reader<'_> {
                 BTreeMap::new()
             }
         }
+    }
+
+    /// Text of a file given as a host path; `None` when the file cannot be
+    /// read, is larger than `limit` bytes or is not UTF-8.
+    fn read_text(&self, host: &Path, limit: u64) -> Option<String> {
+        let (bytes, complete) = read_prefix(self.env, self.id, host, limit).ok()?;
+        if complete {
+            String::from_utf8(bytes).ok()
+        } else {
+            None
+        }
+    }
+
+    /// Version of `formula` that `<prefix>/opt/<formula>` links to, when it is
+    /// one of `versions`.
+    fn linked_version(&self, cellar: &Path, formula: &str, versions: &[String]) -> Option<String> {
+        let opt = cellar.parent()?.join("opt").join(formula);
+        let target = std::fs::read_link(self.env.sys_path(&opt)).ok()?;
+        let name = target.file_name()?.to_str()?;
+        versions.iter().find(|version| *version == name).cloned()
     }
 
     fn read_prefix(&mut self, prefix: &Path, deadline: &Deadline<'_>) -> Result<(), SourceError> {
@@ -383,17 +406,18 @@ impl Reader<'_> {
     fn read_formula(&mut self, cellar: &Path, formula: &str, commands: Vec<(String, String)>) {
         let dir = cellar.join(formula);
         let versions = dir_names(&self.env.sys_path(&dir));
-        let Some(version) = versions
-            .iter()
-            .max_by(|left, right| version_order(left, right))
-            .cloned()
-        else {
+        let Some(version) = self.linked_version(cellar, formula, &versions).or_else(|| {
+            versions
+                .iter()
+                .max_by(|left, right| version_order(left, right))
+                .cloned()
+        }) else {
             return;
         };
         let version_dir = dir.join(&version);
         let receipt_path = version_dir.join(RECEIPT);
-        let receipt = match std::fs::read_to_string(self.env.sys_path(&receipt_path)) {
-            Ok(text) => match parse_receipt(&text) {
+        let receipt = match self.read_text(&receipt_path, MAX_SMALL_FILE_BYTES) {
+            Some(text) => match parse_receipt(&text) {
                 Ok(receipt) => receipt,
                 Err(reason) => {
                     self.data.warnings.push(
@@ -404,10 +428,11 @@ impl Reader<'_> {
                     Receipt::default()
                 }
             },
-            Err(_) => Receipt::default(),
+            None => Receipt::default(),
         };
         let rb = version_dir.join(".brew").join(format!("{formula}.rb"));
-        let mut info = std::fs::read_to_string(self.env.sys_path(&rb))
+        let mut info = self
+            .read_text(&rb, MAX_SMALL_FILE_BYTES)
             .map(|text| parse_formula_rb(&text))
             .unwrap_or_default();
         if info.desc.is_none()
@@ -468,9 +493,9 @@ impl Reader<'_> {
         let stamps = dir_names(&self.env.sys_path(metadata.join(&version)));
         if let Some(stamp) = stamps.last() {
             let casks = metadata.join(&version).join(stamp).join("Casks");
-            let json = self.env.sys_path(casks.join(format!("{token}.json")));
-            let rb = self.env.sys_path(casks.join(format!("{token}.rb")));
-            if let Ok(text) = std::fs::read_to_string(&json) {
+            let json = casks.join(format!("{token}.json"));
+            let rb = casks.join(format!("{token}.rb"));
+            if let Some(text) = self.read_text(&json, MAX_SMALL_FILE_BYTES) {
                 if let Ok(value) = serde_json::from_str::<Value>(&text) {
                     info = FormulaInfo {
                         version: info.version,
@@ -478,7 +503,7 @@ impl Reader<'_> {
                     };
                     apps = cask_apps(&value);
                 }
-            } else if let Ok(text) = std::fs::read_to_string(&rb) {
+            } else if let Some(text) = self.read_text(&rb, MAX_SMALL_FILE_BYTES) {
                 info = FormulaInfo {
                     version: info.version,
                     ..parse_formula_rb(&text)

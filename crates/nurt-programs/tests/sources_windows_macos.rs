@@ -1073,3 +1073,31 @@ fn macapp_strings_in_utf8_and_big_endian() {
     assert_eq!(utf8.get("key").map(String::as_str), Some("value"));
     assert!(macapp::parse_info_plist(b"<plist><array/></plist>").is_err());
 }
+
+#[test]
+fn brew_prefers_the_linked_version_over_the_highest_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let cellar = "opt/homebrew/Cellar/jq";
+    write(root, &format!("{cellar}/1.6/INSTALL_RECEIPT.json"), "{}");
+    write(root, &format!("{cellar}/1.7.1/INSTALL_RECEIPT.json"), "{}");
+    if !link("../Cellar/jq/1.6", root, "opt/homebrew/opt/jq") {
+        return;
+    }
+    let data = load(&BrewSource::new(), &mac_env(root));
+    assert_eq!(package(&data, "jq").version.as_deref(), Some("1.6"));
+    std::fs::remove_file(root.join("opt/homebrew/opt/jq")).unwrap();
+    let data = load(&BrewSource::new(), &mac_env(root));
+    assert_eq!(package(&data, "jq").version.as_deref(), Some("1.7.1"));
+}
+
+#[test]
+fn brew_ignores_relative_xdg_cache_directory() {
+    let linux = HostEnv::new(Os::Linux)
+        .with_home("/home/user")
+        .with_var("XDG_CACHE_HOME", "relative/cache");
+    assert_eq!(
+        brew::cache_dir(&linux).unwrap(),
+        Path::new("/home/user/.cache/Homebrew")
+    );
+}
