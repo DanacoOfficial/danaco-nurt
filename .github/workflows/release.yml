@@ -26,8 +26,9 @@ concurrency:
 jobs:
   musl:
     name: Build the musl archive
-    # Builds nurt-<version>-x86_64-unknown-linux-musl.tar.gz from the tag
-    # v<version>. The C compiler of the target is "zig cc", started through
+    # Builds nurt-<version>-x86_64-unknown-linux-musl.tar.gz and the archive of
+    # the static library nurt-lib-<version>-x86_64-unknown-linux-musl.tar.gz from
+    # the tag v<version>. The C compiler of the target is "zig cc", started through
     # packaging/release/zig-cc-musl.sh; the linker stays the default cc.
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -55,21 +56,22 @@ jobs:
           python3 -m pip install --user "ziglang==$ZIG_VERSION"
           zig_dir="$(python3 -I -c 'import os, ziglang; print(os.path.dirname(ziglang.__file__))')"
           echo "ZIG=$zig_dir/zig" >> "$GITHUB_ENV"
-      - name: Build the executable
+      - name: Build the executable and the static library
         env:
           CC_x86_64_unknown_linux_musl: ${{ github.workspace }}/packaging/release/zig-cc-musl.sh
           CFLAGS_x86_64_unknown_linux_musl: -fno-sanitize=undefined
-        run: cargo build --release --locked --target "$MUSL_TARGET" -p nurt-cli
+        run: cargo build --release --locked --target "$MUSL_TARGET" -p nurt-cli -p nurt-ffi
       - name: Generate the completions and the documentation site
         run: |
           cargo run --release --locked -p nurt-docgen -- completions --root . --out work/completions
           cargo run --release --locked -p nurt-docgen -- site --root . --out work/site --version "${{ inputs.version }}"
-      - name: Pack the archive
+      - name: Pack the archives
         run: |
           SOURCE_DATE_EPOCH="$(git log -1 --format=%ct HEAD)"
           export SOURCE_DATE_EPOCH
           python3 -I packaging/release/pack.py --root . --version "${{ inputs.version }}" \
             --target "$MUSL_TARGET" --binary "target/$MUSL_TARGET/release/nurt" \
+            --library "target/$MUSL_TARGET/release/libnurt_ffi.a" \
             --completions work/completions --site work/site --output archives
       - name: Check the dependencies of the executable
         run: |

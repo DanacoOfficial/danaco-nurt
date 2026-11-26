@@ -15,6 +15,9 @@ header is maintained by hand and is the reference of the interface.
 | macOS | `libnurt.1.dylib` (install name `@rpath/libnurt.1.dylib`) | `libnurt.a` |
 | Windows | `nurt.dll` with the import library `nurt.dll.lib` | `nurt.lib` (define `NURT_STATIC`) |
 
+On musl targets the release archive of the library holds only the static library `libnurt.a`. On musl the library is static
+(`libnurt.a`) and must not be linked into one program with another static library written in Rust.
+
 ## Versioning
 
 - `NURT_ABI_MAJOR` and `NURT_ABI_MINOR` give the version of the header;

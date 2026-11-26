@@ -8,9 +8,11 @@
 # Builds the executable and the C library for Linux (glibc, and musl when the
 # target is installed) and for Windows (MSVC, cross-built with cargo-xwin),
 # generates the manual pages, the shell completions and the documentation
-# site, assembles one archive per target with packaging/release/pack.py,
-# writes checksums.txt, optionally signs it, and runs the executable of the
-# Linux archive.
+# site, assembles the program archive and the archive of the C library nurt-lib
+# of every target with packaging/release/pack.py (the library of the musl
+# target is the static library libnurt.a), writes checksums.txt, optionally
+# signs it, runs the executable of the Linux archive and builds and runs
+# examples/c/hello.c against the library archive of the Linux target.
 #
 # Usage:
 #
@@ -125,6 +127,7 @@ library_file() {
   case "$1" in
     *-windows-*) echo "$dir/nurt_ffi.dll" ;;
     *-apple-darwin) echo "$dir/libnurt_ffi.dylib" ;;
+    *-linux-musl) echo "$dir/libnurt_ffi.a" ;;
     *) echo "$dir/libnurt_ffi.so" ;;
   esac
 }
@@ -143,13 +146,9 @@ for target in "${targets[@]}"; do
   binary="$target_dir/$target/release/nurt"
   if [ "$target" = "$WINDOWS" ]; then binary="$binary.exe"; fi
   [ -f "$binary" ] || die "missing $binary"
-  library_args=()
-  # The musl executable is static and has no library.
-  if [ "$target" != "$LINUX_MUSL" ]; then
-    library="$(library_file "$target")"
-    [ -f "$library" ] || die "missing $library"
-    library_args=(--library "$library")
-  fi
+  library="$(library_file "$target")"
+  [ -f "$library" ] || die "missing $library"
+  library_args=(--library "$library")
   man_args=(--man "$work/man")
   if [ "$target" = "$WINDOWS" ]; then man_args=(); fi
   log "pack $target"
@@ -193,5 +192,39 @@ nurt="$run/nurt-$version-$LINUX_GNU/nurt"
   "$nurt" version
   "$nurt" doctor
 )
+
+# Builds examples/c/hello.c against the archive nurt-lib of a Linux target with
+# the flags of its nurt.pc and runs the program. The musl library is static, so
+# the program is linked with --static and the compiler of the musl target.
+# Arguments: target, C compiler, extra compiler flags.
+check_c_example() {
+  local target="$1" compiler="$2" extra="$3" dir="$work/c-example/$1"
+  local lib="$dir/nurt-lib-$version-$target" static=()
+  command -v pkg-config >/dev/null || die "pkg-config is required for the C example"
+  mkdir -p "$dir/lib"
+  tar -xzf "$output/nurt-lib-$version-$target.tar.gz" -C "$dir"
+  for name in libnurt.so.1 libnurt.a; do
+    if [ -e "$lib/$name" ]; then ln -sf "$lib/$name" "$dir/lib/$name"; fi
+  done
+  if [ -e "$dir/lib/libnurt.so.1" ]; then ln -sf libnurt.so.1 "$dir/lib/libnurt.so"; fi
+  case "$target" in *-linux-musl) static=(--static) ;; esac
+  local flags
+  flags="$(PKG_CONFIG_PATH="$lib" pkg-config --define-variable=libdir="$dir/lib" \
+    --define-variable=includedir="$lib" ${static[@]+"${static[@]}"} --cflags --libs nurt)"
+  # The flags are words of one command line; the paths hold no spaces.
+  # shellcheck disable=SC2086
+  $compiler $extra "$root/examples/c/hello.c" $flags -o "$dir/hello"
+  LD_LIBRARY_PATH="$dir/lib" "$dir/hello" | tee "$dir/hello.out"
+  grep -Eqx 'nurt [0-9]+\.[0-9]+\.[0-9]+.*' "$dir/hello.out" || die "the C example of $target printed no version"
+}
+
+log "build and run the C example against the library of the Linux archive"
+check_c_example "$LINUX_GNU" cc ""
+for target in "${targets[@]}"; do
+  if [ "$target" = "$LINUX_MUSL" ]; then
+    musl_cc="${CC_x86_64_unknown_linux_musl:-musl-gcc}"
+    check_c_example "$LINUX_MUSL" "$musl_cc" "-static"
+  fi
+done
 
 log "done: $(ls "$output" | tr '\n' ' ')"

@@ -81,7 +81,7 @@ The library archive contains the directory `nurt-lib-<version>-<target>/` with:
 | `nurt.h`, `nurt.pc` | C header and pkg-config file; `nurt.pc` defines `prefix`, `libdir` and `includedir` on separate lines | yes |
 | `LICENSE`, `NOTICE` | license texts | yes |
 
-The library is not packed for musl targets.
+On musl targets (`x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`) the library archive holds the static library instead: `--library` points to `libnurt_ffi.a`, which `pack.py` packs as `libnurt.a` next to `nurt.h`, `nurt.pc`, `LICENSE` and `NOTICE`. In `nurt.pc` of a musl archive `Libs:` is `-L${libdir} -lnurt` and `Libs.private:` lists the system libraries of a static link, so that `pkg-config --static --libs nurt` is enough to link a C program (`examples/c/hello.c` is the example; `tools/release/build-release.sh` builds and runs it). On musl the library is static (`libnurt.a`) and must not be linked into one program with another static library written in Rust.
 
 The musl archive is built with the target `x86_64-unknown-linux-musl` (`rustup target add x86_64-unknown-linux-musl`) and `zig cc` as the C compiler of the target. The job `musl` of the workflow `release.yml` (the copy `packaging/ci/release.yml`) does exactly this and uploads the archive as the artifact `musl-archive`. The C compiler and the linker are set apart: the compiler is the script `packaging/release/zig-cc-musl.sh`, which runs `zig cc -target x86_64-linux-musl` (the executable of zig is taken from `ZIG`, `zig` by default) and drops the option `--target=...` that the `cc` crate adds; the linker is the default `cc`:
 
