@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+
+# The Windows executables link the C runtime statically, so that `nurt.exe`
+# starts on a system without the Visual C++ Redistributable (no import of
+# VCRUNTIME140.dll or api-ms-win-crt-*.dll).
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
