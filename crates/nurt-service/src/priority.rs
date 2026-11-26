@@ -75,7 +75,10 @@ mod imp {
         if result == -1 {
             return Err(io::Error::last_os_error());
         }
-        let param = libc::sched_param { sched_priority: 0 };
+        // SAFETY: `sched_param` is a plain C structure for which all zero
+        // bytes are valid; the priority 0 is the one the policies require, and
+        // musl has more fields in the structure than glibc.
+        let param: libc::sched_param = unsafe { std::mem::zeroed() };
         // SAFETY: `param` is a valid `sched_param` that outlives the call.
         if unsafe { libc::sched_setscheduler(0, policy, &param) } == -1 {
             return Err(io::Error::last_os_error());
