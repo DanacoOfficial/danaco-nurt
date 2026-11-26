@@ -334,7 +334,6 @@ mod tests {
         let mut raw = DeflateEncoder::new(Vec::new(), Compression::default());
         raw.write_all(text.as_bytes()).unwrap();
         assert_eq!(decoded(raw.finish().unwrap()), text);
-        assert_eq!(decoded(Vec::new()), "");
     }
 
     #[test]

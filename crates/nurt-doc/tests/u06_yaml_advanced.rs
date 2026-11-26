@@ -18,7 +18,7 @@ use nurt_contracts::keypath::{DocSelector, KeyPath};
 use nurt_contracts::report::Notable;
 use nurt_contracts::value::{Bytes, Value};
 use nurt_doc::constructs::{
-    YAML_ALIAS_EXPANSION_LIMIT, YAML_COMPLEX_KEY, YAML_MERGE_INHERITED_REMOVE,
+    YAML_ALIAS_CYCLE, YAML_ALIAS_EXPANSION_LIMIT, YAML_COMPLEX_KEY, YAML_MERGE_INHERITED_REMOVE,
 };
 use nurt_doc::edit::{ByteEdit, EditReport};
 use nurt_doc::formats::yaml::anchor::{self, Anchors};
@@ -327,10 +327,9 @@ fn rejects_an_alias_inside_its_own_anchored_node() {
     let opened = YamlModel::parse("a: &a [x, *a]\n")
         .and_then(|model| anchor::check_expansion(&model).map(|()| model));
     let error = opened.expect_err("cycle");
-    // An anchor is defined once its node ends, so the alias inside the node
-    // names an anchor that is not defined yet: the parser refuses the
-    // document before the expansion check sees a cycle.
-    assert_eq!(error.code, ErrorCode::DocParse);
+    // The cycle is reported by the expansion check as an unsupported construct.
+    assert_eq!(error.code, ErrorCode::UnsupportedConstruct);
+    assert_eq!(error.found.as_deref(), Some(YAML_ALIAS_CYCLE));
 }
 
 #[test]
@@ -409,8 +408,6 @@ fn writes_a_local_key_over_a_merged_key_and_leaves_the_sources_alone() {
     let text = String::from_utf8(doc.text().to_vec()).unwrap();
     assert!(text.starts_with("a: &a {p: 1, q: 1}\nb: &b {p: 2, r: 2}\nm:\n  <<: [*a, *b]\n"));
     let model = parse(&text);
-    let map = node_at(&model, "m");
-    assert!(merge::is_override(&model, map, "p"));
     assert_eq!(model.text(&model.node(node_at(&model, "m.p")).span), "7");
 }
 

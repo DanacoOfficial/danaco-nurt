@@ -503,7 +503,7 @@ fn read_body_file(path: &str, mode: &Addresses<'_>) -> Result<RequestBody> {
 /// Reads `reader` to its end; a stream longer than `limit` bytes fails with
 /// `E_LIMIT` after `limit` and one more byte, so that a file that grows while
 /// it is read does not fill the memory either.
-fn read_within(reader: &mut dyn Read, shown: &str, limit: u64) -> Result<Vec<u8>> {
+fn read_within(reader: &mut dyn std::io::Read, shown: &str, limit: u64) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     reader
         .take(limit.saturating_add(1))
