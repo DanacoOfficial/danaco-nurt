@@ -184,5 +184,10 @@ fn inject_errors_random_plan_is_reproducible() {
         let outcome = reference::replace(&fs, &NoFailpoints, true);
         (outcome, fs.injected())
     };
-    assert_eq!(run(), run());
+    let first = run();
+    assert!(
+        !first.1.is_empty(),
+        "the random plan injected no fault, so the comparison proves nothing"
+    );
+    assert_eq!(first, run());
 }

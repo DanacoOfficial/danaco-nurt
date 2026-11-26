@@ -123,12 +123,19 @@ fn precedence_table_covers_every_level_and_dimension() {
     assert_eq!(all.len(), CASES);
     for case in &all {
         let written = settings(*case);
-        let expected = if case.level == ConfigLevel::Builtin {
-            0
-        } else {
-            written.len()
-        };
-        assert_eq!(written.len(), expected);
+        // The built-in level is never written, so a case at the level of rank
+        // `n` writes the levels of ranks 1 to `n`.
+        let rank = ConfigLevel::ALL
+            .iter()
+            .position(|level| *level == case.level)
+            .expect("level is listed");
+        assert_eq!(
+            written.len(),
+            rank,
+            "levels written for {} at {}",
+            case.dimension.key(),
+            case.level.as_str()
+        );
         if let Some(top) = written.last() {
             assert_eq!(
                 top.level, case.level,
