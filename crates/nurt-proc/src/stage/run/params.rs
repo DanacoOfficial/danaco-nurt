@@ -83,9 +83,10 @@ pub(super) fn read(args: &BoundArgs, ctx: &ExecCtx) -> Result<Settings> {
         },
     };
     let track = TrackSpec {
-        mode: match text(args, ctx, "track_changes")? {
-            Some(mode) => track_mode_named(&mode)?,
-            None => track_mode(config.run.track_changes),
+        mode: match given(args, ctx, "track_changes")? {
+            Some(Value::Enum(mode) | Value::Text(mode)) => track_mode_named(&mode)?,
+            None | Some(Value::Null) => track_mode(config.run.track_changes),
+            Some(other) => return Err(type_error("track_changes", "text", &other)),
         },
         watch: watch_paths(args, ctx, &cwd)?,
         ignore: config.run.track_ignore.clone(),
@@ -465,7 +466,7 @@ fn stdin(args: &BoundArgs, ctx: &ExecCtx, cwd: &Path) -> Result<StdinSource> {
         Some(Value::Bytes(bytes)) => Ok(StdinSource::Bytes(bytes.into_vec())),
         Some(value @ Value::Path(_)) => {
             let path = path_value("stdin", &value, Some(cwd))?;
-            if path.is_file() {
+            if path.exists() && !path.is_dir() {
                 Ok(StdinSource::File(path))
             } else {
                 Err(Error::new(

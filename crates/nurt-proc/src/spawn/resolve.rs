@@ -63,7 +63,7 @@ pub(crate) fn resolve(command: &[String], cwd: &Path, env: &ChildEnv) -> Result<
     let path = if has_directory(name, platform) {
         find_explicit(name, cwd, platform, &extensions)?
     } else {
-        search_path(env)
+        search_path(env, cwd)
             .iter()
             .flat_map(|dir| variants(&dir.join(name), platform, &extensions))
             .find(|candidate| file_state(candidate, platform) == FileState::Runnable)
@@ -131,12 +131,14 @@ fn has_directory(name: &str, platform: Platform) -> bool {
     }
 }
 
-/// Directories of `PATH` in the child environment.
-fn search_path(env: &ChildEnv) -> Vec<PathBuf> {
+/// Directories of `PATH` in the child environment. A relative entry is taken
+/// against `cwd`, the directory the program starts in, so that the file found
+/// is the file the program is started from.
+fn search_path(env: &ChildEnv, cwd: &Path) -> Vec<PathBuf> {
     let Some(value) = env.get("PATH") else {
         return Vec::new();
     };
-    match env.platform() {
+    let entries = match env.platform() {
         Platform::Unix => split_unix(value),
         Platform::Windows => value
             .to_string_lossy()
@@ -145,7 +147,8 @@ fn search_path(env: &ChildEnv) -> Vec<PathBuf> {
             .filter(|entry| !entry.is_empty())
             .map(PathBuf::from)
             .collect(),
-    }
+    };
+    entries.into_iter().map(|entry| cwd.join(entry)).collect()
 }
 
 #[cfg(unix)]
@@ -281,7 +284,7 @@ fn not_found(command: &[String], cwd: &Path, env: &ChildEnv, extensions: &[Strin
         replaced[0] = format!("./{name}");
         error = error.with_fix(program_text(&replaced));
     }
-    for (rank, (display, path)) in similar_names(&wanted, env, extensions)
+    for (rank, (display, path)) in similar_names(&wanted, cwd, env, extensions)
         .into_iter()
         .enumerate()
     {
@@ -306,11 +309,16 @@ fn not_found(command: &[String], cwd: &Path, env: &ChildEnv, extensions: &[Strin
 
 /// Up to [`MAX_CANDIDATES`] program names of the search path closest to
 /// `wanted`, with their files, best first.
-fn similar_names(wanted: &str, env: &ChildEnv, extensions: &[String]) -> Vec<(String, PathBuf)> {
+fn similar_names(
+    wanted: &str,
+    cwd: &Path,
+    env: &ChildEnv,
+    extensions: &[String],
+) -> Vec<(String, PathBuf)> {
     let platform = env.platform();
     let limit = MIN_DISTANCE_LIMIT.max(wanted.chars().count() / DISTANCE_RATIO);
     let mut scored: Vec<(usize, String, String, PathBuf)> = Vec::new();
-    for dir in search_path(env) {
+    for dir in search_path(env, cwd) {
         let Ok(entries) = fs::read_dir(&dir) else {
             continue;
         };

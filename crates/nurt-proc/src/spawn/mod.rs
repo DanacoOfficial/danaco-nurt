@@ -227,6 +227,9 @@ pub(crate) fn check_cwd(cwd: &Path) -> Result<()> {
     }
 }
 
+/// Prefix of a network path in the extended-length form of Windows.
+const UNC_PREFIX: &str = r"\\?\UNC\";
+
 /// Path in the canonical form of records: `/` as the separator on every
 /// system.
 pub(crate) fn record_path(path: &Path, platform: Platform) -> value::Path {
@@ -234,8 +237,15 @@ pub(crate) fn record_path(path: &Path, platform: Platform) -> value::Path {
     match platform {
         Platform::Unix => value::Path::new(text.into_owned()),
         Platform::Windows => {
-            let plain = text.strip_prefix(r"\\?\").unwrap_or(&text);
-            let mut canonical = plain.replace('\\', "/");
+            let mut canonical = match text.get(..UNC_PREFIX.len()) {
+                Some(prefix) if prefix.eq_ignore_ascii_case(UNC_PREFIX) => {
+                    format!("//{}", text[UNC_PREFIX.len()..].replace('\\', "/"))
+                }
+                _ => text
+                    .strip_prefix(r"\\?\")
+                    .unwrap_or(&text)
+                    .replace('\\', "/"),
+            };
             if let Some(drive) = canonical.get(..1)
                 && canonical.get(1..2) == Some(":")
             {
