@@ -1481,6 +1481,373 @@ fn remove_tree_stops_at_unreadable_subdirectory() {
     assert!(locked.as_path().join("kept").exists());
 }
 
+fn make_fifo(path: &AbsPath) {
+    rustix::fs::mkfifoat(
+        rustix::fs::CWD,
+        path.as_path(),
+        rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
+    )
+    .expect("fifo");
+}
+
+#[test]
+fn restore_meta_without_flags_keeps_the_immutable_flag_of_the_target() {
+    if !privileged() {
+        return;
+    }
+    let fixture = Fixture::new();
+    let path = fixture.file("protected", b"x");
+    let file = File::open(&path).expect("open");
+    let Ok(flags) = rustix::fs::ioctl_getflags(file.as_fd()) else {
+        return;
+    };
+    if rustix::fs::ioctl_setflags(file.as_fd(), flags | IFlags::IMMUTABLE).is_err() {
+        return;
+    }
+    let mut wanted = fixture
+        .fs
+        .extended_metadata(&path, Follow::NoFollow)
+        .expect("metadata");
+    wanted.flags = None;
+    let result = fixture.fs.restore_meta(&fixture.scope, &path, &wanted);
+    let after = rustix::fs::ioctl_getflags(file.as_fd());
+    rustix::fs::ioctl_setflags(file.as_fd(), flags).expect("lift the flag");
+    result.expect("restore");
+    assert!(after.expect("flags").contains(IFlags::IMMUTABLE));
+}
+
+#[test]
+fn lock_with_the_longest_timeout_is_taken_at_once_when_the_file_is_free() {
+    let fixture = Fixture::new();
+    let path = fixture.path("lock");
+    let lock = fixture
+        .fs
+        .lock_exclusive(&path, Duration::MAX)
+        .expect("lock");
+    assert_eq!(lock.path(), &path);
+}
+
+#[test]
+fn lock_with_zero_timeout_fails_at_once_while_it_is_held() {
+    let fixture = Fixture::new();
+    let path = fixture.path("lock");
+    let first = fixture
+        .fs
+        .lock_exclusive(&path, Duration::ZERO)
+        .expect("first lock");
+    let error = fixture
+        .fs
+        .lock_exclusive(&path, Duration::ZERO)
+        .err()
+        .expect("second lock");
+    assert_eq!(error.kind, FsErrorKind::InUse);
+    drop(first);
+    fixture
+        .fs
+        .lock_exclusive(&path, Duration::ZERO)
+        .expect("lock after release");
+}
+
+#[test]
+fn lock_refuses_a_symbolic_link_at_the_lock_path() {
+    let fixture = Fixture::new();
+    let target = fixture.path("target");
+    let link = fixture.path("lock");
+    symlink(&target, &link).expect("link");
+    let error = fixture
+        .fs
+        .lock_exclusive(&link, Duration::ZERO)
+        .err()
+        .expect("link refused");
+    assert_eq!(error.kind, FsErrorKind::Loop);
+    assert!(!target.as_path().exists());
+}
+
+#[test]
+fn copy_and_clone_refuse_a_fifo_source_without_waiting_for_a_writer() {
+    let fixture = Fixture::new();
+    let fifo = fixture.path("fifo");
+    make_fifo(&fifo);
+    let target = fixture.path("target");
+    let error = fixture
+        .fs
+        .copy_file(&fixture.scope, &fifo, &target)
+        .expect_err("fifo source");
+    assert_eq!(error.kind, FsErrorKind::Unsupported);
+    assert!(!target.as_path().exists());
+    let error = fixture
+        .fs
+        .clone_file(&fixture.scope, &fifo, &target)
+        .expect_err("fifo source");
+    assert_eq!(error.kind, FsErrorKind::Unsupported);
+    assert!(!target.as_path().exists());
+}
+
+#[test]
+fn lists_fifos_as_special_entries() {
+    let fixture = Fixture::new();
+    make_fifo(&fixture.path("fifo"));
+    let entries: Vec<_> = fixture
+        .fs
+        .read_dir(&fixture.root)
+        .expect("listing")
+        .map(|entry| entry.expect("entry"))
+        .map(|entry| (entry.name.to_string_lossy().into_owned(), entry.kind))
+        .collect();
+    assert_eq!(entries, [("fifo".to_owned(), Some(FileKind::Special))]);
+}
+
+#[test]
+fn remove_tree_of_a_symbolic_link_removes_only_the_link() {
+    let fixture = Fixture::new();
+    let outside = fixture.dir("outside");
+    let kept = outside.join_name("kept").expect("name");
+    fs::write(&kept, b"keep").expect("outside file");
+    let link = fixture.path("link");
+    symlink(&outside, &link).expect("link");
+    let stats = fixture
+        .fs
+        .remove_tree(&fixture.scope, &link, 2)
+        .expect("remove link");
+    assert_eq!((stats.files, stats.directories), (1, 0));
+    assert!(fs::symlink_metadata(&link).is_err());
+    assert_eq!(read(&kept), b"keep");
+}
+
+#[test]
+fn remove_tree_does_not_follow_links_that_point_to_their_own_ancestors() {
+    let fixture = Fixture::new();
+    let tree = fixture.dir("tree");
+    let sub = tree.join_name("sub").expect("name");
+    fs::create_dir(&sub).expect("subdirectory");
+    symlink(&tree, sub.join_name("up").expect("name")).expect("link to the ancestor");
+    symlink("self", tree.join_name("self").expect("name")).expect("link to itself");
+    let stats = fixture
+        .fs
+        .remove_tree(&fixture.scope, &tree, 2)
+        .expect("remove tree");
+    assert_eq!((stats.files, stats.directories), (2, 2));
+    assert!(!tree.as_path().exists());
+}
+
+#[test]
+fn remove_file_and_remove_dir_treat_a_link_to_a_directory_as_a_link() {
+    let fixture = Fixture::new();
+    let outside = fixture.dir("outside");
+    let link = fixture.path("link");
+    symlink(&outside, &link).expect("link");
+    let error = fixture
+        .fs
+        .remove_dir(&fixture.scope, &link)
+        .expect_err("a link is not a directory");
+    assert_eq!(error.kind, FsErrorKind::NotADirectory);
+    fixture
+        .fs
+        .remove_file(&fixture.scope, &link)
+        .expect("remove link");
+    assert!(fs::symlink_metadata(&link).is_err());
+    assert!(outside.as_path().is_dir());
+}
+
+#[test]
+fn rename_moves_a_symbolic_link_and_leaves_its_target() {
+    let fixture = Fixture::new();
+    let target = fixture.file("target", b"data");
+    let link = fixture.path("link");
+    symlink("target", &link).expect("link");
+    let moved = fixture.path("moved");
+    fixture
+        .fs
+        .rename(&fixture.scope, &link, &moved, RenameMode::NoReplace)
+        .expect("rename");
+    assert_eq!(
+        fixture.fs.read_link(&moved).expect("target"),
+        Path::new("target")
+    );
+    assert!(fs::symlink_metadata(&link).is_err());
+    assert_eq!(read(&target), b"data");
+}
+
+#[test]
+fn copy_of_a_symbolic_link_source_copies_the_content_of_its_target() {
+    let fixture = Fixture::new();
+    fixture.file("source", b"payload");
+    let link = fixture.path("link");
+    symlink("source", &link).expect("link");
+    let copy = fixture.path("copy");
+    let copied = fixture
+        .fs
+        .copy_file(&fixture.scope, &link, &copy)
+        .expect("copy");
+    assert_eq!(copied, 7);
+    assert!(
+        fs::symlink_metadata(&copy)
+            .expect("metadata")
+            .file_type()
+            .is_file()
+    );
+    assert_eq!(read(&copy), b"payload");
+}
+
+#[test]
+fn creation_over_a_dangling_link_fails_without_creating_its_target() {
+    let fixture = Fixture::new();
+    let source = fixture.file("source", b"x");
+    let outside = fixture.path("outside");
+    let dangling = fixture.path("dangling");
+    symlink("outside", &dangling).expect("link");
+    let error = fixture
+        .fs
+        .copy_file(&fixture.scope, &source, &dangling)
+        .expect_err("destination exists");
+    assert_eq!(error.kind, FsErrorKind::Exists);
+    let error = fixture
+        .fs
+        .create_new(&fixture.scope, &dangling)
+        .err()
+        .expect("name exists");
+    assert_eq!(error.kind, FsErrorKind::Exists);
+    assert!(!outside.as_path().exists());
+}
+
+#[test]
+fn copy_drops_set_user_id_and_sticky_bits_of_the_source() {
+    let fixture = Fixture::new();
+    let source = fixture.file("source", b"x");
+    fs::set_permissions(&source, fs::Permissions::from_mode(0o4755)).expect("mode");
+    let target = fixture.path("target");
+    fixture
+        .fs
+        .copy_file(&fixture.scope, &source, &target)
+        .expect("copy");
+    assert_eq!(fs::metadata(&target).expect("metadata").mode() & 0o7000, 0);
+}
+
+#[test]
+fn created_files_receive_no_execute_bits() {
+    let fixture = Fixture::new();
+    let path = fixture.path("new");
+    drop(
+        fixture
+            .fs
+            .create_new(&fixture.scope, &path)
+            .expect("create"),
+    );
+    assert_eq!(fs::metadata(&path).expect("metadata").mode() & 0o7111, 0);
+}
+
+#[test]
+fn set_meta_keeps_the_sticky_bit_of_a_shared_directory() {
+    let fixture = Fixture::new();
+    let dir = fixture.dir("shared");
+    let change = MetaChange {
+        mode: Some(0o1777),
+        ..MetaChange::default()
+    };
+    fixture
+        .fs
+        .set_meta(&fixture.scope, &dir, &change)
+        .expect("chmod");
+    let meta = fixture.fs.metadata(&dir, Follow::NoFollow).expect("meta");
+    assert_eq!(meta.mode, 0o1777);
+}
+
+#[test]
+fn set_meta_changes_the_times_of_a_link_and_not_of_its_target() {
+    let fixture = Fixture::new();
+    let target = fixture.file("target", b"x");
+    let link = fixture.path("link");
+    symlink("target", &link).expect("link");
+    let before = fixture
+        .fs
+        .metadata(&target, Follow::NoFollow)
+        .expect("target")
+        .modified_ns;
+    let change = MetaChange {
+        modified_ns: Some(1_000_000_000),
+        ..MetaChange::default()
+    };
+    fixture
+        .fs
+        .set_meta(&fixture.scope, &link, &change)
+        .expect("times of the link");
+    let link_meta = fixture.fs.metadata(&link, Follow::NoFollow).expect("link");
+    assert_eq!(link_meta.modified_ns, 1_000_000_000);
+    let after = fixture
+        .fs
+        .metadata(&target, Follow::NoFollow)
+        .expect("target")
+        .modified_ns;
+    assert_eq!(after, before);
+}
+
+#[test]
+fn operations_keep_names_that_are_not_valid_utf8() {
+    let fixture = Fixture::new();
+    let named = |name: &[u8]| {
+        AbsPath::new(fixture.root.as_path().join(OsStr::from_bytes(name))).expect("path")
+    };
+    let source = named(b"s\xff\xfe");
+    fs::write(&source, b"raw").expect("file");
+    let copy = named(b"c\xff");
+    assert_eq!(
+        fixture
+            .fs
+            .copy_file(&fixture.scope, &source, &copy)
+            .expect("copy"),
+        3
+    );
+    let moved = named(b"m\xfe");
+    fixture
+        .fs
+        .rename(&fixture.scope, &copy, &moved, RenameMode::NoReplace)
+        .expect("rename");
+    let mut names: Vec<Vec<u8>> = fixture
+        .fs
+        .read_dir(&fixture.root)
+        .expect("listing")
+        .map(|entry| entry.expect("entry").name.as_bytes().to_vec())
+        .collect();
+    names.sort();
+    assert_eq!(names, [b"m\xfe".to_vec(), b"s\xff\xfe".to_vec()]);
+    assert_eq!(
+        fixture.fs.content_hash(&moved).expect("hash"),
+        fixture.fs.content_hash(&source).expect("hash")
+    );
+    let stats = fixture
+        .fs
+        .remove_tree(&fixture.scope, &moved, 1)
+        .expect("remove");
+    assert_eq!((stats.files, stats.bytes), (1, 3));
+    assert!(!moved.as_path().exists());
+}
+
+#[test]
+fn staged_file_replaces_the_target_with_one_rename() {
+    let fixture = Fixture::new();
+    let target = fixture.file("target", b"old");
+    let mut handle = fixture
+        .fs
+        .create_temp_in(&fixture.scope, &fixture.root, "target")
+        .expect("staged file");
+    handle.write_all(b"new content").expect("write");
+    handle.sync(Durability::Full).expect("flush");
+    let staged = handle.path().clone();
+    let staged_inode = inode_of(&staged);
+    drop(handle);
+    fixture
+        .fs
+        .rename(&fixture.scope, &staged, &target, RenameMode::Replace)
+        .expect("rename over the target");
+    fixture
+        .fs
+        .sync_dir(&fixture.scope, &fixture.root)
+        .expect("directory flush");
+    assert_eq!(read(&target), b"new content");
+    assert_eq!(inode_of(&target), staged_inode);
+    assert!(!staged.as_path().exists());
+}
+
 #[test]
 fn path_keys_are_raw_bytes_on_case_sensitive_volumes() {
     let fixture = Fixture::new();
