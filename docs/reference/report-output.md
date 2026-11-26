@@ -143,6 +143,29 @@ src/
 The formats `json` and `compact` keep the flat list of rows with their
 `depth`.
 
+## Line breaks and control characters
+
+A report is shown line by line, so a value that comes from outside the report
+(a file name, a path, a cell of a record, a message) is written on one line in
+the formats `text`, `markdown` and `compact`. A line feed is written as `\n`, a
+carriage return as `\r`, a tab as `\t` and any other control character as a
+Rust escape such as `\u{1}`. A backslash is not doubled, so a name with the two
+characters `\n` and a name with a line feed look alike; the format `json` tells
+them apart.
+
+| Place | Rule |
+|---|---|
+| table cell of the format `text` | escaped as above |
+| tree view | the label of a row is escaped; a directory derived from a `path` is escaped the same way |
+| table cell of the format `markdown` | escaped as above, then `\|` for a pipe |
+| inline code and list item of the format `markdown` | escaped as above; the code delimiter is longer than every run of backticks in the text |
+| value of the format `compact` | a value with a space, a control character, a quote or `=` is written as a JSON string |
+| path of a `diff` line of the format `compact` | escaped as above |
+
+The text of a file shown by `read` is one value like any other: in a table it
+is written on one line with `\n` for each line break, and the format `json`
+keeps the lines.
+
 ## Response envelope
 
 | Member | Type | Value |

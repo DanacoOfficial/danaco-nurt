@@ -431,6 +431,124 @@ fn a_fence_in_the_output_does_not_close_the_markdown_block() {
 }
 
 #[test]
+fn directories_between_the_root_and_a_deep_match_are_drawn_in_every_format() {
+    let report = listing(vec![found("/abs/a/b/c/d.txt", 3, 1)]);
+    let expected = [
+        "tree  matched 1 \u{b7} shown 1",
+        "`-- b/",
+        "    `-- c/",
+        "        `-- d.txt  1b",
+    ]
+    .join("\n");
+    assert_eq!(text_of(&report), expected);
+    let markdown = render(&report, &options(OutputFormat::Markdown));
+    assert!(
+        markdown.ends_with("```\n`-- b/\n    `-- c/\n        `-- d.txt  1b\n```"),
+        "{markdown}"
+    );
+}
+
+#[test]
+fn a_directory_with_a_line_break_in_its_path_is_drawn_on_one_line() {
+    let report = listing(vec![found("/abs/a/we\nird/d.txt", 2, 1)]);
+    let text = text_of(&report);
+    assert!(text.contains("`-- we\\nird/\n"), "{text}");
+    assert_eq!(text.lines().count(), 3, "{text}");
+}
+
+#[test]
+fn a_multi_line_value_stays_inside_its_table_cell_in_markdown() {
+    let report = listing(vec![
+        Record::new(RecordKind::Content)
+            .with("path", Value::Path("/abs/multi.txt".to_owned()))
+            .with("text", Value::Text("one\ntwo\r\nthree|four".to_owned())),
+    ]);
+    let markdown = render(&report, &options(OutputFormat::Markdown));
+    assert!(
+        markdown.contains("| /abs/multi.txt | one\\ntwo\\r\\nthree\\|four |"),
+        "{markdown}"
+    );
+    assert_eq!(
+        markdown
+            .lines()
+            .filter(|line| line.starts_with('|'))
+            .count(),
+        3,
+        "{markdown}"
+    );
+}
+
+fn report_naming_a_file_with_a_line_break() -> Report {
+    let path = "/abs/we\nird.txt";
+    let mut report = Report::new(ReportStatus::Ok, "replace");
+    report.changes.push(Change::new(path, ChangeAction::Modify));
+    report.diff.push(Hunk {
+        path: path.into(),
+        new_start: 4,
+        lines: vec!["+x".to_owned()],
+        ..Hunk::default()
+    });
+    report.notable.push(NotableEntry {
+        path: Some(path.to_owned()),
+        detail: Some("sample: /abs/a\nb".to_owned()),
+        ..NotableEntry::new(Notable::SystemPath)
+    });
+    report.result_file = Some(path.to_owned());
+    report
+}
+
+#[test]
+fn a_file_name_with_a_line_break_stays_on_one_line_in_markdown() {
+    let text = render(
+        &report_naming_a_file_with_a_line_break(),
+        &options(OutputFormat::Markdown),
+    );
+    assert!(text.contains("| `/abs/we\\nird.txt` |"), "{text}");
+    assert!(text.contains("`/abs/we\\nird.txt:4`\n```diff"), "{text}");
+    assert!(
+        text.contains("- alert system_path /abs/we\\nird.txt sample: /abs/a\\nb"),
+        "{text}"
+    );
+    assert!(text.contains("result file `/abs/we\\nird.txt`"), "{text}");
+    assert!(!text.contains("we\nird"), "{text}");
+}
+
+#[test]
+fn a_file_name_with_a_line_break_stays_on_one_line_in_compact_and_text() {
+    let report = report_naming_a_file_with_a_line_break();
+    let compact = render(&report, &options(OutputFormat::Compact));
+    assert!(compact.contains("diff /abs/we\\nird.txt:4 +x"), "{compact}");
+    assert!(
+        compact.contains("change modify \"/abs/we\\nird.txt\""),
+        "{compact}"
+    );
+    assert!(!compact.contains("we\nird"), "{compact}");
+    let text = text_of(&report);
+    assert!(text.contains("result file /abs/we\\nird.txt"), "{text}");
+    assert!(!text.contains("we\nird"), "{text}");
+}
+
+#[test]
+fn control_characters_of_a_file_name_are_escaped_in_every_format() {
+    let mut report = Report::new(ReportStatus::Ok, "remove");
+    report
+        .changes
+        .push(Change::new("/abs/t\tb\u{7}.txt", ChangeAction::Delete));
+    let text = text_of(&report);
+    assert!(text.contains("  /abs/t\\tb\\u{7}.txt  delete"), "{text}");
+    let markdown = render(&report, &options(OutputFormat::Markdown));
+    assert!(
+        markdown.contains("| `/abs/t\\tb\\u{7}.txt` |"),
+        "{markdown}"
+    );
+    let compact = render(&report, &options(OutputFormat::Compact));
+    assert!(
+        compact.contains("change delete \"/abs/t\\tb\\u0007.txt\""),
+        "{compact}"
+    );
+}
+
+#[test]
 fn entries_with_a_depth_stay_a_flat_list_in_json() {
     let report = listing(vec![entry("app", 0, true, 0), entry("src", 1, true, 0)]);
     let json = render(&report, &options(OutputFormat::Json));

@@ -376,6 +376,56 @@ fn fmt_prints_a_program_of_the_configured_variant_in_the_requested_one() {
     assert!(stdout(&output).contains("kind="), "{}", stdout(&output));
 }
 
+/// Output of a program run in `home` with the given arguments before it.
+fn program_in(home: &std::path::Path, options: &[&str], program: &str) -> Output {
+    command(options, home)
+        .arg(program)
+        .stdin(Stdio::null())
+        .output()
+        .unwrap()
+}
+
+#[cfg(unix)]
+#[test]
+fn a_tree_a_multi_line_text_and_a_name_with_a_line_break_keep_the_text_view_whole() {
+    let work = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let dir = work.path().to_str().unwrap().to_owned();
+    std::fs::create_dir_all(work.path().join("a/b/c")).unwrap();
+    std::fs::write(work.path().join("a/b/c/d.txt"), b"x").unwrap();
+    std::fs::write(work.path().join("multi.txt"), b"one\ntwo\nthree\n").unwrap();
+    std::fs::write(work.path().join("we\nird.txt"), b"n").unwrap();
+
+    let found = stdout(&program_in(
+        home.path(),
+        &[],
+        &format!("find \"{dir}/a\" glob: \"**/d.txt\""),
+    ));
+    assert!(
+        found.contains("`-- b/\n    `-- c/\n        `-- d.txt  1b"),
+        "{found}"
+    );
+
+    let read = stdout(&program_in(
+        home.path(),
+        &[],
+        &format!("read \"{dir}/multi.txt\""),
+    ));
+    assert!(read.contains("one\\ntwo\\nthree\\n"), "{read}");
+    assert_eq!(read.lines().count(), 3, "{read}");
+
+    let listed = stdout(&program_in(home.path(), &[], &format!("list \"{dir}\"")));
+    assert!(listed.contains("`-- we\\nird.txt  1b"), "{listed}");
+    assert!(!listed.contains("we\nird"), "{listed}");
+
+    let markdown = stdout(&program_in(
+        home.path(),
+        &["--format", "markdown"],
+        &format!("read \"{dir}/multi.txt\""),
+    ));
+    assert!(markdown.contains("one\\ntwo\\nthree\\n"), "{markdown}");
+}
+
 #[cfg(unix)]
 #[test]
 fn argument_that_is_not_utf8_is_a_usage_error() {
