@@ -237,7 +237,7 @@ outcome = "corrected"
 id = "B32"
 topic = "Network"
 habit = "curl -fsS https://example.com/health"
-canonical = 'http.request "https://example.com/health"'
+canonical = 'http.request "https://example.com/health" follow_redirects: false'
 outcome = "corrected"
 
 [[entry]]
