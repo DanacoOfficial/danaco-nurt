@@ -794,18 +794,20 @@ fn check_literals(
     after: &BoundFacts,
     base: Option<&str>,
 ) -> Result<(), InvariantViolation> {
-    let mut unused: Vec<&str> = before.texts.iter().map(String::as_str).collect();
+    // A written literal may stand for several bound ones: an expansion of a
+    // source form can repeat a path, so a literal is not used up by its first
+    // match.
     for (kind, value) in &after.literals {
-        let found = unused.iter().position(|text| match kind {
+        let found = before.texts.iter().any(|text| match kind {
             LiteralKind::Path => path_check(text, value, base) == PathCheck::Preserved,
             LiteralKind::Glob | LiteralKind::Regex | LiteralKind::Text => text == value,
         });
-        if let Some(position) = found {
-            unused.swap_remove(position);
+        if found {
             continue;
         }
         let base_chosen = *kind == LiteralKind::Path
-            && unused
+            && before
+                .texts
                 .iter()
                 .any(|text| path_check(text, value, base) == PathCheck::BaseChosen);
         return Err(if base_chosen {
@@ -986,6 +988,35 @@ mod tests {
 
     const READ: ProgramKind = ProgramKind::Read;
     const EFFECT: ProgramKind = ProgramKind::Effect;
+
+    fn bound_paths(paths: &[&str]) -> BoundFacts {
+        BoundFacts {
+            literals: paths
+                .iter()
+                .map(|path| (LiteralKind::Path, (*path).to_owned()))
+                .collect(),
+            ints: Vec::new(),
+            durations: Vec::new(),
+            pipelines: Vec::new(),
+            modes: Vec::new(),
+            at: (0, false),
+        }
+    }
+
+    #[test]
+    fn a_written_path_may_be_repeated_by_the_bound_tree() {
+        let before = SurfaceFacts {
+            texts: vec!["/srv/a".to_owned()],
+            ..SurfaceFacts::default()
+        };
+        assert_eq!(
+            check_literals(&before, &bound_paths(&["/srv/a", "/srv/a"]), None),
+            Ok(())
+        );
+        let violation = check_literals(&before, &bound_paths(&["/srv/a", "/srv/b"]), None)
+            .expect_err("a path that was not written");
+        assert_eq!(violation.invariant, Invariant::LiteralBytes);
+    }
 
     #[test]
     fn applies_certain_corrections_everywhere() {
