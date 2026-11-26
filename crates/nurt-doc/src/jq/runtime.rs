@@ -47,12 +47,19 @@ const REPLACED_DEFS: [(&str, usize); 6] = [
 ];
 
 /// Native filters of the libraries replaced by filters of this module.
-const REPLACED_FUNS: [&str; 5] = ["range", "env", "now", "debug_empty", "stderr_empty"];
+const REPLACED_FUNS: [&str; 6] = [
+    "range",
+    "env",
+    "now",
+    "debug_empty",
+    "stderr_empty",
+    "decode_base64",
+];
 
-/// Checkpointed generators; `repeat` follows `jq`, which emits the input
-/// before each application of `f`.
+/// Checkpointed generators; `repeat` follows `jq` 1.8, which applies `f` to
+/// the same input again and again.
 const CHECKED_DEFS: &str = r"
-def repeat(f): def rec: __checkpoint | ., (f | rec); rec;
+def repeat(f): def rec: __checkpoint | f, rec; rec;
 def recurse(f): def rec: __checkpoint | ., (f | rec); rec;
 def recurse: recurse(.[]?);
 def recurse(f; cond): recurse(f | select(cond));
@@ -68,6 +75,15 @@ def IN(src; s): first((src | IN(s) | select(.)), false);
 def INDEX(stream; idx_expr): reduce stream as $row ({}; . + {($row | idx_expr | tostring): $row});
 def INDEX(idx_expr): INDEX(.[]; idx_expr);
 def tostream: path(def r: (.[]? | r), .; r) as $p | getpath($p) | reduce path(.[]?) as $q ([$p, .]; [$p + $q]);
+def fromstream(i): {x: null, e: false} as $init |
+  foreach i as $i ($init
+  ; if .e then $init else . end
+  | if $i | length == 2
+    then setpath(["e"]; $i[0] | length == 0) | setpath(["x"] + $i[0]; $i[1])
+    else setpath(["e"]; $i[0] | length == 1) end
+  ; if .e then .x else empty end);
+def delpaths($paths): reduce ($paths | sort | reverse | .[]) as $path (.; getpath($path) |= empty);
+def del(f): delpaths([path(f)]);
 def from_entries: reduce .[] as $x ({};
   . + {($x | if .key == null then .k // .name // .Name // .K // .Key else .key end
           | if isstring then . else tojson end):
@@ -320,7 +336,12 @@ pub(crate) fn funs() -> Vec<Fun<Doc>> {
             Ok(()) => update(cv.1),
             Err(exn) => box_once(Err(exn)),
         });
-    let own: [Fun<Doc>; 7] = [
+    let own: [Fun<Doc>; 8] = [
+        (
+            "decode_base64",
+            v(0),
+            Native::new(|cv| box_once(decode_base64(&cv.1).map_err(Exn::from))),
+        ),
         (
             "range",
             v(3),
@@ -362,6 +383,52 @@ pub(crate) fn funs() -> Vec<Fun<Doc>> {
         (guard::GUARD_NAME, v(0), guard_filter),
     ];
     library.chain(own).collect()
+}
+
+/// `@base64d` as `jq` 1.8 decodes it: padding ends the text, a last group of
+/// two or three characters gives one or two bytes, and bytes that are not
+/// UTF-8 become the replacement character.
+fn decode_base64(input: &Val) -> Result<Val, jaq_core::Error<Val>> {
+    let Val::TStr(text) = input else {
+        return Err(jaq_core::Error::str(format!(
+            "{input} cannot be base64-decoded, only a string can be"
+        )));
+    };
+    let mut bytes = Vec::with_capacity(text.len() / 4 * 3 + 2);
+    let mut group = 0_u32;
+    let mut count = 0_u8;
+    for &byte in text.iter().take_while(|byte| **byte != b'=') {
+        let sextet = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            _ => {
+                return Err(jaq_core::Error::str(format!(
+                    "string ({input}) is not valid base64 data"
+                )));
+            }
+        };
+        group = group << 6 | u32::from(sextet);
+        count += 1;
+        if count == 4 {
+            bytes.extend_from_slice(&group.to_be_bytes()[1..]);
+            group = 0;
+            count = 0;
+        }
+    }
+    match count {
+        0 => {}
+        1 => {
+            return Err(jaq_core::Error::str(format!(
+                "string ({input}) trailing base64 byte found"
+            )));
+        }
+        2 => bytes.push((group >> 4).to_be_bytes()[3]),
+        _ => bytes.extend_from_slice(&(group >> 2).to_be_bytes()[2..]),
+    }
+    Ok(Val::from(String::from_utf8_lossy(&bytes).into_owned()))
 }
 
 fn pass<'a>(runtime: &&'a Runtime<'a>, value: Val) -> ValXs<'a, Val> {

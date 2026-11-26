@@ -177,6 +177,7 @@ impl jaq_core::ValT for Val {
             Val::Arr(a) => Self::range_int(range)
                 .map(|range| skip_take(range, a.len()))
                 .map(|(skip, take)| a.iter().skip(skip).take(take).cloned().collect()),
+            Val::Null => Ok(Val::Null),
             _ => Err(Error::typ(self, Type::Range.as_str())),
         }
     }
@@ -211,6 +212,19 @@ impl jaq_core::ValT for Val {
             return self.map_range(range, opt, f);
         };
         match self {
+            // as in jq, an update below `null` creates the container, and
+            // deleting what does not exist leaves `null` as it is
+            Val::Null if matches!(index, Val::TStr(_) | Val::Num(_)) => {
+                let empty = match index {
+                    Val::TStr(_) => Val::obj(Map::default()),
+                    _ => Val::Arr(Rc::default()),
+                };
+                Ok(match empty.map_index(index, opt, f)? {
+                    Val::Obj(o) if o.is_empty() => Val::Null,
+                    Val::Arr(a) if a.is_empty() => Val::Null,
+                    updated => updated,
+                })
+            }
             Val::Obj(ref mut o) => {
                 use indexmap::map::Entry::{Occupied, Vacant};
                 match Rc::make_mut(o).entry(index.clone()) {
@@ -232,6 +246,30 @@ impl jaq_core::ValT for Val {
                 Ok(self)
             }
             Val::Arr(ref mut a) => {
+                let whole;
+                let index = match index {
+                    Val::Num(n @ (Num::Float(_) | Num::Dec(_)))
+                        if as_float(n).is_some_and(|f| !f.is_nan()) =>
+                    {
+                        whole = Val::from(as_float(n).unwrap_or_default() as isize);
+                        &whole
+                    }
+                    _ => index,
+                };
+                // as in jq, an update past the end extends the array with
+                // `null`; the extension counts against the size limit
+                if let Ok(num::PosUsize(true, i)) = index.as_pos_usize() {
+                    if i >= a.len() {
+                        let Some(y) = f(Val::Null).next().transpose()? else {
+                            return Ok(self);
+                        };
+                        check_repeat(core::mem::size_of::<Val>(), i.saturating_add(1))?;
+                        let a = Rc::make_mut(a);
+                        a.resize(i, Val::Null);
+                        a.push(y);
+                        return Ok(self);
+                    }
+                }
                 let oob = || Error::str(format_args!("index {index} out of bounds"));
                 let abs_or = |i| abs_index(i, a.len()).ok_or_else(oob);
                 let i = match index.as_pos_usize().and_then(abs_or) {
@@ -495,6 +533,17 @@ impl Val {
                 .as_pos_usize()
                 .and_then(|i| abs_index(i, a.len()))
                 .map(|i| a[i].clone()),
+            // as in jq, the fraction of the index is dropped and NaN selects nothing
+            (Val::Arr(a), Val::Num(n @ (Num::Float(_) | Num::Dec(_)))) => as_float(n)
+                .filter(|f| !f.is_nan())
+                .and_then(|f| {
+                    let position = f as isize;
+                    abs_index(
+                        num::PosUsize(position >= 0, position.unsigned_abs()),
+                        a.len(),
+                    )
+                })
+                .map(|i| a[i].clone()),
             (Val::Arr(_), Val::Arr(y)) if y.is_empty() => Some(Val::Arr(Default::default())),
             (Val::Arr(x), Val::Arr(y)) => {
                 // adapted from the implementation of the `indices` filter
@@ -502,7 +551,7 @@ impl Val {
                 let indices = iw.filter_map(|(i, w)| (w == **y).then_some(i));
                 Some(indices.map(Val::from).collect())
             }
-            (Val::Obj(o), i) => o.get(i).cloned(),
+            (Val::Obj(o), i @ Val::TStr(_)) => o.get(i).cloned(),
             (v @ (Val::BStr(_) | Val::TStr(_) | Val::Arr(_)), Val::Obj(o)) => {
                 use jaq_core::ValT;
                 let start = o.get(&Val::utf8_str("start"));
@@ -629,28 +678,53 @@ fn check_repeat(_bytes: usize, _times: usize) -> Result<(), Error> {
     Ok(())
 }
 
+/// Copies of a string made by `s * n`, as in jq 1.8: the whole part of `n`,
+/// so none at all for `0 <= n < 1`; `None` stands for `null`, the result for a
+/// negative or NaN `n`. The count saturates instead of overflowing.
+fn repeat_count(n: &crate::Num) -> Option<usize> {
+    match n {
+        crate::Num::Int(i) => usize::try_from(*i).ok(),
+        crate::Num::BigInt(i) => usize::try_from(bigint_to_int_saturated(i)).ok(),
+        crate::Num::Float(f) if f.is_nan() || *f < 0.0 => None,
+        // truncation and saturation of the cast are the intended rounding
+        crate::Num::Float(f) => Some(*f as usize),
+        crate::Num::Dec(d) => repeat_count(&crate::Num::from_dec_str(d)),
+    }
+}
+
+/// The value of a floating-point or decimal number.
+fn as_float(n: &crate::Num) -> Option<f64> {
+    match n {
+        crate::Num::Float(f) => Some(*f),
+        crate::Num::Dec(d) => match crate::Num::from_dec_str(d) {
+            crate::Num::Float(f) => Some(f),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Result of multiplying the string `s` by the number `n`.
+fn repeat_str(s: &[u8], n: &crate::Num) -> Result<Option<Vec<u8>>, Error> {
+    let Some(times) = repeat_count(n) else {
+        return Ok(None);
+    };
+    check_repeat(s.len(), times)?;
+    Ok(Some(s.repeat(times)))
+}
+
 impl core::ops::Mul for Val {
     type Output = ValR;
     fn mul(self, rhs: Self) -> Self::Output {
-        use crate::Num::{BigInt, Int};
         use Val::*;
         match (self, rhs) {
             (Num(x), Num(y)) => Ok(Num(x * y)),
-            (s @ (BStr(_) | TStr(_)), Num(BigInt(i)))
-            | (Num(BigInt(i)), s @ (BStr(_) | TStr(_))) => {
-                s * Num(Int(bigint_to_int_saturated(&i)))
+            (BStr(s), Num(n)) | (Num(n), BStr(s)) => {
+                Ok(repeat_str(&s, &n)?.map_or(Null, Self::byte_str))
             }
-            (BStr(s), Num(Int(i))) | (Num(Int(i)), BStr(s)) if i > 0 => {
-                check_repeat(s.len(), i as usize)?;
-                Ok(Self::byte_str(s.repeat(i as usize)))
+            (TStr(s), Num(n)) | (Num(n), TStr(s)) => {
+                Ok(repeat_str(&s, &n)?.map_or(Null, Self::utf8_str))
             }
-            (TStr(s), Num(Int(i))) | (Num(Int(i)), TStr(s)) if i > 0 => {
-                check_repeat(s.len(), i as usize)?;
-                Ok(Self::utf8_str(s.repeat(i as usize)))
-            }
-            // string multiplication with negatives or 0 results in null
-            // <https://jqlang.github.io/jq/manual/#Builtinoperatorsandfunctions>
-            (BStr(_) | TStr(_), Num(Int(_))) | (Num(Int(_)), BStr(_) | TStr(_)) => Ok(Null),
             (Obj(mut l), Obj(r)) => {
                 obj_merge(&mut l, r);
                 Ok(Obj(l))
