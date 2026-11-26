@@ -555,7 +555,7 @@ fn fixed_topic(code: ErrorCode) -> Option<&'static str> {
         | ErrorCode::PathRelative
         | ErrorCode::PathForeign => Some("syntax"),
         ErrorCode::Assert => Some("assert"),
-        ErrorCode::UnknownCommand => Some(""),
+        ErrorCode::UnknownCommand => Some("commands"),
         _ => None,
     }
 }
@@ -575,16 +575,17 @@ const COMMAND_CODES: &[ErrorCode] = &[
 /// Name of the detail of an error that holds the command.
 const COMMAND_DETAIL: &str = "command";
 
-/// Prefix of an error code, which a program writes as a quoted text.
-const ERROR_CODE_PREFIX: &str = "E_";
-
-/// The line `help: help <topic>` that points an error at the part of the
+/// The line `help: help "<topic>"` that points an error at the part of the
 /// help that applies.
 ///
+/// The topic is always written as a quoted text, because the parameter
+/// `topic` of `help` is a text and a bare word is rejected with `E_TYPE`.
+///
 /// An explicit help topic of the error wins. Syntax and correction errors
-/// point at `syntax` and `corrections`, `E_ASSERT` at `assert`, and the
-/// errors of a command (`E_TYPE`, `E_MISSING_PARAM`, …) at the command named
-/// in the detail `command`. Every other code points at its own entry, written as a quoted text.
+/// point at `syntax` and `corrections`, `E_ASSERT` at `assert`, an unknown
+/// command at `commands`, and the errors of a command (`E_TYPE`,
+/// `E_MISSING_PARAM`, …) at the command named in the detail `command`. Every
+/// other code points at its own entry.
 ///
 /// # Examples
 ///
@@ -593,7 +594,7 @@ const ERROR_CODE_PREFIX: &str = "E_";
 /// use nurt_help::errors::help_reference;
 ///
 /// let error = Error::new(ErrorCode::Assert, "expected 12 paths, found 14");
-/// assert_eq!(help_reference(&error), "help: help assert");
+/// assert_eq!(help_reference(&error), "help: help \"assert\"");
 /// ```
 #[must_use]
 pub fn help_reference(error: &Error) -> String {
@@ -611,10 +612,9 @@ pub fn help_reference(error: &Error) -> String {
     };
     if topic.is_empty() {
         "help: help".to_owned()
-    } else if topic.starts_with(ERROR_CODE_PREFIX) {
-        format!("help: help \"{topic}\"")
     } else {
-        format!("help: help {topic}")
+        let escaped = topic.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("help: help \"{escaped}\"")
     }
 }
 
@@ -639,14 +639,14 @@ mod tests {
     #[test]
     fn assertion_points_at_assert() {
         let error = Error::new(ErrorCode::Assert, "failed");
-        assert_eq!(help_reference(&error), "help: help assert");
+        assert_eq!(help_reference(&error), "help: help \"assert\"");
     }
 
     #[test]
     fn type_error_points_at_the_command_of_the_error() {
         let error = Error::new(ErrorCode::Type, "wrong input")
             .with_detail("command", serde_json::Value::from("remove"));
-        assert_eq!(help_reference(&error), "help: help remove");
+        assert_eq!(help_reference(&error), "help: help \"remove\"");
     }
 
     #[test]
@@ -658,26 +658,36 @@ mod tests {
     #[test]
     fn ambiguity_points_at_corrections() {
         let error = Error::new(ErrorCode::Ambiguous, "two readings");
-        assert_eq!(help_reference(&error), "help: help corrections");
+        assert_eq!(help_reference(&error), "help: help \"corrections\"");
     }
 
     #[test]
     fn explicit_topic_of_the_error_wins() {
         let error = Error::new(ErrorCode::Syntax, "bad").with_help("syntax");
-        assert_eq!(help_reference(&error), "help: help syntax");
+        assert_eq!(help_reference(&error), "help: help \"syntax\"");
         let error = Error::new(ErrorCode::Stale, "changed").with_help("undo");
-        assert_eq!(help_reference(&error), "help: help undo");
+        assert_eq!(help_reference(&error), "help: help \"undo\"");
     }
 
     #[test]
     fn unknown_command_points_at_the_list() {
         let error = Error::new(ErrorCode::UnknownCommand, "no such command");
-        assert_eq!(help_reference(&error), "help: help");
+        assert_eq!(help_reference(&error), "help: help \"commands\"");
     }
 
     #[test]
     fn other_codes_point_at_their_own_entry() {
         let error = Error::new(ErrorCode::Stale, "changed");
         assert_eq!(help_reference(&error), "help: help \"E_STALE\"");
+    }
+
+    #[test]
+    fn topic_is_a_quoted_text_that_a_program_can_run() {
+        let error = Error::new(ErrorCode::Type, "wrong").with_help("help");
+        assert_eq!(help_reference(&error), "help: help \"help\"");
+        let error = Error::new(ErrorCode::Type, "wrong").with_help("a\"b\\c");
+        assert_eq!(help_reference(&error), "help: help \"a\\\"b\\\\c\"");
+        let error = Error::new(ErrorCode::Type, "wrong").with_help("");
+        assert_eq!(help_reference(&error), "help: help");
     }
 }

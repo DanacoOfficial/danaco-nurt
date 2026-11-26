@@ -14,7 +14,7 @@ use bind_support::{
     let_statement, linux, list, named, negative, pipeline, pos, program, ref_pipeline, regex,
     single, stage, stages_of, sub, text,
 };
-use nurt_contracts::ast::{BinOp, Statement};
+use nurt_contracts::ast::{BinOp, Expr, Span, Statement};
 use nurt_contracts::bound::{BoundExpr, Phase};
 use nurt_contracts::error::{ErrorCode, Stage as ExecStage};
 use nurt_contracts::kinds::EffectKind;
@@ -425,6 +425,29 @@ fn filter_cannot_start_a_pipeline() {
         vec![],
     ));
     assert_eq!(error.code(), ErrorCode::Type);
+}
+
+#[test]
+fn bare_word_in_a_text_place_comes_with_the_program_that_quotes_it() {
+    let written = Expr::Ident {
+        v: "run".to_owned(),
+        span: Some(Span {
+            line: 1,
+            column: 6,
+            end_line: 1,
+            end_column: 9,
+        }),
+    };
+    let error = failed(&single(stage("help", vec![pos(written)]), vec![]));
+    assert_eq!(error.code(), ErrorCode::Type);
+    assert_eq!(error.error().fix, ["help \"run\""]);
+}
+
+#[test]
+fn bare_word_without_a_span_has_no_quoted_program() {
+    let error = failed(&single(stage("help", vec![pos(ident("run"))]), vec![]));
+    assert_eq!(error.code(), ErrorCode::Type);
+    assert!(error.error().fix.is_empty());
 }
 
 #[test]
