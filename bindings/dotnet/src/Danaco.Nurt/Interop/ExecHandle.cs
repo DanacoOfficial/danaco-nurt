@@ -35,16 +35,14 @@ internal sealed class ExecHandle : SafeHandle
 
     public override bool IsInvalid => handle == IntPtr.Zero;
 
+    /// <summary>
+    /// Takes over the callback state and one reference on <paramref name="engine"/> that the caller
+    /// added before it started the execution; the reference is released with the handle.
+    /// </summary>
     public void Attach(GCHandle callbackState, EngineHandle engine)
     {
         _callbackState = callbackState;
-        bool added = false;
-        engine.DangerousAddRef(ref added);
-        if (added)
-        {
-            _engine = engine;
-        }
-
+        _engine = engine;
         Interlocked.Increment(ref s_live);
     }
 

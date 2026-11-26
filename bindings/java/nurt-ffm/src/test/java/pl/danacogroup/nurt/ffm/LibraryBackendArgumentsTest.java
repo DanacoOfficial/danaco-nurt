@@ -5,16 +5,22 @@ package pl.danacogroup.nurt.ffm;
 
 import static java.lang.foreign.ValueLayout.JAVA_BYTE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import pl.danacogroup.nurt.NurtCallException;
+import pl.danacogroup.nurt.spi.BackendSettings;
 
 /**
  * Conversion of arguments for the library and the layout of its types; none of
@@ -86,6 +92,33 @@ class LibraryBackendArgumentsTest {
         assertInvalid(() -> LibraryBackend.limit(params("limit", -1L)));
         assertInvalid(() -> LibraryBackend.limit(params("limit", Integer.MAX_VALUE + 1L)));
         assertInvalid(() -> LibraryBackend.limit(params("limit", "10")));
+    }
+
+    @Test
+    void lastErrorRecordThatIsNotUsableLeavesNoMessage() {
+        assertEquals("bad argument", Library.messageOf("{\"status\":3,\"message\":\"bad argument\"}"));
+        assertNull(Library.messageOf(""));
+        assertNull(Library.messageOf("{not json"));
+        assertNull(Library.messageOf("[]"));
+        assertNull(Library.messageOf("{\"status\":3}"));
+    }
+
+    @Test
+    void libraryThatCannotBeBoundIsAnIoError() {
+        Path path = Path.of("libnurt.so");
+        NurtCallException denied = Library.loadFailure(path, new IllegalCallerException("denied"));
+        NurtCallException missing = Library.loadFailure(path, new IllegalArgumentException("not found"));
+        assertEquals(NurtCallException.Kind.IO, denied.kind());
+        assertTrue(denied.getMessage().contains("--enable-native-access"), denied.getMessage());
+        assertEquals(NurtCallException.Kind.IO, missing.kind());
+        assertTrue(missing.getMessage().contains("NURT_LIBRARY"), missing.getMessage());
+    }
+
+    @Test
+    void providerIsUnavailableWithoutTheLibrary() {
+        BackendSettings settings = new BackendSettings(null, List.of(), Map.of(),
+                Path.of("no-such-directory", "libnurt.so"), null, null, null, null, event -> { });
+        assertFalse(new LibraryBackendProvider().isAvailable(settings));
     }
 
     @Test

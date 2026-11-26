@@ -196,6 +196,53 @@ public sealed unsafe partial class NativeInteropTests
         Assert.AreEqual(0, (await ReadAsync(queue)).Count);
     }
 
+    [TestMethod]
+    public void LibraryCanBeLoadedFromAPathByReflection()
+    {
+        Assert.IsTrue(PortableLibrary.IsAvailable);
+        string directory = Path.Combine(Path.GetTempPath(), "nurt-portable-" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string missing = Path.Combine(directory, "libnurt.so");
+            NurtCallException absent = Assert.ThrowsException<NurtCallException>(() => PortableLibrary.Load(missing));
+            string text = Path.Combine(directory, "libnurt_ffi.so");
+            File.WriteAllText(text, "not a library");
+            NurtCallException broken = Assert.ThrowsException<NurtCallException>(() => PortableLibrary.Load(text));
+
+            Assert.AreEqual(CallStatus.Io, absent.Status);
+            StringAssert.Contains(absent.Message, missing);
+            Assert.AreEqual(CallStatus.Io, broken.Status);
+            StringAssert.Contains(broken.Message, text);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public void ResolverAnswersOnlyTheNameItWasBoundTo()
+    {
+        var resolver = new PortableLibrary.Resolver("nurt", (IntPtr)5);
+        Assembly assembly = typeof(NativeInteropTests).Assembly;
+
+        Assert.AreEqual((IntPtr)5, resolver.Resolve("nurt", assembly, null));
+        Assert.AreEqual(IntPtr.Zero, resolver.Resolve("kernel32", assembly, null));
+    }
+
+    [TestMethod]
+    public void ImportsCanBeBoundToAPathOnlyOncePerAssembly()
+    {
+        Assembly assembly = typeof(NativeInteropTests).Assembly;
+
+        PortableLibrary.BindImports(assembly, "nurt-portable-test", (IntPtr)7);
+        NurtCallException second = Assert.ThrowsException<NurtCallException>(() => PortableLibrary.BindImports(assembly, "nurt-portable-test", (IntPtr)7));
+
+        Assert.AreEqual(CallStatus.Io, second.Status);
+        StringAssert.Contains(second.Message, "already bound");
+    }
+
     [GeneratedRegex(@"NURT_API\s+(?<ret>[\w\s\*]+?)\s*NURT_CALL\s+(?<name>nurt_\w+)\((?<args>[^)]*)\)\s*;", RegexOptions.CultureInvariant)]
     private static partial Regex PrototypePattern();
 

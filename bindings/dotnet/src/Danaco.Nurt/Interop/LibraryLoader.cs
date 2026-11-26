@@ -20,7 +20,10 @@ namespace Danaco.Nurt;
 /// On .NET 8 the declarations of <see cref="NativeMethods"/> are bound to the loaded file
 /// through <c>NativeLibrary.SetDllImportResolver</c>. On .NET Standard 2.0 the file is
 /// preloaded on Windows, where a module that is already loaded satisfies later imports of
-/// the same name; on other systems the runtime searches its default locations.
+/// the same name; on Linux and macOS the same <c>NativeLibrary</c> calls are made by reflection
+/// (<see cref="PortableLibrary"/>), which needs .NET Core 3.0 or later. On a runtime without
+/// <c>NativeLibrary</c> the path is not used and the runtime searches its default locations for
+/// <c>libnurt</c>; a missing file is then reported by the failed load of the first import.
 /// </remarks>
 internal static class LibraryLoader
 {
@@ -68,12 +71,18 @@ internal static class LibraryLoader
             Volatile.Write(ref s_handle, handle);
             NativeLibrary.SetDllImportResolver(typeof(LibraryLoader).Assembly, Resolve);
 #else
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                && NativeMethods.LoadLibraryEx(full, IntPtr.Zero, NativeMethods.LoadWithAlteredSearchPath) == IntPtr.Zero)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                throw new NurtCallException(
-                    CallStatus.Io,
-                    "cannot load libnurt from " + full + ": system error " + Marshal.GetLastWin32Error().ToString(System.Globalization.CultureInfo.InvariantCulture));
+                if (NativeMethods.LoadLibraryEx(full, IntPtr.Zero, NativeMethods.LoadWithAlteredSearchPath) == IntPtr.Zero)
+                {
+                    throw new NurtCallException(
+                        CallStatus.Io,
+                        "cannot load libnurt from " + full + ": system error " + Marshal.GetLastWin32Error().ToString(System.Globalization.CultureInfo.InvariantCulture));
+                }
+            }
+            else if (PortableLibrary.IsAvailable)
+            {
+                PortableLibrary.BindImports(typeof(LibraryLoader).Assembly, NativeMethods.LibraryName, PortableLibrary.Load(full));
             }
 #endif
             Volatile.Write(ref s_path, full);

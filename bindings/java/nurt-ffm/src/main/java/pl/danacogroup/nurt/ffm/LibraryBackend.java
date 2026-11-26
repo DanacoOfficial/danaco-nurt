@@ -320,7 +320,7 @@ final class LibraryBackend implements Backend {
 
     private void await(Started execution) {
         Object result = null;
-        RuntimeException failure = null;
+        Throwable failure = null;
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment buffer = arena.allocate(Library.BUF);
             try {
@@ -334,7 +334,7 @@ final class LibraryBackend implements Backend {
             }
         } catch (NurtCallException e) {
             failure = e;
-        } catch (RuntimeException e) {
+        } catch (Throwable e) {
             failure = new NurtCallException(NurtCallException.Kind.INTERNAL, "waiting for the execution failed: " + e, e);
         } finally {
             try {
