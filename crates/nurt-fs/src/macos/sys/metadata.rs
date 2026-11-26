@@ -150,11 +150,12 @@ fn xattrs_unsupported(error: &std::io::Error) -> bool {
 }
 
 /// Opens an entry for metadata changes without following a symbolic link in
-/// the last component: `O_SYMLINK` opens the link itself.
+/// the last component: `O_SYMLINK` opens the link itself. `O_NONBLOCK` keeps
+/// the open of a FIFO from waiting for a writer.
 pub(super) fn open_for_meta(path: &Path, op: &str) -> FsResult<File> {
     let stat = stat_path(path, Follow::NoFollow, op)?;
     let link = file_kind(u32::from(stat.st_mode)) == FileKind::Symlink;
-    let mut flags = OFlags::RDONLY | OFlags::CLOEXEC;
+    let mut flags = OFlags::RDONLY | OFlags::NONBLOCK | OFlags::CLOEXEC;
     flags |= if link {
         OFlags::SYMLINK
     } else {
