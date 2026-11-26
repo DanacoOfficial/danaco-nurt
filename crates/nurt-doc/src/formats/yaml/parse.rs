@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 use std::ops::Range;
+use std::sync::{Mutex, PoisonError};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
@@ -76,12 +77,42 @@ impl YamlModel {
             Err(error) if has_template(text) => return Err(template_error(text, error.offset)),
             Err(error) => return Err(parse_error(text, error.offset, &error.message)),
         };
-        let model = Builder::new(text, default_version).build(raw);
+        let model = build_model(text, default_version, raw)?;
         if let Some(offset) = template_in_flow(&model) {
             return Err(template_error(text, offset));
         }
         Ok(model)
     }
+}
+
+/// Stack of the thread that builds the model. The builder recurses once per
+/// level of nesting, with the frames of several functions per level, and the
+/// parser accepts 512 levels; this stack holds them in any build profile.
+const BUILD_STACK_BYTES: usize = 64 * 1024 * 1024;
+
+/// Builds the model on a thread with [`BUILD_STACK_BYTES`] of stack; on the
+/// calling thread when no thread can be started.
+fn build_model(text: &str, version: YamlVersion, raw: Vec<Vec<RawEvent>>) -> Result<YamlModel> {
+    let slot = Mutex::new(Some(raw));
+    let build = || {
+        let raw = slot
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()?;
+        Some(Builder::new(text, version).build(raw))
+    };
+    let built = std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .stack_size(BUILD_STACK_BYTES)
+            .spawn_scoped(scope, build)
+            .ok()
+            .map(std::thread::ScopedJoinHandle::join)
+    });
+    let model = match built {
+        Some(joined) => joined.ok().flatten(),
+        None => build(),
+    };
+    model.ok_or_else(|| Error::new(ErrorCode::Internal, "the model of a YAML stream was not built"))
 }
 
 fn has_template(text: &str) -> bool {

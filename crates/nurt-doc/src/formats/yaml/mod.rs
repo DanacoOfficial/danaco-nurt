@@ -1244,6 +1244,54 @@ mod tests {
     }
 
     #[test]
+    fn reads_a_flow_document_nested_to_the_parser_limit() {
+        let depth = backend_saphyr::MAX_DEPTH;
+        let text = format!("{}1{}\n", "[".repeat(depth), "]".repeat(depth));
+        let doc = YamlDoc::parse(text, YamlVersion::V1_2).unwrap();
+        let mut value = doc.values().unwrap().remove(0);
+        for level in 0..depth {
+            let Value::List(mut items) = value else {
+                panic!("level {level} is not a list");
+            };
+            value = items.remove(0);
+        }
+        assert_eq!(value, Value::Int(1));
+    }
+
+    #[test]
+    fn reads_a_block_document_nested_to_the_parser_limit() {
+        let depth = backend_saphyr::MAX_DEPTH;
+        let mut text: String = (0..depth - 1)
+            .map(|level| format!("{}a:\n", " ".repeat(level)))
+            .collect();
+        text.push_str(&format!("{}a: 1\n", " ".repeat(depth - 1)));
+        let doc = YamlDoc::parse(text, YamlVersion::V1_2).unwrap();
+        let mut value = doc.values().unwrap().remove(0);
+        for level in 0..depth {
+            let Value::Map(mut fields) = value else {
+                panic!("level {level} is not a map");
+            };
+            value = fields.swap_remove("a").unwrap();
+        }
+        assert_eq!(value, Value::Int(1));
+    }
+
+    #[test]
+    fn expansion_deeper_than_the_parser_limit_through_aliases_is_refused() {
+        let mut text = String::from("l0: &l0 [x]\n");
+        for level in 1..=backend_saphyr::MAX_DEPTH + 2 {
+            text.push_str(&format!("l{level}: &l{level} [*l{}]\n", level - 1));
+        }
+        let error = YamlDoc::parse(text, YamlVersion::V1_2)
+            .and_then(|doc| doc.values())
+            .unwrap_err();
+        assert_eq!(
+            error.found.as_deref(),
+            Some(crate::constructs::YAML_ALIAS_EXPANSION_LIMIT)
+        );
+    }
+
+    #[test]
     fn many_merge_keys_resolve_against_their_anchors() {
         let mut text = String::from("base: &b {x: 1}\n");
         for index in 0..2000 {
