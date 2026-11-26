@@ -147,8 +147,24 @@ fn declaration<'t>(node: Node<'t>, source: &[u8]) -> Option<Declaration<'t>> {
 }
 
 /// Declarations containing `node`, innermost first, including `node`.
-fn ancestors<'t>(node: Node<'t>, source: &[u8]) -> Vec<Declaration<'t>> {
-    std::iter::successors(Some(node), Node::parent)
+///
+/// The nodes between the root and `node` are found by descending from the
+/// root: `Node::parent` searches from the root on every call, so walking up
+/// with it takes time quadratic in the depth of the tree.
+fn ancestors<'t>(root: Node<'t>, node: Node<'t>, source: &[u8]) -> Vec<Declaration<'t>> {
+    let mut path = vec![root];
+    let mut current = root;
+    while current.id() != node.id() {
+        match current.child_with_descendant(node) {
+            Some(next) if next.id() != current.id() => {
+                path.push(next);
+                current = next;
+            }
+            _ => break,
+        }
+    }
+    path.into_iter()
+        .rev()
         .filter_map(|node| declaration(node, source))
         .collect()
 }
@@ -160,7 +176,7 @@ fn ancestors<'t>(node: Node<'t>, source: &[u8]) -> Vec<Declaration<'t>> {
 #[must_use]
 pub fn enclosing(tree: &Tree, source: &[u8], offset: usize) -> Option<SymbolInfo> {
     let node = tree.root_node().descendant_for_byte_range(offset, offset)?;
-    let chain = ancestors(node, source);
+    let chain = ancestors(tree.root_node(), node, source);
     let (inner, outer) = chain.split_first()?;
     let outer: Vec<&Declaration<'_>> = outer.iter().rev().collect();
     Some(symbol_info(inner, &outer, source, &LineIndex::new(source)))

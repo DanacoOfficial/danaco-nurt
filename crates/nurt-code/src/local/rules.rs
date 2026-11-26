@@ -75,12 +75,13 @@ pub(crate) fn is_identifier(node: Node<'_>) -> bool {
 
 /// Returns `true` when an identifier names a member of a value or a
 /// qualified path rather than a variable in scope; `field` is the field of
-/// the identifier in its parent.
-pub(crate) fn is_member(node: Node<'_>, field: Option<&str>) -> bool {
+/// the identifier in its `parent`. The parent is passed in because
+/// `Node::parent` searches from the root on every call.
+pub(crate) fn is_member(node: Node<'_>, field: Option<&str>, parent: Option<Node<'_>>) -> bool {
     if MEMBER_KINDS.contains(&node.kind()) {
         return true;
     }
-    let Some(parent) = node.parent() else {
+    let Some(parent) = parent else {
         return false;
     };
     if LABEL_PARENTS.contains(&parent.kind()) {
@@ -168,9 +169,10 @@ const DECLARATION_BOUNDARIES: &[&str] = &[
 /// The end byte of the declaration statement around a local definition,
 /// or `None` when the name is visible from its own position (parameters,
 /// loop variables, names of other declarations).
-pub(crate) fn sequential_declaration_end(node: Node<'_>) -> Option<usize> {
-    let mut current = node.parent();
-    while let Some(parent) = current {
+///
+/// `ancestors` are the nodes from the root to the parent of `node`.
+pub(crate) fn sequential_declaration_end(ancestors: &[Node<'_>]) -> Option<usize> {
+    for parent in ancestors.iter().rev() {
         let kind = parent.kind();
         if SEQUENTIAL_DECLARATIONS.contains(&kind) {
             return Some(parent.end_byte());
@@ -181,7 +183,6 @@ pub(crate) fn sequential_declaration_end(node: Node<'_>) -> Option<usize> {
         {
             return None;
         }
-        current = parent.parent();
     }
     None
 }
@@ -262,7 +263,14 @@ mod tests {
         let mut stack = vec![parsed.tree.root_node()];
         while let Some(node) = stack.pop() {
             if is_identifier(node) && parsed.text(node) == name {
-                return sequential_declaration_end(node);
+                let mut chain = Vec::new();
+                let mut up = node.parent();
+                while let Some(parent) = up {
+                    chain.push(parent);
+                    up = parent.parent();
+                }
+                chain.reverse();
+                return sequential_declaration_end(&chain);
             }
             let mut cursor = node.walk();
             let children: Vec<Node<'_>> = node.children(&mut cursor).collect();
