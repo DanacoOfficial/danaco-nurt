@@ -193,8 +193,18 @@ image = { version = "0.25.10", default-features = false, features = [
 ] }
 infer = "0.22.0"
 mime_guess = "2.0.5"
-pdf-extract = "0.12.1"
-lopdf = "0.47.0"
+# The text extraction of pdf-extract is a crate of this workspace, because the
+# release of pdf-extract requires lopdf 0.42 and with it the unmaintained
+# ttf-parser crate.
+pdf-extract = { package = "nurt-pdf-extract", path = "crates/nurt-pdf-extract", version = "0.12.1" }
+# Without the chrono clock: documents are read, not created with a date.
+lopdf = { version = "0.47.0", default-features = false, features = ["rayon"] }
+adobe-cmap-parser = "0.4.1"
+cff-parser = "0.2.0"
+euclid = "0.20.5"
+log = "0.4.22"
+postscript = "0.14"
+type1-encoding-parser = "0.1.1"
 
 # System logs.
 macos-unifiedlogs = "0.7.0"
@@ -285,7 +295,6 @@ ssh-key = { version = "=0.7.0-rc.12", default-features = false, features = [
   "rsa",
   "encryption",
 ] }
-pgp = { version = "0.21.1", default-features = false }
 
 # Network.
 ureq = "3.5.2"
@@ -299,7 +308,8 @@ percent-encoding = "2.3.2"
 
 # Time and scheduling.
 jiff = "1.0.2"
-croner = "5.0.0"
+# Only the parser of cron expressions is used; its default chrono feature is off.
+croner = { version = "5.0.0", default-features = false, features = ["std"] }
 
 # Hashes, encodings and randomness.
 sha2 = "0.11.1"
@@ -354,7 +364,9 @@ chumsky = "0.14.2"
 winnow = "1.0.5"
 
 # Model Context Protocol server.
-rmcp = { version = "3.11.0", features = [
+# The default `chrono` feature is off: the server has no use for chrono types.
+rmcp = { version = "3.12.0", default-features = false, features = [
+  "base64",
   "server",
   "transport-io",
   "transport-streamable-http-server",

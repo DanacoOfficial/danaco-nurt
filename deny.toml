@@ -28,30 +28,14 @@ all-features = true
 # listed with its identifier and a reason. Each exception is reviewed again
 # with every release of the affected crate.
 ignore = [
-  # Marvin attack: timing side channel in RSA decryption of the rsa crate. The
-  # fixed release 0.10 is used by russh and ssh-key (SSH signatures), but the
-  # newest release of the pgp crate (0.21.1, and its main branch) still
-  # requires rsa 0.9 and no other OpenPGP implementation under an allowed
-  # license exists (sequoia-openpgp is banned below). RSA keys are required for
-  # compatibility with existing OpenPGP certificates used to sign commits and
-  # tags. Private keys are used on the local machine only, where no remote
-  # party can time decryption; Ed25519 keys are preferred whenever a key is
-  # selected.
-  { id = "RUSTSEC-2023-0071", reason = "rsa 0.9 is required by the newest pgp release; private-key operations run locally and Ed25519 is preferred" },
-  # Timing variability in crypto-bigint 0.5, used by the elliptic curve crates
-  # 0.13 and by cx448 of the pgp crate. The fixed release 0.7.6 belongs to the
-  # elliptic curve generation 0.14 that the newest pgp release does not use
-  # yet. Secret-key arithmetic runs on the local machine only, for signing
-  # commits and tags.
-  { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5 is required by the newest pgp release; secret-key arithmetic runs locally for signing only" },
-  # Unmaintained crates without a reported vulnerability and without a
-  # replacement that can be adopted. chrono is a required dependency of
-  # macos-unifiedlogs (parser of macOS log archives) and of russh-util (target
-  # wasm32 only, still recorded in Cargo.lock); ttf-parser is required by
-  # lopdf 0.42, which the newest release of pdf-extract (PDF text extraction)
-  # pins. They are dropped when these crates move to a maintained alternative.
-  { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained, has no reported vulnerability and is required by macos-unifiedlogs and russh-util" },
-  { id = "RUSTSEC-2026-0192", reason = "ttf-parser is unmaintained, has no reported vulnerability and is required by lopdf 0.42 through pdf-extract" },
+  # chrono is unmaintained and has no reported vulnerability. Every feature of
+  # this workspace that pulled it in is off. It remains in the dependency graph
+  # through macos-unifiedlogs, the only parser of macOS log archives (crate
+  # nurt-syslog, macOS only), which requires it, and through russh-util, which
+  # requires it for the target wasm32 only but records it in Cargo.lock. No
+  # other parser of unified logs exists on crates.io; the exception ends when
+  # macos-unifiedlogs drops chrono.
+  { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained, has no reported vulnerability and is required by macos-unifiedlogs and russh-util, which have no replacement" },
 ]
 yanked = "deny"
 
@@ -105,7 +89,7 @@ multiple-versions = "warn"
 wildcards = "deny"
 highlight = "all"
 deny = [
-  { crate = "sequoia-openpgp", reason = "LGPL-2.0-or-later; OpenPGP signatures use the pgp crate" },
+  { crate = "sequoia-openpgp", reason = "LGPL-2.0-or-later; OpenPGP signatures are made by GnuPG, started as a program" },
   { crate = "openssl", reason = "depends on the system OpenSSL library; TLS uses rustls" },
   { crate = "openssl-sys", reason = "depends on the system OpenSSL library; TLS uses rustls" },
   { crate = "git2", reason = "binds libgit2 (GPL-2.0 with a linking exception); Git support uses gix" },
