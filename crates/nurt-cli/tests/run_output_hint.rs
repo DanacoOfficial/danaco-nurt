@@ -51,14 +51,19 @@ fn exec(response: &Value) -> &Value {
     &response["report"]["exec"]
 }
 
-/// The command of the hint that starts with `word`: from the word to the end
-/// of the quoted path that follows it.
+/// The command of the hint that starts with `word` (`read "` or `search /`):
+/// up to the next ` or `, the next `; ` or the final full stop.
 fn command_of<'a>(hint: &'a str, word: &str) -> &'a str {
-    let start = hint.find(word).unwrap_or_else(|| panic!("no `{word}` in {hint}"));
+    let start = hint
+        .find(word)
+        .unwrap_or_else(|| panic!("no `{word}` in {hint}"));
     let rest = &hint[start..];
-    let open = rest.find('"').unwrap();
-    let close = open + 1 + rest[open + 1..].find('"').unwrap();
-    &rest[..=close]
+    let end = [" or search /", "; "]
+        .iter()
+        .filter_map(|mark| rest.find(mark))
+        .min()
+        .unwrap_or(rest.len());
+    rest[..end].strip_suffix('.').unwrap_or(&rest[..end])
 }
 
 /// Text of the `content` record a `read` returned.
@@ -67,14 +72,33 @@ fn read_text(response: &Value) -> String {
     field(&rows[0], "text").as_str().unwrap().to_owned()
 }
 
+/// The matches of a `search` response as (line, text) pairs.
+fn matches(response: &Value) -> Vec<(i64, String)> {
+    response["report"]["records"]["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            (
+                field(row, "no").as_i64().unwrap(),
+                field(row, "text").as_str().unwrap().trim_end().to_owned(),
+            )
+        })
+        .collect()
+}
+
 fn run_program(home: &Path, work: &Path, script: &str) -> Value {
     nurt(
         home,
-        &format!(
-            r#"run ["sh", "-c", "{script}"] cwd: "{}""#,
-            work.display()
-        ),
+        &format!(r#"run ["sh", "-c", "{script}"] cwd: "{}""#, work.display()),
     )
+}
+
+fn hint_of(response: &Value) -> String {
+    field(exec(response), "read_hint")
+        .as_str()
+        .unwrap()
+        .to_owned()
 }
 
 #[test]
@@ -82,14 +106,16 @@ fn the_read_command_of_the_hint_returns_the_lines_the_response_left_out() {
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
     let response = run_program(home.path(), work.path(), "seq 1 3000; exit 1");
-    let record = exec(&response);
-    let hint = field(record, "read_hint").as_str().unwrap().to_owned();
+    let hint = hint_of(&response);
     assert!(hint.starts_with("Output cut"), "{hint}");
-    let text = field(record, "stdout").as_str().unwrap();
+    let text = field(exec(&response), "stdout").as_str().unwrap();
     assert!(text.starts_with("1\n2\n"), "{text}");
     assert!(text.len() <= 4096);
-    let read = command_of(&hint, "read ");
-    assert!(read.contains(" lines: 21..2960"), "{read}");
+    let read = command_of(&hint, "read \"");
+    assert!(
+        read.ends_with(" lines: 21..2960 \"") || read.contains(" lines: 21..2960"),
+        "{read}"
+    );
     let rest = nurt(home.path(), read);
     let lines = read_text(&rest);
     assert_eq!(lines.lines().next(), Some("21"));
@@ -98,30 +124,46 @@ fn the_read_command_of_the_hint_returns_the_lines_the_response_left_out() {
 }
 
 #[test]
-fn a_range_taken_from_the_hint_and_a_search_of_the_hint_both_work() {
+fn a_range_and_a_filter_taken_from_the_hint_both_return_the_left_out_lines() {
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
     let response = run_program(
         home.path(),
         work.path(),
-        "seq 1 500; echo FAILED test_middle; seq 501 1000; exit 1",
+        "seq 1 500; echo FAILED test_middle; seq 501 1000",
     );
-    let hint = field(exec(&response), "read_hint")
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let read = command_of(&hint, "read ");
-    let path = read.split('"').nth(1).unwrap();
-    let narrow = read.replace(" lines: 21..960", " lines: 499..503");
-    assert_ne!(narrow, read, "{read}");
+    let hint = hint_of(&response);
+    let read = command_of(&hint, "read \"");
+    assert!(read.contains(" lines: 1..996"), "{read}");
+    let narrow = read.replace(" lines: 1..996", " lines: 499..503");
     assert_eq!(
         read_text(&nurt(home.path(), &narrow)),
         "499\n500\nFAILED test_middle\n501\n502\n"
     );
-    let search = command_of(&hint, "search ");
-    let found = nurt(home.path(), search);
-    let rows = found["report"]["records"]["rows"].as_array().unwrap();
-    assert_eq!(rows.len(), 1, "{found}");
-    assert_eq!(field(&rows[0], "no").as_i64(), Some(501));
-    assert!(field(&rows[0], "path").as_str().unwrap().ends_with(path.rsplit('/').next().unwrap()));
+    let found = nurt(home.path(), command_of(&hint, "search /"));
+    assert_eq!(matches(&found), [(501, "FAILED test_middle".to_owned())]);
+}
+
+#[test]
+fn the_hint_of_a_selection_of_error_lines_names_the_search() {
+    let home = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let response = run_program(
+        home.path(),
+        work.path(),
+        "seq 1 100; echo FAILED test_x; seq 101 200; exit 1",
+    );
+    let hint = hint_of(&response);
+    assert!(!hint.contains(" or search"), "{hint}");
+    let found = nurt(home.path(), command_of(&hint, "search /"));
+    assert_eq!(matches(&found), [(101, "FAILED test_x".to_owned())]);
+}
+
+#[test]
+fn a_short_output_has_no_hint() {
+    let home = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let response = run_program(home.path(), work.path(), "echo hello");
+    assert!(exec(&response)["fields"].get("read_hint").is_none());
+    assert_eq!(field(exec(&response), "stdout").as_str(), Some("hello"));
 }

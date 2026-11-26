@@ -514,6 +514,7 @@ struct Cut {
     label: &'static str,
     path: PathBuf,
     omitted: u64,
+    filtered: u64,
     total: u64,
     cut_lines: u64,
     range: Option<(u64, u64)>,
@@ -532,9 +533,8 @@ fn cuts_of(shown: &[(OutputStream, PathBuf, OutputShownText)]) -> Vec<Cut> {
             else {
                 return None;
             };
-            let left_out = window.omitted() > 0
-                || window.cut_lines > 0
-                || (*selected_by_errors && *filtered > 0);
+            let outside = if *selected_by_errors { *filtered } else { 0 };
+            let left_out = window.omitted() > 0 || window.cut_lines > 0 || outside > 0;
             left_out.then(|| Cut {
                 label: match (merged, stream) {
                     (true, _) => "output",
@@ -543,22 +543,24 @@ fn cuts_of(shown: &[(OutputStream, PathBuf, OutputShownText)]) -> Vec<Cut> {
                 },
                 path: path.clone(),
                 omitted: window.omitted(),
+                filtered: outside,
                 total: window.raw_total,
                 cut_lines: window.cut_lines,
                 range: window
                     .unseen_range()
-                    .or_else(|| window.first_cut.map(|line| (line, line)))
-                    .or((window.raw_total > 0).then_some((1, window.raw_total))),
+                    .or_else(|| window.first_cut.map(|line| (line, line))),
             })
         })
         .collect()
 }
 
-/// Pattern the filter variant of the read hint searches for.
+/// Pattern the search of the read hint looks for.
 const HINT_FILTER: &str = "error|FAILED";
 
 /// One sentence with the Nurt commands that read the lines a response leaves
-/// out from the output file, without running the program again.
+/// out from the output file, without running the program again: `read` with
+/// the range of lines of the file and `search` with a pattern, or `search`
+/// alone when the response shows a selection of lines.
 fn read_hint(cuts: &[Cut]) -> Option<String> {
     if cuts.is_empty() {
         return None;
@@ -571,21 +573,22 @@ fn read_hint(cuts: &[Cut]) -> Option<String> {
         .iter()
         .map(|cut| {
             let path = quote(&cut.path);
-            let (from, to) = cut.range.unwrap_or((1, cut.total.max(1)));
-            let detail = match (cut.omitted, cut.cut_lines) {
-                (0, lines) => format!("{lines} long lines cut"),
-                (omitted, 0) => format!("{omitted} of {} lines left out", cut.total),
-                (omitted, lines) => {
-                    format!(
-                        "{omitted} of {} lines left out, {lines} long lines cut",
-                        cut.total
-                    )
-                }
+            let mut detail = Vec::new();
+            if cut.omitted > 0 {
+                detail.push(format!("{} of {} lines left out", cut.omitted, cut.total));
+            }
+            if cut.filtered > 0 {
+                detail.push(format!("{} lines outside the selection", cut.filtered));
+            }
+            if cut.cut_lines > 0 {
+                detail.push(format!("{} long lines cut", cut.cut_lines));
+            }
+            let search = format!("search /{HINT_FILTER}/ {path}");
+            let commands = match cut.range {
+                Some((from, to)) => format!("read {path} lines: {from}..{to} or {search}"),
+                None => search,
             };
-            format!(
-                "{} ({detail}): read {path} lines: {from}..{to} or search /{HINT_FILTER}/ {path}",
-                cut.label
-            )
+            format!("{} ({}): {commands}", cut.label, detail.join(", "))
         })
         .collect();
     Some(format!(

@@ -162,14 +162,12 @@ impl Window {
         parts.join("\n")
     }
 
-    /// Range of lines of the file between the kept head and the kept tail,
-    /// or the whole file for a selection, when lines were left out.
+    /// Range of lines of the file between the kept head and the kept tail
+    /// when lines were left out; `None` for a selection of lines, whose gaps
+    /// are not one range.
     pub(super) fn unseen_range(&self) -> Option<(u64, u64)> {
-        if self.omitted() == 0 || self.raw_total == 0 {
+        if self.omitted() == 0 || self.raw_total == 0 || self.grouped {
             return None;
-        }
-        if self.grouped {
-            return Some((1, self.raw_total));
         }
         let from = self
             .head
