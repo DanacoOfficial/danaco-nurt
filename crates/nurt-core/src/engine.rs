@@ -953,6 +953,14 @@ impl Engine {
             }
         };
         let kind = ProgramKind::of(&compiled.bound);
+        if request.options.script != Some(true) && effect_pipelines(&compiled.bound) > 1 {
+            let error = Error::new(
+                ErrorCode::OneEffect,
+                "the program has several pipelines that change the world; run them as separate calls or set `script: true`",
+            );
+            let report = failure(&reports, &kind, Some(&compiled), error);
+            return self.finish(report, &prepared, None, started);
+        }
         let program = ProgramRef::of(
             &compiled.bound.program,
             compiled.ran.clone().or_else(|| request.program.clone()),
@@ -1403,6 +1411,28 @@ fn kind_of(bound: &BoundDocument) -> (String, bool) {
     let changing = effect.is_some();
     let kind = effect.or(source).unwrap_or_else(|| PROGRAM_KIND.to_owned());
     (kind, changing)
+}
+
+/// Number of pipelines of a bound program that have an effect stage.
+fn effect_pipelines(bound: &BoundDocument) -> usize {
+    bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => Some(pipeline),
+            _ => None,
+        })
+        .filter(|pipeline| {
+            let head = match &pipeline.head {
+                BoundHead::Stage(stage) => Some(stage),
+                _ => None,
+            };
+            head.into_iter()
+                .chain(&pipeline.stages)
+                .any(|stage| stage.phase.is_effect())
+        })
+        .count()
 }
 
 /// Effect kind of the last effect command of a bound program.
@@ -1984,6 +2014,33 @@ mod tests {
             kind_of(&nurt_testkit::fixtures::empty_program()),
             (PROGRAM_KIND.to_owned(), false)
         );
+    }
+
+    #[test]
+    fn effect_pipelines_counts_the_pipelines_with_an_effect_stage() {
+        let stage = |name: &str, effect: &str, phase: &str| {
+            json!({"t": "stage", "name": name, "effect": effect, "phase": phase, "args": []})
+        };
+        let pipeline = |head: serde_json::Value, stages: Vec<serde_json::Value>| {
+            json!({"t": "pipeline", "head": head, "stages": stages})
+        };
+        let bound = |statements: Vec<serde_json::Value>| -> BoundDocument {
+            serde_json::from_value(json!({
+                "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+                "program": {"statements": statements}
+            }))
+            .unwrap()
+        };
+        let read = || pipeline(stage("find", "read", "source"), Vec::new());
+        let change = || {
+            pipeline(
+                stage("find", "read", "source"),
+                vec![stage("remove", "local", "mutate")],
+            )
+        };
+        assert_eq!(effect_pipelines(&bound(vec![read(), read()])), 0);
+        assert_eq!(effect_pipelines(&bound(vec![read(), change()])), 1);
+        assert_eq!(effect_pipelines(&bound(vec![change(), change()])), 2);
     }
 
     #[test]

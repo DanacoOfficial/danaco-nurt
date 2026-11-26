@@ -118,6 +118,8 @@ const SELECT: &str = "select";
 const FIRST: &str = "first";
 const SKIP: &str = "skip";
 const ASSERT: &str = "assert";
+const DISTINCT: &str = "distinct";
+const BY_PARAM: &str = "by";
 const COUNT_PARAM: &str = "count";
 const EMPTY_PARAM: &str = "empty";
 const IF_MATCH_PARAM: &str = "if_match";
@@ -223,6 +225,9 @@ fn input_fields(
     if consumer.is_effect() || consumer.phase() == Phase::Verify {
         return FieldDemand::All;
     }
+    if reads_unnamed_fields(&consumer.stage) {
+        return FieldDemand::All;
+    }
     let own = own_fields(&consumer.stage, spec);
     if consumer.command() == SELECT || spec.output.iter().all(|io| matches!(io, IoSpec::Value(_))) {
         return FieldDemand::Only(own);
@@ -306,6 +311,19 @@ fn int_arg(stage: &BoundStage, name: &str) -> Option<u64> {
     match value {
         BoundExpr::Int { v } => u64::try_from(*v).ok(),
         _ => None,
+    }
+}
+
+/// Stages that read fields their arguments do not name: `distinct` without
+/// `by` compares whole records, and `assert` with `contains`, `paths`, `all`
+/// or `any` reads the path and the text values of the records.
+fn reads_unnamed_fields(stage: &BoundStage) -> bool {
+    match stage.name.as_str() {
+        DISTINCT => given(stage, BY_PARAM).is_none(),
+        ASSERT => ["contains", "paths", "all", "any"]
+            .iter()
+            .any(|name| given(stage, name).is_some()),
+        _ => false,
     }
 }
 
@@ -466,6 +484,36 @@ mod tests {
             ],
         );
         assert_eq!(assert_limit(&any), None);
+    }
+
+    #[test]
+    fn stages_that_read_unnamed_fields_demand_every_field() {
+        let whole = stage("distinct", vec![BoundArg::from_default("by", BoundExpr::Null)]);
+        assert!(reads_unnamed_fields(&whole));
+        let keyed = stage(
+            "distinct",
+            vec![BoundArg::given(
+                "by",
+                BoundExpr::List {
+                    items: vec![BoundExpr::Field {
+                        name: "path".to_owned(),
+                        of: None,
+                    }],
+                },
+            )],
+        );
+        assert!(!reads_unnamed_fields(&keyed));
+        let contains = stage(
+            ASSERT,
+            vec![BoundArg::given("contains", BoundExpr::Bool { v: true })],
+        );
+        assert!(reads_unnamed_fields(&contains));
+        let count = stage(
+            ASSERT,
+            vec![BoundArg::given(COUNT_PARAM, range(Some(1), Some(1)))],
+        );
+        assert!(!reads_unnamed_fields(&count));
+        assert!(!reads_unnamed_fields(&stage("first", Vec::new())));
     }
 
     #[test]

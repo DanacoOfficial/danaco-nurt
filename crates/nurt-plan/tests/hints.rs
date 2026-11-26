@@ -266,6 +266,16 @@ fn requested_fields_reach_the_last_stage() {
     assert_eq!(demands[1].fields, only(&["id"]));
 }
 
+#[test]
+fn distinct_without_by_needs_every_field_of_its_input() {
+    let program = single(pipeline(
+        source("history", Vec::new()),
+        vec![transform("distinct", Vec::new())],
+    ));
+    let demands = demands(&plan(&program, &PlanOptions::new().with_fields(["id"])));
+    assert_eq!(demands[0].fields, FieldDemand::All);
+}
+
 /// What the static check of a stand-in stage reports as the detail `limit`.
 #[derive(Clone)]
 enum Report {
