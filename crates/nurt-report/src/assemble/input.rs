@@ -72,6 +72,12 @@ pub struct TargetChange {
     /// Number of entries that a deleted directory held, when the entries are
     /// not listed as changes of their own.
     pub entries_inside: Option<u64>,
+    /// Number of files (links included) below a directory that the change
+    /// removed or restored with its content, when they are not listed as
+    /// changes of their own.
+    pub files_inside: Option<u64>,
+    /// Number of directories below such a directory.
+    pub directories_inside: Option<u64>,
 }
 
 impl TargetChange {
@@ -83,6 +89,8 @@ impl TargetChange {
             entry,
             replaced_existing: false,
             entries_inside: None,
+            files_inside: None,
+            directories_inside: None,
         }
     }
 
@@ -109,6 +117,8 @@ impl TargetChange {
             entry,
             replaced_existing,
             entries_inside: None,
+            files_inside: None,
+            directories_inside: None,
         }
     }
 
@@ -123,6 +133,17 @@ impl TargetChange {
     #[must_use]
     pub fn with_entries_inside(mut self, entries: u64) -> Self {
         self.entries_inside = Some(entries);
+        self
+    }
+
+    /// Sets the number of files and of directories below a directory that
+    /// was removed or restored with its content; the number of entries is
+    /// their sum.
+    #[must_use]
+    pub fn with_content(mut self, files: u64, directories: u64) -> Self {
+        self.files_inside = Some(files);
+        self.directories_inside = Some(directories);
+        self.entries_inside = Some(files.saturating_add(directories));
         self
     }
 }

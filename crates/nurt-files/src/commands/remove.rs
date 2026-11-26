@@ -18,7 +18,7 @@ use std::sync::Arc;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{AbsPath, Etag, FileKind, FileMeta, Fs};
 use nurt_contracts::journal::{Expect, FileOp, Mutation, MutationTx};
-use nurt_contracts::report::{Notable, NotableEntry};
+use nurt_contracts::report::{Notable, NotableEntry, tree_flags};
 use nurt_contracts::stage::{
     BoundArgs, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, StageDescriptor,
     StageImpl, StageInput,
@@ -244,6 +244,8 @@ impl Planner<'_> {
     fn remove_entry(&mut self, path: &AbsPath, meta: &FileMeta) -> Result<()> {
         let mut bytes = meta.size;
         let mut recursive = false;
+        let mut inside_files = 0_u64;
+        let mut inside_directories = 0_u64;
         match meta.kind {
             FileKind::Directory => {
                 bytes = 0;
@@ -251,10 +253,17 @@ impl Planner<'_> {
                 for entry in walk_tree(self.fs, self.ctx, path)? {
                     recursive = true;
                     match entry.kind {
-                        FileKind::Directory => self.summary.directories += 1,
-                        FileKind::Symlink | FileKind::Junction => self.summary.links += 1,
+                        FileKind::Directory => {
+                            self.summary.directories += 1;
+                            inside_directories += 1;
+                        }
+                        FileKind::Symlink | FileKind::Junction => {
+                            self.summary.links += 1;
+                            inside_files += 1;
+                        }
                         _ => {
                             self.summary.files += 1;
+                            inside_files += 1;
                             bytes = bytes.saturating_add(entry.meta.map_or(0, |meta| meta.size));
                         }
                     }
@@ -269,9 +278,14 @@ impl Planner<'_> {
             .expect(Expect::Etag(meta.etag()))
             .size_hint(bytes);
         let mut step = Step::op(op);
-        if recursive {
+        if meta.kind == FileKind::Directory {
             let mut change = step.change();
-            change.flags = Some(vec![TREE_FLAG.to_owned()]);
+            let mut flags = Vec::new();
+            if recursive {
+                flags.push(TREE_FLAG.to_owned());
+            }
+            flags.extend(tree_flags(inside_files, inside_directories));
+            change.flags = Some(flags);
             step = step.with_detail(change);
         }
         if meta.kind == FileKind::Directory {

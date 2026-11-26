@@ -15,6 +15,9 @@
 //! | `bytes_before`, `bytes_after` | sum of `size_before`, `size_after` of changes other than `delete` |
 //! | `bytes_freed` | sum of `size_before` of `delete` changes |
 //!
+//! A directory removed or restored with its content also counts the files
+//! and directories below it, as far as the change reports them.
+//!
 //! A counter that is zero and a byte total without any known size are
 //! absent from the summary.
 
@@ -45,7 +48,10 @@ pub fn count_targets(changes: &[TargetChange]) -> Targets {
     let mut bytes: Option<u64> = None;
     for target in changes {
         match target.entry {
-            EntryKind::Directory => directories += 1,
+            EntryKind::Directory => {
+                directories += 1 + target.directories_inside.unwrap_or(0);
+                files += target.files_inside.unwrap_or(0);
+            }
             entry if entry.is_file() => files += 1,
             _ => {}
         }
@@ -81,6 +87,7 @@ impl Totals {
     fn add(&mut self, target: &TargetChange) {
         let change = &target.change;
         self.count_action(change.action, target.entry);
+        self.count_content(target);
         self.replacements = self
             .replacements
             .saturating_add(change.replacements.unwrap_or(0));
@@ -93,6 +100,27 @@ impl Totals {
         } else {
             add_size(&mut self.bytes_before, change.size_before);
             add_size(&mut self.bytes_after, change.size_after);
+        }
+    }
+
+    /// Counts the files and directories below a directory that was created
+    /// or deleted with its content.
+    fn count_content(&mut self, target: &TargetChange) {
+        if target.entry != EntryKind::Directory {
+            return;
+        }
+        let files = target.files_inside.unwrap_or(0);
+        let directories = target.directories_inside.unwrap_or(0);
+        match target.change.action {
+            ChangeAction::Create => {
+                self.files_created += files;
+                self.directories_created += directories;
+            }
+            ChangeAction::Delete => {
+                self.files_deleted += files;
+                self.directories_deleted += directories;
+            }
+            _ => {}
         }
     }
 
