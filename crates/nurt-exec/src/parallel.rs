@@ -253,6 +253,15 @@ mod tests {
     }
 
     #[test]
+    fn output_keeps_the_order_at_the_batch_boundaries() {
+        let batch = usize::try_from(THREADS).unwrap() * BATCH_PER_THREAD;
+        for count in [0, 1, batch - 1, batch, batch + 1] {
+            let count = i64::try_from(count).unwrap();
+            assert_eq!(run(1, count), run(THREADS, count), "{count} records");
+        }
+    }
+
+    #[test]
     fn first_failing_record_ends_the_stream_in_input_order() {
         for threads in [1, THREADS] {
             let ctx = context(threads);
