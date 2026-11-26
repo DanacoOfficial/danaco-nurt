@@ -102,6 +102,13 @@ their own version numbers, described in the specification.
 - `nurt-service` compiles for the target `x86_64-unknown-linux-musl`
   (`sched_param` and `pthread_t` differ from glibc), and the release procedure
   builds the static musl archive `nurt-<version>-x86_64-unknown-linux-musl`.
+- The start banner of an interactive session shows the mark of Danaco Nurt in
+  half blocks (ASCII on terminals without UTF-8) in its two colours, instead of
+  the name in letters.
+- The colours of the mark in the terminal follow the production identity:
+  silver `#DDE1E6` (palette 254) and gold `#C9A15A` (palette 179).
+- The Windows executable and the documentation site use the new icon and
+  favicon.
 
 ### Known limitations
 
