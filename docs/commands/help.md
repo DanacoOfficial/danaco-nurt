@@ -53,9 +53,15 @@ The call parameter `language: pl`, or `output.language = "pl"` when the call
 gives none, selects Polish for the fixed texts of `help` and `describe`: the
 introduction, the headings and the labels. The call parameter wins over the
 configuration. Command names, parameters, record fields, error codes, the
-summaries of commands and the guides stay in English. The messages of
-errors, the notes and the hints of a result are not translated; `language`
-does not change them.
+summaries of commands and the guides stay in English.
+
+`language: pl` also puts the messages of a result into Polish: the `message`
+of an error is the Polish meaning of its code followed by `found`, `expected`
+and `problem`; the English message is kept in the error detail `message_en`.
+The `detail` of every note and of every irreversible effect starts with the
+Polish text of its code, followed by the English detail when there is one. The
+codes, the programs in `fix` and `next_steps` and the help topic are never
+translated. A code without a Polish text keeps its English message.
 
 `help` never changes state and no command requires it to be read before it
 runs.

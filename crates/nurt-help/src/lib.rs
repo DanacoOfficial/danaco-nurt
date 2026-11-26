@@ -13,6 +13,8 @@
 //!   layers in English or Polish and fits them to a token budget.
 //! - [`errors::help_reference`] and [`help::group_note`] produce the lines
 //!   that point a result at the help.
+//! - [`translate::localize`] puts the messages and notes of a report into
+//!   Polish.
 //! - [`consistency::check_program`] checks the names in a program text
 //!   against the catalog.
 
@@ -31,6 +33,7 @@ pub mod reference;
 pub mod signature;
 mod text;
 pub mod tokens;
+pub mod translate;
 pub mod variant;
 
 pub use text::{TAGLINE, first_line};

@@ -789,10 +789,11 @@ impl Engine {
     /// Returns the error of the front end, for example for an unknown
     /// subject.
     pub fn describe(&self, subject: &str, language: Option<Language>) -> Result<Json, Error> {
-        self.inner.frontend.describe(
-            subject,
-            language.unwrap_or_else(|| language_of(self.config())),
-        )
+        let language = language.unwrap_or_else(|| language_of(self.config()));
+        self.inner
+            .frontend
+            .describe(subject, language)
+            .map_err(|error| localized(error, language))
     }
 
     /// Help text of a topic.
@@ -801,10 +802,11 @@ impl Engine {
     ///
     /// Returns the error of the front end, for example for an unknown topic.
     pub fn help(&self, topic: &str, language: Option<Language>) -> Result<String, Error> {
-        self.inner.frontend.help(
-            topic,
-            language.unwrap_or_else(|| language_of(self.config())),
-        )
+        let language = language.unwrap_or_else(|| language_of(self.config()));
+        self.inner
+            .frontend
+            .help(topic, language)
+            .map_err(|error| localized(error, language))
     }
 
     /// The command catalog as JSON (`nurt-catalog-result/1`): the revision
@@ -1581,9 +1583,24 @@ fn failure(
         .unwrap_or_else(|_| failed_report(&program.kind, error))
 }
 
-/// Response with the result rendered for the options of the request.
+/// Response with the result rendered for the options of the request; the
+/// messages and notes of the report are put into the requested language
+/// first.
 fn respond_with(report: &Report, options: &RequestOptions) -> Response {
-    respond(report, &RenderOptions::from_request(options))
+    match options.language {
+        Some(language @ Language::Pl) => {
+            let mut localized = report.clone();
+            nurt_help::translate::localize(&mut localized, language);
+            respond(&localized, &RenderOptions::from_request(options))
+        }
+        _ => respond(report, &RenderOptions::from_request(options)),
+    }
+}
+
+/// The error with its message in `language`.
+fn localized(mut error: Error, language: Language) -> Error {
+    nurt_help::translate::localize_error(&mut error, language);
+    error
 }
 
 fn failed_report(kind: &str, error: Error) -> Report {
@@ -1938,6 +1955,24 @@ mod tests {
         let reading = failure(&ctx, &ProgramKind::of(&compiled.bound), None, error);
         assert_eq!(reading.kind, PROGRAM_KIND);
         assert!(reading.corrections.is_empty());
+    }
+
+    #[test]
+    fn polish_responses_carry_polish_messages_and_unchanged_codes() {
+        let report = failed_report(
+            "find",
+            Error::new(ErrorCode::OneEffect, "two effect stages").with_found("remove"),
+        );
+        let polish = RequestOptions {
+            language: Some(Language::Pl),
+            ..RequestOptions::default()
+        };
+        let error = respond_with(&report, &polish).report.error.unwrap();
+        assert_eq!(error.code(), ErrorCode::OneEffect);
+        assert!(error.message.contains("etap"), "{}", error.message);
+        assert_eq!(error.details["message_en"], json!("two effect stages"));
+        let english = respond_with(&report, &RequestOptions::default());
+        assert_eq!(english.report.error.unwrap().message, "two effect stages");
     }
 
     #[test]
