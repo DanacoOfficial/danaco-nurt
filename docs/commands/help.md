@@ -29,6 +29,12 @@ code, `syntax`, `corrections`, `commands`, `pipelines`, `let`, `paths`, `records
 command and a group (`verify`): `help verify` answers for the command,
 `help verify kind: group` and `help group: verify` answer for the group.
 
+With `kind` given, the topic is looked up among that kind only. `kind: syntax`
+accepts the topic `syntax` and the topics of its parts (`pipelines`, `let`,
+`paths`, `records`, `lists`); `kind: corrections` accepts the topic
+`corrections`. Any other name fails with `E_UNKNOWN_NAME` and the names that
+the kind accepts.
+
 | Topic | Answer |
 |---|---|
 | a command | signature, parameters with defaults, input and output kinds, effect, the first `examples` examples of the command page, typical errors, related commands |

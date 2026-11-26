@@ -321,8 +321,8 @@ fn subject<'a>(query: &'a HelpQuery, catalog: &'a Catalog) -> Result<Subject<'a>
         Some(TopicKind::Group) => named_group(catalog, topic),
         Some(TopicKind::Error) => named_error(topic),
         Some(TopicKind::Skill) => named_guide(catalog, topic),
-        Some(TopicKind::Syntax) => Ok(Subject::Syntax),
-        Some(TopicKind::Corrections) => Ok(Subject::Corrections),
+        Some(TopicKind::Syntax) => named_syntax(topic),
+        Some(TopicKind::Corrections) => named_corrections(topic),
         None => detect(catalog, topic),
     }
 }
@@ -350,6 +350,37 @@ fn named_guide<'a>(catalog: &'a Catalog, name: &str) -> Result<Subject<'a>, Erro
             let names: Vec<String> = catalog.docs().guides().map(|g| g.name.clone()).collect();
             lookup::unknown("guide", name, &names)
         })
+}
+
+/// The topic `syntax` and the topics of its parts.
+fn named_syntax<'a>(name: &str) -> Result<Subject<'a>, Error> {
+    if name == "syntax" {
+        return Ok(Subject::Syntax);
+    }
+    match text::PART_TOPICS.into_iter().find(|part| *part == name) {
+        Some(part) => Ok(Subject::Part(part)),
+        None => {
+            let names: Vec<String> = ["syntax"]
+                .into_iter()
+                .chain(text::PART_TOPICS)
+                .map(str::to_owned)
+                .collect();
+            Err(lookup::unknown("syntax topic", name, &names))
+        }
+    }
+}
+
+/// The topic `corrections`.
+fn named_corrections<'a>(name: &str) -> Result<Subject<'a>, Error> {
+    if name == "corrections" {
+        Ok(Subject::Corrections)
+    } else {
+        Err(lookup::unknown(
+            "corrections topic",
+            name,
+            &["corrections".to_owned()],
+        ))
+    }
 }
 
 fn named_error<'a>(name: &str) -> Result<Subject<'a>, Error> {

@@ -257,13 +257,36 @@ fn topic_kinds_are_found_by_their_names() {
 }
 
 #[test]
-fn the_kind_selects_the_topic_whatever_the_name_is() {
-    let syntax = text(&HelpQuery::topic("anything").with_kind(TopicKind::Syntax));
+fn the_kind_selects_the_topic_among_its_own_names() {
+    let syntax = text(&HelpQuery::topic("syntax").with_kind(TopicKind::Syntax));
     assert!(syntax.contains("program = [let name = PIPELINE]"));
-    let corrections = text(&HelpQuery::topic("anything").with_kind(TopicKind::Corrections));
+    let part = text(&HelpQuery::topic("pipelines").with_kind(TopicKind::Syntax));
+    assert_eq!(
+        part,
+        text(&HelpQuery::topic("pipelines")),
+        "a part of the syntax answers as without a kind"
+    );
+    let corrections = text(&HelpQuery::topic("corrections").with_kind(TopicKind::Corrections));
     assert!(corrections.contains("classes: C certain"));
     let error = text(&HelpQuery::topic("E_STALE").with_kind(TopicKind::Error));
     assert!(error.starts_with("E_STALE — "));
+}
+
+#[test]
+fn the_syntax_and_corrections_kinds_reject_a_topic_of_another_name() {
+    let catalog = common::catalog();
+    for (kind, topic) in [
+        (TopicKind::Syntax, "anything"),
+        (TopicKind::Syntax, "corrections"),
+        (TopicKind::Syntax, "remove"),
+        (TopicKind::Corrections, "syntax"),
+        (TopicKind::Corrections, "anything"),
+    ] {
+        let query = HelpQuery::topic(topic).with_kind(kind);
+        let error = help::render(&query, &catalog).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::UnknownName, "{kind:?} {topic}");
+        assert_eq!(error.found.as_deref(), Some(topic));
+    }
 }
 
 #[test]
