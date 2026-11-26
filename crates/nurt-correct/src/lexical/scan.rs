@@ -26,8 +26,10 @@ const INVISIBLE: [char; 5] = [
     BYTE_ORDER_MARK,
 ];
 
-/// Unicode line separators that correction turns into a line feed.
-const LINE_SEPARATORS: [char; 3] = ['\u{85}', '\u{2028}', '\u{2029}'];
+/// Line separators that correction turns into a line feed: the Unicode ones
+/// and a carriage return that does not precede a line feed, which would
+/// otherwise read as a space and join two statements.
+const LINE_SEPARATORS: [char; 4] = ['\r', '\u{85}', '\u{2028}', '\u{2029}'];
 
 /// Flags of a regular expression of the language.
 const REGEX_FLAGS: &str = "imsx";
@@ -72,7 +74,8 @@ pub(crate) enum PieceKind {
     Space,
     /// Other Unicode white space.
     ForeignSpace,
-    /// Unicode line or paragraph separator.
+    /// Unicode line or paragraph separator, or a carriage return without a
+    /// line feed.
     LineSeparator,
     /// Character of zero width.
     Invisible,
@@ -713,12 +716,12 @@ mod tests {
     }
 
     #[test]
-    fn a_lone_carriage_return_is_a_foreign_space_and_a_line_end_pair_is_a_newline() {
+    fn a_lone_carriage_return_is_a_line_separator_and_a_line_end_pair_is_a_newline() {
         assert_eq!(
             kinds("a\rb"),
             vec![
                 (PieceKind::Word, "a"),
-                (PieceKind::ForeignSpace, "\r"),
+                (PieceKind::LineSeparator, "\r"),
                 (PieceKind::Word, "b"),
             ]
         );
