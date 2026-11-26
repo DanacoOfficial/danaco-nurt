@@ -43,6 +43,8 @@ pub(crate) struct Item {
 #[derive(Debug, Clone)]
 pub(crate) struct Pipe {
     pub(crate) negated: bool,
+    /// A `|&` joins two commands: standard error goes into the pipe too.
+    pub(crate) merges_stderr: bool,
     pub(crate) commands: Vec<Command>,
     pub(crate) span: Span,
 }
@@ -177,10 +179,15 @@ impl Parser<'_> {
         let first = self.command()?;
         let mut span = command_span(&first);
         let mut commands = vec![first];
+        let mut merges_stderr = false;
         while matches!(
             self.peek().map(|token| &token.kind),
             Some(PosixTokenKind::Operator(Operator::Pipe | Operator::PipeAll))
         ) {
+            merges_stderr |= matches!(
+                self.peek().map(|token| &token.kind),
+                Some(PosixTokenKind::Operator(Operator::PipeAll))
+            );
             self.pos += 1;
             self.skip_blank();
             let command = self.command()?;
@@ -189,6 +196,7 @@ impl Parser<'_> {
         }
         Ok(Pipe {
             negated,
+            merges_stderr,
             commands,
             span,
         })

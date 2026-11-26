@@ -218,6 +218,8 @@ impl<'a> Session<'a> {
             table,
             context,
             lines: input
+                .strip_prefix('\u{feff}')
+                .unwrap_or(input)
                 .split('\n')
                 .map(|line| line.chars().collect())
                 .collect(),
@@ -460,6 +462,14 @@ impl<'a> Session<'a> {
                 &[("reason", "negated pipeline")],
             ));
         }
+        if pipe.merges_stderr {
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_syntax",
+                pipe.span,
+                &[("reason", "standard error in a pipe (`|&`)")],
+            ));
+        }
         if let Some(result) = produce::echo_into_tee(self, pipe) {
             return result;
         }
@@ -556,6 +566,17 @@ impl<'a> Session<'a> {
                 &[("reason", "no command")],
             ));
         };
+        // The shell expands a brace expansion into several words; read as one
+        // word it would name a path that does not exist, and a change would
+        // silently select nothing.
+        if let Some(word) = words.iter().find(|word| word.value.has_brace_expansion()) {
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_syntax",
+                word.span,
+                &[("reason", "brace expansion")],
+            ));
+        }
         let name = first
             .value
             .literal()
@@ -1530,9 +1551,11 @@ impl Convert for Session<'_> {
                 v: text.clone(),
                 span: Some(span),
             }),
-            Conversion::Int => text
-                .parse::<i64>()
-                .ok()
+            // Digits only: `str::parse` also takes a plus sign, and the `+5` of
+            // `tail -n +5` means "from line 5", not the last 5 lines.
+            Conversion::Int => Some(text)
+                .filter(|text| text.bytes().all(|b| b.is_ascii_digit()))
+                .and_then(|text| text.parse::<i64>().ok())
                 .filter(|v| *v >= 0)
                 .map(|v| Expr::Int {
                     v,

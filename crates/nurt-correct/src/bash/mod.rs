@@ -27,6 +27,7 @@
 //! ```
 
 mod awk;
+mod catalog;
 mod detect;
 mod engine;
 mod find;
@@ -62,7 +63,10 @@ pub enum Mode {
     Live,
     /// A script: every statement becomes its own pipeline and the script
     /// stops at the first error; probable translations are applied with
-    /// their assumptions.
+    /// their assumptions. The caller states that the text is a script in the
+    /// language of the translator, so a statement is not checked for being a
+    /// habit of that language; `nurt migrate` is the caller and it refuses
+    /// program files (`.nurt`) before any translation.
     Script,
 }
 

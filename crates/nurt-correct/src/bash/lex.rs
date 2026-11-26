@@ -245,6 +245,19 @@ impl Word {
             .any(|part| !matches!(part, WordPart::Literal { .. }))
     }
 
+    /// Whether an unquoted part is a brace expansion, `{a,b}` or `{1..3}`,
+    /// which the shell turns into several words.
+    #[must_use]
+    pub fn has_brace_expansion(&self) -> bool {
+        self.parts.iter().any(|part| match part {
+            WordPart::Literal {
+                text,
+                quoting: Quoting::None,
+            } => is_brace_expansion(text),
+            _ => false,
+        })
+    }
+
     /// Whether an unquoted part contains a pattern character `*`, `?` or `[`.
     #[must_use]
     pub fn has_unquoted_glob(&self) -> bool {
@@ -341,6 +354,11 @@ impl Lexer {
     }
 
     fn run(mut self) -> Result<Vec<PosixToken>, LexError> {
+        // A byte order mark is not a character of the first word and takes no
+        // column.
+        if self.peek(0) == Some('\u{feff}') {
+            self.pos += 1;
+        }
         while let Some(c) = self.peek(0) {
             match c {
                 ' ' | '\t' | '\r' => {
@@ -831,6 +849,28 @@ fn classify_operator(next: &str, fd: Option<u32>) -> (&'static str, PosixTokenKi
         here_doc: None,
     };
     (">", PosixTokenKind::Redirect(redirect))
+}
+
+/// Whether the text has a pair of braces that holds a comma or `..`, as
+/// `{x,y}` and `{1..3}` do; the empty pair `{}` of `find -exec` does not.
+fn is_brace_expansion(text: &str) -> bool {
+    let mut opens: Vec<usize> = Vec::new();
+    for (index, character) in text.char_indices() {
+        match character {
+            '{' => opens.push(index),
+            '}' => {
+                let Some(open) = opens.pop() else {
+                    continue;
+                };
+                let inside = text.get(open + 1..index).unwrap_or_default();
+                if inside.contains(',') || inside.contains("..") {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 fn error_at(line: u32, column: u32, message: &str) -> LexError {

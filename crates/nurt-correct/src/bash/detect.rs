@@ -14,6 +14,7 @@
 //! `find "/a" glob: "*.go"` stays a Nurt program while `find /a -name "*.go"`
 //! is a habit.
 
+use super::catalog::is_parameter_name;
 use super::lex::{PosixToken, PosixTokenKind, Quoting, RedirectOp, Word, WordPart};
 use super::table::BashTable;
 
@@ -62,6 +63,9 @@ fn has_nurt_notation(tokens: &[PosixToken]) -> bool {
     })
 }
 
+/// A bare word `name:` where `name` is a parameter of some command. Another
+/// word that ends in a colon, such as the `error:` of `grep -i error: /a`, is
+/// text of the command.
 fn is_named_argument(word: &Word) -> bool {
     word.is_bare()
         && word.raw.strip_suffix(':').is_some_and(|name| {
@@ -69,6 +73,7 @@ fn is_named_argument(word: &Word) -> bool {
                 && name
                     .chars()
                     .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+                && is_parameter_name(name)
         })
 }
 
@@ -158,6 +163,14 @@ mod tests {
         assert!(!habit("find \"/a\" |> remove"));
         assert!(!habit("remove \"/a\""));
         assert!(!habit("sort size order: desc"));
+    }
+
+    #[test]
+    fn a_word_that_ends_in_a_colon_is_a_named_argument_only_for_a_known_parameter() {
+        assert!(habit("grep -i error: /var/log/x"));
+        assert!(habit("grep -n 'TODO:' /srv/a"));
+        assert!(!habit("find /a -name x glob: \"*.go\""));
+        assert!(!habit("ls -l hidden: true"));
     }
 
     #[test]
