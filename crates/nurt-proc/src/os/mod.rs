@@ -19,6 +19,8 @@ use nurt_contracts::record::{LimitHit, Signal};
 
 use crate::iface::ResourceUsage;
 
+#[cfg(any(target_os = "macos", all(unix, test)))]
+mod descendants;
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "macos")]

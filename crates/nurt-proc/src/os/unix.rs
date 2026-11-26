@@ -354,7 +354,10 @@ impl Tree {
 
     /// Ends every process of the group at once.
     pub(crate) fn kill(&self) -> Result<()> {
-        self.membership.kill();
+        // After the leader is collected its identifier may name another
+        // process, so no tree is walked from it.
+        let root = (!self.collected.load(Ordering::Acquire)).then_some(self.pid);
+        self.membership.kill(root);
         self.send(libc::SIGKILL)
     }
 
@@ -385,7 +388,7 @@ impl Tree {
         // names this group and cannot reach an unrelated process. Members
         // that changed their credentials cannot be signalled; the leader is
         // collected regardless.
-        self.membership.kill();
+        self.membership.kill(Some(self.pid));
         self.send(libc::SIGKILL).ok();
         self.collected.store(true, Ordering::Release);
         let mut status: c_int = 0;
