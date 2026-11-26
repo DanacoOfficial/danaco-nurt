@@ -117,7 +117,7 @@ not change the result.
 | Reversibility | `reversible` |
 | Implementation | `builtin` |
 | Reversibility conditions | Undo moves the branch reference back; the working tree is not changed and written objects remain in the repository. |
-| External use | `user_program`; used when `hooks` is given; Runs the pre-commit, prepare-commit-msg, commit-msg and post-commit hooks of the repository as user programs. |
+| External use | `user_program`: `gpg`; Runs gpg (gpg.openpgp.program or gpg.program) when the commit is signed with an OpenPGP key, whether sign is given or commit.gpgSign is set; runs the pre-commit, prepare-commit-msg, commit-msg and post-commit hooks of the repository as user programs when hooks is given. |
 
 ## Examples
 

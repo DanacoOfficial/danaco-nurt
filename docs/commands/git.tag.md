@@ -74,6 +74,7 @@ with the message `tag: tagging <id> (<subject>, <date>)` of `git tag`.
 | Reversibility | `read` |
 | Implementation | `builtin` |
 | Reversibility conditions | Tag changes are reversible from the journal, which keeps the previous value of each reference. |
+| External use | `user_program`: `gpg`; Runs gpg (gpg.openpgp.program or gpg.program) when an annotated tag is signed with an OpenPGP key, whether sign is given or tag.gpgSign is set. |
 
 | Action | Effect | Reversibility | Note |
 |---|---|---|---|
