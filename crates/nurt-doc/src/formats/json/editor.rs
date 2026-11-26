@@ -13,6 +13,7 @@ use nurt_contracts::value::Value;
 use super::layout::{Layout, Style};
 use super::render;
 use super::syntax::{Entry, NodeId, Span};
+use crate::value::to_document_value;
 
 /// Replacement of one byte span of the original text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,7 +109,14 @@ impl<'d> Editor<'d> {
         let tree = self.layout.tree;
         let span = tree.nodes[node].span;
         let style_source = tree.nodes[node].parent.unwrap_or(node);
-        let style = self.layout.style_for(style_source);
+        let style = if matches!(
+            to_document_value(value.clone()),
+            Value::Map(_) | Value::List(_)
+        ) {
+            self.layout.style_for(style_source)
+        } else {
+            Style::scalar()
+        };
         let multiline = self.context_multiline(node);
         let indent = self.layout.indent_of(span.start);
         let text = render::render(value, indent, &style, multiline)?;

@@ -31,6 +31,21 @@ pub(crate) struct Style {
     pub(crate) trailing_comma: bool,
 }
 
+impl Style {
+    /// Style for a scalar value, which has no entries to lay out; it needs
+    /// no scan of the document.
+    pub(crate) const fn scalar() -> Self {
+        Self {
+            indent_unit: String::new(),
+            eol: "\n",
+            colon: String::new(),
+            comma_space: String::new(),
+            bracket_space: String::new(),
+            trailing_comma: false,
+        }
+    }
+}
+
 /// Read access to the layout of one document.
 pub(crate) struct Layout<'d> {
     pub(crate) text: &'d str,

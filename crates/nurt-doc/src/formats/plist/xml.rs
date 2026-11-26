@@ -507,7 +507,8 @@ fn real_text(number: f64) -> String {
 }
 
 /// Text with `&`, `<` and `>` escaped, which also keeps `]]>` out of
-/// character data.
+/// character data, and a carriage return written as a character reference,
+/// because a reader turns a literal one into a line feed.
 fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for character in text.chars() {
@@ -515,6 +516,7 @@ fn escape(text: &str) -> String {
             '&' => out.push_str("&amp;"),
             '<' => out.push_str("&lt;"),
             '>' => out.push_str("&gt;"),
+            '\r' => out.push_str("&#13;"),
             character => out.push(character),
         }
     }
@@ -685,5 +687,18 @@ mod tests {
         assert_eq!(items[1], Value::Bytes(Bytes::new(vec![0, 1])));
         assert_eq!(real_text(f64::INFINITY), "+infinity");
         assert_eq!(escape("a&b<c>"), "a&amp;b&lt;c&gt;");
+    }
+
+    #[test]
+    fn carriage_returns_are_written_as_character_references() {
+        assert_eq!(escape("a\r\nb"), "a&#13;\nb");
+        let text = sample();
+        let changed = set(&text, "Name", &Value::Text("x\r\ny".into()), false);
+        assert!(changed.contains("<string>x&#13;\ny</string>"), "{changed}");
+        let (tree, _) = build(&changed, 0).unwrap();
+        let Value::Map(fields) = tree.value_of(tree.roots()[0], &SEMANTICS, None) else {
+            panic!("map expected")
+        };
+        assert_eq!(fields["Name"], Value::Text("x\r\ny".into()));
     }
 }

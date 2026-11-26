@@ -8,11 +8,13 @@
 //! by index (`[1]`). A path with more segments addresses nothing, because
 //! cells are text.
 
+use std::collections::HashMap;
+
 use nurt_contracts::error::Error;
 use nurt_contracts::keypath::{KeyPath, KeySegment};
 
 use super::errors;
-use super::table::Table;
+use super::table::{MAX_COLUMNS, Table};
 use crate::model::{DocTree, MapSemantics, NodeId};
 
 /// Node of a table addressed by a key path.
@@ -146,10 +148,15 @@ fn filtered_rows(
         .roots()
         .first()
         .map_or(&[], |root| tree[*root].children.as_slice());
+    let positions: HashMap<NodeId, usize> = rows
+        .iter()
+        .enumerate()
+        .map(|(position, row)| (*row, position))
+        .collect();
     Ok(tree
         .resolve(&filter, &MapSemantics::LAST_WINS)?
         .into_iter()
-        .filter_map(|found| rows.iter().position(|row| *row == found.node))
+        .filter_map(|found| positions.get(&found.node).copied())
         .map(Target::Row)
         .collect())
 }
@@ -174,6 +181,12 @@ fn select_cells(
                 return Err(errors::key_not_found(
                     key,
                     &format!("the row has {width} cells"),
+                ));
+            }
+            if column >= width.max(MAX_COLUMNS) {
+                return Err(errors::key_not_found(
+                    key,
+                    &format!("a row can be extended to {MAX_COLUMNS} cells"),
                 ));
             }
             vec![column]
@@ -363,6 +376,40 @@ mod tests {
         assert_eq!(code(&error), "E_KEY_NOT_FOUND");
         let error = targets(&document, "[-2]", Access::Read).unwrap_err();
         assert_eq!(code(&error), "E_KEY_NOT_FOUND");
+    }
+
+    #[test]
+    fn cell_indexes_beyond_the_column_limit_are_rejected() {
+        let document = document("id,name\n1,ann\n", true);
+        let last = MAX_COLUMNS - 1;
+        assert_eq!(
+            targets(&document, &format!("[0][{last}]"), Access::Write).unwrap(),
+            [Target::Cell {
+                row: 0,
+                column: last
+            }]
+        );
+        for key in [
+            format!("[0][{MAX_COLUMNS}]"),
+            "[0][99999999999]".to_owned(),
+            "[1][99999999999]".to_owned(),
+        ] {
+            let error = targets(&document, &key, Access::Write).unwrap_err();
+            assert_eq!(code(&error), "E_KEY_NOT_FOUND", "{key}");
+        }
+    }
+
+    #[test]
+    fn filters_select_rows_of_a_large_table() {
+        let mut text = String::from("id,name\n");
+        for row in 0..2000 {
+            text.push_str(&format!("{},n{row}\n", row % 2));
+        }
+        let document = document(&text, true);
+        let found = targets(&document, "[?id == \"1\"]", Access::Read).unwrap();
+        assert_eq!(found.len(), 1000);
+        assert_eq!(found[0], Target::Row(1));
+        assert_eq!(found[999], Target::Row(1999));
     }
 
     #[test]

@@ -506,3 +506,150 @@ pub fn check_round_trip(original: &[u8], reopened: &[u8]) -> Result<()> {
     )
     .with_detail("byte", offset.into()))
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::error::ErrorCode;
+
+    use super::*;
+    use crate::model::MapSemantics;
+
+    /// Reads `name=value` lines.
+    struct Lines;
+
+    impl ReferenceParser for Lines {
+        fn parse(&self, text: &[u8]) -> Result<Vec<Value>> {
+            let text = String::from_utf8_lossy(text);
+            let map = text
+                .lines()
+                .filter_map(|line| line.split_once('='))
+                .map(|(name, value)| (name.to_owned(), Value::Text(value.to_owned())))
+                .collect();
+            Ok(vec![Value::Map(map)])
+        }
+    }
+
+    /// Rejects every text.
+    struct Failing;
+
+    impl ReferenceParser for Failing {
+        fn parse(&self, _text: &[u8]) -> Result<Vec<Value>> {
+            Err(Error::new(ErrorCode::DocParse, "not a document"))
+        }
+    }
+
+    const ORIGINAL: &[u8] = b"a=1\nb=2\n";
+
+    fn expectation() -> Expectation<'static> {
+        Expectation::new(Lines.parse(ORIGINAL).unwrap(), &MapSemantics::LAST_WINS)
+    }
+
+    fn plan(edit: ByteEdit, target: Span) -> EditPlan {
+        let mut plan = EditPlan::new();
+        plan.target(target);
+        plan.edit(edit);
+        plan.report.replacements = 1;
+        plan
+    }
+
+    fn key(text: &str) -> KeyPath {
+        KeyPath::parse(text).unwrap()
+    }
+
+    #[test]
+    fn accepts_a_change_that_reads_back_as_expected() {
+        let plan = plan(
+            ByteEdit::replace(Span::new(2, 3), "9"),
+            Span::new(2, 3),
+        );
+        let expectation = expectation().set(key("a"), Value::Text("9".to_owned()));
+        let committed = commit(ORIGINAL, plan, &expectation, &Lines).unwrap();
+        assert_eq!(committed.bytes, b"a=9\nb=2\n");
+        assert_eq!(committed.report.replacements, 1);
+        assert_eq!(committed.report.changed, vec![Span::new(2, 3)]);
+    }
+
+    #[test]
+    fn edits_equal_to_the_bytes_they_replace_are_dropped() {
+        let plan = plan(ByteEdit::replace(Span::new(2, 3), "1"), Span::new(2, 3));
+        let committed = commit(ORIGINAL, plan, &expectation(), &Lines).unwrap();
+        assert_eq!(committed.bytes, ORIGINAL);
+        assert!(committed.report.is_unchanged());
+        assert_eq!(committed.report.replacements, 0);
+    }
+
+    #[test]
+    fn rejects_edits_outside_the_targets() {
+        let plan = plan(ByteEdit::replace(Span::new(6, 7), "9"), Span::new(2, 3));
+        let error = commit(ORIGINAL, plan, &expectation(), &Lines).unwrap_err();
+        assert_eq!(error.code, ErrorCode::UnsupportedConstruct);
+        assert_eq!(error.found.as_deref(), Some(DOC_OUT_OF_SCOPE_CHANGE));
+    }
+
+    #[test]
+    fn blanks_and_separators_next_to_a_target_may_change() {
+        let mut plan = EditPlan::new();
+        plan.target(Span::new(2, 3));
+        plan.edit(ByteEdit::replace(Span::new(2, 4), "1\n\n"));
+        let committed = commit(ORIGINAL, plan, &expectation(), &Lines).unwrap();
+        assert_eq!(committed.bytes, b"a=1\n\nb=2\n");
+        assert!(!Surroundings::DEFAULT.allows(b'x'));
+        assert!(Surroundings::DEFAULT.with(b";").allows(b';'));
+    }
+
+    #[test]
+    fn rejects_a_change_that_reads_back_with_another_value() {
+        let plan = plan(ByteEdit::replace(Span::new(2, 3), "9"), Span::new(2, 3));
+        let expectation = expectation().set(key("a"), Value::Text("8".to_owned()));
+        let error = commit(ORIGINAL, plan, &expectation, &Lines).unwrap_err();
+        assert_eq!(error.found.as_deref(), Some(DOC_SEMANTIC_MISMATCH));
+    }
+
+    #[test]
+    fn rejects_a_change_that_makes_the_document_invalid() {
+        let plan = plan(ByteEdit::replace(Span::new(2, 3), "9"), Span::new(2, 3));
+        let error = commit(ORIGINAL, plan, &expectation(), &Failing).unwrap_err();
+        assert_eq!(error.found.as_deref(), Some(DOC_SEMANTIC_MISMATCH));
+    }
+
+    #[test]
+    fn expectations_apply_their_operations_in_order() {
+        let expectation = expectation()
+            .set(key("c"), Value::Text("3".to_owned()))
+            .remove(key("a"));
+        assert_eq!(expectation.operations().len(), 2);
+        let documents = expectation.expected().unwrap();
+        let Value::Map(fields) = &documents[0] else {
+            panic!("map expected")
+        };
+        assert_eq!(fields.keys().collect::<Vec<_>>(), ["b", "c"]);
+        let missing = Expectation::new(Vec::new(), &MapSemantics::LAST_WINS)
+            .set(key("a"), Value::Null)
+            .expected()
+            .unwrap_err();
+        assert_eq!(missing.code, ErrorCode::KeyNotFound);
+    }
+
+    #[test]
+    fn a_rewrite_becomes_the_edits_between_the_texts() {
+        let plan = EditPlan::from_rewrite(ORIGINAL, b"a=9\nb=2\n", vec![Span::new(2, 3)]);
+        assert_eq!(
+            plan.edits,
+            vec![ByteEdit::replace(Span::new(2, 3), "9")]
+        );
+        assert_eq!(plan.targets, vec![Span::new(2, 3)]);
+    }
+
+    #[test]
+    fn the_identity_guard_reports_the_first_differing_byte() {
+        assert!(check_round_trip(b"a: 1\n", b"a: 1\n").is_ok());
+        let error = check_round_trip(b"a: 1\nb: 2\n", b"a: 1\nb: 3\n").unwrap_err();
+        assert_eq!(error.found.as_deref(), Some(DOC_ROUND_TRIP_LOSS));
+        assert_eq!(
+            error.details.get("byte").and_then(serde_json::Value::as_u64),
+            Some(8)
+        );
+        let shorter = check_round_trip(b"a: 1\n", b"").unwrap_err();
+        assert_eq!(shorter.found.as_deref(), Some(DOC_ROUND_TRIP_LOSS));
+    }
+}

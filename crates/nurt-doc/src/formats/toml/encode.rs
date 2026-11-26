@@ -34,12 +34,21 @@ pub(crate) fn normalize(value: &Value) -> Result<Value, Error> {
                 "TOML integers have 64 bits; write a smaller integer or a text",
             )
         })?),
-        Value::Decimal(text) => Value::Number(text.parse().map_err(|_| {
-            unsupported(
-                VALUE_TYPE,
-                "the decimal number cannot be written as a TOML float",
-            )
-        })?),
+        Value::Decimal(text) => {
+            let number: f64 = text.parse().map_err(|_| {
+                unsupported(
+                    VALUE_TYPE,
+                    "the decimal number cannot be written as a TOML float",
+                )
+            })?;
+            if number.is_infinite() && !text.to_ascii_lowercase().contains("inf") {
+                return Err(unsupported(
+                    VALUE_TYPE,
+                    "the decimal number is outside the range of a TOML float",
+                ));
+            }
+            Value::Number(number)
+        }
         Value::List(items) => Value::List(items.iter().map(normalize).collect::<Result<_, _>>()?),
         Value::Map(fields) => Value::Map(
             fields
@@ -116,9 +125,14 @@ impl StringStyle {
 
 /// Writes a string in `style` when the style can hold it, otherwise as a
 /// basic string. A multi-line string keeps a line break after its opening
-/// delimiter when `leading_newline` is set.
+/// delimiter when `leading_newline` is set, and always has one when the text
+/// itself starts with a line break, which the reader would drop otherwise.
 pub(crate) fn string(text: &str, style: StringStyle, leading_newline: bool) -> String {
-    let lead = if leading_newline { "\n" } else { "" };
+    let lead = if leading_newline || text.starts_with('\n') {
+        "\n"
+    } else {
+        ""
+    };
     match style {
         StringStyle::Literal if literal_fits(text, false) => format!("'{text}'"),
         StringStyle::MultiLiteral
@@ -267,6 +281,36 @@ mod tests {
             "\"tab\tz\\u0001\""
         );
         assert_eq!(string("end'", StringStyle::MultiLiteral, false), "\"end'\"");
+    }
+
+    #[test]
+    fn multi_line_strings_keep_a_leading_line_break_of_the_text() {
+        assert_eq!(
+            string("\nabc", StringStyle::MultiBasic, false),
+            "\"\"\"\n\nabc\"\"\""
+        );
+        assert_eq!(
+            string("\nabc", StringStyle::MultiLiteral, false),
+            "'''\n\nabc'''"
+        );
+        assert_eq!(
+            string("abc", StringStyle::MultiBasic, false),
+            "\"\"\"abc\"\"\""
+        );
+    }
+
+    #[test]
+    fn decimals_beyond_the_float_range_are_rejected() {
+        let error = normalize(&Value::Decimal("1e400".into())).unwrap_err();
+        assert_eq!(error.found.as_deref(), Some(VALUE_TYPE));
+        assert_eq!(
+            normalize(&Value::Decimal("1e300".into())).unwrap(),
+            Value::Number(1e300)
+        );
+        assert_eq!(
+            normalize(&Value::Decimal("-inf".into())).unwrap(),
+            Value::Number(f64::NEG_INFINITY)
+        );
     }
 
     #[test]
