@@ -238,6 +238,40 @@ fn kernel_port(port: u16) -> i32 {
     i32::from(u16::from_ne_bytes(port.to_be_bytes()))
 }
 
+/// Value the checked layout file asserts for `label`: the sum after `==` on
+/// the line that names the label.
+fn asserted_layout(label: &str) -> usize {
+    let source = include_str!("../../tests/fixtures/macos/socket_layout.c");
+    let line = source
+        .lines()
+        .find(|line| line.contains("_Static_assert") && line.contains(&format!("\"{label}\"")))
+        .unwrap_or_else(|| panic!("the layout file does not assert {label}"));
+    let expression = line
+        .split("==")
+        .nth(1)
+        .and_then(|rest| rest.split(',').next())
+        .unwrap_or_else(|| panic!("no comparison in {line}"));
+    expression
+        .split('+')
+        .map(|term| term.trim().parse::<usize>().unwrap())
+        .sum()
+}
+
+#[test]
+fn macos_socket_layout_constants_equal_the_layout_checked_against_the_sdk() {
+    // tests/fixtures/macos/socket_layout.c compiles against the headers of
+    // the macOS SDK only when these numbers are the layout of the SDK.
+    assert_eq!(SOCKET_FDINFO_SIZE, asserted_layout("SOCKET_FDINFO_SIZE"));
+    assert_eq!(SOI_PROTOCOL, asserted_layout("SOI_PROTOCOL"));
+    assert_eq!(SOI_KIND, asserted_layout("SOI_KIND"));
+    assert_eq!(INSI_FPORT, asserted_layout("INSI_FPORT"));
+    assert_eq!(INSI_LPORT, asserted_layout("INSI_LPORT"));
+    assert_eq!(INSI_VFLAG, asserted_layout("INSI_VFLAG"));
+    assert_eq!(INSI_FADDR, asserted_layout("INSI_FADDR"));
+    assert_eq!(INSI_LADDR, asserted_layout("INSI_LADDR"));
+    assert_eq!(TCPSI_STATE, asserted_layout("TCPSI_STATE"));
+}
+
 #[test]
 fn ports_decode_libproc_socket_info() {
     let mut tcp = vec![0_u8; SOCKET_FDINFO_SIZE];
