@@ -626,6 +626,64 @@ fn header_states_counts_and_fallback() {
 }
 
 #[test]
+fn multi_line_fallback_stays_inside_header_comments() {
+    let mock = MockTranslator::new().wrapped();
+    let migration = run("sudo ls\n", BASH, &mock);
+    let header: Vec<&str> = migration.nurt.lines().skip(3).take(4).collect();
+    assert_eq!(
+        header,
+        [
+            "# Untranslated statements run unchanged with: run [",
+            "#   \"bash\",",
+            "#   \"/srv/s.sh\"",
+            "# ]",
+        ]
+    );
+    assert!(
+        migration
+            .nurt
+            .lines()
+            .take_while(|line| !line.is_empty())
+            .all(|line| line.starts_with('#'))
+    );
+}
+
+#[test]
+fn line_break_in_the_script_path_stays_inside_the_source_comment() {
+    let options = MigrateOptions::new().with_script("/srv/a\nb.sh");
+    let mock = MockTranslator::new().wrapped();
+    let migration = match migrate_with("sudo ls\n", BASH, &options, &mock) {
+        Ok(migration) => migration,
+        Err(error) => panic!("migration failed: {error:?}"),
+    };
+    assert_eq!(migration.nurt.lines().next(), Some("# Source: /srv/a b.sh (bash)"));
+    assert_eq!(migration.report.script, "/srv/a\nb.sh");
+    assert!(
+        migration
+            .nurt
+            .lines()
+            .take_while(|line| !line.is_empty())
+            .all(|line| line.starts_with('#'))
+    );
+}
+
+#[test]
+fn multi_line_problem_stays_inside_comments() {
+    let mock = MockTranslator::new().fail(
+        "sudo ls",
+        ErrorCode::Uncorrectable,
+        "first line\nsecond line",
+        &[],
+    );
+    let migration = run("sudo ls\n", BASH, &mock);
+    let expected = format!(
+        "# untranslated: E_UNCORRECTABLE: sudo ls\n#   problem: first line\n#{}second line\n",
+        " ".repeat(12)
+    );
+    assert!(migration.nurt.contains(&expected));
+}
+
+#[test]
 fn empty_script_yields_header_only() {
     let migration = run("", BASH, &MockTranslator::new());
     assert!(migration.report.items.is_empty());
@@ -681,6 +739,131 @@ fn text_report_lists_items_and_proposals() {
          fallback: run [\"bash\", \"/srv/s.sh\"]\n\
          base: \"/srv/app\"\n"
     );
+}
+
+#[test]
+fn summary_counts_the_items_by_status() {
+    let mock = MockTranslator::new()
+        .program("rm /srv/a", "remove \"/srv/a\"", &["B01"])
+        .program("grep -rn x /srv/a", "search \"x\" \"/srv/a\"", &["B15:P"])
+        .program(
+            "tar -czf /b/a.tgz /a &",
+            "archive.create \"/b/a.tgz\" background: true",
+            &["B34"],
+        )
+        .unbound("background: true");
+    let source = "rm /srv/a\ngrep -rn x /srv/a\nfor f in *; do echo; done\ntar -czf /b/a.tgz /a &\n";
+    let summary = run(source, BASH, &mock).report.summary();
+    assert_eq!(
+        (
+            summary.statements,
+            summary.translated,
+            summary.assumption,
+            summary.impossible,
+            summary.error
+        ),
+        (4, 1, 1, 1, 1)
+    );
+}
+
+#[test]
+fn names_of_statuses_and_reasons_are_the_names_of_the_report() {
+    for (status, name, translated) in [
+        (Status::Translated, "translated", true),
+        (Status::Assumption, "assumption", true),
+        (Status::Impossible, "impossible", false),
+        (Status::Error, "error", false),
+    ] {
+        assert_eq!(status.as_str(), name);
+        assert_eq!(status.is_translated(), translated);
+    }
+    for (reason, name) in [
+        (Reason::Loop, "loop"),
+        (Reason::Condition, "condition"),
+        (Reason::Function, "function"),
+        (Reason::Block, "block"),
+        (Reason::Eval, "eval"),
+        (Reason::Source, "source"),
+        (Reason::Parameters, "parameters"),
+        (Reason::Control, "control"),
+        (Reason::OrList, "or_list"),
+        (Reason::HereDocument, "here_document"),
+        (Reason::CurrentDirectory, "current_directory"),
+        (Reason::Rule, "rule"),
+        (Reason::Syntax, "syntax"),
+        (Reason::Translation, "translation"),
+    ] {
+        assert_eq!(reason.as_str(), name);
+    }
+}
+
+#[test]
+fn translated_statement_without_rules_has_no_rule_comment() {
+    let mock = MockTranslator::new().program("echo hi", "evaluate \"hi\"", &[]);
+    let migration = run("echo hi\n", BASH, &mock);
+    assert_eq!(only_item(&migration).status, Status::Translated);
+    assert!(migration.nurt.ends_with("\nevaluate \"hi\"\n"));
+    assert!(!migration.nurt.contains("# translated:"));
+}
+
+#[test]
+fn lines_of_a_multi_line_fix_stay_comments() {
+    let mock = MockTranslator::new().fail(
+        "sudo ls",
+        ErrorCode::Uncorrectable,
+        "no privilege elevation",
+        &["list \"/srv\"\n|> first 5"],
+    );
+    let migration = run("sudo ls\n", BASH, &mock);
+    let expected = format!(
+        "#   fix: list \"/srv\"\n#{}|> first 5\n",
+        " ".repeat(9)
+    );
+    assert!(migration.nurt.contains(&expected));
+    assert!(
+        migration
+            .nurt
+            .lines()
+            .skip_while(|line| !line.starts_with("# untranslated"))
+            .all(|line| line.starts_with('#'))
+    );
+}
+
+#[test]
+fn text_report_indents_the_lines_of_a_multi_line_output() {
+    let mock = MockTranslator::new().program(
+        "rm /srv/a",
+        "remove \"/srv/a\"\n|> first 5",
+        &["B01"],
+    );
+    let migration = run("rm /srv/a\n", BASH, &mock);
+    let expected = format!(
+        "  output: remove \"/srv/a\"\n{}|> first 5\n",
+        " ".repeat(10)
+    );
+    assert!(migration.report.to_text().contains(&expected));
+}
+
+#[test]
+fn json_report_of_an_empty_script_has_no_items_and_no_proposals() {
+    let migration = run("", POWERSHELL, &MockTranslator::new());
+    let json: serde_json::Value = match serde_json::from_str(&migration.report.to_json()) {
+        Ok(json) => json,
+        Err(error) => panic!("invalid JSON: {error}"),
+    };
+    assert_eq!(json["language"], "powershell");
+    assert_eq!(json["items"], serde_json::json!([]));
+    assert!(json.get("fallback").is_none());
+    assert!(json.get("base").is_none());
+}
+
+#[test]
+fn comment_only_script_keeps_the_comments_and_translates_nothing() {
+    let mock = MockTranslator::new();
+    let migration = run("# only a comment\n# and another\n", BASH, &mock);
+    assert!(migration.report.items.is_empty());
+    assert!(mock.requests().is_empty());
+    assert!(migration.nurt.ends_with("\n# only a comment\n# and another\n"));
 }
 
 #[test]

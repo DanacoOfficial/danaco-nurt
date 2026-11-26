@@ -93,7 +93,7 @@ pub(crate) fn with_stats(
                 entry.flags |= previous.flags & Flags::SKIP_WORKTREE;
             }
             _ if contains(sources.read_now, path) => {
-                let file = join_slash(root, &path.to_str_lossy());
+                let file = join_slash(root, path);
                 if let Some(stat) = gix::index::fs::Metadata::from_path_no_follow(&file)
                     .ok()
                     .and_then(|meta| Stat::from_fs(&meta).ok())

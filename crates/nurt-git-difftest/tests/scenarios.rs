@@ -24,23 +24,37 @@ use nurt_git_difftest::stage::CommandTable;
 /// Options of the command line that take a value and do not affect the run.
 const IGNORED_WITH_VALUE: &[&str] = &["--format", "--color", "--logfile", "-Z"];
 
+/// Environment variable that makes a missing `git` program a failure.
+const REQUIRE_GIT_VARIABLE: &str = "NURT_DIFFTEST_REQUIRE_GIT";
+
 #[derive(Debug, Default)]
 struct Args {
     filters: Vec<String>,
     skips: Vec<String>,
     exact: bool,
     list: bool,
+    require_git: bool,
     threads: Option<usize>,
     options: RunOptions,
 }
 
 impl Args {
     fn parse(mut raw: impl Iterator<Item = String>) -> Self {
-        let mut args = Self::default();
+        let mut args = Self {
+            require_git: std::env::var(REQUIRE_GIT_VARIABLE).is_ok_and(|value| value == "1"),
+            ..Self::default()
+        };
         while let Some(arg) = raw.next() {
             match arg.as_str() {
                 "--exact" => args.exact = true,
                 "--list" => args.list = true,
+                "--require-git" => args.require_git = true,
+                flag if flag.starts_with("--skip=") => {
+                    args.skips.push(flag["--skip=".len()..].to_owned());
+                }
+                flag if flag.starts_with("--test-threads=") => {
+                    args.threads = flag["--test-threads=".len()..].parse().ok();
+                }
                 "--heavy" | "--include-ignored" | "--ignored" => args.options.heavy = true,
                 "--require-nurt" => args.options.require_nurt = true,
                 "--keep-failed" => args.options.keep_failed = true,
@@ -136,7 +150,7 @@ fn main() -> ExitCode {
                 "skipping {} differential scenarios: git is not on the search path",
                 selected.len()
             );
-            return report(&mut out, &[], &invalid);
+            return report_without_git(&mut out, &invalid, args.require_git);
         }
         Availability::TooOld(version) => {
             let _ = writeln!(
@@ -144,7 +158,7 @@ fn main() -> ExitCode {
                 "skipping {} differential scenarios: git {version} is older than {MINIMUM_VERSION}",
                 selected.len()
             );
-            return report(&mut out, &[], &invalid);
+            return report_without_git(&mut out, &invalid, args.require_git);
         }
     };
     let table = match commands() {
@@ -173,6 +187,25 @@ fn main() -> ExitCode {
         .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, usize::from));
     let outcomes = runner.run_all(&selected, threads);
     report(&mut out, &outcomes, &invalid)
+}
+
+/// Report of a run that could not start for lack of a supported `git`
+/// program: a success, unless the run requires `git`.
+fn report_without_git(
+    out: &mut impl std::io::Write,
+    invalid: &[String],
+    require_git: bool,
+) -> ExitCode {
+    if require_git {
+        let _ = writeln!(
+            out,
+            "no supported git program is available and the run requires one \
+             (--require-git or {REQUIRE_GIT_VARIABLE}=1)"
+        );
+        let _ = report(out, &[], invalid);
+        return ExitCode::FAILURE;
+    }
+    report(out, &[], invalid)
 }
 
 fn report(

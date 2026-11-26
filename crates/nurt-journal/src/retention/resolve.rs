@@ -1110,6 +1110,62 @@ mod tests {
     }
 
     #[test]
+    fn shares_of_the_largest_volume_do_not_overflow() {
+        assert_eq!(share_of(u64::MAX, Percent::from_percent(100)), u64::MAX);
+        assert_eq!(share_of(u64::MAX, Percent::from_percent(50)), u64::MAX / 2);
+        assert_eq!(share_of(0, Percent::from_percent(90)), 0);
+        assert_eq!(share_of(1, Percent::from_percent(90)), 0);
+        assert_eq!(share_of(100, Percent::from_percent(1)), 1);
+    }
+
+    #[test]
+    fn byte_budgets_are_not_clamped_to_the_limits_of_percentage_budgets() {
+        let layers = [layer(
+            ConfigLevel::User,
+            json!({ "journal": { "max_size": "4mib" } }),
+        )];
+        let resolved = merged(&layers, false);
+        assert_eq!(effective(&resolved, None).max_size_bytes, Some(4 << 20));
+    }
+
+    #[test]
+    fn newer_limit_values_replace_only_the_limits_they_set() {
+        let mut base = LimitValues {
+            steps: Some(StepLimit::Limited(5)),
+            age: Some(minutes(10)),
+            size: None,
+        };
+        base.overlay(&LimitValues {
+            steps: None,
+            age: Some(AgeLimit::Unlimited),
+            size: Some(SizeLimit::Unlimited),
+        });
+        assert_eq!(base.steps, Some(StepLimit::Limited(5)));
+        assert_eq!(base.age, Some(AgeLimit::Unlimited));
+        assert_eq!(base.size, Some(SizeLimit::Unlimited));
+        assert!(!base.is_empty());
+        base.overlay(&LimitValues::default());
+        assert_eq!(base.steps, Some(StepLimit::Limited(5)));
+        assert!(LimitValues::default().is_empty());
+    }
+
+    #[test]
+    fn a_limit_for_one_volume_is_dropped_when_none_is_left_after_a_general_one() {
+        let mut runtime = RuntimeLimits::default();
+        let size = LimitValues {
+            size: Some(SizeLimit::Unlimited),
+            ..LimitValues::default()
+        };
+        runtime.set(Some(MOUNT), &size);
+        runtime.set(Some("/home"), &size);
+        assert_eq!(runtime.volumes.len(), 2);
+        runtime.set(None, &size);
+        assert!(runtime.volumes.is_empty());
+        assert_eq!(runtime.all.size, Some(SizeLimit::Unlimited));
+        assert!(!runtime.is_empty());
+    }
+
+    #[test]
     fn volume_keys_are_quoted_like_the_loader() {
         assert_eq!(
             volume_key("/mnt/data", "max_ops"),

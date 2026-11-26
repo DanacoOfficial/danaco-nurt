@@ -9,6 +9,8 @@
 // system and the stage, whose failure fails the test.
 #![allow(clippy::unwrap_used)]
 
+mod support_report;
+
 use std::sync::Arc;
 
 use nurt_contracts::error::{ErrorCode, Result};
@@ -60,10 +62,12 @@ fn run(test: &TestContext, args: &BoundArgs, input: StageInput<'_>) -> Result<Ve
     let effect = stage.as_effect().unwrap();
     let ctx = test.ctx();
     let plan = effect.plan(args, input, &ctx)?;
+    support_report::assert_plan_valid(args.command(), &plan.changes);
     let mut tx = test.journal().begin(begin_request(COMMAND));
     match effect.apply(args, plan, tx.as_mut(), &ctx) {
         Ok(outcome) => {
             let changes = outcome.changes;
+            support_report::assert_changes_valid(args.command(), &changes);
             tx.commit()?;
             Ok(changes)
         }

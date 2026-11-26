@@ -30,12 +30,15 @@ pub struct MergeCompletion {
 impl MergeCompletion {
     /// Message of the concluding commit: `explicit` when given, otherwise the
     /// prepared message, cleaned up with `cleanup` (`git merge --continue`
-    /// strips comments, `git commit --no-edit` keeps them).
+    /// strips comments, `git commit --no-edit` keeps them). An explicit
+    /// message only loses surplus white space, as a message given with `-m`
+    /// does, so a line such as `#42 fix` stays.
     #[must_use]
     pub fn message(&self, explicit: Option<&str>, cleanup: Cleanup, comment: char) -> String {
-        let text = explicit
-            .or(self.prepared_message.as_deref())
-            .unwrap_or_default();
+        let (text, cleanup) = match explicit {
+            Some(text) => (text, Cleanup::Whitespace),
+            None => (self.prepared_message.as_deref().unwrap_or_default(), cleanup),
+        };
         clean_message(text, cleanup, comment)
     }
 
@@ -174,6 +177,10 @@ mod tests {
         assert_eq!(
             completion.message(Some("own\n"), Cleanup::Strip, '#'),
             "own\n"
+        );
+        assert_eq!(
+            completion.message(Some("#42 resolve\n\nbody\n"), Cleanup::Strip, '#'),
+            "#42 resolve\n\nbody\n"
         );
         assert_eq!(
             MergeCompletion::reflog_message("Merge branch 'topic'\n"),

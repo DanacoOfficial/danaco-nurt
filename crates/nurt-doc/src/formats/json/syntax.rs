@@ -233,11 +233,14 @@ fn skip_string(bytes: &[u8], mut pos: usize) -> usize {
     pos
 }
 
+/// Offset where the line comment starting at `pos` ends: before its line
+/// break, a `\r\n` pair included.
 fn skip_line_comment(bytes: &[u8], pos: usize) -> usize {
-    bytes[pos..]
-        .iter()
-        .position(|&byte| byte == b'\n')
-        .map_or(bytes.len(), |offset| pos + offset)
+    match bytes[pos..].iter().position(|&byte| byte == b'\n') {
+        Some(offset) if offset > 2 && bytes[pos + offset - 1] == b'\r' => pos + offset - 1,
+        Some(offset) => pos + offset,
+        None => bytes.len(),
+    }
 }
 
 fn skip_block_comment(bytes: &[u8], pos: usize) -> usize {

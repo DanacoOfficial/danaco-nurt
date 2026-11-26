@@ -11,6 +11,8 @@
     reason = "tests report failures by panicking"
 )]
 
+mod support_report;
+
 use std::path::Path;
 use std::sync::Arc;
 
@@ -119,8 +121,10 @@ fn run(test: &TestContext, args: &BoundArgs) -> Result<Effect> {
     let effect_stage = stage.as_effect().expect("patch is an effect stage");
     let ctx = test.ctx();
     let plan = effect_stage.plan(args, StageInput::none(), &ctx)?;
+    support_report::assert_plan_valid(args.command(), &plan.changes);
     let mut tx = test.journal().begin(begin_request("patch"));
     let outcome = effect_stage.apply(args, plan, tx.as_mut(), &ctx)?;
+    support_report::assert_changes_valid(args.command(), &outcome.changes);
     let StageData::Records(stream) = outcome.output.data else {
         panic!("expected the effect record");
     };
@@ -359,9 +363,11 @@ fn run_checked(test: &TestContext, args: &BoundArgs) -> Result<Effect> {
     let effect_stage = stage.as_effect().expect("patch is an effect stage");
     let ctx = test.ctx();
     let plan = effect_stage.plan(args, StageInput::none(), &ctx)?;
+    support_report::assert_plan_valid(args.command(), &plan.changes);
     let mut tx = test.journal().begin(begin_request("patch"));
     match effect_stage.apply(args, plan, tx.as_mut(), &ctx) {
         Ok(outcome) => {
+            support_report::assert_changes_valid(args.command(), &outcome.changes);
             let StageData::Records(stream) = outcome.output.data else {
                 panic!("expected the effect record");
             };

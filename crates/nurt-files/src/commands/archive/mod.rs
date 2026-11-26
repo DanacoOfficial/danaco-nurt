@@ -29,7 +29,7 @@ use nurt_contracts::report::NotableEntry;
 use nurt_contracts::stage::{BoundArgs, ExecCtx, RecordStream, StageImpl, StageOutput};
 use nurt_contracts::value::{Record, Size, Value};
 use serde_json::Value as Json;
-use unicode_normalization::UnicodeNormalization;
+use unicode_normalization::{UnicodeNormalization, is_nfc};
 
 use crate::common::entry::mode_text;
 use crate::common::path::{path_arg, path_field};
@@ -133,6 +133,11 @@ impl Carried {
 }
 
 /// Filter of member paths compiled from `glob` or `only`.
+///
+/// The pattern and the member path are compared in Unicode normalization
+/// form C, the form of the paths in the records, so that a member stored
+/// decomposed, as by archivers of macOS, matches a pattern written composed
+/// and the reverse.
 #[derive(Debug, Clone)]
 struct PathFilter {
     matcher: GlobMatcher,
@@ -147,7 +152,11 @@ impl PathFilter {
         } else {
             path
         };
-        self.matcher.is_match(subject)
+        if is_nfc(subject) {
+            self.matcher.is_match(subject)
+        } else {
+            self.matcher.is_match(subject.nfc().collect::<String>())
+        }
     }
 }
 
@@ -168,7 +177,8 @@ fn path_filter(args: &BoundArgs, name: &str) -> Result<Option<PathFilter>> {
             ));
         }
     };
-    let glob = GlobBuilder::new(pattern)
+    let composed: String = pattern.nfc().collect();
+    let glob = GlobBuilder::new(&composed)
         .literal_separator(true)
         .backslash_escape(true)
         .build()
@@ -302,11 +312,13 @@ fn effect_output<'a>(
     notable: &[NotableEntry],
     summary: &[(&str, u64)],
 ) -> StageOutput<'a> {
-    let mut codes: Vec<String> = notable
-        .iter()
-        .map(|entry| entry.code.as_str().to_owned())
-        .collect();
-    codes.dedup();
+    let mut codes: Vec<String> = Vec::new();
+    for entry in notable {
+        let code = entry.code.as_str();
+        if !codes.iter().any(|known| known == code) {
+            codes.push(code.to_owned());
+        }
+    }
     let effect = Effect {
         status: EffectStatus::Ok,
         kind: command.to_owned(),
@@ -329,7 +341,11 @@ fn effect_output<'a>(
 mod tests {
     use nurt_archive::codec::Algorithm;
     use nurt_archive::list::LimitKind;
-    use nurt_contracts::stage::ArgValue;
+    use nurt_contracts::journal::JournalStore;
+    use nurt_contracts::report::Notable;
+    use nurt_contracts::stage::{ArgValue, StageInput};
+    use nurt_testkit::ctx::TestContext;
+    use nurt_testkit::fixtures::begin_request;
 
     use super::*;
 
@@ -372,6 +388,26 @@ mod tests {
     }
 
     #[test]
+    fn patterns_match_member_names_in_either_normalization_form() {
+        let filter = |pattern: &str| {
+            path_filter(&args("glob", Value::Glob(pattern.to_owned())), "glob")
+                .unwrap()
+                .unwrap()
+        };
+        let composed = filter("caf\u{e9}.txt");
+        assert!(composed.matches("cafe\u{301}.txt"));
+        assert!(composed.matches("docs/cafe\u{301}.txt"));
+        assert!(composed.matches("caf\u{e9}.txt"));
+        assert!(!composed.matches("cafe.txt"));
+        let decomposed = filter("cafe\u{301}.txt");
+        assert!(decomposed.matches("caf\u{e9}.txt"));
+        assert!(decomposed.matches("cafe\u{301}.txt"));
+        let nested = filter("r\u{e9}sum\u{e9}/*.txt");
+        assert!(nested.matches("re\u{301}sume\u{301}/cv.txt"));
+        assert!(!nested.matches("re\u{301}sume\u{301}/sub/cv.txt"));
+    }
+
+    #[test]
     fn invalid_patterns_and_types_are_rejected() {
         let invalid = path_filter(&args("glob", Value::Glob("[a".to_owned())), "glob").unwrap_err();
         assert_eq!(invalid.code(), ErrorCode::InvalidValue);
@@ -411,6 +447,34 @@ mod tests {
             ErrorCode::Cancelled
         );
         assert_eq!(carried.resolve(&stopped, &archive).code(), ErrorCode::Io);
+    }
+
+    #[test]
+    fn effect_codes_are_listed_once_in_order_of_appearance() {
+        let test = TestContext::new();
+        let tx = test.journal().begin(begin_request("archive.extract"));
+        let notable = [
+            NotableEntry::new(Notable::ArchivePathEscape),
+            NotableEntry::new(Notable::SpecialFile),
+            NotableEntry::new(Notable::ArchivePathEscape),
+        ];
+        let output = effect_output("archive.extract", &*tx, &[], &notable, &[("files", 0)]);
+        let record = StageInput::from(output)
+            .into_records()
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap();
+        let effect = Effect::try_from(record).unwrap();
+        assert_eq!(
+            effect.notable,
+            Some(vec![
+                Notable::ArchivePathEscape.as_str().to_owned(),
+                Notable::SpecialFile.as_str().to_owned()
+            ])
+        );
+        assert_eq!(effect.targets, Some(0));
+        assert_eq!(effect.kind, "archive.extract");
     }
 
     #[test]

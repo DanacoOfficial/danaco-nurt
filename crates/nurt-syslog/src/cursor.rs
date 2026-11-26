@@ -472,4 +472,62 @@ mod tests {
         assert!(Id128::default().is_zero());
         assert!(!Id128::new([1; 16]).is_zero());
     }
+
+    #[test]
+    fn id_accepts_upper_case_digits_and_prints_lower_case() {
+        let id: Id128 = "ABCDEF00112233445566778899aabbcc".parse().unwrap();
+        assert_eq!(id.to_string(), "abcdef00112233445566778899aabbcc");
+        assert!("\u{e9}0000000000000000000000000000000".parse::<Id128>().is_err());
+        assert!(" 0000000000000000000000000000000".parse::<Id128>().is_err());
+    }
+
+    #[test]
+    fn journal_cursor_keeps_the_largest_numbers() {
+        let text = format!("v1:j:{0}:{0}:{1}:{1}", "00".repeat(16), u64::MAX);
+        let cursor = text.parse::<Cursor>().unwrap();
+        assert_eq!(cursor.to_string(), text);
+        assert_eq!(cursor.time(), None);
+        let over = format!("v1:j:{0}:{0}:{1}0:1", "00".repeat(16), u64::MAX);
+        assert!(over.parse::<Cursor>().is_err());
+    }
+
+    #[test]
+    fn unified_cursor_keeps_the_extreme_times() {
+        for nanos in [i64::MIN, i64::MAX] {
+            let text = format!("v1:m:{nanos}:0:0:0000000000000000");
+            let cursor = text.parse::<Cursor>().unwrap();
+            assert_eq!(cursor.to_string(), text);
+            assert_eq!(cursor.time(), Some(Instant::from_unix_nanos(nanos)));
+        }
+        assert!("v1:m:9223372036854775808:0:0:0000000000000000"
+            .parse::<Cursor>()
+            .is_err());
+    }
+
+    #[test]
+    fn event_log_cursor_rejects_signs_and_spaces_in_the_record_number() {
+        for text in ["v1:w:System:+1", "v1:w:System:-1", "v1:w:System: 1", "v1:w:System:1 "] {
+            assert!(text.parse::<Cursor>().is_err(), "accepted {text:?}");
+        }
+        let channel = "v1:w:Microsoft-Windows-X/Operational:18446744073709551615";
+        assert!(channel.parse::<Cursor>().is_ok());
+        assert!("v1:w:System:18446744073709551616".parse::<Cursor>().is_err());
+    }
+
+    #[test]
+    fn parse_param_keeps_the_text_it_was_given() {
+        let error = Cursor::parse_param("v1:j:zz").unwrap_err();
+        assert_eq!(error.found.as_deref(), Some("v1:j:zz"));
+    }
+
+    #[test]
+    fn journal_entries_of_another_store_cursor_are_not_admitted() {
+        let cursor = Cursor::Unified {
+            nanos: 1,
+            pid: 1,
+            tid: 1,
+            digest: 1,
+        };
+        assert_eq!(cursor.admits_journal(&Id128::default(), 0, 0), None);
+    }
 }

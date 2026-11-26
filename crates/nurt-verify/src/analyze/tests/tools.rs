@@ -162,6 +162,31 @@ fn clean_output_gives_no_findings_for_any_tool() {
 }
 
 #[test]
+fn paths_that_start_with_a_dash_are_given_relative_so_they_are_not_options() {
+    let paths = vec![
+        "-rf.ts".to_owned(),
+        "--config=x.js".to_owned(),
+        "src/a.ts".to_owned(),
+    ];
+    assert_eq!(
+        Tool::Eslint.check_args(&paths),
+        vec!["-f", "json", "./-rf.ts", "./--config=x.js", "src/a.ts"]
+    );
+    assert_eq!(
+        Tool::Prettier.write_args(&paths),
+        Some(
+            ["--write", "./-rf.ts", "./--config=x.js", "src/a.ts"]
+                .map(str::to_owned)
+                .to_vec()
+        )
+    );
+    assert_eq!(
+        Tool::Gofmt.write_args(&["-w.go".to_owned()]),
+        Some(vec!["-w".to_owned(), "./-w.go".to_owned()])
+    );
+}
+
+#[test]
 fn builds_write_commands_only_for_formatters() {
     let paths = vec!["a.ts".to_owned()];
     assert_eq!(

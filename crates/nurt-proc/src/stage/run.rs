@@ -530,6 +530,7 @@ pub(crate) fn run_tool(
             exact: run.exact,
             preimage: config.run.preimage == nurt_contracts::config::PreimageMode::Auto,
             scan_hash: false,
+            timeout: Some(run.timeout),
         },
         view: OutputView {
             show: ShowMode::Both,

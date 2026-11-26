@@ -513,6 +513,25 @@ mod spans {
     }
 
     #[test]
+    fn crlf_line_endings_and_multi_byte_values_keep_scalar_value_columns() {
+        let document = document("find path=\"zażółć\"\r\n|> first count=1\r\n");
+        let head = head(&document);
+        assert_eq!(head.args[0].span, span(1, 6, 1, 19));
+        let stage = &pipeline(&document, 0).stages[0];
+        assert_eq!(stage.args[0].span, span(2, 10, 2, 17));
+    }
+
+    #[test]
+    fn regular_expression_value_may_start_with_a_hash() {
+        let stage = head(&document("search pattern=/#include/i path=\"/a\""));
+        assert!(matches!(
+            &stage.args[0].value,
+            Expr::Regex { v, flags, .. } if v == "#include" && flags == "i"
+        ));
+        assert_eq!(names(&stage), [Some("pattern"), Some("path")]);
+    }
+
+    #[test]
     fn stage_without_arguments_covers_its_name() {
         let document = document("@recent |> count");
         assert_eq!(pipeline(&document, 0).stages[0].span, span(1, 12, 1, 17));

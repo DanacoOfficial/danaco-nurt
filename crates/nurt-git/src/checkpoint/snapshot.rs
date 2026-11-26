@@ -203,8 +203,8 @@ fn hash_file(
 #[cfg(unix)]
 fn is_executable(metadata: &std::fs::Metadata) -> bool {
     use std::os::unix::fs::PermissionsExt;
-    const ANY_EXECUTE: u32 = 0o111;
-    metadata.permissions().mode() & ANY_EXECUTE != 0
+    const OWNER_EXECUTE: u32 = 0o100;
+    metadata.permissions().mode() & OWNER_EXECUTE != 0
 }
 
 #[cfg(not(unix))]
@@ -338,4 +338,28 @@ pub(crate) fn index_entries(index: &gix::index::State) -> Option<BTreeMap<BStrin
         }
     }
     Some(out)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::os::unix::fs::PermissionsExt;
+
+    use super::*;
+
+    fn executable_with_mode(mode: u32) -> bool {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("f");
+        std::fs::write(&file, b"x").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(mode)).unwrap();
+        is_executable(&std::fs::symlink_metadata(&file).unwrap())
+    }
+
+    #[test]
+    fn only_the_owner_execute_bit_makes_a_file_executable() {
+        assert!(executable_with_mode(0o755));
+        assert!(executable_with_mode(0o700));
+        assert!(!executable_with_mode(0o644));
+        assert!(!executable_with_mode(0o641));
+        assert!(!executable_with_mode(0o611));
+    }
 }

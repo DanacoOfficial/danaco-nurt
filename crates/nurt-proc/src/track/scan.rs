@@ -6,15 +6,138 @@
 //! link target and, on request, the content hash).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex, PoisonError};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use nurt_contracts::fs::{AbsPath, FileKind, Follow, Fs, FsErrorKind};
+use nurt_contracts::stage::CancelToken;
 use serde::{Deserialize, Serialize};
 
 /// Largest number of threads of one scan.
 const MAX_SCAN_THREADS: usize = 8;
+
+/// Number of scanned entries between two checks of the clock and of the
+/// cancellation token inside one directory.
+const CHECK_INTERVAL: usize = 64;
+
+/// Why a bounded scan ended before it listed everything.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Stop {
+    /// The execution was cancelled.
+    Cancelled,
+    /// The time limit of the run ended.
+    TimeLimit,
+    /// The time budget of automatic detection was used up.
+    Budget,
+    /// The scope holds more entries than automatic detection accepts.
+    Entries,
+}
+
+/// Bounds of a scan.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct ScanLimits {
+    /// Largest number of entries; a scan that finds more stops.
+    pub(super) max_entries: usize,
+    /// Time budget of one scan; `None` is bounded only by the time limit of
+    /// the run.
+    pub(super) budget: Option<Duration>,
+    /// Directories on another volume than their root are listed as entries
+    /// but not entered.
+    pub(super) one_volume: bool,
+}
+
+impl ScanLimits {
+    /// Bound only by the time limit of the run and by cancellation.
+    pub(super) const UNLIMITED: Self = Self {
+        max_entries: usize::MAX,
+        budget: None,
+        one_volume: false,
+    };
+}
+
+/// State of the bounds while one scan runs.
+pub(super) struct Bound {
+    limits: ScanLimits,
+    deadline: Option<Instant>,
+    budget_end: Option<Instant>,
+    cancel: CancelToken,
+    entries: AtomicUsize,
+    foreign: AtomicU64,
+    stop: Mutex<Option<Stop>>,
+}
+
+impl fmt::Debug for Bound {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Bound")
+            .field("limits", &self.limits)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Bound {
+    /// Bounds of one scan starting now, which ends at `deadline` at the
+    /// latest and when `cancel` fires.
+    pub(super) fn new(limits: ScanLimits, deadline: Option<Instant>, cancel: CancelToken) -> Self {
+        Self {
+            limits,
+            deadline,
+            budget_end: limits
+                .budget
+                .and_then(|budget| Instant::now().checked_add(budget)),
+            cancel,
+            entries: AtomicUsize::new(0),
+            foreign: AtomicU64::new(0),
+            stop: Mutex::new(None),
+        }
+    }
+
+    /// Reason the scan stopped, if it did.
+    pub(super) fn stopped(&self) -> Option<Stop> {
+        *self.stop.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Number of directories on other volumes that were not entered.
+    pub(super) fn foreign(&self) -> u64 {
+        self.foreign.load(Ordering::Relaxed)
+    }
+
+    fn halt(&self, reason: Stop) {
+        self.stop
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get_or_insert(reason);
+    }
+
+    /// Checks cancellation and time; true when the scan has to stop.
+    fn check(&self) -> bool {
+        if self.stopped().is_some() {
+            return true;
+        }
+        if self.cancel.is_cancelled() {
+            self.halt(Stop::Cancelled);
+        } else if self.deadline.is_some_and(|end| Instant::now() >= end) {
+            self.halt(Stop::TimeLimit);
+        } else if self.budget_end.is_some_and(|end| Instant::now() >= end) {
+            self.halt(Stop::Budget);
+        }
+        self.stopped().is_some()
+    }
+
+    /// Counts one entry; true when the scan has to stop.
+    fn count(&self) -> bool {
+        let count = self.entries.fetch_add(1, Ordering::Relaxed) + 1;
+        if count > self.limits.max_entries {
+            self.halt(Stop::Entries);
+            return true;
+        }
+        count % CHECK_INTERVAL == 0 && self.check()
+    }
+}
 
 /// Kind of a scanned entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -67,6 +190,8 @@ pub(super) struct Scope<'a> {
     pub(super) ignore: &'a [String],
     /// Content hashes of files are computed.
     pub(super) hash: bool,
+    /// Bounds of the scan; `None` scans everything without a limit.
+    pub(super) bound: Option<&'a Bound>,
 }
 
 impl Scope<'_> {
@@ -102,6 +227,11 @@ pub(super) struct Scanned {
     pub(super) entries: Snapshot,
     /// Directories that could not be listed for lack of permission.
     pub(super) denied: u64,
+    /// Why the scan ended before it listed everything; `entries` is then
+    /// incomplete.
+    pub(super) stop: Option<Stop>,
+    /// Directories on other volumes that were not entered.
+    pub(super) foreign: u64,
 }
 
 impl Scanned {
@@ -139,10 +269,11 @@ pub(super) fn stat(fs: &dyn Fs, path: &AbsPath, hash: bool) -> Option<EntryState
     })
 }
 
-/// Directories waiting to be listed and the number being listed.
+/// Directories waiting to be listed, each with the volume of its root, and
+/// the number being listed.
 #[derive(Default)]
 struct Queue {
-    pending: Vec<AbsPath>,
+    pending: Vec<(AbsPath, u64)>,
     active: usize,
 }
 
@@ -154,7 +285,7 @@ struct Work<'a> {
 }
 
 impl Work<'_> {
-    fn next(&self) -> Option<AbsPath> {
+    fn next(&self) -> Option<(AbsPath, u64)> {
         let mut queue = self.queue.lock().unwrap_or_else(PoisonError::into_inner);
         loop {
             if let Some(dir) = queue.pending.pop() {
@@ -172,7 +303,7 @@ impl Work<'_> {
         }
     }
 
-    fn done(&self, found: Vec<AbsPath>) {
+    fn done(&self, found: Vec<(AbsPath, u64)>) {
         let mut queue = self.queue.lock().unwrap_or_else(PoisonError::into_inner);
         queue.pending.extend(found);
         queue.active -= 1;
@@ -181,15 +312,19 @@ impl Work<'_> {
 
     fn run(&self) -> Scanned {
         let mut scanned = Scanned::default();
-        while let Some(dir) = self.next() {
-            let found = self.list(&dir, &mut scanned);
+        while let Some((dir, volume)) = self.next() {
+            let found = self.list(&dir, volume, &mut scanned);
             self.done(found);
         }
         scanned
     }
 
     /// Lists one directory into `scanned`; returns its subdirectories.
-    fn list(&self, dir: &AbsPath, scanned: &mut Scanned) -> Vec<AbsPath> {
+    fn list(&self, dir: &AbsPath, volume: u64, scanned: &mut Scanned) -> Vec<(AbsPath, u64)> {
+        let bound = self.scope.bound;
+        if bound.is_some_and(Bound::check) {
+            return Vec::new();
+        }
         let entries = match self.fs.read_dir(dir) {
             Ok(entries) => entries,
             Err(error) => {
@@ -216,9 +351,20 @@ impl Work<'_> {
                 continue;
             };
             if state.kind == Kind::Directory {
-                subdirs.push(path.clone());
+                let foreign = bound.is_some_and(|bound| bound.limits.one_volume)
+                    && state.file_id[0] != volume;
+                if foreign {
+                    if let Some(bound) = bound {
+                        bound.foreign.fetch_add(1, Ordering::Relaxed);
+                    }
+                } else {
+                    subdirs.push((path.clone(), state.file_id[0]));
+                }
             }
             scanned.entries.insert(path.as_path().to_path_buf(), state);
+            if bound.is_some_and(Bound::count) {
+                break;
+            }
         }
         subdirs
     }
@@ -231,7 +377,7 @@ pub(super) fn scan(fs: &dyn Fs, scope: Scope<'_>) -> Scanned {
     for root in scope.roots {
         if let Some(state) = stat(fs, root, scope.hash) {
             if state.kind == Kind::Directory {
-                pending.push(root.clone());
+                pending.push((root.clone(), state.file_id[0]));
             }
             scanned.entries.insert(root.as_path().to_path_buf(), state);
         }
@@ -256,6 +402,10 @@ pub(super) fn scan(fs: &dyn Fs, scope: Scope<'_>) -> Scanned {
             }
         }
     });
+    if let Some(bound) = scope.bound {
+        scanned.stop = bound.stopped();
+        scanned.foreign = bound.foreign();
+    }
     scanned
 }
 
@@ -283,6 +433,9 @@ pub(super) fn refresh(
 ) -> u64 {
     let mut ignored = 0;
     for path in touched {
+        if scope.bound.is_some_and(Bound::check) {
+            break;
+        }
         if scope.root_of(path).is_none() {
             continue;
         }

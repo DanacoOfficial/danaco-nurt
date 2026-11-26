@@ -684,27 +684,24 @@ fn check_output(
 }
 
 fn check_fsck(state: &RepoState, fsck: &StateSelector, side: &str, findings: &mut Findings) {
-    let result = state
-        .section(fsck)
-        .and_then(|section| section.get("result"));
-    if let Some(result) = result.filter(|result| result.as_str() != "ok") {
-        findings.fail(format!(
-            "git fsck --strict failed on the {side} side: {result}"
-        ));
-    }
-    for (selector, section) in state
-        .selectors()
-        .filter_map(|selector| Some((selector, state.section(selector)?)))
-    {
-        if selector.section == Section::Fsck
-            && selector != fsck
-            && let Some(result) = section
-                .get("result")
-                .filter(|result| result.as_str() != "ok")
-        {
-            findings.fail(format!(
-                "git fsck --strict failed for {selector} on the {side} side: {result}"
-            ));
+    let selectors = std::iter::once(fsck).chain(state.selectors().filter(|selector| {
+        selector.section == Section::Fsck && *selector != fsck
+    }));
+    for selector in selectors {
+        let place = if selector == fsck {
+            format!("on the {side} side")
+        } else {
+            format!("for {selector} on the {side} side")
+        };
+        let result = state
+            .section(selector)
+            .and_then(|section| section.get("result"));
+        match result {
+            Some(result) if result == "ok" => {}
+            Some(result) => findings.fail(format!("git fsck --strict failed {place}: {result}")),
+            None => findings.fail(format!(
+                "git fsck --strict did not run {place}: the repository is missing"
+            )),
         }
     }
 }
@@ -885,6 +882,56 @@ mod tests {
             invalid: &[],
         };
         assert!(passing.success());
+    }
+
+    fn fsck_state(selector: &StateSelector, pairs: &[(&str, &str)]) -> RepoState {
+        let mut state = RepoState::default();
+        state.insert(
+            selector.clone(),
+            pairs
+                .iter()
+                .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
+                .collect(),
+        );
+        state
+    }
+
+    #[test]
+    fn fsck_must_report_ok_for_every_fsck_section() {
+        let main = StateSelector::main(Section::Fsck);
+        let mut findings = Findings::default();
+        check_fsck(&fsck_state(&main, &[("result", "ok")]), &main, "git", &mut findings);
+        assert!(findings.failures.is_empty(), "{:?}", findings.failures);
+        check_fsck(
+            &fsck_state(&main, &[("result", "exit 2: broken")]),
+            &main,
+            "git",
+            &mut findings,
+        );
+        assert_eq!(findings.failures.len(), 1);
+        assert!(findings.failures[0].contains("failed on the git side"));
+        let upstream: StateSelector = "fsck@../upstream".parse().unwrap();
+        let mut state = fsck_state(&main, &[("result", "ok")]);
+        state.insert(upstream, [("result".to_owned(), "exit 1: x".to_owned())].into());
+        let mut findings = Findings::default();
+        check_fsck(&state, &main, "nurt", &mut findings);
+        assert_eq!(findings.failures.len(), 1);
+        assert!(findings.failures[0].contains("fsck@../upstream"));
+    }
+
+    #[test]
+    fn fsck_of_a_missing_repository_is_a_failure() {
+        let main = StateSelector::main(Section::Fsck);
+        let mut findings = Findings::default();
+        check_fsck(
+            &fsck_state(&main, &[("repository", "missing")]),
+            &main,
+            "nurt",
+            &mut findings,
+        );
+        check_fsck(&RepoState::default(), &main, "git", &mut findings);
+        assert_eq!(findings.failures.len(), 2);
+        assert!(findings.failures[0].contains("did not run on the nurt side"));
     }
 
     #[test]

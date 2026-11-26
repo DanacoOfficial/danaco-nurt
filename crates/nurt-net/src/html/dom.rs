@@ -100,9 +100,14 @@ pub(crate) fn parse(source: &str) -> Element {
         root.children.push(Node::Text(source.to_owned()));
         return root;
     };
-    append_children(tree.root_node(), source, &mut root.children);
+    append_children(tree.root_node(), source, &mut root.children, 0);
     root
 }
+
+/// Deepest nesting of elements kept in the tree. An element nested deeper
+/// keeps its tag and its text, without the structure below it, so that the
+/// recursive walks over the tree cannot exhaust the stack on a hostile page.
+const MAX_ELEMENT_DEPTH: usize = 256;
 
 /// Whether the source between two sibling nodes holds whitespace.
 ///
@@ -115,7 +120,7 @@ fn spaced(source: &str, previous_end: Option<usize>, start: usize) -> bool {
         .is_some_and(|gap| gap.chars().any(char::is_whitespace))
 }
 
-fn append_children(node: SyntaxNode<'_>, source: &str, out: &mut Vec<Node>) {
+fn append_children(node: SyntaxNode<'_>, source: &str, out: &mut Vec<Node>, depth: usize) {
     let mut cursor = node.walk();
     let mut previous_end = None;
     for child in node.named_children(&mut cursor) {
@@ -125,7 +130,7 @@ fn append_children(node: SyntaxNode<'_>, source: &str, out: &mut Vec<Node>) {
         previous_end = Some(child.end_byte());
         match child.kind() {
             "element" | "script_element" | "style_element" => {
-                out.push(Node::Element(element(child, source)));
+                out.push(Node::Element(element(child, source, depth + 1)));
             }
             "text" | "raw_text" => out.push(Node::Text(decode_entities(slice(child, source)))),
             "entity" => out.push(Node::Text(decode_entities(slice(child, source)))),
@@ -134,8 +139,45 @@ fn append_children(node: SyntaxNode<'_>, source: &str, out: &mut Vec<Node>) {
     }
 }
 
-fn element(node: SyntaxNode<'_>, source: &str) -> Element {
+/// Text of the character data below `node`, read without recursion.
+fn flat_text(node: SyntaxNode<'_>, source: &str) -> String {
+    let mut out = String::new();
+    let mut cursor = node.walk();
+    'walk: loop {
+        let current = cursor.node();
+        if matches!(current.kind(), "text" | "entity") {
+            if !out.is_empty() {
+                out.push(' ');
+            }
+            out.push_str(&decode_entities(slice(current, source)));
+        }
+        if cursor.goto_first_child() {
+            continue;
+        }
+        loop {
+            if cursor.goto_next_sibling() {
+                continue 'walk;
+            }
+            if !cursor.goto_parent() {
+                break 'walk;
+            }
+        }
+    }
+    out
+}
+
+fn element(node: SyntaxNode<'_>, source: &str, depth: usize) -> Element {
     let mut element = Element::default();
+    if depth > MAX_ELEMENT_DEPTH {
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            if matches!(child.kind(), "start_tag" | "self_closing_tag") {
+                read_tag(child, source, &mut element);
+            }
+        }
+        element.children.push(Node::Text(flat_text(node, source)));
+        return element;
+    }
     let mut cursor = node.walk();
     let mut previous_end = None;
     for child in node.named_children(&mut cursor) {
@@ -150,7 +192,7 @@ fn element(node: SyntaxNode<'_>, source: &str) -> Element {
             "element" | "script_element" | "style_element" => {
                 element
                     .children
-                    .push(Node::Element(self::element(child, source)));
+                    .push(Node::Element(self::element(child, source, depth + 1)));
             }
             "raw_text" if matches!(element.name.as_str(), "script" | "style") => {
                 element
@@ -321,6 +363,24 @@ mod tests {
         assert_eq!(
             decode_entities("a &amp; b &#261;&#x142; &unknown; &"),
             "a & b \u{105}\u{142} &unknown; &"
+        );
+    }
+
+    #[test]
+    fn hostile_nesting_does_not_exhaust_the_stack() {
+        let depth = 20_000;
+        let source = format!(
+            "{}deep text{}",
+            "<div>".repeat(depth),
+            "</div>".repeat(depth)
+        );
+        let root = parse(&source);
+        assert!(root.text().contains("deep text"));
+        let page = crate::html::convert_html(&source, &crate::html::ConvertOptions::default());
+        assert!(
+            page.blocks
+                .iter()
+                .any(|block| block.text.contains("deep text"))
         );
     }
 

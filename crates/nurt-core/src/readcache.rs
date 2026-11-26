@@ -379,6 +379,35 @@ mod tests {
     }
 
     #[test]
+    fn putting_the_same_version_again_replaces_its_content() {
+        let clock = Arc::new(VirtualClock::new());
+        let cache = cache(&clock);
+        let path = Path::new("/srv/a.txt");
+        cache.put(path, etag(1), b"ab".to_vec());
+        cache.put(path, etag(1), "ąę".as_bytes().to_vec());
+        assert_eq!(cache.entries(), 1);
+        assert_eq!(cache.bytes(), 4);
+        assert_eq!(
+            cache.get(path, &etag(1)).as_deref(),
+            Some("ąę".as_bytes())
+        );
+    }
+
+    #[test]
+    fn content_of_exactly_the_capacity_is_kept_and_empty_content_is_allowed() {
+        let clock = Arc::new(VirtualClock::new());
+        let cache = cache(&clock).with_capacity(4);
+        cache.put(Path::new("/a"), etag(1), vec![0; 4]);
+        cache.put(Path::new("/b"), etag(1), Vec::<u8>::new());
+        assert_eq!(cache.entries(), 2);
+        assert_eq!(cache.bytes(), 4);
+        assert_eq!(
+            cache.get(Path::new("/b"), &etag(1)).as_deref(),
+            Some(&b""[..])
+        );
+    }
+
+    #[test]
     fn remove_forgets_every_version() {
         let clock = Arc::new(VirtualClock::new());
         let cache = cache(&clock);

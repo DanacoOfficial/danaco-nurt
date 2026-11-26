@@ -523,6 +523,70 @@ mod tests {
         assert!(store.list().unwrap().is_empty());
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_replacement_keeps_the_installed_version() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = store(temp.path());
+        store
+            .install(&source(temp.path(), "acme", "1.0.0"), false)
+            .unwrap();
+        let broken = source(temp.path(), "acme", "2.0.0");
+        std::os::unix::fs::symlink("/etc/hostname", broken.join("grammar/link")).unwrap();
+        let error = store.install(&broken, true).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Unsupported);
+        assert_eq!(store.get("acme").unwrap().manifest.ext.version, "1.0.0");
+        let names: Vec<String> = fs::read_dir(temp.path().join("ext"))
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        assert_eq!(names, ["acme"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_manifest_file_that_is_a_link_is_not_installed() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = store(temp.path());
+        let dir = source(temp.path(), "acme", "1.0.0");
+        let outside = temp.path().join("outside.wasm");
+        fs::write(&outside, b"x").unwrap();
+        fs::remove_file(dir.join("ext.wasm")).unwrap();
+        std::os::unix::fs::symlink(&outside, dir.join("ext.wasm")).unwrap();
+        assert_eq!(
+            store.install(&dir, false).unwrap_err().code(),
+            ErrorCode::Unsupported
+        );
+        assert!(!temp.path().join("ext/acme").exists());
+    }
+
+    #[test]
+    fn names_outside_the_directory_are_refused_everywhere() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = store(temp.path());
+        for name in ["..", "../acme", "a/b", "", "Acme", "a b", "żółw"] {
+            assert_eq!(
+                store.get(name).unwrap_err().code(),
+                ErrorCode::InvalidValue,
+                "{name}"
+            );
+            assert_eq!(
+                store.remove(name).unwrap_err().code(),
+                ErrorCode::InvalidValue,
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_missing_directory_has_no_extensions() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = store(temp.path());
+        assert!(store.list().unwrap().is_empty());
+        assert!(store.installed().unwrap().is_empty());
+        assert_eq!(store.locations().dir(), temp.path().join("ext"));
+    }
+
     #[test]
     fn unusable_directories_are_listed_with_their_problem() {
         let temp = tempfile::tempdir().unwrap();

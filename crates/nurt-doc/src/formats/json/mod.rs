@@ -328,12 +328,12 @@ impl JsonDocument {
         })
     }
 
-    /// Comment attached to the value `id`: the comment lines directly above
-    /// its entry, or else a comment after it on the same line, without
-    /// comment markers.
-    pub(crate) fn comment_of(&self, id: NodeId) -> Option<String> {
+    /// Comment attached to the value `id` with the entry `entry` in its
+    /// container (`None` for the root): the comment lines directly above the
+    /// entry, or else a comment after it on the same line, without comment
+    /// markers.
+    pub(crate) fn comment_of(&self, id: NodeId, entry: Option<&syntax::Entry>) -> Option<String> {
         let layout = Layout::new(&self.text, &self.tree);
-        let entry = self.entry_of(id);
         let start = entry.map_or(self.tree.nodes[id].span.start, |entry| {
             entry.start(&self.tree)
         });
@@ -347,23 +347,13 @@ impl JsonDocument {
         Some(texts.join("\n"))
     }
 
-    /// Offset of the comment lines directly above the entry of the value
-    /// `id`; such comments are removed together with the entry.
-    pub(crate) fn leading_comment_start(&self, id: NodeId) -> Option<usize> {
-        let entry = self.entry_of(id)?;
+    /// Offset of the comment lines directly above `entry`; such comments are
+    /// removed together with the entry.
+    pub(crate) fn leading_comment_start(&self, entry: &syntax::Entry) -> Option<usize> {
         let layout = Layout::new(&self.text, &self.tree);
         layout
             .leading_comments(entry.start(&self.tree))
             .map(|block| block.start)
-    }
-
-    /// Entry of the value `id` in its object or array.
-    fn entry_of(&self, id: NodeId) -> Option<&syntax::Entry> {
-        let parent = self.tree.nodes[id].parent?;
-        self.tree.nodes[parent]
-            .entries()?
-            .iter()
-            .find(|entry| entry.value == id)
     }
 
     /// Plans removing one value at `key`; for a repeated member name the

@@ -504,3 +504,50 @@ fn the_static_check_names_the_paths_and_variables_of_the_run() {
         ErrorCode::InvalidValue
     );
 }
+
+#[test]
+fn a_change_detection_mode_inserted_as_a_default_yields_to_the_configuration() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.run.track_changes = TrackChanges::Scan;
+    let ctx = config_ctx(config);
+    let defaulted = run_args(&["print-argv"], dir.path(), Vec::new()).with(
+        "track_changes",
+        ArgValue::Value(word("auto")),
+        true,
+    );
+    assert_eq!(planned(&defaulted, &ctx).0.track.mode, TrackMode::Scan);
+    let given = run_args(&["print-argv"], dir.path(), Vec::new()).with(
+        "track_changes",
+        ArgValue::Value(word("auto")),
+        false,
+    );
+    assert_eq!(planned(&given, &ctx).0.track.mode, TrackMode::Auto);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_device_file_is_accepted_as_standard_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let args = run_args(
+        &["print-argv"],
+        dir.path(),
+        vec![("stdin", Value::Path("/dev/null".to_owned()))],
+    );
+    let (request, _) = planned(&args, &ctx(&[]));
+    assert_eq!(
+        request.spawn.stdin,
+        StdinSource::File(std::path::PathBuf::from("/dev/null"))
+    );
+}
+
+#[test]
+fn a_directory_is_rejected_as_standard_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let args = run_args(
+        &["print-argv"],
+        dir.path(),
+        vec![("stdin", Value::Path(".".to_owned()))],
+    );
+    assert_eq!(rejected(&args, &ctx(&[])), ErrorCode::NotFound);
+}

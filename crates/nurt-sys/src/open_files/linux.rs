@@ -7,7 +7,9 @@
 //! `readlink`, and the path column of `maps` lists the files mapped into
 //! memory.
 
+use std::ffi::OsStr;
 use std::io;
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
 use nurt_contracts::error::Result;
@@ -59,7 +61,7 @@ fn inspect(dir: &Path, pid: u32, target: &Target) -> (Holder, bool) {
     let mut denied = false;
     for (access, name) in LINKS {
         match std::fs::read_link(dir.join(name)) {
-            Ok(link) => holder.check(target, access, &link.to_string_lossy()),
+            Ok(link) => holder.check(target, access, link.as_os_str()),
             Err(error) => denied |= is_denied(&error),
         }
     }
@@ -67,24 +69,24 @@ fn inspect(dir: &Path, pid: u32, target: &Target) -> (Holder, bool) {
         Ok(descriptors) => {
             for descriptor in descriptors.flatten() {
                 if let Ok(link) = std::fs::read_link(descriptor.path()) {
-                    holder.check(target, Access::Fd, &link.to_string_lossy());
+                    holder.check(target, Access::Fd, link.as_os_str());
                 }
             }
         }
         Err(error) => denied |= is_denied(&error),
     }
-    match std::fs::read_to_string(dir.join("maps")) {
+    match std::fs::read(dir.join("maps")) {
         Ok(maps) => {
-            for path in maps.lines().filter_map(mapped_path) {
-                holder.check(target, Access::Mmap, path);
+            for path in maps.split(|&byte| byte == b'\n').filter_map(mapped_path_bytes) {
+                holder.check(target, Access::Mmap, OsStr::from_bytes(path));
             }
         }
         Err(error) => denied |= is_denied(&error),
     }
     if holder.is_holding() {
-        holder.name = std::fs::read_to_string(dir.join("comm"))
+        holder.name = std::fs::read(dir.join("comm"))
             .ok()
-            .map(|name| name.trim_end().to_owned());
+            .map(|name| String::from_utf8_lossy(&name).trim_end().to_owned());
     }
     (holder, denied)
 }
@@ -95,13 +97,19 @@ fn is_denied(error: &io::Error) -> bool {
 
 /// Path column of one line of `maps`; `None` for anonymous mappings and
 /// pseudo paths such as `[heap]`.
+#[cfg(test)]
 pub(crate) fn mapped_path(line: &str) -> Option<&str> {
+    mapped_path_bytes(line.as_bytes()).and_then(|path| std::str::from_utf8(path).ok())
+}
+
+/// Path column of one line of `maps` as bytes, which need not be UTF-8.
+pub(crate) fn mapped_path_bytes(line: &[u8]) -> Option<&[u8]> {
     let mut rest = line;
     for _ in 0..MAPS_FIXED_FIELDS {
-        rest = rest.trim_start();
-        let end = rest.find(char::is_whitespace)?;
+        rest = rest.trim_ascii_start();
+        let end = rest.iter().position(u8::is_ascii_whitespace)?;
         rest = rest.get(end..)?;
     }
-    let path = rest.trim();
-    path.starts_with('/').then_some(path)
+    let path = rest.trim_ascii();
+    path.starts_with(b"/").then_some(path)
 }

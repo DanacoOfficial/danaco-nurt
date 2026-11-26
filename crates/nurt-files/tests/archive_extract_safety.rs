@@ -352,3 +352,115 @@ fn bulk_archives_extract_every_member() {
     );
     assert!(test.fs().exists(&abs("/out/d999/f099999.txt")));
 }
+
+/// Member names that leave the destination in less common ways: a drive
+/// without a separator, a UNC path, a name made only of `..`, a dot segment
+/// before `..` and a name with a NUL character.
+const MORE_ESCAPES: [&str; 8] = [
+    "C:evil.txt",
+    "\\\\server\\share\\evil.txt",
+    "//server/share/evil.txt",
+    "..",
+    "./../evil.txt",
+    "a/./../../evil.txt",
+    "a/..\\..\\evil.txt",
+    "nul\0../../evil.txt",
+];
+
+#[test]
+fn less_common_escaping_names_never_write_outside_the_destination() {
+    for member in MORE_ESCAPES {
+        let test = TestContext::new();
+        test.fs()
+            .write_file(
+                &abs("/safe/in/odd.tar"),
+                &raw_tar(&[Raw::File(member, b"x"), Raw::File("ok.txt", b"fine")]),
+            )
+            .expect("the archive is stored");
+        // A refusal of the whole archive is as safe as a rejected member.
+        let _ = run_effect(
+            &test,
+            "archive.extract",
+            &extract_args("/safe/in/odd.tar", "/safe/out", &[]),
+            StageInput::none(),
+        );
+        let outside: Vec<_> = mutated_paths(&test)
+            .into_iter()
+            .filter(|changed| !changed.starts_with(&abs("/safe/out")))
+            .collect();
+        assert!(outside.is_empty(), "{member:?} wrote {outside:?}");
+        assert!(!test.fs().exists(&abs("/safe/evil.txt")), "{member:?}");
+        assert!(!test.fs().exists(&abs("/evil.txt")), "{member:?}");
+        assert!(!test.fs().exists(&abs("/safe/in/evil.txt")), "{member:?}");
+    }
+}
+
+#[test]
+fn members_with_the_same_name_do_not_follow_a_link_created_by_an_earlier_member() {
+    let test = TestContext::new();
+    test.fs()
+        .create_dir_all(&abs("/elsewhere"))
+        .expect("the directory exists");
+    test.fs()
+        .write_file(
+            &abs("/safe/in/chain.tar"),
+            &raw_tar(&[
+                Raw::Symlink("link", "/elsewhere"),
+                Raw::File("link/payload.txt", b"x"),
+                Raw::File("ok.txt", b"fine"),
+            ]),
+        )
+        .expect("the archive is stored");
+    let _ = run_effect(
+        &test,
+        "archive.extract",
+        &extract_args("/safe/in/chain.tar", "/safe/out", &[]),
+        StageInput::none(),
+    );
+    assert!(!test.fs().exists(&abs("/elsewhere/payload.txt")));
+}
+
+/// Modification time in nanoseconds, a whole number of seconds.
+const MODIFIED_NS: i64 = 1_700_000_000_000_000_000;
+
+#[test]
+fn created_tar_archives_keep_the_modification_time_of_the_files() {
+    for (archive, format) in [
+        ("/dst/proj.tar", None),
+        ("/dst/proj.tar.zst", None),
+        ("/dst/proj.data", Some("tar_bz2")),
+    ] {
+        let test = TestContext::new();
+        source_tree(&test);
+        test.fs()
+            .set_modified(&abs("/src/proj/secret.key"), MODIFIED_NS)
+            .expect("the time is set");
+        test.fs()
+            .create_dir_all(&abs("/dst"))
+            .expect("the directory exists");
+        let mut given = vec![("to", path(archive))];
+        if let Some(format) = format {
+            given.push(("format", Value::Enum(format.to_owned())));
+        }
+        let input = StageInput::records(RecordStream::from_records(vec![entry("/src/proj", None)]));
+        run_effect(
+            &test,
+            "archive.create",
+            &args("archive.create", &given),
+            input,
+        )
+        .expect("the archive is created");
+        run_effect(
+            &test,
+            "archive.extract",
+            &extract_args(archive, "/restored", &[]),
+            StageInput::none(),
+        )
+        .expect("the archive is extracted");
+        let meta = test
+            .fs()
+            .metadata(&abs("/restored/proj/secret.key"), Follow::NoFollow)
+            .expect("the file is restored");
+        assert_eq!(meta.modified_ns, MODIFIED_NS, "{archive}");
+    }
+}

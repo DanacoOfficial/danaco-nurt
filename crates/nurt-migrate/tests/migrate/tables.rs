@@ -18,6 +18,7 @@ use nurt_migrate::{
     MigrateOptions, Migration, Reason, ScriptLanguage, Status, TableTranslator, migrate,
     migrate_with,
 };
+use nurt_syntax::parse::{ParseOptions, Variant, parse};
 
 use crate::golden::{assert_matches_file, data_directory};
 
@@ -318,6 +319,29 @@ fn rejection_names_problem_of_habit_table() {
             .any(|fix| fix == "remove \"/var/cache/app\""),
         "{item:?}"
     );
+}
+
+#[test]
+fn program_with_a_long_script_path_parses() {
+    let script = format!("/srv/{}deploy.sh", "release-2026-11-26/".repeat(8));
+    for (source, language) in [
+        (
+            "rm -rf /srv/app/build\nfor f in *; do echo; done\n",
+            ScriptLanguage::Bash,
+        ),
+        (
+            "Remove-Item C:\\build -Recurse\nforeach ($f in $x) { $f }\n",
+            ScriptLanguage::PowerShell,
+        ),
+    ] {
+        let migration = run(source, language, &script);
+        assert!(migration.report.fallback.is_some(), "{language}");
+        assert!(
+            parse(&migration.nurt, Variant::A, &ParseOptions::default()).is_ok(),
+            "{}",
+            migration.nurt
+        );
+    }
 }
 
 #[test]

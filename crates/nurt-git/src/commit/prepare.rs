@@ -540,6 +540,9 @@ struct Observed {
     file: Option<access::WorkFile>,
     /// The file equals the stage-0 entry, or both are absent.
     same: bool,
+    /// The entry is a gitlink and its directory exists, so the entry stays as
+    /// it is.
+    gitlink: bool,
 }
 
 fn observe(
@@ -551,8 +554,11 @@ fn observe(
     let entry = access::staged_entry(state, path);
     let conflicted = has_conflict(state, path);
     let file = worktree.read(path, entry.map(|(_, kind)| kind))?;
+    let gitlink = matches!(entry, Some((_, gix::objs::tree::EntryKind::Commit)))
+        && file.is_none()
+        && std::fs::symlink_metadata(worktree.absolute(path)).is_ok_and(|meta| meta.is_dir());
     let same = match &file {
-        None => entry.is_none() && !conflicted,
+        None => gitlink || (entry.is_none() && !conflicted),
         Some(file) => {
             !conflicted
                 && entry
@@ -562,7 +568,11 @@ fn observe(
                     ))
         }
     };
-    Ok(Observed { file, same })
+    Ok(Observed {
+        file,
+        same,
+        gitlink,
+    })
 }
 
 fn write_blob(repo: &GitRepo, data: &[u8]) -> Result<ObjectId> {
@@ -645,6 +655,7 @@ fn stage_paths(
             continue;
         }
         match observed.file {
+            None if observed.gitlink => {}
             None => {
                 access::remove_entry(index, path.as_ref());
                 access::remove_entry(commit, path.as_ref());

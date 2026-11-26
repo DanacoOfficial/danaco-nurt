@@ -125,6 +125,47 @@ fn keeps_a_comment_after_the_last_member_on_its_line() {
 }
 
 #[test]
+fn keeps_crlf_line_breaks_after_a_trailing_line_comment() {
+    let source = "{\r\n  \"a\": 1, // first\r\n  \"b\": 2 // second\r\n}\r\n";
+    assert_eq!(
+        set_in(source, Dialect::Jsonc, "c", &int(3)),
+        "{\r\n  \"a\": 1, // first\r\n  \"b\": 2, // second\r\n  \"c\": 3\r\n}\r\n"
+    );
+    let trailing = "{\r\n  \"a\": 1, // first\r\n}";
+    assert_eq!(
+        set_in(trailing, Dialect::Jsonc, "b", &int(2)),
+        "{\r\n  \"a\": 1, // first\r\n  \"b\": 2,\r\n}"
+    );
+}
+
+#[test]
+fn sets_every_element_of_a_large_single_line_array() {
+    use crate::model::{DocHandle, SetOptions};
+
+    let source = format!("[{}]", vec!["1"; 5_000].join(","));
+    let mut handle = super::JsonHandle::new(JsonDocument::parse(source, Dialect::Json).unwrap());
+    let report = handle
+        .set(&key("[*]"), &int(2), &SetOptions { create: true })
+        .unwrap();
+    assert_eq!(report.replacements, 5_000);
+    assert_eq!(
+        handle.text(),
+        format!("[{}]", vec!["2"; 5_000].join(",")).as_bytes()
+    );
+}
+
+#[test]
+fn builds_the_tree_of_a_large_array() {
+    let source = format!("[{}]", vec!["1"; 100_000].join(","));
+    let document = JsonDocument::parse(source, Dialect::Json).unwrap();
+    let handle = super::JsonHandle::new(document);
+    assert_eq!(
+        handle.document().to_value(),
+        Value::List(vec![int(1); 100_000])
+    );
+}
+
+#[test]
 fn follows_the_trailing_comma_style_of_jsonc_files() {
     let source = "{\n  \"a\": 1,\n}";
     assert_eq!(

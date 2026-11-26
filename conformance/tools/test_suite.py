@@ -15,14 +15,19 @@ Run from the repository root:
 
 from __future__ import annotations
 
+import gzip
+import io
 import re
 import unittest
+import zipfile
 from collections import Counter
 from pathlib import Path
 
 import generate_cases
 import generate_correction
 import journal_cases
+import parity_files
+import parity_model
 import suite
 
 HEADER_KEYS = {
@@ -140,6 +145,130 @@ class CaseFormat(unittest.TestCase):
         for case in CASES:
             if "config" in case.data:
                 self.assertTrue((case.file.parent / case.data["config"]).is_file(), case.id)
+
+
+class SnapshotRules(unittest.TestCase):
+    """Snapshots are checked against the rules of the case format."""
+
+    @staticmethod
+    def files(*paths: str) -> dict:
+        return {"entries": [{"path": p, "type": "file", "content_utf8": ""} for p in paths]}
+
+    def test_a_normalised_relative_path_is_accepted(self) -> None:
+        self.assertEqual(suite.snapshot_errors(self.files("a.txt", "dir/sub/b.txt", "naïve/日本語.txt")), [])
+
+    def test_paths_with_empty_dot_or_parent_segments_are_refused(self) -> None:
+        for path in ("", "/abs", "a//b", "a/", "./a", "a/./b", "../a", "a/../b", "a\\b"):
+            with self.subTest(path=path):
+                self.assertEqual(len(suite.snapshot_errors(self.files(path))), 1)
+
+    def test_an_entry_needs_its_content_members(self) -> None:
+        both = {"entries": [{"path": "a", "type": "file", "content_utf8": "", "content_base64": ""}]}
+        none = {"entries": [{"path": "a", "type": "file"}]}
+        directory = {"entries": [{"path": "d", "type": "dir", "content_utf8": ""}]}
+        link = {"entries": [{"path": "l", "type": "symlink"}]}
+        unknown = {"entries": [{"path": "x", "type": "pipe"}]}
+        for snapshot in (both, none, directory, link, unknown):
+            with self.subTest(snapshot=snapshot):
+                self.assertEqual(len(suite.snapshot_errors(snapshot)), 1)
+
+    def test_unchanged_and_foreign_values(self) -> None:
+        self.assertEqual(suite.snapshot_errors("unchanged"), [])
+        self.assertEqual(suite.snapshot_errors("other"), ["snapshot is not an object"])
+        self.assertEqual(len(suite.snapshot_errors({"format": "nurt-fs-snapshot/2", "entries": []})), 1)
+
+
+class ReferenceModel(unittest.TestCase):
+    """The reference model of the parity scenarios follows the order of paths of the specification."""
+
+    def test_a_directory_comes_right_before_its_contents(self) -> None:
+        self.assertEqual(
+            sorted(["a-b", "a/x", "a", "a.txt"], key=parity_files.path_order),
+            ["a", "a/x", "a-b", "a.txt"],
+        )
+
+    def test_found_entries_and_text_files_follow_that_order(self) -> None:
+        layout = {"a/x": "1", "a-b": "2", "b": None}
+        rows = parity_files.found(layout, "**", kind="any")
+        self.assertEqual(
+            [row["fields"]["path"]["v"] for row in rows],
+            ["${base}/a", "${base}/a/x", "${base}/a-b", "${base}/b"],
+        )
+        self.assertEqual(parity_files.text_files(layout), ["a/x", "a-b"])
+
+    def test_glob_patterns_stay_within_a_segment_unless_doubled(self) -> None:
+        regex = parity_files.glob_regex("src/**/*.go")
+        self.assertTrue(regex.match("src/a.go"))
+        self.assertTrue(regex.match("src/d/e.go"))
+        self.assertFalse(regex.match("src/d/e.gox"))
+        self.assertFalse(parity_files.glob_regex("*.go").match("src/a.go"))
+        self.assertTrue(parity_files.glob_regex("?.txt").match("b.txt"))
+
+    def test_hidden_paths_have_a_component_starting_with_a_dot(self) -> None:
+        self.assertTrue(parity_files.hidden(".git/config"))
+        self.assertTrue(parity_files.hidden("src/.env"))
+        self.assertFalse(parity_files.hidden("src/a.go"))
+
+    def test_fixed_archives_do_not_depend_on_the_library(self) -> None:
+        packed = parity_model.gzip_bytes(b"line\n")
+        self.assertEqual(gzip.decompress(packed), b"line\n")
+        self.assertEqual(packed, parity_model.gzip_bytes(b"line\n"))
+        with self.assertRaises(ValueError):
+            parity_model.gzip_bytes(b"x" * 0x10000)
+        archive = parity_model.zip_bytes({"a.txt": "alpha\n"})
+        self.assertEqual(archive, parity_model.zip_bytes({"a.txt": "alpha\n"}))
+        with zipfile.ZipFile(io.BytesIO(archive)) as opened:
+            self.assertEqual(opened.read("a.txt"), b"alpha\n")
+            self.assertEqual(opened.getinfo("a.txt").date_time, parity_model.ZIP_TIME)
+
+    def test_expected_snapshots_use_the_names_of_the_keyword_forms(self) -> None:
+        state = parity_model.changed({"a.txt": "x"}, b_dot_txt="y", dir__c_dot_txt="z", a_dot_txt=parity_model.REMOVED)
+        paths = [entry["path"] for entry in state["entries"]]
+        self.assertEqual(paths, ["b.txt", "dir/c.txt"])
+        directory = parity_model.tree({"d": None, "e": ""})
+        self.assertEqual([e["type"] for e in directory["entries"]], ["dir", "file"])
+
+
+class NameModel(unittest.TestCase):
+    """The model of the name correction that the generated corpus relies on."""
+
+    def test_edit_distance_counts_insertions_deletions_substitutions_and_transpositions(self) -> None:
+        self.assertEqual(suite.osa("", ""), 0)
+        self.assertEqual(suite.osa("", "abc"), 3)
+        self.assertEqual(suite.osa("ab", "ba"), 1)
+        self.assertEqual(suite.osa("kitten", "sitting"), 3)
+        self.assertEqual(suite.osa("naïve", "naive"), 1)
+
+    def test_thresholds_follow_the_length_of_the_name(self) -> None:
+        self.assertEqual([suite.threshold(n) for n in ("ls", "cat", "find", "history", "evaluate")], [0, 0, 1, 1, 2])
+
+    def test_names_are_written_in_the_canonical_convention(self) -> None:
+        self.assertEqual(suite.snake("fooBar-baz"), "foo_bar_baz")
+        self.assertEqual(suite.snake("FIND"), "find")
+
+    def test_resolution_outcomes(self) -> None:
+        names = ["find", "fire", "first"]
+        self.assertEqual(suite.resolve_name("Find", names), suite.Resolution("exact", "find"))
+        self.assertEqual(suite.resolve_name("fnid", ["find", "first"]).outcome, "fuzzy")
+        self.assertEqual(suite.resolve_name("fine", names).outcome, "tie")
+        self.assertEqual(suite.resolve_name("xyzw", ["find"]).outcome, "none")
+        self.assertEqual(suite.resolve_name("gind", ["find"]).outcome, "none")
+        self.assertEqual(suite.resolve_name("gind", ["find"], require_first_char=False).outcome, "fuzzy")
+
+    def test_a_changing_command_two_edits_away_is_ambiguous(self) -> None:
+        result = suite.resolve_name("evalaute", ["evaluate"], changing={"evaluate": True})
+        self.assertEqual((result.outcome, result.name, result.distance), ("fuzzy", "evaluate", 1))
+        result = suite.resolve_name("evlauatx", ["evaluate"], changing={"evaluate": True})
+        self.assertEqual((result.outcome, result.distance), ("ambiguous", 2))
+
+    def test_the_scanner_finds_stages_and_named_parameters(self) -> None:
+        commands = {"find": None, "first": None}
+        stages = suite.scan_program('find "/x" glob: "*.go" |> first 3', commands)
+        self.assertEqual([(s.command, s.params) for s in stages], [("find", ["glob"]), ("first", [])])
+        nested = suite.scan_program('find "a b: c" depth: 1', commands)
+        self.assertEqual([(s.command, s.params) for s in nested], [("find", ["depth"])])
+        with self.assertRaises(ValueError):
+            suite.scan_program('find "unterminated', commands)
 
 
 class CatalogConsistency(unittest.TestCase):

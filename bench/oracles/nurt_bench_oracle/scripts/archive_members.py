@@ -18,31 +18,57 @@ not compared.
 
 from __future__ import annotations
 
-import gzip
 import io
 import lzma
 import tarfile
 import zipfile
+import zlib
 from typing import Any, Mapping
 
 from ..snapshot import Index
+
+MAX_UNPACKED_BYTES = 256 * 1024 * 1024
+"""Largest amount of content read from one archive; a larger archive is not checked."""
+
+
+def bounded(data: bytes, kind: str) -> bytes:
+    """Decompresses the members of a gzip or xz stream, refusing more than
+    ``MAX_UNPACKED_BYTES`` of content."""
+    pieces: list[bytes] = []
+    total = 0
+    while data:
+        if kind == "xz":
+            unpacker = lzma.LZMADecompressor()
+        else:
+            unpacker = zlib.decompressobj(wbits=zlib.MAX_WBITS | 16)
+        text = unpacker.decompress(data, MAX_UNPACKED_BYTES + 1 - total)
+        total += len(text)
+        if total > MAX_UNPACKED_BYTES:
+            raise ValueError("the archive holds more than the permitted amount of content")
+        if not unpacker.eof:
+            raise EOFError(f"the {kind} stream is incomplete")
+        pieces.append(text)
+        data = unpacker.unused_data.lstrip(b"\0")
+    return b"".join(pieces)
 
 
 def read_members(data: bytes, kind: str) -> dict[str, bytes]:
     """Returns the regular files of an archive as a name to content mapping."""
     if kind == "zip":
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            if sum(info.file_size for info in archive.infolist()) > MAX_UNPACKED_BYTES:
+                raise ValueError("the archive holds more than the permitted amount of content")
             return {
                 info.filename: archive.read(info)
                 for info in archive.infolist()
                 if not info.is_dir()
             }
     if kind == "gz":
-        return {"": gzip.decompress(data)}
+        return {"": bounded(data, "gz")}
     if kind == "tar.xz":
-        data = lzma.decompress(data)
+        data = bounded(data, "xz")
     elif kind == "tar.gz":
-        data = gzip.decompress(data)
+        data = bounded(data, "gz")
     members: dict[str, bytes] = {}
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as archive:
         for info in archive.getmembers():
@@ -78,7 +104,17 @@ def check(
     kind = params["format"]
     try:
         raw = read_members(entry.content or b"", kind)
-    except (OSError, EOFError, lzma.LZMAError, tarfile.TarError, zipfile.BadZipFile) as error:
+    except (
+        OSError,
+        EOFError,
+        ValueError,
+        RuntimeError,
+        NotImplementedError,
+        zlib.error,
+        lzma.LZMAError,
+        tarfile.TarError,
+        zipfile.BadZipFile,
+    ) as error:
         return {"completed": False, "failures": [f"{path}: not a readable {kind} archive: {error}"]}
     expected: Mapping[str, str | None] = params["members"]
     if kind == "gz":

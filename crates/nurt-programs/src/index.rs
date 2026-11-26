@@ -575,12 +575,23 @@ impl ProgramIndex {
     }
 }
 
+/// Entry that names another program as its main one, kept until every
+/// provider has been added.
+struct PendingAlias {
+    target: String,
+    kind: AliasKind,
+    source: SourceKind,
+    id: SourceId,
+    rank: usize,
+    raw: RawProgram,
+}
+
 struct Builder<'a> {
     env: &'a HostEnv,
     cards: Vec<Card>,
     by_key: HashMap<String, usize>,
     aliases: HashMap<String, (usize, AliasKind)>,
-    pending_aliases: Vec<(String, String, AliasKind)>,
+    pending_aliases: Vec<PendingAlias>,
     files: HashMap<String, PackageRef>,
     packages: HashMap<PackageRef, RawPackage>,
     guides: Vec<IndexGuide>,
@@ -697,7 +708,7 @@ impl<'a> Builder<'a> {
                 aliases: raw.aliases.clone(),
                 sources: vec![id.to_string()],
                 order: raw.order.map_or(order, |order| {
-                    usize::try_from(order).unwrap_or(order as usize)
+                    usize::try_from(order).unwrap_or(if order < 0 { 0 } else { usize::MAX })
                 }),
             });
         }
@@ -708,8 +719,14 @@ impl<'a> Builder<'a> {
             self.linked_guides.insert(guide.name.clone());
         }
         if let (Some(target), Some(alias_kind)) = (&raw.alias_of, raw.alias_kind) {
-            self.pending_aliases
-                .push((raw.name.clone(), target.clone(), alias_kind));
+            self.pending_aliases.push(PendingAlias {
+                target: target.clone(),
+                kind: alias_kind,
+                source: kind,
+                id: id.clone(),
+                rank,
+                raw: raw.clone(),
+            });
             return;
         }
         let executable = raw
@@ -812,21 +829,25 @@ impl<'a> Builder<'a> {
     }
 
     fn resolve_aliases(&mut self) {
-        for (name, target, kind) in std::mem::take(&mut self.pending_aliases) {
+        for pending in std::mem::take(&mut self.pending_aliases) {
+            let name = pending.raw.name.clone();
             let key = self.env.name_key(&name);
             if self.by_key.contains_key(&key) {
                 continue;
             }
-            match self.find(&target) {
+            match self.find(&pending.target) {
                 Some(index) => {
-                    self.aliases.insert(key, (index, kind));
+                    self.aliases.insert(key, (index, pending.kind));
                     let card = &mut self.cards[index];
                     if !card.aliases.iter().any(|alias| alias.name == name) {
-                        card.aliases.push(RawAlias::new(name, kind));
+                        card.aliases.push(RawAlias::new(name, pending.kind));
                     }
                 }
                 None => {
-                    self.new_card(&name, EntryKind::Program, usize::MAX);
+                    let mut raw = pending.raw;
+                    raw.alias_of = None;
+                    raw.alias_kind = None;
+                    self.add_program(pending.source, &pending.id, &raw, pending.rank);
                 }
             }
         }
@@ -1186,4 +1207,66 @@ fn state_key(registry: &SourceRegistry, env: &HostEnv, options: &IndexOptions) -
         }
     }
     key
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn category(id: &str, order: Option<i64>) -> RawCategory {
+        RawCategory {
+            id: id.to_owned(),
+            title: LocalizedText::new(id),
+            order,
+            ..RawCategory::default()
+        }
+    }
+
+    #[test]
+    fn cache_directory_follows_the_conventions_of_each_system() {
+        let linux = HostEnv::new(Os::Linux).with_home("/home/user");
+        assert_eq!(
+            default_cache_dir(&linux),
+            Some(PathBuf::from("/home/user/.cache/nurt/programs"))
+        );
+        let xdg = linux.with_var("XDG_CACHE_HOME", "/var/cache/ada");
+        assert_eq!(
+            default_cache_dir(&xdg),
+            Some(PathBuf::from("/var/cache/ada/nurt/programs"))
+        );
+        let mac = HostEnv::new(Os::Macos).with_home("/Users/user");
+        assert_eq!(
+            default_cache_dir(&mac),
+            Some(PathBuf::from("/Users/user/Library/Caches/Nurt/programs"))
+        );
+        let windows = HostEnv::new(Os::Windows).with_var("LOCALAPPDATA", "C:\\Users\\user");
+        let dir = default_cache_dir(&windows).unwrap();
+        assert!(dir.ends_with("Nurt/cache/programs"));
+        assert_eq!(default_cache_dir(&HostEnv::new(Os::Linux)), None);
+    }
+
+    #[test]
+    fn negative_category_order_sorts_first_not_last() {
+        let env = HostEnv::new(Os::Linux);
+        let mut builder = Builder::new(&env);
+        let source = SourceId::catalog("sample");
+        builder.add_categories(
+            &source,
+            &[
+                category("first-cat", Some(-5)),
+                category("middle-cat", Some(7)),
+                category("unordered-cat", None),
+            ],
+        );
+        let order_of = |id: &str| {
+            builder
+                .categories
+                .iter()
+                .find(|category| category.id == id)
+                .map(|category| category.order)
+        };
+        assert_eq!(order_of("first-cat"), Some(0));
+        assert_eq!(order_of("middle-cat"), Some(7));
+        assert!(order_of("unordered-cat").is_some_and(|order| order < usize::MAX / 2));
+    }
 }

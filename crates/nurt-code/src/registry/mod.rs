@@ -559,4 +559,34 @@ mod tests {
         assert_eq!(position.column, 13);
         assert_eq!(parsed.line_text(3), "x = \"éüλw\"; y = 1");
     }
+
+    #[test]
+    fn spans_after_multibyte_text_on_crlf_lines_count_scalar_values() {
+        let text = "x = \"é\"\r\ny = \"λλ\"; z = 1\r\n";
+        let parsed = Registry::builtin()
+            .parse(&LanguageId::new("python").unwrap(), text.as_bytes())
+            .unwrap();
+        let offset = text.find("z = 1").unwrap();
+        let node = parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(offset, offset + 1)
+            .unwrap();
+        assert_eq!(parsed.text(node), "z");
+        let span = parsed.span(node);
+        assert_eq!((span.start.line, span.start.column), (2, 11));
+        assert_eq!((span.end.line, span.end.column), (2, 12));
+        assert_eq!(parsed.line_text(offset), "y = \"λλ\"; z = 1");
+        assert_eq!(parsed.line_text(text.len()), "");
+    }
+
+    #[test]
+    fn line_text_past_the_end_of_the_source_is_the_last_line() {
+        let parsed = Registry::builtin()
+            .parse(&LanguageId::new("python").unwrap(), b"x = 1\ny = 2")
+            .unwrap();
+        assert!(parsed.text(parsed.tree.root_node()).starts_with("x = 1"));
+        assert_eq!(parsed.line_text(1000), "y = 2");
+        assert_eq!(parsed.line_text(0), "x = 1");
+    }
 }

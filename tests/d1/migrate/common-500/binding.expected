@@ -1,5 +1,5 @@
-translated and bound without error: 414 of 500
-translations that do not bind: 31
+translated and bound without error: 428 of 500
+translations that do not bind: 17
 awk '{print $1}' /var/log/nginx/access.log -> E_UNKNOWN_FIELD the input records have no field `f1`; use one of cells, no, path, table
 awk -F: '{print $1}' /etc/passwd -> E_UNKNOWN_FIELD the input records have no field `f1`; use one of cells, no, path, table
 awk -F, '{print $3}' /srv/app/data.csv -> E_UNKNOWN_FIELD the input records have no field `f3`; use one of cells, no, path, table
@@ -7,12 +7,6 @@ test -f /etc/app/config.yaml -> E_UNKNOWN_FIELD the input records have no field 
 [ -d /srv/app ] -> E_UNKNOWN_FIELD the input records have no field `directory`; use one of accessed, acl, binary, bom, case_alias, created, depth, details, encoding, error, etag, exists, extension, file_count, file_id, flags, group, hash, hidden, language, line_ending, lines, link_target, link_type, links, match_count, mime, mode, modified, name, owner, parent, path, portability, rank, raw_name, readonly, real_path, relative, size, stem, streams, total_size, type, volume, xattrs
 test -d /var/lib/app -> E_UNKNOWN_FIELD the input records have no field `directory`; use one of accessed, acl, binary, bom, case_alias, created, depth, details, encoding, error, etag, exists, extension, file_count, file_id, flags, group, hash, hidden, language, line_ending, lines, link_target, link_type, links, match_count, mime, mode, modified, name, owner, parent, path, portability, rank, raw_name, readonly, real_path, relative, size, stem, streams, total_size, type, volume, xattrs
 [ -f /srv/app/.env ] -> E_UNKNOWN_FIELD the input records have no field `file`; use one of accessed, acl, binary, bom, case_alias, created, depth, details, encoding, error, etag, exists, extension, file_count, file_id, flags, group, hash, hidden, language, line_ending, lines, link_target, link_type, links, match_count, mime, mode, modified, name, owner, parent, path, portability, rank, raw_name, readonly, real_path, relative, size, stem, streams, total_size, type, volume, xattrs
-curl https://example.com -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-curl -s https://api.example.com/status -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-curl -L https://example.com/install.sh -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-git -C /srv/app branch -> E_INTERNAL_CORRECTION the changing stages changed from ["git.branch"] to []
-sleep 5 -> E_INTERNAL_CORRECTION the changing stages changed from ["sleep"] to []
-timeout 10 curl https://example.com -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
 Test-Path -Path C:\temp -PathType Container -> E_UNKNOWN_FIELD the input records have no field `directory`; use one of accessed, acl, binary, bom, case_alias, created, depth, details, encoding, error, etag, exists, extension, file_count, file_id, flags, group, hash, hidden, language, line_ending, lines, link_target, link_type, links, match_count, mime, mode, modified, name, owner, parent, path, portability, rank, raw_name, readonly, real_path, relative, size, stem, streams, total_size, type, volume, xattrs
 Test-Path C:\proj\app.exe -PathType Leaf -> E_UNKNOWN_FIELD the input records have no field `file`; use one of accessed, acl, binary, bom, case_alias, created, depth, details, encoding, error, etag, exists, extension, file_count, file_id, flags, group, hash, hidden, language, line_ending, lines, link_target, link_type, links, match_count, mime, mode, modified, name, owner, parent, path, portability, rank, raw_name, readonly, real_path, relative, size, stem, streams, total_size, type, volume, xattrs
 Set-ItemProperty -Path HKCU:\Software\MyApp -Name Version -Value 2 -> E_TYPE `text` of `write` takes text, not an integer
@@ -22,12 +16,4 @@ Start-Process notepad.exe -> E_MISSING_PARAM `run` needs the parameter `cwd`; wr
 Start-Process -FilePath C:\tools\app.exe -Wait -> E_MISSING_PARAM `run` needs the parameter `cwd`; write `cwd:` or give the call parameter base
 Start-Process -FilePath git -ArgumentList "status --short" -Wait -> E_MISSING_PARAM `run` needs the parameter `cwd`; write `cwd:` or give the call parameter base
 Start-Process -FilePath C:\tools\setup.exe -ArgumentList "/S" -Wait -> E_MISSING_PARAM `run` needs the parameter `cwd`; write `cwd:` or give the call parameter base
-Invoke-WebRequest https://example.com -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-iwr https://example.com/install.ps1 -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-Invoke-RestMethod https://api.example.com/status -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-irm https://api.example.com/items -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-Invoke-WebRequest -Uri https://example.com -UseBasicParsing -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-Start-Sleep -Seconds 5 -> E_INTERNAL_CORRECTION the changing stages changed from ["sleep"] to []
-sleep 10 -> E_INTERNAL_CORRECTION the changing stages changed from ["sleep"] to []
-Start-Sleep -Milliseconds 500 -> E_INTERNAL_CORRECTION the changing stages changed from ["sleep"] to []
 & C:\tools\app.exe --version -> E_MISSING_PARAM `run` needs the parameter `cwd`; write `cwd:` or give the call parameter base

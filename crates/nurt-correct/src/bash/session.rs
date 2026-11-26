@@ -28,6 +28,10 @@ pub(crate) const MAX_ALTERNATIVES: usize = 3;
 /// Options of `sudo` that take a value.
 const PRIVILEGE_VALUE_FLAGS: &[&str] = &["-u", "-g", "--user", "--group"];
 
+/// Deepest nesting of command prefixes and command substitutions; a deeper
+/// one is an error, so that crafted text cannot exhaust the stack.
+const MAX_NESTING: usize = 32;
+
 /// A translated pipeline fragment.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Piece {
@@ -124,6 +128,7 @@ pub(crate) struct Session<'a> {
     cwd: RefCell<Option<String>>,
     log: RefCell<Log>,
     followed: Cell<bool>,
+    depth: Cell<usize>,
 }
 
 pub(crate) fn translate(
@@ -219,7 +224,45 @@ impl<'a> Session<'a> {
             cwd: RefCell::new(None),
             log: RefCell::new(Log::default()),
             followed: Cell::new(false),
+            depth: Cell::new(0),
         }
+    }
+
+    /// Enters one level of nesting: a command prefix or a command
+    /// substitution.
+    fn enter(&self, span: Span) -> Result<(), Error> {
+        let depth = self.depth.get();
+        if depth >= MAX_NESTING {
+            return Err(self.error(
+                ErrorCode::Uncorrectable,
+                "unsupported_syntax",
+                span,
+                &[("reason", "too many nested commands")],
+            ));
+        }
+        self.depth.set(depth + 1);
+        Ok(())
+    }
+
+    /// Starts the translation of a command substitution of `outer` in this
+    /// session, one level deeper.
+    pub(crate) fn nested_in(&self, outer: &Session<'_>, span: Span) -> Result<(), Error> {
+        self.depth.set(outer.depth.get());
+        self.enter(span)
+    }
+
+    /// Translates the words that follow a command prefix.
+    pub(crate) fn nested_words(
+        &self,
+        simple: &Simple,
+        words: &[Located<Word>],
+        input: Option<&str>,
+        options: &RunOptions,
+    ) -> Result<Variants, Error> {
+        self.enter(simple.span)?;
+        let result = self.words(simple, words, input, options);
+        self.depth.set(self.depth.get().saturating_sub(1));
+        result
     }
 
     fn script(&self, script: &Script) -> Result<Translation, Error> {
@@ -336,15 +379,26 @@ impl<'a> Session<'a> {
                     &[],
                 ));
             };
-            let value = lex(value)
-                .ok()
-                .and_then(|tokens| tokens.into_iter().next())
-                .and_then(|token| match token.kind {
-                    super::lex::PosixTokenKind::Word(word) => word.literal(),
-                    _ => None,
-                })
-                .unwrap_or_default();
-            env.push((name.to_owned(), self.text_bound(value, word.span)));
+            let invalid = || {
+                self.error(
+                    ErrorCode::Uncorrectable,
+                    "environment_without_program",
+                    simple.span,
+                    &[],
+                )
+            };
+            let bound = match lex(value).map_err(|_| invalid())?.into_iter().next() {
+                None => self.text_bound(String::new(), word.span),
+                Some(super::lex::PosixToken {
+                    kind: super::lex::PosixTokenKind::Word(inner),
+                    ..
+                }) => self.operand(&Located {
+                    value: inner,
+                    span: word.span,
+                })?,
+                Some(_) => return Err(invalid()),
+            };
+            env.push((name.to_owned(), bound));
         }
         Ok(env)
     }
@@ -435,11 +489,13 @@ impl<'a> Session<'a> {
     ) -> Result<Variants, Error> {
         let mut options = options.clone();
         for assignment in &simple.assignments {
-            let value = assignment.value.literal().unwrap_or_default();
-            options.env.push((
-                assignment.name.clone(),
-                self.text_bound(value, assignment.span),
-            ));
+            let word = Located {
+                value: assignment.value.clone(),
+                span: assignment.span,
+            };
+            options
+                .env
+                .push((assignment.name.clone(), self.operand(&word)?));
         }
         produce::redirected(self, simple, input, &mut options)
     }
@@ -468,7 +524,7 @@ impl<'a> Session<'a> {
         match name.as_str() {
             "sudo" => return Err(self.privilege(simple, &words[1..], input, options)),
             "time" | "nohup" if words.len() > 1 => {
-                let inner = self.words(simple, &words[1..], input, options)?;
+                let inner = self.nested_words(simple, &words[1..], input, options)?;
                 if name == "time" {
                     self.record(
                         "B30",
@@ -481,12 +537,12 @@ impl<'a> Session<'a> {
                 return Ok(inner);
             }
             "command" if words.len() > 1 && !is_lookup(words) => {
-                return self.words(simple, &words[1..], input, options);
+                return self.nested_words(simple, &words[1..], input, options);
             }
             "timeout" if words.len() > 2 => {
                 let mut options = options.clone();
                 options.timeout = Some(self.operand(&words[1])?);
-                let inner = self.words(simple, &words[2..], input, &options)?;
+                let inner = self.nested_words(simple, &words[2..], input, &options)?;
                 self.record(
                     "B30",
                     CorrectionClass::Certain,
@@ -549,7 +605,10 @@ impl<'a> Session<'a> {
         let mut options = options.clone();
         let mut rest = words;
         while let Some((first, tail)) = rest.split_first() {
-            let Some((name, value)) = first.value.raw.split_once('=') else {
+            let Some(text) = first.value.literal() else {
+                break;
+            };
+            let Some((name, value)) = text.split_once('=') else {
                 break;
             };
             options.env.push((
@@ -566,7 +625,7 @@ impl<'a> Session<'a> {
                 &[],
             ));
         }
-        self.words(simple, rest, input, &options)
+        self.nested_words(simple, rest, input, &options)
     }
 
     /// `sudo CMD`: never translated; the fix is the translation of `CMD`
@@ -593,7 +652,7 @@ impl<'a> Session<'a> {
         let fix = if inner.is_empty() {
             None
         } else {
-            self.words(simple, inner, input, options)
+            self.nested_words(simple, inner, input, options)
                 .ok()
                 .map(|variants| self.program_text(&variants))
         };
@@ -1662,6 +1721,60 @@ mod tests {
         assert_eq!(parse_duration("5x"), None);
         assert_eq!(parse_duration("s"), None);
         assert_eq!(parse_duration("-1"), None);
+    }
+
+    #[test]
+    fn durations_reject_malformed_and_huge_values() {
+        assert_eq!(parse_duration("0"), Some(0));
+        assert_eq!(parse_duration("0.0004"), Some(0));
+        assert_eq!(parse_duration(""), None);
+        assert_eq!(parse_duration("5ą"), None);
+        assert_eq!(parse_duration("1e3"), None);
+        assert_eq!(parse_duration("1.5.2"), None);
+        assert_eq!(parse_duration("99999999999999999999"), None);
+    }
+
+    fn text(v: &str) -> Expr {
+        Expr::Text {
+            v: v.to_owned(),
+            span: None,
+        }
+    }
+
+    #[test]
+    fn named_arguments_are_not_duplicated() {
+        let mut stage = Stage {
+            name: "run".to_owned(),
+            args: vec![named("cwd", text("/a"))],
+            span: None,
+        };
+        append_args(
+            &mut stage,
+            vec![
+                named("cwd", text("/b")),
+                named("env", text("x")),
+                positional(text("y")),
+            ],
+        );
+        let names: Vec<Option<&str>> = stage.args.iter().map(|arg| arg.name.as_deref()).collect();
+        assert_eq!(names, [Some("cwd"), Some("env"), None]);
+        assert_eq!(stage.args[0].value, text("/a"));
+    }
+
+    #[test]
+    fn an_empty_pipeline_has_an_unnamed_head() {
+        let built = pipeline(&[]);
+        assert!(matches!(&built.head, Head::Stage(stage) if stage.name.is_empty()));
+        assert!(built.stages.is_empty());
+    }
+
+    #[test]
+    fn absolute_paths_accept_both_separators() {
+        assert!(is_absolute("C:\\x"));
+        assert!(!is_absolute("C:"));
+        assert!(!is_absolute(""));
+        assert_eq!(trim_trailing_slash("//"), "/");
+        assert_eq!(join_path("/srv/zażółć", "./ą/"), "/srv/zażółć/ą");
     }
 
     #[test]

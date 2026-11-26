@@ -127,3 +127,18 @@ impl EffectStage for Retry {
         Ok(outcome)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_descriptor_accepts_only_job_records_and_the_stage_changes_state() {
+        let stage = Retry::new(crate::api::components());
+        let descriptor = stage.descriptor();
+        assert_eq!(descriptor.command, "retry");
+        assert!(!descriptor.source);
+        assert_eq!(descriptor.input, InputKinds::Only(vec![RecordKind::Job]));
+        assert!(stage.as_effect().is_some());
+    }
+}

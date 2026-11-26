@@ -19,6 +19,7 @@ use std::time::Duration;
 
 use lexical_support::{Case, Catalog, correction, load_cases, syntax};
 use nurt_contracts::ast::{AstDocument, Expr, Head, Pipeline, Stage, Statement};
+use nurt_contracts::error::ErrorCode;
 use nurt_contracts::kinds::SyntaxVariant;
 use nurt_contracts::report::CorrectionClass;
 use nurt_correct::lexical::front::MAX_ALTERNATIVES;
@@ -233,6 +234,21 @@ fn front_makes_no_correction_on_its_own_result() {
         }
     }
     assert!(failures.is_empty(), "{failures:#?}");
+}
+
+#[test]
+fn a_nurt_command_with_an_escape_error_is_not_read_as_a_powershell_alias() {
+    let setup = Setup::new();
+    for text in [
+        r#"move "C:\praca\t1\sub\b.go" to: "C:\praca\t1\sub\c.go""#,
+        r#"write "C:\praca\t1\m.txt" "new" mode: overwrite"#,
+        r#"copy "C:\praca\t1" into: "C:\backup""#,
+    ] {
+        let error = setup
+            .run(text, SyntaxVariant::A)
+            .expect_err("a text with an unknown escape does not parse");
+        assert_eq!(error.code, ErrorCode::Escape, "{text}");
+    }
 }
 
 #[test]

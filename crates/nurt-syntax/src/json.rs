@@ -65,10 +65,10 @@ const SURFACE_KINDS: [&str; 23] = [
 ];
 
 /// Node kinds of the bound tree known to this reader.
-const BOUND_KINDS: [&str; 27] = [
-    "let", "pipeline", "stage", "ref", "text", "ident", "regex", "int", "num", "size", "dur",
-    "bool", "null", "key", "list", "map", "spread", "field", "call", "un", "bin", "range", "sub",
-    "path", "glob", "instant", "enum",
+const BOUND_KINDS: [&str; 26] = [
+    "let", "pipeline", "stage", "ref", "text", "regex", "int", "num", "size", "dur", "bool",
+    "null", "key", "list", "map", "spread", "field", "call", "un", "bin", "range", "sub", "path",
+    "glob", "instant", "enum",
 ];
 
 /// Decodes a surface tree from JSON text.
@@ -257,8 +257,8 @@ fn depth(value: &Value) -> usize {
 /// Format version `MAJOR.MINOR` written without leading zeros.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Version {
-    major: u16,
-    minor: u16,
+    major: u32,
+    minor: u32,
 }
 
 impl Version {
@@ -277,7 +277,7 @@ impl fmt::Display for Version {
     }
 }
 
-fn version_component(text: &str) -> Option<u16> {
+fn version_component(text: &str) -> Option<u32> {
     let canonical = !text.is_empty()
         && text.bytes().all(|b| b.is_ascii_digit())
         && (text == "0" || !text.starts_with('0'));
@@ -494,7 +494,7 @@ impl Walk {
 
 fn unknown_member(pointer: &str, member: &str, node: &str) -> Fault {
     Fault::new(
-        format!("{pointer}/{member}"),
+        format!("{pointer}/{}", validate::escape_pointer_segment(member)),
         format!(
             "unknown member `{member}` in {node}; remove it or decode the document as a bound tree"
         ),

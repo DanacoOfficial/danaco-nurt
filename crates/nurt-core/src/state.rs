@@ -234,6 +234,26 @@ mod tests {
     }
 
     #[test]
+    fn reading_a_directory_is_an_error_and_not_a_missing_file() {
+        let temp = tempfile::tempdir().unwrap();
+        assert!(read_optional(temp.path()).is_err());
+    }
+
+    #[test]
+    fn atomic_write_to_a_path_without_a_parent_is_an_error() {
+        let error = write_atomic(Path::new("/"), b"x").unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn digest_of_empty_input_is_the_known_value() {
+        assert_eq!(
+            sha256_hex(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
+
+    #[test]
     fn digest_is_lowercase_hexadecimal() {
         assert_eq!(
             sha256_hex(b"abc"),

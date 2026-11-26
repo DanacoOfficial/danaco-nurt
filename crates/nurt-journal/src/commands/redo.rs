@@ -120,6 +120,33 @@ mod tests {
     }
 
     #[test]
+    fn reads_an_optional_undo_entry_number() {
+        assert_eq!(parse(&call(NAME, &[])).unwrap().undo, None);
+        let seven = parse(&call(NAME, &[("id", Value::Int(7))])).unwrap();
+        assert_eq!(seven.undo, Some(OpId(7)));
+        for given in [Value::Int(-1), Value::Int(i64::MIN)] {
+            let error = parse(&call(NAME, &[("id", given)])).unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidValue);
+        }
+        for given in [Value::Text("1".to_owned()), Value::List(vec![Value::Int(1)])] {
+            let error = parse(&call(NAME, &[("id", given)])).unwrap_err();
+            assert_eq!(error.code, ErrorCode::Type);
+        }
+    }
+
+    #[test]
+    fn the_plan_without_an_entry_announces_the_effect_and_an_unknown_entry_is_refused() {
+        let env = Env::new();
+        let ctx = env.ctx(NAME);
+        let planned = plan(&Redo, &call(NAME, &[]), &ctx).unwrap();
+        assert_eq!(planned.preview.len(), 1);
+        assert!(planned.changes.is_empty());
+        let unknown = call(NAME, &[("id", Value::Int(9))]);
+        let error = plan(&Redo, &unknown, &ctx).err().unwrap();
+        assert_eq!(error.code, ErrorCode::JournalNoop);
+    }
+
+    #[test]
     fn fails_when_nothing_was_undone() {
         let env = Env::new();
         let notes = env.seed("notes.txt", b"draft");

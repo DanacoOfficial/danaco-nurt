@@ -55,7 +55,7 @@ impl UrlParts {
             None => (None, authority),
         };
         let (host, port) = match host_port.rsplit_once(':') {
-            Some((host, port)) if !host.ends_with(']') || host.starts_with('[') => {
+            Some((host, port)) if !port.contains(']') => {
                 (host, port.parse::<u16>().ok())
             }
             _ => (host_port, None),
@@ -211,6 +211,20 @@ mod tests {
         assert!(!matches(
             "https://example.com:8443",
             "https://example.com/r"
+        ));
+    }
+
+    #[test]
+    fn distinguishes_ipv6_hosts_with_and_without_a_port() {
+        assert!(matches("https://[2001:db8::1]", "https://[2001:db8::1]/r"));
+        assert!(!matches("https://[2001:db8::1]", "https://[2001:db8::2]/r"));
+        assert!(matches(
+            "https://[2001:db8::1]:8443",
+            "https://[2001:db8::1]:8443/r"
+        ));
+        assert!(!matches(
+            "https://[2001:db8::1]:8443",
+            "https://[2001:db8::1]/r"
         ));
     }
 

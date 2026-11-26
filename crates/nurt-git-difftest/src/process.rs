@@ -160,9 +160,10 @@ fn collect<R: Read + Send + 'static>(
             return (kept, false);
         };
         let _ = pipe.by_ref().take(limit).read_to_end(&mut kept);
-        let mut rest = Vec::new();
-        let _ = pipe.read_to_end(&mut rest);
-        (kept, !rest.is_empty())
+        // The rest is drained without being kept, so that a program with a
+        // large output neither blocks on a full pipe nor fills the memory.
+        let drained = std::io::copy(&mut pipe, &mut std::io::sink()).unwrap_or(0);
+        (kept, drained > 0)
     })
 }
 
@@ -265,6 +266,35 @@ mod tests {
         let outcome = host().run_program(&program, &token()).unwrap();
         assert_eq!(outcome.stdout, b"0123");
         assert!(outcome.stdout_truncated);
+    }
+
+    #[test]
+    fn output_within_or_without_the_limit_is_not_truncated_or_dropped() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut program = spec(dir.path(), "printf 0123");
+        program.inherit_env = true;
+        program.output_limit = Some(4);
+        let outcome = host().run_program(&program, &token()).unwrap();
+        assert_eq!(outcome.stdout, b"0123");
+        assert!(!outcome.stdout_truncated);
+        let mut program = spec(dir.path(), "printf x; printf yy >&2");
+        program.inherit_env = true;
+        program.output_limit = Some(0);
+        let outcome = host().run_program(&program, &token()).unwrap();
+        assert!(outcome.stdout.is_empty() && outcome.stdout_truncated);
+        assert!(outcome.stderr.is_empty() && outcome.stderr_truncated);
+    }
+
+    #[test]
+    fn large_output_beyond_the_limit_is_drained_without_blocking() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut program = spec(dir.path(), "head -c 1048576 /dev/zero | tr '\\0' x");
+        program.inherit_env = true;
+        program.output_limit = Some(16);
+        let outcome = host().run_program(&program, &token()).unwrap();
+        assert_eq!(outcome.stdout.len(), 16);
+        assert!(outcome.stdout_truncated);
+        assert_eq!(outcome.exit_code, Some(0));
     }
 
     #[test]

@@ -35,6 +35,9 @@ const HFS_IGNORABLE: [char; 16] = [
 /// Short name that Windows may give to `.git` on NTFS.
 const NTFS_SHORT_NAME: &str = "git~1";
 
+/// Stream of an NTFS name, after the first `:`, that opens a directory.
+const NTFS_DIRECTORY_STREAM: &str = ":$index_allocation";
+
 /// Converts a path given to a command into a path relative to the working
 /// tree root `root`, with `/` separators and without `.` components.
 ///
@@ -306,8 +309,16 @@ pub fn is_safe_component(component: &BStr) -> bool {
         .filter(|ch| !HFS_IGNORABLE.contains(ch))
         .collect::<String>()
         .to_ascii_lowercase();
-    let trimmed = folded.trim_end_matches(['.', ' ']);
-    !(trimmed == ".git" || trimmed == NTFS_SHORT_NAME)
+    let (stem, stream) = match folded.split_once(':') {
+        Some((stem, stream)) => (stem, Some(stream)),
+        None => (folded.as_str(), None),
+    };
+    let trimmed = stem.trim_end_matches(['.', ' ']);
+    // `.git::$INDEX_ALLOCATION` names the directory `.git` on NTFS.
+    let names_directory = stream.is_none_or(|stream| {
+        stream.trim_end_matches(['.', ' ']) == NTFS_DIRECTORY_STREAM
+    });
+    !((trimmed == ".git" && names_directory) || trimmed == NTFS_SHORT_NAME)
 }
 
 /// Whether every component of the relative path `path` passes
@@ -423,6 +434,9 @@ mod tests {
         assert!(!is_safe_component("GIT~1".into()));
         assert!(!is_safe_component(".git...".into()));
         assert!(!is_safe_component(".g\u{200C}it".into()));
+        assert!(!is_safe_component(".git::$INDEX_ALLOCATION".into()));
+        assert!(!is_safe_component(".GIT.::$index_allocation ".into()));
+        assert!(is_safe_component(".git:stream".into()));
         assert!(!is_safe_component("a\\b".into()));
         assert!(is_safe_component(".gitignore".into()));
         assert!(is_safe_path("src/.gitignore".into()));

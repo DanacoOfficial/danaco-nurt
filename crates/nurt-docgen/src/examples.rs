@@ -65,6 +65,11 @@ pub fn extract(document: &Document) -> Vec<Example> {
     examples
 }
 
+/// Whether the path starts with a drive letter and `:/`.
+fn is_drive_path(path: &str) -> bool {
+    path.as_bytes().first().is_some_and(u8::is_ascii_alphabetic) && path.get(1..3) == Some(":/")
+}
+
 /// Checks that a snapshot is a JSON object of the format `nurt-fs-snapshot/1`
 /// with a list of entries that have a path and a type.
 ///
@@ -87,7 +92,7 @@ pub fn check_snapshot(text: &str) -> Vec<String> {
         let path = entry.get("path").and_then(|p| p.as_str());
         let kind = entry.get("type").and_then(|t| t.as_str());
         match path {
-            Some(path) if path.starts_with('/') || path.get(1..3) == Some(":/") => {}
+            Some(path) if path.starts_with('/') || is_drive_path(path) => {}
             _ => problems.push(format!("entry {index} has no absolute path")),
         }
         if !matches!(kind, Some("file" | "dir" | "symlink")) {
@@ -132,6 +137,26 @@ mod tests {
     fn rejects_snapshot_with_wrong_format_and_relative_path() {
         let text = r#"{"format":"x","entries":[{"path":"a","type":"file"}]}"#;
         assert_eq!(check_snapshot(text).len(), 2);
+    }
+
+    #[test]
+    fn accepts_drive_paths_only_with_a_letter_and_a_slash() {
+        assert!(is_drive_path("C:/Users/user"));
+        assert!(is_drive_path("d:/x"));
+        for path in ["1:/x", "C:x", "C:\\x", ":/x", "\u{17c}:/x", "", "C"] {
+            assert!(!is_drive_path(path), "{path:?}");
+        }
+    }
+
+    #[test]
+    fn reports_unknown_entry_types_and_missing_lists() {
+        let text = r#"{"format":"nurt-fs-snapshot/1","entries":[{"path":"/a","type":"socket"},{"type":"file"}]}"#;
+        let problems = check_snapshot(text);
+        assert_eq!(problems.len(), 2);
+        assert!(problems[0].contains("unknown type"));
+        assert!(problems[1].contains("no absolute path"));
+        let none = check_snapshot(r#"{"format":"nurt-fs-snapshot/1"}"#);
+        assert_eq!(none, vec!["snapshot has no entries list".to_string()]);
     }
 
     #[test]
