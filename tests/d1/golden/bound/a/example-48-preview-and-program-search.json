@@ -1,0 +1,302 @@
+{
+  "nurt": "1.0",
+  "bound": "1.0",
+  "catalog_rev": "sha256:52b1511caab63ed4ed41e043e7934c3ffaadc56cd19b00ecb52436b4d9fae52a",
+  "corr_rev": "sha256:8afaf7c335944ddb9a3a6be9dfa2ee663d90b6985019f7f0165d7bf80b54fd77",
+  "program": {
+    "statements": [
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "find",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "path",
+              "value": {
+                "t": "path",
+                "v": "/srv/app/build"
+              },
+              "span": [
+                1,
+                6,
+                1,
+                22
+              ]
+            },
+            {
+              "name": "glob",
+              "value": {
+                "t": "glob",
+                "v": "**/*.o"
+              },
+              "span": [
+                1,
+                23,
+                1,
+                37
+              ]
+            },
+            {
+              "name": "type",
+              "value": {
+                "t": "enum",
+                "v": "file"
+              },
+              "default": true
+            },
+            {
+              "name": "depth",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "hidden",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "follow_links",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "gitignore",
+              "value": {
+                "t": "bool",
+                "v": false
+              },
+              "default": true
+            },
+            {
+              "name": "exclude",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "exclude_preset",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "file_type",
+              "value": {
+                "t": "list",
+                "items": []
+              },
+              "default": true
+            },
+            {
+              "name": "fuzzy",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "case_sensitive",
+              "value": {
+                "t": "bool",
+                "v": true
+              },
+              "default": true
+            },
+            {
+              "name": "sort",
+              "value": {
+                "t": "enum",
+                "v": "path"
+              },
+              "default": true
+            },
+            {
+              "name": "order",
+              "value": {
+                "t": "enum",
+                "v": "asc"
+              },
+              "default": true
+            },
+            {
+              "name": "view",
+              "value": {
+                "t": "enum",
+                "v": "flat"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            1,
+            1,
+            1,
+            37
+          ]
+        },
+        "stages": [
+          {
+            "t": "stage",
+            "name": "remove",
+            "effect": "local",
+            "phase": "mutate",
+            "args": [
+              {
+                "name": "path",
+                "value": {
+                  "t": "null"
+                },
+                "default": true
+              },
+              {
+                "name": "on_missing",
+                "value": {
+                  "t": "enum",
+                  "v": "skip"
+                },
+                "default": true
+              },
+              {
+                "name": "check_references",
+                "value": {
+                  "t": "bool",
+                  "v": false
+                },
+                "default": true
+              }
+            ],
+            "span": [
+              1,
+              41,
+              1,
+              47
+            ]
+          }
+        ],
+        "span": [
+          1,
+          1,
+          1,
+          47
+        ]
+      },
+      {
+        "t": "pipeline",
+        "head": {
+          "t": "stage",
+          "name": "program.search",
+          "effect": "read",
+          "phase": "source",
+          "args": [
+            {
+              "name": "query",
+              "value": {
+                "t": "text",
+                "v": "ocr pdf"
+              },
+              "span": [
+                2,
+                16,
+                2,
+                25
+              ]
+            },
+            {
+              "name": "category",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            },
+            {
+              "name": "source",
+              "value": {
+                "t": "list",
+                "items": [
+                  {
+                    "t": "enum",
+                    "v": "path"
+                  },
+                  {
+                    "t": "enum",
+                    "v": "package"
+                  },
+                  {
+                    "t": "enum",
+                    "v": "app"
+                  },
+                  {
+                    "t": "enum",
+                    "v": "catalog"
+                  }
+                ]
+              },
+              "default": true
+            },
+            {
+              "name": "limit",
+              "value": {
+                "t": "int",
+                "v": 3
+              },
+              "span": [
+                2,
+                41,
+                2,
+                49
+              ]
+            },
+            {
+              "name": "kind",
+              "value": {
+                "t": "enum",
+                "v": "programs"
+              },
+              "span": [
+                2,
+                26,
+                2,
+                40
+              ]
+            },
+            {
+              "name": "installed",
+              "value": {
+                "t": "null"
+              },
+              "default": true
+            }
+          ],
+          "span": [
+            2,
+            1,
+            2,
+            49
+          ]
+        },
+        "stages": [],
+        "span": [
+          2,
+          1,
+          2,
+          49
+        ]
+      }
+    ]
+  }
+}

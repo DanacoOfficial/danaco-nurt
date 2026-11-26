@@ -857,7 +857,7 @@ mod tests {
     #[test]
     fn appended_nested_mapping_uses_the_indentation_of_the_text() {
         let mut inner = IndexMap::new();
-        inner.insert("n".to_owned(), Value::Int(1));
+        inner.insert("m".to_owned(), Value::Int(1));
         let mut item = IndexMap::new();
         item.insert("k".to_owned(), Value::Map(inner));
         let appended = append_to(
@@ -865,7 +865,7 @@ mod tests {
             |model| value_node(model, "l"),
             &Value::Map(item),
         );
-        assert_eq!(appended, "l:\n    - x\n    - k:\n          n: 1\n");
+        assert_eq!(appended, "l:\n    - x\n    - k:\n          m: 1\n");
     }
 
     #[test]

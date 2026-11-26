@@ -392,6 +392,9 @@ pub fn irreversible_text(reason: Irreversible) -> Option<&'static str> {
         Irreversible::JournalEntriesExpired => {
             "wpisy dziennika wcześniejszych operacji wygasły z powodu tej operacji"
         }
+        Irreversible::JournalError => {
+            "dziennik zawiódł podczas zapisu operacji; zmianę wykonano bez zachowania poprzedniej zawartości"
+        }
         _ => return None,
     })
 }
@@ -453,11 +456,14 @@ pub fn localize_error(error: &mut Error, language: Language) {
 }
 
 /// Appends the English detail to a Polish text.
+///
+/// A detail that already begins with the Polish text was translated before
+/// and is kept whole, so that a second translation does not drop the English
+/// part.
 fn with_detail(text: &str, detail: Option<&String>) -> String {
     match detail {
-        Some(detail) if !detail.is_empty() && !detail.starts_with(text) => {
-            format!("{text}; {detail}")
-        }
+        Some(detail) if detail.starts_with(text) => detail.clone(),
+        Some(detail) if !detail.is_empty() => format!("{text}; {detail}"),
         _ => text.to_owned(),
     }
 }

@@ -653,7 +653,15 @@ mod tests {
             .iter()
             .find(|change| change.path.as_str() == tree.to_language_string())
             .unwrap();
-        assert_eq!(tree_change.flags, Some(vec![TREE_FLAG.to_owned()]));
+        assert_eq!(
+            tree_change.flags,
+            Some(vec![
+                TREE_FLAG.to_owned(),
+                "directory".to_owned(),
+                "files_inside=2".to_owned(),
+                "directories_inside=1".to_owned(),
+            ])
+        );
         assert_eq!(run.summary("files"), Some(3));
         assert_eq!(run.summary("directories"), Some(2));
         assert_eq!(run.summary("bytes"), Some(9));
@@ -786,7 +794,14 @@ mod tests {
         assert!(!test.fs().exists(&empty));
         assert_eq!(run.summary("directories"), Some(1));
         assert_eq!(run.summary("bytes"), Some(0));
-        assert_eq!(run.planned[0].flags, None);
+        assert_eq!(
+            run.planned[0].flags,
+            Some(vec![
+                "directory".to_owned(),
+                "files_inside=0".to_owned(),
+                "directories_inside=0".to_owned(),
+            ])
+        );
         assert_eq!(run.changes[0].size_before, Some(Size::from_bytes(0)));
     }
 

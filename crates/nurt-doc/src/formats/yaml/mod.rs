@@ -1245,7 +1245,9 @@ mod tests {
 
     #[test]
     fn reads_a_flow_document_nested_to_the_parser_limit() {
-        let depth = backend_saphyr::MAX_DEPTH;
+        // The scanner of saphyr-parser counts flow levels in a `u8`, so a flow
+        // document nests up to 255 levels; block documents reach MAX_DEPTH.
+        let depth = usize::from(u8::MAX).min(backend_saphyr::MAX_DEPTH);
         let text = format!("{}1{}\n", "[".repeat(depth), "]".repeat(depth));
         let doc = YamlDoc::parse(text, YamlVersion::V1_2).unwrap();
         let mut value = doc.values().unwrap().remove(0);

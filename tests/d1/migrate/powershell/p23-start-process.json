@@ -29,7 +29,8 @@
       "source": "Start-Process -FilePath git -ArgumentList \"status --short\" -WorkingDirectory C:\\proj -Wait",
       "status": "assumption",
       "rules": [
-        "P23"
+        "P23",
+        "L19"
       ],
       "assumptions": [
         "the argument text is split at white space; PowerShell passes it to the program as one command line"

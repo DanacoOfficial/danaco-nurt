@@ -22,7 +22,7 @@ use nurt_help::catalog::Catalog as HelpCatalog;
 use nurt_help::describe::{Layer, Length, layer};
 use nurt_help::help::{HelpQuery, render};
 use nurt_syntax::parse::{ParseOptions, parse};
-use nurt_syntax::print::try_print;
+use nurt_syntax::print::{PositionalNames, PrintError, name_positional, try_print};
 use serde_json::json;
 
 use crate::frontend::{Compiled, Corrected, Frontend, ast_hash};
@@ -79,6 +79,31 @@ impl LanguageFrontend {
     }
 }
 
+/// Names of the positional parameters of the commands, from the catalog of
+/// the help; variant C writes every argument with its name.
+struct CatalogNames<'a>(&'a HelpCatalog);
+
+impl PositionalNames for CatalogNames<'_> {
+    fn name(&self, command: &str, index: usize) -> Option<String> {
+        self.0
+            .command(command)?
+            .positional()
+            .get(index)
+            .map(|param| param.name.clone())
+    }
+}
+
+/// Error of printing a program: a notation the variant cannot express is a
+/// request the user can change, anything else is internal.
+fn print_error(error: PrintError) -> Error {
+    match error {
+        PrintError::PositionalArgument { .. } | PrintError::UnnamedArgument { .. } => {
+            Error::new(ErrorCode::Unsupported, error.to_string())
+        }
+        other => internal("printing", other),
+    }
+}
+
 /// Context of binding for the host, with the call parameter `base` taken
 /// from `scope.base` of the configuration of the request.
 fn bind_context(config: &Config) -> BindContext {
@@ -132,7 +157,12 @@ impl Frontend for LanguageFrontend {
     }
 
     fn print(&self, ast: &AstDocument, variant: SyntaxVariant) -> Result<String, Error> {
-        try_print(ast, variant).map_err(|error| internal("printing", error))
+        if variant != SyntaxVariant::C {
+            return try_print(ast, variant).map_err(print_error);
+        }
+        let catalog = self.help_catalog()?;
+        let named = name_positional(ast, &CatalogNames(&catalog)).map_err(print_error)?;
+        try_print(&named, variant).map_err(print_error)
     }
 
     fn describe(&self, subject: &str, language: Language) -> Result<serde_json::Value, Error> {

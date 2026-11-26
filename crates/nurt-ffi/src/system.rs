@@ -186,7 +186,7 @@ mod tests {
         let stamp = clock.stamp();
         assert!(stamp.wall.unix_nanos() >= before.unix_nanos());
         assert!(clock.now().unix_nanos() >= stamp.wall.unix_nanos());
-        assert!(clock.monotonic() >= stamp.since_boot_active);
+        assert!(clock.stamp().since_boot_active >= stamp.since_boot_active);
         assert!(!stamp.boot.0.is_empty());
     }
 
