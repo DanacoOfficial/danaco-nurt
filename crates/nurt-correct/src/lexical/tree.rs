@@ -119,10 +119,31 @@ pub fn split_missing_pipes(
     let mut changes = Vec::new();
     for statement in &mut document.program.statements {
         if let Some(pipeline) = statement_pipeline(statement) {
-            split_pipeline(pipeline, catalog, &mut changes);
+            split_with_sub_pipelines(pipeline, catalog, &mut changes);
         }
     }
     changes
+}
+
+/// Splits the sub-pipelines in the arguments of the stages, then the
+/// pipeline itself, so that `L14` applies at every depth as `L18` does.
+fn split_with_sub_pipelines(
+    pipeline: &mut Pipeline,
+    catalog: &dyn CatalogView,
+    changes: &mut Vec<TreeChange>,
+) {
+    let head = match &mut pipeline.head {
+        Head::Stage(stage) => Some(stage),
+        _ => None,
+    };
+    for stage in head.into_iter().chain(pipeline.stages.iter_mut()) {
+        for arg in &mut stage.args {
+            if let Expr::Sub { p, .. } = &mut arg.value {
+                split_with_sub_pipelines(p, catalog, changes);
+            }
+        }
+    }
+    split_pipeline(pipeline, catalog, changes);
 }
 
 fn statement_pipeline(statement: &mut Statement) -> Option<&mut Pipeline> {
@@ -296,6 +317,19 @@ mod tests {
 
     fn printed(document: &AstDocument) -> String {
         print(document, Variant::A).trim_end().to_owned()
+    }
+
+    #[test]
+    fn splits_a_stage_inside_a_sub_pipeline() {
+        let mut document = parsed("verify (find \"/a\" glob: \"*.go\" search /x/)");
+        let changes = split_missing_pipes(&mut document, &Commands);
+        assert_eq!(changes.len(), 1, "{}", printed(&document));
+        assert_eq!(changes[0].rule, TreeRule::MissingPipe);
+        assert!(
+            printed(&document).contains("|> search /x/"),
+            "{}",
+            printed(&document)
+        );
     }
 
     #[test]
