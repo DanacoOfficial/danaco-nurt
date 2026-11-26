@@ -14,6 +14,7 @@ import base64
 import datetime
 import json
 import os
+import re
 import stat
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +27,9 @@ DEFAULT_FILE_MODE = "0644"
 DEFAULT_DIR_MODE = "0755"
 PERMISSION_BITS = 0o7777
 MTIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+# A drive letter makes a path absolute on Windows; a colon elsewhere in a name
+# is an ordinary character on Linux and macOS.
+DRIVE_PREFIX = re.compile(r"^[A-Za-z]:")
 
 
 class SnapshotError(ValueError):
@@ -76,7 +80,7 @@ def normalize_mode(value: Any) -> str | None:
 
 def check_relative(path: str) -> str:
     """Validates a relative snapshot path and returns it."""
-    if not path or path.startswith("/") or "\\" in path or ":" in path:
+    if not path or path.startswith("/") or "\\" in path or DRIVE_PREFIX.match(path):
         raise SnapshotError(f"path must be relative and use '/': {path!r}")
     parts = path.split("/")
     if any(part in ("", ".", "..") for part in parts):

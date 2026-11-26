@@ -3,23 +3,33 @@
 # oracle, Git, and the executables under test. Build context: a directory
 # holding the release executables `nurt.exe` and `nurt-bench.exe` for
 # x86_64-pc-windows-msvc and the directory `bench\`.
-FROM mcr.microsoft.com/windows/servercore:ltsc2022
+# The base image is named by its digest, so that a build on another day starts
+# from the same system.
+FROM mcr.microsoft.com/windows/servercore:ltsc2022@sha256:f1a914079973258061ddbc95a9af579eab2ee252a6fddb254b1be5d769761acd
 
 SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop';"]
 
 ARG PWSH_VERSION=7.4.6
 ARG PYTHON_VERSION=3.12.7
 ARG GIT_VERSION=2.47.0
+# SHA-256 digests of the downloads below; a build with another version names
+# the digest of that version.
+ARG PWSH_SHA256=ed331a04679b83d4c013705282d1f3f8d8300485eb04c081f36e11eaf1148bd0
+ARG PYTHON_SHA256=1206721601a62c925d4e4a0dcfc371e88f2ddbe8c0c07962ebb2be9b5bde4570
+ARG GIT_SHA256=6b175d4675bfa7014ba649e3c0976da2a281d89bd9a096f1f41437f9995497a8
 
 RUN Invoke-WebRequest -Uri "https://github.com/PowerShell/PowerShell/releases/download/v$env:PWSH_VERSION/PowerShell-$env:PWSH_VERSION-win-x64.msi" -OutFile pwsh.msi; `
+    if ((Get-FileHash pwsh.msi -Algorithm SHA256).Hash -ne $env:PWSH_SHA256) { throw 'pwsh.msi does not match PWSH_SHA256' }; `
     Start-Process msiexec.exe -Wait -ArgumentList '/i', 'pwsh.msi', '/quiet', 'ADD_PATH=1'; `
     Remove-Item pwsh.msi
 
 RUN Invoke-WebRequest -Uri "https://www.python.org/ftp/python/$env:PYTHON_VERSION/python-$env:PYTHON_VERSION-amd64.exe" -OutFile python.exe; `
+    if ((Get-FileHash python.exe -Algorithm SHA256).Hash -ne $env:PYTHON_SHA256) { throw 'python.exe does not match PYTHON_SHA256' }; `
     Start-Process python.exe -Wait -ArgumentList '/quiet', 'InstallAllUsers=1', 'PrependPath=1'; `
     Remove-Item python.exe
 
 RUN Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download/v$env:GIT_VERSION.windows.1/MinGit-$env:GIT_VERSION-64-bit.zip" -OutFile git.zip; `
+    if ((Get-FileHash git.zip -Algorithm SHA256).Hash -ne $env:GIT_SHA256) { throw 'git.zip does not match GIT_SHA256' }; `
     Expand-Archive git.zip -DestinationPath C:\MinGit; `
     Remove-Item git.zip; `
     [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\MinGit\cmd', 'Machine')
