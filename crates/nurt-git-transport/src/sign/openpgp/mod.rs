@@ -157,13 +157,14 @@ pub(crate) fn verify(
 }
 
 /// Sets the status, the key and the signer of `result` from the status lines
-/// of `gpg --verify`.
+/// of `gpg --verify`. A signature that is expired, or made by an expired or
+/// revoked key, is not good: `git` reports such a signature as `X`, `Y` or `R`.
 fn apply_verification(result: &mut CommitSignature, statuses: &[Status]) {
     result.status = SignatureStatus::Bad;
     for (keyword, text) in statuses {
         let mut fields = text.split_whitespace();
         match keyword.as_str() {
-            "GOODSIG" | "EXPSIG" | "EXPKEYSIG" => {
+            "GOODSIG" => {
                 result.status = SignatureStatus::Good;
                 let key_id = fields.next();
                 result.key = result
@@ -175,7 +176,7 @@ fn apply_verification(result: &mut CommitSignature, statuses: &[Status]) {
                     .map(|(_, user)| user.trim().to_owned())
                     .filter(|user| !user.is_empty());
             }
-            "BADSIG" | "REVKEYSIG" => result.status = SignatureStatus::Bad,
+            "BADSIG" | "EXPSIG" | "EXPKEYSIG" | "REVKEYSIG" => result.status = SignatureStatus::Bad,
             "VALIDSIG" => result.key = fields.next().map(str::to_ascii_uppercase),
             "ERRSIG" => {
                 let fields: Vec<&str> = text.split_whitespace().collect();
@@ -610,6 +611,36 @@ mod tests {
     use crate::send_pack::testing::ScriptHost;
 
     const USER: &str = "Test Key <key@example.test>";
+
+    fn status_lines(lines: &[(&str, &str)]) -> Vec<Status> {
+        lines
+            .iter()
+            .map(|(keyword, text)| ((*keyword).to_owned(), (*text).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn expired_and_revoked_keys_do_not_verify_as_good() {
+        let user = "ABCD1234 Test Key <key@example.test>";
+        for keyword in ["EXPSIG", "EXPKEYSIG", "REVKEYSIG", "BADSIG"] {
+            let mut result = CommitSignature {
+                status: SignatureStatus::Unsupported,
+                format: Some(SignatureFormat::Openpgp),
+                key: None,
+                signer: None,
+            };
+            apply_verification(&mut result, &status_lines(&[(keyword, user)]));
+            assert_eq!(result.status, SignatureStatus::Bad, "{keyword}");
+        }
+        let mut good = CommitSignature {
+            status: SignatureStatus::Unsupported,
+            format: Some(SignatureFormat::Openpgp),
+            key: None,
+            signer: None,
+        };
+        apply_verification(&mut good, &status_lines(&[("GOODSIG", user)]));
+        assert_eq!(good.status, SignatureStatus::Good);
+    }
 
     /// Runs `gpg` with `home` as its home directory, as the tests need a key
     /// that only GnuPG can generate.

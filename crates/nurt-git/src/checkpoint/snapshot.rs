@@ -340,7 +340,8 @@ pub(crate) fn index_entries(index: &gix::index::State) -> Option<BTreeMap<BStrin
     Some(out)
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod tests {
     use std::os::unix::fs::PermissionsExt;
 
