@@ -828,3 +828,22 @@ fn index_joins_application_executable_and_catalog_package_name() {
     assert_eq!(packer.version.as_deref(), Some("1.12-1"));
     assert_eq!(packer.summary.text, "Packs files for transfer.");
 }
+
+#[test]
+fn process_cache_keeps_the_index_until_the_environment_changes() {
+    let fixture = Fixture::new();
+    fixture.executable("/usr/bin/tool");
+    let registry = registry(vec![Arc::new(PathSource::new())]);
+    let env = fixture.env();
+    let options = options(None);
+    let clock = TestClock::new();
+    let cache = nurt_programs::index::IndexCache::new();
+    let first = cache.get(&registry, &env, &options, &clock);
+    let second = cache.get(&registry, &env, &options, &clock);
+    assert!(Arc::ptr_eq(&first, &second));
+    assert!(first.resolve("tool").is_some());
+    let narrowed = env.with_var("PATH", "/bin");
+    let third = cache.get(&registry, &narrowed, &options, &clock);
+    assert!(!Arc::ptr_eq(&first, &third));
+    assert!(third.resolve("tool").is_none());
+}

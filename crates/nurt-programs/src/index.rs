@@ -1202,6 +1202,29 @@ mod tests {
     }
 
     #[test]
+    fn cache_directory_follows_the_conventions_of_each_system() {
+        let linux = HostEnv::new(Os::Linux).with_home("/home/user");
+        assert_eq!(
+            default_cache_dir(&linux),
+            Some(PathBuf::from("/home/user/.cache/nurt/programs"))
+        );
+        let xdg = linux.with_var("XDG_CACHE_HOME", "/var/cache/ada");
+        assert_eq!(
+            default_cache_dir(&xdg),
+            Some(PathBuf::from("/var/cache/ada/nurt/programs"))
+        );
+        let mac = HostEnv::new(Os::Macos).with_home("/Users/user");
+        assert_eq!(
+            default_cache_dir(&mac),
+            Some(PathBuf::from("/Users/user/Library/Caches/Nurt/programs"))
+        );
+        let windows = HostEnv::new(Os::Windows).with_var("LOCALAPPDATA", "C:\\Users\\user");
+        let dir = default_cache_dir(&windows).unwrap();
+        assert!(dir.ends_with("Nurt/cache/programs"));
+        assert_eq!(default_cache_dir(&HostEnv::new(Os::Linux)), None);
+    }
+
+    #[test]
     fn negative_category_order_sorts_first_not_last() {
         let env = HostEnv::new(Os::Linux);
         let mut builder = Builder::new(&env);
