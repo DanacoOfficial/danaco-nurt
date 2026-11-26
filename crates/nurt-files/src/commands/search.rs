@@ -1587,6 +1587,7 @@ impl<'a> Run<'a> {
         };
         let mut record = Match {
             path: path_field(&file.path),
+            raw_path: file.path.raw_bytes(),
             no: found.line,
             column: 1,
             start: found.start,
@@ -1740,6 +1741,7 @@ impl<'a> Run<'a> {
 fn bare_entry(path: &AbsPath) -> Entry {
     Entry {
         path: path_field(path),
+        raw_path: path.raw_bytes(),
         name: path
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())

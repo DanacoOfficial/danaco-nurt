@@ -178,6 +178,7 @@ impl JournalEntry {
                 if let Some(reason) = record.irreversible {
                     irreversible.push(IrreversibleEntry {
                         path: Some(conflict::display_path(&record.path)),
+                        raw_path: conflict::raw_path(&record.path),
                         ..IrreversibleEntry::new(reason)
                     });
                 }

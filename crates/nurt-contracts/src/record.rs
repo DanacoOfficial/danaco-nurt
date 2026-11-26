@@ -2024,6 +2024,9 @@ record_struct! {
     Entry (Entry) {
         /// Absolute path in canonical form.
         path: Path,
+        /// Native bytes of the path; present only when the path is not valid
+        /// Unicode, in which case `path` shows the invalid bytes as U+FFFD.
+        raw_path: Option<Bytes>,
         /// Last component of the path, in NFC.
         name: String,
         /// Name without the last extension.
@@ -2032,6 +2035,9 @@ record_struct! {
         extension: Option<String>,
         /// Parent directory.
         parent: Option<Path>,
+        /// Native bytes of the parent directory; present only when it is not
+        /// valid Unicode.
+        raw_parent: Option<Bytes>,
         /// Type of the entry.
         kind as "type": EntryType,
         /// Whether the entry exists; set in the result of `info`.
@@ -2058,6 +2064,9 @@ record_struct! {
         hidden: Option<bool>,
         /// Target of a link.
         link_target: Option<Path>,
+        /// Native bytes of the target of a link; present only when it is not
+        /// valid Unicode.
+        raw_link_target: Option<Bytes>,
         /// Kind of a link.
         link_type: Option<LinkType>,
         /// Number of hard links.
@@ -2098,6 +2107,9 @@ record_struct! {
         depth: Option<u64>,
         /// Path relative to the root of the listing.
         relative: Option<String>,
+        /// Native bytes of the relative path, with `/` separators; present
+        /// only when it is not valid Unicode.
+        raw_relative: Option<Bytes>,
         /// Total size of a directory tree.
         total_size: Option<Size>,
         /// Number of files in a directory tree.
@@ -2124,6 +2136,9 @@ record_struct! {
     Content (Content) {
         /// File.
         path: Path,
+        /// Native bytes of the path; present only when it is not valid
+        /// Unicode.
+        raw_path: Option<Bytes>,
         /// Text, possibly limited to a range.
         text: String,
         /// Number of lines in `text`.
@@ -2179,6 +2194,9 @@ record_struct! {
     Line (Line) {
         /// File.
         path: Path,
+        /// Native bytes of the path; present only when it is not valid
+        /// Unicode.
+        raw_path: Option<Bytes>,
         /// Line number, from 1.
         no: u64,
         /// Text without the line ending.
@@ -2206,6 +2224,9 @@ record_struct! {
     Match (Match) {
         /// File.
         path: Path,
+        /// Native bytes of the path; present only when it is not valid
+        /// Unicode.
+        raw_path: Option<Bytes>,
         /// Line number, from 1.
         no: u64,
         /// Column of the match, from 1.
@@ -2448,6 +2469,9 @@ record_struct! {
     Hunk (Hunk) {
         /// File after the change.
         path: Path,
+        /// Native bytes of the path; present only when it is not valid
+        /// Unicode.
+        raw_path: Option<Bytes>,
         /// First line before, from 1.
         old_start: u64,
         /// Number of lines before.
@@ -2464,6 +2488,9 @@ record_struct! {
         header: Option<String>,
         /// File before a rename.
         old_path: Option<Path>,
+        /// Native bytes of `old_path`; present only when it is not valid
+        /// Unicode.
+        raw_old_path: Option<Bytes>,
         /// Status of the file.
         status: Option<HunkStatus>,
         /// Binary content.
@@ -2513,12 +2540,19 @@ record_struct! {
     Change (Change) {
         /// File.
         path: Path,
+        /// Native bytes of the path; present only when it is not valid
+        /// Unicode, in which case `path` shows the invalid bytes as U+FFFD.
+        raw_path: Option<Bytes>,
         /// Action.
         action: ChangeAction,
         /// Previous path of a rename.
         from: Option<Path>,
+        /// Native bytes of `from`; present only when it is not valid Unicode.
+        raw_from: Option<Bytes>,
         /// New path of a move or a copy.
         to: Option<Path>,
+        /// Native bytes of `to`; present only when it is not valid Unicode.
+        raw_to: Option<Bytes>,
         /// Size before.
         size_before: Option<Size>,
         /// Size after.
@@ -2551,6 +2585,9 @@ record_struct! {
         bom_after: Option<bool>,
         /// Target of a created link.
         link_target: Option<Path>,
+        /// Native bytes of `link_target`; present only when it is not valid
+        /// Unicode.
+        raw_link_target: Option<Bytes>,
         /// How the previous content was kept.
         store: Option<String>,
         /// Reason why the change cannot be undone, for example
@@ -3183,6 +3220,9 @@ object_struct! {
     OperationItem {
         /// Target of the item.
         path: Path,
+        /// Native bytes of the target; present only when it is not valid
+        /// Unicode.
+        raw_path: Option<Bytes>,
         /// Action on the target, the name of the journal target action, for
         /// example `create`, `modify` or `rename`.
         action: String,

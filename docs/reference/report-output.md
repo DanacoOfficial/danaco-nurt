@@ -166,6 +166,22 @@ The text of a file shown by `read` is one value like any other: in a table it
 is written on one line with `\n` for each line break, and the format `json`
 keeps the lines.
 
+## Paths that are not valid Unicode
+
+A path or a name with bytes that are not valid Unicode (on Linux, for example,
+the byte `0xFF`) is shown in every format with the invalid bytes replaced by
+U+FFFD. The format `json` adds the raw form next to the display form: a field
+`raw_<field>` of type `bytes` (standard base64) that holds the native bytes of
+the path, for example `raw_path` next to `path` in a `change`, a `hunk`, an
+`entry`, a `match` and an entry of `notable` or `irreversible`, `raw_directory`
+in the directories of a bulk summary and `raw_sample_head` and
+`raw_sample_tail` in its sample. The raw field is absent when the path is
+valid Unicode. The raw form is also what the commands read from the records
+they receive, so `find ... |> remove` acts on the entry that `find` listed. The
+journal keeps the raw form of every target, so `undo` restores the entry under
+its name. In the formats `text`, `markdown` and `compact` a record shows the
+raw field as the number of its bytes, `<N bytes>`.
+
 ## Response envelope
 
 | Member | Type | Value |

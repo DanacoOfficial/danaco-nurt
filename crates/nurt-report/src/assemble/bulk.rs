@@ -11,8 +11,9 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+use nurt_contracts::record::Change;
 use nurt_contracts::report::{Bulk, DirectoryCount, ExtensionCount};
-use nurt_contracts::value::Size;
+use nurt_contracts::value::{Bytes, Size};
 
 use super::input::TargetChange;
 use crate::rules::paths::parent;
@@ -44,7 +45,11 @@ pub fn summarize_bulk(changes: &[TargetChange]) -> Bulk {
         let path = target.change.path.as_str();
         let size = target.change.size_after.or(target.change.size_before);
         if let Some(directory) = parent(path) {
-            directories.entry(directory).or_default().add(size);
+            let tally = directories.entry(directory).or_default();
+            tally.add(size);
+            if tally.raw.is_none() {
+                tally.raw = raw_directory(&target.change);
+            }
         }
         extensions.entry(extension(path)).or_default().add(size);
     }
@@ -55,6 +60,7 @@ pub fn summarize_bulk(changes: &[TargetChange]) -> Bulk {
             .into_iter()
             .map(|(directory, tally)| DirectoryCount {
                 directory: directory.to_owned(),
+                raw_directory: tally.raw.clone(),
                 count: tally.count,
                 bytes: tally.bytes(),
             })
@@ -68,7 +74,9 @@ pub fn summarize_bulk(changes: &[TargetChange]) -> Bulk {
             })
             .collect(),
         sample_head: sample(&changes[..head]),
+        raw_sample_head: raw_sample(&changes[..head]),
         sample_tail: sample(&changes[changes.len() - tail..]),
+        raw_sample_tail: raw_sample(&changes[changes.len() - tail..]),
     }
 }
 
@@ -77,6 +85,32 @@ fn sample(changes: &[TargetChange]) -> Vec<String> {
         .iter()
         .map(|target| target.change.path.as_str().to_owned())
         .collect()
+}
+
+/// Native bytes of the sampled targets that are not valid Unicode, item by
+/// item; empty when every sampled target is.
+fn raw_sample(changes: &[TargetChange]) -> Vec<Option<Bytes>> {
+    if changes
+        .iter()
+        .all(|target| target.change.raw_path.is_none())
+    {
+        return Vec::new();
+    }
+    changes
+        .iter()
+        .map(|target| target.change.raw_path.clone())
+        .collect()
+}
+
+/// Native bytes of the directory of a change, when the directory is not valid
+/// Unicode.
+fn raw_directory(change: &Change) -> Option<Bytes> {
+    let raw = change.raw_path.as_ref()?.as_slice();
+    let cut = raw.iter().rposition(|byte| *byte == b'/')?;
+    let directory = raw.get(..cut.max(1))?;
+    std::str::from_utf8(directory)
+        .is_err()
+        .then(|| Bytes::new(directory.to_vec()))
 }
 
 /// Extension of the last component of `path`, with the leading dot; empty
@@ -90,11 +124,13 @@ fn extension(path: &str) -> &str {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 struct Tally {
     count: u64,
     bytes: u64,
     sized: bool,
+    /// Native bytes of the group, for a directory that is not valid Unicode.
+    raw: Option<Bytes>,
 }
 
 impl Tally {

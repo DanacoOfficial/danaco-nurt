@@ -49,8 +49,8 @@ name never appears in the output of a program.
 | `targets` | object | `count` (required), `files`, `directories`, `bytes`, `listed` (number of entries of `changes` on this page) |
 | `summary` | object | `files_created`, `files_modified`, `files_deleted`, `files_renamed`, `directories_created`, `directories_deleted`, `replacements`, `lines_added`, `lines_removed`, `bytes_before`, `bytes_after`, `bytes_freed` |
 | `changes` | list | changed targets on this page, section 5 |
-| `diff` | list | hunks of unified differences: `path`, `old_start`, `old_len`, `new_start`, `new_len`, `lines` (prefix `+`, `-` or space), `header` |
-| `bulk` | object | summary of a bulk operation: `by_directory`, `by_extension` (largest first, with `count` and `bytes`), `sample_head`, `sample_tail` |
+| `diff` | list | hunks of unified differences: `path`, `raw_path`, `old_start`, `old_len`, `new_start`, `new_len`, `lines` (prefix `+`, `-` or space), `header` |
+| `bulk` | object | summary of a bulk operation: `by_directory` and `by_extension` (largest first, with `count` and `bytes`; a directory that is not valid Unicode also has `raw_directory`), `sample_head`, `sample_tail` (and `raw_sample_head`, `raw_sample_tail` when a sampled target is not valid Unicode) |
 | `exec` | record `exec` | a program that ran |
 | `job` | record `job` | a program that continues in the background; present when the status is `running` |
 | `test` | record `test_run` | a test run |
@@ -117,9 +117,14 @@ hidden.
 `flags` carries additional markers of a change, for example `crlf` or
 `keys_created`.
 
+A path that is not valid Unicode is written with U+FFFD in `path`, `from` and
+`to`; the change then also has the native bytes in `raw_path`, `raw_from` and
+`raw_to` (standard base64), as described for paths in `records.md`.
+
 ## 6. Unusual effects (`notable`)
 
-Each entry is `{code, severity, path?, count?, detail?}`; entries are sorted
+Each entry is `{code, severity, path?, raw_path?, count?, detail?}`; `raw_path`
+holds the native bytes of `path` when it is not valid Unicode; entries are sorted
 by severity, `alert` first. Severities in increasing order: `info`, `notice`,
 `warning`, `alert`. The table gives the default severity; thresholds are
 configured under `report.notable.*`. Codes with source "report" are derived by
@@ -220,7 +225,8 @@ command that observed the condition.
 
 ## 7. Irreversible effects (`irreversible`)
 
-Each entry is `{reason, path?, count?, detail?}`.
+Each entry is `{reason, path?, raw_path?, count?, detail?}`; `raw_path` holds the
+native bytes of `path` when it is not valid Unicode.
 
 | Reason | When |
 |---|---|

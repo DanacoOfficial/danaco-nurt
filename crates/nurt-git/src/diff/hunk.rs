@@ -15,7 +15,7 @@ use std::ops::Range;
 
 use bstr::{BString, ByteSlice};
 use nurt_contracts::record::{Hunk as HunkRecord, HunkStatus, MovedBlock as MovedRecord};
-use nurt_contracts::value::{Path, Record};
+use nurt_contracts::value::{Bytes, Path, Record};
 use sha2::{Digest, Sha256};
 
 use super::funcname::FuncMatcher;
@@ -225,6 +225,7 @@ impl Hunk {
     pub fn to_hunk_record(&self, with_id: bool) -> HunkRecord {
         HunkRecord {
             path: Path::from(self.path.to_str_lossy().into_owned()),
+            raw_path: raw_bytes(&self.path),
             old_start: u64::from(self.old_start),
             old_len: u64::from(self.old_len),
             new_start: u64::from(self.new_start),
@@ -243,6 +244,7 @@ impl Hunk {
                 .old_path
                 .as_ref()
                 .map(|path| Path::from(path.to_str_lossy().into_owned())),
+            raw_old_path: self.old_path.as_ref().and_then(raw_bytes),
             status: Some(self.status),
             binary: self.binary.then_some(true),
             old_mode: self.old_mode.clone(),
@@ -255,6 +257,12 @@ impl Hunk {
             moved: (!self.moved.is_empty()).then(|| self.moved.iter().map(moved_record).collect()),
         }
     }
+}
+
+/// The bytes of a path of the repository that is not valid UTF-8; the record
+/// shows such a path with U+FFFD and carries the bytes beside it.
+fn raw_bytes(path: &BString) -> Option<Bytes> {
+    path.to_str().is_err().then(|| Bytes::new(path.to_vec()))
 }
 
 fn moved_record(block: &MovedBlock) -> MovedRecord {

@@ -549,6 +549,28 @@ fn control_characters_of_a_file_name_are_escaped_in_every_format() {
 }
 
 #[test]
+fn a_path_that_is_not_valid_unicode_keeps_its_raw_form_in_json() {
+    let raw = nurt_contracts::value::Bytes::new(b"/abs/bad\xffname.txt".to_vec());
+    let mut change = Change::new("/abs/bad\u{fffd}name.txt", ChangeAction::Delete);
+    change.raw_path = Some(raw.clone());
+    let mut report = Report::new(ReportStatus::Ok, "remove");
+    report.changes.push(change);
+    report.notable.push(NotableEntry {
+        path: Some("/abs/bad\u{fffd}name.txt".to_owned()),
+        raw_path: Some(raw.clone()),
+        ..NotableEntry::new(Notable::Portability)
+    });
+    let json: serde_json::Value =
+        serde_json::from_str(&render(&report, &options(OutputFormat::Json))).unwrap();
+    assert_eq!(json["changes"][0]["path"], "/abs/bad\u{fffd}name.txt");
+    assert_eq!(json["changes"][0]["raw_path"], raw.to_base64());
+    assert_eq!(json["notable"][0]["raw_path"], raw.to_base64());
+    let valid = Change::new("/abs/a.txt", ChangeAction::Delete);
+    let json = serde_json::to_value(&valid).unwrap();
+    assert!(json.get("raw_path").is_none(), "{json}");
+}
+
+#[test]
 fn entries_with_a_depth_stay_a_flat_list_in_json() {
     let report = listing(vec![entry("app", 0, true, 0), entry("src", 1, true, 0)]);
     let json = render(&report, &options(OutputFormat::Json));

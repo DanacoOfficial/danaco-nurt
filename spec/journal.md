@@ -280,7 +280,12 @@ implementations create, so commands change data only through `MutationTx`.
 and `env:`; writable providers support snapshots and exact restoration.
 
 Paths are absolute and lexically normalised (`AbsPath`); their serialized form
-is the language form with `/` separators. Errors are `FsError` values with a
+is the language form with `/` separators. A path with bytes that are not valid
+Unicode is serialized as the object `{"path": <language form with U+FFFD>,
+"raw_path": <native bytes, base64>}`, and is read back from `raw_path`, so the
+manifest of an entry leads back to the entry that was changed; the directory
+listing of a preserved tree gives such a name as `raw_path` next to `path`.
+Errors are `FsError` values with a
 kind that maps to a language code:
 
 | Kind | Code |

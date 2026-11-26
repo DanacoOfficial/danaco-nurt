@@ -11,7 +11,7 @@ use nurt_contracts::journal::{
 use nurt_contracts::record::{Change, ChangeAction, Effect, EffectStatus};
 use nurt_contracts::report::{FLAG_DIRECTORY, Irreversible, IrreversibleEntry, tree_flags};
 use nurt_contracts::stage::{EffectOutcome, RecordStream, StageOutput};
-use nurt_contracts::value::{Fields, Path, Record, Size, Value};
+use nurt_contracts::value::{Bytes, Fields, Path, Record, Size, Value};
 
 /// A count or number as a value of the language.
 pub(super) fn number(value: u64) -> Value {
@@ -31,6 +31,12 @@ pub(super) fn op_list(ops: &[OpId]) -> Value {
 /// Address of a target as shown to the language.
 pub(super) fn target_text(path: &TargetPath) -> String {
     crate::conflict::display_path(path)
+}
+
+/// Native bytes of a target whose [`target_text`] shows U+FFFD in place of
+/// bytes that are not valid Unicode.
+pub(super) fn target_raw(path: &TargetPath) -> Option<Bytes> {
+    crate::conflict::raw_path(path)
 }
 
 fn change_action(action: &TargetAction) -> ChangeAction {
@@ -107,9 +113,12 @@ fn count_tree(fs: &dyn Fs, root: &AbsPath) -> Option<TreeContent> {
 /// below it and their size, read through `fs` when given.
 pub(super) fn change(outcome: &TargetOutcome, fs: Option<&dyn Fs>) -> Change {
     let mut change = Change::new(target_text(&outcome.path), change_action(&outcome.action));
+    change.raw_path = target_raw(&outcome.path);
     if let TargetAction::Rename { to, .. } = &outcome.action {
         change.from = Some(change.path.clone());
+        change.raw_from = change.raw_path.clone();
         change.to = Some(Path::from(to.to_language_string()));
+        change.raw_to = to.raw_bytes();
     }
     change.size_before = outcome.before.size.map(Size::from_bytes);
     change.hash_before = outcome.before.hash.as_ref().map(ToString::to_string);
@@ -153,11 +162,18 @@ fn reversal(item: &ItemDetail) -> Change {
     let mut change = match &item.action {
         TargetAction::Rename { to, .. } => {
             let mut change = Change::new(to.to_language_string(), ChangeAction::Rename);
+            change.raw_path = to.raw_bytes();
             change.from = Some(change.path.clone());
+            change.raw_from = change.raw_path.clone();
             change.to = Some(Path::from(target_text(&item.path)));
+            change.raw_to = target_raw(&item.path);
             change
         }
-        action => Change::new(target_text(&item.path), reverse_action(action)),
+        action => {
+            let mut change = Change::new(target_text(&item.path), reverse_action(action));
+            change.raw_path = target_raw(&item.path);
+            change
+        }
     };
     change.hash_before = item.after_hash.as_ref().map(ToString::to_string);
     change.hash_after = item.before_hash.as_ref().map(ToString::to_string);
@@ -195,6 +211,7 @@ pub(super) fn marker(reason: Irreversible, ops: &[OpId]) -> Option<IrreversibleE
     (!ops.is_empty()).then(|| IrreversibleEntry {
         reason,
         path: None,
+        raw_path: None,
         count: Some(count(ops.len())),
         detail: None,
     })
@@ -235,6 +252,9 @@ fn difference(conflict: &Conflict) -> Value {
     let mut fields = Fields::new();
     fields.insert("op".to_owned(), number(conflict.op.0));
     fields.insert("path".to_owned(), Value::Path(target_text(&conflict.path)));
+    if let Some(raw) = target_raw(&conflict.path) {
+        fields.insert("raw_path".to_owned(), Value::Bytes(raw));
+    }
     let name = kind
         .get("kind")
         .and_then(serde_json::Value::as_str)

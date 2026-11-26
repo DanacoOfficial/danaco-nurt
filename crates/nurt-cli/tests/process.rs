@@ -385,6 +385,65 @@ fn program_in(home: &std::path::Path, options: &[&str], program: &str) -> Output
         .unwrap()
 }
 
+/// Rows of the records of a program run as JSON.
+fn json_rows(home: &std::path::Path, program: &str) -> Vec<serde_json::Value> {
+    let output = program_in(home, &["--format", "json"], program);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let response: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    response["report"]["records"]["rows"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+}
+
+#[cfg(unix)]
+#[test]
+fn a_name_that_is_not_valid_utf8_is_found_removed_and_restored_by_its_bytes() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let work = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let dir = work.path().to_str().unwrap().to_owned();
+    let bad = work.path().join(OsStr::from_bytes(b"bad\xffname.txt"));
+    std::fs::write(&bad, b"raw").unwrap();
+    std::fs::write(work.path().join("plain.txt"), b"plain").unwrap();
+
+    let rows = json_rows(home.path(), &format!("find \"{dir}\" glob: \"bad*\""));
+    let fields = &rows[0]["fields"];
+    assert!(fields["path"]["v"].as_str().unwrap().contains('\u{fffd}'));
+    let mut native = dir.clone().into_bytes();
+    native.extend_from_slice(b"/bad\xffname.txt");
+    assert_eq!(
+        fields["raw_path"]["v"],
+        nurt_contracts::value::Bytes::new(native).to_base64()
+    );
+
+    let removed = program_in(
+        home.path(),
+        &["--format", "json"],
+        &format!("find \"{dir}\" glob: \"bad*\" |> remove"),
+    );
+    assert_eq!(removed.status.code(), Some(0), "{}", stdout(&removed));
+    assert!(!bad.exists(), "{}", stdout(&removed));
+    assert!(work.path().join("plain.txt").exists());
+    let response: serde_json::Value = serde_json::from_str(&stdout(&removed)).unwrap();
+    let op = response["report"]["op"].as_u64().unwrap().to_string();
+    assert_eq!(
+        response["report"]["changes"][0]["raw_path"],
+        fields["raw_path"]["v"]
+    );
+
+    // Other processes that change files on the volume add operations to the
+    // same journal, so the operation is undone by its number.
+    let undone = command(&["undo", &op], home.path())
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert_eq!(undone.status.code(), Some(0), "{}", stdout(&undone));
+    assert_eq!(std::fs::read(&bad).unwrap(), b"raw", "{}", stdout(&undone));
+}
+
 #[cfg(unix)]
 #[test]
 fn a_tree_a_multi_line_text_and_a_name_with_a_line_break_keep_the_text_view_whole() {

@@ -52,6 +52,7 @@ use nurt_fs::failpoint::FailPoint;
 use sha2::{Digest, Sha256};
 
 use crate::blob::{self, HeldBytes};
+use crate::conflict;
 use crate::layout::{self, BlobId, BlobRole, EntryLayout, JournalLayout};
 use crate::manifest::{
     self, AfterRecord, BeforeRecord, Expires, IndexPart, IndexRow, Integrity, ItemRef, Manifest,
@@ -2736,6 +2737,7 @@ impl Tx<'_> {
             if let Some(reason) = record.irreversible {
                 irreversible.push(IrreversibleEntry {
                     path: Some(record_path(&target.spec.path)),
+                    raw_path: conflict::raw_path(&target.spec.path),
                     ..IrreversibleEntry::new(reason)
                 });
             }
@@ -2744,6 +2746,7 @@ impl Tx<'_> {
             {
                 irreversible.push(IrreversibleEntry {
                     path: Some(dest.path.to_string()),
+                    raw_path: dest.path.raw_bytes(),
                     ..IrreversibleEntry::new(reason)
                 });
             }
@@ -2791,6 +2794,7 @@ impl Tx<'_> {
             let Some(index) = declared else {
                 self.irreversible.push(IrreversibleEntry {
                     path: Some(change.path.to_string()),
+                    raw_path: change.path.raw_bytes(),
                     ..IrreversibleEntry::new(Irreversible::PreviousContentNotKept)
                 });
                 continue;

@@ -221,6 +221,7 @@ impl PullPlan {
         IrreversibleEntry {
             reason: Irreversible::RemoteRefUpdated,
             path: None,
+            raw_path: None,
             count,
             detail: Some(self.target.remote.clone()),
         }

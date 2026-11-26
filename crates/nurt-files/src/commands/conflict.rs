@@ -781,9 +781,11 @@ impl Step {
             .unwrap_or_else(|| planned_change(&self.target));
         if let Some(source) = &self.from {
             change.from = Some(path_field(source));
+            change.raw_from = source.raw_bytes();
         }
         if change.action == ChangeAction::Rename && change.from.is_none() {
             change.from = Some(change.path.clone());
+            change.raw_from = change.raw_path.clone();
         }
         change
     }

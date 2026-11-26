@@ -43,6 +43,7 @@ use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::journal::OpId;
+use crate::value::Bytes;
 
 /// Result alias of the file system layer.
 pub type FsResult<T> = std::result::Result<T, FsError>;
@@ -55,9 +56,11 @@ pub type FsResult<T> = std::result::Result<T, FsError>;
 /// `AbsPath`.
 ///
 /// Serialization uses the language form ([`AbsPath::to_language_string`]):
-/// `/` separators and an upper-case drive letter on Windows. Names that are
-/// not valid Unicode are serialized lossily; implementations that persist such
-/// names keep their raw form separately.
+/// `/` separators and an upper-case drive letter on Windows. A path that is
+/// not valid Unicode is serialized as an object that holds the display form
+/// in `path` and the native bytes in `raw_path` (standard base64), so that a
+/// persisted path leads back to the same entry; a path that is valid Unicode
+/// stays a plain string.
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AbsPath(PathBuf);
 
@@ -141,6 +144,48 @@ impl AbsPath {
         self.0.starts_with(&other.0)
     }
 
+    /// Native bytes of the path when it is not valid Unicode, so that the
+    /// language form (which replaces the invalid bytes) does not lead back to
+    /// the entry; `None` for a path that is valid Unicode and on systems whose
+    /// paths are not byte strings.
+    pub fn raw_bytes(&self) -> Option<Bytes> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStrExt;
+            self.0
+                .to_str()
+                .is_none()
+                .then(|| Bytes::new(self.0.as_os_str().as_bytes().to_vec()))
+        }
+        #[cfg(not(unix))]
+        {
+            None
+        }
+    }
+
+    /// Path from the native bytes given by [`AbsPath::raw_bytes`].
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`FsErrorKind::InvalidPath`] when the path is relative,
+    /// leads above the root, or the system does not take paths as bytes.
+    pub fn from_raw_bytes(bytes: &[u8]) -> FsResult<Self> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStrExt;
+            Self::new(PathBuf::from(OsStr::from_bytes(bytes)))
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = bytes;
+            Err(FsError::new(
+                FsErrorKind::InvalidPath,
+                "abs_path",
+                None::<&Path>,
+            ))
+        }
+    }
+
     /// Language form: `/` separators, upper-case drive letter on Windows.
     pub fn to_language_string(&self) -> String {
         let text = self.0.to_string_lossy();
@@ -176,16 +221,41 @@ impl AsRef<Path> for AbsPath {
     }
 }
 
+/// Serialized form of a path that is not valid Unicode.
+#[derive(Serialize, Deserialize)]
+struct RawPathForm {
+    path: String,
+    raw_path: Bytes,
+}
+
+/// Serialized forms of a path: text, or the object of [`RawPathForm`].
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum PathForm {
+    Text(String),
+    Raw(RawPathForm),
+}
+
 impl Serialize for AbsPath {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_language_string())
+        match self.raw_bytes() {
+            None => serializer.serialize_str(&self.to_language_string()),
+            Some(raw) => RawPathForm {
+                path: self.to_language_string(),
+                raw_path: raw,
+            }
+            .serialize(serializer),
+        }
     }
 }
 
 impl<'de> Deserialize<'de> for AbsPath {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
-        let text = String::deserialize(deserializer)?;
-        AbsPath::new(PathBuf::from(text)).map_err(serde::de::Error::custom)
+        match PathForm::deserialize(deserializer)? {
+            PathForm::Text(text) => AbsPath::new(PathBuf::from(text)),
+            PathForm::Raw(form) => AbsPath::from_raw_bytes(form.raw_path.as_slice()),
+        }
+        .map_err(serde::de::Error::custom)
     }
 }
 
@@ -196,8 +266,18 @@ impl JsonSchema for AbsPath {
 
     fn json_schema(_generator: &mut SchemaGenerator) -> Schema {
         json_schema!({
-            "type": "string",
-            "description": "Absolute, normalised path in language form (`/` separators)."
+            "anyOf": [
+                { "type": "string" },
+                {
+                    "type": "object",
+                    "properties": {
+                        "path": { "type": "string" },
+                        "raw_path": { "type": "string", "contentEncoding": "base64" }
+                    },
+                    "required": ["path", "raw_path"]
+                }
+            ],
+            "description": "Absolute, normalised path in language form (`/` separators); a path that is not valid Unicode is an object with the display form `path` and the native bytes `raw_path`."
         })
     }
 }

@@ -73,7 +73,8 @@ pub fn mode_text(mode: u32) -> String {
 /// Sets the path, the name fields, the type, size, times, mode, the
 /// read-only and hidden flags, the kind of a link, the number of hard links
 /// and the entity tag. The name is in NFC; `raw_name` holds the stored name
-/// when it is not valid Unicode or differs from its NFC form.
+/// when it is not valid Unicode or differs from its NFC form, and `raw_path`
+/// and `raw_parent` hold the native bytes of a path that is not valid Unicode.
 #[must_use]
 pub fn entry_record(path: &AbsPath, meta: &FileMeta) -> Entry {
     let names = Names::of(path, meta.kind == FileKind::Directory);
@@ -81,7 +82,9 @@ pub fn entry_record(path: &AbsPath, meta: &FileMeta) -> Entry {
         names.name.starts_with(HIDDEN_PREFIX) || meta.windows_attributes & WINDOWS_HIDDEN != 0;
     Entry {
         path: path_field(path),
+        raw_path: path.raw_bytes(),
         parent: path.parent().map(|parent| path_field(&parent)),
+        raw_parent: path.parent().and_then(|parent| parent.raw_bytes()),
         kind: entry_type(meta.kind),
         size: Size::from_bytes(meta.size),
         modified: Instant::from_unix_nanos(meta.modified_ns),
@@ -108,7 +111,9 @@ pub fn missing_entry(path: &AbsPath) -> Entry {
     let names = Names::of(path, false);
     Entry {
         path: path_field(path),
+        raw_path: path.raw_bytes(),
         parent: path.parent().map(|parent| path_field(&parent)),
+        raw_parent: path.parent().and_then(|parent| parent.raw_bytes()),
         exists: Some(false),
         size: Size::from_bytes(0),
         modified: Instant::from_unix_nanos(0),

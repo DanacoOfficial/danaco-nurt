@@ -135,6 +135,9 @@ being walked is a record but is not entered; the notable entry
 `link_loop_skipped` gives the number of such links.
 
 Records carry `depth` (0 for the root) and `relative` (`.` for the root).
+A path that is not valid Unicode is shown with U+FFFD in `path`, `parent` and
+`relative` and carries the native bytes in `raw_path`, `raw_parent` and
+`raw_relative`, as in `list`; the next stage reads the entry from `raw_path`.
 The text view of a listing that holds only some of the entries of a tree draws
 the directories above them, derived from their paths.
 The orders of `view` are those of `list`: `flat` sorts all records by `sort`

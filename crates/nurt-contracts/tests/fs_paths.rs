@@ -438,6 +438,52 @@ fn provider_values_are_tagged_with_type_and_data() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn a_path_that_is_not_valid_unicode_serializes_with_its_native_bytes() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let native = Path::new("/data").join(OsStr::from_bytes(b"bad\xffname.txt"));
+    let path = AbsPath::new(native).unwrap();
+    assert_eq!(
+        path.raw_bytes().unwrap().as_slice(),
+        b"/data/bad\xffname.txt"
+    );
+    assert_eq!(path.to_language_string(), "/data/bad\u{fffd}name.txt");
+    let json = serde_json::to_value(&path).unwrap();
+    assert_eq!(
+        json,
+        json!({"path": "/data/bad\u{fffd}name.txt", "raw_path": "L2RhdGEvYmFk/25hbWUudHh0"})
+    );
+    assert_eq!(serde_json::from_value::<AbsPath>(json).unwrap(), path);
+    let target = nurt_contracts::journal::TargetPath::Fs(path.clone());
+    let round = serde_json::to_string(&target).unwrap();
+    assert_eq!(
+        serde_json::from_str::<nurt_contracts::journal::TargetPath>(&round).unwrap(),
+        target
+    );
+}
+
+#[test]
+fn a_path_that_is_valid_unicode_stays_a_plain_string() {
+    let path = abs("/data/caf\u{e9}.txt");
+    assert_eq!(path.raw_bytes(), None);
+    assert_eq!(
+        serde_json::to_value(&path).unwrap(),
+        json!(at("/data/caf\u{e9}.txt"))
+    );
+    assert_eq!(
+        serde_json::from_value::<AbsPath>(json!(at("/data/caf\u{e9}.txt"))).unwrap(),
+        path
+    );
+}
+
+#[test]
+fn raw_bytes_of_a_relative_path_are_refused() {
+    assert!(AbsPath::from_raw_bytes(b"data/a.txt").is_err());
+}
+
 #[test]
 fn metadata_transfer_is_complete_only_without_refusals() {
     let mut report = MetaTransferReport::default();
