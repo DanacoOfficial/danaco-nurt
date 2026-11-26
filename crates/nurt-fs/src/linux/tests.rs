@@ -1822,6 +1822,116 @@ fn operations_keep_names_that_are_not_valid_utf8() {
     assert!(!moved.as_path().exists());
 }
 
+/// Modification time given to the replaced file: 2021-05-06T00:00:00Z.
+const OLD_MODIFIED_NS: i64 = 1_620_259_200_000_000_000;
+/// One hour in nanoseconds.
+const HOUR_NS: i64 = 3_600_000_000_000;
+
+/// Replaces `target` by a staged file with new content, as the journal does:
+/// the content is written, the metadata of `previous` is transferred through
+/// the handle (completely when `full`, prepared for a content change
+/// otherwise) and the staged file is renamed over the target.
+fn switch_in(fixture: &Fixture, target: &AbsPath, previous: &ExtendedMeta, full: bool) {
+    let mut handle = fixture
+        .fs
+        .create_temp_in(&fixture.scope, &fixture.root, "target")
+        .expect("staged file");
+    handle.write_all(b"new line\n").expect("write");
+    handle.sync(Durability::Data).expect("data flush");
+    let written = fixture
+        .fs
+        .metadata(handle.path(), Follow::NoFollow)
+        .expect("metadata of the written file");
+    let wanted = if full {
+        previous.clone()
+    } else {
+        crate::transfer::for_content_change(previous, &written)
+    };
+    handle.apply_meta(&wanted).expect("apply metadata");
+    handle.sync(Durability::Full).expect("flush");
+    let staged = handle.path().clone();
+    drop(handle);
+    fixture
+        .fs
+        .rename(&fixture.scope, &staged, target, RenameMode::Replace)
+        .expect("switch in");
+}
+
+fn aged_target(fixture: &Fixture) -> (AbsPath, ExtendedMeta, bool) {
+    let target = fixture.file("target", b"old");
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o640)).expect("mode");
+    let attribute = rustix::fs::setxattr(
+        target.as_path(),
+        "user.origin",
+        b"test",
+        rustix::fs::XattrFlags::empty(),
+    )
+    .is_ok();
+    let change = MetaChange {
+        modified_ns: Some(OLD_MODIFIED_NS),
+        ..MetaChange::default()
+    };
+    fixture
+        .fs
+        .set_meta(&fixture.scope, &target, &change)
+        .expect("age the file");
+    let previous = fixture
+        .fs
+        .extended_metadata(&target, Follow::NoFollow)
+        .expect("metadata");
+    assert_eq!(previous.basic.modified_ns, OLD_MODIFIED_NS);
+    (target, previous, attribute)
+}
+
+#[test]
+fn content_switch_keeps_mode_owner_and_attributes_and_takes_the_write_time() {
+    let fixture = Fixture::new();
+    let (target, previous, attribute) = aged_target(&fixture);
+    switch_in(&fixture, &target, &previous, false);
+    assert_eq!(read(&target), b"new line\n");
+    let after = fixture
+        .fs
+        .extended_metadata(&target, Follow::NoFollow)
+        .expect("metadata after");
+    assert_eq!(after.basic.mode, 0o640);
+    assert_eq!(
+        (after.basic.uid, after.basic.gid),
+        (previous.basic.uid, previous.basic.gid)
+    );
+    if attribute {
+        assert!(
+            after
+                .xattrs
+                .iter()
+                .any(|xattr| xattr.name == "user.origin" && xattr.value == b"test")
+        );
+    }
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock");
+    let now_ns = i64::try_from(now.as_nanos()).expect("time");
+    assert!(after.basic.modified_ns > OLD_MODIFIED_NS);
+    assert!(
+        (now_ns - after.basic.modified_ns).abs() < HOUR_NS,
+        "modification time {} is not the time of the write",
+        after.basic.modified_ns
+    );
+}
+
+#[test]
+fn full_metadata_transfer_restores_the_old_modification_time() {
+    let fixture = Fixture::new();
+    let (target, previous, _) = aged_target(&fixture);
+    switch_in(&fixture, &target, &previous, true);
+    assert_eq!(read(&target), b"new line\n");
+    let after = fixture
+        .fs
+        .metadata(&target, Follow::NoFollow)
+        .expect("metadata after");
+    assert_eq!(after.modified_ns, OLD_MODIFIED_NS);
+    assert_eq!(after.mode, 0o640);
+}
+
 #[test]
 fn staged_file_replaces_the_target_with_one_rename() {
     let fixture = Fixture::new();
