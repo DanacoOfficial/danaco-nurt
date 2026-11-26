@@ -982,12 +982,15 @@ impl Engine {
                 };
                 self.run_program(run)
             })
-            .unwrap_or_else(|error| failure(&reports, &kind, Some(&compiled), error));
-        self.finish(report, &prepared, Some(&program), started)
+            .unwrap_or_else(|error| (failure(&reports, &kind, Some(&compiled), error), Vec::new()));
+        let (report, pipelines) = report;
+        let mut response = self.finish(report, &prepared, Some(&program), started);
+        attach_pipelines(&mut response, &pipelines, &prepared.options);
+        response
     }
 
     /// Plans a bound program, executes the plan and assembles its report.
-    fn run_program(&self, run: Run<'_>) -> Result<Report, Error> {
+    fn run_program(&self, run: Run<'_>) -> Result<(Report, Vec<Report>), Error> {
         let Run {
             compiled,
             prepared,
@@ -1539,22 +1542,102 @@ fn records_page(result: &ResultData, skip: &[RecordKind]) -> Option<RecordsPage>
     })
 }
 
+/// Kind and effect of every pipeline of a bound program, in program order.
+fn pipeline_kinds(bound: &BoundDocument) -> Vec<ProgramKind> {
+    bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => {
+                let head = match &pipeline.head {
+                    BoundHead::Stage(stage) => Some(stage),
+                    _ => None,
+                };
+                let effect = head
+                    .into_iter()
+                    .chain(&pipeline.stages)
+                    .rev()
+                    .find(|stage| stage.phase.is_effect())
+                    .map(|stage| stage.name.clone());
+                let changing = effect.is_some();
+                let kind = effect
+                    .or_else(|| head.map(|stage| stage.name.clone()))
+                    .unwrap_or_else(|| PROGRAM_KIND.to_owned());
+                Some(ProgramKind { kind, changing })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// Attaches the reports of the pipelines of a script to the response and
+/// appends their rendered text to the text of the program.
+fn attach_pipelines(response: &mut Response, pipelines: &[Report], options: &RequestOptions) {
+    for report in pipelines {
+        let part = respond_with(report, options);
+        if let (Some(rendered), Some(extra)) = (response.rendered.as_mut(), part.rendered) {
+            rendered.text.push('\n');
+            rendered.text.push_str(&extra.text);
+        }
+        response.reports.push(part.report);
+    }
+}
+
+/// Report of one pipeline of a script, with its own kind, status, error and
+/// records.
+fn pipeline_report(
+    ctx: &ReportContext,
+    program: &ProgramKind,
+    operation: OperationOutcome,
+) -> Result<Report, Error> {
+    let status = operation.status;
+    let error = operation.error.clone();
+    let index = operation.index;
+    let mut builder = if program.changing {
+        ReportBuilder::changing(ctx, program.kind.clone(), status)
+    } else {
+        ReportBuilder::reading(ctx, program.kind.clone(), status)
+    };
+    builder = add_operation(builder, operation, Some(index));
+    if let Some(error) = error {
+        builder = builder.error(error);
+    }
+    builder.build().map_err(|violation| {
+        Error::new(
+            ErrorCode::Internal,
+            format!("the report of a pipeline breaks a rule of the format: {violation}"),
+        )
+    })
+}
+
 /// Report of an executed program: the changes, notable and irreversible
-/// effects of every operation, the records of the last one and the error
-/// that ended the execution.
+/// effects of every operation, the error that ended the execution and, for
+/// a program with a single operation, its records. A script with several
+/// operations yields the report of the program without records and one
+/// report per pipeline, in order, each with the records of its own pipeline.
 fn report_of(
     ctx: &ReportContext,
     program: &ProgramKind,
     compiled: &Compiled,
     outcome: Outcome,
     timing: Option<Timing>,
-) -> Result<Report, Error> {
+) -> Result<(Report, Vec<Report>), Error> {
     let Outcome {
         status,
         error,
         operations,
         ..
     } = outcome;
+    let mut pipelines = Vec::new();
+    if operations.len() > 1 {
+        let kinds = pipeline_kinds(&compiled.bound);
+        for operation in &operations {
+            let own = kinds.get(operation.index as usize).unwrap_or(program);
+            pipelines.push(pipeline_report(ctx, own, operation.clone())?);
+        }
+    }
+    let several = !pipelines.is_empty();
     let mut builder = if program.changing {
         ReportBuilder::changing(ctx, program.kind.clone(), status)
     } else {
@@ -1572,7 +1655,10 @@ fn report_of(
     if let Some(hash) = &compiled.ast_hash {
         builder = builder.ast_hash(hash.clone());
     }
-    let last = operations.last().map(|operation| operation.index);
+    let last = operations
+        .last()
+        .map(|operation| operation.index)
+        .filter(|_| !several);
     for operation in operations {
         builder = add_operation(builder, operation, last);
     }
@@ -1582,12 +1668,13 @@ fn report_of(
     if let Some(timing) = timing {
         builder = builder.timing(timing);
     }
-    builder.build().map_err(|violation| {
+    let report = builder.build().map_err(|violation| {
         Error::new(
             ErrorCode::Internal,
             format!("the report of the program breaks a rule of the format: {violation}"),
         )
-    })
+    })?;
+    Ok((report, pipelines))
 }
 
 fn add_operation<'c>(

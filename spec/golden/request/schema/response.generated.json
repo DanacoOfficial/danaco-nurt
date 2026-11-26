@@ -9,11 +9,18 @@
       "type": "string"
     },
     "report": {
-      "description": "Effect report.",
+      "description": "Effect report of the program.",
       "$ref": "#/$defs/Report"
     },
+    "reports": {
+      "description": "Reports of the pipelines of a script with more than one pipeline, one\nper pipeline in program order, each with the `kind` and the records\nof its own pipeline. Absent for a program with a single operation.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Report"
+      }
+    },
     "rendered": {
-      "description": "Text rendered from the report.",
+      "description": "Text rendered from the report and from `reports`.",
       "anyOf": [
         {
           "$ref": "#/$defs/Rendered"
