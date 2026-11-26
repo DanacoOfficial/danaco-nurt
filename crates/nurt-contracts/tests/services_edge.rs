@@ -118,7 +118,7 @@ fn identifiers_compare_and_order_by_text() {
     assert_eq!(json, DocFormatId::JSON);
     assert!(json < jsonc);
     assert_eq!(json.to_string(), "json");
-    let mut formats = vec![DocFormatId::YAML, DocFormatId::JSON, DocFormatId::TOML];
+    let mut formats = [DocFormatId::YAML, DocFormatId::JSON, DocFormatId::TOML];
     formats.sort();
     let names: Vec<&str> = formats.iter().map(DocFormatId::as_str).collect();
     assert_eq!(names, ["json", "toml", "yaml"]);

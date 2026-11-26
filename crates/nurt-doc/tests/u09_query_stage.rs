@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use nurt_contracts::config::Config;
 use nurt_contracts::error::{Error, ErrorCode, Result, Stage};
-use nurt_contracts::fs::{AbsPath, FsWrite};
+use nurt_contracts::fs::AbsPath;
 use nurt_contracts::record::{Content, Entry, EntryType, Item};
 use nurt_contracts::spec::StageSpec;
 use nurt_contracts::stage::{
