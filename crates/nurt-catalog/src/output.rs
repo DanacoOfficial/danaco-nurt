@@ -69,12 +69,6 @@ struct CommandResult<'a> {
     command: &'a StageSpec,
 }
 
-#[derive(Serialize)]
-struct RevisionInput<'a> {
-    index: &'a nurt_contracts::spec::CatalogIndex,
-    groups: &'a [Group],
-}
-
 fn brief(group: &Group) -> GroupBrief<'_> {
     GroupBrief {
         name: &group.name,
@@ -107,20 +101,21 @@ impl Registry {
     /// Returns the revision of the loaded catalog.
     ///
     /// The revision is `sha256:` followed by the hexadecimal SHA-256 digest of
-    /// the canonical JSON (RFC 8785) of the index and of every group with its
-    /// commands, extensions included. It does not depend on the order of the
-    /// members in the data files, on white space, or on the process, and it
-    /// changes with any change of a command, a parameter or a group.
+    /// the canonical JSON (RFC 8785) of the array of catalog files in index
+    /// order, the definition of `spec/catalog.md` section 9.1, so that it
+    /// equals the `catalog_rev` that binding records in a bound tree. The
+    /// groups of registered extensions follow as files of the same form; with
+    /// extensions the revision differs from that of a bound tree, which
+    /// records the built-in catalog used for binding. It does not depend on
+    /// the order of the members in the data files, on white space, or on the
+    /// process, and it changes with any change of a command, a parameter or a
+    /// group.
     ///
     /// # Errors
     ///
     /// Returns `E_INTERNAL` when the catalog cannot be serialized.
     pub fn catalog_rev(&self) -> Result<String> {
-        let input = RevisionInput {
-            index: self.index(),
-            groups: &self.groups,
-        };
-        let canonical = serde_json_canonicalizer::to_vec(&input)
+        let canonical = serde_json_canonicalizer::to_vec(&self.listed)
             .map_err(|error| internal("cannot canonicalize the catalog", &error))?;
         let digest = Sha256::digest(&canonical);
         Ok(format!("{REVISION_PREFIX}{}", hex::encode(digest)))
