@@ -238,13 +238,26 @@ fn share(count: usize, total: usize) -> f64 {
     }
 }
 
-fn rate(outcomes: &[bool], bootstrap: &Bootstrap) -> Rate {
+/// Number of the cluster of every task name, in the order of the first
+/// appearance: the runs of one task form one cluster of the bootstrap.
+fn cluster_ids<'a>(tasks: impl IntoIterator<Item = &'a str>) -> Vec<usize> {
+    let mut seen: BTreeMap<&str, usize> = BTreeMap::new();
+    tasks
+        .into_iter()
+        .map(|task| {
+            let next = seen.len();
+            *seen.entry(task).or_insert(next)
+        })
+        .collect()
+}
+
+fn rate(outcomes: &[bool], clusters: &[usize], bootstrap: &Bootstrap) -> Rate {
     Rate {
         value: share(
             outcomes.iter().filter(|value| **value).count(),
             outcomes.len(),
         ),
-        interval: bootstrap.proportion(outcomes),
+        interval: bootstrap.proportion_by_cluster(outcomes, clusters),
     }
 }
 
@@ -289,13 +302,14 @@ fn condition_row(
         .filter_map(|run| run.description_tokens)
         .map(|t| t as f64)
         .collect();
+    let clusters = cluster_ids(runs.iter().map(|run| run.task.as_str()));
     ConditionRow {
         model: model.to_owned(),
         condition,
         runs: runs.len(),
-        completed: rate(&flags(|run| run.completed), bootstrap),
-        passed: rate(&flags(|run| run.passed), bootstrap),
-        harmed: rate(&flags(|run| run.harmed), bootstrap),
+        completed: rate(&flags(|run| run.completed), &clusters, bootstrap),
+        passed: rate(&flags(|run| run.passed), &clusters, bootstrap),
+        harmed: rate(&flags(|run| run.harmed), &clusters, bootstrap),
         lost: runs.iter().map(|run| run.lost).sum(),
         encoding: runs.iter().map(|run| run.encoding).sum(),
         median_tokens: median(
@@ -357,7 +371,13 @@ fn shell_index(runs: &[RunMeasures]) -> BTreeMap<PairKey<'_>, &RunMeasures> {
     index
 }
 
-fn cost(measure: &str, shell: &[f64], nurt: &[f64], bootstrap: &Bootstrap) -> CostComparison {
+fn cost(
+    measure: &str,
+    shell: &[f64],
+    nurt: &[f64],
+    clusters: &[usize],
+    bootstrap: &Bootstrap,
+) -> CostComparison {
     let shell_median = median(shell);
     let nurt_median = median(nurt);
     CostComparison {
@@ -366,7 +386,7 @@ fn cost(measure: &str, shell: &[f64], nurt: &[f64], bootstrap: &Bootstrap) -> Co
         nurt_median,
         difference: Rate {
             value: nurt_median - shell_median,
-            interval: bootstrap.paired_median_difference(nurt, shell),
+            interval: bootstrap.paired_median_difference_by_cluster(nurt, shell, clusters),
         },
         wilcoxon_p: wilcoxon_signed_rank(nurt, shell).p_value,
     }
@@ -397,17 +417,35 @@ fn compare(
     };
     // Runs whose provider reported no token counts are not measured; they
     // are left out of the token comparison and not counted as 0.
-    let (shell_tokens, nurt_tokens): (Vec<f64>, Vec<f64>) = both
+    let measured: Vec<_> = both
         .iter()
         .filter(|(s, n)| s.tokens_measured && n.tokens_measured)
+        .collect();
+    let (shell_tokens, nurt_tokens): (Vec<f64>, Vec<f64>) = measured
+        .iter()
         .map(|(s, n)| (s.tokens() as f64, n.tokens() as f64))
         .unzip();
     let (shell_steps, nurt_steps) = series(|run| f64::from(run.steps));
     let (shell_seconds, nurt_seconds) = series(|run| run.wall_ms as f64 / 1000.0);
+    let pair_clusters = cluster_ids(pairs.iter().map(|(_, n)| n.task.as_str()));
+    let both_clusters = cluster_ids(both.iter().map(|(_, n)| n.task.as_str()));
+    let measured_clusters = cluster_ids(measured.iter().map(|(_, n)| n.task.as_str()));
     let costs = vec![
-        cost("tokens", &shell_tokens, &nurt_tokens, bootstrap),
-        cost("steps", &shell_steps, &nurt_steps, bootstrap),
-        cost("seconds", &shell_seconds, &nurt_seconds, bootstrap),
+        cost(
+            "tokens",
+            &shell_tokens,
+            &nurt_tokens,
+            &measured_clusters,
+            bootstrap,
+        ),
+        cost("steps", &shell_steps, &nurt_steps, &both_clusters, bootstrap),
+        cost(
+            "seconds",
+            &shell_seconds,
+            &nurt_seconds,
+            &both_clusters,
+            bootstrap,
+        ),
     ];
     let shell_completed = share(shell.iter().filter(|v| **v).count(), pairs.len());
     let nurt_completed = share(nurt.iter().filter(|v| **v).count(), pairs.len());
@@ -423,7 +461,11 @@ fn compare(
         nurt_completed,
         difference: Rate {
             value: nurt_completed - shell_completed,
-            interval: bootstrap.paired_proportion_difference(&nurt, &shell),
+            interval: bootstrap.paired_proportion_difference_by_cluster(
+                &nurt,
+                &shell,
+                &pair_clusters,
+            ),
         },
         shell_only,
         nurt_only,

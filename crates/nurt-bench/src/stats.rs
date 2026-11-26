@@ -360,6 +360,94 @@ impl Bootstrap {
             median(&first) - median(&second)
         })
     }
+
+    /// Percentile interval of a statistic by the bootstrap of clusters:
+    /// `clusters[i]` names the cluster of observation `i`, for example its
+    /// task. A resample draws as many clusters as there are, with
+    /// replacement, and takes every observation of a drawn cluster, so that
+    /// the runs of one task stay together. The statistic receives the indices
+    /// of the observations. Returns `None` when there are no observations or
+    /// no resample gives a finite value.
+    pub fn interval_by_cluster(
+        &self,
+        clusters: &[usize],
+        statistic: impl Fn(&[usize]) -> f64,
+    ) -> Option<Interval> {
+        if clusters.is_empty() || self.resamples == 0 {
+            return None;
+        }
+        let mut members: std::collections::BTreeMap<usize, Vec<usize>> =
+            std::collections::BTreeMap::new();
+        for (index, cluster) in clusters.iter().enumerate() {
+            members.entry(*cluster).or_default().push(index);
+        }
+        let groups: Vec<&Vec<usize>> = members.values().collect();
+        let mut generator = SplitMix64::new(self.seed);
+        let mut sample = Vec::with_capacity(clusters.len());
+        let mut values = Vec::with_capacity(self.resamples);
+        for _ in 0..self.resamples {
+            sample.clear();
+            for _ in 0..groups.len() {
+                sample.extend_from_slice(groups[generator.below(groups.len())]);
+            }
+            let value = statistic(&sample);
+            if value.is_finite() {
+                values.push(value);
+            }
+        }
+        if values.is_empty() {
+            return None;
+        }
+        values.sort_by(f64::total_cmp);
+        let tail = (1.0 - self.level) / 2.0;
+        Some(Interval {
+            low: quantile(&values, tail),
+            high: quantile(&values, 1.0 - tail),
+        })
+    }
+
+    /// Interval of a proportion of successes, resampled by cluster.
+    #[must_use]
+    pub fn proportion_by_cluster(&self, outcomes: &[bool], clusters: &[usize]) -> Option<Interval> {
+        self.interval_by_cluster(&clusters[..clusters.len().min(outcomes.len())], |sample| {
+            sample.iter().filter(|index| outcomes[**index]).count() as f64 / sample.len() as f64
+        })
+    }
+
+    /// Interval of the difference of two paired proportions, `a − b`,
+    /// resampled by cluster.
+    #[must_use]
+    pub fn paired_proportion_difference_by_cluster(
+        &self,
+        a: &[bool],
+        b: &[bool],
+        clusters: &[usize],
+    ) -> Option<Interval> {
+        let n = a.len().min(b.len()).min(clusters.len());
+        self.interval_by_cluster(&clusters[..n], |sample| {
+            let total = sample.len() as f64;
+            let first = sample.iter().filter(|index| a[**index]).count() as f64;
+            let second = sample.iter().filter(|index| b[**index]).count() as f64;
+            (first - second) / total
+        })
+    }
+
+    /// Interval of the difference of the medians of paired samples,
+    /// `median(a) − median(b)`, resampled by cluster.
+    #[must_use]
+    pub fn paired_median_difference_by_cluster(
+        &self,
+        a: &[f64],
+        b: &[f64],
+        clusters: &[usize],
+    ) -> Option<Interval> {
+        let n = a.len().min(b.len()).min(clusters.len());
+        self.interval_by_cluster(&clusters[..n], |sample| {
+            let first: Vec<f64> = sample.iter().map(|index| a[*index]).collect();
+            let second: Vec<f64> = sample.iter().map(|index| b[*index]).collect();
+            median(&first) - median(&second)
+        })
+    }
 }
 
 #[cfg(test)]
@@ -498,5 +586,30 @@ mod tests {
         assert!(shift.low <= 10.0 && shift.high >= 10.0);
         let nothing = BOOT.interval(5, |_| f64::NAN);
         assert_eq!(nothing, None);
+    }
+
+    #[test]
+    fn clusters_stay_together_in_a_resample() {
+        // Two tasks with three runs each, all passed or all failed: a
+        // resample of tasks gives a proportion of 0, 0.5 or 1 only.
+        let outcomes = [true, true, true, false, false, false];
+        let clusters = [0, 0, 0, 1, 1, 1];
+        let by_task = BOOT.proportion_by_cluster(&outcomes, &clusters).unwrap();
+        assert_eq!((by_task.low, by_task.high), (0.0, 1.0));
+        let by_run = BOOT.proportion(&outcomes).unwrap();
+        assert!(by_run.high < 1.0 && by_run.low > 0.0);
+        assert_eq!(BOOT.proportion_by_cluster(&[], &[]), None);
+        let a = [true, true, false, false];
+        let b = [false, false, false, false];
+        let difference = BOOT
+            .paired_proportion_difference_by_cluster(&a, &b, &[0, 0, 1, 1])
+            .unwrap();
+        assert_eq!((difference.low, difference.high), (0.0, 1.0));
+        let x = [3.0, 3.0, 5.0, 5.0];
+        let y = [1.0, 1.0, 1.0, 1.0];
+        let shift = BOOT
+            .paired_median_difference_by_cluster(&x, &y, &[0, 0, 1, 1])
+            .unwrap();
+        assert!(shift.low >= 2.0 && shift.high <= 4.0);
     }
 }
