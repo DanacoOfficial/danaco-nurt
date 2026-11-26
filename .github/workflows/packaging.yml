@@ -103,6 +103,7 @@ jobs:
         run: |
           sh packaging/deb/build-deb.sh \
             --artifact "archives/nurt-${{ inputs.version }}-${{ matrix.target }}.tar.gz" \
+            --lib-artifact "archives/nurt-lib-${{ inputs.version }}-${{ matrix.target }}.tar.gz" \
             --version "${{ inputs.version }}" \
             --arch "${{ matrix.arch }}" \
             --output debs
@@ -181,6 +182,7 @@ jobs:
               dnf install -y -q rpm-build
               mkdir -p /root/rpmbuild/SOURCES
               cp /archives/nurt-${{ inputs.version }}-${{ matrix.arch }}-unknown-linux-gnu.tar.gz /root/rpmbuild/SOURCES/
+              cp /archives/nurt-lib-${{ inputs.version }}-${{ matrix.arch }}-unknown-linux-gnu.tar.gz /root/rpmbuild/SOURCES/
               rpmbuild -bb --define "_buildhost reproducible" \
                 --define "use_source_date_epoch_as_buildtime 1" \
                 --define "clamp_mtime_to_source_date_epoch 1" /spec/nurt.spec

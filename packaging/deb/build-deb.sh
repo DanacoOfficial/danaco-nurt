@@ -28,7 +28,7 @@ read_tagline() {
 }
 
 usage() {
-    echo "usage: build-deb.sh --artifact PATH --version VERSION --arch amd64|arm64 --output DIR" >&2
+    echo "usage: build-deb.sh --artifact PATH [--lib-artifact PATH] --version VERSION --arch amd64|arm64 --output DIR" >&2
     exit 2
 }
 
@@ -44,10 +44,12 @@ artifact=
 version=
 arch=
 output=
+lib_artifact=
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case $1 in
         --artifact) artifact=$2 ;;
+        --lib-artifact) lib_artifact=$2 ;;
         --version) version=$2 ;;
         --arch) arch=$2 ;;
         --output) output=$2 ;;
@@ -74,24 +76,42 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 trap 'exit 1' INT TERM
 
-if [ -d "$artifact" ]; then
-    root=$artifact
-else
-    [ -f "$artifact" ] || fail "artifact not found: $artifact"
-    mkdir "$work/src"
-    tar -xzf "$artifact" -C "$work/src"
-    root=$work/src
-    entries=$(ls -A "$root")
-    if [ "$(printf '%s\n' "$entries" | wc -l)" -eq 1 ] && [ -d "$root/$entries" ]; then
-        root=$root/$entries
+# Prints the directory with the contents of an archive, or the directory itself.
+unpack() {
+    source_path=$1
+    slot=$2
+    if [ -d "$source_path" ]; then
+        printf '%s\n' "$source_path"
+        return
     fi
+    [ -f "$source_path" ] || fail "artifact not found: $source_path"
+    mkdir "$work/$slot"
+    tar -xzf "$source_path" -C "$work/$slot"
+    unpacked=$work/$slot
+    entries=$(ls -A "$unpacked")
+    if [ "$(printf '%s\n' "$entries" | wc -l)" -eq 1 ] && [ -d "$unpacked/$entries" ]; then
+        unpacked=$unpacked/$entries
+    fi
+    printf '%s\n' "$unpacked"
+}
+
+root=$(unpack "$artifact" src) || exit 1
+# The library, the header and the pkg-config file are in the library archive
+# nurt-lib-<version>-<target>; without --lib-artifact they are read from the
+# program archive.
+if [ -n "$lib_artifact" ]; then
+    lib_root=$(unpack "$lib_artifact" lib) || exit 1
+else
+    lib_root=$root
 fi
 
-for required in nurt libnurt.so.1 nurt.h nurt.pc NOTICE; do
-    [ -f "$root/$required" ] || fail "artifact lacks $required"
+[ -f "$root/nurt" ] || fail "artifact lacks nurt"
+[ -f "$root/NOTICE" ] || fail "artifact lacks NOTICE"
+for required in libnurt.so.1 nurt.h nurt.pc; do
+    [ -f "$lib_root/$required" ] || fail "artifact lacks $required"
 done
 for variable in prefix libdir includedir; do
-    grep -q "^$variable=" "$root/nurt.pc" || fail "nurt.pc does not define $variable"
+    grep -q "^$variable=" "$lib_root/nurt.pc" || fail "nurt.pc does not define $variable"
 done
 
 date_rfc=$(date -u -d "@$SOURCE_DATE_EPOCH" -R)
@@ -184,7 +204,7 @@ build_package nurt "$nurt_dir"
 
 lib_dir=$work/pkg/libnurt1
 mkdir -p "$lib_dir/usr/lib/$multiarch"
-install -m 644 "$root/libnurt.so.1" "$lib_dir/usr/lib/$multiarch/libnurt.so.1"
+install -m 644 "$lib_root/libnurt.so.1" "$lib_dir/usr/lib/$multiarch/libnurt.so.1"
 write_docs libnurt1 "$lib_dir"
 write_control libnurt1 "$lib_dir" \
     "Section: libs" \
@@ -201,12 +221,12 @@ build_package libnurt1 "$lib_dir"
 
 dev_dir=$work/pkg/libnurt-dev
 mkdir -p "$dev_dir/usr/include" "$dev_dir/usr/lib/$multiarch/pkgconfig"
-install -m 644 "$root/nurt.h" "$dev_dir/usr/include/nurt.h"
+install -m 644 "$lib_root/nurt.h" "$dev_dir/usr/include/nurt.h"
 ln -s libnurt.so.1 "$dev_dir/usr/lib/$multiarch/libnurt.so"
 sed -e 's|^prefix=.*|prefix=/usr|' \
     -e "s|^libdir=.*|libdir=\${prefix}/lib/$multiarch|" \
     -e "s|^includedir=.*|includedir=\${prefix}/include|" \
-    "$root/nurt.pc" >"$dev_dir/usr/lib/$multiarch/pkgconfig/nurt.pc"
+    "$lib_root/nurt.pc" >"$dev_dir/usr/lib/$multiarch/pkgconfig/nurt.pc"
 chmod 644 "$dev_dir/usr/lib/$multiarch/pkgconfig/nurt.pc"
 write_docs libnurt-dev "$dev_dir"
 write_control libnurt-dev "$dev_dir" \

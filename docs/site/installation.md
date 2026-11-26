@@ -62,8 +62,12 @@ The scope `machine` installs into `%ProgramFiles%\Nurt` and changes the `PATH` o
 
 | Archive | Files |
 |---|---|
-| Linux and macOS, directory `nurt-<version>-<target>/` | `nurt`, `libnurt.so.1`, `nurt.h`, `nurt.pc` (glibc targets), `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `man/`, `completions/`, `doc/` |
-| Windows, files at the top level | `nurt.exe`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `completions/`, `doc/` |
+| Program, Linux and macOS, directory `nurt-<version>-<target>/` | `nurt`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `man/`, `completions/`, `doc/` |
+| Program, Windows, files at the top level | `nurt.exe`, `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md`, `completions/`, `doc/` |
+| C library, Linux and macOS, directory `nurt-lib-<version>-<target>/` | `libnurt.so.1` or `libnurt.1.dylib`, `nurt.h`, `nurt.pc`, `LICENSE`, `NOTICE` |
+| C library, Windows, files at the top level | `nurt.dll`, `nurt.h`, `LICENSE`, `NOTICE` |
+
+The C library archives are published for the targets that have a library; the installers `install.sh` and `install.ps1` install the program archive only.
 
 The directory `doc/` holds this documentation as a site that works offline; open `doc/index.html`. The directory `completions/` holds the completion scripts for Bash, Zsh, Fish, PowerShell and Elvish.
 
