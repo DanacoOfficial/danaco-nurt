@@ -41,7 +41,7 @@ use nurt_contracts::envelope::{
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::{AbsPath, Fs};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
-use nurt_contracts::kinds::SyntaxVariant;
+use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
 use nurt_contracts::report::{REPORT_VERSION, RecordsPage, Report, ReportStatus, Timing};
 use nurt_contracts::schema;
 use nurt_contracts::services::Services;
@@ -1394,6 +1394,31 @@ fn kind_of(bound: &BoundDocument) -> (String, bool) {
     (kind, changing)
 }
 
+/// Effect kind of the last effect command of a bound program.
+fn effect_kind_of(bound: &BoundDocument) -> Option<EffectKind> {
+    bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => Some(pipeline),
+            BoundStatement::Let(binding) => Some(&binding.value),
+            _ => None,
+        })
+        .filter_map(|pipeline| {
+            let head = match &pipeline.head {
+                BoundHead::Stage(stage) => Some(stage),
+                _ => None,
+            };
+            head.into_iter()
+                .chain(&pipeline.stages)
+                .rev()
+                .find(|stage| stage.phase.is_effect())
+                .map(|stage| stage.effect)
+        })
+        .last()
+}
+
 /// Inputs of one program execution.
 struct Run<'a> {
     compiled: &'a Compiled,
@@ -1475,6 +1500,9 @@ fn report_of(
     } else {
         ReportBuilder::reading(ctx, program.kind.clone(), status)
     };
+    if let Some(effect) = effect_kind_of(&compiled.bound) {
+        builder = builder.effect(effect);
+    }
     if !compiled.corrections.is_empty() {
         builder = builder.corrections(compiled.corrections.clone());
         if let Some(ran) = &compiled.ran {
@@ -1891,5 +1919,20 @@ mod tests {
             kind_of(&nurt_testkit::fixtures::empty_program()),
             (PROGRAM_KIND.to_owned(), false)
         );
+    }
+
+    #[test]
+    fn the_effect_kind_is_the_one_of_the_effect_command() {
+        let bound: BoundDocument = serde_json::from_value(json!({
+            "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+            "program": {"statements": [{
+                "t": "pipeline",
+                "head": {"t": "stage", "name": "find", "effect": "read", "phase": "source", "args": []},
+                "stages": [{"t": "stage", "name": "run", "effect": "process", "phase": "run", "args": []}]
+            }]}
+        }))
+        .unwrap();
+        assert_eq!(effect_kind_of(&bound), Some(EffectKind::Process));
+        assert_eq!(effect_kind_of(&nurt_testkit::fixtures::empty_program()), None);
     }
 }
