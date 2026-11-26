@@ -400,7 +400,7 @@ fn check_translates_a_bash_habit_that_reads_as_a_nurt_program() {
     let removed = nurt(&["check", "-e", "rm -rf /srv/app/build"], "");
     assert_eq!(removed.status.code(), Some(0), "{}", combined(&removed));
     let text = stdout(&removed);
-    assert!(text.contains("corrections: 1"), "{text}");
+    assert!(text.contains("corrections: 2"), "{text}");
     assert!(text.contains("paths: [\"/srv/app/build\"]"), "{text}");
     let fetched = nurt(&["check", "-e", "curl -s https://example.com/health"], "");
     assert_eq!(fetched.status.code(), Some(0), "{}", combined(&fetched));

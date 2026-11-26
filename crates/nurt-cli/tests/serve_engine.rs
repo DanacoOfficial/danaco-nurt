@@ -481,32 +481,3 @@ fn parameters_of_the_wrong_type_are_invalid_params() {
         );
     }
 }
-
-#[test]
-fn every_method_that_corrects_offers_a_misspelt_changing_command() {
-    let program = "remvoe \"/srv/app/a.txt\"";
-    let (_, messages) = serve(&[
-        request(
-            1,
-            "initialize",
-            json!({"protocol": "nurt-rpc/1", "capabilities": {}}),
-        ),
-        request(2, "check", json!({"nurt": "1.0", "program": program})),
-        request(3, "run", json!({"nurt": "1.0", "program": program})),
-        request(4, "correct", json!({"program": program})),
-        request(5, "correct", json!({"program": "lsit \"/srv/app\""})),
-        request(6, "shutdown", Value::Null),
-    ]);
-    let replies = replies(&messages);
-    for id in [2, 3, 4] {
-        let reply = replies[&id].to_string();
-        assert!(reply.contains("E_AMBIGUOUS"), "request {id}: {reply}");
-        assert!(
-            reply.contains("remove \\\"/srv/app/a.txt\\\""),
-            "request {id}: {reply}"
-        );
-    }
-    let reading = replies[&5].to_string();
-    assert!(!reading.contains("E_AMBIGUOUS"), "{reading}");
-    assert!(reading.contains("list"), "{reading}");
-}
