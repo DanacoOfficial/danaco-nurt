@@ -41,8 +41,8 @@ use nurt_contracts::envelope::{
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::{AbsPath, Fs};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
-use nurt_contracts::kinds::SyntaxVariant;
-use nurt_contracts::report::{REPORT_VERSION, RecordsPage, Report, ReportStatus, Timing};
+use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
+use nurt_contracts::report::{Notable, REPORT_VERSION, RecordsPage, Report, ReportStatus, Timing};
 use nurt_contracts::schema;
 use nurt_contracts::services::Services;
 use nurt_contracts::stage::{
@@ -1407,6 +1407,36 @@ fn kind_of(bound: &BoundDocument) -> (String, bool) {
     (kind, changing)
 }
 
+/// Whether the last effect command of a bound program runs a user program,
+/// which has no file targets to match.
+fn runs_program(bound: &BoundDocument) -> bool {
+    let pipelines = bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => Some(pipeline),
+            BoundStatement::Let(binding) => Some(&binding.value),
+            _ => None,
+        });
+    let mut process = false;
+    for pipeline in pipelines {
+        let head = match &pipeline.head {
+            BoundHead::Stage(stage) => Some(stage),
+            _ => None,
+        };
+        if let Some(stage) = head
+            .into_iter()
+            .chain(&pipeline.stages)
+            .rev()
+            .find(|stage| stage.phase.is_effect())
+        {
+            process = stage.effect == EffectKind::Process;
+        }
+    }
+    process
+}
+
 /// Inputs of one program execution.
 struct Run<'a> {
     compiled: &'a Compiled,
@@ -1507,12 +1537,18 @@ fn report_of(
     if let Some(timing) = timing {
         builder = builder.timing(timing);
     }
-    builder.build().map_err(|violation| {
+    let mut report = builder.build().map_err(|violation| {
         Error::new(
             ErrorCode::Internal,
             format!("the report of the program breaks a rule of the format: {violation}"),
         )
-    })
+    })?;
+    if runs_program(&compiled.bound) {
+        report
+            .notable
+            .retain(|entry| entry.code != Notable::NothingMatched);
+    }
+    Ok(report)
 }
 
 fn add_operation<'c>(
@@ -1991,5 +2027,24 @@ mod tests {
             kind_of(&nurt_testkit::fixtures::empty_program()),
             (PROGRAM_KIND.to_owned(), false)
         );
+    }
+
+    fn program_with_effect(command: &str, effect: &str) -> BoundDocument {
+        serde_json::from_value(json!({
+            "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+            "program": {"statements": [{
+                "t": "pipeline",
+                "head": {"t": "stage", "name": command, "effect": effect, "phase": "mutate", "args": []},
+                "stages": []
+            }]}
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn only_a_program_that_runs_a_program_has_no_targets_to_match() {
+        assert!(runs_program(&program_with_effect("run", "process")));
+        assert!(!runs_program(&program_with_effect("remove", "local")));
+        assert!(!runs_program(&nurt_testkit::fixtures::empty_program()));
     }
 }
