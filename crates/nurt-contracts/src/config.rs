@@ -1685,6 +1685,9 @@ pub struct OutputConfig {
     /// Key `output.tail`: last lines of program output shown in a response.
     /// Default `40`.
     pub tail: u32,
+    /// Key `output.max_bytes`: bytes of text of one program output stream
+    /// shown in a response; `0` is no limit. Default `4096`.
+    pub max_bytes: u32,
     /// Key `output.spool_ttl`: lifetime of files with complete program output.
     /// Default `1h`.
     pub spool_ttl: DurationSetting,
@@ -1701,6 +1704,7 @@ impl Default for OutputConfig {
             color: ColorMode::Auto,
             head: 20,
             tail: 40,
+            max_bytes: 4096,
             spool_ttl: DurationSetting::from_secs(3600),
             results_dir: None,
         }

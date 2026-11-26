@@ -1,11 +1,19 @@
 [
   {
-    "name": "failed build shows error lines with two lines of context",
+    "name": "failed run of a known tool keeps the last ten lines, its errors are in the diagnostics",
     "input": "build_failure.txt",
     "exit_code": 101,
     "view": {},
-    "stdout": "   Compiling serde v1.0.190\n   Compiling util v0.1.0 (/src/util)\nwarning: unused variable: `x`\n  --> util/src/lib.rs:4:9\n   |\n--\n   Compiling db v0.1.0 (/src/db)\n   Compiling ui v0.1.0 (/src/ui)\nerror[E0425]: cannot find value `y` in this scope\n  --> app/src/main.rs:7:13\n   |\n7  |     let z = y + 1;\n   |             ^ not found in this scope\n\nFor more information about this error, try `rustc --explain E0425`.\nerror: could not compile `app` (bin \"app\") due to 1 previous error",
-    "shown": [15, 0, 0, 10]
+    "stdout": "   Compiling db v0.1.0 (/src/db)\n   Compiling ui v0.1.0 (/src/ui)\nerror[E0425]: cannot find value `y` in this scope\n  --> app/src/main.rs:7:13\n   |\n7  |     let z = y + 1;\n   |             ^ not found in this scope\n\nFor more information about this error, try `rustc --explain E0425`.\nerror: could not compile `app` (bin \"app\") due to 1 previous error",
+    "shown": [0, 10, 15, 0]
+  },
+  {
+    "name": "failed run of an unknown tool shows error lines with two lines of context",
+    "input": "unknown_failure.txt",
+    "exit_code": 2,
+    "view": {},
+    "stdout": "task 5: ok\ntask 6: ok\ntask 7: failed with status 2\ntask 8: ok\ntask 9: ok\n--\ntask 21: ok\ntask 22: ok\nbuild finished with errors",
+    "shown": [8, 0, 0, 16]
   },
   {
     "name": "successful build shows head and tail",

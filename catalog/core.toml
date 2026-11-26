@@ -1690,6 +1690,12 @@ default = "40"
 summary = "Number of last output lines returned."
 
 [[command.param]]
+name = "max_bytes"
+type = "int"
+default = "4096"
+summary = "Bytes of output text returned in all streams together; 0 is no limit."
+
+[[command.param]]
 name = "filter"
 type = "regex"
 summary = "Return only output lines that match."
@@ -1703,8 +1709,8 @@ summary = "Lines of context around lines matching filter."
 [[command.param]]
 name = "dedupe"
 type = "bool"
-default = "false"
-summary = "Collapse repeated identical output lines."
+default = "true"
+summary = "Collapse repeated output lines, also lines that differ only in numbers."
 
 [[command.param]]
 name = "quiet_on_success"

@@ -4985,6 +4985,31 @@
             "null"
           ],
           "description": "Job identifier when the run continued in the background."
+        },
+        "diagnostics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecDiagnostics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Errors and warnings of a recognised tool."
+        },
+        "digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "One line about a successful run: exit code, time, lines and bytes."
+        },
+        "read_hint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Sentence with the commands that read what the response leaves out\nfrom the output file."
         }
       },
       "required": [
@@ -5298,6 +5323,100 @@
         "elapsed"
       ],
       "description": "One batch of a run over a record stream."
+    },
+    "ExecDiagnostics": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string",
+          "description": "Tool whose format was recognised: `cargo`, `pytest`, `tsc`, `gcc`\n(gcc or clang) or `go`."
+        },
+        "errors": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Number of errors in the output."
+        },
+        "warnings": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Number of warnings in the output."
+        },
+        "first": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecDiagnostic"
+          },
+          "description": "The first distinct errors, at most 10."
+        }
+      },
+      "required": [
+        "tool",
+        "errors",
+        "warnings",
+        "first"
+      ],
+      "description": "Errors and warnings found in the output of a known tool."
+    },
+    "ExecDiagnostic": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "File named by the tool."
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Line, from 1."
+        },
+        "col": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Column, from 1."
+        },
+        "code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Code of the error, for example `E0308` or `TS2322`."
+        },
+        "message": {
+          "type": "string",
+          "description": "Message."
+        },
+        "severity": {
+          "$ref": "#/$defs/DiagnosticSeverity",
+          "description": "Severity."
+        },
+        "count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Places the same error was reported at, when more than one."
+        }
+      },
+      "required": [
+        "message",
+        "severity"
+      ],
+      "description": "Error found in the output of a known tool; every field is one line."
     },
     "Job": {
       "type": "object",

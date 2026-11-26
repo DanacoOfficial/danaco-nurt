@@ -365,7 +365,17 @@ fn removes_terminal_sequences_and_shortens_long_lines() {
     let out = store.render(&view(), Some(0)).unwrap();
     let mut lines = out.stdout.lines();
     assert_eq!(lines.next(), Some("ok"));
-    assert_eq!(lines.next().map(str::len), Some(64 * 1024));
+    assert_eq!(
+        lines.next(),
+        Some(
+            format!(
+                "{}\u{2026} [+{} znak\u{f3}w]",
+                "a".repeat(400),
+                64 * 1024 - 400
+            )
+            .as_str()
+        )
+    );
     let note = out
         .notes
         .iter()
