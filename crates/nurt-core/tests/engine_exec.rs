@@ -12,7 +12,8 @@ mod support;
 
 use std::sync::{Arc, Mutex};
 
-use nurt_contracts::envelope::Request;
+use nurt_contracts::bound::BoundDocument;
+use nurt_contracts::envelope::{Request, RequestOptions};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::record::ChangeAction;
 use nurt_contracts::report::ReportStatus;
@@ -23,9 +24,10 @@ use nurt_core::{Engine, EngineConfig};
 use nurt_testkit::clock::VirtualClock;
 use nurt_testkit::host::TestHost;
 use nurt_testkit::vfs::{VirtualFs, test_path};
+use serde_json::json;
 use support::{
-    FILES, Find, PROGRAM_HASH, Programs, Remove, exists, find_stage, program, remove_stage, run,
-    world,
+    FILES, Find, PROGRAM_HASH, Programs, Remove, count_stage, exists, filter_stage, find_stage,
+    program, remove_stage, run, world, world_with,
 };
 
 #[derive(Default)]
@@ -51,6 +53,56 @@ fn counting_filtered_entries_returns_the_count() {
     assert!(report.changes.is_empty());
     assert!(report.timing.is_some());
     assert!(exists(&world, "/data/a.log"));
+}
+
+#[test]
+fn script_with_two_pipelines_reports_each_pipeline_with_its_own_kind() {
+    const SCRIPT: &str = "find /data |> count\nfind /data |> filter size > 150 |> remove";
+    let bound: BoundDocument = serde_json::from_value(json!({
+        "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+        "program": {"statements": [
+            {"t": "pipeline", "head": find_stage(), "stages": [count_stage()]},
+            {"t": "pipeline", "head": find_stage(), "stages": [filter_stage(), remove_stage()]}
+        ]}
+    }))
+    .unwrap();
+    let world = world_with(Programs::default().with(SCRIPT, bound));
+    let options = RequestOptions {
+        script: Some(true),
+        ..RequestOptions::default()
+    };
+    let response = world
+        .engine
+        .run(&Request::program(SCRIPT).with_options(options));
+    response.validate().unwrap();
+    assert_eq!(response.report.status, ReportStatus::Ok, "{:?}", response.report.error);
+    assert!(
+        response.report.records.is_none(),
+        "the records belong to the report of their own pipeline"
+    );
+    assert_eq!(response.reports.len(), 2);
+
+    let counted = &response.reports[0];
+    assert_eq!(counted.kind, "find");
+    let page = counted.records.as_ref().unwrap();
+    assert_eq!(page.rows.len(), 1);
+    assert_eq!(page.rows[0].get("value"), Some(&Value::from(3_u64)));
+    assert!(counted.changes.is_empty());
+
+    let removed = &response.reports[1];
+    assert_eq!(removed.kind, "remove");
+    assert_eq!(removed.changes.len(), 2);
+    assert!(removed.records.is_none());
+    assert!(!exists(&world, "/data/b.log"));
+    assert!(!exists(&world, "/data/c.log"));
+    assert!(exists(&world, "/data/a.log"));
+}
+
+#[test]
+fn program_with_one_pipeline_has_no_pipeline_reports() {
+    let world = world();
+    let response = run(&world, "find /data", false);
+    assert!(response.reports.is_empty());
 }
 
 #[test]
