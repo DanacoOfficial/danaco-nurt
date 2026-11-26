@@ -186,3 +186,67 @@ fn progress_note(value: &Value) -> Option<String> {
     }
     (!parts.is_empty()).then(|| parts.join(" "))
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn begin(token: Value) -> Value {
+        json!({"token": token, "value": {"kind": "begin", "title": "Za\u{17c}\u{f3}\u{142}\u{107}", "percentage": 5}})
+    }
+
+    #[test]
+    fn numeric_tokens_are_tracked_and_ended_by_the_same_token() {
+        let tracker = ProgressTracker::new();
+        tracker.on_progress(&begin(json!(7)));
+        assert!(tracker.busy());
+        tracker.on_progress(&json!({"token": 7, "value": {"kind": "end"}}));
+        assert!(!tracker.busy());
+        assert_eq!(tracker.loads(), 1);
+    }
+
+    #[test]
+    fn the_latest_note_joins_title_message_and_percentage() {
+        let tracker = ProgressTracker::new();
+        assert_eq!(tracker.last_note(), None);
+        tracker.on_progress(&begin(json!("t")));
+        tracker.on_progress(&json!({"token": "t", "value": {"kind": "report", "message": "50 files", "percentage": 50}}));
+        assert_eq!(tracker.last_note().as_deref(), Some("50 files 50%"));
+        tracker.on_progress(&json!({"token": "t", "value": {"kind": "report"}}));
+        assert_eq!(tracker.last_note().as_deref(), Some("50 files 50%"));
+    }
+
+    #[test]
+    fn server_status_without_a_flag_counts_as_quiescent() {
+        let tracker = ProgressTracker::new();
+        tracker.on_server_status(&json!({"quiescent": false}));
+        assert!(tracker.busy());
+        assert_eq!(tracker.loads(), 1);
+        tracker.on_server_status(&json!({}));
+        assert!(!tracker.busy());
+        assert_eq!(tracker.loads(), 1);
+    }
+
+    #[test]
+    fn closing_ends_the_work_and_the_waits() {
+        let tracker = ProgressTracker::new();
+        tracker.on_progress(&begin(json!("t")));
+        tracker.close();
+        assert!(!tracker.busy());
+        assert!(tracker.wait_settled(Duration::ZERO, &CancelToken::new()));
+    }
+
+    #[test]
+    fn wait_settled_fails_at_the_limit_and_on_cancellation() {
+        let tracker = ProgressTracker::new();
+        tracker.on_progress(&begin(json!("t")));
+        assert!(!tracker.wait_settled(Duration::ZERO, &CancelToken::new()));
+        let cancel = CancelToken::new();
+        cancel.cancel(nurt_contracts::stage::CancelReason::Requested);
+        assert!(!tracker.wait_settled(Duration::MAX, &cancel));
+        tracker.on_progress(&json!({"token": "t", "value": {"kind": "end"}}));
+        assert!(tracker.wait_settled(Duration::ZERO, &CancelToken::new()));
+    }
+}
