@@ -102,7 +102,7 @@ fn detach(args: &[String]) -> Option<ExitCode> {
 /// child inherits every inheritable handle, so the pipe of the run would stay
 /// open in it even with its own standard handles replaced.
 #[cfg(windows)]
-#[allow(unsafe_code)]
+#[allow(unsafe_code)] // Win32 handle calls have no safe wrapper
 fn release_inherited_output() {
     use windows_sys::Win32::Foundation::{HANDLE_FLAG_INHERIT, SetHandleInformation};
     use windows_sys::Win32::System::Console::{

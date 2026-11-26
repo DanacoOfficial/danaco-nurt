@@ -28,8 +28,8 @@ const GENERATED_COMMENTS: &[&str] = &[
     "# ]",
 ];
 
-/// Words of the license header of the files of the repository, which no
-/// script of this file contains.
+/// Words of the license header of the files of the repository; none of the
+/// scripts of this file contains them.
 const FOREIGN_WORDS: &[&str] = &[
     "Copyright",
     "Danaco",
