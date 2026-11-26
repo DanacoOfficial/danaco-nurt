@@ -409,6 +409,34 @@ fn write_requests_are_planned_and_messages_reach_the_event_stream() {
 }
 
 #[test]
+fn the_bytes_a_guest_plans_to_write_are_limited() {
+    let host = WasmHost::new().unwrap();
+    let worker = host.compile("acme", worker_component().as_bytes()).unwrap();
+    let context = context();
+    let policy = worker_policy(true);
+    let call = GuestCall {
+        command: "acme.put",
+        args: "{}".to_owned(),
+        input: Vec::new(),
+        policy: &policy,
+        writes: true,
+    };
+    let limits = nurt_contracts::stage::Limits {
+        max_file_bytes_text: 2,
+        ..nurt_contracts::stage::Limits::default()
+    };
+    let error = worker
+        .run(call, &context.builder().limits(limits).build())
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::StageFailed);
+    assert!(
+        error.message.contains("limits.max_file_bytes_text"),
+        "{}",
+        error.message
+    );
+}
+
+#[test]
 fn writes_are_refused_without_the_declaration_or_the_grant() {
     let (undeclared, _) = run_worker(false, true);
     let error = undeclared.unwrap_err();
