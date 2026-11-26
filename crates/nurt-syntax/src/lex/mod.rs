@@ -475,7 +475,13 @@ impl<'a> Lexer<'a> {
         let starts_regex = match context {
             LexContext::Value => true,
             LexContext::Operator => {
-                self.options.arguments_by_whitespace && space_before && !self.space_at(start + 1)
+                self.options.arguments_by_whitespace
+                    && space_before
+                    && self
+                        .text
+                        .get(start + 1..)
+                        .and_then(|rest| rest.chars().next())
+                        .is_some_and(|next| !foreign::is_space(next))
             }
         };
         if !starts_regex {

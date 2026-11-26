@@ -48,6 +48,23 @@ fn reads_a_regular_expression_argument_after_whitespace() {
 }
 
 #[test]
+fn reads_a_regular_expression_argument_that_starts_with_a_hash() {
+    let token = after_operand("x /#include/", VARIANT_A);
+    assert_eq!((token.kind, token.range), (TokenKind::Regex, 2..12));
+    let token = after_operand("x /#re/ix", VARIANT_A);
+    assert_eq!((token.kind, token.range), (TokenKind::Regex, 2..9));
+}
+
+#[test]
+fn reads_division_when_a_hash_follows_a_slash_without_leading_whitespace() {
+    for (text, options) in [("x/#note", VARIANT_A), ("x /#re/", VARIANT_B)] {
+        let token = after_operand(text, options);
+        assert_eq!(token.kind, TokenKind::Slash, "{text}");
+        assert_eq!(token.range.len(), 1, "{text}");
+    }
+}
+
+#[test]
 fn always_reads_division_in_operator_context_of_variant_b() {
     let token = after_operand("x /re/", VARIANT_B);
     assert_eq!((token.kind, token.range), (TokenKind::Slash, 2..3));

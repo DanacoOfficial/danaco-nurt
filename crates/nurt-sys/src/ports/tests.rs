@@ -392,6 +392,30 @@ mod procnet_tree {
         assert_eq!(ssh.pid, None, "no descriptor links to inode 777");
         assert_eq!(ssh.local, "[::]:22");
     }
+
+    #[test]
+    fn ports_process_name_that_is_not_utf8_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let listener: SocketAddr = "0.0.0.0:8080".parse().unwrap();
+        write(
+            root,
+            "/proc/net/tcp",
+            format!("{HEADER}{}", row(0, listener, any4(), 0x0A, 555)),
+        );
+        std::fs::create_dir_all(root.join("proc/31/fd")).unwrap();
+        std::fs::write(root.join("proc/31/comm"), b"ng\xFFinx\n".as_slice()).unwrap();
+        std::os::unix::fs::symlink("socket:[555]", root.join("proc/31/fd/3")).unwrap();
+        let stage = Ports::with_source(Arc::new(ProcNet::new(SysRoot::new(root))));
+        let records: Vec<Port> = run(&stage, &BoundArgs::new(COMMAND), &ctx())
+            .unwrap()
+            .into_iter()
+            .map(|record| Port::try_from(record).unwrap())
+            .collect();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].pid, Some(31));
+        assert_eq!(records[0].process.as_deref(), Some("ng\u{FFFD}inx"));
+    }
 }
 
 #[test]
