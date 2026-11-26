@@ -86,23 +86,19 @@ kind = "remove"
 summary = { files_deleted = 2 }
 
 [[case]]
-id = "correction/targets/l01-typo-removes-the-named-file"
+id = "correction/targets/l01-typo-of-a-changing-command-changes-nothing"
 kind = "correction"
-summary = "A corrected command name changes only the named target."
+summary = "A misspelt name of a changing command is offered, not applied: no target changes."
 program = 'remvoe "${base}/old.log"'
 fs_before = { entries = [
   { path = "old.log", type = "file", content_utf8 = "x\n" },
   { path = "new.log", type = "file", content_utf8 = "y\n" },
 ] }
-fs_after = { entries = [
-  { path = "new.log", type = "file", content_utf8 = "y\n" },
-] }
+fs_after = "unchanged"
 
 [case.expect.report]
-status = "ok"
-kind = "remove"
-ran = 'remove "${base}/old.log"'
-corrections = [{ rule = "L01", class = "F", from = "remvoe", to = "remove" }]
+status = "failed"
+error = { code = "E_AMBIGUOUS" }
 
 [[case]]
 id = "correction/targets/b19-echo-overwrites"

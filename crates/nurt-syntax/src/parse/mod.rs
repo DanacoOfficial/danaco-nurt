@@ -34,7 +34,10 @@ use nurt_contracts::ast::{
 };
 
 use crate::error::SyntaxError;
-use crate::lex::{Checkpoint, Glued, LexContext, LexOptions, Lexer, Token, TokenKind};
+use crate::lex::{
+    Checkpoint, Glued, LexContext, LexError, LexOptions, Lexer, Token, TokenKind, decode_text,
+    decode_text_keeping_unknown_escapes,
+};
 
 pub use nurt_contracts::kinds::SyntaxVariant as Variant;
 pub use repair::{AppliedRepair, Failure, NoRepair, Repair, RepairPolicy, Repaired};
@@ -105,6 +108,40 @@ pub fn parse(
     options: &ParseOptions,
 ) -> Result<AstDocument, SyntaxError> {
     let mut parser = Parser::new(text, variant, options, false)?;
+    let program = parse_variant(&mut parser)?;
+    Ok(parser.document(program, options))
+}
+
+/// Parses program text like [`parse`], except that a text with escapes the
+/// language does not have (`"\d+"`, `"C:\temp\q"`) is a text whose value keeps
+/// the characters of those escapes.
+///
+/// The caller decides what such a text means, for example a regular
+/// expression or a path; a tree that holds one is not a valid program as it
+/// stands. An invalid `\u` escape is still an error.
+///
+/// # Errors
+///
+/// As [`parse`], without `E_ESCAPE` for an unknown escape.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_syntax::parse::{ParseOptions, Variant, parse, parse_keeping_escapes};
+/// use nurt_syntax::print::print;
+///
+/// let text = r#"search "\d+" "/srv""#;
+/// assert!(parse(text, Variant::A, &ParseOptions::default()).is_err());
+/// let document = parse_keeping_escapes(text, Variant::A, &ParseOptions::default())?;
+/// assert_eq!(print(&document, Variant::A).trim_end(), r#"search r"\d+" "/srv""#);
+/// # Ok::<(), nurt_syntax::error::SyntaxError>(())
+/// ```
+pub fn parse_keeping_escapes(
+    text: &str,
+    variant: Variant,
+    options: &ParseOptions,
+) -> Result<AstDocument, SyntaxError> {
+    let mut parser = Parser::with_escapes(text, variant, options, false, true)?;
     let program = parse_variant(&mut parser)?;
     Ok(parser.document(program, options))
 }
@@ -207,6 +244,9 @@ pub(crate) struct Parser<'a> {
     statement: usize,
     brackets: Vec<Token>,
     trace: Option<Vec<Token>>,
+    /// Whether a text with escapes that the language does not have keeps
+    /// their characters instead of being an `E_ESCAPE` error.
+    keep_escapes: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -218,12 +258,27 @@ impl<'a> Parser<'a> {
         options: &ParseOptions,
         tolerant: bool,
     ) -> Result<Self, SyntaxError> {
+        Self::with_escapes(text, variant, options, tolerant, false)
+    }
+
+    /// Like [`Parser::new`]; `keep_escapes` makes the lexer keep the
+    /// characters of the escapes that the language does not have.
+    pub(crate) fn with_escapes(
+        text: &'a str,
+        variant: Variant,
+        options: &ParseOptions,
+        tolerant: bool,
+        keep_escapes: bool,
+    ) -> Result<Self, SyntaxError> {
         let lex_options = LexOptions {
             arguments_by_whitespace: variant != Variant::B,
             tolerant,
             keep_comments: options.keep_comments,
         };
         let mut lexer = Lexer::new(text, lex_options);
+        if keep_escapes {
+            lexer = lexer.keeping_unknown_escapes();
+        }
         let current = lexer.next(LexContext::Value)?;
         Ok(Self {
             text,
@@ -236,7 +291,17 @@ impl<'a> Parser<'a> {
             statement: 0,
             brackets: Vec::new(),
             trace: tolerant.then(Vec::new),
+            keep_escapes,
         })
+    }
+
+    /// Decodes the source of a text literal token.
+    pub(crate) fn decode_text(&self, source: &str) -> Result<Expr, LexError> {
+        if self.keep_escapes {
+            decode_text_keeping_unknown_escapes(source)
+        } else {
+            decode_text(source)
+        }
     }
 
     /// The program text.

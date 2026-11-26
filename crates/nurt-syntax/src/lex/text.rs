@@ -104,10 +104,22 @@ fn scan_body(text: &str, start: usize, mut on_bad: impl FnMut(BadEscape)) -> Opt
     }
 }
 
-/// Scans a text literal `"…"` at `start`.
-pub(crate) fn scan_text(text: &str, start: usize) -> Scanned {
+/// Whether the text literal `literal`, quotes included, has an escape that
+/// the language does not have.
+pub(crate) fn has_unknown_escape(literal: &str) -> bool {
+    let mut found = false;
+    scan_body(literal, 0, |bad| found |= !bad.unicode);
+    found
+}
+
+/// Scans a text literal `"…"` at `start`. With `keep_unknown`, a text whose
+/// only invalid escapes are escapes that the language does not have (`\d`,
+/// `\q`) is a text token: its value keeps the characters of the escape.
+pub(crate) fn scan_text(text: &str, start: usize, keep_unknown: bool) -> Scanned {
     let mut first_bad = None;
+    let mut malformed = false;
     let end = scan_body(text, start, |bad| {
+        malformed |= bad.unicode;
         first_bad.get_or_insert(bad);
     });
     let Some(end) = end else {
@@ -115,6 +127,7 @@ pub(crate) fn scan_text(text: &str, start: usize) -> Scanned {
     };
     match first_bad {
         None => Ok(Lexeme::new(end, TokenKind::Text)),
+        Some(_) if keep_unknown && !malformed => Ok(Lexeme::new(end, TokenKind::Text)),
         Some(bad) => Err(scan::reject_with(
             escape_fault(text, start..end, bad),
             Lexeme::new(end, TokenKind::Text),
@@ -295,10 +308,36 @@ fn not_literal(src: &str, what: &str) -> LexError {
 /// # Ok::<(), nurt_syntax::lex::LexError>(())
 /// ```
 pub fn decode_text(src: &str) -> Result<Expr, LexError> {
+    decode(src, false)
+}
+
+/// Decodes a text literal like [`decode_text`], except that an escape the
+/// language does not have (`\d`) is not an error: the value keeps its
+/// characters.
+///
+/// # Errors
+///
+/// As [`decode_text`], without `E_ESCAPE` for an unknown escape.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_contracts::ast::Expr;
+/// use nurt_syntax::lex::decode_text_keeping_unknown_escapes;
+///
+/// let value = decode_text_keeping_unknown_escapes(r#""\d+\t""#)?;
+/// assert_eq!(value, Expr::Text { v: "\\d+\t".to_owned(), span: None });
+/// # Ok::<(), nurt_syntax::lex::LexError>(())
+/// ```
+pub fn decode_text_keeping_unknown_escapes(src: &str) -> Result<Expr, LexError> {
+    decode(src, true)
+}
+
+fn decode(src: &str, keep_unknown: bool) -> Result<Expr, LexError> {
     if !src.starts_with('"') {
         return Err(not_literal(src, "text"));
     }
-    match scan_text(src, 0) {
+    match scan_text(src, 0, keep_unknown) {
         Ok(lexeme) if lexeme.end == src.len() => {
             let body = src.get(1..src.len() - 1).unwrap_or_default();
             Ok(Expr::Text {

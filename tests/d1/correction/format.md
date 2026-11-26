@@ -28,7 +28,7 @@ The two corpora are defined by the `corpus` member, not by directory. The mistak
 | `context` | object | no | conditions of the case, see below |
 | `expect` | object | yes | expected reaction, see below |
 | `program_kind` | string | yes | `read` or `effect`: kind of the program the author intended |
-| `intent` | string | yes | `unambiguous` or `ambiguous`: whether the intended program can be determined from the text |
+| `intent` | string | yes | `unambiguous` or `ambiguous`: whether the intended program can be determined from the text; a misspelt name of a command that changes the world is `ambiguous`, because it is offered as a candidate and never applied |
 | `corpus` | string | no | `mistake` (default) or `adversarial` |
 | `source` | string | yes | `manual`, `generated`, `example` or `model` |
 | `note` | string | no | one sentence in English |
@@ -76,7 +76,7 @@ Generated cases record how they were built. Runners of the correction pipeline i
 ### Example
 
 ```json
-{"id":"lexical-l01-0001","input":"remvoe \"/srv/app/build/old.log\"","variant":"a","expect":{"canonical":"remove \"/srv/app/build/old.log\"","rules":["L01"],"class":"F"},"program_kind":"effect","intent":"unambiguous","source":"example"}
+{"id":"lexical-l01-0001","input":"remvoe \"/srv/app/build/old.log\"","variant":"a","expect":{"error":"E_AMBIGUOUS","candidates":["remove \"/srv/app/build/old.log\""]},"program_kind":"effect","intent":"ambiguous","source":"example"}
 {"id":"adversarial-tie-0001","input":"lest \"/srv\"","variant":"a","expect":{"error":"E_UNKNOWN_COMMAND"},"program_kind":"read","intent":"ambiguous","corpus":"adversarial","source":"manual","note":"The name is one edit from both list and last."}
 {"id":"bind-t02-0003","input":"find \"/srv/app\" |> filter size > 10M |> remove","variant":"a","expect":{"error":"E_AMBIGUOUS","candidates":["find \"/srv/app\" |> filter size > 10mib |> remove","find \"/srv/app\" |> filter size > 10mb |> remove"]},"program_kind":"effect","intent":"ambiguous","source":"example"}
 ```

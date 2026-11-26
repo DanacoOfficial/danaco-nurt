@@ -18,8 +18,8 @@
 //! 3. `s` and `v*` start with the same character, unless
 //!    [`Options::require_first_char`] is `false`;
 //! 4. a command that changes the world or runs a program is accepted only at
-//!    distance 1, and the caller confirms that the whole corrected program
-//!    binds and type-checks ([`Nearest::Unique::effecting`]).
+//!    distance 1, and the caller does not apply it: the correction is offered
+//!    as a candidate that the caller confirms ([`Nearest::Unique::effecting`]).
 
 use std::collections::HashMap;
 
@@ -381,8 +381,8 @@ pub enum Nearest {
         /// Edit distance after folding.
         distance: usize,
         /// The name is a command that changes the world or runs a program;
-        /// the caller applies the correction only when the whole corrected
-        /// program binds and type-checks.
+        /// the caller does not apply the correction but offers the corrected
+        /// program as a candidate.
         effecting: bool,
     },
     /// The name is an unambiguous prefix of a parameter or a value.

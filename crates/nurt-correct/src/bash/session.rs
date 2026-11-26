@@ -146,8 +146,29 @@ pub(crate) fn translate(
     if context.mode == Mode::Live && !detect::is_habit(table, &tokens) {
         return None;
     }
+    Some(translate_tokens(input, &tokens, context, table))
+}
+
+/// Translates a statement that starts with a habit word and shows no Nurt
+/// notation, whether or not it shows a feature of the shell.
+pub(crate) fn translate_by_word(
+    input: &str,
+    context: &TranslateContext<'_>,
+    table: &BashTable,
+) -> Option<Result<Translation, Error>> {
+    let tokens = lex(input).ok()?;
+    detect::is_habit_by_word(table, &tokens)
+        .then(|| translate_tokens(input, &tokens, context, table))
+}
+
+fn translate_tokens(
+    input: &str,
+    tokens: &[super::lex::PosixToken],
+    context: &TranslateContext<'_>,
+    table: &BashTable,
+) -> Result<Translation, Error> {
     let session = Session::new(table, context, input);
-    let result = match syntax::parse(&tokens) {
+    match syntax::parse(tokens) {
         Ok(script) => session.script(&script),
         Err(error) => Err(session.error(
             ErrorCode::Uncorrectable,
@@ -155,8 +176,7 @@ pub(crate) fn translate(
             error.span,
             &[("reason", error.message)],
         )),
-    };
-    Some(result)
+    }
 }
 
 /// A step of a list: a pipeline with the connector before it.
@@ -629,7 +649,7 @@ impl<'a> Session<'a> {
                     &[("command", &name)],
                 ));
             }
-            None => self.run_program(simple, words, None)?,
+            None => self.run_program_with(simple, words, None, options)?,
         };
         self.apply_run_options(translated, options, simple.span)
     }
@@ -840,6 +860,19 @@ impl<'a> Session<'a> {
         words: &[Located<Word>],
         cwd: Option<String>,
     ) -> Result<Variants, Error> {
+        self.run_program_with(simple, words, cwd, &RunOptions::default())
+    }
+
+    /// Like [`Session::run_program`]; the options of the program (`env`,
+    /// `timeout`, …) are part of the fixes of the missing directory, as they
+    /// are part of the translation that has one.
+    fn run_program_with(
+        &self,
+        simple: &Simple,
+        words: &[Located<Word>],
+        cwd: Option<String>,
+        options: &RunOptions,
+    ) -> Result<Variants, Error> {
         self.reject_glob(words)?;
         let mut items = Vec::new();
         for word in words {
@@ -854,7 +887,7 @@ impl<'a> Session<'a> {
         let command = Expr::List { items, span: None };
         let cwd = cwd.or_else(|| self.cwd.borrow().clone());
         let Some(directory) = cwd else {
-            return Err(self.missing_directory(simple, command, words));
+            return Err(self.missing_directory(simple, command, words, options));
         };
         let stage = Stage {
             name: "run".to_owned(),
@@ -880,7 +913,13 @@ impl<'a> Session<'a> {
         Ok(Variants::one(vec![stage], "exec"))
     }
 
-    fn missing_directory(&self, simple: &Simple, command: Expr, words: &[Located<Word>]) -> Error {
+    fn missing_directory(
+        &self,
+        simple: &Simple,
+        command: Expr,
+        words: &[Located<Word>],
+        options: &RunOptions,
+    ) -> Error {
         let mut error = self.error(
             ErrorCode::Uncorrectable,
             "working_directory",
@@ -888,18 +927,20 @@ impl<'a> Session<'a> {
             &[],
         );
         for candidate in self.directory_candidates(words) {
+            let mut args = vec![
+                positional(command.clone()),
+                named(
+                    "cwd",
+                    Expr::Text {
+                        v: candidate,
+                        span: None,
+                    },
+                ),
+            ];
+            args.extend(self.run_args(options));
             let stage = Stage {
                 name: "run".to_owned(),
-                args: vec![
-                    positional(command.clone()),
-                    named(
-                        "cwd",
-                        Expr::Text {
-                            v: candidate,
-                            span: None,
-                        },
-                    ),
-                ],
+                args,
                 span: None,
             };
             error = error.with_fix(super::tree::print_stage(&stage));

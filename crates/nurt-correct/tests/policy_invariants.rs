@@ -138,29 +138,23 @@ fn accepts_the_expansion_of_a_source_form() {
 }
 
 #[test]
-fn accepts_a_corrected_command_name() {
+fn accepts_a_corrected_name_of_a_reading_command() {
     let tables = load_embedded().unwrap();
     let before = surface(json!([pipeline(&[written(
-        "remvoe",
+        "lsit",
         &[("", text("/srv/a.log"))]
     )])]));
-    let after = bound(json!([pipeline(&[
-        resolved(
-            "find",
-            "read",
-            "source",
-            &[
-                ("path", path("/srv/a.log"), false),
-                ("depth", int(0), false)
-            ]
-        ),
-        resolved("remove", "local", "mutate", &[]),
-    ])]));
+    let after = bound(json!([pipeline(&[resolved(
+        "list",
+        "read",
+        "source",
+        &[("path", path("/srv/a.log"), false)]
+    )])]));
     let corrections = [Correction::new(
         RuleId::L01,
         Class::Fuzzy,
-        "remvoe",
-        "remove",
+        "lsit",
+        "list",
         CorrectionKind::Command,
     )];
     assert_eq!(check(&before, &after, &corrections, None, &tables), Ok(()));

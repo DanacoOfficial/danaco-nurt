@@ -12,13 +12,15 @@
 //! input records. With correction, a literal that does not have the form of
 //! its place is corrected by the type rules before it is reported.
 
-use nurt_contracts::ast::{Expr, KeySeg, MapEntry, Pipeline, Span, UnOp};
+use nurt_contracts::ast::{BinOp, Expr, KeySeg, MapEntry, Pipeline, Span, UnOp};
 use nurt_contracts::bound::{BoundExpr, BoundMapEntry};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::keypath::KeyPath;
 use nurt_contracts::spec::{ParamType, ScalarType};
+use nurt_correct::lexical::paths::LiteralFix;
 
 use crate::binder::{Binder, unsupported};
+use crate::correct::{Applied, Change, PathReading, quoted};
 use crate::error::BindError;
 use crate::literal::{duration_ms, instant, is_percent, size_bytes};
 use crate::path::{PathHost, PathProblem, resolve};
@@ -108,6 +110,11 @@ impl Binder<'_> {
         match expr {
             Expr::Ref(reference) => return Ok(BoundExpr::Ref(self.reference(reference)?)),
             Expr::Null { .. } => return Ok(BoundExpr::Null),
+            Expr::Text { span, .. } => match self.escape_reading(*span, ty) {
+                Ok(Some(fix)) => return self.escaped(fix, *span, place),
+                Ok(None) => {}
+                Err(error) => return Err(Cast::Failed(error)),
+            },
             _ => {}
         }
         if place.per_record && is_record_expression(expr) {
@@ -230,23 +237,77 @@ impl Binder<'_> {
     }
 
     fn path(&mut self, expr: &Expr, place: Place<'_>) -> CastResult {
-        let (written, span, from_regex) = match expr {
-            Expr::Text { v, span } => (v.clone(), *span, false),
+        let (written, span, reading) = match expr {
+            Expr::Text { v, span } => (v.clone(), *span, PathReading::Text),
             Expr::Regex { v, flags, span } => match self.regex_as_path(v, flags) {
-                Some(written) => (written, *span, true),
+                Some(written) => (written, *span, PathReading::Regex),
                 None => return Err(Cast::Mismatch),
             },
             _ => return Err(Cast::Mismatch),
         };
+        self.path_text(&written, span, reading, place)
+    }
+
+    /// Resolves a path written as `written` and records its corrections.
+    fn path_text(
+        &mut self,
+        written: &str,
+        span: Option<Span>,
+        reading: PathReading,
+        place: Place<'_>,
+    ) -> CastResult {
         let host = PathHost {
             os: self.context.host_os,
             base: self.context.base.as_deref(),
             home: self.context.home.as_deref(),
         };
-        let path = resolve(&written, host)
-            .map_err(|problem| Cast::Failed(path_error(&written, problem, span, place)))?;
-        self.record_path(&written, &path, span, from_regex);
+        let path = resolve(written, host)
+            .map_err(|problem| Cast::Failed(path_error(written, problem, span, place)))?;
+        self.record_path(written, &path, span, reading);
         Ok(BoundExpr::Path { v: path })
+    }
+
+    /// Binds a text with escapes that its place reads as written (`L24`):
+    /// a regular expression, or a Windows path whose backslashes separate.
+    /// Its correction comes before the corrections of the path.
+    fn escaped(&mut self, fix: LiteralFix, span: Option<Span>, place: Place<'_>) -> CastResult {
+        match &fix.value {
+            Expr::Regex { v, flags, .. } => {
+                let mut applied = Applied::new(
+                    fix.correction.clone(),
+                    span,
+                    Change::Expr(fix.value.clone()),
+                );
+                applied.correction.alternatives = vec![quoted(v)];
+                applied.alternatives = vec![Expr::Text {
+                    v: v.clone(),
+                    span: None,
+                }];
+                self.applied.push(applied);
+                Ok(BoundExpr::Regex {
+                    v: v.clone(),
+                    flags: flags.clone(),
+                })
+            }
+            Expr::Text { v, .. } => {
+                let mark = self.applied.len();
+                let bound = self.path_text(v, span, PathReading::Escapes, place)?;
+                if let BoundExpr::Path { v: resolved } = &bound {
+                    let mut applied = Applied::new(
+                        fix.correction.clone(),
+                        span,
+                        Change::Expr(Expr::Text {
+                            v: resolved.clone(),
+                            span: None,
+                        }),
+                    );
+                    applied.reading = Some(v.clone());
+                    self.applied.insert(mark, applied);
+                }
+                Ok(bound)
+            }
+            _ => Err(Cast::Mismatch),
+        }
     }
 
     fn instant(&mut self, expr: &Expr) -> CastResult {
@@ -397,7 +458,7 @@ impl Binder<'_> {
             Expr::Bin { op, l, r, .. } => Ok(BoundExpr::Bin {
                 op: *op,
                 l: Box::new(self.expression(l)?),
-                r: Box::new(self.expression(r)?),
+                r: Box::new(self.right_operand(*op, r)?),
             }),
             Expr::Sub { span, .. } => Err(BindError::new(
                 ErrorCode::Type,
@@ -406,6 +467,27 @@ impl Binder<'_> {
             .at(*span)),
             _ => Err(unsupported("expression")),
         }
+    }
+
+    /// Binds the right operand of an operator; the text with escapes that
+    /// follows `~` or `!~` is a regular expression (`L24`).
+    fn right_operand(&mut self, op: BinOp, expr: &Expr) -> Result<BoundExpr, BindError> {
+        if let (BinOp::Match | BinOp::NotMatch, Expr::Text { span, .. }) = (op, expr) {
+            let regex = ParamType::Scalar(ScalarType::Regex);
+            if let Some(fix) = self.escape_reading(*span, &regex)? {
+                let place = Place {
+                    command: "",
+                    param: "",
+                    per_record: true,
+                };
+                return match self.escaped(fix, *span, place) {
+                    Ok(bound) => Ok(bound),
+                    Err(Cast::Failed(error)) => Err(error),
+                    Err(Cast::Mismatch) => Err(unsupported("expression")),
+                };
+            }
+        }
+        self.expression(expr)
     }
 
     fn expression_map(&mut self, entries: &[MapEntry]) -> Result<BoundExpr, BindError> {

@@ -7,7 +7,11 @@
 //! that yields a tree:
 //!
 //! 1. Strict parse of the text as written. A program that parses strictly
-//!    gets no correction.
+//!    gets no correction, unless a statement of it is a habit of another
+//!    shell: its first word is a habit word that is not a Nurt command and
+//!    it shows notation that exists only in that shell (`rm -rf /srv/x`,
+//!    `curl -s https://example.com`). Such a program continues with step 3,
+//!    because the strict parser reads the flags and the URL as expressions.
 //! 2. Character normalization: Unicode spaces and zero-width characters
 //!    outside literals (`L17`).
 //! 3. Habits of other shells: a statement that does not parse strictly and
@@ -36,17 +40,20 @@ use nurt_contracts::ast::{AstDocument, Expr, Head, Span, Statement};
 use nurt_contracts::config::{CorrectionConfig, SyntaxConfig};
 use nurt_contracts::error::{At, Candidate, Error, ErrorCode, Stage};
 use nurt_contracts::report::TextPosition;
-use nurt_syntax::parse::{ParseOptions, Repaired, Variant, parse, parse_tolerant};
+use nurt_syntax::parse::{
+    ParseOptions, Repaired, Variant, parse, parse_keeping_escapes, parse_tolerant,
+};
 use nurt_syntax::print::try_print;
 
-use super::CatalogView;
 use super::locate::{Locator, offset_of};
 use super::repairs::LexicalRepairs;
 use super::rules::{Rule, number_corrections};
 use super::scan::{Piece, PieceKind, scan};
 use super::tokens::{TokenContext, rewrite, rewrite_located};
 use super::tree::{TreeChange, TreeRule, reorder_arguments, split_missing_pipes};
+use super::{ArgumentShape, CatalogView};
 use crate::bash::{self, Assumption, TranslateContext};
+use crate::distance::NameKind;
 use crate::normalize::{Edit, Normalized, PositionMap, apply_edits, normalize};
 use crate::powershell;
 use crate::record::{Correction, CorrectionKind};
@@ -150,30 +157,80 @@ pub fn front(
     tables: &Tables,
     catalog: &dyn CatalogView,
 ) -> Result<Front, Error> {
+    read(text, syntax, correction, tables, catalog, None, false)
+}
+
+/// Reads a program text like [`front`], for the binder.
+///
+/// The translation of a habit of another shell takes the directory from the
+/// call parameter `base` where the habit gives none, for example the working
+/// directory of `timeout 60 make test`, and offers it in the fixes of its
+/// errors. A text with escapes that the language does not have (`"\d+"`)
+/// does not end the reading with `E_ESCAPE`: the tree keeps the characters of
+/// the text and the binder reads it according to its place (`L24`), see
+/// [`paths::reinterpret_escapes`](super::paths::reinterpret_escapes).
+///
+/// # Errors
+///
+/// As [`front`], except `E_ESCAPE` for a text that the program reads with no
+/// other repair.
+pub fn front_for_binding(
+    text: &str,
+    syntax: &SyntaxConfig,
+    correction: &CorrectionConfig,
+    tables: &Tables,
+    catalog: &dyn CatalogView,
+    base: Option<&str>,
+) -> Result<Front, Error> {
+    read(text, syntax, correction, tables, catalog, base, true)
+}
+
+fn read(
+    text: &str,
+    syntax: &SyntaxConfig,
+    correction: &CorrectionConfig,
+    tables: &Tables,
+    catalog: &dyn CatalogView,
+    base: Option<&str>,
+    keep_escapes: bool,
+) -> Result<Front, Error> {
     let variant = syntax.variant;
     let options = ParseOptions::default();
-    let strict_error = match parse(text, variant, &options) {
-        Ok(document) => return Ok(Front::strict(text, document)),
-        Err(error) => error,
-    };
-    if !correction.enabled {
-        return Err(strict_error.into());
-    }
     let is_habit = |word: &str| tables.habits().any(|habit| habit == word);
     let context = TokenContext {
         variant,
         catalog,
         is_habit: &is_habit,
     };
+    let strict = match parse(text, variant, &options) {
+        Ok(document) if !correction.enabled || !has_habit_statement(text, &context, tables) => {
+            return Ok(Front::strict(text, document));
+        }
+        Err(error) if !correction.enabled => return Err(error.into()),
+        Err(error) if keep_escapes && error.code == ErrorCode::Escape => {
+            match parse_keeping_escapes(text, variant, &options) {
+                Ok(document) => return Ok(Front::strict(text, document)),
+                Err(_) => Err(error),
+            }
+        }
+        strict => strict,
+    };
     let mut work = Work::new(text, normalize(text));
-    work.translate_habits(&context)?;
+    work.translate_habits(&context, tables, base)?;
+    if strict.is_ok() && work.text == work.normalized {
+        return strict
+            .map(|document| Front::strict(text, document))
+            .map_err(Into::into);
+    }
     if syntax.tolerant {
         work.other_variants(&context)?;
     }
     work.rewrite(&context);
     let policy = LexicalRepairs::new(variant, catalog, &is_habit);
     let Ok(repaired) = parse_tolerant(&work.text, variant, &options, &policy) else {
-        return Err(strict_error.into());
+        return strict
+            .map(|document| Front::strict(text, document))
+            .map_err(Into::into);
     };
     Ok(work.finish(repaired, variant, catalog))
 }
@@ -232,21 +289,26 @@ impl<'a> Work<'a> {
     /// that the token rules make valid is not a habit, unless it starts with
     /// a word that is both a habit and a command and shows a shell feature
     /// (`sort -u /a/b`).
-    fn translate_habits(&mut self, context: &TokenContext<'_>) -> Result<(), Error> {
+    fn translate_habits(
+        &mut self,
+        context: &TokenContext<'_>,
+        tables: &Tables,
+        base: Option<&str>,
+    ) -> Result<(), Error> {
         let variant = context.variant;
         let locator = self.locator();
         let mut edits = Vec::new();
         for range in statements(&self.text) {
             let statement = self.text.get(range.clone()).unwrap_or_default();
-            if parses(statement, variant) {
+            let kind = habit_statement(statement, context, tables);
+            if parses(statement, variant) && kind.is_none() {
                 continue;
             }
-            if parses(&rewrite(statement, context).text, variant)
-                && !is_command_habit(statement, context)
-            {
+            if parses(&rewrite(statement, context).text, variant) && kind.is_none() {
                 continue;
             }
-            let Some(habit) = translate_statement(statement)? else {
+            let by_word = kind == Some(HabitKind::Word);
+            let Some(habit) = translate_statement(statement, by_word, base)? else {
                 continue;
             };
             let Ok(printed) = try_print(&habit.tree, variant) else {
@@ -452,6 +514,101 @@ impl<'a> Work<'a> {
     }
 }
 
+/// Whether a statement of the text is a habit of another shell although the
+/// text may parse strictly.
+fn has_habit_statement(text: &str, context: &TokenContext<'_>, tables: &Tables) -> bool {
+    statements(text).into_iter().any(|range| {
+        text.get(range)
+            .is_some_and(|statement| habit_statement(statement, context, tables).is_some())
+    })
+}
+
+/// What shows that a statement is a habit of another shell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HabitKind {
+    /// Notation that only the shell has: a flag, an operator, an assignment.
+    Notation,
+    /// The first word alone, because Nurt has no command or synonym of that
+    /// name (`touch /srv/app/a.txt`).
+    Word,
+}
+
+/// Whether a statement is a habit of another shell that the strict parser
+/// may read as a Nurt program.
+///
+/// - An assignment before the program (`CI=1 npm test`) is shell notation.
+/// - A habit word that is a Nurt command counts only with a dashed flag
+///   (`sort -u`), as no Nurt command has that notation.
+/// - A habit word that is neither a command nor a synonym of one counts
+///   whatever follows it.
+/// - A habit word that is a synonym of a command (`cat`, `ps`, `which`)
+///   counts with a feature of the shell, or when the statement gives the
+///   command a bare word that it cannot take (`ps aux`, `which git`).
+fn habit_statement(
+    statement: &str,
+    context: &TokenContext<'_>,
+    tables: &Tables,
+) -> Option<HabitKind> {
+    let first = statement
+        .split(char::is_whitespace)
+        .next()
+        .unwrap_or_default();
+    if is_assignment(first) {
+        return bash::detect(statement).then_some(HabitKind::Notation);
+    }
+    if !(context.is_habit)(first) {
+        return None;
+    }
+    if context.catalog.is_command(first) {
+        return is_command_habit(statement, context).then_some(HabitKind::Notation);
+    }
+    let Some(synonym) = tables.synonym_entry(NameKind::Command, first) else {
+        if bash::detect(statement) || powershell::detect(statement) {
+            return Some(HabitKind::Notation);
+        }
+        return bash::detect_by_word(statement).then_some(HabitKind::Word);
+    };
+    if bash::detect(statement) || powershell::detect(statement) {
+        return Some(HabitKind::Notation);
+    }
+    (gives_bare_word(statement, &synonym.to, context) && bash::detect_by_word(statement))
+        .then_some(HabitKind::Word)
+}
+
+/// Whether a word is an assignment of the shell, `NAME=value`.
+fn is_assignment(word: &str) -> bool {
+    word.split_once('=').is_some_and(|(name, _)| {
+        name.starts_with(|c: char| c == '_' || c.is_ascii_alphabetic())
+            && name.chars().all(|c| c == '_' || c.is_ascii_alphanumeric())
+    })
+}
+
+/// Whether a statement gives the command `target` a positional argument
+/// written as a bare word that the command cannot take: `ps aux` read as
+/// `processes aux`, where a bare word is neither text nor a path.
+fn gives_bare_word(statement: &str, target: &str, context: &TokenContext<'_>) -> bool {
+    let Ok(document) = parse(statement, context.variant, &ParseOptions::default()) else {
+        return false;
+    };
+    let Some(Statement::Pipeline(pipeline)) = document.program.statements.first() else {
+        return false;
+    };
+    let Head::Stage(stage) = &pipeline.head else {
+        return false;
+    };
+    stage
+        .args
+        .iter()
+        .filter(|arg| arg.name.is_none())
+        .enumerate()
+        .any(|(position, arg)| {
+            matches!(arg.value, Expr::Ident { .. })
+                && !context
+                    .catalog
+                    .can_take_argument(target, position, ArgumentShape::Word)
+        })
+}
+
 /// Whether a statement starts with a word that is a habit of another shell
 /// and also a Nurt command, and has an argument written as a dashed flag
 /// (`sort -u`), which Nurt has no notation for.
@@ -571,17 +728,32 @@ fn names_a_command_as_value(document: &AstDocument, catalog: &dyn CatalogView) -
         })
 }
 
-fn translate_statement(statement: &str) -> Result<Option<Habit>, Error> {
-    let context = TranslateContext::default();
-    if bash::detect(statement) {
-        return match bash::translate_with(statement, &context) {
-            Some(Ok(translation)) => Ok(Some(Habit {
+/// Translates a statement of another shell; `by_word` says that its first
+/// word alone shows the habit.
+fn translate_statement(
+    statement: &str,
+    by_word: bool,
+    base: Option<&str>,
+) -> Result<Option<Habit>, Error> {
+    let context = TranslateContext {
+        base,
+        ..TranslateContext::default()
+    };
+    let bash = if bash::detect(statement) {
+        bash::translate_with(statement, &context)
+    } else if by_word {
+        bash::translate_by_word(statement, &context)
+    } else {
+        None
+    };
+    if let Some(translated) = bash {
+        return match translated {
+            Ok(translation) => Ok(Some(Habit {
                 tree: translation.tree,
                 rules: translation.rules,
                 assumptions: translation.assumptions,
             })),
-            Some(Err(error)) => Err(error),
-            None => Ok(None),
+            Err(error) => Err(error),
         };
     }
     if powershell::detect(statement) {
@@ -763,6 +935,72 @@ mod tests {
 
     fn canonical(result: &Front) -> String {
         print(&result.document, Variant::A).trim_end().to_owned()
+    }
+
+    #[test]
+    fn translates_a_habit_that_the_strict_parser_reads_as_a_program() {
+        let removed = run("rm -rf /srv/app/build");
+        assert_eq!(rules(&removed), ["B01", "L21"]);
+        assert_eq!(canonical(&removed), "remove \"/srv/app/build\"");
+        let fetched = run("curl -s https://example.com/health");
+        assert_eq!(rules(&fetched), ["B32"]);
+        assert_eq!(
+            canonical(&fetched),
+            "http.request \"https://example.com/health\" follow_redirects: false"
+        );
+    }
+
+    #[test]
+    fn translates_a_habit_word_without_a_meaning_in_nurt_whatever_follows_it() {
+        let created = run("touch /srv/app/a.txt");
+        assert_eq!(rules(&created), ["B06", "L21"]);
+        assert_eq!(
+            canonical(&created),
+            "create \"/srv/app/a.txt\" type: file on_exists: touch"
+        );
+    }
+
+    #[test]
+    fn translates_a_synonym_that_is_given_a_bare_word_it_cannot_take() {
+        assert_eq!(canonical(&run("ps aux")), "processes");
+        let read = run("cat \"/srv/app/a.txt\"");
+        assert!(read.corrections.is_empty());
+        assert_eq!(canonical(&read), "cat \"/srv/app/a.txt\"");
+    }
+
+    #[test]
+    fn translates_an_assignment_before_any_program_with_the_base_in_the_fix() {
+        let syntax = syntax(Variant::A, true);
+        let correction = CorrectionConfig::default();
+        let tables = load_embedded().expect("embedded tables");
+        let error = front("CI=1 npm test", &syntax, &correction, &tables, &Commands)
+            .expect_err("the working directory is not known");
+        assert_eq!(error.code(), ErrorCode::Uncorrectable);
+        assert!(error.data().fix.is_empty());
+        let error = front_for_binding(
+            "CI=1 npm test",
+            &syntax,
+            &correction,
+            &tables,
+            &Commands,
+            Some("/srv/app"),
+        )
+        .expect_err("the working directory is only offered");
+        assert_eq!(
+            error.data().fix,
+            ["run [\"npm\", \"test\"] cwd: \"/srv/app\" env: {\"CI\": \"1\"}"]
+        );
+    }
+
+    #[test]
+    fn keeps_a_nurt_program_that_uses_a_habit_word_as_a_command() {
+        for text in [
+            "find \"/srv/app\" |> sort size order: desc",
+            "sort size order: desc",
+            "remove \"/srv/app/build\"",
+        ] {
+            assert!(run(text).corrections.is_empty(), "{text}");
+        }
     }
 
     #[test]

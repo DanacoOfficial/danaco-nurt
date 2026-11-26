@@ -4,6 +4,8 @@
 format = "nurt-correction-table/1"
 shell = "bash"
 title = "Nurt for bash users"
+host = "linux"
+base = "/home/user/app"
 
 [[entry]]
 id = "B01"
@@ -209,8 +211,9 @@ id = "B29"
 topic = "Running programs"
 habit = "npm run build &"
 canonical = 'run ["npm", "run", "build"] cwd: "/home/user/app" background: true'
-outcome = "error"
-note = "there is no current directory; the fix passes the directory as cwd or base"
+outcome = "rejected"
+code = "E_LEXICAL"
+note = "`&` is not part of the language; write the program with background: true and the directory as cwd"
 
 [[entry]]
 id = "B30"
@@ -232,7 +235,7 @@ note = "only a change to an absolute directory in the same line is converted"
 id = "B31"
 topic = "Running programs"
 habit = "CI=1 npm test"
-canonical = 'run ["npm", "test"] cwd: "/home/user/app" env: {CI: "1"}'
+canonical = 'run ["npm", "test"] cwd: "/home/user/app" env: {"CI": "1"}'
 outcome = "error"
 note = "there is no current directory; the fix passes the directory as cwd or base"
 
@@ -275,17 +278,18 @@ outcome = "corrected"
 id = "B22"
 topic = "Control flow"
 habit = "mkdir /home/user/out && cp /home/user/a.txt /home/user/out"
-canonical = 'create "/home/user/out" type: directory'
+canonical = 'create "/home/user/out" type: directory parents: false'
 outcome = "error"
-note = "two changing commands are not run in one program; the fix is one call per change"
+note = "two changing commands are not run in one program; the fix is one call per change, this is the first"
 
 [[entry]]
 id = "B25"
 topic = "Control flow"
 habit = "rm -rf \"$BUILD\"/*"
 canonical = 'find "/home/user/app/build" glob: "*" depth: 1 |> remove'
-outcome = "error"
-note = "there are no variables in text; the fix names the directory"
+outcome = "rejected"
+code = "E_UNCORRECTABLE"
+note = "there are no variables in text; write the directory"
 
 [[entry]]
 id = "B28"
