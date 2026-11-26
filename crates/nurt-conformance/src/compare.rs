@@ -277,6 +277,48 @@ mod tests {
     }
 
     #[test]
+    fn an_expected_null_does_not_match_a_missing_member() {
+        let missing = compare(&json!({"a": null}), &json!({}), Match::Subset);
+        assert_eq!(missing.len(), 1);
+        assert_eq!(missing[0].path, "/a");
+        assert_eq!(missing[0].message, "member is missing");
+        assert!(compare(&json!({"a": null}), &json!({"a": null}), Match::Exact).is_empty());
+    }
+
+    #[test]
+    fn values_of_another_kind_differ_in_every_mode() {
+        for mode in [Match::Subset, Match::Exact] {
+            let found = compare(&json!({"a": {}}), &json!({"a": []}), mode);
+            assert_eq!(found.len(), 1);
+            assert_eq!(found[0].path, "/a");
+            assert_eq!(found[0].message, "values differ");
+        }
+    }
+
+    #[test]
+    fn integers_beyond_two_to_the_fifty_third_are_compared_exactly() {
+        assert_eq!(
+            compare(&json!(u64::MAX), &json!(u64::MAX - 1), Match::Exact).len(),
+            1
+        );
+        assert_eq!(
+            compare(&json!(i64::MIN), &json!(i64::MIN + 1), Match::Exact).len(),
+            1
+        );
+        assert_eq!(
+            compare(
+                &json!(9_007_199_254_740_993_u64),
+                &json!(9_007_199_254_740_992.0),
+                Match::Exact
+            )
+            .len(),
+            1
+        );
+        assert!(compare(&json!(-1), &json!(-1.0), Match::Exact).is_empty());
+        assert_eq!(compare(&json!(1), &json!(1.5), Match::Exact).len(), 1);
+    }
+
+    #[test]
     fn number_of_differences_is_limited() {
         let expected: Value = (0..50)
             .map(|i| (i.to_string(), json!(i)))
