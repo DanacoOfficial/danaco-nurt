@@ -304,7 +304,10 @@ fn changes(repo: &GitRepo, against: Option<&str>, filter: &PathFilter) -> Result
     if repo.workdir().is_some() {
         compare_worktree(repo, &state, &staged, &mut result)?;
         for path in untracked(repo, &state, filter)? {
-            result.insert(path, (GitChange::Unmodified, GitChange::Untracked));
+            result
+                .entry(path)
+                .or_insert((GitChange::Unmodified, GitChange::Unmodified))
+                .1 = GitChange::Untracked;
         }
     }
     result.retain(|_, (index, worktree)| {
@@ -789,6 +792,25 @@ mod tests {
             (GitChange::Unmodified, GitChange::Untracked)
         );
         assert_eq!(statuses.len(), 3);
+    }
+
+    #[test]
+    fn an_untracked_file_keeps_the_staged_deletion_of_its_path() {
+        let fixture = fixture();
+        let repo = GitRepo::open(fixture.path(), &crate::testutil::test_ctx()).unwrap();
+        let mut index = repo.read_index().unwrap();
+        index
+            .state
+            .remove_entries(|_, path, _| path == BStr::new("a.txt"));
+        let journal = crate::testutil::RecordingJournal::new();
+        let mut tx = journal.begin();
+        crate::repo::index::write_index(tx.as_mut(), &mut index).unwrap();
+        tx.commit().unwrap();
+        let statuses = queries().status(fixture.path(), &[]).unwrap();
+        assert_eq!(
+            status_of(&statuses, "a.txt"),
+            (GitChange::Deleted, GitChange::Untracked)
+        );
     }
 
     #[test]
