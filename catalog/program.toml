@@ -92,7 +92,7 @@ implementation = "builtin"
 input = ["none"]
 output = ["program_card"]
 summary = "Describe a program with its version, source, description and usage guide."
-external = { kind = "user_program", note = "Runs the program once with --help, with a time limit, when no other description is available." }
+external = { kind = "user_program", when = "help", note = "Runs the program once with --help, with a time limit, to read its help text." }
 
 [[command.param]]
 name = "name"
@@ -126,6 +126,12 @@ summary = "Etag of an earlier record; an unchanged program returns only unchange
 name = "source"
 type = "text | list<text>"
 summary = "Only programs from these sources."
+
+[[command.param]]
+name = "help"
+type = "bool"
+default = "false"
+summary = "Run the program once with --help and return its output in the field help."
 
 [[command]]
 name = "program.catalog"
