@@ -209,7 +209,9 @@ impl XmlTree {
         let (namespace, local) = match parse_clark(name) {
             Some(expanded) => (expanded.namespace.map(str::to_owned), expanded.local),
             None => match split_qname(name) {
-                (Some(prefix), local) => (self.lookup_namespace(element, Some(prefix)), local),
+                (Some(prefix), local) => {
+                    (Some(self.lookup_namespace(element, Some(prefix))?), local)
+                }
                 (None, _) => return None,
             },
         };
@@ -346,6 +348,23 @@ mod tests {
         assert_eq!(&text[x.span.clone()], r#"x = "1""#);
         assert_eq!(scanned.attributes[1].quote, '\'');
         assert_eq!(&text[scanned.trailing.clone()], " ");
+    }
+
+    #[test]
+    fn undeclared_prefix_does_not_find_an_unprefixed_attribute() {
+        let tree = XmlTree::parse(r#"<a id="1" xmlns:p="urn:p" p:id="2"/>"#).unwrap();
+        let root = tree.root();
+        assert_eq!(tree.find_attribute(root, "id"), Some(0));
+        assert_eq!(tree.find_attribute(root, "q:id"), None);
+        assert_eq!(tree.find_attribute(root, "p:id"), Some(2));
+        assert_eq!(tree.find_attribute(root, "{urn:p}id"), Some(2));
+        assert_eq!(tree.find_attribute(root, "{}id"), Some(0));
+    }
+
+    #[test]
+    fn set_attribute_with_undeclared_prefix_does_not_overwrite_unprefixed_one() {
+        let tree = XmlTree::parse(r#"<a id="1"/>"#).unwrap();
+        assert!(tree.set_attribute(tree.root(), "q:id", "2").is_err());
     }
 
     #[test]

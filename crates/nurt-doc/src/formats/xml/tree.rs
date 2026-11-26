@@ -4,6 +4,7 @@
 //! Lossless XML tree: nodes with byte ranges over the unchanged source
 //! text, and resolution of key paths to nodes.
 
+use std::collections::HashSet;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -20,6 +21,9 @@ pub const TEXT_SEGMENT: &str = "#text";
 
 /// Prefix of key segments that address attributes.
 pub const ATTRIBUTE_SEGMENT_PREFIX: char = '@';
+
+/// Most candidate keys listed in the error of an ambiguous key.
+const MAX_CANDIDATES: usize = 8;
 
 /// Identifier of a node in an [`XmlTree`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -651,9 +655,10 @@ impl Walk<'_> {
             KeySegment::Recursive => {
                 self.multi = true;
                 let cursors = std::mem::take(&mut self.cursors);
+                let mut seen = HashSet::new();
                 for cursor in cursors {
                     for id in self.tree.subtree(cursor) {
-                        if !self.cursors.contains(&id) {
+                        if seen.insert(id) {
                             self.cursors.push(id);
                         }
                     }
@@ -814,13 +819,16 @@ impl Walk<'_> {
     }
 
     fn ambiguous(&self, candidates: impl Iterator<Item = Target>) -> nurt_contracts::error::Error {
-        let keys: Vec<String> = candidates
-            .map(|target| self.tree.canonical_key(target))
+        let all: Vec<Target> = candidates.collect();
+        let keys: Vec<String> = all
+            .iter()
+            .take(MAX_CANDIDATES)
+            .map(|target| self.tree.canonical_key(*target))
             .collect();
         key_conflict(
             format!(
                 "key matches {} nodes; add an index such as `{}` or `[*]` for all",
-                keys.len(),
+                all.len(),
                 keys.first().map_or("", String::as_str)
             ),
             keys,
@@ -861,5 +869,44 @@ mod tests {
         assert_eq!(pick(&items, -3), Some(NodeId(1)));
         assert_eq!(pick(&items, -4), None);
         assert_eq!(pick(&items, 3), None);
+    }
+
+    #[test]
+    fn recursive_segment_lists_every_element_once_in_document_order() {
+        let tree = XmlTree::parse("<a><b><c/></b><b/></a>").unwrap();
+        let key = KeyPath::parse("a.**.**").unwrap();
+        let targets = tree.resolve(&key).unwrap();
+        let keys: Vec<String> = targets
+            .into_iter()
+            .map(|target| tree.canonical_key(target))
+            .collect();
+        assert_eq!(keys, ["a", "a.b[0]", "a.b[0].c", "a.b[1]"]);
+    }
+
+    #[test]
+    fn line_column_counts_scalar_values_after_multibyte_characters() {
+        let tree = XmlTree::parse("<a>\r\n  <ü/><b/>\r\n</a>").unwrap();
+        let b = tree.child_elements(tree.root()).nth(1).unwrap();
+        assert_eq!(tree.line_column(tree.node(b).span().start), (2, 7));
+        assert_eq!(tree.line_column(0), (1, 1));
+    }
+
+    #[test]
+    fn ambiguous_key_lists_a_bounded_number_of_candidates() {
+        let items = "<b/>".repeat(MAX_CANDIDATES + 4);
+        let tree = XmlTree::parse(&format!("<a>{items}</a>")).unwrap();
+        let error = tree.resolve(&KeyPath::parse("a.b").unwrap()).unwrap_err();
+        assert_eq!(error.code().as_str(), "E_KEY_CONFLICT");
+        assert!(error.message.contains("matches 12 nodes"), "{}", error.message);
+        assert!(error.message.contains("a.b[0]"), "{}", error.message);
+        let listed = error.details["candidates"].as_array().map(Vec::len);
+        assert_eq!(listed, Some(MAX_CANDIDATES));
+    }
+
+    #[test]
+    fn selector_of_another_document_is_rejected() {
+        let tree = XmlTree::parse("<a/>").unwrap();
+        let key = KeyPath::parse("#1:a").unwrap();
+        assert!(tree.resolve(&key).is_err());
     }
 }
