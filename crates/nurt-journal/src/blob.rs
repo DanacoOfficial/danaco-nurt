@@ -151,6 +151,35 @@ pub(crate) fn remove_entry(fs: &dyn FsWrite, scope: &TxScope, path: &AbsPath) ->
     }
 }
 
+/// Fails with `Unsupported` when `source` or an entry below it is a device,
+/// a pipe or a socket, which cannot be copied. The check runs before anything
+/// is written, so a refused tree leaves no partial copy behind.
+fn refuse_special_entries(fs: &dyn FsWrite, source: &AbsPath) -> FsResult<()> {
+    let mut pending = vec![source.clone()];
+    while let Some(path) = pending.pop() {
+        match fs.extended_metadata(&path, Follow::NoFollow)?.basic.kind {
+            FileKind::Directory => {
+                for child in fs.read_dir(&path)? {
+                    let name = child?.name;
+                    let name = name.to_str().ok_or_else(|| {
+                        FsError::new(FsErrorKind::InvalidPath, "copy", Some(path.as_path()))
+                    })?;
+                    pending.push(path.join_name(name)?);
+                }
+            }
+            FileKind::Special => {
+                return Err(FsError::new(
+                    FsErrorKind::Unsupported,
+                    "copy",
+                    Some(path.as_path()),
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 /// Copies an entry of any kind to the new path `dest`: files by
 /// [`FsWrite::copy_file`], directories recursively, links as links. Used when
 /// a rename crosses volumes or overlay layers. Returns the copied bytes.
@@ -160,6 +189,7 @@ pub(crate) fn copy_entry(
     source: &AbsPath,
     dest: &AbsPath,
 ) -> FsResult<u64> {
+    refuse_special_entries(fs, source)?;
     let mut copied = 0;
     let mut pending = vec![(source.clone(), dest.clone())];
     while let Some((from, to)) = pending.pop() {
@@ -431,6 +461,23 @@ mod tests {
         fs.fail("clone_file", "a.txt", FsErrorKind::Io);
         let refused = blobs.join_name("4.blob").unwrap();
         assert!(preserve_copy(fs, &scope, &source, &tmp, &refused, true).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn copy_of_a_tree_with_a_socket_is_refused_before_anything_is_written() {
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = scope(OpId(1), ScopePurpose::Operation);
+        let tree = fs.path("vol-a/tree");
+        std::fs::create_dir_all(tree.as_path().join("sub")).unwrap();
+        std::fs::write(tree.as_path().join("a"), b"12345").unwrap();
+        let _listener =
+            std::os::unix::net::UnixListener::bind(tree.as_path().join("sub/socket")).unwrap();
+        let copy = fs.path("vol-b/tree");
+        let error = copy_entry(fs, &scope, &tree, &copy).unwrap_err();
+        assert_eq!(error.kind, FsErrorKind::Unsupported);
+        assert!(!fixture.exists(&copy));
     }
 
     #[test]
