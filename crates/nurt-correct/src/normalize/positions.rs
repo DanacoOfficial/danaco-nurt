@@ -338,6 +338,38 @@ mod tests {
     }
 
     #[test]
+    fn offsets_past_the_end_map_to_the_end() {
+        let (_, map) = apply_edits("ab\u{a0}cd", &[Edit::new(2..4, " ")]);
+        assert_eq!(map.to_original(99), 6);
+        assert_eq!(map.corrected_len(), 5);
+        assert_eq!(map.original_len(), 6);
+        assert_eq!(PositionMap::identity(0).to_original(3), 0);
+    }
+
+    #[test]
+    fn line_index_handles_crlf_and_positions_past_the_end() {
+        let index = LineIndex::new("ab\r\ncd");
+        let position = index.position(4..5);
+        assert_eq!(
+            (position.line, position.column, position.length),
+            (2, 1, Some(1))
+        );
+        let past = index.position(100..200);
+        assert_eq!((past.line, past.column, past.length), (2, 3, Some(0)));
+        let empty = LineIndex::new("");
+        assert_eq!(empty.position(0..0).column, 1);
+    }
+
+    #[test]
+    fn line_index_counts_multibyte_characters_and_floors_to_a_boundary() {
+        let text = "żółw x";
+        let index = LineIndex::new(text);
+        assert_eq!(index.position(8..9).column, 6);
+        let inside = index.position(1..3);
+        assert_eq!((inside.line, inside.column), (1, 1));
+    }
+
+    #[test]
     fn positions_count_characters_and_skip_byte_order_mark() {
         let text = "\u{feff}αβγδεζ x\nb";
         let index = LineIndex::new(text);

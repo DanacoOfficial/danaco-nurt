@@ -1169,4 +1169,52 @@ mod tests {
         assert_eq!(parse_canonical_duration("1x"), None);
         assert_eq!(parse_canonical_duration(""), None);
     }
+
+    #[test]
+    fn leaves_numbers_that_overflow() {
+        let tables = load_embedded().unwrap();
+        assert_eq!(
+            size(Written::bare("99999999999999999999 tb"), &tables),
+            Outcome::NotApplicable
+        );
+        assert_eq!(
+            integer(Written::bare("99999999999999999999")),
+            Outcome::NotApplicable
+        );
+        assert_eq!(
+            integer(Written::bare("1,000,000,000,000,000,000,000")),
+            Outcome::NotApplicable
+        );
+        assert_eq!(
+            range(Written::bare("1-99999999999999999999")),
+            Outcome::NotApplicable
+        );
+        assert_eq!(
+            duration(Written::quoted("99999999999999999999 weeks"), &tables),
+            Outcome::NotApplicable
+        );
+    }
+
+    #[test]
+    fn leaves_multibyte_literals_untouched() {
+        let tables = load_embedded().unwrap();
+        assert_eq!(
+            size(Written::bare("10 мб"), &tables),
+            Outcome::NotApplicable
+        );
+        assert_eq!(
+            instant(Written::quoted("2026-11-21 10:00ł"), &tables, &TimeZone::UTC),
+            Outcome::NotApplicable
+        );
+        assert_eq!(
+            duration(Written::quoted("zażółć"), &tables),
+            Outcome::NotApplicable
+        );
+    }
+
+    #[test]
+    fn displays_the_literal_as_written() {
+        assert_eq!(Written::bare("x").display(), "x");
+        assert_eq!(Written::quoted("x y").display(), "\"x y\"");
+    }
 }
