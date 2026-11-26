@@ -44,10 +44,10 @@ use std::collections::BTreeSet;
 use std::fmt;
 
 use nurt_contracts::ast::{
-    AST_VERSION, Arg, AstDocument, Expr, Head, KeySeg, MapEntry, Pipeline, Program, Stage,
-    Statement,
+    AST_VERSION, Arg, AstDocument, Expr, Head, KeySeg, MapEntry, Pipeline, Program, SURFACE_KINDS,
+    Stage, Statement,
 };
-use nurt_contracts::bound::{BOUND_VERSION, BoundDocument};
+use nurt_contracts::bound::{BOUND_KINDS, BOUND_VERSION, BoundDocument};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -57,19 +57,6 @@ use crate::validate;
 /// Deepest nesting of JSON values accepted in a tree document; the root
 /// value is at depth 1.
 pub const MAX_JSON_DEPTH: usize = validate::MAX_DEPTH;
-
-/// Node kinds of the surface tree known to this reader.
-const SURFACE_KINDS: [&str; 23] = [
-    "let", "pipeline", "stage", "ref", "text", "ident", "regex", "int", "num", "size", "dur",
-    "bool", "null", "key", "list", "map", "spread", "field", "call", "un", "bin", "range", "sub",
-];
-
-/// Node kinds of the bound tree known to this reader.
-const BOUND_KINDS: [&str; 26] = [
-    "let", "pipeline", "stage", "ref", "text", "regex", "int", "num", "size", "dur", "bool",
-    "null", "key", "list", "map", "spread", "field", "call", "un", "bin", "range", "sub", "path",
-    "glob", "instant", "enum",
-];
 
 /// Decodes a surface tree from JSON text.
 ///
