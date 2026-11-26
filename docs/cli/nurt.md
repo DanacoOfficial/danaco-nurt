@@ -10,6 +10,7 @@ The `nurt` executable runs programs of the language, offers an interactive sessi
 ```
 nurt [OPTIONS] <program>
 nurt <subcommand> [arguments]
+nurt <subcommand> -h | --help
 nurt -V | --version | -h | --help
 ```
 
@@ -21,7 +22,7 @@ Without arguments the executable starts the interactive session.
 |---|---|---|---|
 | `-V` | flag | | Print `nurt <version>`. |
 | `--version` | flag | | Print the version with the build data, the copyright and the license. |
-| `-h`, `--help` | flag | | Print the usage. |
+| `-h`, `--help` | flag | | Print the usage. As the first argument after the name of a subcommand it prints the usage of that subcommand and ends with exit code 0, without running it. |
 
 The options of a program (`--variant`, `--preview`, `--json`, `--format`, `--limit`, `--cursor`, `--verbosity`) are accepted before the first word of a program, so `nurt --preview remove ...` equals `nurt exec --preview remove ...`. Words after the first word of a program belong to the program. The language has no options with a dash.
 
