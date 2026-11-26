@@ -15,7 +15,7 @@ use nurt_contracts::stage::ExecCtx;
 use serde::{Deserialize, Serialize};
 
 use super::SupervisorCommand;
-use super::control::{self, ControlAction, request_name, request_order, withdraw};
+use super::control::{self, request_name, request_order, withdraw};
 use super::events::{self, OutputEvents};
 use super::record::with_elapsed;
 use super::runner::{self, Launch, POLL_INTERVAL};
@@ -41,6 +41,21 @@ const CANCEL_SUFFIX: &str = ".cancel.json";
 pub(crate) struct CancelNotice {
     /// Format version.
     pub(crate) protocol: u32,
+}
+
+/// Removes the cancel notices left in the inbox by clients that ended before
+/// they removed them. A supervisor that has just taken the lock serves no
+/// request yet, so every notice it finds belongs to a request that was
+/// answered or lost.
+pub(crate) fn remove_cancel_notices(table: &JobTable) {
+    let Ok(entries) = fs::read_dir(table.inbox()) else {
+        return;
+    };
+    for entry in entries.filter_map(|entry| entry.ok()) {
+        if entry.file_name().to_string_lossy().ends_with(CANCEL_SUFFIX) {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
 }
 
 /// Path of the cancel notice of start request `name`.
@@ -296,7 +311,7 @@ impl DetachedHost {
             }
             if !cancel_sent && ctx.cancel().is_cancelled() {
                 cancel_sent = true;
-                control::post(table, id, ControlAction::Cancel)?;
+                control::cancel(table, id)?;
             }
             std::thread::sleep(POLL_INTERVAL);
         }

@@ -22,7 +22,8 @@ use nurt_contracts::stage::{CancelReason, CancelToken, ExecCtx};
 
 use super::control::withdraw;
 use super::host::{
-    StartReply, StartRequest, cancel_notice_path, inbox_requests, write_start_reply,
+    StartReply, StartRequest, cancel_notice_path, inbox_requests, remove_cancel_notices,
+    write_start_reply,
 };
 use super::runner::{self, POLL_INTERVAL};
 use super::store::JobStore;
@@ -48,6 +49,7 @@ pub(crate) fn serve(ctx: &ExecCtx, components: &Components) -> Result<()> {
         return Ok(());
     };
     let mut lock: Option<File> = Some(lock);
+    remove_cancel_notices(&table);
     JobStore::new(ctx, components, table.clone()).sweep()?;
     let mut jobs: Vec<JoinHandle<()>> = Vec::new();
     let mut idle_since = Instant::now();

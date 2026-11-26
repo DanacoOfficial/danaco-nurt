@@ -254,6 +254,11 @@ impl JobRun {
             Ok(store) => store,
             Err(error) => return Err(rolled_back(tx, error)),
         };
+        // A call cancelled during the preparation must not start the program.
+        if let Err(error) = ctx.cancel().check() {
+            let _ = self.components.spool.remove(ctx, &self.id);
+            return Err(rolled_back(tx, error));
+        }
         let cancel = CancelToken::new();
         let sink: Arc<dyn OutputSink> = store.clone();
         // The time limit covers the preparation of the run as well.
@@ -273,6 +278,11 @@ impl JobRun {
         if let Err(error) = self.record_start(&file) {
             let _ = process.stop(Signal::Kill, Duration::ZERO);
             return Err(rolled_back(tx, error));
+        }
+        // The cancellation is a state of the call, not an event: one that was
+        // set while the program started ends the group at once.
+        if let Some(reason) = ctx.cancel().reason() {
+            cancel.cancel(reason);
         }
         ctx.emit(events::started(&file.record));
         self.waiter.started(file.record.clone());
@@ -556,7 +566,14 @@ fn after_stop(table: &JobTable, id: &str, job: &mut Supervised, name: &str, acti
 }
 
 fn rolled_back(tx: Box<dyn MutationTx + '_>, error: Error) -> Error {
-    match tx.rollback(RollbackReason::TargetFailed) {
+    // The journal records why the entry was undone: a run that did not start
+    // because its call was cancelled is `cancelled`, not a failed target.
+    let reason = if error.code() == ErrorCode::Cancelled {
+        RollbackReason::Cancelled
+    } else {
+        RollbackReason::TargetFailed
+    };
+    match tx.rollback(reason) {
         Ok(report) if report.failed.is_empty() => error,
         Ok(report) => Error::new(
             ErrorCode::RollbackFailed,
