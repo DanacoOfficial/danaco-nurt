@@ -28,7 +28,10 @@ pub const ALIAS_EXPANSION_LIMIT: usize = 1_000_000;
 /// Deepest nesting of collections in an expanded value. Aliases nest
 /// collections beyond the depth of the text, and the expansion is recursive,
 /// so this bound keeps it within the stack of a thread.
-pub const MAX_EXPANSION_DEPTH: usize = 1024;
+pub const MAX_EXPANSION_DEPTH: usize = 256;
+
+/// Result of the recursive expansion of a value, with a boxed error.
+type Expanded<T> = std::result::Result<T, Box<Error>>;
 
 /// Identifier of a node in a [`YamlModel`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -698,28 +701,32 @@ impl YamlModel {
     pub fn value_with(&self, id: NodeId, overrides: &ValueOverrides) -> Result<Value> {
         let mut budget = self.nodes.len().saturating_add(ALIAS_EXPANSION_LIMIT);
         self.expand(id, overrides, &mut budget, &mut Vec::new())
+            .map_err(|error| *error)
     }
 
+    /// Value of a node. The error is boxed so that the frames of this
+    /// recursive function stay small: the depth bound
+    /// [`MAX_EXPANSION_DEPTH`] must hold on the stack of a test thread.
     fn expand(
         &self,
         id: NodeId,
         overrides: &ValueOverrides,
         budget: &mut usize,
         active: &mut Vec<NodeId>,
-    ) -> Result<Value> {
+    ) -> Expanded<Value> {
         if *budget == 0 {
-            return Err(constructs::unsupported(
+            return Err(Box::new(constructs::unsupported(
                 YAML_ALIAS_EXPANSION_LIMIT,
                 format!("the expansion of aliases adds more than {ALIAS_EXPANSION_LIMIT} nodes"),
-            ));
+            )));
         }
         if active.len() >= MAX_EXPANSION_DEPTH {
-            return Err(constructs::unsupported(
+            return Err(Box::new(constructs::unsupported(
                 YAML_ALIAS_EXPANSION_LIMIT,
                 format!(
                     "the expansion of aliases nests collections deeper than {MAX_EXPANSION_DEPTH} levels"
                 ),
-            ));
+            )));
         }
         *budget -= 1;
         if let Some(value) = overrides.replaced.get(&id) {
@@ -734,16 +741,16 @@ impl YamlModel {
             )),
             NodeKind::Alias(name) => {
                 let target = self.anchor_target(id).ok_or_else(|| {
-                    Error::new(
+                    Box::new(Error::new(
                         ErrorCode::DocParse,
                         format!("alias `*{}` refers to an undefined anchor", name.name),
-                    )
+                    ))
                 })?;
                 if active.contains(&target) {
-                    return Err(Error::new(
+                    return Err(Box::new(Error::new(
                         ErrorCode::DocParse,
                         format!("alias `*{}` refers to its own ancestor", name.name),
-                    ));
+                    )));
                 }
                 self.expand(target, overrides, budget, active)
             }
@@ -777,7 +784,7 @@ impl YamlModel {
         overrides: &ValueOverrides,
         budget: &mut usize,
         active: &mut Vec<NodeId>,
-    ) -> Result<Fields> {
+    ) -> Expanded<Fields> {
         let live = |index: &usize| !overrides.removed_entries.contains(&(id, *index));
         let local: HashSet<String> = mapping
             .entries
