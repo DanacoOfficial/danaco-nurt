@@ -89,10 +89,24 @@ pub(crate) struct Link {
     pub(crate) scope: Option<UndoScope>,
     /// Items restored.
     pub(crate) items: Vec<ItemRef>,
+    /// Metadata of the state restored by each target of the transaction, in
+    /// the order of the targets; shorter than the targets when unknown.
+    pub(crate) recorded: Vec<RecordedMeta>,
     /// Update of the source entries, run after the entry is durably committed
     /// and indexed and before its marker is removed; recovery repeats it
     /// idempotently when the marker remains.
     pub(crate) after_commit: Option<AfterCommit>,
+}
+
+/// Metadata recorded with the previous state of a target that an undo or
+/// redo brings back.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct RecordedMeta {
+    /// Block with the extended metadata kept with the previous content.
+    pub(crate) blob: Option<AbsPath>,
+    /// Modification time of the previous state, nanoseconds since the Unix
+    /// epoch.
+    pub(crate) modified_ns: Option<i64>,
 }
 
 /// Update of source entries after an undo entry is committed.
@@ -1698,9 +1712,13 @@ impl Tx<'_> {
             }
         }
         self.step(FailPoint::StageWritten, index)?;
-        let complete = match &self.targets[position].old_meta {
-            Some(meta) if existed => handle.apply_meta(meta).map_err(as_target)?.is_complete(),
-            _ => true,
+        let previous = self.targets[position].old_meta.as_ref().filter(|_| existed);
+        let complete = match self
+            .metadata_for(index, previous, &staged)
+            .map_err(as_target)?
+        {
+            Some(meta) => handle.apply_meta(&meta).map_err(as_target)?.is_complete(),
+            None => true,
         };
         handle.sync(Durability::Full).map_err(as_target)?;
         drop(handle);
@@ -1736,6 +1754,41 @@ impl Tx<'_> {
             fs.sync_dir(&scope, &parent).map_err(as_target)?;
         }
         self.finish(position, Some(hash))
+    }
+
+    /// Metadata the new content of a target receives before it is switched
+    /// in.
+    ///
+    /// An undo or redo applies the metadata recorded with the state it brings
+    /// back, also to a file that does not exist any more, so that the file is
+    /// never visible with other permissions. Any other change transfers the
+    /// metadata of the previous file `previous`, except the modification
+    /// time, which is the time of the write.
+    fn metadata_for(
+        &self,
+        index: TargetIndex,
+        previous: Option<&ExtendedMeta>,
+        written: &AbsPath,
+    ) -> FsResult<Option<ExtendedMeta>> {
+        let fs = self.ctx.fs.as_ref();
+        let recorded = usize::try_from(index.0)
+            .ok()
+            .and_then(|position| self.link.recorded.get(position));
+        let kept = recorded
+            .and_then(|recorded| recorded.blob.as_ref())
+            .and_then(|blob| manifest::read_meta(fs, blob).ok());
+        if kept.is_some() {
+            return Ok(kept);
+        }
+        let Some(previous) = previous else {
+            return Ok(None);
+        };
+        let current = fs.metadata(written, Follow::NoFollow)?;
+        let mut meta = nurt_fs::transfer::for_content_change(previous, &current);
+        if let Some(modified_ns) = recorded.and_then(|recorded| recorded.modified_ns) {
+            meta.basic.modified_ns = modified_ns;
+        }
+        Ok(Some(meta))
     }
 
     fn step(&mut self, point: FailPoint, index: TargetIndex) -> Result<()> {
@@ -3785,6 +3838,179 @@ mod tests {
     }
 
     #[test]
+    fn overwrite_keeps_the_mode_and_gives_the_new_content_the_time_of_the_write() {
+        let env = Env::new();
+        let path = env.file("vol-a/a.txt", b"old");
+        let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000);
+        std::fs::File::options()
+            .write(true)
+            .open(path.as_path())
+            .unwrap()
+            .set_modified(old)
+            .unwrap();
+        crate::store::test_support::set_path_mode(path.as_path(), 0o600).unwrap();
+        env.overwrite(&path, b"new");
+        let written = env.fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
+        assert_eq!(env.read(&path), b"new");
+        assert_eq!(written.mode & 0o777, 0o600);
+        assert!(written.modified_ns > 1_000_000_000_000, "{written:?}");
+    }
+
+    #[test]
+    fn write_at_and_set_length_change_the_content_in_place_of_the_range() {
+        let env = Env::new();
+        let path = env.file("vol-a/a.txt", b"abcdef");
+        let mut tx = begin(&env.ctx, request("write"));
+        tx.preserve(&[spec(&path, TargetAction::Modify)]).unwrap();
+        tx.apply(
+            TargetIndex(0),
+            Mutation::WriteAt {
+                offset: 2,
+                bytes: b"XY".to_vec(),
+            },
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        assert_eq!(env.read(&path), b"abXYef");
+        let grown = env.file("vol-a/b.txt", b"abc");
+        let mut tx = begin(&env.ctx, request("write"));
+        tx.preserve(&[spec(&grown, TargetAction::Truncate)]).unwrap();
+        tx.apply(TargetIndex(0), Mutation::SetLength(5)).unwrap();
+        tx.commit().unwrap();
+        assert_eq!(env.read(&grown), b"abc\0\0");
+    }
+
+    #[test]
+    fn append_to_a_missing_file_creates_it_and_rollback_removes_it() {
+        let env = Env::new();
+        let path = env.fixture.fs.path("vol-a/new.log");
+        let mut tx = begin(&env.ctx, request("write"));
+        let preserved = tx.preserve(&[spec(&path, TargetAction::Append)]).unwrap();
+        assert_eq!(preserved[0].mode, PreserveMode::Created);
+        tx.apply(TargetIndex(0), Mutation::AppendBytes(b"x".to_vec()))
+            .unwrap();
+        assert_eq!(env.read(&path), b"x");
+        tx.rollback(RollbackReason::Cancelled).unwrap();
+        assert!(!env.fixture.exists(&path));
+    }
+
+    #[test]
+    fn replacing_a_file_by_a_directory_is_rolled_back_to_the_file() {
+        let env = Env::new();
+        let path = env.file("vol-a/x", b"file");
+        let mut tx = begin(&env.ctx, request("replace"));
+        let preserved = tx.preserve(&[spec(&path, TargetAction::Replace)]).unwrap();
+        assert_eq!(preserved[0].mode, PreserveMode::Moved);
+        tx.apply(TargetIndex(0), Mutation::Remove).unwrap();
+        tx.apply(TargetIndex(0), Mutation::CreateDir { mode: 0o755 })
+            .unwrap();
+        assert!(std::fs::metadata(path.as_path()).unwrap().is_dir());
+        tx.rollback(RollbackReason::Cancelled).unwrap();
+        assert_eq!(env.read(&path), b"file");
+    }
+
+    #[test]
+    fn expected_state_that_differs_fails_the_declaration_as_stale() {
+        let env = Env::new();
+        let path = env.file("vol-a/a.txt", b"a");
+        let mut wrong_hash = spec(&path, TargetAction::Modify);
+        wrong_hash.expect = Expect::Hash(manifest::hash_bytes(b"other"));
+        let mut tx = begin(&env.ctx, request("write"));
+        assert_eq!(
+            tx.preserve(&[wrong_hash]).unwrap_err().code(),
+            ErrorCode::Stale
+        );
+        let mut not_absent = spec(&path, TargetAction::Modify);
+        not_absent.expect = Expect::Absent;
+        let mut tx = begin(&env.ctx, request("write"));
+        assert_eq!(
+            tx.preserve(&[not_absent]).unwrap_err().code(),
+            ErrorCode::Stale
+        );
+        let mut right_hash = spec(&path, TargetAction::Modify);
+        right_hash.expect = Expect::Hash(manifest::hash_bytes(b"a"));
+        let mut tx = begin(&env.ctx, request("write"));
+        tx.preserve(&[right_hash]).unwrap();
+        assert_eq!(env.read(&path), b"a");
+    }
+
+    #[test]
+    fn provider_value_removal_is_restored_by_rollback() {
+        let env = Env::new();
+        let key = ProviderKey {
+            scheme: ProviderScheme("registry".to_owned()),
+            segments: vec!["HKCU".to_owned(), "Software".to_owned()],
+            value: Some("Theme".to_owned()),
+        };
+        env.fixture
+            .registry
+            .values
+            .lock()
+            .unwrap()
+            .insert(key.clone(), ProviderValue::Text("dark".to_owned()));
+        let target = TargetSpec {
+            path: TargetPath::Provider(key.clone()),
+            action: TargetAction::Delete,
+            expect: Expect::Unchecked,
+            size_hint: None,
+        };
+        let mut tx = begin(&env.ctx, request("registry.remove"));
+        let preserved = tx.preserve(&[target]).unwrap();
+        assert_eq!(preserved[0].mode, PreserveMode::Value);
+        tx.apply(TargetIndex(0), Mutation::ProviderRemove).unwrap();
+        assert!(env.fixture.registry.values.lock().unwrap().is_empty());
+        tx.rollback(RollbackReason::Cancelled).unwrap();
+        assert_eq!(
+            env.fixture.registry.values.lock().unwrap().get(&key),
+            Some(&ProviderValue::Text("dark".to_owned()))
+        );
+    }
+
+    #[test]
+    fn file_mutation_on_a_provider_target_is_a_protocol_violation() {
+        let env = Env::new();
+        let key = ProviderKey {
+            scheme: ProviderScheme("registry".to_owned()),
+            segments: vec!["HKCU".to_owned()],
+            value: Some("Theme".to_owned()),
+        };
+        let target = TargetSpec {
+            path: TargetPath::Provider(key),
+            action: TargetAction::Modify,
+            expect: Expect::Unchecked,
+            size_hint: None,
+        };
+        let mut tx = begin(&env.ctx, request("registry.set"));
+        tx.preserve(&[target]).unwrap();
+        let error = tx
+            .apply(TargetIndex(0), Mutation::WriteBytes(Vec::new()))
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::StageFailed);
+    }
+
+    #[test]
+    fn symbolic_link_is_created_and_recorded() {
+        let env = Env::new();
+        let link = env.fixture.fs.path("vol-a/link");
+        let mut tx = begin(&env.ctx, request("link"));
+        tx.preserve(&[spec(&link, TargetAction::Link)]).unwrap();
+        tx.apply(
+            TargetIndex(0),
+            Mutation::CreateLink {
+                target: std::path::PathBuf::from("a.txt"),
+                kind: nurt_contracts::fs::LinkKind::SymlinkFile,
+            },
+        )
+        .unwrap();
+        let handle = tx.commit().unwrap();
+        assert_eq!(handle.targets[0].mode, PreserveMode::Created);
+        assert_eq!(
+            std::fs::read_link(link.as_path()).unwrap(),
+            std::path::PathBuf::from("a.txt")
+        );
+    }
+
+    #[test]
     fn staged_content_is_switched_in_by_commit_staged() {
         let env = Env::new();
         let a = env.file("vol-a/a.txt", b"a");
@@ -4235,6 +4461,7 @@ mod tests {
                 index: TargetIndex(0),
                 path: TargetPath::Fs(a.clone()),
             }],
+            recorded: Vec::new(),
             after_commit: Some(Box::new(move |ctx: &JournalCtx, op| {
                 let layout = JournalLayout::new(ctx.journals.active()[0].clone());
                 let pending = layout::pending_entries(ctx.fs.as_ref(), &layout).unwrap();
