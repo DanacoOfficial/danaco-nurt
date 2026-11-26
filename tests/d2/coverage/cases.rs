@@ -274,8 +274,8 @@ coverage_cases! {
     git_restore_is_undone_and_redone => Table(&[("git.restore", None)]), Plain, procedure::round_trip;
     git_restore_hunks_is_undone_and_redone => Table(&[("git.restore", Some("hunks"))]), Plain, procedure::round_trip;
     git_restore_staged_is_undone_and_redone => Table(&[("git.restore", Some("staged"))]), Plain, procedure::round_trip;
-    git_reset_soft_is_undone_and_redone => Table(&[("git.reset", None)]), Plain, procedure::round_trip;
-    git_reset_mixed_is_undone_and_redone => Table(&[("git.reset", Some("soft"))]), Plain, procedure::round_trip;
+    git_reset_mixed_is_undone_and_redone => Table(&[("git.reset", None)]), Plain, procedure::round_trip;
+    git_reset_soft_is_undone_and_redone => Table(&[("git.reset", Some("soft"))]), Plain, procedure::round_trip;
     git_reset_hard_is_undone_and_redone => Table(&[("git.reset", Some("hard"))]), Plain, procedure::round_trip;
     git_merge_ff_is_undone_and_redone => Table(&[("git.merge", None)]), Plain, procedure::round_trip;
     git_merge_commit_is_undone_and_redone => Table(&[("git.merge", None)]), Plain, procedure::round_trip;

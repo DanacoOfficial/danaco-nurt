@@ -317,7 +317,10 @@ impl EnvDocument {
         }
         plan.expected[id].1 = Some(value.to_owned());
         let raw = &self.text[entry.value_range.clone()];
-        let encoded = encode(value, entry.quote, raw.contains('\n'));
+        let mut encoded = encode(value, entry.quote, raw.contains('\n'));
+        if entry.value_range.is_empty() && self.text[entry.value_range.end..].starts_with('#') {
+            encoded.push(' ');
+        }
         if entry.value.is_some() {
             plan.splices
                 .push(Splice::new(entry.value_range.clone(), encoded));
@@ -498,14 +501,15 @@ fn parse_entry(text: &str, lines: &[Line], index: usize, start: usize) -> Result
     let value_start = line_end - after_eq.trim_start_matches([' ', '\t']).len();
     let (value, quote, value_end, last_line) = parse_value(text, lines, index, value_start)?;
     let rest = &text[value_end..lines[last_line].content_end];
-    let trailing = trailing_comment(rest, quote != Quote::None).ok_or_else(|| {
-        parse_error(
-            FORMAT,
-            "unexpected text after the closing quote",
-            text,
-            value_end,
-        )
-    })?;
+    let trailing = trailing_comment(rest, quote != Quote::None || value_start == value_end)
+        .ok_or_else(|| {
+            parse_error(
+                FORMAT,
+                "unexpected text after the closing quote",
+                text,
+                value_end,
+            )
+        })?;
     Ok(Entry {
         key: key.to_owned(),
         key_range,
@@ -574,7 +578,15 @@ fn parse_value(
         Some('`') => Quote::Backtick,
         _ => {
             let content = &text[start..lines[index].content_end];
-            let cut = comment_start(content).unwrap_or(content.len());
+            let after_blank = matches!(
+                text.as_bytes().get(start.wrapping_sub(1)),
+                Some(b' ' | b'\t')
+            );
+            let cut = if after_blank && content.starts_with('#') {
+                0
+            } else {
+                comment_start(content).unwrap_or(content.len())
+            };
             let raw = content[..cut].trim_end_matches([' ', '\t']);
             return Ok((raw.to_owned(), Quote::None, start + raw.len(), index));
         }
@@ -667,6 +679,25 @@ mod tests {
         assert_eq!(value(&doc, "F"), Value::Text("spaced".into()));
         let item = doc.get(&key("DB_URL")).unwrap().remove(0);
         assert_eq!(item.comment.as_deref(), Some("db\nmain"));
+    }
+
+    #[test]
+    fn a_comment_right_after_the_separator_blanks_gives_an_empty_value() {
+        let doc = EnvDocument::parse("A= # c\nB=  # d\nC=#e\nD=x #f\n").unwrap();
+        assert_eq!(value(&doc, "A"), Value::Text(String::new()));
+        assert_eq!(value(&doc, "B"), Value::Text(String::new()));
+        assert_eq!(value(&doc, "C"), Value::Text("#e".into()));
+        assert_eq!(value(&doc, "D"), Value::Text("x".into()));
+        let item = doc.get(&key("A")).unwrap().remove(0);
+        assert_eq!(item.comment.as_deref(), Some("c"));
+    }
+
+    #[test]
+    fn setting_an_empty_value_before_a_comment_keeps_the_comment() {
+        let mut doc = EnvDocument::parse("A= # c\n").unwrap();
+        doc.set(&key("A"), &Value::Text("x".into()), false).unwrap();
+        assert_eq!(doc.text(), "A= x # c\n");
+        assert_eq!(value(&doc, "A"), Value::Text("x".into()));
     }
 
     #[test]

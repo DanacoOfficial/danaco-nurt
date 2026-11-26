@@ -30,6 +30,10 @@ pub const MAX_PROPOSALS: usize = 3;
 /// Maximum number of alternative trees in [`Repaired::alternatives`].
 pub const MAX_ALTERNATIVES: usize = 3;
 
+/// Maximum number of repairs applied to one program in total, which bounds the
+/// depth of the search and the stack that it uses.
+pub const MAX_REPAIRS_PER_PROGRAM: usize = 256;
+
 /// Edit of the program text proposed by a correction rule: `range` is
 /// replaced by `replacement`. An empty range inserts, an empty replacement
 /// deletes.
@@ -259,7 +263,9 @@ impl Search<'_, '_> {
             .iter()
             .filter(|&&statement| statement == failure.statement)
             .count();
-        if used >= usize::from(self.options.max_repairs) {
+        if used >= usize::from(self.options.max_repairs)
+            || path.repairs.len() >= MAX_REPAIRS_PER_PROGRAM
+        {
             return;
         }
         let mut proposals = self.policy.propose(&failure, &tokens, &text);

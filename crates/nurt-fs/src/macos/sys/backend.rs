@@ -344,7 +344,32 @@ impl FsWrite for MacosFs {
     /// has the permission bits `0600`; on failure it is removed.
     fn copy_file(&self, scope: &TxScope, src: &AbsPath, dst: &AbsPath) -> FsResult<u64> {
         const OP: &str = "copy_file";
-        let source = Self::open(src.as_path(), OFlags::RDONLY | OFlags::CLOEXEC, 0, OP)?;
+        // `O_NONBLOCK` keeps the open of a FIFO from waiting for a writer; the
+        // kind check refuses it before the destination is created.
+        let source = Self::open(
+            src.as_path(),
+            OFlags::RDONLY | OFlags::NONBLOCK | OFlags::CLOEXEC,
+            0,
+            OP,
+        )?;
+        let source_stat = stat_fd(source.as_fd(), OP, src.as_path())?;
+        match file_kind(u32::from(source_stat.st_mode)) {
+            FileKind::File => {}
+            FileKind::Directory => {
+                return Err(FsError::new(
+                    FsErrorKind::IsADirectory,
+                    OP,
+                    Some(src.as_path()),
+                ));
+            }
+            _ => {
+                return Err(FsError::new(
+                    FsErrorKind::Unsupported,
+                    OP,
+                    Some(src.as_path()),
+                ));
+            }
+        }
         let flags =
             OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC;
         let target = Self::open(dst.as_path(), flags, TEMP_MODE, OP)?;
@@ -471,13 +496,13 @@ impl FsWrite for MacosFs {
         const OP: &str = "lock_exclusive";
         let flags = OFlags::RDWR | OFlags::CREATE | OFlags::NOFOLLOW | OFlags::CLOEXEC;
         let file = Self::open(path.as_path(), flags, CREATE_MODE, OP)?;
-        let deadline = Instant::now() + timeout;
+        let deadline = Instant::now().checked_add(timeout);
         loop {
             match retry(|| rustix::fs::flock(&file, FlockOperation::NonBlockingLockExclusive)) {
                 Ok(()) => return Ok(Box::new(MacosLock::new(file, path.clone()))),
                 Err(Errno::WOULDBLOCK) => {
                     let now = Instant::now();
-                    if now >= deadline {
+                    if deadline.is_some_and(|deadline| now >= deadline) {
                         return Err(sys_error(
                             Errno::WOULDBLOCK,
                             ErrnoContext::Lock,
@@ -485,7 +510,9 @@ impl FsWrite for MacosFs {
                             path.as_path(),
                         ));
                     }
-                    thread::sleep(LOCK_POLL.min(deadline - now));
+                    thread::sleep(
+                        deadline.map_or(LOCK_POLL, |deadline| LOCK_POLL.min(deadline - now)),
+                    );
                 }
                 Err(errno) => return Err(plain(OP, path)(errno)),
             }

@@ -29,12 +29,22 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
     let packages: Vec<String> = if !request.only.is_empty() {
         let mut packages: Vec<String> = Vec::new();
         for case in request.only {
-            let package = case.suite.clone().unwrap_or_default();
+            // A name that starts with `-` would be read as an option of
+            // `go test`; it counts as a missing package.
+            let package = case
+                .suite
+                .clone()
+                .filter(|package| !package.starts_with('-'))
+                .unwrap_or_default();
             if !packages.contains(&package) {
                 packages.push(package);
             }
         }
-        packages
+        if packages.iter().any(String::is_empty) {
+            vec![ALL_PACKAGES.to_owned()]
+        } else {
+            packages
+        }
     } else if request.targets.is_empty() {
         vec![ALL_PACKAGES.to_owned()]
     } else {

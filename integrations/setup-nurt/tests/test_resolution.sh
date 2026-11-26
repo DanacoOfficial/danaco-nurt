@@ -29,6 +29,14 @@ check_cmp 1.0.0-alpha.2 1.0.0-alpha.10 -1
 check_cmp 1.0.0-1 1.0.0-alpha -1
 check_cmp 1.0.0+build.5 1.0.0 0
 check_cmp v1.2.3 1.2.3 0
+# SemVer orders identifiers by ASCII code: upper case before lower case, in
+# every locale.
+check_cmp 1.0.0-Alpha 1.0.0-alpha -1
+check_cmp 1.0.0-beta 1.0.0-Beta 1
+if locale -a 2>/dev/null | grep -qix 'en_US.utf-\?8'; then
+  assert_eq 'semver_cmp ignores a locale with another collation' -1 \
+    "$(LC_ALL=en_US.UTF-8 semver_cmp 1.0.0-Alpha 1.0.0-alpha)"
+fi
 
 assert_succeeds 'accepts plain SemVer' is_semver 1.2.3
 assert_succeeds 'accepts SemVer with v prefix' is_semver v1.2.3
@@ -109,6 +117,13 @@ assert_eq 'resolve exact version without listing' 9.9.9 "$(NURT_RELEASES_URL=fil
 assert_eq 'resolve strips v prefix' 1.2.3 "$(resolve_version v1.2.3)"
 assert_eq 'resolve exact pre-release' 3.0.0-rc.1 "$(resolve_version 3.0.0-rc.1)"
 assert_fails 'resolve fails without a match' resolve_version '>=5.0.0'
-assert_fails 'resolve fails when listing is unavailable' env NURT_RELEASES_URL=file:///nonexistent bash -c "source '$here/../scripts/lib.sh'; resolve_version latest"
+unavailable_listing() {
+  env NURT_RELEASES_URL=file:///nonexistent bash -c 'source "$1"; resolve_version latest' _ "$here/../scripts/lib.sh"
+}
+assert_fails 'resolve fails when listing is unavailable' unavailable_listing
+out=$(unavailable_listing 2>&1 || true)
+assert_contains 'explains the unavailable listing' 'cannot download the release listing' "$out"
+out=$( (resolve_version '>=5.0.0') 2>&1 || true)
+assert_contains 'explains the unmatched range' "no release satisfies version '>=5.0.0'" "$out"
 
 finish_tests

@@ -124,6 +124,94 @@ fn save_replaces_an_entry_with_the_same_identifier() {
 }
 
 #[test]
+fn next_id_does_not_hand_out_an_identifier_twice_before_its_entry_is_saved() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = DirStore::new(dir.path(), 50);
+    let first = store.next_id(EntryKind::TestRun);
+    let second = store.next_id(EntryKind::TestRun);
+    assert_eq!((first.as_str(), second.as_str()), ("run-1", "run-2"));
+    store
+        .save(EntryKind::TestRun, &entry(&first, &["a"]))
+        .unwrap();
+    store
+        .save(EntryKind::TestRun, &entry(&second, &["b"]))
+        .unwrap();
+    assert_eq!(store.ids(EntryKind::TestRun), ["run-2", "run-1"]);
+    assert_eq!(store.next_id(EntryKind::TestRun), "run-3");
+    assert!(!dir.path().join("verify/runs/run-1.rsv").exists());
+}
+
+#[test]
+fn reservations_behind_the_oldest_entry_are_dropped() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = DirStore::new(dir.path(), 50);
+    let abandoned = store.next_id(EntryKind::TestRun);
+    let saved = store.next_id(EntryKind::TestRun);
+    store.save(EntryKind::TestRun, &entry(&saved, &[])).unwrap();
+    let reservation = dir.path().join(format!("verify/runs/{abandoned}.rsv"));
+    assert!(!reservation.exists());
+    assert_eq!(store.next_id(EntryKind::TestRun), "run-3");
+}
+
+#[test]
+fn load_refuses_identifiers_that_name_other_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = DirStore::new(dir.path(), 50);
+    store
+        .save(EntryKind::TestRun, &entry("run-1", &["a"]))
+        .unwrap();
+    let outside = dir.path().join("verify/outside.json");
+    std::fs::copy(dir.path().join("verify/runs/run-1.json"), &outside).unwrap();
+    let absolute = dir.path().join("verify/outside");
+    for id in [
+        "../outside",
+        "run-",
+        "run-x",
+        "run-1x",
+        "an-1",
+        "",
+        absolute.to_str().unwrap(),
+    ] {
+        assert_eq!(store.load(EntryKind::TestRun, id).unwrap(), None, "{id}");
+    }
+    assert!(store.load(EntryKind::TestRun, "run-1").unwrap().is_some());
+}
+
+#[test]
+fn pruned_runs_lose_their_reports_and_coverage() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = DirStore::new(dir.path(), 1);
+    let reports = dir.path().join("verify/reports");
+    std::fs::create_dir_all(reports.join("run-1-coverage")).unwrap();
+    for name in [
+        "run-1.xml",
+        "run-1.json",
+        "run-1.coverage",
+        "run-1-coverage/lcov.info",
+        "run-2.xml",
+        "other.txt",
+    ] {
+        std::fs::write(reports.join(name), "x").unwrap();
+    }
+    store
+        .save(EntryKind::TestRun, &entry("run-1", &[]))
+        .unwrap();
+    store
+        .save(EntryKind::TestRun, &entry("run-2", &[]))
+        .unwrap();
+    for name in [
+        "run-1.xml",
+        "run-1.json",
+        "run-1.coverage",
+        "run-1-coverage",
+    ] {
+        assert!(!reports.join(name).exists(), "{name}");
+    }
+    assert!(reports.join("run-2.xml").exists());
+    assert!(reports.join("other.txt").exists());
+}
+
+#[test]
 fn load_reports_a_corrupt_entry_with_a_fix() {
     let dir = tempfile::tempdir().unwrap();
     let store = DirStore::new(dir.path(), 50);

@@ -378,8 +378,8 @@ impl Params {
 
     fn search_options(&self, case_sensitive: bool, whole_word: bool) -> SearchOptions {
         let searcher_limit = match self.output {
-            Output::Unmatched => Some(1),
             _ if self.filters_matches() => None,
+            Output::Unmatched => Some(1),
             _ => self.max_per_file,
         };
         SearchOptions::new()
@@ -1261,6 +1261,7 @@ impl<'a> Run<'a> {
         scan: &mut Scan,
     ) -> ControlFlow<()> {
         let view = view.as_ref();
+        let start = place.offset(hit.start());
         let mut matches = Vec::new();
         for found in hit.matches() {
             if view.is_none_or(|view| view.accepts(found.start)) {
@@ -1270,7 +1271,6 @@ impl<'a> Run<'a> {
         if matches.is_empty() && !self.params.invert {
             return ControlFlow::Continue(());
         }
-        let start = place.offset(hit.start());
         let end = place.offset(hit.end());
         scan.push(Found {
             line: hit.line() + place.line_base,
@@ -1465,7 +1465,9 @@ impl<'a> Run<'a> {
         let line_base = content
             .range
             .and_then(|range| range.start())
-            .map_or(0, |start| u64::try_from(start - 1).unwrap_or(0));
+            .map_or(0, |start| {
+                u64::try_from(start.saturating_sub(1)).unwrap_or(0)
+            });
         let mapper = match content.range {
             None => OffsetMapper::for_file(&TextEncoding {
                 label: content.encoding.clone(),
@@ -2184,5 +2186,131 @@ mod tests {
             );
         let params = Params::read(&args, &ctx).unwrap();
         assert_eq!(params.options, SearchOptions::new().max_per_file(Some(1)));
+    }
+
+    #[test]
+    fn unmatched_output_with_a_scope_does_not_stop_the_searcher_at_the_first_hit() {
+        let test = nurt_testkit::ctx::TestContext::new();
+        let ctx = test.ctx();
+        let args = BoundArgs::new(COMMAND)
+            .with(
+                PATTERN,
+                nurt_contracts::stage::ArgValue::Value(Value::Text("x".to_owned())),
+                false,
+            )
+            .with(
+                OUTPUT,
+                nurt_contracts::stage::ArgValue::Value(Value::Enum("unmatched".to_owned())),
+                false,
+            );
+        let mut params = Params::read(&args, &ctx).unwrap();
+        params.scope = Scope::Comments;
+        assert_eq!(params.search_options(true, false), SearchOptions::new());
+    }
+
+    #[test]
+    fn content_records_with_an_extreme_range_start_do_not_overflow() {
+        let test = nurt_testkit::ctx::TestContext::new();
+        let ctx = test.ctx();
+        let args = BoundArgs::new(COMMAND).with(
+            PATTERN,
+            nurt_contracts::stage::ArgValue::Value(Value::Text("x".to_owned())),
+            false,
+        );
+        let params = Params::read(&args, &ctx).unwrap();
+        let matcher = Matcher::new(&params).unwrap();
+        let run = Run::new(params, matcher, &ctx);
+        let path = nurt_testkit::vfs::test_path("/data/a.txt").unwrap();
+        let content = Content {
+            path: path_field(&path),
+            text: "x\n".to_owned(),
+            encoding: "utf-8".to_owned(),
+            range: Some(nurt_contracts::value::Range::from_start(i64::MIN)),
+            ..Content::default()
+        };
+        let result = run.scan_content(Record::from(content)).unwrap().unwrap();
+        assert_eq!(result.scan.hits.len(), 1);
+        assert_eq!(result.scan.hits[0].line, 1);
+    }
+
+    #[test]
+    fn legacy_encoded_files_report_the_byte_offsets_of_every_hit() {
+        let test = nurt_testkit::ctx::TestContext::new();
+        let path = nurt_testkit::vfs::test_path("/data/legacy.txt").unwrap();
+        test.fs()
+            .write_file(
+                &path,
+                b"Zielona \xb3\xb9ka i \xbf\xf3\xb3ty \x9cwierszcz\r\nkoniec\r\nkoniec\r\n",
+            )
+            .unwrap();
+        let args = BoundArgs::new(COMMAND)
+            .with(
+                PATTERN,
+                nurt_contracts::stage::ArgValue::Value(Value::Text("koniec".to_owned())),
+                false,
+            )
+            .with(
+                PATH,
+                nurt_contracts::stage::ArgValue::Value(Value::Path(path.to_language_string())),
+                false,
+            );
+        let ctx = test.ctx();
+        let output = Search.execute(&args, StageInput::none(), &ctx).unwrap();
+        let nurt_contracts::stage::StageData::Records(stream) = output.data else {
+            panic!("records expected");
+        };
+        let found: Vec<Match> = stream
+            .map(|item| Match::try_from(item.unwrap()).unwrap())
+            .collect();
+        let places: Vec<(u64, u64, u64, u64)> = found
+            .iter()
+            .map(|found| (found.no, found.column, found.start, found.end))
+            .collect();
+        assert_eq!(places, [(2, 1, 32, 38), (3, 1, 40, 46)]);
+    }
+
+    #[test]
+    fn long_lines_with_multibyte_characters_are_shortened_by_characters() {
+        assert_eq!(
+            shorten("\u{17c}\u{f3}\u{142}w".as_bytes(), 2),
+            ("\u{17c}\u{f3} [2 characters omitted]".to_owned(), true)
+        );
+        assert_eq!(
+            shorten("\u{17c}\u{f3}".as_bytes(), 2),
+            ("\u{17c}\u{f3}".to_owned(), false)
+        );
+    }
+
+    #[test]
+    fn negative_amounts_and_invalid_pattern_lists_are_rejected() {
+        let negative = BoundArgs::new(COMMAND).with(
+            CONTEXT,
+            nurt_contracts::stage::ArgValue::Value(Value::Int(-1)),
+            false,
+        );
+        assert_eq!(
+            amount(&negative, CONTEXT).unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
+        let test = nurt_testkit::ctx::TestContext::new();
+        let ctx = test.ctx();
+        let empty = BoundArgs::new(COMMAND).with(
+            PATTERN,
+            nurt_contracts::stage::ArgValue::Value(Value::List(Vec::new())),
+            false,
+        );
+        assert_eq!(
+            Params::read(&empty, &ctx).unwrap_err().code(),
+            ErrorCode::InvalidValue
+        );
+        let wrong = BoundArgs::new(COMMAND).with(
+            PATTERN,
+            nurt_contracts::stage::ArgValue::Value(Value::Int(1)),
+            false,
+        );
+        assert_eq!(
+            Params::read(&wrong, &ctx).unwrap_err().code(),
+            ErrorCode::Type
+        );
     }
 }

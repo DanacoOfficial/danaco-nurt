@@ -144,12 +144,13 @@ internal sealed class ScriptedServer : IDisposable
             case "cancel":
                 long target = parameters!["request_id"]!.GetValue<long>();
                 Interlocked.Increment(ref _cancelled);
-                if (_sleeping.TryRemove(target, out TaskCompletionSource<bool>? sleeper))
+                bool running = _sleeping.TryRemove(target, out TaskCompletionSource<bool>? sleeper);
+                if (running)
                 {
-                    sleeper.TrySetResult(true);
+                    sleeper!.TrySetResult(true);
                 }
 
-                await ResultAsync(id, new JsonObject()).ConfigureAwait(false);
+                await ResultAsync(id, new JsonObject { ["cancelled"] = running }).ConfigureAwait(false);
                 break;
             case "run":
                 await RunAsync(id, parameters!.AsObject()).ConfigureAwait(false);
@@ -252,7 +253,7 @@ internal sealed class ScriptedServer : IDisposable
                 await wake.Task.ConfigureAwait(false);
                 JsonObject cancelled = Report("failed", "sleep");
                 cancelled["error"] = new JsonObject { ["code"] = "E_CANCELLED", ["message"] = "cancelled" };
-                await ResultAsync(id, ResponseOf(cancelled, null, envelope)).ConfigureAwait(false);
+                await CancelledAsync(id, ResponseOf(cancelled, null, envelope)).ConfigureAwait(false);
                 break;
             case "delay":
                 int now = Interlocked.Increment(ref _inflight);
@@ -327,7 +328,7 @@ internal sealed class ScriptedServer : IDisposable
             ["t"] = kind,
             ["seq"] = seq,
             ["time"] = "2026-01-01T00:00:00Z",
-            ["request_id"] = requestId,
+            ["request"] = requestId.ToString(CultureInfo.InvariantCulture),
         },
     });
 
@@ -343,6 +344,19 @@ internal sealed class ScriptedServer : IDisposable
         ["jsonrpc"] = "2.0",
         ["id"] = id,
         ["error"] = new JsonObject { ["code"] = code, ["message"] = message, ["data"] = new JsonObject { ["source"] = "test" } },
+    });
+
+    /// <summary>Answer of a cancelled <c>run</c>: the error <c>NURT_E_CANCELLED</c> that carries the response.</summary>
+    private Task CancelledAsync(long id, JsonObject response) => WriteAsync(new JsonObject
+    {
+        ["jsonrpc"] = "2.0",
+        ["id"] = id,
+        ["error"] = new JsonObject
+        {
+            ["code"] = StatusErrorBase - 2,
+            ["message"] = "the request was cancelled",
+            ["data"] = new JsonObject { ["status"] = "NURT_E_CANCELLED", ["response"] = response },
+        },
     });
 
     private Task WriteAsync(JsonObject message) => WriteLineAsync(message.ToJsonString());

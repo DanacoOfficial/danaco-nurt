@@ -225,13 +225,16 @@ impl TreeSnapshot {
             }
             Change::Remove { path } => self.entries.retain(|key, _| !key.starts_with(path)),
             Change::Rename { from, to } => {
-                self.entries.retain(|key, _| !key.starts_with(to));
                 let moved: Vec<_> = self
                     .entries
                     .iter()
                     .filter(|(key, _)| key.starts_with(from))
                     .map(|(key, entry)| (key.clone(), entry.clone()))
                     .collect();
+                if from == to || moved.is_empty() {
+                    return;
+                }
+                self.entries.retain(|key, _| !key.starts_with(to));
                 for (key, entry) in moved {
                     self.entries.remove(&key);
                     let suffix = key.strip_prefix(from).unwrap_or(Path::new(""));
@@ -575,5 +578,243 @@ impl From<nurt_contracts::fs::FsError> for Violation {
         Self::Unreadable {
             detail: err.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use nurt_contracts::fs::{FsWrite, ScopePurpose, TxScope};
+    use nurt_contracts::journal::OpId;
+
+    use super::*;
+    use crate::crash::{CrashFs, CrashProfile, VolumeSpec};
+
+    fn write(path: &str, content: &[u8]) -> Change {
+        Change::Write {
+            path: PathBuf::from(path),
+            content: content.to_vec(),
+        }
+    }
+
+    fn rename(from: &str, to: &str) -> Change {
+        Change::Rename {
+            from: PathBuf::from(from),
+            to: PathBuf::from(to),
+        }
+    }
+
+    fn tree(changes: &[Change]) -> TreeSnapshot {
+        changes
+            .iter()
+            .fold(TreeSnapshot::default(), |tree, change| tree.with(change))
+    }
+
+    fn file_hash(snapshot: &TreeSnapshot, path: &str) -> Option<ContentHash> {
+        match snapshot.get(Path::new(path)) {
+            Some(EntrySnapshot::File { hash, .. }) => Some(*hash),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn renaming_an_entry_onto_itself_changes_nothing() {
+        let before = tree(&[write("a", b"1")]);
+        assert_eq!(before.with(&rename("a", "a")), before);
+    }
+
+    #[test]
+    fn renaming_a_missing_entry_keeps_the_destination() {
+        let before = tree(&[write("b", b"1")]);
+        assert_eq!(before.with(&rename("a", "b")), before);
+    }
+
+    #[test]
+    fn renaming_replaces_the_destination() {
+        let before = tree(&[write("a", b"1"), write("b", b"2")]);
+        let after = before.with(&rename("a", "b"));
+        assert_eq!(after.get(Path::new("a")), None);
+        assert_eq!(file_hash(&after, "b"), file_hash(&before, "a"));
+    }
+
+    #[test]
+    fn renaming_a_directory_moves_its_children() {
+        let before = tree(&[
+            Change::CreateDir {
+                path: PathBuf::from("d"),
+                mode: 0o755,
+            },
+            write("d/f", b"1"),
+        ]);
+        let after = before.with(&rename("d", "e"));
+        let names: Vec<&Path> = after.entries().keys().map(PathBuf::as_path).collect();
+        assert_eq!(names, [Path::new("e"), Path::new("e/f")]);
+    }
+
+    #[test]
+    fn removal_covers_the_whole_subtree_and_a_write_keeps_the_mode() {
+        let before = tree(&[
+            Change::CreateDir {
+                path: PathBuf::from("d"),
+                mode: 0o700,
+            },
+            write("d/f", b"1"),
+            write("g", b"2"),
+        ]);
+        let removed = before.with(&Change::Remove {
+            path: PathBuf::from("d"),
+        });
+        assert_eq!(removed.entries().len(), 1);
+        let moded = before.with(&Change::SetMode {
+            path: PathBuf::from("g"),
+            mode: 0o600,
+        });
+        let rewritten = moded.with(&write("g", b"3"));
+        assert!(matches!(
+            rewritten.get(Path::new("g")),
+            Some(EntrySnapshot::File { mode: 0o600, .. })
+        ));
+    }
+
+    #[test]
+    fn a_tree_must_equal_one_of_the_two_states() {
+        let before = tree(&[write("a", b"1")]);
+        let after = tree(&[write("a", b"2")]);
+        assert_eq!(
+            check_complete(&before, &before, &after, Expected::Either),
+            Ok(Matched::Before)
+        );
+        assert_eq!(
+            check_complete(&after, &before, &after, Expected::After),
+            Ok(Matched::After)
+        );
+        assert_eq!(
+            check_complete(&before, &before, &after, Expected::After),
+            Err(Violation::WrongState {
+                expected: Expected::After,
+                found: Matched::Before
+            })
+        );
+        let mixed = tree(&[write("a", b"1"), write("b", b"2")]);
+        assert!(matches!(
+            check_complete(&mixed, &before, &after, Expected::Either),
+            Err(Violation::IntermediateState { .. })
+        ));
+        assert_eq!(
+            check_complete(&before, &before, &before, Expected::After),
+            Ok(Matched::Before)
+        );
+    }
+
+    #[test]
+    fn previous_content_may_survive_in_another_place() {
+        let before = tree(&[write("a", b"1")]);
+        let targets = [PathBuf::from("a")];
+        let lost = tree(&[write("b", b"2")]);
+        assert_eq!(
+            check_preserved(&before, &targets, &lost),
+            Err(Violation::PreviousContentLost {
+                path: PathBuf::from("a")
+            })
+        );
+        let kept = tree(&[write("journal/copy", b"1")]);
+        assert_eq!(check_preserved(&before, &targets, &kept), Ok(()));
+        assert_eq!(check_preserved(&before, &[], &lost), Ok(()));
+    }
+
+    #[test]
+    fn temporary_entries_are_found_and_removed_from_a_snapshot() {
+        let marked = format!("{TEMP_PREFIX}1");
+        let volume = tree(&[
+            write("a", b"1"),
+            Change::CreateDir {
+                path: PathBuf::from(&marked),
+                mode: 0o755,
+            },
+            write(&format!("{marked}/inner"), b"2"),
+        ]);
+        assert_eq!(
+            check_no_leftovers(&volume),
+            Err(Violation::TemporaryLeftover {
+                path: PathBuf::from(&marked)
+            })
+        );
+        let clean = volume.without_temporary();
+        assert_eq!(clean, tree(&[write("a", b"1")]));
+        assert_eq!(check_no_leftovers(&clean), Ok(()));
+    }
+
+    #[test]
+    fn differences_name_paths_present_in_one_snapshot_only() {
+        let first = tree(&[write("a", b"1"), write("b", b"1")]);
+        let second = tree(&[write("a", b"1"), write("c", b"1")]);
+        assert_eq!(
+            first.differences(&second),
+            [PathBuf::from("b"), PathBuf::from("c")]
+        );
+        assert_eq!(check_idempotent(&first, &first), Ok(()));
+        assert_eq!(
+            check_idempotent(&first, &second),
+            Err(Violation::NotIdempotent {
+                changed: vec![PathBuf::from("b"), PathBuf::from("c")]
+            })
+        );
+    }
+
+    #[test]
+    fn a_silent_failure_is_the_only_outcome_that_fails_the_explicit_check() {
+        assert_eq!(
+            check_explicit(OpOutcome::FailedSilently),
+            Err(Violation::SilentError)
+        );
+        for outcome in [
+            OpOutcome::Committed { irreversible: true },
+            OpOutcome::RolledBack,
+            OpOutcome::Crashed,
+        ] {
+            assert_eq!(check_explicit(outcome), Ok(()));
+        }
+    }
+
+    #[test]
+    fn violations_describe_themselves() {
+        let lost = Violation::PreviousContentLost {
+            path: PathBuf::from("a"),
+        };
+        assert_eq!(lost.to_string(), "previous content of a is lost");
+        let state = Violation::WrongState {
+            expected: Expected::Before,
+            found: Matched::After,
+        };
+        assert_eq!(
+            state.to_string(),
+            "expected the Before state, found the After state"
+        );
+        assert_eq!(
+            Violation::DuplicateOperation { op: 4 }.to_string(),
+            "operation 4 appears twice in the history"
+        );
+    }
+
+    #[test]
+    fn a_captured_tree_lists_entries_below_the_root_and_honours_exclusions() {
+        let root = AbsPath::new(if cfg!(windows) { "C:\\vol" } else { "/vol" }).unwrap();
+        let volumes = vec![VolumeSpec::new(root.clone())];
+        let fs = CrashFs::new(CrashProfile::PosixWorstCase, 1, volumes).unwrap();
+        let scope = TxScope::new_for_journal(OpId(1), ScopePurpose::Maintenance);
+        let dir = root.join_name("d").unwrap();
+        fs.create_dir(&scope, &dir, 0o755).unwrap();
+        let mut handle = fs.create_new(&scope, &dir.join_name("f").unwrap()).unwrap();
+        handle.write_all(b"x").unwrap();
+        drop(handle);
+        let snapshot = TreeSnapshot::capture(&fs, &root, &[]).unwrap();
+        let names: Vec<&Path> = snapshot.entries().keys().map(PathBuf::as_path).collect();
+        assert_eq!(names, [Path::new("d"), Path::new("d/f")]);
+        assert_eq!(snapshot.hashes().len(), 1);
+        let excluded = TreeSnapshot::capture(&fs, &root, &[Path::new("d")]).unwrap();
+        assert!(excluded.entries().is_empty());
+        let all = TreeSnapshot::capture_all(&fs, &[root]).unwrap();
+        assert!(all.get(Path::new("0/d/f")).is_some());
     }
 }

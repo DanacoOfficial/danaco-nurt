@@ -270,6 +270,12 @@ static const char *SYNTAX_ERROR =
     ",\"error\":{\"code\":\"E_SYNTAX\",\"message\":\"unexpected end of program\","
     "\"stage\":\"parse\",\"at\":{\"line\":1,\"column\":5},\"fix\":[\"complete the program\"]}";
 
+/* Second document of nurt_parse and nurt_check after a language error, as the library writes it. */
+static const char *const LANGUAGE_ERROR_DOCUMENT =
+    "{\"diagnostics\":[{\"severity\":\"error\",\"message\":\"unexpected end of program\","
+    "\"at\":{\"line\":1,\"column\":5}}],\"error\":{\"code\":\"E_SYNTAX\","
+    "\"message\":\"unexpected end of program\",\"stage\":\"parse\"}}";
+
 /* Builds the response of a program; returns a status other than NURT_OK for call failures. */
 static nurt_status respond(const char *request, const char *program, struct text *out) {
     if (starts_with(program, "status ")) {
@@ -367,8 +373,8 @@ NURT_API nurt_status NURT_CALL nurt_parse(nurt_engine *e, const char *program, n
     if (s) return s;
     if (!program || !variant_valid(v)) return fail(NURT_E_ARG, "invalid program or variant");
     if (strcmp(program, "fail") == 0) {
-        put_string(out_diag_json, "[{\"severity\":\"error\",\"message\":\"unexpected end of program\","
-                                  "\"at\":{\"line\":1,\"column\":5}}]");
+        put_string(out_ast_json, "null");
+        put_string(out_diag_json, LANGUAGE_ERROR_DOCUMENT);
         return NURT_OK;
     }
     struct text ast = {0};
@@ -376,7 +382,7 @@ NURT_API nurt_status NURT_CALL nurt_parse(nurt_engine *e, const char *program, n
     text_json_string(&ast, program);
     text_put(&ast, "}");
     put_text(out_ast_json, &ast);
-    put_string(out_diag_json, "[]");
+    put_string(out_diag_json, "{\"diagnostics\":[]}");
     return NURT_OK;
 }
 
@@ -418,13 +424,13 @@ NURT_API nurt_status NURT_CALL nurt_check(nurt_engine *e, const char *request_js
     if (!program) return fail(NURT_E_ARG, "request has no program");
     struct text bound = {0};
     if (strcmp(program, "fail") == 0) {
-        text_put(&bound, "{\"effects\":[]}");
-        put_string(out_diag_json, "[{\"severity\":\"error\",\"message\":\"unexpected end of program\"}]");
+        text_put(&bound, "null");
+        put_string(out_diag_json, LANGUAGE_ERROR_DOCUMENT);
     } else {
         text_put(&bound, "{\"bound\":{\"nurt\":\"1.0\",\"program\":");
         text_json_string(&bound, program);
         text_put(&bound, "},\"effects\":[]}");
-        put_string(out_diag_json, "[]");
+        put_string(out_diag_json, "{\"diagnostics\":[]}");
     }
     put_text(out_bound_json, &bound);
     free(program);
@@ -649,7 +655,15 @@ NURT_API nurt_status NURT_CALL nurt_schema(const char *which, nurt_buf *out_json
 
 NURT_API nurt_status NURT_CALL nurt_history(nurt_engine *e, const char *query_json, nurt_buf *out_json) {
     FORCED("nurt_history");
-    (void)query_json;
+    if (query_json) {
+        struct text reply = {0};
+        text_put(&reply, "{\"entries\":[],\"received\":");
+        text_json_string(&reply, query_json);
+        text_put(&reply, "}");
+        nurt_status s = reply_json(e, out_json, reply.data);
+        free(reply.data);
+        return s;
+    }
     return reply_json(e, out_json, "{\"entries\":[]}");
 }
 

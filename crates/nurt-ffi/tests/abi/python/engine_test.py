@@ -236,7 +236,7 @@ def test_events(lib):
     lib.nurt_exec_free(x)
     check([event["t"] for event in received] == ["exec.started", "exec.finished"], "event types")
     check([event["seq"] for event in received] == [1, 2], "seq increases from 1")
-    check(len({event["request_id"] for event in received}) == 1, "one request identifier")
+    check(len({event["request"] for event in received}) == 1, "one request identifier")
     check(received[-1]["status"] == "failed", "status of the report in exec.finished")
     lib.nurt_engine_close(e)
 

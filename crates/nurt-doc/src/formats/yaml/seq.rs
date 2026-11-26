@@ -22,11 +22,12 @@ use nurt_contracts::error::Result;
 use nurt_contracts::keypath::KeyPath;
 use nurt_contracts::value::Value;
 
-use super::anchor::Anchors;
 use super::comment::Comments;
 use super::model::{CollectionStyle, NodeId, NodeKind, SequenceNode, YamlModel};
 use super::multidoc;
-use super::scalar::{format_float, is_plain_safe, key_text, literal_block, quote_double};
+use super::scalar::{
+    date_text, format_float, is_plain_safe, key_text, literal_block, quote_double,
+};
 
 use crate::edit::ByteEdit;
 use crate::model::{Span, key_conflict, key_not_found};
@@ -72,8 +73,7 @@ pub fn index_target(
     index: i64,
     key: &KeyPath,
 ) -> Result<IndexTarget> {
-    let anchors = Anchors::new(model);
-    let seq = anchors.resolve(seq).unwrap_or(seq);
+    let seq = model.anchors().resolve(seq).unwrap_or(seq);
     let Some(sequence) = model.node(seq).as_sequence() else {
         return Err(key_conflict(
             key,
@@ -121,8 +121,7 @@ pub fn plan_append(
     value: &Value,
     key: &KeyPath,
 ) -> Result<SeqPlan> {
-    let anchors = Anchors::new(model);
-    let target = anchors.resolve(node).unwrap_or(node);
+    let target = model.anchors().resolve(node).unwrap_or(node);
     let layout = Layout::of(model);
     let yaml = model.node(target);
     let edits = match &yaml.kind {
@@ -152,8 +151,7 @@ pub fn plan_append(
 /// Returns `E_KEY_CONFLICT` when `node` is not a sequence and
 /// `E_KEY_NOT_FOUND` when the index selects no item.
 pub fn plan_remove(model: &YamlModel, node: NodeId, index: i64, key: &KeyPath) -> Result<SeqPlan> {
-    let anchors = Anchors::new(model);
-    let target = anchors.resolve(node).unwrap_or(node);
+    let target = model.anchors().resolve(node).unwrap_or(node);
     let Some(sequence) = model.node(target).as_sequence() else {
         return Err(key_conflict(
             key,
@@ -466,7 +464,7 @@ impl Layout {
             }
         }
         Self {
-            unit: unit.unwrap_or(DEFAULT_INDENT_UNIT),
+            unit: unit.unwrap_or_else(|| super::style::text_unit(model)),
             flush_lists: flush_lists.unwrap_or(false),
             eol: model.line_ending().as_str(),
         }
@@ -586,7 +584,7 @@ fn scalar_text(value: &Value, flow: bool) -> String {
         Value::BigInt(text) | Value::Decimal(text) => text.clone(),
         Value::Number(number) => format_float(*number),
         Value::Text(text) => plain_or_quoted(text, flow),
-        Value::Date(date) => date.text.clone(),
+        Value::Date(date) => date_text(date),
         Value::Bytes(bytes) => format!("!!binary {}", bytes.to_base64()),
         Value::List(_) | Value::Map(_) | Value::Record(_) => flow_text(value),
         other => plain_or_quoted(&serialized_text(other), flow),
@@ -844,5 +842,93 @@ mod tests {
         assert_eq!(scalar_text(&date, false), "2026-11-21");
         let path = Value::Path("conf/app.yaml".to_owned());
         assert_eq!(scalar_text(&path, false), "conf/app.yaml");
+    }
+
+    #[test]
+    fn layout_takes_the_indentation_unit_from_the_text_without_nested_mappings() {
+        let model = parse("l:\n    - x\n");
+        assert_eq!(Layout::of(&model).unit, 4);
+        let model = parse("l:\n  - x\n");
+        assert_eq!(Layout::of(&model).unit, DEFAULT_INDENT_UNIT);
+        let model = parse("- x\n");
+        assert_eq!(Layout::of(&model).unit, DEFAULT_INDENT_UNIT);
+    }
+
+    #[test]
+    fn appended_nested_mapping_uses_the_indentation_of_the_text() {
+        let mut inner = IndexMap::new();
+        inner.insert("m".to_owned(), Value::Int(1));
+        let mut item = IndexMap::new();
+        item.insert("k".to_owned(), Value::Map(inner));
+        let appended = append_to(
+            "l:\n    - x\n",
+            |model| value_node(model, "l"),
+            &Value::Map(item),
+        );
+        assert_eq!(appended, "l:\n    - x\n    - k:\n          m: 1\n");
+    }
+
+    #[test]
+    fn quotes_a_date_that_a_yaml_reader_would_type_as_a_number() {
+        let clock = Value::Date(Date {
+            kind: DateKind::LocalDate,
+            text: "07:32:00".to_owned(),
+        });
+        assert_eq!(scalar_text(&clock, false), "\"07:32:00\"");
+        assert_eq!(flow_text(&clock), "\"07:32:00\"");
+    }
+
+    #[test]
+    fn appends_to_block_lists_with_the_dash_column_of_the_siblings() {
+        let appended = append_to(
+            "list:\n    - a\n    - b # last\nz: 1\n",
+            |model| value_node(model, "list"),
+            &text("c"),
+        );
+        assert_eq!(appended, "list:\n    - a\n    - b # last\n    - c\nz: 1\n");
+    }
+
+    #[test]
+    fn removes_items_of_flow_and_block_lists() {
+        let source = "l: [a, b, c]\nm:\n  - x\n  - y\n";
+        let model = parse(source);
+        let flow = plan_remove(&model, value_node(&model, "l"), -1, &key("l[-1]")).unwrap();
+        let out = crate::edit::apply(source.as_bytes(), &flow.edits).unwrap();
+        assert_eq!(
+            String::from_utf8(out.bytes).unwrap(),
+            "l: [a, b]\nm:\n  - x\n  - y\n"
+        );
+        let block = plan_remove(&model, value_node(&model, "m"), 0, &key("m[0]")).unwrap();
+        let out = crate::edit::apply(source.as_bytes(), &block.edits).unwrap();
+        assert_eq!(
+            String::from_utf8(out.bytes).unwrap(),
+            "l: [a, b, c]\nm:\n  - y\n"
+        );
+    }
+
+    #[test]
+    fn index_equal_to_the_length_appends_and_larger_index_conflicts() {
+        let model = parse("l: [a, b]\n");
+        let list = value_node(&model, "l");
+        assert_eq!(
+            index_target(&model, list, 2, &key("l[2]")).unwrap(),
+            IndexTarget::Append
+        );
+        assert!(matches!(
+            index_target(&model, list, -2, &key("l[-2]")).unwrap(),
+            IndexTarget::Item(_)
+        ));
+        assert_eq!(
+            index_target(&model, list, 3, &key("l[3]"))
+                .unwrap_err()
+                .code,
+            ErrorCode::KeyConflict
+        );
+        assert_eq!(
+            index_target(&model, list, i64::MIN, &key("l[0]"))
+                .unwrap_err()
+                .code,
+            ErrorCode::KeyNotFound
+        );
     }
 }

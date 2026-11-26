@@ -140,6 +140,13 @@ fn rejects_another_major_version() {
 }
 
 #[test]
+fn reports_a_minor_version_of_five_digits_as_newer() {
+    let error = decode_error(minimal("1.70000"));
+    assert_eq!(error.code, ErrorCode::AstVersion);
+    assert_eq!(error.found.as_deref(), Some("/nurt"));
+}
+
+#[test]
 fn rejects_a_malformed_version() {
     let error = decode_error(minimal("1.01"));
     assert_eq!(error.code, ErrorCode::AstSchema);
@@ -165,6 +172,15 @@ fn rejects_an_unknown_member_with_its_pointer() {
     let mut value = minimal("1.0");
     value["bound"] = json!("1.0");
     assert_eq!(decode_error(value).found.as_deref(), Some("/bound"));
+}
+
+#[test]
+fn escapes_the_member_name_in_the_pointer_of_an_unknown_member() {
+    let mut value = minimal("1.0");
+    value["program"]["a/b~c"] = json!(1);
+    let error = decode_error(value);
+    assert_eq!(error.code, ErrorCode::AstSchema);
+    assert_eq!(error.found.as_deref(), Some("/program/a~1b~0c"));
 }
 
 #[test]
@@ -225,6 +241,28 @@ fn rejects_invalid_json_and_non_objects() {
 }
 
 #[test]
+fn rejects_a_metadata_integer_that_canonical_json_cannot_represent() {
+    let mut value = minimal("1.0");
+    value["meta"] = json!({"source": 9_007_199_254_740_993_i64});
+    let error = decode_error(value);
+    assert_eq!(error.code, ErrorCode::AstSchema);
+    assert_eq!(error.found.as_deref(), Some("/meta"));
+}
+
+#[test]
+fn lists_ident_among_the_unknown_node_kinds_of_a_newer_bound_tree() {
+    let value = json!({"nurt": "1.0", "bound": "1.9", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+        "program": {"statements": [{"t": "pipeline",
+            "head": {"t": "stage", "name": "list", "effect": "read", "phase": "source",
+                "args": [{"name": "value", "value": {"t": "ident", "v": "x"}}]},
+            "stages": []}]}});
+    let error = json::decode_bound_value(value).expect_err("newer minor version");
+    assert_eq!(error.code, ErrorCode::AstVersion);
+    assert_eq!(error.found.as_deref(), Some("/bound"));
+    assert_eq!(error.expected, ["ident"]);
+}
+
+#[test]
 fn decoding_errors_map_to_the_parse_stage() {
     let error = Error::from(decode_error(minimal("2.0")));
     assert_eq!(error.code, ErrorCode::AstVersion);
@@ -271,4 +309,20 @@ fn canonical_encoding_sorts_members_and_drops_insignificant_white_space() {
         json::encode_canonical(&value).expect("encodes"),
         r#"{"span":[1,1,1,4],"t":"num","v":1.5}"#
     );
+}
+
+#[test]
+fn rejects_an_object_that_repeats_a_key_at_any_depth() {
+    let program = r#""program":{"statements":[{"t":"pipeline","head":{"t":"stage","name":"count","args":[]},"stages":[]}]}"#;
+    let documents = [
+        format!(r#"{{"nurt":"1.0","nurt":"1.1",{program}}}"#),
+        format!(r#"{{"nurt":"1.0",{program},"meta":{{"a":1,"b":{{"c":1,"c":2}}}}}}"#),
+    ];
+    for text in documents {
+        let error = json::decode_surface(&text).unwrap_err();
+        assert_eq!(error.code, ErrorCode::AstSchema, "{text}");
+        assert!(error.message.contains("repeated"), "{}", error.message);
+    }
+    let fine = format!(r#"{{"nurt":"1.0",{program},"meta":{{"a":1,"b":{{"c":1}}}}}}"#);
+    json::decode_surface(&fine).unwrap();
 }

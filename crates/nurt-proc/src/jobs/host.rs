@@ -15,7 +15,7 @@ use nurt_contracts::stage::ExecCtx;
 use serde::{Deserialize, Serialize};
 
 use super::SupervisorCommand;
-use super::control::{self, ControlAction, request_name};
+use super::control::{self, ControlAction, request_name, request_order, withdraw};
 use super::events::{self, OutputEvents};
 use super::record::with_elapsed;
 use super::runner::{self, Launch, POLL_INTERVAL};
@@ -123,7 +123,7 @@ pub(crate) fn inbox_requests(table: &JobTable) -> Result<Vec<(String, std::path:
             Some((name, entry.path()))
         })
         .collect();
-    requests.sort();
+    requests.sort_by_cached_key(|(name, _)| (request_order(name), name.clone()));
     Ok(requests)
 }
 
@@ -171,6 +171,8 @@ impl DetachedHost {
         write_json(&request_path, &request, true)?;
         let begun = Instant::now();
         let mut launched: Option<Instant> = None;
+        let mut answer_by: Option<Instant> = None;
+        let mut unanswered = false;
         loop {
             if let Some(reply) = read_json::<StartReply>(&reply_path)? {
                 remove_file(&reply_path)?;
@@ -179,16 +181,32 @@ impl DetachedHost {
                     StartReply::Failed(error) => Err(error),
                 };
             }
-            let cancelled = ctx.cancel().check();
-            if cancelled.is_err() || begun.elapsed() >= START_TIMEOUT {
-                remove_file(&request_path)?;
-                cancelled?;
+            if unanswered {
                 return Err(Error::new(
                     ErrorCode::Spawn,
-                    "the job supervisor did not accept the run; check the supervisor command of the engine",
+                    "the job supervisor took the run and did not answer; read the jobs with `jobs`",
                 ));
             }
-            if launched.is_none_or(|at| at.elapsed() >= RELAUNCH_AFTER) && !table.host_running()? {
+            let cancelled = ctx.cancel().check();
+            if answer_by.is_none() && (cancelled.is_err() || begun.elapsed() >= START_TIMEOUT) {
+                if withdraw(&request_path)? {
+                    cancelled?;
+                    return Err(Error::new(
+                        ErrorCode::Spawn,
+                        "the job supervisor did not accept the run; check the supervisor command of the engine",
+                    ));
+                }
+                // The supervisor took the request before it was withdrawn
+                // and has started the program or is starting it. The
+                // program is not abandoned: `follow` cancels it when the
+                // call is cancelled.
+                answer_by = Some(Instant::now() + START_TIMEOUT);
+            }
+            if let Some(deadline) = answer_by {
+                unanswered = Instant::now() >= deadline || !table.host_running()?;
+            } else if launched.is_none_or(|at| at.elapsed() >= RELAUNCH_AFTER)
+                && !table.host_running()?
+            {
                 self.launch_supervisor()?;
                 launched = Some(Instant::now());
             }

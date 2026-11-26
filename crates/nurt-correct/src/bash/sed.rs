@@ -94,6 +94,14 @@ pub(crate) fn translate(
             .with_help(format!("help {}", entry.help))
     };
     let script = parse_script(&text).ok_or_else(unsupported)?;
+    let expressions = parsed
+        .given
+        .iter()
+        .filter(|given| entry.options[given.index].id == "e")
+        .count();
+    if expressions > 1 {
+        return Err(unsupported());
+    }
     let in_place = parsed.has(entry, "i");
     let quiet = parsed.has(entry, "n");
     let dialect = if parsed.has(entry, "E") {
@@ -395,9 +403,10 @@ fn substitution(text: &str, delimiter: char) -> Option<Script> {
     let occurrence = if digits.is_empty() {
         None
     } else {
-        Some(digits.parse().ok()?)
+        Some(digits.parse().ok().filter(|number: &i64| *number > 0)?)
     };
-    if pattern.is_empty() || (global && occurrence.is_some()) {
+    if pattern.is_empty() || (global && occurrence.is_some()) || !supported_replacement(replacement)
+    {
         return None;
     }
     Some(Script::Substitute {
@@ -451,6 +460,23 @@ fn number(text: &str) -> Option<(i64, &str)> {
         .unwrap_or(text.len());
     let value: i64 = text[..end].parse().ok()?;
     (value >= 1).then_some((value, &text[end..]))
+}
+
+/// Whether every escape of a replacement has a translation: a backslash
+/// before a letter other than `n` and `t` (`\U`, `\L`, `\x41`) is not
+/// translated.
+fn supported_replacement(replacement: &str) -> bool {
+    let mut chars = replacement.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\'
+            && chars
+                .next()
+                .is_some_and(|next| next.is_ascii_alphabetic() && !matches!(next, 'n' | 't'))
+        {
+            return false;
+        }
+    }
+    true
 }
 
 /// Translates a `sed` replacement into a replacement template: `&` is the
@@ -556,6 +582,39 @@ mod tests {
         assert_eq!(template_text("&x"), "${0}x");
         assert_eq!(template_text("x\\"), "x\\");
         assert_eq!(template_text(r"a\tb"), "a\tb");
+    }
+
+    #[test]
+    fn rejects_replacement_escapes_without_a_translation() {
+        assert_eq!(parse_script(r"s/a/\U&/"), None);
+        assert_eq!(parse_script(r"s/a/\x41/"), None);
+        assert_eq!(parse_script(r"s/a/\l&/g"), None);
+        assert!(parse_script(r"s/a/b\n\t\&\\\1/").is_some());
+        assert!(supported_replacement(""));
+        assert!(!supported_replacement("a\\E"));
+    }
+
+    #[test]
+    fn rejects_an_occurrence_of_zero() {
+        assert_eq!(parse_script("s/a/b/0"), None);
+        assert!(parse_script("s/a/b/1").is_some());
+    }
+
+    #[test]
+    fn handles_multibyte_delimiters_and_text() {
+        assert_eq!(
+            parse_script("s§ą§b§g"),
+            Some(Script::Substitute {
+                pattern: "ą".into(),
+                replacement: "b".into(),
+                global: true,
+                occurrence: None,
+                ignore_case: false
+            })
+        );
+        assert_eq!(parse_script("s"), None);
+        assert_eq!(parse_script(""), None);
+        assert_eq!(template_text("zażółć&"), "zażółć$0");
     }
 
     #[test]

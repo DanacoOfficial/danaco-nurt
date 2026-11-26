@@ -204,8 +204,10 @@ fn group_arguments(stage: &mut Stage, grouped: &[usize], name: String) {
     };
     let mut args = Vec::with_capacity(stage.args.len());
     let mut taken = Vec::with_capacity(grouped.len());
+    let mut next = 0;
     for (index, arg) in std::mem::take(&mut stage.args).into_iter().enumerate() {
-        if grouped.contains(&index) {
+        if grouped.get(next) == Some(&index) {
+            next += 1;
             taken.push(arg);
         } else {
             args.push(arg);

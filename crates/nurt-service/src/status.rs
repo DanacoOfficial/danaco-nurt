@@ -83,8 +83,15 @@ pub fn heartbeat_liveness(
             heartbeat: None,
         };
     };
+    // A beat dated further ahead than the limit comes from a clock that was
+    // set back or from a file that was edited; it cannot be told from a
+    // fresh one, so it does not count as one.
+    let ahead = heartbeat.beat_time().map(|beat| beat.saturating_since(now));
     let reason = match heartbeat.age(now) {
         None => Some(InactiveReason::NoHeartbeat),
+        Some(_) if ahead.is_some_and(|ahead| ahead > max_age) => {
+            Some(InactiveReason::StaleHeartbeat)
+        }
         Some(age) if age > max_age => Some(InactiveReason::StaleHeartbeat),
         Some(_) if !pid_alive(heartbeat.pid) => Some(InactiveReason::ProcessGone),
         Some(_) => None,
@@ -268,6 +275,35 @@ mod tests {
             inactive(heartbeat_liveness(Some(garbled), fresh, limit, alive)),
             Some(InactiveReason::NoHeartbeat)
         );
+    }
+
+    #[test]
+    fn heartbeat_dated_ahead_of_the_limit_is_stale() {
+        let now = WallTime::from_unix_nanos(1_795_000_000_000_000_000);
+        let limit = Duration::from_millis(2_000);
+        let beat_ahead = |by_ms: u64| {
+            heartbeat_liveness(
+                Some(beat(now.saturating_add(Duration::from_millis(by_ms)), 7)),
+                now,
+                limit,
+                |_| true,
+            )
+        };
+        assert!(matches!(beat_ahead(2_000), Liveness::Active { .. }));
+        assert!(matches!(
+            beat_ahead(2_001),
+            Liveness::Inactive {
+                reason: InactiveReason::StaleHeartbeat,
+                ..
+            }
+        ));
+        assert!(matches!(
+            beat_ahead(3_600_000),
+            Liveness::Inactive {
+                reason: InactiveReason::StaleHeartbeat,
+                ..
+            }
+        ));
     }
 
     #[test]

@@ -151,6 +151,35 @@ pub(crate) fn remove_entry(fs: &dyn FsWrite, scope: &TxScope, path: &AbsPath) ->
     }
 }
 
+/// Fails with `Unsupported` when `source` or an entry below it is a device,
+/// a pipe or a socket, which cannot be copied. The check runs before anything
+/// is written, so a refused tree leaves no partial copy behind.
+fn refuse_special_entries(fs: &dyn FsWrite, source: &AbsPath) -> FsResult<()> {
+    let mut pending = vec![source.clone()];
+    while let Some(path) = pending.pop() {
+        match fs.extended_metadata(&path, Follow::NoFollow)?.basic.kind {
+            FileKind::Directory => {
+                for child in fs.read_dir(&path)? {
+                    let name = child?.name;
+                    let name = name.to_str().ok_or_else(|| {
+                        FsError::new(FsErrorKind::InvalidPath, "copy", Some(path.as_path()))
+                    })?;
+                    pending.push(path.join_name(name)?);
+                }
+            }
+            FileKind::Special => {
+                return Err(FsError::new(
+                    FsErrorKind::Unsupported,
+                    "copy",
+                    Some(path.as_path()),
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 /// Copies an entry of any kind to the new path `dest`: files by
 /// [`FsWrite::copy_file`], directories recursively, links as links. Used when
 /// a rename crosses volumes or overlay layers. Returns the copied bytes.
@@ -160,6 +189,7 @@ pub(crate) fn copy_entry(
     source: &AbsPath,
     dest: &AbsPath,
 ) -> FsResult<u64> {
+    refuse_special_entries(fs, source)?;
     let mut copied = 0;
     let mut pending = vec![(source.clone(), dest.clone())];
     while let Some((from, to)) = pending.pop() {
@@ -318,6 +348,85 @@ mod tests {
     }
 
     #[test]
+    fn shared_content_is_not_remembered_by_identity_and_copies_count_every_time() {
+        let mut held = HeldBytes::default();
+        assert_eq!(held.count(PreserveMode::Moved, 50, Some(id(2)), true), 0);
+        assert_eq!(held.count(PreserveMode::Moved, 50, Some(id(2)), false), 50);
+        assert_eq!(
+            held.count(PreserveMode::Exchange, 50, Some(id(2)), false),
+            0
+        );
+        assert_eq!(
+            held.count(PreserveMode::ReplaceBackup, 8, Some(id(3)), false),
+            8
+        );
+        assert_eq!(held.count(PreserveMode::Copy, 4, None, false), 4);
+        assert_eq!(held.count(PreserveMode::Copy, 4, None, false), 4);
+        assert_eq!(held.count(PreserveMode::Clone, 0, None, false), 0);
+        assert_eq!(held.count(PreserveMode::Copy, u64::MAX, None, true), 0);
+        assert_eq!(
+            held.count(PreserveMode::Copy, u64::MAX, None, false),
+            u64::MAX
+        );
+    }
+
+    #[test]
+    fn parent_directories_are_flushed_once() {
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = scope(OpId(1), ScopePurpose::Maintenance);
+        let first = fs.path("vol-a/one.txt");
+        let second = fs.path("vol-a/two.txt");
+        fixture.write(&first, b"1");
+        fixture.write(&second, b"2");
+        fs.clear_log();
+        sync_parents(fs, &scope, &[&first, &second, &first]).unwrap();
+        let flushes = fs
+            .log()
+            .iter()
+            .filter(|entry| entry.starts_with("sync_dir "))
+            .count();
+        assert_eq!(flushes, 1);
+        sync_parents(fs, &scope, &[]).unwrap();
+    }
+
+    #[test]
+    fn streams_of_empty_and_multibyte_content_are_copied_and_hashed() {
+        use sha2::Digest;
+
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = scope(OpId(1), ScopePurpose::Maintenance);
+        let contents = [Vec::new(), "zażółć gęślą jaźń\r\n".as_bytes().to_vec()];
+        for (n, content) in contents.into_iter().enumerate() {
+            let source = fs.path(&format!("vol-a/s{n}.bin"));
+            fixture.write(&source, &content);
+            let target = fs.path(&format!("vol-a/d{n}.bin"));
+            let mut dest = fs.create_new(&scope, &target).unwrap();
+            let mut hasher = sha2::Sha256::default();
+            let copied = stream_copy(fs, &source, dest.as_mut(), Some(&mut hasher)).unwrap();
+            assert_eq!(copied, u64::try_from(content.len()).unwrap());
+            let digest: [u8; 32] = hasher.finalize().into();
+            assert_eq!(fs.content_hash(&source).unwrap().0, digest);
+            assert_eq!(fixture.read(&target), content);
+        }
+    }
+
+    #[test]
+    fn removing_a_missing_entry_or_leftover_is_not_an_error() {
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = scope(OpId(1), ScopePurpose::Maintenance);
+        let missing = fs.path("vol-a/missing");
+        assert_eq!(remove_entry(fs, &scope, &missing), Ok(()));
+        assert_eq!(discard(fs, &scope, &missing), Ok(()));
+        let file = fs.path("vol-a/leftover.txt");
+        fixture.write(&file, b"x");
+        assert_eq!(discard(fs, &scope, &file), Ok(()));
+        assert!(!fixture.exists(&file));
+    }
+
+    #[test]
     fn copies_become_visible_only_when_complete() {
         let fixture = Fixture::new();
         let fs = &fixture.fs;
@@ -361,6 +470,23 @@ mod tests {
         fs.fail("clone_file", "a.txt", FsErrorKind::Io);
         let refused = blobs.join_name("4.blob").unwrap();
         assert!(preserve_copy(fs, &scope, &source, &tmp, &refused, true).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn copy_of_a_tree_with_a_socket_is_refused_before_anything_is_written() {
+        let fixture = Fixture::new();
+        let fs = &fixture.fs;
+        let scope = scope(OpId(1), ScopePurpose::Operation);
+        let tree = fs.path("vol-a/tree");
+        std::fs::create_dir_all(tree.as_path().join("sub")).unwrap();
+        std::fs::write(tree.as_path().join("a"), b"12345").unwrap();
+        let _listener =
+            std::os::unix::net::UnixListener::bind(tree.as_path().join("sub/socket")).unwrap();
+        let copy = fs.path("vol-b/tree");
+        let error = copy_entry(fs, &scope, &tree, &copy).unwrap_err();
+        assert_eq!(error.kind, FsErrorKind::Unsupported);
+        assert!(!fixture.exists(&copy));
     }
 
     #[test]

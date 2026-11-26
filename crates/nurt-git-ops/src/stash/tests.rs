@@ -205,6 +205,44 @@ fn push_of_paths_saves_and_resets_only_those_paths() {
     assert_eq!(reflog_messages(&fx, "HEAD"), head_log);
 }
 
+#[cfg(unix)]
+#[test]
+fn push_saves_and_removes_an_untracked_symlink_that_points_nowhere() {
+    let fx = base();
+    let journal = Journal::new();
+    std::os::unix::fs::symlink("missing-target", fx.path().join("dangling")).unwrap();
+    let request = StashRequest {
+        include_untracked: true,
+        ..StashRequest::new(StashAction::Push)
+    };
+    let outcome = run(&fx, &journal, &request).unwrap();
+    assert!(outcome.created.is_some());
+    assert!(std::fs::symlink_metadata(fx.path().join("dangling")).is_err());
+    run(&fx, &journal, &StashRequest::new(StashAction::Apply)).unwrap();
+    assert_eq!(
+        std::fs::read_link(fx.path().join("dangling")).unwrap(),
+        Path::new("missing-target")
+    );
+}
+
+#[test]
+fn push_of_paths_without_changes_there_saves_nothing() {
+    let fx = base();
+    let journal = Journal::new();
+    write(&fx, "b.txt", "b-staged\n");
+    stage(&fx, "b.txt");
+    let before = state(&fx);
+    let request = StashRequest {
+        paths: vec![PathBuf::from("a.txt")],
+        ..StashRequest::new(StashAction::Push)
+    };
+    let outcome = run(&fx, &journal, &request).unwrap();
+    assert!(outcome.nothing_to_do);
+    assert_eq!(outcome.created, None);
+    assert_eq!(state(&fx), before);
+    assert!(list(fx.path(), &ctx()).unwrap().is_empty());
+}
+
 #[test]
 fn push_of_an_unknown_path_is_rejected() {
     let fx = base();
@@ -216,6 +254,19 @@ fn push_of_an_unknown_path_is_rejected() {
     };
     let err = run(&fx, &journal, &request).unwrap_err();
     assert_eq!(err.code, ErrorCode::NoMatch);
+}
+
+#[test]
+fn push_of_a_path_outside_the_repository_is_an_invalid_value() {
+    let fx = base();
+    let journal = Journal::new();
+    write(&fx, "a.txt", "x\n");
+    let request = StashRequest {
+        paths: vec![PathBuf::from("/nurt-outside-the-repository/a.txt")],
+        ..StashRequest::new(StashAction::Push)
+    };
+    let err = run(&fx, &journal, &request).unwrap_err();
+    assert_eq!(err.code, ErrorCode::InvalidValue);
 }
 
 #[test]
@@ -315,6 +366,22 @@ fn apply_on_another_commit_merges_cleanly() {
 }
 
 #[test]
+fn a_number_that_names_no_commit_is_a_position() {
+    let fx = base();
+    let journal = Journal::new();
+    dirty(&fx);
+    let pushed = push(&fx, &journal);
+    let repo = GitRepo::open(fx.path(), &ctx()).unwrap();
+    for spec in ["0", "0000", "stash@{0}"] {
+        let (position, id) = entries::resolve(&repo, Some(spec)).unwrap();
+        assert_eq!(position, Some(0), "{spec}");
+        assert_eq!(Some(id), pushed.created, "{spec}");
+    }
+    assert!(!entries::is_digit_only_hash(&repo, Some("0000")));
+    assert!(!entries::is_digit_only_hash(&repo, None));
+}
+
+#[test]
 fn pop_removes_the_entry_after_a_clean_merge() {
     let fx = base();
     let journal = Journal::new();
@@ -326,6 +393,7 @@ fn pop_removes_the_entry_after_a_clean_merge() {
     assert_eq!(git_file(&fx, "refs/stash"), None);
     assert_eq!(git_file(&fx, "logs/refs/stash"), None);
     assert_eq!(read(&fx, "a.txt").as_deref(), Some("a-work\n"));
+    assert_eq!(git_file(&fx, "AUTO_MERGE"), None);
 }
 
 #[test]
@@ -467,6 +535,18 @@ fn drop_of_a_missing_entry_is_rejected() {
     push(&fx, &journal);
     let err = run(&fx, &journal, &on_entry(StashAction::Drop, "stash@{5}")).unwrap_err();
     assert_eq!(err.code, ErrorCode::GitRevision);
+}
+
+#[test]
+fn an_entry_number_beyond_the_range_of_integers_does_not_exist() {
+    let fx = base();
+    let journal = Journal::new();
+    write(&fx, "a.txt", "x\n");
+    push(&fx, &journal);
+    let name = format!("stash@{{{}}}", usize::MAX);
+    let err = run(&fx, &journal, &on_entry(StashAction::Drop, &name)).unwrap_err();
+    assert_eq!(err.code, ErrorCode::GitRevision);
+    assert_eq!(list(fx.path(), &ctx()).unwrap().len(), 1);
 }
 
 #[test]

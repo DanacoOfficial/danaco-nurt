@@ -119,8 +119,9 @@ fn pattern_rule(patterns: &[Pattern], body: &[u8]) -> Option<Vec<u8>> {
             return None;
         }
         let found = captures.get(1).or_else(|| captures.get(0))?;
-        let text = trim_end(found.as_bytes());
-        return Some(text[..text.len().min(FUNCNAME_MAX)].to_vec());
+        let text = found.as_bytes();
+        let cut = &text[..text.len().min(FUNCNAME_MAX)];
+        return Some(trim_end(cut).to_vec());
     }
     None
 }
@@ -192,6 +193,16 @@ mod tests {
         );
         assert!(!rule.is_function(b"skip def x\n"));
         assert!(!rule.is_function(b"other\n"));
+    }
+
+    #[test]
+    fn pattern_text_is_cut_before_trailing_white_space_is_removed() {
+        let rule = FuncMatcher::from_patterns("^(.*)$", false).unwrap();
+        let line = format!("{} tail\n", "a".repeat(79));
+        assert_eq!(
+            rule.function_text(line.as_bytes()),
+            Some("a".repeat(79).into_bytes())
+        );
     }
 
     #[test]

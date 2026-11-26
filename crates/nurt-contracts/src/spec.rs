@@ -861,7 +861,7 @@ pub enum DefaultKind {
     Other,
 }
 
-const DURATION_UNITS: &[&str] = &["ms", "s", "m", "h", "d"];
+const DURATION_UNITS: &[&str] = &["ms", "s", "m", "h", "d", "w"];
 const SIZE_UNITS: &[&str] = &["b", "kb", "mb", "gb", "tb", "kib", "mib", "gib", "tib"];
 
 impl DefaultValue {
@@ -1861,5 +1861,275 @@ impl fmt::Display for CatalogIssue {
             (Some(command), None) => write!(f, "{command}: {}", self.message),
             (None, _) => f.write_str(&self.message),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn kind(text: &str) -> DefaultKind {
+        DefaultValue::new(text).kind()
+    }
+
+    fn spec_with(params: serde_json::Value) -> StageSpec {
+        serde_json::from_value(json!({
+            "name": "cmd",
+            "category": "transform",
+            "reversibility": "read",
+            "effect": "read",
+            "implementation": "builtin",
+            "input": ["any"],
+            "output": ["int"],
+            "summary": "Count the records.",
+            "param": params
+        }))
+        .unwrap()
+    }
+
+    fn messages(spec: &StageSpec) -> Vec<String> {
+        spec.check()
+            .into_iter()
+            .map(|issue| issue.message)
+            .collect()
+    }
+
+    #[test]
+    fn default_durations_accept_every_unit_including_weeks() {
+        for text in ["250ms", "30s", "5m", "2h", "7d", "1w", "2w3d", "1h30m"] {
+            assert_eq!(kind(text), DefaultKind::Duration, "{text}");
+        }
+    }
+
+    #[test]
+    fn default_sizes_accept_decimal_and_binary_units() {
+        let sizes = [
+            "1b", "10kb", "10mb", "3gb", "2tb", "1kib", "256mib", "1gib", "1.5tib", "1_000kb",
+        ];
+        for text in sizes {
+            assert_eq!(kind(text), DefaultKind::Size, "{text}");
+        }
+        for text in ["1h30mb", "5x", "10 mb", "1w1mb"] {
+            assert_eq!(kind(text), DefaultKind::Other, "{text}");
+        }
+    }
+
+    #[test]
+    fn default_literals_are_classified_by_their_first_characters() {
+        let cases = [
+            ("true", DefaultKind::Bool),
+            ("null", DefaultKind::Null),
+            ("-3", DefaultKind::Int),
+            ("1_000", DefaultKind::Int),
+            ("3.5", DefaultKind::Number),
+            ("1..5", DefaultKind::Range),
+            ("..9", DefaultKind::Range),
+            ("40..", DefaultKind::Range),
+            ("\"**\"", DefaultKind::Text),
+            ("[]", DefaultKind::List),
+            ("{}", DefaultKind::Map),
+            ("/x/", DefaultKind::Regex),
+            ("asc", DefaultKind::Word),
+            ("", DefaultKind::Other),
+        ];
+        for (text, expected) in cases {
+            assert_eq!(kind(text), expected, "{text:?}");
+        }
+    }
+
+    #[test]
+    fn type_expressions_print_in_canonical_form_and_read_back() {
+        let texts = [
+            "text | regex | list<text | regex>",
+            "stream<entry>",
+            "enum(asc|desc)",
+            "map<int>",
+            "list<list<enum(a|b)>>",
+        ];
+        for text in texts {
+            let parsed: ParamType = text.parse().unwrap();
+            assert_eq!(parsed.to_string(), text);
+        }
+        assert_eq!(
+            "list".parse::<ParamType>().unwrap().to_string(),
+            "list<any>"
+        );
+        assert_eq!(
+            "  int  |\tbool ".parse::<ParamType>().unwrap().to_string(),
+            "int | bool"
+        );
+    }
+
+    #[test]
+    fn type_expression_errors_carry_kind_and_byte_offset() {
+        let cases = [
+            ("", TypeParseErrorKind::Empty, 0),
+            ("   ", TypeParseErrorKind::Empty, 0),
+            (
+                "bogus",
+                TypeParseErrorKind::UnknownType {
+                    name: "bogus".to_owned(),
+                },
+                0,
+            ),
+            (
+                "text | text",
+                TypeParseErrorKind::DuplicateAlternative {
+                    alternative: "text".to_owned(),
+                },
+                7,
+            ),
+            (
+                "enum(a|a)",
+                TypeParseErrorKind::DuplicateEnumValue {
+                    value: "a".to_owned(),
+                },
+                7,
+            ),
+            (
+                "enum(1a)",
+                TypeParseErrorKind::InvalidEnumValue {
+                    value: "1a".to_owned(),
+                },
+                5,
+            ),
+        ];
+        for (text, kind, offset) in cases {
+            let error = text.parse::<ParamType>().unwrap_err();
+            assert_eq!(error, TypeParseError::new(kind, offset), "{text:?}");
+        }
+        let error = "text | \u{17c}".parse::<ParamType>().unwrap_err();
+        assert_eq!(error.offset, 7);
+        assert!(matches!(
+            error.kind,
+            TypeParseErrorKind::UnexpectedChar {
+                found: '\u{17c}',
+                ..
+            }
+        ));
+        let error = "list<".parse::<ParamType>().unwrap_err();
+        assert!(matches!(
+            error.kind,
+            TypeParseErrorKind::UnexpectedEnd { .. }
+        ));
+        let error = "text text".parse::<ParamType>().unwrap_err();
+        assert!(matches!(
+            error.kind,
+            TypeParseErrorKind::UnexpectedChar { .. }
+        ));
+    }
+
+    #[test]
+    fn type_expression_nesting_is_limited() {
+        let nested = |depth: usize| format!("{}text{}", "list<".repeat(depth), ">".repeat(depth));
+        assert!(nested(MAX_TYPE_DEPTH).parse::<ParamType>().is_ok());
+        let error = nested(MAX_TYPE_DEPTH + 1).parse::<ParamType>().unwrap_err();
+        assert_eq!(error.kind, TypeParseErrorKind::TooDeep);
+    }
+
+    #[test]
+    fn io_specs_read_keywords_scalars_and_record_kinds() {
+        assert_eq!("none".parse::<IoSpec>().unwrap(), IoSpec::None);
+        assert_eq!("same".parse::<IoSpec>().unwrap(), IoSpec::Same);
+        assert_eq!(
+            "duration".parse::<IoSpec>().unwrap(),
+            IoSpec::Value(ScalarType::Duration)
+        );
+        assert_eq!(
+            "test_run".parse::<IoSpec>().unwrap().to_string(),
+            "test_run"
+        );
+        for text in ["", "Entry", "a-b", "1x"] {
+            assert!(text.parse::<IoSpec>().is_err(), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn check_reports_gaps_in_positions_and_duplicate_parameters() {
+        let spec = spec_with(json!([
+            {"name": "a", "type": "text", "position": 1, "summary": "A."},
+            {"name": "b", "type": "text", "position": 3, "summary": "B."},
+            {"name": "b", "type": "text", "summary": "B again."}
+        ]));
+        let found = messages(&spec);
+        assert!(
+            found.iter().any(|m| m.contains("do not form the sequence")),
+            "{found:?}"
+        );
+        assert!(
+            found.iter().any(|m| m.contains("duplicate parameter name")),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn check_validates_enumeration_values_and_word_defaults() {
+        let consistent = spec_with(json!([
+            {"name": "order", "type": "enum(asc|desc)", "values": ["asc", "desc"],
+             "default": "asc", "summary": "Order."},
+            {"name": "limit", "type": "range", "default": "all", "summary": "Limit."}
+        ]));
+        assert!(consistent.check().is_empty(), "{:?}", messages(&consistent));
+        let wrong_default = spec_with(json!([
+            {"name": "order", "type": "enum(asc|desc)", "values": ["asc", "desc"],
+             "default": "up", "summary": "Order."}
+        ]));
+        assert!(
+            messages(&wrong_default)
+                .iter()
+                .any(|m| m.contains("is not a value of the type"))
+        );
+        let missing_values = spec_with(json!([
+            {"name": "order", "type": "enum(asc|desc)", "summary": "Order."}
+        ]));
+        assert!(
+            messages(&missing_values)
+                .iter()
+                .any(|m| m.contains("do not repeat"))
+        );
+    }
+
+    #[test]
+    fn check_validates_exclusive_groups_and_repeated_parameters() {
+        let spec = spec_with(json!([
+            {"name": "a", "type": "text", "exclusive_group": "pick", "summary": "A."},
+            {"name": "b", "type": "text", "repeated": true, "summary": "B."}
+        ]));
+        let found = messages(&spec);
+        assert!(
+            found.iter().any(|m| m.contains("has a single member")),
+            "{found:?}"
+        );
+        assert!(
+            found.iter().any(|m| m.contains("must accept a list")),
+            "{found:?}"
+        );
+        assert!(
+            found.iter().any(|m| m.contains("must be positional")),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn index_check_compares_the_listed_total_with_the_declared_total() {
+        let index = CatalogIndex {
+            format: CATALOG_INDEX_FORMAT.to_owned(),
+            total: 2,
+            files: vec![CatalogIndexEntry {
+                name: CORE_GROUP.to_owned(),
+                file: "core.toml".to_owned(),
+                summary: "Core commands.".to_owned(),
+                commands: 1,
+            }],
+        };
+        let found: Vec<String> = index
+            .check()
+            .into_iter()
+            .map(|issue| issue.message)
+            .collect();
+        assert_eq!(found, ["entries list 1 commands, total is 2"]);
+        assert_eq!(index.listed_total(), 1);
+        assert!(index.entry("missing").is_none());
     }
 }

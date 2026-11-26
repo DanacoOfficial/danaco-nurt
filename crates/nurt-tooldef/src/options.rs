@@ -41,7 +41,8 @@ pub enum GroupSelection {
 impl FromStr for GroupSelection {
     type Err = ToolDefError;
 
-    /// Parses `core`, `all` or a comma-separated list of group names.
+    /// Parses `core`, `all` or a comma-separated list of group names; the
+    /// word `all` in a list selects every group.
     ///
     /// # Errors
     ///
@@ -66,13 +67,17 @@ impl FromStr for GroupSelection {
             ALL_GROUPS => Ok(Self::All),
             _ => {
                 let mut names: Vec<String> = Vec::new();
+                let mut all = false;
                 for name in text.split(GROUP_SEPARATOR).map(str::trim) {
                     check_group_name(name)?;
+                    all |= name == ALL_GROUPS;
                     if name != CORE_GROUP && !names.iter().any(|known| known == name) {
                         names.push(name.to_owned());
                     }
                 }
-                Ok(if names.is_empty() {
+                Ok(if all {
+                    Self::All
+                } else if names.is_empty() {
                     Self::Core
                 } else {
                     Self::Only(names)
@@ -345,6 +350,8 @@ mod tests {
             "git, text,git".parse(),
             Ok(GroupSelection::Only(vec!["git".into(), "text".into()]))
         );
+        assert_eq!("git, all".parse(), Ok(GroupSelection::All));
+        assert_eq!("all,git".parse(), Ok(GroupSelection::All));
         assert_eq!(
             "git,,text".parse::<GroupSelection>(),
             Err(ToolDefError::InvalidGroupName {

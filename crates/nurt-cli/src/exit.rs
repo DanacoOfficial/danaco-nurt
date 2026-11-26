@@ -36,16 +36,27 @@ pub fn for_error_code(code: ErrorCode) -> u8 {
     }
 }
 
-/// Exit code of a report: success for `ok`, `planned` and `running`, the code
-/// of the error otherwise.
+/// Exit code of a report: success for `ok`, `planned` and `running` without an
+/// error, the code of the error otherwise. A report with status `ok` that
+/// carries an error (a check that failed after the effect was applied) exits
+/// with the code of the error, so that a script does not go on after it.
 #[must_use]
 pub fn for_report(report: &Report) -> u8 {
-    match report.status {
-        ReportStatus::Ok | ReportStatus::Planned | ReportStatus::Running => SUCCESS,
-        _ => report
+    let error = |report: &Report| {
+        report
             .error
             .as_ref()
-            .map_or(FAILURE, |error| for_error_code(error.code)),
+            .map_or(FAILURE, |error| for_error_code(error.code))
+    };
+    match report.status {
+        ReportStatus::Ok | ReportStatus::Planned | ReportStatus::Running => {
+            if report.error.is_some() {
+                error(report)
+            } else {
+                SUCCESS
+            }
+        }
+        _ => error(report),
     }
 }
 
@@ -73,11 +84,63 @@ mod tests {
     }
 
     #[test]
+    fn a_check_that_failed_after_the_effect_exits_with_its_error_code() {
+        let mut report = Report::new(ReportStatus::Ok, "remove");
+        report.error = Some(Error::new(ErrorCode::Assert, "check failed"));
+        assert_eq!(for_report(&report), FAILURE);
+        report.error = Some(Error::new(ErrorCode::Timeout, "too slow"));
+        assert_eq!(for_report(&report), TIMEOUT);
+    }
+
+    #[test]
     fn failures_follow_the_interface_status_of_the_error() {
         assert_eq!(for_report(&failed(ErrorCode::Timeout)), TIMEOUT);
         assert_eq!(for_report(&failed(ErrorCode::Cancelled)), CANCELLED);
         assert_eq!(for_report(&failed(ErrorCode::Internal)), INTERNAL);
         assert_eq!(for_report(&failed(ErrorCode::UnknownCommand)), FAILURE);
+    }
+
+    #[test]
+    fn the_codes_are_those_of_the_reference() {
+        assert_eq!(
+            [
+                SUCCESS,
+                FAILURE,
+                USAGE,
+                UNAVAILABLE,
+                TIMEOUT,
+                INTERNAL,
+                CANCELLED
+            ],
+            [0, 1, 2, 3, 4, 70, 130]
+        );
+    }
+
+    #[test]
+    fn errors_of_the_text_and_of_the_storage_exit_with_one() {
+        for code in [
+            ErrorCode::Syntax,
+            ErrorCode::NotFound,
+            ErrorCode::Unsupported,
+            ErrorCode::UnknownCommand,
+        ] {
+            assert_eq!(for_error_code(code), FAILURE, "{code:?}");
+        }
+    }
+
+    #[test]
+    fn a_failed_status_with_each_special_error_takes_its_code() {
+        for (code, expected) in [
+            (ErrorCode::Timeout, TIMEOUT),
+            (ErrorCode::Cancelled, CANCELLED),
+            (ErrorCode::Internal, INTERNAL),
+            (ErrorCode::Syntax, FAILURE),
+        ] {
+            assert_eq!(for_report(&failed(code)), expected, "{code:?}");
+            let mut rolled_back = Report::new(ReportStatus::RolledBack, "remove");
+            rolled_back.error = Some(Error::new(code, "failed"));
+            assert_eq!(for_report(&rolled_back), expected, "{code:?}");
+        }
     }
 
     #[test]

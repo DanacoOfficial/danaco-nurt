@@ -43,6 +43,7 @@ use nurt_contracts::stage::{
 };
 use nurt_contracts::value::{Fields, Path, Record, RecordKind, Value};
 
+use crate::index::read_bounded;
 use crate::semantic::{
     DocumentChange, DocumentPosition, ResourceChange, SemanticError, SemanticErrorKind,
     SemanticProvider, SemanticScope, TextChange,
@@ -70,6 +71,11 @@ const ROOT_MARKERS: &[&str] = &[
     "Gemfile",
     "compile_commands.json",
 ];
+/// Largest part of a file that cannot be read as text which is searched for
+/// the old name, in bytes.
+const UNREADABLE_SCAN_MAX: u64 = 64 * 1024 * 1024;
+/// Bytes read at a time when such a file is searched.
+const UNREADABLE_SCAN_CHUNK: usize = 64 * 1024;
 /// Extensions of documentation files, for the completeness check.
 const DOC_EXTENSIONS: &[&str] = &["md", "markdown", "rst", "txt", "adoc"];
 /// Extensions of configuration files, for the completeness check.
@@ -708,15 +714,54 @@ impl Planner<'_> {
             .unwrap_or_else(|| "language server".to_owned())
     }
 
+    /// Notes that the listing of the files to search was cut or skipped
+    /// directories, so that the rename may leave occurrences in files that
+    /// were not searched.
+    fn note_listing(&mut self, listing: &Candidates) {
+        let mut details = Vec::new();
+        if listing.truncated {
+            details.push((
+                Notable::RenameIncomplete,
+                format!(
+                    "the file listing stopped at code.index_max_files ({}) files, so files beyond it were not searched; narrow the rename with `paths` or raise the limit",
+                    self.ctx.config().code.index_max_files
+                ),
+            ));
+        }
+        if listing.unreadable > 0 {
+            details.push((
+                Notable::SourceUnavailable,
+                format!(
+                    "{} directories could not be read and were not searched; check their permissions",
+                    listing.unreadable
+                ),
+            ));
+        }
+        for (code, detail) in details {
+            if self
+                .notes
+                .iter()
+                .any(|note| note.detail.as_deref() == Some(detail.as_str()))
+            {
+                continue;
+            }
+            let mut note = NotableEntry::new(code);
+            note.detail = Some(detail);
+            self.notes.push(note);
+        }
+    }
+
     fn syntax_rename(
-        &self,
+        &mut self,
         target: &Located,
         roots: &[PathBuf],
         pending: &mut BTreeMap<PathBuf, Pending>,
     ) -> Result<()> {
         let (code, language) = syntax_service(self.ctx, target.language.as_ref(), &target.path)?;
         let classes = self.classes(true);
-        for path in candidates(self.ctx, roots, &target.path)? {
+        let listing = candidates(self.ctx, roots, &target.path)?;
+        self.note_listing(&listing);
+        for path in listing.files {
             self.ctx.checkpoint()?;
             let Some(changes) = occurrence_changes(
                 self.ctx,
@@ -760,7 +805,7 @@ impl Planner<'_> {
 
     /// Adds occurrences in comments and strings to the edits of a server.
     fn add_text_occurrences(
-        &self,
+        &mut self,
         first: &Located,
         roots: &[PathBuf],
         scope: &ScopeFilter,
@@ -771,7 +816,9 @@ impl Planner<'_> {
             return Ok(());
         };
         let classes = self.classes(false);
-        for path in candidates(self.ctx, roots, &first.path)? {
+        let listing = candidates(self.ctx, roots, &first.path)?;
+        self.note_listing(&listing);
+        for path in listing.files {
             if !scope.allows(&path) {
                 continue;
             }
@@ -1459,66 +1506,114 @@ fn whole_words(text: &str, name: &str) -> Vec<usize> {
         .collect()
 }
 
-/// Files under the roots, sorted, with the source file first.
-fn candidates(ctx: &ExecCtx, roots: &[PathBuf], file: &FsPath) -> Result<Vec<PathBuf>> {
+/// Files to search for the old name.
+#[derive(Debug, Default)]
+struct Candidates {
+    /// Files under the roots, sorted, with the source file first.
+    files: Vec<PathBuf>,
+    /// The listing stopped at `code.index_max_files`, so that files were
+    /// left out.
+    truncated: bool,
+    /// Directories that could not be read.
+    unreadable: u64,
+}
+
+/// Lists the files under the roots; a directory that cannot be read is
+/// counted and skipped.
+fn candidates(ctx: &ExecCtx, roots: &[PathBuf], file: &FsPath) -> Result<Candidates> {
     let limit = usize::try_from(ctx.config().code.index_max_files).unwrap_or(usize::MAX);
     let mut found = BTreeSet::new();
+    let mut listing = Candidates::default();
     for root in roots {
         if root == file {
             continue;
         }
         if let Some(files) = ctx.files() {
-            for entry in files.walk(&WalkSpec::source_tree(root.clone()))? {
-                found.insert(entry?.path);
-                if found.len() >= limit {
-                    break;
+            match files.walk(&WalkSpec::source_tree(root.clone())) {
+                Ok(entries) => {
+                    for entry in entries {
+                        ctx.checkpoint()?;
+                        match entry {
+                            Ok(entry) => {
+                                found.insert(entry.path);
+                            }
+                            Err(_) => listing.unreadable += 1,
+                        }
+                        if found.len() > limit {
+                            listing.truncated = true;
+                            break;
+                        }
+                    }
                 }
+                Err(_) => listing.unreadable += 1,
             }
         } else {
-            walk(ctx, root, &mut found, limit)?;
+            listing.truncated = walk(ctx, root, &mut found, &mut listing.unreadable, limit)?;
+        }
+        if listing.truncated {
+            break;
         }
     }
+    while found.len() > limit {
+        found.pop_last();
+    }
     found.remove(file);
-    let mut list = vec![file.to_path_buf()];
-    list.extend(found);
-    Ok(list)
+    listing.files.push(file.to_path_buf());
+    listing.files.extend(found);
+    Ok(listing)
 }
 
-/// Lists files below `root` through the read-only file system.
-fn walk(ctx: &ExecCtx, root: &FsPath, found: &mut BTreeSet<PathBuf>, limit: usize) -> Result<()> {
+/// Lists files below `root` through the read-only file system; `true` when
+/// there are more than `limit` files in `found`. Directories that cannot be
+/// read are added to `unreadable`.
+fn walk(
+    ctx: &ExecCtx,
+    root: &FsPath,
+    found: &mut BTreeSet<PathBuf>,
+    unreadable: &mut u64,
+    limit: usize,
+) -> Result<bool> {
     let fs = ctx.require_fs()?;
+    if let Ok(abs) = AbsPath::new(root.to_path_buf())
+        && fs
+            .metadata(&abs, Follow::Follow)
+            .is_ok_and(|meta| meta.kind == nurt_contracts::fs::FileKind::File)
+    {
+        found.insert(root.to_path_buf());
+        return Ok(found.len() > limit);
+    }
     let mut pending = vec![root.to_path_buf()];
     while let Some(dir) = pending.pop() {
         ctx.checkpoint()?;
-        let Ok(abs) = AbsPath::new(dir.clone()) else {
-            continue;
-        };
-        let Ok(entries) = fs.read_dir(&abs) else {
+        let entries = AbsPath::new(dir.clone())
+            .ok()
+            .and_then(|abs| fs.read_dir(&abs).ok());
+        let Some(entries) = entries else {
+            *unreadable += 1;
             continue;
         };
         for entry in entries.flatten() {
-            let name = entry.name.to_string_lossy();
-            let path = dir.join(&*name);
+            let path = dir.join(&entry.name);
             let Ok(abs) = AbsPath::new(path.clone()) else {
                 continue;
             };
             match fs.metadata(&abs, Follow::NoFollow) {
                 Ok(meta) if meta.kind == nurt_contracts::fs::FileKind::Directory => {
-                    if !SKIPPED_DIRS.contains(&name.as_ref()) {
+                    if !SKIPPED_DIRS.iter().any(|skipped| entry.name == *skipped) {
                         pending.push(path);
                     }
                 }
                 Ok(meta) if meta.kind == nurt_contracts::fs::FileKind::File => {
                     found.insert(path);
-                    if found.len() >= limit {
-                        return Ok(());
+                    if found.len() > limit {
+                        return Ok(true);
                     }
                 }
                 _ => {}
             }
         }
     }
-    Ok(())
+    Ok(false)
 }
 
 /// Reads a UTF-8 text file with its entity tag.
@@ -1527,24 +1622,27 @@ fn read_text(ctx: &ExecCtx, path: &FsPath) -> Result<Loaded> {
     let abs = AbsPath::new(path.to_path_buf())?;
     let meta = fs.metadata(&abs, Follow::Follow)?;
     let max = ctx.config().code.file_bytes_max.bytes();
-    if meta.size > max {
-        return Err(Error::new(
+    let too_large = || {
+        Error::new(
             ErrorCode::Limit,
             format!(
                 "{} is larger than `code.file_bytes_max` ({max} bytes); raise the limit to rename in it",
                 path.display()
             ),
-        ));
+        )
+    };
+    if meta.size > max {
+        return Err(too_large());
     }
-    let mut bytes = Vec::new();
-    fs.open_read(&abs)?
-        .read_to_end(&mut bytes)
-        .map_err(|error| {
-            Error::new(
-                ErrorCode::Io,
-                format!("cannot read {}: {error}", path.display()),
-            )
-        })?;
+    let read = read_bounded(fs.open_read(&abs)?, max).map_err(|error| {
+        Error::new(
+            ErrorCode::Io,
+            format!("cannot read {}: {error}", path.display()),
+        )
+    })?;
+    let Some(bytes) = read else {
+        return Err(too_large());
+    };
     let text = String::from_utf8(bytes).map_err(|_| {
         Error::new(
             ErrorCode::Encoding,
@@ -1733,13 +1831,29 @@ fn leftovers(
         .targets
         .first()
         .map_or_else(|| state.root.clone(), |target| target.path.clone());
-    let mut paths: BTreeSet<PathBuf> = candidates(ctx, &state.roots, &first)?.into_iter().collect();
+    let mut paths: BTreeSet<PathBuf> = candidates(ctx, &state.roots, &first)?
+        .files
+        .into_iter()
+        .collect();
     paths.extend(overrides.keys().cloned());
     for path in paths {
         ctx.checkpoint()?;
         let text = match overrides.get(&path) {
             Some(text) => text.clone(),
-            None => read_text(ctx, &path).ok().map(|loaded| loaded.text),
+            None => match read_text(ctx, &path) {
+                Ok(loaded) => Some(loaded.text),
+                Err(error) => {
+                    let unreadable = matches!(error.code(), ErrorCode::Encoding | ErrorCode::Limit);
+                    if unreadable && file_contains(ctx, &path, state.from.as_bytes()) {
+                        found.push(Leftover {
+                            path: path.clone(),
+                            line: 0,
+                            category: "unreadable",
+                        });
+                    }
+                    None
+                }
+            },
         };
         if let Some(text) = text {
             found.extend(leftovers_in(ctx, state, &path, &text));
@@ -1756,6 +1870,47 @@ fn leftovers(
         }
     }
     Ok(found)
+}
+
+/// Returns `true` when the file holds `needle` as bytes; only the first
+/// [`UNREADABLE_SCAN_MAX`] bytes are searched, and a file that cannot be read
+/// does not hold it.
+fn file_contains(ctx: &ExecCtx, path: &FsPath, needle: &[u8]) -> bool {
+    if needle.is_empty() {
+        return false;
+    }
+    let Ok(fs) = ctx.require_fs() else {
+        return false;
+    };
+    let Ok(abs) = AbsPath::new(path.to_path_buf()) else {
+        return false;
+    };
+    let Ok(mut handle) = fs.open_read(&abs) else {
+        return false;
+    };
+    let keep = needle.len() - 1;
+    let mut window: Vec<u8> = Vec::new();
+    let mut chunk = vec![0_u8; UNREADABLE_SCAN_CHUNK];
+    let mut scanned = 0_u64;
+    while scanned < UNREADABLE_SCAN_MAX {
+        if ctx.checkpoint().is_err() {
+            return false;
+        }
+        let Ok(read) = handle.read(&mut chunk) else {
+            return false;
+        };
+        if read == 0 {
+            return false;
+        }
+        window.extend_from_slice(&chunk[..read]);
+        if window.windows(needle.len()).any(|part| part == needle) {
+            return true;
+        }
+        let surplus = window.len().saturating_sub(keep);
+        window.drain(..surplus);
+        scanned += count(read);
+    }
+    false
 }
 
 fn leftovers_in(ctx: &ExecCtx, state: &RenameState, path: &FsPath, text: &str) -> Vec<Leftover> {

@@ -229,7 +229,8 @@ pub(crate) fn plan_apply(
         expect: context.index_expect().clone(),
         record_resolve_undo: false,
     });
-    if base != work {
+    // As in Git, the tree with conflict markers is kept for conflicts only.
+    if !clean {
         change.plan.state_files.push(state_write(
             repo,
             AUTO_MERGE,

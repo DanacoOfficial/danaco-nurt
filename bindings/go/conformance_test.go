@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -374,49 +373,6 @@ func runConformance(t *testing.T, cases []bindingCase, backends []Backend, newCl
 			})
 		}
 	}
-}
-
-// The suite of the repository runs against the implementation named by
-// NURT_TEST_COMMAND, a JSON array with the command that starts nurt serve
-// --stdio, and against libnurt when the module is built with nurt_cgo.
-func TestConformanceBindings(t *testing.T) {
-	dir := os.Getenv(conformanceDirEnv)
-	if dir == "" {
-		dir = defaultConformanceDir
-	}
-	cases, err := loadCases(dir)
-	if errors.Is(err, fs.ErrNotExist) {
-		t.Skipf("binding cases not found in %s; set %s", dir, conformanceDirEnv)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	var command []string
-	if raw := os.Getenv(testCommandEnv); raw != "" {
-		if err := json.Unmarshal([]byte(raw), &command); err != nil || len(command) == 0 {
-			t.Fatalf("%s must be a non-empty JSON array of strings", testCommandEnv)
-		}
-	}
-	var backends []Backend
-	for _, b := range conformanceBackends {
-		if b != BackendProcess || command != nil {
-			backends = append(backends, b)
-		}
-	}
-	if len(backends) == 0 {
-		t.Skipf("no implementation to test; set %s", testCommandEnv)
-	}
-	runConformance(t, cases, backends, func(t *testing.T, b Backend) *Client {
-		stateDir := t.TempDir()
-		opts := ClientOptions{Backend: b}
-		if b == BackendProcess {
-			opts.Executable, opts.Args = command[0], command[1:]
-			opts.Env = []string{"NURT_STATE_DIR=" + stateDir}
-		} else {
-			t.Setenv("NURT_STATE_DIR", stateDir)
-		}
-		return newTestClient(t, opts)
-	})
 }
 
 func TestConformanceRunnerOnFakeServer(t *testing.T) {

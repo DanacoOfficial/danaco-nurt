@@ -20,6 +20,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -83,6 +84,8 @@ pub struct Card {
     pub catalog_path: Option<String>,
     /// Version.
     pub version: Option<String>,
+    /// Kind of the provider that gave `version`.
+    pub version_source: Option<SourceKind>,
     /// Alternative names.
     pub aliases: Vec<RawAlias>,
     /// Providers that contributed, in priority order.
@@ -216,6 +219,7 @@ pub struct ProgramIndex {
     warnings: Vec<SourceWarning>,
     sources: Vec<Arc<dyn ProgramSource>>,
     env: HostEnv,
+    complete: bool,
 }
 
 impl fmt::Debug for ProgramIndex {
@@ -279,8 +283,7 @@ pub fn default_cache_dir(env: &HostEnv) -> Option<PathBuf> {
             .home()
             .map(|home| home.join("Library/Caches/Nurt/programs")),
         _ => env
-            .var_text("XDG_CACHE_HOME")
-            .map(PathBuf::from)
+            .xdg_dir("XDG_CACHE_HOME")
             .or_else(|| env.home().map(|home| home.join(".cache")))
             .map(|dir| dir.join("nurt").join("programs")),
     }
@@ -392,10 +395,22 @@ fn write_cache(file: &Path, fingerprint: &Fingerprint, data: &SourceData) {
     if ciborium::into_writer(&cache, &mut bytes).is_err() {
         return;
     }
-    let temporary = file.with_extension(format!("{CACHE_SUFFIX}.{}.tmp", std::process::id()));
+    let temporary = temporary_path(file);
     if write_private(&temporary, &bytes).is_ok() && std::fs::rename(&temporary, file).is_err() {
         let _ignored = std::fs::remove_file(&temporary);
     }
+}
+
+/// Name of the temporary file of one writer of the cache file `file`: the
+/// process and a counter make it unique for every call, so concurrent
+/// writers of one provider never share a file.
+fn temporary_path(file: &Path) -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    file.with_extension(format!(
+        "{CACHE_SUFFIX}.{}.{}.tmp",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    ))
 }
 
 #[cfg(unix)]
@@ -477,7 +492,9 @@ impl ProgramIndex {
             let source = &sources[*position];
             builder.add(source.as_ref(), &item.data, rank);
         }
-        builder.finish(sources)
+        let mut index = builder.finish(sources);
+        index.complete = loaded.iter().all(|item| item.fingerprint.is_some());
+        index
     }
 
     /// Cards in index order.
@@ -556,6 +573,13 @@ impl ProgramIndex {
         &self.warnings
     }
 
+    /// Returns `false` when a provider failed or its state could not be
+    /// determined, so that a later call should read the providers again.
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        self.complete
+    }
+
     /// Environment the index was built for.
     #[must_use]
     pub fn env(&self) -> &HostEnv {
@@ -575,12 +599,23 @@ impl ProgramIndex {
     }
 }
 
+/// Entry that names another program as its main one, kept until every
+/// provider has been added.
+struct PendingAlias {
+    target: String,
+    kind: AliasKind,
+    source: SourceKind,
+    id: SourceId,
+    rank: usize,
+    raw: RawProgram,
+}
+
 struct Builder<'a> {
     env: &'a HostEnv,
     cards: Vec<Card>,
     by_key: HashMap<String, usize>,
     aliases: HashMap<String, (usize, AliasKind)>,
-    pending_aliases: Vec<(String, String, AliasKind)>,
+    pending_aliases: Vec<PendingAlias>,
     files: HashMap<String, PackageRef>,
     packages: HashMap<PackageRef, RawPackage>,
     guides: Vec<IndexGuide>,
@@ -697,7 +732,7 @@ impl<'a> Builder<'a> {
                 aliases: raw.aliases.clone(),
                 sources: vec![id.to_string()],
                 order: raw.order.map_or(order, |order| {
-                    usize::try_from(order).unwrap_or(order as usize)
+                    usize::try_from(order).unwrap_or(if order < 0 { 0 } else { usize::MAX })
                 }),
             });
         }
@@ -708,8 +743,14 @@ impl<'a> Builder<'a> {
             self.linked_guides.insert(guide.name.clone());
         }
         if let (Some(target), Some(alias_kind)) = (&raw.alias_of, raw.alias_kind) {
-            self.pending_aliases
-                .push((raw.name.clone(), target.clone(), alias_kind));
+            self.pending_aliases.push(PendingAlias {
+                target: target.clone(),
+                kind: alias_kind,
+                source: kind,
+                id: id.clone(),
+                rank,
+                raw: raw.clone(),
+            });
             return;
         }
         let executable = raw
@@ -808,25 +849,30 @@ impl<'a> Builder<'a> {
             warnings: self.warnings,
             sources,
             env: self.env.clone(),
+            complete: true,
         }
     }
 
     fn resolve_aliases(&mut self) {
-        for (name, target, kind) in std::mem::take(&mut self.pending_aliases) {
+        for pending in std::mem::take(&mut self.pending_aliases) {
+            let name = pending.raw.name.clone();
             let key = self.env.name_key(&name);
             if self.by_key.contains_key(&key) {
                 continue;
             }
-            match self.find(&target) {
+            match self.find(&pending.target) {
                 Some(index) => {
-                    self.aliases.insert(key, (index, kind));
+                    self.aliases.insert(key, (index, pending.kind));
                     let card = &mut self.cards[index];
                     if !card.aliases.iter().any(|alias| alias.name == name) {
-                        card.aliases.push(RawAlias::new(name, kind));
+                        card.aliases.push(RawAlias::new(name, pending.kind));
                     }
                 }
                 None => {
-                    self.new_card(&name, EntryKind::Program, usize::MAX);
+                    let mut raw = pending.raw;
+                    raw.alias_of = None;
+                    raw.alias_kind = None;
+                    self.add_program(pending.source, &pending.id, &raw, pending.rank);
                 }
             }
         }
@@ -885,8 +931,9 @@ fn apply_package(card: &mut Card, reference: &PackageRef, package: &RawPackage, 
     if !card.sources.contains(&reference.manager) {
         card.sources.push(reference.manager.clone());
     }
-    if card.version.is_none() {
+    if card.version.is_none() && package.version.is_some() {
         card.version.clone_from(&package.version);
+        card.version_source = Some(SourceKind::Package);
     }
     if card.homepage.is_none() {
         card.homepage.clone_from(&package.homepage);
@@ -979,8 +1026,9 @@ fn merge_location(card: &mut Card, kind: SourceKind, raw: &RawProgram) {
             fill(&mut card.path, &raw.path);
             extend_unique(&mut card.alternatives, &raw.alternatives);
             card.installed |= raw.installed.unwrap_or(true);
-            if card.version.is_none() {
+            if card.version.is_none() && raw.version.is_some() {
                 card.version.clone_from(&raw.version);
+                card.version_source = Some(kind);
             }
         }
     }
@@ -1000,8 +1048,9 @@ fn merge_texts(card: &mut Card, kind: SourceKind, raw: &RawProgram) {
 }
 
 fn merge_catalog(card: &mut Card, id: &SourceId, raw: &RawProgram) {
-    if card.version.is_none() {
+    if card.version.is_none() && raw.version.is_some() {
         card.version.clone_from(&raw.version);
+        card.version_source = Some(SourceKind::Catalog);
     }
     fill(&mut card.verified, &raw.verified);
     fill(&mut card.overview, &raw.overview);
@@ -1162,11 +1211,11 @@ impl IndexCache {
             return Arc::clone(index);
         }
         let index = Arc::new(ProgramIndex::load(registry, env, options, clock));
-        let complete = !index
+        let cut_short = index
             .warnings()
             .iter()
             .any(|warning| warning.code == WarningCode::IndexPartial);
-        if complete {
+        if index.is_complete() && !cut_short {
             *slot = Some((key, Arc::clone(&index)));
         }
         index
@@ -1186,4 +1235,81 @@ fn state_key(registry: &SourceRegistry, env: &HostEnv, options: &IndexOptions) -
         }
     }
     key
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn temporary_cache_files_are_unique_per_writer() {
+        let file = Path::new("/c/dpkg.cbor");
+        let first = temporary_path(file);
+        let second = temporary_path(file);
+        assert_ne!(first, second);
+        assert_eq!(first.parent(), file.parent());
+        assert!(first.to_string_lossy().ends_with(".tmp"));
+        assert!(
+            first
+                .to_string_lossy()
+                .contains(&std::process::id().to_string())
+        );
+    }
+
+    fn category(id: &str, order: Option<i64>) -> RawCategory {
+        RawCategory {
+            id: id.to_owned(),
+            title: LocalizedText::new(id),
+            order,
+            ..RawCategory::default()
+        }
+    }
+
+    #[test]
+    fn cache_directory_follows_the_conventions_of_each_system() {
+        let linux = HostEnv::new(Os::Linux).with_home("/home/user");
+        assert_eq!(
+            default_cache_dir(&linux),
+            Some(PathBuf::from("/home/user/.cache/nurt/programs"))
+        );
+        let xdg = linux.with_var("XDG_CACHE_HOME", "/var/cache/ada");
+        assert_eq!(
+            default_cache_dir(&xdg),
+            Some(PathBuf::from("/var/cache/ada/nurt/programs"))
+        );
+        let mac = HostEnv::new(Os::Macos).with_home("/Users/user");
+        assert_eq!(
+            default_cache_dir(&mac),
+            Some(PathBuf::from("/Users/user/Library/Caches/Nurt/programs"))
+        );
+        let windows = HostEnv::new(Os::Windows).with_var("LOCALAPPDATA", "C:\\Users\\user");
+        let dir = default_cache_dir(&windows).unwrap();
+        assert!(dir.ends_with("Nurt/cache/programs"));
+        assert_eq!(default_cache_dir(&HostEnv::new(Os::Linux)), None);
+    }
+
+    #[test]
+    fn negative_category_order_sorts_first_not_last() {
+        let env = HostEnv::new(Os::Linux);
+        let mut builder = Builder::new(&env);
+        let source = SourceId::catalog("sample");
+        builder.add_categories(
+            &source,
+            &[
+                category("first-cat", Some(-5)),
+                category("middle-cat", Some(7)),
+                category("unordered-cat", None),
+            ],
+        );
+        let order_of = |id: &str| {
+            builder
+                .categories
+                .iter()
+                .find(|category| category.id == id)
+                .map(|category| category.order)
+        };
+        assert_eq!(order_of("first-cat"), Some(0));
+        assert_eq!(order_of("middle-cat"), Some(7));
+        assert!(order_of("unordered-cat").is_some_and(|order| order < usize::MAX / 2));
+    }
 }

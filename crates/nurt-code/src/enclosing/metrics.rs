@@ -102,8 +102,7 @@ pub fn function_metrics(tree: &Tree, source: &[u8]) -> Vec<FunctionMetrics> {
         .filter(|(info, _)| matches!(info.kind, SymbolKind::Function | SymbolKind::Method))
         .map(|(info, node)| {
             let body = node.child_by_field_name("body").unwrap_or(node);
-            let mut counts = Counts::default();
-            measure(body, 0, &mut counts);
+            let counts = measure(body);
             FunctionMetrics {
                 lines: info.span.end.line.saturating_sub(info.span.start.line) + 1,
                 parameters: parameter_count(node),
@@ -123,28 +122,36 @@ struct Counts {
     max_nesting: u32,
 }
 
-fn measure(node: Node<'_>, depth: u32, counts: &mut Counts) {
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        if !child.is_named() {
-            continue;
+/// Counts the decision points and the nesting below `body`, with an explicit
+/// stack, so that the depth of the tree is not limited by the stack of the
+/// thread.
+fn measure(body: Node<'_>) -> Counts {
+    let mut counts = Counts::default();
+    let mut pending = vec![(body, 0_u32)];
+    while let Some((node, depth)) = pending.pop() {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if !child.is_named() {
+                continue;
+            }
+            let kind = child.kind();
+            if is_function(kind) {
+                continue;
+            }
+            if DECISION_KINDS.contains(&kind) || is_boolean_operation(child) {
+                counts.decisions += 1;
+            }
+            let nested = if NESTING_KINDS.contains(&kind) {
+                let nested = depth + 1;
+                counts.max_nesting = counts.max_nesting.max(nested);
+                nested
+            } else {
+                depth
+            };
+            pending.push((child, nested));
         }
-        let kind = child.kind();
-        if is_function(kind) {
-            continue;
-        }
-        if DECISION_KINDS.contains(&kind) || is_boolean_operation(child) {
-            counts.decisions += 1;
-        }
-        let nested = if NESTING_KINDS.contains(&kind) {
-            let nested = depth + 1;
-            counts.max_nesting = counts.max_nesting.max(nested);
-            nested
-        } else {
-            depth
-        };
-        measure(child, nested, counts);
     }
+    counts
 }
 
 fn is_function(kind: &str) -> bool {
@@ -207,6 +214,50 @@ fn parameter_list(node: Node<'_>) -> Option<Node<'_>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn metrics_of(language: tree_sitter::Language, source: &str) -> Vec<FunctionMetrics> {
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        function_metrics(&tree, source.as_bytes())
+    }
+
+    #[test]
+    fn decisions_nesting_and_parameters_are_counted() {
+        let source = "int f(int a, int b) {\n    if (a && b) {\n        while (a) { a--; }\n    } else if (b) {\n        return 1;\n    }\n    return a ? 1 : 2;\n}\n";
+        let found = metrics_of(tree_sitter_c::LANGUAGE.into(), source);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].name, "f");
+        assert_eq!(found[0].parameters, 2);
+        assert_eq!(found[0].lines, 8);
+        assert_eq!(found[0].cyclomatic, 6);
+        assert_eq!(found[0].max_nesting, 2);
+    }
+
+    #[test]
+    fn nested_functions_do_not_count_towards_the_outer_function() {
+        let source = "fn outer() {\n    fn inner(x: bool) {\n        if x {}\n    }\n}\n";
+        let found = metrics_of(tree_sitter_rust::LANGUAGE.into(), source);
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].name, "outer");
+        assert_eq!(found[0].cyclomatic, 1);
+        assert_eq!(found[1].name, "inner");
+        assert_eq!(found[1].cyclomatic, 2);
+    }
+
+    #[test]
+    fn deeply_nested_blocks_are_measured_without_recursion() {
+        let depth = 100_000;
+        let source = format!(
+            "void f(void) {{{}{}}}\n",
+            "{".repeat(depth),
+            "}".repeat(depth)
+        );
+        let found = metrics_of(tree_sitter_c::LANGUAGE.into(), &source);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].cyclomatic, 1);
+        assert_eq!(found[0].max_nesting, 0);
+    }
 
     #[test]
     fn decision_and_nesting_kinds_do_not_contain_declarations() {

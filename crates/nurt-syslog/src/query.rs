@@ -630,6 +630,36 @@ mod tests {
     }
 
     #[test]
+    fn escaped_glob_character_matches_itself() {
+        let name = NameMatch::parse(r"a\*").unwrap();
+        assert_eq!(name.literal(), None);
+        assert!(name.matches("a*"));
+        assert!(!name.matches("ab"));
+    }
+
+    #[test]
+    fn stream_with_limit_zero_returns_nothing_and_reports_the_limit() {
+        let mut stream = LogStream::new((0..3).map(|n| Ok(event(n))), Notices::new(), 0);
+        assert!(stream.next().is_none());
+        assert!(stream.next_cursor().is_none());
+        assert_eq!(stream.notices()[0].code, NoticeCode::LimitReached);
+        assert_eq!(stream.notices()[0].count, Some(0));
+    }
+
+    #[test]
+    fn cancelled_stream_returns_the_error_before_any_event() {
+        let token = CancelToken::new();
+        token.cancel(CancelReason::Requested);
+        let mut stream =
+            LogStream::new((0..3).map(|n| Ok(event(n))), Notices::new(), 5).with_cancel(token);
+        assert_eq!(
+            stream.next().unwrap().unwrap_err().code(),
+            ErrorCode::Cancelled
+        );
+        assert!(stream.next().is_none());
+    }
+
+    #[test]
     fn rejects_malformed_glob_and_empty_name() {
         let error = NameMatch::parse("ssh[").unwrap_err();
         assert_eq!(error.code(), ErrorCode::PatternSyntax);

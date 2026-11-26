@@ -3841,6 +3841,105 @@ mod tests {
     }
 
     #[test]
+    fn remove_tree_of_a_link_removes_the_link_and_keeps_its_target() {
+        let fs = MemFs::new().expect("build");
+        fs.seed_file(&p("/outside/kept"), b"keep").expect("seed");
+        fs.seed_symlink(&p("/link"), Path::new("/outside"))
+            .expect("link");
+        let stats = fs.remove_tree(&scope(), &p("/link"), 1).expect("remove");
+        assert_eq!((stats.files, stats.directories), (1, 0));
+        assert_eq!(read(&fs, "/outside/kept"), b"keep");
+        assert_eq!(
+            kind(fs.metadata(&p("/link"), Follow::NoFollow)),
+            FsErrorKind::NotFound
+        );
+    }
+
+    #[test]
+    fn remove_tree_does_not_follow_a_link_to_its_own_ancestor() {
+        let fs = MemFs::new().expect("build");
+        fs.seed_dir(&p("/tree/sub")).expect("seed");
+        fs.seed_symlink(&p("/tree/sub/up"), Path::new("/tree"))
+            .expect("link");
+        let stats = fs.remove_tree(&scope(), &p("/tree"), 1).expect("remove");
+        assert_eq!((stats.files, stats.directories), (1, 2));
+        assert_eq!(
+            kind(fs.metadata(&p("/tree"), Follow::NoFollow)),
+            FsErrorKind::NotFound
+        );
+    }
+
+    #[test]
+    fn rename_moves_a_link_and_leaves_its_target() {
+        let fs = MemFs::new().expect("build");
+        fs.seed_file(&p("/target"), b"data").expect("seed");
+        fs.seed_symlink(&p("/link"), Path::new("target"))
+            .expect("link");
+        fs.rename(&scope(), &p("/link"), &p("/moved"), RenameMode::NoReplace)
+            .expect("rename");
+        assert_eq!(
+            fs.read_link(&p("/moved")).expect("target"),
+            PathBuf::from("target")
+        );
+        assert_eq!(
+            kind(fs.metadata(&p("/link"), Follow::NoFollow)),
+            FsErrorKind::NotFound
+        );
+        assert_eq!(read(&fs, "/target"), b"data");
+    }
+
+    #[test]
+    fn copy_of_a_link_source_copies_the_content_of_its_target() {
+        let fs = MemFs::new().expect("build");
+        fs.seed_file(&p("/source"), b"payload").expect("seed");
+        fs.seed_symlink(&p("/link"), Path::new("/source"))
+            .expect("link");
+        let copied = fs
+            .copy_file(&scope(), &p("/link"), &p("/copy"))
+            .expect("copy");
+        assert_eq!(copied, 7);
+        assert_eq!(read(&fs, "/copy"), b"payload");
+        assert_eq!(
+            fs.metadata(&p("/copy"), Follow::NoFollow)
+                .expect("meta")
+                .kind,
+            FileKind::File
+        );
+    }
+
+    #[test]
+    fn lock_with_the_longest_timeout_is_taken_when_the_file_is_free() {
+        let fs = MemFs::new().expect("build");
+        let lock = fs.lock_exclusive(&p("/lock"), Duration::MAX).expect("lock");
+        assert_eq!(lock.path(), &p("/lock"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn names_that_are_not_valid_utf8_stay_distinct_and_sorted_by_bytes() {
+        use std::os::unix::ffi::OsStrExt;
+        let fs = MemFs::new().expect("build");
+        let named = |name: &[u8]| {
+            AbsPath::new(Path::new("/d").join(OsStr::from_bytes(name))).expect("path")
+        };
+        let (first, second) = (named(b"a\xff"), named(b"a\xfe"));
+        fs.seed_file(&first, b"1").expect("seed");
+        fs.seed_file(&second, b"2").expect("seed");
+        let names: Vec<Vec<u8>> = fs
+            .read_dir(&p("/d"))
+            .expect("listing")
+            .map(|entry| entry.expect("entry").name.as_bytes().to_vec())
+            .collect();
+        assert_eq!(names, [b"a\xfe".to_vec(), b"a\xff".to_vec()]);
+        let mut content = Vec::new();
+        fs.open_read(&first)
+            .expect("open")
+            .read_to_end(&mut content)
+            .expect("read");
+        assert_eq!(content, b"1");
+    }
+
+    #[test]
     fn volume_presets_and_options_are_reported() {
         let spec = VolumeSpec::posix(p("/"))
             .with_kind(VolumeKind::Removable)

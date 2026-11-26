@@ -617,7 +617,7 @@ mod tests {
         let painted = coloured_banner(&banner, true, Theme::new(false));
         let lines: Vec<&str> = painted.lines().collect();
         assert!(
-            lines[0].starts_with("\x1b[38;5;250m _   _  _   _ \x1b[38;5;179m"),
+            lines[0].starts_with("\x1b[38;5;251m _   _  _   _ \x1b[38;5;179m"),
             "{}",
             lines[0]
         );
@@ -658,6 +658,59 @@ mod tests {
         let interrupt = Interrupt::new();
         interrupt.clone().raise();
         assert!(interrupt.take());
+    }
+
+    #[test]
+    fn a_line_is_split_at_its_first_white_space() {
+        assert_eq!(split_word("find \"/srv\""), ("find", "\"/srv\""));
+        assert_eq!(split_word("exit"), ("exit", ""));
+        assert_eq!(split_word("fg   3 "), ("fg", "3"));
+        assert_eq!(split_word("bg\tfind \"/srv\""), ("bg", "find \"/srv\""));
+        assert_eq!(split_word("pom\u{f3}c  \u{15b}"), ("pom\u{f3}c", "\u{15b}"));
+        assert_eq!(split_word(""), ("", ""));
+    }
+
+    #[test]
+    fn banner_lines_shorter_than_the_silver_part_are_painted_whole() {
+        let theme = Theme::new(false);
+        let painted = coloured_banner("ab", true, theme);
+        assert_eq!(
+            painted,
+            format!("{}ab{}\x1b[0m", theme.silver_escape(), theme.gold_escape())
+        );
+    }
+
+    #[test]
+    fn banner_rows_below_the_art_are_not_painted() {
+        let rows = nurt_contracts::product::BANNER_ART.len();
+        let mut text = vec!["x"; rows].join("\n");
+        text.push_str("\nDanaco Nurt 1.0.0\n\u{142}");
+        let painted = coloured_banner(&text, true, Theme::new(true));
+        let lines: Vec<&str> = painted.lines().collect();
+        assert_eq!(lines.len(), rows + 2);
+        assert!(lines[0].starts_with("\x1b[38;2;"));
+        assert_eq!(lines[rows], "Danaco Nurt 1.0.0");
+        assert_eq!(lines[rows + 1], "\u{142}");
+    }
+
+    #[test]
+    fn plain_lines_keep_blank_lines_and_strip_only_line_endings() {
+        let mut input: &[u8] = b"  a \r\n\n\xc5\x82\r";
+        let mut lines = PlainLines::new(&mut input);
+        assert_eq!(lines.read_line(), Input::Line("  a ".to_owned()));
+        assert_eq!(lines.read_line(), Input::Line(String::new()));
+        assert_eq!(lines.read_line(), Input::Line("\u{142}".to_owned()));
+        assert_eq!(lines.read_line(), Input::End);
+    }
+
+    #[test]
+    fn interrupt_is_not_raised_when_created_and_cannot_be_taken_twice() {
+        let interrupt = Interrupt::default();
+        assert!(!interrupt.is_raised());
+        interrupt.raise();
+        interrupt.raise();
+        assert!(interrupt.take());
+        assert!(!interrupt.take());
     }
 
     #[test]

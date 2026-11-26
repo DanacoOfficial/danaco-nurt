@@ -43,13 +43,42 @@ fn rust_files(dir: &Path, found: &mut Vec<PathBuf>) {
 }
 
 /// Hook modules start the programs of the user; test modules start `git`.
+/// A module is a test module when its name starts with `test` or ends with
+/// `_tests`; a name that only contains the letters, such as `latest.rs`, is
+/// not exempt.
 fn is_exempt(src: &Path, file: &Path) -> bool {
     file.strip_prefix(src).is_ok_and(|relative| {
         relative.components().any(|component| {
             let name = component.as_os_str().to_string_lossy();
-            name.starts_with("hooks") || name.contains("test")
+            let stem = name.strip_suffix(".rs").unwrap_or(&*name);
+            name.starts_with("hooks") || stem.starts_with("test") || stem.ends_with("_tests")
         })
     })
+}
+
+#[test]
+fn only_hook_and_test_modules_are_exempt_from_the_process_check() {
+    let src = Path::new("/crate/src");
+    for exempt in [
+        "/crate/src/hooks.rs",
+        "/crate/src/hooks/run.rs",
+        "/crate/src/tests.rs",
+        "/crate/src/apply/testjournal.rs",
+        "/crate/src/push/ssh_tests.rs",
+        "/crate/src/testutil/mod.rs",
+    ] {
+        assert!(is_exempt(src, Path::new(exempt)), "{exempt}");
+    }
+    for checked in [
+        "/crate/src/latest.rs",
+        "/crate/src/attestation.rs",
+        "/crate/src/contest/run.rs",
+        "/crate/src/contests.rs",
+        "/crate/src/apply/mod.rs",
+    ] {
+        assert!(!is_exempt(src, Path::new(checked)), "{checked}");
+    }
+    assert!(!is_exempt(src, Path::new("/elsewhere/hooks.rs")));
 }
 
 #[test]

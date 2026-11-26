@@ -13,6 +13,7 @@ use nurt_contracts::value::Value;
 use super::layout::{Layout, Style};
 use super::render;
 use super::syntax::{Entry, NodeId, Span};
+use crate::value::to_document_value;
 
 /// Replacement of one byte span of the original text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,7 +109,14 @@ impl<'d> Editor<'d> {
         let tree = self.layout.tree;
         let span = tree.nodes[node].span;
         let style_source = tree.nodes[node].parent.unwrap_or(node);
-        let style = self.layout.style_for(style_source);
+        let style = if matches!(
+            to_document_value(value.clone()),
+            Value::Map(_) | Value::List(_)
+        ) {
+            self.layout.style_for(style_source)
+        } else {
+            Style::scalar()
+        };
         let multiline = self.context_multiline(node);
         let indent = self.layout.indent_of(span.start);
         let text = render::render(value, indent, &style, multiline)?;
@@ -181,6 +189,121 @@ impl<'d> Editor<'d> {
             }
             None => vec![Change::delete(self.inline_range(entries, index))],
         }
+    }
+
+    /// Removes the entries at the ascending positions `indices` of one
+    /// container in one step: each run of adjacent entries goes with its
+    /// separator as a unit, and the runs are separated by entries that stay,
+    /// so the changes do not overlap and need no repeated reading of the
+    /// text. Returns `None` for a container that holds comments, whose
+    /// handling needs one entry at a time ([`Editor::remove`]).
+    pub(crate) fn remove_runs(&self, container: NodeId, indices: &[usize]) -> Option<Vec<Change>> {
+        let tree = self.layout.tree;
+        let span = tree.nodes[container].span;
+        let interior = Span::new(span.start + 1, span.end - 1);
+        if self.layout.comments_in(interior).next().is_some() {
+            return None;
+        }
+        let entries = tree.nodes[container].entries().unwrap_or_default();
+        let mut changes = Vec::new();
+        let mut rest = indices;
+        while let Some((&first, tail)) = rest.split_first() {
+            let length = 1 + tail
+                .iter()
+                .zip(first + 1..)
+                .take_while(|(index, expected)| **index == *expected)
+                .count();
+            let last = first + length - 1;
+            changes.extend(self.run(span, entries, container, first, last)?);
+            rest = &rest[length..];
+        }
+        Some(changes)
+    }
+
+    /// Changes that remove the entries `first..=last` of a container without
+    /// comments.
+    fn run(
+        &self,
+        span: Span,
+        entries: &[Entry],
+        container: NodeId,
+        first: usize,
+        last: usize,
+    ) -> Option<Vec<Change>> {
+        if first == 0 && last + 1 == entries.len() {
+            return Some(vec![Change::delete(Span::new(
+                span.start + 1,
+                span.end - 1,
+            ))]);
+        }
+        let previous = first.checked_sub(1).map(|index| &entries[index]);
+        let Some(lines) = self.whole_run_lines(container, entries, first, last) else {
+            return Some(vec![Change::delete(self.inline_run(entries, first, last)?)]);
+        };
+        let mut changes = vec![Change::delete(lines)];
+        if last + 1 == entries.len()
+            && entries[last].comma.is_none()
+            && let Some(comma) = previous.and_then(|entry| entry.comma)
+        {
+            changes.push(Change::delete(Span::new(comma, comma + 1)));
+        }
+        Some(changes)
+    }
+
+    /// Lines occupied only by the entries `first..=last`, when the container
+    /// spans several lines.
+    fn whole_run_lines(
+        &self,
+        container: NodeId,
+        entries: &[Entry],
+        first: usize,
+        last: usize,
+    ) -> Option<Span> {
+        let layout = &self.layout;
+        let start = entries[first].start(layout.tree);
+        if !layout.is_multiline(layout.tree.nodes[container].span) || !layout.starts_line(start) {
+            return None;
+        }
+        if last + 1 < entries.len() && entries[last].comma.is_none() {
+            return None;
+        }
+        let after = layout.skip_same_line_trivia(self.entry_end(&entries[last]));
+        if !matches!(
+            layout.text.as_bytes().get(after),
+            None | Some(b'\r' | b'\n')
+        ) {
+            return None;
+        }
+        Some(Span::new(
+            layout.line_start(start),
+            layout.next_line_start(after),
+        ))
+    }
+
+    /// Range of the entries `first..=last` that share their lines with other
+    /// content: the entries with the separator on one side.
+    fn inline_run(&self, entries: &[Entry], first: usize, last: usize) -> Option<Span> {
+        let tree = self.layout.tree;
+        let previous_comma = first.checked_sub(1).and_then(|index| entries[index].comma);
+        let end = &entries[last];
+        Some(match (end.comma, previous_comma) {
+            (Some(comma), Some(previous)) => Span::new(previous + 1, comma + 1),
+            (Some(comma), None) => {
+                let after = self.layout.skip_same_line_trivia(comma + 1);
+                let stop = match self.layout.text.as_bytes().get(after) {
+                    Some(b'\r' | b'\n') => after,
+                    _ => entries.get(last + 1).map_or(after, |next| next.start(tree)),
+                };
+                Span::new(entries[first].start(tree), stop)
+            }
+            (None, _) => {
+                let before = entries.get(first.checked_sub(1)?)?;
+                Span::new(
+                    tree.nodes[before.value].span.end,
+                    tree.nodes[end.value].span.end,
+                )
+            }
+        })
     }
 
     /// Offset after the entry value and its comma.

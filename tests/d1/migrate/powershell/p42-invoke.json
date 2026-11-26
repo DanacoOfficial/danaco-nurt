@@ -4,9 +4,9 @@
   "script": "p42-invoke.ps1",
   "summary": {
     "statements": 4,
-    "translated": 2,
+    "translated": 0,
     "assumption": 0,
-    "impossible": 2,
+    "impossible": 4,
     "error": 0
   },
   "items": [
@@ -14,26 +14,25 @@
       "line": 2,
       "column": 1,
       "source": "& git status",
-      "status": "translated",
-      "rules": [
-        "P42"
-      ],
+      "status": "impossible",
+      "rules": [],
       "assumptions": [],
-      "fix": [],
-      "output": "run [\"git\", \"status\"]"
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base (working_directory)",
+      "fix": []
     },
     {
       "line": 3,
       "column": 1,
       "source": "& \"C:\\Program Files\\Git\\bin\\git.exe\" log -5",
-      "status": "translated",
-      "rules": [
-        "P42",
-        "L19"
-      ],
+      "status": "impossible",
+      "rules": [],
       "assumptions": [],
-      "fix": [],
-      "output": "run [\"C:/Program Files/Git/bin/git.exe\", \"log\", \"-5\"]"
+      "code": "E_UNCORRECTABLE",
+      "reason": "rule",
+      "problem": "the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base (working_directory)",
+      "fix": []
     },
     {
       "line": 4,

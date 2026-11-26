@@ -3,7 +3,9 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Binding of programs, statements and pipelines.
 
-use nurt_contracts::ast::{AST_VERSION, Arg, AstDocument, Expr, Head, Pipeline, Ref, Statement};
+use nurt_contracts::ast::{
+    AST_VERSION, Arg, AstDocument, Expr, Head, Pipeline, Ref, Span, Stage, Statement,
+};
 use nurt_contracts::bound::{
     BoundDocument, BoundHead, BoundLet, BoundPipeline, BoundProgram, BoundRef, BoundStatement,
 };
@@ -328,6 +330,45 @@ impl<'a> Binder<'a> {
     /// Returns the program with a named argument added to the stage being
     /// bound, printed in variant A; `None` inside a sub-pipeline.
     pub(crate) fn program_with(&self, param: &str, value: &str) -> Option<String> {
+        self.program_edited(|stage| {
+            stage.args.push(Arg {
+                name: Some(param.to_owned()),
+                value: Expr::Ident {
+                    v: value.to_owned(),
+                    span: None,
+                },
+                span: None,
+            });
+            true
+        })
+    }
+
+    /// Returns the program with the bare word written at `span` in the stage
+    /// being bound replaced by a text with the same characters, printed in
+    /// variant A; `None` inside a sub-pipeline or when no argument has that
+    /// span.
+    pub(crate) fn program_quoting(&self, span: Option<Span>) -> Option<String> {
+        let span = span?;
+        self.program_edited(|stage| {
+            stage.args.iter_mut().any(|arg| {
+                let Expr::Ident { v, span: written } = &arg.value else {
+                    return false;
+                };
+                if *written != Some(span) {
+                    return false;
+                }
+                arg.value = Expr::Text {
+                    v: v.clone(),
+                    span: None,
+                };
+                true
+            })
+        })
+    }
+
+    /// Prints the program after `edit` changed the stage being bound; `edit`
+    /// returns `false` when it changed nothing.
+    fn program_edited(&self, edit: impl FnOnce(&mut Stage) -> bool) -> Option<String> {
         let location = self.location?;
         let mut document = self.document.clone();
         document.meta = None;
@@ -344,14 +385,9 @@ impl<'a> Binder<'a> {
             },
             Some(position) => pipeline.stages.get_mut(position)?,
         };
-        stage.args.push(Arg {
-            name: Some(param.to_owned()),
-            value: Expr::Ident {
-                v: value.to_owned(),
-                span: None,
-            },
-            span: None,
-        });
+        if !edit(stage) {
+            return None;
+        }
         try_print(&document, SyntaxVariant::A)
             .ok()
             .map(|text| text.trim_end().to_owned())

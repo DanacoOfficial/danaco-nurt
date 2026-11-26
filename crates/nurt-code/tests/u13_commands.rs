@@ -45,7 +45,9 @@ use nurt_contracts::services::{
     GitQueryService, LanguageId, LanguageInfo, Services, SymbolInfo, SymbolKind, SymbolReference,
     SyntaxIssue, SyntaxMatch, SyntaxPattern, SyntaxToken, TextPosition, TextSpan,
 };
-use nurt_contracts::stage::{ArgValue, BoundArgs, ExecCtx, RecordStream, StageImpl, StageInput};
+use nurt_contracts::stage::{
+    ArgValue, BoundArgs, CancelReason, ExecCtx, RecordStream, StageImpl, StageInput,
+};
 use nurt_contracts::value::{Record, Value};
 
 use u14_support::{StdFs, TestClock, TestHost, ToyCode};
@@ -965,6 +967,34 @@ fn a_relative_path_without_a_base_directory_is_rejected() {
     assert_eq!(error.code(), ErrorCode::Arg);
 }
 
+#[test]
+fn definition_record_ends_at_the_end_of_the_whole_definition() {
+    let project = Project::new();
+    let shapes = project.path("shapes.py");
+    let script = Script {
+        definition: Ok(vec![location(&shapes, 11, 5, 5)]),
+        ..Script::unavailable()
+    }
+    .shared();
+    let position_args = definition_args(
+        &project,
+        "main.py",
+        &[("line", Value::Int(5)), ("column", Value::Int(12))],
+    );
+    let served = symbols(
+        run(
+            &CodeDefinition::new(Some(script)),
+            &position_args,
+            &plain_context(),
+        )
+        .unwrap(),
+    );
+    assert_eq!((served[0].end_line, served[0].end_column), (13, Some(21)));
+    let local = symbols(run(&CodeDefinition::new(None), &position_args, &plain_context()).unwrap());
+    assert_eq!((local[0].end_line, local[0].end_column), (13, Some(21)));
+    assert_eq!((local[0].line, local[0].column), (11, 5));
+}
+
 fn references_args(project: &Project, extra: &[(&str, Value)]) -> BoundArgs {
     let mut pairs = vec![
         ("path", path_value(&project.path("shapes.py"))),
@@ -1033,6 +1063,51 @@ fn references_from_syntax_analysis_carry_roles_in_path_order() {
         Some("return scale(len(items)) + scale(1)")
     );
     assert_eq!(fallback_details(&ctx).len(), 1);
+}
+
+fn context_with_config(config: Config) -> ExecCtx {
+    ExecCtx::builder(Arc::new(TestClock), Arc::new(TestHost::new()))
+        .fs(Arc::new(StdFs))
+        .services(Arc::new(Services::new().with_code(Arc::new(PyCode))))
+        .config(Arc::new(config))
+        .options(Arc::new(RequestOptions::default()))
+        .build()
+}
+
+fn unavailable_source_notes(ctx: &ExecCtx) -> Vec<String> {
+    ctx.take_notes()
+        .into_iter()
+        .filter(|entry| entry.code == Notable::SourceUnavailable)
+        .map(|entry| entry.detail.unwrap_or_default())
+        .collect()
+}
+
+#[test]
+fn project_listing_cut_by_the_file_limit_is_noted() {
+    let project = Project::new();
+    let mut config = Config::default();
+    config.code.index_max_files = 2;
+    let ctx = context_with_config(config);
+    let found = references(
+        run(
+            &CodeReferences::new(None),
+            &references_args(&project, &[]),
+            &ctx,
+        )
+        .unwrap(),
+    );
+    assert!(!found.is_empty());
+    let notes = unavailable_source_notes(&ctx);
+    assert_eq!(notes.len(), 1, "{notes:?}");
+    assert!(notes[0].contains("code.index_max_files (2)"), "{notes:?}");
+    let complete = plain_context();
+    run(
+        &CodeReferences::new(None),
+        &references_args(&project, &[]),
+        &complete,
+    )
+    .unwrap();
+    assert!(unavailable_source_notes(&complete).is_empty());
 }
 
 #[test]
@@ -1314,6 +1389,30 @@ fn hover_from_syntax_reads_the_comment_above_the_definition() {
     assert_eq!(hover.source, SymbolSource::Syntax);
     assert_eq!(hover.signature.as_deref(), Some("def triple(value)"));
     assert_eq!(hover.documentation.as_deref(), Some("Triple the value."));
+}
+
+#[test]
+fn hover_from_syntax_does_not_take_attributes_or_directives_as_documentation() {
+    let project = Project::new();
+    let geometry = project.path("geometry.py");
+    for above in ["#[derive(Debug)]", "#include <stdio.h>"] {
+        std::fs::write(
+            &geometry,
+            format!("# Real note.\n{above}\ndef triple(value):\n    return value * 3\n"),
+        )
+        .unwrap();
+        let records = run(
+            &CodeHover::new(None),
+            &args(
+                "code.hover",
+                &[("path", path_value(&geometry)), ("symbol", word("triple"))],
+            ),
+            &plain_context(),
+        )
+        .unwrap();
+        let hover = Hover::try_from(records.into_iter().next().unwrap()).unwrap();
+        assert_eq!(hover.documentation, None, "{above}");
+    }
 }
 
 #[test]
@@ -1850,6 +1949,24 @@ fn diagnostics_with_changed_check_only_changed_files() {
     assert_eq!(
         *script.asked_paths.lock().unwrap(),
         vec![project.path("main.py")]
+    );
+}
+
+#[test]
+fn listing_a_directory_stops_when_the_execution_is_cancelled() {
+    let project = Project::new();
+    let empty = project.path("empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    let ctx = plain_context();
+    ctx.cancel().cancel(CancelReason::Timeout);
+    let error = failure(run(
+        &CodeDiagnostics::new(None, None),
+        &args("code.diagnostics", &[("path", path_value(&empty))]),
+        &ctx,
+    ));
+    assert!(
+        matches!(error.code(), ErrorCode::Cancelled | ErrorCode::Timeout),
+        "{error:?}"
     );
 }
 

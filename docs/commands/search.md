@@ -140,6 +140,11 @@ the order of the result does not depend on the number of threads.
 `start`, count from the start of the record text; consecutive `line` records
 of one file are counted together.
 
+The text form of the result shows the columns `path`, `no`, `column`, `text`
+and, when it applies, `count`. All fields stay in the JSON form and appear in
+the text with verbosity `detailed` or when the request names them in
+`fields`.
+
 ## Effect
 
 | Property | Value |

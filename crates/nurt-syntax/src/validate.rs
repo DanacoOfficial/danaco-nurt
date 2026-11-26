@@ -88,7 +88,7 @@ pub(crate) fn violation(pointer: &str, message: impl Into<String>) -> SyntaxErro
 }
 
 /// Escapes a member name for a JSON Pointer (RFC 6901, section 3).
-fn escape_pointer_segment(name: &str) -> String {
+pub(crate) fn escape_pointer_segment(name: &str) -> String {
     name.replace('~', "~0").replace('/', "~1")
 }
 
@@ -236,8 +236,9 @@ fn surface_expr(place: &Place, expr: &Expr, list_item: bool) -> Checked {
             place.object(span.as_ref())?;
             name(&place.member("v"), v)
         }
-        Expr::Regex { flags, span, .. } => {
+        Expr::Regex { v, flags, span } => {
             place.object(span.as_ref())?;
+            non_empty(&place.member("v"), v, EMPTY_PATTERN_MESSAGE)?;
             regex_flags(&place.member("flags"), flags)
         }
         Expr::Int { v, span } => {
@@ -246,7 +247,7 @@ fn surface_expr(place: &Place, expr: &Expr, list_item: bool) -> Checked {
         }
         Expr::Num { v, span } => {
             place.object(span.as_ref())?;
-            finite(&place.member("v"), *v)
+            non_negative(&place.member("v"), *v)
         }
         Expr::Size { v, span } | Expr::Dur { v, span } => {
             place.object(span.as_ref())?;
@@ -508,21 +509,24 @@ fn bound_expr(place: &Place, expr: &BoundExpr, list_item: bool) -> Checked {
         BoundExpr::Null
         | BoundExpr::Bool { .. }
         | BoundExpr::Text { .. }
-        | BoundExpr::Glob { .. }
-        | BoundExpr::Key { .. }
         | BoundExpr::Enum { .. } => Ok(()),
+        BoundExpr::Glob { v } => non_empty(&place.member("v"), v, EMPTY_GLOB_MESSAGE),
+        BoundExpr::Key { v } => non_empty(&place.member("v"), v, EMPTY_KEY_MESSAGE),
         BoundExpr::Int { v } => integer(&place.member("v"), *v, -MAX_SAFE_INTEGER),
         BoundExpr::Num { v } => finite(&place.member("v"), *v),
         BoundExpr::Size { v } | BoundExpr::Dur { v } => unsigned(&place.member("v"), *v),
-        BoundExpr::Regex { flags, .. } => regex_flags(&place.member("flags"), flags),
+        BoundExpr::Regex { v, flags } => {
+            non_empty(&place.member("v"), v, EMPTY_PATTERN_MESSAGE)?;
+            regex_flags(&place.member("flags"), flags)
+        }
         BoundExpr::Range { lo, hi } => range(place, *lo, *hi, -MAX_SAFE_INTEGER),
         BoundExpr::Path { v } => place.member("v").ensure(
             is_canonical_path(v),
             "a path must be absolute and canonical: `/` separators, no empty, `.` or `..` segments",
         ),
         BoundExpr::Instant { v } => place.member("v").ensure(
-            is_rfc3339(v),
-            "an instant must be an RFC 3339 date and time, for example `2026-01-31T12:00:00Z`",
+            is_canonical_instant(v),
+            "an instant must be an RFC 3339 time in UTC with the suffix `Z` and no trailing zero in the fraction, for example `2026-01-31T12:00:00Z`",
         ),
         BoundExpr::Ref(reference) => bound_ref(place, reference),
         _ => bound_composite(place, expr, list_item),
@@ -590,6 +594,16 @@ const MAP_KEY_MESSAGE: &str = "duplicate map key; keep a single entry per key";
 
 const SPREAD_MESSAGE: &str = "a spread is admissible only as a list element";
 
+const EMPTY_PATTERN_MESSAGE: &str = "a regular expression pattern must not be empty";
+
+const EMPTY_GLOB_MESSAGE: &str = "a glob must not be empty";
+
+const EMPTY_KEY_MESSAGE: &str = "a key must not be empty";
+
+fn non_empty(place: &Place, text: &str, message: &str) -> Checked {
+    place.ensure(!text.is_empty(), message)
+}
+
 fn reference_names(place: &Place, reference: &str, fields: &[String]) -> Checked {
     name(&place.member("name"), reference)?;
     let fields_place = place.member("fields");
@@ -624,10 +638,26 @@ fn free_form(place: &Place, meta: &Meta) -> Checked {
                 pending.extend(members.values().map(|member| (member, level + 1)));
             }
             Value::Array(items) => pending.extend(items.iter().map(|item| (item, level + 1))),
+            Value::Number(number) => place.ensure(is_safe_number(number), META_INTEGER_MESSAGE)?,
             _ => {}
         }
     }
     Ok(())
+}
+
+const META_INTEGER_MESSAGE: &str =
+    "an integer of the metadata must lie within -(2^53 - 1)..=2^53 - 1";
+
+/// Returns `true` for a floating-point number and for an integer within
+/// ±(2^53 - 1), which deterministic CBOR and canonical JSON represent exactly.
+fn is_safe_number(number: &serde_json::Number) -> bool {
+    if number.is_i64() || number.is_u64() {
+        number
+            .as_i64()
+            .is_some_and(|value| (-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&value))
+    } else {
+        true
+    }
 }
 
 /// Returns `true` for an identifier: `[a-z][a-z0-9_]*`, at most
@@ -715,6 +745,16 @@ fn finite(place: &Place, value: f64) -> Checked {
     place.ensure(
         value.is_finite(),
         "the number must be finite; NaN and infinities are not admissible",
+    )
+}
+
+/// A number of a surface tree: finite and not below zero, since a negative
+/// number is written as a negation (`un` with `op: "neg"`).
+fn non_negative(place: &Place, value: f64) -> Checked {
+    finite(place, value)?;
+    place.ensure(
+        value >= 0.0,
+        "the number must not be negative; write a negative number as a negation",
     )
 }
 
@@ -883,6 +923,23 @@ pub fn is_rfc3339(text: &str) -> bool {
                 && number(numeric, 3..5) < MINUTES
         });
     valid_date && valid_time && valid_offset
+}
+
+/// Returns `true` for an instant in the canonical form of a bound tree: an
+/// RFC 3339 time in UTC with the suffix `Z`, seconds from 00 to 59 and a
+/// fraction of at most nine digits without a trailing zero.
+#[must_use]
+pub fn is_canonical_instant(text: &str) -> bool {
+    let Some(body) = text.strip_suffix('Z') else {
+        return false;
+    };
+    if !is_rfc3339(text) || body.as_bytes().get(17..19) == Some(b"60".as_slice()) {
+        return false;
+    }
+    match body.split_once('.') {
+        Some((_, fraction)) => fraction.len() <= 9 && !fraction.ends_with('0'),
+        None => true,
+    }
 }
 
 /// Checks that every member of a received document is kept by its typed form.

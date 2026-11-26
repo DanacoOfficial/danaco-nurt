@@ -443,6 +443,75 @@ fn field_paths_of_the_scenarios_map_onto_the_report() {
 }
 
 #[test]
+fn field_paths_look_into_a_list_of_one_and_stay_null_for_a_missing_member() {
+    let report = Report {
+        status: "ok".into(),
+        effect: true,
+        changes: vec![json!({ "path": "a.txt", "files": [{ "name": "x" }, { "name": "y" }] })],
+        ..Report::default()
+    };
+    assert_eq!(
+        resolve(&report, "effect.change.files[1].name").unwrap(),
+        json!("y")
+    );
+    assert_eq!(
+        resolve(&report, "effect.change.files[*].name").unwrap(),
+        json!(["x", "y"])
+    );
+    assert_eq!(
+        resolve(&report, "effect.change.files[7].name").unwrap(),
+        Json::Null
+    );
+    let single = Report {
+        changes: vec![json!({ "files": [{ "name": "x" }] })],
+        ..report.clone()
+    };
+    assert_eq!(
+        resolve(&single, "effect.change.files.name").unwrap(),
+        json!("x")
+    );
+    assert_eq!(
+        resolve(&single, "effect.change.missing").unwrap(),
+        Json::Null
+    );
+    assert!(resolve(&single, "[0]").is_err());
+    assert!(resolve(&single, "entries[1").is_err());
+    assert!(resolve(&single, "entries[x]").is_err());
+}
+
+#[test]
+fn a_missing_member_equals_only_an_empty_expectation() {
+    assert!(same(&json!(""), &Json::Null));
+    assert!(same(&json!([]), &Json::Null));
+    assert!(same(&json!(0), &Json::Null));
+    assert!(!same(&json!("a"), &Json::Null));
+    assert!(!same(&json!(true), &Json::Null));
+    assert!(!same(&json!(3), &Json::Null));
+    assert!(!same(&json!({ "a": 1 }), &json!({ "a": 1, "b": 2 })));
+    assert!(!same(&json!(2), &json!(["a"])));
+}
+
+#[test]
+fn error_codes_of_the_previous_vocabulary_stand_only_for_their_listed_codes() {
+    let failed = Report {
+        status: "failed".into(),
+        error: Some(json!({ "code": "E_TYPE", "message": "wrong type" })),
+        ..Report::default()
+    };
+    assert_eq!(
+        check_field(
+            &failed,
+            "error.code",
+            Comparison::Value,
+            &json!("E_ARGUMENT")
+        ),
+        Ok(())
+    );
+    assert!(check_field(&failed, "error.code", Comparison::Value, &json!("E_RANGE")).is_err());
+    assert!(check_field(&failed, "error.code", Comparison::Value, &json!("E_SYNTAX")).is_err());
+}
+
+#[test]
 fn comparisons_follow_the_report_conventions() {
     assert!(same(&json!("8..8"), &json!("8")));
     assert!(same(&json!("1..3,15..15"), &json!("1..3,15")));

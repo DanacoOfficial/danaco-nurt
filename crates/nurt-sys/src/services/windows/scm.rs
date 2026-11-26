@@ -312,6 +312,7 @@ mod tests {
         states: RefCell<Vec<u32>>,
         dependents: Vec<String>,
         start_error: Option<u32>,
+        stop_error: Option<u32>,
         calls: RefCell<Vec<&'static str>>,
     }
 
@@ -341,7 +342,12 @@ mod tests {
 
         fn stop(&self, _name: &str) -> Result<(), OsError> {
             self.calls.borrow_mut().push("stop");
-            Ok(())
+            self.stop_error.map_or(Ok(()), |code| {
+                Err(OsError {
+                    code,
+                    message: String::new(),
+                })
+            })
         }
 
         fn start(&self, _name: &str) -> Result<(), OsError> {
@@ -466,6 +472,105 @@ mod tests {
         let error = restart(&disabled, "Spooler").unwrap_err();
         assert_eq!(error.os_code(), "1058");
         assert_eq!(error.message(), "");
+    }
+
+    #[test]
+    fn restart_stop_of_a_service_that_is_not_active_continues_and_other_errors_end_it() {
+        let finished = MockScm {
+            stop_error: Some(ERROR_SERVICE_NOT_ACTIVE),
+            ..MockScm::with_states(&[SERVICE_RUNNING, SERVICE_STOPPED])
+        };
+        restart(&finished, "Spooler").unwrap();
+        assert_eq!(*finished.calls.borrow(), ["dependents", "stop", "start"]);
+        let refused = MockScm {
+            stop_error: Some(ERROR_ACCESS_DENIED),
+            ..MockScm::with_states(&[SERVICE_RUNNING])
+        };
+        let error = restart(&refused, "Spooler").unwrap_err();
+        assert_eq!(
+            error,
+            RestartError::Os(OsError {
+                code: ERROR_ACCESS_DENIED,
+                message: String::new(),
+            })
+        );
+        assert_eq!(error.os_code(), "5");
+        assert_eq!(*refused.calls.borrow(), ["dependents", "stop"]);
+    }
+
+    #[test]
+    fn restart_gives_up_when_the_service_does_not_stop_within_the_timeout() {
+        let stuck = MockScm::with_states(&[SERVICE_RUNNING, SERVICE_STOP_PENDING]);
+        assert_eq!(
+            restart(&stuck, "Spooler").unwrap_err(),
+            RestartError::StopTimeout
+        );
+        let calls = stuck.calls.borrow();
+        let pauses = calls.iter().filter(|call| **call == "pause").count();
+        assert_eq!(
+            u128::try_from(pauses).unwrap(),
+            STOP_TIMEOUT.as_millis() / POLL_INTERVAL.as_millis()
+        );
+        assert!(!calls.contains(&"start"));
+    }
+
+    #[test]
+    fn tolerate_accepts_only_the_given_code() {
+        let error = |code| OsError {
+            code,
+            message: "text".to_owned(),
+        };
+        assert_eq!(tolerate(Ok(()), ERROR_SERVICE_NOT_ACTIVE), Ok(()));
+        assert_eq!(
+            tolerate(
+                Err(error(ERROR_SERVICE_NOT_ACTIVE)),
+                ERROR_SERVICE_NOT_ACTIVE
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            tolerate(
+                Err(error(ERROR_SERVICE_ALREADY_RUNNING)),
+                ERROR_SERVICE_NOT_ACTIVE
+            ),
+            Err(error(ERROR_SERVICE_ALREADY_RUNNING))
+        );
+    }
+
+    #[test]
+    fn restart_error_messages_name_the_cause() {
+        let os = RestartError::Os(OsError {
+            code: 1058,
+            message: "disabled".to_owned(),
+        });
+        assert_eq!(os.os_code(), "1058");
+        assert_eq!(os.message(), "disabled");
+        let dependents = RestartError::Dependents(vec!["Fax".to_owned()]);
+        assert_eq!(
+            dependents.message(),
+            "running services depend on it: Fax; stop them first"
+        );
+    }
+
+    #[test]
+    fn per_user_service_templates_have_no_scope_and_instances_have_the_user_scope() {
+        let facts = |service_type| ServiceFacts {
+            name: "CDPUserSvc".to_owned(),
+            service_type,
+            ..ServiceFacts::default()
+        };
+        assert_eq!(facts(0x60).to_record().scope, None);
+        assert_eq!(facts(0xe0).to_record().scope, Some(ServiceScope::User));
+        let record = ServiceFacts {
+            path: Some("\"C:\\Program Files\\App\\svc.exe\" -k group".to_owned()),
+            ..facts(0x10)
+        }
+        .to_record();
+        assert_eq!(
+            record.path.unwrap().as_str(),
+            "\"C:/Program Files/App/svc.exe\" -k group"
+        );
+        assert_eq!(record.os_raw.unwrap()["service_type"], Value::Int(0x10));
     }
 
     #[test]

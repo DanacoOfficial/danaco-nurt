@@ -22,6 +22,7 @@ use std::time::{Duration, Instant};
 use nurt_contracts::envelope::{Request, Response};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::report::ReportStatus;
+use nurt_contracts::value::Instant as WireInstant;
 use nurt_core::{DeliveredEvent, EventBody, EventListener, Lifecycle};
 
 use crate::backend::{Backend, Run, to_json};
@@ -239,6 +240,26 @@ impl Drop for Exec {
     }
 }
 
+/// Encodes an event in the form of `nurt-event/1`: the time as an RFC 3339
+/// instant in UTC and the identifier of the request as the text `request`.
+///
+/// The event of the engine carries the time as a number of nanoseconds and the
+/// identifier as `request_id`; the schema knows neither.
+pub(crate) fn encode_event(event: &DeliveredEvent) -> Vec<u8> {
+    let mut document = serde_json::to_value(event).unwrap_or_default();
+    if let Some(members) = document.as_object_mut() {
+        let nanos = i64::try_from(event.time.unix_nanos()).unwrap_or(i64::MAX);
+        members.insert(
+            "time".to_owned(),
+            serde_json::Value::String(WireInstant::from_unix_nanos(nanos).to_string()),
+        );
+        if let Some(request) = members.remove("request_id") {
+            members.insert("request".to_owned(), request);
+        }
+    }
+    serde_json::to_vec(&document).unwrap_or_default()
+}
+
 /// Passes events to the callback and records what was delivered.
 struct Delivery {
     callback: Option<Callback>,
@@ -255,7 +276,7 @@ impl Delivery {
         let Some(callback) = self.callback else {
             return;
         };
-        let Ok(text) = CString::new(serde_json::to_vec(event).unwrap_or_default()) else {
+        let Ok(text) = CString::new(encode_event(event)) else {
             return;
         };
         // SAFETY: The callback `function` and its `user` pointer were passed together to
@@ -321,7 +342,7 @@ mod tests {
     use nurt_core::{DeliveredEvent, EventBody, EventListener, Lifecycle};
     use serde_json::Value;
 
-    use super::{Exec, Outcome};
+    use super::{Exec, Outcome, encode_event};
     use crate::backend::{Backend, Function, Run};
     use crate::error::{CallError, NurtStatus};
 
@@ -476,7 +497,8 @@ mod tests {
                 ("exec.finished", 2, "ok"),
             ]
         );
-        assert!(events.iter().all(|event| event["request_id"] == "r9"));
+        assert!(events.iter().all(|event| event["request"] == "r9"));
+        assert!(events.iter().all(|event| event.get("request_id").is_none()));
     }
 
     #[test]
@@ -501,18 +523,44 @@ mod tests {
     }
 
     #[test]
-    fn delivered_events_are_serialised_with_their_frame_members() {
-        let event = DeliveredEvent {
-            seq: 3,
-            time: crate::system::now(),
-            request_id: "r2".to_owned(),
-            body: EventBody::Lifecycle(Lifecycle::Finished {
+    fn delivered_events_are_encoded_in_the_form_of_the_event_schema() {
+        let schema: serde_json::Value =
+            serde_json::from_str(nurt_contracts::schema::EVENT).unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        for body in [
+            EventBody::Lifecycle(Lifecycle::Started),
+            EventBody::Lifecycle(Lifecycle::Finished {
                 status: ReportStatus::Ok,
             }),
+        ] {
+            let event = DeliveredEvent {
+                seq: 3,
+                time: crate::system::now(),
+                request_id: "r2".to_owned(),
+                body,
+            };
+            let json: serde_json::Value = serde_json::from_slice(&encode_event(&event)).unwrap();
+            assert!(
+                validator.is_valid(&json),
+                "{json} does not follow nurt-event/1"
+            );
+            assert_eq!(json["request"], "r2");
+            assert!(json.get("request_id").is_none());
+            assert!(json["seq"].is_u64());
+            let time = json["time"].as_str().unwrap();
+            assert!(time.ends_with('Z') && time.contains('T'), "time {time}");
+        }
+    }
+
+    #[test]
+    fn the_time_of_an_event_is_text_of_the_instant_of_delivery() {
+        let event = DeliveredEvent {
+            seq: 1,
+            time: nurt_contracts::env::WallTime::from_unix_nanos(0),
+            request_id: "r1".to_owned(),
+            body: EventBody::Lifecycle(Lifecycle::Started),
         };
-        let json = serde_json::to_value(&event).unwrap();
-        assert_eq!(json["t"], "exec.finished");
-        assert_eq!(json["status"], "ok");
-        assert!(json["time"].is_number() || json["time"].is_string());
+        let json: serde_json::Value = serde_json::from_slice(&encode_event(&event)).unwrap();
+        assert_eq!(json["time"], "1970-01-01T00:00:00Z");
     }
 }

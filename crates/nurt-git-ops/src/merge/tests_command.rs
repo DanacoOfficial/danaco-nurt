@@ -266,7 +266,7 @@ fn merging_an_ancestor_is_up_to_date() {
     let result = repo.run(&repo.start("topic")).expect("merge");
     assert_eq!(result.state, GitEffectState::UpToDate);
     assert_eq!(repo.branch(), repo.main);
-    assert_eq!(repo.read_git("ORIG_HEAD"), hex_line(repo.main));
+    assert!(!repo.has_git("ORIG_HEAD"));
     assert!(result.commit.is_none());
 }
 
@@ -377,7 +377,7 @@ fn no_commit_stops_clean_merge_before_the_commit() {
     assert_eq!(repo.read("b.txt"), "b\n");
     assert_eq!(repo.read_git("MERGE_MSG"), "Merge branch 'topic'\n");
     assert_eq!(repo.read_git("MERGE_MODE"), "no-ff");
-    assert!(repo.has_git("AUTO_MERGE"));
+    assert!(!repo.has_git("AUTO_MERGE"));
 }
 
 #[test]

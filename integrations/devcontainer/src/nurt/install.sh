@@ -92,6 +92,9 @@ resolve_version() {
       ;;
   esac
   [ -n "$resolved" ] || fail "no release matches version '$VERSION'"
+  case $resolved in
+    *[!0-9A-Za-z.+-]*) fail "invalid version '$VERSION'" ;;
+  esac
   printf '%s\n' "$resolved"
 }
 
@@ -107,10 +110,10 @@ main() {
     --output "$work/$archive" "$DOWNLOAD_BASE/v$version/$archive" ||
     fail "cannot download $archive"
   curl --fail --silent --show-error --location --retry 3 \
-    --output "$work/SHA256SUMS" "$DOWNLOAD_BASE/v$version/SHA256SUMS" ||
-    fail "cannot download SHA256SUMS for version $version"
+    --output "$work/checksums.txt" "$DOWNLOAD_BASE/v$version/checksums.txt" ||
+    fail "cannot download checksums.txt for version $version"
 
-  expected=$(awk -v n="$archive" '{ f = $2; sub(/^\*/, "", f); if (f == n) { print tolower($1); exit } }' "$work/SHA256SUMS")
+  expected=$(awk -v n="$archive" '{ f = $2; sub(/^\*/, "", f); if (f == n) { print tolower($1); exit } }' "$work/checksums.txt")
   [ -n "$expected" ] || fail "no checksum listed for $archive"
   actual=$(sha256sum "$work/$archive" | awk '{ print tolower($1) }')
   [ "$expected" = "$actual" ] ||
@@ -118,8 +121,10 @@ main() {
 
   mkdir -p "$work/extract" "$INSTALL_DIR"
   tar -xzf "$work/$archive" -C "$work/extract"
-  [ -f "$work/extract/nurt" ] || fail "$archive does not contain nurt"
-  install -m 0755 "$work/extract/nurt" "$INSTALL_DIR/nurt"
+  root=$work/extract
+  [ -f "$root/nurt" ] || root=$root/nurt-$version-$target
+  [ -f "$root/nurt" ] || fail "$archive does not contain nurt"
+  install -m 0755 "$root/nurt" "$INSTALL_DIR/nurt"
   printf 'installed Danaco Nurt %s in %s\n' "$version" "$INSTALL_DIR"
 }
 

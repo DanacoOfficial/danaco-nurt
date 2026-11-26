@@ -166,11 +166,24 @@ fn position_of(spec: Option<&str>) -> Option<usize> {
     digits.parse().ok()
 }
 
+/// Shortest abbreviation of an object name.
+const MIN_ABBREVIATION: usize = 4;
+
+/// Whether a bare number names a commit: an abbreviated hash may consist of
+/// digits only, and then it is a hash and not a position.
+pub(crate) fn is_digit_only_hash(repo: &GitRepo, spec: Option<&str>) -> bool {
+    spec.is_some_and(|text| {
+        text.len() >= MIN_ABBREVIATION
+            && text.bytes().all(|byte| byte.is_ascii_digit())
+            && repo.resolve_commit(text).is_ok()
+    })
+}
+
 /// Entry named by `spec` with its position in the list; the position is
 /// `None` for a commit that is not in the list.
 pub(crate) fn resolve(repo: &GitRepo, spec: Option<&str>) -> Result<(Option<usize>, ObjectId)> {
     let root = root_literal(repo);
-    let Some(position) = position_of(spec) else {
+    let Some(position) = position_of(spec).filter(|_| !is_digit_only_hash(repo, spec)) else {
         let text = spec.unwrap_or_default();
         return Ok((None, repo.resolve_commit(text)?));
     };
@@ -180,9 +193,9 @@ pub(crate) fn resolve(repo: &GitRepo, spec: Option<&str>) -> Result<(Option<usiz
             .with_problem("no_stash")
             .with_fix(format!("git.stash {root} action: push")));
     }
-    let Some(entry) = entries
-        .len()
-        .checked_sub(position + 1)
+    let Some(entry) = position
+        .checked_add(1)
+        .and_then(|count| entries.len().checked_sub(count))
         .and_then(|at| entries.get(at))
     else {
         return Err(error(
@@ -245,12 +258,15 @@ pub(crate) fn plan_drop(
     position: usize,
 ) -> Result<ObjectId> {
     let mut entries = reflog(repo)?;
-    let at = entries.len().checked_sub(position + 1).ok_or_else(|| {
-        error(
-            ErrorCode::GitRevision,
-            format!("stash@{{{position}}} does not exist"),
-        )
-    })?;
+    let at = position
+        .checked_add(1)
+        .and_then(|count| entries.len().checked_sub(count))
+        .ok_or_else(|| {
+            error(
+                ErrorCode::GitRevision,
+                format!("stash@{{{position}}} does not exist"),
+            )
+        })?;
     let removed = entries.remove(at);
     if entries.is_empty() {
         delete_stash(refs)?;
@@ -376,6 +392,34 @@ mod tests {
         assert_eq!(branch_of("On topic/x: message").as_deref(), Some("topic/x"));
         assert_eq!(branch_of("WIP on (no branch): 1234567 s"), None);
         assert_eq!(branch_of("something else"), None);
+    }
+
+    #[test]
+    fn reflog_lines_keep_their_bytes_and_expose_time_and_message() {
+        let line = format!(
+            "{} {} Zażółć <z> x> 1700000000 +0100\tWIP on main: abc zażółć\n",
+            "1".repeat(40),
+            "2".repeat(40)
+        );
+        let entries = parse_reflog(line.as_bytes());
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].seconds(), Some(1_700_000_000));
+        assert_eq!(entries[0].message(), "WIP on main: abc zażółć");
+        assert_eq!(entries[0].to_line(), line.into_bytes());
+    }
+
+    #[test]
+    fn reflog_parser_skips_lines_that_are_not_entries() {
+        let valid = format!("{} {} A <a> 1 +0000\tm\n", "1".repeat(40), "2".repeat(40));
+        let text = format!("garbage\nnot-hex not-hex rest\n{valid}\n");
+        assert_eq!(parse_reflog(text.as_bytes()).len(), 1);
+        let entry = ReflogEntry {
+            old: ObjectId::null(gix::hash::Kind::Sha1),
+            new: ObjectId::null(gix::hash::Kind::Sha1),
+            rest: BString::default(),
+        };
+        assert_eq!(entry.message(), "");
+        assert_eq!(entry.seconds(), None);
     }
 
     #[test]

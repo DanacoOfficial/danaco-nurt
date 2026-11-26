@@ -59,8 +59,25 @@ impl Binder<'_> {
     ) -> Result<BoundExpr, BindError> {
         self.cast(expr, ty, place).map_err(|failure| match failure {
             Cast::Failed(error) => error,
-            Cast::Mismatch => type_error(expr, ty, place),
+            Cast::Mismatch => self.mismatch(expr, ty, place),
         })
+    }
+
+    /// Type error of a value; a bare word in a place of type `text` comes
+    /// with the program that writes it as a text.
+    fn mismatch(&self, expr: &Expr, ty: &ParamType, place: Place<'_>) -> BindError {
+        let error = type_error(expr, ty, place);
+        let takes_text = ty
+            .alternatives()
+            .iter()
+            .any(|alternative| matches!(alternative, ParamType::Scalar(ScalarType::Text)));
+        match expr {
+            Expr::Ident { span, .. } if takes_text => match self.program_quoting(*span) {
+                Some(program) => error.fix(program),
+                None => error,
+            },
+            _ => error,
+        }
     }
 
     /// Casts an element of a list; a spread of a reference or of a list is

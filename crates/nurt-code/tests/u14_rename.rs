@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 
 use nurt_code::commands::rename::CodeRename;
 use nurt_code::semantic::{DocumentChange, ResourceChange, SemanticErrorKind};
-use nurt_contracts::config::Config;
+use nurt_contracts::config::{Config, SizeSetting};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::record::{Effect, RenameEdit, RenameEditKind, Symbol, SymbolSource};
 use nurt_contracts::report::{ChangeAction, Notable};
@@ -846,6 +846,224 @@ fn file_without_syntax_support_needs_a_server() {
     )
     .unwrap_err();
     assert_eq!(error.code(), ErrorCode::UnsupportedLanguage);
+}
+
+fn config_with_max_files(max: u32) -> Config {
+    let mut config = Config::default();
+    config.code.index_max_files = max;
+    config
+}
+
+#[test]
+fn syntax_rename_notes_that_the_file_listing_was_cut() {
+    let fixture = fixture();
+    write(&fixture.root.join("c.py"), "from a import total\n");
+    let plan = preview(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        &context(config_with_max_files(2)),
+    )
+    .unwrap();
+    let cut = plan
+        .notable
+        .iter()
+        .find(|entry| entry.code == Notable::RenameIncomplete)
+        .expect("a rename_incomplete note");
+    assert!(
+        cut.detail
+            .as_deref()
+            .unwrap()
+            .contains("code.index_max_files (2)")
+    );
+    assert_eq!(edits(&plan).len(), 3);
+}
+
+#[test]
+fn syntax_rename_within_the_file_limit_has_no_listing_note() {
+    let fixture = fixture();
+    let plan = preview(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        &context(config_with_max_files(2)),
+    )
+    .unwrap();
+    assert!(!codes(&plan).contains(&Notable::RenameIncomplete));
+    assert_eq!(edits(&plan).len(), 3);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn syntax_rename_reaches_files_whose_names_are_not_utf8() {
+    use std::os::unix::ffi::OsStrExt;
+
+    let fixture = fixture();
+    let odd = fixture
+        .root
+        .join(std::ffi::OsStr::from_bytes(b"caf\xe9.py"));
+    std::fs::write(&odd, "from a import total\n").unwrap();
+    execute(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        StageInput::none(),
+        &context(Config::default()),
+        &log(),
+    )
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&odd).unwrap(),
+        "from a import sum_all\n"
+    );
+}
+
+#[test]
+fn file_that_is_not_utf8_is_left_alone_by_a_syntax_rename() {
+    let fixture = fixture();
+    std::fs::write(fixture.root.join("legacy.py"), b"# total \xe9\n").unwrap();
+    let outcome = execute(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        StageInput::none(),
+        &context(Config::default()),
+        &log(),
+    )
+    .unwrap();
+    assert_eq!(outcome.changes.len(), 2);
+    assert_eq!(
+        std::fs::read(fixture.root.join("legacy.py")).unwrap(),
+        b"# total \xe9\n"
+    );
+}
+
+fn leftover_lines(plan: &EffectPlan) -> Vec<String> {
+    let Some(Value::List(items)) = summary(plan).get("leftovers").cloned() else {
+        panic!("the summary has no leftovers");
+    };
+    items
+        .into_iter()
+        .filter_map(|item| match item {
+            Value::Text(text) => Some(text),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn files_that_cannot_be_read_as_text_are_reported_when_they_hold_the_name() {
+    let fixture = fixture();
+    std::fs::write(fixture.root.join("legacy.py"), b"# total \xe9\n").unwrap();
+    std::fs::write(fixture.root.join("blob.bin"), b"\x00\xff\xfe no match \x00").unwrap();
+    let plan = preview(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        &context(Config::default()),
+    )
+    .unwrap();
+    let lines = leftover_lines(&plan);
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.ends_with("legacy.py:0 unreadable")),
+        "{lines:?}"
+    );
+    assert!(
+        lines.iter().all(|line| !line.contains("blob.bin")),
+        "{lines:?}"
+    );
+    assert!(codes(&plan).contains(&Notable::ReferencesLeft));
+}
+
+#[test]
+fn files_over_the_size_limit_are_reported_when_they_hold_the_name() {
+    let fixture = fixture();
+    let mut config = Config::default();
+    config.code.file_bytes_max = SizeSetting::from_bytes(64);
+    write(
+        &fixture.root.join("big.py"),
+        &"# total of everything\n".repeat(10),
+    );
+    write(
+        &fixture.root.join("big_clean.py"),
+        &"# nothing here at all\n".repeat(10),
+    );
+    let plan = preview(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        &context(config),
+    )
+    .unwrap();
+    let lines = leftover_lines(&plan);
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.ends_with("big.py:0 unreadable")),
+        "{lines:?}"
+    );
+    assert!(
+        lines.iter().all(|line| !line.contains("big_clean.py")),
+        "{lines:?}"
+    );
+}
+
+/// Listing service that lists the given files and reports one directory it
+/// cannot read.
+struct PartlyReadableListing {
+    files: Vec<PathBuf>,
+}
+
+impl nurt_contracts::services::FileListService for PartlyReadableListing {
+    fn walk<'a>(
+        &'a self,
+        _spec: &nurt_contracts::services::WalkSpec,
+    ) -> nurt_contracts::error::Result<nurt_contracts::services::WalkIter<'a>> {
+        let mut items: Vec<nurt_contracts::error::Result<nurt_contracts::services::WalkEntry>> =
+            Vec::new();
+        items.push(Err(nurt_contracts::error::Error::new(
+            ErrorCode::Io,
+            "cannot read a directory",
+        )));
+        for path in &self.files {
+            items.push(Ok(nurt_contracts::services::WalkEntry {
+                path: path.clone(),
+                depth: 1,
+                is_dir: false,
+            }));
+        }
+        Ok(Box::new(items.into_iter()))
+    }
+}
+
+#[test]
+fn an_unreadable_directory_does_not_abort_the_rename() {
+    use nurt_contracts::services::Services;
+    use u14_support::{StdFs, TestClock, TestHost, ToyCode};
+
+    let fixture = fixture();
+    let listing = PartlyReadableListing {
+        files: vec![fixture.a.clone(), fixture.b.clone()],
+    };
+    let ctx =
+        nurt_contracts::stage::ExecCtx::builder(Arc::new(TestClock), Arc::new(TestHost::new()))
+            .fs(Arc::new(StdFs))
+            .services(Arc::new(
+                Services::new()
+                    .with_code(Arc::new(ToyCode))
+                    .with_file_list(Arc::new(listing)),
+            ))
+            .config(Arc::new(Config::default()))
+            .build();
+    let plan = preview(
+        &CodeRename::new(None),
+        &rename_args(&fixture.a, &[syntax()]),
+        &ctx,
+    )
+    .unwrap();
+    assert_eq!(edits(&plan).len(), 3);
+    let note = plan
+        .notable
+        .iter()
+        .find(|entry| entry.code == Notable::SourceUnavailable)
+        .expect("a source_unavailable note");
+    assert!(note.detail.as_deref().unwrap().contains("1 directories"));
 }
 
 trait EffectAccess {

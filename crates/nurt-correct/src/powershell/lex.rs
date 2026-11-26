@@ -658,13 +658,17 @@ impl<'a> Lexer<'a> {
         self.skip_line_break();
         let body_start = self.pos;
         let rest = self.input.get(body_start..).unwrap_or_default();
-        let terminator = ["\r\n", "\n"]
-            .iter()
-            .filter_map(|line_end| {
-                rest.find(&format!("{line_end}{close}"))
-                    .map(|index| (index, line_end.len()))
-            })
-            .min();
+        let terminator = if rest.starts_with(close) {
+            Some((0, 0))
+        } else {
+            ["\r\n", "\n"]
+                .iter()
+                .filter_map(|line_end| {
+                    rest.find(&format!("{line_end}{close}"))
+                        .map(|index| (index, line_end.len()))
+                })
+                .min()
+        };
         let Some((body_len, line_end_len)) = terminator else {
             return Err(self.error(LexErrorKind::UnterminatedString, start));
         };
@@ -919,6 +923,9 @@ fn parse_number(word: &str) -> Option<NumberLit> {
     }
     let sign = if negative { -1 } else { 1 };
     if let Some(hex) = digits.strip_prefix("0x") {
+        if !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+            return None;
+        }
         let int = i64::from_str_radix(hex, HEX_RADIX).ok()? * sign;
         return Some(NumberLit {
             int: Some(int),
@@ -1280,6 +1287,26 @@ mod tests {
             vec![TokenKind::Expandable(vec![StrPart::Text(
                 "a $b".to_owned()
             )])]
+        );
+    }
+
+    #[test]
+    fn empty_here_strings_have_an_empty_body() {
+        assert_eq!(kinds("@'\n'@"), vec![TokenKind::Literal(String::new())]);
+        assert_eq!(
+            kinds("@\"\r\n\"@ x"),
+            vec![
+                TokenKind::Expandable(vec![StrPart::Text(String::new())]),
+                word("x")
+            ]
+        );
+    }
+
+    #[test]
+    fn hexadecimal_words_with_a_sign_or_other_characters_stay_words() {
+        assert_eq!(
+            kinds("0x-5 0x+5 0xZZ 0x"),
+            vec![word("0x-5"), word("0x+5"), word("0xZZ"), word("0x")]
         );
     }
 

@@ -520,6 +520,49 @@ mod tests {
     }
 
     #[test]
+    fn a_fresh_state_trusts_the_clock_readings() {
+        let now = Virtual::new().stamp();
+        let state = AgeState::default();
+        assert_eq!(state.effective_wall(&now), now.wall);
+        assert_eq!(state.active_total(&now), now.since_boot_active);
+    }
+
+    #[test]
+    fn an_entry_of_another_boot_ages_by_the_wall_clock_only() {
+        let mut state = AgeState::default();
+        let mut clock = Virtual::new();
+        let basis = committed(&mut state, &clock);
+        clock.reboot(0, "boot-b");
+        assert_eq!(
+            age_after(&mut state, &clock, AgeClock::Wall, &basis),
+            Duration::ZERO
+        );
+        clock.run(MINUTE);
+        assert_eq!(
+            age_after(&mut state, &clock, AgeClock::Wall, &basis),
+            Duration::from_secs(MINUTE)
+        );
+    }
+
+    #[test]
+    fn an_entry_committed_after_the_evaluation_has_no_age() {
+        let mut recorded = AgeState::default();
+        let late = Virtual::new();
+        let basis = committed(&mut recorded, &late);
+        let mut early = Virtual::new();
+        early.jump_wall(-100);
+        early.active -= 50;
+        let now = early.stamp();
+        let fresh = AgeState::default();
+        for kind in [AgeClock::Wall, AgeClock::Active] {
+            assert_eq!(
+                AgeEvaluator::new(&fresh, &now).age(kind, &basis),
+                Duration::ZERO
+            );
+        }
+    }
+
+    #[test]
     fn commit_basis_uses_the_effective_wall_time() {
         let mut state = AgeState::default();
         let mut clock = Virtual::new();

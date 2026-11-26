@@ -634,6 +634,131 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_selection_of_the_catalog_is_the_whole_catalog() {
+        assert_eq!(
+            Call::parse("catalog", Some(json!({"what": {}}))).unwrap(),
+            Call::Catalog(Value::Null)
+        );
+        assert_eq!(
+            Call::parse("catalog", None).unwrap(),
+            Call::Catalog(Value::Null)
+        );
+        assert_eq!(
+            Call::parse("catalog", Some(Value::Null)).unwrap(),
+            Call::Catalog(Value::Null)
+        );
+    }
+
+    #[test]
+    fn info_takes_no_parameters_but_tolerates_an_empty_object() {
+        for params in [
+            None,
+            Some(Value::Null),
+            Some(json!({})),
+            Some(json!({"x": 1})),
+        ] {
+            assert_eq!(Call::parse("info", params).unwrap(), Call::Info);
+        }
+        for params in [json!([1]), json!(3), json!("x")] {
+            let error = Call::parse("info", Some(params.clone())).unwrap_err();
+            assert_eq!(error.code, INVALID_PARAMS, "{params}");
+        }
+    }
+
+    #[test]
+    fn describe_and_help_take_a_language_and_reject_unknown_members() {
+        let describe = Call::parse(
+            "describe",
+            Some(json!({"subject": "\u{142}\u{f3}d\u{17a}", "language": "pl"})),
+        )
+        .unwrap();
+        assert_eq!(
+            describe,
+            Call::Describe(DescribeParams {
+                subject: Some("\u{142}\u{f3}d\u{17a}".to_owned()),
+                language: Some(Language::Pl),
+            })
+        );
+        for (method, params) in [
+            ("describe", json!({"topic": "x"})),
+            ("help", json!({"topic": "x", "depth": 1})),
+            ("help", json!({"language": "de"})),
+            ("schema", json!({"name": "report", "format": "json"})),
+            ("schema", json!({})),
+            ("space", json!({"path": "/"})),
+            ("page", json!({"cursor": "c", "limit": -1})),
+            ("print", json!({"variant": "a"})),
+        ] {
+            let error = Call::parse(method, Some(params.clone())).unwrap_err();
+            assert_eq!(error.code, INVALID_PARAMS, "{method} {params}");
+        }
+    }
+
+    #[test]
+    fn every_published_schema_is_served_without_the_report_of_a_failure() {
+        for (name, _) in nurt_contracts::schema::ALL {
+            let served = schema(name).unwrap();
+            assert!(served.is_object(), "{name}");
+            assert!(served.get("report").is_none(), "{name}");
+        }
+    }
+
+    #[test]
+    fn an_unknown_schema_lists_the_known_names() {
+        let unknown = schema("").unwrap();
+        assert_eq!(unknown["report"]["status"], "failed");
+        let message = unknown["report"]["error"]["message"].as_str().unwrap();
+        assert!(
+            message.starts_with("unknown schema ``; known: "),
+            "{message}"
+        );
+        for (name, _) in nurt_contracts::schema::ALL {
+            assert!(message.contains(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_response_without_an_error_is_not_a_cancellation() {
+        assert_eq!(run_result(json!({})).unwrap(), json!({}));
+        assert_eq!(
+            run_result(json!({"report": {"error": {"code": 5}}})).unwrap(),
+            json!({"report": {"error": {"code": 5}}})
+        );
+        let failed = failure("run", Error::new(ErrorCode::Timeout, "slow")).unwrap();
+        assert_eq!(run_result(failed.clone()).unwrap(), failed);
+    }
+
+    #[test]
+    fn a_bad_tree_in_a_check_is_a_language_error_of_the_check() {
+        let params = json!({"nurt": "1.0", "ast": {"nurt": "1.0", "program": 5}});
+        assert!(matches!(
+            Call::parse("check", Some(params)),
+            Ok(Call::Rejected {
+                method: "check",
+                ..
+            })
+        ));
+        assert_eq!(
+            Call::Rejected {
+                method: "check",
+                error: Box::new(Error::new(ErrorCode::AstSchema, "x"))
+            }
+            .method(),
+            "check"
+        );
+    }
+
+    #[test]
+    fn a_request_that_is_not_an_object_is_invalid_params() {
+        for params in [json!([1]), json!("x"), json!(7)] {
+            let error = Call::parse("run", Some(params.clone())).unwrap_err();
+            assert_eq!(error.code, INVALID_PARAMS, "{params}");
+            let error = Call::parse("check", Some(params.clone())).unwrap_err();
+            assert_eq!(error.code, INVALID_PARAMS, "{params}");
+        }
+    }
+
+    #[test]
     fn other_invalid_parameters_stay_invalid_parameters() {
         let params = json!({"nurt": "1.0", "program": 5});
         assert!(Call::parse("check", Some(params)).is_err());

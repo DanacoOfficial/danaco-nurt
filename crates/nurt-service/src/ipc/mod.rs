@@ -94,17 +94,20 @@ pub(crate) fn bind(paths: &ServicePaths) -> io::Result<Arc<dyn Listener>> {
     }
 }
 
-/// Opens a client connection to the control channel.
+/// Opens a client connection to the control channel. On Unix a read waits at
+/// most `read_limit`, without a limit when it is `None`; the named pipe of
+/// Windows has no read limit.
 pub(crate) fn connect(
     paths: &ServicePaths,
+    read_limit: Option<Duration>,
 ) -> io::Result<(Box<dyn Read + Send>, Box<dyn Write + Send>)> {
     #[cfg(unix)]
     {
-        unix::connect(&paths.socket_file())
+        unix::connect(&paths.socket_file(), read_limit)
     }
     #[cfg(windows)]
     {
-        let _ = paths;
+        let _ = (paths, read_limit);
         windows::connect()
     }
 }

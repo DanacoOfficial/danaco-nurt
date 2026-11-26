@@ -229,8 +229,8 @@ const HELP_POINTER: Block = Block {
     programs: false,
     lines: &[Line {
         priority: 1,
-        en: r#"Help: help, help search: "words", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Help is optional; it is never required before running a program."#,
-        pl: r#"Pomoc: help, help search: "słowa", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Pomoc jest opcjonalna; nigdy nie jest wymagana przed uruchomieniem programu."#,
+        en: r#"Help: help, help "commands" (every command), help search: "words", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Help is optional; it is never required before running a program."#,
+        pl: r#"Pomoc: help, help "commands" (wszystkie polecenia), help search: "słowa", help group: "documents", help "E_ASSERT", help skill: "bash-migration". Pomoc jest opcjonalna; nigdy nie jest wymagana przed uruchomieniem programu."#,
     }],
 };
 
@@ -263,6 +263,7 @@ pub(crate) struct Labels {
     pub(crate) guides: &'static str,
     pub(crate) topics: &'static str,
     pub(crate) topic_names: &'static str,
+    pub(crate) command_list: &'static str,
     pub(crate) no_matches: &'static str,
     pub(crate) search_for: &'static str,
 }
@@ -291,7 +292,8 @@ const LABELS_EN: Labels = Labels {
     groups: "groups:",
     guides: "guides:",
     topics: "topics:",
-    topic_names: "syntax, corrections, error codes such as E_ASSERT",
+    topic_names: "syntax, corrections, commands, error codes such as E_ASSERT",
+    command_list: r#"commands by group; help "<command>" shows one command, help group: "<group>" one group:"#,
     no_matches: "no matches; run help for the list of topics",
     search_for: "search:",
 };
@@ -320,7 +322,8 @@ const LABELS_PL: Labels = Labels {
     groups: "grupy:",
     guides: "przewodniki:",
     topics: "tematy:",
-    topic_names: "syntax, corrections, kody błędów, na przykład E_ASSERT",
+    topic_names: "syntax, corrections, commands, kody błędów, na przykład E_ASSERT",
+    command_list: r#"polecenia według grup; help "<command>" pokazuje jedno polecenie, help group: "<group>" jedną grupę:"#,
     no_matches: "brak wyników; help wypisuje listę tematów",
     search_for: "szukanie:",
 };
@@ -362,6 +365,35 @@ pub(crate) const fn corrections(language: Language) -> &'static [&'static str] {
         Language::Pl => CORRECTIONS_PL,
         _ => CORRECTIONS_EN,
     }
+}
+
+/// Names of the topics that explain one part of the syntax; errors of the
+/// binder and of the lexer point at them.
+pub(crate) const PART_TOPICS: [&str; 5] = ["pipelines", "let", "paths", "records", "lists"];
+
+/// Lines of the topic of one part of the syntax, taken from the core layer so
+/// that both agree; `None` for a name that is not in [`PART_TOPICS`].
+pub(crate) fn part_topic(name: &str, language: Language) -> Option<Vec<&'static str>> {
+    let program = |index: &[usize]| -> Vec<&'static str> {
+        index
+            .iter()
+            .filter_map(|position| PROGRAM.lines.get(*position))
+            .map(|line| line.text(language))
+            .collect()
+    };
+    let mut lines = match name {
+        "pipelines" | "let" => program(&[0, 1]),
+        "paths" => program(&[2]),
+        "lists" => program(&[3]),
+        "records" => program(&[1]),
+        _ => return None,
+    };
+    match name {
+        "pipelines" => lines.extend(RULES.lines.first().map(|line| line.text(language))),
+        "records" => lines.extend(RECORDS.lines.first().map(|line| line.text(language))),
+        _ => {}
+    }
+    Some(lines)
 }
 
 /// Lines of the `syntax` topic: the grammar, the literals, the expressions

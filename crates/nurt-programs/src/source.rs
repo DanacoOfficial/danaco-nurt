@@ -729,6 +729,15 @@ impl HostEnv {
             .filter(|value| !value.is_empty())
     }
 
+    /// Directory named by the variable `name` of the XDG base directory
+    /// specification; a relative value is invalid and ignored.
+    #[must_use]
+    pub fn xdg_dir(&self, name: &str) -> Option<PathBuf> {
+        self.var_text(name)
+            .map(PathBuf::from)
+            .filter(|dir| self.is_absolute(dir))
+    }
+
     /// Home directory of the account, as a host path.
     #[must_use]
     pub fn home(&self) -> Option<&Path> {
@@ -754,11 +763,14 @@ impl HostEnv {
     }
 
     /// Splits a list of paths written in a variable; empty items are
-    /// dropped.
+    /// dropped. Quotes around an item are removed on Windows only, where
+    /// they are the way to write a directory that contains `;`; on other
+    /// systems a quote is part of a name.
     #[must_use]
     pub fn split_paths(&self, list: &str) -> Vec<PathBuf> {
+        let quote = if self.os == Os::Windows { '"' } else { '\0' };
         list.split(self.list_separator())
-            .map(|item| item.trim_matches('"'))
+            .map(|item| item.trim_matches(quote))
             .filter(|item| !item.is_empty())
             .map(PathBuf::from)
             .collect()
@@ -766,15 +778,21 @@ impl HostEnv {
 
     /// Directories of `PATH` in resolution order, as host paths. Relative
     /// entries are dropped: they depend on the working directory, and
-    /// Windows never searches the current directory for this purpose.
+    /// Windows never searches the current directory for this purpose. A
+    /// directory whose name is not valid Unicode is kept with replacement
+    /// characters, so that it does not hide the other directories.
     #[must_use]
     pub fn path_dirs(&self) -> Vec<PathBuf> {
-        let Some(list) = self.var_text("PATH") else {
-            return Vec::new();
-        };
+        let list = self.var("PATH").map(OsStr::to_string_lossy);
         let mut dirs: Vec<PathBuf> = Vec::new();
-        for dir in self.split_paths(list) {
-            if self.is_absolute(&dir) && !dirs.contains(&dir) {
+        let mut keys: Vec<String> = Vec::new();
+        for dir in self.split_paths(list.as_deref().unwrap_or_default()) {
+            if !self.is_absolute(&dir) {
+                continue;
+            }
+            let key = self.name_key(dir.to_string_lossy().trim_end_matches(['/', '\\']));
+            if !keys.contains(&key) {
+                keys.push(key);
                 dirs.push(dir);
             }
         }
@@ -1239,5 +1257,141 @@ impl fmt::Debug for SourceRegistry {
         f.debug_list()
             .entries(self.sources.iter().map(|source| source.id().as_str()))
             .finish()
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::os::unix::ffi::OsStringExt;
+
+    use super::*;
+
+    #[test]
+    fn path_dirs_keep_other_directories_when_one_name_is_not_unicode() {
+        let list = OsString::from_vec(b"/usr/bin:/opt/\xff:/bin".to_vec());
+        let env = HostEnv::new(Os::Linux).with_var("PATH", list);
+        let dirs = env.path_dirs();
+        assert!(dirs.contains(&PathBuf::from("/usr/bin")));
+        assert!(dirs.contains(&PathBuf::from("/bin")));
+        assert_eq!(dirs.len(), 3);
+    }
+
+    #[test]
+    fn quotes_are_removed_from_path_items_on_windows_only() {
+        let windows = HostEnv::new(Os::Windows);
+        assert_eq!(
+            windows.split_paths("\"C:\\Program Files\";D:\\x"),
+            vec![PathBuf::from("C:\\Program Files"), PathBuf::from("D:\\x")]
+        );
+        let linux = HostEnv::new(Os::Linux);
+        assert_eq!(
+            linux.split_paths("/opt/\"odd\":/bin"),
+            vec![PathBuf::from("/opt/\"odd\""), PathBuf::from("/bin")]
+        );
+        assert_eq!(
+            linux.split_paths("\"/quoted\":/bin"),
+            vec![PathBuf::from("\"/quoted\""), PathBuf::from("/bin")]
+        );
+    }
+
+    #[test]
+    fn path_extensions_come_from_pathext_in_upper_case() {
+        let defaults = HostEnv::new(Os::Windows);
+        assert_eq!(defaults.path_extensions(), [".COM", ".EXE", ".BAT", ".CMD"]);
+        let custom = HostEnv::new(Os::Windows).with_var("PATHEXT", "exe;.Cmd; ;.;.exe");
+        assert_eq!(custom.path_extensions(), [".EXE", ".CMD"]);
+        assert!(HostEnv::new(Os::Linux).path_extensions().is_empty());
+    }
+
+    #[test]
+    fn command_name_strips_only_executable_extensions_on_windows() {
+        let windows = HostEnv::new(Os::Windows);
+        assert_eq!(windows.command_name("git.exe").as_deref(), Some("git"));
+        assert_eq!(windows.command_name("Git.EXE").as_deref(), Some("Git"));
+        assert_eq!(windows.command_name("a.exe.bat").as_deref(), Some("a.exe"));
+        assert_eq!(windows.command_name(".exe"), None);
+        assert_eq!(windows.command_name("readme.txt"), None);
+        let linux = HostEnv::new(Os::Linux);
+        assert_eq!(
+            linux.command_name("readme.txt").as_deref(),
+            Some("readme.txt")
+        );
+    }
+
+    #[test]
+    fn sys_path_stays_below_the_root_and_maps_drive_letters() {
+        let linux = HostEnv::new(Os::Linux).with_root("/r");
+        assert_eq!(
+            linux.sys_path("/usr/bin/../lib"),
+            PathBuf::from("/r/usr/lib")
+        );
+        assert_eq!(linux.sys_path("/../../etc"), PathBuf::from("/r/etc"));
+        assert_eq!(
+            linux.host_path(Path::new("/r/usr/lib")),
+            PathBuf::from("/usr/lib")
+        );
+        let windows = HostEnv::new(Os::Windows).with_root("/r");
+        assert_eq!(
+            windows.sys_path("C:\\Tools\\x.exe"),
+            PathBuf::from("/r/c/Tools/x.exe")
+        );
+        assert_eq!(windows.sys_path("d:/data"), PathBuf::from("/r/d/data"));
+        assert_eq!(
+            HostEnv::new(Os::Linux).sys_path("/usr/bin"),
+            PathBuf::from("/usr/bin")
+        );
+    }
+
+    #[test]
+    fn absolute_paths_follow_the_notation_of_the_host() {
+        let windows = HostEnv::new(Os::Windows);
+        assert!(windows.is_absolute(Path::new("C:\\Tools")));
+        assert!(windows.is_absolute(Path::new("c:/tools")));
+        assert!(windows.is_absolute(Path::new("\\\\server\\share")));
+        assert!(!windows.is_absolute(Path::new("C:tools")));
+        assert!(!windows.is_absolute(Path::new("\\tools")));
+        assert!(!windows.is_absolute(Path::new("tools\\bin")));
+        let linux = HostEnv::new(Os::Linux);
+        assert!(linux.is_absolute(Path::new("/usr/bin")));
+        assert!(!linux.is_absolute(Path::new("bin")));
+    }
+
+    #[test]
+    fn locale_language_accepts_two_or_three_letters_only() {
+        assert_eq!(locale_language("pl_PL.UTF-8").as_deref(), Some("pl"));
+        assert_eq!(locale_language("zh-Hans").as_deref(), Some("zh"));
+        assert_eq!(locale_language("fil").as_deref(), Some("fil"));
+        assert_eq!(locale_language("C.UTF-8"), None);
+        assert_eq!(locale_language("POSIX"), None);
+        assert_eq!(locale_language(""), None);
+    }
+
+    #[test]
+    fn catalog_ids_are_derived_from_the_last_path_component() {
+        assert_eq!(catalog_id_from_path("/opt/Media Tools/"), "media-tools");
+        assert_eq!(catalog_id_from_path("/opt/media/catalog.json"), "media");
+        assert_eq!(catalog_id_from_path("C:\\cats\\Media_1"), "media_1");
+        assert_eq!(catalog_id_from_path("catalog.json"), "catalog");
+        assert_eq!(catalog_id_from_path("///"), "catalog");
+        assert_eq!(catalog_id_from_path("/x/-.-"), "catalog");
+        assert_eq!(catalog_id_from_path("/x/\u{142}\u{f3}d\u{17a}"), "d");
+    }
+
+    #[test]
+    fn path_dirs_of_windows_ignore_case_and_trailing_separator() {
+        let list = "C:\\Windows\\System32;c:\\WINDOWS\\system32\\;;relative\\bin;D:\\Tools";
+        let env = HostEnv::new(Os::Windows).with_var("Path", list);
+        assert_eq!(
+            env.path_dirs(),
+            vec![
+                PathBuf::from("C:\\Windows\\System32"),
+                PathBuf::from("D:\\Tools")
+            ]
+        );
+        let linux = HostEnv::new(Os::Linux).with_var("PATH", "/usr/bin:/usr/bin/:/USR/bin");
+        assert_eq!(
+            linux.path_dirs(),
+            vec![PathBuf::from("/usr/bin"), PathBuf::from("/USR/bin")]
+        );
     }
 }

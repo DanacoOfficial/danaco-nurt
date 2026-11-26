@@ -7,7 +7,7 @@ use nurt_contracts::envelope::Verbosity;
 use nurt_contracts::error::Error;
 use nurt_contracts::record::Change;
 use nurt_contracts::report::{RecordsPage, Report, ReportStatus, Severity};
-use nurt_contracts::value::Record;
+use nurt_contracts::value::{Record, RecordKind};
 
 use crate::facts::{
     SEPARATOR, bulk_directories, bulk_extensions, bulk_sample, change_cells, change_marker,
@@ -15,7 +15,7 @@ use crate::facts::{
     header_parts, hunk_location, irreversible_parts, json_array, marker_counts, notable_parts,
     record_text, targets_parts, timing_parts, value_text,
 };
-use crate::lines::{Lines, Style};
+use crate::lines::{Lines, Style, single_line};
 use crate::options::RenderOptions;
 use crate::shape::Shaped;
 use crate::tree;
@@ -43,7 +43,7 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
     targets(&mut out, report);
     exec_block(&mut out, report, options);
     job_block(&mut out, report);
-    records(&mut out, report);
+    records(&mut out, report, options);
     changes(&mut out, shaped, options.verbosity);
     diff(&mut out, shaped);
     bulk(&mut out, report);
@@ -308,7 +308,21 @@ fn job_block(out: &mut Lines, report: &Report) {
     }
 }
 
-fn records(out: &mut Lines, report: &Report) {
+/// Columns of the table of a record type in the text view, in order. The
+/// other fields of the records stay in the JSON form and appear in the text
+/// with verbosity `detailed` or when the request names the `fields`.
+fn default_columns(kind: RecordKind) -> Option<&'static [&'static str]> {
+    match kind {
+        RecordKind::Operation => Some(&[
+            "id", "time", "kind", "state", "files", "bytes", "summary", "items",
+        ]),
+        RecordKind::Match => Some(&["path", "no", "column", "text", "count"]),
+        RecordKind::Response => Some(&["url", "status", "bytes", "content_type", "elapsed"]),
+        _ => None,
+    }
+}
+
+fn records(out: &mut Lines, report: &Report, options: &RenderOptions) {
     let Some(page) = &report.records else {
         return;
     };
@@ -330,6 +344,17 @@ fn records(out: &mut Lines, report: &Report) {
             if !names.contains(&name) {
                 names.push(name);
             }
+        }
+    }
+    let narrowed = options.fields.is_none() && options.verbosity != Verbosity::Detailed;
+    if narrowed && let Some(columns) = default_columns(page.record_type) {
+        let kept: Vec<&str> = columns
+            .iter()
+            .copied()
+            .filter(|column| names.contains(column))
+            .collect();
+        if !kept.is_empty() {
+            names = kept;
         }
     }
     let mut table = vec![
@@ -396,7 +421,7 @@ fn diff(out: &mut Lines, shaped: &Shaped) {
         out.plain(format!("diff ({})", plural(shown, "hunk", "hunks")));
     }
     for hunk in &report.diff {
-        out.plain(format!("{INDENT}{}", hunk_location(hunk)));
+        out.plain(format!("{INDENT}{}", single_line(&hunk_location(hunk))));
         for line in &hunk.lines {
             let mut characters = line.chars();
             let marker = characters.next().unwrap_or(' ');
@@ -410,13 +435,19 @@ fn bulk(out: &mut Lines, report: &Report) {
         return;
     };
     if let Some((count, text)) = bulk_directories(bulk, targets.files.unwrap_or(targets.count)) {
-        out.plain(format!("by directory (top {count}):  {text}"));
+        out.plain(format!(
+            "by directory (top {count}):  {}",
+            single_line(&text)
+        ));
     }
     if let Some((count, text)) = bulk_extensions(bulk, targets.files.unwrap_or(targets.count)) {
         out.plain(format!("by extension (top {count}):  {text}"));
     }
     if let Some((head, tail, text)) = bulk_sample(bulk, targets.files.unwrap_or(targets.count)) {
-        out.plain(format!("sample (first {head} / last {tail}): {text}"));
+        out.plain(format!(
+            "sample (first {head} / last {tail}): {}",
+            single_line(&text)
+        ));
     }
 }
 
@@ -432,7 +463,10 @@ fn notable(out: &mut Lines, report: &Report) {
             Severity::Notice => ("!", None),
             Severity::Info => ("-", Some(Style::Dim)),
         };
-        let text = format!("{INDENT}{mark} {}", notable_parts(entry).join("  "));
+        let text = format!(
+            "{INDENT}{mark} {}",
+            single_line(&notable_parts(entry).join("  "))
+        );
         match style {
             Some(style) => out.styled(text, style),
             None => out.plain(text),
@@ -446,7 +480,10 @@ fn irreversible(out: &mut Lines, report: &Report) {
     }
     out.plain("irreversible");
     for entry in &report.irreversible {
-        out.plain(format!("{INDENT}{}", irreversible_parts(entry).join("  ")));
+        out.plain(format!(
+            "{INDENT}{}",
+            single_line(&irreversible_parts(entry).join("  "))
+        ));
     }
 }
 

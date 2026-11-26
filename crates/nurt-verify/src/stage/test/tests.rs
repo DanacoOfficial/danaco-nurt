@@ -134,6 +134,16 @@ fn show_selects_failed_results_including_errors() {
 }
 
 #[test]
+fn show_rejects_an_unknown_status_and_names_the_accepted_ones() {
+    let state = tempfile::tempdir().unwrap();
+    seed(state.path(), "run-1", "/p", None, mixed_items("run-1"));
+    let error = show(&ctx(state.path()), &[("status", text("broken"))]).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+    assert!(error.data().message.contains("failed, passed, skipped"));
+    assert!(!error.data().fix.is_empty());
+}
+
+#[test]
 fn show_filters_by_part_of_the_identifier_ignoring_case() {
     let state = tempfile::tempdir().unwrap();
     seed(state.path(), "run-1", "/p", None, mixed_items("run-1"));
@@ -282,6 +292,66 @@ fn failed_of_a_run_without_failures_plans_no_command() {
     );
     let command = rerun_command(&ctx(state.path()), &[("run_id", text("run-1"))]).unwrap();
     assert!(command.is_empty());
+}
+
+fn seed_run_without_results(state: &Path, targets: Option<Vec<String>>, filter: Option<&str>) {
+    let header = Record::from(TestRun {
+        id: "run-1".to_owned(),
+        framework: TestFramework::Go,
+        errors: 1,
+        cwd: PathValue::from("/p"),
+        command: vec!["go".to_owned(), "test".to_owned()],
+        targets,
+        filter: filter.map(str::to_owned),
+        ..TestRun::default()
+    });
+    let marker = TestResult {
+        run: "run-1".to_owned(),
+        id: "(run)".to_owned(),
+        name: "(run)".to_owned(),
+        status: TestStatus::Error,
+        message: Some("could not compile".to_owned()),
+        ..TestResult::default()
+    };
+    let entry = StoredEntry {
+        id: "run-1".to_owned(),
+        header,
+        items: vec![Record::from(marker)],
+    };
+    DirStore::new(state, 50)
+        .save(EntryKind::TestRun, &entry)
+        .unwrap();
+}
+
+#[test]
+fn failed_of_a_run_without_results_runs_the_whole_scope_of_that_run_again() {
+    let state = tempfile::tempdir().unwrap();
+    seed_run_without_results(
+        state.path(),
+        Some(vec!["./pkg/...".to_owned()]),
+        Some("TestA"),
+    );
+    let command = rerun_command(&ctx(state.path()), &[]).unwrap();
+    assert_eq!(
+        command,
+        ["go", "test", "-json", "-run", "TestA", "./pkg/..."]
+    );
+}
+
+#[test]
+fn failed_of_a_run_without_results_does_not_select_the_marker_as_a_test_name() {
+    let state = tempfile::tempdir().unwrap();
+    seed_run_without_results(state.path(), None, None);
+    let command = rerun_command(&ctx(state.path()), &[]).unwrap();
+    assert_eq!(command, ["go", "test", "-json", "./..."]);
+}
+
+#[test]
+fn failed_of_a_run_with_stored_targets_that_look_like_options_is_rejected() {
+    let state = tempfile::tempdir().unwrap();
+    seed_run_without_results(state.path(), Some(vec!["-exec=evil".to_owned()]), None);
+    let error = rerun_command(&ctx(state.path()), &[]).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
 }
 
 #[test]
@@ -675,6 +745,52 @@ fn finish_reads_the_report_file_of_the_framework() {
     .unwrap();
     assert_eq!(number(&finished.header, "failed"), Some(3));
     assert_eq!(number(&finished.header, "skipped"), Some(2));
+}
+
+#[test]
+fn finish_removes_the_report_file_once_its_results_are_read() {
+    let state = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+    let report = write(
+        project.path(),
+        "report.xml",
+        &corpus("vitest/5.0.3/mixed.xml"),
+    );
+    let mut run = spec("run-1", "vitest", project.path());
+    run.report = Some(report.to_string_lossy().into_owned());
+    finish(
+        &ctx(state.path()),
+        &run,
+        &tool_result(project.path(), 1, ""),
+    )
+    .unwrap();
+    assert!(!report.exists());
+}
+
+#[test]
+fn finish_keeps_an_unreadable_report_for_diagnosis() {
+    let state = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+    let report = write(
+        project.path(),
+        "report.json",
+        &corpus("jest/30.5.2/truncated.json"),
+    );
+    let mut run = spec("run-1", "jest", project.path());
+    run.report = Some(report.to_string_lossy().into_owned());
+    let outcome = tool_result(project.path(), 1, "");
+    assert!(finish(&ctx(state.path()), &run, &outcome).is_err());
+    assert!(report.exists());
+}
+
+#[test]
+fn edge_lines_keeps_the_edges_of_a_long_text_and_nothing_for_a_zero_limit() {
+    use super::output::edge_lines;
+
+    assert_eq!(edge_lines("a\nb\nc", 3), "a\nb\nc");
+    assert_eq!(edge_lines("a\nb\nc\nd\ne", 3), "a\nb\n[2 lines omitted]\ne");
+    assert_eq!(edge_lines("a\nb\nc", 0), "");
+    assert_eq!(edge_lines("", 0), "");
 }
 
 #[test]

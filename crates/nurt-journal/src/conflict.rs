@@ -706,4 +706,384 @@ mod tests {
         assert_eq!(failed.code, ErrorCode::RollbackFailed);
         assert_eq!(failed.details["failed"].as_array().map(Vec::len), Some(1));
     }
+
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+
+    use nurt_contracts::error::Error;
+    use nurt_contracts::fs::{ProviderKey, ProviderScheme};
+    use nurt_contracts::journal::{
+        Conflict, PreserveMode, TargetAction, TargetIndex, TargetOutcome,
+    };
+
+    use super::{
+        BlobHashes, ItemKey, TargetProbe, addresses, check_address, check_blob, conflict_error,
+        corrupt_error, display_path, expected_after, expired_error, preserved_hashes, primary,
+    };
+    use crate::manifest::TargetRole;
+
+    /// Probe with a fixed observation and fixed preserved hashes that records
+    /// how it was called.
+    struct Probe {
+        observed: Observed,
+        blobs: HashMap<TargetIndex, ContentHash>,
+        hash_requests: RefCell<Vec<bool>>,
+        blob_calls: RefCell<Vec<(OpId, Vec<TargetIndex>)>>,
+    }
+
+    impl Probe {
+        fn new(observed: Observed) -> Self {
+            Self {
+                observed,
+                blobs: HashMap::new(),
+                hash_requests: RefCell::new(Vec::new()),
+                blob_calls: RefCell::new(Vec::new()),
+            }
+        }
+    }
+
+    impl TargetProbe for Probe {
+        fn observe(
+            &self,
+            _path: &TargetPath,
+            with_hash: bool,
+        ) -> nurt_contracts::error::Result<Observed> {
+            self.hash_requests.borrow_mut().push(with_hash);
+            Ok(self.observed.clone())
+        }
+
+        fn item_key(&self, _path: &TargetPath) -> nurt_contracts::error::Result<ItemKey> {
+            Err(Error::new(ErrorCode::Io, "no keys"))
+        }
+
+        fn blob_hashes(
+            &self,
+            op: OpId,
+            indexes: &[TargetIndex],
+        ) -> nurt_contracts::error::Result<HashMap<TargetIndex, ContentHash>> {
+            self.blob_calls.borrow_mut().push((op, indexes.to_vec()));
+            Ok(indexes
+                .iter()
+                .filter_map(|index| self.blobs.get(index).map(|hash| (*index, *hash)))
+                .collect())
+        }
+    }
+
+    fn outcome(index: u32, path: &str, action: TargetAction, mode: PreserveMode) -> TargetOutcome {
+        TargetOutcome {
+            index: TargetIndex(index),
+            path: TargetPath::Fs(abs(path)),
+            action,
+            mode,
+            bytes_held: 0,
+            before: BeforeState {
+                exists: true,
+                kind: Some(FileKind::File),
+                size: Some(6),
+                hash: Some(hash_of(b"before")),
+                ..BeforeState::default()
+            },
+            after: Some(AfterState {
+                exists: true,
+                kind: Some(FileKind::File),
+                size: Some(5),
+                hash: Some(hash_of(b"after")),
+                mode: Some(0o644),
+                ..AfterState::default()
+            }),
+            irreversible: None,
+            notable: Vec::new(),
+        }
+    }
+
+    fn rename(from: &str, to: &str) -> TargetOutcome {
+        outcome(
+            0,
+            from,
+            TargetAction::Rename {
+                to: abs(to),
+                replace: false,
+            },
+            PreserveMode::Rename,
+        )
+    }
+
+    #[test]
+    fn a_rename_within_one_volume_changes_both_addresses() {
+        let target = rename("/home/user/a", "/home/user/b");
+        let source = TargetPath::Fs(abs("/home/user/a"));
+        let destination = TargetPath::Fs(abs("/home/user/b"));
+        assert_eq!(
+            addresses(&target, TargetRole::Whole),
+            [source.clone(), destination.clone()]
+        );
+        assert_eq!(primary(&target, TargetRole::Whole), destination);
+        let after = target.after.as_ref().unwrap();
+        assert_eq!(
+            expected_after(&target, TargetRole::Whole),
+            [
+                (source, Expected::Absent),
+                (destination, Expected::after(after))
+            ]
+        );
+    }
+
+    #[test]
+    fn the_parts_of_a_rename_across_volumes_each_describe_their_own_address() {
+        let target = rename("/mnt/a/file", "/mnt/b/file");
+        let own = TargetPath::Fs(abs("/mnt/a/file"));
+        for role in [TargetRole::Source, TargetRole::Destination] {
+            assert_eq!(addresses(&target, role), [own.clone()]);
+            assert_eq!(primary(&target, role), own);
+            let expected = expected_after(&target, role);
+            assert_eq!(expected.len(), 1);
+            assert_eq!(expected[0].0, own);
+        }
+    }
+
+    #[test]
+    fn nothing_is_expected_of_a_target_without_a_state_after_the_change() {
+        let mut target = outcome(0, "/home/user/a", TargetAction::Modify, PreserveMode::Copy);
+        target.after = None;
+        assert!(expected_after(&target, TargetRole::Whole).is_empty());
+        assert_eq!(
+            addresses(&target, TargetRole::Whole),
+            [TargetPath::Fs(abs("/home/user/a"))]
+        );
+    }
+
+    #[test]
+    fn addresses_are_shown_to_the_language_as_paths_and_provider_keys() {
+        assert_eq!(
+            display_path(&TargetPath::Fs(abs("/home/użytkownik/zażółć.txt"))),
+            "/home/użytkownik/zażółć.txt"
+        );
+        let key = |segments: &[&str], value: Option<&str>| {
+            TargetPath::Provider(ProviderKey {
+                scheme: ProviderScheme("registry".to_owned()),
+                segments: segments.iter().map(|part| (*part).to_owned()).collect(),
+                value: value.map(str::to_owned),
+            })
+        };
+        assert_eq!(
+            display_path(&key(&["HKCU", "Software"], None)),
+            "registry:HKCU/Software"
+        );
+        assert_eq!(
+            display_path(&key(&["HKCU", "Software"], Some("Ścieżka"))),
+            "registry:HKCU/Software@Ścieżka"
+        );
+        assert_eq!(display_path(&key(&[], None)), "registry:");
+    }
+
+    #[test]
+    fn every_known_field_of_an_expected_state_is_compared() {
+        let a = hash_of(b"a");
+        let expected = present(a);
+        let symlink = Observed {
+            kind: Some(FileKind::Symlink),
+            ..file(a)
+        };
+        assert_eq!(expected.classify(&symlink), Some(ConflictKind::TypeChanged));
+        let resized = Observed {
+            size: Some(2),
+            ..file(a)
+        };
+        assert_eq!(expected.classify(&resized), Some(ConflictKind::Modified));
+        let directory = Observed {
+            exists: true,
+            kind: Some(FileKind::Directory),
+            ..Observed::default()
+        };
+        assert_eq!(
+            Expected::Absent.classify(&directory),
+            Some(ConflictKind::Created)
+        );
+        let unknown_kind = Observed {
+            exists: true,
+            ..Observed::default()
+        };
+        assert_eq!(expected.classify(&unknown_kind), None);
+    }
+
+    #[test]
+    fn recorded_states_before_and_after_decide_the_expected_state() {
+        let hash = hash_of(b"x");
+        let before = BeforeState {
+            exists: true,
+            kind: Some(FileKind::File),
+            size: Some(1),
+            hash: Some(hash),
+            mode: Some(0o600),
+        };
+        let expected = Expected::before(&before);
+        assert_eq!(expected.hash(), Some(hash));
+        assert_eq!(expected.to_expect(), Expect::Hash(hash));
+        let after = AfterState {
+            exists: true,
+            hash: None,
+            ..AfterState::default()
+        };
+        assert_eq!(Expected::after(&after).to_expect(), Expect::Unchecked);
+        assert_eq!(Expected::Absent.hash(), None);
+    }
+
+    #[test]
+    fn address_check_requests_the_hash_only_when_one_is_expected() {
+        let a = hash_of(b"a");
+        let b = hash_of(b"b");
+        let path = TargetPath::Fs(abs("/home/user/a"));
+        let probe = Probe::new(file(b));
+        let conflict = check_address(&probe, OpId(4), &path, &present(a))
+            .unwrap()
+            .unwrap();
+        assert_eq!(conflict.op, OpId(4));
+        assert_eq!(conflict.kind, ConflictKind::Modified);
+        assert_eq!((conflict.expected, conflict.actual), (Some(a), Some(b)));
+        let loose = Expected::Present {
+            kind: None,
+            size: None,
+            mode: None,
+            hash: None,
+        };
+        assert!(
+            check_address(&probe, OpId(4), &path, &loose)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            check_address(&probe, OpId(4), &path, &present(b))
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(*probe.hash_requests.borrow(), [true, false, true]);
+    }
+
+    #[test]
+    fn preserved_content_is_checked_only_for_kept_files() {
+        let recorded = hash_of(b"before");
+        let target = outcome(3, "/home/user/a", TargetAction::Delete, PreserveMode::Moved);
+        let mut hashes = BlobHashes::new();
+        hashes.insert((OpId(1), TargetIndex(3)), recorded);
+        assert!(check_blob(&hashes, OpId(1), &target).unwrap().is_none());
+
+        hashes.insert((OpId(1), TargetIndex(3)), hash_of(b"changed"));
+        let conflict = check_blob(&hashes, OpId(1), &target).unwrap().unwrap();
+        assert_eq!(conflict.kind, ConflictKind::BlobModified);
+        assert_eq!(conflict.expected, Some(recorded));
+        assert_eq!(conflict.actual, Some(hash_of(b"changed")));
+        assert_eq!(conflict.path, target.path);
+
+        let missing = check_blob(&BlobHashes::new(), OpId(1), &target).unwrap_err();
+        assert_eq!(missing.code(), ErrorCode::JournalCorrupt);
+
+        for mode in [PreserveMode::Copy, PreserveMode::Clone, PreserveMode::None] {
+            let private = outcome(3, "/home/user/a", TargetAction::Delete, mode);
+            assert!(
+                check_blob(&BlobHashes::new(), OpId(1), &private)
+                    .unwrap()
+                    .is_none()
+            );
+        }
+        let mut directory = outcome(3, "/home/user/d", TargetAction::Delete, PreserveMode::Moved);
+        directory.before.kind = Some(FileKind::Directory);
+        assert!(
+            check_blob(&BlobHashes::new(), OpId(1), &directory)
+                .unwrap()
+                .is_none()
+        );
+        let mut unhashed = outcome(3, "/home/user/a", TargetAction::Delete, PreserveMode::Moved);
+        unhashed.before.hash = None;
+        assert!(
+            check_blob(&BlobHashes::new(), OpId(1), &unhashed)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn preserved_hashes_are_read_once_per_entry_for_checked_targets_only() {
+        let first = outcome(0, "/home/user/a", TargetAction::Delete, PreserveMode::Moved);
+        let copied = outcome(1, "/home/user/b", TargetAction::Modify, PreserveMode::Copy);
+        let second = outcome(
+            5,
+            "/home/user/c",
+            TargetAction::Modify,
+            PreserveMode::Exchange,
+        );
+        let mut probe = Probe::new(Observed::default());
+        probe.blobs.insert(TargetIndex(0), hash_of(b"zero"));
+        probe.blobs.insert(TargetIndex(1), hash_of(b"one"));
+        probe.blobs.insert(TargetIndex(5), hash_of(b"five"));
+        let hashes = preserved_hashes(
+            &probe,
+            [(OpId(2), &second), (OpId(1), &first), (OpId(1), &copied)],
+        )
+        .unwrap();
+        assert_eq!(hashes.len(), 2);
+        assert_eq!(hashes[&(OpId(1), TargetIndex(0))], hash_of(b"zero"));
+        assert_eq!(hashes[&(OpId(2), TargetIndex(5))], hash_of(b"five"));
+        assert_eq!(
+            *probe.blob_calls.borrow(),
+            [
+                (OpId(1), vec![TargetIndex(0)]),
+                (OpId(2), vec![TargetIndex(5)])
+            ]
+        );
+        let none = Probe::new(Observed::default());
+        assert!(
+            preserved_hashes(&none, [(OpId(1), &copied)])
+                .unwrap()
+                .is_empty()
+        );
+        assert!(none.blob_calls.borrow().is_empty());
+    }
+
+    #[test]
+    fn errors_name_the_entries_and_count_the_items() {
+        let expired = expired_error(&[OpId(3), OpId(4)]);
+        assert_eq!(expired.code, ErrorCode::JournalExpired);
+        assert_eq!(expired.details["expired"], serde_json::json!([3, 4]));
+        assert!(expired.message.starts_with("2 operations of the selection"));
+        assert!(
+            expired_error(&[OpId(3)])
+                .message
+                .starts_with("1 operation of")
+        );
+
+        let corrupt = corrupt_error(OpId(8));
+        assert_eq!(corrupt.code, ErrorCode::JournalCorrupt);
+        assert_eq!(corrupt.details["op"], 8);
+
+        let conflict = |op: u64| Conflict {
+            op: OpId(op),
+            path: TargetPath::Fs(abs("/home/user/a")),
+            kind: ConflictKind::Modified,
+            expected: None,
+            actual: None,
+        };
+        let one = conflict_error(&[conflict(1)], &[]);
+        assert_eq!(one.code, ErrorCode::JournalConflict);
+        assert!(one.message.starts_with("1 item changed"));
+        let two = conflict_error(&[conflict(1), conflict(2)], &["undo".to_owned()]);
+        assert!(two.message.starts_with("2 items changed"));
+        assert_eq!(two.details["conflicts"].as_array().map(Vec::len), Some(2));
+
+        let unknown = noop_error(OpId(5), None);
+        assert!(unknown.message.contains("is not in the journal"));
+        assert!(!unknown.details.contains_key("state"));
+        let partial = noop_error(OpId(5), Some(EntryState::Partial));
+        assert!(partial.message.contains("nothing left to restore"));
+        assert_eq!(partial.details["state"], "partial");
+    }
+
+    #[test]
+    fn an_entry_below_a_file_is_observed_as_absent() {
+        let journal = TestJournal::new();
+        journal.put("/home/user/a", b"abc");
+        journal.with_fs(|fs| {
+            let below = observe_fs(fs, &abs("/home/user/a/b/c"), true).unwrap();
+            assert_eq!(below, Observed::default());
+        });
+    }
 }

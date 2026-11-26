@@ -472,6 +472,25 @@ fn commands_come_from_manifests_with_their_origin() {
 }
 
 #[test]
+fn script_names_with_shell_metacharacters_are_not_offered_as_commands() {
+    let fixture = project();
+    fixture.write(
+        "package.json",
+        r#"{"name": "web", "scripts": {"build": "tsc", "x; touch pwned": "id", "a$(id)": "id", "p|q": "id"}}"#,
+    );
+    let (_, records) = run(&fixture.context(true, true, false), fixture.root(), &[]).unwrap();
+    let commands = section(&records, "commands");
+    assert!(has(&commands, &[("command", "npm run build")]));
+    for record in &commands {
+        let command = field(record, "command").unwrap_or_default();
+        assert!(
+            !command.contains([';', '$', '|']),
+            "unsafe command offered: {command}"
+        );
+    }
+}
+
+#[test]
 fn entry_points_name_their_target_and_origin() {
     let fixture = project();
     let root = fixture.root().display().to_string();

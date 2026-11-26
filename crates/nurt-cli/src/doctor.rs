@@ -91,6 +91,22 @@ fn component(name: &str, outcome: Result<(), nurt_contracts::error::Error>) -> C
     }
 }
 
+/// The features of the engine and the Cargo features that link components.
+fn features(engine: &[String]) -> String {
+    let linked = integrations::COMPONENTS
+        .iter()
+        .filter(|component| component.linked)
+        .filter_map(|component| component.feature)
+        .chain(cfg!(feature = "mcp-http").then_some("mcp-http"))
+        .chain(cfg!(feature = "stub").then_some("stub"));
+    let all: Vec<&str> = engine.iter().map(String::as_str).chain(linked).collect();
+    if all.is_empty() {
+        "none".to_owned()
+    } else {
+        all.join(", ")
+    }
+}
+
 fn gather(context: &Context, source: &dyn EngineSource) -> Vec<Check> {
     let engine = &context.engine;
     let info = engine.info();
@@ -117,15 +133,7 @@ fn gather(context: &Context, source: &dyn EngineSource) -> Vec<Check> {
                 info.formats.config
             ),
         ),
-        check(
-            "features",
-            Verdict::Ok,
-            if info.features.is_empty() {
-                "none".to_owned()
-            } else {
-                info.features.join(", ")
-            },
-        ),
+        check("features", Verdict::Ok, features(&info.features)),
         state_directory(engine),
     ];
     checks.extend(configuration_files(source));
@@ -202,4 +210,81 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
     writeln!(io.out, "{table}")?;
     let failed = checks.iter().any(|entry| entry.verdict == Verdict::Failed);
     Ok(if failed { exit::FAILURE } else { exit::SUCCESS })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verdicts_have_their_labels() {
+        assert_eq!(Verdict::Ok.label(), "ok");
+        assert_eq!(Verdict::Unavailable.label(), "unavailable");
+        assert_eq!(Verdict::Failed.label(), "failed");
+    }
+
+    #[test]
+    fn features_of_a_build_without_any_are_none_only_when_nothing_is_linked() {
+        let linked = integrations::COMPONENTS
+            .iter()
+            .any(|component| component.linked && component.feature.is_some());
+        let expected = !linked && !cfg!(feature = "mcp-http") && !cfg!(feature = "stub");
+        assert_eq!(features(&[]) == "none", expected);
+    }
+
+    #[test]
+    fn features_name_every_linked_component() {
+        let text = features(&[]);
+        let listed: Vec<&str> = text.split(", ").collect();
+        for component in integrations::COMPONENTS {
+            if let Some(feature) = component.feature {
+                assert_eq!(listed.contains(&feature), component.linked, "{feature}");
+            }
+        }
+        assert_eq!(listed.contains(&"mcp-http"), cfg!(feature = "mcp-http"));
+    }
+
+    #[test]
+    fn features_of_the_engine_come_first() {
+        let text = features(&["fixtures".to_owned()]);
+        assert!(text.starts_with("fixtures"), "{text}");
+        assert!(!text.contains("none"), "{text}");
+    }
+
+    #[test]
+    fn unconnected_subcommand_names_the_feature_that_links_it() {
+        let check = unconnected("mcp");
+        assert_eq!(check.name, "subcommand mcp");
+        assert_eq!(check.verdict, Verdict::Unavailable);
+        if cfg!(feature = "mcp") {
+            assert_eq!(check.detail, "linked, not available in this build");
+        } else {
+            assert!(check.detail.contains("needs the feature `mcp`"));
+        }
+    }
+
+    #[test]
+    fn unconnected_subcommand_without_a_feature_has_no_hint() {
+        for name in ["serve", "ext", "unknown"] {
+            assert_eq!(unconnected(name).detail, "not available in this build");
+        }
+    }
+
+    #[test]
+    fn component_check_reports_the_error_code_of_a_missing_part() {
+        let missing = component(
+            "journal",
+            Err(nurt_contracts::error::Error::new(
+                nurt_contracts::error::ErrorCode::Unsupported,
+                "no journal",
+            )),
+        );
+        assert_eq!(missing.verdict, Verdict::Unavailable);
+        assert_eq!(missing.detail, "E_UNSUPPORTED");
+        let present = component("journal", Ok(()));
+        assert_eq!(
+            (present.verdict, present.detail.as_str()),
+            (Verdict::Ok, "available")
+        );
+    }
 }

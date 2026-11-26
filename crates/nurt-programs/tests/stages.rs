@@ -25,7 +25,7 @@ use nurt_programs::model::{
 use nurt_programs::search::SearchOptions;
 use nurt_programs::source::{SourceKind, SourceRegistry};
 use nurt_programs::stages::{CATALOG, DESCRIBE, FIND, ProgramsSetup, SEARCH};
-use support::{Fixture, StaticSource, args, field, names, run, text, texts};
+use support::{Fixture, StaticSource, TestProcess, args, field, names, run, text, texts};
 
 fn program(name: &str, category: &str, summary: &str, when: &[&str]) -> RawProgram {
     let mut raw = RawProgram::new(name);
@@ -1055,4 +1055,175 @@ fn corrupt_source_warns_not_fails() {
         "{logs:?}"
     );
     assert_eq!(SourceKind::Package.as_str(), "package");
+}
+
+#[cfg(unix)]
+#[test]
+fn find_versions_only_for_located_programs() {
+    let fixture = Fixture::new();
+    fixture.executable("/usr/bin/present");
+    let mut absent = program("absent", "system", "Not installed here.", &[]);
+    absent.version = Some("26.07".to_owned());
+    let mut present = program("present", "system", "Installed here.", &[]);
+    present.version = Some("1.0".to_owned());
+    let catalog = StaticSource::catalog(
+        "versions",
+        SourceData {
+            programs: vec![absent, present],
+            ..SourceData::default()
+        },
+    );
+    let setup = fixture.setup(vec![Arc::new(catalog)]);
+    let records = run(
+        &setup,
+        &fixture.ctx(),
+        args(
+            FIND,
+            &[
+                ("name", texts(&["absent", "present"])),
+                ("versions", Value::Bool(true)),
+            ],
+        ),
+    )
+    .unwrap();
+    assert_eq!(field(&records[0], "found").as_deref(), Some("false"));
+    assert!(records[0].get("version").is_none());
+    assert!(records[0].get("version_source").is_none());
+    assert_eq!(field(&records[1], "version").as_deref(), Some("1.0"));
+}
+
+#[cfg(unix)]
+#[test]
+fn describe_help_is_refused_for_programs_with_effects_outside_the_computer() {
+    let fixture = Fixture::new();
+    fixture.executable("/usr/bin/shutdown");
+    let setup = fixture.setup(Vec::new());
+    let card = describe(
+        &setup,
+        &fixture,
+        &[("name", text("shutdown")), ("help", Value::Bool(true))],
+    );
+    assert_eq!(field(&card, "help_status").as_deref(), Some("refused"));
+    assert!(card.get("help").is_none());
+    assert!(fixture.process.calls.lock().unwrap().is_empty());
+    assert!(
+        fixture
+            .logs()
+            .iter()
+            .any(|message| message.contains("effects outside the computer"))
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn describe_help_reports_timeout_and_empty_output() {
+    let mut fixture = Fixture::new();
+    fixture.executable("/usr/bin/slow");
+    fixture.process = Arc::new(TestProcess {
+        stdout: b"partial usage\n".to_vec(),
+        timed_out: true,
+        ..TestProcess::default()
+    });
+    let setup = fixture.setup(Vec::new());
+    let timed_out = describe(
+        &setup,
+        &fixture,
+        &[("name", text("slow")), ("help", Value::Bool(true))],
+    );
+    assert_eq!(field(&timed_out, "help_status").as_deref(), Some("timeout"));
+    assert_eq!(field(&timed_out, "help").as_deref(), Some("partial usage"));
+
+    fixture.process = Arc::new(TestProcess::default());
+    let silent = describe(
+        &setup,
+        &fixture,
+        &[("name", text("slow")), ("help", Value::Bool(true))],
+    );
+    assert_eq!(field(&silent, "help_status").as_deref(), Some("empty"));
+    assert!(silent.get("help").is_none());
+}
+
+#[cfg(unix)]
+#[test]
+fn find_checks_names_with_a_separator_as_they_are() {
+    let fixture = Fixture::new();
+    fixture.executable("/work/bin/tool");
+    fixture.executable("/usr/bin/other");
+    fixture.write("/work/bin/plain", b"data");
+    let setup = fixture.setup(Vec::new());
+    let find_in = |base: Option<&str>, names: &[&str]| {
+        run(
+            &setup,
+            &fixture.ctx_with_base(base),
+            args(FIND, &[("name", texts(names))]),
+        )
+        .unwrap()
+    };
+    let records = find_in(
+        Some("/work"),
+        &[
+            "bin/tool",
+            "./bin/tool",
+            "bin/plain",
+            "bin/absent",
+            "/usr/bin/other",
+        ],
+    );
+    assert_eq!(
+        field(&records[0], "path").as_deref(),
+        Some("/work/bin/tool")
+    );
+    assert_eq!(
+        field(&records[1], "path").as_deref(),
+        Some("/work/bin/tool")
+    );
+    assert_eq!(field(&records[2], "found").as_deref(), Some("false"));
+    assert_eq!(field(&records[3], "found").as_deref(), Some("false"));
+    assert_eq!(
+        field(&records[4], "path").as_deref(),
+        Some("/usr/bin/other")
+    );
+    let without_base = find_in(None, &["bin/tool"]);
+    assert_eq!(field(&without_base[0], "found").as_deref(), Some("false"));
+    let by_name = find_in(Some("/work"), &["tool"]);
+    assert_eq!(field(&by_name[0], "found").as_deref(), Some("false"));
+}
+
+#[cfg(unix)]
+#[test]
+fn find_labels_the_real_source_of_the_version() {
+    let fixture = Fixture::new();
+    debian_fixture(&fixture);
+    fixture.executable("/usr/bin/cataloged");
+    let mut entry = program("cataloged", "system", "Has a catalog version.", &[]);
+    entry.version = Some("7.1".to_owned());
+    let catalog = StaticSource::catalog(
+        "versions2",
+        SourceData {
+            programs: vec![entry],
+            ..SourceData::default()
+        },
+    );
+    let setup = fixture.setup(vec![Arc::new(catalog)]);
+    let records = run(
+        &setup,
+        &fixture.ctx(),
+        args(
+            FIND,
+            &[
+                ("name", texts(&["tar", "cataloged"])),
+                ("versions", Value::Bool(true)),
+            ],
+        ),
+    )
+    .unwrap();
+    assert_eq!(
+        field(&records[0], "version_source").as_deref(),
+        Some("package")
+    );
+    assert_eq!(field(&records[1], "version").as_deref(), Some("7.1"));
+    assert_eq!(
+        field(&records[1], "version_source").as_deref(),
+        Some("catalog")
+    );
 }

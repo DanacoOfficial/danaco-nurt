@@ -195,8 +195,17 @@ impl RecordingJournal {
             entry.undone = true;
             entry.clone()
         };
-        restore_all(&entry.targets, &entry.created_dirs)
-            .map_err(|(path, error)| format!("cannot restore `{}`: {error}", path.display()))?;
+        if let Err((path, error)) = restore_all(&entry.targets, &entry.created_dirs) {
+            if let Some(failed) = self
+                .lock()
+                .entries
+                .iter_mut()
+                .find(|candidate| candidate.op == entry.op)
+            {
+                failed.undone = false;
+            }
+            return Err(format!("cannot restore `{}`: {error}", path.display()));
+        }
         Ok(UndoResult::Undone(entry.op))
     }
 }
@@ -545,9 +554,11 @@ impl MutationTx for RecordingTx<'_> {
             .cloned()
             .collect();
         let has_entry = !changed.is_empty() || !self.irreversible.is_empty();
-        let outcomes = changed
+        let outcomes = self
+            .targets
             .iter()
             .enumerate()
+            .filter(|(_, target)| target.changed)
             .map(|(position, target)| outcome(position, target))
             .collect();
         if has_entry {
@@ -1143,6 +1154,21 @@ mod tests {
     }
 
     #[test]
+    fn an_entry_that_could_not_be_restored_stays_undoable() {
+        let (dir, work, journal) = setup();
+        fs::write(work.join("a"), b"old").unwrap();
+        let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
+        tx.preserve(&[spec(&work.join("a"), TargetAction::Modify)])
+            .unwrap();
+        tx.apply(TargetIndex(0), Mutation::WriteBytes(b"new".to_vec()))
+            .unwrap();
+        tx.commit().unwrap();
+        fs::remove_dir_all(dir.path().join("store")).unwrap();
+        assert!(journal.undo_last().is_err());
+        assert!(journal.undo_last().is_err());
+    }
+
+    #[test]
     fn replaces_a_file_through_a_staged_write_and_sets_attributes() {
         let (_dir, work, journal) = setup();
         fs::write(work.join("index"), b"v1").unwrap();
@@ -1246,6 +1272,24 @@ mod tests {
         let undeclared =
             undeclared_changes(&before, &snapshot(&work).unwrap(), &journal.declared());
         assert_eq!(undeclared, vec![work.join("stray")]);
+    }
+
+    #[test]
+    fn outcomes_keep_the_declared_index_of_changed_targets() {
+        let (_dir, work, journal) = setup();
+        fs::write(work.join("kept"), b"1").unwrap();
+        fs::write(work.join("changed"), b"2").unwrap();
+        let mut tx = Box::new(journal.begin(OpKind::command("git.test")));
+        tx.preserve(&[
+            spec(&work.join("kept"), TargetAction::Modify),
+            spec(&work.join("changed"), TargetAction::Modify),
+        ])
+        .unwrap();
+        tx.apply(TargetIndex(1), Mutation::WriteBytes(b"3".to_vec()))
+            .unwrap();
+        let handle = tx.commit().unwrap();
+        assert_eq!(handle.targets.len(), 1);
+        assert_eq!(handle.targets[0].index.0, 1);
     }
 
     #[test]

@@ -118,6 +118,8 @@ const SELECT: &str = "select";
 const FIRST: &str = "first";
 const SKIP: &str = "skip";
 const ASSERT: &str = "assert";
+const DISTINCT: &str = "distinct";
+const BY_PARAM: &str = "by";
 const COUNT_PARAM: &str = "count";
 const EMPTY_PARAM: &str = "empty";
 const IF_MATCH_PARAM: &str = "if_match";
@@ -223,6 +225,9 @@ fn input_fields(
     if consumer.is_effect() || consumer.phase() == Phase::Verify {
         return FieldDemand::All;
     }
+    if reads_unnamed_fields(&consumer.stage) {
+        return FieldDemand::All;
+    }
     let own = own_fields(&consumer.stage, spec);
     if consumer.command() == SELECT || spec.output.iter().all(|io| matches!(io, IoSpec::Value(_))) {
         return FieldDemand::Only(own);
@@ -306,6 +311,19 @@ fn int_arg(stage: &BoundStage, name: &str) -> Option<u64> {
     match value {
         BoundExpr::Int { v } => u64::try_from(*v).ok(),
         _ => None,
+    }
+}
+
+/// Stages that read fields their arguments do not name: `distinct` without
+/// `by` compares whole records, and `assert` with `contains`, `paths`, `all`
+/// or `any` reads the path and the text values of the records.
+fn reads_unnamed_fields(stage: &BoundStage) -> bool {
+    match stage.name.as_str() {
+        DISTINCT => given(stage, BY_PARAM).is_none(),
+        ASSERT => ["contains", "paths", "all", "any"]
+            .iter()
+            .any(|name| given(stage, name).is_some()),
+        _ => false,
     }
 }
 
@@ -395,6 +413,11 @@ fn collect_refs<'a>(value: &'a BoundExpr, names: &mut HashSet<&'a str>) {
                 collect_refs(item, names);
             }
         }
+        BoundExpr::Map { entries } => {
+            for entry in entries {
+                collect_refs(&entry.v, names);
+            }
+        }
         BoundExpr::Field { of: Some(base), .. }
         | BoundExpr::Un { x: base, .. }
         | BoundExpr::Spread { x: base } => {
@@ -464,6 +487,39 @@ mod tests {
     }
 
     #[test]
+    fn stages_that_read_unnamed_fields_demand_every_field() {
+        let whole = stage(
+            "distinct",
+            vec![BoundArg::from_default("by", BoundExpr::Null)],
+        );
+        assert!(reads_unnamed_fields(&whole));
+        let keyed = stage(
+            "distinct",
+            vec![BoundArg::given(
+                "by",
+                BoundExpr::List {
+                    items: vec![BoundExpr::Field {
+                        name: "path".to_owned(),
+                        of: None,
+                    }],
+                },
+            )],
+        );
+        assert!(!reads_unnamed_fields(&keyed));
+        let contains = stage(
+            ASSERT,
+            vec![BoundArg::given("contains", BoundExpr::Bool { v: true })],
+        );
+        assert!(reads_unnamed_fields(&contains));
+        let count = stage(
+            ASSERT,
+            vec![BoundArg::given(COUNT_PARAM, range(Some(1), Some(1)))],
+        );
+        assert!(!reads_unnamed_fields(&count));
+        assert!(!reads_unnamed_fields(&stage("first", Vec::new())));
+    }
+
+    #[test]
     fn limit_detail_accepts_only_non_negative_integers() {
         assert_eq!(detail_limit(&Value::Int(7)), Some(7));
         assert_eq!(detail_limit(&Value::Int(0)), Some(0));
@@ -524,5 +580,43 @@ mod tests {
         let mut names = HashSet::new();
         collect_refs(&value, &mut names);
         assert!(names.contains("keep"));
+    }
+
+    #[test]
+    fn collects_references_inside_maps() {
+        let value = BoundExpr::Map {
+            entries: vec![nurt_contracts::bound::BoundMapEntry {
+                k: "with".to_owned(),
+                v: BoundExpr::Ref(BoundRef {
+                    name: "keep".to_owned(),
+                    fields: Vec::new(),
+                }),
+            }],
+        };
+        let mut names = HashSet::new();
+        collect_refs(&value, &mut names);
+        assert!(names.contains("keep"));
+    }
+
+    #[test]
+    fn collects_nothing_from_literals() {
+        let mut names = HashSet::new();
+        collect_refs(&BoundExpr::Int { v: 1 }, &mut names);
+        let text = BoundExpr::Text { v: "a".to_owned() };
+        collect_refs(&text, &mut names);
+        assert!(names.is_empty());
+    }
+
+    #[test]
+    fn count_gives_a_limit_only_as_a_non_negative_literal() {
+        let absent = stage("first", Vec::new());
+        assert_eq!(int_arg(&absent, COUNT_PARAM), None);
+        let negative = BoundArg::given(COUNT_PARAM, BoundExpr::Int { v: -1 });
+        assert_eq!(int_arg(&stage("first", vec![negative]), COUNT_PARAM), None);
+        let literal = BoundArg::given(COUNT_PARAM, BoundExpr::Int { v: 4 });
+        assert_eq!(
+            int_arg(&stage("first", vec![literal]), COUNT_PARAM),
+            Some(4)
+        );
     }
 }

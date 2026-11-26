@@ -415,7 +415,7 @@ fn check_permission_path(field: &'static str, path: &str) -> Result<(), Manifest
         Some(rest) => rest.is_empty() || rest.starts_with('/'),
         None => Path::new(path).is_absolute() || path.starts_with('/'),
     };
-    if valid && !path.split('/').any(|segment| segment == "..") {
+    if valid && !path.split(['/', '\\']).any(|segment| segment == "..") {
         Ok(())
     } else {
         Err(ManifestError::InvalidField {
@@ -692,6 +692,47 @@ write = ["${project}/out", "/var/acme"]
     }
 
     #[test]
+    fn permission_paths_with_backslash_parent_components_are_rejected() {
+        let text = VALID.replace(
+            "write = [\"${project}/out\", \"/var/acme\"]",
+            "write = [\"/srv/a\\\\..\\\\b\"]",
+        );
+        assert!(matches!(
+            rejected(&text),
+            ManifestError::InvalidField {
+                field: "permissions.write",
+                ..
+            }
+        ));
+        let fine = VALID.replace(
+            "write = [\"${project}/out\", \"/var/acme\"]",
+            "write = [\"/srv/a..b\"]",
+        );
+        Manifest::parse(&fine)
+            .unwrap()
+            .validate(HOST_API, &core())
+            .unwrap();
+    }
+
+    #[test]
+    fn names_of_extensions_and_files_use_ascii_and_multibyte_text_is_refused() {
+        for text in [
+            VALID.replace("name = \"acme\"", "name = \"zażółć\""),
+            VALID.replace("acme.wasm", "żółw.wasm\u{0}x"),
+            VALID.replace("name = \"lint\"", "name = \"lint\u{0}\""),
+            VALID.replace("version = \"1.2.0\"", "version = \"1.2.0\\r\\n\""),
+        ] {
+            assert!(
+                Manifest::parse(&text)
+                    .and_then(|manifest| manifest.validate(HOST_API, &core()))
+                    .is_err(),
+                "{text}"
+            );
+        }
+        assert!(Manifest::parse("").is_err());
+    }
+
+    #[test]
     fn malformed_fields_are_rejected() {
         let cases = [
             VALID.replace("version = \"1.2.0\"", "version = \"one\""),
@@ -700,6 +741,10 @@ write = ["${project}/out", "/var/acme"]
             VALID.replace("wasm = \"acme.wasm\"", ""),
             VALID.replace("read = [\"${project}\"]", "read = [\"relative/dir\"]"),
             VALID.replace("read = [\"${project}\"]", "read = [\"${project}/../up\"]"),
+            VALID.replace("read = [\"${project}\"]", "read = [\"/srv\\\\..\\\\etc\"]"),
+            VALID.replace("wasm = \"acme.wasm\"", "wasm = \"/etc/passwd\""),
+            VALID.replace("wasm = \"acme.wasm\"", "wasm = \"\""),
+            VALID.replace("wasm = \"acme.wasm\"", "wasm = \"sub/../../acme.wasm\""),
             VALID.replace("tags = \"grammar/tags.scm\"", "tags = \"/abs/tags.scm\""),
             VALID.replace("input = [\"entry\"]\n\n[[stage]]", "\n[[stage]]"),
         ];

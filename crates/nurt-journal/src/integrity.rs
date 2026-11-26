@@ -645,6 +645,99 @@ mod tests {
         assert!(!report.is_unbroken());
     }
 
+    #[test]
+    fn integers_are_widened_only_beyond_two_to_the_fifty_third() {
+        let mut value = json!({
+            "a": 9_007_199_254_740_992_u64,
+            "b": 9_007_199_254_740_993_u64,
+            "c": -9_007_199_254_740_992_i64,
+            "d": -9_007_199_254_740_993_i64,
+            "e": [9_007_199_254_740_993_u64, { "f": 18_446_744_073_709_551_615_u64 }],
+            "g": 1.5,
+            "h": "x",
+            "i": null,
+            "j": true
+        });
+        widen_large_integers(&mut value);
+        assert_eq!(value["a"], json!(9_007_199_254_740_992_u64));
+        assert_eq!(value["b"], json!("9007199254740993"));
+        assert_eq!(value["c"], json!(-9_007_199_254_740_992_i64));
+        assert_eq!(value["d"], json!("-9007199254740993"));
+        assert_eq!(value["e"][0], json!("9007199254740993"));
+        assert_eq!(value["e"][1]["f"], json!("18446744073709551615"));
+        assert_eq!(value["g"], json!(1.5));
+        assert_eq!(value["h"], json!("x"));
+        assert!(value["i"].is_null());
+        assert_eq!(value["j"], json!(true));
+    }
+
+    #[test]
+    fn the_digest_distinguishes_neighbouring_large_integers_in_nested_members() {
+        let with = |low: u64| {
+            json!({
+                "integrity": { "algo": "sha256", "chain": null },
+                "targets": [ { "before": { "modified_ns": 1_763_720_031_123_456_000_u64 + low } } ]
+            })
+        };
+        let first = manifest_sha256(&with(1)).unwrap();
+        assert_eq!(first, manifest_sha256(&with(1)).unwrap());
+        assert_ne!(first, manifest_sha256(&with(2)).unwrap());
+    }
+
+    #[test]
+    fn manifest_problems_have_stable_names() {
+        assert_eq!(ManifestStatus::Intact(hash(1)).problem(), None);
+        assert_eq!(ManifestStatus::Mismatch.problem(), Some("digest_mismatch"));
+        assert_eq!(ManifestStatus::Missing.problem(), Some("missing"));
+        for (defect, name) in [
+            (ManifestDefect::NotJson, "not_json"),
+            (ManifestDefect::NotObject, "not_object"),
+            (ManifestDefect::MissingDigest, "missing_digest"),
+            (ManifestDefect::MalformedDigest, "malformed_digest"),
+            (ManifestDefect::UnknownAlgorithm, "unknown_algorithm"),
+            (ManifestDefect::NotCanonical, "not_canonical"),
+        ] {
+            assert_eq!(defect.as_str(), name);
+            assert_eq!(ManifestStatus::Unreadable(defect).problem(), Some(name));
+        }
+    }
+
+    #[test]
+    fn an_empty_index_has_an_unbroken_chain_and_a_self_link_is_broken() {
+        let empty = verify_chain(&[]);
+        assert!(empty.links.is_empty() && empty.forks.is_empty());
+        assert!(empty.is_unbroken());
+        let rows = [
+            row(1, 1, RecordedLink::First),
+            row(2, 2, RecordedLink::After(hash(2))),
+        ];
+        let report = verify_chain(&rows);
+        assert_eq!(report.links[1], (OpId(2), LinkStatus::Broken));
+        assert!(!report.is_unbroken());
+    }
+
+    #[test]
+    fn rows_with_the_same_digest_resolve_a_link_to_the_first_of_them() {
+        let rows = [
+            row(1, 1, RecordedLink::First),
+            row(2, 1, RecordedLink::After(hash(1))),
+            row(3, 3, RecordedLink::After(hash(1))),
+        ];
+        let report = verify_chain(&rows);
+        assert_eq!(report.links[1], (OpId(2), LinkStatus::Verified));
+        assert_eq!(
+            report.links[2],
+            (
+                OpId(3),
+                LinkStatus::Forked {
+                    predecessor: OpId(1)
+                }
+            )
+        );
+        assert_eq!(report.forks.len(), 1);
+        assert_eq!(report.forks[0].successors, [OpId(2), OpId(3)]);
+    }
+
     fn entry_files(state: &[u8], manifest_bytes: &[u8], items: &[u8]) -> EntryCheck {
         use nurt_contracts::fs::AbsPath;
         use nurt_fs::mem::{MemFs, VolumeSpec};

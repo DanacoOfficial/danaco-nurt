@@ -74,6 +74,11 @@
           "required": ["nurt", "status", "kind"],
           "description": "Effect report nurt-report/1."
         },
+        "reports": {
+          "type": "array",
+          "description": "Reports of the pipelines of a script with more than one pipeline, one per pipeline in program order, each with the kind and the records of its own pipeline.",
+          "items": { "type": "object", "required": ["nurt", "status", "kind"] }
+        },
         "rendered": { "$ref": "#/$defs/rendered" }
       }
     }

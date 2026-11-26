@@ -34,7 +34,7 @@
       ],
       "assumptions": [],
       "fix": [],
-      "output": "info \"C:/out/a.txt\"\n|> assert all: type == file"
+      "output": "info \"C:/out/a.txt\"\n|> assert all: type == \"file\""
     }
   ]
 }

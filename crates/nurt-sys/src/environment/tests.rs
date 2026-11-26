@@ -85,6 +85,42 @@ fn environment_rejects_invalid_pattern() {
 }
 
 #[test]
+fn environment_null_parameters_select_all_process_variables() {
+    let dir = tempfile::tempdir().unwrap();
+    let host = TestHost::new(dir.path())
+        .with_var("PATH", "/usr/bin")
+        .with_var("HOME", "/home/user");
+    let ctx = test_support::context(host);
+    let args = test_support::args(COMMAND, vec![(NAME, Value::Null), (SCOPE, Value::Null)]);
+    let found = variables(test_support::run(&EnvironmentStage::new(), &args, &ctx).unwrap());
+    let mut names: Vec<&str> = found
+        .iter()
+        .map(|variable| variable.name.as_str())
+        .collect();
+    names.sort_unstable();
+    assert_eq!(names, ["HOME", "PATH"]);
+    assert!(
+        found
+            .iter()
+            .all(|variable| variable.scope == EnvironmentScope::Process)
+    );
+}
+
+#[test]
+fn environment_filtered_out_non_utf8_variable_adds_no_note() {
+    let dir = tempfile::tempdir().unwrap();
+    let host = TestHost::new(dir.path())
+        .with_var("PATH", "/usr/bin")
+        .with_var("BROKEN", invalid_utf8());
+    let ctx = test_support::context(host);
+    let args = test_support::args(COMMAND, vec![(NAME, Value::Text("PATH".to_owned()))]);
+    let found = variables(test_support::run(&EnvironmentStage::new(), &args, &ctx).unwrap());
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].value, "/usr/bin");
+    assert!(ctx.take_notes().is_empty());
+}
+
+#[test]
 fn environment_exact_name_ignores_case_on_windows() {
     let args = test_support::args(COMMAND, vec![(NAME, Value::Text("Path".to_owned()))]);
     assert!(

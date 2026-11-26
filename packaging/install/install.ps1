@@ -47,7 +47,9 @@ function Get-NurtFile {
         Invoke-WebRequest -UseBasicParsing -Uri $Location -OutFile $Destination
     }
     else {
-        Copy-Item -LiteralPath ($Location -replace '^file://', '') -Destination $Destination
+        # file:///C:/dir is the path C:/dir; file:///dir is /dir.
+        $localPath = $Location -replace '^file:///(?=[A-Za-z]:)', '' -replace '^file://', ''
+        Copy-Item -LiteralPath $localPath -Destination $Destination
     }
 }
 
@@ -68,6 +70,17 @@ function Install-Nurt {
     $version = if ($env:NURT_VERSION) { $env:NURT_VERSION.TrimStart('v') } else { '' }
     $defaultRoot = if ($scope -eq 'machine') { Join-Path $env:ProgramFiles 'Nurt' } else { Join-Path $env:LOCALAPPDATA 'Programs\Nurt' }
     $installDir = if ($env:NURT_INSTALL_DIR) { $env:NURT_INSTALL_DIR } else { Join-Path $defaultRoot 'bin' }
+
+    if ($scope -eq 'machine') {
+        # The directory is added to the PATH of every account; it must not be
+        # one that a standard user can write to.
+        $programRoots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:ProgramW6432) | Where-Object { $_ }
+        $fullDir = [IO.Path]::GetFullPath($installDir).TrimEnd('\')
+        $underProgramFiles = $programRoots | Where-Object { $fullDir -eq $_.TrimEnd('\') -or $fullDir.StartsWith($_.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) }
+        if (-not $underProgramFiles) {
+            throw "NURT_SCOPE=machine installs only below Program Files, not to $installDir; use NURT_SCOPE=user or a directory below Program Files"
+        }
+    }
 
     if ($version -and $version -notmatch '^[0-9A-Za-z.+-]+$') {
         throw "invalid version: $version"
@@ -91,6 +104,7 @@ function Install-Nurt {
             $match = Get-Content -LiteralPath $latest | ForEach-Object { [regex]::Match($_, $pattern) } | Where-Object { $_.Success } | Select-Object -First 1
             if (-not $match) { throw "the latest release has no archive for $target" }
             $version = $match.Groups['version'].Value
+            if ($version -notmatch '^[0-9A-Za-z.+-]+$') { throw "invalid version in the latest release: $version" }
         }
 
         $archive = "nurt-$version-$target.zip"
@@ -134,11 +148,23 @@ function Install-Nurt {
 
     if ($env:NURT_NO_PATH_UPDATE -ne '1') {
         $pathScope = if ($scope -eq 'machine') { 'Machine' } else { 'User' }
-        $current = [Environment]::GetEnvironmentVariable('Path', $pathScope)
+        # The value is read and written unexpanded and as REG_EXPAND_SZ, so
+        # that entries such as %USERPROFILE%\bin keep their form.
+        $key = if ($scope -eq 'machine') {
+            [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SYSTEM\CurrentControlSet\Control\Session Manager\Environment', $true)
+        }
+        else {
+            [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
+        }
+        $current = [string]$key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         $entries = if ($current) { $current.Split(';') } else { @() }
         if ($entries -notcontains $installDir) {
             $updated = if ($current) { "$current;$installDir" } else { $installDir }
-            [Environment]::SetEnvironmentVariable('Path', $updated, $pathScope)
+            $key.SetValue('Path', $updated, [Microsoft.Win32.RegistryValueKind]::ExpandString)
+            $key.Close()
+            # Deleting a variable that does not exist makes the system
+            # announce the change of the environment to running programs.
+            [Environment]::SetEnvironmentVariable('NURT_PATH_CHANGED', $null, $pathScope)
             Write-Host "added $installDir to the $($pathScope.ToLowerInvariant()) PATH; open a new terminal to use nurt"
         }
     }

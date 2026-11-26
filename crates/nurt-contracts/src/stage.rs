@@ -2183,3 +2183,294 @@ impl fmt::Debug for ExecCtxBuilder {
             .finish_non_exhaustive()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::env::{BootId, ClockStamp, HostInfo, Os, PathStyle, WallTime};
+    use std::ffi::OsString;
+
+    struct TestClock {
+        monotonic: Mutex<Duration>,
+    }
+
+    impl TestClock {
+        fn new() -> Arc<Self> {
+            Arc::new(Self {
+                monotonic: Mutex::new(Duration::ZERO),
+            })
+        }
+    }
+
+    impl Clock for TestClock {
+        fn now(&self) -> WallTime {
+            WallTime::UNIX_EPOCH
+        }
+
+        fn monotonic(&self) -> Duration {
+            *lock(&self.monotonic)
+        }
+
+        fn stamp(&self) -> ClockStamp {
+            ClockStamp {
+                wall: self.now(),
+                boot: BootId("boot".to_owned()),
+                since_boot_with_suspend: self.monotonic(),
+                since_boot_active: self.monotonic(),
+            }
+        }
+
+        fn sleep(
+            &self,
+            duration: Duration,
+            cancel: &CancelToken,
+        ) -> std::result::Result<(), CancelReason> {
+            if let Some(reason) = cancel.reason() {
+                return Err(reason);
+            }
+            let mut now = lock(&self.monotonic);
+            *now += duration;
+            Ok(())
+        }
+    }
+
+    struct TestHost {
+        info: HostInfo,
+    }
+
+    impl Host for TestHost {
+        fn info(&self) -> &HostInfo {
+            &self.info
+        }
+
+        fn env_var(&self, _name: &str) -> Option<OsString> {
+            None
+        }
+
+        fn env_vars(&self) -> Vec<(OsString, OsString)> {
+            Vec::new()
+        }
+    }
+
+    fn host() -> Arc<TestHost> {
+        Arc::new(TestHost {
+            info: HostInfo {
+                os: Os::Linux,
+                os_version: "6.8.0".to_owned(),
+                architecture: "x86_64".to_owned(),
+                hostname: "host".to_owned(),
+                user: "user".to_owned(),
+                home: PathBuf::from("/home/user"),
+                temp: PathBuf::from("/tmp"),
+                path_style: PathStyle::Posix,
+                timezone: "UTC".to_owned(),
+                locale: None,
+                cpus: 1,
+            },
+        })
+    }
+
+    fn line(text: &str) -> Record {
+        Record::new(RecordKind::Line).with("text", Value::from(text))
+    }
+
+    #[test]
+    fn collect_bounded_accepts_exactly_the_limit_and_rejects_one_more() {
+        let records = vec![line("a"), line("b")];
+        let all = RecordStream::from_records(records.clone()).collect_bounded(2);
+        assert_eq!(all.unwrap(), records);
+        let error = RecordStream::from_records(records.clone())
+            .collect_bounded(1)
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Limit);
+        let empty = RecordStream::empty().collect_bounded(0);
+        assert!(empty.unwrap().is_empty());
+        let error = RecordStream::once(line("a"))
+            .collect_bounded(0)
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Limit);
+    }
+
+    #[test]
+    fn collect_bounded_returns_the_first_error_of_the_stream() {
+        let items = vec![
+            Ok(line("a")),
+            Err(contract_error(ErrorCode::Cancelled, "stop")),
+        ];
+        let error = RecordStream::new(items.into_iter())
+            .collect_bounded(10)
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Cancelled);
+    }
+
+    #[test]
+    fn checked_stream_ends_after_the_first_error_and_after_cancellation() {
+        let ctx = ExecCtx::builder(TestClock::new(), host()).build();
+        let items = vec![
+            Ok(line("a")),
+            Err(contract_error(ErrorCode::Type, "bad")),
+            Ok(line("b")),
+        ];
+        let mut stream = RecordStream::new(items.into_iter()).checked(&ctx);
+        assert!(matches!(stream.next(), Some(Ok(_))));
+        assert!(matches!(stream.next(), Some(Err(_))));
+        assert!(stream.next().is_none());
+
+        let mut stream = RecordStream::from_records(vec![line("a"), line("b")]).checked(&ctx);
+        assert!(matches!(stream.next(), Some(Ok(_))));
+        ctx.cancel().cancel(CancelReason::Requested);
+        let failure = stream.next().unwrap().unwrap_err();
+        assert_eq!(failure.code(), ErrorCode::Cancelled);
+        assert!(stream.next().is_none());
+    }
+
+    #[test]
+    fn first_cancellation_reason_wins_and_children_follow_their_parent() {
+        let root = CancelToken::new();
+        let early = root.child();
+        root.cancel(CancelReason::Timeout);
+        root.cancel(CancelReason::Requested);
+        assert_eq!(root.reason(), Some(CancelReason::Timeout));
+        assert_eq!(early.reason(), Some(CancelReason::Timeout));
+        let late = root.child();
+        assert_eq!(late.reason(), Some(CancelReason::Timeout));
+        assert_eq!(late.check().unwrap_err().code(), ErrorCode::Timeout);
+        assert_eq!(CancelReason::Shutdown.error_code(), ErrorCode::Cancelled);
+        assert_eq!(CancelReason::Limit.error_code(), ErrorCode::Limit);
+    }
+
+    #[test]
+    fn wait_timeout_returns_at_once_for_a_cancelled_token_and_none_for_zero_time() {
+        let token = CancelToken::new();
+        assert_eq!(token.wait_timeout(Duration::ZERO), None);
+        token.cancel(CancelReason::Shutdown);
+        assert_eq!(
+            token.wait_timeout(Duration::from_secs(3600)),
+            Some(CancelReason::Shutdown)
+        );
+    }
+
+    #[test]
+    fn deadline_cancels_the_token_with_the_time_limit_reason() {
+        let clock = TestClock::new();
+        let ctx = ExecCtx::builder(clock.clone(), host())
+            .timeout(Duration::from_secs(10))
+            .build();
+        assert!(ctx.checkpoint().is_ok());
+        assert_eq!(ctx.remaining(), Some(Duration::from_secs(10)));
+        *lock(&clock.monotonic) = Duration::from_secs(10);
+        assert_eq!(ctx.checkpoint().unwrap_err().code(), ErrorCode::Timeout);
+        assert_eq!(ctx.cancel().reason(), Some(CancelReason::Timeout));
+        assert_eq!(ctx.remaining(), Some(Duration::ZERO));
+    }
+
+    #[test]
+    fn sleep_is_cut_at_the_deadline_and_fails_with_a_timeout() {
+        let clock = TestClock::new();
+        let ctx = ExecCtx::builder(clock.clone(), host())
+            .timeout(Duration::from_secs(10))
+            .build();
+        assert!(ctx.sleep(Duration::from_secs(4)).is_ok());
+        assert_eq!(clock.monotonic(), Duration::from_secs(4));
+        let error = ctx.sleep(Duration::from_secs(30)).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Timeout);
+        assert_eq!(clock.monotonic(), Duration::from_secs(10));
+    }
+
+    #[test]
+    fn timeout_beyond_the_clock_range_does_not_overflow() {
+        let ctx = ExecCtx::builder(TestClock::new(), host())
+            .timeout(Duration::MAX)
+            .build();
+        assert!(ctx.checkpoint().is_ok());
+        assert_eq!(ctx.deadline(), Some(Duration::MAX));
+    }
+
+    #[test]
+    fn context_without_facilities_reports_stage_failed() {
+        let ctx = ExecCtx::builder(TestClock::new(), host()).build();
+        assert!(ctx.take_notes().is_empty());
+        assert!(ctx.fs().is_none());
+        let failure = ctx.require_fs().err().map(|error| error.code());
+        assert_eq!(failure, Some(ErrorCode::StageFailed));
+        assert!(ctx.evaluator().is_err());
+        assert!(ctx.pipelines().is_err());
+    }
+
+    #[test]
+    fn arguments_distinguish_given_defaulted_and_absent_parameters() {
+        let args = BoundArgs::new("list")
+            .with("path", ArgValue::Value(Value::from("/home/user")), false)
+            .with("depth", ArgValue::Value(Value::Int(2)), true)
+            .with("kind", ArgValue::Absent, false);
+        assert!(args.is_given("path"));
+        assert!(!args.is_given("depth"));
+        assert!(args.is_defaulted("depth"));
+        assert!(!args.is_given("kind"));
+        assert!(!args.is_given("missing"));
+        assert_eq!(args.text("path").unwrap(), Some("/home/user"));
+        assert_eq!(args.int("depth").unwrap(), Some(2));
+        assert_eq!(args.int("kind").unwrap(), None);
+        assert_eq!(args.int("path").unwrap_err().code(), ErrorCode::Type);
+        assert_eq!(
+            args.require("kind").unwrap_err().code(),
+            ErrorCode::MissingParam
+        );
+        let mut args = args;
+        args.insert("depth", ArgValue::Value(Value::Int(3)), false);
+        assert!(args.is_given("depth"));
+        assert_eq!(args.names().collect::<Vec<_>>(), ["path", "depth", "kind"]);
+    }
+
+    #[test]
+    fn input_kinds_and_field_demand_answer_membership() {
+        assert!(!InputKinds::None.accepts(RecordKind::Entry));
+        assert!(InputKinds::Any.accepts(RecordKind::Entry));
+        let only = InputKinds::Only(vec![RecordKind::Entry, RecordKind::Line]);
+        assert!(only.accepts(RecordKind::Line));
+        assert!(!only.accepts(RecordKind::Row));
+        assert!(FieldDemand::All.wants("size"));
+        let demand = FieldDemand::Only(BTreeSet::from(["size".to_owned()]));
+        assert!(demand.wants("size"));
+        assert!(!demand.wants("hash"));
+    }
+
+    #[test]
+    fn extensions_replace_objects_of_the_same_type() {
+        let mut extensions = Extensions::new();
+        assert!(extensions.is_empty());
+        extensions.insert::<String>(Arc::new("first".to_owned()));
+        extensions.insert::<String>(Arc::new("second".to_owned()));
+        assert_eq!(extensions.len(), 1);
+        assert!(extensions.contains::<String>());
+        assert!(!extensions.contains::<u32>());
+        assert_eq!(
+            extensions.get::<String>().as_deref().map(String::as_str),
+            Some("second")
+        );
+    }
+
+    #[test]
+    fn plan_state_is_returned_only_for_its_own_type() {
+        let mut plan = EffectPlan::new().with_state(7_u32);
+        assert_eq!(plan.state::<u32>(), Some(&7));
+        assert_eq!(plan.state::<String>(), None);
+        assert_eq!(plan.take_state::<String>(), None);
+        assert_eq!(plan.take_state::<u32>(), Some(7));
+        assert_eq!(plan.take_state::<u32>(), None);
+    }
+
+    #[test]
+    fn map_records_keeps_header_order_and_hint_and_rejects_other_input() {
+        let mut input = StageInput::records(RecordStream::from_records(vec![line("a")]));
+        input.header = Some(line("header"));
+        input.render = Some(RenderHint::Tree);
+        let output = input.map_records(|stream| stream).unwrap();
+        assert_eq!(output.header, Some(line("header")));
+        assert_eq!(output.render, Some(RenderHint::Tree));
+        let error = StageInput::none().map_records(|stream| stream).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Type);
+        let error = StageInput::value(Value::Int(1)).into_records().unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Type);
+    }
+}

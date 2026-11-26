@@ -56,6 +56,7 @@ use nurt_contracts::record::Node as NodeRecord;
 use nurt_contracts::services::{LanguageId, SyntaxCapture, SyntaxMatch, SyntaxPattern};
 use nurt_contracts::value::Path as PathValue;
 
+use crate::local::advance;
 use crate::spans::LineIndex;
 
 /// Sigil of metavariables as written by the user.
@@ -396,7 +397,11 @@ impl StructuralPattern {
                 ),
             )
         })?;
-        let root = AstGrep::<StrDoc<PatternLanguage>>::try_new(text, self.grammar.clone())
+        let parsed_text: Cow<'_, str> = match text.strip_prefix('\u{feff}') {
+            Some(rest) => Cow::Owned(format!("   {rest}")),
+            None => Cow::Borrowed(text),
+        };
+        let root = AstGrep::<StrDoc<PatternLanguage>>::try_new(&parsed_text, self.grammar.clone())
             .map_err(|message| internal_parse_error(&self.language, &message))?;
         let lines = LineIndex::new(source);
         let top = root.root();
@@ -682,12 +687,19 @@ fn first_error(node: tree_sitter::Node<'_>) -> Option<usize> {
     if !node.has_error() {
         return None;
     }
-    if node.is_error() {
-        return Some(node.start_byte());
-    }
     let mut cursor = node.walk();
-    let children: Vec<tree_sitter::Node<'_>> = node.children(&mut cursor).collect();
-    children.into_iter().find_map(first_error)
+    loop {
+        let current = cursor.node();
+        if current.is_error() {
+            return Some(current.start_byte());
+        }
+        if current.has_error() && cursor.goto_first_child() {
+            continue;
+        }
+        if !advance(&mut cursor) {
+            return None;
+        }
+    }
 }
 
 fn collect_metavariables(node: &PatternNode, out: &mut Vec<Metavariable>) {
@@ -842,6 +854,28 @@ mod tests {
         assert_eq!(contexts[0].wrap("fn a() {}").len(), 1);
         assert_eq!(Context::of(&id("c"))[0].wrap("a && a").len(), 1);
         assert!(Context::of(&id("python")).is_empty());
+    }
+
+    fn first_error_of(source: &str) -> Option<usize> {
+        let mut parser = tree_sitter::Parser::new();
+        parser
+            .set_language(&tree_sitter_json::LANGUAGE.into())
+            .unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        first_error(tree.root_node())
+    }
+
+    #[test]
+    fn first_error_is_the_first_error_node_in_document_order() {
+        assert_eq!(first_error_of("{\"a\": 1}\n"), None);
+        assert_eq!(first_error_of("{\"a\": 1} }\n"), Some(9));
+        assert_eq!(first_error_of("[1, 2] ] ]\n"), Some(7));
+    }
+
+    #[test]
+    fn first_error_is_found_in_deeply_nested_source_without_recursion() {
+        let source = format!("{}}}", "[".repeat(100_000));
+        assert!(first_error_of(&source).is_some());
     }
 
     #[test]

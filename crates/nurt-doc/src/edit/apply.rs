@@ -166,3 +166,91 @@ pub fn apply(original: &[u8], edits: &[ByteEdit]) -> Result<Applied> {
     bytes.extend_from_slice(original.get(cursor..).unwrap_or_default());
     Ok(Applied { bytes, offsets })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn applies_edits_in_position_order() {
+        let edits = [
+            ByteEdit::replace(Span::new(4, 5), "E"),
+            ByteEdit::insert(0, ">"),
+        ];
+        assert_eq!(apply(b"abcdef", &edits).unwrap().bytes, b">abcdEf");
+        assert_eq!(apply(b"abc", &[]).unwrap().bytes, b"abc");
+    }
+
+    #[test]
+    fn insertions_at_one_offset_keep_their_order() {
+        let edits = [ByteEdit::insert(2, "x"), ByteEdit::insert(2, "y")];
+        assert_eq!(apply(b"abcd", &edits).unwrap().bytes, b"abxycd");
+    }
+
+    #[test]
+    fn insertions_at_the_boundaries_of_a_replacement_are_allowed() {
+        let after = [
+            ByteEdit::replace(Span::new(2, 4), "X"),
+            ByteEdit::insert(4, "!"),
+        ];
+        assert_eq!(apply(b"abcdef", &after).unwrap().bytes, b"abX!ef");
+        let before = [
+            ByteEdit::replace(Span::new(2, 4), "X"),
+            ByteEdit::insert(2, "!"),
+        ];
+        assert_eq!(apply(b"abcdef", &before).unwrap().bytes, b"ab!Xef");
+        let end = [ByteEdit::insert(6, "!")];
+        assert_eq!(apply(b"abcdef", &end).unwrap().bytes, b"abcdef!");
+    }
+
+    #[test]
+    fn rejects_overlapping_edits_and_edits_past_the_end() {
+        let overlapping = [
+            ByteEdit::replace(Span::new(1, 3), "x"),
+            ByteEdit::replace(Span::new(2, 4), "y"),
+        ];
+        let error = apply(b"abcdef", &overlapping).unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyConflict);
+        let inside = [
+            ByteEdit::replace(Span::new(1, 4), "x"),
+            ByteEdit::insert(2, "y"),
+        ];
+        let error = apply(b"abcdef", &inside).unwrap_err();
+        assert_eq!(error.code, ErrorCode::KeyConflict);
+        let past = [ByteEdit::replace(Span::new(4, 9), "x")];
+        let error = apply(b"abcdef", &past).unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidValue);
+        let beyond = [ByteEdit::insert(7, "x")];
+        assert!(apply(b"abcdef", &beyond).is_err());
+    }
+
+    #[test]
+    fn maps_offsets_of_the_original_text() {
+        let applied = apply(b"abcdef", &[ByteEdit::delete(Span::new(1, 3))]).unwrap();
+        assert_eq!(applied.offsets.map(0), 0);
+        assert_eq!(applied.offsets.map(1), 1);
+        assert_eq!(applied.offsets.map(2), 1);
+        assert_eq!(applied.offsets.map(3), 1);
+        assert_eq!(applied.offsets.map(4), 2);
+        assert_eq!(applied.offsets.map(6), 4);
+        assert_eq!(applied.offsets.replaced(), &[Span::new(1, 3)]);
+        assert_eq!(applied.offsets.changed(), &[Span::at(1)]);
+    }
+
+    #[test]
+    fn maps_offsets_after_insertions() {
+        let applied = apply(b"abcd", &[ByteEdit::insert(2, "XYZ")]).unwrap();
+        assert_eq!(applied.offsets.map(1), 1);
+        assert_eq!(applied.offsets.map(2), 5);
+        assert_eq!(applied.offsets.map(4), 7);
+        assert_eq!(applied.offsets.changed(), &[Span::new(2, 5)]);
+    }
+
+    #[test]
+    fn detects_edits_that_change_nothing() {
+        assert!(ByteEdit::replace(Span::new(1, 3), "bc").is_noop(b"abcd"));
+        assert!(ByteEdit::insert(2, "").is_noop(b"abcd"));
+        assert!(!ByteEdit::replace(Span::new(1, 3), "xx").is_noop(b"abcd"));
+        assert!(!ByteEdit::delete(Span::new(3, 9)).is_noop(b"abc"));
+    }
+}

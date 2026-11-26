@@ -729,6 +729,7 @@ impl Lexer {
             };
             match (quote, c) {
                 (Some(q), _) if c == q => quote = None,
+                (Some('\''), _) => {}
                 (Some(_), '\\') | (None, '\\') => {
                     text.push(c);
                     if let Some(next) = self.bump() {
@@ -1122,6 +1123,34 @@ mod tests {
     fn empty_quotes_give_an_empty_word() {
         let word = &words("echo ''")[1];
         assert_eq!(word.literal().as_deref(), Some(""));
+    }
+
+    #[test]
+    fn backslash_in_single_quotes_of_a_substitution_is_literal() {
+        let all = words(r"echo $(echo 'a\') b");
+        assert_eq!(all.len(), 3);
+        assert!(matches!(
+            &all[1].parts[0],
+            WordPart::Substitution { body, .. } if body == r"echo 'a\'"
+        ));
+        assert_eq!(all[2].raw, "b");
+    }
+
+    #[test]
+    fn lexes_multibyte_text_and_crlf() {
+        let tokens = lex("rm \"zażółć\"\r\nls /ą").unwrap();
+        let newline = tokens
+            .iter()
+            .position(|token| token.kind == PosixTokenKind::Newline)
+            .unwrap();
+        assert_eq!(tokens[newline + 1].span.line, 2);
+        assert_eq!(tokens[newline + 2].span.end_column, 6);
+    }
+
+    #[test]
+    fn empty_input_has_no_tokens() {
+        assert!(lex("").unwrap().is_empty());
+        assert!(lex("  \t ").unwrap().is_empty());
     }
 
     #[test]

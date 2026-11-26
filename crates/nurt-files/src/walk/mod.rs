@@ -372,3 +372,388 @@ impl Walker {
         schedule::run(self, fs, roots, checkpoint, sink)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::error::{Error, ErrorCode};
+    use nurt_testkit::ctx::TestContext;
+    use nurt_testkit::vfs::test_path;
+
+    use super::*;
+
+    fn abs(text: &str) -> AbsPath {
+        test_path(text).expect("test paths are absolute")
+    }
+
+    fn tree(files: &[&str]) -> TestContext {
+        let test = TestContext::new();
+        for file in files {
+            write(&test, file, "x");
+        }
+        test
+    }
+
+    fn write(test: &TestContext, file: &str, content: &str) {
+        test.fs()
+            .write_file(&abs(file), content.as_bytes())
+            .expect("the virtual file system accepts the file");
+    }
+
+    fn walk_in(test: &TestContext, root: &str, options: WalkOptions) -> (Vec<String>, WalkSummary) {
+        let walker = Walker::new(options).expect("the patterns compile");
+        let mut delivered = Vec::new();
+        let summary = walker
+            .run(test.fs().as_ref(), &[abs(root)], &|| Ok(()), |item| {
+                if let WalkItem::Entry(entry) = item {
+                    delivered.push(entry.relative_string());
+                }
+                ControlFlow::Continue(())
+            })
+            .expect("the walk succeeds");
+        (delivered, summary)
+    }
+
+    fn walk(test: &TestContext, options: WalkOptions) -> Vec<String> {
+        walk_in(test, "/w", options).0
+    }
+
+    fn strings(list: &[&str]) -> Vec<String> {
+        list.iter().map(|item| (*item).to_owned()).collect()
+    }
+
+    fn any_below_root() -> WalkOptions {
+        WalkOptions {
+            kind: KindFilter::Any,
+            min_depth: 1,
+            ..WalkOptions::default()
+        }
+    }
+
+    #[test]
+    fn entries_come_depth_first_in_byte_order_of_names() {
+        let test = tree(&["/w/b/d/e.txt", "/w/b/c.txt", "/w/a.txt", "/w/B.txt"]);
+        let (delivered, summary) = walk_in(&test, "/w", any_below_root());
+        assert_eq!(
+            delivered,
+            strings(&["B.txt", "a.txt", "b", "b/c.txt", "b/d", "b/d/e.txt"])
+        );
+        assert_eq!(summary.entries, 6);
+        assert!(summary.complete);
+        assert_eq!(summary.unreadable, 0);
+        assert_eq!(summary.permission_denied, 0);
+    }
+
+    #[test]
+    fn the_order_does_not_depend_on_the_number_of_threads() {
+        let test = tree(&["/w/b/d/e.txt", "/w/b/c.txt", "/w/a.txt", "/w/z/y/x.txt"]);
+        let one = walk(
+            &test,
+            WalkOptions {
+                threads: 1,
+                ..any_below_root()
+            },
+        );
+        let many = walk(
+            &test,
+            WalkOptions {
+                threads: 8,
+                ..any_below_root()
+            },
+        );
+        assert_eq!(one, many);
+        assert_eq!(one.len(), 8);
+    }
+
+    #[test]
+    fn files_only_is_the_default_and_the_root_is_a_candidate_at_depth_zero() {
+        let test = tree(&["/w/b/c.txt", "/w/a.txt"]);
+        assert_eq!(
+            walk(&test, WalkOptions::default()),
+            strings(&["a.txt", "b/c.txt"])
+        );
+        let directories = WalkOptions {
+            kind: KindFilter::Directory,
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, directories), strings(&["", "b"]));
+    }
+
+    #[test]
+    fn depth_limits_select_levels_and_stop_the_descent() {
+        let test = tree(&["/w/b/d/e.txt", "/w/b/c.txt", "/w/a.txt"]);
+        let level_two = WalkOptions {
+            min_depth: 2,
+            max_depth: Some(2),
+            ..any_below_root()
+        };
+        assert_eq!(walk(&test, level_two), strings(&["b/c.txt", "b/d"]));
+        let top = WalkOptions {
+            max_depth: Some(1),
+            ..any_below_root()
+        };
+        assert_eq!(walk(&test, top), strings(&["a.txt", "b"]));
+        let root_only = WalkOptions {
+            max_depth: Some(0),
+            kind: KindFilter::Any,
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, root_only), strings(&[""]));
+    }
+
+    #[test]
+    fn hidden_entries_and_their_content_are_left_out_on_request() {
+        let test = tree(&["/w/.env", "/w/.cache/x.txt", "/w/a.txt"]);
+        assert_eq!(
+            walk(&test, WalkOptions::default()),
+            strings(&[".cache/x.txt", ".env", "a.txt"])
+        );
+        let visible = WalkOptions {
+            hidden: false,
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, visible), strings(&["a.txt"]));
+    }
+
+    #[test]
+    fn presets_exclude_directories_but_not_files_of_the_same_name() {
+        let test = tree(&[
+            "/w/target/out.o",
+            "/w/src/main.rs",
+            "/w/vendor/lib.rs",
+            "/w/dir/target",
+        ]);
+        let build = WalkOptions {
+            exclude_presets: vec![ExcludePreset::Build],
+            ..WalkOptions::default()
+        };
+        assert_eq!(
+            walk(&test, build),
+            strings(&["dir/target", "src/main.rs", "vendor/lib.rs"])
+        );
+        let both = WalkOptions {
+            exclude_presets: vec![ExcludePreset::Build, ExcludePreset::Deps],
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, both), strings(&["dir/target", "src/main.rs"]));
+    }
+
+    #[test]
+    fn exclusion_patterns_follow_the_last_matching_rule() {
+        let test = tree(&["/w/a.log", "/w/keep.log", "/w/b.txt", "/w/sub/c.log"]);
+        let options = WalkOptions {
+            exclude: strings(&["*.log", "!keep.log"]),
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, options), strings(&["b.txt", "keep.log"]));
+    }
+
+    #[test]
+    fn an_excluded_directory_is_not_entered_and_cannot_be_restored() {
+        let test = tree(&["/w/out/keep.txt", "/w/a.txt"]);
+        let options = WalkOptions {
+            exclude: strings(&["out/", "!out/keep.txt"]),
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, options), strings(&["a.txt"]));
+    }
+
+    #[test]
+    fn globs_match_the_relative_path_with_the_case_setting() {
+        let test = tree(&["/w/a.txt", "/w/sub/b.txt", "/w/sub/c.md"]);
+        let top = WalkOptions {
+            globs: strings(&["*.txt"]),
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, top), strings(&["a.txt"]));
+        let deep = WalkOptions {
+            globs: strings(&["**/*.txt"]),
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, deep), strings(&["a.txt", "sub/b.txt"]));
+        let sensitive = WalkOptions {
+            globs: strings(&["*.TXT"]),
+            ..WalkOptions::default()
+        };
+        assert!(walk(&test, sensitive).is_empty());
+        let insensitive = WalkOptions {
+            globs: strings(&["*.TXT"]),
+            case_sensitive: false,
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, insensitive), strings(&["a.txt"]));
+    }
+
+    #[test]
+    fn decomposed_names_match_composed_globs_and_keep_their_stored_form() {
+        let test = tree(&["/w/cafe\u{301}.txt", "/w/cafe.txt"]);
+        let options = WalkOptions {
+            globs: strings(&["caf\u{e9}.txt"]),
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, options), strings(&["cafe\u{301}.txt"]));
+    }
+
+    #[test]
+    fn links_are_listed_but_not_entered_without_follow_links() {
+        let test = tree(&["/w/sub/a.txt"]);
+        test.fs()
+            .symlink("sub", &abs("/w/link"))
+            .expect("the virtual file system accepts the link");
+        assert_eq!(
+            walk(&test, any_below_root()),
+            strings(&["link", "sub", "sub/a.txt"])
+        );
+        let links = WalkOptions {
+            kind: KindFilter::Link,
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, links), strings(&["link"]));
+    }
+
+    #[test]
+    fn a_stopping_sink_ends_the_walk_before_its_end() {
+        let test = tree(&["/w/a.txt", "/w/b.txt", "/w/c.txt"]);
+        let walker = Walker::new(WalkOptions::default()).expect("no patterns to compile");
+        let mut seen = 0;
+        let summary = walker
+            .run(test.fs().as_ref(), &[abs("/w")], &|| Ok(()), |_| {
+                seen += 1;
+                ControlFlow::Break(())
+            })
+            .expect("the walk succeeds");
+        assert_eq!(seen, 1);
+        assert!(!summary.complete);
+        assert_eq!(summary.entries, 1);
+    }
+
+    #[test]
+    fn a_missing_root_fails_and_a_file_root_is_a_single_entry() {
+        let test = tree(&["/w/a.txt"]);
+        let walker = Walker::new(WalkOptions::default()).expect("no patterns to compile");
+        let error = walker
+            .run(test.fs().as_ref(), &[abs("/missing")], &|| Ok(()), |_| {
+                ControlFlow::Continue(())
+            })
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+        let (delivered, summary) = walk_in(&test, "/w/a.txt", WalkOptions::default());
+        assert_eq!(delivered, strings(&[""]));
+        assert_eq!(summary.entries, 1);
+    }
+
+    #[test]
+    fn invalid_patterns_are_rejected_when_the_walker_is_built() {
+        let error = Walker::new(WalkOptions {
+            globs: strings(&["[a-"]),
+            ..WalkOptions::default()
+        })
+        .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert_eq!(error.found.as_deref(), Some("[a-"));
+    }
+
+    #[test]
+    fn the_error_of_the_checkpoint_ends_the_walk() {
+        let test = tree(&["/w/a.txt"]);
+        let walker = Walker::new(WalkOptions::default()).expect("no patterns to compile");
+        let error = walker
+            .run(
+                test.fs().as_ref(),
+                &[abs("/w")],
+                &|| Err(Error::new(ErrorCode::Cancelled, "cancelled")),
+                |_| ControlFlow::Continue(()),
+            )
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Cancelled);
+    }
+
+    #[test]
+    fn ignore_files_apply_inside_repositories_and_deeper_rules_win() {
+        let test = tree(&[
+            "/w/.git/HEAD",
+            "/w/a.log",
+            "/w/b.txt",
+            "/w/build/x.o",
+            "/w/sub/keep.log",
+            "/w/sub/other.log",
+        ]);
+        write(&test, "/w/.gitignore", "*.log\n/build/\n");
+        write(&test, "/w/sub/.gitignore", "!keep.log\n");
+        let plain = WalkOptions {
+            exclude_presets: vec![ExcludePreset::Vcs],
+            ..WalkOptions::default()
+        };
+        assert_eq!(walk(&test, plain.clone()).len(), 7);
+        let ignoring = WalkOptions {
+            gitignore: true,
+            ..plain
+        };
+        assert_eq!(
+            walk(&test, ignoring),
+            strings(&[".gitignore", "b.txt", "sub/.gitignore", "sub/keep.log"])
+        );
+    }
+
+    #[test]
+    fn gitignore_files_outside_repositories_are_not_applied_but_ignore_files_are() {
+        let test = tree(&["/p/a.txt", "/p/secret.key", "/p/b.md"]);
+        write(&test, "/p/.gitignore", "*.txt\n");
+        let options = WalkOptions {
+            gitignore: true,
+            ..WalkOptions::default()
+        };
+        let (delivered, _) = walk_in(&test, "/p", options.clone());
+        assert_eq!(
+            delivered,
+            strings(&[".gitignore", "a.txt", "b.md", "secret.key"])
+        );
+        write(&test, "/p/.ignore", "*.key\n");
+        let (delivered, _) = walk_in(&test, "/p", options);
+        assert_eq!(
+            delivered,
+            strings(&[".gitignore", ".ignore", "a.txt", "b.md"])
+        );
+    }
+
+    #[test]
+    fn ignore_files_are_not_read_without_the_gitignore_option() {
+        let test = tree(&["/p/a.txt"]);
+        write(&test, "/p/.ignore", "a.txt\n");
+        let (delivered, _) = walk_in(&test, "/p", WalkOptions::default());
+        assert_eq!(delivered, strings(&[".ignore", "a.txt"]));
+    }
+
+    #[test]
+    fn entries_report_depth_root_and_effective_kind() {
+        let test = tree(&["/w/b/c.txt"]);
+        let walker = Walker::new(any_below_root()).expect("no patterns to compile");
+        let mut found = Vec::new();
+        walker
+            .run(
+                test.fs().as_ref(),
+                &[abs("/w"), abs("/w/b")],
+                &|| Ok(()),
+                |item| {
+                    if let WalkItem::Entry(entry) = item {
+                        found.push((
+                            entry.relative_string(),
+                            entry.depth,
+                            entry.root,
+                            entry.is_dir(),
+                            entry.effective_kind(),
+                        ));
+                    }
+                    ControlFlow::Continue(())
+                },
+            )
+            .expect("the walk succeeds");
+        assert_eq!(
+            found,
+            [
+                ("b".to_owned(), 1, 0, true, FileKind::Directory),
+                ("b/c.txt".to_owned(), 2, 0, false, FileKind::File),
+                ("c.txt".to_owned(), 1, 1, false, FileKind::File),
+            ]
+        );
+    }
+}

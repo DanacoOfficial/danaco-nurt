@@ -254,7 +254,9 @@ pub fn read_line<R: BufRead + ?Sized>(reader: &mut R, max: usize) -> io::Result<
             Some(end) => (&available[..end], Some(end + 1)),
             None => (available, None),
         };
-        if line.len() + chunk.len() > max {
+        // One byte more than the limit is read: it may be the `\r` of `\r\n`,
+        // which belongs to the terminator.
+        if line.len() + chunk.len() > max.saturating_add(1) {
             return Ok(LineRead::TooLong);
         }
         line.extend_from_slice(chunk);
@@ -263,6 +265,9 @@ pub fn read_line<R: BufRead + ?Sized>(reader: &mut R, max: usize) -> io::Result<
         if done.is_some() {
             if line.last() == Some(&b'\r') {
                 line.pop();
+            }
+            if line.len() > max {
+                return Ok(LineRead::TooLong);
             }
             return Ok(LineRead::Line(line));
         }
@@ -368,6 +373,24 @@ mod tests {
             parse_request(&request[..request.len() - 1]).unwrap().op,
             "status"
         );
+    }
+
+    #[test]
+    fn read_line_does_not_count_the_carriage_return_of_the_terminator() {
+        let mut input: &[u8] = b"abc\r\ndef\nabcd\r\nabcd\nabc\r";
+        assert_eq!(
+            read_line(&mut input, 3).unwrap(),
+            LineRead::Line(b"abc".to_vec())
+        );
+        assert_eq!(
+            read_line(&mut input, 3).unwrap(),
+            LineRead::Line(b"def".to_vec())
+        );
+        assert_eq!(read_line(&mut input, 3).unwrap(), LineRead::TooLong);
+        let mut input: &[u8] = b"abcd\nabc\r";
+        assert_eq!(read_line(&mut input, 3).unwrap(), LineRead::TooLong);
+        let mut input: &[u8] = b"abc\r";
+        assert_eq!(read_line(&mut input, 3).unwrap(), LineRead::Eof);
     }
 
     #[test]

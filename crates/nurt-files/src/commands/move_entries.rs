@@ -273,6 +273,77 @@ mod tests {
     }
 
     #[test]
+    fn every_rename_change_gives_the_previous_path() {
+        let test = TestContext::new();
+        let first = file(&test, "/data/a.txt", b"a");
+        let second = dir(&test, "/data/sub");
+        file(&test, "/data/sub/inner.txt", b"i");
+        let call = args(&[&first, &second]).with(INTO, path_arg(&abs("/out")), false);
+        let run = run(&Move, &test, &call, None).unwrap();
+        let renames: Vec<_> = run
+            .changes
+            .iter()
+            .filter(|change| change.action == ChangeAction::Rename)
+            .collect();
+        assert_eq!(renames.len(), 2);
+        for change in renames {
+            assert_eq!(
+                change.from.as_ref().map(|path| path.as_str().to_owned()),
+                Some(change.path.as_str().to_owned())
+            );
+        }
+    }
+
+    #[test]
+    fn a_directory_tree_is_moved_as_one_rename() {
+        let test = TestContext::new();
+        let tree = dir(&test, "/data/tree");
+        file(&test, "/data/tree/sub/a.txt", b"a");
+        let target = abs("/data/moved");
+        let run = run(&Move, &test, &to(args(&[&tree]), &target), None).unwrap();
+        assert_eq!(run.changes.len(), 1);
+        assert_eq!(
+            test.fs().read_file(&abs("/data/moved/sub/a.txt")).unwrap(),
+            b"a"
+        );
+        assert!(!test.fs().exists(&tree));
+        assert_eq!(run.summary("moved"), Some(1));
+        assert_journaled(&test);
+    }
+
+    #[test]
+    fn to_an_existing_directory_moves_inside_it_and_is_notable() {
+        let test = TestContext::new();
+        let source = file(&test, "/data/a.txt", b"a");
+        let target = dir(&test, "/out");
+        let run = run(&Move, &test, &to(args(&[&source]), &target), None).unwrap();
+        assert!(test.fs().exists(&abs("/out/a.txt")));
+        assert_eq!(run.codes(), [Notable::ToIsDir]);
+    }
+
+    #[test]
+    fn empty_input_moves_nothing() {
+        let test = TestContext::new();
+        let call = to(BoundArgs::new(COMMAND), &abs("/data/b"));
+        let run = run(&Move, &test, &call, Some(Vec::new())).unwrap();
+        assert_eq!(run.codes(), [Notable::NothingMatched]);
+        assert!(run.changes.is_empty());
+    }
+
+    #[test]
+    fn sources_with_the_same_name_cannot_share_a_destination() {
+        let test = TestContext::new();
+        let first = file(&test, "/a/x.txt", b"1");
+        let second = file(&test, "/b/x.txt", b"2");
+        let call = args(&[&first, &second]).with(INTO, path_arg(&abs("/out")), false);
+        let error = run(&Move, &test, &call, None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Exists);
+        assert_eq!(error.problem.as_deref(), Some("duplicate_destination"));
+        assert!(test.fs().exists(&first));
+        assert_untouched(&test);
+    }
+
+    #[test]
     fn conflict_matrix_for_files_directories_and_free_destinations() {
         let cases = [
             ("overwrite", "file", Ok(b"new".as_slice())),

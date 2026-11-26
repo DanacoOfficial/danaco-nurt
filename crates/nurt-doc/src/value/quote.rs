@@ -105,7 +105,10 @@ pub enum QuoteRules {
 /// ```
 #[must_use]
 pub fn needs_quotes(text: &str, rules: QuoteRules) -> bool {
-    if text.contains(['\n', '\r']) || text.chars().any(|c| c.is_control() && c != '\t') {
+    if text
+        .chars()
+        .any(|c| (c.is_control() && c != '\t') || matches!(c, '\u{2028}' | '\u{2029}'))
+    {
         return true;
     }
     let blank_edges = text.starts_with(char::is_whitespace) || text.ends_with(char::is_whitespace);
@@ -246,6 +249,128 @@ fn yaml11_float(unsigned: &str) -> Option<PlainKind> {
         .all(|c| c.is_ascii_digit() || c == '.' || c == '_');
     let nonempty = !(whole.is_empty() && fraction.is_empty());
     (whole_ok && fraction_ok && exponent_ok && nonempty).then_some(PlainKind::Float)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_norway_problem_is_a_version_difference() {
+        for text in ["no", "No", "NO", "yes", "on", "off", "y", "n"] {
+            assert_eq!(yaml_plain_kind(text, YamlVersion::V1_1), PlainKind::Bool);
+            assert_eq!(yaml_plain_kind(text, YamlVersion::V1_2), PlainKind::Str);
+            assert!(needs_quotes(text, QuoteRules::Yaml), "{text}");
+        }
+        assert!(!needs_quotes("NOrway", QuoteRules::Yaml));
+    }
+
+    #[test]
+    fn yaml_numbers_differ_between_versions() {
+        let cases = [
+            ("0755", PlainKind::Int, PlainKind::Int),
+            ("0o17", PlainKind::Str, PlainKind::Int),
+            ("1_000", PlainKind::Int, PlainKind::Str),
+            ("1:30", PlainKind::Int, PlainKind::Str),
+            ("12:30:45", PlainKind::Int, PlainKind::Str),
+            ("0b101", PlainKind::Int, PlainKind::Str),
+            (".5", PlainKind::Float, PlainKind::Float),
+            ("5.", PlainKind::Float, PlainKind::Float),
+            ("1e3", PlainKind::Str, PlainKind::Float),
+            ("1e+3", PlainKind::Str, PlainKind::Float),
+            (".inf", PlainKind::Float, PlainKind::Float),
+            ("-.INF", PlainKind::Float, PlainKind::Float),
+            (".NaN", PlainKind::Float, PlainKind::Float),
+            ("+12", PlainKind::Int, PlainKind::Int),
+            ("-0x1F", PlainKind::Int, PlainKind::Str),
+            ("1.2.3", PlainKind::Float, PlainKind::Str),
+            (".", PlainKind::Str, PlainKind::Str),
+            ("e3", PlainKind::Str, PlainKind::Str),
+        ];
+        for (text, yaml11, yaml12) in cases {
+            assert_eq!(
+                yaml_plain_kind(text, YamlVersion::V1_1),
+                yaml11,
+                "1.1 {text}"
+            );
+            assert_eq!(
+                yaml_plain_kind(text, YamlVersion::V1_2),
+                yaml12,
+                "1.2 {text}"
+            );
+        }
+    }
+
+    #[test]
+    fn timestamps_are_a_yaml_11_type() {
+        for text in [
+            "2026-11-22",
+            "2026-1-2",
+            "2026-11-22T10:00:00Z",
+            "2026-11-22 10:00:00.5 +01:00",
+            "2026-11-22t1:02:03-5",
+        ] {
+            assert_eq!(
+                yaml_plain_kind(text, YamlVersion::V1_1),
+                PlainKind::Timestamp,
+                "{text}"
+            );
+            assert_eq!(
+                yaml_plain_kind(text, YamlVersion::V1_2),
+                PlainKind::Str,
+                "{text}"
+            );
+        }
+        for text in ["2026-11", "2026-11-22-1", "2026-11-22T10:00", "2026-11-22x"] {
+            assert_eq!(
+                yaml_plain_kind(text, YamlVersion::V1_1),
+                PlainKind::Str,
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn yaml_text_with_indicators_is_quoted() {
+        for text in [
+            "- x", "? x", ": x", "[x]", "{x}", "# x", "&x", "*x", "!x", "|", ">", "'x'", "\"x\"",
+            "%x", "@x", "`x", "x: y", "x:", "x #y", " x", "x ", "a\tb", "<<", "=", "",
+        ] {
+            assert!(needs_quotes(text, QuoteRules::Yaml), "{text:?}");
+        }
+        for text in ["x", "a b", "a:b", "a#b", "path/to", "ünï", "~x", "v1.2.3"] {
+            assert!(!needs_quotes(text, QuoteRules::Yaml), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn line_separators_and_controls_are_quoted_in_every_rule_set() {
+        for text in [
+            "a\nb",
+            "a\rb",
+            "a\u{2028}b",
+            "a\u{2029}b",
+            "a\u{85}b",
+            "a\u{1}b",
+        ] {
+            for rules in [QuoteRules::Yaml, QuoteRules::Ini, QuoteRules::Env] {
+                assert!(needs_quotes(text, rules), "{text:?} {rules:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn ini_and_env_rules_quote_their_own_specials() {
+        assert!(needs_quotes("a;b", QuoteRules::Ini));
+        assert!(needs_quotes("a#b", QuoteRules::Ini));
+        assert!(needs_quotes("[s]", QuoteRules::Ini));
+        assert!(needs_quotes(" a", QuoteRules::Ini));
+        assert!(!needs_quotes("a b", QuoteRules::Ini));
+        assert!(needs_quotes("a b", QuoteRules::Env));
+        assert!(needs_quotes("$HOME", QuoteRules::Env));
+        assert!(needs_quotes("a`b", QuoteRules::Env));
+        assert!(!needs_quotes("a-b_c.d/e", QuoteRules::Env));
+    }
 }
 
 /// YAML 1.1 timestamp: `YYYY-MM-DD` or a date with time.

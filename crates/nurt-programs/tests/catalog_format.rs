@@ -742,3 +742,40 @@ fn check_reports_unknown_members_as_warnings() {
     let lenient = catalog::read_catalog(dir.path(), &ReadOptions::default()).unwrap();
     assert!(lenient.catalog.program("extra").is_some());
 }
+
+#[test]
+fn guide_material_stops_at_the_file_limit_in_name_order() {
+    let dir = tempfile::tempdir().unwrap();
+    catalog_with(dir.path(), &[]);
+    for name in ["d", "a", "c", "b", "e"] {
+        write(dir.path(), &format!("guides/tool/{name}.txt"), name);
+    }
+    write(dir.path(), "guides/tool/sub/z.txt", "z");
+    write(dir.path(), "guides/tool/sub/deep/y.txt", "y");
+    let loaded = catalog::read_catalog(dir.path(), &ReadOptions::default()).unwrap();
+    let few = Limits {
+        guide_files: 3,
+        ..Limits::default()
+    };
+    assert_eq!(
+        loaded.catalog.guide_material("guides/tool.md", &few),
+        [
+            "guides/tool/a.txt",
+            "guides/tool/b.txt",
+            "guides/tool/c.txt"
+        ]
+    );
+    let shallow = Limits {
+        guide_files_depth: 2,
+        ..Limits::default()
+    };
+    let files = loaded.catalog.guide_material("guides/tool.md", &shallow);
+    assert!(files.contains(&"guides/tool/sub/z.txt".to_owned()));
+    assert!(!files.iter().any(|file| file.ends_with("y.txt")));
+    assert!(
+        loaded
+            .catalog
+            .guide_material("guides/missing.md", &Limits::default())
+            .is_empty()
+    );
+}

@@ -1,8 +1,9 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-use std::ffi::OsString;
+use std::ffi::{CString, OsString};
 use std::io::Write;
+use std::os::unix::ffi::OsStrExt;
 use std::time::Duration;
 
 use nurt_contracts::fs::{
@@ -230,6 +231,49 @@ fn times_out_on_lock_held_by_another_descriptor() {
     assert_eq!(error.kind, FsErrorKind::InUse);
     drop(held);
     fs.lock_exclusive(&path, Duration::ZERO).unwrap();
+}
+
+#[test]
+fn copy_refuses_directories_and_fifos_without_creating_the_destination() {
+    let fs = MacosFs::new();
+    let (_dir, root) = root();
+    let dir = root.join_name("dir").unwrap();
+    fs.create_dir(&scope(), &dir, 0o755).unwrap();
+    let target = root.join_name("target").unwrap();
+    let error = fs.copy_file(&scope(), &dir, &target).unwrap_err();
+    assert_eq!(error.kind, FsErrorKind::IsADirectory);
+    assert!(fs.metadata(&target, Follow::NoFollow).is_err());
+
+    let fifo = root.join_name("fifo").unwrap();
+    let name = CString::new(fifo.as_path().as_os_str().as_bytes()).unwrap();
+    // SAFETY: `name` is a NUL-terminated string that outlives the call.
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+    let error = fs.copy_file(&scope(), &fifo, &target).unwrap_err();
+    assert_eq!(error.kind, FsErrorKind::Unsupported);
+    assert!(fs.metadata(&target, Follow::NoFollow).is_err());
+}
+
+#[test]
+fn lock_with_the_longest_timeout_is_taken_when_the_file_is_free() {
+    let fs = MacosFs::new();
+    let (_dir, root) = root();
+    let path = root.join_name("lock").unwrap();
+    let lock = fs.lock_exclusive(&path, Duration::MAX).unwrap();
+    assert_eq!(lock.path(), &path);
+}
+
+#[test]
+fn lock_refuses_a_symbolic_link_at_the_lock_path() {
+    let fs = MacosFs::new();
+    let (_dir, root) = root();
+    let (target, link) = (
+        root.join_name("target").unwrap(),
+        root.join_name("lock").unwrap(),
+    );
+    std::os::unix::fs::symlink(target.as_path(), link.as_path()).unwrap();
+    let error = fs.lock_exclusive(&link, Duration::ZERO).err().unwrap();
+    assert_eq!(error.kind, FsErrorKind::Loop);
+    assert!(!target.as_path().exists());
 }
 
 #[test]

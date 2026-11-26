@@ -68,15 +68,22 @@ impl Lines {
     }
 
     /// Appends the rows of a table with aligned columns, each row indented.
+    ///
+    /// A cell is written on one line: line breaks and control characters are
+    /// written as escape sequences, so that one row stays one line.
     pub(crate) fn table(&mut self, indent: &str, rows: &[Vec<String>]) {
+        let rows: Vec<Vec<String>> = rows
+            .iter()
+            .map(|row| row.iter().map(|cell| single_line(cell)).collect())
+            .collect();
         let columns = rows.iter().map(Vec::len).max().unwrap_or(0);
         let mut widths = vec![0; columns];
-        for row in rows {
+        for row in &rows {
             for (index, cell) in row.iter().enumerate() {
                 widths[index] = widths[index].max(cell.width());
             }
         }
-        for row in rows {
+        for row in &rows {
             let last = row.iter().rposition(|cell| !cell.is_empty()).unwrap_or(0);
             let mut text = String::from(indent);
             for (index, cell) in row.iter().enumerate().take(last + 1) {
@@ -109,6 +116,22 @@ impl Lines {
             .collect();
         lines.join("\n")
     }
+}
+
+/// Writes a text on one line: line breaks, tabs and other control characters
+/// become escape sequences such as `\n`.
+pub(crate) fn single_line(text: &str) -> String {
+    let mut line = String::with_capacity(text.len());
+    for character in text.chars() {
+        match character {
+            '\n' => line.push_str("\\n"),
+            '\r' => line.push_str("\\r"),
+            '\t' => line.push_str("\\t"),
+            other if other.is_control() => line.extend(other.escape_default()),
+            other => line.push(other),
+        }
+    }
+    line
 }
 
 /// Shortens a line to `width` display columns, marking the cut.
@@ -161,6 +184,32 @@ mod tests {
             ],
         );
         assert_eq!(lines.finish(None, false), "\u{4e2d}\u{6587}  x\nab    y");
+    }
+
+    #[test]
+    fn writes_line_breaks_of_a_cell_as_escape_sequences() {
+        let mut lines = Lines::new();
+        lines.table(
+            "",
+            &[
+                vec!["name".to_owned(), "text".to_owned()],
+                vec!["a.txt".to_owned(), "one\ntwo\r\nthree\tx".to_owned()],
+                vec!["b.txt".to_owned(), "bell\u{7}".to_owned()],
+            ],
+        );
+        assert_eq!(
+            lines.finish(None, false),
+            "name   text\na.txt  one\\ntwo\\r\\nthree\\tx\nb.txt  bell\\u{7}"
+        );
+    }
+
+    #[test]
+    fn leaves_text_without_control_characters_unchanged() {
+        assert_eq!(single_line(""), "");
+        assert_eq!(
+            single_line("caf\u{e9} \u{4e2d}\\path"),
+            "caf\u{e9} \u{4e2d}\\path"
+        );
     }
 
     #[test]

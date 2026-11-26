@@ -55,8 +55,7 @@ pub struct Inherited {
 /// A scalar key is its value, an alias key the name of its target, and a
 /// collection key its flow form (`[a, b]`, `{x: 1}`).
 pub fn key_name(model: &YamlModel, key: NodeId) -> Option<String> {
-    let anchors = Anchors::new(model);
-    key_name_with(model, &anchors, key)
+    key_name_with(model, model.anchors(), key)
 }
 
 pub(crate) fn key_name_with(model: &YamlModel, anchors: &Anchors, key: NodeId) -> Option<String> {
@@ -112,8 +111,7 @@ fn write_flow(
 /// contributes its mappings in order. Values that are not mappings are
 /// skipped.
 pub fn merge_sources(model: &YamlModel, map: NodeId) -> Vec<NodeId> {
-    let anchors = Anchors::new(model);
-    sources_with(model, &anchors, map)
+    sources_with(model, model.anchors(), map)
 }
 
 fn sources_with(model: &YamlModel, anchors: &Anchors, map: NodeId) -> Vec<NodeId> {
@@ -143,8 +141,7 @@ fn sources_with(model: &YamlModel, anchors: &Anchors, map: NodeId) -> Vec<NodeId
 /// Entry written in `map` itself for the key `name`; the last one when the
 /// key repeats. Merge keys are not entries of this kind.
 pub fn local_entry<'m>(model: &'m YamlModel, map: NodeId, name: &str) -> Option<&'m MapEntry> {
-    let anchors = Anchors::new(model);
-    local_entry_with(model, &anchors, map, name)
+    local_entry_with(model, model.anchors(), map, name)
 }
 
 fn local_entry_with<'m>(
@@ -166,10 +163,9 @@ fn local_entry_with<'m>(
 /// Keys of `map` that come from merged mappings and are not written in
 /// `map` itself, in order of precedence of their sources.
 pub fn inherited_members(model: &YamlModel, map: NodeId) -> Vec<Inherited> {
-    let anchors = Anchors::new(model);
     let mut members = IndexMap::new();
     let mut visiting = HashSet::new();
-    collect(model, &anchors, map, 0, &mut visiting, &mut members);
+    collect(model, model.anchors(), map, 0, &mut visiting, &mut members);
     members
         .into_values()
         .filter(|member: &Inherited| member.source != map)

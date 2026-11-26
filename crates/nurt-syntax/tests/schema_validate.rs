@@ -148,7 +148,10 @@ fn rejects_surface_integers_outside_the_safe_non_negative_range() {
     let range = surface_value(json!({"t": "range", "lo": 1, "hi": MAX_SAFE_INTEGER + 1}));
     assert_eq!(surface_violation(range), format!("{ARG_VALUE}/hi"));
     surface_accepts(surface_value(json!({"t": "range", "lo": 10, "hi": 12})));
-    surface_accepts(surface_value(json!({"t": "num", "v": -2.5})));
+    surface_accepts(surface_value(json!({"t": "num", "v": 2.5})));
+    surface_accepts(surface_value(json!({"t": "num", "v": -0.0})));
+    let negative = surface_value(json!({"t": "num", "v": -2.5}));
+    assert_eq!(surface_violation(negative), format!("{ARG_VALUE}/v"));
 }
 
 #[test]
@@ -434,7 +437,8 @@ fn checks_bound_values() {
     for value in [
         json!({"t": "int", "v": -MAX_SAFE_INTEGER}),
         json!({"t": "path", "v": "/srv/data/my file.txt"}),
-        json!({"t": "instant", "v": "2026-11-22T10:00:00.25+01:00"}),
+        json!({"t": "instant", "v": "2026-11-22T10:00:00.25Z"}),
+        json!({"t": "instant", "v": "2026-11-22T10:00:00Z"}),
         json!({"t": "range", "lo": -1, "hi": 1}),
         json!({"t": "list", "items": [{"t": "spread", "x": {"t": "ref", "name": "r"}}]}),
         json!({"t": "sub", "p": {"t": "pipeline", "head": {"t": "ref", "name": "r"},
@@ -452,6 +456,19 @@ fn checks_bound_values() {
         (json!({"t": "size", "v": MAX_SAFE_INTEGER + 1}), "/v"),
         (json!({"t": "path", "v": "src/app"}), "/v"),
         (json!({"t": "instant", "v": "2026-11-22 10:00:00Z"}), "/v"),
+        (
+            json!({"t": "instant", "v": "2026-11-22T10:00:00.25+01:00"}),
+            "/v",
+        ),
+        (
+            json!({"t": "instant", "v": "2026-11-22T10:00:00.250Z"}),
+            "/v",
+        ),
+        (json!({"t": "instant", "v": "2026-11-22T10:00:60Z"}), "/v"),
+        (
+            json!({"t": "instant", "v": "2026-11-22T10:00:00.1234567891Z"}),
+            "/v",
+        ),
         (json!({"t": "regex", "v": "x", "flags": "xi"}), "/flags"),
         (json!({"t": "range", "hi": MAX_SAFE_INTEGER + 1}), "/hi"),
         (json!({"t": "spread", "x": {"t": "ref", "name": "r"}}), ""),
@@ -577,6 +594,60 @@ fn check_members_reports_unknown_members_and_admits_normalized_defaults() {
     assert_eq!(error.found.as_deref(), Some("/nurt"));
     let error = check_members(&json!({"meta": {"a/b~c": {"x": 1}}}), &typed).unwrap_err();
     assert_eq!(error.found.as_deref(), Some("/meta/a~1b~0c/x"));
+}
+
+#[test]
+fn rejects_metadata_integers_outside_the_safe_range() {
+    let mut value = surface_value(json!({"t": "null"}));
+    value["meta"] = json!({"count": MAX_SAFE_INTEGER, "ratio": 1e300, "low": -MAX_SAFE_INTEGER});
+    surface_accepts(value.clone());
+    for number in [
+        json!(MAX_SAFE_INTEGER + 1),
+        json!(-MAX_SAFE_INTEGER - 1),
+        json!(u64::MAX),
+    ] {
+        value["meta"] = json!({"nested": [{"count": number}]});
+        assert_eq!(surface_violation(value.clone()), "/meta");
+    }
+}
+
+#[test]
+fn rejects_metadata_integers_outside_the_safe_range_in_a_bound_tree() {
+    let mut value = bound_pipeline(bound_stage("find", "read", "source"), vec![]);
+    value["meta"] = json!({"count": MAX_SAFE_INTEGER + 1});
+    assert_eq!(bound_violation(value), "/meta");
+}
+
+#[test]
+fn rejects_empty_regular_expression_patterns() {
+    for flags in ["", "i"] {
+        let value = surface_value(json!({"t": "regex", "v": "", "flags": flags}));
+        assert_eq!(
+            surface_violation(value),
+            format!("{ARG_VALUE}/v"),
+            "{flags}"
+        );
+        let value = json!({"t": "regex", "v": "", "flags": flags});
+        assert_eq!(
+            bound_violation(bound_value(value)),
+            format!("{BOUND_VALUE}/v"),
+            "{flags}"
+        );
+    }
+    surface_accepts(surface_value(json!({"t": "regex", "v": " ", "flags": ""})));
+}
+
+#[test]
+fn rejects_empty_bound_globs_and_keys() {
+    for kind in ["glob", "key"] {
+        let value = json!({"t": kind, "v": ""});
+        assert_eq!(
+            bound_violation(bound_value(value)),
+            format!("{BOUND_VALUE}/v"),
+            "{kind}"
+        );
+        bound_accepts(bound_value(json!({"t": kind, "v": "a"})));
+    }
 }
 
 #[test]

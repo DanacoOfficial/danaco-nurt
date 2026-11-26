@@ -235,10 +235,10 @@ G = 1000000000
 
 [values.test]
 -e = "exists"
--f = "type == file"
--d = "type == directory"
--L = "type == link"
--h = "type == link"
+-f = 'type == "file"'
+-d = 'type == "directory"'
+-L = 'type == "link"'
+-h = 'type == "link"'
 -s = "size > 0"
 
 [values.host_variables]

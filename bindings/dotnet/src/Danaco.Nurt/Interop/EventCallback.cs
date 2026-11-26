@@ -5,7 +5,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace Danaco.Nurt;
 
@@ -34,8 +33,10 @@ internal static unsafe class EventCallback
 
     private static void Deliver(IntPtr user, byte* eventJson)
     {
-        // No exception may cross the native boundary. An event that cannot be decoded is
+        // No exception may cross the native boundary: an exception that leaves a function of
+        // UnmanagedCallersOnly ends the process. An event that cannot be decoded or queued is
         // dropped; the complete output stays available through the cursor of the response.
+#pragma warning disable CA1031 // Every exception is contained here, whatever its type.
         try
         {
             if (GCHandle.FromIntPtr(user).Target is EventQueue queue)
@@ -43,17 +44,10 @@ internal static unsafe class EventCallback
                 queue.Add(NurtExecutionEvent.Parse(Utf8.FromNative(eventJson)));
             }
         }
-        catch (NurtCallException)
+        catch (Exception)
         {
             return;
         }
-        catch (DecoderFallbackException)
-        {
-            return;
-        }
-        catch (InvalidOperationException)
-        {
-            return;
-        }
+#pragma warning restore CA1031
     }
 }

@@ -8,7 +8,11 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Mapping, Optional, cast
 
+from ._errors import NurtError, NurtLanguageError
 from .types import Error, Report
+
+UNKNOWN_VALUE_CODE = "E_UNKNOWN_VALUE"
+"""Language error code of an argument value that the engine does not know."""
 
 
 def _diagnostics(raw: Mapping[str, Any]) -> List[Dict[str, Any]]:
@@ -17,8 +21,34 @@ def _diagnostics(raw: Mapping[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _error(raw: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
+    """Language error of a result: the member ``error`` or the ``error`` of the report of a failure response."""
     error = raw.get("error")
+    if not isinstance(error, Mapping):
+        report = raw.get("report")
+        error = report.get("error") if isinstance(report, Mapping) else None
     return dict(error) if isinstance(error, Mapping) else None
+
+
+def failure_response(kind: str, error: Mapping[str, Any]) -> Dict[str, Any]:
+    """Response ``nurt-response/1`` of a language error of the method ``kind``, as ``nurt serve`` answers."""
+    report = {"nurt": "1.0", "status": "failed", "kind": kind, "error": dict(error)}
+    return {"nurt": "1.0", "report": report}
+
+
+def query_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the result of a query, or raise its language error.
+
+    The server reports a language error of every method as a response whose
+    report has the status ``failed``. A query has no response to return it
+    in, so the error is raised: as ``NURT_E_ARG`` when it names an unknown
+    argument value, as :class:`NurtLanguageError` otherwise.
+    """
+    report = result.get("report")
+    if isinstance(report, dict) and report.get("status") == "failed" and isinstance(report.get("error"), dict):
+        if report["error"].get("code") == UNKNOWN_VALUE_CODE:
+            raise NurtError("NURT_E_ARG", str(report["error"].get("message", "")))
+        raise NurtLanguageError(Response(result))
+    return result
 
 
 class Response:

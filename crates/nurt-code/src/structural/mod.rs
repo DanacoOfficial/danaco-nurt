@@ -216,6 +216,7 @@ pub fn replacement_edits(
     template: &str,
 ) -> Vec<Replacement> {
     let lines = LineIndex::new(source);
+    let crlf = dominant_line_ending_is_crlf(source);
     let mut sorted: Vec<&SyntaxMatch> = matches.iter().collect();
     sorted.sort_by_key(|found| {
         (
@@ -236,12 +237,34 @@ pub fn replacement_edits(
             match_start: found.span.bytes.start,
             match_line: found.span.start.line,
         };
+        let text = render(found, template, &indents);
         edits.push(Replacement {
             bytes: found.span.bytes,
-            text: render(found, template, &indents),
+            text: if crlf { to_crlf(&text) } else { text },
         });
     }
     edits
+}
+
+/// Returns `true` when the document has more `CRLF` than bare `LF` line
+/// endings.
+fn dominant_line_ending_is_crlf(source: &[u8]) -> bool {
+    let (mut crlf, mut lf) = (0_usize, 0_usize);
+    for (index, byte) in source.iter().enumerate() {
+        if *byte == b'\n' {
+            if index > 0 && source[index - 1] == b'\r' {
+                crlf += 1;
+            } else {
+                lf += 1;
+            }
+        }
+    }
+    crlf > lf
+}
+
+/// Text with every line ending written as `CRLF`.
+fn to_crlf(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\n', "\r\n")
 }
 
 fn render(found: &SyntaxMatch, template: &str, indents: &dyn Indents) -> String {
@@ -398,5 +421,87 @@ mod tests {
         assert_eq!(indents.of_later_line(7), Some("        ".to_owned()));
         assert_eq!(indents.of_later_line(4), None);
         assert_eq!(render_template(&found, "a\nb"), "a\n    b");
+    }
+
+    fn found_at(source: &str, start: usize, end: usize, line: u32) -> SyntaxMatch {
+        SyntaxMatch {
+            span: span(start as u64, end as u64, line, 1),
+            node_kind: "node".to_owned(),
+            text: source[start..end].to_owned(),
+            captures: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn matches_inside_or_overlapping_an_earlier_match_are_skipped() {
+        let source = "abcdefgh";
+        let found = [
+            found_at(source, 4, 7, 1),
+            found_at(source, 0, 5, 1),
+            found_at(source, 1, 2, 1),
+            found_at(source, 5, 8, 1),
+        ];
+        let edits = replacement_edits(source.as_bytes(), &found, "_");
+        let ranges: Vec<(u64, u64)> = edits
+            .iter()
+            .map(|edit| (edit.bytes.start, edit.bytes.end))
+            .collect();
+        assert_eq!(ranges, [(0, 5), (5, 8)]);
+        assert!(replacement_edits(source.as_bytes(), &[], "_").is_empty());
+    }
+
+    #[test]
+    fn captured_lines_keep_their_tab_indentation_relative_to_the_capture() {
+        let source = "\tcall(\n\t\tfirst,\n\t\tsecond)\n";
+        let start = 1;
+        let end = source.find(')').unwrap() + 1;
+        let arg_start = source.find("first").unwrap();
+        let arg_end = source.find("second").unwrap() + "second".len();
+        let mut found = found_at(source, start, end, 1);
+        found.captures.push(SyntaxCapture {
+            name: "ARGS".to_owned(),
+            spans: vec![span(arg_start as u64, arg_end as u64, 2, 3)],
+            text: source[arg_start..arg_end].to_owned(),
+        });
+        let edits = replacement_edits(source.as_bytes(), &[found], "wrapped(\n\t$ARGS\n)");
+        assert_eq!(edits.len(), 1);
+        assert_eq!(edits[0].bytes, ByteRange::new(1, end as u64));
+        assert_eq!(edits[0].text, "wrapped(\n\t\tfirst,\n\t\tsecond\n\t)");
+    }
+
+    #[test]
+    fn dominant_line_ending_decides_the_endings_of_the_replacement() {
+        assert!(dominant_line_ending_is_crlf(b"a\r\nb\r\nc\n"));
+        assert!(!dominant_line_ending_is_crlf(b"a\r\nb\nc\n"));
+        assert!(!dominant_line_ending_is_crlf(b"a\nb\n"));
+        assert!(!dominant_line_ending_is_crlf(b""));
+        assert!(!dominant_line_ending_is_crlf(b"\n\r\n"));
+        assert_eq!(to_crlf("a\nb\r\nc"), "a\r\nb\r\nc");
+        let source = "x\r\ny\r\nabcdefgh\r\n";
+        let start = source.find("abc").unwrap();
+        let found = found_at(source, start, start + 3, 3);
+        let edits = replacement_edits(source.as_bytes(), &[found], "p\nq");
+        assert_eq!(edits[0].text, "p\r\nq");
+        let lf = "x\ny\nabcdefgh\n";
+        let found = found_at(lf, start - 2, start + 1, 3);
+        let edits = replacement_edits(lf.as_bytes(), &[found], "p\nq");
+        assert_eq!(edits[0].text, "p\nq");
+    }
+
+    #[test]
+    fn captured_text_keeps_multibyte_characters_and_carriage_returns() {
+        let source = "  f(\"é\",\r\n    \"λ\")\r\n";
+        let start = 2;
+        let end = source.find(')').unwrap() + 1;
+        let arg_start = source.find('"').unwrap();
+        let arg_end = end - 1;
+        let mut found = found_at(source, start, end, 1);
+        found.captures.push(SyntaxCapture {
+            name: "ARGS".to_owned(),
+            spans: vec![span(arg_start as u64, arg_end as u64, 1, 5)],
+            text: source[arg_start..arg_end].to_owned(),
+        });
+        let edits = replacement_edits(source.as_bytes(), &[found], "g($ARGS)");
+        assert_eq!(edits[0].text, "g(\"é\",\r\n    \"λ\")");
     }
 }

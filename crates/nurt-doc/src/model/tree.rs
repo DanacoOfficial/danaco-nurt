@@ -253,6 +253,10 @@ pub struct DocNode {
     pub parent: Option<NodeId>,
     /// Children in document order.
     pub children: Vec<NodeId>,
+    /// Position of the node among the selectable members of its parent.
+    pub(crate) member_slot: usize,
+    /// Number of selectable members among the children added so far.
+    pub(crate) member_total: usize,
 }
 
 /// Builder of a [`DocTree`]; nodes are added parent first.
@@ -283,8 +287,17 @@ impl<'a> TreeBuilder<'a> {
     pub fn node(&mut self, parent: Option<NodeId>, spec: NodeSpec) -> NodeId {
         let id = NodeId(u32::try_from(self.nodes.len()).unwrap_or(u32::MAX));
         let value_span = spec.value_span.unwrap_or(spec.span);
+        let kind = spec.kind.unwrap_or(NodeKind::Scalar);
+        let member_slot = parent.map_or(0, |parent| {
+            let holder = &mut self.nodes[parent.index()];
+            let slot = holder.member_total;
+            if kind != NodeKind::Comment {
+                holder.member_total += 1;
+            }
+            slot
+        });
         self.nodes.push(DocNode {
-            kind: spec.kind.unwrap_or(NodeKind::Scalar),
+            kind,
             name: spec.name,
             span: spec.span,
             key_span: spec.key_span,
@@ -299,6 +312,8 @@ impl<'a> TreeBuilder<'a> {
             tag: spec.tag,
             parent,
             children: Vec::new(),
+            member_slot,
+            member_total: 0,
         });
         match parent {
             Some(parent) => self.nodes[parent.index()].children.push(id),
@@ -479,8 +494,7 @@ impl DocTree {
         let name = self[child].name.as_deref();
         match (parent_node.kind, name) {
             (NodeKind::List, _) | (_, None) => {
-                let position = self.members(parent).position(|member| member == child);
-                reversed.push(KeySegment::Index(to_index(position.unwrap_or_default())));
+                reversed.push(KeySegment::Index(to_index(self[child].member_slot)));
             }
             (_, Some(name)) => {
                 if semantics.repeated() == Repeated::Conflict {
@@ -532,6 +546,7 @@ impl DocTree {
         let Some(node) = self.get(target) else {
             return Value::Null;
         };
+        let chain = chain + usize::from(target != id);
         if chain > MAX_ALIAS_CHAIN {
             return Value::Null;
         }
@@ -541,7 +556,7 @@ impl DocTree {
             NodeKind::List => {
                 let items = if expand {
                     self.members(target)
-                        .map(|member| self.value_at(member, semantics, inner, chain + 1))
+                        .map(|member| self.value_at(member, semantics, inner, chain))
                         .collect()
                 } else {
                     Vec::new()
@@ -575,7 +590,7 @@ impl DocTree {
                 .name
                 .clone()
                 .unwrap_or_else(|| position.to_string());
-            let value = self.value_at(member, semantics, depth, chain + 1);
+            let value = self.value_at(member, semantics, depth, chain);
             match (semantics.repeated(), fields.get_mut(&name)) {
                 (Repeated::Conflict, Some(existing)) => {
                     if repeated.contains(&name) {
@@ -599,4 +614,129 @@ impl DocTree {
 
 fn to_index(position: usize) -> i64 {
     i64::try_from(position).unwrap_or(i64::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::MapSemantics;
+
+    fn spec(kind: NodeKind) -> NodeSpec {
+        NodeSpec::new(kind, Span::new(0, 0))
+    }
+
+    #[test]
+    fn value_of_keeps_documents_nested_deeper_than_the_alias_chain_limit() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        let mut parent = root;
+        for _ in 0..(MAX_ALIAS_CHAIN * 2) {
+            parent = builder.node(Some(parent), spec(NodeKind::Map).with_name("k"));
+        }
+        builder.node(
+            Some(parent),
+            spec(NodeKind::Scalar)
+                .with_name("leaf")
+                .with_value(Value::Int(1)),
+        );
+        let tree = builder.finish();
+        let value = tree.value_of(root, &MapSemantics::LAST_WINS, None);
+        let mut current = &value;
+        for _ in 0..(MAX_ALIAS_CHAIN * 2) {
+            current = current.get("k").unwrap();
+        }
+        assert_eq!(current.get("leaf"), Some(&Value::Int(1)));
+    }
+
+    #[test]
+    fn value_of_follows_aliases_and_stops_at_a_cycle() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        let target = builder.node(
+            Some(root),
+            spec(NodeKind::Scalar)
+                .with_name("a")
+                .with_value(Value::Int(7)),
+        );
+        let alias = builder.node(Some(root), spec(NodeKind::Scalar).with_name("b"));
+        builder.set_alias(alias, target);
+        let first = builder.node(Some(root), spec(NodeKind::Scalar).with_name("c"));
+        let second = builder.node(Some(root), spec(NodeKind::Scalar).with_name("d"));
+        builder.set_alias(first, second);
+        builder.set_alias(second, first);
+        let tree = builder.finish();
+        let value = tree.value_of(root, &MapSemantics::LAST_WINS, None);
+        assert_eq!(value.get("b"), Some(&Value::Int(7)));
+        assert!(value.get("c").is_some());
+    }
+
+    #[test]
+    fn repeated_names_form_a_list_only_under_conflict_semantics() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        for number in [1, 2] {
+            builder.node(
+                Some(root),
+                spec(NodeKind::Scalar)
+                    .with_name("dep")
+                    .with_value(Value::Int(number)),
+            );
+        }
+        let tree = builder.finish();
+        let last = tree.value_of(root, &MapSemantics::LAST_WINS, None);
+        assert_eq!(last.get("dep"), Some(&Value::Int(2)));
+        let group = tree.value_of(root, &MapSemantics::CONFLICT, None);
+        assert_eq!(
+            group.get("dep"),
+            Some(&Value::List(vec![Value::Int(1), Value::Int(2)]))
+        );
+    }
+
+    #[test]
+    fn depth_limit_returns_empty_containers_below_it() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        let inner = builder.node(Some(root), spec(NodeKind::List).with_name("l"));
+        builder.node(
+            Some(inner),
+            spec(NodeKind::Scalar).with_value(Value::Int(1)),
+        );
+        let tree = builder.finish();
+        let value = tree.value_of(root, &MapSemantics::LAST_WINS, Some(1));
+        assert_eq!(value.get("l"), Some(&Value::List(Vec::new())));
+    }
+
+    #[test]
+    fn list_positions_skip_comments_and_do_not_depend_on_the_length() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::List));
+        builder.node(Some(root), spec(NodeKind::Comment));
+        let mut last = root;
+        for _ in 0..3000 {
+            last = builder.node(Some(root), spec(NodeKind::Scalar));
+        }
+        let tree = builder.finish();
+        let semantics = MapSemantics::LAST_WINS;
+        assert_eq!(tree.path_of(last, &semantics).to_string(), "[2999]");
+        let first = tree.members(root).next().unwrap();
+        assert_eq!(tree.path_of(first, &semantics).to_string(), "[0]");
+    }
+
+    #[test]
+    fn path_of_names_members_and_indexes_repeated_names() {
+        let mut builder = TreeBuilder::new(b"");
+        let root = builder.node(None, spec(NodeKind::Map));
+        let first = builder.node(Some(root), spec(NodeKind::Scalar).with_name("dep"));
+        let second = builder.node(Some(root), spec(NodeKind::Scalar).with_name("dep"));
+        let tree = builder.finish();
+        assert_eq!(
+            tree.path_of(second, &MapSemantics::CONFLICT).to_string(),
+            "dep[1]"
+        );
+        assert_eq!(
+            tree.path_of(first, &MapSemantics::LAST_WINS).to_string(),
+            "dep"
+        );
+        assert_eq!(tree.document_of(second), Some(0));
+    }
 }

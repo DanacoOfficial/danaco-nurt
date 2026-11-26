@@ -21,13 +21,49 @@ type Event struct {
 	Type string `json:"t"`
 	// Seq orders the events of one execution.
 	Seq uint64 `json:"seq"`
-	// Time is the time of the event in RFC 3339 format.
+	// Time is the time of the event: RFC 3339 text from nurt serve, or the
+	// decimal nanoseconds since the Unix epoch that libnurt reports.
 	Time string `json:"time,omitempty"`
-	// JobID identifies the background job the event belongs to, if any.
+	// JobID identifies the background job the event belongs to, if any; it
+	// is the member id of the job events.
 	JobID string `json:"job_id,omitempty"`
 
 	// Raw is the complete event as JSON.
 	Raw json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes an event whose time is text or a number and whose
+// job identifier is the member id or job_id.
+func (ev *Event) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		Type  string          `json:"t"`
+		Seq   uint64          `json:"seq"`
+		Time  json.RawMessage `json:"time"`
+		ID    json.RawMessage `json:"id"`
+		JobID json.RawMessage `json:"job_id"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	*ev = Event{Type: wire.Type, Seq: wire.Seq, Time: scalarText(wire.Time), JobID: scalarText(wire.JobID)}
+	if ev.JobID == "" {
+		ev.JobID = scalarText(wire.ID)
+	}
+	return nil
+}
+
+// A JSON string gives its text, a number its digits and any other value
+// the empty text.
+func scalarText(raw json.RawMessage) string {
+	var text string
+	if json.Unmarshal(raw, &text) == nil {
+		return text
+	}
+	var number json.Number
+	if json.Unmarshal(raw, &number) == nil {
+		return number.String()
+	}
+	return ""
 }
 
 func decodeEvent(raw []byte) (Event, bool) {

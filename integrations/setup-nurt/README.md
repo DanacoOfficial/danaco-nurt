@@ -22,7 +22,7 @@ The action runs on Linux, macOS and Windows runners (`x64` and `arm64`).
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `version` | text | `latest` | `latest`, an exact SemVer version, or a version range. |
-| `verify` | `true` or `false` | `true` | Verify the SHA-256 digest of the archive against the `SHA256SUMS` file of the release. |
+| `verify` | `true` or `false` | `true` | Verify the SHA-256 digest of the archive against the `checksums.txt` file of the release. |
 
 ## Outputs
 
@@ -55,7 +55,7 @@ For release `X.Y.Z` the action downloads, from `https://github.com/DanacoOfficia
 |---|---|
 | `nurt-X.Y.Z-<target>.tar.gz` | Linux and macOS archive with `nurt` at its root. |
 | `nurt-X.Y.Z-<target>.zip` | Windows archive with `nurt.exe` at its root. |
-| `SHA256SUMS` | Lines of `<digest>  <file name>` for every archive. |
+| `checksums.txt` | Lines of `<digest>  <file name>` for every archive. |
 
 Targets:
 

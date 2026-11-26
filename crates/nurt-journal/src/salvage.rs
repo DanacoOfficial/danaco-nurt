@@ -989,6 +989,191 @@ mod tests {
         assert!(list(&*fs, &abs(JOURNAL)).unwrap().is_empty());
     }
 
+    #[test]
+    fn listing_a_missing_journal_yields_nothing() {
+        let fs = mem();
+        assert!(list(&*fs, &abs(JOURNAL)).unwrap().is_empty());
+    }
+
+    #[test]
+    fn an_entry_with_a_garbage_state_and_no_manifest_is_listed_with_both_damages() {
+        let fs = mem();
+        fs.seed_file(&entry(6).state().unwrap(), b"\xff\xfe")
+            .unwrap();
+        let listed = list(&*fs, &abs(JOURNAL)).unwrap();
+        assert_eq!(listed.len(), 1);
+        let found = &listed[0];
+        assert_eq!(found.op, OpId(6));
+        assert_eq!(found.state, None);
+        assert!(found.damage.contains(&Damage::StateUnreadable));
+        assert!(found.damage.contains(&Damage::Manifest {
+            problem: "missing".to_owned()
+        }));
+        assert_eq!(found.time, None);
+        assert_eq!(found.command, None);
+        assert!(found.targets.is_empty() && found.blobs.is_empty());
+    }
+
+    #[test]
+    fn manifests_that_cannot_be_verified_are_listed_with_the_reason() {
+        let fs = mem();
+        let cases: [(u64, &[u8], &str); 5] = [
+            (8, b"\x00garbage", "not_json"),
+            (9, b"[1]", "not_object"),
+            (10, b"{}", "missing_digest"),
+            (11, br#"{"integrity":{"algo":"md5"}}"#, "unknown_algorithm"),
+            (
+                12,
+                br#"{"integrity":{"algo":"sha256","manifest_sha256":"zz"}}"#,
+                "malformed_digest",
+            ),
+        ];
+        for (op, bytes, _) in cases {
+            let layout = entry(op);
+            fs.seed_file(
+                &layout.state().unwrap(),
+                &StateRecord::new(EntryState::Committed).encode(),
+            )
+            .unwrap();
+            fs.seed_file(&layout.manifest().unwrap(), bytes).unwrap();
+        }
+        let listed = list(&*fs, &abs(JOURNAL)).unwrap();
+        assert_eq!(listed.len(), cases.len());
+        for ((op, _, problem), found) in cases.iter().zip(&listed) {
+            assert_eq!(found.op, OpId(*op));
+            assert_eq!(found.state, Some(EntryState::Committed));
+            assert_eq!(
+                found.damage,
+                [Damage::Manifest {
+                    problem: (*problem).to_owned()
+                }]
+            );
+        }
+    }
+
+    #[test]
+    fn components_of_recorded_paths_never_leave_the_extraction_directory() {
+        assert_eq!(relative_components("/a/../b/./c"), ["a", "b", "c"]);
+        assert_eq!(relative_components("//a///b"), ["a", "b"]);
+        assert_eq!(
+            relative_components("/home/użytkownik/zażółć.txt"),
+            ["home", "użytkownik", "zażółć.txt"]
+        );
+        assert_eq!(relative_components("D:/x"), ["D", "x"]);
+        for text in ["", "/", "/..", "/../..", "/./."] {
+            assert!(relative_components(text).is_empty(), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn data_without_a_usable_recorded_path_is_placed_under_the_raw_directory() {
+        let target = |blob: &str, path: Option<&str>| SalvageTarget {
+            blob: Some(blob.to_owned()),
+            path: path.map(str::to_owned),
+            ..SalvageTarget::default()
+        };
+        let targets = vec![
+            target("blobs/a.blob", Some("/home/user/a.txt")),
+            target("blobs/b.blob", Some("/../..")),
+            target("blobs/c.blob", None),
+        ];
+        assert_eq!(
+            place_of(&targets, "blobs/a.blob", "a.blob"),
+            ["home", "user", "a.txt"]
+        );
+        for (source, name) in [
+            ("blobs/b.blob", "b.blob"),
+            ("blobs/c.blob", "c.blob"),
+            ("blobs/unknown.blob", "unknown.blob"),
+        ] {
+            assert_eq!(place_of(&targets, source, name), [RAW_DIR, name]);
+        }
+    }
+
+    #[test]
+    fn targets_are_read_member_by_member_from_a_damaged_manifest() {
+        let manifest = serde_json::json!({ "targets": [
+            {
+                "index": 0,
+                "path": { "kind": "fs", "at": "/a" },
+                "action": { "action": "rename", "to": "/b" },
+                "before": { "store": "moved", "blob": "blobs/x.blob" },
+                "replaced": { "store": "copy", "blob": "blobs/y.blob" }
+            },
+            {
+                "index": 4_294_967_296_u64,
+                "path": { "kind": "provider", "at": { "scheme": "registry", "segments": ["a"] } }
+            },
+            { "index": "1", "path": "/plain" },
+            {}
+        ] });
+        let found = targets_of(&manifest);
+        assert_eq!(found.len(), 5);
+        assert_eq!(
+            found[0],
+            SalvageTarget {
+                index: Some(0),
+                path: Some("/a".to_owned()),
+                store: Some("moved".to_owned()),
+                blob: Some("blobs/x.blob".to_owned()),
+            }
+        );
+        assert_eq!(
+            found[1],
+            SalvageTarget {
+                index: Some(0),
+                path: Some("/b".to_owned()),
+                store: Some("copy".to_owned()),
+                blob: Some("blobs/y.blob".to_owned()),
+            }
+        );
+        assert_eq!(found[2].index, None);
+        assert!(found[2].path.as_deref().unwrap().contains("registry"));
+        assert_eq!(found[3], SalvageTarget::default());
+        assert_eq!(found[4], SalvageTarget::default());
+        assert!(targets_of(&serde_json::json!({ "targets": 5 })).is_empty());
+        assert!(targets_of(&serde_json::json!(null)).is_empty());
+    }
+
+    #[test]
+    fn extraction_keeps_recorded_traversal_inside_the_directory_and_numbers_duplicates() {
+        let fs = mem();
+        let damaged = entry(20);
+        let file =
+            |index: u32| BlobId::new(TargetIndex(index), layout::BlobRole::Previous).content_name();
+        let manifest = serde_json::json!({
+            "v": 1,
+            "op": 20,
+            "kind": { "command": "remove" },
+            "targets": [
+                { "index": 0, "path": { "kind": "fs", "at": "/a/../../same.txt" },
+                  "before": { "store": "moved", "blob": file(0) } },
+                { "index": 1, "path": { "kind": "fs", "at": "/a/../../same.txt" },
+                  "before": { "store": "moved", "blob": file(1) } }
+            ],
+            "integrity": { "algo": "sha256", "chain": null }
+        });
+        fs.seed_file(
+            &damaged.manifest().unwrap(),
+            manifest.to_string().as_bytes(),
+        )
+        .unwrap();
+        fs.seed_file(&blob(20, 0), "pierwszy".as_bytes()).unwrap();
+        fs.seed_file(&blob(20, 1), b"second").unwrap();
+        let mut tx = DirectTx::new(&fs);
+        let extraction = extract(&mut tx, &*fs, &abs(JOURNAL), OpId(20), &abs("/v/out")).unwrap();
+        let read = |path: &str| manifest::read_bytes(&*fs, &abs(path)).unwrap();
+        assert_eq!(read("/v/out/a/same.txt"), "pierwszy".as_bytes());
+        assert_eq!(read("/v/out/a/same.txt.1"), b"second");
+        assert!(fs.metadata(&abs("/v/same.txt"), Follow::NoFollow).is_err());
+        let paths: Vec<&str> = extraction
+            .items
+            .iter()
+            .map(|item| item.path.as_str())
+            .collect();
+        assert_eq!(paths, ["a/same.txt", "a/same.txt.1"]);
+    }
+
     const STATE_DIR: &str = "/v/state";
 
     /// Seeds the committed manifest of entry `op` linked to `chain` and its

@@ -210,3 +210,132 @@ pub fn run(args: &[String]) -> Result<u8, CliError> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn words(text: &str) -> Vec<String> {
+        text.split_whitespace().map(str::to_owned).collect()
+    }
+
+    #[test]
+    fn forms_without_options_take_no_arguments() {
+        assert_eq!(parse(&words("run")), Ok(Form::Run));
+        assert_eq!(parse(&words("status")), Ok(Form::Status));
+        for bad in ["run now", "status --mode user", "run --mode system"] {
+            assert!(
+                matches!(parse(&words(bad)), Err(CliError::Usage(_))),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn install_and_uninstall_take_an_optional_mode() {
+        assert_eq!(parse(&words("install")), Ok(Form::Install(None)));
+        assert_eq!(
+            parse(&words("install --mode user")),
+            Ok(Form::Install(Some(ServiceMode::User)))
+        );
+        assert_eq!(
+            parse(&words("uninstall --mode system")),
+            Ok(Form::Uninstall(Some(ServiceMode::System)))
+        );
+        assert_eq!(parse(&words("uninstall")), Ok(Form::Uninstall(None)));
+    }
+
+    #[test]
+    fn invalid_modes_and_forms_are_usage_errors() {
+        for bad in [
+            "",
+            "start",
+            "Install",
+            "install --mode",
+            "install --mode root",
+            "install --mode user --mode system",
+            "install user",
+            "uninstall --force",
+        ] {
+            assert!(
+                matches!(parse(&words(bad)), Err(CliError::Usage(_))),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_result_is_printed_as_key_value_pairs() {
+        assert_eq!(render(&json!({"mode": "user"})).unwrap(), "mode: user");
+        assert_eq!(render(&json!({"started": true})).unwrap(), "started: true");
+        assert_eq!(render(&json!({"pid": 42})).unwrap(), "pid: 42");
+    }
+
+    #[test]
+    fn empty_members_are_left_out_of_the_result() {
+        let report = json!({"linger": false, "notes": [], "reason": null, "modules": {}});
+        assert_eq!(render(&report).unwrap(), "linger: false");
+        assert_eq!(render(&json!({})).unwrap(), "");
+    }
+
+    #[test]
+    fn lists_and_maps_are_written_in_brackets_and_braces() {
+        assert_eq!(
+            render(&json!({"files": ["a", "b"]})).unwrap(),
+            "files: [a, b]"
+        );
+        assert_eq!(
+            render(&json!({"modules": {"schedule": "running"}})).unwrap(),
+            "modules: {schedule: running}"
+        );
+        assert_eq!(
+            render(&json!({"nested": [{"a": 1}, [true, null]]})).unwrap(),
+            "nested: [{a: 1}, [true, null]]"
+        );
+    }
+
+    #[test]
+    fn several_members_are_separated_by_two_spaces() {
+        let text = render(&json!({"mode": "user", "started": true})).unwrap();
+        assert!(
+            text == "mode: user  started: true" || text == "started: true  mode: user",
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn text_values_with_multi_byte_characters_are_not_quoted() {
+        assert_eq!(
+            render(&json!({"file": "\u{142}\u{f3}d\u{17a} \u{1f600}"})).unwrap(),
+            "file: \u{142}\u{f3}d\u{17a} \u{1f600}"
+        );
+    }
+
+    #[test]
+    fn a_result_that_is_not_an_object_is_a_failure() {
+        for value in [json!(3), json!([1]), json!("x"), json!(null)] {
+            assert_eq!(
+                render(&value),
+                Err(CliError::Failure("the result is not an object".to_owned()))
+            );
+        }
+    }
+
+    #[test]
+    fn emptiness_covers_null_and_empty_containers_only() {
+        for empty in [json!(null), json!([]), json!({})] {
+            assert!(is_empty(&empty));
+        }
+        for filled in [
+            json!(false),
+            json!(0),
+            json!(""),
+            json!([null]),
+            json!({"a": 1}),
+        ] {
+            assert!(!is_empty(&filled), "{filled}");
+        }
+    }
+}

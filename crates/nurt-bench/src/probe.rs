@@ -39,14 +39,28 @@ pub fn collect(
 ) -> Result<Value> {
     match probe.kind.as_str() {
         "command" => command(probe, root, env),
-        "process" => Ok(
-            json!({"count": count_processes(probe.pattern.as_deref().unwrap_or_default(), root, host)?}),
-        ),
+        "process" => match probe.pattern.as_deref() {
+            Some(pattern) if !pattern.is_empty() => {
+                Ok(json!({"count": count_processes(pattern, root, env, host)?}))
+            }
+            _ => Ok(json!({"error": "the probe has no pattern"})),
+        },
         "registry" if host == HostOs::Windows => registry(probe, root),
         "scheduled_task" if host == HostOs::Windows => scheduled_task(probe, root),
         "registry" | "scheduled_task" => Ok(json!({"error": "the probe applies to Windows only"})),
         other => Ok(json!({"error": format!("unknown probe kind {other}")})),
     }
+}
+
+/// Result of a command probe; a probe that was stopped at its time limit has
+/// no result, only an error, because its output is incomplete.
+fn command_result(output: process::ProcessOutput) -> Value {
+    if output.timed_out {
+        return json!({
+            "error": format!("the probe did not finish within {} seconds", PROBE_TIMEOUT.as_secs())
+        });
+    }
+    json!({"exit": output.code, "stdout": normalize_stdout(&output.stdout)})
 }
 
 fn command(probe: &Probe, root: &Path, env: &[(String, String)]) -> Result<Value> {
@@ -56,14 +70,28 @@ fn command(probe: &Probe, root: &Path, env: &[(String, String)]) -> Result<Value
     let mut spec = ProcessSpec::new(program, args.to_vec(), root.to_path_buf(), PROBE_TIMEOUT);
     spec.env = env.to_vec();
     match process::run(&spec) {
-        Ok(output) => Ok(json!({"exit": output.code, "stdout": normalize_stdout(&output.stdout)})),
+        Ok(output) => Ok(command_result(output)),
         Err(error) => Ok(json!({"error": error.to_string()})),
     }
 }
 
-fn count_processes(pattern: &str, root: &Path, host: HostOs) -> Result<usize> {
+/// Number of processes whose command line contains `pattern`. On Linux only
+/// the processes of the run are counted: those that work in the task root or
+/// carry the home directory of the run in their environment, so that the
+/// processes of other runs and of the host are not counted. The other
+/// systems give no such view and count every process.
+fn count_processes(
+    pattern: &str,
+    root: &Path,
+    env: &[(String, String)],
+    host: HostOs,
+) -> Result<usize> {
+    let home = env
+        .iter()
+        .find(|(name, _)| name == "HOME")
+        .map(|(_, value)| value.as_str());
     let lines = match host {
-        HostOs::Linux => proc_command_lines(),
+        HostOs::Linux => proc_command_lines(root, home),
         HostOs::Macos => {
             let spec = ProcessSpec::new(
                 "ps",
@@ -91,7 +119,21 @@ fn count_processes(pattern: &str, root: &Path, host: HostOs) -> Result<usize> {
         .count())
 }
 
-fn proc_command_lines() -> Vec<String> {
+/// Whether the process whose `/proc` directory is `directory` works in
+/// `root` or has `HOME=<home>` in its environment.
+fn belongs_to_run(directory: &Path, root: &Path, home: Option<&str>) -> bool {
+    if std::fs::read_link(directory.join("cwd")).is_ok_and(|cwd| cwd.starts_with(root)) {
+        return true;
+    }
+    let Some(home) = home else { return false };
+    let wanted = format!("HOME={home}");
+    std::fs::read(directory.join("environ")).is_ok_and(|raw| {
+        raw.split(|byte| *byte == 0)
+            .any(|var| var == wanted.as_bytes())
+    })
+}
+
+fn proc_command_lines(root: &Path, home: Option<&str>) -> Vec<String> {
     let own = std::process::id().to_string();
     let Ok(listing) = std::fs::read_dir("/proc") else {
         return Vec::new();
@@ -103,6 +145,7 @@ fn proc_command_lines() -> Vec<String> {
             let name = name.to_string_lossy();
             name.bytes().all(|byte| byte.is_ascii_digit()) && name != own.as_str()
         })
+        .filter(|item| belongs_to_run(&item.path(), root, home))
         .filter_map(|item| std::fs::read(item.path().join("cmdline")).ok())
         .filter(|raw| !raw.is_empty())
         .map(|raw| {
@@ -209,16 +252,58 @@ mod tests {
     #[test]
     fn counts_processes_by_command_line() {
         let root = tempfile::tempdir().unwrap();
-        let mut sleeper = std::process::Command::new("sleep")
-            .arg("7.25")
-            .spawn()
-            .unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        let home_text = home.path().display().to_string();
+        let sleep = |directory: &Path, home: Option<&str>| {
+            let mut command = std::process::Command::new("sleep");
+            command.arg("7.25").current_dir(directory);
+            if let Some(home) = home {
+                command.env("HOME", home);
+            }
+            command.spawn().unwrap()
+        };
+        let mut own = sleep(root.path(), None);
+        let mut foreign = sleep(elsewhere.path(), None);
+        let mut by_home = sleep(elsewhere.path(), Some(&home_text));
         let mut by_line = probe("process");
         by_line.pattern = Some("sleep 7.25".into());
-        let result = collect(&by_line, root.path(), &[], HostOs::Linux).unwrap();
-        sleeper.kill().unwrap();
-        sleeper.wait().unwrap();
-        assert_eq!(result["count"], 1);
+        let env = [("HOME".to_owned(), home_text.clone())];
+        let counted = collect(&by_line, root.path(), &env, HostOs::Linux).unwrap();
+        let without_home = collect(&by_line, root.path(), &[], HostOs::Linux).unwrap();
+        for child in [&mut own, &mut foreign, &mut by_home] {
+            child.kill().unwrap();
+            child.wait().unwrap();
+        }
+        // The process in the root and the one with the home of the run; the
+        // process of another directory and another home is not counted.
+        assert_eq!(counted["count"], 2);
+        assert_eq!(without_home["count"], 1);
+    }
+
+    #[test]
+    fn a_process_probe_without_a_pattern_is_an_error() {
+        let root = tempfile::tempdir().unwrap();
+        for pattern in [None, Some(String::new())] {
+            let mut by_line = probe("process");
+            by_line.pattern = pattern;
+            let result = collect(&by_line, root.path(), &[], HostOs::Linux).unwrap();
+            assert!(result.get("error").is_some());
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_command_probe_that_times_out_is_an_error() {
+        let result = command_result(process::ProcessOutput {
+            code: None,
+            stdout: b"partial".to_vec(),
+            stderr: Vec::new(),
+            timed_out: true,
+            duration: Duration::from_secs(30),
+        });
+        assert!(result["error"].as_str().unwrap().contains("did not finish"));
+        assert!(result.get("stdout").is_none());
     }
 
     #[test]

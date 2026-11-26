@@ -111,10 +111,15 @@ impl CtxStore<'_> {
         })
     }
 
-    fn pins(&self, layout: &JournalLayout) -> Result<PinSet> {
+    /// Pins of a journal directory and whether its pin file is damaged. The
+    /// pins of a damaged file are unknown, so the caller keeps every entry.
+    fn pins(&self, layout: &JournalLayout) -> Result<(PinSet, bool)> {
         match manifest::read_bytes(self.fs(), &layout.pins()?) {
-            Ok(content) => Ok(PinSet::parse(&content).unwrap_or_default()),
-            Err(error) if error.kind == FsErrorKind::NotFound => Ok(PinSet::default()),
+            Ok(content) => Ok(match PinSet::parse(&content) {
+                Ok(pins) => (pins, false),
+                Err(_) => (PinSet::default(), true),
+            }),
+            Err(error) if error.kind == FsErrorKind::NotFound => Ok((PinSet::default(), false)),
             Err(error) => Err(error.into()),
         }
     }
@@ -391,7 +396,7 @@ impl RetentionStore for CtxStore<'_> {
         let layout = self.journal(volume)?;
         let now = self.0.clock.stamp();
         let age = self.age_state()?;
-        let pins = self.pins(&layout)?;
+        let (pins, pins_damaged) = self.pins(&layout)?;
         let fs = self.fs();
         let commits = Commits::new(self.0);
         let mut entries = Vec::new();
@@ -417,7 +422,7 @@ impl RetentionStore for CtxStore<'_> {
                 op,
                 state,
                 reason: None,
-                pinned: pins.is_pinned(op, now.wall),
+                pinned: pins_damaged || pins.is_pinned(op, now.wall),
                 rolled_back,
             };
             entries.push(facts_of(
@@ -1028,6 +1033,18 @@ mod tests {
     }
 
     #[test]
+    fn sweep_keeps_every_entry_while_the_pin_file_is_damaged() {
+        let env = Env::new(json!({}));
+        env.commit_all(HOME, 1..=31);
+        env.fs
+            .seed_file(&journal_of(HOME).pins().unwrap(), b"not a pin file")
+            .unwrap();
+        let ctx = env.ctx();
+        assert!(sweep(&ctx).unwrap().expired.is_empty());
+        assert_eq!(env.live(HOME).len(), 31);
+    }
+
+    #[test]
     fn sweep_fails_without_change_while_the_entry_lock_is_held() {
         let env = Env::new(json!({}));
         env.commit_all(HOME, 1..=31);
@@ -1357,6 +1374,203 @@ mod tests {
             expired(5, ExpiryReason::Time)
         );
         assert!(!env.exists(reaped.dir()));
+    }
+
+    #[test]
+    fn pin_default_duration_follows_the_configured_pin_max_age() {
+        use crate::pin::{DEFAULT_PIN_MAX_AGE, PinBackend};
+
+        assert_eq!(Env::new(json!({})).ctx().pin_max_age(), DEFAULT_PIN_MAX_AGE);
+        let week = Env::new(json!({ "pin_max_age": "7d" })).ctx();
+        assert_eq!(week.pin_max_age(), Duration::from_secs(7 * DAY));
+        let short = Env::new(json!({ "pin_max_age": "90s" })).ctx();
+        assert_eq!(short.pin_max_age(), Duration::from_secs(90));
+    }
+
+    #[test]
+    fn undone_entry_without_an_index_row_was_rolled_back_before_its_commit() {
+        let env = Env::new(json!({}));
+        env.commit(2, &[(HOME, MIB)]);
+        let ctx = env.ctx();
+        let commits = Commits::new(&ctx);
+        let rolled_back = StateRecord::undone(UndoneCause::RolledBack);
+        assert!(commits.rolled_back(OpId(1), &rolled_back));
+        assert!(commits.rolled_back(OpId(1), &StateRecord::undone(UndoneCause::Crash)));
+        assert!(!commits.rolled_back(OpId(2), &rolled_back));
+        assert!(!commits.rolled_back(OpId(1), &StateRecord::undone(UndoneCause::Undo)));
+        assert!(!commits.rolled_back(OpId(1), &StateRecord::new(EntryState::Committed)));
+    }
+
+    #[test]
+    fn no_entry_is_hidden_when_the_operation_index_cannot_be_read() {
+        let env = Env::new(json!({}));
+        let state = StateLayout::new(state_dir());
+        env.replace(state.root(), &state.index().unwrap(), b"not json\n");
+        let ctx = env.ctx();
+        let commits = Commits::new(&ctx);
+        assert!(!commits.rolled_back(OpId(1), &StateRecord::undone(UndoneCause::RolledBack)));
+    }
+
+    #[test]
+    fn index_rows_are_classified_as_steps_by_kind_and_flag() {
+        let env = Env::new(json!({}));
+        let rows = [
+            (1, OpKind::command("write"), true),
+            (2, OpKind::undo(), true),
+            (3, OpKind::command("redo"), true),
+            (4, OpKind::command("write"), false),
+            (5, OpKind::undo(), false),
+        ];
+        let mut bytes = Vec::new();
+        for (op, kind, counts_as_step) in rows {
+            let row = IndexRow {
+                op: OpId(op),
+                time: env.clock.now(),
+                kind,
+                session: None,
+                bulk: false,
+                counts_as_step,
+                parts: Vec::new(),
+            };
+            bytes.extend(row.encode().unwrap());
+        }
+        let state = StateLayout::new(state_dir());
+        env.replace(state.root(), &state.index().unwrap(), &bytes);
+        let ctx = env.ctx();
+        let steps = CtxStore(&ctx).steps().unwrap();
+        let kinds: Vec<StepKind> = steps.iter().map(|mark| mark.kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                StepKind::Operation,
+                StepKind::Undo,
+                StepKind::Undo,
+                StepKind::NotCounted,
+                StepKind::NotCounted
+            ]
+        );
+        let ops: Vec<u64> = steps.iter().map(|mark| mark.op.0).collect();
+        assert_eq!(ops, [1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn catalog_lists_entries_with_pins_and_overdue_limits() {
+        let env = Env::new(json!({}));
+        env.commit_all(HOME, 1..=32);
+        env.pin(
+            HOME,
+            1,
+            env.clock.now().saturating_add(Duration::from_secs(DAY)),
+        );
+        let ctx = env.ctx();
+        let summaries = crate::catalog::entries(&ctx, &env.volume(HOME).id).unwrap();
+        assert_eq!(summaries.len(), 32);
+        let first = &summaries[0];
+        assert_eq!(first.op, OpId(1));
+        assert_eq!(first.state, EntryState::Committed);
+        assert_eq!((first.files, first.directories, first.bytes), (2, 1, 0));
+        assert!(first.pinned);
+        assert_eq!(first.overdue, None);
+        assert!(!summaries[1].pinned);
+        assert_eq!(summaries[1].overdue, Some(ExpiryReason::Ops));
+        assert_eq!(summaries[2].overdue, None);
+    }
+
+    #[test]
+    fn catalog_refuses_a_volume_without_an_active_journal() {
+        let env = Env::new(json!({}));
+        let ctx = env.ctx();
+        let id = env.volume("/").id;
+        let error = crate::catalog::entries(&ctx, &id).err().unwrap();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+        let error = crate::catalog::finish_release(&ctx, &id, OpId(1)).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+    }
+
+    #[test]
+    fn catalog_reports_unknown_entries_as_nothing_to_do() {
+        let env = Env::new(json!({}));
+        env.commit_all(HOME, 1..=1);
+        let ctx = env.ctx();
+        let id = env.volume(HOME).id;
+        let unknown = OpId(9);
+        let held = crate::catalog::held_items(&ctx, &id, unknown)
+            .err()
+            .unwrap();
+        assert_eq!(held.code(), ErrorCode::JournalNoop);
+        let marked = crate::catalog::mark_released(&ctx, &id, unknown, &[0]).unwrap_err();
+        assert_eq!(marked.code(), ErrorCode::JournalNoop);
+        let begun =
+            crate::catalog::begin_reclaim(&ctx, &id, unknown, ExpiryReason::Space).unwrap_err();
+        assert_eq!(begun.code(), ErrorCode::JournalNoop);
+        assert!(
+            crate::catalog::held_items(&ctx, &id, OpId(1))
+                .unwrap()
+                .is_empty()
+        );
+        assert!(!env.exists(&journal_of(HOME).pending(unknown).unwrap()));
+    }
+
+    #[test]
+    fn catalog_marks_items_released_and_makes_the_entry_partial() {
+        let env = Env::new(json!({}));
+        env.commit_all(HOME, 1..=1);
+        let ctx = env.ctx();
+        let id = env.volume(HOME).id;
+        let journal = journal_of(HOME);
+        let entry = journal.entry(OpId(1)).unwrap();
+        crate::catalog::mark_released(&ctx, &id, OpId(1), &[0, 2]).unwrap();
+        assert!(env.exists(&journal.pending(OpId(1)).unwrap()));
+        let items = manifest::read_items(env.fs.as_ref(), &entry.items().unwrap()).unwrap();
+        let released: Vec<u32> = items.items.iter().map(|item| item.index.0).collect();
+        assert_eq!(released, [0, 2]);
+        assert!(items.items.iter().all(|item| item.released));
+        let state = manifest::read_state(env.fs.as_ref(), &entry.state().unwrap()).unwrap();
+        assert_eq!(state, StateRecord::new(EntryState::Partial));
+
+        crate::catalog::mark_released(&ctx, &id, OpId(1), &[2]).unwrap();
+        let items = manifest::read_items(env.fs.as_ref(), &entry.items().unwrap()).unwrap();
+        assert_eq!(items.items.len(), 2);
+
+        crate::catalog::finish_release(&ctx, &id, OpId(1)).unwrap();
+        assert!(!env.exists(&journal.pending(OpId(1)).unwrap()));
+        crate::catalog::finish_release(&ctx, &id, OpId(1)).unwrap();
+    }
+
+    #[test]
+    fn catalog_reclaims_an_entry_in_two_steps_and_keeps_its_tombstone() {
+        let env = Env::new(json!({}));
+        env.commit_all(HOME, 1..=1);
+        let ctx = env.ctx();
+        let id = env.volume(HOME).id;
+        let journal = journal_of(HOME);
+        let paths = crate::catalog::begin_reclaim(&ctx, &id, OpId(1), ExpiryReason::Space).unwrap();
+        assert_eq!(&paths.entry, journal.entry(OpId(1)).unwrap().dir());
+        assert_eq!(&paths.reap, journal.reaped(OpId(1)).unwrap().dir());
+        assert!(env.exists(&journal.tomb(OpId(1)).unwrap()));
+        assert!(env.exists(&paths.entry.join_name(EXPIRY_FILE).unwrap()));
+
+        let moving = scope(OpId(1), ScopePurpose::Reclaim);
+        env.fs
+            .rename(&moving, &paths.entry, &paths.reap, RenameMode::NoReplace)
+            .unwrap();
+        let done = crate::catalog::complete_reclaim(&ctx, &id, OpId(1)).unwrap();
+        assert_eq!(done, expired(1, ExpiryReason::Space));
+        assert!(!env.exists(&paths.reap));
+        assert!(env.exists(&journal.tomb(OpId(1)).unwrap()));
+        assert!(env.live(HOME).is_empty());
+    }
+
+    #[test]
+    fn catalog_entry_locks_exclude_a_second_taker() {
+        let env = Env::new(json!({}));
+        env.commit_all(HOME, 1..=1);
+        let ctx = env.ctx();
+        let id = env.volume(HOME).id;
+        let first = crate::catalog::lock_entry(&ctx, &id, OpId(1)).unwrap();
+        assert!(crate::catalog::lock_entry(&ctx, &id, OpId(1)).is_err());
+        drop(first);
+        assert!(crate::catalog::lock_entry(&ctx, &id, OpId(1)).is_ok());
     }
 
     #[test]

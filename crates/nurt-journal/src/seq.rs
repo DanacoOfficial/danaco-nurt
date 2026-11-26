@@ -9,7 +9,9 @@
 //! When the file is missing or damaged, the sequence is rebuilt as the
 //! largest number named by the account index or by any entry, temporary
 //! entry, reclaimed entry, tombstone or marker of the known journals; a
-//! number is never assigned twice.
+//! number is never assigned twice. A recorded number below the largest number
+//! named by a known journal is raised to it, because the journal directory of
+//! a volume can be shared by several state directories of one account.
 
 use nurt_contracts::fs::{Durability, FsErrorKind, RenameMode, ScopePurpose};
 use nurt_contracts::journal::OpId;
@@ -53,8 +55,11 @@ pub(crate) fn decode(bytes: &[u8]) -> Option<OpId> {
 pub(crate) fn allocate(ctx: &JournalCtx) -> Result<OpId, Fault> {
     let path = ctx.state.seq()?;
     let current = match manifest::read_bytes(ctx.fs.as_ref(), &path) {
+        // A journal directory is named by the volume, not by the state
+        // directory, so entries of another state directory of the account
+        // can hold numbers above the recorded one.
         Ok(bytes) => match decode(&bytes) {
-            Some(op) => op,
+            Some(op) => op.max(journal_highest(ctx)?),
             None => rebuild(ctx)?,
         },
         Err(error) if error.kind == FsErrorKind::NotFound => rebuild(ctx)?,
@@ -97,7 +102,14 @@ fn rebuild(ctx: &JournalCtx) -> Result<OpId, Fault> {
             Some(index.as_path()),
         )),
     })?;
-    let mut highest = rows.iter().map(|row| row.op).max().unwrap_or(OpId(0));
+    let highest = rows.iter().map(|row| row.op).max().unwrap_or(OpId(0));
+    Ok(highest.max(journal_highest(ctx)?))
+}
+
+/// Largest number named by any known journal directory; zero when they name
+/// none.
+fn journal_highest(ctx: &JournalCtx) -> Result<OpId, Fault> {
+    let mut highest = OpId(0);
     for journal in ctx.active_journals() {
         if let Some(op) = layout::highest_number(ctx.fs.as_ref(), &journal)? {
             highest = highest.max(op);
@@ -174,6 +186,73 @@ mod tests {
     }
 
     #[test]
+    fn numbers_named_by_a_shared_journal_are_never_assigned() {
+        let fixture = Fixture::new();
+        let ctx = fixture.ctx();
+        assert_eq!(allocate(&ctx), Ok(OpId(1)));
+        let journal = &ctx.active_journals()[0];
+        let scope = store::scope(OpId(1), ScopePurpose::Maintenance);
+        fixture
+            .fs
+            .create_dir(&scope, &journal.ops_dir().unwrap(), 0o700)
+            .unwrap();
+        let foreign = journal.entry_tmp(OpId(7)).unwrap();
+        fixture.fs.create_dir(&scope, foreign.dir(), 0o700).unwrap();
+        assert_eq!(allocate(&ctx), Ok(OpId(8)));
+        assert_eq!(allocate(&ctx), Ok(OpId(9)));
+    }
+
+    #[test]
+    fn every_kind_of_journal_name_raises_the_recorded_sequence() {
+        for case in 0..4 {
+            let fixture = Fixture::new();
+            let ctx = fixture.ctx();
+            assert_eq!(allocate(&ctx), Ok(OpId(1)));
+            let journal = &ctx.active_journals()[0];
+            let scope = store::scope(OpId(1), ScopePurpose::Maintenance);
+            let (dir, name) = match case {
+                0 => (journal.pending_dir().unwrap(), "000000000020"),
+                1 => (journal.reap_dir().unwrap(), "000000000020"),
+                2 => (journal.tomb_dir().unwrap(), "000000000020.json"),
+                _ => (journal.ops_dir().unwrap(), "000000000020.tmp"),
+            };
+            fixture.fs.create_dir(&scope, &dir, 0o700).unwrap();
+            fixture.write(&dir.join_name(name).unwrap(), b"x");
+            assert_eq!(allocate(&ctx), Ok(OpId(21)), "{name}");
+            assert_eq!(allocate(&ctx), Ok(OpId(22)), "{name}");
+        }
+    }
+
+    #[test]
+    fn names_that_are_not_entries_do_not_raise_the_sequence() {
+        let fixture = Fixture::new();
+        let ctx = fixture.ctx();
+        assert_eq!(allocate(&ctx), Ok(OpId(1)));
+        let journal = &ctx.active_journals()[0];
+        let scope = store::scope(OpId(1), ScopePurpose::Maintenance);
+        let ops = journal.ops_dir().unwrap();
+        fixture.fs.create_dir(&scope, &ops, 0o700).unwrap();
+        for name in ["99", "0000000000900", "00000000090x", "notes.txt"] {
+            fixture.write(&ops.join_name(name).unwrap(), b"x");
+        }
+        assert_eq!(allocate(&ctx), Ok(OpId(2)));
+    }
+
+    #[test]
+    fn sequence_files_of_the_wrong_length_or_checksum_are_rejected() {
+        assert_eq!(decode(&encode(OpId(0))), Some(OpId(0)));
+        assert_eq!(decode(&encode(OpId(u64::MAX))), Some(OpId(u64::MAX)));
+        assert_eq!(decode(&[]), None);
+        assert_eq!(decode(&[0_u8; SEQ_LEN]), None);
+        let mut longer = encode(OpId(7)).to_vec();
+        longer.push(0);
+        assert_eq!(decode(&longer), None);
+        let mut other_checksum = encode(OpId(7));
+        other_checksum[SEQ_LEN - 1] ^= 0x80;
+        assert_eq!(decode(&other_checksum), None);
+    }
+
+    #[test]
     fn unreadable_rebuild_sources_forbid_assignment() {
         let fixture = Fixture::new();
         let ctx = fixture.ctx();
@@ -241,8 +320,16 @@ mod tests {
     #[test]
     fn concurrent_assignment_yields_unique_numbers() {
         let fixture = Fixture::new();
-        let first = Arc::new(fixture.ctx());
-        let second = Arc::new(fixture.ctx());
+        // Eight threads queue for one lock, each holding it for a synced
+        // write; the short lock timeout of the fixture is too short for that
+        // queue on a loaded machine.
+        let context = || {
+            let mut ctx = fixture.ctx();
+            ctx.settings.lock_timeout = std::time::Duration::from_secs(60);
+            Arc::new(ctx)
+        };
+        let first = context();
+        let second = context();
         let mut threads = Vec::new();
         for worker in 0..8 {
             let ctx = if worker % 2 == 0 {

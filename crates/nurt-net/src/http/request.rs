@@ -720,6 +720,8 @@ impl Params {
                 let url = match address {
                     AddressFact::Fixed(url) | AddressFact::Dynamic(url) => url.as_str(),
                 };
+                let url = Target::parse(url)
+                    .map_or_else(|_| url.to_owned(), |target| target.display_url());
                 let mut entry = IrreversibleEntry::new(Irreversible::Network);
                 entry.detail = Some(format!("{} {url}", self.method.as_str()));
                 entry
@@ -864,13 +866,16 @@ impl<'p> Runner<'p> {
                 };
                 let target = Target::parse(text)?;
                 if target.scheme_assumed() {
+                    let shown = target.display_url();
+                    let written = if target.has_userinfo() {
+                        shown.trim_start_matches("https://")
+                    } else {
+                        text.as_str()
+                    };
                     log(
                         ctx,
                         LogLevel::Info,
-                        format!(
-                            "scheme_assumed: `{text}` is requested as `{}`",
-                            target.as_str()
-                        ),
+                        format!("scheme_assumed: `{written}` is requested as `{shown}`"),
                     );
                 }
                 Ok(target)
@@ -967,7 +972,7 @@ impl<'p> Runner<'p> {
                 ErrorCode::Network,
                 format!(
                     "`{}` answered with status {}",
-                    target.as_str(),
+                    target.display_url(),
                     obtained.head.status
                 ),
             )
@@ -981,7 +986,7 @@ impl<'p> Runner<'p> {
                 format!(
                     "body_truncated: only the first {} bytes of `{}` were read",
                     obtained.bytes.len(),
-                    target.as_str()
+                    target.display_url()
                 ),
             );
         }
@@ -1069,7 +1074,7 @@ impl<'p> Runner<'p> {
             && !matches!(head.encoding, BodyEncoding::Unsupported(_));
         if let (true, Some(store)) = (storable, usable) {
             let entry = CachedResponse {
-                url: target.as_str().to_owned(),
+                url: target.display_url(),
                 final_url: head.final_url.clone(),
                 status: head.status,
                 headers: head.headers.clone(),
@@ -1085,7 +1090,7 @@ impl<'p> Runner<'p> {
                     LogLevel::Warn,
                     format!(
                         "the response of `{}` was not cached: {error}",
-                        target.as_str()
+                        target.display_url()
                     ),
                 );
             }
@@ -1109,9 +1114,12 @@ impl<'p> Runner<'p> {
             (CacheMode::Only, Some(entry)) => Ok(Some(from_entry(entry))),
             (CacheMode::Only, None) => Err(Error::new(
                 ErrorCode::NotFound,
-                format!("no cached response for `{}`", target.as_str()),
+                format!("no cached response for `{}`", target.display_url()),
             )
-            .with_fix(format!("http.request \"{}\" cache: use", target.as_str()))),
+            .with_fix(format!(
+                "http.request \"{}\" cache: use",
+                target.display_url()
+            ))),
             (CacheMode::Use, Some(entry)) if entry.is_fresh(now, self.cache_ttl()) => {
                 Ok(Some(from_entry(entry)))
             }
@@ -1200,6 +1208,10 @@ pub fn body_etag(body: &str) -> String {
     digest[..ETAG_DIGITS].to_owned()
 }
 
+/// Characters at the start of a body inspected for `<!doctype html` or
+/// `<html` when the response gives no media type.
+const DOCTYPE_PROBE_CHARS: usize = 15;
+
 /// Kind of a document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DocKind {
@@ -1214,10 +1226,11 @@ fn doc_kind(media: Option<&str>, url: &str, text: &str) -> DocKind {
         Some("text/markdown" | "text/x-markdown") => DocKind::Markdown,
         Some(_) => DocKind::Plain,
         None => {
-            let start = text
+            let start: String = text
                 .trim_start()
-                .get(..15)
-                .unwrap_or_default()
+                .chars()
+                .take(DOCTYPE_PROBE_CHARS)
+                .collect::<String>()
                 .to_ascii_lowercase();
             if start.starts_with("<!doctype html") || start.starts_with("<html") {
                 DocKind::Html
@@ -1247,7 +1260,7 @@ impl Render<'_> {
     fn base(&self, obtained: &Obtained, elapsed: Duration) -> HttpResponse {
         let head = &obtained.head;
         HttpResponse {
-            url: self.target.as_str().to_owned(),
+            url: self.target.display_url(),
             status: u64::from(head.status),
             headers: record_headers(&head.headers),
             body: String::new(),
@@ -1318,13 +1331,13 @@ impl Render<'_> {
                 ErrorCode::Binary,
                 format!(
                     "the body of `{}` is not text ({})",
-                    self.target.as_str(),
+                    self.target.display_url(),
                     media.as_deref().unwrap_or("unknown type")
                 ),
             )
             .with_fix(format!(
                 "http.request \"{}\" save: \"/tmp/body\"",
-                self.target.as_str()
+                self.target.display_url()
             )));
         }
         let is_html = doc_kind(media.as_deref(), self.target.as_str(), "") == DocKind::Html;
@@ -1603,6 +1616,13 @@ mod tests {
         let instant = parse_http_date("Sun, 06 Nov 1994 08:49:37 GMT").unwrap();
         assert_eq!(instant.as_unix_nanos(), 784_111_777_000_000_000);
         assert!(parse_http_date("yesterday").is_none());
+    }
+
+    #[test]
+    fn short_and_multibyte_html_without_a_media_type_is_still_html() {
+        assert_eq!(doc_kind(None, "", "<html></html>"), DocKind::Html);
+        assert_eq!(doc_kind(None, "", "<html lang=pl>\u{17c}"), DocKind::Html);
+        assert_eq!(doc_kind(None, "", "plain \u{17c}"), DocKind::Plain);
     }
 
     #[test]

@@ -31,7 +31,7 @@ use super::syntax::{
 use super::table::{
     Absent, Cmdlet, Handler, Param, PowerShellTable, Record, Role, SetValue, ValueType, Variant,
 };
-use super::{Assumption, TranslateContext};
+use super::{Assumption, Mode, TranslateContext};
 use crate::policy::Class;
 use crate::record::{Correction, CorrectionKind, RuleId};
 
@@ -43,6 +43,9 @@ const RECURSIVE_GLOB: &str = "**/";
 
 /// Nurt stage that runs a program.
 const RUN_COMMAND: &str = "run";
+
+/// Parameter of `run` that names the working directory.
+const CWD_PARAMETER: &str = "cwd";
 
 /// Nurt stage that reads a file as a whole.
 const READ_COMMAND: &str = "read";
@@ -93,6 +96,21 @@ const NO_NEWLINE_PARAM: &str = "NoNewline";
 
 /// Entry of the table read by `Compare-Object` arguments.
 const CONTENT_CMDLET: &str = "Get-Content";
+
+/// Preference variables of PowerShell.
+const PREFERENCE_VARIABLES: [&str; 8] = [
+    "ErrorActionPreference",
+    "WarningPreference",
+    "VerbosePreference",
+    "DebugPreference",
+    "InformationPreference",
+    "ProgressPreference",
+    "ConfirmPreference",
+    "WhatIfPreference",
+];
+
+/// Words of the language that cannot name a `let` result.
+const RESERVED_NAMES: [&str; 8] = ["let", "true", "false", "null", "and", "or", "not", "in"];
 
 /// Attribute flags of `attrib`.
 const ATTRIB_FLAGS: [(&str, &str, bool); 4] = [
@@ -543,6 +561,7 @@ impl<'a> Session<'a> {
         match &statement.kind {
             StatementKind::Pipeline(pipeline) => {
                 let (pipeline, _) = self.pipeline(pipeline)?;
+                self.require_working_directory(&pipeline, statement.start, statement.end)?;
                 let effect = self.pipeline_effect(&pipeline);
                 Ok(TranslatedStatement {
                     statement: NurtStatement::Pipeline(pipeline),
@@ -564,11 +583,23 @@ impl<'a> Session<'a> {
                         "help run",
                     ));
                 }
+                if is_preference_variable(&var.name) {
+                    return Err(self.uncorrectable(
+                        "preference_variable",
+                        format!(
+                            "`${}` has no Nurt form: a program stops at its first error and shows every result; remove the assignment, and use `on_missing: skip` of the command instead of -ErrorAction SilentlyContinue",
+                            var.name
+                        ),
+                        statement.start,
+                        statement.end,
+                        HELP_CORRECTIONS,
+                    ));
+                }
                 let name = let_name(&var.name).ok_or_else(|| {
                     self.uncorrectable(
                         "variable_name",
                         format!(
-                            "`${}` is not a valid let name; use lower-case letters, digits and `_`",
+                            "`${}` is not a valid let name; use lower-case letters, digits and `_`, and not a word of the language",
                             var.name
                         ),
                         *var_start,
@@ -680,6 +711,40 @@ impl<'a> Session<'a> {
             return Err(self.no_current_directory(start, end).with_fix(fix));
         }
         Ok((pipeline, record))
+    }
+
+    /// A script has no current directory, so a program of a script needs its
+    /// working directory: `run` takes `cwd` (or the call parameter `base`).
+    fn require_working_directory(
+        &self,
+        pipeline: &NurtPipeline,
+        start: usize,
+        end: usize,
+    ) -> Result<(), Error> {
+        if self.context.mode != Mode::Script || self.context.base.is_some() {
+            return Ok(());
+        }
+        let head = match &pipeline.head {
+            Head::Stage(stage) => Some(stage),
+            _ => None,
+        };
+        let missing = head.into_iter().chain(&pipeline.stages).any(|stage| {
+            stage.name == RUN_COMMAND
+                && !stage
+                    .args
+                    .iter()
+                    .any(|arg| arg.name.as_deref() == Some(CWD_PARAMETER))
+        });
+        if missing {
+            return Err(self.uncorrectable(
+                "working_directory",
+                "the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base",
+                start,
+                end,
+                "help run",
+            ));
+        }
+        Ok(())
     }
 
     fn no_current_directory(&self, start: usize, end: usize) -> Error {
@@ -2008,7 +2073,7 @@ impl<'a> Session<'a> {
                     ValueType::TypeCheck => Expr::Bin {
                         op: BinOp::Eq,
                         l: Box::new(ident(TYPE_FIELD, span)),
-                        r: Box::new(ident(mapped, span)),
+                        r: Box::new(text(mapped, span)),
                         span: Some(span),
                     },
                     _ => ident(mapped, span),
@@ -2067,8 +2132,12 @@ impl<'a> Session<'a> {
                 _ if renamed_by(variant, param) => {
                     return Err(self.value_error(item, "write $true or $false"));
                 }
+                // `write` takes the value of a registry entry as text; the
+                // argument `value_type` gives its type.
                 ValueKind::Number(number)
-                    if number.exponent == 0 && number.int.is_some_and(|int| int >= 0) =>
+                    if number.exponent == 0
+                        && number.int.is_some_and(|int| int >= 0)
+                        && variant.registry != Some(true) =>
                 {
                     Expr::Int {
                         v: number.int.unwrap_or_default(),
@@ -2953,13 +3022,22 @@ fn is_item_name(value: &Value) -> bool {
     )
 }
 
-/// The let name of a PowerShell variable: lower case, `[a-z][a-z0-9_]*`.
+/// Whether the variable is a preference variable of PowerShell, which changes
+/// the behaviour of every later command and has no counterpart in Nurt.
+fn is_preference_variable(name: &str) -> bool {
+    PREFERENCE_VARIABLES
+        .iter()
+        .any(|known| known.eq_ignore_ascii_case(name))
+}
+
+/// The let name of a PowerShell variable: lower case, `[a-z][a-z0-9_]*`, and
+/// not a word of the language.
 pub(crate) fn let_name(name: &str) -> Option<String> {
     let lower = name.to_ascii_lowercase();
     let mut chars = lower.chars();
     let valid = chars.next().is_some_and(|c| c.is_ascii_lowercase())
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
-    valid.then_some(lower)
+    (valid && !RESERVED_NAMES.contains(&lower.as_str())).then_some(lower)
 }
 
 /// The first variant whose conditions hold.
@@ -2996,6 +3074,24 @@ mod tests {
         assert_eq!(let_name("my_list2"), Some("my_list2".to_owned()));
         assert_eq!(let_name("_x"), None);
         assert_eq!(let_name("a-b"), None);
+    }
+
+    #[test]
+    fn words_of_the_language_are_not_let_names() {
+        for word in ["null", "true", "False", "in", "and", "or", "not", "let"] {
+            assert_eq!(let_name(word), None, "{word}");
+        }
+        assert_eq!(let_name("nullable"), Some("nullable".to_owned()));
+        assert_eq!(let_name("input"), Some("input".to_owned()));
+    }
+
+    #[test]
+    fn preference_variables_are_recognized_in_any_letter_case() {
+        assert!(is_preference_variable("ErrorActionPreference"));
+        assert!(is_preference_variable("erroractionpreference"));
+        assert!(is_preference_variable("ProgressPreference"));
+        assert!(!is_preference_variable("colorPreference"));
+        assert!(!is_preference_variable("Preference"));
     }
 
     #[test]

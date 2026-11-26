@@ -559,9 +559,14 @@ pub struct Rendered {
 pub struct Response {
     /// Format version, `MAJOR.MINOR`; see [`ENVELOPE_VERSION`].
     pub nurt: String,
-    /// Effect report.
+    /// Effect report of the program.
     pub report: Report,
-    /// Text rendered from the report.
+    /// Reports of the pipelines of a script with more than one pipeline, one
+    /// per pipeline in program order, each with the `kind` and the records
+    /// of its own pipeline. Absent for a program with a single operation.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reports: Vec<Report>,
+    /// Text rendered from the report and from `reports`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rendered: Option<Rendered>,
 }
@@ -573,6 +578,7 @@ impl Response {
         Self {
             nurt: ENVELOPE_VERSION.to_owned(),
             report,
+            reports: Vec::new(),
             rendered: None,
         }
     }
@@ -601,14 +607,18 @@ impl Response {
         {
             return Err(EnvelopeError::RenderedJson);
         }
-        self.report.validate().map_err(EnvelopeError::Report)
+        self.report.validate().map_err(EnvelopeError::Report)?;
+        self.reports
+            .iter()
+            .try_for_each(|report| report.validate().map_err(EnvelopeError::Report))
     }
 }
 
 /// A rule of the envelope broken by a [`Request`] or [`Response`].
 ///
 /// The executor reports a broken request rule as the language error `E_ARG`
-/// with the message of this error.
+/// with the message of this error; a relative path option
+/// ([`EnvelopeError::RelativePath`]) is reported as `E_PATH_RELATIVE`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum EnvelopeError {

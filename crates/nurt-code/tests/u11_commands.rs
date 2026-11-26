@@ -635,6 +635,7 @@ fn outline_of_a_language_without_grammar_asks_the_server() {
     let all = run_symbols(&stage, &outline_args(&[("path", path_value(&path))]), &ctx).unwrap();
     assert_eq!(names(&all), ["main", "inner"]);
     assert!(all.iter().all(|symbol| symbol.source == SymbolSource::Lsp));
+    assert!(all.iter().all(|symbol| symbol.language == "zig"));
     let top = run_symbols(
         &stage,
         &outline_args(&[("path", path_value(&path)), ("depth", Value::Int(0))]),

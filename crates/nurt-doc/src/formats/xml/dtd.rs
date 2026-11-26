@@ -12,6 +12,7 @@
 //! standalone, because the unread entity could have declared the same names
 //! first (XML 1.0, section 5.1).
 
+use std::collections::HashMap;
 use std::ops::Range;
 
 use nurt_contracts::error::{Error, ErrorCode, Location, Result};
@@ -134,7 +135,9 @@ pub struct Dtd {
     span: Range<usize>,
     internal_subset: Option<Range<usize>>,
     entities: Vec<EntityDecl>,
+    entity_index: HashMap<String, usize>,
     attributes: Vec<AttributeDecl>,
+    attribute_index: HashMap<String, HashMap<String, usize>>,
     unread_declarations: bool,
     standalone: bool,
 }
@@ -206,15 +209,37 @@ impl Dtd {
     /// Binding declaration of a general entity.
     #[must_use]
     pub fn entity(&self, name: &str) -> Option<&EntityDecl> {
-        self.entities.iter().find(|decl| decl.name == name)
+        self.entity_index
+            .get(name)
+            .and_then(|index| self.entities.get(*index))
     }
 
     /// Binding declaration of an attribute of an element.
     #[must_use]
     pub fn attribute(&self, element: &str, name: &str) -> Option<&AttributeDecl> {
-        self.attributes
-            .iter()
-            .find(|decl| decl.element == element && decl.name == name)
+        self.attribute_index
+            .get(element)
+            .and_then(|names| names.get(name))
+            .and_then(|index| self.attributes.get(*index))
+    }
+
+    fn add_entity(&mut self, decl: EntityDecl) {
+        if !self.entity_index.contains_key(&decl.name) {
+            self.entity_index
+                .insert(decl.name.clone(), self.entities.len());
+            self.entities.push(decl);
+        }
+    }
+
+    fn add_attribute(&mut self, decl: AttributeDecl) {
+        let names = self
+            .attribute_index
+            .entry(decl.element.clone())
+            .or_default();
+        if !names.contains_key(&decl.name) {
+            names.insert(decl.name.clone(), self.attributes.len());
+            self.attributes.push(decl);
+        }
     }
 
     /// Binding attribute declarations of an element in document order.
@@ -355,6 +380,10 @@ fn is_pubid_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || " \r\n-'()+,./:=?;!*#@$_%".contains(c)
 }
 
+/// Deepest nesting of groups in a content model; the group grammar is parsed
+/// recursively, and this bound keeps untrusted input within the thread stack.
+const MAX_GROUP_DEPTH: usize = 64;
+
 const ATTRIBUTE_TYPES: [(&str, AttributeType); 8] = [
     ("CDATA", AttributeType::CData),
     ("IDREFS", AttributeType::IdRefs),
@@ -371,6 +400,7 @@ struct Parser<'a> {
     pos: usize,
     base: usize,
     processing: bool,
+    depth: usize,
     dtd: Dtd,
 }
 
@@ -381,13 +411,16 @@ impl<'a> Parser<'a> {
             pos: 0,
             base,
             processing: true,
+            depth: 0,
             dtd: Dtd {
                 root: String::new(),
                 external_id: None,
                 span: base..base + text.len(),
                 internal_subset: None,
                 entities: Vec::new(),
+                entity_index: HashMap::new(),
                 attributes: Vec::new(),
+                attribute_index: HashMap::new(),
                 unread_declarations: false,
                 standalone,
             },
@@ -658,11 +691,12 @@ impl<'a> Parser<'a> {
         };
         self.skip_space();
         self.expect(">", "at the end of the entity declaration")?;
-        if !parameter && self.processing && self.dtd.entity(name).is_none() {
-            self.dtd.entities.push(EntityDecl {
+        if !parameter && self.processing {
+            let span = self.base + start..self.base + self.pos;
+            self.dtd.add_entity(EntityDecl {
                 name: name.to_owned(),
                 definition,
-                span: self.base + start..self.base + self.pos,
+                span,
             });
         }
         Ok(())
@@ -810,7 +844,19 @@ impl<'a> Parser<'a> {
             if self.rest().starts_with("#PCDATA") {
                 return Err(self.error("`#PCDATA` is allowed only first in the outer group"));
             }
-            return self.children_group();
+            if self.depth >= MAX_GROUP_DEPTH {
+                return Err(Error::new(
+                    ErrorCode::Limit,
+                    format!(
+                        "content model groups are nested deeper than {MAX_GROUP_DEPTH} levels; flatten the content model"
+                    ),
+                )
+                .with_location(byte_location(self.base + self.pos)));
+            }
+            self.depth += 1;
+            let group = self.children_group();
+            self.depth -= 1;
+            return group;
         }
         self.name("in the content model")?;
         self.content_modifier();
@@ -848,8 +894,8 @@ impl<'a> Parser<'a> {
             let kind = self.attribute_type()?;
             self.require_space("after the attribute type")?;
             let default = self.attribute_default()?;
-            if self.processing && self.dtd.attribute(element, name).is_none() {
-                self.dtd.attributes.push(AttributeDecl {
+            if self.processing {
+                self.dtd.add_attribute(AttributeDecl {
                     element: element.to_owned(),
                     name: name.to_owned(),
                     kind,
@@ -951,5 +997,114 @@ impl<'a> Parser<'a> {
             format!("entity `{name}` must be declared before the attribute default that uses it"),
             at,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn element_declaration(model: &str) -> String {
+        format!("<!DOCTYPE a [<!ELEMENT a {model}>]>")
+    }
+
+    #[test]
+    fn nested_content_model_groups_up_to_the_limit_are_accepted() {
+        let depth = MAX_GROUP_DEPTH + 1;
+        let model = format!("{}b{}", "(".repeat(depth), ")".repeat(depth));
+        assert!(Dtd::parse(&element_declaration(&model), 0, false).is_ok());
+    }
+
+    #[test]
+    fn content_model_groups_nested_beyond_the_limit_report_a_limit_error() {
+        let depth = MAX_GROUP_DEPTH + 2;
+        let model = format!("{}b{}", "(".repeat(depth), ")".repeat(depth));
+        let error = Dtd::parse(&element_declaration(&model), 0, false).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Limit);
+    }
+
+    #[test]
+    fn unclosed_deep_content_model_does_not_exhaust_the_stack() {
+        let model = "(".repeat(200_000);
+        let error = Dtd::parse(&element_declaration(&model), 0, false).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Limit);
+    }
+
+    #[test]
+    fn first_entity_declaration_is_binding() {
+        let dtd = Dtd::parse(
+            r#"<!DOCTYPE a [<!ENTITY e "one"><!ENTITY e "two">]>"#,
+            0,
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            dtd.entity("e").unwrap().definition,
+            EntityDefinition::Internal("one".to_owned())
+        );
+        assert_eq!(dtd.entities().len(), 1);
+    }
+
+    #[test]
+    fn first_attribute_declaration_is_binding_and_lookup_is_by_name() {
+        let text = "<!DOCTYPE a [<!ATTLIST e x CDATA #IMPLIED y ID #IMPLIED>\
+                    <!ATTLIST e x ID #IMPLIED><!ATTLIST f x NMTOKEN #IMPLIED>]>";
+        let dtd = Dtd::parse(text, 0, false).unwrap();
+        assert_eq!(dtd.attribute("e", "x").unwrap().kind, AttributeType::CData);
+        assert_eq!(dtd.attribute("e", "y").unwrap().kind, AttributeType::Id);
+        assert_eq!(
+            dtd.attribute("f", "x").unwrap().kind,
+            AttributeType::NmToken
+        );
+        assert!(dtd.attribute("g", "x").is_none());
+        assert!(dtd.attribute("e", "z").is_none());
+        assert_eq!(dtd.attributes_of("e").count(), 2);
+    }
+
+    #[test]
+    fn many_entity_declarations_are_looked_up_by_name() {
+        let declarations: String = (0..3000)
+            .map(|index| format!("<!ENTITY e{index} \"v{index}\">"))
+            .collect();
+        let dtd = Dtd::parse(&format!("<!DOCTYPE a [{declarations}]>"), 0, false).unwrap();
+        assert_eq!(dtd.entities().len(), 3000);
+        assert_eq!(
+            dtd.entity("e2999").unwrap().definition,
+            EntityDefinition::Internal("v2999".to_owned())
+        );
+        assert!(dtd.entity("e3000").is_none());
+    }
+
+    #[test]
+    fn external_entity_is_recorded_but_never_read() {
+        let dtd = Dtd::parse(
+            r#"<!DOCTYPE a [<!ENTITY x SYSTEM "file:///etc/passwd">]>"#,
+            0,
+            false,
+        )
+        .unwrap();
+        assert!(matches!(
+            dtd.entity("x").unwrap().definition,
+            EntityDefinition::External(_)
+        ));
+    }
+
+    #[test]
+    fn declarations_after_a_parameter_reference_are_ignored_unless_standalone() {
+        let text = r#"<!DOCTYPE a [%p;<!ENTITY e "v">]>"#;
+        let dtd = Dtd::parse(text, 0, false).unwrap();
+        assert!(dtd.entity("e").is_none());
+        assert!(dtd.has_unread_declarations());
+        assert!(Dtd::parse(text, 0, true).unwrap().entity("e").is_some());
+    }
+
+    #[test]
+    fn edit_guard_allows_insertions_at_both_ends_only() {
+        let guard = |range: Range<usize>| guard_doctype_edit(&(10..20), &range);
+        assert!(guard(10..10).is_ok());
+        assert!(guard(20..20).is_ok());
+        assert!(guard(15..15).is_err());
+        assert!(guard(0..10).is_ok());
+        assert!(guard(19..25).is_err());
     }
 }

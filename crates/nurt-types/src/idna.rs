@@ -18,8 +18,25 @@ const DIGIT_LETTERS: u32 = 26;
 
 /// ASCII form of a domain name with the UTS #46 mapping; `None` when the
 /// text is not a valid domain name.
+///
+/// An address is accepted only in its literal form: four decimal numbers
+/// separated by periods, or an IPv6 address in brackets. The parser of URL
+/// hosts reads other all-numeric names (`1`, `0x7f.1`) as IPv4 addresses and
+/// would change them into one.
 pub(crate) fn to_ascii(domain: &str) -> Option<String> {
-    url::Host::parse(domain).ok().map(|host| host.to_string())
+    match url::Host::parse(domain).ok()? {
+        url::Host::Domain(name) => Some(name),
+        url::Host::Ipv4(address) => is_dotted_quad(domain).then(|| address.to_string()),
+        url::Host::Ipv6(address) => domain.starts_with('[').then(|| format!("[{address}]")),
+    }
+}
+
+fn is_dotted_quad(text: &str) -> bool {
+    let parts: Vec<&str> = text.split('.').collect();
+    parts.len() == 4
+        && parts
+            .iter()
+            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
 }
 
 /// Unicode form of a domain name: every label with the prefix `xn--` is
@@ -141,5 +158,9 @@ mod tests {
         assert_eq!(to_ascii("Bücher.de").as_deref(), Some("xn--bcher-kva.de"));
         assert_eq!(to_ascii("example.com").as_deref(), Some("example.com"));
         assert_eq!(to_ascii("bad host"), None);
+        assert_eq!(to_ascii("1"), None);
+        assert_eq!(to_ascii("0x7f.1"), None);
+        assert_eq!(to_ascii("192.0.2.7").as_deref(), Some("192.0.2.7"));
+        assert_eq!(to_ascii("[::1]").as_deref(), Some("[::1]"));
     }
 }

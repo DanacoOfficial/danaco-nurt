@@ -183,16 +183,28 @@ impl Holder {
     ///
     /// A deleted file matches only a directory target: a file now at the
     /// same path is another file.
+    ///
+    /// The link is compared as bytes, so paths that are not valid UTF-8
+    /// match as well.
     #[cfg(unix)]
-    pub(crate) fn check(&mut self, target: &Target, access: Access, link: &str) {
-        let (path, deleted) = link
-            .strip_suffix(DELETED_SUFFIX)
-            .map_or((link, false), |path| (path, true));
-        if (deleted && !target.directory) || !target.matches(Path::new(path)) {
+    pub(crate) fn check(
+        &mut self,
+        target: &Target,
+        access: Access,
+        link: impl AsRef<std::ffi::OsStr>,
+    ) {
+        use std::os::unix::ffi::OsStrExt;
+
+        let bytes = link.as_ref().as_bytes();
+        let (path, deleted) = bytes
+            .strip_suffix(DELETED_SUFFIX.as_bytes())
+            .map_or((bytes, false), |path| (path, true));
+        let path = Path::new(std::ffi::OsStr::from_bytes(path));
+        if (deleted && !target.directory) || !target.matches(path) {
             return;
         }
         self.access.insert(access);
-        self.files.insert(path.to_owned());
+        self.files.insert(path.to_string_lossy().into_owned());
         self.deleted |= deleted;
     }
 

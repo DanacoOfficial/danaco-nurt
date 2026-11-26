@@ -21,7 +21,9 @@ public sealed class NurtExecutionEvent
         Kind = JsonRead.String(element, "t") ?? string.Empty;
         Sequence = JsonRead.Int64(element, "seq") ?? 0;
         Time = JsonRead.String(element, "time");
-        JobId = JsonRead.String(element, "job_id");
+        JobId = Kind.StartsWith("job.", System.StringComparison.Ordinal)
+            ? JsonRead.String(element, "id") ?? JsonRead.String(element, "job_id")
+            : JsonRead.String(element, "job_id");
     }
 
     /// <summary>Kind of the event (field <c>t</c>), for example <c>job.output</c> or <c>exec.finished</c>.</summary>

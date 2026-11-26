@@ -193,13 +193,23 @@ impl Fixture {
     }
 
     pub(crate) fn ctx(&self) -> ExecCtx {
+        self.ctx_with_base(None)
+    }
+
+    /// Context whose request has the `base` option set to `base`.
+    pub(crate) fn ctx_with_base(&self, base: Option<&str>) -> ExecCtx {
         let temp = self.path().join("tmp");
         std::fs::create_dir_all(&temp).unwrap();
+        let options = nurt_contracts::envelope::RequestOptions {
+            base: base.map(str::to_owned),
+            ..Default::default()
+        };
         ExecCtx::builder(Arc::new(TestClock::new()), Arc::new(TestHost::new(&temp)))
             .services(Arc::new(
                 Services::new().with_process_host(self.process.clone()),
             ))
             .events(self.logs.clone())
+            .options(Arc::new(options))
             .build()
     }
 

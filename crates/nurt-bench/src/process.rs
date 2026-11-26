@@ -23,6 +23,10 @@ const OUTPUT_GRACE: Duration = Duration::from_millis(200);
 /// Size of one read from a pipe of the child.
 const READ_CHUNK: usize = 8192;
 
+/// Largest number of bytes captured from one pipe of a child; a command that
+/// prints without end would otherwise fill the memory before its time limit.
+pub const MAX_CAPTURE_BYTES: usize = 16 * 1024 * 1024;
+
 /// Process to run.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcessSpec {
@@ -190,11 +194,19 @@ fn spawn_reader(mut source: impl Read + Send + 'static) -> Receiver<Vec<u8>> {
     let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
         let mut buffer = vec![0_u8; READ_CHUNK];
+        let mut kept = 0;
         loop {
             match source.read(&mut buffer) {
                 Ok(0) | Err(_) => break,
                 Ok(count) => {
-                    if sender.send(buffer[..count].to_vec()).is_err() {
+                    // The pipe is read to its end, so that the child does not
+                    // block, but only the first bytes are kept.
+                    let take = count.min(MAX_CAPTURE_BYTES - kept);
+                    if take == 0 {
+                        continue;
+                    }
+                    kept += take;
+                    if sender.send(buffer[..take].to_vec()).is_err() {
                         break;
                     }
                 }
@@ -305,6 +317,20 @@ mod tests {
         assert_eq!(output.code, Some(3));
         assert!(!output.success());
         assert!(!output.timed_out);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn captures_only_the_first_bytes_of_endless_output() {
+        let total = MAX_CAPTURE_BYTES + 1_000_000;
+        let output = run(&shell(
+            &format!("head -c {total} /dev/zero; printf done >&2"),
+            Duration::from_secs(60),
+        ))
+        .unwrap();
+        assert!(output.success());
+        assert_eq!(output.stdout.len(), MAX_CAPTURE_BYTES);
+        assert_eq!(output.stderr, b"done");
     }
 
     #[cfg(unix)]

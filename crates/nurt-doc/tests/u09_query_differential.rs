@@ -238,6 +238,26 @@ fn query_matches_the_recorded_jq_results() {
     );
 }
 
+/// A listed difference that `query` no longer shows would hide a later
+/// regression of that filter, so every entry must still differ.
+#[test]
+fn every_known_difference_still_differs_from_the_recorded_jq_result() {
+    let data = load();
+    let test = TestContext::new();
+    let cases = cases(&data);
+    let stale: Vec<&str> = KNOWN_DIFFERENCES
+        .iter()
+        .map(|(filter, _)| *filter)
+        .filter(|filter| {
+            cases
+                .iter()
+                .filter(|case| case.filter == *filter)
+                .all(|case| matches(case, &run(case.filter, case.input, &test)))
+        })
+        .collect();
+    assert!(stale.is_empty(), "no longer different from jq: {stale:?}");
+}
+
 fn installed_jq() -> Option<PathBuf> {
     let search = std::env::var_os("PATH")?;
     std::env::split_paths(&search)
@@ -254,12 +274,14 @@ fn jq_outputs(jq: &PathBuf, filter: &str, input: &Json) -> (Vec<Json>, Option<&'
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(input.to_string().as_bytes())
-        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    // `jq` exits without reading its input after a compile error, so a broken
+    // pipe means the end of the input; the exit status tells what happened.
+    match stdin.write_all(input.to_string().as_bytes()) {
+        Err(error) if error.kind() != std::io::ErrorKind::BrokenPipe => panic!("{error}"),
+        Ok(()) | Err(_) => {}
+    }
+    drop(stdin);
     let output = child.wait_with_output().unwrap();
     let outputs = String::from_utf8_lossy(&output.stdout)
         .lines()
@@ -274,8 +296,29 @@ fn jq_outputs(jq: &PathBuf, filter: &str, input: &Json) -> (Vec<Json>, Option<&'
     (outputs, error)
 }
 
+/// `jq` exits at once after a compile error, before it reads its input, so
+/// a large input meets a closed pipe; the status tells the outcome.
+#[test]
+fn a_compile_error_of_jq_is_not_a_broken_pipe_of_the_harness() {
+    let Some(jq) = installed_jq() else {
+        return;
+    };
+    let input = Json::Array((0..200_000).map(Json::from).collect());
+    let (outputs, error) = jq_outputs(&jq, ".[", &input);
+    assert!(outputs.is_empty());
+    assert_eq!(error, Some("compile"));
+    let (outputs, error) = jq_outputs(
+        &jq,
+        ".[1]",
+        &Json::Array(vec![Json::from(1), Json::from(2)]),
+    );
+    assert_eq!(outputs, [Json::from(2)]);
+    assert_eq!(error, None);
+}
+
 /// [U] Runs the recorded filters through the installed `jq` of the same
-/// version; returns without checks when `jq` is not in the search path.
+/// version; returns without checks when `jq` is not in the search path or has
+/// another version.
 #[test]
 fn recorded_results_match_installed_jq_skipped_without_jq() {
     let Some(jq) = installed_jq() else {

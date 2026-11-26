@@ -1202,6 +1202,9 @@ impl Cursor<'_> {
             .get(self.position)
             .filter(|byte| byte.is_ascii_digit())
         {
+            if self.position - start == FRACTION_DIGITS as usize {
+                return None;
+            }
             nanos = nanos * 10 + i64::from(byte - b'0');
             self.position += 1;
         }
@@ -1267,11 +1270,13 @@ fn parse_rfc3339(text: &str) -> Option<i64> {
     if cursor.position != cursor.bytes.len() {
         return None;
     }
-    days.checked_mul(SECONDS_PER_DAY)?
+    let seconds = days
+        .checked_mul(SECONDS_PER_DAY)?
         .checked_add(second_of_day)?
-        .checked_sub(offset)?
-        .checked_mul(NANOS_PER_SECOND)?
-        .checked_add(nanos)
+        .checked_sub(offset)?;
+    // The earliest instant has a whole-second part below `i64::MIN` nanoseconds.
+    let total = i128::from(seconds) * i128::from(NANOS_PER_SECOND) + i128::from(nanos);
+    i64::try_from(total).ok()
 }
 
 /// Form of a date or time read from a document.
@@ -1788,5 +1793,127 @@ impl AsRef<str> for Path {
 impl fmt::Display for Path {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn instant_rejects_fractions_longer_than_nine_digits() {
+        assert!("2026-11-21T10:00:00.123456789Z".parse::<Instant>().is_ok());
+        assert!(
+            "2026-11-21T10:00:00.1234567890Z"
+                .parse::<Instant>()
+                .is_err()
+        );
+        let long = format!("2026-11-21T10:00:00.{}Z", "9".repeat(40));
+        assert!(long.parse::<Instant>().is_err());
+    }
+
+    #[test]
+    fn instant_extremes_round_trip_through_text() {
+        for nanos in [i64::MIN, i64::MIN + 1, -1, 0, 1, i64::MAX] {
+            let instant = Instant::from_unix_nanos(nanos);
+            let text = instant.to_string();
+            assert_eq!(text.parse::<Instant>().unwrap(), instant, "{text}");
+        }
+        assert_eq!(
+            Instant::from_unix_nanos(i64::MIN).to_string(),
+            "1677-09-21T00:12:43.145224192Z"
+        );
+        assert_eq!(
+            Instant::from_unix_nanos(i64::MAX).to_string(),
+            "2262-04-11T23:47:16.854775807Z"
+        );
+    }
+
+    #[test]
+    fn instant_outside_the_supported_range_is_rejected() {
+        assert!("2262-04-11T23:47:16.854775808Z".parse::<Instant>().is_err());
+        assert!("1677-09-21T00:12:43.145224191Z".parse::<Instant>().is_err());
+        assert!("9999-12-31T23:59:59Z".parse::<Instant>().is_err());
+        assert!("0000-01-01T00:00:00Z".parse::<Instant>().is_err());
+    }
+
+    #[test]
+    fn instant_applies_numeric_offsets_and_rejects_invalid_calendar_dates() {
+        let local: Instant = "2026-11-21T11:00:00+01:00".parse().unwrap();
+        let utc: Instant = "2026-11-21T10:00:00Z".parse().unwrap();
+        assert_eq!(local, utc);
+        assert!("2026-02-29T00:00:00Z".parse::<Instant>().is_err());
+        assert!("2028-02-29T00:00:00Z".parse::<Instant>().is_ok());
+        assert!("2026-11-21T24:00:00Z".parse::<Instant>().is_err());
+        assert!("2026-11-21T10:00:00+24:00".parse::<Instant>().is_err());
+        assert!("2026-11-21T10:00:00".parse::<Instant>().is_err());
+        assert!("2026-11-21T10:00:00Zx".parse::<Instant>().is_err());
+        assert!("2026-11-21T10:00:00.Z".parse::<Instant>().is_err());
+    }
+
+    #[test]
+    fn bytes_round_trip_through_base64_for_every_padding_length() {
+        for length in 0..=7_u8 {
+            let data: Vec<u8> = (0..length).map(|byte| byte.wrapping_mul(91)).collect();
+            let bytes = Bytes::new(data);
+            let text = bytes.to_base64();
+            assert_eq!(text.len() % 4, 0);
+            assert_eq!(Bytes::from_base64(&text).unwrap(), bytes);
+        }
+        assert_eq!(Bytes::new(vec![0xff, 0xfe]).to_base64(), "//4=");
+    }
+
+    #[test]
+    fn bytes_reject_malformed_base64() {
+        for text in [
+            "A", "AAA", "AA=A", "A===", "====", "AA==AAAA", "AA!A", "AAA=AAAA",
+        ] {
+            assert!(Bytes::from_base64(text).is_err(), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn range_rejects_reversed_bounds_and_prints_every_form() {
+        assert!(Range::new(Some(2), Some(1)).is_err());
+        assert_eq!(Range::single(5).to_string(), "5");
+        assert_eq!(Range::up_to(9).to_string(), "..9");
+        assert_eq!(Range::full().to_string(), "..");
+        let range = Range::new(Some(i64::MIN), Some(i64::MAX)).unwrap();
+        assert!(range.contains(i64::MIN) && range.contains(i64::MAX));
+        let reversed = serde_json::from_str::<Range>(r#"{"start": 3, "end": 1}"#);
+        assert!(reversed.is_err());
+    }
+
+    #[test]
+    fn regex_text_form_escapes_unescaped_slashes_only() {
+        let regex = Regex::new("a/b\\/c\\\\/d", "ms").unwrap();
+        assert_eq!(regex.to_string(), "/a\\/b\\/c\\\\\\/d/ms");
+        assert!(Regex::new("a", "ii").is_err());
+        assert!(Regex::new("a", "q").is_err());
+    }
+
+    #[test]
+    fn plain_json_keeps_large_integers_and_drops_non_finite_numbers() {
+        assert_eq!(Value::from(u64::MAX), Value::BigInt(u64::MAX.to_string()));
+        assert_eq!(
+            Value::from_plain_json(serde_json::json!(u64::MAX)),
+            Value::from(u64::MAX)
+        );
+        assert_eq!(
+            Value::Number(f64::NAN).to_plain_json(),
+            serde_json::Value::Null
+        );
+        assert_eq!(
+            Value::Duration(Duration::from_millis(-5)).to_plain_json(),
+            serde_json::json!(-5)
+        );
+    }
+
+    #[test]
+    fn duration_conversions_report_overflow_and_negative_values() {
+        assert_eq!(Duration::from_secs(i64::MAX), None);
+        assert_eq!(Duration::from_millis(-1).to_std(), None);
+        assert_eq!(Duration::from_std(std::time::Duration::MAX), None);
+        assert_eq!(Duration::from_secs(2), Some(Duration::from_millis(2000)));
     }
 }

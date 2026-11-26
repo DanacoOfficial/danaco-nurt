@@ -250,6 +250,13 @@ impl Target {
         url
     }
 
+    /// The normalized address without user name and password, as shown in
+    /// records, reports, messages and files; credentials are never echoed.
+    #[must_use]
+    pub fn display_url(&self) -> String {
+        self.without_credentials().to_string()
+    }
+
     /// `host:port` with brackets around an IPv6 host, as used for pinned
     /// addresses.
     #[must_use]
@@ -348,6 +355,37 @@ mod tests {
             Some(("user".to_owned(), "p@ss".to_owned()))
         );
         assert_eq!(target.without_credentials().as_str(), "http://a.test/");
+    }
+
+    #[test]
+    fn displayed_address_never_carries_credentials() {
+        let target = Target::parse("http://user:p%40ss@a.test:8080/x?y=1#z").unwrap();
+        let shown = target.display_url();
+        assert_eq!(shown, "http://a.test:8080/x?y=1#z");
+        assert!(!shown.contains("user") && !shown.contains("p%40ss"));
+        let plain = Target::parse("https://a.test/x").unwrap();
+        assert_eq!(plain.display_url(), plain.as_str());
+        let joined = target.join("/other").unwrap();
+        assert_eq!(joined.display_url(), "http://a.test:8080/other");
+        assert!(joined.has_userinfo());
+    }
+
+    #[test]
+    fn ipv6_literals_and_international_names_are_normalized_for_matching() {
+        let target = Target::parse("http://[2001:DB8::1]:80/").unwrap();
+        assert_eq!(target.host(), "2001:db8::1");
+        assert_eq!(target.port(), 80);
+        assert_eq!(target.as_str(), "http://[2001:db8::1]/");
+        let upper = Target::parse("https://EXAMPLE.test/a").unwrap();
+        assert_eq!(upper.host(), "example.test");
+        assert!(
+            Target::parse("https://example.test/")
+                .unwrap()
+                .same_origin(&upper)
+        );
+        let other_scheme = Target::parse("http://example.test/").unwrap();
+        let secure = Target::parse("https://example.test/").unwrap();
+        assert!(!other_scheme.same_origin(&secure));
     }
 
     #[test]

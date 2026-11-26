@@ -6,11 +6,14 @@
 
 use std::ffi::OsString;
 use std::path::Path;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use nurt_contracts::config::ServiceMode;
 use nurt_contracts::error::{Error, ErrorCode};
 use windows_service::service::{
-    ServiceAccess, ServiceErrorControl, ServiceInfo, ServiceStartType, ServiceState, ServiceType,
+    Service, ServiceAccess, ServiceErrorControl, ServiceInfo, ServiceStartType, ServiceState,
+    ServiceType,
 };
 use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
@@ -20,6 +23,15 @@ use super::{Backend, InstallReport, InstallRequest, Manifest, UninstallReport, p
 use crate::scm::SERVICE_NAME;
 
 const DISPLAY_NAME: &str = "Danaco Nurt service";
+
+/// Error code of the service control manager for a service that exists.
+const ERROR_SERVICE_EXISTS: i32 = 1073;
+
+/// Longest wait for a running service to stop before it is started again.
+const STOP_WAIT: Duration = Duration::from_secs(10);
+
+/// Interval between two readings of the state of a stopping service.
+const STOP_POLL: Duration = Duration::from_millis(100);
 
 fn scm_error(action: &str, error: &windows_service::Error) -> Error {
     Error::new(
@@ -93,9 +105,49 @@ fn create_service(request: &InstallRequest, executable: &Path) -> Result<(), Err
         account_name: request.account.as_ref().map(OsString::from),
         account_password: None,
     };
-    let service = manager
-        .create_service(&info, ServiceAccess::START | ServiceAccess::QUERY_STATUS)
-        .map_err(|error| scm_error("create", &error))?;
+    let access = ServiceAccess::START
+        | ServiceAccess::STOP
+        | ServiceAccess::QUERY_STATUS
+        | ServiceAccess::CHANGE_CONFIG;
+    match manager.create_service(&info, access) {
+        Ok(service) => service
+            .start::<&str>(&[])
+            .map_err(|error| scm_error("start", &error)),
+        Err(error) if service_exists(&error) => {
+            let service = manager
+                .open_service(SERVICE_NAME, access)
+                .map_err(|error| scm_error("open", &error))?;
+            service
+                .change_config(&info)
+                .map_err(|error| scm_error("update", &error))?;
+            restart(&service)
+        }
+        Err(error) => Err(scm_error("create", &error)),
+    }
+}
+
+/// Whether the service control manager refused to create a service because
+/// one of that name exists.
+fn service_exists(error: &windows_service::Error) -> bool {
+    matches!(error, windows_service::Error::Winapi(code)
+        if code.raw_os_error() == Some(ERROR_SERVICE_EXISTS))
+}
+
+/// Stops the service when it runs, waits until it has stopped and starts it,
+/// so that it runs the program and the settings of the new installation.
+fn restart(service: &Service) -> Result<(), Error> {
+    let running = |service: &Service| {
+        service
+            .query_status()
+            .is_ok_and(|status| status.current_state != ServiceState::Stopped)
+    };
+    if running(service) {
+        let _ = service.stop();
+        let deadline = Instant::now() + STOP_WAIT;
+        while running(service) && Instant::now() < deadline {
+            thread::sleep(STOP_POLL);
+        }
+    }
     service
         .start::<&str>(&[])
         .map_err(|error| scm_error("start", &error))

@@ -116,12 +116,14 @@ impl<R: Read> FrameReader<R> {
             }
         }
         if invalid {
+            self.skip_body(length)?;
             return Ok(Some(Frame::Rejected(FrameError::HeaderTooLong)));
         }
         let Some(length) = length else {
             return Ok(Some(Frame::Rejected(FrameError::MissingLength)));
         };
         if length > MESSAGE_BYTES_MAX {
+            self.skip_body(Some(length))?;
             return Ok(Some(Frame::Rejected(FrameError::TooLarge(length))));
         }
         let mut body = vec![0; length];
@@ -161,6 +163,16 @@ impl<R: Read> FrameReader<R> {
         }))
     }
 
+    /// Discards the body of a rejected frame, so that the next frame starts
+    /// at its own header.
+    fn skip_body(&mut self, length: Option<usize>) -> io::Result<()> {
+        if let Some(length) = length {
+            let limit = u64::try_from(length).unwrap_or(u64::MAX);
+            io::copy(&mut (&mut self.reader).take(limit), &mut io::sink())?;
+        }
+        Ok(())
+    }
+
     fn skip_line(&mut self) -> io::Result<()> {
         loop {
             let buffer = self.reader.fill_buf()?;
@@ -198,5 +210,114 @@ impl<W: Write> FrameWriter<W> {
     pub fn send(&mut self, message: &Value) -> io::Result<()> {
         self.writer.write_all(&encode(message))?;
         self.writer.flush()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn frames(bytes: &[u8]) -> Vec<Frame> {
+        let mut reader = FrameReader::new(bytes);
+        let mut out = Vec::new();
+        while let Some(frame) = reader.next_frame().expect("read") {
+            out.push(frame);
+        }
+        out
+    }
+
+    /// Reader that returns one byte per call.
+    struct Trickle<'a>(&'a [u8]);
+
+    impl Read for Trickle<'_> {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            let (Some((first, rest)), Some(slot)) = (self.0.split_first(), buf.first_mut()) else {
+                return Ok(0);
+            };
+            *slot = *first;
+            self.0 = rest;
+            Ok(1)
+        }
+    }
+
+    #[test]
+    fn skips_the_body_of_a_frame_with_an_overlong_header_line() {
+        let mut bytes = format!(
+            "X-Long: {}\r\nContent-Length: 2\r\n\r\n{{}}",
+            "x".repeat(HEADER_LINE_MAX + 10)
+        )
+        .into_bytes();
+        bytes.extend(encode(&json!({"jsonrpc": "2.0", "method": "exit"})));
+        let out = frames(&bytes);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], Frame::Rejected(FrameError::HeaderTooLong));
+        assert!(matches!(out[1], Frame::Message(_)));
+    }
+
+    #[test]
+    fn counts_the_length_in_bytes_not_in_characters() {
+        let message = json!({"text": "za\u{17c}\u{f3}\u{142}\u{107} \u{1f600}"});
+        let bytes = encode(&message);
+        let body = message.to_string();
+        assert!(bytes.starts_with(format!("Content-Length: {}\r\n\r\n", body.len()).as_bytes()));
+        assert_ne!(body.len(), body.chars().count());
+        assert_eq!(frames(&bytes), vec![Frame::Message(message)]);
+    }
+
+    #[test]
+    fn reads_frames_delivered_one_byte_at_a_time() {
+        let first = json!({"id": 1});
+        let second = json!({"id": 2, "text": "\u{1f600}"});
+        let mut bytes = encode(&first);
+        bytes.extend(encode(&second));
+        let mut reader = FrameReader::new(Trickle(&bytes));
+        assert_eq!(
+            reader.next_frame().expect("read"),
+            Some(Frame::Message(first))
+        );
+        assert_eq!(
+            reader.next_frame().expect("read"),
+            Some(Frame::Message(second))
+        );
+        assert_eq!(reader.next_frame().expect("read"), None);
+    }
+
+    #[test]
+    fn accepts_header_names_in_any_case_and_extra_headers() {
+        let bytes =
+            b"content-LENGTH: 2\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n{}";
+        assert_eq!(frames(bytes), vec![Frame::Message(json!({}))]);
+    }
+
+    #[test]
+    fn rejects_missing_length_and_bodies_that_are_not_objects() {
+        assert_eq!(
+            frames(b"Content-Type: x\r\n\r\n"),
+            vec![Frame::Rejected(FrameError::MissingLength)]
+        );
+        assert_eq!(
+            frames(b"Content-Length: 4\r\n\r\n[1,2"),
+            vec![Frame::Rejected(FrameError::InvalidBody)]
+        );
+        assert_eq!(
+            frames(b"Content-Length: 3\r\n\r\n[1]"),
+            vec![Frame::Rejected(FrameError::InvalidBody)]
+        );
+    }
+
+    #[test]
+    fn ends_at_a_stream_cut_inside_a_header_or_a_body() {
+        assert!(frames(b"Content-Length: 10\r\n\r\n{}").is_empty());
+        assert!(frames(b"Content-Len").is_empty());
+        assert!(frames(b"").is_empty());
+    }
+
+    #[test]
+    fn writer_sends_a_flushed_frame() {
+        let mut writer = FrameWriter::new(Vec::new());
+        writer.send(&json!({"id": 7})).expect("send");
+        assert_eq!(writer.writer, encode(&json!({"id": 7})));
     }
 }

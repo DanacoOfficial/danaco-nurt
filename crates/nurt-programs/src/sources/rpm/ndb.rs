@@ -64,6 +64,9 @@ pub fn read(bytes: &[u8]) -> Result<NdbContent, String> {
         .filter(|end| *end <= bytes.len() && *end >= HEADER_SIZE)
         .ok_or("ndb slot pages exceed the file")?;
     let mut content = NdbContent::default();
+    // Blobs of a valid file do not overlap, so their total size cannot exceed
+    // the file; slots that point to the same bytes would multiply the copies.
+    let mut kept = 0usize;
     for at in (HEADER_SIZE..slots_end).step_by(SLOT_SIZE) {
         if le32(bytes, at) != Some(SLOT_MAGIC) {
             continue;
@@ -74,8 +77,11 @@ pub fn read(bytes: &[u8]) -> Result<NdbContent, String> {
         }
         let offset = le32(bytes, at + 8).unwrap_or_default() as usize;
         match blob(bytes, index, offset) {
-            Some(data) => content.blobs.push(data.to_vec()),
-            None => content.skipped += 1,
+            Some(data) if kept.saturating_add(data.len()) <= bytes.len() => {
+                kept += data.len();
+                content.blobs.push(data.to_vec());
+            }
+            _ => content.skipped += 1,
         }
     }
     Ok(content)
@@ -123,6 +129,23 @@ mod tests {
         let content = read(&file(&[b"first", b"second"])).unwrap();
         assert_eq!(content.blobs, vec![b"first".to_vec(), b"second".to_vec()]);
         assert_eq!(content.skipped, 0);
+    }
+
+    #[test]
+    fn slots_that_share_one_blob_do_not_multiply_the_copies() {
+        let blob_data = vec![7u8; 3000];
+        let mut bytes = file(&[blob_data.as_slice()]);
+        let first_slot: Vec<u8> = bytes[HEADER_SIZE..HEADER_SIZE + SLOT_SIZE].to_vec();
+        for number in 1..6 {
+            let slot = HEADER_SIZE + number * SLOT_SIZE;
+            bytes[slot..slot + SLOT_SIZE].copy_from_slice(&first_slot);
+        }
+        let content = read(&bytes).unwrap();
+        let total: usize = content.blobs.iter().map(Vec::len).sum();
+        assert!(total <= bytes.len());
+        assert!(!content.blobs.is_empty());
+        assert!(content.skipped >= 1);
+        assert_eq!(content.blobs.len() + content.skipped, 6);
     }
 
     #[test]

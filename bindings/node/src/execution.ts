@@ -85,11 +85,13 @@ export class Execution extends EventEmitter implements AsyncIterable<NurtEvent> 
    * Waits for the response.
    *
    * @param timeoutMs time limit of this wait; the execution continues after it.
+   * After {@link Execution.cancel} the wait returns the response of the
+   * cancelled execution, whose error is `E_CANCELLED`.
+   *
    * @throws {NurtError} `NURT_E_TIMEOUT` when the time limit passes,
-   *   `NURT_E_CANCELLED` after {@link Execution.cancel}, or another call
-   *   failure.
+   *   `NURT_E_CANCELLED` when the client is closed, or another call failure.
    * @throws {NurtLanguageError} when started with `raiseOnError: true` and the
-   *   report carries an error.
+   *   report carries an error, also after {@link Execution.cancel}.
    */
   wait(timeoutMs?: number): Promise<Response> {
     if (timeoutMs === undefined) {

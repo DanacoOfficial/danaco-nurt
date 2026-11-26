@@ -4,18 +4,20 @@
 //! State captured before a run and its comparison after the run.
 
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use nurt_contracts::error::Result;
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::{MutationTx, PreserveMode};
 use nurt_contracts::record::{Preimage as KeptContent, Tracking};
-use nurt_contracts::report::{Notable, NotableEntry};
+use nurt_contracts::report::{Notable, NotableEntry, Severity};
 use nurt_contracts::stage::ExecCtx;
 
+use super::POST_SCAN_MIN;
 use super::diff;
 use super::journal::Recorder;
 use super::preimage::Preimage;
-use super::scan::{Scope, Snapshot, has_name, refresh, scan};
+use super::scan::{Bound, ScanLimits, Scope, Snapshot, Stop, has_name, refresh, scan};
 use super::watch_events::EventWatch;
 use crate::iface::{PreparedScan, TrackOutcome};
 
@@ -59,6 +61,14 @@ pub(super) struct State {
     pub(super) preimage: Preimage,
     /// Journal operation of the transaction that kept the content.
     pub(super) op: Option<u64>,
+    /// Bounds of the scan after the run.
+    pub(super) limits: ScanLimits,
+    /// End of the time limit of the run.
+    pub(super) deadline: Option<Instant>,
+    /// Directories on other volumes that were not entered.
+    pub(super) foreign: u64,
+    /// Why automatic detection was skipped, for the `detection_scope` note.
+    pub(super) skipped: Option<String>,
 }
 
 impl State {
@@ -76,20 +86,35 @@ impl State {
             denied: 0,
             preimage: Preimage::default(),
             op: None,
+            limits: ScanLimits::UNLIMITED,
+            deadline: None,
+            foreign: 0,
+            skipped: None,
         }
     }
 
-    fn scope(&self) -> Scope<'_> {
+    fn scope<'a>(&'a self, bound: &'a Bound) -> Scope<'a> {
         Scope {
             roots: &self.roots,
             ignore: &self.ignore,
             hash: self.scan_hash,
+            bound: Some(bound),
+        }
+    }
+
+    /// Scope for the helpers that need no bound.
+    fn unbounded_scope(&self) -> Scope<'_> {
+        Scope {
+            roots: &self.roots,
+            ignore: &self.ignore,
+            hash: self.scan_hash,
+            bound: None,
         }
     }
 
     /// Flag of a changed file of `path` without kept content.
     fn not_kept(&self, path: &Path) -> Option<&'static str> {
-        let excluded = self.scope().root_of(path).is_some_and(|root| {
+        let excluded = self.unbounded_scope().root_of(path).is_some_and(|root| {
             path.strip_prefix(root)
                 .is_ok_and(|relative| has_name(relative, &self.exclude))
         });
@@ -127,10 +152,38 @@ impl State {
         (summary, entries, bytes)
     }
 
-    fn notes(&self, tracking: Tracking, ignored: u64, denied: u64) -> Vec<NotableEntry> {
+    /// Note of the directories in which changes are detected.
+    fn scope_note(&self, foreign: u64) -> NotableEntry {
+        let watched: Vec<String> = self
+            .watch
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect();
+        let mut detail = format!(
+            "changes are detected only in {}; changes elsewhere are not detected",
+            watched.join(", ")
+        );
+        if foreign > 0 {
+            detail.push_str(&format!(
+                "; {foreign} directories on other file systems were not entered"
+            ));
+        }
+        NotableEntry {
+            detail: Some(detail),
+            ..NotableEntry::new(Notable::DetectionScope)
+        }
+    }
+
+    fn notes(
+        &self,
+        tracking: Tracking,
+        ignored: u64,
+        denied: u64,
+        foreign: u64,
+    ) -> Vec<NotableEntry> {
         let mut notes = Vec::new();
         if tracking != Tracking::None {
-            notes.push(NotableEntry::new(Notable::DetectionScope));
+            notes.push(self.scope_note(foreign));
         }
         if ignored > 0 {
             notes.push(NotableEntry {
@@ -169,22 +222,59 @@ impl PreparedScan for Prepared {
             ..TrackOutcome::default()
         };
         if state.detection == Detection::None {
+            if let Some(reason) = &state.skipped {
+                outcome.notes.push(NotableEntry {
+                    detail: Some(reason.clone()),
+                    ..NotableEntry::new(Notable::DetectionScope)
+                });
+            }
             return Ok(outcome);
         }
         let fs = ctx.require_fs()?;
-        let scope = state.scope();
-        let (after, tracking, ignored, denied) = match watch.and_then(EventWatch::finish) {
+        let grace = Instant::now().checked_add(POST_SCAN_MIN);
+        let deadline = match (state.deadline, grace) {
+            (Some(deadline), Some(grace)) => Some(deadline.max(grace)),
+            (deadline, _) => deadline,
+        };
+        let bound = Bound::new(state.limits, deadline, ctx.cancel().clone());
+        let scope = state.scope(&bound);
+        let (after, tracking, ignored, denied, foreign) = match watch.and_then(EventWatch::finish) {
             Some(touched) => {
                 let mut after = state.snapshot.clone();
                 let ignored = refresh(fs, scope, &mut after, &touched);
-                (after, Tracking::Events, ignored, state.denied)
+                (
+                    after,
+                    Tracking::Events,
+                    ignored,
+                    state.denied,
+                    state.foreign,
+                )
             }
             None => {
                 let scanned = scan(fs, scope);
                 let denied = state.denied.max(scanned.denied);
-                (scanned.entries, Tracking::Scan, 0, denied)
+                (scanned.entries, Tracking::Scan, 0, denied, scanned.foreign)
             }
         };
+        if let Some(stop) = bound.stopped() {
+            outcome.notes.push(NotableEntry {
+                severity: Severity::Warning,
+                detail: Some(format!(
+                    "changes made by the program were not detected: the scan after the run \
+                     stopped because {}",
+                    match stop {
+                        Stop::Cancelled => "the execution was cancelled",
+                        Stop::TimeLimit => "the time limit of the run ended",
+                        Stop::Budget =>
+                            "it took longer than the time budget of automatic detection",
+                        Stop::Entries =>
+                            "the scope holds more entries than automatic detection accepts",
+                    }
+                )),
+                ..NotableEntry::new(Notable::DetectionScope)
+            });
+            return Ok(outcome);
+        }
         let detected = diff::compare(&state.snapshot, &after);
         let not_kept = |path: &Path| state.not_kept(path);
         let recorder = Recorder {
@@ -194,7 +284,7 @@ impl PreparedScan for Prepared {
         };
         outcome.changes = recorder.record(&detected, tx)?;
         outcome.tracking = tracking;
-        outcome.notes = state.notes(tracking, ignored, denied);
+        outcome.notes = state.notes(tracking, ignored, denied, foreign);
         Ok(outcome)
     }
 }

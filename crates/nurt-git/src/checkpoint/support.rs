@@ -203,6 +203,46 @@ pub(crate) fn in_scope(path: &BStr, scopes: &[BString]) -> bool {
         })
 }
 
+/// Whether a path component of a tree must never be written to the working
+/// tree: an empty name, `.`, `..`, and every name that the NTFS or the HFS+
+/// file system resolves to the repository directory (trailing dots and
+/// spaces are ignored there, and `git~1` is its short name).
+fn unsafe_component(name: &[u8]) -> bool {
+    let trimmed = name.trim_end_with(|ch| ch == '.' || ch == ' ');
+    trimmed.is_empty()
+        || trimmed.eq_ignore_ascii_case(b".git")
+        || trimmed.eq_ignore_ascii_case(b"git~1")
+        || (cfg!(windows) && name.iter().any(|byte| matches!(byte, b'\\' | b':')))
+}
+
+/// Refuses paths of a tree that cannot be written below the working tree
+/// root: a component that is empty, `.`, `..` or names the repository
+/// directory, and a path whose parent directory is also an entry.
+///
+/// # Errors
+///
+/// `E_GIT_UNSUPPORTED` with the problem `unsafe_path`.
+pub(crate) fn verify_checkout_paths(entries: &BTreeMap<BString, TreeEntry>) -> Result<()> {
+    for path in entries.keys() {
+        let unsafe_name = path.split(|byte| *byte == b'/').any(unsafe_component);
+        let clash = path
+            .iter()
+            .enumerate()
+            .any(|(at, byte)| *byte == b'/' && entries.contains_key(path[..at].as_bstr()));
+        if unsafe_name || clash {
+            return Err(problem(
+                ErrorCode::GitUnsupported,
+                "unsafe_path",
+                format!(
+                    "the tree contains the path `{path}` that cannot be written to the working tree; remove the reference that holds the tree"
+                ),
+            )
+            .with_found(path.to_string()));
+        }
+    }
+    Ok(())
+}
+
 /// Committer identity of new objects and reflog entries.
 ///
 /// The name, e-mail and date come from `GIT_COMMITTER_NAME`,
@@ -213,12 +253,13 @@ pub(crate) fn in_scope(path: &BStr, scopes: &[BString]) -> bool {
 pub(crate) fn committer(repo: &gix::Repository, ctx: &ExecCtx) -> gix::actor::Signature {
     let global = global_config(ctx);
     let lookup = |env: &str, key: &str, fallback: &str| -> BString {
-        if let Some(value) = ctx.host().env_var(env) {
+        if let Some(value) = ctx.host().env_var(env).filter(|value| !value.is_empty()) {
             return BString::from(value.to_string_lossy().into_owned());
         }
         repo.config_snapshot()
             .string(key)
             .or_else(|| global.as_ref().and_then(|file| file.string(key)))
+            .filter(|value| !value.is_empty())
             .unwrap_or_else(|| BString::from(fallback))
     };
     gix::actor::Signature {
@@ -911,6 +952,161 @@ mod tests {
         assert!(!text.contains("^2222"));
         assert!(text.contains("cp-2"));
         assert!(text.starts_with("# pack-refs"));
+    }
+
+    fn entries(paths: &[&str]) -> BTreeMap<BString, TreeEntry> {
+        let id = ObjectId::null(gix::hash::Kind::Sha1);
+        paths
+            .iter()
+            .map(|path| (BString::from(*path), (EntryKind::Blob, id)))
+            .collect()
+    }
+
+    #[test]
+    fn checkout_paths_accept_ordinary_names() {
+        let ordinary = entries(&[
+            "a.txt",
+            "src/main.rs",
+            ".gitignore",
+            ".github/workflows/ci.yml",
+            "dir/.gitattributes",
+            "zażółć/gęślą.txt",
+        ]);
+        verify_checkout_paths(&ordinary).unwrap();
+        verify_checkout_paths(&BTreeMap::new()).unwrap();
+    }
+
+    #[test]
+    fn checkout_paths_refuse_escapes_and_the_repository_directory() {
+        let refused = [
+            "..",
+            "../x",
+            "a/../x",
+            "a/./x",
+            "/etc/x",
+            "a//x",
+            ".git/config",
+            ".GIT/hooks/pre-commit",
+            "sub/.git/config",
+            ".git./config",
+            ".git /config",
+            "git~1/config",
+            "GIT~1/config",
+            "...",
+        ];
+        for path in refused {
+            let error = verify_checkout_paths(&entries(&[path])).unwrap_err();
+            assert_eq!(error.code(), ErrorCode::GitUnsupported, "{path}");
+            assert_eq!(
+                error.data().problem.as_deref(),
+                Some("unsafe_path"),
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn checkout_paths_refuse_a_file_that_is_also_a_directory() {
+        let error = verify_checkout_paths(&entries(&["a", "a/b"])).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::GitUnsupported);
+        verify_checkout_paths(&entries(&["a", "ab/b", "a.b"])).unwrap();
+    }
+
+    #[test]
+    fn empty_identity_variables_fall_back_to_the_configuration() {
+        use crate::testutil::{TestHost, test_ctx_with};
+        let dir = tempfile::tempdir().unwrap();
+        gix::init(dir.path()).unwrap();
+        let config = dir.path().join(".git/config");
+        let mut text = std::fs::read_to_string(&config).unwrap();
+        text.push_str("[user]\n\tname = Config Name\n\temail = config@example.com\n");
+        std::fs::write(&config, text).unwrap();
+        let repo = gix::open_opts(dir.path(), gix::open::Options::isolated()).unwrap();
+        let host = TestHost::new("/nonexistent-home")
+            .with_var("GIT_COMMITTER_NAME", "")
+            .with_var("GIT_COMMITTER_EMAIL", "");
+        let who = committer(&repo, &test_ctx_with(host));
+        assert_eq!(who.name, "Config Name");
+        assert_eq!(who.email, "config@example.com");
+    }
+
+    #[test]
+    fn lexical_resolves_dots_without_touching_the_file_system() {
+        assert_eq!(lexical(Path::new("/a/./b/../c")), PathBuf::from("/a/c"));
+        assert_eq!(lexical(Path::new("/../x")), PathBuf::from("/x"));
+        assert_eq!(lexical(Path::new("/a/b/")), PathBuf::from("/a/b"));
+    }
+
+    #[test]
+    fn reflog_times_carry_the_sign_and_minutes_of_the_offset() {
+        let time = |offset| gix::date::Time { seconds: 5, offset };
+        assert_eq!(format_time(time(0)), "5 +0000");
+        assert_eq!(format_time(time(-(5 * 3600 + 30 * 60))), "5 -0530");
+        assert_eq!(format_time(time(5 * 3600 + 45 * 60)), "5 +0545");
+    }
+
+    #[test]
+    fn lock_files_are_named_after_the_file_and_block_the_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("index");
+        assert_eq!(lock_path(&file), dir.path().join("index.lock"));
+        ensure_unlocked(&file).unwrap();
+        std::fs::write(lock_path(&file), b"").unwrap();
+        let error = ensure_unlocked(&file).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::GitLocked);
+        assert!(!error.data().fix.is_empty());
+    }
+
+    #[test]
+    fn expected_state_must_match_after_trimming() {
+        let repo = Path::new("/srv/repo");
+        check_expected_state(None, "abc", repo).unwrap();
+        check_expected_state(Some(" abc\n"), "abc", repo).unwrap();
+        let error = check_expected_state(Some("other"), "abc", repo).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(error.data().problem.as_deref(), Some("state_changed"));
+    }
+
+    #[test]
+    fn current_content_is_expected_by_hash_and_a_missing_file_as_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("f");
+        assert_eq!(expect_current(&file).unwrap(), Expect::Absent);
+        std::fs::write(&file, b"content").unwrap();
+        assert_eq!(
+            expect_current(&file).unwrap(),
+            Expect::Hash(content_hash(b"content"))
+        );
+    }
+
+    #[test]
+    fn packed_reference_lookup_matches_whole_names_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = gix::init(dir.path()).unwrap();
+        let id = "1".repeat(40);
+        std::fs::write(
+            repo.common_dir().join("packed-refs"),
+            format!("# pack-refs with: peeled \n{id} refs/heads/ab\n^{id}\n{id} refs/heads/a\n"),
+        )
+        .unwrap();
+        assert_eq!(
+            packed_ref_line(&repo, "refs/heads/a").unwrap(),
+            Some(format!("{id} refs/heads/a"))
+        );
+        assert_eq!(packed_ref_line(&repo, "refs/heads/b").unwrap(), None);
+        assert_eq!(packed_ref_line(&repo, "refs/heads/").unwrap(), None);
+    }
+
+    #[test]
+    fn packed_line_removal_keeps_other_lines_and_a_missing_name_changes_nothing() {
+        let content = b"# header\n1111111111111111111111111111111111111111 refs/heads/a\n2222222222222222222222222222222222222222 refs/heads/ab\n";
+        let out = remove_packed(content, "refs/heads/a");
+        assert_eq!(
+            out,
+            b"# header\n2222222222222222222222222222222222222222 refs/heads/ab\n"
+        );
+        assert_eq!(remove_packed(content, "refs/heads/zz"), content);
+        assert_eq!(remove_packed(b"", "refs/heads/a"), b"");
     }
 
     #[test]

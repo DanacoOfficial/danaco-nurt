@@ -768,7 +768,7 @@ input = ["none"]
 output = ["effect", "commit"]
 summary = "Record a commit and report its branch and files."
 reversibility_note = "Undo moves the branch reference back; the working tree is not changed and written objects remain in the repository."
-external = { kind = "user_program", when = "hooks", note = "Runs the pre-commit and commit-msg hooks of the repository as user programs." }
+external = { kind = "user_program", when = "hooks", note = "Runs the pre-commit, prepare-commit-msg, commit-msg and post-commit hooks of the repository as user programs." }
 
 [[command.param]]
 name = "repo"
@@ -834,7 +834,7 @@ summary = "Allow a commit without changes."
 name = "hooks"
 type = "bool"
 default = "true"
-summary = "Run the pre-commit and commit-msg hooks of the repository as user programs."
+summary = "Run the pre-commit, prepare-commit-msg, commit-msg and post-commit hooks of the repository as user programs."
 
 [[command.param]]
 name = "sign"
@@ -1092,7 +1092,7 @@ summary = "Restore the index."
 [[command.param]]
 name = "worktree"
 type = "bool"
-default = "true"
+default_note = "true, or false with staged"
 summary = "Restore the working tree."
 
 [[command.param]]
@@ -1333,6 +1333,7 @@ implementation = "builtin"
 input = ["none"]
 output = ["effect", "git_ref_update"]
 summary = "Update references on a remote with local commits."
+external = { kind = "user_program", note = "Runs the pre-push hook of the repository, and the pre-receive, update and post-receive hooks of a remote on the local file system, as user programs." }
 
 [[command.param]]
 name = "repo"

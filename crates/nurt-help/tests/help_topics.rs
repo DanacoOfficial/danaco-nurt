@@ -248,6 +248,78 @@ fn topic_kinds_match_the_values_of_the_catalog_parameter() {
 }
 
 #[test]
+fn topic_kinds_are_found_by_their_names() {
+    for kind in TopicKind::ALL {
+        assert_eq!(TopicKind::from_name(kind.name()), Some(kind));
+    }
+    assert_eq!(TopicKind::from_name("nothing"), None);
+    assert_eq!(TopicKind::from_name(""), None);
+}
+
+#[test]
+fn the_kind_selects_the_topic_whatever_the_name_is() {
+    let syntax = text(&HelpQuery::topic("anything").with_kind(TopicKind::Syntax));
+    assert!(syntax.contains("program = [let name = PIPELINE]"));
+    let corrections = text(&HelpQuery::topic("anything").with_kind(TopicKind::Corrections));
+    assert!(corrections.contains("classes: C certain"));
+    let error = text(&HelpQuery::topic("E_STALE").with_kind(TopicKind::Error));
+    assert!(error.starts_with("E_STALE — "));
+}
+
+#[test]
+fn the_kind_restricts_the_lookup_to_that_kind() {
+    let catalog = common::catalog();
+    let command = HelpQuery::topic("git").with_kind(TopicKind::Command);
+    assert_eq!(
+        help::render(&command, &catalog).unwrap_err().code(),
+        ErrorCode::UnknownName
+    );
+    let error = HelpQuery::topic("E_NOTHING").with_kind(TopicKind::Error);
+    assert_eq!(
+        help::render(&error, &catalog).unwrap_err().code(),
+        ErrorCode::UnknownName
+    );
+    let guide = HelpQuery::topic("list").with_kind(TopicKind::Skill);
+    assert_eq!(
+        help::render(&guide, &catalog).unwrap_err().code(),
+        ErrorCode::UnknownName
+    );
+}
+
+#[test]
+fn search_ignores_words_of_one_character() {
+    let mut query = HelpQuery::new();
+    query.search = Some("a".to_owned());
+    assert!(text(&query).contains("no matches"));
+    query.search = Some(String::new());
+    assert!(text(&query).contains("no matches"));
+}
+
+#[test]
+fn search_in_json_lists_the_results_by_kind() {
+    let mut query = HelpQuery::new().with_format(HelpFormat::Json);
+    query.search = Some("assertion".to_owned());
+    let document: serde_json::Value = serde_json::from_str(&text(&query)).unwrap();
+    assert_eq!(document["search"], "assertion");
+    assert!(document["commands"].is_array());
+    assert!(document["guides"].is_array());
+    assert!(
+        document["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["name"] == "E_ASSERT")
+    );
+}
+
+#[test]
+fn the_number_of_examples_zero_hides_them() {
+    let body = text(&HelpQuery::topic("evaluate").with_examples(0));
+    assert!(!body.contains("\nexamples:"));
+    assert!(!body.contains("evaluate 6 * 7"));
+}
+
+#[test]
 fn group_note_points_at_the_group_description() {
     let catalog = common::catalog();
     assert_eq!(
@@ -265,4 +337,111 @@ fn tagline_is_the_canonical_sentence() {
         TAGLINE,
         "Command shell and language where every change can be undone"
     );
+}
+
+#[test]
+fn commands_topic_lists_every_command_under_its_group() {
+    let catalog = common::catalog();
+    let body = help::render(&HelpQuery::topic("commands"), &catalog)
+        .unwrap()
+        .body;
+    for file in catalog.groups() {
+        assert!(
+            body.contains(&format!("{} ({})", file.group, file.commands.len())),
+            "group {}",
+            file.group
+        );
+        for command in &file.commands {
+            let line = format!("  {} — {}", command.name, command.summary);
+            assert!(body.lines().any(|found| found == line), "{}", command.name);
+        }
+    }
+}
+
+#[test]
+fn commands_topic_is_a_json_document_of_groups() {
+    let catalog = common::catalog();
+    let query = HelpQuery::topic("commands").with_format(HelpFormat::Json);
+    let body = help::render(&query, &catalog).unwrap().body;
+    let document: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(document["kind"], "commands");
+    assert_eq!(document["count"], catalog.command_count());
+    let groups = document["groups"].as_array().unwrap();
+    assert_eq!(groups.len(), catalog.groups().count());
+    assert!(groups[0]["commands"].as_array().unwrap().len() > 1);
+}
+
+#[test]
+fn commands_topic_follows_the_language() {
+    let query = HelpQuery::topic("commands").with_language(Language::Pl);
+    let body = text(&query);
+    assert!(body.starts_with("polecenia według grup"));
+    assert!(text(&HelpQuery::topic("commands")).starts_with("commands by group"));
+}
+
+#[test]
+fn overview_and_unknown_topics_name_the_commands_topic() {
+    assert!(text(&HelpQuery::new()).contains("topics: syntax, corrections, commands"));
+    let error = help::render(&HelpQuery::topic("comands"), &common::catalog()).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::UnknownName);
+    let expected = error.expected.clone().unwrap();
+    assert_eq!(expected.as_array().unwrap()[0], "commands");
+}
+
+/// Topics that the sources of other crates write as the help of an error.
+fn topics_in(directory: &std::path::Path, found: &mut Vec<(String, String)>) {
+    const MARKS: [&str; 3] = [".help(\"", ".with_help(\"", "help: \""];
+    for entry in std::fs::read_dir(directory).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            topics_in(&path, found);
+            continue;
+        }
+        if path.extension().is_none_or(|extension| extension != "rs") {
+            continue;
+        }
+        let source = std::fs::read_to_string(&path).unwrap();
+        for line in source
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+        {
+            for mark in MARKS {
+                let mut rest = line;
+                while let Some(position) = rest.find(mark) {
+                    rest = &rest[position + mark.len()..];
+                    let Some(end) = rest.find('"') else { break };
+                    found.push((path.display().to_string(), rest[..end].to_owned()));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn every_topic_an_error_points_at_exists() {
+    let catalog = common::catalog();
+    let mut found = Vec::new();
+    for krate in ["nurt-bind", "nurt-correct", "nurt-syntax", "nurt-cli"] {
+        let directory = common::root().join("crates").join(krate).join("src");
+        topics_in(&directory, &mut found);
+    }
+    assert!(found.len() > 10, "{found:?}");
+    for (file, topic) in found {
+        let topic = topic.strip_prefix("help ").unwrap_or(&topic);
+        if topic.is_empty() {
+            continue;
+        }
+        let result = help::render(&HelpQuery::topic(topic), &catalog);
+        assert!(result.is_ok(), "{file}: help \"{topic}\" fails: {result:?}");
+    }
+}
+
+#[test]
+fn part_topics_answer_in_both_languages() {
+    for topic in ["pipelines", "let", "paths", "records", "lists"] {
+        let english = text(&HelpQuery::topic(topic));
+        let polish = text(&HelpQuery::topic(topic).with_language(Language::Pl));
+        assert!(!english.is_empty() && !polish.is_empty(), "{topic}");
+        assert_ne!(english, polish, "{topic}");
+    }
 }

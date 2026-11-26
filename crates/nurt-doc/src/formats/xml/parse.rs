@@ -8,6 +8,7 @@
 //! ranges of consecutive events must tile the document. Parts of a tag are
 //! located by scanning the bytes inside the event range.
 
+use std::collections::HashSet;
 use std::ops::Range;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
@@ -253,12 +254,10 @@ impl<'a> Builder<'a> {
     }
 
     fn check_duplicates(&self, attributes: &[Attribute]) -> Result<()> {
-        for (index, attribute) in attributes.iter().enumerate() {
+        let mut seen: HashSet<&str> = HashSet::with_capacity(attributes.len());
+        for attribute in attributes {
             let name = &self.text[attribute.name.clone()];
-            if attributes[..index]
-                .iter()
-                .any(|earlier| &self.text[earlier.name.clone()] == name)
-            {
+            if !seen.insert(name) {
                 return Err(self.error(
                     attribute.name.start,
                     format!("attribute `{name}` is repeated; keep one occurrence"),
@@ -506,5 +505,22 @@ mod tests {
         let subset = internal_subset(text, 11, text.len() - 1).unwrap();
         assert_eq!(&text[subset], r#" <!ENTITY e "]"> "#);
         assert_eq!(internal_subset("<!DOCTYPE a>", 11, 11), None);
+    }
+
+    #[test]
+    fn repeated_attribute_names_are_rejected_wherever_they_are() {
+        assert!(parse(r#"<a x="1" y="2" x="3"/>"#).is_err());
+        assert!(parse(r#"<a x="1" X="2"/>"#).is_ok());
+        assert!(parse(r#"<a p:x="1" q:x="2"/>"#).is_ok());
+        let many: String = (0..2000).map(|index| format!(" a{index}=\"1\"")).collect();
+        assert!(parse(&format!("<r{many}/>")).is_ok());
+        assert!(parse(&format!("<r{many} a1999=\"2\"/>")).is_err());
+    }
+
+    #[test]
+    fn nesting_beyond_the_limit_reports_a_limit_error() {
+        let depth = MAX_DEPTH + 1;
+        let text = format!("{}{}", "<a>".repeat(depth), "</a>".repeat(depth));
+        assert_eq!(parse(&text).unwrap_err().code(), ErrorCode::Limit);
     }
 }

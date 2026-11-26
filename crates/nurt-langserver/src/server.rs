@@ -514,3 +514,140 @@ where
 fn encode(result: serde_json::Result<Value>) -> Result<Value, Failure> {
     result.map_err(|error| Failure::new(ErrorCode::InternalError, error.to_string()))
 }
+
+#[cfg(test)]
+mod tests {
+    use std::error::Error as _;
+
+    use lsp_types::PositionEncodingKind;
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn errors_name_their_cause() {
+        let invalid = serde_json::from_str::<Value>("{").unwrap_err();
+        assert!(
+            ServerError::Encode(invalid)
+                .to_string()
+                .starts_with("cannot encode a message: ")
+        );
+        assert_eq!(
+            ServerError::Io(std::io::Error::other("pipe closed")).to_string(),
+            "standard stream error: pipe closed"
+        );
+        assert_eq!(
+            ServerError::Initialize("no capabilities".to_owned()).to_string(),
+            "invalid initialize parameters: no capabilities"
+        );
+        assert_eq!(
+            ServerError::Disconnected.to_string(),
+            "the client closed the connection before shutdown"
+        );
+        assert_eq!(
+            ServerError::ExitWithoutShutdown.to_string(),
+            "the client sent exit before shutdown"
+        );
+    }
+
+    #[test]
+    fn only_errors_that_wrap_another_error_have_a_source() {
+        let invalid = serde_json::from_str::<Value>("{").unwrap_err();
+        assert!(ServerError::Encode(invalid).source().is_some());
+        assert!(
+            ServerError::Io(std::io::Error::other("x"))
+                .source()
+                .is_some()
+        );
+        assert!(ServerError::Initialize("x".to_owned()).source().is_none());
+        assert!(ServerError::Disconnected.source().is_none());
+        assert!(ServerError::ExitWithoutShutdown.source().is_none());
+    }
+
+    #[test]
+    fn the_capabilities_follow_the_negotiated_encoding() {
+        for (encoding, kind) in [
+            (Encoding::Utf16, PositionEncodingKind::UTF16),
+            (Encoding::Utf32, PositionEncodingKind::UTF32),
+        ] {
+            let result = initialize_result(encoding);
+            assert_eq!(result.capabilities.position_encoding, Some(kind));
+        }
+    }
+
+    #[test]
+    fn the_server_offers_the_documented_features() {
+        let result = serde_json::to_value(initialize_result(Encoding::Utf16)).unwrap();
+        let capabilities = &result["capabilities"];
+        assert_eq!(result["serverInfo"]["name"], "nurt");
+        assert_eq!(result["serverInfo"]["version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(capabilities["textDocumentSync"], 1);
+        assert_eq!(capabilities["hoverProvider"], true);
+        assert_eq!(capabilities["documentFormattingProvider"], true);
+        assert_eq!(
+            capabilities["completionProvider"]["triggerCharacters"],
+            json!([":", "=", "@", "|", ">", " ", "(", ","])
+        );
+        assert_eq!(
+            capabilities["signatureHelpProvider"]["triggerCharacters"],
+            json!([" ", "(", ",", ":", "="])
+        );
+        assert_eq!(
+            capabilities["codeActionProvider"]["codeActionKinds"],
+            json!(["quickfix"])
+        );
+        assert_eq!(capabilities["semanticTokensProvider"]["full"], true);
+        assert_eq!(
+            capabilities["semanticTokensProvider"]["legend"]["tokenModifiers"],
+            json!(["declaration"])
+        );
+    }
+
+    #[test]
+    fn strings_copies_every_character() {
+        assert_eq!(
+            strings(&["a", "\u{142}"]),
+            vec!["a".to_owned(), "\u{142}".to_owned()]
+        );
+        assert!(strings(&[]).is_empty());
+    }
+
+    #[test]
+    fn invalid_request_parameters_are_an_invalid_params_failure() {
+        let failure = request_params::<HoverRequest>(json!({"position": 1})).unwrap_err();
+        assert_eq!(failure.code as i32, -32602);
+        assert!(
+            failure
+                .message
+                .starts_with("invalid parameters of textDocument/hover: "),
+            "{}",
+            failure.message
+        );
+        assert!(
+            request_params::<HoverRequest>(json!({
+                "textDocument": {"uri": "file:///work/a.nurt"},
+                "position": {"line": 0, "character": 0}
+            }))
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn an_encoding_error_is_an_internal_error() {
+        let invalid = serde_json::from_str::<Value>("{").unwrap_err();
+        let failure = encode(Err(invalid)).unwrap_err();
+        assert_eq!(failure.code as i32, -32603);
+        assert_eq!(encode(Ok(json!(1))).unwrap(), json!(1));
+    }
+
+    #[test]
+    fn sending_to_a_closed_connection_is_a_disconnection() {
+        let (server, client) = Connection::memory();
+        drop(client);
+        let message = Notification::new("window/logMessage".to_owned(), json!({})).into();
+        assert!(matches!(
+            send(&server, message),
+            Err(ServerError::Disconnected)
+        ));
+    }
+}

@@ -165,6 +165,68 @@ mod tests {
     }
 
     #[test]
+    fn summary_lists_the_fixes_and_the_help_of_the_error() {
+        let mut report = Report::new(ReportStatus::Failed, "remove");
+        report.error = Some(
+            Error::new(ErrorCode::UnknownCommand, "unknown command `remvoe`")
+                .with_fix("remove \"/tmp/a\"")
+                .with_help("syntax"),
+        );
+        let text = render(
+            &Response::new(report),
+            OutputFormat::Markdown,
+            Style::plain(),
+        );
+        assert_eq!(
+            text,
+            "failed remove\nE_UNKNOWN_COMMAND: unknown command `remvoe`\nfix: remove \"/tmp/a\"\nhelp: syntax"
+        );
+    }
+
+    #[test]
+    fn successful_summary_has_no_error_lines() {
+        let response = Response::new(Report::new(ReportStatus::Ok, "find"));
+        assert_eq!(
+            render(&response, OutputFormat::Text, Style::plain()),
+            "ok find"
+        );
+        assert_eq!(
+            render(&response, OutputFormat::Compact, Style::plain()),
+            "ok find"
+        );
+    }
+
+    #[test]
+    fn enabled_styles_wrap_the_text_in_escape_sequences() {
+        let style = Style::resolve(ColorMode::Always, false, false);
+        assert!(style.is_enabled());
+        assert_eq!(style.success("ok"), format!("{GREEN}ok{RESET}"));
+        assert_eq!(style.error("bad"), format!("{RED}bad{RESET}"));
+        assert_eq!(style.emphasis("find"), format!("{BOLD}find{RESET}"));
+        assert!(!Style::plain().is_enabled());
+        assert_eq!(Style::plain().emphasis("find"), "find");
+    }
+
+    #[test]
+    fn coloured_summary_paints_the_status_and_the_kind() {
+        let style = Style::resolve(ColorMode::Always, false, false);
+        let response = Response::new(Report::new(ReportStatus::Ok, "find"));
+        assert_eq!(
+            render(&response, OutputFormat::Text, style),
+            format!("{GREEN}ok{RESET} {BOLD}find{RESET}")
+        );
+        let text = render(&failed(), OutputFormat::Text, style);
+        assert!(text.starts_with(&format!("{RED}failed{RESET} ")), "{text}");
+    }
+
+    #[test]
+    fn status_names_are_the_names_of_the_report() {
+        assert_eq!(status_name(ReportStatus::Ok), "ok");
+        assert_eq!(status_name(ReportStatus::Failed), "failed");
+        assert_eq!(status_name(ReportStatus::Planned), "planned");
+    }
+
+    #[test]
     fn json_is_the_response_document() {
         let text = render(&failed(), OutputFormat::Json, Style::plain());
         let parsed: Response = serde_json::from_str(&text).unwrap();

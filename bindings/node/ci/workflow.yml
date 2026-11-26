@@ -189,7 +189,7 @@ jobs:
           version="${RELEASE#v}"
           assets="$RUNNER_TEMP/release"
           gh release download "$RELEASE" --repo "$GITHUB_REPOSITORY" --dir "$assets" \
-            --pattern "nurt-${version}-*" --pattern SHA256SUMS
+            --pattern "nurt-${version}-*" --pattern checksums.txt
           node scripts/set-version.mjs "$version"
           node scripts/stage-binaries.mjs --assets "$assets" --version "$version"
       - name: Pack the packages

@@ -212,7 +212,7 @@ impl EffectStage for Undo {
         ctx.checkpoint()?;
         let request = request(&parse(args)?, ctx)?;
         let result = super::store(ctx)?.undo(&request)?;
-        Ok(records::undo_outcome(NAME, result))
+        Ok(records::undo_outcome(NAME, result, ctx.fs()))
     }
 }
 
@@ -283,6 +283,127 @@ mod tests {
         let error = request(&parse(&call(NAME, &[])).unwrap(), &ctx).unwrap_err();
         assert_eq!(error.code, ErrorCode::StageFailed);
         assert!(error.message.contains("bound program"));
+    }
+
+    fn instant() -> Value {
+        Value::Instant(value::Instant::from_unix_nanos(1_700_000_000_000_000_000))
+    }
+
+    #[test]
+    fn since_accepts_numbers_and_instants_only() {
+        let given = |since: Value| call(NAME, &[("file", sample_path()), ("since", since)]);
+        assert!(matches!(
+            parse(&given(Value::Int(2))).unwrap().selection,
+            Selection::File {
+                since: Some(SinceArg::Op(OpId(2))),
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse(&given(instant())).unwrap().selection,
+            Selection::File {
+                since: Some(SinceArg::Time(_)),
+                ..
+            }
+        ));
+        for wrong in [Value::Text("2".to_owned()), Value::Bool(true)] {
+            assert_eq!(parse(&given(wrong)).unwrap_err().code, ErrorCode::Type);
+        }
+        for number in [0, -1] {
+            let error = parse(&given(Value::Int(number))).unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidValue);
+        }
+    }
+
+    #[test]
+    fn every_conflict_word_selects_its_behaviour_and_unknown_words_are_refused() {
+        for (word, expected) in ON_CONFLICT {
+            let args = call(NAME, &[("on_conflict", Value::Enum(word.to_owned()))]);
+            assert_eq!(parse(&args).unwrap().on_conflict, expected, "{word}");
+        }
+        assert_eq!(
+            parse(&call(NAME, &[])).unwrap().on_conflict,
+            OnConflict::default()
+        );
+        let unknown = call(NAME, &[("on_conflict", Value::Enum("ignore".to_owned()))]);
+        assert_eq!(parse(&unknown).unwrap_err().code, ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn a_single_path_text_selects_one_item_of_the_entry() {
+        let args = call(
+            NAME,
+            &[
+                ("id", Value::Int(3)),
+                (
+                    "paths",
+                    Value::Text("/home/użytkownik/zażółć.txt".to_owned()),
+                ),
+            ],
+        );
+        assert_eq!(
+            parse(&args).unwrap().selection,
+            Selection::Paths {
+                op: OpId(3),
+                paths: vec!["/home/użytkownik/zażółć.txt".to_owned()],
+            }
+        );
+        let wrong = call(NAME, &[("id", Value::Int(3)), ("paths", Value::Int(1))]);
+        assert_eq!(parse(&wrong).unwrap_err().code, ErrorCode::Type);
+    }
+
+    #[test]
+    fn requests_resolve_relative_paths_and_convert_instants_to_wall_times() {
+        use super::super::testing::path;
+
+        let env = Env::new();
+        let ctx = env.ctx_with(NAME, |options| options.base = Some("/home/user".to_owned()));
+        let args = call(
+            NAME,
+            &[
+                ("file", Value::Path("docs/notes.txt".to_owned())),
+                ("since", instant()),
+            ],
+        );
+        let made = request(&parse(&args).unwrap(), &ctx).unwrap();
+        assert_eq!(
+            made.selector,
+            UndoSelector::File {
+                path: path("/home/user/docs/notes.txt"),
+                since: Some(Since::Time(WallTime::from_unix_nanos(
+                    1_700_000_000_000_000_000
+                ))),
+            }
+        );
+        let args = call(
+            NAME,
+            &[
+                ("id", Value::Int(3)),
+                (
+                    "paths",
+                    Value::List(vec![
+                        Value::Path("a.txt".to_owned()),
+                        Value::Text("/srv/b.txt".to_owned()),
+                    ]),
+                ),
+            ],
+        );
+        let made = request(&parse(&args).unwrap(), &ctx).unwrap();
+        assert_eq!(
+            made.selector,
+            UndoSelector::Paths {
+                op: OpId(3),
+                paths: vec![
+                    TargetPath::Fs(path("/home/user/a.txt")),
+                    TargetPath::Fs(path("/srv/b.txt")),
+                ],
+            }
+        );
+        let without_base = env.ctx(NAME);
+        let error = request(&parse(&args).unwrap(), &without_base)
+            .err()
+            .unwrap();
+        assert_eq!(error.code, ErrorCode::InvalidValue);
     }
 
     #[test]

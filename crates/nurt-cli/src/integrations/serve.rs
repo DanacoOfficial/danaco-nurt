@@ -229,6 +229,65 @@ mod tests {
     }
 
     #[test]
+    fn attachments_name_their_form_of_the_subcommand() {
+        assert_eq!(Attachment::Stdio.form(), "serve --stdio");
+        assert_eq!(
+            Attachment::Socket(PathBuf::from("/run/nurt.sock")).form(),
+            "serve --socket"
+        );
+    }
+
+    #[test]
+    fn a_socket_path_with_multi_byte_characters_is_kept() {
+        let args = vec![
+            "--socket".to_owned(),
+            "/run/\u{142}\u{f3}d\u{17a}.sock".to_owned(),
+        ];
+        assert_eq!(
+            parse(&args).unwrap().attachment,
+            Attachment::Socket(PathBuf::from("/run/\u{142}\u{f3}d\u{17a}.sock"))
+        );
+    }
+
+    #[test]
+    fn each_option_needs_its_value() {
+        for bad in ["--stdio --framing", "--stdio --stub", "--socket"] {
+            assert_eq!(
+                parse(&words(bad)),
+                Err(CliError::Usage(format!(
+                    "`{}` needs a value",
+                    bad.rsplit(' ').next().unwrap()
+                ))),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_message_of_an_unknown_argument_names_it() {
+        assert_eq!(
+            parse(&words("--stdio --tcp")),
+            Err(CliError::Usage(
+                "unknown argument `--tcp` of `serve`".to_owned()
+            ))
+        );
+        assert_eq!(
+            parse(&words("")),
+            Err(CliError::Usage(
+                "`serve` needs `--stdio` or `--socket <path>`".to_owned()
+            ))
+        );
+    }
+
+    #[test]
+    fn the_socket_attachment_is_refused_before_the_engine_is_opened() {
+        assert_eq!(
+            run(&words("--socket /run/nurt.sock")),
+            Err(CliError::Unavailable("serve --socket".to_owned()))
+        );
+    }
+
+    #[test]
     fn in_process_run_validates_and_fails() {
         assert!(matches!(run(&words("--stdio")), Err(CliError::Failure(_))));
         assert!(matches!(run(&[]), Err(CliError::Usage(_))));

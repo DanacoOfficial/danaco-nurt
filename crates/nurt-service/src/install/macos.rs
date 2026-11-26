@@ -19,8 +19,8 @@ use serde_json::json;
 
 use super::detect::ModeChoice;
 use super::{
-    Backend, InstallReport, InstallRequest, Manifest, UninstallReport, privilege_error,
-    remove_files, write_file,
+    Backend, InstallReport, InstallRequest, Manifest, UninstallReport, files_named,
+    privilege_error, remove_files, write_file,
 };
 
 /// Label of the launchd job.
@@ -220,6 +220,10 @@ pub(crate) fn install_with(
     manifest.domain = Some(domain.clone());
     manifest.account = account;
     manifest.write(&request.paths)?;
+    // A job that is loaded already, as after an earlier installation, makes
+    // `bootstrap` fail; unloading it first makes the installation repeatable
+    // and starts the job from the new property list.
+    let _not_loaded_is_fine = launchctl(host, bootout_args(&domain));
     launchctl(host, bootstrap_args(&domain, &path))?;
     let notes = if choice.mode == ServiceMode::User && !session.graphical {
         vec![NO_GUI_NOTE.to_owned()]
@@ -248,7 +252,8 @@ pub(crate) fn uninstall_with(
     {
         notes.push(format!("the job was not loaded: {}", error.message));
     }
-    let removed = remove_files(&manifest.files)?;
+    let files = files_named(&manifest.files, &format!("{LABEL}.plist"), &mut notes);
+    let removed = remove_files(&files)?;
     Ok(UninstallReport {
         mode: manifest.mode,
         backend: manifest.backend,
@@ -314,20 +319,72 @@ mod tests {
         assert_eq!(report.files, std::slice::from_ref(&plist));
         assert!(report.notes.is_empty());
         let calls = host.calls();
-        assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].program, "launchctl");
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].args, ["bootout", "gui/501/nurt.service"]);
+        assert_eq!(calls[1].program, "launchctl");
         assert_eq!(
-            calls[0].args,
+            calls[1].args,
             ["bootstrap", "gui/501", plist.to_str().unwrap()]
         );
-        assert_eq!(calls[0].timeout_ms, Some(10_000));
+        assert_eq!(calls[1].timeout_ms, Some(10_000));
 
         let manifest = Manifest::read(&request.paths.install_manifest())
             .unwrap()
             .unwrap();
         let removed = uninstall_with(&manifest, &host).unwrap();
         assert_eq!(removed.removed, [plist]);
-        assert_eq!(host.calls()[1].args, ["bootout", "gui/501/nurt.service"]);
+        assert_eq!(host.calls()[2].args, ["bootout", "gui/501/nurt.service"]);
+    }
+
+    #[test]
+    fn install_macos_twice_unloads_the_loaded_job_before_bootstrap() {
+        let dir = tempfile::tempdir().unwrap();
+        let request = InstallRequest::new(ServicePaths::new(dir.path().join("state")));
+        let host = RecordingHost::new(0);
+        let choice = ModeChoice {
+            mode: ServiceMode::User,
+            reason: ModeReason::Requested,
+        };
+        for _ in 0..2 {
+            install_with(
+                &request,
+                Path::new("/opt/nurt/bin/nurt"),
+                choice,
+                &host,
+                &session(dir.path(), true),
+            )
+            .unwrap();
+        }
+        let verbs: Vec<String> = host
+            .calls()
+            .iter()
+            .map(|call| call.args[0].clone())
+            .collect();
+        assert_eq!(verbs, ["bootout", "bootstrap", "bootout", "bootstrap"]);
+    }
+
+    #[test]
+    fn uninstall_macos_removes_only_the_property_list_of_the_job() {
+        let dir = tempfile::tempdir().unwrap();
+        let plist = dir.path().join("nurt.service.plist");
+        let foreign = dir.path().join("precious.conf");
+        std::fs::write(&plist, "plist").unwrap();
+        std::fs::write(&foreign, "keep").unwrap();
+        let mut manifest = Manifest::new(
+            ServiceMode::User,
+            Backend::LaunchAgent,
+            Path::new("/opt/nurt/bin/nurt"),
+        );
+        manifest.files = vec![plist.clone(), foreign.clone()];
+        let report = uninstall_with(&manifest, &RecordingHost::new(0)).unwrap();
+        assert_eq!(report.removed, [plist]);
+        assert!(foreign.exists());
+        assert!(
+            report
+                .notes
+                .iter()
+                .any(|note| note.contains("precious.conf"))
+        );
     }
 
     #[test]

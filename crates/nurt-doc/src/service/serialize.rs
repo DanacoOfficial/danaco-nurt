@@ -47,14 +47,17 @@ pub(super) fn records(
 fn delimiter(options: &SerializeOptions, default: u8) -> Result<u8> {
     match options.delimiter {
         None => Ok(default),
-        Some(c) => u8::try_from(c).ok().filter(u8::is_ascii).ok_or_else(|| {
-            Error::new(
-                ErrorCode::InvalidValue,
-                format!(
-                    "the delimiter `{c}` is not an ASCII character; use a single ASCII character"
-                ),
-            )
-        }),
+        Some(c) => u8::try_from(c)
+            .ok()
+            .filter(|byte| byte.is_ascii() && !matches!(byte, b'"' | b'\n' | b'\r'))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::InvalidValue,
+                    format!(
+                        "the delimiter {c:?} cannot separate fields; use an ASCII character other than a quote or a line break"
+                    ),
+                )
+            }),
     }
 }
 
@@ -370,5 +373,130 @@ fn cell(value: &Value) -> String {
             out
         }
         other => render_scalar(other, Syntax::Json).unwrap_or_default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::value::RecordKind;
+
+    use super::*;
+
+    fn item(pairs: &[(&str, Value)]) -> Record {
+        pairs
+            .iter()
+            .fold(Record::new(RecordKind::Item), |record, (name, value)| {
+                record.with(*name, value.clone())
+            })
+    }
+
+    fn written(records: &[Record], format: &DocFormatId, options: &SerializeOptions) -> String {
+        let bytes = super::records(records, format, options).unwrap();
+        String::from_utf8(bytes).unwrap()
+    }
+
+    #[test]
+    fn delimiter_rejects_characters_that_break_the_table() {
+        for c in ['"', '\n', '\r', 'é'] {
+            let options = SerializeOptions {
+                delimiter: Some(c),
+                ..SerializeOptions::default()
+            };
+            assert!(delimiter(&options, b',').is_err(), "{c:?}");
+        }
+        let options = SerializeOptions {
+            delimiter: Some(';'),
+            ..SerializeOptions::default()
+        };
+        assert_eq!(delimiter(&options, b',').unwrap(), b';');
+        assert_eq!(
+            delimiter(&SerializeOptions::default(), b'\t').unwrap(),
+            b'\t'
+        );
+    }
+
+    #[test]
+    fn json_strings_escape_controls_and_quotes() {
+        assert_eq!(
+            json_string("a\"b\\c\n\u{1}\u{7f}é"),
+            "\"a\\\"b\\\\c\\n\\u0001\\u007fé\""
+        );
+    }
+
+    #[test]
+    fn json_output_is_compact_or_indented() {
+        let records = [item(&[
+            ("a", Value::Int(1)),
+            ("b", Value::Text("x".to_owned())),
+        ])];
+        let compact = SerializeOptions {
+            pretty: false,
+            ..SerializeOptions::default()
+        };
+        assert_eq!(
+            written(&records, &DocFormatId::JSON, &compact),
+            "[{\"a\":1,\"b\":\"x\"}]\n"
+        );
+        let pretty = written(&records, &DocFormatId::JSON, &SerializeOptions::default());
+        assert_eq!(pretty, "[\n  {\n    \"a\": 1,\n    \"b\": \"x\"\n  }\n]\n");
+        let none = written(&[], &DocFormatId::JSON, &SerializeOptions::default());
+        assert_eq!(none, "[]\n");
+    }
+
+    #[test]
+    fn yaml_output_quotes_text_that_would_change_type() {
+        let records = [item(&[
+            ("flag", Value::Text("yes".to_owned())),
+            ("num", Value::Text("12".to_owned())),
+            ("txt", Value::Text("a: b".to_owned())),
+            ("empty", Value::Text(String::new())),
+            ("list", Value::List(vec![Value::Int(1), Value::Null])),
+        ])];
+        let out = written(&records, &DocFormatId::YAML, &SerializeOptions::default());
+        assert_eq!(
+            out,
+            "- flag: \"yes\"\n  num: \"12\"\n  txt: \"a: b\"\n  empty: \"\"\n  list:\n    - 1\n    - null\n"
+        );
+        let none = written(&[], &DocFormatId::YAML, &SerializeOptions::default());
+        assert_eq!(none, "[]\n");
+    }
+
+    #[test]
+    fn table_output_uses_the_union_of_columns_and_quotes_cells() {
+        let records = [
+            item(&[("a", Value::Text("x,y".to_owned()))]),
+            item(&[("b", Value::Int(2)), ("a", Value::Text("q\"r".to_owned()))]),
+        ];
+        let csv = written(&records, &DocFormatId::CSV, &SerializeOptions::default());
+        assert_eq!(csv, "a,b\r\n\"x,y\",\r\n\"q\"\"r\",2\r\n");
+        let tsv = written(&records, &DocFormatId::TSV, &SerializeOptions::default());
+        assert_eq!(tsv, "a\tb\nx,y\t\n\"q\"\"r\"\t2\n");
+    }
+
+    #[test]
+    fn toml_output_writes_array_tables_and_skips_null() {
+        let records = [item(&[
+            ("name", Value::Text("x".to_owned())),
+            ("gone", Value::Null),
+            (
+                "big",
+                Value::BigInt("123456789012345678901234567890".to_owned()),
+            ),
+        ])];
+        let out = written(&records, &DocFormatId::TOML, &SerializeOptions::default());
+        assert!(out.starts_with("[["), "{out}");
+        assert!(out.contains("name = \"x\"\n"), "{out}");
+        assert!(!out.contains("gone"), "{out}");
+        assert!(
+            out.contains("big = \"123456789012345678901234567890\"\n"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn unsupported_format_is_rejected() {
+        let error =
+            super::records(&[], &DocFormatId::XML, &SerializeOptions::default()).unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidValue);
     }
 }

@@ -27,29 +27,39 @@ internal sealed unsafe class LibraryExecution : IExecutionHandle
     {
         _events = events;
         _registry = registry;
-        GCHandle state = events is null ? default : GCHandle.Alloc(events);
         byte[] request = Utf8.Terminate(envelope);
+
+        // The reference on the engine is taken before the execution starts and is handed to the
+        // execution handle, so that the engine cannot be closed between the start and the
+        // handle taking its own reference.
+        bool referenced = false;
+        engine.DangerousAddRef(ref referenced);
+        GCHandle state = events is null ? default : GCHandle.Alloc(events);
         CallStatus status;
         ExecHandle handle;
-        fixed (byte* pointer = request)
+        try
         {
-            status = NativeMethods.ExecStart(
-                engine,
-                pointer,
-                events is null ? IntPtr.Zero : EventCallback.Pointer,
-                events is null ? IntPtr.Zero : GCHandle.ToIntPtr(state),
-                out handle);
+            fixed (byte* pointer = request)
+            {
+                status = NativeMethods.ExecStart(
+                    engine,
+                    pointer,
+                    events is null ? IntPtr.Zero : EventCallback.Pointer,
+                    events is null ? IntPtr.Zero : GCHandle.ToIntPtr(state),
+                    out handle);
+            }
+        }
+        catch
+        {
+            ReleaseStart(engine, state);
+            throw;
         }
 
         if (status != CallStatus.Ok)
         {
             NurtCallException failure = NativeCall.Failure(status, "nurt_exec_start");
             handle.Dispose();
-            if (state.IsAllocated)
-            {
-                state.Free();
-            }
-
+            ReleaseStart(engine, state);
             throw failure;
         }
 
@@ -106,6 +116,16 @@ internal sealed unsafe class LibraryExecution : IExecutionHandle
         _registry.TryRemove(this, out _);
         _handle.Dispose();
         _events?.Complete();
+    }
+
+    private static void ReleaseStart(EngineHandle engine, GCHandle state)
+    {
+        if (state.IsAllocated)
+        {
+            state.Free();
+        }
+
+        engine.DangerousRelease();
     }
 
     private NurtResponse WaitForResponse()

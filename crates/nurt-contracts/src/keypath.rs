@@ -1187,12 +1187,12 @@ impl<'a> Parser<'a> {
         if self.eat("{") {
             let length = self.rest().find('}').ok_or_else(|| invalid(self))?;
             let hex = self.rest().get(..length).unwrap_or_default();
-            let code = (1..=MAX_BRACED_HEX_DIGITS)
-                .contains(&hex.len())
-                .then(|| u32::from_str_radix(hex, 16).ok())
-                .flatten()
-                .and_then(char::from_u32)
-                .ok_or_else(|| invalid(self))?;
+            let code = ((1..=MAX_BRACED_HEX_DIGITS).contains(&hex.len())
+                && hex.bytes().all(|b| b.is_ascii_hexdigit()))
+            .then(|| u32::from_str_radix(hex, 16).ok())
+            .flatten()
+            .and_then(char::from_u32)
+            .ok_or_else(|| invalid(self))?;
             self.pos += length + 1;
             return Ok(code);
         }
@@ -1626,4 +1626,179 @@ fn binary_from_expr(
         left,
         right,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn braced_unicode_escape_accepts_only_hexadecimal_digits() {
+        assert_eq!(
+            KeyPath::parse(r#"["\u{41}"]"#).unwrap().segments(),
+            [KeySegment::Key("A".to_owned())]
+        );
+        for text in [
+            r#"["\u{+41}"]"#,
+            r#"["\u{-1}"]"#,
+            r#"["\u{}"]"#,
+            r#"["\u{1234567}"]"#,
+            r#"["\u{D800}"]"#,
+            r#"["\u{110000}"]"#,
+        ] {
+            let error = KeyPath::parse(text).unwrap_err();
+            assert_eq!(error.kind, KeyPathErrorKind::InvalidEscape, "{text}");
+        }
+    }
+
+    #[test]
+    fn utf16_escapes_decode_surrogate_pairs_and_reject_lone_surrogates() {
+        let key = KeyPath::parse(r#"["😀"]"#).unwrap();
+        assert_eq!(key.segments(), [KeySegment::Key("\u{1F600}".to_owned())]);
+        let invalid = [
+            r#"["\uD83D"]"#,
+            r#"["\uDE00"]"#,
+            r#"["\uD83Dx"]"#,
+            r#"["\u12"]"#,
+        ];
+        for text in invalid {
+            assert_eq!(
+                KeyPath::parse(text).unwrap_err().kind,
+                KeyPathErrorKind::InvalidEscape,
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn canonical_text_of_awkward_names_reads_back_unchanged() {
+        let names = [
+            "",
+            "$",
+            "*",
+            "**",
+            "a.b",
+            " lead",
+            "trail ",
+            "it's",
+            "q\"uote",
+            "back\\slash",
+            "tab\there",
+            "nul\u{0}",
+            "#1:x",
+            "z\u{1F600}",
+            "a b",
+            "-1",
+            "0",
+            "[x]",
+        ];
+        for name in names {
+            for document in [None, Some(DocSelector::Index(2)), Some(DocSelector::All)] {
+                let key = KeyPath::new(document, vec![KeySegment::Key(name.to_owned())]).unwrap();
+                let text = key.to_string();
+                assert_eq!(KeyPath::parse(&text).unwrap(), key, "{text}");
+            }
+        }
+    }
+
+    #[test]
+    fn canonical_text_of_filters_reads_back_unchanged() {
+        let texts = [
+            r#"a[?x == 1 and (y == 2 or z == 3)]"#,
+            r#"a[?not (x == 1)]"#,
+            r#"a[?not not x]"#,
+            r#"a[?x == 1 and (y == 2 and z == 3)]"#,
+            r#"a[?@["a b"].c == "x"]"#,
+            r#"a[?@ == null]"#,
+            r#"a[?x == 1000.0]"#,
+            r#"a[?x == 1e300]"#,
+            r#"a[?x == -0.5]"#,
+        ];
+        for text in texts {
+            let key = KeyPath::parse(text).unwrap();
+            assert_eq!(key.to_string(), text);
+            assert_eq!(KeyPath::parse(&key.to_string()).unwrap(), key);
+        }
+        let large = KeyPath::parse("a[?x == 99999999999999999999]").unwrap();
+        assert_eq!(large.to_string(), "a[?x == 1e20]");
+        assert_eq!(KeyPath::parse(&large.to_string()).unwrap(), large);
+    }
+
+    #[test]
+    fn filter_nesting_is_limited() {
+        let nested = |depth: usize| format!("a[?{}x{}]", "(".repeat(depth), ")".repeat(depth));
+        assert_eq!(
+            KeyPath::parse(&nested(MAX_FILTER_DEPTH + 1))
+                .unwrap_err()
+                .kind,
+            KeyPathErrorKind::InvalidFilter
+        );
+        assert!(KeyPath::parse(&nested(MAX_FILTER_DEPTH)).is_ok());
+        let negations = format!("a[?{}x]", "not ".repeat(MAX_FILTER_DEPTH + 1));
+        assert!(KeyPath::parse(&negations).is_err());
+    }
+
+    #[test]
+    fn errors_report_byte_offset_and_character_column() {
+        let error = KeyPath::parse("żółć[b]").unwrap_err();
+        assert_eq!(error.kind, KeyPathErrorKind::UnquotedName);
+        assert_eq!(error.column, 6);
+        assert_eq!(error.offset, "żółć[".len());
+        assert_eq!(error.fix.as_deref(), Some(r#"żółć["b"]"#));
+    }
+
+    #[test]
+    fn append_must_be_final_and_indices_must_fit() {
+        assert_eq!(
+            KeyPath::parse("a[+].b").unwrap_err().kind,
+            KeyPathErrorKind::MisplacedAppend
+        );
+        assert_eq!(
+            KeyPath::parse("a[9223372036854775808]").unwrap_err().kind,
+            KeyPathErrorKind::IndexOutOfRange
+        );
+        assert_eq!(
+            KeyPath::parse("a[-9223372036854775808]")
+                .unwrap()
+                .segments()[1],
+            KeySegment::Index(i64::MIN)
+        );
+        assert_eq!(
+            KeyPath::parse("#4294967296:a").unwrap_err().kind,
+            KeyPathErrorKind::IndexOutOfRange
+        );
+        let mut key = KeyPath::parse("a[+]").unwrap();
+        assert!(key.push(KeySegment::Wildcard).is_err());
+    }
+
+    #[test]
+    fn non_finite_filter_numbers_are_rejected_when_building() {
+        let literal = FilterExpr::Literal {
+            value: FilterLiteral::Number(f64::INFINITY),
+        };
+        assert_eq!(
+            KeyPath::new(None, vec![KeySegment::Filter(literal)])
+                .unwrap_err()
+                .kind,
+            KeyPathErrorKind::InvalidNumber
+        );
+        assert_eq!(
+            KeyPath::parse("a[?x == 1e400]").unwrap_err().kind,
+            KeyPathErrorKind::InvalidNumber
+        );
+    }
+
+    #[test]
+    fn jsonpath_subset_is_converted_and_the_rest_is_rejected() {
+        assert_eq!(KeyPath::parse("$..name").unwrap().to_string(), "**.name");
+        assert_eq!(KeyPath::parse("$").unwrap(), KeyPath::root());
+        assert_eq!(KeyPath::parse("$schema").unwrap().to_string(), "$schema");
+        for text in ["a[1:3]", "a[0,1]", "a[?length(x) == 1]", "a[?$.x == 1]"] {
+            assert_eq!(
+                KeyPath::parse(text).unwrap_err().kind,
+                KeyPathErrorKind::Unsupported,
+                "{text}"
+            );
+        }
+    }
 }

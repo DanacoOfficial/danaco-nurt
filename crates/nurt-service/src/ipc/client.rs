@@ -17,6 +17,10 @@ use super::protocol::{self, LineRead, Message};
 use crate::paths::ServicePaths;
 use crate::status::{self, Liveness};
 
+/// Time after which the thread of a `ping` whose caller gave up ends on its
+/// own, so that a service that does not answer leaves no thread behind.
+const ABANDONED_PING_LIMIT: Duration = Duration::from_secs(5);
+
 /// Connection to the control channel of a running service.
 pub struct ControlClient {
     reader: BufReader<Box<dyn Read + Send>>,
@@ -41,7 +45,22 @@ impl ControlClient {
     ///
     /// Fails when no service listens.
     pub fn connect(paths: &ServicePaths) -> io::Result<Self> {
-        let (reader, writer) = super::connect(paths)?;
+        Self::connect_with(paths, None)
+    }
+
+    /// Connects to the service of the state directory; a read that waits
+    /// longer than `limit` fails with `WouldBlock` or `TimedOut`. The limit
+    /// has no effect on Windows.
+    ///
+    /// # Errors
+    ///
+    /// Fails when no service listens.
+    pub fn connect_limited(paths: &ServicePaths, limit: Duration) -> io::Result<Self> {
+        Self::connect_with(paths, Some(limit))
+    }
+
+    fn connect_with(paths: &ServicePaths, limit: Option<Duration>) -> io::Result<Self> {
+        let (reader, writer) = super::connect(paths, limit)?;
         Ok(Self {
             reader: BufReader::new(reader),
             writer,
@@ -130,7 +149,7 @@ pub fn ping(paths: &ServicePaths, timeout: Duration) -> io::Result<(u32, Duratio
     thread::Builder::new()
         .name("nurt-service-ping".to_owned())
         .spawn(move || {
-            let outcome = ControlClient::connect(&paths)
+            let outcome = ControlClient::connect_limited(&paths, ABANDONED_PING_LIMIT)
                 .and_then(|mut client| client.call(protocol::OP_PING, json!({})));
             let _ = sender.send(outcome);
         })?;
@@ -231,6 +250,26 @@ mod tests {
         assert_eq!(error.code, ErrorCode::Service);
         assert_eq!(error.problem.as_deref(), Some("module_unavailable"));
         assert_eq!(response_error(&Value::Null).code, ErrorCode::Service);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_silent_service_ends_a_limited_call_at_the_read_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = ServicePaths::new(dir.path());
+        let listener = std::os::unix::net::UnixListener::bind(paths.socket_file()).unwrap();
+        let mut client = ControlClient::connect_limited(&paths, Duration::from_millis(50)).unwrap();
+        let (_silent, _) = listener.accept().unwrap();
+        let error = client.call(protocol::OP_PING, json!({})).unwrap_err();
+        assert!(
+            matches!(
+                error.kind(),
+                io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+            ),
+            "{error}"
+        );
+        let silent = ping(&paths, Duration::from_millis(50)).unwrap_err();
+        assert_eq!(silent.kind(), io::ErrorKind::TimedOut);
     }
 
     #[test]

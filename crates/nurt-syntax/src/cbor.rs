@@ -169,6 +169,9 @@ fn ensure_deterministic(received: &[u8], deterministic: &[u8]) -> Result<(), Syn
 
 const NOT_DETERMINISTIC: &str = "the input is not the deterministic encoding of the tree; re-encode it with the deterministic encoding";
 
+/// Most elements reserved at once for a container; larger ones grow as their
+/// elements are read.
+const MAX_RESERVED_ELEMENTS: usize = 1024;
 const DEPTH_MESSAGE: &str = "nesting deeper than 128 levels; flatten the document";
 
 /// Returns a decoding error; [`SyntaxError::found`] holds the offset of the
@@ -506,10 +509,14 @@ impl<'a> Reader<'a> {
         }
     }
 
+    /// Room reserved for a container of `remaining` elements. The count comes
+    /// from the input, and a container that only claims many elements must
+    /// not reserve memory for all of them at each of 128 levels of nesting.
     fn capacity(remaining: Option<u64>) -> usize {
         remaining
             .and_then(|count| usize::try_from(count).ok())
             .unwrap_or_default()
+            .min(MAX_RESERVED_ELEMENTS)
     }
 
     /// Returns the number of elements of a container; rejects a length that
@@ -675,5 +682,21 @@ fn integer(head: Head) -> Result<Value, SyntaxError> {
         Ok(Value::from(-1 - magnitude))
     } else {
         Err(at_byte(head.offset, INTEGER_MESSAGE))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reserves_room_only_up_to_the_limit() {
+        assert_eq!(Reader::capacity(None), 0);
+        assert_eq!(Reader::capacity(Some(5)), 5);
+        assert_eq!(
+            Reader::capacity(Some(MAX_RESERVED_ELEMENTS as u64 + 1)),
+            MAX_RESERVED_ELEMENTS
+        );
+        assert_eq!(Reader::capacity(Some(u64::MAX)), MAX_RESERVED_ELEMENTS);
     }
 }

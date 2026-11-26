@@ -10,7 +10,6 @@
 
 use nurt_bind::Catalog as BindCatalog;
 use nurt_help::catalog::Catalog as HelpCatalog;
-use nurt_help::docs::Docs;
 use nurt_langserver::{Options, ServerError, run_stdio};
 
 use crate::app::CliError;
@@ -24,9 +23,9 @@ fn options() -> Result<Options, CliError> {
     let texts: Vec<&str> = files.iter().map(|(_, text)| *text).collect();
     let bind = BindCatalog::from_toml(index, &texts)
         .map_err(|error| CliError::Failure(format!("cannot load the embedded catalog: {error}")))?;
-    let help = HelpCatalog::from_sources(index, files, Docs::empty())
-        .map_err(|error| CliError::Failure(format!("cannot load the embedded catalog: {error}")))?;
-    Ok(Options::from_catalog(bind).with_help(help))
+    let help = HelpCatalog::embedded()
+        .map_err(|error| CliError::Failure(format!("cannot load the embedded help: {error}")))?;
+    Ok(Options::from_catalog(bind).with_help(HelpCatalog::clone(&help)))
 }
 
 /// Maps the error that ended a session to a command line error.
@@ -51,4 +50,48 @@ pub fn run(args: &[String]) -> Result<u8, CliError> {
     let options = options()?;
     run_stdio(&options).map_err(|error| failure(&error))?;
     Ok(EXIT_OK)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_embedded_catalog_gives_commands_binding_and_help() {
+        let options = options().unwrap();
+        assert!(
+            options
+                .commands
+                .iter()
+                .any(|command| command.name == "find")
+        );
+        assert!(options.catalog.is_some());
+        assert!(options.help.is_some());
+    }
+
+    #[test]
+    fn any_argument_is_a_usage_error_naming_it() {
+        for args in [
+            vec!["--stdio".to_owned()],
+            vec!["a".to_owned(), "b".to_owned()],
+        ] {
+            let first = args[0].clone();
+            assert!(matches!(
+                run(&args),
+                Err(CliError::Usage(message)) if message.contains(&format!("`{first}`"))
+            ));
+        }
+    }
+
+    #[test]
+    fn a_session_error_becomes_a_failure_with_its_message() {
+        assert_eq!(
+            failure(&ServerError::Disconnected),
+            CliError::Failure("the client closed the connection before shutdown".to_owned())
+        );
+        assert_eq!(
+            failure(&ServerError::ExitWithoutShutdown),
+            CliError::Failure("the client sent exit before shutdown".to_owned())
+        );
+    }
 }

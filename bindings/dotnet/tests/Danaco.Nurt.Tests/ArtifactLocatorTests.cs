@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -100,6 +101,34 @@ public sealed class ArtifactLocatorTests
 
         Assert.AreEqual("nurt.exe", windows.ExecutableNames[0]);
         Assert.AreEqual("nurt.dll", windows.LibraryNames[0]);
+    }
+
+    [TestMethod]
+    public void LibraryNamedAsTheBuildProducesItIsFound()
+    {
+        string library = Touch("libnurt_ffi.so");
+
+        Assert.AreEqual(library, Locator(Linux).FindLibrary(null));
+    }
+
+    [TestMethod]
+    public void NameOfThePackageComesBeforeNameOfTheBuild()
+    {
+        Touch("libnurt_ffi.so");
+        string packaged = Touch("libnurt.so.1");
+
+        Assert.AreEqual(packaged, Locator(Linux).FindLibrary(null));
+    }
+
+    [TestMethod]
+    public void EveryPlatformKnowsTheBuildName()
+    {
+        var windows = new RuntimePlatform(RuntimePlatform.OSFamily.Windows, "win-x64");
+        var mac = new RuntimePlatform(RuntimePlatform.OSFamily.MacOS, "osx-arm64");
+
+        CollectionAssert.Contains(windows.LibraryNames.ToList(), "nurt_ffi.dll");
+        CollectionAssert.Contains(mac.LibraryNames.ToList(), "libnurt_ffi.dylib");
+        CollectionAssert.Contains(Linux.LibraryNames.ToList(), "libnurt_ffi.so");
     }
 
     [TestMethod]

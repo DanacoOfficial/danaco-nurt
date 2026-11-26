@@ -302,3 +302,162 @@ pub fn contains_word(text: &str, word: &str) -> bool {
         !before.is_some_and(is_ident) && !after.is_some_and(is_ident)
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn method_of(message: &Message) -> &str {
+        match message {
+            Message::Notification { method, .. } => method,
+            other => panic!("expected a notification, found {other:?}"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn uri_round_trips_names_with_reserved_and_multi_byte_characters() {
+        let path = Path::new("/project/a b#c%d?e/za\u{17c}\u{f3}\u{142}\u{107}.rs");
+        let uri = path_to_uri(path).expect("uri");
+        assert!(
+            uri.starts_with("file:///project/a%20b%23c%25d%3Fe/"),
+            "{uri}"
+        );
+        assert_eq!(uri_to_path(&uri).as_deref(), Some(path));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn uri_round_trips_names_that_are_not_valid_utf8() {
+        use std::os::unix::ffi::OsStrExt;
+        let path = PathBuf::from(std::ffi::OsStr::from_bytes(b"/project/n\xff\xfe.rs"));
+        let uri = path_to_uri(&path).expect("uri");
+        assert!(uri.ends_with("n%FF%FE.rs"), "{uri}");
+        assert_eq!(uri_to_path(&uri), Some(path));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn uri_of_a_drive_path_has_three_slashes_and_round_trips() {
+        let path = Path::new(r"C:\project\a b.rs");
+        let uri = path_to_uri(path).expect("uri");
+        assert_eq!(uri, "file:///C:/project/a%20b.rs");
+        assert_eq!(uri_to_path(&uri).as_deref(), Some(path));
+    }
+
+    #[test]
+    fn uri_conversion_refuses_relative_paths_and_other_schemes() {
+        assert_eq!(path_to_uri(Path::new("relative/main.py")), None);
+        assert_eq!(uri_to_path("https://example.com/main.py"), None);
+        assert_eq!(uri_to_path("not a uri"), None);
+    }
+
+    #[test]
+    fn sync_sends_changes_with_increasing_versions_and_keeps_multi_byte_text() {
+        let mut documents = DocumentSet::new();
+        let path = Path::new(if cfg!(windows) {
+            r"C:\p\main.py"
+        } else {
+            "/p/main.py"
+        });
+        let text = "x = '\u{1f600}za\u{17c}\u{f3}\u{142}\u{107}'\r\n";
+        let open = documents.sync(path, "python", text, None).expect("open");
+        assert_eq!(method_of(&open), "textDocument/didOpen");
+        assert!(documents.sync(path, "python", text, None).is_none());
+        let change = documents
+            .sync(path, "python", "y = 2\n", None)
+            .expect("change");
+        assert_eq!(method_of(&change), "textDocument/didChange");
+        assert_eq!(documents.version(path), Some(2));
+        assert!(documents.is_open(path));
+        let close = documents.forget(path).expect("close");
+        assert_eq!(method_of(&close), "textDocument/didClose");
+        assert!(documents.forget(path).is_none());
+        assert!(!documents.is_open(path));
+    }
+
+    #[test]
+    fn refresh_sends_changes_and_closes_removed_files() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let path = directory.path().join("main.py");
+        fs::write(&path, "a = 1\n").expect("file");
+        let mut documents = DocumentSet::new();
+        documents.sync(&path, "python", "a = 1\n", file_stamp(&path));
+        assert!(documents.refresh(1024).is_empty());
+        fs::write(&path, "a = 12345\n").expect("file");
+        let notifications = documents.refresh(1024);
+        assert_eq!(notifications.len(), 1);
+        assert_eq!(method_of(&notifications[0]), "textDocument/didChange");
+        fs::remove_file(&path).expect("remove");
+        let notifications = documents.refresh(1024);
+        assert_eq!(notifications.len(), 1);
+        assert_eq!(method_of(&notifications[0]), "textDocument/didClose");
+        assert!(documents.documents().is_empty());
+    }
+
+    #[test]
+    fn read_text_refuses_large_binary_and_non_utf8_files() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let write = |name: &str, bytes: &[u8]| {
+            let path = directory.path().join(name);
+            fs::write(&path, bytes).expect("file");
+            path
+        };
+        assert_eq!(read_text(&write("a", b"abcd"), 4).as_deref(), Some("abcd"));
+        assert_eq!(read_text(&write("b", b"abcde"), 4), None);
+        assert_eq!(read_text(&write("c", b"a\0b"), 10), None);
+        assert_eq!(read_text(&write("d", b"\xff\xfe"), 10), None);
+        assert_eq!(read_text(&directory.path().join("missing"), 10), None);
+        assert_eq!(
+            read_text(&write("e", "\u{17c}\u{f3}".as_bytes()), 10).as_deref(),
+            Some("\u{17c}\u{f3}")
+        );
+    }
+
+    #[test]
+    fn whole_word_search_respects_identifier_characters() {
+        assert!(contains_word("call(foo)", "foo"));
+        assert!(contains_word("foo", "foo"));
+        assert!(!contains_word("foo_bar", "foo"));
+        assert!(!contains_word("$foo", "foo"));
+        assert!(!contains_word("\u{17c}foo", "foo"));
+        assert!(contains_word("x \u{1f600}foo", "foo"));
+        assert!(!contains_word("anything", ""));
+    }
+
+    #[test]
+    fn candidate_files_skip_listed_directories_and_partial_words() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let root = directory.path();
+        fs::create_dir_all(root.join("node_modules")).expect("directory");
+        fs::create_dir_all(root.join("sub")).expect("directory");
+        fs::write(root.join("a.py"), "target = 1\n").expect("file");
+        fs::write(root.join("node_modules").join("b.py"), "target\n").expect("file");
+        fs::write(root.join("sub").join("c.py"), "target_x\n").expect("file");
+        fs::write(root.join("sub").join("d.py"), "use target\n").expect("file");
+        fs::write(root.join("e.txt"), "target\n").expect("file");
+        let limits = CandidateLimits {
+            max_files: 10,
+            max_scanned: 100,
+            max_bytes: 1024,
+        };
+        let found = candidate_files(
+            root,
+            "target",
+            |path| path.extension().is_some_and(|extension| extension == "py"),
+            limits,
+        );
+        assert_eq!(
+            found,
+            vec![root.join("a.py"), root.join("sub").join("d.py")]
+        );
+        let limited = CandidateLimits {
+            max_files: 1,
+            ..limits
+        };
+        assert_eq!(
+            candidate_files(root, "target", |_| true, limited),
+            vec![root.join("a.py")]
+        );
+    }
+}

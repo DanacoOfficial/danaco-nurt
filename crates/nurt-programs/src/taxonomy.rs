@@ -122,16 +122,36 @@ pub struct Taxonomy {
 }
 
 impl Taxonomy {
-    /// The built-in taxonomy.
+    /// The built-in taxonomy; an empty one when the embedded data is
+    /// damaged, which [`try_builtin`](Self::try_builtin) reports.
     #[must_use]
     pub fn builtin() -> &'static Self {
-        static TAXONOMY: OnceLock<Taxonomy> = OnceLock::new();
+        static FALLBACK: OnceLock<Taxonomy> = OnceLock::new();
+        match Self::loaded() {
+            Ok(taxonomy) => taxonomy,
+            Err(_) => FALLBACK.get_or_init(Self::default),
+        }
+    }
+
+    /// The built-in taxonomy.
+    ///
+    /// # Errors
+    ///
+    /// Returns the parse error of the embedded data files.
+    pub fn try_builtin() -> Result<&'static Self, &'static str> {
+        Self::loaded().as_ref().map_err(String::as_str)
+    }
+
+    fn loaded() -> &'static Result<Taxonomy, String> {
+        static TAXONOMY: OnceLock<Result<Taxonomy, String>> = OnceLock::new();
         TAXONOMY.get_or_init(|| Self::parse(TAXONOMY_DATA, MAPS_DATA))
     }
 
-    fn parse(taxonomy: &str, maps: &str) -> Self {
-        let taxonomy: TaxonomyFile = toml::from_str(taxonomy).unwrap_or_default();
-        let maps: MapsFile = toml::from_str(maps).unwrap_or_default();
+    fn parse(taxonomy: &str, maps: &str) -> Result<Self, String> {
+        let taxonomy: TaxonomyFile =
+            toml::from_str(taxonomy).map_err(|error| format!("taxonomy.toml: {error}"))?;
+        let maps: MapsFile =
+            toml::from_str(maps).map_err(|error| format!("category-maps.toml: {error}"))?;
         let categories = taxonomy
             .category
             .into_iter()
@@ -169,7 +189,7 @@ impl Taxonomy {
                 Some((id, words))
             })
             .collect();
-        Self {
+        Ok(Self {
             categories,
             debian: maps.debian_section.into_iter().collect(),
             debian_weak: maps.debian_weak.values,
@@ -179,7 +199,7 @@ impl Taxonomy {
             rpm,
             man: maps.man_section.into_iter().collect(),
             keywords,
-        }
+        })
     }
 
     /// Categories in taxonomy order.
@@ -365,16 +385,37 @@ pub struct Synonyms {
 }
 
 impl Synonyms {
-    /// The built-in table.
+    /// The built-in table; an empty one when the embedded data is damaged,
+    /// which [`try_builtin`](Self::try_builtin) reports.
     #[must_use]
     pub fn builtin() -> &'static Self {
-        static SYNONYMS: OnceLock<Synonyms> = OnceLock::new();
-        SYNONYMS.get_or_init(|| {
-            let file: SynonymsFile = toml::from_str(SYNONYMS_DATA).unwrap_or_default();
-            let mut synonyms = Self::default();
-            synonyms.extend(file.groups);
-            synonyms
-        })
+        static FALLBACK: OnceLock<Synonyms> = OnceLock::new();
+        match Self::loaded() {
+            Ok(synonyms) => synonyms,
+            Err(_) => FALLBACK.get_or_init(Self::default),
+        }
+    }
+
+    /// The built-in table.
+    ///
+    /// # Errors
+    ///
+    /// Returns the parse error of the embedded data file.
+    pub fn try_builtin() -> Result<&'static Self, &'static str> {
+        Self::loaded().as_ref().map_err(String::as_str)
+    }
+
+    fn loaded() -> &'static Result<Synonyms, String> {
+        static SYNONYMS: OnceLock<Result<Synonyms, String>> = OnceLock::new();
+        SYNONYMS.get_or_init(|| Self::parse(SYNONYMS_DATA))
+    }
+
+    fn parse(data: &str) -> Result<Self, String> {
+        let file: SynonymsFile =
+            toml::from_str(data).map_err(|error| format!("synonyms.toml: {error}"))?;
+        let mut synonyms = Self::default();
+        synonyms.extend(file.groups);
+        Ok(synonyms)
     }
 
     /// Adds groups, for example from a catalog; words are folded.
@@ -437,6 +478,27 @@ mod tests {
             .map(|c| c.title.pick(&["pl".to_owned()]).0);
         assert_eq!(audio, Some("D\u{17a}wi\u{119}k"));
         assert!(Synonyms::builtin().len() > 100);
+    }
+
+    #[test]
+    fn embedded_data_files_parse_without_error() {
+        if let Err(error) = Taxonomy::try_builtin() {
+            panic!("{error}");
+        }
+        if let Err(error) = Synonyms::try_builtin() {
+            panic!("{error}");
+        }
+    }
+
+    #[test]
+    fn damaged_data_is_reported_with_the_name_of_the_file() {
+        let error = Taxonomy::parse("[[category]\nid = 1", MAPS_DATA).unwrap_err();
+        assert!(error.starts_with("taxonomy.toml:"), "{error}");
+        let error = Taxonomy::parse(TAXONOMY_DATA, "[debian_section\n").unwrap_err();
+        assert!(error.starts_with("category-maps.toml:"), "{error}");
+        let error = Synonyms::parse("groups = [[\"a\", 1]]").unwrap_err();
+        assert!(error.starts_with("synonyms.toml:"), "{error}");
+        assert!(Synonyms::parse("").unwrap().is_empty());
     }
 
     #[test]

@@ -196,7 +196,14 @@ fn fmt(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8
     let path = single("fmt", "one file", &words)?;
     let text = read_text(&path, io)?;
     let context = Context::open(io.terminal, source)?;
-    let tree = context.engine.parse(&text, flags.variant)?;
+    // The text is read in the requested variant; a text that is not in it is
+    // read in the configured variant and printed in the requested one.
+    let tree = match context.engine.parse(&text, flags.variant) {
+        Err(first) if flags.variant.is_some() => {
+            context.engine.parse(&text, None).map_err(|_| first)?
+        }
+        other => other?,
+    };
     let printed = context.engine.print(&tree, flags.variant)?;
     writeln!(io.out, "{}", printed.trim_end())?;
     Ok(exit::SUCCESS)
@@ -380,6 +387,176 @@ mod tests {
             Notation::Variant(SyntaxVariant::B)
         );
         assert_eq!(notation(None, default, true).unwrap(), Notation::Json);
+    }
+
+    /// Runs `body` with streams that read `input` and discard the output.
+    fn with_io<T>(input: &[u8], body: impl FnOnce(&mut Io<'_>) -> T) -> T {
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let mut input = input;
+        let mut io = Io {
+            out: &mut out,
+            err: &mut err,
+            input: &mut input,
+            terminal: crate::app::Terminal::default(),
+        };
+        body(&mut io)
+    }
+
+    #[test]
+    fn request_options_are_taken_from_the_flags() {
+        let none = options_of(&Flags::default());
+        assert_eq!(none.preview, None);
+        assert_eq!(
+            (none.format, none.limit, none.verbosity),
+            (None, None, None)
+        );
+        let flags = Flags {
+            preview: true,
+            format: Some(OutputFormat::Compact),
+            limit: Some(7),
+            verbosity: Some(nurt_contracts::envelope::Verbosity::Quiet),
+            ..Flags::default()
+        };
+        let options = options_of(&flags);
+        assert_eq!(options.preview, Some(true));
+        assert_eq!(options.format, Some(OutputFormat::Compact));
+        assert_eq!(options.limit, Some(7));
+        assert_eq!(
+            options.verbosity,
+            Some(nurt_contracts::envelope::Verbosity::Quiet)
+        );
+    }
+
+    #[test]
+    fn program_request_carries_the_text_the_variant_and_the_options() {
+        let flags = Flags {
+            variant: Some(SyntaxVariant::B),
+            limit: Some(3),
+            ..Flags::default()
+        };
+        let request = program_request("sort(size)".to_owned(), &flags);
+        assert_eq!(request.program.as_deref(), Some("sort(size)"));
+        assert_eq!(request.variant, Some(SyntaxVariant::B));
+        assert_eq!(request.options.limit, Some(3));
+        assert_eq!(request.cursor, None);
+    }
+
+    #[test]
+    fn program_words_are_joined_with_single_spaces() {
+        let words = ["find".to_owned(), "\"/srv\"".to_owned(), "glob:".to_owned()];
+        let request = exec_request(&Flags::default(), &words).unwrap();
+        assert_eq!(request.program.as_deref(), Some("find \"/srv\" glob:"));
+    }
+
+    #[test]
+    fn cursor_request_carries_the_options_and_no_program() {
+        let flags = Flags {
+            cursor: Some("c_7".to_owned()),
+            limit: Some(2),
+            ..Flags::default()
+        };
+        let request = exec_request(&flags, &[]).unwrap();
+        assert_eq!(request.cursor.as_deref(), Some("c_7"));
+        assert_eq!(request.program, None);
+        assert_eq!(request.options.limit, Some(2));
+    }
+
+    #[test]
+    fn exactly_one_word_is_accepted_where_a_single_operand_is_needed() {
+        assert_eq!(
+            single("fmt", "one file", &["a.nurt".to_owned()]),
+            Ok("a.nurt".to_owned())
+        );
+        for words in [vec![], vec!["a".to_owned(), "b".to_owned()]] {
+            assert_eq!(
+                single("fmt", "one file", &words),
+                Err(CliError::Usage("`fmt` needs one file".to_owned()))
+            );
+        }
+    }
+
+    #[test]
+    fn program_text_and_a_file_exclude_each_other() {
+        let given = Flags {
+            program: Some("count".to_owned()),
+            ..Flags::default()
+        };
+        let with_file = with_io(b"", |io| source_text(&given, &["a.nurt".to_owned()], io));
+        assert!(matches!(with_file, Err(CliError::Usage(_))));
+        assert_eq!(
+            with_io(b"", |io| source_text(&given, &[], io)),
+            Ok("count".to_owned())
+        );
+        let neither = with_io(b"", |io| source_text(&Flags::default(), &[], io));
+        assert!(matches!(neither, Err(CliError::Usage(_))));
+    }
+
+    #[test]
+    fn standard_input_is_read_as_text() {
+        let text = "find \"/\u{142}\"\r\n";
+        assert_eq!(
+            with_io(text.as_bytes(), |io| read_text("-", io)),
+            Ok(text.to_owned())
+        );
+        let invalid = with_io(b"\xff\xfe", |io| read_text("-", io));
+        assert!(matches!(
+            invalid,
+            Err(CliError::Failure(message)) if message.starts_with("cannot read the input")
+        ));
+    }
+
+    #[test]
+    fn a_missing_file_is_a_failure_naming_the_path() {
+        let missing = with_io(b"", |io| read_text("/nonexistent/nurt/program.nurt", io));
+        assert!(matches!(
+            missing,
+            Err(CliError::Failure(message))
+                if message.starts_with("cannot read `/nonexistent/nurt/program.nurt`")
+        ));
+    }
+
+    #[test]
+    fn shebang_is_removed_up_to_the_line_feed_only_at_the_start() {
+        assert_eq!(without_shebang("#!/usr/bin/env nurt\r\ncount"), "\ncount");
+        assert_eq!(without_shebang("#!"), "");
+        assert_eq!(
+            without_shebang(" #!/bin/nurt\ncount"),
+            " #!/bin/nurt\ncount"
+        );
+        assert_eq!(without_shebang(""), "");
+    }
+
+    #[test]
+    fn notations_name_what_is_accepted() {
+        let default = Notation::Json;
+        assert!(matches!(
+            notation(Some("yaml"), default, false),
+            Err(CliError::Usage(message)) if message.contains("json, cbor, a, b or c")
+        ));
+        assert!(matches!(
+            notation(Some("cbor"), default, true),
+            Err(CliError::Usage(message)) if message.contains("a, b, c or json")
+        ));
+        assert_eq!(
+            notation(Some("c"), Notation::Cbor, false).unwrap(),
+            Notation::Variant(SyntaxVariant::C)
+        );
+        assert_eq!(
+            notation(None, Notation::Cbor, false).unwrap(),
+            Notation::Cbor
+        );
+    }
+
+    #[test]
+    fn catalog_entries_match_the_first_command_or_group() {
+        let document = serde_json::json!({"commands": [
+            {"name": "find", "group": "files"},
+            {"name": "files", "group": "other"}
+        ]});
+        let found = catalog_entry(&document, "files").unwrap();
+        assert_eq!(found["name"], "find");
+        assert!(catalog_entry(&serde_json::json!({"commands": 3}), "find").is_none());
+        assert!(catalog_entry(&serde_json::json!({}), "find").is_none());
     }
 
     #[test]

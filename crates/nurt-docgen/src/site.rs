@@ -94,6 +94,32 @@ pub fn relative_path(from_dir: &str, to: &str) -> String {
     parts.join("/")
 }
 
+/// Text of a link target with its `%XX` escapes replaced by the bytes they
+/// stand for; the target is left as written when the result is not UTF-8.
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut at = 0;
+    while at < bytes.len() {
+        let escaped = bytes
+            .get(at + 1..at + 3)
+            .filter(|_| bytes[at] == b'%')
+            .and_then(|pair| std::str::from_utf8(pair).ok())
+            .and_then(|pair| u8::from_str_radix(pair, 16).ok());
+        match escaped {
+            Some(byte) => {
+                out.push(byte);
+                at += 3;
+            }
+            None => {
+                out.push(bytes[at]);
+                at += 1;
+            }
+        }
+    }
+    String::from_utf8(out).unwrap_or_else(|_| text.to_owned())
+}
+
 struct Resolver<'a> {
     outputs: HashMap<String, String>,
     layout: &'a Layout,
@@ -109,6 +135,7 @@ impl Resolver<'_> {
             Some((path, fragment)) => (path, format!("#{fragment}")),
             None => (url, String::new()),
         };
+        let path = percent_decode(path);
         let key = normalize(&format!("{}/{path}", directory_of(source)));
         if let Some(target) = self.outputs.get(&key) {
             return format!("{}{fragment}", relative_path(directory_of(output), target));
@@ -204,7 +231,8 @@ fn command_pages(layout: &Layout, catalog: &Catalog) -> Result<Vec<SourcePage>> 
         for spec in &file.commands {
             index.push_str(&format!(
                 "| [`{0}`](../commands/{0}.md) | {1} |\n",
-                spec.name, spec.summary
+                spec.name,
+                spec.summary.replace('|', "\\|")
             ));
         }
     }
@@ -375,7 +403,9 @@ fn link(root: &str, target: &str, text: &str, current: bool) -> String {
         ""
     };
     format!(
-        "<a href=\"{root}{target}\"{marker}>{}</a>",
+        "<a href=\"{}{}\"{marker}>{}</a>",
+        html::escape(root),
+        html::escape(target),
         html::escape(text)
     )
 }
@@ -491,6 +521,7 @@ pub fn build(layout: &Layout, catalog: &Catalog, out: &Path, version: &str) -> R
         let side = sidebar(&pages, &root, page);
         let toc = table_of_contents(&rendered);
         let title = html::escape(&page.title);
+        let version_html = html::escape(version);
         let document_html = fill(
             &template,
             &[
@@ -500,7 +531,7 @@ pub fn build(layout: &Layout, catalog: &Catalog, out: &Path, version: &str) -> R
                 ("sidebar", &side),
                 ("toc", &toc),
                 ("content", &content),
-                ("version", version),
+                ("version", &version_html),
             ],
         );
         write_text(&out.join(&page.output), &document_html)?;
@@ -540,6 +571,32 @@ mod tests {
             relative_path("spec", "commands/x.html"),
             "../commands/x.html"
         );
+    }
+
+    #[test]
+    fn decodes_percent_escapes_of_link_targets() {
+        assert_eq!(percent_decode("my%20page.md"), "my page.md");
+        assert_eq!(percent_decode("z%C5%82y.md"), "z\u{142}y.md");
+        assert_eq!(percent_decode("100%.md"), "100%.md");
+        assert_eq!(percent_decode("a%zzb"), "a%zzb");
+        assert_eq!(percent_decode("bad%ff.md"), "bad%ff.md");
+        assert_eq!(percent_decode("%"), "%");
+    }
+
+    #[test]
+    fn resolves_a_link_that_percent_encodes_the_name_of_the_page() {
+        let root = tempfile::tempdir().unwrap();
+        let layout = Layout::new(root.path());
+        let mut outputs = HashMap::new();
+        outputs.insert("docs/site/my page.md".to_owned(), "my-page.html".to_owned());
+        let resolver = Resolver {
+            outputs,
+            layout: &layout,
+            unresolved: RefCell::new(Vec::new()),
+        };
+        let link = resolver.rewrite("docs/site/index.md", "index.html", "my%20page.md#top");
+        assert_eq!(link, "my-page.html#top");
+        assert!(resolver.unresolved.borrow().is_empty());
     }
 
     #[test]
@@ -586,6 +643,49 @@ mod tests {
             "nowhere.md"
         );
         assert_eq!(resolver.unresolved.borrow().len(), 1);
+    }
+
+    #[test]
+    fn link_escapes_the_target_and_the_text() {
+        assert_eq!(
+            link("../", "a\"b<c>.html", "x & y", true),
+            "<a href=\"../a&quot;b&lt;c&gt;.html\" aria-current=\"page\">x &amp; y</a>"
+        );
+    }
+
+    #[test]
+    fn fill_inserts_values_literally_and_keeps_multi_byte_text() {
+        assert_eq!(
+            fill(
+                "za\u{17c}\u{f3}\u{142}\u{107} {{v}} \u{1f600}",
+                &[("v", "<b>")]
+            ),
+            "za\u{17c}\u{f3}\u{142}\u{107} <b> \u{1f600}"
+        );
+    }
+
+    #[test]
+    fn relative_path_handles_equal_directories_and_deep_sources() {
+        assert_eq!(relative_path("a/b", "a/b/c.html"), "c.html");
+        assert_eq!(relative_path("a/b", "c.html"), "../../c.html");
+        assert_eq!(relative_path("", "index.html"), "index.html");
+    }
+
+    #[test]
+    fn normalize_does_not_climb_above_the_root() {
+        assert_eq!(normalize("../../etc/passwd"), "etc/passwd");
+        assert_eq!(normalize(""), "");
+    }
+
+    #[test]
+    fn reads_front_matter_values() {
+        let front = "title: Name: with colon\norder: 7";
+        assert_eq!(
+            front_value(front, "title").as_deref(),
+            Some("Name: with colon")
+        );
+        assert_eq!(front_value(front, "order").as_deref(), Some("7"));
+        assert_eq!(front_value(front, "missing"), None);
     }
 
     #[test]

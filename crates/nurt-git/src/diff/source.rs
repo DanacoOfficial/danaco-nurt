@@ -398,6 +398,10 @@ impl<'r> Reader<'r> {
         if metadata.is_dir() {
             return Ok(None);
         }
+        // Opening a named pipe for reading waits for a writer without end.
+        if !metadata.is_file() {
+            return Err(read_error("file", &"not a regular file"));
+        }
         let mode = self.file_mode(&metadata, index_mode);
         let file = std::fs::File::open(&full).map_err(|error| read_error("file", &error))?;
         let Some(pipeline) = self.pipeline.as_mut() else {
@@ -472,4 +476,53 @@ fn is_executable(_metadata: &std::fs::Metadata) -> bool {
 #[must_use]
 pub fn looks_binary(data: &[u8]) -> bool {
     data[..data.len().min(BINARY_PROBE)].contains(&0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::diff::fixture::Fixture;
+
+    #[test]
+    fn looks_binary_probes_only_the_first_bytes() {
+        assert!(!looks_binary(b""));
+        assert!(looks_binary(b"a\0b"));
+        let mut late = vec![b'a'; BINARY_PROBE];
+        late.push(0);
+        assert!(!looks_binary(&late));
+        late[BINARY_PROBE - 1] = 0;
+        assert!(looks_binary(&late));
+    }
+
+    #[test]
+    fn formats_modes_in_six_octal_digits() {
+        assert_eq!(mode_text(MODE_FILE), "100644");
+        assert_eq!(mode_text(MODE_GITLINK), "160000");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn worktree_rejects_a_file_that_is_not_regular() {
+        let fixture = Fixture::new();
+        fixture.commit(&[("a.txt", "1\n")]);
+        fixture.remove("a.txt");
+        let _socket =
+            std::os::unix::net::UnixListener::bind(fixture.root().join("a.txt")).expect("socket");
+        let repo = fixture.repo();
+        let mut reader = Reader::new(&repo).unwrap();
+        let error = reader.worktree("a.txt".into(), None).unwrap_err();
+        assert!(error.to_string().contains("not a regular file"), "{error}");
+    }
+
+    #[test]
+    fn worktree_reports_missing_file_and_directory_as_absent() {
+        let fixture = Fixture::new();
+        fixture.commit(&[("dir/a.txt", "1\n")]);
+        let repo = fixture.repo();
+        let mut reader = Reader::new(&repo).unwrap();
+        assert!(reader.worktree("missing".into(), None).unwrap().is_none());
+        assert!(reader.worktree("dir".into(), None).unwrap().is_none());
+        let (data, mode) = reader.worktree("dir/a.txt".into(), None).unwrap().unwrap();
+        assert_eq!((data.as_slice(), mode), (&b"1\n"[..], MODE_FILE));
+    }
 }

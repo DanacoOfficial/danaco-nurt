@@ -20,7 +20,7 @@ run ["go", "test", "./..."] cwd: "/srv/app"
 let sources = find "/srv/app/src" glob: "**/*.go"
 # translated: B15, B25
 # assumption: the pattern is a basic regular expression without special characters
-search "oldName(" ...@sources.path
+search "oldName(" [...@sources.path]
 
 # translated: B05
 create "/srv/app/out" type: directory

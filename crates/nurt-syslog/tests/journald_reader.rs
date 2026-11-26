@@ -1071,3 +1071,133 @@ fn event_fields_follow_the_mapping() {
         ]
     );
 }
+
+#[test]
+fn field_dropped_for_its_size_marks_the_event_truncated() {
+    let long = "x".repeat(1_000);
+    let entry = Entry::new(
+        START,
+        &[("MESSAGE", long.as_str()), ("SYSLOG_IDENTIFIER", "app")],
+    );
+    let bytes = Writer::build(
+        Options {
+            compression: Compression::Lz4,
+            compress_threshold: 64,
+            ..Options::default()
+        },
+        &[entry],
+    );
+
+    let (events, _) = read(bytes.clone(), &query(LogLevel::Debug));
+    assert_eq!(events[0].message, long);
+    assert!(!events[0].flags.truncated);
+
+    let short_data = LogLimits {
+        max_data_bytes: 64,
+        ..LogLimits::default()
+    };
+    let (events, _) = read_with(bytes, &query(LogLevel::Debug), &short_data);
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].message, "");
+    assert_eq!(events[0].source, "app");
+    assert!(events[0].flags.truncated);
+}
+
+#[test]
+fn bounds_between_microseconds_keep_the_microsecond_of_the_entry() {
+    let bytes = sample(8);
+    let after = |micros: u64| Instant::from_unix_nanos(at(micros).as_unix_nanos() + 1);
+    let since = LogQuery {
+        since: Some(after(START + 3 * STEP)),
+        ..query(LogLevel::Debug)
+    };
+    assert_eq!(messages(&read(bytes.clone(), &since).0), expected(4..8));
+    let until_after = LogQuery {
+        until: Some(after(START + 3 * STEP)),
+        ..query(LogLevel::Debug)
+    };
+    assert_eq!(
+        messages(&read(bytes.clone(), &until_after).0),
+        expected(0..4)
+    );
+    let until_exact = LogQuery {
+        until: Some(at(START + 3 * STEP)),
+        ..query(LogLevel::Debug)
+    };
+    assert_eq!(messages(&read(bytes, &until_exact).0), expected(0..3));
+}
+
+#[test]
+fn cursor_continues_into_the_archived_file_of_the_same_sequence_space() {
+    let entries = sample_entries(12, START);
+    let archived = Writer::build(
+        Options {
+            state: State::Archived,
+            file_id: [0x81; 16],
+            ..Options::default()
+        },
+        &entries[..6],
+    );
+    let active = Writer::build(
+        Options {
+            file_id: [0x82; 16],
+            first_seqnum: 7,
+            ..Options::default()
+        },
+        &entries[6..],
+    );
+    let root = tempfile::tempdir().unwrap();
+    system_root(
+        root.path(),
+        &[
+            ("system@0001.journal", archived),
+            ("system.journal", active),
+        ],
+    );
+    let store = JournaldStore::new(root.path(), LogLimits::default());
+    let first = LogQuery {
+        limit: 8,
+        ..query(LogLevel::Debug)
+    };
+    let mut stream = store.query(&first).unwrap();
+    let page: Vec<LogEvent> = stream.by_ref().map(Result::unwrap).collect();
+    assert_eq!(messages(&page), expected(4..12));
+    let cursor = stream.next_cursor().cloned().unwrap();
+    drop(stream);
+
+    let second = LogQuery {
+        cursor: Some(cursor),
+        ..query(LogLevel::Debug)
+    };
+    let (events, notices) = read_store(&store, &second);
+    assert_eq!(messages(&events), expected(0..4));
+    assert!(!has(&notices, NoticeCode::CursorApproximate));
+}
+
+#[test]
+fn files_renamed_after_an_unclean_shutdown_are_read() {
+    let dirty = Writer::build(
+        Options {
+            file_id: [0x41; 16],
+            seqnum_id: [0x42; 16],
+            ..Options::default()
+        },
+        &sample_entries(2, START + 100 * STEP),
+    );
+    let root = tempfile::tempdir().unwrap();
+    system_root(
+        root.path(),
+        &[
+            ("system.journal", sample(3)),
+            ("user-1000@0005.journal~", dirty),
+            ("notes.txt", b"ignored".to_vec()),
+        ],
+    );
+    let store = JournaldStore::new(root.path(), LogLimits::default());
+    let (events, notices) = read_store(&store, &query(LogLevel::Debug));
+    assert_eq!(
+        messages(&events),
+        ["event 1", "event 0", "event 2", "event 1", "event 0"]
+    );
+    assert!(notices.is_empty(), "{notices:?}");
+}

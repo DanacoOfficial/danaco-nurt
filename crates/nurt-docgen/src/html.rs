@@ -23,6 +23,29 @@ pub fn escape(text: &str) -> String {
     out
 }
 
+/// Schemes whose links execute or embed content when followed.
+const ACTIVE_SCHEMES: &[&str] = &["javascript:", "vbscript:", "data:"];
+
+/// Replaces a link destination with an active scheme by `#`.
+///
+/// Browsers ignore whitespace and control characters inside the scheme and
+/// compare it without regard to case, so `JaVa\tScRiPt:` is `javascript:`.
+fn safe_destination(target: String) -> String {
+    let compact: String = target
+        .chars()
+        .filter(|c| !c.is_whitespace() && !c.is_control())
+        .collect::<String>()
+        .to_ascii_lowercase();
+    if ACTIVE_SCHEMES
+        .iter()
+        .any(|scheme| compact.starts_with(scheme))
+    {
+        "#".to_owned()
+    } else {
+        target
+    }
+}
+
 /// Converts a heading text to an identifier of lower-case letters, digits and hyphens.
 #[must_use]
 pub fn slugify(text: &str) -> String {
@@ -211,7 +234,7 @@ impl Renderer<'_> {
                     self.out.push_str("</strong>");
                 }
                 Inline::Link { text, url } => {
-                    let target = (self.rewrite)(url);
+                    let target = safe_destination((self.rewrite)(url));
                     self.out
                         .push_str(&format!("<a href=\"{}\">", escape(&target)));
                     self.inlines(text);
@@ -398,6 +421,44 @@ mod tests {
     fn rewrites_link_destinations() {
         let rendered = render(&parse("[a](x.md)"), &|url| url.replace(".md", ".html"));
         assert_eq!(rendered.html, "<p><a href=\"x.html\">a</a></p>\n");
+    }
+
+    #[test]
+    fn replaces_links_with_active_schemes() {
+        for url in [
+            "javascript:alert(1)",
+            "JaVaScRiPt:alert(1)",
+            "java&#x09;script:x",
+            " data:text/html;base64,AAAA",
+            "vbscript:x",
+        ] {
+            let rendered = html_of(&format!("[a](<{url}>)"));
+            assert_eq!(rendered.html, "<p><a href=\"#\">a</a></p>\n", "{url}");
+        }
+        let kept = html_of("[a](https://example.com/?q=1&r=2) [b](#anchor) [c](data.md)");
+        assert!(
+            kept.html
+                .contains("href=\"https://example.com/?q=1&amp;r=2\"")
+        );
+        assert!(kept.html.contains("href=\"#anchor\"") && kept.html.contains("href=\"data.md\""));
+    }
+
+    #[test]
+    fn escapes_quotes_in_link_destinations() {
+        let rendered = html_of("[a](<x\"onmouseover=\"y>)");
+        assert_eq!(
+            rendered.html,
+            "<p><a href=\"x&quot;onmouseover=&quot;y\">a</a></p>\n"
+        );
+    }
+
+    #[test]
+    fn slug_of_multi_byte_heading_is_deterministic() {
+        assert_eq!(slugify("Za\u{17c}\u{f3}\u{142}\u{107} Nurt"), "za-nurt");
+        assert_eq!(slugify("\u{17c}\u{f3}\u{142}"), "");
+        let rendered = html_of("# \u{17c}\u{f3}\u{142}\n\n# \u{107}\n");
+        let ids: Vec<&str> = rendered.headings.iter().map(|h| h.id.as_str()).collect();
+        assert_eq!(ids, vec!["section", "section-2"]);
     }
 
     #[test]

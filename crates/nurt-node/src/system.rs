@@ -62,12 +62,12 @@ impl Clock for SystemClock {
     }
 
     fn stamp(&self) -> ClockStamp {
-        let elapsed = self.monotonic();
+        let since_boot = uptime().unwrap_or_else(|| self.monotonic());
         ClockStamp {
             wall: self.now(),
             boot: self.boot.clone(),
-            since_boot_with_suspend: elapsed,
-            since_boot_active: elapsed,
+            since_boot_with_suspend: since_boot,
+            since_boot_active: since_boot,
         }
     }
 
@@ -155,6 +155,19 @@ impl Host for SystemHost {
     }
 }
 
+/// Time since boot of Linux, suspended time included; `None` where the file
+/// does not exist. A reading that counts from the creation of the clock would
+/// make the ages of journal entries made by other processes of the same boot
+/// wrong.
+fn uptime() -> Option<Duration> {
+    parse_uptime(&read_trimmed("/proc/uptime")?)
+}
+
+fn parse_uptime(text: &str) -> Option<Duration> {
+    let seconds: f64 = text.split_whitespace().next()?.parse().ok()?;
+    (seconds.is_finite() && seconds >= 0.0).then(|| Duration::from_secs_f64(seconds))
+}
+
 fn read_trimmed(path: &str) -> Option<String> {
     let text = fs::read_to_string(path).ok()?;
     let text = text.trim();
@@ -176,7 +189,47 @@ mod tests {
     use nurt_contracts::env::{Clock, Host};
     use nurt_contracts::stage::{CancelReason, CancelToken};
 
-    use super::{SystemClock, SystemHost};
+    use super::{SystemClock, SystemHost, first_variable, read_trimmed, wall_nanos};
+
+    #[test]
+    fn unset_variables_and_missing_files_give_nothing() {
+        assert_eq!(first_variable(&[]), None);
+        assert_eq!(
+            first_variable(&["NURT_NODE_UNSET_ONE", "NURT_NODE_UNSET_TWO"]),
+            None
+        );
+        assert_eq!(read_trimmed("/nurt-node-missing/boot_id"), None);
+        assert_eq!(read_trimmed("/"), None);
+    }
+
+    #[test]
+    fn wall_time_is_after_the_epoch_and_does_not_go_back_between_readings() {
+        let first = wall_nanos();
+        let second = wall_nanos();
+        assert!(first > 0);
+        assert!(second >= first || first - second < 1_000_000_000);
+    }
+
+    #[test]
+    fn a_stamp_reports_one_elapsed_time_for_both_monotonic_readings() {
+        let clock = SystemClock::default();
+        let stamp = clock.stamp();
+        assert_eq!(stamp.since_boot_with_suspend, stamp.since_boot_active);
+        assert_eq!(stamp.boot, clock.stamp().boot);
+        assert!(clock.stamp().since_boot_active >= stamp.since_boot_active);
+    }
+
+    #[test]
+    fn the_host_default_equals_a_new_host_and_has_an_absolute_temp_directory() {
+        let host = SystemHost::default();
+        assert_eq!(
+            host.info().architecture,
+            SystemHost::new().info().architecture
+        );
+        assert!(host.info().temp.is_absolute());
+        assert!(!host.info().hostname.is_empty());
+        assert!(!host.info().os_version.is_empty());
+    }
 
     #[test]
     fn monotonic_readings_do_not_decrease() {

@@ -21,6 +21,15 @@ pub const TASK_FORMAT: &str = "nurt-bench-task/1";
 /// Step limit of the protocol.
 pub const DEFAULT_STEPS: u32 = 15;
 
+/// Value of `split` of a task of the public set.
+const SPLIT_PUBLIC: &str = "public";
+
+/// Value of `split` of a task of the held-out set.
+const SPLIT_HOLDOUT: &str = "holdout";
+
+/// Domains of the task set.
+const DOMAINS: std::ops::RangeInclusive<u8> = 1..=12;
+
 /// Systems a task runs on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -219,6 +228,23 @@ impl TaskFile {
         if task.limits.steps == 0 || task.limits.seconds == 0 {
             return Err(BenchError::format(path, "task", "limits must be positive"));
         }
+        if task.split != SPLIT_PUBLIC && task.split != SPLIT_HOLDOUT {
+            return Err(BenchError::format(
+                path,
+                "task",
+                format!(
+                    "split {:?} is neither {SPLIT_PUBLIC:?} nor {SPLIT_HOLDOUT:?}",
+                    task.split
+                ),
+            ));
+        }
+        if !DOMAINS.contains(&task.domain) {
+            return Err(BenchError::format(
+                path,
+                "task",
+                format!("domain {} is not between 1 and 12", task.domain),
+            ));
+        }
         Ok(Self {
             path: path.to_path_buf(),
             task,
@@ -229,7 +255,7 @@ impl TaskFile {
     /// Whether the task belongs to the held-out set.
     #[must_use]
     pub fn is_holdout(&self) -> bool {
-        self.task.split == "holdout"
+        self.task.split == SPLIT_HOLDOUT
     }
 }
 
@@ -269,10 +295,14 @@ pub fn load_tasks(root: &Path) -> Result<Vec<TaskFile>> {
 fn collect_json(directory: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     let listing = fs::read_dir(directory).map_err(|error| BenchError::io(directory, error))?;
     for item in listing {
-        let path = item
-            .map_err(|error| BenchError::io(directory, error))?
-            .path();
-        if path.is_dir() {
+        let item = item.map_err(|error| BenchError::io(directory, error))?;
+        let path = item.path();
+        // A link to a directory is not followed, so that a cycle ends.
+        let is_directory = item
+            .file_type()
+            .map_err(|error| BenchError::io(&path, error))?
+            .is_dir();
+        if is_directory {
             collect_json(&path, files)?;
         } else if path
             .extension()
@@ -362,6 +392,31 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn rejects_unknown_splits_and_domains() {
+        for split in ["Holdout", "held-out", ""] {
+            let mut document = task_document("edit-001");
+            document["split"] = json!(split);
+            assert!(
+                TaskFile::from_document(Path::new("t.json"), document).is_err(),
+                "{split}"
+            );
+        }
+        for domain in [0, 13] {
+            let mut document = task_document("edit-001");
+            document["domain"] = json!(domain);
+            assert!(TaskFile::from_document(Path::new("t.json"), document).is_err());
+        }
+        let mut document = task_document("edit-001");
+        document["split"] = json!("holdout");
+        document["domain"] = json!(12);
+        assert!(
+            TaskFile::from_document(Path::new("t.json"), document)
+                .unwrap()
+                .is_holdout()
+        );
+    }
+
+    #[test]
     fn loads_tasks_sorted_and_skips_other_json() {
         let dir = tempfile::tempdir().unwrap();
         fs::create_dir_all(dir.path().join("03-single-edit")).unwrap();
@@ -377,6 +432,20 @@ pub(crate) mod tests {
         let tasks = load_tasks(dir.path()).unwrap();
         let ids: Vec<&str> = tasks.iter().map(|t| t.task.id.as_str()).collect();
         assert_eq!(ids, ["edit-001", "edit-002"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_to_a_directory_is_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join("edit-001.json"),
+            task_document("edit-001").to_string(),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(dir.path(), dir.path().join("loop")).unwrap();
+        let tasks = load_tasks(dir.path()).unwrap();
+        assert_eq!(tasks.len(), 1);
     }
 
     #[test]

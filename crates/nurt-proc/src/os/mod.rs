@@ -6,11 +6,14 @@
 //! Each system module provides `Tree`: a started program together with every
 //! process it starts, with the same operations on all systems. Unix systems
 //! keep the tree in a new session and process group, Windows in a job object.
+//! Each also provides `Target`: one process of the system named by its
+//! identifier and start time, signalled without the risk of reaching another
+//! process that received the identifier after the first one ended.
 
 use std::io::{Read, Write};
-#[cfg(unix)]
 use std::time::Duration;
 
+use nurt_contracts::env::WallTime;
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::record::{LimitHit, Signal};
 
@@ -21,14 +24,60 @@ mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(unix)]
+mod target;
+#[cfg(unix)]
 mod unix;
 #[cfg(windows)]
 mod windows;
 
 #[cfg(unix)]
+pub(crate) use target::Target;
+#[cfg(all(test, unix))]
+pub(crate) use target::start_time;
+#[cfg(unix)]
 pub(crate) use unix::Tree;
 #[cfg(windows)]
-pub(crate) use windows::{ServiceJob, Tree};
+pub(crate) use windows::{ServiceJob, Target, Tree};
+
+/// Largest difference between the start time of a `process` record and the
+/// start time the system reports now for the same process. The systems derive
+/// the start time from the boot time, which they report in whole seconds and
+/// which moves when the clock is adjusted.
+const START_TOLERANCE: Duration = Duration::from_secs(2);
+
+/// Whether `actual` is the start time of the process that started at
+/// `recorded`.
+pub(crate) fn same_start(recorded: WallTime, actual: WallTime) -> bool {
+    recorded
+        .saturating_since(actual)
+        .max(actual.saturating_since(recorded))
+        <= START_TOLERANCE
+}
+
+/// Error of a process that does not run.
+pub(crate) fn process_gone(pid: u64) -> Error {
+    Error::new(ErrorCode::NotFound, format!("no process {pid} runs"))
+        .with_problem("the process ended or never existed")
+        .with_fix("read the processes again with `processes`")
+}
+
+/// Error of an identifier that now names another process than the record.
+pub(crate) fn process_replaced(pid: u64) -> Error {
+    Error::new(
+        ErrorCode::Stale,
+        format!("process {pid} is not the process of the record: its start time differs"),
+    )
+    .with_problem("the identifier was reused after the process ended")
+    .with_fix("read the processes again with `processes`")
+}
+
+/// Error of a process the account may not signal.
+pub(crate) fn process_denied(pid: u64) -> Error {
+    Error::new(
+        ErrorCode::Permission,
+        format!("the account may not signal process {pid}"),
+    )
+}
 
 /// How the main process of a tree ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,7 +133,7 @@ pub(crate) fn unsupported_signal(signal: Signal) -> Error {
         ErrorCode::Unsupported,
         format!("the signal {signal} cannot be sent on this system"),
     )
-    .with_problem("use terminate, interrupt or kill")
+    .with_problem("use terminate, interrupt, hangup or kill")
 }
 
 /// Converts a duration to whole seconds, rounding up.
@@ -95,5 +144,57 @@ pub(crate) fn ceil_seconds(duration: Duration) -> u64 {
         whole
     } else {
         whole.saturating_add(1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn at(seconds: i128, nanos: i128) -> WallTime {
+        WallTime::from_unix_nanos(seconds * 1_000_000_000 + nanos)
+    }
+
+    #[test]
+    fn start_times_within_the_tolerance_name_the_same_process() {
+        let recorded = at(1_700_000_000, 0);
+        assert!(same_start(recorded, recorded));
+        assert!(same_start(recorded, at(1_700_000_001, 999_999_999)));
+        assert!(same_start(recorded, at(1_699_999_998, 0)));
+        assert!(same_start(recorded, at(1_700_000_002, 0)));
+    }
+
+    #[test]
+    fn start_times_beyond_the_tolerance_name_another_process() {
+        let recorded = at(1_700_000_000, 0);
+        assert!(!same_start(recorded, at(1_700_000_002, 1)));
+        assert!(!same_start(recorded, at(1_699_999_997, 999_999_999)));
+        assert!(!same_start(recorded, at(1_700_003_600, 0)));
+    }
+
+    #[test]
+    fn the_comparison_does_not_depend_on_the_order_of_the_times() {
+        let early = at(10, 0);
+        let late = at(100, 0);
+        assert_eq!(same_start(early, late), same_start(late, early));
+        assert!(!same_start(early, late));
+    }
+
+    #[test]
+    fn errors_of_a_missing_replaced_or_protected_process_have_their_own_codes() {
+        assert_eq!(process_gone(7).code(), ErrorCode::NotFound);
+        assert_eq!(process_replaced(7).code(), ErrorCode::Stale);
+        assert_eq!(process_denied(7).code(), ErrorCode::Permission);
+        assert!(process_gone(4242).data().message.contains("4242"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn durations_round_up_to_whole_seconds() {
+        assert_eq!(ceil_seconds(Duration::ZERO), 0);
+        assert_eq!(ceil_seconds(Duration::from_secs(3)), 3);
+        assert_eq!(ceil_seconds(Duration::from_millis(1)), 1);
+        assert_eq!(ceil_seconds(Duration::new(3, 1)), 4);
+        assert_eq!(ceil_seconds(Duration::MAX), u64::MAX);
     }
 }

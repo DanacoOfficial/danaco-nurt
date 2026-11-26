@@ -23,7 +23,7 @@
         "fields are split by split; leading whitespace and numeric comparison may differ from awk"
       ],
       "fix": [],
-      "output": "lines \"/var/log/nginx/access.log\"\n|> split /\\s+/ names: [\"f1\"]\n|> select f1"
+      "output": "lines \"/var/log/nginx/access.log\"\n|> split /\\s+/ names: [\"f1\"]\n|> select cells.f1"
     },
     {
       "line": 6,
@@ -38,7 +38,7 @@
         "fields are split by split; leading whitespace and numeric comparison may differ from awk"
       ],
       "fix": [],
-      "output": "lines \"/etc/passwd\"\n|> split \":\" names: [\"f1\", \"f2\", \"f3\", \"f4\", \"f5\", \"f6\", \"f7\"]\n|> select f1 f7"
+      "output": "lines \"/etc/passwd\"\n|> split \":\" names: [\"f1\", \"f2\", \"f3\", \"f4\", \"f5\", \"f6\", \"f7\"]\n|> select cells.f1 cells.f7"
     },
     {
       "line": 7,
@@ -53,7 +53,7 @@
         "fields are split by split; leading whitespace and numeric comparison may differ from awk"
       ],
       "fix": [],
-      "output": "lines \"/srv/data.txt\"\n|> split /\\s+/ names: [\"f1\", \"f2\", \"f3\"]\n|> filter f3 > 100\n|> select f1"
+      "output": "lines \"/srv/data.txt\"\n|> split /\\s+/ names: [\"f1\", \"f2\", \"f3\"]\n|> filter cells.f3 > 100\n|> select cells.f1"
     }
   ]
 }

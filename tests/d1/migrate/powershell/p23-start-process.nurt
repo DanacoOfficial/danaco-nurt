@@ -5,6 +5,6 @@
 # P23: Start-Process with a list and with a text of arguments.
 # translated: P23, L19
 run ["git", "status", "--short"] cwd: "C:/proj" wait: forever
-# translated: P23
+# translated: P23, L19
 # assumption: the argument text is split at white space; PowerShell passes it to the program as one command line
-run ["git", "status", "--short"] wait: forever
+run ["git", "status", "--short"] cwd: "C:/proj" wait: forever

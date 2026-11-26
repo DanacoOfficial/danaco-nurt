@@ -155,6 +155,115 @@ fn ends_with_an_error_when_the_client_disconnects() {
 }
 
 #[test]
+fn unsupported_requests_are_method_not_found_errors() {
+    let (mut client, _) = Client::start(Options::default(), json!({"capabilities": {}}));
+    let error = client
+        .request("textDocument/definition", json!({}))
+        .unwrap_err();
+    assert_eq!(error["code"], -32601);
+    assert_eq!(
+        error["message"],
+        "unsupported method textDocument/definition"
+    );
+    client.shutdown().unwrap();
+}
+
+#[test]
+fn requests_for_a_document_that_is_not_open_are_answered_with_null() {
+    let (mut client, _) = Client::start(Options::new(catalog()), json!({"capabilities": {}}));
+    let uri = "file:///work/closed.nurt";
+    let position = json!({"textDocument": {"uri": uri}, "position": {"line": 0, "character": 0}});
+    for method in [
+        "textDocument/completion",
+        "textDocument/hover",
+        "textDocument/signatureHelp",
+    ] {
+        assert_eq!(
+            client.request(method, position.clone()),
+            Ok(Value::Null),
+            "{method}"
+        );
+    }
+    let tokens = json!({"textDocument": {"uri": uri}});
+    assert_eq!(
+        client.request("textDocument/semanticTokens/full", tokens),
+        Ok(Value::Null)
+    );
+    let actions = json!({
+        "textDocument": {"uri": uri},
+        "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 0}},
+        "context": {"diagnostics": []}
+    });
+    assert_eq!(
+        client.request("textDocument/codeAction", actions),
+        Ok(Value::Null)
+    );
+    let formatting = json!({
+        "textDocument": {"uri": uri},
+        "options": {"tabSize": 4, "insertSpaces": true}
+    });
+    assert_eq!(
+        client.request("textDocument/formatting", formatting),
+        Ok(Value::Null)
+    );
+    client.shutdown().unwrap();
+}
+
+#[test]
+fn changing_a_document_that_is_not_open_is_ignored() {
+    let (mut client, _) = Client::start(Options::new(catalog()), json!({"capabilities": {}}));
+    client.notify(
+        "textDocument/didChange",
+        json!({
+            "textDocument": {"uri": "file:///work/never.nurt", "version": 2},
+            "contentChanges": [{"text": "count"}]
+        }),
+    );
+    let response = client.request(
+        "textDocument/hover",
+        json!({
+            "textDocument": {"uri": "file:///work/never.nurt"},
+            "position": {"line": 0, "character": 0}
+        }),
+    );
+    assert_eq!(response, Ok(Value::Null));
+    client.shutdown().unwrap();
+}
+
+#[test]
+fn closing_a_document_that_was_never_opened_clears_its_diagnostics() {
+    let (mut client, _) = Client::start(Options::default(), json!({"capabilities": {}}));
+    client.notify(
+        "textDocument/didClose",
+        json!({"textDocument": {"uri": "file:///work/never.nurt"}}),
+    );
+    let published = client.notification("textDocument/publishDiagnostics");
+    assert_eq!(published["uri"], "file:///work/never.nurt");
+    assert_eq!(published["diagnostics"], json!([]));
+    client.shutdown().unwrap();
+}
+
+#[test]
+fn a_document_can_be_reopened_after_it_was_closed() {
+    let (mut client, _) = Client::start(Options::new(catalog()), json!({"capabilities": {}}));
+    let uri = "file:///work/again.nurt";
+    client.notify("textDocument/didOpen", did_open(uri, "count )\n", 1));
+    let first = client.notification("textDocument/publishDiagnostics");
+    assert_eq!(first["diagnostics"].as_array().map(Vec::len), Some(1));
+    client.notify(
+        "textDocument/didClose",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    let closed = client.notification("textDocument/publishDiagnostics");
+    assert_eq!(closed["diagnostics"], json!([]));
+    client.notify("textDocument/didOpen", did_open(uri, "count\n", 5));
+    let second = client.notification("textDocument/publishDiagnostics");
+    assert_eq!(second["version"], 5);
+    assert_eq!(second["diagnostics"], json!([]));
+    client.shutdown().unwrap();
+}
+
+#[test]
 fn ignores_notifications_with_invalid_parameters() {
     let (mut client, _) = Client::start(Options::default(), json!({"capabilities": {}}));
     client.notify("textDocument/didOpen", json!({"textDocument": 3}));

@@ -239,13 +239,20 @@ fn serve_locked(
     .map_err(io_error)?;
     let module_stop = CancelToken::new();
     let mut threads: Vec<JoinHandle<()>> = Vec::new();
+    let mut startup_failure: Option<Error> = None;
     for supervisor in &supervisors {
-        if let Ok(thread) = supervisor.spawn(shared.clone(), module_stop.clone()) {
-            threads.push(thread);
+        match supervisor.spawn(shared.clone(), module_stop.clone()) {
+            Ok(thread) => threads.push(thread),
+            Err(error) => {
+                supervisor.mark_failed(format!("cannot start the module thread: {error}"));
+            }
         }
     }
     let heartbeat_stop = CancelToken::new();
     let heartbeat = spawn_heartbeat(setup, &core, heartbeat_stop.clone());
+    if let Err(error) = &heartbeat {
+        startup_failure = Some(thread_error("heartbeat", error));
+    }
     #[cfg(unix)]
     let signal_thread = signals.map(|guard| {
         let stop = setup.stop.clone();
@@ -257,6 +264,13 @@ fn serve_locked(
             },
         )
     });
+    #[cfg(unix)]
+    if let Some(Err(error)) = &signal_thread {
+        startup_failure = Some(thread_error("signal", error));
+    }
+    if startup_failure.is_some() {
+        setup.stop.cancel(CancelReason::Shutdown);
+    }
     let _ = setup.stop.wait_timeout(std::time::Duration::MAX);
     module_stop.cancel(CancelReason::Shutdown);
     for thread in threads {
@@ -271,7 +285,16 @@ fn serve_locked(
     if let Some(Ok(thread)) = signal_thread {
         thread.finish();
     }
-    Ok(())
+    startup_failure.map_or(Ok(()), Err)
+}
+
+/// `E_IO` for a thread of the service that could not be started; the service
+/// stops instead of running without it.
+fn thread_error(name: &str, error: &std::io::Error) -> Error {
+    Error::new(
+        ErrorCode::Io,
+        format!("cannot start the {name} thread of the service: {error}"),
+    )
 }
 
 fn spawn_heartbeat(

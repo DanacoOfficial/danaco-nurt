@@ -139,7 +139,10 @@ public final class FakeServer {
         reply(request, map());
         Object id = params.get("request_id");
         if (id instanceof Long requestId && slow.containsKey(requestId)) {
-            reply(slow.remove(requestId), envelope(report("rolled_back")));
+            slow.remove(requestId);
+            send(map("jsonrpc", "2.0", "id", requestId,
+                    "error", map("code", -32002L, "message", "the request was cancelled",
+                            "data", map("status", "NURT_E_CANCELLED", "response", envelope(report("rolled_back"))))));
         }
     }
 

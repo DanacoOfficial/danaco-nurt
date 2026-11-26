@@ -19,6 +19,10 @@ use nurt_git::repo::GitRepo;
 
 use super::settings::ConfigSource;
 
+/// Mode of a submodule entry; `git pull` leaves submodules out of the checks
+/// for uncommitted changes.
+const GITLINK_MODE: u32 = 0o160_000;
+
 /// State of `HEAD`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum HeadState {
@@ -197,7 +201,7 @@ impl Repo {
             .breadthfirst(&mut recorder)
             .map_err(|error| read_error("the tree of HEAD", error))?;
         for record in recorder.records {
-            if !record.mode.is_tree() {
+            if !record.mode.is_tree() && u32::from(record.mode.value()) != GITLINK_MODE {
                 let path = record.filepath.to_str_lossy().into_owned();
                 entries.insert(path, (u32::from(record.mode.value()), record.oid));
             }
@@ -211,6 +215,9 @@ impl Repo {
         let index = self.index()?;
         let mut paths = Vec::new();
         for entry in index.entries() {
+            if entry.mode.bits() == GITLINK_MODE {
+                continue;
+            }
             let path = entry.path(&index).to_str_lossy().into_owned();
             let current = (entry.mode.bits(), entry.id);
             if tree.remove(&path) != Some(current) {
@@ -242,27 +249,31 @@ impl Repo {
                 .flags
                 .contains(gix::index::entry::Flags::SKIP_WORKTREE)
                 || entry.mode.is_sparse()
+                || entry.mode.bits() == GITLINK_MODE
                 || entry.stage() != gix::index::entry::Stage::Unconflicted;
             if skip {
                 continue;
             }
-            let path = entry.path(&index).to_str_lossy().into_owned();
-            if self.worktree_differs(entry, &path, index_time, filemode)? {
-                paths.push(path);
+            let raw = entry.path(&index);
+            if self.worktree_differs(entry, raw, index_time, filemode)? {
+                paths.push(raw.to_str_lossy().into_owned());
             }
         }
         Ok(paths)
     }
 
+    /// Whether the file of `entry` differs from it; the file is found by the
+    /// bytes of `raw`, which need not be UTF-8.
     fn worktree_differs(
         &self,
         entry: &gix::index::Entry,
-        path: &str,
+        raw: &gix::bstr::BStr,
         index_time: Option<std::time::Duration>,
         filemode: bool,
     ) -> Result<bool> {
-        let relative = gix::path::from_bstr(path.as_bytes().as_bstr())
-            .map_err(|error| read_error(path, error))?;
+        let shown = raw.to_str_lossy();
+        let path: &str = &shown;
+        let relative = gix::path::from_bstr(raw).map_err(|error| read_error(path, error))?;
         let file = self.root.join(relative);
         let Ok(metadata) = std::fs::symlink_metadata(&file) else {
             return Ok(true);
@@ -636,6 +647,32 @@ pub(crate) mod tests {
         index.sort_entries();
         index.write(Default::default()).unwrap();
         assert_eq!(fixture.open().unmerged_paths().unwrap(), ["c.txt"]);
+    }
+
+    #[test]
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "the fixture adds a submodule entry by writing the index directly, outside a transaction"
+    )]
+    fn leaves_submodules_out_of_the_checks_for_changes() {
+        let mut fixture = Fixture::new();
+        let first = fixture.commit(&[("a.txt", "a\n")], &[], "init");
+        fixture.set_ref("refs/heads/main", first);
+        fixture.checkout(first);
+        let mut index = fixture.repo.open_index().unwrap();
+        index.dangerously_push_entry(
+            Default::default(),
+            first,
+            gix::index::entry::Flags::empty(),
+            gix::index::entry::Mode::COMMIT,
+            "sub".into(),
+        );
+        index.sort_entries();
+        index.write(Default::default()).unwrap();
+        fs::create_dir(fixture.root().join("sub")).unwrap();
+        let repo = fixture.open();
+        assert!(repo.unstaged_paths().unwrap().is_empty());
+        assert!(repo.staged_paths(Some(first)).unwrap().is_empty());
     }
 
     #[test]

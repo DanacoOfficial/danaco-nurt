@@ -34,6 +34,9 @@ semver_split() {
 # Compares two identifier lists of a SemVer pre-release field.
 # Prints -1, 0 or 1.
 prerelease_cmp() {
+  # The string comparison of [[ ]] follows the collation of the locale; SemVer
+  # orders identifiers by ASCII code.
+  local LC_ALL=C
   local a=$1 b=$2 ia ib
   while :; do
     if [[ -z $a && -z $b ]]; then

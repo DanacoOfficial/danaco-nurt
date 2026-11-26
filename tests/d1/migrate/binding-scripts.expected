@@ -1,14 +1,2 @@
-translations that do not bind: 13
-awk '{print $1}' /var/log/nginx/access.log -> E_UNKNOWN_FIELD the input records have no field `f1`; use one of cells, no, path, table
-awk -F: '{print $1, $7}' /etc/passwd -> E_UNKNOWN_FIELD the input records have no field `f1`; use one of cells, no, path, table
-awk '$3 > 100 {print $1}' /srv/data.txt -> E_UNKNOWN_FIELD the input records have no field `f3`; use one of cells, no, path, table
-test -f /srv/app/.ready && rm /srv/app/.ready -> E_UNKNOWN_FIELD the input records have no field `file`; use one of accessed, acl, binary, bom, case_alias, created, depth, details, encoding, error, etag, exists, extension, file_count, file_id, flags, group, hash, hidden, language, line_ending, lines, link_target, link_type, links, match_count, mime, mode, modified, name, owner, parent, path, portability, rank, raw_name, readonly, real_path, relative, size, stem, streams, total_size, type, volume, xattrs
-[ -d /srv/app/out ] && rm -rf /srv/app/out -> E_UNKNOWN_FIELD the input records have no field `directory`; use one of accessed, acl, binary, bom, case_alias, created, depth, details, encoding, error, etag, exists, extension, file_count, file_id, flags, group, hash, hidden, language, line_ending, lines, link_target, link_type, links, match_count, mime, mode, modified, name, owner, parent, path, portability, rank, raw_name, readonly, real_path, relative, size, stem, streams, total_size, type, volume, xattrs
-sleep 5 -> E_INTERNAL_CORRECTION the changing stages changed from ["sleep"] to []
-Test-Path C:\out\a.txt -PathType Leaf -> E_UNKNOWN_FIELD the input records have no field `file`; use one of accessed, acl, binary, bom, case_alias, created, depth, details, encoding, error, etag, exists, extension, file_count, file_id, flags, group, hash, hidden, language, line_ending, lines, link_target, link_type, links, match_count, mime, mode, modified, name, owner, parent, path, portability, rank, raw_name, readonly, real_path, relative, size, stem, streams, total_size, type, volume, xattrs
-Start-Process -FilePath git -ArgumentList "status --short" -Wait -> E_MISSING_PARAM `run` needs the parameter `cwd`; write `cwd:` or give the call parameter base
-iwr https://example.com -Method Head -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-irm https://api.example.com/items -> E_INTERNAL_CORRECTION the changing stages changed from ["http.request"] to []
-Start-Sleep -Seconds 5 -> E_INTERNAL_CORRECTION the changing stages changed from ["sleep"] to []
-& git status -> E_MISSING_PARAM `run` needs the parameter `cwd`; write `cwd:` or give the call parameter base
-& "C:\Program Files\Git\bin\git.exe" log -5 -> E_MISSING_PARAM `run` needs the parameter `cwd`; write `cwd:` or give the call parameter base
+translations that do not bind: 0
+

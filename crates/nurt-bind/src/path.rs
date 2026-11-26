@@ -325,4 +325,40 @@ mod tests {
     fn collapses_a_double_slash_on_linux() {
         assert_eq!(resolve("//srv/app", linux()).unwrap(), "/srv/app");
     }
+
+    #[test]
+    fn keeps_multi_byte_segments_and_applies_dot_dot() {
+        assert_eq!(
+            resolve("/srv/é/../日本語/./ü", linux()).unwrap(),
+            "/srv/日本語/ü"
+        );
+        let host = PathHost {
+            base: Some("/srv/ünï"),
+            home: Some("/home/ż"),
+            ..linux()
+        };
+        assert_eq!(resolve("ß/../ä", host).unwrap(), "/srv/ünï/ä");
+        assert_eq!(resolve("~/日本", host).unwrap(), "/home/ż/日本");
+        assert_eq!(resolve("../../../é", host).unwrap(), "/é");
+    }
+
+    #[test]
+    fn does_not_read_a_multi_byte_prefix_as_a_drive_or_a_provider() {
+        let host = PathHost {
+            base: Some("/srv"),
+            ..linux()
+        };
+        assert_eq!(resolve("é:/x", host).unwrap(), "/srv/é:/x");
+        assert_eq!(resolve("日本:x", host).unwrap(), "/srv/日本:x");
+        assert_eq!(resolve("~é/x", host).unwrap(), "/srv/~é/x");
+    }
+
+    #[test]
+    fn rejects_an_empty_share_part_and_a_drive_without_a_separator() {
+        assert!(matches!(
+            resolve("//server/", windows()),
+            Err(PathProblem::Foreign(_))
+        ));
+        assert_eq!(resolve("C:é", windows()), Err(PathProblem::Relative));
+    }
 }

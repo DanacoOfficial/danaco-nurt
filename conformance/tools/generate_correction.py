@@ -647,7 +647,7 @@ def main(argv: list[str]) -> int:
         return 0
     OUT.mkdir(parents=True, exist_ok=True)
     for p, text in files.items():
-        p.write_text(text, encoding="utf-8")
+        p.write_text(text, encoding="utf-8", newline="\n")
     return 0
 
 

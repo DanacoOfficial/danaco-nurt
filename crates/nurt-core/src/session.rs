@@ -148,6 +148,9 @@ impl Sessions {
     /// starts again without settings.
     pub fn touch(&self, id: &SessionId, now: WallTime) -> Session {
         let mut entries = self.lock();
+        if !entries.contains_key(id) {
+            entries.retain(|_, session| !expired(session, now, self.ttl));
+        }
         let session = entries
             .entry(id.clone())
             .and_modify(|session| {
@@ -262,6 +265,38 @@ mod tests {
         let restarted = sessions.touch(&id, at(25 * 3600));
         assert!(restarted.settings().is_empty());
         assert_eq!(restarted.started(), at(25 * 3600));
+    }
+
+    #[test]
+    fn identifier_length_counts_characters_and_control_characters_are_rejected() {
+        assert!(SessionId::new("ż".repeat(MAX_SESSION_ID_LEN)).is_ok());
+        assert!(SessionId::new("ż".repeat(MAX_SESSION_ID_LEN + 1)).is_err());
+        assert_eq!(SessionId::new("a\tb").unwrap_err().code, ErrorCode::Arg);
+    }
+
+    #[test]
+    fn a_new_session_drops_the_expired_ones() {
+        let sessions = Sessions::new(TTL);
+        sessions.touch(&SessionId::new("old").unwrap(), at(0));
+        sessions.touch(&SessionId::new("new").unwrap(), at(25 * 3600));
+        assert_eq!(sessions.sweep(at(25 * 3600)), 0);
+        assert_eq!(sessions.active(at(25 * 3600)), 1);
+    }
+
+    #[test]
+    fn unknown_session_is_absent_and_new_settings_replace_the_old_ones() {
+        let sessions = Sessions::new(TTL);
+        let id = SessionId::new("s-1").unwrap();
+        assert!(sessions.get(&id, at(0)).is_none());
+        let mut first = Map::new();
+        first.insert("a".to_owned(), json!(1));
+        sessions.set_settings(&id, first, at(0));
+        let mut second = Map::new();
+        second.insert("b".to_owned(), json!(2));
+        let session = sessions.set_settings(&id, second, at(10));
+        assert!(session.settings().get("a").is_none());
+        assert_eq!(session.settings()["b"], json!(2));
+        assert_eq!(session.last_used(), at(10));
     }
 
     #[test]

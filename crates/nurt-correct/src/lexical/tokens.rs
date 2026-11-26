@@ -334,7 +334,11 @@ impl Pass<'_, '_> {
         }
         let (hyphen_last, _) = self.name_chain(index, true);
         if let Some(separator) = self.named_separator(hyphen_last) {
-            self.fix_name(index, hyphen_last, CorrectionKind::Param);
+            // The key of a map entry is data, such as the name of an
+            // environment variable, so its case is kept.
+            if self.brackets.last() != Some(&'{') {
+                self.fix_name(index, hyphen_last, CorrectionKind::Param);
+            }
             self.separator(separator);
             return separator + 1;
         }
@@ -608,6 +612,17 @@ mod tests {
         assert_eq!(fold("HTTPRequest"), "http_request");
         assert_eq!(fold("git.Status"), "git.status");
         assert_eq!(fold("find"), "find");
+    }
+
+    #[test]
+    fn keys_of_a_map_keep_their_case() {
+        let text = "run [\"env\"] cwd: \"/srv\" env: {CI: \"1\", NODE_ENV: \"test\"}";
+        let rewritten = run(text);
+        assert_eq!(rewritten.text, text);
+        assert!(rewritten.corrections.is_empty(), "{:?}", rules(&rewritten));
+        let named = run("run [\"env\"] Cwd: \"/srv\"");
+        assert_eq!(named.text, "run [\"env\"] cwd: \"/srv\"");
+        assert_eq!(rules(&named), ["L03"]);
     }
 
     #[test]

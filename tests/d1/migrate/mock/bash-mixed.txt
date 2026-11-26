@@ -16,7 +16,7 @@ statements 18: translated 4, assumption 3, impossible 9, error 2
 11:1 assumption: B15, B25
   source: grep -rn "oldName(" $SOURCES
   assumption: the pattern is a basic regular expression without special characters
-  output: search "oldName(" ...@sources.path
+  output: search "oldName(" [...@sources.path]
 13:1 translated: B05
   source: mkdir -p /srv/app/out
   output: create "/srv/app/out" type: directory

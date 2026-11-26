@@ -406,7 +406,8 @@ fn io_fail(error: &dyn std::fmt::Display, address: &ArchiveAddress) -> FsError {
 /// Components of an inner name; `.` and empty components are dropped.
 fn inner_components(raw: &[u8]) -> FsResult<Vec<String>> {
     let text = String::from_utf8_lossy(raw);
-    let drive = text.as_bytes().get(1) == Some(&b':');
+    let bytes = text.as_bytes();
+    let drive = bytes.first().is_some_and(u8::is_ascii_alphabetic) && bytes.get(1) == Some(&b':');
     if text.starts_with('/') || text.contains('\\') || drive {
         return Err(invalid(&text));
     }
@@ -1025,6 +1026,9 @@ mod tests {
             );
         }
         assert_eq!(inner_components(b"./a//b/").expect("name"), ["a", "b"]);
+        assert_eq!(inner_components(b"1:x").expect("name"), ["1:x"]);
+        assert_eq!(inner_components(b"dir/c:x").expect("name"), ["dir", "c:x"]);
+        assert!(inner_components(b"z:x").is_err());
         let provider = provider_with(
             "/evil.zip",
             &zip_bytes(zip::CompressionMethod::Stored, &[("../evil", b"x")]),
@@ -1138,6 +1142,67 @@ mod tests {
             provider.entry(&address("/x!")).expect("root").kind,
             FileKind::Directory
         );
+    }
+
+    #[test]
+    fn tar_links_are_listed_as_links_and_cannot_be_opened() {
+        let mut builder = tar::Builder::new(Vec::new());
+        let mut header = tar::Header::new_gnu();
+        header.set_entry_type(tar::EntryType::Symlink);
+        header.set_size(0);
+        header.set_mode(0o777);
+        builder
+            .append_link(&mut header, "link", "target")
+            .expect("link");
+        let provider = provider_with("/l.tar", &builder.into_inner().expect("finish"));
+        let entries = provider.entries(&p("/l.tar")).expect("entries");
+        assert_eq!(
+            entries.iter().map(|entry| entry.kind).collect::<Vec<_>>(),
+            [FileKind::Symlink]
+        );
+        assert_eq!(
+            provider
+                .open(&address("/l.tar!/link"))
+                .err()
+                .map(|error| error.kind),
+            Some(FsErrorKind::Unsupported)
+        );
+        assert_eq!(
+            provider
+                .get(&address("/l.tar!/link").to_key())
+                .expect("get"),
+            None
+        );
+    }
+
+    #[test]
+    fn multi_byte_member_names_are_listed_and_read() {
+        let name = "za\u{17c}\u{f3}\u{142}\u{107}/\u{1f600}.txt";
+        let provider = provider_with("/m.tar", &tar_bytes(&[(name, b"utf-8")]));
+        let target = address(&format!("/m.tar!/{name}"));
+        assert_eq!(
+            target.inner,
+            ["za\u{17c}\u{f3}\u{142}\u{107}", "\u{1f600}.txt"]
+        );
+        assert_eq!(
+            provider.get(&target.to_key()).expect("get"),
+            Some(ProviderValue::Binary {
+                raw_type: 0,
+                bytes: b"utf-8".to_vec()
+            })
+        );
+        assert_eq!(
+            inner_components(b"a\xffb").expect("lossy name"),
+            ["a\u{fffd}b"]
+        );
+    }
+
+    #[test]
+    fn default_limits_are_one_mebibyte_sixty_four_gibibytes_and_ratio_one_thousand() {
+        let limits = ArchiveLimits::default();
+        assert_eq!(limits.max_value_size, 1 << 20);
+        assert_eq!(limits.max_expanded, 64 << 30);
+        assert_eq!((limits.max_ratio, limits.ratio_floor), (1_000, 1 << 20));
     }
 
     proptest! {

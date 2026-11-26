@@ -287,3 +287,195 @@ impl Pattern {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::argv::invocations;
+    use super::*;
+
+    fn strings(words: &[&str]) -> Vec<String> {
+        words.iter().map(|word| (*word).to_owned()).collect()
+    }
+
+    /// End index of the positional tokens of `pattern` in `argv`, `None`
+    /// when the command line does not match.
+    fn matched(pattern: &str, argv: &[&str], exact: bool) -> Option<usize> {
+        let argv = strings(argv);
+        let chain = invocations(&argv, &[], &[]);
+        let invocation = chain.first()?;
+        let pattern = Pattern::parse(pattern).unwrap();
+        if !pattern.program.matches(&invocation.program) {
+            return None;
+        }
+        pattern.tail.matches(invocation, exact)
+    }
+
+    #[test]
+    fn words_ignore_letter_case_and_reject_empty_alternatives() {
+        let words = Words::parse("Git|HG").unwrap();
+        assert!(words.matches("git") && words.matches("hg") && words.matches("GIT"));
+        assert!(!words.matches("svn"));
+        assert!(Words::parse("a||b").is_err());
+        assert!(Words::parse("").is_err());
+        assert!(Words::parse("a|").is_err());
+    }
+
+    #[test]
+    fn a_star_matches_any_text_within_a_word() {
+        let words = Words::parse("python3.*").unwrap();
+        assert!(words.matches("python3.12") && words.matches("python3."));
+        assert!(!words.matches("python3") && !words.matches("python"));
+        assert!(Words::parse("*").unwrap().matches(""));
+        assert!(Words::parse("p*n").unwrap().matches("python"));
+        assert!(!Words::parse("p*n").unwrap().matches("pyth"));
+    }
+
+    #[test]
+    fn a_star_backtracks_to_the_last_star() {
+        assert!(wildcard(b"a*b*c", b"aXbXbXc"));
+        assert!(wildcard(b"*ab", b"aab"));
+        assert!(wildcard(b"a**b", b"ab"));
+        assert!(!wildcard(b"*ab", b"aba"));
+        assert!(!wildcard(b"a*b", b"a"));
+        assert!(wildcard(b"", b""));
+        assert!(!wildcard(b"", b"x"));
+    }
+
+    #[test]
+    fn multi_byte_text_is_compared_by_bytes() {
+        let words = Words::parse("za*ć").unwrap();
+        assert!(words.matches("zażółć"));
+        assert!(!words.matches("zażółd"));
+    }
+
+    #[test]
+    fn short_options_are_found_within_groups_and_with_attached_values() {
+        let token = OptionToken::parse("-n=10").unwrap();
+        for found in [&["-n", "10"][..], &["-n10"], &["-vn", "10"], &["-vn10"]] {
+            assert!(token.find(&strings(found), false).is_some(), "{found:?}");
+        }
+        for missing in [
+            &["-n", "11"][..],
+            &["-m", "10"],
+            &["--n", "10"],
+            &["n", "10"],
+        ] {
+            assert!(
+                token.find(&strings(missing), false).is_none(),
+                "{missing:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn exact_matching_ignores_groups_and_letter_case() {
+        let token = OptionToken::parse("-c").unwrap();
+        assert!(token.find(&strings(&["-lc", "x"]), false).is_some());
+        assert!(token.find(&strings(&["-lc", "x"]), true).is_none());
+        assert!(token.find(&strings(&["-C", "x"]), false).is_none());
+        assert!(token.find(&strings(&["-C", "x"]), true).is_some());
+    }
+
+    #[test]
+    fn long_options_take_their_value_attached_or_from_the_next_argument() {
+        let token = OptionToken::parse("-X|--request=POST|PUT").unwrap();
+        for found in [
+            &["-X", "post"][..],
+            &["-XPUT"],
+            &["--request=POST"],
+            &["--request", "put"],
+        ] {
+            assert!(token.find(&strings(found), false).is_some(), "{found:?}");
+        }
+        for missing in [
+            &["--request=GET"][..],
+            &["--request"],
+            &["-X"],
+            &["--other=POST"],
+        ] {
+            assert!(
+                token.find(&strings(missing), false).is_none(),
+                "{missing:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn options_after_the_end_of_options_are_not_options() {
+        let token = OptionToken::parse("-f").unwrap();
+        assert!(token.find(&strings(&["--", "-f"]), false).is_none());
+        assert!(token.find(&strings(&["x", "-f"]), false).is_some());
+        assert_eq!(
+            token
+                .find(&strings(&["x", "-f"]), false)
+                .map(|hit| hit.index),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn malformed_option_tokens_are_refused() {
+        assert!(OptionToken::parse("x").is_err());
+        assert!(OptionToken::parse("-a|b").is_err());
+        assert!(OptionToken::parse("-a=").is_err());
+        assert!(OptionToken::parse("-a=|b").is_err());
+    }
+
+    #[test]
+    fn positional_tokens_match_from_the_first_positional_argument() {
+        assert_eq!(
+            matched("git push", &["git", "push", "origin"], false),
+            Some(1)
+        );
+        assert_eq!(
+            matched("git push", &["git", "--no-pager", "push"], false),
+            Some(2)
+        );
+        assert_eq!(
+            matched("git push", &["git", "-C", "x", "push"], false),
+            None
+        );
+        assert_eq!(matched("git push", &["git", "status"], false), None);
+        assert_eq!(matched("git push", &["git"], false), None);
+        assert_eq!(matched("git push", &["git", "origin", "push"], false), None);
+        assert_eq!(matched("git", &["git", "anything"], false), Some(0));
+    }
+
+    #[test]
+    fn alternatives_and_gaps_consume_positional_arguments() {
+        assert_eq!(
+            matched("npm publish|pack", &["npm", "PACK"], false),
+            Some(1)
+        );
+        assert_eq!(
+            matched("cmd ** /c|/k", &["cmd", "a", "b", "/C", "dir"], false),
+            Some(3)
+        );
+        assert_eq!(matched("cmd ** /c", &["cmd", "/c"], false), Some(1));
+        assert_eq!(matched("cmd ** /c", &["cmd", "a"], false), None);
+        assert_eq!(matched("ssh *", &["ssh", "host", "ls"], false), Some(1));
+    }
+
+    #[test]
+    fn options_of_a_pattern_are_required_anywhere() {
+        assert_eq!(matched("rm -r", &["rm", "-rf", "x"], false), Some(0));
+        assert_eq!(matched("rm -r", &["rm", "x", "-r"], false), Some(0));
+        assert_eq!(matched("rm -r", &["rm", "x"], false), None);
+        assert_eq!(
+            matched("rm -r|--recursive", &["rm", "--recursive"], false),
+            Some(0)
+        );
+        assert_eq!(matched("rm -r -f", &["rm", "-r"], false), None);
+    }
+
+    #[test]
+    fn patterns_start_with_a_program_name() {
+        assert!(Pattern::parse("").is_err());
+        assert!(Pattern::parse("   ").is_err());
+        assert!(Pattern::parse("-x").is_err());
+        assert!(Pattern::parse("** x").is_err());
+        assert!(Pattern::parse("git a||b").is_err());
+        let parsed = Pattern::parse("  git   push  ").unwrap();
+        assert!(parsed.program.matches("git"));
+    }
+}

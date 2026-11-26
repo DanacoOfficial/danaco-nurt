@@ -75,12 +75,13 @@ pub(crate) fn is_identifier(node: Node<'_>) -> bool {
 
 /// Returns `true` when an identifier names a member of a value or a
 /// qualified path rather than a variable in scope; `field` is the field of
-/// the identifier in its parent.
-pub(crate) fn is_member(node: Node<'_>, field: Option<&str>) -> bool {
+/// the identifier in its `parent`. The parent is passed in because
+/// `Node::parent` searches from the root on every call.
+pub(crate) fn is_member(node: Node<'_>, field: Option<&str>, parent: Option<Node<'_>>) -> bool {
     if MEMBER_KINDS.contains(&node.kind()) {
         return true;
     }
-    let Some(parent) = node.parent() else {
+    let Some(parent) = parent else {
         return false;
     };
     if LABEL_PARENTS.contains(&parent.kind()) {
@@ -116,17 +117,23 @@ pub(crate) fn callee_name(node: Node<'_>) -> Option<Node<'_>> {
     last_identifier(callee)
 }
 
+/// The identifier that ends the subtree of `node`, found depth first from the
+/// last child with an explicit stack, so that the depth of the tree is not
+/// limited by the stack of the thread. Argument lists are not searched.
 fn last_identifier(node: Node<'_>) -> Option<Node<'_>> {
-    if is_identifier(node) {
-        return Some(node);
+    let mut pending = vec![node];
+    while let Some(current) = pending.pop() {
+        if is_identifier(current) {
+            return Some(current);
+        }
+        let mut cursor = current.walk();
+        let children: Vec<Node<'_>> = current
+            .named_children(&mut cursor)
+            .filter(|child| !child.kind().contains("argument"))
+            .collect();
+        pending.extend(children);
     }
-    let mut cursor = node.walk();
-    let children: Vec<Node<'_>> = node.named_children(&mut cursor).collect();
-    children
-        .into_iter()
-        .rev()
-        .filter(|child| !child.kind().contains("argument"))
-        .find_map(last_identifier)
+    None
 }
 
 /// Declaration statements whose names become visible after the statement,
@@ -162,9 +169,10 @@ const DECLARATION_BOUNDARIES: &[&str] = &[
 /// The end byte of the declaration statement around a local definition,
 /// or `None` when the name is visible from its own position (parameters,
 /// loop variables, names of other declarations).
-pub(crate) fn sequential_declaration_end(node: Node<'_>) -> Option<usize> {
-    let mut current = node.parent();
-    while let Some(parent) = current {
+///
+/// `ancestors` are the nodes from the root to the parent of `node`.
+pub(crate) fn sequential_declaration_end(ancestors: &[Node<'_>]) -> Option<usize> {
+    for parent in ancestors.iter().rev() {
         let kind = parent.kind();
         if SEQUENTIAL_DECLARATIONS.contains(&kind) {
             return Some(parent.end_byte());
@@ -175,7 +183,6 @@ pub(crate) fn sequential_declaration_end(node: Node<'_>) -> Option<usize> {
         {
             return None;
         }
-        current = parent.parent();
     }
     None
 }
@@ -228,6 +235,27 @@ mod tests {
         );
     }
 
+    #[test]
+    fn callee_of_a_deeply_chained_expression_is_found_without_recursion() {
+        let source = format!("a{}();\n", "[0]".repeat(100_000));
+        assert_eq!(
+            first_call_callee("javascript", &source).as_deref(),
+            Some("a")
+        );
+    }
+
+    #[test]
+    fn arguments_are_not_searched_for_the_callee() {
+        assert_eq!(
+            first_call_callee("javascript", "f(g)(h);\n").as_deref(),
+            Some("f")
+        );
+        assert_eq!(
+            first_call_callee("python", "obj.method(arg)\n").as_deref(),
+            Some("method")
+        );
+    }
+
     fn declaration_end_of(language: &str, source: &str, name: &str) -> Option<usize> {
         let parsed = Registry::builtin()
             .parse(&LanguageId::new(language).unwrap(), source.as_bytes())
@@ -235,7 +263,14 @@ mod tests {
         let mut stack = vec![parsed.tree.root_node()];
         while let Some(node) = stack.pop() {
             if is_identifier(node) && parsed.text(node) == name {
-                return sequential_declaration_end(node);
+                let mut chain = Vec::new();
+                let mut up = node.parent();
+                while let Some(parent) = up {
+                    chain.push(parent);
+                    up = parent.parent();
+                }
+                chain.reverse();
+                return sequential_declaration_end(&chain);
             }
             let mut cursor = node.walk();
             let children: Vec<Node<'_>> = node.children(&mut cursor).collect();

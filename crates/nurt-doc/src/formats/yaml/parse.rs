@@ -10,15 +10,16 @@
 
 use std::collections::HashMap;
 use std::ops::Range;
+use std::sync::{Mutex, PoisonError};
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 
 use super::backend_saphyr::{self, RawEvent, RawKind};
 
 use super::model::{
-    BlockHeader, Chomping, CollectionStyle, Directive, DirectiveKind, FlowDelimiters, MapEntry,
-    MappingNode, NodeId, NodeKind, Property, ScalarNode, ScalarStyle, SeqItem, SequenceNode,
-    TagProperty, YamlDocument, YamlModel, YamlNode, YamlVersion,
+    AnchorCache, BlockHeader, Chomping, CollectionStyle, Directive, DirectiveKind, FlowDelimiters,
+    MapEntry, MappingNode, NodeId, NodeKind, Property, ScalarNode, ScalarStyle, SeqItem,
+    SequenceNode, TagProperty, YamlDocument, YamlModel, YamlNode, YamlVersion,
 };
 
 /// Byte order mark.
@@ -76,12 +77,44 @@ impl YamlModel {
             Err(error) if has_template(text) => return Err(template_error(text, error.offset)),
             Err(error) => return Err(parse_error(text, error.offset, &error.message)),
         };
-        let model = Builder::new(text, default_version).build(raw);
+        let model = build_model(text, default_version, raw)?;
         if let Some(offset) = template_in_flow(&model) {
             return Err(template_error(text, offset));
         }
         Ok(model)
     }
+}
+
+/// Stack of the thread that builds the model. The builder recurses once per
+/// level of nesting, with the frames of several functions per level, and the
+/// parser accepts 512 levels; this stack holds them in any build profile.
+const BUILD_STACK_BYTES: usize = 64 * 1024 * 1024;
+
+/// Builds the model on a thread with [`BUILD_STACK_BYTES`] of stack; on the
+/// calling thread when no thread can be started.
+fn build_model(text: &str, version: YamlVersion, raw: Vec<Vec<RawEvent>>) -> Result<YamlModel> {
+    let slot = Mutex::new(Some(raw));
+    let build = || {
+        let raw = slot.lock().unwrap_or_else(PoisonError::into_inner).take()?;
+        Some(Builder::new(text, version).build(raw))
+    };
+    let built = std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .stack_size(BUILD_STACK_BYTES)
+            .spawn_scoped(scope, build)
+            .ok()
+            .map(std::thread::ScopedJoinHandle::join)
+    });
+    let model = match built {
+        Some(joined) => joined.ok().flatten(),
+        None => build(),
+    };
+    model.ok_or_else(|| {
+        Error::new(
+            ErrorCode::Internal,
+            "the model of a YAML stream was not built",
+        )
+    })
 }
 
 fn has_template(text: &str) -> bool {
@@ -212,6 +245,7 @@ impl<'a> Builder<'a> {
             text,
             bytes,
             model: YamlModel {
+                anchor_cache: AnchorCache::default(),
                 source: text.to_owned(),
                 bom,
                 documents: Vec::new(),
@@ -1199,6 +1233,7 @@ fn percent_decode(text: &str) -> String {
         let escape = (bytes[index] == b'%')
             .then(|| text.get(index + 1..index + PERCENT_ESCAPE_LEN))
             .flatten()
+            .filter(|hex| hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
             .and_then(|hex| u8::from_str_radix(hex, HEX_RADIX).ok());
         if let Some(byte) = escape {
             decoded.push(byte);
@@ -1328,6 +1363,31 @@ mod tests {
         assert_eq!(resolve_tag("!<!bar>", &handles), "!bar");
         assert_eq!(resolve_tag("!local", &handles), "!local");
         assert_eq!(resolve_tag("!", &handles), "!");
+    }
+
+    #[test]
+    fn percent_decoding_accepts_only_hexadecimal_digits() {
+        assert_eq!(percent_decode("a%41%2"), "aA%2");
+        assert_eq!(percent_decode("%+f"), "%+f");
+        assert_eq!(percent_decode("%é"), "%é");
+        assert_eq!(percent_decode("%C3%A9"), "é");
+    }
+
+    #[test]
+    fn marks_documents_of_a_stream_with_an_empty_document() {
+        let model = parse("a: 1\n---\n---\nb: 2\n");
+        assert_eq!(model.documents().len(), 3);
+        assert!(model.node(model.documents()[1].root).is_empty_node());
+    }
+
+    #[test]
+    fn rejects_collections_nested_beyond_the_limit() {
+        let depth = backend_saphyr::MAX_DEPTH + 1;
+        let text = format!("{}1{}", "[".repeat(depth), "]".repeat(depth));
+        assert_eq!(
+            YamlModel::parse(&text).unwrap_err().code(),
+            ErrorCode::DocParse
+        );
     }
 
     #[test]

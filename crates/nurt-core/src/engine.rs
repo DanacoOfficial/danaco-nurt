@@ -22,6 +22,7 @@
 //! program with effects also needs a journal, and fails at its apply step
 //! without one; a program that only reads runs without a journal.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -41,7 +42,7 @@ use nurt_contracts::envelope::{
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::{AbsPath, Fs};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
-use nurt_contracts::kinds::SyntaxVariant;
+use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
 use nurt_contracts::report::{REPORT_VERSION, RecordsPage, Report, ReportStatus, Timing};
 use nurt_contracts::schema;
 use nurt_contracts::services::Services;
@@ -72,6 +73,9 @@ use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
 use crate::system::{SystemClock, SystemHost};
 
+/// Report kind of a request that fails the envelope rules before any program
+/// is known.
+const REQUEST_KIND: &str = "request";
 /// Report kind of a failed request whose program is not known.
 const PROGRAM_KIND: &str = "program";
 /// Report kind of a failed page request.
@@ -786,10 +790,11 @@ impl Engine {
     /// Returns the error of the front end, for example for an unknown
     /// subject.
     pub fn describe(&self, subject: &str, language: Option<Language>) -> Result<Json, Error> {
-        self.inner.frontend.describe(
-            subject,
-            language.unwrap_or_else(|| language_of(self.config())),
-        )
+        let language = language.unwrap_or_else(|| language_of(self.config()));
+        self.inner
+            .frontend
+            .describe(subject, language)
+            .map_err(|error| localized(error, language))
     }
 
     /// Help text of a topic.
@@ -798,10 +803,11 @@ impl Engine {
     ///
     /// Returns the error of the front end, for example for an unknown topic.
     pub fn help(&self, topic: &str, language: Option<Language>) -> Result<String, Error> {
-        self.inner.frontend.help(
-            topic,
-            language.unwrap_or_else(|| language_of(self.config())),
-        )
+        let language = language.unwrap_or_else(|| language_of(self.config()));
+        self.inner
+            .frontend
+            .help(topic, language)
+            .map_err(|error| localized(error, language))
     }
 
     /// The command catalog as JSON (`nurt-catalog-result/1`): the revision
@@ -929,7 +935,7 @@ impl Engine {
         let prepared = match self.prepare(request) {
             Ok(prepared) => prepared,
             Err(error) => {
-                let report = failed_report(input_kind(request), error);
+                let report = failed_report(REQUEST_KIND, error);
                 return respond_with(&report, &request.options);
             }
         };
@@ -950,6 +956,14 @@ impl Engine {
             }
         };
         let kind = ProgramKind::of(&compiled.bound);
+        if request.options.script != Some(true) && effect_pipelines(&compiled.bound) > 1 {
+            let error = Error::new(
+                ErrorCode::OneEffect,
+                "the program has several pipelines that change the world; run them as separate calls or set `script: true`",
+            );
+            let report = failure(&reports, &kind, Some(&compiled), error);
+            return self.finish(report, &prepared, None, started);
+        }
         let program = ProgramRef::of(
             &compiled.bound.program,
             compiled.ran.clone().or_else(|| request.program.clone()),
@@ -968,12 +982,15 @@ impl Engine {
                 };
                 self.run_program(run)
             })
-            .unwrap_or_else(|error| failure(&reports, &kind, Some(&compiled), error));
-        self.finish(report, &prepared, Some(&program), started)
+            .unwrap_or_else(|error| (failure(&reports, &kind, Some(&compiled), error), Vec::new()));
+        let (report, pipelines) = report;
+        let mut response = self.finish(report, &prepared, Some(&program), started);
+        attach_pipelines(&mut response, &pipelines, &prepared.options);
+        response
     }
 
     /// Plans a bound program, executes the plan and assembles its report.
-    fn run_program(&self, run: Run<'_>) -> Result<Report, Error> {
+    fn run_program(&self, run: Run<'_>) -> Result<(Report, Vec<Report>), Error> {
         let Run {
             compiled,
             prepared,
@@ -1084,7 +1101,15 @@ impl Engine {
                     strip_items(&mut report);
                     report.result_file = Some(path);
                 }
-                Err(error) if report.error.is_none() => report.error = Some(error),
+                Err(error) if report.error.is_none() => {
+                    if matches!(
+                        report.status,
+                        ReportStatus::Ok | ReportStatus::Planned | ReportStatus::Running
+                    ) {
+                        report.status = ReportStatus::Failed;
+                    }
+                    report.error = Some(error.with_effect_applied(report.op.is_some()));
+                }
                 Err(_) => {}
             }
         }
@@ -1130,7 +1155,7 @@ impl Engine {
     ) -> Result<Compiled, Error> {
         self.inner
             .frontend
-            .compile(text, variant, prepared.config.config())
+            .compile(text, variant, &request_config(prepared))
             .map_err(|mut error| {
                 self.offer(&mut error, prepared);
                 error
@@ -1140,7 +1165,7 @@ impl Engine {
     fn bind(&self, document: &AstDocument, prepared: &Prepared) -> Result<Compiled, Error> {
         self.inner
             .frontend
-            .bind(document, prepared.config.config())
+            .bind(document, &request_config(prepared))
             .map(|bound| Compiled {
                 bound,
                 ast_hash: crate::frontend::ast_hash(document),
@@ -1288,6 +1313,22 @@ impl Engine {
     }
 }
 
+/// Configuration that binds the program of a request.
+///
+/// The call parameter `base` of the request replaces `scope.base` of the
+/// configuration, so relative paths of the program resolve against it.
+fn request_config(prepared: &Prepared) -> Cow<'_, Config> {
+    let config = prepared.config.config();
+    match prepared.options.base.as_deref() {
+        Some(base) if config.scope.base.as_deref() != Some(base) => {
+            let mut copy = config.clone();
+            copy.scope.base = Some(base.to_owned());
+            Cow::Owned(copy)
+        }
+        _ => Cow::Borrowed(config),
+    }
+}
+
 /// Options of a request with every default of the envelope and the
 /// configuration applied.
 fn effective_options(
@@ -1394,6 +1435,53 @@ fn kind_of(bound: &BoundDocument) -> (String, bool) {
     (kind, changing)
 }
 
+/// Number of pipelines of a bound program that have an effect stage.
+fn effect_pipelines(bound: &BoundDocument) -> usize {
+    bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => Some(pipeline),
+            _ => None,
+        })
+        .filter(|pipeline| {
+            let head = match &pipeline.head {
+                BoundHead::Stage(stage) => Some(stage),
+                _ => None,
+            };
+            head.into_iter()
+                .chain(&pipeline.stages)
+                .any(|stage| stage.phase.is_effect())
+        })
+        .count()
+}
+
+/// Effect kind of the last effect command of a bound program.
+fn effect_kind_of(bound: &BoundDocument) -> Option<EffectKind> {
+    bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => Some(pipeline),
+            BoundStatement::Let(binding) => Some(&binding.value),
+            _ => None,
+        })
+        .filter_map(|pipeline| {
+            let head = match &pipeline.head {
+                BoundHead::Stage(stage) => Some(stage),
+                _ => None,
+            };
+            head.into_iter()
+                .chain(&pipeline.stages)
+                .rev()
+                .find(|stage| stage.phase.is_effect())
+                .map(|stage| stage.effect)
+        })
+        .last()
+}
+
 /// Inputs of one program execution.
 struct Run<'a> {
     compiled: &'a Compiled,
@@ -1454,27 +1542,110 @@ fn records_page(result: &ResultData, skip: &[RecordKind]) -> Option<RecordsPage>
     })
 }
 
+/// Kind and effect of every pipeline of a bound program, in program order.
+fn pipeline_kinds(bound: &BoundDocument) -> Vec<ProgramKind> {
+    bound
+        .program
+        .statements
+        .iter()
+        .filter_map(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => {
+                let head = match &pipeline.head {
+                    BoundHead::Stage(stage) => Some(stage),
+                    _ => None,
+                };
+                let effect = head
+                    .into_iter()
+                    .chain(&pipeline.stages)
+                    .rev()
+                    .find(|stage| stage.phase.is_effect())
+                    .map(|stage| stage.name.clone());
+                let changing = effect.is_some();
+                let kind = effect
+                    .or_else(|| head.map(|stage| stage.name.clone()))
+                    .unwrap_or_else(|| PROGRAM_KIND.to_owned());
+                Some(ProgramKind { kind, changing })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// Attaches the reports of the pipelines of a script to the response and
+/// appends their rendered text to the text of the program.
+fn attach_pipelines(response: &mut Response, pipelines: &[Report], options: &RequestOptions) {
+    for report in pipelines {
+        let part = respond_with(report, options);
+        if let (Some(rendered), Some(extra)) = (response.rendered.as_mut(), part.rendered) {
+            rendered.text.push('\n');
+            rendered.text.push_str(&extra.text);
+        }
+        response.reports.push(part.report);
+    }
+}
+
+/// Report of one pipeline of a script, with its own kind, status, error and
+/// records.
+fn pipeline_report(
+    ctx: &ReportContext,
+    program: &ProgramKind,
+    operation: OperationOutcome,
+) -> Result<Report, Error> {
+    let status = operation.status;
+    let error = operation.error.clone();
+    let index = operation.index;
+    let mut builder = if program.changing {
+        ReportBuilder::changing(ctx, program.kind.clone(), status)
+    } else {
+        ReportBuilder::reading(ctx, program.kind.clone(), status)
+    };
+    builder = add_operation(builder, operation, Some(index));
+    if let Some(error) = error {
+        builder = builder.error(error);
+    }
+    builder.build().map_err(|violation| {
+        Error::new(
+            ErrorCode::Internal,
+            format!("the report of a pipeline breaks a rule of the format: {violation}"),
+        )
+    })
+}
+
 /// Report of an executed program: the changes, notable and irreversible
-/// effects of every operation, the records of the last one and the error
-/// that ended the execution.
+/// effects of every operation, the error that ended the execution and, for
+/// a program with a single operation, its records. A script with several
+/// operations yields the report of the program without records and one
+/// report per pipeline, in order, each with the records of its own pipeline.
 fn report_of(
     ctx: &ReportContext,
     program: &ProgramKind,
     compiled: &Compiled,
     outcome: Outcome,
     timing: Option<Timing>,
-) -> Result<Report, Error> {
+) -> Result<(Report, Vec<Report>), Error> {
     let Outcome {
         status,
         error,
         operations,
         ..
     } = outcome;
+    let mut pipelines = Vec::new();
+    if operations.len() > 1 {
+        let kinds = pipeline_kinds(&compiled.bound);
+        for operation in &operations {
+            let own = kinds.get(operation.index as usize).unwrap_or(program);
+            pipelines.push(pipeline_report(ctx, own, operation.clone())?);
+        }
+    }
+    let several = !pipelines.is_empty();
     let mut builder = if program.changing {
         ReportBuilder::changing(ctx, program.kind.clone(), status)
     } else {
         ReportBuilder::reading(ctx, program.kind.clone(), status)
     };
+    if let Some(effect) = effect_kind_of(&compiled.bound) {
+        builder = builder.effect(effect);
+    }
     if !compiled.corrections.is_empty() {
         builder = builder.corrections(compiled.corrections.clone());
         if let Some(ran) = &compiled.ran {
@@ -1484,7 +1655,10 @@ fn report_of(
     if let Some(hash) = &compiled.ast_hash {
         builder = builder.ast_hash(hash.clone());
     }
-    let last = operations.last().map(|operation| operation.index);
+    let last = operations
+        .last()
+        .map(|operation| operation.index)
+        .filter(|_| !several);
     for operation in operations {
         builder = add_operation(builder, operation, last);
     }
@@ -1494,12 +1668,13 @@ fn report_of(
     if let Some(timing) = timing {
         builder = builder.timing(timing);
     }
-    builder.build().map_err(|violation| {
+    let report = builder.build().map_err(|violation| {
         Error::new(
             ErrorCode::Internal,
             format!("the report of the program breaks a rule of the format: {violation}"),
         )
-    })
+    })?;
+    Ok((report, pipelines))
 }
 
 fn add_operation<'c>(
@@ -1522,7 +1697,12 @@ fn add_operation<'c>(
             .notes(effect.notable)
             .irreversible_entries(effect.irreversible)
             .changes(effect.changes.into_iter().map(|facts| {
-                TargetChange::observed(facts.change, facts.entry, facts.replaced_existing)
+                let target =
+                    TargetChange::observed(facts.change, facts.entry, facts.replaced_existing);
+                match facts.inside {
+                    Some((files, directories)) => target.with_content(files, directories),
+                    None => target,
+                }
             }));
         if let Some(op) = effect.handle.as_ref().and_then(|handle| handle.op) {
             builder = builder.op(op.0);
@@ -1570,9 +1750,24 @@ fn failure(
         .unwrap_or_else(|_| failed_report(&program.kind, error))
 }
 
-/// Response with the result rendered for the options of the request.
+/// Response with the result rendered for the options of the request; the
+/// messages and notes of the report are put into the requested language
+/// first.
 fn respond_with(report: &Report, options: &RequestOptions) -> Response {
-    respond(report, &RenderOptions::from_request(options))
+    match options.language {
+        Some(language @ Language::Pl) => {
+            let mut localized = report.clone();
+            nurt_help::translate::localize(&mut localized, language);
+            respond(&localized, &RenderOptions::from_request(options))
+        }
+        _ => respond(report, &RenderOptions::from_request(options)),
+    }
+}
+
+/// The error with its message in `language`.
+fn localized(mut error: Error, language: Language) -> Error {
+    nurt_help::translate::localize_error(&mut error, language);
+    error
 }
 
 fn failed_report(kind: &str, error: Error) -> Report {
@@ -1619,6 +1814,7 @@ fn save_result(path: &str, report: &Report) -> Result<(), Error> {
 mod tests {
     use std::sync::atomic::AtomicUsize;
 
+    use nurt_contracts::value::Value;
     use nurt_testkit::clock::VirtualClock;
     use nurt_testkit::host::TestHost;
 
@@ -1729,6 +1925,54 @@ mod tests {
         );
         assert_eq!(response.report.error.as_ref().unwrap().code, ErrorCode::Io);
         assert_eq!(response.report.changes.len(), 2);
+        assert_eq!(response.report.status, ReportStatus::Failed);
+        assert!(response.report.error.as_ref().unwrap().effect_applied);
+    }
+
+    #[test]
+    fn unwritable_result_file_fails_a_preview_that_changed_nothing() {
+        let temp = tempfile::tempdir().unwrap();
+        let engine = engine(&temp.path().join("state"));
+        let blocker = temp.path().join("file");
+        std::fs::write(&blocker, b"x").unwrap();
+        let options = RequestOptions {
+            save_to: Some(blocker.join("result.json").to_string_lossy().into_owned()),
+            ..RequestOptions::default()
+        };
+        let mut preview = removal(2);
+        preview.status = ReportStatus::Planned;
+        preview.op = None;
+        let response = engine.finish(preview, &prepared(&engine, options), None, Duration::ZERO);
+        assert_eq!(response.report.status, ReportStatus::Failed);
+        let error = response.report.error.as_ref().unwrap();
+        assert_eq!(error.code, ErrorCode::Io);
+        assert!(!error.effect_applied);
+    }
+
+    #[test]
+    fn single_value_is_listed_as_one_row() {
+        let page = records_page(&ResultData::from_value(Value::Int(3)), &[]).unwrap();
+        assert_eq!(page.record_type, RecordKind::Row);
+        assert_eq!(page.matched, Some(1));
+        assert_eq!(page.rows.len(), 1);
+        assert_eq!(page.rows[0].get("value"), Some(&Value::Int(3)));
+    }
+
+    #[test]
+    fn records_of_the_effect_are_left_out_of_the_rows() {
+        let mut result = ResultData::from_records(vec![Record::new(RecordKind::Effect)]);
+        assert!(records_page(&result, &[RecordKind::Effect]).is_none());
+        result.header = Some(Record::new(RecordKind::TestRun));
+        let page = records_page(&result, &[RecordKind::Effect]).unwrap();
+        assert_eq!(page.record_type, RecordKind::TestRun);
+        assert!(page.rows.is_empty());
+    }
+
+    #[test]
+    fn report_kind_of_a_request_without_a_program_follows_its_input() {
+        assert_eq!(input_kind(&Request::cursor("c_1")), PAGE_KIND);
+        assert_eq!(input_kind(&Request::accept("c1")), ACCEPT_KIND);
+        assert_eq!(input_kind(&Request::program("find")), PROGRAM_KIND);
     }
 
     fn engine_with(overrides: &str, state: &std::path::Path) -> Engine {
@@ -1876,6 +2120,24 @@ mod tests {
     }
 
     #[test]
+    fn polish_responses_carry_polish_messages_and_unchanged_codes() {
+        let report = failed_report(
+            "find",
+            Error::new(ErrorCode::OneEffect, "two effect stages").with_found("remove"),
+        );
+        let polish = RequestOptions {
+            language: Some(Language::Pl),
+            ..RequestOptions::default()
+        };
+        let error = respond_with(&report, &polish).report.error.unwrap();
+        assert_eq!(error.code(), ErrorCode::OneEffect);
+        assert!(error.message.contains("etap"), "{}", error.message);
+        assert_eq!(error.details["message_en"], json!("two effect stages"));
+        let english = respond_with(&report, &RequestOptions::default());
+        assert_eq!(english.report.error.unwrap().message, "two effect stages");
+    }
+
+    #[test]
     fn report_kind_is_the_effect_command() {
         let bound: BoundDocument = serde_json::from_value(json!({
             "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
@@ -1890,6 +2152,47 @@ mod tests {
         assert_eq!(
             kind_of(&nurt_testkit::fixtures::empty_program()),
             (PROGRAM_KIND.to_owned(), false)
+        );
+    }
+
+    #[test]
+    fn effect_pipelines_counts_the_pipelines_with_an_effect_stage() {
+        let stage = |name: &str, effect: &str, phase: &str| json!({"t": "stage", "name": name, "effect": effect, "phase": phase, "args": []});
+        let pipeline = |head: serde_json::Value, stages: Vec<serde_json::Value>| json!({"t": "pipeline", "head": head, "stages": stages});
+        let bound = |statements: Vec<serde_json::Value>| -> BoundDocument {
+            serde_json::from_value(json!({
+                "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+                "program": {"statements": statements}
+            }))
+            .unwrap()
+        };
+        let read = || pipeline(stage("find", "read", "source"), Vec::new());
+        let change = || {
+            pipeline(
+                stage("find", "read", "source"),
+                vec![stage("remove", "local", "mutate")],
+            )
+        };
+        assert_eq!(effect_pipelines(&bound(vec![read(), read()])), 0);
+        assert_eq!(effect_pipelines(&bound(vec![read(), change()])), 1);
+        assert_eq!(effect_pipelines(&bound(vec![change(), change()])), 2);
+    }
+
+    #[test]
+    fn the_effect_kind_is_the_one_of_the_effect_command() {
+        let bound: BoundDocument = serde_json::from_value(json!({
+            "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
+            "program": {"statements": [{
+                "t": "pipeline",
+                "head": {"t": "stage", "name": "find", "effect": "read", "phase": "source", "args": []},
+                "stages": [{"t": "stage", "name": "run", "effect": "process", "phase": "run", "args": []}]
+            }]}
+        }))
+        .unwrap();
+        assert_eq!(effect_kind_of(&bound), Some(EffectKind::Process));
+        assert_eq!(
+            effect_kind_of(&nurt_testkit::fixtures::empty_program()),
+            None
         );
     }
 }

@@ -28,8 +28,8 @@ use crate::harness::fixture::{Fixture, FixtureOptions, GB, GIB, Setting, VolumeS
 use crate::harness::request;
 use crate::leak;
 use crate::support::{
-    self, AGE, MINUTE, SECOND, STEPS, assert_states, finish, large_remove, large_write,
-    remove_path, small_write, state,
+    self, AGE, MINUTE, SECOND, STEPS, assert_states, finish, large_remove, large_remove_swept,
+    large_write, remove_path, small_write, state,
 };
 
 const HOUR: Duration = Duration::from_secs(3600);
@@ -653,16 +653,21 @@ fn expiry_sequence() -> Vec<(u64, String)> {
     let fixture = Fixture::open(support::options());
     let old = small_write(&fixture, 0);
     fixture.clock.advance(AGE + MINUTE);
-    let large = large_remove(&fixture, "a.bin", 12 * GB);
-    large_remove(&fixture, "b.bin", 12 * GB);
-    let report = fixture.journal.sweep().expect("sweep runs");
-    let sequence: Vec<(u64, String)> = report
+    // Every operation runs a retention pass of its own, so the entries expire
+    // in the passes that follow the removals, not in a later one.
+    let (large, first_pass) = large_remove_swept(&fixture, "a.bin", 12 * GB);
+    let (_, second_pass) = large_remove_swept(&fixture, "b.bin", 12 * GB);
+    let sequence: Vec<(u64, String)> = first_pass
         .expired
         .iter()
+        .chain(&second_pass.expired)
         .map(|entry| (entry.op.0, format!("{:?}", entry.reason)))
         .collect();
     let position = |op: OpId| sequence.iter().position(|(id, _)| *id == op.0);
-    if let (Some(by_age), Some(by_size)) = (position(old), position(large)) {
+    let by_age = position(old).expect("the overdue entry is expired by the pass after the removal");
+    // The budget of the fixture is not always exceeded after two removals,
+    // so the order is checked when the large entry expires in these passes.
+    if let Some(by_size) = position(large) {
         assert!(
             by_age < by_size,
             "overdue entries expire before the budget is enforced"

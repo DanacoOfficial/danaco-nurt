@@ -20,7 +20,7 @@ use crate::source::{
     Deadline, Fingerprint, FingerprintBuilder, HostEnv, ProgramSource, SourceError, SourceId,
     SourceKind,
 };
-use crate::sources::{list_dir, path_text, resolve_links};
+use crate::sources::{canonical_dir_path, list_dir, normalize, path_text, resolve_links};
 
 /// Directory of Debian alternatives links.
 const ALTERNATIVES_DIR: &str = "/etc/alternatives/";
@@ -82,8 +82,12 @@ impl ProgramSource for PathSource {
     }
 
     fn fingerprint(&self, env: &HostEnv) -> Result<Fingerprint, SourceError> {
+        let list = env
+            .var("PATH")
+            .map(|value| value.to_string_lossy().into_owned())
+            .unwrap_or_default();
         let mut builder = FingerprintBuilder::new(env)
-            .text("PATH", env.var_text("PATH").unwrap_or_default())
+            .text("PATH", &list)
             .text("PATHEXT", &env.path_extensions().join(";"));
         for dir in env.path_dirs() {
             builder = builder.path(dir);
@@ -113,13 +117,36 @@ pub fn scan(
     let mut hits = Vec::new();
     for dir in env.path_dirs() {
         deadline.check(id)?;
+        let start = hits.len();
         for (file_name, host) in list_dir(env, &dir) {
             if let Some(name) = executable_name(env, &file_name, &host) {
                 hits.push(PathHit { name, path: host });
             }
         }
+        order_by_pathext(env, &mut hits[start..]);
     }
     Ok(hits)
+}
+
+/// Orders the files of one directory that share a command name by the
+/// position of their extension in `PATHEXT`, the order in which the system
+/// tries them; without `PATHEXT` extensions the order is unchanged.
+fn order_by_pathext(env: &HostEnv, hits: &mut [PathHit]) {
+    let extensions = env.path_extensions();
+    if extensions.is_empty() {
+        return;
+    }
+    hits.sort_by_cached_key(|hit| {
+        let file_name = hit
+            .path
+            .file_name()
+            .map(|name| name.to_string_lossy().to_ascii_uppercase())
+            .unwrap_or_default();
+        let rank = extensions
+            .iter()
+            .position(|extension| file_name.ends_with(extension.as_str()));
+        (env.name_key(&hit.name), rank)
+    });
 }
 
 /// Command name of a directory entry when it is an executable file.
@@ -167,10 +194,20 @@ fn programs_from_hits(env: &HostEnv, hits: &[PathHit]) -> Vec<RawProgram> {
         order.push(key.clone());
         by_key.insert(key, program);
     }
-    let targets: HashMap<PathBuf, String> = first_paths
-        .iter()
-        .filter_map(|(key, path)| Some((resolve_links(env, path)?, key.clone())))
-        .collect();
+    let mut targets: HashMap<PathBuf, String> = HashMap::new();
+    for key in &order {
+        let Some(path) = first_paths.get(key) else {
+            continue;
+        };
+        let Some(resolved) = resolve_links(env, path) else {
+            continue;
+        };
+        if std::fs::read_link(env.sys_path(path)).is_ok() {
+            targets.entry(resolved).or_insert_with(|| key.clone());
+        } else {
+            targets.insert(resolved, key.clone());
+        }
+    }
     for key in &order {
         let Some(path) = first_paths.get(key) else {
             continue;
@@ -216,17 +253,36 @@ fn link_target(
 
 /// Resolves `name` the way the system starts it: every directory of `PATH`
 /// in order; on Windows a name without extension is tried with each
-/// `PATHEXT` extension. A name with a path separator is checked as it is.
+/// `PATHEXT` extension. A name with a path separator is checked as it is,
+/// without a search of `PATH`; a relative one is taken relative to the base
+/// directory.
 #[must_use]
 pub fn resolve(env: &HostEnv, name: &str) -> Resolution {
+    resolve_from(env, name, None)
+}
+
+/// As [`resolve`], with the directory a relative name that contains a path
+/// separator is taken relative to; without it such a name is not found.
+#[must_use]
+pub fn resolve_from(env: &HostEnv, name: &str, base: Option<&Path>) -> Resolution {
     let mut resolution = Resolution {
         name: name.to_owned(),
         ..Resolution::default()
     };
     if name.contains('/') || (env.os() == Os::Windows && name.contains('\\')) {
-        let host = PathBuf::from(name);
-        if env.is_absolute(&host) && is_runnable(env, &host) {
-            resolution.paths.push(host);
+        let written = PathBuf::from(name);
+        let place = if env.is_absolute(&written) {
+            Some(written)
+        } else {
+            base.map(|base| normalize(&base.join(&written)))
+        };
+        if let Some(place) = place {
+            for candidate in candidate_names(env, &place.to_string_lossy()) {
+                let host = PathBuf::from(candidate);
+                if is_runnable(env, &host) && !resolution.paths.contains(&host) {
+                    resolution.paths.push(host);
+                }
+            }
         }
         return resolution;
     }
@@ -273,13 +329,26 @@ fn is_runnable(env: &HostEnv, host: &Path) -> bool {
     meta.is_file() && (env.os() == Os::Windows || is_executable(&meta))
 }
 
-/// Name of the program a link resolves to, when it differs from `name`.
+/// Name of the program a link resolves to, when it differs from `name` and
+/// the target lies in a directory of `PATH`.
 fn alias_name(env: &HostEnv, name: &str, path: &Path) -> Option<String> {
     std::fs::read_link(env.sys_path(path)).ok()?;
     let resolved = resolve_links(env, path)?;
     let file_name = resolved.file_name()?.to_str()?;
     let target = env.command_name(file_name)?;
-    (env.name_key(&target) != env.name_key(name)).then_some(target)
+    (env.name_key(&target) != env.name_key(name) && in_path_dirs(env, &resolved)).then_some(target)
+}
+
+/// Returns `true` when `file` lies directly in a directory of `PATH`; links
+/// in the directory part are resolved, so `/bin/ls` matches `/usr/bin`.
+fn in_path_dirs(env: &HostEnv, file: &Path) -> bool {
+    let Some(name) = file.file_name() else {
+        return false;
+    };
+    let wanted = canonical_dir_path(env, file);
+    env.path_dirs()
+        .iter()
+        .any(|dir| canonical_dir_path(env, &dir.join(name)) == wanted)
 }
 
 #[cfg(all(test, unix))]
@@ -307,6 +376,73 @@ mod tests {
         let hits = scan(&env, &Deadline::none(), &SourceId::new("path")).unwrap_or_default();
         let names: Vec<&str> = hits.iter().map(|hit| hit.name.as_str()).collect();
         assert_eq!(names, vec!["a"]);
+    }
+
+    #[test]
+    fn links_to_one_program_all_name_the_real_file() {
+        let dir = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
+        executable(dir.path(), "/bin/vim.basic");
+        let links = ["vi", "view", "ex", "rview", "rvim", "vimdiff"];
+        for link in links {
+            std::os::unix::fs::symlink("vim.basic", dir.path().join("bin").join(link))
+                .unwrap_or_default();
+        }
+        let env = HostEnv::new(Os::Linux)
+            .with_root(dir.path())
+            .with_var("PATH", "/bin");
+        let hits = scan(&env, &Deadline::none(), &SourceId::new("path")).unwrap_or_default();
+        let programs = programs_from_hits(&env, &hits);
+        assert_eq!(programs.len(), links.len() + 1);
+        for program in &programs {
+            if program.name == "vim.basic" {
+                assert_eq!(program.alias_of, None);
+            } else {
+                assert_eq!(program.alias_of.as_deref(), Some("vim.basic"));
+                assert_eq!(program.alias_kind, Some(AliasKind::Symlink));
+            }
+        }
+    }
+
+    #[test]
+    fn alias_of_a_link_names_only_targets_in_path() {
+        let dir = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
+        executable(dir.path(), "/bin/vim");
+        executable(dir.path(), "/opt/x/bar");
+        std::os::unix::fs::symlink("vim", dir.path().join("bin/vi")).unwrap_or_default();
+        std::os::unix::fs::symlink("../opt/x/bar", dir.path().join("bin/foo")).unwrap_or_default();
+        let env = HostEnv::new(Os::Linux)
+            .with_root(dir.path())
+            .with_var("PATH", "/bin");
+        assert_eq!(resolve(&env, "vi").alias_of.as_deref(), Some("vim"));
+        let outside = resolve(&env, "foo");
+        assert_eq!(outside.paths, vec![PathBuf::from("/bin/foo")]);
+        assert_eq!(outside.alias_of, None);
+    }
+
+    #[test]
+    fn scan_orders_files_of_one_name_by_pathext() {
+        let dir = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
+        for file in ["git.cmd", "git.bat", "git.exe", "git.txt"] {
+            executable(dir.path(), &format!("/c/Tools/{file}"));
+        }
+        let env = HostEnv::new(Os::Windows)
+            .with_root(dir.path())
+            .with_var("PATH", "C:\\Tools");
+        let hits = scan(&env, &Deadline::none(), &SourceId::new("path")).unwrap_or_default();
+        let files: Vec<&str> = hits
+            .iter()
+            .filter_map(|hit| hit.path.file_name()?.to_str())
+            .collect();
+        assert_eq!(files, vec!["git.exe", "git.bat", "git.cmd"]);
+        assert!(hits.iter().all(|hit| hit.name == "git"));
+        let programs = programs_from_hits(&env, &hits);
+        assert_eq!(programs.len(), 1);
+        assert!(
+            programs[0]
+                .path
+                .as_deref()
+                .is_some_and(|path| path.ends_with("git.exe"))
+        );
     }
 
     #[test]

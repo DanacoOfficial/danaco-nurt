@@ -39,6 +39,11 @@ pub struct ManOptions<'a> {
     pub date: &'a str,
 }
 
+/// Escapes the pipe character, which would end a cell of a Markdown table.
+fn table_cell(text: &str) -> String {
+    text.replace('|', "\\|")
+}
+
 fn page(
     name: &str,
     section: u8,
@@ -88,7 +93,11 @@ pub fn commands_index(catalog: &Catalog, options: &ManOptions<'_>) -> String {
             file.group, file.summary
         ));
         for spec in &file.commands {
-            markdown.push_str(&format!("| `{}` | {} |\n", spec.name, spec.summary));
+            markdown.push_str(&format!(
+                "| `{}` | {} |\n",
+                spec.name,
+                table_cell(&spec.summary)
+            ));
         }
     }
     markdown.push_str("\n## See also\n\n`nurt(1)`\n");
@@ -113,7 +122,7 @@ fn commands_section(catalog: &Catalog) -> String {
             "| `{}` | {} | {} |\n",
             file.group,
             file.commands.len(),
-            file.summary
+            table_cell(&file.summary)
         ));
     }
     out
@@ -294,6 +303,28 @@ mod tests {
     fn program_page_appends_groups_without_see_also() {
         let text = program_page("## Description\n\nText.\n", &catalog(), &OPTIONS);
         assert!(text.contains(".SH COMMANDS"));
+    }
+
+    #[test]
+    fn table_cells_keep_pipes_inside_the_cell() {
+        assert_eq!(table_cell("a | b"), "a \\| b");
+        let rows = crate::markdown::parse(&format!(
+            "| A | B |\n|---|---|\n| x | {} |\n",
+            table_cell("p | q")
+        ));
+        let Some(crate::markdown::Block::Table { rows, .. }) = rows.blocks.first() else {
+            panic!("expected a table");
+        };
+        assert_eq!(rows[0].len(), 2);
+    }
+
+    #[test]
+    fn page_escapes_quotes_and_backslashes_of_the_name_line() {
+        let text = page("nurt-x", 1, "a \"quoted\" back\\slash.", "", &OPTIONS);
+        assert!(
+            text.contains(".SH NAME\nnurt\\-x \\- a \"quoted\" back\\eslash\n"),
+            "{text}"
+        );
     }
 
     #[test]

@@ -8,6 +8,8 @@
 //! catalog) and `nurt-help` (descriptions and help). It holds the catalog and
 //! the correction tables, which are loaded once.
 
+use std::sync::Arc;
+
 use nurt_bind::{BindContext, Catalog as BindCatalog, bind_with_correction};
 use nurt_contracts::ast::AstDocument;
 use nurt_contracts::bound::BoundDocument;
@@ -18,10 +20,9 @@ use nurt_contracts::kinds::SyntaxVariant;
 use nurt_correct::tables::{Tables, load_embedded};
 use nurt_help::catalog::Catalog as HelpCatalog;
 use nurt_help::describe::{Layer, Length, layer};
-use nurt_help::docs::Docs;
 use nurt_help::help::{HelpQuery, render};
 use nurt_syntax::parse::{ParseOptions, parse};
-use nurt_syntax::print::try_print;
+use nurt_syntax::print::{PositionalNames, PrintError, name_positional, try_print};
 use serde_json::json;
 
 use crate::frontend::{Compiled, Corrected, Frontend, ast_hash};
@@ -30,7 +31,6 @@ use crate::frontend::{Compiled, Corrected, Frontend, ast_hash};
 #[derive(Debug)]
 pub struct LanguageFrontend {
     bind_catalog: BindCatalog,
-    help_catalog: HelpCatalog,
     tables: Tables,
 }
 
@@ -49,14 +49,17 @@ impl LanguageFrontend {
         let texts: Vec<&str> = files.iter().map(|(_, text)| *text).collect();
         let bind_catalog = BindCatalog::from_toml(index, &texts)
             .map_err(|error| internal("embedded catalog", error))?;
-        let help_catalog = HelpCatalog::from_sources(index, files, Docs::empty())
-            .map_err(|error| internal("embedded catalog", error))?;
         let tables = load_embedded().map_err(|error| internal("correction tables", error))?;
         Ok(Self {
             bind_catalog,
-            help_catalog,
             tables,
         })
+    }
+
+    /// The help catalog with the documentation compiled into the executable,
+    /// loaded on first use.
+    fn help_catalog(&self) -> Result<Arc<HelpCatalog>, Error> {
+        HelpCatalog::embedded().map_err(|error| internal("embedded help", error))
     }
 
     fn outcome(
@@ -71,9 +74,52 @@ impl LanguageFrontend {
             &self.bind_catalog,
             &self.tables,
             config,
-            &BindContext::for_host(),
+            &bind_context(config),
         )
     }
+}
+
+/// Names of the positional parameters of the commands, from the catalog of
+/// the help; variant C writes every argument with its name.
+struct CatalogNames<'a>(&'a HelpCatalog);
+
+impl PositionalNames for CatalogNames<'_> {
+    fn name(&self, command: &str, index: usize) -> Option<String> {
+        self.0
+            .command(command)?
+            .positional()
+            .get(index)
+            .map(|param| param.name.clone())
+    }
+}
+
+/// Error of printing a program: a notation the variant cannot express is a
+/// request the user can change, anything else is internal.
+fn print_error(error: PrintError) -> Error {
+    match error {
+        PrintError::PositionalArgument { .. } | PrintError::UnnamedArgument { .. } => {
+            Error::new(ErrorCode::Unsupported, error.to_string())
+        }
+        other => internal("printing", other),
+    }
+}
+
+/// Context of binding for the host, with the call parameter `base` taken
+/// from `scope.base` of the configuration of the request.
+fn bind_context(config: &Config) -> BindContext {
+    let context = BindContext::for_host();
+    match config.scope.base.as_deref() {
+        Some(base) => context.with_base(base),
+        None => context,
+    }
+}
+
+/// The topic of `help` without the quotes a program writes around it.
+fn unquoted(topic: &str) -> &str {
+    topic
+        .strip_prefix('"')
+        .and_then(|rest| rest.strip_suffix('"'))
+        .unwrap_or(topic)
 }
 
 impl Frontend for LanguageFrontend {
@@ -106,21 +152,27 @@ impl Frontend for LanguageFrontend {
         })
     }
 
-    fn bind(&self, ast: &AstDocument, _config: &Config) -> Result<BoundDocument, Error> {
-        nurt_bind::bind(ast, &self.bind_catalog, &BindContext::for_host()).map_err(Error::from)
+    fn bind(&self, ast: &AstDocument, config: &Config) -> Result<BoundDocument, Error> {
+        nurt_bind::bind(ast, &self.bind_catalog, &bind_context(config)).map_err(Error::from)
     }
 
     fn print(&self, ast: &AstDocument, variant: SyntaxVariant) -> Result<String, Error> {
-        try_print(ast, variant).map_err(|error| internal("printing", error))
+        if variant != SyntaxVariant::C {
+            return try_print(ast, variant).map_err(print_error);
+        }
+        let catalog = self.help_catalog()?;
+        let named = name_positional(ast, &CatalogNames(&catalog)).map_err(print_error)?;
+        try_print(&named, variant).map_err(print_error)
     }
 
     fn describe(&self, subject: &str, language: Language) -> Result<serde_json::Value, Error> {
+        let catalog = self.help_catalog()?;
         let (kind, name) = match subject {
             "" | "core" => (Layer::Core, ""),
-            name if self.help_catalog.group(name).is_some() => (Layer::Group, name),
+            name if catalog.group(name).is_some() => (Layer::Group, name),
             name => (Layer::Reference, name),
         };
-        let description = layer(&self.help_catalog, kind, name, language, Length::Default)?;
+        let description = layer(&catalog, kind, name, language, Length::Default)?;
         Ok(json!({
             "text": description.text,
             "tokens": description.tokens,
@@ -129,12 +181,14 @@ impl Frontend for LanguageFrontend {
     }
 
     fn help(&self, topic: &str, language: Language) -> Result<String, Error> {
+        let topic = unquoted(topic.trim());
         let query = if topic.is_empty() {
             HelpQuery::new()
         } else {
             HelpQuery::topic(topic)
         };
-        render(&query.with_language(language), &self.help_catalog).map(|help| help.body)
+        let catalog = self.help_catalog()?;
+        render(&query.with_language(language), &catalog).map(|help| help.body)
     }
 
     fn compile(
@@ -151,5 +205,52 @@ impl Frontend for LanguageFrontend {
             corrections: outcome.corrections.into_iter().map(Into::into).collect(),
             ran,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quotes_around_a_help_topic_are_removed() {
+        assert_eq!(unquoted("\"commands\""), "commands");
+        assert_eq!(unquoted("commands"), "commands");
+        assert_eq!(unquoted("\""), "\"");
+        assert_eq!(unquoted("\"\""), "");
+    }
+
+    #[test]
+    fn help_answers_a_quoted_topic_with_the_embedded_documentation() {
+        let frontend = LanguageFrontend::new().unwrap();
+        let commands = frontend.help("\"commands\"", Language::En).unwrap();
+        assert!(commands.contains("program.catalog — "));
+        let page = frontend.help("replace", Language::En).unwrap();
+        assert!(page.contains("examples:"));
+    }
+
+    #[test]
+    fn a_relative_path_binds_against_the_base_of_the_configuration() {
+        let frontend = LanguageFrontend::new().unwrap();
+        let mut config = Config::default();
+        let error = frontend
+            .compile("read \"c.toml\"", None, &config)
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::PathRelative);
+        config.scope.base = Some("/srv/app".to_owned());
+        let compiled = frontend.compile("read \"c.toml\"", None, &config).unwrap();
+        let bound = serde_json::to_string(&compiled.bound).unwrap();
+        assert!(bound.contains("/srv/app/c.toml"), "{bound}");
+    }
+
+    #[test]
+    fn describe_of_a_group_uses_the_documentation() {
+        let frontend = LanguageFrontend::new().unwrap();
+        let described = frontend.describe("core", Language::Pl).unwrap();
+        assert!(
+            described["text"]
+                .as_str()
+                .is_some_and(|text| !text.is_empty())
+        );
     }
 }

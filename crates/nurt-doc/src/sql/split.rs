@@ -9,12 +9,19 @@
 //! statement. Identifiers may be quoted with double quotes, backticks or
 //! brackets (SQLite grammar rule `nm`).
 
+/// Words of a statement among which `TRIGGER` marks `CREATE [TEMP] TRIGGER`;
+/// only the body of a trigger opens a block with `BEGIN`.
+const TRIGGER_KEYWORD_WINDOW: usize = 3;
+
 /// Number of statements in `query`, counting the statements of trigger
 /// bodies as part of their `CREATE TRIGGER` statement.
 pub(crate) fn statement_count(query: &str) -> usize {
     let mut count = 0;
     let mut depth = 0_usize;
     let mut in_statement = false;
+    let mut creates = false;
+    let mut trigger = false;
+    let mut position = 0_usize;
     for token in Tokens::new(query) {
         if token == Token::Symbol(';') {
             if depth == 0 && in_statement {
@@ -23,7 +30,16 @@ pub(crate) fn statement_count(query: &str) -> usize {
             }
             continue;
         }
-        let opens = token.is_keyword("CASE") || (in_statement && token.is_keyword("BEGIN"));
+        if !in_statement {
+            creates = token.is_keyword("CREATE");
+            trigger = false;
+            position = 0;
+        }
+        if creates && position < TRIGGER_KEYWORD_WINDOW && token.is_keyword("TRIGGER") {
+            trigger = true;
+        }
+        position += 1;
+        let opens = token.is_keyword("CASE") || (trigger && token.is_keyword("BEGIN"));
         if opens {
             depth += 1;
         } else if token.is_keyword("END") && depth > 0 {
@@ -140,6 +156,30 @@ mod tests {
         let trigger = "create trigger t after insert on a begin \
                        update a set x = case when 1 then 2 end; delete from b; end; select 1";
         assert_eq!(statement_count(trigger), 2);
+    }
+
+    #[test]
+    fn begin_opens_a_block_only_in_a_trigger() {
+        assert_eq!(statement_count("select begin from t; select 2"), 2);
+        assert_eq!(statement_count("create table begin (x); select 1"), 2);
+        assert_eq!(statement_count("begin; select 1; commit"), 3);
+        let temporary = "create temp trigger t after insert on a begin select 1; end; select 2";
+        assert_eq!(statement_count(temporary), 2);
+        let guarded = "CREATE TRIGGER IF NOT EXISTS t BEGIN SELECT 1; END; SELECT 2";
+        assert_eq!(statement_count(guarded), 2);
+    }
+
+    #[test]
+    fn nested_case_expressions_do_not_end_the_statement_early() {
+        assert_eq!(
+            statement_count("select case when 1 then case when 2 then 3 end end; select 2"),
+            2
+        );
+    }
+
+    #[test]
+    fn counts_multibyte_identifiers_as_words() {
+        assert_eq!(statement_count("select zażółć from tabela; select 2"), 2);
     }
 
     #[test]

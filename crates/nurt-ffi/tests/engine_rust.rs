@@ -315,10 +315,10 @@ fn executions_deliver_the_framed_events_of_the_engine() {
         .collect();
     assert_eq!(frames, [("exec.started", 1), ("exec.finished", 2)]);
     assert_eq!(events[1]["status"], "failed");
-    let request_id = events[0]["request_id"].as_str().unwrap();
-    assert!(!request_id.is_empty());
-    assert_eq!(events[1]["request_id"], request_id);
-    assert!(!events[0]["time"].is_null());
+    let request = events[0]["request"].as_str().unwrap();
+    assert!(!request.is_empty());
+    assert_eq!(events[1]["request"], request);
+    assert!(events[0]["time"].as_str().unwrap().ends_with('Z'));
 }
 
 #[test]
@@ -492,5 +492,32 @@ fn info_reports_the_revision_of_the_built_in_catalog() {
     assert_eq!(unsafe { nurt_info(out.ptr()) }, NurtStatus::Ok);
     let info = out.json();
     assert!(info["catalog_rev"].as_str().unwrap().starts_with("sha256:"));
-    assert_eq!(info["features"], json!([]));
+    let features: Vec<&str> = [
+        ("stub", cfg!(feature = "stub")),
+        ("e2e", cfg!(feature = "e2e")),
+    ]
+    .into_iter()
+    .filter_map(|(name, enabled)| enabled.then_some(name))
+    .collect();
+    assert_eq!(info["features"], json!(features));
+}
+
+#[test]
+fn session_identifiers_are_checked_by_characters() {
+    let engine = Open::new();
+    let too_long = CString::new("s".repeat(100_000)).unwrap();
+    let control = CString::new("s\u{7}1").unwrap();
+    let multi_byte = CString::new("sesja-żółw-日本").unwrap();
+    let cases = [
+        (c"", NurtStatus::Arg),
+        (too_long.as_c_str(), NurtStatus::Arg),
+        (control.as_c_str(), NurtStatus::Arg),
+        (multi_byte.as_c_str(), NurtStatus::Ok),
+    ];
+    for (session, expected) in cases {
+        // SAFETY: A live engine and a NUL-terminated session identifier.
+        let status = unsafe { nurt_session_end(engine.engine, session.as_ptr()) };
+        assert_eq!(status, expected, "{session:?}");
+    }
+    assert_eq!(last_error()["detail"]["function"], "nurt_session_end");
 }

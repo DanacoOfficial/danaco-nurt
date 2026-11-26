@@ -51,7 +51,7 @@ restoration of both sides cannot be combined with `hunks`.
 | `paths` | `list<path>` | required | Files or directories to restore. |
 | `source` | `text` | the index, or HEAD with staged | Revision to restore from. |
 | `staged` | `bool` | `false` | Restore the index. |
-| `worktree` | `bool` | `true` | Restore the working tree. |
+| `worktree` | `bool` | true, or false with staged | Restore the working tree. |
 | `hunks` | `list<text>` | none | Only these hunks, by identifier as in git.stage. |
 | `checkpoint` | `bool` | `false` | Create a checkpoint of the changes before they are discarded. |
 | `expect_state` | `text` | none | State token from an earlier read; nothing changes when the repository state differs. |
@@ -116,7 +116,8 @@ git.restore "/home/user/repo" paths: ["src/lib.rs"] hunks: ["src/lib.rs#1"] stag
 | `E_NO_MATCH` | A pathspec matched no file of the source or the index. | Check the path with `git.status "/home/user/repo"` |
 | `E_GIT_REVISION` | The source does not exist or is not a tree. | Give an existing commit, tag or tree |
 | `E_GIT_DIRTY` | A selected path has unresolved conflicts (`unmerged`). | Restore with `staged: true source: "HEAD"` |
-| `E_ARG` | Neither `staged` nor `worktree` is set, a pathspec or a hunk identifier is malformed, a hunk lies outside `paths` (`hunk_outside_paths`), or an absolute path is outside the repository (`outside_repository`). | Set `worktree: true`, or add the file of the hunk to `paths` |
+| `E_ARG` | Neither `staged` nor `worktree` is set, a pathspec or a hunk identifier is malformed, or a hunk lies outside `paths` (`hunk_outside_paths`). | Set `worktree: true`, or add the file of the hunk to `paths` |
+| `E_INVALID_VALUE` | An absolute path is outside the repository (`outside_repository`). | Give a path inside the working tree |
 | `E_GIT_UNSUPPORTED` | `hunks` together with `source` (`hunks_source`), with both sides (`hunks_both`), or for a submodule (`hunks_submodule`). | Remove `source`, or set `worktree: false` for staged hunks |
 | `E_NOT_FOUND` | A hunk number or the change of a hunk does not exist (`not_found`). | List the hunks again with `git.stage "/home/user/repo" action: list` |
 | `E_GIT_LOCKED` | `index.lock` exists. | Wait for the other process or remove the stale lock |

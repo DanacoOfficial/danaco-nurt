@@ -48,7 +48,7 @@ docker buildx build \
   <context>
 ```
 
-`ci/containers.yml` stages the context from the Linux archives of a release after verifying `SHA256SUMS`, builds the three images, publishes them with an SBOM and provenance attestation, signs them with `cosign` (keyless) and runs `tests/smoke.sh`.
+`ci/containers.yml` stages the context from the Linux archives of a release after verifying `checksums.txt`, builds the three images, publishes them with an SBOM and provenance attestation, signs them with `cosign` (keyless) and runs `tests/smoke.sh`.
 
 ## Tests
 

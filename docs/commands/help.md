@@ -25,7 +25,7 @@ line is `Danaco Nurt <version> - command shell and language where every change
 can be undone`.
 
 A topic is resolved in this order when `kind` is not given: command, error
-code, `syntax`, `corrections`, group, guide. The same name can denote a
+code, `syntax`, `corrections`, `commands`, `pipelines`, `let`, `paths`, `records`, `lists`, group, guide. The same name can denote a
 command and a group (`verify`): `help verify` answers for the command,
 `help verify kind: group` and `help group: verify` answer for the group.
 
@@ -37,6 +37,8 @@ command and a group (`verify`): `help verify` answers for the command,
 | a guide | the text of the guide |
 | `syntax` | grammar, literals and expressions, and the rule on stages after the effect |
 | `corrections` | classes and policy of corrections, the rule families and the result fields |
+| `commands` | every command of the catalog under its group, with its summary |
+| `pipelines`, `let`, `paths`, `records`, `lists` | the part of the syntax that the name says, the lines of `syntax` that apply; the hints of errors point at these topics |
 | `search` | commands, error codes and guides that match the words, best first |
 
 The topics `group`, `skill` and `search` exclude each other and the positional
@@ -44,9 +46,22 @@ topic. An unknown topic fails with `E_UNKNOWN_NAME`; the error lists up to
 eight nearest names in `expected`.
 
 The answer is text. With the call parameter `format: json` the answer is a
-JSON document with the same content. The call parameter `language: pl`
-selects Polish for the fixed texts; command names, parameters, record fields
-and error codes stay in English.
+JSON document with the same content. `help "commands"` lists the commands of
+all groups; `help group: "<group>"` describes one group.
+
+The call parameter `language: pl`, or `output.language = "pl"` when the call
+gives none, selects Polish for the fixed texts of `help` and `describe`: the
+introduction, the headings and the labels. The call parameter wins over the
+configuration. Command names, parameters, record fields, error codes, the
+summaries of commands and the guides stay in English.
+
+`language: pl` also puts the messages of a result into Polish: the `message`
+of an error is the Polish meaning of its code followed by `found`, `expected`
+and `problem`; the English message is kept in the error detail `message_en`.
+The `detail` of every note and of every irreversible effect starts with the
+Polish text of its code, followed by the English detail when there is one. The
+codes, the programs in `fix` and `next_steps` and the help topic are never
+translated. A code without a Polish text keeps its English message.
 
 `help` never changes state and no command requires it to be read before it
 runs.

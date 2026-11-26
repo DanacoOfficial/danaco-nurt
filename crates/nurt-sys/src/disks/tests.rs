@@ -275,6 +275,33 @@ mod mount_table {
     }
 
     #[test]
+    fn disks_mount_table_with_non_utf8_mount_point_is_not_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("proc/self")).unwrap();
+        std::fs::write(
+            root.join("proc/self/mountinfo"),
+            b"21 1 8:1 / / rw,relatime - ext4 /dev/sda1 rw\n\
+              24 21 8:17 / /media/caf\xE9 rw - vfat /dev/sdb1 rw\n"
+                .as_slice(),
+        )
+        .unwrap();
+        let stage = Disks::with_source(Arc::new(MountTable::new(SysRoot::new(root))));
+        let ctx = ctx();
+        let records: Vec<Disk> = run(&stage, &BoundArgs::new(COMMAND), &ctx)
+            .unwrap()
+            .into_iter()
+            .map(|record| Disk::try_from(record).unwrap())
+            .collect();
+        let mounts: Vec<&str> = records.iter().map(|disk| disk.mount.as_str()).collect();
+        assert_eq!(mounts, ["/"]);
+        let notes = ctx.take_notes();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].code, Notable::SourceUnavailable);
+        assert_eq!(notes[0].count, Some(1));
+    }
+
+    #[test]
     fn disks_udev_label_escapes() {
         assert_eq!(decode_label(r"My\x20Disk\x2fA"), "My Disk/A");
         assert_eq!(decode_label(r"plain\x2"), r"plain\x2");

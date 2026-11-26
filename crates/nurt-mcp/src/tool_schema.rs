@@ -358,6 +358,95 @@ mod tests {
     }
 
     #[test]
+    fn check_tool_schema_lists_the_program_the_candidate_and_the_session() {
+        let tool = serde_json::to_value(check_tool()).unwrap();
+        assert_eq!(tool["inputSchema"]["type"], "object");
+        let mut names: Vec<&str> = tool["inputSchema"]["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        names.sort_unstable();
+        assert_eq!(names, ["accept", "program", "session"]);
+        assert_eq!(tool["annotations"]["idempotentHint"], true);
+        assert_eq!(tool["annotations"]["destructiveHint"], false);
+    }
+
+    #[test]
+    fn help_tool_schema_states_the_defaults_and_the_languages() {
+        let tool = serde_json::to_value(help_tool()).unwrap();
+        let properties = &tool["inputSchema"]["properties"];
+        assert_eq!(properties["examples"]["default"], 3);
+        assert_eq!(properties["examples"]["minimum"], 0);
+        assert_eq!(properties["language"]["enum"], json!(["en", "pl"]));
+        assert_eq!(properties["language"]["default"], "en");
+        assert_eq!(tool["annotations"]["idempotentHint"], true);
+        assert_eq!(tool["annotations"]["openWorldHint"], false);
+    }
+
+    #[test]
+    fn check_arguments_name_the_tool_in_every_error() {
+        for arguments in [
+            json!({}),
+            json!({"program": 1}),
+            json!({"accept": ["c1"]}),
+            json!({"session": 7, "program": "ok"}),
+            json!({"program": "ok", "accept": "c1"}),
+        ] {
+            let message =
+                check_request_from_arguments(Some(object(arguments.clone())), None).unwrap_err();
+            assert!(
+                message.starts_with("invalid arguments of the `nurt_check` tool: "),
+                "{arguments}: {message}"
+            );
+        }
+    }
+
+    #[test]
+    fn check_arguments_keep_text_with_multi_byte_characters() {
+        let request = check_request_from_arguments(
+            Some(object(
+                json!({"program": "find \"\u{142}\u{f3}d\u{17a}\u{1f600}\""}),
+            )),
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            request.program.as_deref(),
+            Some("find \"\u{142}\u{f3}d\u{17a}\u{1f600}\"")
+        );
+        assert_eq!(request.options.session, None);
+    }
+
+    #[test]
+    fn help_arguments_of_the_wrong_type_are_rejected_with_the_tool_name() {
+        for arguments in [
+            json!({"topic": 1}),
+            json!({"examples": -1}),
+            json!({"examples": "3"}),
+            json!({"language": "de"}),
+            json!({"topic": "find", "depth": 1}),
+        ] {
+            let message = help_query_from_arguments(Some(object(arguments.clone()))).unwrap_err();
+            assert!(
+                message.starts_with("invalid arguments of the `nurt_help` tool: "),
+                "{arguments}: {message}"
+            );
+        }
+    }
+
+    #[test]
+    fn help_arguments_accept_every_kind() {
+        for kind in HelpKind::ALL {
+            let query =
+                help_query_from_arguments(Some(object(json!({"kind": kind.as_str()})))).unwrap();
+            assert_eq!(query.kind, Some(*kind));
+            assert_eq!(query.topic, None);
+        }
+    }
+
+    #[test]
     fn help_arguments_are_parsed() {
         let query = help_query_from_arguments(Some(object(json!({
             "topic": "replace",

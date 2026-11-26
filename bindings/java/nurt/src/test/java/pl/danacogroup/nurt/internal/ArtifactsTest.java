@@ -5,6 +5,7 @@ package pl.danacogroup.nurt.internal;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -130,6 +131,46 @@ class ArtifactsTest {
         NurtCallException error = assertThrows(NurtCallException.class,
                 () -> Artifacts.locate(null, null, null, loader, "nurt-unsigned", true));
         assertEquals(NurtCallException.Kind.IO, error.kind());
+    }
+
+    @Test
+    void libraryIsKnownByTheNameOfThePackageAndByTheNameOfTheBuild() {
+        assertEquals(java.util.List.of("libnurt.so", "libnurt.so.1", "libnurt_ffi.so"), Artifacts.libraryNames("linux-x86_64"));
+        assertEquals(java.util.List.of("libnurt.dylib", "libnurt_ffi.dylib"), Artifacts.libraryNames("macos-aarch64"));
+        assertEquals(java.util.List.of("nurt.dll", "nurt_ffi.dll"), Artifacts.libraryNames("windows-x86_64"));
+    }
+
+    @Test
+    void libraryBuiltAsNurtFfiIsFoundInTheSearchPath() throws IOException {
+        Path directory = Files.createDirectory(temp.resolve("lib"));
+        Path built = Files.write(directory.resolve("libnurt_ffi.so"), CONTENT);
+        Path found = Artifacts.locate(null, null, temp.resolve("none") + File.pathSeparator + directory, emptyLoader(),
+                Artifacts.libraryNames("linux-x86_64"), false);
+        assertEquals(built, found);
+        NurtCallException error = assertThrows(NurtCallException.class, () -> Artifacts.locate(
+                null, null, directory.resolve("empty").toString(), emptyLoader(), Artifacts.libraryNames("linux-x86_64"), false));
+        assertTrue(error.getMessage().contains("libnurt_ffi.so"), error.getMessage());
+        assertTrue(error.getMessage().contains(Artifacts.LIBRARY_VARIABLE), error.getMessage());
+    }
+
+    @Test
+    void discardRemovesTheExtractedFileAndItsDirectory() throws IOException {
+        Path directory = Files.createDirectory(temp.resolve("nurt-extracted"));
+        Path target = Files.write(directory.resolve("nurt"), CONTENT);
+        Artifacts.discard(target);
+        assertFalse(Files.exists(target));
+        assertFalse(Files.exists(directory));
+        Artifacts.discard(target);
+    }
+
+    @Test
+    void discardKeepsADirectoryThatHoldsOtherFiles() throws IOException {
+        Path directory = Files.createDirectory(temp.resolve("nurt-shared"));
+        Path target = Files.write(directory.resolve("nurt"), CONTENT);
+        Path other = Files.write(directory.resolve("other"), CONTENT);
+        Artifacts.discard(target);
+        assertFalse(Files.exists(target));
+        assertTrue(Files.exists(other));
     }
 
     @Test

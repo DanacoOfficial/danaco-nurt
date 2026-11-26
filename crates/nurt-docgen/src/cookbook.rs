@@ -250,4 +250,53 @@ mod tests {
         let category = parse_category("search", FILE).expect("category parses");
         assert_eq!(recipe_count(&[category.clone(), category]), 4);
     }
+
+    #[test]
+    fn a_title_may_contain_a_colon_and_extra_paragraphs_are_ignored() {
+        let source = "---\ncategory: x\ntitle: Search: advanced\n---\n\n## One\n\nProblem.\n\nMore text.\n\n```nurt example\ncount\n```\n";
+        let category = parse_category("x", source).expect("category parses");
+        assert_eq!(category.title, "Search: advanced");
+        assert_eq!(category.recipes[0].problem, "Problem.");
+        assert_eq!(category.recipes[0].programs, ["count"]);
+    }
+
+    #[test]
+    fn a_category_without_front_matter_is_an_error() {
+        assert!(parse_category("x", "## One\n\nProblem.\n").is_err());
+    }
+
+    #[test]
+    fn blocks_before_the_first_recipe_are_ignored() {
+        let source = "---\ncategory: x\ntitle: X\n---\n\nIntroduction.\n\n```bash\nls\n```\n";
+        let category = parse_category("x", source).expect("category parses");
+        assert!(category.recipes.is_empty());
+    }
+
+    #[test]
+    fn a_recipe_needs_exactly_one_program_and_a_problem() {
+        let source = "---\ncategory: x\ntitle: X\n---\n\n## Two programs\n\n```nurt example\ncount\n```\n\n```nurt example\ncount\n```\n\n```text expected\n1\n```\n";
+        let category = parse_category("x", source).expect("category parses");
+        let catalog = catalog();
+        let issues = check_cookbook(&[category], &CatalogChecker::new(&catalog));
+        let messages: Vec<&str> = issues.iter().map(|i| i.message.as_str()).collect();
+        assert!(messages.iter().any(|m| m.contains("no problem statement")));
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("exactly one is required"))
+        );
+    }
+
+    #[test]
+    fn load_cookbook_reads_categories_in_file_order_and_skips_the_readme() {
+        let dir = tempfile::tempdir().expect("temporary directory");
+        for (name, title) in [("b", "B"), ("a", "A")] {
+            let text = format!("---\ncategory: {name}\ntitle: {title}\n---\n");
+            std::fs::write(dir.path().join(format!("{name}.md")), text).expect("write");
+        }
+        std::fs::write(dir.path().join("README.md"), "Not a category.\n").expect("write");
+        let categories = load_cookbook(dir.path()).expect("cookbook loads");
+        let ids: Vec<&str> = categories.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, ["a", "b"]);
+    }
 }

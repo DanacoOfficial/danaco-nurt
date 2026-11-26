@@ -387,8 +387,13 @@ impl Snapshot {
         fs::create_dir_all(root).map_err(io_error(root))?;
         let mut entries: Vec<&Entry> = self.entries.iter().collect();
         entries.sort_by(|a, b| a.path.cmp(&b.path));
-        for entry in entries {
+        for entry in &entries {
             create_entry(root, entry)?;
+        }
+        // A directory without write permission would refuse its children, so
+        // the modes of directories are applied last, the deepest first.
+        for entry in entries.iter().rev().filter(|e| e.kind == EntryType::Dir) {
+            apply_mode(&native_path(root, &entry.path), entry.mode_bits()?)?;
         }
         Ok(())
     }
@@ -488,6 +493,9 @@ fn create_entry(root: &Path, entry: &Entry) -> Result<(), SnapshotError> {
             }
         }
         EntryType::Symlink => create_symlink(&path, entry.target.as_deref().unwrap_or_default())?,
+    }
+    if entry.kind == EntryType::Dir {
+        return Ok(());
     }
     apply_mode(&path, entry.mode_bits()?)
 }
@@ -631,6 +639,28 @@ fn read_tree(root: &Path) -> Result<BTreeMap<String, Actual>, SnapshotError> {
     Ok(tree)
 }
 
+/// Text of a file name. A name that is not valid UTF-8 keeps every invalid
+/// byte as U+FFFD and its two hexadecimal digits, so that two different names
+/// never give the same text.
+fn name_text(name: &std::ffi::OsStr) -> String {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt as _;
+        let mut text = String::new();
+        for chunk in name.as_bytes().utf8_chunks() {
+            text.push_str(chunk.valid());
+            for byte in chunk.invalid() {
+                text.push_str(&format!("\u{FFFD}{byte:02x}"));
+            }
+        }
+        text
+    }
+    #[cfg(not(unix))]
+    {
+        name.to_string_lossy().into_owned()
+    }
+}
+
 fn read_dir_into(
     dir: &Path,
     prefix: &str,
@@ -640,7 +670,7 @@ fn read_dir_into(
     for item in fs::read_dir(dir).map_err(io_error(dir))? {
         empty = false;
         let item = item.map_err(io_error(dir))?;
-        let name = item.file_name().to_string_lossy().into_owned();
+        let name = name_text(&item.file_name());
         let relative = if prefix.is_empty() {
             name
         } else {
@@ -716,6 +746,19 @@ mod tests {
             Some("2026-01-31T12:00:00Z")
         );
         assert_eq!(Snapshot::from_json(&captured.to_json()).unwrap(), captured);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn names_that_are_not_utf8_stay_distinct() {
+        use std::os::unix::ffi::OsStrExt as _;
+        let root = tempfile::tempdir().unwrap();
+        for name in [&b"a\xff"[..], &b"a\xfe"[..], "ż.txt".as_bytes()] {
+            fs::write(root.path().join(std::ffi::OsStr::from_bytes(name)), "x").unwrap();
+        }
+        let captured = Snapshot::capture(root.path(), false, false).unwrap();
+        let paths: Vec<&str> = captured.entries.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(paths, vec!["a\u{FFFD}fe", "a\u{FFFD}ff", "ż.txt"]);
     }
 
     #[test]
@@ -830,6 +873,36 @@ mod tests {
                 "target \"run.sh\" instead of \"other\"".to_owned()
             ]
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn directories_without_write_permission_still_receive_their_children() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let root = tempfile::tempdir().unwrap();
+        let expected = snapshot(json!([
+            {"path": "locked", "type": "dir", "mode": "0555"},
+            {"path": "locked/inner", "type": "dir", "mode": "0500"},
+            {"path": "locked/inner/a.txt", "type": "file", "content_utf8": "a"}
+        ]));
+        expected.materialize(root.path()).unwrap();
+        let mode = |path: &str| {
+            fs::metadata(root.path().join(path))
+                .unwrap()
+                .permissions()
+                .mode()
+                & MODE_MASK
+        };
+        assert_eq!(mode("locked"), 0o555);
+        assert_eq!(mode("locked/inner"), 0o500);
+        assert_eq!(
+            fs::read_to_string(root.path().join("locked/inner/a.txt")).unwrap(),
+            "a"
+        );
+        // The tree is removed by the temporary directory.
+        for path in ["locked/inner", "locked"] {
+            fs::set_permissions(root.path().join(path), fs::Permissions::from_mode(0o755)).unwrap();
+        }
     }
 
     #[test]

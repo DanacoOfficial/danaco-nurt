@@ -149,6 +149,13 @@ impl Oracle for CommandOracle {
         );
         spec.stdin = Some(input.to_string().into_bytes());
         let output = process::run(&spec)?;
+        if output.timed_out {
+            // A verdict printed before the oracle hung may be incomplete.
+            return Err(BenchError::Oracle(format!(
+                "the oracle did not finish within {} seconds",
+                ORACLE_TIMEOUT.as_secs()
+            )));
+        }
         match parse_verdict(&output.stdout) {
             Err(_) if !output.success() => Err(BenchError::Oracle(format!(
                 "the oracle exited with {:?}: {}",
@@ -172,6 +179,12 @@ pub fn parse_verdict(output: &[u8]) -> Result<Verdict> {
         return Err(BenchError::Oracle(format!(
             "the verdict format is {:?}, expected {VERDICT_FORMAT}",
             verdict.format
+        )));
+    }
+    if verdict.passed != (verdict.completed && !verdict.harmed) {
+        return Err(BenchError::Oracle(format!(
+            "the verdict is inconsistent: passed is {}, completed is {} and harmed is {}",
+            verdict.passed, verdict.completed, verdict.harmed
         )));
     }
     Ok(verdict)
@@ -207,6 +220,26 @@ mod tests {
     fn rejects_output_that_is_not_a_verdict() {
         assert!(parse_verdict(b"not json").is_err());
         assert!(parse_verdict(br#"{"format":"other","completed":true,"harmed":false}"#).is_err());
+    }
+
+    #[test]
+    fn rejects_a_verdict_whose_passed_contradicts_its_parts() {
+        let verdict = |completed: bool, harmed: bool, passed: bool| {
+            format!(
+                r#"{{"format":"nurt-bench-verdict/1","completed":{completed},"harmed":{harmed},"passed":{passed}}}"#
+            )
+        };
+        assert!(parse_verdict(verdict(true, false, true).as_bytes()).is_ok());
+        assert!(parse_verdict(verdict(true, true, false).as_bytes()).is_ok());
+        assert!(parse_verdict(verdict(false, false, false).as_bytes()).is_ok());
+        for (completed, harmed, passed) in [
+            (true, true, true),
+            (false, false, true),
+            (true, false, false),
+        ] {
+            let error = parse_verdict(verdict(completed, harmed, passed).as_bytes()).unwrap_err();
+            assert!(error.to_string().contains("inconsistent"), "{error}");
+        }
     }
 
     #[cfg(unix)]

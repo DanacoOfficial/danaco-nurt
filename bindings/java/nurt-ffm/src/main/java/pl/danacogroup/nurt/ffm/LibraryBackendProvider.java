@@ -31,7 +31,7 @@ public final class LibraryBackendProvider implements BackendProvider {
         try {
             library(settings).checkAbi();
             return true;
-        } catch (NurtCallException e) {
+        } catch (NurtCallException | IllegalCallerException | UnsupportedOperationException e) {
             return false;
         }
     }

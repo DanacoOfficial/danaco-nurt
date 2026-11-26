@@ -40,12 +40,14 @@ public final class LanguageError {
     }
 
     /**
-     * Stage in which the error occurred, for example {@code 0} for parsing.
+     * Stage in which the error occurred, for example {@code 1}; the member
+     * {@code stage} of {@code at}, or a member {@code stage} of the error itself.
      *
      * @return the stage
      */
     public Optional<String> stage() {
-        return Optional.ofNullable(Json.string(value, "stage"));
+        String stage = Json.string(value.get("at"), "stage");
+        return Optional.ofNullable(stage != null ? stage : Json.string(value, "stage"));
     }
 
     /**

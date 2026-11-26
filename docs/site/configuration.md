@@ -46,6 +46,6 @@ Later levels override earlier ones:
 | `journal.max_ops` | `NURT_JOURNAL_MAX_OPS` | `30` | operations kept |
 | `journal.max_age` | `NURT_JOURNAL_MAX_AGE` | `"30m"` | age of the operations kept |
 | `run.timeout` | `NURT_RUN_TIMEOUT` | `"120s"` | time limit of `run` |
-| `output.language` | `NURT_LANGUAGE` | `"en"` | language of messages and help |
+| `output.language` | `NURT_LANGUAGE` | `"en"` | language of `help`, `describe`, the messages of errors and the notes of a result (`en` or `pl`); codes and programs are never translated |
 | `output.color` | `NURT_COLOR` | `"auto"` | colors for a person |
 | `session.id` | `NURT_SESSION` | none | session identifier in the journal |

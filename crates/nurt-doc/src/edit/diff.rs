@@ -233,3 +233,84 @@ fn backtrack(trace: &[Vec<usize>], n: usize, m: usize) -> Vec<Run> {
     runs.reverse();
     runs
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::edit::apply;
+
+    /// Edits between two texts, checked to turn the first into the second.
+    fn edits(old: &str, new: &str) -> Vec<ByteEdit> {
+        let found = diff(old.as_bytes(), new.as_bytes());
+        let applied = apply(old.as_bytes(), &found).unwrap();
+        assert_eq!(applied.bytes, new.as_bytes(), "{old:?} -> {new:?}");
+        found
+    }
+
+    #[test]
+    fn equal_texts_give_no_edits() {
+        assert!(edits("a\nb\n", "a\nb\n").is_empty());
+        assert!(edits("", "").is_empty());
+    }
+
+    #[test]
+    fn deletes_a_whole_line() {
+        assert_eq!(
+            edits("a\nb\nc\n", "a\nc\n"),
+            vec![ByteEdit::delete(Span::new(2, 4))]
+        );
+    }
+
+    #[test]
+    fn narrows_a_changed_line_to_the_differing_bytes() {
+        assert_eq!(
+            edits("a = 1\nb = 2\n", "a = 10\nb = 2\n"),
+            vec![ByteEdit::insert(5, "0")]
+        );
+        assert_eq!(
+            edits("a=1\nb=2\n", "a=9\nb=2\n"),
+            vec![ByteEdit::replace(Span::new(2, 3), "9")]
+        );
+    }
+
+    #[test]
+    fn separate_changes_give_separate_edits() {
+        let found = edits("a = 1\nb = 2\nc = 3\n", "a = 10\nb = 2\nc = 30\n");
+        assert_eq!(found.len(), 2);
+    }
+
+    #[test]
+    fn inserts_into_and_deletes_from_an_empty_text() {
+        assert_eq!(edits("", "a\n"), vec![ByteEdit::insert(0, "a\n")]);
+        assert_eq!(edits("a\n", ""), vec![ByteEdit::delete(Span::new(0, 2))]);
+    }
+
+    #[test]
+    fn keeps_multi_byte_text_and_crlf_line_breaks() {
+        edits("é=1\r\nb=2\r\n", "è=1\r\nb=2\r\n");
+        edits("a=€\r\nb=2\r\n", "a=€€\r\nb=3\r\n");
+        edits("x\r\n", "x\n");
+        edits("日本語\n", "日本\n語\n");
+    }
+
+    #[test]
+    fn changes_without_a_final_line_break_round_trip() {
+        edits("a\nb", "a\nb\nc");
+        edits("a\nb\n", "a\nb");
+        edits("a", "b");
+    }
+
+    #[test]
+    fn more_changed_lines_than_the_alignment_limit_become_one_edit() {
+        let old: String = (0..2_000).map(|i| format!("o{i}\n")).collect();
+        let new: String = (0..2_000).map(|i| format!("n{i}\n")).collect();
+        let found = edits(&old, &new);
+        assert_eq!(
+            found,
+            vec![ByteEdit::replace(
+                Span::new(0, old.len()),
+                new.as_bytes().to_vec()
+            )]
+        );
+    }
+}

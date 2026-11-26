@@ -6355,6 +6355,7 @@ dependencies = [
 name = "nurt-ffi"
 version = "0.1.0"
 dependencies = [
+ "jsonschema",
  "nurt-catalog",
  "nurt-contracts",
  "nurt-core",

@@ -12,11 +12,15 @@ use serde_json::{Value, json};
 use crate::abi::{NURT_ABI_MAJOR, NURT_ABI_MINOR, NURT_ABI_VERSION};
 
 /// Cargo features compiled into the library.
-const FEATURES: &[&str] = if cfg!(feature = "stub") {
-    &["stub"]
-} else {
-    &[]
-};
+fn features() -> Vec<&'static str> {
+    [
+        ("stub", cfg!(feature = "stub")),
+        ("e2e", cfg!(feature = "e2e")),
+    ]
+    .into_iter()
+    .filter_map(|(name, enabled)| enabled.then_some(name))
+    .collect()
+}
 
 /// Revision of the command catalog built into the library; computed once.
 /// `None` when the built-in catalog cannot be loaded.
@@ -63,7 +67,7 @@ pub(crate) fn to_json() -> Vec<u8> {
         },
         "schemas": schemas,
         "catalog_rev": catalog_rev().map_or(Value::Null, Value::from),
-        "features": FEATURES,
+        "features": features(),
         "target": {
             "arch": std::env::consts::ARCH,
             "os": std::env::consts::OS,
@@ -96,8 +100,15 @@ mod tests {
         assert_eq!(info["target"]["os"], std::env::consts::OS);
         assert_eq!(
             info["features"].as_array().unwrap().is_empty(),
-            !cfg!(feature = "stub")
+            !cfg!(feature = "stub") && !cfg!(feature = "e2e")
         );
+    }
+
+    #[test]
+    fn features_name_every_enabled_cargo_feature() {
+        let names = super::features();
+        assert_eq!(names.contains(&"stub"), cfg!(feature = "stub"));
+        assert_eq!(names.contains(&"e2e"), cfg!(feature = "e2e"));
     }
 
     #[test]

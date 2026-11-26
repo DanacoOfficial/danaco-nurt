@@ -373,3 +373,41 @@ fn mutations_are_recorded_with_their_scope() {
     assert_eq!(ops, ["set_meta", "remove_file"]);
     assert!(records.iter().all(|record| record.scope_op == OpId(7)));
 }
+
+#[test]
+fn metadata_applied_through_a_write_handle_keeps_the_time_of_the_write() {
+    let (clock, fs, scope) = setup();
+    let file = path("/data/a.txt");
+    fs.write_file(&file, b"old").unwrap();
+    let previous = fs.extended_metadata(&file, Follow::NoFollow).unwrap();
+    clock.advance(Duration::from_secs(5));
+    let mut handle = fs.open_in_place(&scope, &file).unwrap();
+    handle.write_all(b"new").unwrap();
+    handle.apply_meta(&previous).unwrap();
+    drop(handle);
+    let now = i64::try_from(clock.now().unix_nanos()).unwrap();
+    let meta = fs.metadata(&file, Follow::NoFollow).unwrap();
+    assert_eq!(meta.modified_ns, now);
+    assert_ne!(meta.modified_ns, previous.basic.modified_ns);
+}
+
+#[test]
+fn truncation_dates_the_file_and_restoring_metadata_brings_back_mode_and_time() {
+    let (clock, fs, scope) = setup();
+    let file = path("/data/a.txt");
+    fs.write_file(&file, b"abc").unwrap();
+    fs.set_mode(&file, 0o600).unwrap();
+    fs.set_modified(&file, 5).unwrap();
+    let recorded = fs.extended_metadata(&file, Follow::NoFollow).unwrap();
+    clock.advance(Duration::from_secs(1));
+    fs.truncate(&scope, &file, 1).unwrap();
+    let now = i64::try_from(clock.now().unix_nanos()).unwrap();
+    assert_eq!(
+        fs.metadata(&file, Follow::NoFollow).unwrap().modified_ns,
+        now
+    );
+    let report = fs.restore_meta(&scope, &file, &recorded).unwrap();
+    assert!(report.is_complete());
+    let restored = fs.metadata(&file, Follow::NoFollow).unwrap();
+    assert_eq!((restored.mode, restored.modified_ns), (0o600, 5));
+}

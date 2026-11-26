@@ -17,7 +17,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: publish-${{ inputs.version }}
@@ -26,13 +26,30 @@ concurrency:
 jobs:
   prepare:
     name: Render and sign
+    # Uploads the rendered files to the release; the other jobs publish with
+    # their own credentials.
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release
     steps:
+      - name: Validate the release version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          case "$VERSION" in
+            '' | *[!0-9A-Za-z.-]*) echo "invalid version: $VERSION" >&2; exit 1 ;;
+          esac
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Take the build time from the release tag
-        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct "v${{ inputs.version }}")" >> "$GITHUB_ENV"
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          epoch=$(git log -1 --format=%ct "refs/tags/v${VERSION}")
+          echo "SOURCE_DATE_EPOCH=$epoch" >> "$GITHUB_ENV"
       - name: Download the release archives
         env:
           GH_TOKEN: ${{ github.token }}
@@ -103,7 +120,7 @@ jobs:
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          rsync -rt --delete-after -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+          rsync -rt --delete-after --filter="P /pool/" -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
             publication/apt/ "$DEPLOY_TARGET"
 
   homebrew:
@@ -127,6 +144,7 @@ jobs:
           git config user.name "Danaco Official"
           git config user.email "support@danaco-group.pl"
           git add Formula/nurt.rb
+          git diff --cached --quiet && { echo "nothing to commit"; exit 0; }
           git commit -m "nurt ${{ inputs.version }}"
           git push origin HEAD:main
 
@@ -151,6 +169,7 @@ jobs:
           git config user.name "Danaco Official"
           git config user.email "support@danaco-group.pl"
           git add bucket/nurt.json
+          git diff --cached --quiet && { echo "nothing to commit"; exit 0; }
           git commit -m "nurt ${{ inputs.version }}"
           git push origin HEAD:main
 
@@ -206,7 +225,7 @@ jobs:
           - name: install.sh
             runner: ubuntu-latest
             run: |
-              curl -fsSL https://nurt.danaco-group.pl/install.sh | NURT_INSTALL_DIR="$RUNNER_TEMP/bin" sh
+              curl -fsSL https://nurt.danaco-group.pl/install.sh | NURT_VERSION="${{ inputs.version }}" NURT_INSTALL_DIR="$RUNNER_TEMP/bin" sh
               "$RUNNER_TEMP/bin/nurt" version | head -n 1 | grep -q '^nurt [0-9]'
           - name: Homebrew
             runner: macos-latest

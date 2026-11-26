@@ -702,32 +702,27 @@ fn frame_reader_reassembles_messages_and_skips_malformed_frames() {
     bytes.extend_from_slice(b"Content-Type: application/vscode-jsonrpc\r\n\r\n");
     bytes.extend_from_slice(b"Content-Length: 3\r\n\r\n[1]");
     bytes.extend_from_slice(b"Content-Length: 5\r\n\r\nnot j");
+    bytes.extend_from_slice(&encode(&json!({"jsonrpc": "2.0", "method": "exit"})));
     bytes
         .extend_from_slice(format!("Content-Length: {}\r\n\r\n", MESSAGE_BYTES_MAX + 1).as_bytes());
     bytes.extend_from_slice(&[b'x'; 9000]);
-    bytes.extend_from_slice(b"\r\n\r\n");
-    bytes.extend_from_slice(&encode(&json!({"jsonrpc": "2.0", "method": "exit"})));
     let mut reader = FrameReader::new(bytes.as_slice());
     let mut frames = Vec::new();
     while let Some(frame) = reader.next_frame().unwrap() {
         frames.push(frame);
     }
+    assert_eq!(frames.len(), 6);
     assert!(matches!(frames[0], Frame::Message(_)));
     assert_eq!(frames[1], Frame::Rejected(FrameError::MissingLength));
     assert_eq!(frames[2], Frame::Rejected(FrameError::InvalidBody));
     assert_eq!(frames[3], Frame::Rejected(FrameError::InvalidBody));
     assert_eq!(
         frames[4],
-        Frame::Rejected(FrameError::TooLarge(MESSAGE_BYTES_MAX + 1))
-    );
-    assert!(
-        frames
-            .iter()
-            .any(|frame| *frame == Frame::Rejected(FrameError::HeaderTooLong))
+        Frame::Message(json!({"jsonrpc": "2.0", "method": "exit"}))
     );
     assert_eq!(
-        frames.last(),
-        Some(&Frame::Message(json!({"jsonrpc": "2.0", "method": "exit"})))
+        frames[5],
+        Frame::Rejected(FrameError::TooLarge(MESSAGE_BYTES_MAX + 1))
     );
 }
 
@@ -1859,4 +1854,63 @@ fn identifiers_kinds_and_hover_contents_are_read() {
     assert_eq!(hover_text(&json!("plain")), "plain");
     assert_eq!(hover_text(&json!({"kind": "plaintext", "value": "v"})), "v");
     assert_eq!(hover_text(&Value::Null), "");
+}
+
+#[test]
+fn dropping_the_last_handle_stops_the_server_and_removes_its_temporary_directory() {
+    use nurt_lspclient::server::{LanguageServer, ServerSpec};
+
+    let s = setup();
+    let spec = ServerSpec {
+        name: "mock-py".to_owned(),
+        program: "/opt/bin/mock-py".to_owned(),
+        args: Vec::new(),
+        root: s.project.root.clone(),
+        init_options: None,
+        env: Vec::new(),
+    };
+    let server = LanguageServer::spawn(s.host.as_ref(), &spec).unwrap();
+    server
+        .initialize(None, Duration::from_secs(5), &CancelToken::new())
+        .unwrap();
+    let clone = server.clone();
+    drop(server);
+    assert!(!clone.is_closed());
+    assert!(!s.mock.methods().iter().any(|method| method == "exit"));
+    drop(clone);
+    assert!(s.mock.wait_for("exit"));
+    let temp = s.host.temp_dirs();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while temp[0].exists() && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(10));
+    }
+    assert!(!temp[0].exists());
+    assert!(s.host.kills.load(Ordering::SeqCst) >= 1);
+}
+
+#[test]
+fn shutdown_sends_exit_after_the_server_answered_shutdown() {
+    use nurt_lspclient::server::{LanguageServer, ServerSpec};
+
+    let s = setup();
+    let spec = ServerSpec {
+        name: "mock-py".to_owned(),
+        program: "/opt/bin/mock-py".to_owned(),
+        args: Vec::new(),
+        root: s.project.root.clone(),
+        init_options: None,
+        env: Vec::new(),
+    };
+    let server = LanguageServer::spawn(s.host.as_ref(), &spec).unwrap();
+    server
+        .initialize(None, Duration::from_secs(5), &CancelToken::new())
+        .unwrap();
+    server.shutdown();
+    assert!(server.is_closed());
+    assert!(s.mock.wait_for("exit"));
+    let methods = s.mock.methods();
+    let shutdown = methods.iter().position(|method| method == "shutdown");
+    let exit = methods.iter().position(|method| method == "exit");
+    assert!(shutdown.is_some() && shutdown < exit, "{methods:?}");
+    server.shutdown();
 }

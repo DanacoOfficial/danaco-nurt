@@ -83,12 +83,18 @@ diff (3 hunks)
     - func oldName(x int) {
     + func newName(x int) {
 notable
-  ! many_per_file  /srv/app/src/c/d.go  2
+  ! many_per_file  /srv/app/src/c/d.go  2  many replacements in one file
 next cursor c_5d2e
 ```
 
+A line of `notable` has the code, the target, the count and the detail of the
+entry. An entry without a detail shows the standard message of its code.
+
 A reading program writes the header `<kind>  matched N · shown N · next cursor
-C` and a table of the rows. A failed program without an operation number
+C` and a table of the rows. The table of the records `operation` (`history`),
+`match` (`search`) and `response` (`http.request`) has the essential columns
+only; verbosity `detailed` or the option `fields` shows the others, and the
+JSON form always holds all fields. A failed program without an operation number
 starts with the line `error <code>`. A report with status `ok` and an error
 (failure after the effect) writes the effect first and the error block with
 the line `effect applied` after it.
@@ -123,7 +129,10 @@ Rows of kind `entry` that all carry an integer `depth` are drawn as a tree in
 the formats `text` and `markdown`. A row of depth 0 is a root. A row of depth
 `d` is a child of the nearest preceding row of depth `d - 1`. The connectors
 are `|-- `, `` `-- `` and `|   `. A directory is written with a trailing `/`,
-a file with its size.
+a file with its size. A directory above a row that is not in the list, as
+when `find` returns only the matches, is derived from the `path` of the row
+and drawn at its depth; a value with a line break is written on one line with
+the break as `\n`.
 
 ```
 src/

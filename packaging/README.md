@@ -135,7 +135,7 @@ The tests build the packages and run the scripts against a mock release archive.
 
 ## Publication workflow
 
-The workflows in `ci/` are installed as `.github/workflows/packaging.yml` and `.github/workflows/publish-packages.yml`. `release.yml` runs in the environment `release` and reads these secrets:
+The workflows in `ci/` are installed as `.github/workflows/packaging.yml` and `.github/workflows/release.yml`. `release.yml` runs in the environment `release` and reads these secrets:
 
 | Secret | Use |
 |---|---|

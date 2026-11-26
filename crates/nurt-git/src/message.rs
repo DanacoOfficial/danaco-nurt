@@ -403,6 +403,49 @@ mod tests {
     }
 
     #[test]
+    fn whitespace_cleanup_handles_crlf_and_multibyte_text() {
+        let cleaned = cleanup("żółć \r\n\r\n\r\nzażółć\t\r\n", Cleanup::Whitespace, '#');
+        assert_eq!(cleaned, "żółć\n\nzażółć\n");
+        assert_eq!(cleanup("\r\n", Cleanup::Whitespace, '#'), "");
+        assert_eq!(cleanup("", Cleanup::Strip, '#'), "");
+    }
+
+    #[test]
+    fn strip_cleanup_uses_a_multibyte_comment_character() {
+        assert_eq!(cleanup("a\n§ note\nb\n", Cleanup::Strip, '§'), "a\nb\n");
+    }
+
+    #[test]
+    fn trailers_with_multibyte_values_round_trip() {
+        let out = append_trailers(
+            "subj\n",
+            &[trailer("Co-Authored-By: Zażółć Gęślą <z@example.com>")],
+        );
+        assert_eq!(
+            out,
+            "subj\n\nCo-Authored-By: Zażółć Gęślą <z@example.com>\n"
+        );
+        assert_eq!(
+            trailers(&out).get("Co-Authored-By").map(String::as_str),
+            Some("Zażółć Gęślą <z@example.com>")
+        );
+        assert_eq!(
+            sign_off("subj\n", "Żaneta <z@example.com>"),
+            "subj\n\nSigned-off-by: Żaneta <z@example.com>\n"
+        );
+    }
+
+    #[test]
+    fn trailer_value_may_contain_separators() {
+        let parsed = trailer("Link: https://example.com/a=b");
+        assert_eq!(parsed.token, "Link");
+        assert_eq!(parsed.value, "https://example.com/a=b");
+        let parsed = trailer("Key=a: b");
+        assert_eq!(parsed.token, "Key");
+        assert_eq!(parsed.value, "a: b");
+    }
+
+    #[test]
     fn strip_cleanup_removes_lines_with_the_comment_character() {
         assert_eq!(
             cleanup("a\n; c\n\n; d\nb\n", Cleanup::Strip, ';'),

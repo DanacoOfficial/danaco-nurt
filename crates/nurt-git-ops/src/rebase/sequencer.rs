@@ -216,7 +216,11 @@ impl<'r> UntrackedGuard<'r> {
             let entry = entry.map_err(|cause| error::io("read the working tree", cause))?;
             let mut path = dir.clone();
             path.push(b'/');
-            path.extend_from_slice(entry.file_name().to_string_lossy().as_bytes());
+            let name = entry.file_name();
+            match gix::path::os_str_into_bstr(&name) {
+                Ok(bytes) => path.extend_from_slice(bytes),
+                Err(_) => path.extend_from_slice(name.to_string_lossy().as_bytes()),
+            }
             let is_dir = entry
                 .file_type()
                 .map_err(|cause| error::io("read the working tree", cause))?
@@ -242,11 +246,7 @@ impl<'r> UntrackedGuard<'r> {
 
 /// Native path of the slash separated `path` below `root`.
 fn native(root: &Path, path: &BStr) -> PathBuf {
-    let mut out = root.to_path_buf();
-    for part in path.split_str("/") {
-        out.push(part.to_str_lossy().as_ref());
-    }
-    out
+    crate::reset::repo::join_slash(root, path.as_bytes())
 }
 
 /// Picks commands one after another in the object database.
@@ -411,6 +411,14 @@ mod tests {
     fn native_paths_join_every_component() {
         let path = native(Path::new("/r"), BStr::new("d/e/f.txt"));
         assert_eq!(path, Path::new("/r").join("d").join("e").join("f.txt"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_paths_keep_the_bytes_of_names_that_are_not_utf8() {
+        use std::os::unix::ffi::OsStrExt;
+        let path = native(Path::new("/r"), BStr::new(b"d/\xff\xfe.txt"));
+        assert_eq!(path.as_os_str().as_bytes(), b"/r/d/\xff\xfe.txt");
     }
 
     #[test]

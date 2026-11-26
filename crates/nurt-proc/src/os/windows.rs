@@ -24,10 +24,11 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use nurt_contracts::env::WallTime;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::{LimitHit, Signal};
 use windows_sys::Win32::Foundation::{
-    HANDLE, HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE, NTSTATUS, STATUS_ACCESS_VIOLATION,
+    FILETIME, HANDLE, HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE, NTSTATUS, STATUS_ACCESS_VIOLATION,
     STATUS_CONTROL_C_EXIT, STATUS_DATATYPE_MISALIGNMENT, STATUS_FLOAT_DIVIDE_BY_ZERO,
     STATUS_ILLEGAL_INSTRUCTION, STATUS_INTEGER_DIVIDE_BY_ZERO, STATUS_STACK_BUFFER_OVERRUN,
     SetHandleInformation, WAIT_OBJECT_0,
@@ -39,8 +40,9 @@ use windows_sys::Win32::System::IO::{
     CreateIoCompletionPort, GetQueuedCompletionStatus, OVERLAPPED,
 };
 use windows_sys::Win32::System::JobObjects::{
-    AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION,
-    JOB_OBJECT_LIMIT_JOB_MEMORY, JOB_OBJECT_LIMIT_JOB_TIME, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    AssignProcessToJobObject, CreateJobObjectW, IsProcessInJob,
+    JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION, JOB_OBJECT_LIMIT_JOB_MEMORY,
+    JOB_OBJECT_LIMIT_JOB_TIME, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     JOBOBJECT_ASSOCIATE_COMPLETION_PORT, JOBOBJECT_BASIC_ACCOUNTING_INFORMATION,
     JOBOBJECT_BASIC_PROCESS_ID_LIST, JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOBOBJECTINFOCLASS,
     JobObjectAssociateCompletionPortInformation, JobObjectBasicAccountingInformation,
@@ -52,13 +54,17 @@ use windows_sys::Win32::System::Threading::{
     ABOVE_NORMAL_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS, CREATE_NEW_PROCESS_GROUP,
     CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW,
     DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess,
-    IDLE_PRIORITY_CLASS, INFINITE, InitializeProcThreadAttributeList, NORMAL_PRIORITY_CLASS,
-    OpenProcess, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_CREATION_FLAGS, PROCESS_INFORMATION,
-    PROCESS_SUSPEND_RESUME, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess,
-    UpdateProcThreadAttribute, WaitForSingleObject,
+    GetProcessTimes, IDLE_PRIORITY_CLASS, INFINITE, InitializeProcThreadAttributeList,
+    NORMAL_PRIORITY_CLASS, OpenProcess, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_CREATION_FLAGS,
+    PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SUSPEND_RESUME,
+    PROCESS_SYNCHRONIZE, PROCESS_TERMINATE, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+    TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
 };
 
-use super::{Exit, Finished, Streams, io_error, spawn_error, unsupported_signal};
+use super::{
+    Exit, Finished, Streams, io_error, process_denied, process_gone, process_replaced, same_start,
+    spawn_error, unsupported_signal,
+};
 use crate::iface::{Priority, ResourceUsage, SpawnRequest, StdinSource};
 
 #[link(name = "ntdll", kind = "raw-dylib")]
@@ -75,6 +81,13 @@ const JOB_OBJECT_MSG_END_OF_JOB_TIME: u32 = 1;
 const JOB_OBJECT_MSG_JOB_MEMORY_LIMIT: u32 = 10;
 /// Processor times of job objects are counted in units of 100 ns.
 const TIME_UNIT_NANOS: u64 = 100;
+/// Time from 1601-01-01, the epoch of file times, to the Unix epoch, in units
+/// of 100 ns.
+const FILETIME_UNIX_EPOCH: u64 = 116_444_736_000_000_000;
+/// `ERROR_INVALID_PARAMETER`: no process has the given identifier.
+const ERROR_INVALID_PARAMETER_CODE: i32 = 87;
+/// `ERROR_ACCESS_DENIED`: the account may not open or end the process.
+const ERROR_ACCESS_DENIED_CODE: i32 = 5;
 /// Initial capacity of the process list of a job; doubled while too small.
 const PROCESS_LIST_CAPACITY: usize = 64;
 /// Niceness from which [`Priority::Nice`] maps to the idle class.
@@ -194,11 +207,11 @@ impl Tree {
     ///
     /// Console control events reach only processes attached to the console
     /// of this process. A program with a console of its own is ended
-    /// through the job object for `terminate` and `interrupt`.
+    /// through the job object for `terminate`, `interrupt` and `hangup`.
     pub(crate) fn signal(&self, signal: Signal) -> Result<()> {
         match signal {
             Signal::Kill => self.kill(),
-            Signal::Terminate | Signal::Interrupt => {
+            Signal::Terminate | Signal::Interrupt | Signal::Hangup => {
                 if self.shares_console() {
                     // SAFETY: plain call; the group identifier is the
                     // identifier of the main process, created with
@@ -236,7 +249,7 @@ impl Tree {
             for pid in pending {
                 // SAFETY: `NtSuspendProcess` receives an open handle with
                 // `PROCESS_SUSPEND_RESUME` access.
-                with_process(pid, |handle| unsafe { NtSuspendProcess(handle) })?;
+                with_process(&self.job, pid, |handle| unsafe { NtSuspendProcess(handle) })?;
                 suspended.push(pid);
             }
         }
@@ -247,7 +260,7 @@ impl Tree {
         for pid in self.process_ids()? {
             // SAFETY: `NtResumeProcess` receives an open handle with
             // `PROCESS_SUSPEND_RESUME` access.
-            with_process(pid, |handle| unsafe { NtResumeProcess(handle) })?;
+            with_process(&self.job, pid, |handle| unsafe { NtResumeProcess(handle) })?;
         }
         Ok(())
     }
@@ -345,12 +358,7 @@ impl Tree {
     }
 
     fn shares_console(&self) -> bool {
-        let mut ids = vec![0u32; PROCESS_LIST_CAPACITY];
-        let capacity = u32::try_from(ids.len()).unwrap_or(u32::MAX);
-        // SAFETY: the buffer holds `capacity` writable identifiers.
-        let count = unsafe { GetConsoleProcessList(ids.as_mut_ptr(), capacity) };
-        let count = usize::try_from(count).unwrap_or(0).min(ids.len());
-        ids[..count].contains(&self.pid)
+        console_has(self.pid)
     }
 
     fn process_ids(&self) -> Result<Vec<u32>> {
@@ -393,6 +401,182 @@ impl Tree {
             capacity = assigned.saturating_mul(2);
         }
     }
+}
+
+/// Whether process `pid` is attached to the console of this process.
+fn console_has(pid: u32) -> bool {
+    let mut ids = vec![0u32; PROCESS_LIST_CAPACITY];
+    let capacity = u32::try_from(ids.len()).unwrap_or(u32::MAX);
+    // SAFETY: the buffer holds `capacity` writable identifiers.
+    let count = unsafe { GetConsoleProcessList(ids.as_mut_ptr(), capacity) };
+    let count = usize::try_from(count).unwrap_or(0).min(ids.len());
+    ids[..count].contains(&pid)
+}
+
+/// Process named by identifier and start time. The handle keeps the
+/// identifier from being reused while the process is signalled, so a signal
+/// cannot reach another process that received the identifier after the first
+/// one ended.
+pub(crate) struct Target {
+    process: OwnedHandle,
+    pid: u32,
+    started: WallTime,
+}
+
+impl Target {
+    /// Opens process `pid` after checking that it started at `started`.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_NOT_FOUND` when no such process runs, with `E_STALE`
+    /// when the identifier names a process that started at another time and
+    /// with `E_PERMISSION` when the account may not open the process.
+    pub(crate) fn open(pid: u64, started: WallTime) -> Result<Self> {
+        let Ok(id) = u32::try_from(pid) else {
+            return Err(process_gone(pid));
+        };
+        let access = PROCESS_TERMINATE
+            | PROCESS_SUSPEND_RESUME
+            | PROCESS_QUERY_LIMITED_INFORMATION
+            | PROCESS_SYNCHRONIZE;
+        // SAFETY: plain call; a null result is checked below.
+        let handle = unsafe { OpenProcess(access, 0, id) };
+        if handle.is_null() {
+            let error = io::Error::last_os_error();
+            return Err(match error.raw_os_error() {
+                Some(ERROR_INVALID_PARAMETER_CODE) => process_gone(pid),
+                Some(ERROR_ACCESS_DENIED_CODE) => process_denied(pid),
+                _ => io_error("open the process", &error),
+            });
+        }
+        // SAFETY: `OpenProcess` returned an open handle owned by the caller.
+        let process = unsafe { OwnedHandle::from_raw_handle(handle) };
+        let actual = creation_time(&process)
+            .ok_or_else(|| io_error("read the start time", &io::Error::last_os_error()))?;
+        let target = Self {
+            process,
+            pid: id,
+            started: actual,
+        };
+        if target.has_ended() {
+            return Err(process_gone(pid));
+        }
+        if !same_start(started, actual) {
+            return Err(process_replaced(pid));
+        }
+        Ok(target)
+    }
+
+    /// Sends `signal` to the process. `kill` ends it. The other signals send
+    /// a console break event to a process that shares the console of this
+    /// process and has its own process group; any other process is ended.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_UNSUPPORTED` for a signal that has no equivalent and
+    /// with `E_PERMISSION` or `E_IO` when the process cannot be ended.
+    pub(crate) fn signal(&self, signal: Signal) -> Result<()> {
+        match signal {
+            Signal::Kill => self.terminate(),
+            Signal::Terminate | Signal::Interrupt | Signal::Hangup => {
+                // SAFETY: plain call; the group identifier is the process
+                // identifier, which names a group only for a process created
+                // with `CREATE_NEW_PROCESS_GROUP`; otherwise the call fails.
+                if console_has(self.pid)
+                    && unsafe { GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, self.pid) } != 0
+                {
+                    return Ok(());
+                }
+                self.terminate()
+            }
+            other => Err(unsupported_signal(other)),
+        }
+    }
+
+    /// Stops every thread of the process until it is resumed.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_IO` when the system refuses the request.
+    pub(crate) fn suspend(&self) -> Result<()> {
+        // SAFETY: `NtSuspendProcess` receives an open handle with
+        // `PROCESS_SUSPEND_RESUME` access.
+        self.status(unsafe { NtSuspendProcess(raw(&self.process)) })
+    }
+
+    /// Continues a suspended process.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_IO` when the system refuses the request.
+    pub(crate) fn resume(&self) -> Result<()> {
+        // SAFETY: `NtResumeProcess` receives an open handle with
+        // `PROCESS_SUSPEND_RESUME` access.
+        self.status(unsafe { NtResumeProcess(raw(&self.process)) })
+    }
+
+    /// Whether the process ended.
+    pub(crate) fn has_ended(&self) -> bool {
+        // SAFETY: the process handle is open for the lifetime of `self`; a
+        // zero timeout only polls.
+        unsafe { WaitForSingleObject(raw(&self.process), 0) == WAIT_OBJECT_0 }
+    }
+
+    fn terminate(&self) -> Result<()> {
+        // SAFETY: the process handle is open and has `PROCESS_TERMINATE`
+        // access.
+        if unsafe { TerminateProcess(raw(&self.process), TERMINATED_EXIT_CODE) } != 0 {
+            return Ok(());
+        }
+        let error = io::Error::last_os_error();
+        let pid = u64::from(self.pid);
+        Err(match error.raw_os_error() {
+            Some(ERROR_ACCESS_DENIED_CODE) => process_denied(pid),
+            _ if self.has_ended() => process_gone(pid),
+            _ => io_error("end the process", &error),
+        })
+    }
+
+    fn status(&self, status: NTSTATUS) -> Result<()> {
+        if status >= 0 {
+            return Ok(());
+        }
+        Err(Error::new(
+            ErrorCode::Io,
+            format!(
+                "cannot suspend or resume process {}: status {status:#x}",
+                self.pid
+            ),
+        ))
+    }
+}
+
+/// Creation time of a process as wall time.
+fn creation_time(process: &OwnedHandle) -> Option<WallTime> {
+    let zero = || FILETIME {
+        dwLowDateTime: 0,
+        dwHighDateTime: 0,
+    };
+    let (mut created, mut exited, mut kernel, mut user) = (zero(), zero(), zero(), zero());
+    // SAFETY: the four pointers refer to writable `FILETIME` values of this
+    // frame.
+    let read = unsafe {
+        GetProcessTimes(
+            raw(process),
+            &raw mut created,
+            &raw mut exited,
+            &raw mut kernel,
+            &raw mut user,
+        )
+    };
+    if read == 0 {
+        return None;
+    }
+    let ticks = (u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime);
+    let since_epoch = ticks.checked_sub(FILETIME_UNIX_EPOCH)?;
+    Some(WallTime::from_unix_nanos(
+        i128::from(since_epoch) * i128::from(TIME_UNIT_NANOS),
+    ))
 }
 
 /// Job object of a helper process started outside process control; every
@@ -616,15 +800,39 @@ fn query_job<T>(job: &OwnedHandle, class: JOBOBJECTINFOCLASS, info: &mut T) -> R
     Ok(())
 }
 
-fn with_process(pid: u32, action: impl FnOnce(HANDLE) -> NTSTATUS) -> Result<()> {
+/// Runs `action` on process `pid` when it belongs to `job`. A process that
+/// ended after the listing is skipped, and so is an unrelated process that
+/// received its reused identifier.
+fn with_process(
+    job: &OwnedHandle,
+    pid: u32,
+    action: impl FnOnce(HANDLE) -> NTSTATUS,
+) -> Result<()> {
     // SAFETY: plain call; a null result is checked below.
-    let handle = unsafe { OpenProcess(PROCESS_SUSPEND_RESUME, 0, pid) };
+    let handle = unsafe {
+        OpenProcess(
+            PROCESS_SUSPEND_RESUME | PROCESS_QUERY_LIMITED_INFORMATION,
+            0,
+            pid,
+        )
+    };
     if handle.is_null() {
         // The process ended after the listing.
         return Ok(());
     }
     // SAFETY: `OpenProcess` returned an open handle owned by the caller.
     let process = unsafe { OwnedHandle::from_raw_handle(handle) };
+    let mut member = 0;
+    // SAFETY: both handles are open and `member` is writable.
+    if unsafe { IsProcessInJob(raw(&process), raw(job), &raw mut member) } == 0 {
+        return Err(io_error(
+            "check the job of a process",
+            &io::Error::last_os_error(),
+        ));
+    }
+    if member == 0 {
+        return Ok(());
+    }
     let status = action(raw(&process));
     if status < 0 {
         return Err(Error::new(
@@ -913,5 +1121,85 @@ mod tests {
             }
         );
         assert_eq!(decode_exit_code(3), Exit::Code(3));
+    }
+
+    #[test]
+    fn a_process_outside_the_job_is_left_alone() {
+        let job = new_job(&JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default()).unwrap();
+        let mut touched = false;
+        with_process(&job, std::process::id(), |_| {
+            touched = true;
+            0
+        })
+        .unwrap();
+        assert!(!touched);
+    }
+
+    #[test]
+    fn a_process_that_ended_is_skipped() {
+        let job = new_job(&JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default()).unwrap();
+        let mut touched = false;
+        with_process(&job, u32::MAX, |_| {
+            touched = true;
+            0
+        })
+        .unwrap();
+        assert!(!touched);
+    }
+
+    #[test]
+    fn exit_codes_that_are_not_faults_stay_codes() {
+        assert_eq!(decode_exit_code(0), Exit::Code(0));
+        assert_eq!(
+            decode_exit_code(STATUS_CONTROL_C_EXIT.cast_unsigned()),
+            Exit::Signal {
+                signal: Signal::Interrupt,
+                number: None
+            }
+        );
+        assert_eq!(decode_exit_code(u32::MAX), Exit::Code(-1));
+    }
+
+    #[test]
+    fn arguments_with_trailing_backslashes_are_doubled_before_the_closing_quote() {
+        assert_eq!(quoted(r"a b\\"), r#""a b\\\\""#);
+        assert_eq!(quoted("tab\there"), "\"tab\there\"");
+    }
+
+    #[test]
+    fn a_nul_character_is_refused() {
+        assert!(wide(OsStr::new("a\0b")).is_err());
+        assert_eq!(wide(OsStr::new("ab")).unwrap_or_default(), vec![97, 98, 0]);
+        let env = vec![("A".into(), "x\0y".into())];
+        assert!(environment_block(&env).is_err());
+    }
+
+    #[test]
+    fn an_empty_environment_is_two_terminators() {
+        assert_eq!(environment_block(&[]).unwrap_or_default(), vec![0, 0]);
+    }
+
+    #[test]
+    fn a_process_is_opened_only_with_its_own_start_time() {
+        let pid = std::process::id();
+        // SAFETY: plain call; the result is checked below.
+        let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+        assert!(!handle.is_null());
+        // SAFETY: `OpenProcess` returned an open handle owned by the test.
+        let own = unsafe { OwnedHandle::from_raw_handle(handle) };
+        let started = creation_time(&own).unwrap();
+        let target = Target::open(u64::from(pid), started).unwrap();
+        assert!(!target.has_ended());
+        let earlier = WallTime::from_unix_nanos(started.unix_nanos() - 3_600_000_000_000);
+        let error = Target::open(u64::from(pid), earlier).err().unwrap();
+        assert_eq!(error.code(), ErrorCode::Stale);
+    }
+
+    #[test]
+    fn an_identifier_that_names_no_process_is_not_found() {
+        for pid in [0, u64::from(u32::MAX), u64::MAX] {
+            let error = Target::open(pid, WallTime::UNIX_EPOCH).err().unwrap();
+            assert_eq!(error.code(), ErrorCode::NotFound);
+        }
     }
 }

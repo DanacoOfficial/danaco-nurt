@@ -196,6 +196,9 @@ impl UreqHttp {
         let agent = self.agent(url).map_err(NetworkFailure::into_io)?;
         let may_follow = self.may_follow();
         let effective = redirect::swap_tails(self.base().as_deref(), base_url, url);
+        if !redirect::same_authority(&effective, url) {
+            strip_authorization(&mut headers);
+        }
         let tail = url.strip_prefix(base_url).unwrap_or_default().to_owned();
         let mut current = effective.clone();
         for _ in 0..=MAX_REDIRECTS {
@@ -210,7 +213,7 @@ impl UreqHttp {
             if is_redirect(status) {
                 let next = self.redirect_target(&response, &current, &tail, may_follow)?;
                 if !redirect::same_authority(&next, &current) {
-                    headers.retain(|(name, _)| !name.eq_ignore_ascii_case("authorization"));
+                    strip_authorization(&mut headers);
                 }
                 current = next;
                 continue;
@@ -300,9 +303,12 @@ impl Http for UreqHttp {
         headers: impl IntoIterator<Item = impl AsRef<str>>,
         body: PostBodyDataKind,
     ) -> gix::error::Result<PostResponse<Self::Headers, Self::ResponseBody, Self::PostBody>> {
-        let headers = self.request_headers(headers);
+        let mut headers = self.request_headers(headers);
         self.requests += 1;
         let effective = redirect::swap_tails(self.base().as_deref(), base_url, url);
+        if !redirect::same_authority(&effective, url) {
+            strip_authorization(&mut headers);
+        }
         let (post_writer, post_reader) = pipe::unidirectional(PIPE_WRITES_IN_FLIGHT);
         let agent = match self.agent(url) {
             Ok(agent) => agent,
@@ -478,6 +484,12 @@ fn split_header(line: &str) -> Option<(String, String)> {
     let (name, value) = line.split_once(':')?;
     let name = name.trim();
     (!name.is_empty()).then(|| (name.to_owned(), value.trim().to_owned()))
+}
+
+/// Removes the credentials of the original address from the headers of a
+/// request that goes to another server.
+fn strip_authorization(headers: &mut Vec<(String, String)>) {
+    headers.retain(|(name, _)| !name.eq_ignore_ascii_case("authorization"));
 }
 
 fn is_redirect(status: u16) -> bool {
@@ -820,6 +832,73 @@ mod tests {
         let mut text = String::new();
         body.read_to_string(&mut text).expect("body read");
         assert_eq!(text, "Basic abc");
+    }
+
+    /// Origin server that redirects the reference discovery to another server,
+    /// which answers every request with the `Authorization` header it received.
+    fn redirecting_origin() -> (TestServer, TestServer) {
+        let target = TestServer::start(|request: &Request| match request.path.as_str() {
+            "/new/info/refs" | "/new/git-upload-pack" => Reply::ok(
+                "text/plain",
+                request.header("authorization").unwrap_or_default(),
+            ),
+            _ => Reply::status(404),
+        });
+        let location = target.url("/new/info/refs");
+        let origin = TestServer::start(move |request: &Request| match request.path.as_str() {
+            "/old/info/refs" => Reply::status(301).with_header("Location", &location),
+            _ => Reply::status(404),
+        });
+        (origin, target)
+    }
+
+    #[test]
+    fn get_after_a_redirect_to_another_server_does_not_send_credentials() {
+        let (origin, _target) = redirecting_origin();
+        let mut http = UreqHttp::new(settings());
+        for _ in 0..2 {
+            let GetResponse { mut body, .. } = http
+                .get(
+                    &origin.url("/old/info/refs"),
+                    &origin.url("/old"),
+                    ["Authorization: Basic abc"],
+                )
+                .expect("request started");
+            let mut text = String::new();
+            body.read_to_string(&mut text).expect("body read");
+            assert_eq!(text, "");
+        }
+        assert!(http.redirected_base_url().is_some());
+    }
+
+    #[test]
+    fn post_after_a_redirect_to_another_server_does_not_send_credentials() {
+        let (origin, _target) = redirecting_origin();
+        let mut http = UreqHttp::new(settings());
+        let (headers, _) = get(
+            &mut http,
+            &origin.url("/old/info/refs"),
+            &origin.url("/old"),
+        );
+        assert!(headers.is_ok());
+        let PostResponse {
+            mut post_body,
+            mut headers,
+            mut body,
+        } = http
+            .post(
+                &origin.url("/old/git-upload-pack"),
+                &origin.url("/old"),
+                ["Authorization: Basic abc"],
+                PostBodyDataKind::Unbounded,
+            )
+            .expect("request started");
+        post_body.write_all(b"0000").expect("body written");
+        drop(post_body);
+        assert!(read_headers(&mut headers).is_ok());
+        let mut text = String::new();
+        body.read_to_string(&mut text).expect("body read");
+        assert_eq!(text, "");
     }
 
     #[test]

@@ -787,6 +787,7 @@ fn glob_text(word: &Word) -> (String, usize) {
                     first.get_or_insert(text.len());
                     text.push(c);
                 }
+                (Quoting::None, ']') => text.push(c),
                 (_, '*' | '?' | '[' | ']' | '{' | '}') => {
                     text.push('[');
                     text.push(c);
@@ -857,6 +858,9 @@ fn hook(
                 .and_then(|word| word.value.literal())
             {
                 let file = url
+                    .split(['?', '#'])
+                    .next()
+                    .unwrap_or_default()
                     .trim_end_matches('/')
                     .rsplit('/')
                     .next()
@@ -1260,4 +1264,72 @@ fn git_without_repository(
         }
     }
     error
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::lex::{PosixTokenKind, lex};
+    use super::super::{BashTable, TranslateContext};
+    use super::*;
+
+    fn words(input: &str) -> Vec<Located<Word>> {
+        lex(input)
+            .unwrap()
+            .into_iter()
+            .filter_map(|token| match token.kind {
+                PosixTokenKind::Word(word) => Some(Located {
+                    value: word,
+                    span: token.span,
+                }),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn glob_of(input: &str) -> (String, usize) {
+        glob_text(&words(input)[0].value)
+    }
+
+    #[test]
+    fn closing_bracket_of_a_class_is_not_escaped() {
+        assert_eq!(
+            glob_of("/a/file[0-9].txt"),
+            ("/a/file[0-9].txt".to_owned(), 7)
+        );
+    }
+
+    #[test]
+    fn quoted_pattern_characters_are_escaped() {
+        assert_eq!(glob_of("'/a/[x]'/*"), ("/a/[[]x[]]/*".to_owned(), 11));
+        assert_eq!(glob_of("\"/a/b*\""), ("/a/b[*]".to_owned(), 7));
+    }
+
+    #[test]
+    fn offset_of_the_first_pattern_counts_bytes() {
+        assert_eq!(glob_of("/a/żółw*"), ("/a/żółw*".to_owned(), 10));
+    }
+
+    #[test]
+    fn flags_are_bundled_and_double_dash_ends_them() {
+        let table = BashTable::embedded().unwrap();
+        let context = TranslateContext::default();
+        let session = Session::new(table, &context, "");
+        let entry = table.command(&["rm".to_owned()]).unwrap();
+        let parsed = parse_options(&session, entry, &words("-rf /a")).unwrap();
+        assert!(parsed.has(entry, "r") && parsed.has(entry, "f"));
+        assert_eq!(parsed.operands.len(), 1);
+        let parsed = parse_options(&session, entry, &words("-- -x -f")).unwrap();
+        assert!(parsed.given.is_empty());
+        assert_eq!(parsed.operands.len(), 2);
+    }
+
+    #[test]
+    fn unknown_flags_are_errors() {
+        let table = BashTable::embedded().unwrap();
+        let context = TranslateContext::default();
+        let session = Session::new(table, &context, "");
+        let entry = table.command(&["rm".to_owned()]).unwrap();
+        assert!(parse_options(&session, entry, &words("-z /a")).is_err());
+        assert!(parse_options(&session, entry, &words("-rz /a")).is_err());
+    }
 }

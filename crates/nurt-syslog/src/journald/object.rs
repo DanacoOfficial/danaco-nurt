@@ -213,6 +213,10 @@ impl EntryObject {
         }
         let item_size = entry_item_size(compact);
         let count = (header.size - ENTRY_ITEMS) / item_size;
+        let available = (bytes.len() as u64).saturating_sub(ENTRY_ITEMS) / item_size;
+        if count > available {
+            return Err(Fault::Truncated);
+        }
         let mut items = Vec::with_capacity(usize::try_from(count).map_err(|_| Fault::Corrupt)?);
         for index in 0..count {
             let at =
@@ -470,5 +474,142 @@ mod tests {
         assert!(data.compressed());
         assert_eq!(data.payload_offset, 80);
         assert_eq!(data.payload_len, 8);
+    }
+
+    fn object(kind: u8, size: u64, len: usize) -> Vec<u8> {
+        let mut bytes = vec![0_u8; len];
+        bytes[0] = kind;
+        bytes[8..16].copy_from_slice(&size.to_le_bytes());
+        bytes
+    }
+
+    #[test]
+    fn entry_declaring_more_items_than_it_holds_is_truncated() {
+        let bytes = object(KIND_ENTRY, 64 + 32, 64 + 16);
+        assert!(matches!(
+            EntryObject::parse(0, &bytes, false),
+            Err(Fault::Truncated)
+        ));
+        let bytes = object(KIND_ENTRY, u64::MAX, 64);
+        assert!(EntryObject::parse(0, &bytes, true).is_err());
+    }
+
+    #[test]
+    fn entry_smaller_than_its_fixed_part_is_corrupt() {
+        let bytes = object(KIND_ENTRY, 63, 64);
+        assert!(matches!(
+            EntryObject::parse(0, &bytes, false),
+            Err(Fault::Corrupt)
+        ));
+    }
+
+    #[test]
+    fn partial_trailing_item_of_an_entry_is_ignored() {
+        let mut bytes = object(KIND_ENTRY, 64 + 20, 64 + 20);
+        bytes[64..72].copy_from_slice(&900_u64.to_le_bytes());
+        assert_eq!(EntryObject::parse(0, &bytes, false).unwrap().items, [900]);
+        let compact = object(KIND_ENTRY, 64 + 6, 64 + 6);
+        assert_eq!(
+            EntryObject::parse(0, &compact, true).unwrap().items.len(),
+            1
+        );
+    }
+
+    #[test]
+    fn entry_without_items_has_none() {
+        let bytes = object(KIND_ENTRY, 64, 64);
+        assert!(
+            EntryObject::parse(8, &bytes, false)
+                .unwrap()
+                .items
+                .is_empty()
+        );
+        assert_eq!(EntryObject::MIN_SIZE, 64);
+        assert_eq!(EntryObject::max_size(false), 64 + 16 * 65_536);
+    }
+
+    #[test]
+    fn field_name_longer_than_the_limit_is_corrupt() {
+        let too_long = object(KIND_FIELD, FIELD_PAYLOAD + MAX_FIELD_NAME + 1, 16);
+        assert!(matches!(FieldObject::parse(&too_long), Err(Fault::Corrupt)));
+        let longest = object(
+            KIND_FIELD,
+            FIELD_PAYLOAD + MAX_FIELD_NAME,
+            usize::try_from(FIELD_PAYLOAD + MAX_FIELD_NAME).unwrap(),
+        );
+        assert_eq!(
+            FieldObject::parse(&longest).unwrap().name.len() as u64,
+            MAX_FIELD_NAME
+        );
+        assert_eq!(FieldObject::MAX_SIZE, FIELD_PAYLOAD + MAX_FIELD_NAME);
+    }
+
+    #[test]
+    fn field_object_cut_short_is_truncated() {
+        let bytes = object(KIND_FIELD, 60, 44);
+        assert!(FieldObject::parse(&bytes).unwrap().name.len() == 4);
+        let short = object(KIND_FIELD, 60, 16);
+        assert!(matches!(FieldObject::parse(&short), Err(Fault::Truncated)));
+    }
+
+    #[test]
+    fn data_object_of_a_compact_file_needs_the_longer_fixed_part() {
+        let bytes = object(KIND_DATA, 64, 72);
+        let header = ObjectHeader::parse(&bytes).unwrap();
+        assert!(matches!(
+            DataObject::parse(0, header, &bytes, true),
+            Err(Fault::Corrupt)
+        ));
+        let data = DataObject::parse(0, header, &bytes, false).unwrap();
+        assert_eq!((data.payload_offset, data.payload_len), (64, 0));
+        assert!(!data.compressed());
+    }
+
+    #[test]
+    fn data_object_at_the_end_of_the_address_space_is_corrupt() {
+        let bytes = object(KIND_DATA, 80, 72);
+        let header = ObjectHeader::parse(&bytes).unwrap();
+        assert!(matches!(
+            DataObject::parse(u64::MAX - 8, header, &bytes, false),
+            Err(Fault::Corrupt)
+        ));
+    }
+
+    #[test]
+    fn unknown_compression_bits_are_read_as_stored() {
+        let mut bytes = object(KIND_DATA, 70, 72);
+        bytes[1] = 0x80;
+        let header = ObjectHeader::parse(&bytes).unwrap();
+        let data = DataObject::parse(0, header, &bytes, false).unwrap();
+        assert!(!data.compressed());
+        assert_eq!(decompress(0x80, TEXT.to_vec(), 1000).unwrap().bytes, TEXT);
+    }
+
+    #[test]
+    fn corrupt_compressed_streams_fail_without_output() {
+        let mut prefix = (u64::MAX).to_le_bytes().to_vec();
+        prefix.extend_from_slice(&[0xf0, 1, 2]);
+        let huge = decompress(FLAG_COMPRESSED_LZ4, prefix, 1000).unwrap();
+        assert!(huge.truncated && huge.bytes.is_empty());
+        assert!(decompress(FLAG_COMPRESSED_LZ4, Vec::new(), 1000).is_err());
+    }
+
+    #[test]
+    fn zero_limit_cuts_every_payload_to_nothing() {
+        let plain = decompress(0, TEXT.to_vec(), 0).unwrap();
+        assert!(plain.bytes.is_empty() && plain.truncated);
+        let stored = zstd::encode_all(TEXT, 3).unwrap();
+        let zstd = decompress(FLAG_COMPRESSED_ZSTD, stored, 0).unwrap();
+        assert!(zstd.bytes.is_empty() && zstd.truncated);
+        let empty = decompress(0, Vec::new(), 0).unwrap();
+        assert!(!empty.truncated);
+    }
+
+    #[test]
+    fn array_items_are_four_bytes_in_compact_files() {
+        assert_eq!(array_item_size(false), 8);
+        assert_eq!(array_item_size(true), 4);
+        assert_eq!(entry_item_size(false), 16);
+        assert_eq!(entry_item_size(true), 4);
     }
 }

@@ -16,6 +16,14 @@ use crate::test::{CommandPlan, Framework, ParseError, ParseInput, PlanRequest};
 /// Note on `bail`: the test runner of cargo has no per-test equivalent.
 const BAIL_NOTE: &str = "cargo stops after the first failing test target by itself";
 
+/// Note on names that cannot be selected: the harness reads them as options.
+const OPTION_NAME_NOTE: &str =
+    "tests whose names start with `-` cannot be selected by name and were not run again";
+
+/// Suffix the test harness appends to the name of a `should_panic` test in
+/// its result line; it is not a part of the name the harness selects by.
+const SHOULD_PANIC_SUFFIX: &str = " - should panic";
+
 static RESULT_LINE: LazyLock<Option<Regex>> =
     LazyLock::new(|| Regex::new(r"^test (.+?) \.\.\. (ok|FAILED|ignored)(?:, .*)?$").ok());
 static BLOCK_START: LazyLock<Option<Regex>> =
@@ -39,15 +47,23 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
     }
     let mut argv = vec!["cargo".to_owned(), "test".to_owned()];
     argv.extend(request.targets.iter().cloned());
+    let mut notes = Vec::new();
     if !request.only.is_empty() {
+        let (names, skipped) = rerun_names(request);
         argv.push("--".to_owned());
-        argv.extend(request.only.iter().map(|case| case.name.clone()));
+        argv.extend(names);
         argv.push("--exact".to_owned());
+        if skipped {
+            notes.push(OPTION_NAME_NOTE.to_owned());
+        }
     } else if let Some(filter) = request.filter {
         if filter.starts_with('-') {
             argv.push("--".to_owned());
         }
         argv.push(filter.to_owned());
+    }
+    if request.bail {
+        notes.push(BAIL_NOTE.to_owned());
     }
     CommandPlan {
         framework: Framework::Cargo,
@@ -55,12 +71,30 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
         report: None,
         coverage_file: None,
         env: Vec::new(),
-        notes: if request.bail {
-            vec![BAIL_NOTE.to_owned()]
-        } else {
-            Vec::new()
-        },
+        notes,
     }
+}
+
+/// Names the harness selects the results of a rerun by, and whether a name
+/// was left out because it would be read as an option of the harness. When
+/// no name is left, the empty name selects no test, never all of them.
+fn rerun_names(request: &PlanRequest<'_>) -> (Vec<String>, bool) {
+    let mut names: Vec<String> = request
+        .only
+        .iter()
+        .map(|case| {
+            case.name
+                .strip_suffix(SHOULD_PANIC_SUFFIX)
+                .unwrap_or(&case.name)
+        })
+        .filter(|name| !name.starts_with('-'))
+        .map(str::to_owned)
+        .collect();
+    let skipped = names.len() < request.only.len();
+    if names.is_empty() {
+        names.push(String::new());
+    }
+    (names, skipped)
 }
 
 /// Reads the text output of the test harness.

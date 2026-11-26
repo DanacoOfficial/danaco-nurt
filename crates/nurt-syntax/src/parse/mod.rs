@@ -57,7 +57,8 @@ pub struct ParseOptions {
     pub keep_comments: bool,
     /// Whether the program text is stored in `meta.source`.
     pub keep_source: bool,
-    /// Maximum number of repairs per statement in [`parse_tolerant`].
+    /// Maximum number of repairs per statement in [`parse_tolerant`]; a
+    /// program takes at most [`repair::MAX_REPAIRS_PER_PROGRAM`] repairs.
     pub max_repairs: u8,
     /// Maximum nesting depth of tree nodes below a statement.
     pub max_depth: usize,

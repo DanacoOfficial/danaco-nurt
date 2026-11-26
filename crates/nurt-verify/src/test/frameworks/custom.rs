@@ -56,13 +56,25 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
 
 /// Reads TAP lines and lines marked `(pass)`, `(fail)`, `(skip)` or
 /// `(todo)`. Other lines are ignored.
+///
+/// A TAP point of a subtest is indented below the point of its parent, which
+/// follows it; only the points of the shallowest indentation are results,
+/// so that a test is not counted with its parent.
 pub(crate) fn parse(input: &ParseInput<'_>) -> Vec<TestResult> {
-    let mut results = Vec::new();
+    let mut found: Vec<(Option<usize>, TestResult)> = Vec::new();
     for line in input.output.lines() {
-        if let Some(result) = tap_result(line).or_else(|| marked_result(line)) {
-            results.push(result);
+        if let Some(result) = tap_result(line) {
+            found.push((Some(line.len() - line.trim_start().len()), result));
+        } else if let Some(result) = marked_result(line) {
+            found.push((None, result));
         }
     }
+    let shallowest = found.iter().filter_map(|(indent, _)| *indent).min();
+    let mut results: Vec<TestResult> = found
+        .into_iter()
+        .filter(|(indent, _)| indent.is_none_or(|indent| Some(indent) == shallowest))
+        .map(|(_, result)| result)
+        .collect();
     unique_ids(&mut results);
     results
 }

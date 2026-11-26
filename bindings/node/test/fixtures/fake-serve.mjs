@@ -72,7 +72,7 @@ function event(requestId, t, fields) {
   return {
     jsonrpc: "2.0",
     method: "nurt/event",
-    params: { t, seq: state.seq, time: "2026-01-01T00:00:00Z", request_id: requestId, ...fields },
+    params: { t, seq: state.seq, time: "2026-01-01T00:00:00Z", request: String(requestId), ...fields },
   };
 }
 
@@ -118,7 +118,7 @@ function run(id, params) {
         clearTimeout(timer);
         end(id);
         send(failure(id, RPC_CANCELLED, "the execution was cancelled", {
-          response: response("", report("failed", "delay")),
+          response: response("", report("failed", "delay", { error: { code: "E_CANCELLED", message: "the execution was cancelled" } })),
         }));
       });
       return;
@@ -141,7 +141,7 @@ function run(id, params) {
       let text = "";
       if (state.events) {
         for (let index = 1; index <= count; index += 1) {
-          text += line(event(id, "job.output", { job_id: "job-1", stream: "stdout", lines: [`line ${index}`] }));
+          text += line(event(id, "job.output", { id: "job-1", stream: "stdout", lines: [`line ${index}`] }));
         }
         text += line(event(id, "exec.finished", {}));
       }
@@ -249,7 +249,7 @@ function handle(message) {
       send(result(id, response(`page ${params.cursor} ${params.limit ?? "default"}`, report("ok", "page"))));
       return;
     case "describe":
-      send(result(id, { text: `${params.subject} ${params.language}` }));
+      send(result(id, { description: `${params.subject} ${params.language}` }));
       return;
     case "help":
       send(result(id, { text: params.topic ?? "index" }));

@@ -1073,3 +1073,106 @@ fn macapp_strings_in_utf8_and_big_endian() {
     assert_eq!(utf8.get("key").map(String::as_str), Some("value"));
     assert!(macapp::parse_info_plist(b"<plist><array/></plist>").is_err());
 }
+
+#[test]
+fn brew_prefers_the_linked_version_over_the_highest_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let cellar = "opt/homebrew/Cellar/jq";
+    write(root, &format!("{cellar}/1.6/INSTALL_RECEIPT.json"), "{}");
+    write(root, &format!("{cellar}/1.7.1/INSTALL_RECEIPT.json"), "{}");
+    if !link("../Cellar/jq/1.6", root, "opt/homebrew/opt/jq") {
+        return;
+    }
+    let data = load(&BrewSource::new(), &mac_env(root));
+    assert_eq!(package(&data, "jq").version.as_deref(), Some("1.6"));
+    std::fs::remove_file(root.join("opt/homebrew/opt/jq")).unwrap();
+    let data = load(&BrewSource::new(), &mac_env(root));
+    assert_eq!(package(&data, "jq").version.as_deref(), Some("1.7.1"));
+}
+
+#[test]
+fn brew_ignores_relative_xdg_cache_directory() {
+    let linux = HostEnv::new(Os::Linux)
+        .with_home("/home/user")
+        .with_var("XDG_CACHE_HOME", "relative/cache");
+    assert_eq!(
+        brew::cache_dir(&linux).unwrap(),
+        Path::new("/home/user/.cache/Homebrew")
+    );
+}
+
+#[test]
+fn scoop_shim_application_with_apps_in_the_root_path() {
+    let shim = |path: &str| scoop::shim_application(&format!("path = \"{path}\"\n"));
+    assert_eq!(
+        shim("D:\\apps\\scoop\\apps\\ripgrep\\current\\rg.exe").as_deref(),
+        Some("ripgrep")
+    );
+    assert_eq!(
+        shim("D:\\apps\\apps\\fd\\current\\fd.exe").as_deref(),
+        Some("fd")
+    );
+    assert_eq!(
+        shim("C:\\Users\\user\\scoop\\apps\\jq\\1.7\\jq.exe").as_deref(),
+        Some("jq")
+    );
+    assert_eq!(shim("C:\\Tools\\jq.exe"), None);
+}
+
+#[test]
+fn scoop_shim_files_follow_the_target_and_the_files_present() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let scoop_root = "d/apps/scoop";
+    write(
+        root,
+        &format!("{scoop_root}/apps/tools/current/manifest.json"),
+        r#"{"version": "1.0", "bin": ["tool.exe", "script.cmd", ["wrap.ps1", "wp"], "present.exe"]}"#,
+    );
+    write(root, &format!("{scoop_root}/shims/present.cmd"), "x");
+    write(
+        root,
+        &format!("{scoop_root}/shims/tool.shim"),
+        "path = \"D:\\apps\\scoop\\apps\\tools\\current\\tool.exe\"\n",
+    );
+    let env = windows_env(root).with_var("SCOOP", "D:\\apps\\scoop");
+    let data = load(&ScoopSource::new(), &env);
+    let path_of = |name: &str| program(&data, name).path.clone().unwrap();
+    assert!(path_of("tool").ends_with("tool.exe"));
+    assert!(path_of("script").ends_with("script.cmd"));
+    assert!(path_of("wp").ends_with("wp.cmd"));
+    assert!(path_of("present").ends_with("present.cmd"));
+    assert_eq!(program(&data, "wp").alias_kind, Some(AliasKind::Shim));
+    assert_eq!(program(&data, "wp").alias_of.as_deref(), Some("wrap"));
+    assert_eq!(program(&data, "tool").alias_kind, None);
+    assert_eq!(package(&data, "tools").executables.len(), 4);
+}
+
+#[test]
+fn winget_identifiers_may_contain_underscores() {
+    let source = "Microsoft.Winget.Source_8wekyb3d8bbwe";
+    assert_eq!(
+        winget::package_of_dir(&format!("Vendor.My_Tool_{source}")).as_deref(),
+        Some("Vendor.My_Tool")
+    );
+    assert_eq!(
+        winget::package_of_dir(&format!("Vendor.Tool_{source}")).as_deref(),
+        Some("Vendor.Tool")
+    );
+    assert_eq!(
+        winget::package_of_dir("Vendor.Tool_x").as_deref(),
+        Some("Vendor.Tool")
+    );
+    assert_eq!(
+        winget::package_of_dir("_Microsoft.Winget.Source_8wekyb3d8bbwe"),
+        None
+    );
+    assert_eq!(
+        winget::package_of_link(&format!(
+            "C:\\L\\Packages\\Vendor.My_Tool_{source}\\tool.exe"
+        ))
+        .as_deref(),
+        Some("Vendor.My_Tool")
+    );
+}

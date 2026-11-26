@@ -202,9 +202,8 @@ impl MemFs {
     /// stays readable, as for a directory without read permission.
     pub fn deny(&mut self, relative: &str) -> &mut Self {
         let path = Self::native(relative);
-        if let Some(node) = self.nodes.get_mut(&path) {
-            node.denied = true;
-        }
+        let node = self.nodes.get_mut(&path).expect("the path to deny exists");
+        node.denied = true;
         self
     }
 

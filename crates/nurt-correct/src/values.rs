@@ -368,6 +368,44 @@ mod tests {
     }
 
     #[test]
+    fn mode_values_never_come_from_a_prefix() {
+        let tables = load_embedded().unwrap();
+        let options = Options::default();
+        assert_eq!(mode_value("app", &MODES, &tables, &options), Match::Unknown);
+        assert_eq!(mode_value("append", &MODES, &tables, &options), Match::Same);
+        assert_eq!(
+            corrected(mode_value("truncate", &MODES, &tables, &options)),
+            ("overwrite".into(), "T09".into(), Class::Certain)
+        );
+    }
+
+    #[test]
+    fn resolves_names_with_multibyte_characters() {
+        let tables = load_embedded().unwrap();
+        let options = Options::default();
+        let names = ["żółw", "żółć"];
+        assert_eq!(
+            resolve_in("ŻÓŁW", NameKind::Field, &names, &tables, &options),
+            Match::Corrected(NameCorrection {
+                to: "żółw".to_owned(),
+                rule: RuleId::L03,
+                class: Class::Certain,
+                kind: CorrectionKind::Field,
+                distance: 0,
+                effecting: false,
+            })
+        );
+        assert_eq!(
+            resolve_in("żółx", NameKind::Field, &names, &tables, &options),
+            Match::Tie(vec!["żółw".to_owned(), "żółć".to_owned()])
+        );
+        assert_eq!(
+            resolve_in("", NameKind::Field, &names, &tables, &options),
+            Match::Unknown
+        );
+    }
+
+    #[test]
     fn corrects_record_fields() {
         let tables = load_embedded().unwrap();
         let options = Options::default();

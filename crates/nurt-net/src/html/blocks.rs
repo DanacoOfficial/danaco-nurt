@@ -3,6 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Conversion of the element tree to blocks.
 
+use std::collections::HashMap;
 use std::mem;
 
 use url::Url;
@@ -72,6 +73,16 @@ const NOISE: &[&str] = &[
     "modal",
 ];
 
+/// Scheme of an address that holds a script, not a link.
+const SCRIPT_SCHEME: &str = "javascript:";
+
+/// Largest number of cells of one table that are kept; the cells of a hostile
+/// page cannot multiply by padding every row to the widest one.
+const MAX_TABLE_CELLS: usize = 1_000_000;
+
+/// Largest number of columns of one table that are kept.
+const MAX_TABLE_COLUMNS: usize = 256;
+
 /// Elements that start a new paragraph.
 const BLOCK_ELEMENTS: &[&str] = &[
     "p",
@@ -124,6 +135,7 @@ pub fn convert_html(source: &str, options: &ConvertOptions) -> Page {
         blocks: Vec::new(),
         inline: Inline::default(),
         links: Vec::new(),
+        link_index: HashMap::new(),
         tables: Vec::new(),
         depth: 0,
         quote: false,
@@ -224,6 +236,9 @@ struct Walker<'a> {
     blocks: Vec<Block>,
     inline: Inline,
     links: Vec<Link>,
+    /// Position in `links` of each address, so that a repeated address is
+    /// found without a scan of the list.
+    link_index: HashMap<String, usize>,
     tables: Vec<Table>,
     depth: u8,
     quote: bool,
@@ -346,7 +361,10 @@ impl Walker<'_> {
         let inner = self.capture(element);
         let label = collapse_whitespace(&inner.markdown);
         let href = element.attr("href").map(str::trim).unwrap_or_default();
-        if href.is_empty() || href.starts_with('#') || href.starts_with("javascript:") {
+        let scripted = href
+            .get(..SCRIPT_SCHEME.len())
+            .is_some_and(|scheme| scheme.eq_ignore_ascii_case(SCRIPT_SCHEME));
+        if href.is_empty() || href.starts_with('#') || scripted {
             self.append(inner, label);
             return;
         }
@@ -369,7 +387,7 @@ impl Walker<'_> {
     }
 
     fn register(&mut self, text: &str, url: &str) -> Link {
-        if let Some(existing) = self.links.iter().find(|link| link.url == url) {
+        if let Some(existing) = self.link_index.get(url).and_then(|at| self.links.get(*at)) {
             return existing.clone();
         }
         let link = Link {
@@ -377,6 +395,7 @@ impl Walker<'_> {
             text: text.to_owned(),
             url: url.to_owned(),
         };
+        self.link_index.insert(url.to_owned(), self.links.len());
         self.links.push(link.clone());
         link
     }
@@ -496,7 +515,11 @@ fn parse_table(element: &Element) -> Table {
                 _ => None,
             })
             .collect();
-        let texts: Vec<String> = cells.iter().map(|cell| cell.text()).collect();
+        let texts: Vec<String> = cells
+            .iter()
+            .take(MAX_TABLE_COLUMNS)
+            .map(|cell| cell.text())
+            .collect();
         if index == 0 && !cells.is_empty() && cells.iter().all(|cell| cell.name == "th") {
             header = Some(texts);
         } else if !texts.is_empty() {
@@ -510,6 +533,7 @@ fn parse_table(element: &Element) -> Table {
         .chain(header.iter().map(Vec::len))
         .max()
         .unwrap_or(0);
+    table.rows.truncate(MAX_TABLE_CELLS / width.max(1));
     table.columns = match header {
         Some(names) => (0..width)
             .map(|index| {
@@ -633,6 +657,52 @@ mod tests {
                 .any(|block| block.markdown.contains("diagram"))
         );
         assert_eq!(page.links[0].url, "https://example.test/");
+    }
+
+    #[test]
+    fn repeated_addresses_share_one_numbered_link() {
+        let page = convert_html(
+            "<p><a href=\"/a\">one</a> <a href=\"/b\">two</a> <a href=\"/a\">again</a></p>",
+            &options(),
+        );
+        assert_eq!(page.links.len(), 2);
+        let numbers: Vec<usize> = page.blocks[0]
+            .links
+            .iter()
+            .map(|link| link.number)
+            .collect();
+        assert_eq!(numbers, vec![1, 2, 1]);
+    }
+
+    #[test]
+    fn many_distinct_links_are_collected_in_order() {
+        let html: String = (0..20_000)
+            .map(|n| format!("<a href=\"/p{n}\">l{n}</a> "))
+            .collect();
+        let page = convert_html(&html, &options());
+        assert_eq!(page.links.len(), 20_000);
+        assert_eq!(page.links[19_999].number, 20_000);
+    }
+
+    #[test]
+    fn script_addresses_are_not_links_in_any_case() {
+        let page = convert_html(
+            "<p><a href=\"JavaScript:alert(1)\">x</a> <a href=\" javascript:y\">y</a></p>",
+            &options(),
+        );
+        assert!(page.links.is_empty());
+        assert_eq!(page.blocks[0].text, "x y");
+    }
+
+    #[test]
+    fn wide_tables_are_cut_to_the_column_and_cell_limits() {
+        let wide: String = (0..600).map(|_| "<td>x</td>").collect();
+        let rows: String = (0..10_000).map(|_| "<tr><td>y</td></tr>").collect();
+        let page = convert_html(&format!("<table><tr>{wide}</tr>{rows}</table>"), &options());
+        let table = &page.tables[0];
+        assert_eq!(table.columns.len(), MAX_TABLE_COLUMNS);
+        assert!(table.rows.len() <= MAX_TABLE_CELLS / MAX_TABLE_COLUMNS);
+        assert!(table.rows.iter().all(|row| row.len() <= MAX_TABLE_COLUMNS));
     }
 
     #[test]

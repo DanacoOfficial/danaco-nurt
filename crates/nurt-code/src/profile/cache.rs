@@ -11,6 +11,7 @@
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -22,6 +23,9 @@ pub(crate) const CACHE_TTL_NS: i64 = 600 * 1_000_000_000;
 
 /// Version of the cache file layout; other versions are ignored.
 const CACHE_FORMAT: u32 = 1;
+
+/// Sequence of temporary file names within the process.
+static TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
 /// Profile as stored in the cache.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -98,6 +102,16 @@ pub(crate) fn load(path: &Path, root: &Path) -> Option<Cached> {
     (cached.root == root.display().to_string()).then_some(cached)
 }
 
+/// Temporary file next to the cache file `path` in `dir`; the name differs
+/// for every call, so concurrent stores of one process never share a file.
+fn temporary_path(dir: &Path, path: &Path) -> PathBuf {
+    let sequence = TEMPORARY.fetch_add(1, Ordering::Relaxed);
+    let name = path
+        .file_name()
+        .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+    dir.join(format!(".{name}.{}.{sequence}.tmp", std::process::id()))
+}
+
 /// Stores a profile; a temporary file is renamed over the cache file, so a
 /// concurrent reader sees the old or the new content. Failure to store is
 /// not an error of the command: the next call reads the tree again.
@@ -108,7 +122,7 @@ pub(crate) fn store(path: &Path, cached: &Cached) -> bool {
     let write = || -> std::io::Result<()> {
         std::fs::create_dir_all(dir)?;
         let bytes = serde_json::to_vec(cached).map_err(std::io::Error::other)?;
-        let temp = dir.join(format!(".{}.tmp", std::process::id()));
+        let temp = temporary_path(dir, path);
         let mut file = std::fs::File::create(&temp)?;
         file.write_all(&bytes)?;
         file.sync_all()?;
@@ -132,6 +146,31 @@ mod tests {
         assert!(!cached.is_valid(Some("abc"), 90, CACHE_TTL_NS, same));
         assert!(!cached.is_valid(Some("abc"), 90, 1, |_| Some(8)));
         assert!(!cached.is_valid(Some("abc"), 90, 1, |_| None));
+    }
+
+    #[test]
+    fn temporary_files_differ_for_every_store_and_every_cache_file() {
+        let dir = Path::new("/state/code/profile");
+        let first = temporary_path(dir, &dir.join("a.json"));
+        let second = temporary_path(dir, &dir.join("a.json"));
+        let other = temporary_path(dir, &dir.join("b.json"));
+        assert_ne!(first, second);
+        assert_ne!(first, other);
+        assert_eq!(first.parent(), Some(dir));
+    }
+
+    #[test]
+    fn stored_profile_is_loaded_and_leaves_no_temporary_file() {
+        let state = tempfile::tempdir().unwrap();
+        let root = Path::new("/r");
+        let path = cache_path(state.path(), root);
+        let cached = Cached::new(root, Some("abc".to_owned()), 90, 5);
+        assert!(store(&path, &cached));
+        assert!(store(&path, &cached));
+        assert_eq!(load(&path, root), Some(cached));
+        assert_eq!(load(&path, Path::new("/other")), None);
+        let files = std::fs::read_dir(path.parent().unwrap()).unwrap().count();
+        assert_eq!(files, 1);
     }
 
     #[test]

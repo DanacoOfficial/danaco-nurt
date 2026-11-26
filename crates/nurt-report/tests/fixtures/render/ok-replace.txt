@@ -16,7 +16,7 @@ diff (3 hunks)
     + 	v := newName(2)
       }
 notable
-  ! many_per_file  /srv/app/src/c/d.go  2
+  ! many_per_file  /srv/app/src/c/d.go  2  many replacements in one file
   - encoding_preserved  /srv/app/src/c/d.go  windows-1250
   - line_ending_preserved  /srv/app/src/c/d.go  crlf
 next cursor c_5d2e

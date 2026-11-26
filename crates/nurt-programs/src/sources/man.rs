@@ -16,7 +16,7 @@
 //! programs; they never create a card alone.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use crate::model::{
     CategoryHint, CategoryScheme, Detail, DetailWant, EntryKey, LocalizedText, RawProgram,
@@ -26,7 +26,7 @@ use crate::source::{
     Deadline, Fingerprint, FingerprintBuilder, HostEnv, ProgramSource, SourceError,
     SourceErrorKind, SourceId, SourceKind,
 };
-use crate::sources::{Compression, decompress, is_dir, list_dir, read_file, read_prefix};
+use crate::sources::{Compression, decompress_reader, is_dir, list_dir, read_file};
 use crate::text::{decode, flatten};
 
 /// Sections whose pages describe commands.
@@ -388,6 +388,17 @@ fn read_page(env: &HostEnv, id: &SourceId, path: &Path, dir: &Path) -> Result<St
     let text = read_page_file(env, id, path)?;
     match redirect(&text) {
         Some(target) => {
+            let stays_below_dir = Path::new(&target)
+                .components()
+                .all(|part| matches!(part, Component::Normal(_) | Component::CurDir));
+            if !stays_below_dir {
+                return Err(SourceError::new(
+                    id,
+                    SourceErrorKind::Corrupt,
+                    "page redirect leaves the manual directory",
+                )
+                .at(path.display().to_string()));
+            }
             let target = target
                 .strip_suffix(".gz")
                 .map_or(target.clone(), str::to_owned);
@@ -408,13 +419,14 @@ fn read_page(env: &HostEnv, id: &SourceId, path: &Path, dir: &Path) -> Result<St
 }
 
 fn read_page_file(env: &HostEnv, id: &SourceId, path: &Path) -> Result<String, SourceError> {
-    let (bytes, _) = read_prefix(env, id, path, crate::sources::MAX_METADATA_BYTES)?;
+    let file = std::fs::File::open(env.sys_path(path))
+        .map_err(|error| SourceError::io(id, path, &error))?;
     let name = path
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
     let (compression, _) = Compression::of(name);
-    let raw = decompress(&bytes, compression, PAGE_PREFIX_BYTES).map_err(|error| {
+    let raw = decompress_reader(file, compression, PAGE_PREFIX_BYTES).map_err(|error| {
         SourceError::new(id, SourceErrorKind::Corrupt, error.to_string())
             .at(path.display().to_string())
     })?;
@@ -588,6 +600,31 @@ mod tests {
         assert_eq!(line_text(".PP"), None);
         assert_eq!(line_text(".\\\" comment"), None);
         assert_eq!(strip_escapes("x \\\" comment"), "x ");
+    }
+
+    #[test]
+    fn page_redirect_stays_below_the_manual_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let man1 = root.path().join("usr/share/man/man1");
+        std::fs::create_dir_all(&man1).unwrap();
+        std::fs::write(man1.join("up.1"), ".so ../../../../secret.1\n").unwrap();
+        std::fs::write(man1.join("abs.1"), ".so /secret.1\n").unwrap();
+        std::fs::write(man1.join("ok.1"), ".so man1/target.1\n").unwrap();
+        std::fs::write(man1.join("target.1"), ".SH NAME\ntarget \\- real page\n").unwrap();
+        std::fs::write(
+            root.path().join("secret.1"),
+            ".SH NAME\nsecret \\- outside the directory\n",
+        )
+        .unwrap();
+        let env = HostEnv::new(nurt_contracts::env::Os::Linux).with_root(root.path());
+        let id = SourceId::new(SourceId::MAN);
+        let dir = Path::new("/usr/share/man");
+        for page in ["up.1", "abs.1"] {
+            let error = read_page(&env, &id, &dir.join("man1").join(page), dir).unwrap_err();
+            assert_eq!(error.kind, SourceErrorKind::Corrupt, "{page}");
+        }
+        let text = read_page(&env, &id, &dir.join("man1/ok.1"), dir).unwrap();
+        assert!(text.contains("real page"));
     }
 
     #[test]

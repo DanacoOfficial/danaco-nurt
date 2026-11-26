@@ -128,13 +128,15 @@ pub fn entry_name(op: OpId) -> String {
 }
 
 /// Operation number of an entry name; `None` for any other name, including
-/// names with fewer than twelve digits and temporary directories.
+/// names with fewer than twelve digits, temporary directories and names with
+/// superfluous leading zeros, which [`entry_name`] never produces.
 #[must_use]
 pub fn parse_entry_name(name: &str) -> Option<OpId> {
     if name.len() < ENTRY_DIGITS || !name.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;
     }
-    name.parse().ok().map(OpId)
+    let op = OpId(name.parse().ok()?);
+    (entry_name(op) == name).then_some(op)
 }
 
 /// Name of the staged file of target `index` of operation `op`, created in
@@ -894,5 +896,160 @@ mod tests {
             DIR_NAME
         };
         assert_eq!(default_dir_name(), expected);
+    }
+
+    #[test]
+    fn rejects_entry_names_with_superfluous_leading_zeros_or_foreign_digits() {
+        for name in [
+            "0000000000018",
+            "00000000000000000018",
+            "0000000000a8",
+            "００００００００００１８",
+            "00000000001é",
+            "000000000018\n",
+            "000000000018 ",
+        ] {
+            assert_eq!(parse_entry_name(name), None, "{name:?}");
+        }
+        assert_eq!(parse_entry_name("000000000018"), Some(OpId(18)));
+        assert_eq!(
+            parse_entry_name("18446744073709551615"),
+            Some(OpId(u64::MAX))
+        );
+        assert_eq!(parse_entry_name("18446744073709551616"), None);
+        assert_eq!(parse_entry_name("99999999999999999999999"), None);
+    }
+
+    #[test]
+    fn entry_names_of_large_numbers_round_trip() {
+        for op in [999_999_999_999, 1_000_000_000_000, u64::MAX] {
+            let name = entry_name(OpId(op));
+            assert!(name.len() >= ENTRY_DIGITS, "{name}");
+            assert_eq!(parse_entry_name(&name), Some(OpId(op)), "{name}");
+        }
+    }
+
+    #[test]
+    fn rejects_staged_names_with_overflowing_or_foreign_digits() {
+        for name in [
+            ".nurt-tmp-18446744073709551616-0",
+            ".nurt-tmp-1-4294967296",
+            ".nurt-tmp-1-",
+            ".nurt-tmp--",
+            ".nurt-tmp-1-1-1",
+            ".nurt-tmp-１-1",
+            "",
+        ] {
+            assert_eq!(parse_staged_name(name), None, "{name:?}");
+        }
+        assert_eq!(
+            parse_staged_name(".nurt-tmp-0-4294967295"),
+            Some((OpId(0), TargetIndex(u32::MAX)))
+        );
+    }
+
+    #[test]
+    fn rejects_blob_names_with_uppercase_signs_or_multibyte_characters() {
+        for text in [
+            "",
+            "0000000000000000 ",
+            "00000000000000000",
+            "0000000A00000000",
+            "0000000é00000000",
+            "ffffffff00000002",
+            "+000000100000000",
+        ] {
+            assert_eq!(BlobId::parse(text), None, "{text:?}");
+        }
+        let largest = BlobId::new(TargetIndex(u32::MAX), BlobRole::Destination);
+        assert_eq!(largest.to_string(), "ffffffff00000001");
+        assert_eq!(BlobId::parse("ffffffff00000001"), Some(largest));
+    }
+
+    #[test]
+    fn resolve_rejects_paths_that_leave_the_blob_directory() {
+        let entry = JournalLayout::new(root()).entry(OpId(1)).unwrap();
+        for recorded in [
+            "",
+            "blobs",
+            "blobs/",
+            "blobs/0000000000000000",
+            "blobs/0000000000000000.blob/../op.json",
+            "blobs/0000000000000000.exe",
+            "blobs/0000000000000000.blob.blob",
+            "/blobs/0000000000000000.blob",
+            "blobs\\0000000000000000.blob",
+            "bloßs/0000000000000000.blob",
+        ] {
+            assert_eq!(
+                entry.resolve(recorded).unwrap_err().kind,
+                FsErrorKind::InvalidPath,
+                "{recorded:?}"
+            );
+        }
+        assert!(entry.resolve("blobs/0000000100000001.meta").is_ok());
+    }
+
+    fn journal_fs() -> nurt_fs::mem::MemFs {
+        use nurt_fs::mem::{MemFs, VolumeSpec};
+        MemFs::builder()
+            .volume(VolumeSpec::posix(AbsPath::new("/v").unwrap()))
+            .build()
+            .unwrap()
+    }
+
+    fn seeded(fs: &nurt_fs::mem::MemFs, path: &str) {
+        fs.seed_file(&AbsPath::new(path).unwrap(), b"x").unwrap();
+    }
+
+    #[test]
+    fn listings_of_a_missing_journal_are_empty() {
+        let fs = journal_fs();
+        let journal = JournalLayout::new(AbsPath::new("/v/j").unwrap());
+        assert_eq!(pending_entries(&fs, &journal), Ok(Vec::new()));
+        assert_eq!(entries(&fs, &journal), Ok(Vec::new()));
+        assert_eq!(highest_number(&fs, &journal), Ok(None));
+    }
+
+    #[test]
+    fn listings_return_sorted_entry_numbers_and_ignore_foreign_names() {
+        let fs = journal_fs();
+        let journal = JournalLayout::new(AbsPath::new("/v/j").unwrap());
+        for path in [
+            "/v/j/ops/000000000010/STATE",
+            "/v/j/ops/000000000002/STATE",
+            "/v/j/ops/000000000007.tmp/op.json",
+            "/v/j/ops/00000000000x/STATE",
+            "/v/j/ops/ż000000000003/STATE",
+            "/v/j/pending/000000000005",
+            "/v/j/pending/notes",
+        ] {
+            seeded(&fs, path);
+        }
+        assert_eq!(
+            entries(&fs, &journal),
+            Ok(vec![OpId(2), OpId(10)]),
+            "temporary entries are not entries"
+        );
+        assert_eq!(pending_entries(&fs, &journal), Ok(vec![OpId(5)]));
+    }
+
+    #[test]
+    fn highest_number_covers_every_directory_of_the_journal() {
+        let fs = journal_fs();
+        let journal = JournalLayout::new(AbsPath::new("/v/j").unwrap());
+        seeded(&fs, "/v/j/ops/000000000003/STATE");
+        assert_eq!(highest_number(&fs, &journal), Ok(Some(OpId(3))));
+        seeded(&fs, "/v/j/ops/000000000004.tmp/op.json");
+        assert_eq!(highest_number(&fs, &journal), Ok(Some(OpId(4))));
+        seeded(&fs, "/v/j/pending/000000000005");
+        assert_eq!(highest_number(&fs, &journal), Ok(Some(OpId(5))));
+        seeded(&fs, "/v/j/reap/000000000006/STATE");
+        assert_eq!(highest_number(&fs, &journal), Ok(Some(OpId(6))));
+        seeded(&fs, "/v/j/tomb/000000000009.json");
+        assert_eq!(highest_number(&fs, &journal), Ok(Some(OpId(9))));
+        seeded(&fs, "/v/j/tomb/000000000012.json.tmp");
+        seeded(&fs, "/v/j/ops/readme");
+        assert_eq!(highest_number(&fs, &journal), Ok(Some(OpId(9))));
     }
 }

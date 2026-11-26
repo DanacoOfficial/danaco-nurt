@@ -131,7 +131,11 @@ fn an_argument_text_is_not_split_silently() -> Outcome {
     );
     assert_eq!(ambiguous.candidates[0].rank, 1);
     assert!(ambiguous.candidates[0].why.is_some());
-    let applied = translate_with(input, &script()).ok_or("no translation")??;
+    let based = TranslateContext {
+        base: Some("/srv"),
+        ..script()
+    };
+    let applied = translate_with(input, &based).ok_or("no translation")??;
     assert_eq!(applied.text(), "run [\"app.exe\", \"a\", \"b\"]");
     assert_eq!(applied.alternatives.len(), 1);
     assert_eq!(applied.assumptions[0].rule, "P23");
@@ -432,15 +436,15 @@ fn filter_blocks_translate_to_conditions() -> Outcome {
         ),
         (
             "Get-ChildItem C:\\x | Where-Object { $_.PSIsContainer }",
-            "filter type == directory",
+            "filter type == \"directory\"",
         ),
         (
             "Get-ChildItem C:\\x | Where-Object { -not $_.PSIsContainer }",
-            "filter not type == directory",
+            "filter not type == \"directory\"",
         ),
         (
             "Get-ChildItem C:\\x | Where-Object { $_.PSIsContainer -eq $false }",
-            "filter type != directory",
+            "filter type != \"directory\"",
         ),
         (
             "Get-ChildItem C:\\x | Where-Object { $_.IsReadOnly }",
@@ -472,11 +476,11 @@ fn filter_blocks_translate_to_conditions() -> Outcome {
         ),
         (
             "Get-ChildItem C:\\x | Where-Object -Not PSIsContainer",
-            "filter not type == directory",
+            "filter not type == \"directory\"",
         ),
         (
             "Get-ChildItem C:\\x | Where-Object PSIsContainer",
-            "filter type == directory",
+            "filter type == \"directory\"",
         ),
         (
             "Get-Process | Where-Object { $_.WorkingSet -gt 100MB }",
@@ -484,11 +488,11 @@ fn filter_blocks_translate_to_conditions() -> Outcome {
         ),
         (
             "Get-Service | Where-Object { $_.Status -eq 'running' -and $_.Name -like 'a*' }",
-            "filter state == running and name ~ /^a/i",
+            "filter state == \"running\" and name ~ /^a/i",
         ),
         (
             "Get-Service | Where-Object Status -eq Running",
-            "filter state == running",
+            "filter state == \"running\"",
         ),
         (
             "Get-Content C:\\a.txt | Where-Object { $_.Length -gt 3 }",
@@ -680,5 +684,142 @@ fn filter_blocks_without_a_nurt_form_are_uncorrectable() -> Outcome {
             error.message
         );
     }
+    Ok(())
+}
+
+#[test]
+fn preference_variables_are_not_translated_to_let_names() -> Outcome {
+    for input in [
+        "$ErrorActionPreference = 'Stop'",
+        "$erroractionpreference = 'SilentlyContinue'",
+        "$ProgressPreference = 'SilentlyContinue'",
+    ] {
+        let failure = error(input, &TranslateContext::default())?;
+        assert_eq!(failure.code, ErrorCode::Uncorrectable, "{input:?}");
+        assert_eq!(
+            failure.problem.as_deref(),
+            Some("preference_variable"),
+            "{input:?}"
+        );
+    }
+    let ordinary = live("$colorPreference = Get-Process")?;
+    assert_eq!(ordinary.text(), "let colorpreference = processes");
+    Ok(())
+}
+
+#[test]
+fn words_of_the_language_do_not_name_let_results() -> Outcome {
+    for name in ["null", "true", "in", "not"] {
+        let failure = error(
+            &format!("${name} = Get-Process"),
+            &TranslateContext::default(),
+        )?;
+        assert_eq!(failure.problem.as_deref(), Some("variable_name"), "{name}");
+    }
+    let named = live("$nullable = Get-Process")?;
+    assert_eq!(named.text(), "let nullable = processes");
+    Ok(())
+}
+
+#[test]
+fn deeply_nested_filter_blocks_are_uncorrectable() -> Outcome {
+    let negations = format!(
+        "Get-Process | Where-Object {{ {}$_.Name -eq 'x' }}",
+        "! ".repeat(5_000)
+    );
+    let failure = error(&negations, &TranslateContext::default())?;
+    assert_eq!(failure.code, ErrorCode::Uncorrectable);
+    assert_eq!(failure.problem.as_deref(), Some("script_block"));
+    let groups = format!(
+        "Get-Process | Where-Object {{ {}$_.Name -eq 'x'{} }}",
+        "(".repeat(5_000),
+        ")".repeat(5_000)
+    );
+    let failure = error(&groups, &TranslateContext::default())?;
+    assert_eq!(failure.code, ErrorCode::Uncorrectable);
+    Ok(())
+}
+
+#[test]
+fn long_chains_of_conditions_are_uncorrectable() -> Outcome {
+    let chain = format!(
+        "Get-Process | Where-Object {{ $_.Name -eq 'a'{} }}",
+        " -or $_.Name -eq 'a'".repeat(300)
+    );
+    let failure = error(&chain, &TranslateContext::default())?;
+    assert_eq!(failure.code, ErrorCode::Uncorrectable);
+    assert_eq!(failure.problem.as_deref(), Some("script_block"));
+    let short = live("Get-Process | Where-Object { $_.Name -eq 'a' -or $_.Name -eq 'b' }")?;
+    assert!(
+        short.text().ends_with(" or lower(name) == \"b\""),
+        "{}",
+        short.text()
+    );
+    Ok(())
+}
+
+#[test]
+fn deeply_nested_text_is_a_syntax_error_in_script_mode() -> Outcome {
+    let nested = format!("Remove-Item {}x{}", "(".repeat(10_000), ")".repeat(10_000));
+    let failure = error(&nested, &script())?;
+    assert_eq!(failure.code, ErrorCode::Syntax);
+    assert!(
+        failure.message.contains("nested too deeply"),
+        "{}",
+        failure.message
+    );
+    assert!(translate(&nested).is_none());
+    Ok(())
+}
+
+#[test]
+fn empty_here_strings_and_signed_hexadecimal_words_are_read() -> Outcome {
+    let tokens = lex("@'\n'@ 0x-5")?;
+    assert_eq!(tokens[0].kind, TokenKind::Literal(String::new()));
+    assert_eq!(tokens[1].kind, TokenKind::Word("0x-5".to_owned()));
+    Ok(())
+}
+
+#[test]
+fn a_program_without_a_working_directory_is_refused_in_a_script() -> Outcome {
+    let refused = error("Start-Process app.exe", &script())?;
+    assert_eq!(refused.code, ErrorCode::Uncorrectable);
+    assert_eq!(refused.problem.as_deref(), Some("working_directory"));
+    let refused = error("& git status", &script())?;
+    assert_eq!(refused.problem.as_deref(), Some("working_directory"));
+    let based = TranslateContext {
+        base: Some("/srv"),
+        ..script()
+    };
+    assert!(
+        translate_with("& git status", &based)
+            .ok_or("no translation")?
+            .is_ok()
+    );
+    let given = translate_with("Start-Process app.exe -WorkingDirectory C:\\srv", &script())
+        .ok_or("no translation")??;
+    assert!(given.text().contains("cwd:"), "{}", given.text());
+    assert!(translate("Start-Process app.exe").is_some());
+    Ok(())
+}
+
+#[test]
+fn enumerated_values_and_registry_numbers_are_text() -> Outcome {
+    let path = live("Test-Path C:\\x\\a.txt -PathType Leaf")?;
+    assert!(path.text().contains("type == \"file\""), "{}", path.text());
+    let service = live("Get-Service | Where-Object { $_.StartType -eq \"Automatic\" }")?;
+    assert!(
+        service.text().contains("start_type == \"automatic\""),
+        "{}",
+        service.text()
+    );
+    let registry = live("Set-ItemProperty -Path HKCU:\\Software\\A -Name N -Value 2")?;
+    assert!(
+        registry
+            .text()
+            .contains("\"registry:/HKCU/Software/A/N\" \"2\""),
+        "{}",
+        registry.text()
+    );
     Ok(())
 }

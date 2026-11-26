@@ -1176,7 +1176,7 @@ fn entry_map(index: &gix_index::State) -> BTreeMap<BString, (ObjectId, u32)> {
 /// Tracked paths whose working tree file differs from the index.
 fn unstaged_paths(repo: &gix::Repository) -> Result<Vec<BString>> {
     use gix::status::index_worktree::Item;
-    use gix::status::plumbing::index_as_worktree::EntryStatus;
+    use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
     const WHAT: &str = "read the status of the working tree";
     let iter = repo
         .status(gix::progress::Discard)
@@ -1187,11 +1187,14 @@ fn unstaged_paths(repo: &gix::Repository) -> Result<Vec<BString>> {
     for item in iter {
         if let Item::Modification {
             rela_path,
-            status: EntryStatus::Change(_),
+            status: EntryStatus::Change(change),
             ..
         } = item.map_err(|cause| error::io(WHAT, cause))?
         {
-            out.push(rela_path);
+            // `git rebase` ignores submodules when it looks for unstaged changes.
+            if !matches!(change, Change::SubmoduleModification(_)) {
+                out.push(rela_path);
+            }
         }
     }
     out.sort();
@@ -1313,10 +1316,20 @@ fn hook_notes(repo: &gix::Repository) -> Vec<NotableEntry> {
 
 /// Comment character of commit messages (`core.commentChar`).
 fn comment_char(repo: &gix::Repository) -> char {
-    repo.config_snapshot()
+    let snapshot = repo.config_snapshot();
+    let value = snapshot
         .string("core.commentChar")
-        .and_then(|value| value.to_str_lossy().chars().next())
-        .filter(|c| !c.is_whitespace() && *c != 'a')
+        .map(|value| value.to_str_lossy().into_owned());
+    comment_char_of(value.as_deref())
+}
+
+/// Comment character for a value of `core.commentChar`: `auto` and an unset
+/// value select the default, every other non-blank character is itself.
+fn comment_char_of(value: Option<&str>) -> char {
+    value
+        .filter(|text| *text != "auto")
+        .and_then(|text| text.chars().next())
+        .filter(|c| !c.is_whitespace())
         .unwrap_or(DEFAULT_COMMENT)
 }
 
@@ -1470,5 +1483,16 @@ mod tests {
         let text = String::from_utf8(reflog_line(&line, &committer).unwrap_or_default())
             .unwrap_or_default();
         assert!(text.ends_with(" C <c@x> 1700000100 +0000\trebase (pick): two words\n"));
+    }
+
+    #[test]
+    fn comment_character_follows_git() {
+        assert_eq!(comment_char_of(None), DEFAULT_COMMENT);
+        assert_eq!(comment_char_of(Some("auto")), DEFAULT_COMMENT);
+        assert_eq!(comment_char_of(Some(";")), ';');
+        assert_eq!(comment_char_of(Some("a")), 'a');
+        assert_eq!(comment_char_of(Some("ż")), 'ż');
+        assert_eq!(comment_char_of(Some(" ")), DEFAULT_COMMENT);
+        assert_eq!(comment_char_of(Some("")), DEFAULT_COMMENT);
     }
 }

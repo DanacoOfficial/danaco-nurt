@@ -11,6 +11,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -93,7 +94,7 @@ final class LibraryBackend implements Backend {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment config = settings.config() == null
                     ? MemorySegment.NULL
-                    : arena.allocateFrom(Json.write(settings.config()));
+                    : utf8(arena, Json.write(settings.config()));
             MemorySegment out = arena.allocate(ADDRESS);
             int status = Library.invokeInt(library.engineOpen, config, out);
             library.verify(status, MemorySegment.NULL, "nurt_engine_open");
@@ -126,7 +127,7 @@ final class LibraryBackend implements Backend {
                             MethodHandles.insertArguments(DELIVER, 0, events), Library.EVENT_CALLBACK, arena);
             MemorySegment out = arena.allocate(ADDRESS);
             int status = Library.invokeInt(library.execStart, engine,
-                    arena.allocateFrom(Json.write(withDefaults(request))), callback, MemorySegment.NULL, out);
+                    utf8(arena, Json.write(withDefaults(request))), callback, MemorySegment.NULL, out);
             library.verify(status, engine, "nurt_exec_start");
             started = new Started(out.get(ADDRESS, 0), arena);
         } catch (RuntimeException e) {
@@ -216,17 +217,17 @@ final class LibraryBackend implements Backend {
     private Object dispatch(Arena arena, String method, Map<String, Object> params) {
         return switch (method) {
             case "run" -> json(callWithBuffer(arena, library.runJson, "nurt_run_json",
-                    arena.allocateFrom(Json.write(withDefaults(params)))), "nurt_run_json");
+                    utf8(arena, Json.write(withDefaults(params)))), "nurt_run_json");
             case "check" -> check(arena, params);
             case "parse" -> parse(arena, params);
             case "print" -> callWithBuffer(arena, library.print, "nurt_print",
-                    arena.allocateFrom(Json.write(required(params, "ast"))), variant(params));
+                    utf8(arena, Json.write(required(params, "ast"))), variant(params));
             case "correct" -> json(callWithBuffer(arena, library.correct, "nurt_correct",
                     text(arena, params, "program"), variant(params)), "nurt_correct");
             case "page" -> json(callWithBuffer(arena, library.page, "nurt_page",
                     text(arena, params, "cursor"), limit(params)), "nurt_page");
             case "describe" -> callWithBuffer(arena, library.describe, "nurt_describe",
-                    arena.allocateFrom(Json.write(describeSelection(params))));
+                    utf8(arena, Json.write(describeSelection(params))));
             case "help" -> callWithBuffer(arena, library.help, "nurt_help", optionalText(arena, params, "topic"));
             case "catalog" -> json(callWithBuffer(arena, library.catalog, "nurt_catalog",
                     selection(arena, params)), "nurt_catalog");
@@ -249,7 +250,7 @@ final class LibraryBackend implements Backend {
         MemorySegment diagnostics = arena.allocate(Library.BUF);
         try {
             int status = Library.invokeInt(library.check, engine,
-                    arena.allocateFrom(Json.write(withDefaults(params))), bound, diagnostics);
+                    utf8(arena, Json.write(withDefaults(params))), bound, diagnostics);
             library.verify(status, engine, "nurt_check");
             Object result = json(library.take(bound), "nurt_check");
             String diagnosticsText = library.take(diagnostics);
@@ -319,7 +320,7 @@ final class LibraryBackend implements Backend {
 
     private void await(Started execution) {
         Object result = null;
-        RuntimeException failure = null;
+        Throwable failure = null;
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment buffer = arena.allocate(Library.BUF);
             try {
@@ -333,7 +334,7 @@ final class LibraryBackend implements Backend {
             }
         } catch (NurtCallException e) {
             failure = e;
-        } catch (RuntimeException e) {
+        } catch (Throwable e) {
             failure = new NurtCallException(NurtCallException.Kind.INTERNAL, "waiting for the execution failed: " + e, e);
         } finally {
             try {
@@ -405,10 +406,10 @@ final class LibraryBackend implements Backend {
     }
 
     private static MemorySegment selection(Arena arena, Map<String, Object> params) {
-        return params.isEmpty() ? MemorySegment.NULL : arena.allocateFrom(Json.write(params));
+        return params.isEmpty() ? MemorySegment.NULL : utf8(arena, Json.write(params));
     }
 
-    private static Object required(Map<String, Object> params, String name) {
+    static Object required(Map<String, Object> params, String name) {
         Object value = params.get(name);
         if (value == null) {
             throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT, "parameter `" + name + "` is required");
@@ -416,18 +417,41 @@ final class LibraryBackend implements Backend {
         return value;
     }
 
-    private static MemorySegment text(Arena arena, Map<String, Object> params, String name) {
+    /**
+     * Text as UTF-8 followed by a zero byte, which the library reads as a C
+     * string. A text that holds U+0000 would be cut at that character and a
+     * text with an unpaired surrogate would be changed, so both are refused.
+     *
+     * @param arena the arena that owns the copy
+     * @param value the text
+     * @return the copy
+     * @throws NurtCallException of kind {@link NurtCallException.Kind#INVALID_ARGUMENT}
+     *     for a text that cannot be passed unchanged
+     */
+    static MemorySegment utf8(Arena arena, String value) {
+        if (value.indexOf('\0') >= 0) {
+            throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT,
+                    "text must not contain the character U+0000");
+        }
+        if (!StandardCharsets.UTF_8.newEncoder().canEncode(value)) {
+            throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT,
+                    "text is not valid Unicode: it holds an unpaired surrogate");
+        }
+        return arena.allocateFrom(value);
+    }
+
+    static MemorySegment text(Arena arena, Map<String, Object> params, String name) {
         if (required(params, name) instanceof String value) {
-            return arena.allocateFrom(value);
+            return utf8(arena, value);
         }
         throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT, "parameter `" + name + "` must be a string");
     }
 
-    private static MemorySegment optionalText(Arena arena, Map<String, Object> params, String name) {
+    static MemorySegment optionalText(Arena arena, Map<String, Object> params, String name) {
         return params.get(name) == null ? MemorySegment.NULL : text(arena, params, name);
     }
 
-    private static int variant(Map<String, Object> params) {
+    static int variant(Map<String, Object> params) {
         Object value = params.get("variant");
         int index = value == null ? 0 : VARIANTS.indexOf(value);
         if (index < 0) {
@@ -437,7 +461,7 @@ final class LibraryBackend implements Backend {
         return index + 1;
     }
 
-    private static int limit(Map<String, Object> params) {
+    static int limit(Map<String, Object> params) {
         Object value = params.get("limit");
         if (value == null) {
             return 0;

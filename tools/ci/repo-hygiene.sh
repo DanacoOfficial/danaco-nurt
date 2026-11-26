@@ -152,6 +152,14 @@ case "${1:-}" in
     ;;
 esac
 
+case "$selected" in
+  *[!\ ]*) ;;
+  *)
+    echo "repo-hygiene: no checks selected" >&2
+    exit 2
+    ;;
+esac
+
 export LC_ALL=C
 
 if root=$(git rev-parse --show-toplevel 2>/dev/null); then
@@ -381,6 +389,16 @@ check_external_pattern() {
     cat "$NURT_HYGIENE_PATTERNS_FILE" >>"$work/external"
   fi
   tr -d '\r' <"$work/external" | grep -vE '^[[:space:]]*(#|$)' >"$work/external.p" || true
+  # grep exits with 2 for a pattern it cannot compile; the search below turns
+  # every failure of grep into "no match", so the patterns are checked first.
+  while IFS= read -r pattern; do
+    status=0
+    printf '' | grep -qE -e "$pattern" || status=$?
+    if [ "$status" -gt 1 ]; then
+      echo "repo-hygiene: an additional pattern is not a valid extended regular expression" >&2
+      exit 2
+    fi
+  done <"$work/external.p"
   if [ ! -s "$work/external.p" ]; then
     if [ "${NURT_HYGIENE_REQUIRE_EXTERNAL:-0}" = "1" ]; then
       echo "repo-hygiene: no additional patterns supplied (NURT_HYGIENE_PATTERNS)" >&2

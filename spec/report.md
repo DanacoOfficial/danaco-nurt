@@ -138,7 +138,7 @@ command that observed the condition.
 | `size_shrunk` | warning | report | size shrank by `shrink_ratio` (50%, files from 1 KiB) or more |
 | `many_per_file` | notice | report | `per_file_repl` (100) or more replacements in one file |
 | `target_count_high` | notice | report | `targets_high` (500) or more targets |
-| `nothing_matched` | notice | report | a changing stage received no targets |
+| `nothing_matched` | notice | report | a changing stage received no targets; never for `run`, which has no targets to select |
 | `unchanged` | info | command | a write produced identical content |
 | `binary_target` | warning | command | a binary file was changed |
 | `binary_skipped` | notice | command | binary files were skipped (`count`) |
@@ -168,7 +168,7 @@ command that observed the condition.
 | `semantic_fallback` | notice | command | a code operation fell back to syntax analysis |
 | `references_left` | notice | command | textual references to the old name remain |
 | `rename_incomplete` | warning | command | a rename did not reach every reference |
-| `detection_scope` | info | command | after `run`: changes outside `watch` are not detected |
+| `detection_scope` | info | command | after `run`: changes outside `watch` are not detected; with `track_changes: auto` the note also names the directories of other file systems that were not entered, or, when detection was skipped (file system root, more than 200 000 entries, a scan longer than 3 s), the reason and what to do |
 | `exit_nonzero` | notice | command | a program exited with a code other than zero; `count` holds the code |
 | `post_stages_deferred` | info | command | stages after the effect were skipped because the program moved to the background |
 | `rollback_partial` | warning | command | a rollback restored only part of the changes |
@@ -326,6 +326,43 @@ format for `text`, `markdown` and `compact`; it is absent for `json`, where
 the report is the result. A further page exists when `report.next_cursor` is
 present. `nurt_run_json`, the `run` and `page` methods of `nurt serve` and the
 `nurt` tool of the integrations return this document.
+
+### 10.1 Script with several pipelines
+
+A script (option `script`) whose execution ran more than one operation keeps
+the result of every pipeline. The response then holds `reports`, an array
+with one report per executed pipeline, in program order:
+
+```json
+{
+  "nurt": "1.0",
+  "report": { "nurt": "1.0", "status": "ok", "kind": "remove", "op": 21 },
+  "reports": [
+    { "nurt": "1.0", "status": "ok", "kind": "find",
+      "records": { "type": "row", "rows": [ { "value": 3 } ] } },
+    { "nurt": "1.0", "status": "ok", "kind": "remove", "op": 21,
+      "changes": [] }
+  ]
+}
+```
+
+- Each report of `reports` carries the `kind` of its own pipeline (the last
+  effect command of the pipeline, else its source command), the status and the
+  error of its own operation, and its own changes, notable and irreversible
+  effects, `op` and records.
+- `report` is the report of the whole program. Its `kind` is the last effect
+  command of the program, else the source command of the first pipeline. It
+  carries the changes, notable and irreversible effects and the error of every
+  operation, but no records, because the records belong to the report of their
+  pipeline.
+- A script stops at the first operation that ends with an error; `reports`
+  then ends with the report of that operation.
+- `rendered` holds the text of `report` followed by the text of every report
+  of `reports`, each starting on a new line.
+- The reports of `reports` are not paged and carry no `next_cursor`; the
+  paging and the result file (`save_to`) apply to `report`.
+- A program with a single operation has no `reports`; its `report` carries the
+  records as before.
 
 ## 11. Conformance
 

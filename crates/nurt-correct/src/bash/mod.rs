@@ -220,3 +220,78 @@ pub fn translate_with_table(
 ) -> Option<Result<Translation, Error>> {
     session::translate(input, context, table)
 }
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::error::ErrorCode;
+
+    use super::*;
+
+    fn failure(input: &str) -> Error {
+        translate_with(input, &TranslateContext::default())
+            .expect("a bash habit")
+            .expect_err("an error")
+    }
+
+    #[test]
+    fn sed_with_several_expressions_is_not_translated() {
+        assert_eq!(
+            failure("sed -i -e 's/a/b/' -e 's/c/d/' /srv/f").code(),
+            ErrorCode::Uncorrectable
+        );
+        assert!(translate("sed -i -e 's/a/b/' /srv/f").is_some());
+    }
+
+    #[test]
+    fn sed_replacement_with_case_conversion_is_not_translated() {
+        assert_eq!(
+            failure(r"sed -i 's/a/\U&/' /srv/f").code(),
+            ErrorCode::Uncorrectable
+        );
+    }
+
+    #[test]
+    fn env_prefix_keeps_the_text_of_a_quoted_value() {
+        let translation = translate("cd /srv/app && env FOO=\"a b\" make").expect("a bash habit");
+        assert_eq!(
+            translation.text(),
+            "run [\"make\"] cwd: \"/srv/app\" env: {\"FOO\": \"a b\"}"
+        );
+    }
+
+    #[test]
+    fn environment_values_with_expansions_are_rejected() {
+        for input in [
+            "cd /srv/app && export PATH=$PATH:/opt/bin && make",
+            "cd /srv/app && FOO=$BAR make",
+        ] {
+            assert_eq!(failure(input).code(), ErrorCode::Uncorrectable, "{input}");
+        }
+    }
+
+    #[test]
+    fn deeply_nested_prefixes_are_an_error_not_a_stack_overflow() {
+        let nested = format!("cd /srv/app && {}make", "time ".repeat(200));
+        assert_eq!(failure(&nested).code(), ErrorCode::Uncorrectable);
+        assert!(translate("cd /srv/app && time time make").is_some());
+    }
+
+    #[test]
+    fn remote_name_of_a_download_ignores_the_query() {
+        let context = TranslateContext {
+            base: Some("/srv/dl"),
+            ..TranslateContext::default()
+        };
+        let translation =
+            translate_with("curl -O 'https://example.com/a.tar.gz?token=1'", &context)
+                .expect("a bash habit")
+                .expect("a translation");
+        assert!(translation.text().contains("save: \"/srv/dl/a.tar.gz\""));
+    }
+
+    #[test]
+    fn multibyte_text_is_kept_in_a_translation() {
+        let translation = translate("rm -rf \"/srv/zażółć\"").expect("a bash habit");
+        assert_eq!(translation.text(), "remove \"/srv/zażółć\"");
+    }
+}

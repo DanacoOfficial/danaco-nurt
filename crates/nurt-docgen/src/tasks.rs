@@ -112,6 +112,15 @@ fn check_sheets(
     Ok(())
 }
 
+/// The single-line HTML comments at the start of a sheet, each with its line
+/// break: the producer header, which regenerating the sheet keeps.
+fn leading_comment_lines(text: &str) -> String {
+    text.lines()
+        .take_while(|line| line.starts_with("<!--") && line.ends_with("-->"))
+        .map(|line| format!("{line}\n"))
+        .collect()
+}
+
 /// Removes single-line HTML comments, which carry the producer header and are not generated.
 fn without_comment_lines(text: &str) -> String {
     text.lines()
@@ -165,7 +174,12 @@ pub fn write_cheatsheets(layout: &Layout) -> Result<Vec<PathBuf>> {
         let path = layout
             .cheatsheets()
             .join(cheatsheet::sheet_file_name(&table));
-        write_text(&path, &cheatsheet::render(&table))?;
+        let header = if path.exists() {
+            leading_comment_lines(&read_text(&path)?)
+        } else {
+            String::new()
+        };
+        write_text(&path, &format!("{header}{}", cheatsheet::render(&table)))?;
         written.push(path);
     }
     Ok(written)
@@ -228,6 +242,32 @@ mod tests {
         assert_eq!(written.len(), 1);
         let problems = check_repository(&layout, &CheckOptions::default()).expect("check runs");
         assert!(!problems.iter().any(|p| p.contains("not generated")));
+    }
+
+    #[test]
+    fn regenerating_a_sheet_keeps_its_producer_header() {
+        let dir = repository();
+        let table = TABLE.replace("find \\\"/home/user\\\" |> count", "count");
+        fs::write(
+            dir.path()
+                .join("docs")
+                .join("cheatsheets")
+                .join("bash.toml"),
+            table,
+        )
+        .expect("write");
+        let layout = Layout::new(dir.path());
+        let sheet = write_cheatsheets(&layout)
+            .expect("sheets written")
+            .remove(0);
+        let generated = fs::read_to_string(&sheet).expect("sheet");
+        let header = "<!-- Copyright (c) 2026 Example -->\n<!-- https://example.org -->\n";
+        fs::write(&sheet, format!("{header}{generated}")).expect("write");
+        write_cheatsheets(&layout).expect("sheets written again");
+        let again = fs::read_to_string(&sheet).expect("sheet");
+        assert_eq!(again, format!("{header}{generated}"));
+        assert_eq!(leading_comment_lines("text\n<!-- late -->\n"), "");
+        assert_eq!(leading_comment_lines(""), "");
     }
 
     #[test]

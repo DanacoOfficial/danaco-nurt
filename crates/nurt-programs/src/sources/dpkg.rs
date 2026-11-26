@@ -293,6 +293,10 @@ fn read_status(
 
 /// Executables of a package in binary directories, from its file list.
 fn executables(env: &HostEnv, package: &RawPackage) -> Vec<String> {
+    let is_file_stem = |text: &str| !text.contains(['/', '\\']);
+    if !is_file_stem(&package.name) || !package.architecture.as_deref().is_none_or(is_file_stem) {
+        return Vec::new();
+    }
     let info = Path::new(DPKG_DIR).join(INFO_DIR);
     let mut names = vec![format!("{}{LIST_SUFFIX}", package.name)];
     if let Some(arch) = &package.architecture {
@@ -466,6 +470,30 @@ Description: gone\n";
     fn list_keeps_only_binary_directories() {
         let list = "/.\n/usr\n/usr/bin\n/usr/bin/ls\n/usr/lib/x/ls\n/bin/cat\n/usr/share/man/man1/ls.1.gz\n";
         assert_eq!(list_executables(list), vec!["/usr/bin/ls", "/bin/cat"]);
+    }
+
+    fn package_named(name: &str, architecture: Option<&str>) -> RawPackage {
+        RawPackage {
+            name: name.to_owned(),
+            architecture: architecture.map(str::to_owned),
+            ..RawPackage::default()
+        }
+    }
+
+    #[test]
+    fn file_list_is_not_read_outside_the_info_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let info = dir.path().join("var/lib/dpkg/info");
+        std::fs::create_dir_all(&info).unwrap();
+        std::fs::write(info.join("tool.list"), "/usr/bin/tool\n").unwrap();
+        std::fs::write(info.join("../other.list"), "/usr/bin/leak\n").unwrap();
+        let env = HostEnv::new(nurt_contracts::env::Os::Linux).with_root(dir.path());
+        assert_eq!(
+            executables(&env, &package_named("tool", None)),
+            vec!["/usr/bin/tool"]
+        );
+        assert!(executables(&env, &package_named("../other", None)).is_empty());
+        assert!(executables(&env, &package_named("tool", Some("../other"))).is_empty());
     }
 
     #[test]

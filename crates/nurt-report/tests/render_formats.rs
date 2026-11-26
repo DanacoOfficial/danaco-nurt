@@ -11,8 +11,8 @@ mod common;
 
 use nurt_contracts::envelope::{OutputFormat, Verbosity};
 use nurt_contracts::error::ErrorCode;
-use nurt_contracts::record::{Change, ChangeAction};
-use nurt_contracts::report::{RecordsPage, Report, ReportStatus, Timing};
+use nurt_contracts::record::{Change, ChangeAction, Hunk};
+use nurt_contracts::report::{Notable, NotableEntry, RecordsPage, Report, ReportStatus, Timing};
 use nurt_contracts::value::{Record, RecordKind, Size, Value};
 use nurt_report::{RenderOptions, render, respond};
 use serde_json::json;
@@ -197,6 +197,102 @@ fn the_limit_option_sets_the_page_size() {
     assert!(text.ends_with("  \u{2026} 2 more changes"));
 }
 
+#[test]
+fn compact_and_markdown_count_the_changes_beyond_the_page_limit() {
+    let report = removal_of(120);
+    let compact = render(&report, &options(OutputFormat::Compact));
+    assert!(
+        compact
+            .lines()
+            .any(|line| line == "omitted changes=70 hunks=0 rows=0"),
+        "{compact}"
+    );
+    assert_eq!(
+        compact
+            .lines()
+            .filter(|line| line.starts_with("change delete "))
+            .count(),
+        50
+    );
+    let markdown = render(&report, &options(OutputFormat::Markdown));
+    assert!(markdown.ends_with("70 changes not shown"), "{markdown}");
+}
+
+#[test]
+fn a_file_name_with_a_line_break_stays_on_one_line_in_text() {
+    let mut report = Report::new(ReportStatus::Ok, "remove");
+    report
+        .changes
+        .push(Change::new("/srv/app/a\nb.tmp", ChangeAction::Delete));
+    report.notable.push(NotableEntry {
+        path: Some("/srv/app/a\nb.tmp".to_owned()),
+        ..NotableEntry::new(Notable::SystemPath)
+    });
+    let text = text_of(&report);
+    assert!(text.contains("\n  /srv/app/a\\nb.tmp  delete\n"), "{text}");
+    assert!(text.contains("system_path  /srv/app/a\\nb.tmp"), "{text}");
+    assert_eq!(text.lines().count(), 4, "{text}");
+}
+
+#[test]
+fn quiet_level_does_not_mention_the_omitted_changes() {
+    let quiet = RenderOptions {
+        verbosity: Verbosity::Quiet,
+        format: OutputFormat::Compact,
+        ..RenderOptions::default()
+    };
+    let compact = render(&removal_of(120), &quiet);
+    assert!(!compact.contains("omitted"), "{compact}");
+    let text = render(&removal_of(120), &with_verbosity(Verbosity::Quiet));
+    assert!(!text.contains("more changes"), "{text}");
+}
+
+#[test]
+fn one_change_beyond_the_page_limit_is_counted_in_the_singular() {
+    let text = text_of(&removal_of(51));
+    assert!(text.ends_with("  \u{2026} 1 more change"), "{text}");
+}
+
+fn report_with_output(count: usize) -> Report {
+    let lines: Vec<String> = (0..count).map(|index| format!("l{index}")).collect();
+    let mut report = Report::new(ReportStatus::Ok, "run");
+    report.exec = Some(
+        Record::new(RecordKind::Exec)
+            .with("stdout", Value::Text(lines.join("\n")))
+            .with("exit_code", Value::Int(0)),
+    );
+    report
+}
+
+#[test]
+fn long_output_is_cut_to_its_head_and_tail_except_at_the_detailed_level() {
+    let report = report_with_output(30);
+    let head: Vec<String> = (0..10).map(|index| format!("    l{index}")).collect();
+    let tail: Vec<String> = (20..30).map(|index| format!("    l{index}")).collect();
+    let cut = format!(
+        "  stdout head 10 / tail 10\n{}\n    \u{2026}\n{}",
+        head.join("\n"),
+        tail.join("\n")
+    );
+    let normal = render(&report, &with_verbosity(Verbosity::Normal));
+    assert!(normal.ends_with(&cut), "{normal}");
+    assert!(!normal.contains("l10"));
+
+    let detailed = render(&report, &with_verbosity(Verbosity::Detailed));
+    assert!(
+        detailed.contains("  stdout\n    l0\n    l1\n"),
+        "{detailed}"
+    );
+    assert!(detailed.ends_with("    l28\n    l29"), "{detailed}");
+}
+
+#[test]
+fn output_of_twenty_lines_is_not_cut() {
+    let text = render(&report_with_output(20), &with_verbosity(Verbosity::Normal));
+    assert!(text.contains("    l10\n"), "{text}");
+    assert!(!text.contains('\u{2026}'), "{text}");
+}
+
 fn entry(name: &str, depth: i64, directory: bool, size: u64) -> Record {
     let mut record = Record::new(RecordKind::Entry)
         .with("name", Value::Text(name.to_owned()))
@@ -238,6 +334,100 @@ fn entries_with_a_depth_are_drawn_as_a_tree_in_text() {
     ]
     .join("\n");
     assert_eq!(text_of(&report), expected);
+}
+
+fn found(path: &str, depth: i64, size: u64) -> Record {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    entry(name, depth, false, size).with("path", Value::Path(path.to_owned()))
+}
+
+#[test]
+fn matches_are_drawn_under_the_directories_of_their_paths() {
+    let report = listing(vec![
+        found("/srv/app/src/a.go", 2, 1127),
+        found("/srv/app/src/sub/b.go", 3, 8192),
+    ]);
+    let expected = [
+        "tree  matched 2 \u{b7} shown 2",
+        "`-- src/",
+        "    |-- a.go  1.1kib",
+        "    `-- sub/",
+        "        `-- b.go  8.0kib",
+    ]
+    .join("\n");
+    assert_eq!(text_of(&report), expected);
+}
+
+#[test]
+fn matches_are_drawn_under_their_directories_in_markdown() {
+    let report = listing(vec![found("/srv/app/src/a.go", 2, 1127)]);
+    let text = render(&report, &options(OutputFormat::Markdown));
+    assert!(
+        text.ends_with("```\n`-- src/\n    `-- a.go  1.1kib\n```"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_multi_line_value_stays_inside_its_table_cell_in_text() {
+    let row = |name: &str, text: &str| {
+        Record::new(RecordKind::Entry)
+            .with("name", Value::Text(name.to_owned()))
+            .with("text", Value::Text(text.to_owned()))
+    };
+    let report = listing(vec![row("a.txt", "one\ntwo\r\n"), row("b.txt", "x")]);
+    let expected = [
+        "tree  matched 2 \u{b7} shown 2",
+        "name   text",
+        "a.txt  one\\ntwo\\r\\n",
+        "b.txt  x",
+    ]
+    .join("\n");
+    assert_eq!(text_of(&report), expected);
+}
+
+#[test]
+fn a_multi_line_value_stays_on_one_line_in_compact() {
+    let report = listing(vec![
+        Record::new(RecordKind::Entry).with("text", Value::Text("one\ntwo".to_owned())),
+    ]);
+    let text = render(&report, &options(OutputFormat::Compact));
+    assert!(
+        text.lines().any(|line| line == "entry text=\"one\\ntwo\""),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_fence_in_a_hunk_does_not_close_the_markdown_block() {
+    let mut report = Report::new(ReportStatus::Ok, "replace");
+    report.diff.push(Hunk {
+        path: "/srv/app/README.md".into(),
+        lines: vec![
+            "+```rust".to_owned(),
+            "+fn main() {}".to_owned(),
+            "+```".to_owned(),
+        ],
+        ..Hunk::default()
+    });
+    let text = render(&report, &options(OutputFormat::Markdown));
+    assert!(
+        text.contains("````diff\n+```rust\n+fn main() {}\n+```\n````"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_fence_in_the_output_does_not_close_the_markdown_block() {
+    let mut report = Report::new(ReportStatus::Ok, "run");
+    report.exec = Some(
+        Record::new(RecordKind::Exec).with("stdout", Value::Text("```\ncode\n```\n".to_owned())),
+    );
+    let text = render(&report, &options(OutputFormat::Markdown));
+    assert!(
+        text.contains("**stdout**\n````\n```\ncode\n```\n````"),
+        "{text}"
+    );
 }
 
 #[test]
@@ -609,4 +799,167 @@ fn json_carries_the_result_file_and_validates() {
     let value: serde_json::Value = serde_json::from_str(&render(&report, &options)).unwrap();
     assert_eq!(value["result_file"], "/srv/results/work 1.txt");
     assert!(common::report_validator().is_valid(&value));
+}
+
+fn read_report(kind: &str, record_type: RecordKind, rows: Vec<Record>) -> Report {
+    let mut report = Report::new(ReportStatus::Ok, kind);
+    report.records = Some(RecordsPage {
+        record_type,
+        matched: Some(rows.len() as u64),
+        header: None,
+        rows,
+    });
+    report
+}
+
+/// Names in the header row of the table of a text rendering.
+fn table_columns(text: &str) -> Vec<String> {
+    text.lines()
+        .nth(1)
+        .unwrap()
+        .split_whitespace()
+        .map(str::to_owned)
+        .collect()
+}
+
+fn operation_row() -> Record {
+    Record::new(RecordKind::Operation)
+        .with("id", Value::Int(18))
+        .with("time", Value::Text("2026-11-21T09:12:00Z".to_owned()))
+        .with("kind", Value::Text("replace".to_owned()))
+        .with("action", Value::Text("apply".to_owned()))
+        .with("summary", Value::Text("3 files".to_owned()))
+        .with("state", Value::Enum("available".to_owned()))
+        .with("files", Value::Int(3))
+        .with("bytes", Value::Size(Size::from_bytes(2048)))
+        .with("bulk", Value::Bool(false))
+        .with("session", Value::Text("s1".to_owned()))
+        .with("ast_hash", Value::Text("sha256:aa".to_owned()))
+        .with("manifest_sha256", Value::Text("sha256:bb".to_owned()))
+        .with("pinned", Value::Bool(false))
+}
+
+#[test]
+fn text_of_the_history_shows_the_essential_columns_only() {
+    let report = read_report("history", RecordKind::Operation, vec![operation_row()]);
+    assert_eq!(
+        table_columns(&text_of(&report)),
+        ["id", "time", "kind", "state", "files", "bytes", "summary"]
+    );
+}
+
+#[test]
+fn the_history_shows_every_column_in_detailed_text_and_in_json() {
+    let report = read_report("history", RecordKind::Operation, vec![operation_row()]);
+    let detailed = RenderOptions {
+        verbosity: Verbosity::Detailed,
+        ..RenderOptions::default()
+    };
+    assert!(table_columns(&render(&report, &detailed)).contains(&"manifest_sha256".to_owned()));
+    let json = RenderOptions {
+        format: OutputFormat::Json,
+        ..RenderOptions::default()
+    };
+    let value: serde_json::Value = serde_json::from_str(&render(&report, &json)).unwrap();
+    assert!(!value["records"]["rows"][0]["fields"]["manifest_sha256"].is_null());
+}
+
+#[test]
+fn named_fields_override_the_default_columns() {
+    let report = read_report("history", RecordKind::Operation, vec![operation_row()]);
+    let options = RenderOptions {
+        fields: Some(vec!["id".to_owned(), "pinned".to_owned()]),
+        ..RenderOptions::default()
+    };
+    assert_eq!(table_columns(&render(&report, &options)), ["id", "pinned"]);
+}
+
+#[test]
+fn text_of_a_search_shows_the_position_and_the_matched_text() {
+    let row = Record::new(RecordKind::Match)
+        .with("path", Value::Path("/srv/app/a.go".to_owned()))
+        .with("no", Value::Int(12))
+        .with("column", Value::Int(5))
+        .with("start", Value::Int(240))
+        .with("end", Value::Int(247))
+        .with("text", Value::Text("oldName".to_owned()))
+        .with("line", Value::Text("func oldName() {".to_owned()))
+        .with("etag", Value::Text("sha256:cc".to_owned()));
+    let report = read_report("search", RecordKind::Match, vec![row]);
+    assert_eq!(
+        table_columns(&text_of(&report)),
+        ["path", "no", "column", "text"]
+    );
+}
+
+fn response_row() -> Record {
+    Record::new(RecordKind::Response)
+        .with("url", Value::Text("https://example.com/a".to_owned()))
+        .with("status", Value::Int(200))
+        .with("body", Value::Text("BODYTEXT of the page".to_owned()))
+        .with("bytes", Value::Size(Size::from_bytes(20)))
+        .with("elapsed", Value::Text("35ms".to_owned()))
+        .with("content_type", Value::Text("text/html".to_owned()))
+        .with("final_url", Value::Text("https://example.com/a".to_owned()))
+}
+
+#[test]
+fn text_of_a_response_does_not_print_the_body() {
+    let report = read_report("http.request", RecordKind::Response, vec![response_row()]);
+    let text = text_of(&report);
+    assert_eq!(
+        table_columns(&text),
+        ["url", "status", "bytes", "content_type", "elapsed"]
+    );
+    assert!(!text.contains("BODYTEXT"), "{text}");
+}
+
+#[test]
+fn the_body_of_a_response_is_printed_on_request() {
+    let report = read_report("http.request", RecordKind::Response, vec![response_row()]);
+    let options = RenderOptions {
+        fields: Some(vec!["status".to_owned(), "body".to_owned()]),
+        ..RenderOptions::default()
+    };
+    assert!(render(&report, &options).contains("BODYTEXT of the page"));
+    let detailed = RenderOptions {
+        verbosity: Verbosity::Detailed,
+        ..RenderOptions::default()
+    };
+    assert!(render(&report, &detailed).contains("BODYTEXT of the page"));
+}
+
+#[test]
+fn notes_without_a_detail_show_the_message_of_their_code() {
+    use nurt_contracts::report::{Notable, NotableEntry};
+
+    let mut report = Report::new(ReportStatus::Ok, "remove");
+    report.notable = vec![
+        NotableEntry::new(Notable::NothingMatched),
+        NotableEntry::new(Notable::DetectionScope),
+    ];
+    let text = text_of(&report);
+    assert!(
+        text.contains("nothing_matched  the program had no targets, so nothing was changed"),
+        "{text}"
+    );
+    assert!(
+        text.contains(
+            "detection_scope  changes made by the program outside the watched directories are not detected"
+        ),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_note_with_a_detail_keeps_its_own_text() {
+    use nurt_contracts::report::{Notable, NotableEntry};
+
+    let mut entry = NotableEntry::new(Notable::DetectionScope);
+    entry.detail = Some("changes outside /srv/app are not detected".to_owned());
+    let mut report = Report::new(ReportStatus::Ok, "run");
+    report.notable = vec![entry];
+    let text = text_of(&report);
+    assert!(text.contains("detection_scope  changes outside /srv/app are not detected"));
+    assert!(!text.contains("outside the watched directories"));
 }

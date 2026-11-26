@@ -149,11 +149,33 @@ fn walk(
     }
 }
 
+/// Largest magnitude of a floating point number that is converted to an
+/// integer for the exact comparison; it is below the range of `i128`.
+const EXACT_FLOAT_LIMIT: f64 = 1.0e38;
+
+fn integer_of(number: &serde_json::Number) -> Option<i128> {
+    number
+        .as_i64()
+        .map(i128::from)
+        .or_else(|| number.as_u64().map(i128::from))
+}
+
+/// Whether the floating point number `float` is exactly the integer `integer`.
+fn float_is(float: f64, integer: i128) -> bool {
+    float.is_finite()
+        && float.fract() == 0.0
+        && float.abs() < EXACT_FLOAT_LIMIT
+        && (float as i128) == integer
+}
+
+/// Compares two numbers by value: integers and integral floating point
+/// numbers are compared exactly, also beyond 2^53.
 fn numbers_equal(a: &serde_json::Number, b: &serde_json::Number) -> bool {
-    match (a.as_i64(), b.as_i64(), a.as_u64(), b.as_u64()) {
-        (Some(x), Some(y), _, _) => x == y,
-        (_, _, Some(x), Some(y)) => x == y,
-        _ => a.as_f64() == b.as_f64(),
+    match (integer_of(a), integer_of(b)) {
+        (Some(x), Some(y)) => x == y,
+        (Some(x), None) => b.as_f64().is_some_and(|float| float_is(float, x)),
+        (None, Some(y)) => a.as_f64().is_some_and(|float| float_is(float, y)),
+        (None, None) => a.as_f64() == b.as_f64(),
     }
 }
 
@@ -272,6 +294,30 @@ mod tests {
         assert_eq!(Match::from_name("exact"), Some(Match::Exact));
         assert_eq!(Match::from_name("subset"), Some(Match::Subset));
         assert_eq!(Match::from_name("fuzzy"), None);
+    }
+
+    #[test]
+    fn numbers_are_compared_exactly_beyond_2_pow_53() {
+        let same = |a: Value, b: Value| compare(&a, &b, Match::Exact).is_empty();
+        assert!(same(json!(1), json!(1.0)));
+        assert!(same(json!(-3), json!(-3.0)));
+        assert!(!same(json!(1), json!(1.5)));
+        assert!(same(
+            json!(9_007_199_254_740_992_u64),
+            json!(9_007_199_254_740_992.0)
+        ));
+        assert!(!same(
+            json!(9_007_199_254_740_993_u64),
+            json!(9_007_199_254_740_992.0)
+        ));
+        assert!(!same(
+            json!(9_007_199_254_740_993_u64),
+            json!(9_007_199_254_740_992_u64)
+        ));
+        assert!(!same(json!(-5), json!(u64::MAX)));
+        assert!(same(json!(u64::MAX), json!(u64::MAX)));
+        assert!(!same(json!(u64::MAX), json!(1.8446744073709552e19)));
+        assert!(same(json!(0.1), json!(0.1)));
     }
 
     #[test]

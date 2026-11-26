@@ -79,6 +79,9 @@ const RESET_MESSAGE: &str = "reset: moving to HEAD";
 /// Registration name used when the directory name has no usable character.
 const FALLBACK_NAME: &str = "worktree";
 
+/// Suffix that a reference name component must not end with.
+const LOCK_SUFFIX: &str = ".lock";
+
 /// Permission bits of executable files.
 #[cfg(unix)]
 const EXECUTABLE_MODE: u32 = 0o755;
@@ -329,14 +332,8 @@ pub fn apply_add(plan: &AddPlan, tx: &mut dyn MutationTx) -> Result<GitWorktree>
         writes.create_tree(&plan.path)?;
     }
     let dot_git = plan.path.join(DOT_GIT);
-    writes.create_file(
-        &dot_git,
-        format!("{GITDIR_PREFIX}{}\n", display_path(&registration)).into_bytes(),
-    )?;
-    writes.create_file(
-        &registration.join("gitdir"),
-        format!("{}\n", display_path(&dot_git)).into_bytes(),
-    )?;
+    writes.create_file(&dot_git, link_file(GITDIR_PREFIX, &registration))?;
+    writes.create_file(&registration.join("gitdir"), link_file("", &dot_git))?;
     writes.create_file(&registration.join("commondir"), COMMONDIR_CONTENT.to_vec())?;
     let head = match plan.full_branch() {
         Some(full) => format!("{SYMREF_PREFIX}{full}\n").into_bytes(),
@@ -362,6 +359,18 @@ pub fn apply_add(plan: &AddPlan, tx: &mut dyn MutationTx) -> Result<GitWorktree>
     writes.set_content(index_target, serialize_index(index, &index_path)?);
     writes.apply_rest(tx)?;
     Ok(plan.worktree())
+}
+
+/// Content of a link file between a working tree and its registration: the
+/// prefix, the bytes of the path with `/` separators and a line feed.
+fn link_file(prefix: &str, path: &Path) -> Vec<u8> {
+    let mut content = prefix.as_bytes().to_vec();
+    match gix::path::into_bstr(path) {
+        Ok(bytes) => content.extend_from_slice(&gix::path::to_unix_separators_on_windows(bytes)),
+        Err(_) => content.extend_from_slice(display_path(path).as_bytes()),
+    }
+    content.push(b'\n');
+    content
 }
 
 fn declare_branch(
@@ -862,7 +871,15 @@ fn registered(repo: &gix::Repository) -> Result<Vec<Registered>> {
         let Ok(gitdir) = std::fs::read(registration.join("gitdir")) else {
             continue;
         };
-        let gitdir = PathBuf::from(gitdir.trim().to_str_lossy().into_owned());
+        let gitdir = gix::path::from_bstr(gitdir.trim().as_bstr()).map_or_else(
+            |_| PathBuf::from(gitdir.trim().to_str_lossy().into_owned()),
+            std::borrow::Cow::into_owned,
+        );
+        let gitdir = if gitdir.is_relative() {
+            absolute_target(&registration, &gitdir)
+        } else {
+            gitdir
+        };
         let path = gitdir
             .parent()
             .map_or_else(|| gitdir.clone(), Path::to_path_buf);
@@ -891,13 +908,22 @@ fn common_dir(repo: &gix::Repository) -> PathBuf {
 }
 
 /// Directory of the main working tree and whether the repository is bare.
+///
+/// A repository directory that is not named `.git` belongs to the main
+/// working tree when the repository was opened from it, as with a separate
+/// git directory or a submodule.
 fn main_worktree(repo: &gix::Repository) -> (PathBuf, bool) {
     let common = common_dir(repo);
     match common.parent() {
         Some(parent) if common.file_name().is_some_and(|name| name == DOT_GIT) => {
             (parent.to_path_buf(), false)
         }
-        _ => (common.to_path_buf(), true),
+        _ => match repo.workdir() {
+            Some(workdir) if repo.git_dir() == repo.common_dir() => {
+                (absolute_target(workdir, Path::new("")), false)
+            }
+            _ => (common.to_path_buf(), true),
+        },
     }
 }
 
@@ -958,21 +984,29 @@ fn directory_name(path: &Path) -> String {
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let cleaned: String = raw
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
-                ch
-            } else {
-                '-'
-            }
-        })
-        .collect();
-    let cleaned = cleaned.trim_start_matches('.').trim_end_matches(".lock");
+    let mut cleaned = String::with_capacity(raw.len());
+    let mut last = '\0';
+    for ch in raw.chars() {
+        let forbidden = ch.is_ascii_control()
+            || matches!(ch, ' ' | '~' | '^' | ':' | '?' | '*' | '[' | '\\')
+            || (ch == '{' && last == '@');
+        let ch = if forbidden { '-' } else { ch };
+        if ch == '.' && last == '.' {
+            continue;
+        }
+        cleaned.push(ch);
+        last = ch;
+    }
+    while cleaned.ends_with(LOCK_SUFFIX) {
+        cleaned.truncate(cleaned.len() - LOCK_SUFFIX.len());
+    }
+    if cleaned.starts_with('.') {
+        cleaned.replace_range(..1, "-");
+    }
     if cleaned.is_empty() {
         FALLBACK_NAME.to_owned()
     } else {
-        cleaned.to_owned()
+        cleaned
     }
 }
 
@@ -1440,6 +1474,50 @@ mod tests {
     }
 
     #[test]
+    fn relative_gitdir_of_a_registration_is_resolved_against_the_registration() {
+        let fixture = Fixture::new(&[("a.txt", "a\n")]);
+        let journal = RecordingJournal::default();
+        let path = fixture.base().join("wt");
+        add(&fixture, &journal, &request(&path, Some("feat"), None));
+        std::fs::write(
+            fixture.root.join(".git/worktrees/wt/gitdir"),
+            "../../../../wt/.git\n",
+        )
+        .unwrap();
+        let records = list(&fixture.root).unwrap();
+        assert_eq!(records[1].path.as_str(), display_path(&path));
+        assert_eq!(records[1].prunable, Some(false));
+        let plan = plan_remove(
+            &fixture.root,
+            &RemoveRequest {
+                path: path.clone(),
+                force: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(plan.path(), path.as_path());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn main_working_tree_with_a_separate_git_directory_is_not_bare() {
+        let fixture = Fixture::new(&[("a.txt", "a\n")]);
+        let separate = fixture.base().join("separate.git");
+        std::fs::rename(fixture.root.join(".git"), &separate).unwrap();
+        std::fs::write(
+            fixture.root.join(".git"),
+            format!("gitdir: {}\n", separate.display()),
+        )
+        .unwrap();
+        let records = list(&fixture.root).unwrap();
+        assert_eq!(records.len(), 1);
+        assert!(records[0].main);
+        assert!(!records[0].bare);
+        assert_eq!(records[0].path.as_str(), display_path(&fixture.root));
+        assert_eq!(records[0].branch.as_deref(), Some("main"));
+    }
+
+    #[test]
     fn remove_clean_working_tree_and_undo_restores_directory_and_registration() {
         let fixture = Fixture::new(&[("a.txt", "a\n"), ("d/b.txt", "b\n")]);
         let journal = RecordingJournal::default();
@@ -1527,8 +1605,53 @@ mod tests {
     #[test]
     fn registration_names_and_paths_are_normalized() {
         assert_eq!(directory_name(Path::new("/srv/my tree")), "my-tree");
-        assert_eq!(directory_name(Path::new("/srv/.hidden")), "hidden");
+        assert_eq!(directory_name(Path::new("/srv/.hidden")), "-hidden");
         assert_eq!(directory_name(Path::new("/")), FALLBACK_NAME);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn link_files_keep_the_bytes_of_a_non_utf8_path() {
+        use std::os::unix::ffi::OsStrExt;
+        let fixture = Fixture::new(&[("a.txt", "a\n")]);
+        let journal = RecordingJournal::default();
+        let path = fixture.base().join(std::ffi::OsStr::from_bytes(b"w\xfft"));
+        add(&fixture, &journal, &request(&path, Some("feat"), None));
+        let registration = fixture.root.join(".git/worktrees/w\u{fffd}t");
+        let mut expected = path.join(".git").as_os_str().as_bytes().to_vec();
+        expected.push(b'\n');
+        assert_eq!(
+            std::fs::read(registration.join("gitdir")).unwrap(),
+            expected
+        );
+        let mut expected = b"gitdir: ".to_vec();
+        expected.extend_from_slice(registration.as_os_str().as_bytes());
+        expected.push(b'\n');
+        assert_eq!(std::fs::read(path.join(".git")).unwrap(), expected);
+        assert_eq!(
+            list(&fixture.root).unwrap()[1].path.as_str(),
+            display_path(&path)
+        );
+    }
+
+    #[test]
+    fn registration_names_follow_the_sanitizing_of_git() {
+        let name = |text: &str| directory_name(&Path::new("/srv").join(text));
+        assert_eq!(name("a  b"), "a--b");
+        assert_eq!(name("my+app"), "my+app");
+        assert_eq!(name("zażółć"), "zażółć");
+        assert_eq!(name("a...b"), "a.b");
+        assert_eq!(name("..lead"), "-lead");
+        assert_eq!(name("x~y^z:w?v*u[t"), "x-y-z-w-v-u-t");
+        assert_eq!(name("tab\tx"), "tab-x");
+        assert_eq!(name("a@{b"), "a@-b");
+        assert_eq!(name("z.lock.lock"), "z");
+        assert_eq!(name("ends."), "ends.");
+        assert_eq!(name(".lock"), FALLBACK_NAME);
+    }
+
+    #[test]
+    fn paths_are_taken_relative_to_the_repository() {
         assert_eq!(
             absolute_target(Path::new("/srv/repo"), Path::new("../wt/./a")),
             PathBuf::from("/srv/wt/a")

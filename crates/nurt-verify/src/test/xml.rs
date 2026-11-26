@@ -44,6 +44,11 @@ pub(crate) struct Parsed {
     pub(crate) error: Option<String>,
 }
 
+/// Deepest nesting of elements that is read; the readers of the tree and its
+/// destructor recurse, so a document nested without limit would end the
+/// process with a stack overflow.
+const DEPTH_MAX: usize = 512;
+
 /// Reads a document into a tree under an unnamed root element.
 pub(crate) fn parse(text: &str) -> Parsed {
     let mut reader = Reader::from_str(text);
@@ -51,6 +56,12 @@ pub(crate) fn parse(text: &str) -> Parsed {
     let mut error = None;
     loop {
         match reader.read_event() {
+            Ok(Event::Start(_)) if stack.len() > DEPTH_MAX => {
+                error = Some(format!(
+                    "the document nests elements deeper than {DEPTH_MAX} levels"
+                ));
+                break;
+            }
             Ok(Event::Start(start)) => stack.push(element(&start)),
             Ok(Event::Empty(start)) => attach(&mut stack, element(&start)),
             Ok(Event::End(_)) => {
@@ -134,5 +145,44 @@ fn resolve(reference: &quick_xml::events::BytesRef<'_>) -> String {
         "quot" => "\"".to_owned(),
         "apos" => "'".to_owned(),
         other => format!("&{other};"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DEPTH_MAX, parse};
+    use crate::test::frameworks::junit::{self, Flavor};
+
+    #[test]
+    fn nested_elements_up_to_the_limit_are_read() {
+        let text = format!("{}{}", "<a>".repeat(DEPTH_MAX), "</a>".repeat(DEPTH_MAX));
+        let parsed = parse(&text);
+        assert_eq!(parsed.error, None);
+        let mut depth = 0;
+        let mut element = &parsed.root;
+        while let Some(child) = element.children.first() {
+            depth += 1;
+            element = child;
+        }
+        assert_eq!(depth, DEPTH_MAX);
+    }
+
+    #[test]
+    fn deeper_nesting_is_reported_instead_of_overflowing_the_stack() {
+        let text = "<a>".repeat(200_000);
+        let parsed = parse(&text);
+        let reason = parsed.error.unwrap();
+        assert!(reason.contains("deeper"), "{reason}");
+    }
+
+    #[test]
+    fn junit_report_nested_without_limit_is_a_parse_error_with_partial_results() {
+        let text = format!(
+            "<testsuites><testsuite name=\"s\"><testcase name=\"a\" classname=\"c\"/>{}",
+            "<testsuite>".repeat(100_000)
+        );
+        let failure = junit::parse(&text, Flavor::Pytest, None).unwrap_err();
+        assert_eq!(failure.partial.len(), 1);
+        assert_eq!(failure.partial[0].name, "a");
     }
 }

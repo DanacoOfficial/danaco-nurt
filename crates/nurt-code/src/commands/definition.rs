@@ -107,7 +107,6 @@ impl ReadStage for CodeDefinition {
 pub(crate) mod shared {
     use std::cell::RefCell;
     use std::collections::{HashMap, HashSet};
-    use std::io::Read;
     use std::path::{Path, PathBuf};
     use std::rc::Rc;
     use std::sync::LazyLock;
@@ -125,7 +124,7 @@ pub(crate) mod shared {
     use nurt_contracts::value::{Path as RecordPath, Value};
     use regex::Regex;
 
-    use crate::index::content_hash;
+    use crate::index::{content_hash, read_bounded};
     use crate::semantic::{
         DocumentPosition, Location, SemanticProvider, SemanticResult, SemanticScope,
     };
@@ -348,15 +347,44 @@ pub(crate) mod shared {
         }
 
         /// Files under `root` accepted by `accept`, in path order, skipping
-        /// [`SKIPPED_DIRECTORIES`], no more than `code.index_max_files`.
-        pub(crate) fn walk(&self, root: &Path, accept: &dyn Fn(&Path) -> bool) -> Vec<PathBuf> {
+        /// [`SKIPPED_DIRECTORIES`], no more than `code.index_max_files`; the
+        /// flag is `true` when accepted files were left out because of the
+        /// limit, and then a `source_unavailable` note is recorded.
+        ///
+        /// # Errors
+        ///
+        /// Fails when the execution is cancelled.
+        pub(crate) fn walk(
+            &self,
+            root: &Path,
+            accept: &dyn Fn(&Path) -> bool,
+        ) -> Result<(Vec<PathBuf>, bool)> {
+            let found = self.walk_limited(root, accept)?;
+            if found.1 {
+                let mut note = NotableEntry::new(Notable::SourceUnavailable);
+                note.path = Some(root.to_string_lossy().into_owned());
+                note.detail = Some(format!(
+                    "the file listing stopped at code.index_max_files ({}) files; narrow the search or raise the limit",
+                    self.ctx.config().code.index_max_files
+                ));
+                self.ctx.note(note);
+            }
+            Ok(found)
+        }
+
+        fn walk_limited(
+            &self,
+            root: &Path,
+            accept: &dyn Fn(&Path) -> bool,
+        ) -> Result<(Vec<PathBuf>, bool)> {
             let max = usize::try_from(self.ctx.config().code.index_max_files).unwrap_or(usize::MAX);
             let Ok(fs) = self.ctx.require_fs() else {
-                return Vec::new();
+                return Ok((Vec::new(), false));
             };
             let mut found = Vec::new();
             let mut pending = vec![root.to_path_buf()];
             while let Some(directory) = pending.pop() {
+                self.ctx.checkpoint()?;
                 let Ok(absolute) = AbsPath::new(&directory) else {
                     continue;
                 };
@@ -381,17 +409,17 @@ pub(crate) mod shared {
                             }
                         }
                         Some(FileKind::File) if accept(&path) => {
-                            found.push(path);
                             if found.len() >= max {
-                                return found;
+                                return Ok((found, true));
                             }
+                            found.push(path);
                         }
                         _ => {}
                     }
                 }
                 pending.extend(directories.into_iter().rev());
             }
-            found
+            Ok((found, false))
         }
     }
 
@@ -401,23 +429,27 @@ pub(crate) mod shared {
         let mut handle = fs.open_read(&absolute).map_err(Error::from)?;
         let meta = handle.meta().map_err(Error::from)?;
         let max = ctx.config().code.file_bytes_max.bytes();
-        if meta.size > max {
-            return Err(Error::new(
+        let too_large = |size: u64| {
+            Error::new(
                 ErrorCode::Limit,
                 format!(
-                    "{} has {} bytes, more than code.file_bytes_max ({max}); raise the limit to analyse it",
-                    path.display(),
-                    meta.size
+                    "{} has {size} bytes, more than code.file_bytes_max ({max}); raise the limit to analyse it",
+                    path.display()
                 ),
-            ));
+            )
+        };
+        if meta.size > max {
+            return Err(too_large(meta.size));
         }
-        let mut bytes = Vec::new();
-        handle.read_to_end(&mut bytes).map_err(|error| {
+        let read = read_bounded(&mut handle, max).map_err(|error| {
             Error::new(
                 ErrorCode::Io,
                 format!("cannot read {}: {error}", path.display()),
             )
         })?;
+        let Some(bytes) = read else {
+            return Err(too_large(max.saturating_add(1)));
+        };
         let etag = content_hash(&bytes).to_string();
         let text = String::from_utf8(bytes).map_err(|_| {
             Error::new(
@@ -904,7 +936,10 @@ pub(crate) mod shared {
             language: target.language_name(),
             source,
             etag: file.map(|file| file.etag.clone()).unwrap_or_default(),
-            end_column: Some(u64::from(location.end.column)),
+            end_column: Some(u64::from(
+                info.as_ref()
+                    .map_or(location.end.column, |info| info.span.end.column),
+            )),
             container: info.as_ref().and_then(|info| info.container.clone()),
             signature: info
                 .as_ref()
@@ -937,7 +972,7 @@ pub(crate) mod shared {
                 .as_ref()
                 .map(|file| file.etag.clone())
                 .unwrap_or_default(),
-            end_column: Some(u64::from(info.name_span.end.column)),
+            end_column: Some(u64::from(info.span.end.column)),
             container: info.container.clone(),
             signature: info
                 .signature
@@ -953,16 +988,24 @@ pub(crate) mod shared {
     }
 
     /// Files of the project in the language of the target.
-    pub(crate) fn project_files(ctx: &ExecCtx, files: &Files<'_>, target: &Target) -> Vec<PathBuf> {
+    ///
+    /// # Errors
+    ///
+    /// Fails when the execution is cancelled.
+    pub(crate) fn project_files(
+        ctx: &ExecCtx,
+        files: &Files<'_>,
+        target: &Target,
+    ) -> Result<Vec<PathBuf>> {
         let (Some(code), Some(language)) = (ctx.code(), target.language.as_ref()) else {
-            return vec![target.path.clone()];
+            return Ok(vec![target.path.clone()]);
         };
         let accept = |path: &Path| code.language_of(Some(path), &[]).as_ref() == Some(language);
-        let mut paths = files.walk(&target.root, &accept);
+        let (mut paths, _) = files.walk(&target.root, &accept)?;
         if !paths.contains(&target.path) {
             paths.insert(0, target.path.clone());
         }
-        paths
+        Ok(paths)
     }
 
     /// Definitions of the identifier at the target found by syntax
@@ -978,7 +1021,7 @@ pub(crate) mod shared {
         let (code, language) = require_code(ctx, target.language.as_ref(), &target.path)?;
         let mut found = Vec::new();
         let mut seen = HashSet::new();
-        for path in project_files(ctx, files, target) {
+        for path in project_files(ctx, files, target)? {
             ctx.checkpoint()?;
             let Some(file) = files.get(&path) else {
                 continue;
@@ -1022,7 +1065,7 @@ pub(crate) mod shared {
         };
         let (code, language) = require_code(ctx, target.language.as_ref(), &target.path)?;
         let paths = if whole_project {
-            project_files(ctx, files, target)
+            project_files(ctx, files, target)?
         } else {
             vec![target.path.clone()]
         };

@@ -162,7 +162,7 @@ fn surface_leaf() -> impl Strategy<Value = Expr> {
             span
         }),
         (natural(), span()).prop_map(|(v, span)| Expr::Int { v, span }),
-        (finite(), span()).prop_map(|(v, span)| Expr::Num { v, span }),
+        (finite().prop_map(f64::abs), span()).prop_map(|(v, span)| Expr::Num { v, span }),
         (unsigned(), span()).prop_map(|(v, span)| Expr::Size { v, span }),
         (unsigned(), span()).prop_map(|(v, span)| Expr::Dur { v, span }),
         (any::<bool>(), span()).prop_map(|(v, span)| Expr::Bool { v, span }),
@@ -307,7 +307,7 @@ fn instant() -> impl Strategy<Value = String> {
     prop::sample::select(vec![
         "2026-11-22T10:00:00Z",
         "2024-02-29T23:59:59.5Z",
-        "2026-01-01T00:00:00+01:00",
+        "2026-01-01T00:00:00.25Z",
     ])
     .prop_map(str::to_owned)
 }

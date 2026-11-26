@@ -58,7 +58,7 @@ make_release() {
   printf '#!/bin/sh\necho "Danaco Nurt %s"\n' "$version" >"$stage/nurt"
   chmod +x "$stage/nurt"
   tar -czf "$dir/nurt-$version-$target.tar.gz" -C "$stage" nurt
-  (cd "$dir" && sha256sum "nurt-$version-$target.tar.gz" >SHA256SUMS)
+  (cd "$dir" && sha256sum "nurt-$version-$target.tar.gz" >checksums.txt)
 }
 
 run_install() {
@@ -101,7 +101,21 @@ expect 'fails when no release matches' failed_with 'no release matches version'
 run_install bogus "$work/bin-bogus"
 expect 'rejects an invalid version' failed_with 'invalid version'
 
-printf '%064d  nurt-1.2.3-%s.tar.gz\n' 0 "$target" >"$work/release/v1.2.3/SHA256SUMS"
+run_install 1.2.3/../../x "$work/bin-traversal"
+expect 'rejects a version with path separators' failed_with 'invalid version'
+
+nested=$(mktemp -d "$work/stage.XXXXXX")
+mkdir -p "$nested/nurt-3.0.0-$target"
+printf '#!/bin/sh\necho "Danaco Nurt 3.0.0"\n' >"$nested/nurt-3.0.0-$target/nurt"
+chmod +x "$nested/nurt-3.0.0-$target/nurt"
+mkdir -p "$work/release/v3.0.0"
+tar -czf "$work/release/v3.0.0/nurt-3.0.0-$target.tar.gz" -C "$nested" "nurt-3.0.0-$target"
+(cd "$work/release/v3.0.0" && sha256sum "nurt-3.0.0-$target.tar.gz" >checksums.txt)
+run_install 3.0.0 "$work/bin-nested"
+expect 'installs an archive with the top directory of the release layout' succeeded
+expect 'executable of the nested archive runs' prints "$work/bin-nested/nurt" 'Danaco Nurt 3.0.0'
+
+printf '%064d  nurt-1.2.3-%s.tar.gz\n' 0 "$target" >"$work/release/v1.2.3/checksums.txt"
 run_install 1.2.3 "$work/bin-tampered"
 expect 'fails on checksum mismatch' failed_with 'checksum mismatch'
 expect 'installs nothing after a checksum mismatch' missing "$work/bin-tampered/nurt"

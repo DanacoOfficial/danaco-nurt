@@ -29,8 +29,10 @@ use crate::registry::Registry;
 /// Directory of the indexes inside the state directory.
 pub const INDEX_DIRECTORY: &str = "code-index";
 
-/// Version of the stored form.
-const FORMAT: u32 = 1;
+/// Version of the stored form. Version 2 adds the status change time and the
+/// identity of every file; an index of an older version is ignored and
+/// rebuilt.
+const FORMAT: u32 = 2;
 
 /// Hexadecimal digits of the root digest used in file names.
 const KEY_DIGITS: usize = 16;
@@ -146,6 +148,24 @@ mod tests {
         assert_eq!(load(&file, Path::new("/other"), "s1"), None);
         let leftovers = fs::read_dir(file.parent().unwrap()).unwrap().count();
         assert_eq!(leftovers, 1);
+    }
+
+    #[test]
+    fn index_of_the_previous_format_is_ignored() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Path::new("/repo");
+        let file = index_file(directory.path(), root);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        let older = format!(
+            "{{\"format\":1,\"stamp\":\"s1\",\"root\":\"/repo\",\"files\":[{{\"path\":\"/repo/a.rs\",\"language\":null,\"size\":1,\"modified_ns\":1,\"etag\":\"sha256:00\",\"symbols\":[]}}]}}"
+        );
+        fs::write(&file, older).unwrap();
+        assert_eq!(load(&file, root, "s1"), None);
+        let current =
+            format!("{{\"format\":{FORMAT},\"stamp\":\"s1\",\"root\":\"/repo\",\"files\":[]}}");
+        fs::write(&file, current).unwrap();
+        assert_eq!(load(&file, root, "s1"), Some(Vec::new()));
+        assert_eq!(FORMAT, 2);
     }
 
     #[test]

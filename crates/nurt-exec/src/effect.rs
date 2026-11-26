@@ -12,12 +12,15 @@ use nurt_contracts::bound::{
     BoundStatement,
 };
 use nurt_contracts::error::{Error, ErrorCode, Result};
+use nurt_contracts::fs::FileKind;
 use nurt_contracts::journal::{
     BeginRequest, JournalStore, MutationTx, OpHandle, OpKind, RollbackReason, SessionId,
     TargetAction, TargetPath,
 };
 use nurt_contracts::record::Change;
-use nurt_contracts::report::{Correction, IrreversibleEntry, NotableEntry};
+use nurt_contracts::report::{
+    Correction, FLAG_DIRECTORY, IrreversibleEntry, NotableEntry, tree_counts,
+};
 use nurt_contracts::stage::{BoundArgs, EffectOutcome, EffectPlan, ExecCtx, ExecStep};
 use serde_json::json;
 
@@ -217,13 +220,19 @@ pub(crate) fn change_facts(changes: Vec<Change>, handle: Option<&OpHandle>) -> V
                     .iter()
                     .find(|target| target_text(&target.path) == change.path.as_str())
             });
-            let entry = target.and_then(|target| {
+            let journaled = target.and_then(|target| {
                 if target.before.exists {
                     target.before.kind
                 } else {
                     target.after.as_ref().and_then(|after| after.kind)
                 }
             });
+            let noted_directory = change
+                .flags
+                .as_ref()
+                .is_some_and(|flags| flags.iter().any(|flag| flag == FLAG_DIRECTORY));
+            let entry = journaled.or_else(|| noted_directory.then_some(FileKind::Directory));
+            let inside = change.flags.as_deref().and_then(tree_counts);
             let replaced = target.is_some_and(|target| {
                 target.before.exists && matches!(target.action, TargetAction::Replace)
             });
@@ -231,6 +240,7 @@ pub(crate) fn change_facts(changes: Vec<Change>, handle: Option<&OpHandle>) -> V
                 change,
                 entry,
                 replaced_existing: flagged || replaced,
+                inside,
             }
         })
         .collect()
@@ -298,6 +308,26 @@ mod tests {
         assert!(!facts[1].replaced_existing);
         assert_eq!(facts[2].entry, None);
         assert!(facts[2].replaced_existing);
+    }
+
+    #[test]
+    fn notes_give_the_kind_and_the_content_of_a_directory_without_a_journal_target() {
+        let mut tree = Change::new("/tree", ChangeAction::Delete);
+        tree.flags = Some(
+            ["recursive".to_owned()]
+                .into_iter()
+                .chain(nurt_contracts::report::tree_flags(4, 2))
+                .collect(),
+        );
+        let plain = Change::new("/plain", ChangeAction::Delete);
+        let facts = change_facts(vec![tree.clone(), plain], None);
+        assert_eq!(facts[0].entry, Some(FileKind::Directory));
+        assert_eq!(facts[0].inside, Some((4, 2)));
+        assert_eq!(facts[1].entry, None);
+        assert_eq!(facts[1].inside, None);
+        let handle = handle(vec![outcome("/tree", TargetAction::Delete, FileKind::File)]);
+        let facts = change_facts(vec![tree], Some(&handle));
+        assert_eq!(facts[0].entry, Some(FileKind::File));
     }
 
     #[test]

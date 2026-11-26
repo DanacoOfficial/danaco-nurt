@@ -15,11 +15,13 @@
 //! `help_status`.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use nurt_contracts::env::Os;
 use nurt_contracts::services::{EnvVar, ProgramInput, ProgramSpec};
 use nurt_contracts::stage::ExecCtx;
+use sha2::{Digest, Sha256};
 
 use crate::source::HostEnv;
 use crate::text::decode;
@@ -48,6 +50,8 @@ const MACHO_MAGICS: &[[u8; 4]] = &[
 const WINDOWS_SYSTEM_DIR: &str = "\\windows\\system32\\";
 const WINDOWS_EXECUTABLES: &[&str] = &[".exe", ".com"];
 const TEMP_PREFIX: &str = "nurt-help-";
+/// Hexadecimal digits of the name of a working directory.
+const SCRATCH_NAME_DIGITS: usize = 32;
 
 /// Outcome of reading the help of a program.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,7 +116,9 @@ impl HelpResult {
 /// name, `a|b` lists alternatives).
 #[must_use]
 pub fn refusal(env: &HostEnv, path: &Path, patterns: &[String]) -> Option<String> {
-    let file_name = path.file_name()?.to_str()?;
+    let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+        return Some("the file name is missing or not valid Unicode".to_owned());
+    };
     let name = env
         .command_name(file_name)
         .unwrap_or_else(|| file_name.to_owned())
@@ -186,14 +192,56 @@ pub fn help_command(env: &HostEnv, path: &Path) -> Vec<String> {
     vec![text, argument.to_owned()]
 }
 
+/// Locales of the languages whose region differs from the language code or
+/// that are common; other languages use [`FALLBACK_LOCALE`].
+const LOCALES: &[(&str, &str)] = &[
+    ("ar", "ar_SA"),
+    ("bg", "bg_BG"),
+    ("cs", "cs_CZ"),
+    ("da", "da_DK"),
+    ("de", "de_DE"),
+    ("el", "el_GR"),
+    ("es", "es_ES"),
+    ("et", "et_EE"),
+    ("fi", "fi_FI"),
+    ("fr", "fr_FR"),
+    ("he", "he_IL"),
+    ("hi", "hi_IN"),
+    ("hr", "hr_HR"),
+    ("hu", "hu_HU"),
+    ("it", "it_IT"),
+    ("ja", "ja_JP"),
+    ("ko", "ko_KR"),
+    ("lt", "lt_LT"),
+    ("lv", "lv_LV"),
+    ("nb", "nb_NO"),
+    ("nl", "nl_NL"),
+    ("pl", "pl_PL"),
+    ("pt", "pt_PT"),
+    ("ro", "ro_RO"),
+    ("ru", "ru_RU"),
+    ("sk", "sk_SK"),
+    ("sl", "sl_SI"),
+    ("sr", "sr_RS"),
+    ("sv", "sv_SE"),
+    ("tr", "tr_TR"),
+    ("uk", "uk_UA"),
+    ("vi", "vi_VN"),
+    ("zh", "zh_CN"),
+];
+/// Locale of English and of languages without an entry in [`LOCALES`].
+const FALLBACK_LOCALE: &str = "C.UTF-8";
+
 /// Locale variables for the preferred language of the environment.
 fn locale_vars(env: &HostEnv) -> Vec<EnvVar> {
     let language = env.languages().first().map_or("en", String::as_str);
-    let locale = if language == "en" {
-        "C.UTF-8".to_owned()
-    } else {
-        format!("{language}_{}.UTF-8", language.to_uppercase())
-    };
+    let locale = LOCALES
+        .iter()
+        .find(|(code, _)| *code == language)
+        .map_or_else(
+            || FALLBACK_LOCALE.to_owned(),
+            |(_, locale)| format!("{locale}.UTF-8"),
+        );
     ["LC_ALL", "LANG"]
         .into_iter()
         .map(|name| EnvVar {
@@ -201,6 +249,57 @@ fn locale_vars(env: &HostEnv) -> Vec<EnvVar> {
             value: Some(locale.clone()),
         })
         .collect()
+}
+
+/// Attempts to create a private directory with a name that cannot be guessed.
+const SCRATCH_ATTEMPTS: usize = 8;
+
+/// Working directory of a started program, removed when dropped.
+struct Scratch(PathBuf);
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ignored = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// Creates an empty directory below `parent` that only the account can
+/// enter. The name derives from the process, the time, a counter and the
+/// thread; the directory is created exclusively, so an existing name, also a
+/// link planted by another account, is never reused.
+fn private_directory(parent: &Path, nanos: i128) -> std::io::Result<Scratch> {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    std::fs::create_dir_all(parent)?;
+    let mut last = std::io::Error::other("no directory name was tried");
+    for _ in 0..SCRATCH_ATTEMPTS {
+        let mut hasher = Sha256::new();
+        hasher.update(std::process::id().to_le_bytes());
+        hasher.update(nanos.to_le_bytes());
+        hasher.update(COUNTER.fetch_add(1, Ordering::Relaxed).to_le_bytes());
+        hasher.update(format!("{:?}", std::thread::current().id()).as_bytes());
+        let digest = hex::encode(hasher.finalize());
+        let directory = parent.join(format!("{TEMP_PREFIX}{}", &digest[..SCRATCH_NAME_DIGITS]));
+        match create_private(&directory) {
+            Ok(()) => return Ok(Scratch(directory)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => last = error,
+            Err(error) => return Err(error),
+        }
+    }
+    Err(last)
+}
+
+#[cfg(unix)]
+fn create_private(directory: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    const OWNER_ONLY: u32 = 0o700;
+    std::fs::DirBuilder::new()
+        .mode(OWNER_ONLY)
+        .create(directory)
+}
+
+#[cfg(not(unix))]
+fn create_private(directory: &Path) -> std::io::Result<()> {
+    std::fs::DirBuilder::new().create(directory)
 }
 
 /// Runs the program at host path `path` once for its help.
@@ -212,23 +311,21 @@ pub fn read_help(ctx: &ExecCtx, env: &HostEnv, path: &Path, timeout: Duration) -
     let Some(host) = ctx.process() else {
         return HelpResult::refused("program launching is not available");
     };
-    let directory = ctx.host().info().temp.join(format!(
-        "{TEMP_PREFIX}{}-{}",
-        std::process::id(),
-        ctx.clock().now().unix_nanos()
-    ));
-    if let Err(error) = std::fs::create_dir_all(&directory) {
-        return HelpResult::refused(format!("cannot create a working directory: {error}"));
-    }
+    let scratch = match private_directory(&ctx.host().info().temp, ctx.clock().now().unix_nanos()) {
+        Ok(scratch) => scratch,
+        Err(error) => {
+            return HelpResult::refused(format!("cannot create a working directory: {error}"));
+        }
+    };
     let command = help_command(env, path);
-    let mut spec = ProgramSpec::new(command[0].clone(), command[1..].to_vec(), directory.clone());
+    let mut spec = ProgramSpec::new(command[0].clone(), command[1..].to_vec(), scratch.0.clone());
     spec.env = locale_vars(env);
     spec.stdin = ProgramInput::Null;
     spec.timeout_ms = Some(u64::try_from(timeout.as_millis()).unwrap_or(u64::MAX));
     spec.output_limit = Some(HELP_MAX_BYTES);
     spec.detect_changes = true;
     let outcome = host.run_program(&spec, ctx.cancel());
-    let _ignored = std::fs::remove_dir_all(&directory);
+    drop(scratch);
     let mut result = HelpResult {
         text: None,
         status: HelpStatus::Failed,
@@ -285,6 +382,68 @@ mod tests {
                 .unwrap()
                 .contains("search path")
         );
+    }
+
+    fn locale_of(language: &str) -> String {
+        let env = HostEnv::new(Os::Linux).with_languages(vec![language.to_owned()]);
+        let vars = locale_vars(&env);
+        assert_eq!(vars.len(), 2);
+        assert_eq!(vars[0].value, vars[1].value);
+        vars[0].value.clone().unwrap()
+    }
+
+    #[test]
+    fn locale_names_are_valid_and_never_invented() {
+        assert_eq!(locale_of("en"), "C.UTF-8");
+        assert_eq!(locale_of("pl"), "pl_PL.UTF-8");
+        assert_eq!(locale_of("cs"), "cs_CZ.UTF-8");
+        assert_eq!(locale_of("uk"), "uk_UA.UTF-8");
+        assert_eq!(locale_of("ja"), "ja_JP.UTF-8");
+        assert_eq!(locale_of("xx"), "C.UTF-8");
+        for (code, locale) in LOCALES {
+            assert!(locale.starts_with(code), "{locale}");
+        }
+    }
+
+    #[test]
+    fn private_directories_are_unique_exclusive_and_removed() {
+        let parent = tempfile::tempdir().unwrap();
+        let first = private_directory(parent.path(), 7).unwrap();
+        let second = private_directory(parent.path(), 7).unwrap();
+        assert_ne!(first.0, second.0);
+        assert!(first.0.is_dir());
+        assert!(first.0.starts_with(parent.path()));
+        let name = first.0.file_name().unwrap().to_string_lossy().into_owned();
+        assert_eq!(name.len(), TEMP_PREFIX.len() + SCRATCH_NAME_DIGITS);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(&first.0).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o700);
+        }
+        assert!(create_private(&first.0).is_err());
+        let path = first.0.clone();
+        drop(first);
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn refuses_path_without_file_name() {
+        let env = HostEnv::new(Os::Linux).with_var("PATH", "/usr/bin");
+        let reason = refusal(&env, Path::new("/"), &[]).unwrap();
+        assert!(reason.contains("file name"));
+        assert!(refusal(&env, Path::new("/usr/bin/.."), &[]).is_some());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_file_name_that_is_not_unicode() {
+        use std::os::unix::ffi::OsStrExt;
+
+        let env = HostEnv::new(Os::Linux).with_var("PATH", "/usr/bin");
+        let path = Path::new(std::ffi::OsStr::from_bytes(b"/usr/bin/tool\xff"));
+        let reason = refusal(&env, path, &[]).unwrap();
+        assert!(reason.contains("not valid Unicode"));
     }
 
     #[test]

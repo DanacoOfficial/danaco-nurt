@@ -10,9 +10,6 @@
 
 use std::sync::Arc;
 
-use nurt_catalog::embedded_sources;
-use nurt_contracts::config::Language as ConfigLanguage;
-use nurt_contracts::envelope::Language;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::record::{Evaluation, FieldInfo};
 use nurt_contracts::stage::{
@@ -20,18 +17,9 @@ use nurt_contracts::stage::{
     StageImpl, StageInput, StageOutput, StageRegistrar, StaticInfo,
 };
 use nurt_contracts::value::{Record, Value};
-use nurt_help::catalog::Catalog as HelpCatalog;
-use nurt_help::docs::Docs;
-use nurt_help::help::{HelpQuery, TopicKind, render};
+use nurt_help::commands::HelpStage;
 
 const EXPRESSION: &str = "expression";
-
-fn language_of(ctx: &ExecCtx) -> Language {
-    match ctx.config().output.language {
-        ConfigLanguage::Pl => Language::Pl,
-        _ => Language::En,
-    }
-}
 
 fn source(command: &str) -> StageDescriptor {
     StageDescriptor {
@@ -89,69 +77,6 @@ impl ReadStage for Evaluate {
         })?;
         let kind = value.type_name().to_owned();
         Ok(output(vec![Record::from(Evaluation { value, kind })]))
-    }
-}
-
-/// `help`: the help text of a command, a group, an error code, a guide or a
-/// topic.
-#[derive(Debug, Clone)]
-pub(crate) struct Help {
-    catalog: Arc<HelpCatalog>,
-}
-
-impl Help {
-    fn new() -> Result<Self> {
-        let (index, files) = embedded_sources();
-        let catalog = HelpCatalog::from_sources(index, files, Docs::empty()).map_err(|error| {
-            Error::new(ErrorCode::Internal, format!("embedded catalog: {error}"))
-        })?;
-        Ok(Self {
-            catalog: Arc::new(catalog),
-        })
-    }
-
-    fn query(args: &BoundArgs, ctx: &ExecCtx) -> Result<HelpQuery> {
-        let text = |name: &str| args.text(name).map(|value| value.map(str::to_owned));
-        let mut query = HelpQuery::new().with_language(language_of(ctx));
-        query.topic = text("topic")?;
-        query.group = text("group")?;
-        query.skill = text("skill")?;
-        query.search = text("search")?;
-        if let Some(count) = args.int("examples")? {
-            query.examples = usize::try_from(count).unwrap_or_default();
-        }
-        if let Some(Value::Enum(kind) | Value::Text(kind)) = args.value("kind") {
-            query.kind = TopicKind::from_name(kind);
-        }
-        Ok(query)
-    }
-}
-
-impl StageImpl for Help {
-    fn descriptor(&self) -> StageDescriptor {
-        source("help")
-    }
-
-    fn as_read(&self) -> Option<&dyn ReadStage> {
-        Some(self)
-    }
-}
-
-impl ReadStage for Help {
-    fn execute<'a>(
-        &'a self,
-        args: &'a BoundArgs,
-        _input: StageInput<'a>,
-        ctx: &'a ExecCtx,
-    ) -> Result<StageOutput<'a>> {
-        let query = Self::query(args, ctx)?;
-        let answer = render(&query, &self.catalog)?;
-        Ok(StageOutput {
-            data: StageData::Value(Value::Text(answer.body)),
-            header: None,
-            order: None,
-            render: None,
-        })
     }
 }
 
@@ -236,10 +161,153 @@ impl ReadStage for Describe {
 ///
 /// # Errors
 ///
-/// Returns `E_INTERNAL` when the embedded help catalog is invalid, and the
-/// error of the registrar.
+/// Returns the error of the registrar.
 pub(crate) fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
     registrar.register(Arc::new(Evaluate))?;
-    registrar.register(Arc::new(Help::new()?))?;
+    registrar.register(Arc::new(HelpStage::embedded()))?;
     registrar.register(Arc::new(Describe))
+}
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::envelope::Language;
+    use nurt_contracts::value::RecordKind;
+    use nurt_testkit::ctx::TestContext;
+
+    use super::*;
+
+    fn described(input: Vec<Record>) -> Vec<FieldInfo> {
+        let ctx = TestContext::new().ctx();
+        let args = BoundArgs::new("describe");
+        let stage = Describe;
+        let output = stage
+            .execute(
+                &args,
+                StageInput::records(RecordStream::from_records(input)),
+                &ctx,
+            )
+            .unwrap();
+        let StageData::Records(stream) = output.data else {
+            panic!("records expected");
+        };
+        stream
+            .map(|item| FieldInfo::try_from(item.unwrap()).unwrap())
+            .collect()
+    }
+
+    fn map(fields: &[(&str, Value)]) -> Record {
+        fields
+            .iter()
+            .fold(Record::new(RecordKind::Map), |record, (name, value)| {
+                record.with(*name, value.clone())
+            })
+    }
+
+    #[test]
+    fn describe_lists_the_fields_in_the_order_of_their_first_appearance() {
+        let rows = described(vec![
+            map(&[("size", Value::Int(3)), ("name", Value::from("ą"))]),
+            map(&[("owner", Value::from("ż")), ("size", Value::Int(4))]),
+        ]);
+        let names: Vec<&str> = rows.iter().map(|row| row.field.as_str()).collect();
+        assert_eq!(names, ["size", "name", "owner"]);
+        assert_eq!(rows[0].kind, "int");
+        assert_eq!(rows[1].kind, "text");
+    }
+
+    #[test]
+    fn describe_marks_a_field_required_only_when_every_record_has_it() {
+        let rows = described(vec![
+            map(&[("a", Value::Int(1)), ("b", Value::Int(2))]),
+            map(&[("a", Value::Int(3))]),
+        ]);
+        assert_eq!(rows[0].required, Some(true));
+        assert_eq!(rows[0].records, Some(2));
+        assert_eq!(rows[1].required, Some(false));
+        assert_eq!(rows[1].records, Some(1));
+    }
+
+    #[test]
+    fn describe_takes_the_type_and_example_from_the_first_value_other_than_null() {
+        let rows = described(vec![
+            map(&[("a", Value::Null)]),
+            map(&[("a", Value::from("x"))]),
+            map(&[("a", Value::Int(5))]),
+        ]);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].kind, "text");
+        assert_eq!(rows[0].example, Some(Value::from("x")));
+        assert_eq!(rows[0].records, Some(3));
+    }
+
+    #[test]
+    fn describe_of_an_empty_stream_lists_nothing() {
+        assert!(described(Vec::new()).is_empty());
+    }
+
+    fn help_text(language: Option<Language>, topic: Option<&str>) -> String {
+        let context = TestContext::new();
+        let options = nurt_contracts::envelope::RequestOptions {
+            language,
+            ..Default::default()
+        };
+        let ctx = context.builder().options(Arc::new(options)).build();
+        let mut args = BoundArgs::new("help");
+        if let Some(topic) = topic {
+            args.insert(
+                "topic",
+                nurt_contracts::stage::ArgValue::Value(Value::from(topic)),
+                false,
+            );
+        }
+        let stage = HelpStage::embedded();
+        let output = stage.execute(&args, StageInput::none(), &ctx).unwrap();
+        let StageData::Value(Value::Text(text)) = output.data else {
+            panic!("text expected");
+        };
+        text
+    }
+
+    #[test]
+    fn help_uses_the_language_of_the_request() {
+        let polish = help_text(Some(Language::Pl), None);
+        assert!(polish.contains("Program jest potokiem"));
+        let english = help_text(Some(Language::En), None);
+        assert!(english.contains("A program is a pipeline"));
+        assert!(help_text(None, None).contains("A program is a pipeline"));
+    }
+
+    #[test]
+    fn help_lists_the_commands_of_every_group() {
+        let text = help_text(None, Some("commands"));
+        assert!(text.contains("help — "));
+        assert!(text.contains("git.log — "));
+        assert!(text.contains("program.catalog — "));
+    }
+
+    #[test]
+    fn help_shows_the_examples_and_the_guides_of_the_embedded_documentation() {
+        let page = help_text(None, Some("replace"));
+        assert!(page.contains("examples:"), "{page}");
+        let guide = help_text(None, Some("bash-migration"));
+        assert!(guide.contains("bash"));
+    }
+
+    #[test]
+    fn help_does_not_mistake_a_topic_for_the_default_kind() {
+        assert!(help_text(None, Some("syntax")).contains("program ="));
+        assert!(help_text(None, Some("E_ASSERT")).contains("E_ASSERT"));
+    }
+
+    #[test]
+    fn describe_of_a_single_value_is_a_type_error() {
+        let ctx = TestContext::new().ctx();
+        let args = BoundArgs::new("describe");
+        let stage = Describe;
+        let error = stage
+            .execute(&args, StageInput::value(Value::Int(1)), &ctx)
+            .err()
+            .unwrap();
+        assert_eq!(error.code, ErrorCode::Type);
+    }
 }

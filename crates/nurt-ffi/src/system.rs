@@ -12,6 +12,8 @@ use nurt_contracts::stage::{CancelReason, CancelToken};
 
 /// Boot identifier of Linux.
 const BOOT_ID_FILE: &str = "/proc/sys/kernel/random/boot_id";
+/// Time since boot of Linux.
+const UPTIME_FILE: &str = "/proc/uptime";
 /// Kernel release of Linux.
 const OS_RELEASE_FILE: &str = "/proc/sys/kernel/osrelease";
 /// Host name of Linux.
@@ -57,12 +59,12 @@ impl Clock for SystemClock {
     }
 
     fn stamp(&self) -> ClockStamp {
-        let elapsed = self.monotonic();
+        let since_boot = uptime().unwrap_or_else(|| self.monotonic());
         ClockStamp {
             wall: now(),
             boot: BootId(read_trimmed(BOOT_ID_FILE).unwrap_or_else(|| UNKNOWN.to_owned())),
-            since_boot_with_suspend: elapsed,
-            since_boot_active: elapsed,
+            since_boot_with_suspend: since_boot,
+            since_boot_active: since_boot,
         }
     }
 
@@ -135,6 +137,19 @@ impl Host for SystemHost {
     }
 }
 
+/// Time since boot of Linux, suspended time included; `None` where the file
+/// does not exist. A reading that counts from the creation of the clock would
+/// make the ages of journal entries made by other processes of the same boot
+/// wrong.
+fn uptime() -> Option<Duration> {
+    parse_uptime(&read_trimmed(UPTIME_FILE)?)
+}
+
+fn parse_uptime(text: &str) -> Option<Duration> {
+    let seconds: f64 = text.split_whitespace().next()?.parse().ok()?;
+    (seconds.is_finite() && seconds >= 0.0).then(|| Duration::from_secs_f64(seconds))
+}
+
 fn read_trimmed(path: &str) -> Option<String> {
     std::fs::read_to_string(path)
         .ok()
@@ -149,7 +164,20 @@ mod tests {
     use nurt_contracts::env::{Clock, Host};
     use nurt_contracts::stage::{CancelReason, CancelToken};
 
-    use super::{SystemClock, SystemHost, now};
+    use super::{SystemClock, SystemHost, now, parse_uptime};
+
+    #[test]
+    fn uptime_is_read_from_the_first_number_of_the_file() {
+        assert_eq!(
+            parse_uptime("12345.67 98765.43"),
+            Some(Duration::from_secs_f64(12345.67))
+        );
+        assert_eq!(parse_uptime("0.00 0.00"), Some(Duration::ZERO));
+        assert_eq!(parse_uptime(""), None);
+        assert_eq!(parse_uptime("-1.0 2.0"), None);
+        assert_eq!(parse_uptime("inf 1"), None);
+        assert_eq!(parse_uptime("soon"), None);
+    }
 
     #[test]
     fn clock_reads_wall_and_monotonic_time() {
@@ -158,7 +186,7 @@ mod tests {
         let stamp = clock.stamp();
         assert!(stamp.wall.unix_nanos() >= before.unix_nanos());
         assert!(clock.now().unix_nanos() >= stamp.wall.unix_nanos());
-        assert!(clock.monotonic() >= stamp.since_boot_active);
+        assert!(clock.stamp().since_boot_active >= stamp.since_boot_active);
         assert!(!stamp.boot.0.is_empty());
     }
 

@@ -151,7 +151,7 @@ journal:
 
 ```nurt example
 read "registry:/HKCU/Software/Example/Mode"
-write "registry:/HKCU/Software/Example/Mode" 3 value_type: dword mode: overwrite
+write "registry:/HKCU/Software/Example/Mode" "3" value_type: dword mode: overwrite
 ```
 
 Read two properties of the operating system on Windows:

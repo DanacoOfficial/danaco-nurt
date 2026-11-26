@@ -274,7 +274,16 @@ impl ConformanceReport {
             (false, true) => "mandatory cases passed; the run was filtered or empty",
             (false, false) => "not conformant",
         };
-        let _ = writeln!(out, "result: {verdict}");
+        // Skipped mandatory cases do not break conformance, but they are shown.
+        let skipped = summary.mandatory.skipped;
+        if summary.conformant && skipped > 0 {
+            let _ = writeln!(
+                out,
+                "result: {verdict} ({skipped} mandatory case(s) skipped)"
+            );
+        } else {
+            let _ = writeln!(out, "result: {verdict}");
+        }
         out
     }
 }
@@ -420,6 +429,19 @@ mod tests {
 
         let passing = report(vec![result("a", "mandatory", Status::Pass)], true);
         assert!(passing.to_text(true).ends_with("result: conformant\n"));
+        let skipping = report(
+            vec![
+                result("a", "mandatory", Status::Pass),
+                result("b", "mandatory", Status::Skip),
+                result("c", "mandatory", Status::Skip),
+            ],
+            true,
+        );
+        assert!(
+            skipping
+                .to_text(true)
+                .ends_with("result: conformant (2 mandatory case(s) skipped)\n")
+        );
         let filtered = report(vec![result("a", "mandatory", Status::Pass)], false);
         assert!(filtered.to_text(true).contains("the run was filtered"));
         assert_eq!(describe(&Failure::new("m")), "m");

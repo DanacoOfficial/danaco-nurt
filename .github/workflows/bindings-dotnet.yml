@@ -87,7 +87,7 @@ jobs:
           cargo build --locked --release -p nurt-conformance
       - name: Test the library backend and the binding cases on both backends
         env:
-          NURT_TEST_LIBRARY: ${{ github.workspace }}/target/release/libnurt.so
+          NURT_TEST_LIBRARY: ${{ github.workspace }}/target/release/libnurt_ffi.so
           NURT_TEST_SERVE: ${{ github.workspace }}/target/release/nurt-conformance
           NURT_TEST_SERVE_ARGS: fake-serve --cases ${{ github.workspace }}/conformance/bindings
         run: dotnet test Binding.sln -c Release --logger "console;verbosity=normal"
@@ -108,8 +108,8 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/downloads"
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/downloads" \
-            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'SHA256SUMS'
-          (cd "$RUNNER_TEMP/downloads" && sha256sum --check --ignore-missing --strict SHA256SUMS)
+            --pattern 'nurt-*.tar.gz' --pattern 'nurt-*.zip' --pattern 'checksums.txt'
+          (cd "$RUNNER_TEMP/downloads" && for archive in nurt-*; do grep -qE "^[0-9a-f]{64} [ *]${archive}$" checksums.txt || { echo "${archive} is not listed in checksums.txt" >&2; exit 1; }; done && sha256sum --check --ignore-missing --strict checksums.txt)
       - name: Arrange the native assets by runtime identifier
         if: env.TAG != ''
         run: |

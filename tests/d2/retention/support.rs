@@ -9,8 +9,8 @@ use std::time::Duration;
 use nurt_contracts::config::{AgeLimit, Oversize, SizeLimit, StepLimit};
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::{
-    Expect, Mutation, MutationTx, OpHandle, OpId, OpState, TargetAction, TargetIndex, TargetPath,
-    TargetSpec,
+    Expect, Mutation, MutationTx, OpHandle, OpId, OpState, SweepReport, TargetAction, TargetIndex,
+    TargetPath, TargetSpec,
 };
 
 use crate::harness::fixture::{Fixture, FixtureOptions};
@@ -80,9 +80,10 @@ pub(crate) fn small_write(fixture: &Fixture, index: usize) -> OpId {
     op
 }
 
-/// Retention pass that the space service runs after changes.
-pub(crate) fn retention_pass(fixture: &Fixture) {
-    fixture.journal.sweep().expect("retention pass runs");
+/// Retention pass that the space service runs after changes; returns the
+/// entries it expired.
+pub(crate) fn retention_pass(fixture: &Fixture) -> SweepReport {
+    fixture.journal.sweep().expect("retention pass runs")
 }
 
 /// Replaces the content of a sparse file of `size` bytes, so that its whole
@@ -105,12 +106,24 @@ pub(crate) fn large_write(fixture: &Fixture, name: &str, size: u64) -> OpHandle 
 
 /// Removes a sparse file of `size` bytes; the journal keeps it by rename.
 pub(crate) fn large_remove(fixture: &Fixture, name: &str, size: u64) -> OpId {
+    large_remove_swept(fixture, name, size).0
+}
+
+/// Like [`large_remove`], also returning the entries the retention pass after
+/// the removal expired.
+pub(crate) fn large_remove_swept(fixture: &Fixture, name: &str, size: u64) -> (OpId, SweepReport) {
     let path = fixture.seed_sparse(&format!("work/{name}"), size);
-    remove_path(fixture, &path)
+    remove_path_swept(fixture, &path)
 }
 
 /// Removes an existing file; the journal keeps it by rename.
 pub(crate) fn remove_path(fixture: &Fixture, path: &AbsPath) -> OpId {
+    remove_path_swept(fixture, path).0
+}
+
+/// Like [`remove_path`], also returning the entries the retention pass after
+/// the removal expired.
+pub(crate) fn remove_path_swept(fixture: &Fixture, path: &AbsPath) -> (OpId, SweepReport) {
     let mut tx: Box<dyn MutationTx + '_> = fixture.journal.begin(request::begin("remove", None));
     tx.preserve(&[target(path, TargetAction::Delete)])
         .expect("target is preserved");
@@ -121,8 +134,7 @@ pub(crate) fn remove_path(fixture: &Fixture, path: &AbsPath) -> OpId {
         .expect("transaction commits")
         .op
         .expect("a committed change has a number");
-    retention_pass(fixture);
-    op
+    (op, retention_pass(fixture))
 }
 
 /// State of an entry in `history`.

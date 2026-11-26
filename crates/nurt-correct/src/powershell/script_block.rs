@@ -16,11 +16,15 @@ use nurt_contracts::error::Error;
 use super::convert;
 use super::lex::{Token, TokenKind};
 use super::rules::{Session, ident, text};
-use super::syntax::{self, Command, Element, RawArg, StatementKind, Value, ValueKind};
+use super::syntax::{self, Command, Element, MAX_NESTING, RawArg, StatementKind, Value, ValueKind};
 use super::table::{FieldMap, Fold, Operator, Pattern, Record};
 
 /// Help topic of `filter`.
 const HELP_FILTER: &str = "help filter";
+
+/// Largest number of conditions joined by `-and` or by `-or`; the tree of a
+/// longer chain is too deep for the later stages.
+const MAX_TERMS: usize = 256;
 
 /// Function that folds text to lower case.
 const LOWER_FUNCTION: &str = "lower";
@@ -95,6 +99,7 @@ pub(crate) fn where_condition(
         record,
         tokens: Vec::new(),
         pos: 0,
+        depth: 0,
         assumptions: Vec::new(),
     };
     let expr = match (block, property) {
@@ -229,10 +234,33 @@ struct Parser<'s, 'r> {
     record: &'r Record,
     tokens: Vec<Token>,
     pos: usize,
+    depth: usize,
     assumptions: Vec<String>,
 }
 
 impl<'r> Parser<'_, 'r> {
+    /// Enters one level of nesting; the text is rejected when it is too deep
+    /// for the recursion of the parser.
+    fn enter(&mut self) -> Result<(), Error> {
+        if self.depth >= MAX_NESTING {
+            let (start, end) = self
+                .tokens
+                .get(self.pos)
+                .map_or((0, 0), |token| (token.start, token.end));
+            return Err(unsupported(self.session, start, end));
+        }
+        self.depth += 1;
+        Ok(())
+    }
+
+    fn too_long(&self) -> Error {
+        let (start, end) = self
+            .tokens
+            .get(self.pos)
+            .map_or((0, 0), |token| (token.start, token.end));
+        unsupported(self.session, start, end)
+    }
+
     fn peek_param(&self) -> Option<(&str, usize, usize)> {
         match self.tokens.get(self.pos) {
             Some(Token {
@@ -258,7 +286,12 @@ impl<'r> Parser<'_, 'r> {
 
     fn or(&mut self) -> Result<Expr, Error> {
         let mut left = self.and()?;
+        let mut terms = 1_usize;
         while self.take_keyword("or") {
+            terms += 1;
+            if terms > MAX_TERMS {
+                return Err(self.too_long());
+            }
             let right = self.and()?;
             left = Expr::Bin {
                 op: BinOp::Or,
@@ -272,7 +305,12 @@ impl<'r> Parser<'_, 'r> {
 
     fn and(&mut self) -> Result<Expr, Error> {
         let mut left = self.negation()?;
+        let mut terms = 1_usize;
         while self.take_keyword("and") {
+            terms += 1;
+            if terms > MAX_TERMS {
+                return Err(self.too_long());
+            }
             let right = self.negation()?;
             left = Expr::Bin {
                 op: BinOp::And,
@@ -290,7 +328,10 @@ impl<'r> Parser<'_, 'r> {
             if bang {
                 self.pos += 1;
             }
-            return Ok(not(self.negation()?));
+            self.enter()?;
+            let operand = self.negation();
+            self.depth -= 1;
+            return Ok(not(operand?));
         }
         self.comparison()
     }
@@ -345,6 +386,9 @@ impl<'r> Parser<'_, 'r> {
                 })
             );
             if !inner_is_command {
+                if self.depth >= MAX_NESTING {
+                    return Err(unsupported(self.session, token.start, token.end));
+                }
                 let close = self
                     .matching_paren()
                     .ok_or_else(|| unsupported(self.session, token.start, token.end))?;
@@ -358,6 +402,7 @@ impl<'r> Parser<'_, 'r> {
                     record: self.record,
                     tokens: inner,
                     pos: 0,
+                    depth: self.depth + 1,
                     assumptions: Vec::new(),
                 };
                 let expr = nested.or()?;
@@ -483,7 +528,7 @@ impl<'r> Parser<'_, 'r> {
             Some(map) if map.equals.is_some() => Ok(bin(
                 BinOp::Eq,
                 field.expr.clone(),
-                ident(map.equals.clone().unwrap_or_default(), span),
+                text(map.equals.clone().unwrap_or_default(), span),
                 span,
             )),
             Some(map) if map.ty.as_deref() == Some("bool") => Ok(field.expr.clone()),
@@ -519,7 +564,7 @@ impl<'r> Parser<'_, 'r> {
             };
             let positive = (op.op == BinOp::Eq) == flag;
             let op = if positive { BinOp::Eq } else { BinOp::Ne };
-            return Ok(bin(op, field.expr, ident(equals, span), span));
+            return Ok(bin(op, field.expr, text(equals, span), span));
         }
         let mut left = field.expr;
         let right_expr = match op.pattern {
@@ -704,7 +749,7 @@ impl<'r> Parser<'_, 'r> {
                     .find(|(name, _)| name.eq_ignore_ascii_case(written))
                     .map(|(_, value)| value.clone());
                 return match mapped {
-                    Some(mapped) => Ok((ident(mapped, span), false)),
+                    Some(mapped) => Ok((text(mapped, span), false)),
                     None => {
                         let names: Vec<&str> =
                             map.values.iter().map(|(name, _)| name.as_str()).collect();

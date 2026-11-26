@@ -313,6 +313,32 @@ mod tests {
     }
 
     #[test]
+    fn lookup_is_exact_and_the_filter_trims_names() {
+        assert!(lookup("").is_none());
+        assert!(lookup("Rust").is_none());
+        let padded = TypeFilter::new(
+            &[" rust ".to_owned()],
+            &[],
+            "file_type",
+            "exclude_file_type",
+        )
+        .unwrap();
+        assert!(padded.accepts("main.rs"));
+        assert!(!padded.accepts("main.py"));
+    }
+
+    #[test]
+    fn wildcards_work_on_the_bytes_of_multibyte_names() {
+        let docker = lookup("docker").unwrap();
+        assert!(docker.matches("\u{142}\u{f3}d\u{17a}.Dockerfile"));
+        assert!(wildcard(
+            "*.\u{e9}".as_bytes(),
+            "caf\u{e9}.\u{e9}".as_bytes()
+        ));
+        assert!(!wildcard("*.\u{e9}".as_bytes(), "caf\u{e9}.e".as_bytes()));
+    }
+
+    #[test]
     fn wildcards_match_any_sequence() {
         assert!(wildcard(b"*", b""));
         assert!(wildcard(b"a*b*c", b"aXbYc"));

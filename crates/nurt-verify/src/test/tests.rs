@@ -245,6 +245,17 @@ fn command_for_jest_skips_name_pattern_for_file_failures() {
 }
 
 #[test]
+fn command_for_jest_reruns_files_by_their_exact_paths() {
+    let mut request = Request::new(Framework::Jest);
+    request.only = vec![failed_case("pages/[id].test.tsx", Some("g"), "bad")];
+    let argv = request.plan("/s/run-1.json").argv;
+    assert_eq!(
+        argv[..3],
+        words(&["jest", "pages/[id].test.tsx", "--runTestsByPath"])
+    );
+}
+
+#[test]
 fn command_for_pytest_builds_nodes_and_coverage_environment() {
     let mut request = Request::new(Framework::Pytest);
     request.filter = Some("abc".to_owned());
@@ -284,6 +295,47 @@ fn command_for_pytest_builds_nodes_and_coverage_environment() {
     assert_eq!(
         argv[argv.len() - 2..],
         words(&["tests/test_a.py::TestK::test_bad", "test_b.py::test_x"])
+    );
+    rerun.bail = true;
+    rerun.only = vec![failed_case("", None, "--collect-only")];
+    let argv = rerun.plan("/s/run-1.xml").argv;
+    assert_eq!(argv[argv.len() - 2..], words(&["--", "--collect-only"]));
+    assert!(argv.iter().position(|word| word == "-x") < argv.iter().position(|word| word == "--"));
+}
+
+#[test]
+fn command_for_scripts_gives_files_that_start_with_a_dash_as_relative_paths() {
+    let mut rerun = Request::new(Framework::Bun);
+    rerun.only = vec![failed_case("-x.test.ts", None, "t")];
+    let argv = rerun.plan("/s/run-1.xml").argv;
+    assert_eq!(argv[..3], words(&["bun", "test", "./-x.test.ts"]));
+}
+
+#[test]
+fn command_for_cargo_does_not_pass_names_that_would_read_as_options() {
+    let mut rerun = Request::new(Framework::Cargo);
+    rerun.only = vec![
+        failed_case("", None, "--list"),
+        failed_case("", None, "tests::ok"),
+    ];
+    let planned = rerun.plan("/s/unused");
+    assert_eq!(
+        planned.argv,
+        words(&["cargo", "test", "--", "tests::ok", "--exact"])
+    );
+    assert!(planned.notes[0].contains("start with `-`"));
+    rerun.only = vec![failed_case("", None, "--list")];
+    let planned = rerun.plan("/s/unused");
+    assert_eq!(planned.argv, words(&["cargo", "test", "--", "", "--exact"]));
+}
+
+#[test]
+fn command_for_go_does_not_pass_packages_that_would_read_as_options() {
+    let mut rerun = Request::new(Framework::Go);
+    rerun.only = vec![failed_case("", Some("-exec=evil"), "TestA")];
+    assert_eq!(
+        rerun.plan("/s/unused").argv,
+        words(&["go", "test", "-json", "-run", "^(TestA)$", "./..."])
     );
 }
 
@@ -333,6 +385,46 @@ fn command_for_cargo_uses_exact_names_and_llvm_cov_for_coverage() {
     assert_eq!(
         coverage.plan("/s/unused").argv,
         words(&["cargo", "llvm-cov", "--lcov", "--output-path", "/s/c"])
+    );
+}
+
+#[test]
+fn command_for_cargo_reruns_a_should_panic_test_by_the_name_the_harness_selects() {
+    let mut rerun = Request::new(Framework::Cargo);
+    rerun.only = vec![
+        failed_case("", None, "tests::panics - should panic"),
+        failed_case("", None, "src/lib.rs - documented (line 3) - should panic"),
+        failed_case("", None, "tests::plain"),
+    ];
+    assert_eq!(
+        rerun.plan("/s/unused").argv,
+        words(&[
+            "cargo",
+            "test",
+            "--",
+            "tests::panics",
+            "src/lib.rs - documented (line 3)",
+            "tests::plain",
+            "--exact"
+        ])
+    );
+}
+
+#[test]
+fn command_for_go_reruns_results_without_a_package_in_every_package() {
+    let mut rerun = Request::new(Framework::Go);
+    rerun.only = vec![failed_case("", None, "TestA")];
+    assert_eq!(
+        rerun.plan("/s/unused").argv,
+        words(&["go", "test", "-json", "-run", "^(TestA)$", "./..."])
+    );
+    rerun.only = vec![
+        failed_case("", None, "TestA"),
+        failed_case("", Some("example.com/p"), "TestB"),
+    ];
+    assert_eq!(
+        rerun.plan("/s/unused").argv,
+        words(&["go", "test", "-json", "-run", "^(TestA|TestB)$", "./..."])
     );
 }
 
@@ -472,6 +564,19 @@ fn parse_pytest_finds_modules_and_separates_errors_from_failures() {
 }
 
 #[test]
+fn parse_pytest_does_not_probe_paths_made_of_empty_class_name_parts() {
+    let dir = tempfile::tempdir().unwrap();
+    write(dir.path(), "a/b.py", "");
+    let report = "<testsuites><testsuite name=\"s\"><testcase classname=\"a..b\" name=\"t\"/><testcase classname=\".a.b\" name=\"u\"/><testcase classname=\"a.b\" name=\"v\"/></testsuite></testsuites>";
+    let results = read(Framework::Pytest, "", Some(report), dir.path());
+    let paths: Vec<Option<&str>> = results
+        .iter()
+        .map(|result| result.path.as_ref().map(|path| path.as_str()))
+        .collect();
+    assert_eq!(paths, [None, None, Some("a/b.py")]);
+}
+
+#[test]
 fn parse_pytest_keeps_class_name_when_module_is_missing() {
     let dir = tempfile::tempdir().unwrap();
     let results = read(
@@ -561,6 +666,20 @@ fn parse_plain_reads_tap_directives_and_repeated_names() {
     let results = read(Framework::Custom, output, None, Path::new("/p"));
     assert_eq!(statuses(&results), (2, 1, 1, 0, 1));
     assert_eq!(results[4].id, "a#2");
+}
+
+#[test]
+fn parse_plain_counts_a_subtest_with_its_parent_once() {
+    let output = "TAP version 13\n    ok 1 - inner a\n    not ok 2 - inner b\nnot ok 1 - suite\nok 2 - other\n";
+    let results = read(Framework::Custom, output, None, Path::new("/p"));
+    let names: Vec<&str> = results.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(names, ["suite", "other"]);
+    assert_eq!(statuses(&results), (1, 1, 0, 0, 0));
+    let indented = "    ok 1 - a\n    not ok 2 - b\n";
+    assert_eq!(
+        read(Framework::Custom, indented, None, Path::new("/p")).len(),
+        2
+    );
 }
 
 #[test]

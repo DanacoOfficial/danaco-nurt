@@ -225,3 +225,116 @@ pub fn run(args: &[String]) -> Result<u8, CliError> {
     let mut out = stdout.lock();
     execute(&action, &mut out)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn words(text: &str) -> Vec<String> {
+        text.split_whitespace().map(str::to_owned).collect()
+    }
+
+    fn is_usage(result: Result<Action, CliError>) -> bool {
+        matches!(result, Err(CliError::Usage(_)))
+    }
+
+    #[test]
+    fn list_defaults_to_text_and_takes_one_format() {
+        assert_eq!(parse(&words("list")), Ok(Action::List(ListFormat::Text)));
+        assert_eq!(
+            parse(&words("list --format json")),
+            Ok(Action::List(ListFormat::Json))
+        );
+        assert_eq!(
+            parse(&words("list --format text")),
+            Ok(Action::List(ListFormat::Text))
+        );
+    }
+
+    #[test]
+    fn list_rejects_other_arguments_and_repeated_formats() {
+        for bad in [
+            "list --format",
+            "list --format yaml",
+            "list --format json --format text",
+            "list --json",
+            "list extra",
+        ] {
+            assert!(is_usage(parse(&words(bad))), "{bad}");
+        }
+    }
+
+    #[test]
+    fn install_takes_one_directory_and_an_optional_replace() {
+        assert_eq!(
+            parse(&words("install ./pack")),
+            Ok(Action::Install {
+                source: PathBuf::from("./pack"),
+                replace: false
+            })
+        );
+        assert_eq!(
+            parse(&words("install --replace ./pack")),
+            Ok(Action::Install {
+                source: PathBuf::from("./pack"),
+                replace: true
+            })
+        );
+        assert_eq!(
+            parse(&words("install ./pack --replace")),
+            parse(&words("install --replace ./pack"))
+        );
+    }
+
+    #[test]
+    fn install_rejects_a_missing_second_or_unknown_operand() {
+        for bad in [
+            "install",
+            "install --replace",
+            "install a b",
+            "install --replace --replace a",
+            "install --force a",
+        ] {
+            assert!(is_usage(parse(&words(bad))), "{bad}");
+        }
+    }
+
+    #[test]
+    fn install_keeps_a_directory_with_multi_byte_characters() {
+        let args = vec![
+            "install".to_owned(),
+            "r\u{f3}\u{17c}ne/\u{1f600}".to_owned(),
+        ];
+        assert_eq!(
+            parse(&args),
+            Ok(Action::Install {
+                source: PathBuf::from("r\u{f3}\u{17c}ne/\u{1f600}"),
+                replace: false
+            })
+        );
+    }
+
+    #[test]
+    fn remove_takes_exactly_one_name_that_is_not_an_option() {
+        assert_eq!(
+            parse(&words("remove tools")),
+            Ok(Action::Remove("tools".to_owned()))
+        );
+        for bad in ["remove", "remove a b", "remove --all"] {
+            assert!(is_usage(parse(&words(bad))), "{bad}");
+        }
+    }
+
+    #[test]
+    fn an_operation_is_required_and_must_be_known() {
+        assert!(is_usage(parse(&[])));
+        assert!(is_usage(parse(&words("update"))));
+        assert!(is_usage(parse(&words("List"))));
+    }
+
+    #[test]
+    fn run_rejects_invalid_arguments_before_it_touches_the_store() {
+        assert!(matches!(run(&[]), Err(CliError::Usage(_))));
+        assert!(matches!(run(&words("remove")), Err(CliError::Usage(_))));
+    }
+}

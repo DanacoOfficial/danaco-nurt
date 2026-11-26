@@ -39,6 +39,10 @@ use crate::transport::{Frame, FrameReader, FrameWriter};
 /// Longest single wait between checks of the cancellation token.
 const CANCEL_POLL: Duration = Duration::from_millis(25);
 
+/// Time a server is given to answer `shutdown`; the protocol sends `exit`
+/// only after the answer, so that the server can finish its work.
+const SHUTDOWN_REPLY_WAIT: Duration = Duration::from_secs(2);
+
 /// Time a server is given to exit after `exit` before its process tree is
 /// stopped.
 const EXIT_GRACE: Duration = Duration::from_millis(200);
@@ -46,6 +50,12 @@ const EXIT_GRACE: Duration = Duration::from_millis(200);
 /// Time the reader waits for the standard error thread after the end of
 /// standard output, so the last error line is known.
 const STDERR_GRACE: Duration = Duration::from_millis(500);
+
+/// References to the connection held by the reader thread.
+const READER_REFERENCES: usize = 1;
+
+/// Longest chunk of standard error read at once, in bytes.
+const STDERR_CHUNK: u64 = 64 * 1024;
 
 /// Prefix of the private temporary directory of each server.
 const TEMP_PREFIX: &str = "nurt-lsp-";
@@ -389,6 +399,10 @@ impl LanguageServer {
         let id = self.shared.next_id.fetch_add(1, Ordering::Relaxed);
         let (sender, receiver) = bounded(1);
         lock(&self.shared.pending).insert(id, sender);
+        if self.is_closed() {
+            lock(&self.shared.pending).remove(&id);
+            return Err(self.closed_error());
+        }
         send(
             &self.shared,
             &Message::request(RequestId::Number(id), method, params),
@@ -487,15 +501,28 @@ impl LanguageServer {
         if self.is_closed() {
             return;
         }
-        let id = self.shared.next_id.fetch_add(1, Ordering::Relaxed);
-        send(
-            &self.shared,
-            &Message::request(RequestId::Number(id), "shutdown", Value::Null),
+        // The answer is not used; waiting for it is what the protocol asks
+        // before `exit`, and an unresponsive server is stopped after the wait.
+        let _ = self.request(
+            "shutdown",
+            Value::Null,
+            SHUTDOWN_REPLY_WAIT,
+            &CancelToken::new(),
         );
         send(&self.shared, &Message::notification("exit", Value::Null));
         mark_closed(&self.shared, None);
         let _ = lock(&self.shared.child).wait_timeout(EXIT_GRACE);
         finish(&self.shared);
+    }
+}
+
+impl Drop for LanguageServer {
+    /// Stops the server when the last handle goes away; the reader thread
+    /// holds the one other reference to the connection.
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.shared) <= READER_REFERENCES + 1 {
+            self.shutdown();
+        }
     }
 }
 
@@ -522,11 +549,18 @@ fn spawn_stderr_reader(stream: Box<dyn Read + Send>, shared: &Shared) -> Receive
     let started = thread::Builder::new()
         .name(format!("lsp-{}-stderr", shared.name))
         .spawn(move || {
-            for line in BufReader::new(stream).lines() {
-                let Ok(line) = line else {
-                    break;
-                };
-                let line = line.trim();
+            // Standard error is drained to its end: a server whose error
+            // pipe is closed early may be killed by SIGPIPE.
+            let mut reader = BufReader::new(stream);
+            let mut raw = Vec::new();
+            loop {
+                raw.clear();
+                match (&mut reader).take(STDERR_CHUNK).read_until(b'\n', &mut raw) {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {}
+                }
+                let text = String::from_utf8_lossy(&raw);
+                let line = text.trim();
                 if !line.is_empty() {
                     *lock(&tail) = Some(line.to_owned());
                 }

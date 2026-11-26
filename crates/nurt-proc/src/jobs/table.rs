@@ -342,7 +342,8 @@ impl JobTable {
     }
 
     /// Identifiers of finished jobs that ended more than `ttl` before `now`;
-    /// running and suspended jobs are never selected.
+    /// running and suspended jobs are never selected, nor are lost jobs, whose
+    /// program may still run and whose end is unknown.
     ///
     /// # Errors
     ///
@@ -353,7 +354,7 @@ impl JobTable {
             let Some(file) = self.read(&id)? else {
                 continue;
             };
-            if is_live(file.record.state) {
+            if is_live(file.record.state) || file.record.state == JobState::Lost {
                 continue;
             }
             let ended = file.record.finished.unwrap_or(file.record.started);

@@ -87,6 +87,10 @@ def collect(arguments):
             raise PackError(f"{source} does not exist")
         entries[text] = source
     if arguments.library is not None:
+        if not arguments.target.endswith("-unknown-linux-gnu"):
+            raise PackError(
+                f"--library is stored as libnurt.so.1 and belongs to glibc targets only, not {arguments.target}"
+            )
         header = arguments.root / HEADER
         if not header.is_file():
             raise PackError(f"{header} does not exist")
@@ -164,7 +168,13 @@ def main(argv):
         raise PackError(f"invalid target: {arguments.target}")
     epoch = arguments.epoch
     if epoch is None:
-        epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "0"))
+        text = os.environ.get("SOURCE_DATE_EPOCH", "0")
+        try:
+            epoch = int(text)
+        except ValueError:
+            raise PackError(f"SOURCE_DATE_EPOCH is not a number of seconds: {text!r}") from None
+        if epoch < 0:
+            raise PackError(f"SOURCE_DATE_EPOCH is negative: {epoch}")
     entries = collect(arguments)
     arguments.output.mkdir(parents=True, exist_ok=True)
     stem = f"nurt-{arguments.version}-{arguments.target}"

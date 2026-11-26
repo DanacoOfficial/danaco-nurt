@@ -292,6 +292,10 @@ pub struct ChangeFacts {
     /// replacement that existed before, or a change carrying the flag
     /// `overwrote_existing`.
     pub replaced_existing: bool,
+    /// Number of files (links included) and of directories below a directory
+    /// that the change removed or restored with its content, from the notes
+    /// of the change; `None` when the change does not say.
+    pub inside: Option<(u64, u64)>,
 }
 
 /// Effect of an operation.
@@ -379,6 +383,42 @@ mod tests {
             .err()
             .map(|error| error.code());
         assert_eq!(error, Some(nurt_contracts::error::ErrorCode::Limit));
+    }
+
+    #[test]
+    fn empty_named_list_stays_an_empty_record_stream() {
+        let data = ResultData::from_value(Value::List(Vec::new()));
+        assert!(data.records.is_empty());
+        assert!(data.value.is_none());
+        assert_eq!(data.to_value(), Value::List(Vec::new()));
+    }
+
+    #[test]
+    fn failure_of_another_code_than_a_stage_carries_no_partial_read() {
+        let items = std::iter::once(Ok(Record::new(RecordKind::Entry)))
+            .chain(std::iter::once(Err(Error::new(ErrorCode::Io, "broken"))));
+        let input = StageInput::records(RecordStream::new(items));
+        let error = ResultData::collect(input, 10).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Io);
+        assert!(!error.details.contains_key(PARTIAL_READ));
+    }
+
+    #[test]
+    fn failed_stage_carries_the_count_and_a_sample_of_the_records_read() {
+        let items = (0..12)
+            .map(|_| Ok(Record::new(RecordKind::Entry)))
+            .chain(std::iter::once(Err(Error::new(
+                ErrorCode::StageFailed,
+                "broken",
+            ))));
+        let input = StageInput::records(RecordStream::new(items));
+        let error = ResultData::collect(input, 100).unwrap_err();
+        let partial = &error.details[PARTIAL_READ];
+        assert_eq!(partial["count"], 12);
+        assert_eq!(
+            partial["records"].as_array().map(Vec::len),
+            Some(PARTIAL_READ_SAMPLE)
+        );
     }
 
     #[test]

@@ -164,3 +164,55 @@ fn wait_for_marker(child: &mut Child) -> io::Result<()> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kill_delays_are_deterministic_and_below_the_maximum() {
+        let max = Duration::from_millis(50);
+        for seed in 0..100 {
+            let delay = kill_delay(seed, max);
+            assert!(delay < max);
+            assert_eq!(delay, kill_delay(seed, max));
+        }
+        assert_eq!(kill_delay(1, Duration::ZERO), Duration::ZERO);
+    }
+
+    #[test]
+    fn the_ready_marker_is_distinct_from_ordinary_output() {
+        assert!(READY_MARKER.starts_with(b"\x1e"));
+        assert!(READY_MARKER.ends_with(b"\x1e"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_child_that_ends_before_the_marker_is_an_error() {
+        let runner = ProcessRunner::new("sh", ["-c", "exit 0"]);
+        let error = runner.run_and_kill(Duration::ZERO).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_running_child_is_killed_after_the_marker() {
+        let runner = ProcessRunner::new(
+            "sh",
+            ["-c", "printf '\\036nurt-crash-ready\\036'; exec sleep 30"],
+        );
+        let outcome = runner.run_and_kill(Duration::ZERO).unwrap();
+        assert!(outcome.killed);
+        assert_eq!(outcome.exit_code, None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_child_is_run_to_the_end_with_its_environment() {
+        let runner = ProcessRunner::new("sh", ["-c", "test \"$NURT_CRASH_TEST\" = 1; exit $?"])
+            .env("NURT_CRASH_TEST", "1");
+        assert!(runner.run_to_end().unwrap().success());
+        let failing = ProcessRunner::new("sh", ["-c", "exit 3"]);
+        assert_eq!(failing.run_to_end().unwrap().code(), Some(3));
+    }
+}

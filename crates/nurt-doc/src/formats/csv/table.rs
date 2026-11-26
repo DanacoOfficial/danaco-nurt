@@ -15,6 +15,10 @@ use super::scan::{Dialect, Field, Record, Scan, scan_file};
 /// Line terminator written when the file has none.
 const DEFAULT_TERMINATOR: &str = "\n";
 
+/// Largest number of columns a change may create past the end of a row; a
+/// column index beyond it would make the new text as long as the index.
+pub(crate) const MAX_COLUMNS: usize = 16_384;
+
 /// Parsed delimited file with the byte range of every field.
 #[derive(Debug, Clone)]
 pub(crate) struct Table {
@@ -98,12 +102,22 @@ impl Table {
     }
 
     /// Column named `label` by [`Table::column_label`], or the column with
-    /// that decimal index past the header.
+    /// that decimal index past the header, up to [`MAX_COLUMNS`].
     pub(crate) fn label_column(&self, label: &str) -> Option<usize> {
         let names = self.column_names();
         (0..names.len())
             .find(|index| label_of(&names, *index) == label)
-            .or_else(|| label.parse().ok().filter(|index| *index >= names.len()))
+            .or_else(|| {
+                label
+                    .trim_start_matches(INDEX_MARK)
+                    .parse()
+                    .ok()
+                    .filter(|index| {
+                        *index >= names.len()
+                            && *index < MAX_COLUMNS
+                            && label_of(&names, *index) == label
+                    })
+            })
     }
 
     /// Name of column `index` in rows read as maps; see [`label_of`].
@@ -150,18 +164,36 @@ impl Table {
     }
 }
 
-/// Label of column `index` given the header `names`: the header name when it
-/// is not empty and no earlier column has it, the decimal index otherwise,
-/// so that every column of a row map has its own label.
+/// Prefix of an index label that would equal a header name.
+const INDEX_MARK: char = '#';
+
+/// Label of column `index` given the header `names`, so that every column of
+/// a row map has its own label.
+///
+/// The rule has two steps:
+///
+/// 1. A column is labelled with its header name when the name is not empty
+///    and no earlier column has it. Header names always keep their own text
+///    as the label, so a name such as `1` is never taken over by an index.
+/// 2. Any other column (empty name, repeated name, or a column past the
+///    header) is labelled with its decimal index. When a header name equals
+///    that text, the label gets the prefix `#` once more per collision, so
+///    the header `a,,1` labels its columns `a`, `#1` and `1`.
 pub(crate) fn label_of<S: AsRef<str>>(names: &[S], index: usize) -> String {
-    match names.get(index).map(AsRef::as_ref) {
-        Some(name)
-            if !name.is_empty() && !names[..index].iter().any(|other| other.as_ref() == name) =>
-        {
-            name.to_owned()
-        }
-        _ => index.to_string(),
+    if let Some(name) = names.get(index).map(AsRef::as_ref)
+        && !name.is_empty()
+        && !names[..index].iter().any(|other| other.as_ref() == name)
+    {
+        return name.to_owned();
     }
+    let mut label = index.to_string();
+    while names
+        .iter()
+        .any(|name| !name.as_ref().is_empty() && name.as_ref() == label)
+    {
+        label.insert(0, INDEX_MARK);
+    }
+    label
 }
 
 /// Text value of a field.
@@ -219,6 +251,33 @@ mod tests {
         assert_eq!(table.label_column("1"), Some(1));
         assert_eq!(table.label_column("7"), Some(7));
         assert_eq!(table.label_column("c"), None);
+    }
+
+    #[test]
+    fn index_labels_never_collide_with_header_names() {
+        let narrow = table("a,,1\nx,y,z\n", true);
+        let cells = narrow.row_cells(&narrow.rows()[0]);
+        assert_eq!(cells.keys().collect::<Vec<_>>(), ["a", "#1", "1"]);
+        assert_eq!(cells["a"], Value::Text("x".into()));
+        assert_eq!(cells["#1"], Value::Text("y".into()));
+        assert_eq!(cells["1"], Value::Text("z".into()));
+        assert_eq!(narrow.label_column("1"), Some(2));
+        assert_eq!(narrow.label_column("#1"), Some(1));
+        let wide = table("a,2\nw,x,y,z\n", true);
+        let cells = wide.row_cells(&wide.rows()[0]);
+        assert_eq!(cells.keys().collect::<Vec<_>>(), ["a", "2", "#2", "3"]);
+        assert_eq!(wide.label_column("2"), Some(1));
+        assert_eq!(wide.label_column("#2"), Some(2));
+        assert_eq!(wide.label_column("3"), Some(3));
+    }
+
+    #[test]
+    fn numeric_labels_past_the_header_stop_at_the_column_limit() {
+        let table = table("a,b\n1,2\n", true);
+        let last = (MAX_COLUMNS - 1).to_string();
+        assert_eq!(table.label_column(&last), Some(MAX_COLUMNS - 1));
+        assert_eq!(table.label_column(&MAX_COLUMNS.to_string()), None);
+        assert_eq!(table.label_column("99999999999"), None);
     }
 
     #[test]

@@ -609,6 +609,61 @@ mod tests {
     }
 
     #[test]
+    fn two_sources_with_one_name_cannot_share_a_destination() {
+        let test = TestContext::new();
+        let first = file(&test, "/a/x.txt", b"1");
+        let second = file(&test, "/b/x.txt", b"2");
+        let call = into(args(&[&first, &second]), &abs("/out"));
+        let error = run(&Copy, &test, &call, None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Exists);
+        assert_eq!(error.problem.as_deref(), Some("duplicate_destination"));
+        assert_untouched(&test);
+    }
+
+    #[test]
+    fn on_conflict_skip_keeps_the_existing_files_of_a_merged_tree() {
+        let test = TestContext::new();
+        file(&test, "/src/tree/a.txt", b"new-a");
+        file(&test, "/src/tree/b.txt", b"new-b");
+        file(&test, "/out/tree/a.txt", b"old-a");
+        let call = with(
+            into(args(&[&abs("/src/tree")]), &abs("/out")),
+            ON_CONFLICT_PARAM,
+            choice_arg("skip"),
+        );
+        let run = run(&Copy, &test, &call, None).unwrap();
+        assert_eq!(
+            test.fs().read_file(&abs("/out/tree/a.txt")).unwrap(),
+            b"old-a"
+        );
+        assert_eq!(
+            test.fs().read_file(&abs("/out/tree/b.txt")).unwrap(),
+            b"new-b"
+        );
+        assert_eq!(run.summary("skipped"), Some(1));
+        assert_eq!(run.summary("files"), Some(1));
+        assert_eq!(run.summary("directories"), Some(0));
+    }
+
+    #[test]
+    fn a_directory_is_never_copied_over_a_file() {
+        let test = TestContext::new();
+        file(&test, "/src/tree/a.txt", b"a");
+        let blocker = file(&test, "/out/blocker", b"file");
+        let error = run(
+            &Copy,
+            &test,
+            &to(args(&[&abs("/src/tree")]), &blocker),
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Exists);
+        assert_eq!(error.problem.as_deref(), Some("kind_mismatch"));
+        assert_eq!(test.fs().read_file(&blocker).unwrap(), b"file");
+        assert_untouched(&test);
+    }
+
+    #[test]
     fn entries_with_an_old_etag_are_stale_and_nothing_changes() {
         let test = TestContext::new();
         let source = file(&test, "/data/a.txt", b"a");

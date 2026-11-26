@@ -194,7 +194,7 @@ impl MemoryTx {
             (TargetAction::Create, _, Some(_)) | (_, Expect::Absent, Some(_)) => {
                 Err(Error::new(ErrorCode::Exists, format!("{shown} exists")))
             }
-            (TargetAction::Modify | TargetAction::Create, _, _) | (_, _, Some(_)) => Ok(()),
+            (TargetAction::Create, _, _) | (_, _, Some(_)) => Ok(()),
             (_, _, None) => Err(Error::new(
                 ErrorCode::NotFound,
                 format!("{shown} does not exist"),
@@ -390,5 +390,81 @@ impl MutationTx for MemoryTx {
             restored,
             failed: Vec::new(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nurt_contracts::fs::AbsPath;
+
+    use super::*;
+
+    fn target(path: &str, action: TargetAction, expect: Expect) -> TargetSpec {
+        TargetSpec {
+            path: TargetPath::Fs(AbsPath::new(path).unwrap()),
+            action,
+            expect,
+            size_hint: None,
+        }
+    }
+
+    #[test]
+    fn modifying_a_missing_file_is_refused() {
+        let journal = MemoryJournal::new();
+        let mut tx = journal.begin(OpKind::command("set"));
+        let error = tx
+            .preserve(&[target(
+                "/srv/app/a.json",
+                TargetAction::Modify,
+                Expect::Unchecked,
+            )])
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::NotFound);
+    }
+
+    #[test]
+    fn creating_an_existing_file_is_refused_and_a_missing_one_allowed() {
+        let journal = MemoryJournal::new().with_file(Path::new("/srv/app/a.json"), b"{}".to_vec());
+        let mut tx = journal.begin(OpKind::command("set"));
+        let error = tx
+            .preserve(&[target(
+                "/srv/app/a.json",
+                TargetAction::Create,
+                Expect::Unchecked,
+            )])
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Exists);
+        let mut tx = journal.begin(OpKind::command("set"));
+        assert!(
+            tx.preserve(&[target(
+                "/srv/app/b.json",
+                TargetAction::Create,
+                Expect::Absent
+            )])
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn modifying_an_existing_file_is_allowed_and_can_be_undone() {
+        let path = Path::new("/srv/app/a.json");
+        let journal = MemoryJournal::new().with_file(path, b"{}".to_vec());
+        let mut tx = journal.begin(OpKind::command("set"));
+        tx.preserve(&[target(
+            "/srv/app/a.json",
+            TargetAction::Modify,
+            Expect::Unchecked,
+        )])
+        .unwrap();
+        tx.apply(
+            TargetIndex(0),
+            nurt_contracts::journal::Mutation::WriteBytes(b"[]".to_vec()),
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        assert_eq!(journal.file(path).as_deref(), Some(&b"[]"[..]));
+        journal.undo_last().unwrap();
+        assert_eq!(journal.file(path).as_deref(), Some(&b"{}"[..]));
+        assert_eq!(journal.operations(), 0);
     }
 }

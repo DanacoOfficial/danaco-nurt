@@ -270,15 +270,16 @@ impl ExecEnv {
     }
 
     /// Resource limits of the stages from the configuration: the record
-    /// limit, the largest text file and the number of threads (one when the
-    /// configuration leaves it open).
+    /// limit, the largest text file and the number of threads (the number of
+    /// processor cores of the host when the configuration leaves it open, and
+    /// at least one).
     #[must_use]
     pub fn limits(&self) -> Limits {
         let config = &self.config.limits;
         Limits {
             max_records: config.max_records,
             max_file_bytes_text: config.max_file_bytes_text.bytes(),
-            threads: config.threads.unwrap_or(Limits::default().threads).max(1),
+            threads: config.threads.unwrap_or(self.host.info().cpus).max(1),
         }
     }
 }
@@ -346,6 +347,44 @@ mod tests {
             .unwrap();
         assert_eq!(error.code(), ErrorCode::InvalidValue);
         assert_eq!(error.stage(), Some(Stage::Bind));
+    }
+
+    #[test]
+    fn timeout_of_the_environment_wins_over_the_request_option() {
+        let options = RequestOptions {
+            timeout: Some("soon".to_owned()),
+            ..RequestOptions::default()
+        };
+        let env = env()
+            .with_options(Arc::new(options))
+            .with_timeout(Duration::from_secs(5));
+        assert_eq!(
+            env.resolved_timeout().unwrap(),
+            Some(Duration::from_secs(5))
+        );
+    }
+
+    #[test]
+    fn zero_threads_are_raised_to_one() {
+        let mut config = Config::default();
+        config.limits.threads = Some(0);
+        let env = env().with_config(Arc::new(config));
+        assert_eq!(env.limits().threads, 1);
+    }
+
+    #[test]
+    fn open_threads_default_to_the_cores_of_the_host() {
+        assert_eq!(env().limits().threads, 4);
+    }
+
+    #[test]
+    fn preview_follows_the_request_option() {
+        assert!(!env().preview());
+        let options = RequestOptions {
+            preview: Some(true),
+            ..RequestOptions::default()
+        };
+        assert!(env().with_options(Arc::new(options)).preview());
     }
 
     #[test]

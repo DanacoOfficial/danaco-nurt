@@ -213,12 +213,13 @@ impl<'a> Runner<'a> {
         totals.into_inner().unwrap_or_default()
     }
 
-    /// Executes one run unless a complete log exists.
+    /// Executes one run unless a complete log of a run without an error
+    /// exists.
     #[must_use]
     pub fn run_once(&self, task: &TaskFile, seed: u64) -> RunReport {
         let run_id = self.run_id(&task.task.id, seed);
         let path = self.log_path(&task.task.id, seed);
-        let status = if crate::runlog::is_complete(&path) {
+        let status = if crate::runlog::is_final(&path) {
             RunStatus::Existing
         } else {
             match self.execute(task, seed, &run_id, &path) {
@@ -366,13 +367,14 @@ impl<'a> Runner<'a> {
             "setup",
         )?;
         let before = Snapshot::from_tree(&snapshot::capture(&root)?);
-        let mut tool = self.prepare_tool(&root, &serve, &env)?;
+        // The model is opened first: a missing key must not start a server.
         let key = RunKey {
             task: task.task.id.clone(),
             condition: self.settings.condition,
             seed,
         };
         let mut model = self.settings.model.open(&key)?;
+        let mut tool = self.prepare_tool(&root, &serve, &env)?;
         let system = self
             .settings
             .protocol
@@ -393,8 +395,10 @@ impl<'a> Runner<'a> {
             model.as_mut(),
             tool.executor.as_mut(),
             &mut |event| log.write(&event),
-        )?;
+        );
+        // The server is ended on every path, also when the agent failed.
         tool.executor.finish();
+        let result = result?;
         let mut end = EndEvent {
             outcome: result.outcome,
             steps: result.steps,

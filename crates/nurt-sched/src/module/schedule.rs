@@ -30,6 +30,7 @@ use crate::trigger::time::{self, instant_from_wall, std_duration};
 pub const SCHEDULE_MODULE: &str = "schedule";
 
 const POLL: Duration = Duration::from_secs(1);
+const DUE_POLL: Duration = Duration::from_millis(100);
 const SESSION_PREFIX: &str = "schedule:";
 
 /// The schedule module: runs schedules at their run times.
@@ -199,7 +200,7 @@ impl ServiceModule for ScheduleModule {
             "schedule.stop" => self.stop_runs(&request.body),
             "schedule.status" => self.status(),
             "schedule/register_action" => self.register(&request),
-            "schedule/ack" => self.ack(&request.body),
+            "schedule/ack" => self.ack(&request),
             other => Err(Error::new(
                 ErrorCode::Unsupported,
                 format!("the schedule module has no operation `{other}`"),
@@ -284,7 +285,8 @@ impl ScheduleModule {
         Ok(json!({ "kind": kind }))
     }
 
-    fn ack(&self, body: &Json) -> Result<Json> {
+    fn ack(&self, request: &ModuleRequest) -> Result<Json> {
+        let body = &request.body;
         let token = required_text(body, "token")?;
         let state_text = body.get("state").and_then(Json::as_str).unwrap_or("ok");
         let state = RunState::parse(state_text).ok_or_else(|| {
@@ -292,7 +294,23 @@ impl ScheduleModule {
                 "unknown run state `{state_text}`; use ok, exit, timeout, stopped or failed"
             ))
         })?;
-        let pending = lock(&self.shared.acks).remove(&token).ok_or_else(|| {
+        let pending = {
+            let mut acks = lock(&self.shared.acks);
+            let owned = acks.get(&token).is_none_or(|pending| {
+                request
+                    .client
+                    .as_ref()
+                    .is_none_or(|client| *client == pending.client)
+            });
+            if !owned {
+                return Err(Error::new(
+                    ErrorCode::NotFound,
+                    format!("no run of this client waits for the acknowledgement `{token}`"),
+                ));
+            }
+            acks.remove(&token)
+        }
+        .ok_or_else(|| {
             Error::new(
                 ErrorCode::NotFound,
                 format!("no run waits for the acknowledgement `{token}`"),
@@ -387,10 +405,7 @@ impl Shared {
             Self::dispatch(shared, core, launch);
         }
         shared.publish(core);
-        match core.scheduler.next_wake() {
-            Some(next) => time::since(next, now).min(POLL),
-            None => POLL,
-        }
+        wait_until(core.scheduler.next_wake(), now)
     }
 
     fn reload(&self, core: &mut Core) -> Result<usize> {
@@ -443,6 +458,7 @@ impl Shared {
             let outcome = Outcome::new(RunState::Failed, format!("the run cannot start: {error}"));
             let now = core.now();
             core.tokens.remove(&run);
+            core.waiters.remove(&run);
             if let Some(queued) = core.scheduler.finish(&run, &outcome, now) {
                 Self::dispatch(shared, core, queued);
             }
@@ -686,6 +702,19 @@ impl Job {
     }
 }
 
+/// Time to sleep before the next step: until `next`, at most [`POLL`]. A run
+/// time that is already due after a step waits for a free place among the
+/// parallel runs, so the module sleeps [`DUE_POLL`] instead of spinning.
+fn wait_until(next: Option<Instant>, now: Instant) -> Duration {
+    match next {
+        Some(next) => match time::since(next, now) {
+            wait if wait.is_zero() => DUE_POLL,
+            wait => wait.min(POLL),
+        },
+        None => POLL,
+    }
+}
+
 fn fired_data(launch: &Launch, token: Option<&str>) -> Json {
     let mut data = json!({
         "id": launch.schedule,
@@ -713,4 +742,97 @@ fn required_text(body: &Json, name: &str) -> Result<String> {
                 format!("the request needs a text value for `{name}`"),
             )
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn instant(nanos: i64) -> Instant {
+        Instant::from_unix_nanos(nanos)
+    }
+
+    fn pending(module: &ScheduleModule, token: &str, client: &str) -> Receiver<Ack> {
+        let (sender, receiver) = mpsc::channel();
+        lock(&module.shared.acks).insert(
+            token.to_owned(),
+            PendingAck {
+                client: client.to_owned(),
+                sender,
+            },
+        );
+        receiver
+    }
+
+    fn ack(token: &str, client: Option<&str>) -> ModuleRequest {
+        let request = ModuleRequest::new("schedule/ack", json!({ "token": token }));
+        match client {
+            Some(client) => request.from_client(client),
+            None => request,
+        }
+    }
+
+    #[test]
+    fn a_due_run_time_does_not_make_the_module_spin() {
+        let now = instant(1_000_000_000);
+        assert_eq!(wait_until(Some(now), now), DUE_POLL);
+        assert_eq!(wait_until(Some(instant(0)), now), DUE_POLL);
+    }
+
+    #[test]
+    fn the_wait_is_the_time_to_the_next_run_at_most_one_poll() {
+        let now = instant(0);
+        assert_eq!(
+            wait_until(Some(instant(250_000_000)), now),
+            Duration::from_millis(250)
+        );
+        assert_eq!(wait_until(Some(instant(60_000_000_000)), now), POLL);
+        assert_eq!(wait_until(None, now), POLL);
+    }
+
+    #[test]
+    fn only_the_client_of_a_run_acknowledges_it() {
+        let module = ScheduleModule::new();
+        let receiver = pending(&module, "s1#1:1", "client-a");
+        let error = module.request(ack("s1#1:1", Some("client-b"))).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+        assert!(receiver.try_recv().is_err());
+        module.request(ack("s1#1:1", Some("client-a"))).unwrap();
+        assert_eq!(receiver.try_recv().unwrap().state, RunState::Ok);
+    }
+
+    #[test]
+    fn an_unknown_token_is_not_found() {
+        let module = ScheduleModule::new();
+        let error = module.request(ack("none", None)).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
+        let error = module
+            .request(ModuleRequest::new("schedule/ack", json!({})))
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::MissingParam);
+    }
+
+    #[test]
+    fn a_closed_client_loses_its_registrations() {
+        let module = ScheduleModule::new();
+        let _receiver = pending(&module, "s1#1:1", "client-a");
+        lock(&module.shared.remote).insert("kind".to_owned(), "client-a".to_owned());
+        module.client_closed("client-a");
+        assert!(lock(&module.shared.acks).is_empty());
+        assert!(lock(&module.shared.remote).is_empty());
+    }
+
+    #[test]
+    fn unknown_operations_are_unsupported() {
+        let module = ScheduleModule::new();
+        let error = module
+            .request(ModuleRequest::new("schedule.nothing", json!({})))
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Unsupported);
+        assert!(
+            module
+                .request(ModuleRequest::new("schedule.status", json!({})))
+                .is_err()
+        );
+    }
 }

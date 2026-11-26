@@ -106,7 +106,9 @@ public final class Artifacts {
 
     /**
      * Finds the library: the explicit path, the path in
-     * {@value #LIBRARY_VARIABLE}, then the library bundled for the platform.
+     * {@value #LIBRARY_VARIABLE}, then the library bundled for the platform
+     * and the directories of {@code java.library.path}; the names of the
+     * package and the names built by {@code nurt-ffi} are tried.
      *
      * @param explicit configured path, or {@code null}
      * @return the library
@@ -114,12 +116,35 @@ public final class Artifacts {
      *     the checked locations
      */
     public static Path locateLibrary(Path explicit) {
-        return locate(explicit, System.getenv(LIBRARY_VARIABLE), null,
-                Artifacts.class.getClassLoader(), libraryName(), false);
+        return locate(explicit, System.getenv(LIBRARY_VARIABLE), System.getProperty("java.library.path"),
+                Artifacts.class.getClassLoader(), libraryNames(platform()), false);
+    }
+
+    /**
+     * File names of the library on a platform in the order they are tried: the
+     * name of the package, then the names that the build of {@code nurt-ffi}
+     * produces.
+     *
+     * @param platform platform directory name, see {@link #platform()}
+     * @return the names
+     */
+    static List<String> libraryNames(String platform) {
+        if (platform.startsWith("windows")) {
+            return List.of("nurt.dll", "nurt_ffi.dll");
+        }
+        if (platform.startsWith("macos")) {
+            return List.of("libnurt.dylib", "libnurt_ffi.dylib");
+        }
+        return List.of("libnurt.so", "libnurt.so.1", "libnurt_ffi.so");
     }
 
     static Path locate(Path explicit, String variable, String searchPath, ClassLoader loader,
             String fileName, boolean executable) {
+        return locate(explicit, variable, searchPath, loader, List.of(fileName), executable);
+    }
+
+    static Path locate(Path explicit, String variable, String searchPath, ClassLoader loader,
+            List<String> fileNames, boolean executable) {
         String what = executable ? "nurt executable" : "nurt library";
         String variableName = executable ? EXECUTABLE_VARIABLE : LIBRARY_VARIABLE;
         if (explicit != null) {
@@ -130,22 +155,26 @@ public final class Artifacts {
         }
         List<String> checked = new ArrayList<>();
         checked.add(variableName + " (not set)");
-        String resource = NATIVES + platform() + "/" + fileName;
-        Optional<Path> bundled = extract(loader, resource, executable);
-        if (bundled.isPresent()) {
-            return bundled.get();
+        for (String fileName : fileNames) {
+            String resource = NATIVES + platform() + "/" + fileName;
+            Optional<Path> bundled = extract(loader, resource, executable);
+            if (bundled.isPresent()) {
+                return bundled.get();
+            }
+            checked.add("bundled " + resource);
         }
-        checked.add("bundled " + resource);
         if (searchPath != null) {
             for (String directory : searchPath.split(File.pathSeparator)) {
                 if (directory.isEmpty()) {
                     continue;
                 }
-                Path candidate = Paths.get(directory, fileName);
-                if (Files.isRegularFile(candidate)) {
-                    return candidate;
+                for (String fileName : fileNames) {
+                    Path candidate = Paths.get(directory, fileName);
+                    if (Files.isRegularFile(candidate)) {
+                        return candidate;
+                    }
+                    checked.add(candidate.toString());
                 }
-                checked.add(candidate.toString());
             }
         }
         throw new NurtCallException(NurtCallException.Kind.NOT_FOUND,
@@ -199,13 +228,33 @@ public final class Artifacts {
             if (executable && !target.toFile().setExecutable(true, true)) {
                 throw new IOException("cannot mark " + target + " executable");
             }
-            target.toFile().deleteOnExit();
-            directory.toFile().deleteOnExit();
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> discard(target), "nurt-artifact-cleanup"));
             EXTRACTED.put(resource, target);
             return Optional.of(target);
         } catch (IOException e) {
             throw new NurtCallException(NurtCallException.Kind.IO,
                     "cannot extract bundled " + resource + ": " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Removes an extracted artifact and the temporary directory that held it;
+     * the file goes first, because a directory is removed only when empty.
+     * A file that cannot be removed, for example a library still loaded on
+     * Windows, is left in place.
+     *
+     * @param target the extracted file
+     */
+    static void discard(Path target) {
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException e) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(target.getParent());
+        } catch (IOException e) {
+            return;
         }
     }
 

@@ -66,11 +66,18 @@ pub(crate) fn resolve(
         files: list_files(ctx, dir),
         ..Scope::default()
     };
-    let wanted: Vec<String> = paths
+    let targets: Vec<Target> = paths.iter().map(|path| target(dir, path)).collect();
+    let whole_project = targets
         .iter()
-        .filter_map(|path| relative(dir, path))
-        .collect();
-    if !wanted.is_empty() {
+        .any(|target| matches!(target, Target::Project));
+    if !targets.is_empty() && !whole_project {
+        let wanted: Vec<&str> = targets
+            .iter()
+            .filter_map(|target| match target {
+                Target::Inside(path) => Some(path.as_str()),
+                _ => None,
+            })
+            .collect();
         scope.files.retain(|file| {
             wanted
                 .iter()
@@ -100,14 +107,47 @@ fn restrict_to_changed(ctx: &ExecCtx, dir: &Path, scope: &mut Scope) -> Result<(
         );
         return Ok(());
     };
+    // The directory and the root of the repository may be given through
+    // links, so a changed file is also tried against their canonical forms.
+    let canonical = |path: &Path| std::fs::canonicalize(path).unwrap_or_else(|_| path.to_owned());
+    let bases = [dir.to_owned(), canonical(dir)];
+    let roots = [root.clone(), canonical(&root)];
     let changed: BTreeSet<String> = git
         .changed_files(&root, None)?
         .into_iter()
-        .filter_map(|file| relative(dir, &root.join(file).to_string_lossy()))
+        .filter_map(|file| {
+            roots.iter().find_map(|root| {
+                let absolute = root.join(&file).to_string_lossy().into_owned();
+                bases.iter().find_map(|base| relative(base, &absolute))
+            })
+        })
         .collect();
     scope.files.retain(|file| changed.contains(file));
     scope.scoped = true;
     Ok(())
+}
+
+/// What a path of a command points at.
+enum Target {
+    /// The project directory itself: every file is in scope.
+    Project,
+    /// A file or directory of the project, relative to it.
+    Inside(String),
+    /// An absolute path outside the project: no file of the project is in
+    /// scope for it, and it does not widen the scope to the whole project.
+    Elsewhere,
+}
+
+fn target(dir: &Path, path: &str) -> Target {
+    if let Some(inside) = relative(dir, path) {
+        return Target::Inside(inside);
+    }
+    let candidate = Path::new(path);
+    if candidate.is_absolute() && candidate.strip_prefix(dir).is_err() {
+        Target::Elsewhere
+    } else {
+        Target::Project
+    }
 }
 
 /// Path relative to `dir` with forward slashes; `None` outside the

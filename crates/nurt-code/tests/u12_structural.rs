@@ -85,6 +85,21 @@ fn multi_line_template_lines_follow_the_indentation_of_the_match() {
 }
 
 #[test]
+fn replacement_in_a_crlf_document_uses_crlf_line_endings() {
+    let source = "fn main() {\r\n    let v = compute(a, b);\r\n}\r\n";
+    let out = replace_all(
+        "rust",
+        "compute($A, $B)",
+        "compute(\n    $A,\n    $B,\n)",
+        source,
+    );
+    assert_eq!(
+        out,
+        "fn main() {\r\n    let v = compute(\r\n        a,\r\n        b,\r\n    );\r\n}\r\n"
+    );
+}
+
+#[test]
 fn multi_line_capture_on_the_match_line_keeps_its_lines() {
     let source = "function run() {\n  wrap(function () {\n    go();\n  });\n}\n";
     let out = replace_all("javascript", "wrap($F)", "guard($F)", source);
@@ -140,6 +155,32 @@ fn node_records_carry_position_text_and_captures() {
     assert_eq!(record.kind, "call");
     assert_eq!(record.text, "print(x)");
     assert_eq!(record.captures.unwrap()["A"], "x");
+}
+
+#[test]
+fn search_in_a_file_with_a_byte_order_mark_keeps_offsets_of_the_file() {
+    let service = CodeAnalysis::builtin();
+    let source = "\u{feff}using System;\nclass A { void F() { Console.WriteLine(1); } }\n";
+    let found = search(&service, "csharp", "Console.WriteLine($A)", source);
+    assert_eq!(found.len(), 1);
+    let start = usize::try_from(found[0].span.bytes.start).unwrap();
+    assert_eq!(start, source.find("Console").unwrap());
+    assert_eq!(found[0].span.start.line, 2);
+    assert_eq!(found[0].captures[0].text, "1");
+}
+
+#[test]
+fn checking_syntax_of_files_with_a_byte_order_mark_finds_no_error() {
+    let service = CodeAnalysis::builtin();
+    for (id, source) in [
+        ("csharp", "\u{feff}using System;\nclass A { }\n"),
+        ("powershell", "\u{feff}function Get-A { 1 }\n"),
+    ] {
+        let issues = service
+            .check_syntax(source.as_bytes(), &language(id))
+            .unwrap();
+        assert!(issues.is_empty(), "{id}: {issues:?}");
+    }
 }
 
 #[test]

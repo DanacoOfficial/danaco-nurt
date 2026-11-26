@@ -4,6 +4,7 @@
 //! Engines behind the server and the delivery of their events.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 
@@ -12,6 +13,7 @@ use nurt_contracts::envelope::{Request, RequestOptions};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::HistoryQuery;
+use nurt_contracts::report::ReportStatus;
 use nurt_contracts::stage::{CancelToken, DeliveredEvent, Event, ExecFinished};
 use nurt_contracts::value::Instant;
 use nurt_core::{Engine, EventBody, EventListener, Lifecycle};
@@ -58,6 +60,9 @@ pub(crate) trait Backend: Send + Sync {
 pub(crate) struct Events {
     sender: Option<Sender<Value>>,
     request: Option<String>,
+    /// The client cancelled the request; a failed `exec.finished` then
+    /// carries `E_CANCELLED`, which the engine event does not state.
+    cancelled: AtomicBool,
 }
 
 impl Events {
@@ -68,7 +73,16 @@ impl Events {
             Value::Number(number) => Some(number.to_string()),
             _ => None,
         });
-        Self { sender, request }
+        Self {
+            sender,
+            request,
+            cancelled: AtomicBool::new(false),
+        }
+    }
+
+    /// Records that the client cancelled the request.
+    pub(crate) fn mark_cancelled(&self) {
+        self.cancelled.store(true, Ordering::Release);
     }
 
     /// Identifier of the request carried by its events: the `id` of the
@@ -102,9 +116,11 @@ impl EventListener for Events {
         let event = match delivered.body {
             EventBody::Stage(event) => event,
             EventBody::Lifecycle(Lifecycle::Finished { status }) => {
+                let cancelled = self.cancelled.load(Ordering::Acquire)
+                    && matches!(status, ReportStatus::Failed | ReportStatus::RolledBack);
                 Event::ExecFinished(ExecFinished {
                     status,
-                    error: None,
+                    error: cancelled.then_some(ErrorCode::Cancelled),
                 })
             }
             body => {
@@ -146,6 +162,7 @@ impl EngineBackend {
         let handle = self.engine.start(request, listener);
         loop {
             if context.cancel.is_cancelled() {
+                context.events.mark_cancelled();
                 handle.cancel();
             }
             if let Some(response) = handle.wait(Some(CANCEL_POLL)) {
@@ -307,7 +324,6 @@ mod tests {
     use std::sync::mpsc;
 
     use nurt_contracts::env::WallTime;
-    use nurt_contracts::report::ReportStatus;
     use nurt_contracts::stage::{LogEvent, LogLevel};
     use serde_json::json;
 
@@ -359,6 +375,84 @@ mod tests {
             messages[2]["params"],
             json!({"seq": 3, "time": "1970-01-01T00:00:01Z", "request": "7", "t": "exec.finished", "status": "ok", "error": null})
         );
+    }
+
+    #[test]
+    fn a_cancelled_request_finishes_with_the_cancelled_error_code() {
+        let finished = |cancelled: bool, status: ReportStatus| {
+            let (sender, receiver) = mpsc::channel();
+            let events = Events::new(Some(sender), Some(&json!(7)));
+            if cancelled {
+                events.mark_cancelled();
+            }
+            events.deliver(delivered(
+                1,
+                EventBody::Lifecycle(Lifecycle::Finished { status }),
+            ));
+            receiver.try_iter().next().unwrap()["params"]["error"].clone()
+        };
+        assert_eq!(finished(true, ReportStatus::Failed), json!("E_CANCELLED"));
+        assert_eq!(finished(false, ReportStatus::Failed), Value::Null);
+        assert_eq!(finished(true, ReportStatus::Ok), Value::Null);
+    }
+
+    #[test]
+    fn the_request_of_an_event_is_null_for_a_notification() {
+        let (sender, receiver) = mpsc::channel();
+        let events = Events::new(Some(sender), None);
+        events.deliver(delivered(4, EventBody::Lifecycle(Lifecycle::Started)));
+        let message = receiver.try_recv().unwrap();
+        assert!(message["params"]["request"].is_null());
+        assert_eq!(message["params"]["t"], "exec.started");
+        assert_eq!(message["params"]["seq"], 4);
+        assert_eq!(message["jsonrpc"], "2.0");
+    }
+
+    #[test]
+    fn identifiers_that_are_not_text_or_numbers_name_no_request() {
+        assert_eq!(Events::new(None, Some(&json!(true))).request(), None);
+        assert_eq!(Events::new(None, Some(&json!([1]))).request(), None);
+        assert_eq!(
+            Events::new(None, Some(&json!(2.5))).request().as_deref(),
+            Some("2.5")
+        );
+        assert_eq!(
+            Events::new(None, Some(&json!("\u{142}\u{f3}d\u{17a}")))
+                .request()
+                .as_deref(),
+            Some("\u{142}\u{f3}d\u{17a}")
+        );
+    }
+
+    #[test]
+    fn events_for_a_client_that_is_gone_are_dropped() {
+        let (sender, receiver) = mpsc::channel();
+        let events = Events::new(Some(sender), Some(&json!(1)));
+        drop(receiver);
+        events.deliver(delivered(1, EventBody::Lifecycle(Lifecycle::Started)));
+        events.deliver(delivered(
+            2,
+            EventBody::Lifecycle(Lifecycle::Finished {
+                status: ReportStatus::Failed,
+            }),
+        ));
+    }
+
+    #[test]
+    fn the_end_of_an_execution_names_its_status() {
+        let (sender, receiver) = mpsc::channel();
+        let events = Events::new(Some(sender), Some(&json!("r")));
+        events.deliver(delivered(
+            2,
+            EventBody::Lifecycle(Lifecycle::Finished {
+                status: ReportStatus::Failed,
+            }),
+        ));
+        let message = receiver.try_recv().unwrap();
+        let params = &message["params"];
+        assert_eq!(params["t"], "exec.finished");
+        assert_eq!(params["status"], "failed");
+        assert_eq!(params["request"], "r");
     }
 
     #[test]

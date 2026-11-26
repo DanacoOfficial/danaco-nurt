@@ -59,6 +59,9 @@ pub fn request_from_arguments(
     envelope.insert("nurt".to_owned(), Value::from(ENVELOPE_VERSION));
     let mut options = Map::new();
     for (name, value) in arguments {
+        if !source.inputs.contains(name) && !source.options.contains(name) {
+            return Err(invalid(&format!("unknown argument `{name}`; remove it")));
+        }
         if profile.strict && value.is_null() {
             continue;
         }
@@ -179,6 +182,41 @@ mod tests {
             )),
             "unknown argument `command`; remove it"
         );
+    }
+
+    #[test]
+    fn an_unknown_argument_is_refused_even_when_it_is_null_in_a_strict_format() {
+        for format in ToolFormat::ALL {
+            assert_eq!(
+                reason(request_from_arguments(
+                    *format,
+                    &json!({"program": "help", "ścieżka": null})
+                )),
+                "unknown argument `ścieżka`; remove it",
+                "{format}"
+            );
+        }
+    }
+
+    #[test]
+    fn nulls_of_known_arguments_are_dropped_in_strict_formats_only_where_absent() {
+        let request = request_from_arguments(
+            ToolFormat::OpenAiChatStrict,
+            &json!({"program": "help", "cursor": null, "accept": null, "ast": null,
+                    "preview": null, "timeout": null, "fields": null}),
+        )
+        .unwrap();
+        assert_eq!(request.program.as_deref(), Some("help"));
+        assert!(request.cursor.is_none() && request.accept.is_none());
+        assert!(request.options.preview.is_none());
+    }
+
+    #[test]
+    fn an_empty_object_gives_a_request_without_inputs_or_options() {
+        let request = request_from_arguments(ToolFormat::Mcp, &json!({})).unwrap();
+        assert!(request.program.is_none() && request.ast.is_none());
+        assert!(request.cursor.is_none() && request.accept.is_none());
+        assert!(request.options.preview.is_none());
     }
 
     #[test]
