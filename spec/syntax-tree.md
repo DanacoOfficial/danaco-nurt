@@ -286,6 +286,13 @@ program given as text (`docs/reference/serve-protocol.md`).
 | `golden/<format>/schema.generated.json` | schema generated from the Rust types |
 
 Golden bound trees use the fixed revisions `cat-1` and `corr-1`.
+
+A golden program has a bound tree only when the reference catalog `cat-1` binds it on every
+system. `example-41-windows-registry` does not: its paths belong to the Windows registry
+(`registry:/HKCU/...`), so binding fails with `E_PATH_FOREIGN` on other systems, and a golden tree
+does not depend on the system that produced it. Its surface tree is checked and no bound tree is
+recorded. The same holds for `example-48-preview-and-program-search` and for `structured-key`,
+whose key syntax is exercised as a surface tree only.
 Conformance tests check that every tree is valid under the published schema
 and under the generated schema, deserializes into the Rust types and
 serializes back to the same JSON value, survives a CBOR round trip unchanged
