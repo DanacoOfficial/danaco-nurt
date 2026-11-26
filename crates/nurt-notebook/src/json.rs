@@ -183,7 +183,7 @@ fn python_float(value: f64) -> String {
     let point = exponent + 1;
     let sign = if value < 0.0 { "-" } else { "" };
     let width = i32::try_from(digits.len()).unwrap_or(i32::MAX);
-    if point > PYTHON_FIXED_MAX_POINT || point < PYTHON_FIXED_MIN_POINT {
+    if !(PYTHON_FIXED_MIN_POINT..=PYTHON_FIXED_MAX_POINT).contains(&point) {
         let (head, tail) = digits.split_at(1);
         let fraction = if tail.is_empty() {
             String::new()
