@@ -18,7 +18,7 @@ use nurt_contracts::keypath::{DocSelector, KeyPath};
 use nurt_contracts::report::Notable;
 use nurt_contracts::value::{Bytes, Value};
 use nurt_doc::constructs::{
-    YAML_ALIAS_CYCLE, YAML_ALIAS_EXPANSION_LIMIT, YAML_COMPLEX_KEY, YAML_MERGE_INHERITED_REMOVE,
+    YAML_ALIAS_EXPANSION_LIMIT, YAML_COMPLEX_KEY, YAML_MERGE_INHERITED_REMOVE,
 };
 use nurt_doc::edit::{ByteEdit, EditReport};
 use nurt_doc::formats::yaml::anchor::{self, Anchors};
@@ -28,7 +28,9 @@ use nurt_doc::formats::yaml::model::YamlModel;
 use nurt_doc::formats::yaml::multidoc;
 use nurt_doc::formats::yaml::seq::{self, IndexTarget};
 use nurt_doc::formats::yaml::tag::{self, CoreTag};
+use nurt_doc::formats::yaml::{YamlDoc, YamlVersion};
 use nurt_doc::model::Span;
+use nurt_doc::model::{DocHandle, SetOptions};
 use u06_support::{apply_edits, node_at, parse, reference};
 
 fn key(text: &str) -> KeyPath {
@@ -325,11 +327,10 @@ fn rejects_an_alias_inside_its_own_anchored_node() {
     let opened = YamlModel::parse("a: &a [x, *a]\n")
         .and_then(|model| anchor::check_expansion(&model).map(|()| model));
     let error = opened.expect_err("cycle");
-    if error.code == ErrorCode::UnsupportedConstruct {
-        assert_eq!(error.found.as_deref(), Some(YAML_ALIAS_CYCLE));
-    } else {
-        assert_eq!(error.code, ErrorCode::DocParse);
-    }
+    // An anchor is defined once its node ends, so the alias inside the node
+    // names an anchor that is not defined yet: the parser refuses the
+    // document before the expansion check sees a cycle.
+    assert_eq!(error.code, ErrorCode::DocParse);
 }
 
 #[test]
@@ -397,7 +398,24 @@ fn merges_through_chained_merge_keys_and_inline_mappings() {
 }
 
 #[test]
-fn writes_a_local_key_over_a_merged_key_and_refuses_to_remove_it() {
+fn writes_a_local_key_over_a_merged_key_and_leaves_the_sources_alone() {
+    let mut doc = YamlDoc::parse(MERGED, YamlVersion::V1_2).unwrap();
+    doc.set(
+        &KeyPath::parse("m.p").unwrap(),
+        &Value::Int(7),
+        &SetOptions { create: true },
+    )
+    .unwrap();
+    let text = String::from_utf8(doc.text().to_vec()).unwrap();
+    assert!(text.starts_with("a: &a {p: 1, q: 1}\nb: &b {p: 2, r: 2}\nm:\n  <<: [*a, *b]\n"));
+    let model = parse(&text);
+    let map = node_at(&model, "m");
+    assert!(merge::is_override(&model, map, "p"));
+    assert_eq!(model.text(&model.node(node_at(&model, "m.p")).span), "7");
+}
+
+#[test]
+fn recognises_overrides_of_merged_keys_and_refuses_to_remove_a_merged_key() {
     let model = parse(MERGED);
     let map = node_at(&model, "m");
     assert!(merge::is_override(&model, map, "p"));

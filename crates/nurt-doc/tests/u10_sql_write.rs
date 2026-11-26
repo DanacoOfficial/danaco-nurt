@@ -250,6 +250,23 @@ fn waits_for_write_lock_then_reports_in_use() {
     assert_eq!(count(&db, "select count(*) from users"), 1);
 }
 
+/// Returns when another connection cannot start a write, which shows that the
+/// change under test holds the write lock and runs; no wait on the clock
+/// stands in for that.
+fn wait_until_write_locked(db: &std::path::Path) {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let probe = Connection::open(db).unwrap();
+    probe.busy_timeout(Duration::ZERO).unwrap();
+    while Instant::now() < deadline {
+        if probe.execute_batch("begin immediate").is_err() {
+            return;
+        }
+        probe.execute_batch("rollback").unwrap();
+        thread::yield_now();
+    }
+    panic!("the change did not start within 30 s");
+}
+
 #[test]
 fn cancellation_interrupts_long_change() {
     let dir = tempfile::tempdir().unwrap();
@@ -259,8 +276,9 @@ fn cancellation_interrupts_long_change() {
         cancel: cancel.clone(),
         ..CtxOptions::default()
     });
+    let locked = db.clone();
     let canceller = thread::spawn(move || {
-        thread::sleep(Duration::from_millis(200));
+        wait_until_write_locked(&locked);
         cancel.cancel(CancelReason::Requested);
     });
     let call = args(

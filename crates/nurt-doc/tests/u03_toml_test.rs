@@ -14,7 +14,8 @@ use std::path::{Path, PathBuf};
 
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::value::{DateKind, Value};
-use nurt_doc::formats::toml::TomlDocument;
+use nurt_doc::formats::toml::{TomlDocument, TomlFormat};
+use nurt_doc::registry::{DocOptions, open_with};
 use serde_json::Value as Json;
 
 /// Root of the suite in the repository.
@@ -176,9 +177,16 @@ fn rejects_every_invalid_document() {
         documents.len()
     );
     let mut accepted = Vec::new();
+    let mut not_utf8 = 0;
     for path in &documents {
         let name = relative(path);
-        let Ok(text) = String::from_utf8(fs::read(path).unwrap()) else {
+        let bytes = fs::read(path).unwrap();
+        let Ok(text) = String::from_utf8(bytes.clone()) else {
+            // The reader takes text, so a document that is not UTF-8 is
+            // refused when it is opened, as an encoding error.
+            let error = open_with(&TomlFormat, &bytes, &DocOptions::default());
+            assert_eq!(error.unwrap_err().code, ErrorCode::Encoding, "{name}");
+            not_utf8 += 1;
             continue;
         };
         match TomlDocument::parse(&text) {
@@ -191,6 +199,11 @@ fn rejects_every_invalid_document() {
         accepted.is_empty(),
         "accepted invalid documents:\n{}",
         accepted.join("\n")
+    );
+    assert!(
+        not_utf8 * 20 < documents.len(),
+        "{not_utf8} of {} invalid documents are not UTF-8 text",
+        documents.len()
     );
 }
 
