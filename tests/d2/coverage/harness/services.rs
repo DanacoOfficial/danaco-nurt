@@ -103,6 +103,15 @@ pub(crate) fn bind(
         audit.add_internal_root(dir);
     }
     audit.add_internal_root(volumes.state_dir().clone());
+    for root in volumes.roots() {
+        let volume = raw.volume(root).expect("volume of a fixture root is known");
+        if matches!(
+            evaluate_eligibility(&volume, &options.journal),
+            Eligibility::Inactive(_)
+        ) {
+            audit.add_unjournaled_root(root.clone());
+        }
+    }
     let fs: Arc<dyn FsWrite> = audit.clone();
 
     let catalog = Arc::new(JournalCatalog::default());

@@ -22,8 +22,8 @@ use nurt_contracts::fs::{
     ScopePurpose,
 };
 use nurt_contracts::journal::{
-    BeginRequest, EntryState, ExpiryReason, FileOp, InactiveReason, OpId, OpKind, PreserveMode,
-    ServiceLiveness, UndoneCause, apply_ops,
+    BeginRequest, Eligibility, EntryState, ExpiryReason, FileOp, InactiveReason, OpId, OpKind,
+    PreserveMode, ServiceLiveness, UndoneCause, apply_ops,
 };
 use nurt_fs::failpoint::FailPoint;
 
@@ -368,12 +368,18 @@ impl RetentionStore for CtxStore<'_> {
             Err(error) => return Err(error.into()),
         };
         let space = self.0.fs.space(&info.id)?;
+        let inactive = if self.0.admission.liveness() == ServiceLiveness::Down {
+            Some(InactiveReason::ServiceDown)
+        } else if let Eligibility::Inactive(reason) = self.0.admission.eligibility(&info) {
+            Some(reason)
+        } else {
+            None
+        };
         Ok(Some(VolumeFacts {
             mount: info.mount,
             capacity: space.total,
             free: space.available,
-            inactive: (self.0.admission.liveness() == ServiceLiveness::Down)
-                .then_some(InactiveReason::ServiceDown),
+            inactive,
         }))
     }
 

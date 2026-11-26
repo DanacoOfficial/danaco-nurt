@@ -4,11 +4,12 @@
 //! Wrapper that detects mutations made outside an active journal entry.
 //!
 //! [`AuditFs`] wraps any [`FsWrite`] and classifies every mutating call
-//! before forwarding it. A call is admitted in one of three classes:
+//! before forwarding it. A call is admitted in one of four classes:
 //!
 //! | Class | Condition |
 //! |---|---|
 //! | [`WriteClass::Internal`] | every path lies inside a registered internal directory (state directory of the account, `.nurt-journal*` directories); any scope purpose |
+//! | [`WriteClass::Unjournaled`] | every path lies inside a registered directory of a volume without a journal; scope purpose [`ScopePurpose::Operation`] |
 //! | [`WriteClass::Transaction`] | scope purpose [`ScopePurpose::Operation`] and entry state `prepared` or `rolling_back` |
 //! | [`WriteClass::Recovery`] | scope purpose [`ScopePurpose::Recovery`] or [`ScopePurpose::Reclaim`] and entry state `prepared`, `rolling_back` or `expiring` |
 //!
@@ -78,6 +79,9 @@ pub enum WriteClass {
     /// Recovery or reclaim of an entry that is prepared, rolling back or
     /// expiring.
     Recovery,
+    /// Mutation of user data on a volume that keeps no journal, so no entry
+    /// can exist.
+    Unjournaled,
     /// Mutation confined to registered internal directories.
     Internal,
 }
@@ -159,6 +163,7 @@ pub struct AuditFs<F: ?Sized> {
     inner: Arc<F>,
     oracle: Arc<dyn StateOracle>,
     internal: RwLock<Vec<AbsPath>>,
+    unjournaled: RwLock<Vec<AbsPath>>,
     records: Mutex<Vec<AuditRecord>>,
 }
 
@@ -178,6 +183,7 @@ impl<F: ?Sized + FsWrite> AuditFs<F> {
             inner,
             oracle,
             internal: RwLock::new(Vec::new()),
+            unjournaled: RwLock::new(Vec::new()),
             records: Mutex::new(Vec::new()),
         }
     }
@@ -185,6 +191,15 @@ impl<F: ?Sized + FsWrite> AuditFs<F> {
     /// Registers a directory whose subtree holds internal state.
     pub fn add_internal_root(&self, root: AbsPath) {
         self.internal
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(root);
+    }
+
+    /// Registers a directory of a volume that keeps no journal; operations
+    /// below it may change user data without an entry.
+    pub fn add_unjournaled_root(&self, root: AbsPath) {
+        self.unjournaled
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .push(root);
@@ -215,9 +230,21 @@ impl<F: ?Sized + FsWrite> AuditFs<F> {
             .any(|root| path.starts_with(root))
     }
 
+    fn is_unjournaled(&self, path: &AbsPath) -> bool {
+        self.unjournaled
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+            .any(|root| path.starts_with(root))
+    }
+
     fn admit(&self, scope: &TxScope, method: &'static str, paths: &[&AbsPath]) {
         let class = if paths.iter().all(|path| self.is_internal(path)) {
             WriteClass::Internal
+        } else if scope.purpose() == ScopePurpose::Operation
+            && paths.iter().all(|path| self.is_unjournaled(path))
+        {
+            WriteClass::Unjournaled
         } else {
             let state = self.oracle.state(scope.op());
             classify_user_write(scope.purpose(), state).unwrap_or_else(|| {
@@ -602,6 +629,32 @@ mod tests {
             records
                 .iter()
                 .all(|record| record.class == WriteClass::Internal)
+        );
+    }
+
+    #[test]
+    fn operation_on_a_volume_without_journal_is_admitted_as_unjournaled() {
+        let fs = audited(&[]);
+        fs.add_unjournaled_root(p("/home/user"));
+        fs.create_dir(
+            &scope(2, ScopePurpose::Operation),
+            &p("/home/user/project/d"),
+            0o755,
+        )
+        .expect("unjournaled write");
+        let classes: Vec<WriteClass> = fs.recorded().iter().map(|record| record.class).collect();
+        assert_eq!(classes, [WriteClass::Unjournaled]);
+    }
+
+    #[test]
+    #[should_panic(expected = "purpose Recovery")]
+    fn recovery_on_a_volume_without_journal_panics() {
+        let fs = audited(&[]);
+        fs.add_unjournaled_root(p("/home/user"));
+        let _ = fs.create_dir(
+            &scope(2, ScopePurpose::Recovery),
+            &p("/home/user/project/d"),
+            0o755,
         );
     }
 
