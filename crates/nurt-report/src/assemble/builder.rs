@@ -324,9 +324,8 @@ impl<'c> ReportBuilder<'c> {
             report.bulk = Some(summarize_bulk(&changes));
         }
         let mut derived = derive_notable(ctx, &changes, targets.count, &scope_directories);
-        let matches_targets = effect != Some(EffectKind::Process)
-            && report.exec.is_none()
-            && report.job.is_none();
+        let matches_targets =
+            effect != Some(EffectKind::Process) && report.exec.is_none() && report.job.is_none();
         if matches_targets
             && targets.count == 0
             && matches!(report.status, ReportStatus::Ok | ReportStatus::Planned)

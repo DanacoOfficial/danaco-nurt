@@ -1942,12 +1942,7 @@ mod tests {
         let mut preview = removal(2);
         preview.status = ReportStatus::Planned;
         preview.op = None;
-        let response = engine.finish(
-            preview,
-            &prepared(&engine, options),
-            None,
-            Duration::ZERO,
-        );
+        let response = engine.finish(preview, &prepared(&engine, options), None, Duration::ZERO);
         assert_eq!(response.report.status, ReportStatus::Failed);
         let error = response.report.error.as_ref().unwrap();
         assert_eq!(error.code, ErrorCode::Io);
@@ -2162,12 +2157,8 @@ mod tests {
 
     #[test]
     fn effect_pipelines_counts_the_pipelines_with_an_effect_stage() {
-        let stage = |name: &str, effect: &str, phase: &str| {
-            json!({"t": "stage", "name": name, "effect": effect, "phase": phase, "args": []})
-        };
-        let pipeline = |head: serde_json::Value, stages: Vec<serde_json::Value>| {
-            json!({"t": "pipeline", "head": head, "stages": stages})
-        };
+        let stage = |name: &str, effect: &str, phase: &str| json!({"t": "stage", "name": name, "effect": effect, "phase": phase, "args": []});
+        let pipeline = |head: serde_json::Value, stages: Vec<serde_json::Value>| json!({"t": "pipeline", "head": head, "stages": stages});
         let bound = |statements: Vec<serde_json::Value>| -> BoundDocument {
             serde_json::from_value(json!({
                 "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
@@ -2199,6 +2190,9 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(effect_kind_of(&bound), Some(EffectKind::Process));
-        assert_eq!(effect_kind_of(&nurt_testkit::fixtures::empty_program()), None);
+        assert_eq!(
+            effect_kind_of(&nurt_testkit::fixtures::empty_program()),
+            None
+        );
     }
 }

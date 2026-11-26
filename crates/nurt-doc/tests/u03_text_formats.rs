@@ -92,7 +92,10 @@ fn a_property_is_removed_with_its_line_only() {
     assert_eq!(member(&*handle, "port"), Some(text("80")));
     let after = written(&*handle);
     assert!(!after.contains("host=a"), "{after}");
-    assert!(keeps_lines("port = 80\n! legacy comment\nname:web\n", &after));
+    assert!(keeps_lines(
+        "port = 80\n! legacy comment\nname:web\n",
+        &after
+    ));
     let error = handle.remove(&key("host")).unwrap_err();
     assert_eq!(error.code, ErrorCode::KeyNotFound);
 }

@@ -205,8 +205,11 @@ mod tests {
         assert_eq!(action_of("repo/p"), Some(ChangeAction::Modify));
         assert_eq!(action_of("refs/heads/topic"), Some(ChangeAction::Create));
         assert_eq!(action_of("HEAD"), Some(ChangeAction::Modify));
-        assert!(part.plan.entries.iter().any(|entry| {
-            entry.path == "p" && entry.action == EntryAction::TypeChange
-        }));
+        assert!(
+            part.plan
+                .entries
+                .iter()
+                .any(|entry| { entry.path == "p" && entry.action == EntryAction::TypeChange })
+        );
     }
 }

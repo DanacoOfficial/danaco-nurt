@@ -444,7 +444,10 @@ mod tests {
 
     #[test]
     fn decodes_the_largest_exact_values() {
-        assert_eq!(duration_ms("9007199254740991ms"), Some(9_007_199_254_740_991));
+        assert_eq!(
+            duration_ms("9007199254740991ms"),
+            Some(9_007_199_254_740_991)
+        );
         assert_eq!(duration_ms("9007199254740992ms"), None);
         assert_eq!(size_bytes("9007199254740991b"), Some(9_007_199_254_740_991));
         assert_eq!(size_bytes("9007199254740992b"), None);

@@ -67,7 +67,9 @@ pub(crate) fn resolve(
         ..Scope::default()
     };
     let targets: Vec<Target> = paths.iter().map(|path| target(dir, path)).collect();
-    let whole_project = targets.iter().any(|target| matches!(target, Target::Project));
+    let whole_project = targets
+        .iter()
+        .any(|target| matches!(target, Target::Project));
     if !targets.is_empty() && !whole_project {
         let wanted: Vec<&str> = targets
             .iter()

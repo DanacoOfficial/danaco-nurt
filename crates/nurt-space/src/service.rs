@@ -463,8 +463,8 @@ mod tests {
         JournalMaintenance, RegistryLink, SpaceModule, SpaceService, SpaceWorker, liveness, run,
     };
     use crate::admission::ServiceLink;
-    use crate::measure::MIN_POLL_PERIOD;
     use crate::heartbeat::{self, RunState, testing::TestProbe};
+    use crate::measure::MIN_POLL_PERIOD;
 
     type Events = Arc<Mutex<Vec<String>>>;
 

@@ -87,13 +87,19 @@ fn script_mode_drops_the_strict_mode_of_the_shell_and_names_the_stop_rule() {
         let translation = translate_with(&input, &SCRIPT)
             .expect("a script")
             .expect("a translation");
-        assert_eq!(translation.text(), "create \"/srv/out\" type: directory", "{strict}");
+        assert_eq!(
+            translation.text(),
+            "create \"/srv/out\" type: directory",
+            "{strict}"
+        );
         assert!(translation.assumptions.iter().any(|a| a.rule == "B22"));
     }
     for other in ["set -x", "set -o noclobber", "set -eo", "set -e foo", "set"] {
         let input = format!("{other}\nmkdir -p /srv/out");
         let outcome = translate_with(&input, &SCRIPT).expect("a script");
-        let text = outcome.ok().map(|translation| translation.text().to_owned());
+        let text = outcome
+            .ok()
+            .map(|translation| translation.text().to_owned());
         assert_ne!(
             text.as_deref(),
             Some("create \"/srv/out\" type: directory"),

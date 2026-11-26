@@ -193,7 +193,9 @@ fn pidfd(pid: pid_t) -> Option<OwnedFd> {
     // SAFETY: `pidfd_open` takes a process identifier and flags and returns a
     // new descriptor or -1.
     let raw = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0_u32) };
-    let raw = i32::try_from(raw).ok().filter(|descriptor| *descriptor >= 0)?;
+    let raw = i32::try_from(raw)
+        .ok()
+        .filter(|descriptor| *descriptor >= 0)?;
     // SAFETY: the call returned a new descriptor that nothing else owns.
     Some(unsafe { OwnedFd::from_raw_fd(raw) })
 }

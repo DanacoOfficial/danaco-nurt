@@ -56,7 +56,10 @@ fn interpreter_line_stays_first_after_a_byte_order_mark() {
 #[test]
 fn crlf_line_endings_are_formatted_to_line_feeds() {
     let text = "#!/usr/bin/env nurt\r\n# head\r\njobs |> count # all\r\n";
-    assert_eq!(format_a(text), "#!/usr/bin/env nurt\n# head\njobs |> count # all\n");
+    assert_eq!(
+        format_a(text),
+        "#!/usr/bin/env nurt\n# head\njobs |> count # all\n"
+    );
 }
 
 #[test]

@@ -2285,13 +2285,18 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Limit);
         let empty = RecordStream::empty().collect_bounded(0);
         assert!(empty.unwrap().is_empty());
-        let error = RecordStream::once(line("a")).collect_bounded(0).unwrap_err();
+        let error = RecordStream::once(line("a"))
+            .collect_bounded(0)
+            .unwrap_err();
         assert_eq!(error.code(), ErrorCode::Limit);
     }
 
     #[test]
     fn collect_bounded_returns_the_first_error_of_the_stream() {
-        let items = vec![Ok(line("a")), Err(contract_error(ErrorCode::Cancelled, "stop"))];
+        let items = vec![
+            Ok(line("a")),
+            Err(contract_error(ErrorCode::Cancelled, "stop")),
+        ];
         let error = RecordStream::new(items.into_iter())
             .collect_bounded(10)
             .unwrap_err();
@@ -2301,7 +2306,11 @@ mod tests {
     #[test]
     fn checked_stream_ends_after_the_first_error_and_after_cancellation() {
         let ctx = ExecCtx::builder(TestClock::new(), host()).build();
-        let items = vec![Ok(line("a")), Err(contract_error(ErrorCode::Type, "bad")), Ok(line("b"))];
+        let items = vec![
+            Ok(line("a")),
+            Err(contract_error(ErrorCode::Type, "bad")),
+            Ok(line("b")),
+        ];
         let mut stream = RecordStream::new(items.into_iter()).checked(&ctx);
         assert!(matches!(stream.next(), Some(Ok(_))));
         assert!(matches!(stream.next(), Some(Err(_))));
@@ -2403,7 +2412,10 @@ mod tests {
         assert_eq!(args.int("depth").unwrap(), Some(2));
         assert_eq!(args.int("kind").unwrap(), None);
         assert_eq!(args.int("path").unwrap_err().code(), ErrorCode::Type);
-        assert_eq!(args.require("kind").unwrap_err().code(), ErrorCode::MissingParam);
+        assert_eq!(
+            args.require("kind").unwrap_err().code(),
+            ErrorCode::MissingParam
+        );
         let mut args = args;
         args.insert("depth", ArgValue::Value(Value::Int(3)), false);
         assert!(args.is_given("depth"));
@@ -2432,7 +2444,10 @@ mod tests {
         assert_eq!(extensions.len(), 1);
         assert!(extensions.contains::<String>());
         assert!(!extensions.contains::<u32>());
-        assert_eq!(extensions.get::<String>().as_deref().map(String::as_str), Some("second"));
+        assert_eq!(
+            extensions.get::<String>().as_deref().map(String::as_str),
+            Some("second")
+        );
     }
 
     #[test]

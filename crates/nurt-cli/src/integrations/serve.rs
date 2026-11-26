@@ -239,7 +239,10 @@ mod tests {
 
     #[test]
     fn a_socket_path_with_multi_byte_characters_is_kept() {
-        let args = vec!["--socket".to_owned(), "/run/\u{142}\u{f3}d\u{17a}.sock".to_owned()];
+        let args = vec![
+            "--socket".to_owned(),
+            "/run/\u{142}\u{f3}d\u{17a}.sock".to_owned(),
+        ];
         assert_eq!(
             parse(&args).unwrap().attachment,
             Attachment::Socket(PathBuf::from("/run/\u{142}\u{f3}d\u{17a}.sock"))
@@ -264,7 +267,9 @@ mod tests {
     fn the_message_of_an_unknown_argument_names_it() {
         assert_eq!(
             parse(&words("--stdio --tcp")),
-            Err(CliError::Usage("unknown argument `--tcp` of `serve`".to_owned()))
+            Err(CliError::Usage(
+                "unknown argument `--tcp` of `serve`".to_owned()
+            ))
         );
         assert_eq!(
             parse(&words("")),

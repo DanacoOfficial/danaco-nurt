@@ -273,8 +273,14 @@ mod tests {
         let mut bytes = encode(&first);
         bytes.extend(encode(&second));
         let mut reader = FrameReader::new(Trickle(&bytes));
-        assert_eq!(reader.next_frame().expect("read"), Some(Frame::Message(first)));
-        assert_eq!(reader.next_frame().expect("read"), Some(Frame::Message(second)));
+        assert_eq!(
+            reader.next_frame().expect("read"),
+            Some(Frame::Message(first))
+        );
+        assert_eq!(
+            reader.next_frame().expect("read"),
+            Some(Frame::Message(second))
+        );
         assert_eq!(reader.next_frame().expect("read"), None);
     }
 

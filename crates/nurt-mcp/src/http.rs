@@ -422,7 +422,10 @@ mod tests {
     #[test]
     fn options_listen_on_the_loopback_address_and_collect_the_allowed_names() {
         let options = McpHttpOptions::new(8765);
-        assert_eq!(options.address, "127.0.0.1:8765".parse::<SocketAddr>().unwrap());
+        assert_eq!(
+            options.address,
+            "127.0.0.1:8765".parse::<SocketAddr>().unwrap()
+        );
         assert!(!options.allow_remote);
         assert!(options.allowed_hosts.is_empty() && options.allowed_origins.is_empty());
         assert_eq!(options.bearer_token, None);
@@ -436,7 +439,10 @@ mod tests {
             .with_bearer_token("t");
         assert_eq!(options.address, address);
         assert!(options.allow_remote);
-        assert_eq!(options.allowed_hosts, ["a.example.com", "b.example.com:8443"]);
+        assert_eq!(
+            options.allowed_hosts,
+            ["a.example.com", "b.example.com:8443"]
+        );
         assert_eq!(options.allowed_origins, ["https://a.example.com:*"]);
         assert_eq!(options.bearer_token.as_deref(), Some("t"));
     }
@@ -445,10 +451,16 @@ mod tests {
     fn loopback_addresses_of_both_families_need_no_permission() {
         let options = McpHttpOptions::new(0);
         for address in ["127.0.0.1:1", "127.9.9.9:1", "[::1]:1"] {
-            assert!(options.validate(address.parse().unwrap()).is_ok(), "{address}");
+            assert!(
+                options.validate(address.parse().unwrap()).is_ok(),
+                "{address}"
+            );
         }
         for address in ["192.0.2.1:1", "[2001:db8::1]:1", "0.0.0.0:1", "[::]:1"] {
-            assert!(options.validate(address.parse().unwrap()).is_err(), "{address}");
+            assert!(
+                options.validate(address.parse().unwrap()).is_err(),
+                "{address}"
+            );
         }
     }
 
@@ -456,7 +468,10 @@ mod tests {
     fn a_token_of_white_space_only_is_not_a_token() {
         assert_eq!(non_empty_token(" \t\n"), None);
         assert_eq!(non_empty_token(""), None);
-        assert_eq!(non_empty_token("  t\u{142}  \n").as_deref(), Some("t\u{142}"));
+        assert_eq!(
+            non_empty_token("  t\u{142}  \n").as_deref(),
+            Some("t\u{142}")
+        );
     }
 
     #[test]

@@ -399,11 +399,7 @@ mod tests {
             .expect("the virtual file system accepts the file");
     }
 
-    fn walk_in(
-        test: &TestContext,
-        root: &str,
-        options: WalkOptions,
-    ) -> (Vec<String>, WalkSummary) {
+    fn walk_in(test: &TestContext, root: &str, options: WalkOptions) -> (Vec<String>, WalkSummary) {
         let walker = Walker::new(options).expect("the patterns compile");
         let mut delivered = Vec::new();
         let summary = walker
@@ -635,12 +631,9 @@ mod tests {
         let test = tree(&["/w/a.txt"]);
         let walker = Walker::new(WalkOptions::default()).expect("no patterns to compile");
         let error = walker
-            .run(
-                test.fs().as_ref(),
-                &[abs("/missing")],
-                &|| Ok(()),
-                |_| ControlFlow::Continue(()),
-            )
+            .run(test.fs().as_ref(), &[abs("/missing")], &|| Ok(()), |_| {
+                ControlFlow::Continue(())
+            })
             .unwrap_err();
         assert_eq!(error.code(), ErrorCode::NotFound);
         let (delivered, summary) = walk_in(&test, "/w/a.txt", WalkOptions::default());

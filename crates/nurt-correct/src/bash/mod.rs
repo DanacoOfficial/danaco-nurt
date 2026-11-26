@@ -282,9 +282,10 @@ mod tests {
             base: Some("/srv/dl"),
             ..TranslateContext::default()
         };
-        let translation = translate_with("curl -O 'https://example.com/a.tar.gz?token=1'", &context)
-            .expect("a bash habit")
-            .expect("a translation");
+        let translation =
+            translate_with("curl -O 'https://example.com/a.tar.gz?token=1'", &context)
+                .expect("a bash habit")
+                .expect("a translation");
         assert!(translation.text().contains("save: \"/srv/dl/a.tar.gz\""));
     }
 

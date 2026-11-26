@@ -307,7 +307,11 @@ fn a_compile_error_of_jq_is_not_a_broken_pipe_of_the_harness() {
     let (outputs, error) = jq_outputs(&jq, ".[", &input);
     assert!(outputs.is_empty());
     assert_eq!(error, Some("compile"));
-    let (outputs, error) = jq_outputs(&jq, ".[1]", &Json::Array(vec![Json::from(1), Json::from(2)]));
+    let (outputs, error) = jq_outputs(
+        &jq,
+        ".[1]",
+        &Json::Array(vec![Json::from(1), Json::from(2)]),
+    );
     assert_eq!(outputs, [Json::from(2)]);
     assert_eq!(error, None);
 }

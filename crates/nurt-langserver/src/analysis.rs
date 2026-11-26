@@ -839,7 +839,10 @@ mod tests {
     fn the_first_line_of_a_program_is_shown_with_a_mark_for_more() {
         assert_eq!(first_line("count"), "count");
         assert_eq!(first_line("count\nsort size"), "count \u{2026}");
-        assert_eq!(first_line("\u{142}\u{f3}d\u{17a}\r\nx"), "\u{142}\u{f3}d\u{17a} \u{2026}");
+        assert_eq!(
+            first_line("\u{142}\u{f3}d\u{17a}\r\nx"),
+            "\u{142}\u{f3}d\u{17a} \u{2026}"
+        );
         assert_eq!(first_line(""), "");
     }
 
@@ -871,10 +874,21 @@ mod tests {
     fn a_fix_without_a_position_replaces_the_whole_text() {
         let text = "count )\n";
         let lines = Lines::new(text);
-        let (edit, local) = fix_edit(text, &lines, None, "count", true, Variant::A, Encoding::Utf16);
+        let (edit, local) = fix_edit(
+            text,
+            &lines,
+            None,
+            "count",
+            true,
+            Variant::A,
+            Encoding::Utf16,
+        );
         assert!(!local);
         assert_eq!(edit.new_text, "count\n");
-        assert_eq!(edit.range, Range::new(Position::new(0, 0), Position::new(1, 0)));
+        assert_eq!(
+            edit.range,
+            Range::new(Position::new(0, 0), Position::new(1, 0))
+        );
     }
 
     #[test]
@@ -892,7 +906,10 @@ mod tests {
         );
         assert!(local);
         assert_eq!(edit.new_text, "\"/srv\"");
-        assert_eq!(edit.range, Range::new(Position::new(0, 5), Position::new(0, 11)));
+        assert_eq!(
+            edit.range,
+            Range::new(Position::new(0, 5), Position::new(0, 11))
+        );
     }
 
     #[test]

@@ -856,9 +856,7 @@ mod tests {
     fn untracked_files_below_a_non_utf8_directory_are_listed() {
         use std::os::unix::ffi::OsStrExt;
         let fixture = fixture();
-        let directory = fixture
-            .path()
-            .join(std::ffi::OsStr::from_bytes(b"d\xffir"));
+        let directory = fixture.path().join(std::ffi::OsStr::from_bytes(b"d\xffir"));
         std::fs::create_dir(&directory).unwrap();
         std::fs::write(directory.join("f.txt"), "x\n").unwrap();
         let statuses = queries().status(fixture.path(), &[]).unwrap();

@@ -144,7 +144,12 @@ fn refuses_a_process_with_another_start_time() {
     let reference = forged(&sleeper);
     let cancel = CancelToken::new();
     assert_eq!(
-        code(stop_process(reference, Signal::Kill, Duration::ZERO, &cancel)),
+        code(stop_process(
+            reference,
+            Signal::Kill,
+            Duration::ZERO,
+            &cancel
+        )),
         ErrorCode::Stale
     );
     assert_eq!(code(suspend_process(reference)), ErrorCode::Stale);

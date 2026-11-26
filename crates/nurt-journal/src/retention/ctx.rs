@@ -1494,14 +1494,20 @@ mod tests {
         let ctx = env.ctx();
         let id = env.volume(HOME).id;
         let unknown = OpId(9);
-        let held = crate::catalog::held_items(&ctx, &id, unknown).err().unwrap();
+        let held = crate::catalog::held_items(&ctx, &id, unknown)
+            .err()
+            .unwrap();
         assert_eq!(held.code(), ErrorCode::JournalNoop);
         let marked = crate::catalog::mark_released(&ctx, &id, unknown, &[0]).unwrap_err();
         assert_eq!(marked.code(), ErrorCode::JournalNoop);
         let begun =
             crate::catalog::begin_reclaim(&ctx, &id, unknown, ExpiryReason::Space).unwrap_err();
         assert_eq!(begun.code(), ErrorCode::JournalNoop);
-        assert!(crate::catalog::held_items(&ctx, &id, OpId(1)).unwrap().is_empty());
+        assert!(
+            crate::catalog::held_items(&ctx, &id, OpId(1))
+                .unwrap()
+                .is_empty()
+        );
         assert!(!env.exists(&journal_of(HOME).pending(unknown).unwrap()));
     }
 
@@ -1538,8 +1544,7 @@ mod tests {
         let ctx = env.ctx();
         let id = env.volume(HOME).id;
         let journal = journal_of(HOME);
-        let paths =
-            crate::catalog::begin_reclaim(&ctx, &id, OpId(1), ExpiryReason::Space).unwrap();
+        let paths = crate::catalog::begin_reclaim(&ctx, &id, OpId(1), ExpiryReason::Space).unwrap();
         assert_eq!(&paths.entry, journal.entry(OpId(1)).unwrap().dir());
         assert_eq!(&paths.reap, journal.reaped(OpId(1)).unwrap().dir());
         assert!(env.exists(&journal.tomb(OpId(1)).unwrap()));

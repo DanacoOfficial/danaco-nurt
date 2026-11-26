@@ -248,7 +248,11 @@ mod tests {
     #[test]
     fn deeply_nested_blocks_are_measured_without_recursion() {
         let depth = 100_000;
-        let source = format!("void f(void) {{{}{}}}\n", "{".repeat(depth), "}".repeat(depth));
+        let source = format!(
+            "void f(void) {{{}{}}}\n",
+            "{".repeat(depth),
+            "}".repeat(depth)
+        );
         let found = metrics_of(tree_sitter_c::LANGUAGE.into(), &source);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].cyclomatic, 1);

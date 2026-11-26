@@ -788,10 +788,7 @@ fn switch_in(
 
 fn download_object(params: &Params, fetched: &Fetched) -> Value {
     let mut fields = IndexMap::new();
-    fields.insert(
-        "url".to_owned(),
-        Value::Text(params.target.display_url()),
-    );
+    fields.insert("url".to_owned(), Value::Text(params.target.display_url()));
     fields.insert(
         "final_url".to_owned(),
         Value::Text(fetched.final_url.clone()),
@@ -1100,7 +1097,10 @@ mod tests {
         part.write_meta("http://a/", None).unwrap();
         assert_eq!(part.resume_point("http://a/"), None);
         part.write_meta("http://a/", Some("Mon")).unwrap();
-        assert_eq!(part.resume_point("http://a/").map(|point| point.offset), Some(5));
+        assert_eq!(
+            part.resume_point("http://a/").map(|point| point.offset),
+            Some(5)
+        );
     }
 
     #[test]
@@ -1109,7 +1109,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let to = AbsPath::new(dir.path().join("file.bin")).unwrap();
         let part = PartFile::for_target(&to);
-        part.write_meta(&target.display_url(), Some("\"v1\"")).unwrap();
+        part.write_meta(&target.display_url(), Some("\"v1\""))
+            .unwrap();
         let text = fs::read_to_string(&part.meta).unwrap();
         assert!(!text.contains("secret") && !text.contains("user"), "{text}");
     }

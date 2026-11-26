@@ -86,9 +86,7 @@ pub fn heartbeat_liveness(
     // A beat dated further ahead than the limit comes from a clock that was
     // set back or from a file that was edited; it cannot be told from a
     // fresh one, so it does not count as one.
-    let ahead = heartbeat
-        .beat_time()
-        .map(|beat| beat.saturating_since(now));
+    let ahead = heartbeat.beat_time().map(|beat| beat.saturating_since(now));
     let reason = match heartbeat.age(now) {
         None => Some(InactiveReason::NoHeartbeat),
         Some(_) if ahead.is_some_and(|ahead| ahead > max_age) => {

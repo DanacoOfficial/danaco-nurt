@@ -351,10 +351,7 @@ mod tests {
     #[test]
     fn prose_lines_skip_fenced_blocks_and_code_spans_and_keep_line_numbers() {
         let lines = prose_lines("a `x` b\n```\nhidden\n```\nlast\n");
-        assert_eq!(
-            lines,
-            vec![(1, "a   b".to_owned()), (5, "last".to_owned())]
-        );
+        assert_eq!(lines, vec![(1, "a   b".to_owned()), (5, "last".to_owned())]);
     }
 
     #[test]

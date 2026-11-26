@@ -82,7 +82,11 @@ fn rerun_names(request: &PlanRequest<'_>) -> (Vec<String>, bool) {
     let mut names: Vec<String> = request
         .only
         .iter()
-        .map(|case| case.name.strip_suffix(SHOULD_PANIC_SUFFIX).unwrap_or(&case.name))
+        .map(|case| {
+            case.name
+                .strip_suffix(SHOULD_PANIC_SUFFIX)
+                .unwrap_or(&case.name)
+        })
         .filter(|name| !name.starts_with('-'))
         .map(str::to_owned)
         .collect();

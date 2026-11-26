@@ -115,9 +115,8 @@ impl Target {
 
     /// Whether the process ended, or its identifier names another process.
     pub(crate) fn has_ended(&self) -> bool {
-        identity(self.pid).is_none_or(|identity| {
-            identity.ended || !same_start(self.started, identity.started)
-        })
+        identity(self.pid)
+            .is_none_or(|identity| identity.ended || !same_start(self.started, identity.started))
     }
 
     fn send(&self, number: c_int) -> Result<()> {
@@ -235,7 +234,13 @@ fn identity(pid: pid_t) -> Option<Identity> {
     // SAFETY: `info` provides `size` writable bytes for the structure of the
     // flavor `PROC_PIDTBSDINFO`.
     let written = unsafe {
-        libc::proc_pidinfo(pid, libc::PROC_PIDTBSDINFO, 0, info.as_mut_ptr().cast(), size)
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size,
+        )
     };
     if written != size {
         return None;

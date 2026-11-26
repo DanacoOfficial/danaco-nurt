@@ -342,7 +342,7 @@ mod tests {
     use nurt_core::{DeliveredEvent, EventBody, EventListener, Lifecycle};
     use serde_json::Value;
 
-    use super::{encode_event, Exec, Outcome};
+    use super::{Exec, Outcome, encode_event};
     use crate::backend::{Backend, Function, Run};
     use crate::error::{CallError, NurtStatus};
 
@@ -524,7 +524,8 @@ mod tests {
 
     #[test]
     fn delivered_events_are_encoded_in_the_form_of_the_event_schema() {
-        let schema: serde_json::Value = serde_json::from_str(nurt_contracts::schema::EVENT).unwrap();
+        let schema: serde_json::Value =
+            serde_json::from_str(nurt_contracts::schema::EVENT).unwrap();
         let validator = jsonschema::validator_for(&schema).unwrap();
         for body in [
             EventBody::Lifecycle(Lifecycle::Started),
@@ -539,7 +540,10 @@ mod tests {
                 body,
             };
             let json: serde_json::Value = serde_json::from_slice(&encode_event(&event)).unwrap();
-            assert!(validator.is_valid(&json), "{json} does not follow nurt-event/1");
+            assert!(
+                validator.is_valid(&json),
+                "{json} does not follow nurt-event/1"
+            );
             assert_eq!(json["request"], "r2");
             assert!(json.get("request_id").is_none());
             assert!(json["seq"].is_u64());

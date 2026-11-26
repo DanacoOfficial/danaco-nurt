@@ -244,7 +244,9 @@ mod tests {
             "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}},
             "message": "za\u{17c}\u{f3}\u{142}\u{107} \u{1f600}"
         });
-        store.publish(&json!({"uri": "file:///a.py", "version": 3, "diagnostics": [good, {"x": 1}]}));
+        store.publish(
+            &json!({"uri": "file:///a.py", "version": 3, "diagnostics": [good, {"x": 1}]}),
+        );
         store.publish(&json!({"uri": "file:///a.py", "diagnostics": []}));
         let cancel = CancelToken::new();
         let wait = quick(&cancel);
@@ -274,10 +276,17 @@ mod tests {
         let store = DiagnosticStore::new();
         let cancel = CancelToken::new();
         store.close();
-        assert!(store.wait("file:///a.py", 1, &quick(&cancel), || false).is_none());
+        assert!(
+            store
+                .wait("file:///a.py", 1, &quick(&cancel), || false)
+                .is_none()
+        );
         let open = DiagnosticStore::new();
         cancel.cancel(nurt_contracts::stage::CancelReason::Requested);
-        assert!(open.wait("file:///a.py", 1, &quick(&cancel), || false).is_none());
+        assert!(
+            open.wait("file:///a.py", 1, &quick(&cancel), || false)
+                .is_none()
+        );
     }
 
     #[test]

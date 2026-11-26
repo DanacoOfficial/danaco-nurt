@@ -1052,7 +1052,10 @@ mod tests {
         let dtd = Dtd::parse(text, 0, false).unwrap();
         assert_eq!(dtd.attribute("e", "x").unwrap().kind, AttributeType::CData);
         assert_eq!(dtd.attribute("e", "y").unwrap().kind, AttributeType::Id);
-        assert_eq!(dtd.attribute("f", "x").unwrap().kind, AttributeType::NmToken);
+        assert_eq!(
+            dtd.attribute("f", "x").unwrap().kind,
+            AttributeType::NmToken
+        );
         assert!(dtd.attribute("g", "x").is_none());
         assert!(dtd.attribute("e", "z").is_none());
         assert_eq!(dtd.attributes_of("e").count(), 2);

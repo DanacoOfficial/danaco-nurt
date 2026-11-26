@@ -1362,10 +1362,7 @@ mod tests {
     fn purge_of_nothing_selected_releases_nothing_but_is_audited() {
         let store = store();
         store.commit("/home", 1..=3);
-        for selector in [
-            PurgeSelector::UpTo(OpId(0)),
-            PurgeSelector::Ids(Vec::new()),
-        ] {
+        for selector in [PurgeSelector::UpTo(OpId(0)), PurgeSelector::Ids(Vec::new())] {
             let outcome = purge_store(
                 &store,
                 &PurgeRequest {

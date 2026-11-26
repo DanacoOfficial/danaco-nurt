@@ -319,7 +319,10 @@ mod tests {
         let mut volume = volume_info(1, "/dev/shm", "tmpfs", VolumeKind::Memory);
         assert_eq!(evaluate(&volume, &config), Eligibility::Eligible);
         volume.read_only = true;
-        assert_eq!(evaluate(&volume, &config), inactive(InactiveReason::NoAnchor));
+        assert_eq!(
+            evaluate(&volume, &config),
+            inactive(InactiveReason::NoAnchor)
+        );
         let other = volume_info(2, "/run/user/1000", "tmpfs", VolumeKind::Memory);
         assert_eq!(
             evaluate(&other, &config),
@@ -394,7 +397,10 @@ mod tests {
         );
         volume.features.durable_metadata = true;
         volume.read_only = true;
-        assert_eq!(evaluate(&volume, &config), inactive(InactiveReason::NoAnchor));
+        assert_eq!(
+            evaluate(&volume, &config),
+            inactive(InactiveReason::NoAnchor)
+        );
     }
 
     #[test]

@@ -292,7 +292,9 @@ fn private_directory(parent: &Path, nanos: i128) -> std::io::Result<Scratch> {
 fn create_private(directory: &Path) -> std::io::Result<()> {
     use std::os::unix::fs::DirBuilderExt;
     const OWNER_ONLY: u32 = 0o700;
-    std::fs::DirBuilder::new().mode(OWNER_ONLY).create(directory)
+    std::fs::DirBuilder::new()
+        .mode(OWNER_ONLY)
+        .create(directory)
 }
 
 #[cfg(not(unix))]
@@ -309,8 +311,7 @@ pub fn read_help(ctx: &ExecCtx, env: &HostEnv, path: &Path, timeout: Duration) -
     let Some(host) = ctx.process() else {
         return HelpResult::refused("program launching is not available");
     };
-    let scratch = match private_directory(&ctx.host().info().temp, ctx.clock().now().unix_nanos())
-    {
+    let scratch = match private_directory(&ctx.host().info().temp, ctx.clock().now().unix_nanos()) {
         Ok(scratch) => scratch,
         Err(error) => {
             return HelpResult::refused(format!("cannot create a working directory: {error}"));

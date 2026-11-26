@@ -488,15 +488,18 @@ mod tests {
 
     #[test]
     fn a_report_that_failed_without_an_error_is_not_an_error_result() {
-        let result = as_json(
-            tool_result(Response::new(Report::new(ReportStatus::Failed, "find"))).unwrap(),
-        );
+        let result =
+            as_json(tool_result(Response::new(Report::new(ReportStatus::Failed, "find"))).unwrap());
         assert_eq!(result["isError"], false);
     }
 
     #[test]
     fn other_call_failures_of_a_resource_are_internal_errors() {
-        for status in [AbiStatus::Timeout, AbiStatus::Cancelled, AbiStatus::Internal] {
+        for status in [
+            AbiStatus::Timeout,
+            AbiStatus::Cancelled,
+            AbiStatus::Internal,
+        ] {
             let error = resource_error("nurt://help/x", &CallError::new(status, "x"));
             assert_eq!(error.code, rmcp::model::ErrorCode::INTERNAL_ERROR);
         }

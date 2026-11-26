@@ -176,13 +176,25 @@ fn functions_with_a_buffer_reject_a_null_output() {
             nurt_page(e, c"c_91fe".as_ptr(), 0, ptr::null_mut()),
             NurtStatus::Arg
         );
-        assert_eq!(nurt_catalog(e, ptr::null(), ptr::null_mut()), NurtStatus::Arg);
-        assert_eq!(nurt_describe(e, ptr::null(), ptr::null_mut()), NurtStatus::Arg);
+        assert_eq!(
+            nurt_catalog(e, ptr::null(), ptr::null_mut()),
+            NurtStatus::Arg
+        );
+        assert_eq!(
+            nurt_describe(e, ptr::null(), ptr::null_mut()),
+            NurtStatus::Arg
+        );
         assert_eq!(nurt_help(e, ptr::null(), ptr::null_mut()), NurtStatus::Arg);
-        assert_eq!(nurt_history(e, ptr::null(), ptr::null_mut()), NurtStatus::Arg);
+        assert_eq!(
+            nurt_history(e, ptr::null(), ptr::null_mut()),
+            NurtStatus::Arg
+        );
         assert_eq!(nurt_space(e, ptr::null(), ptr::null_mut()), NurtStatus::Arg);
         assert_eq!(nurt_ext_list(e, ptr::null_mut()), NurtStatus::Arg);
-        assert_eq!(nurt_schema(c"ast".as_ptr(), ptr::null_mut()), NurtStatus::Arg);
+        assert_eq!(
+            nurt_schema(c"ast".as_ptr(), ptr::null_mut()),
+            NurtStatus::Arg
+        );
         assert_eq!(
             nurt_last_error(ptr::null_mut(), ptr::null_mut()),
             NurtStatus::Arg
@@ -215,9 +227,20 @@ fn text_arguments_that_are_not_utf8_are_rejected_by_every_function() {
     // SAFETY: Valid handles, NUL-terminated strings and buffers owned by the
     // macro; `bad` is a NUL-terminated string that is not UTF-8.
     unsafe {
-        rejected!("nurt_parse", |a, b| nurt_parse(e, bad, NURT_VARIANT_A, a, b));
+        rejected!("nurt_parse", |a, b| nurt_parse(
+            e,
+            bad,
+            NURT_VARIANT_A,
+            a,
+            b
+        ));
         rejected!("nurt_print", |a, _b| nurt_print(e, bad, NURT_VARIANT_A, a));
-        rejected!("nurt_correct", |a, _b| nurt_correct(e, bad, NURT_VARIANT_A, a));
+        rejected!("nurt_correct", |a, _b| nurt_correct(
+            e,
+            bad,
+            NURT_VARIANT_A,
+            a
+        ));
         rejected!("nurt_check", |a, b| nurt_check(e, bad, a, b));
         rejected!("nurt_run_json", |a, _b| nurt_run_json(e, bad, a));
         rejected!("nurt_page", |a, _b| nurt_page(e, bad, 0, a));
@@ -256,7 +279,12 @@ fn a_configuration_that_is_not_utf8_or_not_an_object_opens_no_engine() {
 fn exec_start_clears_its_handle_when_the_request_is_rejected() {
     let open = Open::new();
     let e = open.engine;
-    for request in [not_utf8(), c"[1]".as_ptr(), c"not json".as_ptr(), ptr::null()] {
+    for request in [
+        not_utf8(),
+        c"[1]".as_ptr(),
+        c"not json".as_ptr(),
+        ptr::null(),
+    ] {
         let mut exec = ptr::NonNull::<Exec>::dangling().as_ptr();
         // SAFETY: A live engine, a request that is invalid or null and a
         // valid output pointer.
@@ -265,15 +293,8 @@ fn exec_start_clears_its_handle_when_the_request_is_rejected() {
         assert!(exec.is_null());
     }
     // SAFETY: A null output pointer is the argument under test.
-    let status = unsafe {
-        nurt_exec_start(
-            e,
-            REQUEST.as_ptr(),
-            None,
-            ptr::null_mut(),
-            ptr::null_mut(),
-        )
-    };
+    let status =
+        unsafe { nurt_exec_start(e, REQUEST.as_ptr(), None, ptr::null_mut(), ptr::null_mut()) };
     assert_eq!(status, NurtStatus::Arg);
 }
 
@@ -289,7 +310,12 @@ fn json_arguments_that_are_not_objects_are_rejected() {
             rejected!("nurt_catalog", |a, _b| nurt_catalog(e, given, a));
             rejected!("nurt_describe", |a, _b| nurt_describe(e, given, a));
             rejected!("nurt_history", |a, _b| nurt_history(e, given, a));
-            rejected!("nurt_print", |a, _b| nurt_print(e, given, NURT_VARIANT_A, a));
+            rejected!("nurt_print", |a, _b| nurt_print(
+                e,
+                given,
+                NURT_VARIANT_A,
+                a
+            ));
         }
     }
     for text in [c"[1]", c"{", c"\"text\"", c"null", c"not json"] {
@@ -311,15 +337,7 @@ fn null_required_text_names_the_argument_in_the_last_error() {
     let e = open.engine;
     let (mut first, mut second) = (Buf::new(), Buf::new());
     // SAFETY: A live engine, a null program and valid buffers.
-    let status = unsafe {
-        nurt_parse(
-            e,
-            ptr::null(),
-            NURT_VARIANT_A,
-            first.ptr(),
-            second.ptr(),
-        )
-    };
+    let status = unsafe { nurt_parse(e, ptr::null(), NURT_VARIANT_A, first.ptr(), second.ptr()) };
     assert_eq!(status, NurtStatus::Arg);
     let record = last_error();
     assert_eq!(record["detail"]["function"], "nurt_parse");
@@ -401,7 +419,10 @@ fn the_version_check_accepts_only_the_same_major_and_a_minor_not_above_the_libra
 #[test]
 fn a_successful_call_keeps_the_last_error_of_the_thread() {
     // SAFETY: A null execution handle is rejected without being read.
-    assert_eq!(unsafe { nurt_exec_cancel(ptr::null_mut()) }, NurtStatus::Arg);
+    assert_eq!(
+        unsafe { nurt_exec_cancel(ptr::null_mut()) },
+        NurtStatus::Arg
+    );
     let mut info = Buf::new();
     // SAFETY: A valid output buffer.
     assert_eq!(unsafe { nurt_info(info.ptr()) }, NurtStatus::Ok);
@@ -419,7 +440,10 @@ fn null_handles_are_accepted_where_the_interface_allows_them() {
         nurt_set_log_callback(None, ptr::null_mut());
     }
     // SAFETY: A null execution handle is rejected without being read.
-    assert_eq!(unsafe { nurt_exec_cancel(ptr::null_mut()) }, NurtStatus::Arg);
+    assert_eq!(
+        unsafe { nurt_exec_cancel(ptr::null_mut()) },
+        NurtStatus::Arg
+    );
     let mut empty = Buf::new();
     // SAFETY: A zero buffer is released twice, which is allowed.
     unsafe {

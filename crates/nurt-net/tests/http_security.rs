@@ -37,7 +37,11 @@ fn response(record: &Record) -> HttpResponse {
 }
 
 fn fetch(values: &[(&str, Value)]) -> nurt_contracts::error::Result<Vec<Record>> {
-    exec_ctx::run(&HttpRequest, &exec_ctx::args(COMMAND, values), &exec_ctx::ctx())
+    exec_ctx::run(
+        &HttpRequest,
+        &exec_ctx::args(COMMAND, values),
+        &exec_ctx::ctx(),
+    )
 }
 
 #[test]

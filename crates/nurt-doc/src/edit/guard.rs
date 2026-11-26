@@ -561,10 +561,7 @@ mod tests {
 
     #[test]
     fn accepts_a_change_that_reads_back_as_expected() {
-        let plan = plan(
-            ByteEdit::replace(Span::new(2, 3), "9"),
-            Span::new(2, 3),
-        );
+        let plan = plan(ByteEdit::replace(Span::new(2, 3), "9"), Span::new(2, 3));
         let expectation = expectation().set(key("a"), Value::Text("9".to_owned()));
         let committed = commit(ORIGINAL, plan, &expectation, &Lines).unwrap();
         assert_eq!(committed.bytes, b"a=9\nb=2\n");
@@ -636,10 +633,7 @@ mod tests {
     #[test]
     fn a_rewrite_becomes_the_edits_between_the_texts() {
         let plan = EditPlan::from_rewrite(ORIGINAL, b"a=9\nb=2\n", vec![Span::new(2, 3)]);
-        assert_eq!(
-            plan.edits,
-            vec![ByteEdit::replace(Span::new(2, 3), "9")]
-        );
+        assert_eq!(plan.edits, vec![ByteEdit::replace(Span::new(2, 3), "9")]);
         assert_eq!(plan.targets, vec![Span::new(2, 3)]);
     }
 
@@ -649,7 +643,10 @@ mod tests {
         let error = check_round_trip(b"a: 1\nb: 2\n", b"a: 1\nb: 3\n").unwrap_err();
         assert_eq!(error.found.as_deref(), Some(DOC_ROUND_TRIP_LOSS));
         assert_eq!(
-            error.details.get("byte").and_then(serde_json::Value::as_u64),
+            error
+                .details
+                .get("byte")
+                .and_then(serde_json::Value::as_u64),
             Some(8)
         );
         let shorter = check_round_trip(b"a: 1\n", b"").unwrap_err();

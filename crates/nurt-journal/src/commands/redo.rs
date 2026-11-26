@@ -128,7 +128,10 @@ mod tests {
             let error = parse(&call(NAME, &[("id", given)])).unwrap_err();
             assert_eq!(error.code, ErrorCode::InvalidValue);
         }
-        for given in [Value::Text("1".to_owned()), Value::List(vec![Value::Int(1)])] {
+        for given in [
+            Value::Text("1".to_owned()),
+            Value::List(vec![Value::Int(1)]),
+        ] {
             let error = parse(&call(NAME, &[("id", given)])).unwrap_err();
             assert_eq!(error.code, ErrorCode::Type);
         }

@@ -718,7 +718,12 @@ fn it_windows_reads_the_current_process_with_account_and_executable() {
     let records = processes(run(&Processes::new(), &call, &ctx).unwrap());
     assert_eq!(records.len(), 1);
     assert!(records[0].executable.is_some());
-    assert!(records[0].uid.as_deref().is_some_and(|sid| sid.starts_with("S-1-")));
+    assert!(
+        records[0]
+            .uid
+            .as_deref()
+            .is_some_and(|sid| sid.starts_with("S-1-"))
+    );
 }
 
 #[test]

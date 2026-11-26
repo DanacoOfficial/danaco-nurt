@@ -302,7 +302,10 @@ mod tests {
             split_extension("archive.tar.gz"),
             (Some("archive.tar".to_owned()), Some("gz".to_owned()))
         );
-        assert_eq!(split_extension(".profile"), (Some(".profile".to_owned()), None));
+        assert_eq!(
+            split_extension(".profile"),
+            (Some(".profile".to_owned()), None)
+        );
         assert_eq!(split_extension("name."), (Some("name.".to_owned()), None));
         assert_eq!(
             split_extension(".env.local"),

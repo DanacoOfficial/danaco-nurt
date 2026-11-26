@@ -664,8 +664,7 @@ fn expiry_sequence() -> Vec<(u64, String)> {
         .map(|entry| (entry.op.0, format!("{:?}", entry.reason)))
         .collect();
     let position = |op: OpId| sequence.iter().position(|(id, _)| *id == op.0);
-    let by_age =
-        position(old).expect("the overdue entry is expired by the pass after the removal");
+    let by_age = position(old).expect("the overdue entry is expired by the pass after the removal");
     let by_size = position(large).expect("the entry over the size budget is expired");
     assert!(
         by_age < by_size,

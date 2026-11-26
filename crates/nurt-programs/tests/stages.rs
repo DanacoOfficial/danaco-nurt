@@ -1161,13 +1161,28 @@ fn find_checks_names_with_a_separator_as_they_are() {
     };
     let records = find_in(
         Some("/work"),
-        &["bin/tool", "./bin/tool", "bin/plain", "bin/absent", "/usr/bin/other"],
+        &[
+            "bin/tool",
+            "./bin/tool",
+            "bin/plain",
+            "bin/absent",
+            "/usr/bin/other",
+        ],
     );
-    assert_eq!(field(&records[0], "path").as_deref(), Some("/work/bin/tool"));
-    assert_eq!(field(&records[1], "path").as_deref(), Some("/work/bin/tool"));
+    assert_eq!(
+        field(&records[0], "path").as_deref(),
+        Some("/work/bin/tool")
+    );
+    assert_eq!(
+        field(&records[1], "path").as_deref(),
+        Some("/work/bin/tool")
+    );
     assert_eq!(field(&records[2], "found").as_deref(), Some("false"));
     assert_eq!(field(&records[3], "found").as_deref(), Some("false"));
-    assert_eq!(field(&records[4], "path").as_deref(), Some("/usr/bin/other"));
+    assert_eq!(
+        field(&records[4], "path").as_deref(),
+        Some("/usr/bin/other")
+    );
     let without_base = find_in(None, &["bin/tool"]);
     assert_eq!(field(&without_base[0], "found").as_deref(), Some("false"));
     let by_name = find_in(Some("/work"), &["tool"]);
@@ -1202,7 +1217,13 @@ fn find_labels_the_real_source_of_the_version() {
         ),
     )
     .unwrap();
-    assert_eq!(field(&records[0], "version_source").as_deref(), Some("package"));
+    assert_eq!(
+        field(&records[0], "version_source").as_deref(),
+        Some("package")
+    );
     assert_eq!(field(&records[1], "version").as_deref(), Some("7.1"));
-    assert_eq!(field(&records[1], "version_source").as_deref(), Some("catalog"));
+    assert_eq!(
+        field(&records[1], "version_source").as_deref(),
+        Some("catalog")
+    );
 }

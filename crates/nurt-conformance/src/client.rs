@@ -503,10 +503,7 @@ mod tests {
         let deadline = Instant::now() + std::time::Duration::from_millis(300);
         let mut connection = ProcessConnection::spawn(&command, &[], deadline).unwrap();
         let params = json!({"text": "x".repeat(4 << 20)});
-        assert_eq!(
-            connection.call("check", &params),
-            Err(CallError::Timeout)
-        );
+        assert_eq!(connection.call("check", &params), Err(CallError::Timeout));
     }
 
     #[test]

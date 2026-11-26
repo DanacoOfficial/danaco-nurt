@@ -394,8 +394,8 @@ mod tests {
             json!({"session": 7, "program": "ok"}),
             json!({"program": "ok", "accept": "c1"}),
         ] {
-            let message = check_request_from_arguments(Some(object(arguments.clone())), None)
-                .unwrap_err();
+            let message =
+                check_request_from_arguments(Some(object(arguments.clone())), None).unwrap_err();
             assert!(
                 message.starts_with("invalid arguments of the `nurt_check` tool: "),
                 "{arguments}: {message}"
@@ -406,7 +406,9 @@ mod tests {
     #[test]
     fn check_arguments_keep_text_with_multi_byte_characters() {
         let request = check_request_from_arguments(
-            Some(object(json!({"program": "find \"\u{142}\u{f3}d\u{17a}\u{1f600}\""}))),
+            Some(object(
+                json!({"program": "find \"\u{142}\u{f3}d\u{17a}\u{1f600}\""}),
+            )),
             None,
         )
         .unwrap();
@@ -426,8 +428,7 @@ mod tests {
             json!({"language": "de"}),
             json!({"topic": "find", "depth": 1}),
         ] {
-            let message =
-                help_query_from_arguments(Some(object(arguments.clone()))).unwrap_err();
+            let message = help_query_from_arguments(Some(object(arguments.clone()))).unwrap_err();
             assert!(
                 message.starts_with("invalid arguments of the `nurt_help` tool: "),
                 "{arguments}: {message}"

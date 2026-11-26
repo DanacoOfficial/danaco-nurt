@@ -576,7 +576,11 @@ fn interrupt_cancels_the_running_program_and_the_session_continues() {
 fn undo_and_redo_shortcuts_run_the_journal_commands() {
     for name in ["undo", "redo"] {
         let outcome = call(&[name]);
-        assert!(outcome.out.contains("E_UNSUPPORTED"), "{name}: {}", outcome.out);
+        assert!(
+            outcome.out.contains("E_UNSUPPORTED"),
+            "{name}: {}",
+            outcome.out
+        );
         assert!(!outcome.out.contains("E_UNKNOWN_COMMAND"), "{name}");
     }
 }
@@ -631,7 +635,11 @@ fn check_prints_the_check_document_in_json() {
 fn check_of_a_missing_file_is_a_failure() {
     let outcome = call(&["check", "/absent/dir/program.nurt"]);
     assert_eq!(outcome.code, exit::FAILURE);
-    assert!(outcome.err.contains("cannot read `/absent/dir/program.nurt`"));
+    assert!(
+        outcome
+            .err
+            .contains("cannot read `/absent/dir/program.nurt`")
+    );
     assert!(outcome.out.is_empty());
 }
 
@@ -679,7 +687,11 @@ fn notations_of_ast_are_checked_before_the_input_is_read() {
 fn an_unknown_catalog_entry_is_a_failure_naming_it() {
     let outcome = call(&["catalog", "no-such-command"]);
     assert_eq!(outcome.code, exit::FAILURE);
-    assert!(outcome.err.contains("the catalog has no entry `no-such-command`"));
+    assert!(
+        outcome
+            .err
+            .contains("the catalog has no entry `no-such-command`")
+    );
 }
 
 #[test]
@@ -710,7 +722,11 @@ fn every_output_format_prints_the_error_of_the_program() {
             exit::for_error_code(ErrorCode::Unsupported),
             "{format}"
         );
-        assert!(outcome.out.contains("E_UNSUPPORTED"), "{format}: {}", outcome.out);
+        assert!(
+            outcome.out.contains("E_UNSUPPORTED"),
+            "{format}: {}",
+            outcome.out
+        );
     }
 }
 
@@ -738,7 +754,11 @@ fn jobs_lists_the_background_programs_with_their_numbers() {
     let temp = tempfile::tempdir().unwrap();
     let script = "bg find \"/srv\"\nbg find \"/srv\"\njobs\nkill 1\njobs\nexit\n";
     let outcome = invoke(&source(&temp), &["repl"], script, Terminal::default());
-    assert!(outcome.out.contains("[1] started\n[2] started\n"), "{}", outcome.out);
+    assert!(
+        outcome.out.contains("[1] started\n[2] started\n"),
+        "{}",
+        outcome.out
+    );
     let listed: Vec<&str> = outcome
         .out
         .lines()

@@ -212,7 +212,11 @@ fn positions_a_value_correction_in_characters_after_multi_byte_text() {
     assert_eq!(rules(&outcome), ["V01"]);
     let at = outcome.corrections[0].at.unwrap();
     assert_eq!((at.line, at.column, at.length), (1, 35, Some(4)));
-    assert!(outcome.canonical.contains("/srv/é"), "{}", outcome.canonical);
+    assert!(
+        outcome.canonical.contains("/srv/é"),
+        "{}",
+        outcome.canonical
+    );
     assert!(outcome.canonical.ends_with("order: desc"));
 }
 

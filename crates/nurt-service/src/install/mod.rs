@@ -662,8 +662,7 @@ mod tests {
         let precious = dir.path().join("precious");
         fs::write(&precious, "keep").unwrap();
         let path = dir.path().join("service.install.json");
-        std::os::unix::fs::symlink(&precious, dir.path().join("service.install.json.tmp"))
-            .unwrap();
+        std::os::unix::fs::symlink(&precious, dir.path().join("service.install.json.tmp")).unwrap();
         write_file(&path, b"manifest").unwrap();
         assert_eq!(fs::read_to_string(&precious).unwrap(), "keep");
         assert_eq!(fs::read_to_string(&path).unwrap(), "manifest");

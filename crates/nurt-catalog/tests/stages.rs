@@ -281,7 +281,10 @@ fn descriptors_of_different_commands_never_overlap() {
     let other = descriptor("sort", false, InputKinds::Any);
     assert!(!descriptors_overlap(&any, &other));
     let source = descriptor("find", true, InputKinds::None);
-    assert!(!descriptors_overlap(&source, &descriptor("list", true, InputKinds::None)));
+    assert!(!descriptors_overlap(
+        &source,
+        &descriptor("list", true, InputKinds::None)
+    ));
 }
 
 #[test]

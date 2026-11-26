@@ -460,7 +460,10 @@ fn eventlog_channel_candidates_of_degenerate_input() {
     let available = ["b", "a"].map(String::from);
     assert_eq!(nearest("", &available), ["a", "b"]);
     let accents = ["\u{c9}v\u{e9}nements".to_owned(), "System".to_owned()];
-    assert_eq!(nearest("\u{e9}V\u{c9}", &accents)[0], "\u{c9}v\u{e9}nements");
+    assert_eq!(
+        nearest("\u{e9}V\u{c9}", &accents)[0],
+        "\u{c9}v\u{e9}nements"
+    );
 }
 
 #[test]

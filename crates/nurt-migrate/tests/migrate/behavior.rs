@@ -656,7 +656,10 @@ fn line_break_in_the_script_path_stays_inside_the_source_comment() {
         Ok(migration) => migration,
         Err(error) => panic!("migration failed: {error:?}"),
     };
-    assert_eq!(migration.nurt.lines().next(), Some("# Source: /srv/a b.sh (bash)"));
+    assert_eq!(
+        migration.nurt.lines().next(),
+        Some("# Source: /srv/a b.sh (bash)")
+    );
     assert_eq!(migration.report.script, "/srv/a\nb.sh");
     assert!(
         migration
@@ -752,7 +755,8 @@ fn summary_counts_the_items_by_status() {
             &["B34"],
         )
         .unbound("background: true");
-    let source = "rm /srv/a\ngrep -rn x /srv/a\nfor f in *; do echo; done\ntar -czf /b/a.tgz /a &\n";
+    let source =
+        "rm /srv/a\ngrep -rn x /srv/a\nfor f in *; do echo; done\ntar -czf /b/a.tgz /a &\n";
     let summary = run(source, BASH, &mock).report.summary();
     assert_eq!(
         (
@@ -815,10 +819,7 @@ fn lines_of_a_multi_line_fix_stay_comments() {
         &["list \"/srv\"\n|> first 5"],
     );
     let migration = run("sudo ls\n", BASH, &mock);
-    let expected = format!(
-        "#   fix: list \"/srv\"\n#{}|> first 5\n",
-        " ".repeat(9)
-    );
+    let expected = format!("#   fix: list \"/srv\"\n#{}|> first 5\n", " ".repeat(9));
     assert!(migration.nurt.contains(&expected));
     assert!(
         migration
@@ -831,11 +832,8 @@ fn lines_of_a_multi_line_fix_stay_comments() {
 
 #[test]
 fn text_report_indents_the_lines_of_a_multi_line_output() {
-    let mock = MockTranslator::new().program(
-        "rm /srv/a",
-        "remove \"/srv/a\"\n|> first 5",
-        &["B01"],
-    );
+    let mock =
+        MockTranslator::new().program("rm /srv/a", "remove \"/srv/a\"\n|> first 5", &["B01"]);
     let migration = run("rm /srv/a\n", BASH, &mock);
     let expected = format!(
         "  output: remove \"/srv/a\"\n{}|> first 5\n",
@@ -863,7 +861,11 @@ fn comment_only_script_keeps_the_comments_and_translates_nothing() {
     let migration = run("# only a comment\n# and another\n", BASH, &mock);
     assert!(migration.report.items.is_empty());
     assert!(mock.requests().is_empty());
-    assert!(migration.nurt.ends_with("\n# only a comment\n# and another\n"));
+    assert!(
+        migration
+            .nurt
+            .ends_with("\n# only a comment\n# and another\n")
+    );
 }
 
 #[test]

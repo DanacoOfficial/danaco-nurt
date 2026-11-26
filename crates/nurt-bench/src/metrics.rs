@@ -426,7 +426,11 @@ mod tests {
             silent,
             end_event(Outcome::Answered),
         ];
-        assert!(!RunMeasures::from_events(&uncounted).unwrap().tokens_measured);
+        assert!(
+            !RunMeasures::from_events(&uncounted)
+                .unwrap()
+                .tokens_measured
+        );
     }
 
     #[test]

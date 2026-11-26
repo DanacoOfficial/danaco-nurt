@@ -997,12 +997,32 @@ mod tests {
     #[test]
     fn an_entry_takes_the_most_advanced_state_of_its_parts() {
         let table = [
-            (EntryState::Committed, EntryState::Partial, EntryState::Partial),
+            (
+                EntryState::Committed,
+                EntryState::Partial,
+                EntryState::Partial,
+            ),
             (EntryState::Partial, EntryState::Undone, EntryState::Undone),
-            (EntryState::Undone, EntryState::Expiring, EntryState::Expiring),
-            (EntryState::Expiring, EntryState::Expired, EntryState::Expired),
-            (EntryState::Committed, EntryState::Corrupt, EntryState::Corrupt),
-            (EntryState::Committed, EntryState::Committed, EntryState::Committed),
+            (
+                EntryState::Undone,
+                EntryState::Expiring,
+                EntryState::Expiring,
+            ),
+            (
+                EntryState::Expiring,
+                EntryState::Expired,
+                EntryState::Expired,
+            ),
+            (
+                EntryState::Committed,
+                EntryState::Corrupt,
+                EntryState::Corrupt,
+            ),
+            (
+                EntryState::Committed,
+                EntryState::Committed,
+                EntryState::Committed,
+            ),
         ];
         for (first, second, merged) in table {
             for parts in [[part(first), part(second)], [part(second), part(first)]] {
@@ -1050,7 +1070,10 @@ mod tests {
         assert!(!entry.items[0].is_in_effect());
         assert_eq!(entry.irreversible.len(), 1);
         assert_eq!(entry.irreversible[0].reason, Irreversible::JournalError);
-        assert_eq!(entry.irreversible[0].path.as_deref(), Some("/srv/app/src/a.go"));
+        assert_eq!(
+            entry.irreversible[0].path.as_deref(),
+            Some("/srv/app/src/a.go")
+        );
         assert!(entry.in_session(None));
         assert!(entry.in_session(Some(&SessionId("s-1".to_owned()))));
         assert!(!entry.in_session(Some(&SessionId("other".to_owned()))));

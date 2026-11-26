@@ -37,7 +37,10 @@ impl MergeCompletion {
     pub fn message(&self, explicit: Option<&str>, cleanup: Cleanup, comment: char) -> String {
         let (text, cleanup) = match explicit {
             Some(text) => (text, Cleanup::Whitespace),
-            None => (self.prepared_message.as_deref().unwrap_or_default(), cleanup),
+            None => (
+                self.prepared_message.as_deref().unwrap_or_default(),
+                cleanup,
+            ),
         };
         clean_message(text, cleanup, comment)
     }

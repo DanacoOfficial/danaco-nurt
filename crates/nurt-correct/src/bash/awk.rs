@@ -458,7 +458,10 @@ mod tests {
 
     #[test]
     fn programs_with_multibyte_text_do_not_panic() {
-        assert_eq!(parse_program("/żółć/ {print $1}").unwrap().regex.as_deref(), Some("żółć"));
+        assert_eq!(
+            parse_program("/żółć/ {print $1}").unwrap().regex.as_deref(),
+            Some("żółć")
+        );
         assert_eq!(parse_program("$1 == \"ą\"").unwrap().fields, vec![0]);
         assert_eq!(parse_program("ż"), None);
         assert_eq!(parse_program("$1 > ł"), None);

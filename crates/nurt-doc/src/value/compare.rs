@@ -118,7 +118,11 @@ impl Decimal {
                         .cmp(&other.order)
                         .then_with(|| self.digits.cmp(&other.digits)),
                 };
-                if negative { magnitude.reverse() } else { magnitude }
+                if negative {
+                    magnitude.reverse()
+                } else {
+                    magnitude
+                }
             }
         }
     }
@@ -372,7 +376,10 @@ mod tests {
             &Value::Number(f64::NAN)
         ));
         assert!(!equivalent(&Value::Int(2), &Value::Text("2".to_owned())));
-        assert_eq!(compare_numbers(&Value::Int(1), &Value::Text("1".to_owned())), None);
+        assert_eq!(
+            compare_numbers(&Value::Int(1), &Value::Text("1".to_owned())),
+            None
+        );
     }
 
     #[test]

@@ -166,7 +166,12 @@ fn a_scan_does_not_enter_another_volume() {
     let (scanned, _) = bounded_scan(sys, limits(usize::MAX), None, &CancelToken::new());
     assert!(scanned.foreign >= 1);
     assert!(scanned.entries.contains_key(cgroup));
-    assert!(!scanned.entries.keys().any(|path| path.starts_with(cgroup) && path != cgroup));
+    assert!(
+        !scanned
+            .entries
+            .keys()
+            .any(|path| path.starts_with(cgroup) && path != cgroup)
+    );
     let unbounded = bounded_scan(sys, ScanLimits::UNLIMITED, None, &CancelToken::new()).0;
     assert!(unbounded.entries.len() >= scanned.entries.len());
 }
@@ -323,7 +328,10 @@ fn cancellation_after_the_program_reports_that_changes_are_unknown() {
     assert_eq!(notes.len(), 1);
     assert_eq!(notes[0].severity, Severity::Warning);
     let detail = notes[0].detail.as_deref().unwrap();
-    assert!(detail.contains("not detected") && detail.contains("cancelled"), "{detail}");
+    assert!(
+        detail.contains("not detected") && detail.contains("cancelled"),
+        "{detail}"
+    );
 }
 
 #[test]

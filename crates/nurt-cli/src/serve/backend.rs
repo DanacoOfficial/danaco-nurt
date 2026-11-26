@@ -385,7 +385,10 @@ mod tests {
             if cancelled {
                 events.mark_cancelled();
             }
-            events.deliver(delivered(1, EventBody::Lifecycle(Lifecycle::Finished { status })));
+            events.deliver(delivered(
+                1,
+                EventBody::Lifecycle(Lifecycle::Finished { status }),
+            ));
             receiver.try_iter().next().unwrap()["params"]["error"].clone()
         };
         assert_eq!(finished(true, ReportStatus::Failed), json!("E_CANCELLED"));

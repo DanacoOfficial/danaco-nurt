@@ -346,7 +346,11 @@ fn is_shared_state(name: &str) -> bool {
                 .strip_prefix(prefix)
                 .is_some_and(|rest| rest.starts_with('/'))
     };
-    if PER_WORKTREE.iter().chain(&PER_WORKTREE_REFS).any(|prefix| under(prefix)) {
+    if PER_WORKTREE
+        .iter()
+        .chain(&PER_WORKTREE_REFS)
+        .any(|prefix| under(prefix))
+    {
         return false;
     }
     SHARED_FILES.contains(&name) || SHARED_DIRECTORIES.iter().any(|prefix| under(prefix))

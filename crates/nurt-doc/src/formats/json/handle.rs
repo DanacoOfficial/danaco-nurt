@@ -266,9 +266,9 @@ impl JsonHandle {
         located.sort_by_key(|(node, _, _)| (node.start, std::cmp::Reverse(node.end)));
         let mut kept: Vec<(syntax::Span, Span, KeyPath)> = Vec::with_capacity(located.len());
         for item in located {
-            let nested = kept
-                .last()
-                .is_some_and(|(outer, _, _)| outer.start <= item.0.start && item.0.end <= outer.end);
+            let nested = kept.last().is_some_and(|(outer, _, _)| {
+                outer.start <= item.0.start && item.0.end <= outer.end
+            });
             if !nested {
                 kept.push(item);
             }

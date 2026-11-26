@@ -456,10 +456,19 @@ fn checks_bound_values() {
         (json!({"t": "size", "v": MAX_SAFE_INTEGER + 1}), "/v"),
         (json!({"t": "path", "v": "src/app"}), "/v"),
         (json!({"t": "instant", "v": "2026-11-22 10:00:00Z"}), "/v"),
-        (json!({"t": "instant", "v": "2026-11-22T10:00:00.25+01:00"}), "/v"),
-        (json!({"t": "instant", "v": "2026-11-22T10:00:00.250Z"}), "/v"),
+        (
+            json!({"t": "instant", "v": "2026-11-22T10:00:00.25+01:00"}),
+            "/v",
+        ),
+        (
+            json!({"t": "instant", "v": "2026-11-22T10:00:00.250Z"}),
+            "/v",
+        ),
         (json!({"t": "instant", "v": "2026-11-22T10:00:60Z"}), "/v"),
-        (json!({"t": "instant", "v": "2026-11-22T10:00:00.1234567891Z"}), "/v"),
+        (
+            json!({"t": "instant", "v": "2026-11-22T10:00:00.1234567891Z"}),
+            "/v",
+        ),
         (json!({"t": "regex", "v": "x", "flags": "xi"}), "/flags"),
         (json!({"t": "range", "hi": MAX_SAFE_INTEGER + 1}), "/hi"),
         (json!({"t": "spread", "x": {"t": "ref", "name": "r"}}), ""),
@@ -613,7 +622,11 @@ fn rejects_metadata_integers_outside_the_safe_range_in_a_bound_tree() {
 fn rejects_empty_regular_expression_patterns() {
     for flags in ["", "i"] {
         let value = surface_value(json!({"t": "regex", "v": "", "flags": flags}));
-        assert_eq!(surface_violation(value), format!("{ARG_VALUE}/v"), "{flags}");
+        assert_eq!(
+            surface_violation(value),
+            format!("{ARG_VALUE}/v"),
+            "{flags}"
+        );
         let value = json!({"t": "regex", "v": "", "flags": flags});
         assert_eq!(
             bound_violation(bound_value(value)),

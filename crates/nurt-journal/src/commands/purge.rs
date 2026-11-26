@@ -177,10 +177,7 @@ mod tests {
 
     #[test]
     fn the_word_all_selects_every_volume_whether_given_as_word_or_text() {
-        for value in [
-            Value::Enum("all".to_owned()),
-            Value::Text("all".to_owned()),
-        ] {
+        for value in [Value::Enum("all".to_owned()), Value::Text("all".to_owned())] {
             let parsed = parse(&call(NAME, &[("volume", value)])).unwrap();
             assert_eq!(parsed.volume, None);
             assert_eq!(parsed.selector, PurgeSelector::All);
@@ -203,7 +200,10 @@ mod tests {
         }
         let mixed = call(
             NAME,
-            &[("id", Value::List(vec![Value::Int(1), Value::Text("x".to_owned())]))],
+            &[(
+                "id",
+                Value::List(vec![Value::Int(1), Value::Text("x".to_owned())]),
+            )],
         );
         assert_eq!(parse(&mixed).unwrap_err().code, ErrorCode::Type);
         let single = call(NAME, &[("id", Value::Int(7))]);

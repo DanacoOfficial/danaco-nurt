@@ -25,7 +25,9 @@ use nurt_contracts::value::Value;
 use super::comment::Comments;
 use super::model::{CollectionStyle, NodeId, NodeKind, SequenceNode, YamlModel};
 use super::multidoc;
-use super::scalar::{date_text, format_float, is_plain_safe, key_text, literal_block, quote_double};
+use super::scalar::{
+    date_text, format_float, is_plain_safe, key_text, literal_block, quote_double,
+};
 
 use crate::edit::ByteEdit;
 use crate::model::{Span, key_conflict, key_not_found};
@@ -892,10 +894,16 @@ mod tests {
         let model = parse(source);
         let flow = plan_remove(&model, value_node(&model, "l"), -1, &key("l[-1]")).unwrap();
         let out = crate::edit::apply(source.as_bytes(), &flow.edits).unwrap();
-        assert_eq!(String::from_utf8(out.bytes).unwrap(), "l: [a, b]\nm:\n  - x\n  - y\n");
+        assert_eq!(
+            String::from_utf8(out.bytes).unwrap(),
+            "l: [a, b]\nm:\n  - x\n  - y\n"
+        );
         let block = plan_remove(&model, value_node(&model, "m"), 0, &key("m[0]")).unwrap();
         let out = crate::edit::apply(source.as_bytes(), &block.edits).unwrap();
-        assert_eq!(String::from_utf8(out.bytes).unwrap(), "l: [a, b, c]\nm:\n  - y\n");
+        assert_eq!(
+            String::from_utf8(out.bytes).unwrap(),
+            "l: [a, b, c]\nm:\n  - y\n"
+        );
     }
 
     #[test]
@@ -911,11 +919,15 @@ mod tests {
             IndexTarget::Item(_)
         ));
         assert_eq!(
-            index_target(&model, list, 3, &key("l[3]")).unwrap_err().code,
+            index_target(&model, list, 3, &key("l[3]"))
+                .unwrap_err()
+                .code,
             ErrorCode::KeyConflict
         );
         assert_eq!(
-            index_target(&model, list, i64::MIN, &key("l[0]")).unwrap_err().code,
+            index_target(&model, list, i64::MIN, &key("l[0]"))
+                .unwrap_err()
+                .code,
             ErrorCode::KeyNotFound
         );
     }

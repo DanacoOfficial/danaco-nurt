@@ -1203,7 +1203,11 @@ mod tests {
             Outcome::NotApplicable
         );
         assert_eq!(
-            instant(Written::quoted("2026-11-21 10:00ł"), &tables, &TimeZone::UTC),
+            instant(
+                Written::quoted("2026-11-21 10:00ł"),
+                &tables,
+                &TimeZone::UTC
+            ),
             Outcome::NotApplicable
         );
         assert_eq!(

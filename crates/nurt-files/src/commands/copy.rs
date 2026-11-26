@@ -632,8 +632,14 @@ mod tests {
             choice_arg("skip"),
         );
         let run = run(&Copy, &test, &call, None).unwrap();
-        assert_eq!(test.fs().read_file(&abs("/out/tree/a.txt")).unwrap(), b"old-a");
-        assert_eq!(test.fs().read_file(&abs("/out/tree/b.txt")).unwrap(), b"new-b");
+        assert_eq!(
+            test.fs().read_file(&abs("/out/tree/a.txt")).unwrap(),
+            b"old-a"
+        );
+        assert_eq!(
+            test.fs().read_file(&abs("/out/tree/b.txt")).unwrap(),
+            b"new-b"
+        );
         assert_eq!(run.summary("skipped"), Some(1));
         assert_eq!(run.summary("files"), Some(1));
         assert_eq!(run.summary("directories"), Some(0));

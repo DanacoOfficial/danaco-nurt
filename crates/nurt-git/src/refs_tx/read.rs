@@ -234,7 +234,10 @@ mod tests {
         assert_eq!(read_loose(dir.path()).unwrap(), Loose::Dir);
         let file = dir.path().join("ref");
         std::fs::write(&file, b"content\n").unwrap();
-        assert_eq!(read_loose(&file).unwrap(), Loose::File(b"content\n".to_vec()));
+        assert_eq!(
+            read_loose(&file).unwrap(),
+            Loose::File(b"content\n".to_vec())
+        );
         assert_eq!(
             read_loose(&dir.path().join("ref").join("below")).unwrap(),
             Loose::Absent
@@ -248,7 +251,11 @@ mod tests {
         let path = dir.path().join("special");
         let _socket = std::os::unix::net::UnixListener::bind(&path).unwrap();
         let error = read_loose(&path).unwrap_err();
-        assert!(error.message.contains("not a regular file"), "{}", error.message);
+        assert!(
+            error.message.contains("not a regular file"),
+            "{}",
+            error.message
+        );
     }
 
     #[test]

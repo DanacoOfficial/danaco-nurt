@@ -998,7 +998,8 @@ mod tests {
     #[test]
     fn an_entry_with_a_garbage_state_and_no_manifest_is_listed_with_both_damages() {
         let fs = mem();
-        fs.seed_file(&entry(6).state().unwrap(), b"\xff\xfe").unwrap();
+        fs.seed_file(&entry(6).state().unwrap(), b"\xff\xfe")
+            .unwrap();
         let listed = list(&*fs, &abs(JOURNAL)).unwrap();
         assert_eq!(listed.len(), 1);
         let found = &listed[0];
@@ -1138,9 +1139,8 @@ mod tests {
     fn extraction_keeps_recorded_traversal_inside_the_directory_and_numbers_duplicates() {
         let fs = mem();
         let damaged = entry(20);
-        let file = |index: u32| {
-            BlobId::new(TargetIndex(index), layout::BlobRole::Previous).content_name()
-        };
+        let file =
+            |index: u32| BlobId::new(TargetIndex(index), layout::BlobRole::Previous).content_name();
         let manifest = serde_json::json!({
             "v": 1,
             "op": 20,
@@ -1153,8 +1153,11 @@ mod tests {
             ],
             "integrity": { "algo": "sha256", "chain": null }
         });
-        fs.seed_file(&damaged.manifest().unwrap(), manifest.to_string().as_bytes())
-            .unwrap();
+        fs.seed_file(
+            &damaged.manifest().unwrap(),
+            manifest.to_string().as_bytes(),
+        )
+        .unwrap();
         fs.seed_file(&blob(20, 0), "pierwszy".as_bytes()).unwrap();
         fs.seed_file(&blob(20, 1), b"second").unwrap();
         let mut tx = DirectTx::new(&fs);
@@ -1163,7 +1166,11 @@ mod tests {
         assert_eq!(read("/v/out/a/same.txt"), "pierwszy".as_bytes());
         assert_eq!(read("/v/out/a/same.txt.1"), b"second");
         assert!(fs.metadata(&abs("/v/same.txt"), Follow::NoFollow).is_err());
-        let paths: Vec<&str> = extraction.items.iter().map(|item| item.path.as_str()).collect();
+        let paths: Vec<&str> = extraction
+            .items
+            .iter()
+            .map(|item| item.path.as_str())
+            .collect();
         assert_eq!(paths, ["a/same.txt", "a/same.txt.1"]);
     }
 

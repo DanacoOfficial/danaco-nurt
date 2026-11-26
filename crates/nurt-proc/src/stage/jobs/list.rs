@@ -195,7 +195,10 @@ mod tests {
     fn the_output_view_follows_stream_head_tail_filter_and_dedupe() {
         let default = output_view(&bound(Vec::new())).unwrap();
         assert_eq!(default.show, ShowMode::Both);
-        assert_eq!((default.head, default.tail, default.context), (None, None, 0));
+        assert_eq!(
+            (default.head, default.tail, default.context),
+            (None, None, 0)
+        );
         assert!(!default.dedupe);
         assert_eq!(default.filter, None);
         let args = bound(vec![

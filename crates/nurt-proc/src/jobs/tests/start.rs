@@ -54,7 +54,11 @@ fn a_cancelled_call_stops_a_run_the_supervisor_already_took() {
         program: path.join("nurt"),
         args: Vec::new(),
     };
-    let (client, _) = context_with(&path, Config::default(), Some(Supervision::Detached(command)));
+    let (client, _) = context_with(
+        &path,
+        Config::default(),
+        Some(Supervision::Detached(command)),
+    );
     let cancel = client.cancel().clone();
     let host = run_host(&client, components);
     let caller = {

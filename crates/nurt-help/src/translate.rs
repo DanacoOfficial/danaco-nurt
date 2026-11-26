@@ -28,7 +28,9 @@ const MAX_EXPECTED_SHOWN: usize = 5;
 #[must_use]
 pub fn error_text(code: ErrorCode) -> Option<&'static str> {
     Some(match code {
-        ErrorCode::Lexical => "znak lub fragment programu jest niepoprawny: nieznany znak, niezamknięty tekst albo błędna liczba, rozmiar lub czas trwania",
+        ErrorCode::Lexical => {
+            "znak lub fragment programu jest niepoprawny: nieznany znak, niezamknięty tekst albo błędna liczba, rozmiar lub czas trwania"
+        }
         ErrorCode::Escape => "sekwencja specjalna w tekście jest niepoprawna",
         ErrorCode::Syntax => "program nie spełnia gramatyki",
         ErrorCode::Ambiguous => "korekta jest możliwa, ale dotyka celu zmiany",
@@ -50,32 +52,46 @@ pub fn error_text(code: ErrorCode) -> Option<&'static str> {
         ErrorCode::Config => "konfiguracja jest niepoprawna",
         ErrorCode::PathRelative => "podano ścieżkę względną bez parametru wywołania base",
         ErrorCode::PathForeign => "ścieżka jest zapisana w postaci obcej dla tego systemu",
-        ErrorCode::OneEffect => "program ma więcej niż jeden etap zmieniający lub uruchamiający albo niedozwolony etap po skutku",
+        ErrorCode::OneEffect => {
+            "program ma więcej niż jeden etap zmieniający lub uruchamiający albo niedozwolony etap po skutku"
+        }
         ErrorCode::OsOnly => "polecenie istnieje tylko w innym systemie operacyjnym",
         ErrorCode::Unsupported => "parametr lub tryb nie jest dostępny w tym systemie",
         ErrorCode::Regex => "wyrażenie regularne lub szablon zamiany jest niepoprawny",
         ErrorCode::KeySyntax => "ścieżka klucza w dokumencie jest niepoprawna",
-        ErrorCode::PatternSyntax => "wzorzec składni nie daje się przeanalizować w języku docelowym",
+        ErrorCode::PatternSyntax => {
+            "wzorzec składni nie daje się przeanalizować w języku docelowym"
+        }
         ErrorCode::Query => "zapytanie do dokumentu nie kompiluje się albo kończy się błędem",
-        ErrorCode::Sql => "instrukcji SQL nie można przygotować lub wykonać albo zmienia dane bez write: true",
+        ErrorCode::Sql => {
+            "instrukcji SQL nie można przygotować lub wykonać albo zmienia dane bez write: true"
+        }
         ErrorCode::Arg => "argumentu nie można przekazać bez zmiany jego znaczenia",
         ErrorCode::ExternalMissing => "program wymagany przez polecenie nie jest zainstalowany",
-        ErrorCode::ExternalFailed => "program zewnętrzny używany przez polecenie zakończył się błędem lub złamał protokół",
+        ErrorCode::ExternalFailed => {
+            "program zewnętrzny używany przez polecenie zakończył się błędem lub złamał protokół"
+        }
         ErrorCode::ProgramNotFound => "programu do uruchomienia nie ma w ścieżce wyszukiwania",
         ErrorCode::Spawn => "nie udało się uruchomić programu",
-        ErrorCode::Assert => "asercja nie jest spełniona; przed skutkiem nic się nie zmieniło, po skutku skutek pozostaje",
+        ErrorCode::Assert => {
+            "asercja nie jest spełniona; przed skutkiem nic się nie zmieniło, po skutku skutek pozostaje"
+        }
         ErrorCode::Binary => "zawartość jest binarna, a wymagany jest tekst",
         ErrorCode::DocParse => "plik nie jest poprawnym dokumentem swojego formatu",
         ErrorCode::Format => "format jest uszkodzony lub nieobsługiwany",
         ErrorCode::Encrypted => "archiwum lub dokument jest zaszyfrowany",
-        ErrorCode::UnsupportedConstruct => "konstrukcji dokumentu nie można zmienić bez utraty jego układu",
+        ErrorCode::UnsupportedConstruct => {
+            "konstrukcji dokumentu nie można zmienić bez utraty jego układu"
+        }
         ErrorCode::KeyNotFound => "ścieżki klucza nie ma w dokumencie",
         ErrorCode::KeyConflict => "ścieżka klucza przechodzi przez wartość innego rodzaju",
         ErrorCode::UnsupportedLanguage => "brak gramatyki dla języka tego pliku",
         ErrorCode::SymbolNotFound => "symbol nie ma definicji",
         ErrorCode::SymbolAmbiguous => "symbol ma kilka definicji",
         ErrorCode::RenameConflict => "nowa nazwa koliduje z istniejącym symbolem w tym zakresie",
-        ErrorCode::NoMatch => "zamiana lub edycja nie znalazła dopasowania, a wywołanie go wymagało",
+        ErrorCode::NoMatch => {
+            "zamiana lub edycja nie znalazła dopasowania, a wywołanie go wymagało"
+        }
         ErrorCode::PatchRejected => "fragment łatki nie pasuje do pliku",
         ErrorCode::OutOfRange => "numer wiersza, strona lub pozycja leży poza zawartością",
         ErrorCode::Stale => "plik zmienił się po odczycie; cała operacja została wycofana",
@@ -92,10 +108,16 @@ pub fn error_text(code: ErrorCode) -> Option<&'static str> {
         ErrorCode::Limit => "osiągnięto limit zasobu",
         ErrorCode::StageFailed => "etap zakończył się błędem",
         ErrorCode::RolledBack => "weryfikacja nie powiodła się, a skutek został wycofany",
-        ErrorCode::RollbackFailed => "wycofanie nie przywróciło wszystkiego; pliki są wymienione wraz z instrukcją",
-        ErrorCode::JournalNoop => "w dzienniku nie ma takiej operacji albo nie ma czego cofnąć lub ponowić",
+        ErrorCode::RollbackFailed => {
+            "wycofanie nie przywróciło wszystkiego; pliki są wymienione wraz z instrukcją"
+        }
+        ErrorCode::JournalNoop => {
+            "w dzienniku nie ma takiej operacji albo nie ma czego cofnąć lub ponowić"
+        }
         ErrorCode::JournalExpired => "wpis dziennika wygasł; nic się nie zmieniło",
-        ErrorCode::JournalConflict => "bieżący stan różni się od stanu po operacji; nic się nie zmieniło",
+        ErrorCode::JournalConflict => {
+            "bieżący stan różni się od stanu po operacji; nic się nie zmieniło"
+        }
         ErrorCode::JournalPartial => "wpis jest częściowy: część pozycji została zwolniona",
         ErrorCode::JournalCorrupt => "wpis dziennika nie przeszedł kontroli integralności",
         ErrorCode::UnknownJob => "zadanie w tle jest nieznane",
@@ -103,32 +125,58 @@ pub fn error_text(code: ErrorCode) -> Option<&'static str> {
         ErrorCode::TestNoFramework => "nie rozpoznano środowiska testowego projektu",
         ErrorCode::UnknownRun => "przebieg testów jest nieznany",
         ErrorCode::UnknownAnalysis => "analiza jest nieznana",
-        ErrorCode::OutputParse => "nie udało się odczytać wyniku środowiska testowego lub analizatora",
-        ErrorCode::Network => "błąd sieci: rozwiązywanie nazw, połączenie, TLS, serwer pośredniczący, przekierowania lub protokół",
+        ErrorCode::OutputParse => {
+            "nie udało się odczytać wyniku środowiska testowego lub analizatora"
+        }
+        ErrorCode::Network => {
+            "błąd sieci: rozwiązywanie nazw, połączenie, TLS, serwer pośredniczący, przekierowania lub protokół"
+        }
         ErrorCode::HashMismatch => "pobrany plik nie ma oczekiwanego skrótu; nie został zachowany",
         ErrorCode::Service => "menedżer usług zgłosił błąd",
-        ErrorCode::ServiceNotRunning => "usługa działająca w tle dla tej instancji nie jest uruchomiona",
+        ErrorCode::ServiceNotRunning => {
+            "usługa działająca w tle dla tej instancji nie jest uruchomiona"
+        }
         ErrorCode::Catalog => "jawnie skonfigurowanego katalogu programów nie można odczytać",
         ErrorCode::GitNotRepository => "ścieżka nie leży w repozytorium",
         ErrorCode::GitRevision => "rewizja jest nieznana, niejednoznaczna lub błędnie zapisana",
-        ErrorCode::GitRef => "nazwa referencji jest niepoprawna, istnieje, nie istnieje, nie jest scalona albo jest wyewidencjonowana gdzie indziej",
+        ErrorCode::GitRef => {
+            "nazwa referencji jest niepoprawna, istnieje, nie istnieje, nie jest scalona albo jest wyewidencjonowana gdzie indziej"
+        }
         ErrorCode::GitDirty => "lokalne zmiany zostałyby nadpisane; nic się nie zmieniło",
-        ErrorCode::GitConflict => "scalanie zakończyło się konfliktami; skutek jest zastosowany, a konflikty są wymienione",
-        ErrorCode::GitInProgress => "trwa scalanie lub zmiana bazy albo nie trwa żadne, a jest wymagane",
+        ErrorCode::GitConflict => {
+            "scalanie zakończyło się konfliktami; skutek jest zastosowany, a konflikty są wymienione"
+        }
+        ErrorCode::GitInProgress => {
+            "trwa scalanie lub zmiana bazy albo nie trwa żadne, a jest wymagane"
+        }
         ErrorCode::GitLocked => "istnieje plik blokady repozytorium",
-        ErrorCode::GitNonFastForward => "historie się rozeszły, a dozwolone jest tylko przewinięcie",
+        ErrorCode::GitNonFastForward => {
+            "historie się rozeszły, a dozwolone jest tylko przewinięcie"
+        }
         ErrorCode::GitNothingToCommit => "nie ma czego zatwierdzić",
         ErrorCode::GitHook => "hak zakończył się kodem różnym od zera; zatwierdzenie nie powstało",
         ErrorCode::GitSign => "nie udało się podpisać zatwierdzenia lub znacznika",
         ErrorCode::GitAuth => "zdalne repozytorium wymaga uwierzytelnienia albo je odrzuciło",
         ErrorCode::GitHostKey => "klucz hosta zdalnego repozytorium jest nieznany lub się zmienił",
-        ErrorCode::GitPushRejected => "zdalne repozytorium odrzuciło aktualizację co najmniej jednej referencji",
-        ErrorCode::GitProtocol => "zdalne repozytorium złamało protokół lub nie ma wymaganej możliwości",
+        ErrorCode::GitPushRejected => {
+            "zdalne repozytorium odrzuciło aktualizację co najmniej jednej referencji"
+        }
+        ErrorCode::GitProtocol => {
+            "zdalne repozytorium złamało protokół lub nie ma wymaganej możliwości"
+        }
         ErrorCode::GitUnsupported => "możliwość repozytorium nie jest obsługiwana",
-        ErrorCode::GitHunk => "identyfikator fragmentu jest błędny lub nieznany albo fragment zmienił się po wypisaniu",
-        ErrorCode::GitCheckpoint => "punkt kontrolny nie ma zapisanego indeksu albo jego zawartość nie zgadza się po przywróceniu",
-        ErrorCode::GitWorktree => "drzewo robocze jest nieznane, jest głównym drzewem, jest zablokowane albo zawiera katalog roboczy",
-        ErrorCode::GitConfig => "konfiguracja repozytorium jest niepoprawna: wartości nie da się odczytać albo brakuje wymaganego klucza",
+        ErrorCode::GitHunk => {
+            "identyfikator fragmentu jest błędny lub nieznany albo fragment zmienił się po wypisaniu"
+        }
+        ErrorCode::GitCheckpoint => {
+            "punkt kontrolny nie ma zapisanego indeksu albo jego zawartość nie zgadza się po przywróceniu"
+        }
+        ErrorCode::GitWorktree => {
+            "drzewo robocze jest nieznane, jest głównym drzewem, jest zablokowane albo zawiera katalog roboczy"
+        }
+        ErrorCode::GitConfig => {
+            "konfiguracja repozytorium jest niepoprawna: wartości nie da się odczytać albo brakuje wymaganego klucza"
+        }
         ErrorCode::Internal => "błąd wewnętrzny; raport jest kompletny do tego miejsca",
         _ => return None,
     })
@@ -143,7 +191,9 @@ pub fn notable_text(code: Notable) -> Option<&'static str> {
         Notable::HomeConfig => "cel jest plikiem lub katalogiem konfiguracji w katalogu domowym",
         Notable::MassDelete => "usuwanych jest wiele plików lub bajtów albo duża część katalogu",
         Notable::DeleteTree => "niepusty katalog jest usuwany rekurencyjnie",
-        Notable::OverwroteExisting => "istniejące pliki zostały zastąpione przez zapis, przeniesienie lub kopię",
+        Notable::OverwroteExisting => {
+            "istniejące pliki zostały zastąpione przez zapis, przeniesienie lub kopię"
+        }
         Notable::FileEmptied => "plik, który miał zawartość, jest po zmianie pusty",
         Notable::SizeShrunk => "rozmiar pliku zmniejszył się co najmniej o skonfigurowany stosunek",
         Notable::ManyPerFile => "pojedynczy plik otrzymał co najmniej skonfigurowaną liczbę zamian",
@@ -152,21 +202,37 @@ pub fn notable_text(code: Notable) -> Option<&'static str> {
         Notable::Unchanged => "zapis dał zawartość identyczną z istniejącą",
         Notable::BinaryTarget => "zmieniono plik o zawartości binarnej",
         Notable::BinarySkipped => "pominięto pliki o zawartości binarnej",
-        Notable::SpecialFile => "zapisano plik specjalny (urządzenie, potok, gniazdo, pseudo system plików)",
-        Notable::SymlinkFollowed => "zmiana przeszła przez dowiązanie symboliczne do celu poza jego katalogiem",
-        Notable::HardlinkBroken => "plik z wieloma dowiązaniami twardymi został zastąpiony, co rozdzieliło dowiązania",
-        Notable::HardlinkSetPreserved => "plik z wieloma dowiązaniami twardymi zapisano w miejscu, zachowując dowiązania",
-        Notable::AttributesChanged => "zmieniły się uprawnienia, właściciel lub lista dostępu pliku",
+        Notable::SpecialFile => {
+            "zapisano plik specjalny (urządzenie, potok, gniazdo, pseudo system plików)"
+        }
+        Notable::SymlinkFollowed => {
+            "zmiana przeszła przez dowiązanie symboliczne do celu poza jego katalogiem"
+        }
+        Notable::HardlinkBroken => {
+            "plik z wieloma dowiązaniami twardymi został zastąpiony, co rozdzieliło dowiązania"
+        }
+        Notable::HardlinkSetPreserved => {
+            "plik z wieloma dowiązaniami twardymi zapisano w miejscu, zachowując dowiązania"
+        }
+        Notable::AttributesChanged => {
+            "zmieniły się uprawnienia, właściciel lub lista dostępu pliku"
+        }
         Notable::EncodingPreserved => "plik zapisano w jego pierwotnym kodowaniu innym niż UTF-8",
-        Notable::LineEndingPreserved => "plik zapisano z jego pierwotnymi końcami wierszy innymi niż lf",
+        Notable::LineEndingPreserved => {
+            "plik zapisano z jego pierwotnymi końcami wierszy innymi niż lf"
+        }
         Notable::LineEndingMixed => "plik ma mieszane końce wierszy",
         Notable::EncodingChanged => "kodowanie pliku zostało przekonwertowane",
         Notable::LineEndingChanged => "końce wierszy pliku zostały przekonwertowane",
         Notable::BomChanged => "dodano lub usunięto znacznik kolejności bajtów",
         Notable::TruncatedLines => "długie wiersze skrócono na wyjściu",
-        Notable::RegexBacktracking => "wyrażenie regularne osiągnęło limit nawrotów dla części danych",
+        Notable::RegexBacktracking => {
+            "wyrażenie regularne osiągnęło limit nawrotów dla części danych"
+        }
         Notable::Decompressed => "skompresowaną zawartość rozpakowano w sposób przezroczysty",
-        Notable::CrossDevice => "przeniesienie przekroczyło granicę woluminów i wykonano je jako kopię z usunięciem",
+        Notable::CrossDevice => {
+            "przeniesienie przekroczyło granicę woluminów i wykonano je jako kopię z usunięciem"
+        }
         Notable::ToIsDir => "miejsce docelowe przeniesienia lub kopii jest istniejącym katalogiem",
         Notable::CaseCollision => "nazwy różniące się tylko wielkością liter kolidują",
         Notable::CaseAlias => "nazwę dopasowano z inną wielkością liter niż podana",
@@ -176,27 +242,41 @@ pub fn notable_text(code: Notable) -> Option<&'static str> {
         Notable::ArchivePathEscape => "pominięto wpisy archiwum wskazujące poza katalog docelowy",
         Notable::PermissionDeniedSkipped => "pominięto pliki bez uprawnienia do odczytu",
         Notable::Ignored => "nie zgłoszono zmian w ścieżkach wyłączonych ze śledzenia",
-        Notable::AliasShared => "zmieniono węzeł, do którego odwołują się aliasy; zmiana jest widoczna przez każdy alias",
+        Notable::AliasShared => {
+            "zmieniono węzeł, do którego odwołują się aliasy; zmiana jest widoczna przez każdy alias"
+        }
         Notable::KeysCreated => "utworzono klucze pośrednie",
         Notable::DuplicateKey => "dokument ma powtórzony klucz; zmieniono ostatnie wystąpienie",
         Notable::SemanticFallback => "operacja na kodzie wróciła do analizy składniowej",
         Notable::ReferencesLeft => "po zmianie pozostały tekstowe odwołania do starej nazwy",
         Notable::RenameIncomplete => "zmiana nazwy nie objęła wszystkich odwołań",
-        Notable::DetectionScope => "zmiany wykonane przez program są wykrywane tylko w obserwowanych katalogach",
+        Notable::DetectionScope => {
+            "zmiany wykonane przez program są wykrywane tylko w obserwowanych katalogach"
+        }
         Notable::ExitNonzero => "program zakończył się kodem wyjścia różnym od zera",
         Notable::PostStagesDeferred => "pominięto etapy po skutku, bo program przeszedł do tła",
         Notable::RollbackPartial => "wycofanie przywróciło tylko część zmian",
         Notable::OutputBinary => "program zapisał dane binarne do strumienia wyjścia",
         Notable::SpoolLimit => "wyjście programu przekroczyło limit bufora",
-        Notable::StdinClosedEarly => "program zamknął standardowe wejście, zanim zapisano wszystkie dane",
+        Notable::StdinClosedEarly => {
+            "program zamknął standardowe wejście, zanim zapisano wszystkie dane"
+        }
         Notable::JobLost => "zadanie w tle straciło nadzorcę",
         Notable::ToolMissing => "żądane narzędzie analizy nie jest zainstalowane",
         Notable::TestsNone => "nie znaleziono ani nie uruchomiono żadnych testów",
-        Notable::TrustConfigIgnored => "pominięto ustawienia zaufania w pliku konfiguracji projektu; projekt nie może sam siebie uznać za zaufany",
-        Notable::ProjectConfigIgnored => "pominięto klucze pliku konfiguracji projektu spoza kluczy dozwolonych dla projektów",
-        Notable::JournalConfigIgnored => "pominięto ustawienia dziennika w pliku konfiguracji niezaufanego projektu",
+        Notable::TrustConfigIgnored => {
+            "pominięto ustawienia zaufania w pliku konfiguracji projektu; projekt nie może sam siebie uznać za zaufany"
+        }
+        Notable::ProjectConfigIgnored => {
+            "pominięto klucze pliku konfiguracji projektu spoza kluczy dozwolonych dla projektów"
+        }
+        Notable::JournalConfigIgnored => {
+            "pominięto ustawienia dziennika w pliku konfiguracji niezaufanego projektu"
+        }
         Notable::JournalOversize => "operacja jest większa niż limit rozmiaru dziennika",
-        Notable::SourceUnavailable => "źródło danych systemu operacyjnego było niedostępne; wyniki są niepełne",
+        Notable::SourceUnavailable => {
+            "źródło danych systemu operacyjnego było niedostępne; wyniki są niepełne"
+        }
         Notable::SettingsBroadcast => "zmianę ustawień rozesłano do uruchomionych programów",
         Notable::HooksSkipped => "haki repozytorium nie zostały uruchomione",
         Notable::HistoryRewritten => "historia repozytorium została przepisana",
@@ -208,34 +288,60 @@ pub fn notable_text(code: Notable) -> Option<&'static str> {
         Notable::UntrackedRemoved => "usunięto pliki nieśledzone",
         Notable::LocalChangesCarried => "niezatwierdzone zmiany przeniesiono na inną gałąź",
         Notable::FilterNotApplied => "filtr zawartości repozytorium nie został zastosowany",
-        Notable::CredentialHelperIgnored => "skonfigurowany pomocnik poświadczeń nie został uruchomiony",
+        Notable::CredentialHelperIgnored => {
+            "skonfigurowany pomocnik poświadczeń nie został uruchomiony"
+        }
         Notable::SshCommandIgnored => "skonfigurowane polecenie SSH nie zostało uruchomione",
         Notable::FsmonitorIgnored => "skonfigurowany monitor systemu plików nie został uruchomiony",
         Notable::SubmodulesNotUpdated => "podmoduły nie zostały zaktualizowane",
         Notable::SparseCheckout => "repozytorium używa rzadkiego wyewidencjonowania",
         Notable::ShallowRepository => "repozytorium ma płytką historię",
-        Notable::LineEndingsConverted => "końce wierszy zostały przekonwertowane przez ustawienia repozytorium",
+        Notable::LineEndingsConverted => {
+            "końce wierszy zostały przekonwertowane przez ustawienia repozytorium"
+        }
         Notable::UpstreamSet => "ustawiono gałąź nadrzędną",
         Notable::StashKept => "wpis schowka został zachowany po konflikcie",
         Notable::Signed => "zatwierdzenie lub znacznik zostały podpisane",
-        Notable::AmendPublished => "poprawione zatwierdzenie jest osiągalne z gałęzi śledzącej zdalnej",
+        Notable::AmendPublished => {
+            "poprawione zatwierdzenie jest osiągalne z gałęzi śledzącej zdalnej"
+        }
         Notable::CommitDetachedHead => "zatwierdzenie utworzono na odłączonym HEAD",
-        Notable::OperationInProgress => "zatwierdzenie utworzono w trakcie zmiany bazy, cherry-pick, cofnięcia lub bisekcji",
+        Notable::OperationInProgress => {
+            "zatwierdzenie utworzono w trakcie zmiany bazy, cherry-pick, cofnięcia lub bisekcji"
+        }
         Notable::Excluded => "pominięto pliki dopasowane przez exclude",
-        Notable::ReviewSkipped => "nie przejrzano plików: nieśledzonych ponad limit rozmiaru, binarnych lub ponad limit liczby",
-        Notable::CheckpointWithoutIndex => "punkt kontrolny utworzono bez indeksu, bo indeks ma konflikty",
-        Notable::LinkLoopSkipped => "dowiązanie symboliczne prowadzące do własnego katalogu nadrzędnego nie zostało odwiedzone podczas przeglądania drzewa",
-        Notable::TlsVerificationDisabled => "konfiguracja repozytorium wyłącza weryfikację certyfikatów TLS",
-        Notable::HttpOptionIgnored => "ustawienie HTTP konfiguracji repozytorium nie jest obsługiwane i zostało pominięte",
+        Notable::ReviewSkipped => {
+            "nie przejrzano plików: nieśledzonych ponad limit rozmiaru, binarnych lub ponad limit liczby"
+        }
+        Notable::CheckpointWithoutIndex => {
+            "punkt kontrolny utworzono bez indeksu, bo indeks ma konflikty"
+        }
+        Notable::LinkLoopSkipped => {
+            "dowiązanie symboliczne prowadzące do własnego katalogu nadrzędnego nie zostało odwiedzone podczas przeglądania drzewa"
+        }
+        Notable::TlsVerificationDisabled => {
+            "konfiguracja repozytorium wyłącza weryfikację certyfikatów TLS"
+        }
+        Notable::HttpOptionIgnored => {
+            "ustawienie HTTP konfiguracji repozytorium nie jest obsługiwane i zostało pominięte"
+        }
         Notable::PackWithoutDeltas => "wypchnięcie wysłało obiekty bez nowej kompresji różnicowej",
-        Notable::PushStatusUnknown => "zdalne repozytorium nie zgłosiło wyniku aktualizacji referencji",
+        Notable::PushStatusUnknown => {
+            "zdalne repozytorium nie zgłosiło wyniku aktualizacji referencji"
+        }
         Notable::HostKeyUnverified => "klucz hosta zdalnego repozytorium przyjęto bez weryfikacji",
         Notable::MatchExecIgnored => "warunek Match exec konfiguracji SSH nie został uruchomiony",
-        Notable::SigningProgramIgnored => "program podpisujący z konfiguracji repozytorium nie został uruchomiony; podpis utworzono bez niego",
+        Notable::SigningProgramIgnored => {
+            "program podpisujący z konfiguracji repozytorium nie został uruchomiony; podpis utworzono bez niego"
+        }
         Notable::CredentialsInUrl => "użyto poświadczeń zapisanych w adresie zdalnego repozytorium",
         Notable::LimitReached => "wyjście zatrzymano na liczbie wpisów podanej w limit",
-        Notable::InteractiveProgram => "uruchomiono program uznany za interaktywny: edytor, pager, monitor terminala albo interpreter bez skryptu; może czekać na wejście z terminala",
-        Notable::OpaqueScript => "program uruchomił skrypt podany w argumentach, na przykład bash -c lub python -c; skutki skryptu nie są sklasyfikowane",
+        Notable::InteractiveProgram => {
+            "uruchomiono program uznany za interaktywny: edytor, pager, monitor terminala albo interpreter bez skryptu; może czekać na wejście z terminala"
+        }
+        Notable::OpaqueScript => {
+            "program uruchomił skrypt podany w argumentach, na przykład bash -c lub python -c; skutki skryptu nie są sklasyfikowane"
+        }
         _ => return None,
     })
 }
@@ -245,25 +351,47 @@ pub fn notable_text(code: Notable) -> Option<&'static str> {
 #[must_use]
 pub fn irreversible_text(reason: Irreversible) -> Option<&'static str> {
     Some(match reason {
-        Irreversible::ExternalEffect => "uruchomiono program ze skutkiem poza lokalnym systemem plików",
-        Irreversible::RemoteRefUpdated => "zaktualizowano lub pobrano referencje zdalnego repozytorium",
+        Irreversible::ExternalEffect => {
+            "uruchomiono program ze skutkiem poza lokalnym systemem plików"
+        }
+        Irreversible::RemoteRefUpdated => {
+            "zaktualizowano lub pobrano referencje zdalnego repozytorium"
+        }
         Irreversible::Network => "wysłano żądanie sieciowe zmieniające stan zdalny",
         Irreversible::Database => "zmieniono bazę danych bez zachowanej kopii",
         Irreversible::ProcessStopped => "zatrzymano proces lub zadanie",
         Irreversible::ServiceChanged => "zmieniono stan usługi systemowej",
-        Irreversible::PackageChanged => "zainstalowano, usunięto lub zaktualizowano pakiety systemowe",
-        Irreversible::PreviousContentNotKept => "program zmienił plik, którego poprzednia zawartość nie została zachowana",
+        Irreversible::PackageChanged => {
+            "zainstalowano, usunięto lub zaktualizowano pakiety systemowe"
+        }
+        Irreversible::PreviousContentNotKept => {
+            "program zmienił plik, którego poprzednia zawartość nie została zachowana"
+        }
         Irreversible::NoSpaceForCopy => "zabrakło miejsca na kopię poprzedniej zawartości",
-        Irreversible::JournalInactive => "dziennik jest wyłączony albo jego usługa miejsca nie działa",
+        Irreversible::JournalInactive => {
+            "dziennik jest wyłączony albo jego usługa miejsca nie działa"
+        }
         Irreversible::NetworkVolume => "cel leży na woluminie sieciowym bez dziennika",
         Irreversible::RemovableVolume => "cel leży na woluminie wymiennym bez dziennika",
         Irreversible::Purged => "wpisy dziennika zostały wyczyszczone",
-        Irreversible::SpecialFile => "zapisano plik specjalny (urządzenie, potok, gniazdo, pseudo system plików)",
-        Irreversible::TooLargeForJournal => "operacja jest większa niż limit pojedynczego wpisu dziennika",
-        Irreversible::ReleasedForSpace => "zachowaną zawartość części operacji zbiorczej zwolniono, by odzyskać miejsce na dysku",
-        Irreversible::JobOutputRemoved => "zachowane wyjście zadania w tle usunięto razem z zadaniem",
-        Irreversible::ProcessStateChanged => "zmieniono stan działającego procesu: wstrzymano, wznowiono, wysłano sygnał lub zmieniono priorytet",
-        Irreversible::JournalEntriesExpired => "wpisy dziennika wcześniejszych operacji wygasły z powodu tej operacji",
+        Irreversible::SpecialFile => {
+            "zapisano plik specjalny (urządzenie, potok, gniazdo, pseudo system plików)"
+        }
+        Irreversible::TooLargeForJournal => {
+            "operacja jest większa niż limit pojedynczego wpisu dziennika"
+        }
+        Irreversible::ReleasedForSpace => {
+            "zachowaną zawartość części operacji zbiorczej zwolniono, by odzyskać miejsce na dysku"
+        }
+        Irreversible::JobOutputRemoved => {
+            "zachowane wyjście zadania w tle usunięto razem z zadaniem"
+        }
+        Irreversible::ProcessStateChanged => {
+            "zmieniono stan działającego procesu: wstrzymano, wznowiono, wysłano sygnał lub zmieniono priorytet"
+        }
+        Irreversible::JournalEntriesExpired => {
+            "wpisy dziennika wcześniejszych operacji wygasły z powodu tej operacji"
+        }
         _ => return None,
     })
 }
@@ -290,7 +418,10 @@ fn expected_text(expected: &Value) -> Option<String> {
             let names: Vec<String> = items
                 .iter()
                 .take(MAX_EXPECTED_SHOWN)
-                .map(|item| item.as_str().map_or_else(|| item.to_string(), str::to_owned))
+                .map(|item| {
+                    item.as_str()
+                        .map_or_else(|| item.to_string(), str::to_owned)
+                })
                 .collect();
             (!names.is_empty()).then(|| names.join(", "))
         }
@@ -437,7 +568,9 @@ mod tests {
         note.count = Some(3);
         note.detail = Some("3 paths left out by `exclude`".to_owned());
         report.notable.push(note);
-        report.notable.push(NotableEntry::new(Notable::NothingMatched));
+        report
+            .notable
+            .push(NotableEntry::new(Notable::NothingMatched));
         report
             .irreversible
             .push(IrreversibleEntry::new(Irreversible::Network));
@@ -463,7 +596,9 @@ mod tests {
     #[test]
     fn english_report_is_not_changed() {
         let mut report = Report::new(ReportStatus::Ok, "find");
-        report.notable.push(NotableEntry::new(Notable::NothingMatched));
+        report
+            .notable
+            .push(NotableEntry::new(Notable::NothingMatched));
         let before = report.clone();
         localize(&mut report, Language::En);
         assert_eq!(report, before);

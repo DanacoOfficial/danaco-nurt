@@ -1465,7 +1465,9 @@ impl<'a> Run<'a> {
         let line_base = content
             .range
             .and_then(|range| range.start())
-            .map_or(0, |start| u64::try_from(start.saturating_sub(1)).unwrap_or(0));
+            .map_or(0, |start| {
+                u64::try_from(start.saturating_sub(1)).unwrap_or(0)
+            });
         let mapper = match content.range {
             None => OffsetMapper::for_file(&TextEncoding {
                 label: content.encoding.clone(),

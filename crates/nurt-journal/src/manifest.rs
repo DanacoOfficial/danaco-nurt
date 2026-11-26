@@ -1639,7 +1639,9 @@ pub(crate) mod tests {
         let value = serde_json::to_value(&before).unwrap();
         assert!(value["file_id"].is_null());
         assert_eq!(
-            serde_json::from_value::<BeforeRecord>(value).unwrap().file_id,
+            serde_json::from_value::<BeforeRecord>(value)
+                .unwrap()
+                .file_id,
             None
         );
     }
@@ -1699,7 +1701,10 @@ pub(crate) mod tests {
         assert!(sizes.contains(&("a/zażółć.txt", goose_size)));
         assert!(TreeListing::build(&fs, &abs("/v/missing")).is_err());
         let encoded = serde_json::to_vec(&listing).unwrap();
-        assert_eq!(serde_json::from_slice::<TreeListing>(&encoded).unwrap(), listing);
+        assert_eq!(
+            serde_json::from_slice::<TreeListing>(&encoded).unwrap(),
+            listing
+        );
     }
 
     proptest! {

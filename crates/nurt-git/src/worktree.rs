@@ -1620,12 +1620,18 @@ mod tests {
         let registration = fixture.root.join(".git/worktrees/w\u{fffd}t");
         let mut expected = path.join(".git").as_os_str().as_bytes().to_vec();
         expected.push(b'\n');
-        assert_eq!(std::fs::read(registration.join("gitdir")).unwrap(), expected);
+        assert_eq!(
+            std::fs::read(registration.join("gitdir")).unwrap(),
+            expected
+        );
         let mut expected = b"gitdir: ".to_vec();
         expected.extend_from_slice(registration.as_os_str().as_bytes());
         expected.push(b'\n');
         assert_eq!(std::fs::read(path.join(".git")).unwrap(), expected);
-        assert_eq!(list(&fixture.root).unwrap()[1].path.as_str(), display_path(&path));
+        assert_eq!(
+            list(&fixture.root).unwrap()[1].path.as_str(),
+            display_path(&path)
+        );
     }
 
     #[test]

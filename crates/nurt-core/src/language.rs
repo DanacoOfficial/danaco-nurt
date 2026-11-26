@@ -217,6 +217,10 @@ mod tests {
     fn describe_of_a_group_uses_the_documentation() {
         let frontend = LanguageFrontend::new().unwrap();
         let described = frontend.describe("core", Language::Pl).unwrap();
-        assert!(described["text"].as_str().is_some_and(|text| !text.is_empty()));
+        assert!(
+            described["text"]
+                .as_str()
+                .is_some_and(|text| !text.is_empty())
+        );
     }
 }

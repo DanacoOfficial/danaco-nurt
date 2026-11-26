@@ -237,16 +237,18 @@ mod tests {
         hub.publish(event("second"));
         let deadline = std::time::Instant::now() + Duration::from_secs(10);
         loop {
-            let text = String::from_utf8_lossy(
-                &received.lock().unwrap_or_else(PoisonError::into_inner),
-            )
-            .into_owned();
+            let text =
+                String::from_utf8_lossy(&received.lock().unwrap_or_else(PoisonError::into_inner))
+                    .into_owned();
             if text.lines().count() == 2 {
                 let first = text.find("first").unwrap();
                 assert!(first < text.find("second").unwrap());
                 break;
             }
-            assert!(std::time::Instant::now() < deadline, "events did not arrive");
+            assert!(
+                std::time::Instant::now() < deadline,
+                "events did not arrive"
+            );
             thread::yield_now();
         }
         assert_eq!(hub.subscribers(), 1);

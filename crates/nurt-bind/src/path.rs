@@ -328,7 +328,10 @@ mod tests {
 
     #[test]
     fn keeps_multi_byte_segments_and_applies_dot_dot() {
-        assert_eq!(resolve("/srv/é/../日本語/./ü", linux()).unwrap(), "/srv/日本語/ü");
+        assert_eq!(
+            resolve("/srv/é/../日本語/./ü", linux()).unwrap(),
+            "/srv/日本語/ü"
+        );
         let host = PathHost {
             base: Some("/srv/ünï"),
             home: Some("/home/ż"),

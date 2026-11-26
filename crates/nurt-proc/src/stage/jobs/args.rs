@@ -185,7 +185,10 @@ mod tests {
             Value::Enum("forever".to_owned()),
             Value::Text("forever".to_owned()),
         ] {
-            assert_eq!(wait(&bound(vec![("wait", forever)])).unwrap(), Wait::Forever);
+            assert_eq!(
+                wait(&bound(vec![("wait", forever)])).unwrap(),
+                Wait::Forever
+            );
         }
         let other = wait(&bound(vec![("wait", Value::Enum("never".to_owned()))])).unwrap_err();
         assert_eq!(other.code(), ErrorCode::Type);
@@ -250,16 +253,21 @@ mod tests {
         assert!(!flag(&bound(Vec::new()), "dedupe").unwrap());
         assert!(flag(&bound(vec![("dedupe", Value::Bool(true))]), "dedupe").unwrap());
         assert!(!flag(&bound(vec![("dedupe", Value::Bool(false))]), "dedupe").unwrap());
-        let error = flag(&bound(vec![("dedupe", Value::Text("yes".to_owned()))]), "dedupe");
+        let error = flag(
+            &bound(vec![("dedupe", Value::Text("yes".to_owned()))]),
+            "dedupe",
+        );
         assert_eq!(error.unwrap_err().code(), ErrorCode::Type);
     }
 
     #[test]
     fn job_records_are_read_from_the_input_and_other_records_are_refused() {
-        let job = |id: &str| Record::from(Job {
-            id: id.to_owned(),
-            ..Job::default()
-        });
+        let job = |id: &str| {
+            Record::from(Job {
+                id: id.to_owned(),
+                ..Job::default()
+            })
+        };
         let input = StageInput::records(RecordStream::from_records(vec![job("j1"), job("j2")]));
         let ids: Vec<String> = input_jobs(input)
             .unwrap()

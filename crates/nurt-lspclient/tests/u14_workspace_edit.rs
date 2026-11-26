@@ -204,7 +204,8 @@ fn malformed_answer_fails() {
 
 #[test]
 fn text_with_carriage_returns_and_no_line_feed_is_split_at_the_carriage_returns() {
-    let edit = json!({"changes": {"file:///work/a.txt": [{"range": range(2, 1, 2), "newText": "x"}]}});
+    let edit =
+        json!({"changes": {"file:///work/a.txt": [{"range": range(2, 1, 2), "newText": "x"}]}});
     let text = only("/work/a.txt", "one\rtwo\rthree\r");
     let change = workspace_change(&edit, PositionUnit::Utf16, &text).unwrap();
     let first = texts(&change.changes)[0];
@@ -214,7 +215,8 @@ fn text_with_carriage_returns_and_no_line_feed_is_split_at_the_carriage_returns(
 
 #[test]
 fn line_feeds_keep_priority_over_carriage_returns() {
-    let edit = json!({"changes": {"file:///work/a.txt": [{"range": range(1, 0, 1), "newText": "x"}]}});
+    let edit =
+        json!({"changes": {"file:///work/a.txt": [{"range": range(1, 0, 1), "newText": "x"}]}});
     let text = only("/work/a.txt", "a\rb\nc\r\nd\n");
     let change = workspace_change(&edit, PositionUnit::Utf16, &text).unwrap();
     assert_eq!(texts(&change.changes)[0].range.start, at(2, 1));

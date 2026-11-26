@@ -238,19 +238,24 @@ impl PreparedScan for Prepared {
         };
         let bound = Bound::new(state.limits, deadline, ctx.cancel().clone());
         let scope = state.scope(&bound);
-        let (after, tracking, ignored, denied, foreign) =
-            match watch.and_then(EventWatch::finish) {
-                Some(touched) => {
-                    let mut after = state.snapshot.clone();
-                    let ignored = refresh(fs, scope, &mut after, &touched);
-                    (after, Tracking::Events, ignored, state.denied, state.foreign)
-                }
-                None => {
-                    let scanned = scan(fs, scope);
-                    let denied = state.denied.max(scanned.denied);
-                    (scanned.entries, Tracking::Scan, 0, denied, scanned.foreign)
-                }
-            };
+        let (after, tracking, ignored, denied, foreign) = match watch.and_then(EventWatch::finish) {
+            Some(touched) => {
+                let mut after = state.snapshot.clone();
+                let ignored = refresh(fs, scope, &mut after, &touched);
+                (
+                    after,
+                    Tracking::Events,
+                    ignored,
+                    state.denied,
+                    state.foreign,
+                )
+            }
+            None => {
+                let scanned = scan(fs, scope);
+                let denied = state.denied.max(scanned.denied);
+                (scanned.entries, Tracking::Scan, 0, denied, scanned.foreign)
+            }
+        };
         if let Some(stop) = bound.stopped() {
             outcome.notes.push(NotableEntry {
                 severity: Severity::Warning,
@@ -260,8 +265,10 @@ impl PreparedScan for Prepared {
                     match stop {
                         Stop::Cancelled => "the execution was cancelled",
                         Stop::TimeLimit => "the time limit of the run ended",
-                        Stop::Budget => "it took longer than the time budget of automatic detection",
-                        Stop::Entries => "the scope holds more entries than automatic detection accepts",
+                        Stop::Budget =>
+                            "it took longer than the time budget of automatic detection",
+                        Stop::Entries =>
+                            "the scope holds more entries than automatic detection accepts",
                     }
                 )),
                 ..NotableEntry::new(Notable::DetectionScope)

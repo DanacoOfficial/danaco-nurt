@@ -791,8 +791,22 @@ mod tests {
     #[test]
     fn command_lines_with_shell_metacharacters_are_left_out() {
         let mut out = Extracted::default();
-        for name in ["x; rm -rf /", "a|b", "a&b", "$(id)", "`id`", "a\"b", "a'b", "a>b"] {
-            out.command("", name, format!("npm run {name}"), "package.json".to_owned());
+        for name in [
+            "x; rm -rf /",
+            "a|b",
+            "a&b",
+            "$(id)",
+            "`id`",
+            "a\"b",
+            "a'b",
+            "a>b",
+        ] {
+            out.command(
+                "",
+                name,
+                format!("npm run {name}"),
+                "package.json".to_owned(),
+            );
         }
         assert!(out.commands.is_empty());
         out.command(
@@ -802,7 +816,10 @@ mod tests {
             "web/package.json:scripts.build:prod".to_owned(),
         );
         assert_eq!(out.commands.len(), 1);
-        assert_eq!(out.commands[0].command.as_deref(), Some("npm run build:prod"));
+        assert_eq!(
+            out.commands[0].command.as_deref(),
+            Some("npm run build:prod")
+        );
     }
 
     #[test]

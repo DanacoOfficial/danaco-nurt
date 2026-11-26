@@ -684,9 +684,11 @@ fn check_output(
 }
 
 fn check_fsck(state: &RepoState, fsck: &StateSelector, side: &str, findings: &mut Findings) {
-    let selectors = std::iter::once(fsck).chain(state.selectors().filter(|selector| {
-        selector.section == Section::Fsck && *selector != fsck
-    }));
+    let selectors = std::iter::once(fsck).chain(
+        state
+            .selectors()
+            .filter(|selector| selector.section == Section::Fsck && *selector != fsck),
+    );
     for selector in selectors {
         let place = if selector == fsck {
             format!("on the {side} side")
@@ -900,7 +902,12 @@ mod tests {
     fn fsck_must_report_ok_for_every_fsck_section() {
         let main = StateSelector::main(Section::Fsck);
         let mut findings = Findings::default();
-        check_fsck(&fsck_state(&main, &[("result", "ok")]), &main, "git", &mut findings);
+        check_fsck(
+            &fsck_state(&main, &[("result", "ok")]),
+            &main,
+            "git",
+            &mut findings,
+        );
         assert!(findings.failures.is_empty(), "{:?}", findings.failures);
         check_fsck(
             &fsck_state(&main, &[("result", "exit 2: broken")]),
@@ -912,7 +919,10 @@ mod tests {
         assert!(findings.failures[0].contains("failed on the git side"));
         let upstream: StateSelector = "fsck@../upstream".parse().unwrap();
         let mut state = fsck_state(&main, &[("result", "ok")]);
-        state.insert(upstream, [("result".to_owned(), "exit 1: x".to_owned())].into());
+        state.insert(
+            upstream,
+            [("result".to_owned(), "exit 1: x".to_owned())].into(),
+        );
         let mut findings = Findings::default();
         check_fsck(&state, &main, "nurt", &mut findings);
         assert_eq!(findings.failures.len(), 1);

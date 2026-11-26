@@ -257,7 +257,9 @@ mod tests {
         )
         .expect("write");
         let layout = Layout::new(dir.path());
-        let sheet = write_cheatsheets(&layout).expect("sheets written").remove(0);
+        let sheet = write_cheatsheets(&layout)
+            .expect("sheets written")
+            .remove(0);
         let generated = fs::read_to_string(&sheet).expect("sheet");
         let header = "<!-- Copyright (c) 2026 Example -->\n<!-- https://example.org -->\n";
         fs::write(&sheet, format!("{header}{generated}")).expect("write");

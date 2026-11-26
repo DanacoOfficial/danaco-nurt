@@ -237,7 +237,10 @@ mod tests {
             let file = name.strip_prefix("tomb/").unwrap();
             assert_eq!(parse_name(file), Some(OpId(op)), "{name}");
         }
-        assert_eq!(file_name(OpId(1_000_000_000_000)), "tomb/1000000000000.json");
+        assert_eq!(
+            file_name(OpId(1_000_000_000_000)),
+            "tomb/1000000000000.json"
+        );
     }
 
     #[test]

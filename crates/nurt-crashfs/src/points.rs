@@ -603,7 +603,11 @@ mod tests {
         };
         assert_eq!(
             enumeration.triggers(),
-            [hit, Trigger::FsCall { call: 1 }, Trigger::FsCall { call: 2 }]
+            [
+                hit,
+                Trigger::FsCall { call: 1 },
+                Trigger::FsCall { call: 2 }
+            ]
         );
         assert!(Enumeration::default().triggers().is_empty());
     }

@@ -93,10 +93,7 @@ impl ReadStage for TestShow {
         {
             return Err(Error::new(
                 ErrorCode::InvalidValue,
-                format!(
-                    "unknown status `{unknown}`; use {}",
-                    STATUSES.join(", ")
-                ),
+                format!("unknown status `{unknown}`; use {}", STATUSES.join(", ")),
             )
             .with_fix("status: failed"));
         }

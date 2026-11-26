@@ -315,9 +315,8 @@ pub fn is_safe_component(component: &BStr) -> bool {
     };
     let trimmed = stem.trim_end_matches(['.', ' ']);
     // `.git::$INDEX_ALLOCATION` names the directory `.git` on NTFS.
-    let names_directory = stream.is_none_or(|stream| {
-        stream.trim_end_matches(['.', ' ']) == NTFS_DIRECTORY_STREAM
-    });
+    let names_directory =
+        stream.is_none_or(|stream| stream.trim_end_matches(['.', ' ']) == NTFS_DIRECTORY_STREAM);
     !((trimmed == ".git" && names_directory) || trimmed == NTFS_SHORT_NAME)
 }
 

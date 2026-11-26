@@ -335,7 +335,10 @@ mod tests {
             NAME,
             &[
                 ("id", Value::Int(3)),
-                ("paths", Value::Text("/home/użytkownik/zażółć.txt".to_owned())),
+                (
+                    "paths",
+                    Value::Text("/home/użytkownik/zażółć.txt".to_owned()),
+                ),
             ],
         );
         assert_eq!(

@@ -1249,7 +1249,11 @@ mod tests {
         assert_ne!(first, second);
         assert_eq!(first.parent(), file.parent());
         assert!(first.to_string_lossy().ends_with(".tmp"));
-        assert!(first.to_string_lossy().contains(&std::process::id().to_string()));
+        assert!(
+            first
+                .to_string_lossy()
+                .contains(&std::process::id().to_string())
+        );
     }
 
     fn category(id: &str, order: Option<i64>) -> RawCategory {

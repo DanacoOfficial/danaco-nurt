@@ -276,12 +276,7 @@ mod tests {
     #[test]
     fn integers_beyond_128_bits_keep_their_digits() {
         let negative = format!("-{HUGE}");
-        for syntax in [
-            Syntax::Json,
-            Syntax::Toml,
-            Syntax::Yaml11,
-            Syntax::Yaml12,
-        ] {
+        for syntax in [Syntax::Json, Syntax::Toml, Syntax::Yaml11, Syntax::Yaml12] {
             assert_eq!(
                 parse_number(HUGE, syntax),
                 Some(Value::BigInt(HUGE.to_owned())),

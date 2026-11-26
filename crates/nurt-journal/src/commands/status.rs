@@ -254,10 +254,20 @@ mod tests {
         };
         assert_eq!(limit(ConfigLevel::Builtin, false).source, "default");
         assert_eq!(limit(ConfigLevel::Builtin, false).scope, None);
-        assert_eq!(limit(ConfigLevel::User, false).source, ConfigLevel::User.as_str());
+        assert_eq!(
+            limit(ConfigLevel::User, false).source,
+            ConfigLevel::User.as_str()
+        );
         assert_eq!(limit(ConfigLevel::User, false).scope, None);
-        assert_eq!(limit(ConfigLevel::Runtime, false).scope.as_deref(), Some("session"));
-        for level in [ConfigLevel::Builtin, ConfigLevel::System, ConfigLevel::Runtime] {
+        assert_eq!(
+            limit(ConfigLevel::Runtime, false).scope.as_deref(),
+            Some("session")
+        );
+        for level in [
+            ConfigLevel::Builtin,
+            ConfigLevel::System,
+            ConfigLevel::Runtime,
+        ] {
             assert_eq!(limit(level, true).source, "floor");
         }
     }

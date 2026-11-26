@@ -1083,7 +1083,10 @@ mod tests {
     fn ascii_document_with_a_high_byte_is_rejected() {
         let bytes = b"<?xml version=\"1.0\" encoding=\"us-ascii\"?><a>\xE9</a>";
         let encoding = XmlEncoding::detect(bytes).unwrap();
-        assert_eq!(encoding.decode(bytes, None).unwrap_err().code(), ErrorCode::DocParse);
+        assert_eq!(
+            encoding.decode(bytes, None).unwrap_err().code(),
+            ErrorCode::DocParse
+        );
     }
 
     #[test]
@@ -1091,7 +1094,10 @@ mod tests {
         let bytes = b"<?xml version=\"1.0\" encoding=\"windows-1250\"?><a/>";
         let encoding = XmlEncoding::detect(bytes).unwrap();
         assert_eq!(encoding.label(), "windows-1250");
-        assert_eq!(encoding.decode(bytes, None).unwrap_err().code(), ErrorCode::DocParse);
+        assert_eq!(
+            encoding.decode(bytes, None).unwrap_err().code(),
+            ErrorCode::DocParse
+        );
     }
 
     #[test]
@@ -1128,7 +1134,9 @@ mod tests {
         let comment_at = text.find("c-->").unwrap();
         let mut in_comment = XmlChange::default();
         in_comment.push(XmlEdit::new(comment_at..comment_at + 1, "\u{20AC}"));
-        let error = encoding.encode_change(&tree, &in_comment, None).unwrap_err();
+        let error = encoding
+            .encode_change(&tree, &in_comment, None)
+            .unwrap_err();
         assert_eq!(error.code(), ErrorCode::Encoding);
     }
 

@@ -17,9 +17,9 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use super::backend_saphyr::{self, RawEvent, RawKind};
 
 use super::model::{
-    AnchorCache, BlockHeader, Chomping, CollectionStyle, Directive, DirectiveKind, FlowDelimiters, MapEntry,
-    MappingNode, NodeId, NodeKind, Property, ScalarNode, ScalarStyle, SeqItem, SequenceNode,
-    TagProperty, YamlDocument, YamlModel, YamlNode, YamlVersion,
+    AnchorCache, BlockHeader, Chomping, CollectionStyle, Directive, DirectiveKind, FlowDelimiters,
+    MapEntry, MappingNode, NodeId, NodeKind, Property, ScalarNode, ScalarStyle, SeqItem,
+    SequenceNode, TagProperty, YamlDocument, YamlModel, YamlNode, YamlVersion,
 };
 
 /// Byte order mark.
@@ -95,10 +95,7 @@ const BUILD_STACK_BYTES: usize = 64 * 1024 * 1024;
 fn build_model(text: &str, version: YamlVersion, raw: Vec<Vec<RawEvent>>) -> Result<YamlModel> {
     let slot = Mutex::new(Some(raw));
     let build = || {
-        let raw = slot
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .take()?;
+        let raw = slot.lock().unwrap_or_else(PoisonError::into_inner).take()?;
         Some(Builder::new(text, version).build(raw))
     };
     let built = std::thread::scope(|scope| {
@@ -112,7 +109,12 @@ fn build_model(text: &str, version: YamlVersion, raw: Vec<Vec<RawEvent>>) -> Res
         Some(joined) => joined.ok().flatten(),
         None => build(),
     };
-    model.ok_or_else(|| Error::new(ErrorCode::Internal, "the model of a YAML stream was not built"))
+    model.ok_or_else(|| {
+        Error::new(
+            ErrorCode::Internal,
+            "the model of a YAML stream was not built",
+        )
+    })
 }
 
 fn has_template(text: &str) -> bool {
@@ -1382,7 +1384,10 @@ mod tests {
     fn rejects_collections_nested_beyond_the_limit() {
         let depth = backend_saphyr::MAX_DEPTH + 1;
         let text = format!("{}1{}", "[".repeat(depth), "]".repeat(depth));
-        assert_eq!(YamlModel::parse(&text).unwrap_err().code(), ErrorCode::DocParse);
+        assert_eq!(
+            YamlModel::parse(&text).unwrap_err().code(),
+            ErrorCode::DocParse
+        );
     }
 
     #[test]

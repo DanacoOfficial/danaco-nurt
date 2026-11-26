@@ -335,7 +335,10 @@ fn stderr_text(value: &Val) -> String {
 /// before `$to`; with a step of zero it is endless unless `$from == $to`.
 fn range<'a>(runtime: &&'a Runtime<'a>, from: Val, to: Val, by: Val) -> ValXs<'a, Val> {
     let runtime: &'a Runtime<'a> = runtime;
-    if [&from, &to, &by].iter().any(|bound| !matches!(bound, Val::Num(_))) {
+    if [&from, &to, &by]
+        .iter()
+        .any(|bound| !matches!(bound, Val::Num(_)))
+    {
         return box_once(Err(Exn::from(jaq_core::Error::<Val>::str(
             "Range bounds must be numeric",
         ))));

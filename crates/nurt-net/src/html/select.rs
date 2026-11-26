@@ -81,7 +81,9 @@ pub fn find(blocks: &[Block], pattern: &Regex, context: usize) -> Vec<Block> {
     for (index, block) in blocks.iter().enumerate() {
         if pattern.is_match(&block.text) || pattern.is_match(&block.markdown) {
             let from = index.saturating_sub(context);
-            let to = index.saturating_add(context).min(blocks.len().saturating_sub(1));
+            let to = index
+                .saturating_add(context)
+                .min(blocks.len().saturating_sub(1));
             keep[from..=to].iter_mut().for_each(|slot| *slot = true);
         }
     }

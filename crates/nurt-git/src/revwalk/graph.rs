@@ -123,7 +123,13 @@ mod tests {
         let third = fixture.commit("third", &[("a.txt", Some("c\n"))]);
         fixture.write_file(".git/shallow", &format!("{second}\n"));
         let repo = fixture.open();
-        assert!(repo.commits.info(&repo.repo, second).unwrap().parents.is_empty());
+        assert!(
+            repo.commits
+                .info(&repo.repo, second)
+                .unwrap()
+                .parents
+                .is_empty()
+        );
         let info = repo.commits.info(&repo.repo, third).unwrap();
         assert_eq!(info.parents.as_slice(), &[second]);
         assert_ne!(first, second);

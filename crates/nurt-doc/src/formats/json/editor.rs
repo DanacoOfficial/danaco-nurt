@@ -231,13 +231,14 @@ impl<'d> Editor<'d> {
         last: usize,
     ) -> Option<Vec<Change>> {
         if first == 0 && last + 1 == entries.len() {
-            return Some(vec![Change::delete(Span::new(span.start + 1, span.end - 1))]);
+            return Some(vec![Change::delete(Span::new(
+                span.start + 1,
+                span.end - 1,
+            ))]);
         }
         let previous = first.checked_sub(1).map(|index| &entries[index]);
         let Some(lines) = self.whole_run_lines(container, entries, first, last) else {
-            return Some(vec![Change::delete(self.inline_run(
-                entries, first, last,
-            )?)]);
+            return Some(vec![Change::delete(self.inline_run(entries, first, last)?)]);
         };
         let mut changes = vec![Change::delete(lines)];
         if last + 1 == entries.len()
@@ -291,9 +292,7 @@ impl<'d> Editor<'d> {
                 let after = self.layout.skip_same_line_trivia(comma + 1);
                 let stop = match self.layout.text.as_bytes().get(after) {
                     Some(b'\r' | b'\n') => after,
-                    _ => entries
-                        .get(last + 1)
-                        .map_or(after, |next| next.start(tree)),
+                    _ => entries.get(last + 1).map_or(after, |next| next.start(tree)),
                 };
                 Span::new(entries[first].start(tree), stop)
             }

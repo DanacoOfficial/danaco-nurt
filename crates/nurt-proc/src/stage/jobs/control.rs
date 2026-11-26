@@ -188,7 +188,11 @@ mod tests {
     fn signal_of(name: Option<&str>) -> Result<Signal> {
         let mut args = BoundArgs::new("stop");
         if let Some(name) = name {
-            args.insert("signal", ArgValue::Value(Value::Enum(name.to_owned())), false);
+            args.insert(
+                "signal",
+                ArgValue::Value(Value::Enum(name.to_owned())),
+                false,
+            );
         }
         Control::signal(&args)
     }

@@ -127,8 +127,10 @@ fn belongs_to_run(directory: &Path, root: &Path, home: Option<&str>) -> bool {
     }
     let Some(home) = home else { return false };
     let wanted = format!("HOME={home}");
-    std::fs::read(directory.join("environ"))
-        .is_ok_and(|raw| raw.split(|byte| *byte == 0).any(|var| var == wanted.as_bytes()))
+    std::fs::read(directory.join("environ")).is_ok_and(|raw| {
+        raw.split(|byte| *byte == 0)
+            .any(|var| var == wanted.as_bytes())
+    })
 }
 
 fn proc_command_lines(root: &Path, home: Option<&str>) -> Vec<String> {
@@ -293,15 +295,13 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_command_probe_that_times_out_is_an_error() {
-        let result = command_result(
-            process::ProcessOutput {
-                code: None,
-                stdout: b"partial".to_vec(),
-                stderr: Vec::new(),
-                timed_out: true,
-                duration: Duration::from_secs(30),
-            },
-        );
+        let result = command_result(process::ProcessOutput {
+            code: None,
+            stdout: b"partial".to_vec(),
+            stderr: Vec::new(),
+            timed_out: true,
+            duration: Duration::from_secs(30),
+        });
         assert!(result["error"].as_str().unwrap().contains("did not finish"));
         assert!(result.get("stdout").is_none());
     }

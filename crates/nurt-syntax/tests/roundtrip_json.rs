@@ -316,9 +316,7 @@ fn rejects_an_object_that_repeats_a_key_at_any_depth() {
     let program = r#""program":{"statements":[{"t":"pipeline","head":{"t":"stage","name":"count","args":[]},"stages":[]}]}"#;
     let documents = [
         format!(r#"{{"nurt":"1.0","nurt":"1.1",{program}}}"#),
-        format!(
-            r#"{{"nurt":"1.0",{program},"meta":{{"a":1,"b":{{"c":1,"c":2}}}}}}"#
-        ),
+        format!(r#"{{"nurt":"1.0",{program},"meta":{{"a":1,"b":{{"c":1,"c":2}}}}}}"#),
     ];
     for text in documents {
         let error = json::decode_surface(&text).unwrap_err();

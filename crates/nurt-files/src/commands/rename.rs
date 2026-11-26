@@ -754,8 +754,8 @@ mod tests {
     fn multibyte_characters_are_replaced_literally() {
         let test = TestContext::new();
         let source = file(&test, "/data/caf\u{e9}.txt", b"c");
-        let call = by_pattern(Value::Text("\u{e9}".to_owned()), "e")
-            .with(PATH, path_arg(&source), false);
+        let call =
+            by_pattern(Value::Text("\u{e9}".to_owned()), "e").with(PATH, path_arg(&source), false);
         run(&Rename, &test, &call, None).unwrap();
         assert!(test.fs().exists(&abs("/data/cafe.txt")));
         assert!(!test.fs().exists(&source));

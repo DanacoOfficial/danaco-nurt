@@ -187,7 +187,9 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            ["serve", "mcp", "lsp", "migrate", "service", "journal", "ext"]
+            [
+                "serve", "mcp", "lsp", "migrate", "service", "journal", "ext"
+            ]
         );
         assert_eq!(component("mcp").and_then(|c| c.feature), Some("mcp"));
         assert_eq!(component("serve").and_then(|c| c.feature), None);

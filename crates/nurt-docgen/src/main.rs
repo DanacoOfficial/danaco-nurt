@@ -172,7 +172,10 @@ mod tests {
             "2,230",
             "--allow-missing-pages",
         ]);
-        assert_eq!(parse_args(&raw).err(), Some("2,230 is not a number".to_owned()));
+        assert_eq!(
+            parse_args(&raw).err(),
+            Some("2,230 is not a number".to_owned())
+        );
         let raw = strings(&[
             "check",
             "--root",

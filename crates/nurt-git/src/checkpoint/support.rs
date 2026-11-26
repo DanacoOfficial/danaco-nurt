@@ -997,7 +997,11 @@ mod tests {
         for path in refused {
             let error = verify_checkout_paths(&entries(&[path])).unwrap_err();
             assert_eq!(error.code(), ErrorCode::GitUnsupported, "{path}");
-            assert_eq!(error.data().problem.as_deref(), Some("unsafe_path"), "{path}");
+            assert_eq!(
+                error.data().problem.as_deref(),
+                Some("unsafe_path"),
+                "{path}"
+            );
         }
     }
 

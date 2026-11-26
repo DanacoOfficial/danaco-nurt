@@ -656,7 +656,10 @@ mod tests {
     #[test]
     fn fill_inserts_values_literally_and_keeps_multi_byte_text() {
         assert_eq!(
-            fill("za\u{17c}\u{f3}\u{142}\u{107} {{v}} \u{1f600}", &[("v", "<b>")]),
+            fill(
+                "za\u{17c}\u{f3}\u{142}\u{107} {{v}} \u{1f600}",
+                &[("v", "<b>")]
+            ),
             "za\u{17c}\u{f3}\u{142}\u{107} <b> \u{1f600}"
         );
     }
@@ -677,7 +680,10 @@ mod tests {
     #[test]
     fn reads_front_matter_values() {
         let front = "title: Name: with colon\norder: 7";
-        assert_eq!(front_value(front, "title").as_deref(), Some("Name: with colon"));
+        assert_eq!(
+            front_value(front, "title").as_deref(),
+            Some("Name: with colon")
+        );
         assert_eq!(front_value(front, "order").as_deref(), Some("7"));
         assert_eq!(front_value(front, "missing"), None);
     }

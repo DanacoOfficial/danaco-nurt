@@ -651,7 +651,12 @@ mod tests {
 
     #[test]
     fn info_takes_no_parameters_but_tolerates_an_empty_object() {
-        for params in [None, Some(Value::Null), Some(json!({})), Some(json!({"x": 1}))] {
+        for params in [
+            None,
+            Some(Value::Null),
+            Some(json!({})),
+            Some(json!({"x": 1})),
+        ] {
             assert_eq!(Call::parse("info", params).unwrap(), Call::Info);
         }
         for params in [json!([1]), json!(3), json!("x")] {
@@ -703,7 +708,10 @@ mod tests {
         let unknown = schema("").unwrap();
         assert_eq!(unknown["report"]["status"], "failed");
         let message = unknown["report"]["error"]["message"].as_str().unwrap();
-        assert!(message.starts_with("unknown schema ``; known: "), "{message}");
+        assert!(
+            message.starts_with("unknown schema ``; known: "),
+            "{message}"
+        );
         for (name, _) in nurt_contracts::schema::ALL {
             assert!(message.contains(name), "{name}");
         }
@@ -725,7 +733,10 @@ mod tests {
         let params = json!({"nurt": "1.0", "ast": {"nurt": "1.0", "program": 5}});
         assert!(matches!(
             Call::parse("check", Some(params)),
-            Ok(Call::Rejected { method: "check", .. })
+            Ok(Call::Rejected {
+                method: "check",
+                ..
+            })
         ));
         assert_eq!(
             Call::Rejected {

@@ -85,8 +85,11 @@ pub(crate) fn parse_lint(output: &ToolOutput, dir: &Path) -> Vec<Finding> {
 /// `FBT001` rule of another class does not.
 fn is_error_code(code: &str) -> bool {
     ERROR_PREFIXES.iter().any(|prefix| {
-        code.strip_prefix(prefix)
-            .is_some_and(|rest| rest.chars().next().is_none_or(|first| first.is_ascii_digit()))
+        code.strip_prefix(prefix).is_some_and(|rest| {
+            rest.chars()
+                .next()
+                .is_none_or(|first| first.is_ascii_digit())
+        })
     })
 }
 

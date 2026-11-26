@@ -75,7 +75,12 @@ fn script_with_two_pipelines_reports_each_pipeline_with_its_own_kind() {
         .engine
         .run(&Request::program(SCRIPT).with_options(options));
     response.validate().unwrap();
-    assert_eq!(response.report.status, ReportStatus::Ok, "{:?}", response.report.error);
+    assert_eq!(
+        response.report.status,
+        ReportStatus::Ok,
+        "{:?}",
+        response.report.error
+    );
     assert!(
         response.report.records.is_none(),
         "the records belong to the report of their own pipeline"

@@ -299,7 +299,10 @@ mod tests {
         let args = call(
             NAME,
             &[
-                ("path", Value::Text("/home/użytkownik/zażółć.txt".to_owned())),
+                (
+                    "path",
+                    Value::Text("/home/użytkownik/zażółć.txt".to_owned()),
+                ),
                 ("deleted", Value::Bool(true)),
                 ("details", Value::Bool(true)),
             ],

@@ -1498,7 +1498,11 @@ mod tests {
     fn choices_and_flags_read_values_and_defaults() {
         let given = BoundArgs::new("copy")
             .with("preserve", ArgValue::Value(Value::Bool(true)), false)
-            .with("clone", ArgValue::Value(Value::Enum("never".to_owned())), false);
+            .with(
+                "clone",
+                ArgValue::Value(Value::Enum("never".to_owned())),
+                false,
+            );
         assert!(flag(&given, "preserve", false).unwrap());
         assert_eq!(choice(&given, "clone").unwrap(), Some("never"));
         let empty = BoundArgs::new("copy");
@@ -1506,7 +1510,10 @@ mod tests {
         assert!(flag(&empty, "preserve", true).unwrap());
         assert_eq!(choice(&empty, "clone").unwrap(), None);
         let number = BoundArgs::new("copy").with("clone", ArgValue::Value(Value::Int(1)), false);
-        assert_eq!(choice(&number, "clone").unwrap_err().code(), ErrorCode::Type);
+        assert_eq!(
+            choice(&number, "clone").unwrap_err().code(),
+            ErrorCode::Type
+        );
     }
 
     #[test]

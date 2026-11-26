@@ -897,7 +897,11 @@ mod tests {
         let tree = XmlTree::parse(&format!("<a>{items}</a>")).unwrap();
         let error = tree.resolve(&KeyPath::parse("a.b").unwrap()).unwrap_err();
         assert_eq!(error.code().as_str(), "E_KEY_CONFLICT");
-        assert!(error.message.contains("matches 12 nodes"), "{}", error.message);
+        assert!(
+            error.message.contains("matches 12 nodes"),
+            "{}",
+            error.message
+        );
         assert!(error.message.contains("a.b[0]"), "{}", error.message);
         let listed = error.details["candidates"].as_array().map(Vec::len);
         assert_eq!(listed, Some(MAX_CANDIDATES));

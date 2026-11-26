@@ -736,7 +736,10 @@ mod tests {
             _ => panic!("expected a delete request"),
         }
         let everything = args(&repo, &[("purge", text("all"))]);
-        assert!(matches!(request(&everything).unwrap(), Request::Purge(None)));
+        assert!(matches!(
+            request(&everything).unwrap(),
+            Request::Purge(None)
+        ));
         let named = args(&repo, &[("purge", text("old-1"))]);
         match request(&named).unwrap() {
             Request::Purge(Some(names)) => assert_eq!(names, ["old-1"]),

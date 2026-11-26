@@ -55,11 +55,10 @@ use windows_sys::Win32::System::Threading::{
     CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW,
     DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess,
     GetProcessTimes, IDLE_PRIORITY_CLASS, INFINITE, InitializeProcThreadAttributeList,
-    NORMAL_PRIORITY_CLASS, OpenProcess, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-    PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESS_SUSPEND_RESUME, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE, ResumeThread,
-    STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute,
-    WaitForSingleObject,
+    NORMAL_PRIORITY_CLASS, OpenProcess, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_CREATION_FLAGS,
+    PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SUSPEND_RESUME,
+    PROCESS_SYNCHRONIZE, PROCESS_TERMINATE, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+    TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
 };
 
 use super::{
@@ -811,7 +810,11 @@ fn with_process(
 ) -> Result<()> {
     // SAFETY: plain call; a null result is checked below.
     let handle = unsafe {
-        OpenProcess(PROCESS_SUSPEND_RESUME | PROCESS_QUERY_LIMITED_INFORMATION, 0, pid)
+        OpenProcess(
+            PROCESS_SUSPEND_RESUME | PROCESS_QUERY_LIMITED_INFORMATION,
+            0,
+            pid,
+        )
     };
     if handle.is_null() {
         // The process ended after the listing.
@@ -822,7 +825,10 @@ fn with_process(
     let mut member = 0;
     // SAFETY: both handles are open and `member` is writable.
     if unsafe { IsProcessInJob(raw(&process), raw(job), &raw mut member) } == 0 {
-        return Err(io_error("check the job of a process", &io::Error::last_os_error()));
+        return Err(io_error(
+            "check the job of a process",
+            &io::Error::last_os_error(),
+        ));
     }
     if member == 0 {
         return Ok(());

@@ -293,8 +293,7 @@ fn signature_format(text: &BStr) -> SignatureFormat {
 /// when detached, `tag: v1` for tags. The names that follow are in reverse
 /// order of the full reference names.
 fn decorations(repo: &OpenRepo) -> HashMap<ObjectId, Vec<String>> {
-    let mut by_commit: HashMap<ObjectId, BTreeMap<(u8, Reverse<String>), String>> =
-        HashMap::new();
+    let mut by_commit: HashMap<ObjectId, BTreeMap<(u8, Reverse<String>), String>> = HashMap::new();
     let current = repo.repo.head_name().ok().flatten();
     if let Ok(platform) = repo.repo.references()
         && let Ok(all) = platform.all()

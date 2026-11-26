@@ -302,9 +302,18 @@ mod tests {
         assert!(same(json!(1), json!(1.0)));
         assert!(same(json!(-3), json!(-3.0)));
         assert!(!same(json!(1), json!(1.5)));
-        assert!(same(json!(9_007_199_254_740_992_u64), json!(9_007_199_254_740_992.0)));
-        assert!(!same(json!(9_007_199_254_740_993_u64), json!(9_007_199_254_740_992.0)));
-        assert!(!same(json!(9_007_199_254_740_993_u64), json!(9_007_199_254_740_992_u64)));
+        assert!(same(
+            json!(9_007_199_254_740_992_u64),
+            json!(9_007_199_254_740_992.0)
+        ));
+        assert!(!same(
+            json!(9_007_199_254_740_993_u64),
+            json!(9_007_199_254_740_992.0)
+        ));
+        assert!(!same(
+            json!(9_007_199_254_740_993_u64),
+            json!(9_007_199_254_740_992_u64)
+        ));
         assert!(!same(json!(-5), json!(u64::MAX)));
         assert!(same(json!(u64::MAX), json!(u64::MAX)));
         assert!(!same(json!(u64::MAX), json!(1.8446744073709552e19)));

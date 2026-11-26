@@ -319,7 +319,10 @@ mod tests {
     fn uri_round_trips_names_with_reserved_and_multi_byte_characters() {
         let path = Path::new("/project/a b#c%d?e/za\u{17c}\u{f3}\u{142}\u{107}.rs");
         let uri = path_to_uri(path).expect("uri");
-        assert!(uri.starts_with("file:///project/a%20b%23c%25d%3Fe/"), "{uri}");
+        assert!(
+            uri.starts_with("file:///project/a%20b%23c%25d%3Fe/"),
+            "{uri}"
+        );
         assert_eq!(uri_to_path(&uri).as_deref(), Some(path));
     }
 
@@ -352,12 +355,18 @@ mod tests {
     #[test]
     fn sync_sends_changes_with_increasing_versions_and_keeps_multi_byte_text() {
         let mut documents = DocumentSet::new();
-        let path = Path::new(if cfg!(windows) { r"C:\p\main.py" } else { "/p/main.py" });
+        let path = Path::new(if cfg!(windows) {
+            r"C:\p\main.py"
+        } else {
+            "/p/main.py"
+        });
         let text = "x = '\u{1f600}za\u{17c}\u{f3}\u{142}\u{107}'\r\n";
         let open = documents.sync(path, "python", text, None).expect("open");
         assert_eq!(method_of(&open), "textDocument/didOpen");
         assert!(documents.sync(path, "python", text, None).is_none());
-        let change = documents.sync(path, "python", "y = 2\n", None).expect("change");
+        let change = documents
+            .sync(path, "python", "y = 2\n", None)
+            .expect("change");
         assert_eq!(method_of(&change), "textDocument/didChange");
         assert_eq!(documents.version(path), Some(2));
         assert!(documents.is_open(path));
@@ -438,7 +447,10 @@ mod tests {
             |path| path.extension().is_some_and(|extension| extension == "py"),
             limits,
         );
-        assert_eq!(found, vec![root.join("a.py"), root.join("sub").join("d.py")]);
+        assert_eq!(
+            found,
+            vec![root.join("a.py"), root.join("sub").join("d.py")]
+        );
         let limited = CandidateLimits {
             max_files: 1,
             ..limits

@@ -465,10 +465,7 @@ mod tests {
     fn table_output_uses_the_union_of_columns_and_quotes_cells() {
         let records = [
             item(&[("a", Value::Text("x,y".to_owned()))]),
-            item(&[
-                ("b", Value::Int(2)),
-                ("a", Value::Text("q\"r".to_owned())),
-            ]),
+            item(&[("b", Value::Int(2)), ("a", Value::Text("q\"r".to_owned()))]),
         ];
         let csv = written(&records, &DocFormatId::CSV, &SerializeOptions::default());
         assert_eq!(csv, "a,b\r\n\"x,y\",\r\n\"q\"\"r\",2\r\n");
@@ -498,8 +495,8 @@ mod tests {
 
     #[test]
     fn unsupported_format_is_rejected() {
-        let error = super::records(&[], &DocFormatId::XML, &SerializeOptions::default())
-            .unwrap_err();
+        let error =
+            super::records(&[], &DocFormatId::XML, &SerializeOptions::default()).unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidValue);
     }
 }

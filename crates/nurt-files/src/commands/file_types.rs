@@ -331,7 +331,10 @@ mod tests {
     fn wildcards_work_on_the_bytes_of_multibyte_names() {
         let docker = lookup("docker").unwrap();
         assert!(docker.matches("\u{142}\u{f3}d\u{17a}.Dockerfile"));
-        assert!(wildcard("*.\u{e9}".as_bytes(), "caf\u{e9}.\u{e9}".as_bytes()));
+        assert!(wildcard(
+            "*.\u{e9}".as_bytes(),
+            "caf\u{e9}.\u{e9}".as_bytes()
+        ));
         assert!(!wildcard("*.\u{e9}".as_bytes(), "caf\u{e9}.e".as_bytes()));
     }
 

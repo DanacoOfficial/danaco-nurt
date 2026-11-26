@@ -386,7 +386,12 @@ mod tests {
 
     #[test]
     fn limit_must_be_a_number_that_fits_the_type() {
-        for bad in ["--limit -1", "--limit 4294967296", "--limit 1.5", "--limit="] {
+        for bad in [
+            "--limit -1",
+            "--limit 4294967296",
+            "--limit 1.5",
+            "--limit=",
+        ] {
             assert!(
                 parse_flags(&words(bad), EXEC_FLAGS, false).is_err(),
                 "{bad}"
@@ -399,7 +404,10 @@ mod tests {
     #[test]
     fn version_and_help_options_resolve_before_subcommands() {
         assert_eq!(resolve(&words("-V")), Invocation::Version { full: false });
-        assert_eq!(resolve(&words("--version x")), Invocation::Version { full: true });
+        assert_eq!(
+            resolve(&words("--version x")),
+            Invocation::Version { full: true }
+        );
         assert_eq!(resolve(&words("-h")), Invocation::Help);
         assert_eq!(resolve(&words("--help check")), Invocation::Help);
     }

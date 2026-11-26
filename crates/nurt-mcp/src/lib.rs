@@ -188,7 +188,10 @@ mod tests {
         assert_eq!(options.session.as_deref(), Some("s1"));
         let options = options.with_session(String::from("\u{142}\u{f3}d\u{17a}"));
         assert_eq!(options.session.as_deref(), Some("\u{142}\u{f3}d\u{17a}"));
-        assert_eq!(McpOptions::new().with_session("").session.as_deref(), Some(""));
+        assert_eq!(
+            McpOptions::new().with_session("").session.as_deref(),
+            Some("")
+        );
     }
 
     #[test]

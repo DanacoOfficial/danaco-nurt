@@ -352,13 +352,22 @@ mod tests {
         let mut held = HeldBytes::default();
         assert_eq!(held.count(PreserveMode::Moved, 50, Some(id(2)), true), 0);
         assert_eq!(held.count(PreserveMode::Moved, 50, Some(id(2)), false), 50);
-        assert_eq!(held.count(PreserveMode::Exchange, 50, Some(id(2)), false), 0);
-        assert_eq!(held.count(PreserveMode::ReplaceBackup, 8, Some(id(3)), false), 8);
+        assert_eq!(
+            held.count(PreserveMode::Exchange, 50, Some(id(2)), false),
+            0
+        );
+        assert_eq!(
+            held.count(PreserveMode::ReplaceBackup, 8, Some(id(3)), false),
+            8
+        );
         assert_eq!(held.count(PreserveMode::Copy, 4, None, false), 4);
         assert_eq!(held.count(PreserveMode::Copy, 4, None, false), 4);
         assert_eq!(held.count(PreserveMode::Clone, 0, None, false), 0);
         assert_eq!(held.count(PreserveMode::Copy, u64::MAX, None, true), 0);
-        assert_eq!(held.count(PreserveMode::Copy, u64::MAX, None, false), u64::MAX);
+        assert_eq!(
+            held.count(PreserveMode::Copy, u64::MAX, None, false),
+            u64::MAX
+        );
     }
 
     #[test]

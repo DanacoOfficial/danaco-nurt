@@ -153,7 +153,8 @@ pub(crate) fn remove_files(plan: &mut ApplyPlan, root: &Path, files: &[BString])
         let expect = if is_link {
             Expect::Unchecked
         } else {
-            let data = std::fs::read(&native).map_err(|cause| io_error("cannot read file", cause))?;
+            let data =
+                std::fs::read(&native).map_err(|cause| io_error("cannot read file", cause))?;
             Expect::Hash(content_hash(&data))
         };
         deletes.push(PlanEntry {

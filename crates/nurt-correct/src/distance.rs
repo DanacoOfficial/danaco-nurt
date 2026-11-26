@@ -1131,8 +1131,15 @@ mod tests {
     #[test]
     fn expected_names_that_contain_the_word_come_before_closer_unrelated_names() {
         let index = NameIndex::new(
-            ["git.log", "git.tag", "logs", "patch", "program.catalog", "stop"]
-                .map(|name| NameEntry::name(name, NameKind::Command)),
+            [
+                "git.log",
+                "git.tag",
+                "logs",
+                "patch",
+                "program.catalog",
+                "stop",
+            ]
+            .map(|name| NameEntry::name(name, NameKind::Command)),
         );
         let names = expected("catalog", &index, NameKind::Command, 3);
         assert_eq!(names.first().map(String::as_str), Some("program.catalog"));
@@ -1141,7 +1148,8 @@ mod tests {
     #[test]
     fn expected_names_with_the_word_as_prefix_come_first() {
         let index = NameIndex::new(
-            ["copy", "git.log", "logs", "lock"].map(|name| NameEntry::name(name, NameKind::Command)),
+            ["copy", "git.log", "logs", "lock"]
+                .map(|name| NameEntry::name(name, NameKind::Command)),
         );
         assert_eq!(
             expected("log", &index, NameKind::Command, 4),
@@ -1202,9 +1210,7 @@ mod tests {
 
     #[test]
     fn handles_empty_and_multibyte_names() {
-        let index = NameIndex::new(
-            ["żółw", "żółć"].map(|name| NameEntry::command(name, false)),
-        );
+        let index = NameIndex::new(["żółw", "żółć"].map(|name| NameEntry::command(name, false)));
         assert_eq!(find("", &index, NameKind::Command), Nearest::None);
         assert_eq!(
             find("ŻÓŁW", &index, NameKind::Command),

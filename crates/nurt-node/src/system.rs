@@ -194,7 +194,10 @@ mod tests {
     #[test]
     fn unset_variables_and_missing_files_give_nothing() {
         assert_eq!(first_variable(&[]), None);
-        assert_eq!(first_variable(&["NURT_NODE_UNSET_ONE", "NURT_NODE_UNSET_TWO"]), None);
+        assert_eq!(
+            first_variable(&["NURT_NODE_UNSET_ONE", "NURT_NODE_UNSET_TWO"]),
+            None
+        );
         assert_eq!(read_trimmed("/nurt-node-missing/boot_id"), None);
         assert_eq!(read_trimmed("/"), None);
     }
@@ -219,7 +222,10 @@ mod tests {
     #[test]
     fn the_host_default_equals_a_new_host_and_has_an_absolute_temp_directory() {
         let host = SystemHost::default();
-        assert_eq!(host.info().architecture, SystemHost::new().info().architecture);
+        assert_eq!(
+            host.info().architecture,
+            SystemHost::new().info().architecture
+        );
         assert!(host.info().temp.is_absolute());
         assert!(!host.info().hostname.is_empty());
         assert!(!host.info().os_version.is_empty());

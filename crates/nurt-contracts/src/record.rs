@@ -4503,7 +4503,10 @@ mod tests {
 
     #[test]
     fn enumerations_parse_their_stable_names_only() {
-        assert_eq!("directory".parse::<EntryType>().unwrap(), EntryType::Directory);
+        assert_eq!(
+            "directory".parse::<EntryType>().unwrap(),
+            EntryType::Directory
+        );
         assert!("dir".parse::<EntryType>().is_err());
         assert!("File".parse::<EntryType>().is_err());
         assert_eq!(EntryType::ALL.len(), 4);

@@ -573,9 +573,7 @@ async fn uris_that_name_no_resource_are_not_found() {
 async fn check_tool_takes_a_candidate_and_the_default_session() {
     let mut client = Client::start_with(MockBackend::new(), McpOptions::new().with_session("s9"));
     client.initialize().await;
-    let (response, _) = client
-        .tool(1, "nurt_check", json!({"accept": "c1"}))
-        .await;
+    let (response, _) = client.tool(1, "nurt_check", json!({"accept": "c1"})).await;
     let document = &response["result"]["structuredContent"];
     assert_eq!(document["program"], "c1");
     assert_eq!(document["session"], "s9");
@@ -593,12 +591,18 @@ async fn invalid_arguments_of_the_check_and_help_tools_name_the_tool() {
         .tool(1, "nurt_check", json!({"program": "ok", "accept": "c1"}))
         .await;
     assert_eq!(response["result"]["isError"], true);
-    assert!(text(&response).contains("`nurt_check`"), "{}", text(&response));
-    let (response, _) = client
-        .tool(2, "nurt_help", json!({"kind": "page"}))
-        .await;
+    assert!(
+        text(&response).contains("`nurt_check`"),
+        "{}",
+        text(&response)
+    );
+    let (response, _) = client.tool(2, "nurt_help", json!({"kind": "page"})).await;
     assert_eq!(response["result"]["isError"], true);
-    assert!(text(&response).contains("`nurt_help`"), "{}", text(&response));
+    assert!(
+        text(&response).contains("`nurt_help`"),
+        "{}",
+        text(&response)
+    );
 }
 
 #[tokio::test]
@@ -643,7 +647,11 @@ async fn a_program_with_multi_byte_characters_reaches_the_engine_and_the_reply_i
     let mut client = Client::start(MockBackend::new());
     client.initialize().await;
     let (response, _) = client
-        .tool(1, "nurt", json!({"program": "\u{142}\u{f3}d\u{17a} \u{1f600}"}))
+        .tool(
+            1,
+            "nurt",
+            json!({"program": "\u{142}\u{f3}d\u{17a} \u{1f600}"}),
+        )
         .await;
     assert_eq!(response["result"]["isError"], true);
     assert_eq!(

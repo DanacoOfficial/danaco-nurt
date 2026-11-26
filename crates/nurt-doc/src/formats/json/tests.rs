@@ -212,7 +212,8 @@ fn containers_with_comments_are_left_to_the_one_by_one_removal() {
 fn removes_a_member_of_every_element_in_one_step() {
     use crate::model::DocHandle;
 
-    let source = "[\n  {\n    \"a\": 1,\n    \"b\": 2\n  },\n  {\n    \"a\": 3,\n    \"b\": 4\n  }\n]";
+    let source =
+        "[\n  {\n    \"a\": 1,\n    \"b\": 2\n  },\n  {\n    \"a\": 3,\n    \"b\": 4\n  }\n]";
     let mut handle = super::JsonHandle::new(JsonDocument::parse(source, Dialect::Json).unwrap());
     let report = handle.remove(&key("[*].a")).unwrap();
     assert_eq!(report.replacements, 2);
@@ -255,7 +256,9 @@ fn large_objects_find_members_by_name_and_report_repeated_names() {
     let outcome = document.plan_set(&key("m40"), &int(40), true).unwrap();
     assert!(!outcome.duplicate_key);
     assert!(outcome.changes.is_empty());
-    let error = document.plan_set(&key("absent"), &int(1), false).unwrap_err();
+    let error = document
+        .plan_set(&key("absent"), &int(1), false)
+        .unwrap_err();
     assert_eq!(error.code(), ErrorCode::KeyNotFound);
 }
 

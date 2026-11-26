@@ -315,7 +315,9 @@ mod tests {
     fn the_unknown_option_is_named_in_the_message() {
         assert_eq!(
             parse(&words("a.sh --help")),
-            Err(CliError::Usage("unknown option `--help` of `migrate`".to_owned()))
+            Err(CliError::Usage(
+                "unknown option `--help` of `migrate`".to_owned()
+            ))
         );
     }
 
@@ -332,11 +334,7 @@ mod tests {
     #[test]
     fn a_missing_script_is_a_failure_naming_the_file() {
         let (mut out, mut err) = (Vec::new(), Vec::new());
-        let result = execute(
-            &words("/nonexistent/nurt/deploy.sh"),
-            &mut out,
-            &mut err,
-        );
+        let result = execute(&words("/nonexistent/nurt/deploy.sh"), &mut out, &mut err);
         assert!(matches!(
             result,
             Err(CliError::Failure(message)) if message.starts_with("cannot read `/nonexistent/nurt/deploy.sh`")

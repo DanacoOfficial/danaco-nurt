@@ -279,7 +279,10 @@ fn long_output_is_cut_to_its_head_and_tail_except_at_the_detailed_level() {
     assert!(!normal.contains("l10"));
 
     let detailed = render(&report, &with_verbosity(Verbosity::Detailed));
-    assert!(detailed.contains("  stdout\n    l0\n    l1\n"), "{detailed}");
+    assert!(
+        detailed.contains("  stdout\n    l0\n    l1\n"),
+        "{detailed}"
+    );
     assert!(detailed.ends_with("    l28\n    l29"), "{detailed}");
 }
 
@@ -359,7 +362,10 @@ fn matches_are_drawn_under_the_directories_of_their_paths() {
 fn matches_are_drawn_under_their_directories_in_markdown() {
     let report = listing(vec![found("/srv/app/src/a.go", 2, 1127)]);
     let text = render(&report, &options(OutputFormat::Markdown));
-    assert!(text.ends_with("```\n`-- src/\n    `-- a.go  1.1kib\n```"), "{text}");
+    assert!(
+        text.ends_with("```\n`-- src/\n    `-- a.go  1.1kib\n```"),
+        "{text}"
+    );
 }
 
 #[test]
@@ -386,7 +392,10 @@ fn a_multi_line_value_stays_on_one_line_in_compact() {
         Record::new(RecordKind::Entry).with("text", Value::Text("one\ntwo".to_owned())),
     ]);
     let text = render(&report, &options(OutputFormat::Compact));
-    assert!(text.lines().any(|line| line == "entry text=\"one\\ntwo\""), "{text}");
+    assert!(
+        text.lines().any(|line| line == "entry text=\"one\\ntwo\""),
+        "{text}"
+    );
 }
 
 #[test]
@@ -415,7 +424,10 @@ fn a_fence_in_the_output_does_not_close_the_markdown_block() {
         Record::new(RecordKind::Exec).with("stdout", Value::Text("```\ncode\n```\n".to_owned())),
     );
     let text = render(&report, &options(OutputFormat::Markdown));
-    assert!(text.contains("**stdout**\n````\n```\ncode\n```\n````"), "{text}");
+    assert!(
+        text.contains("**stdout**\n````\n```\ncode\n```\n````"),
+        "{text}"
+    );
 }
 
 #[test]

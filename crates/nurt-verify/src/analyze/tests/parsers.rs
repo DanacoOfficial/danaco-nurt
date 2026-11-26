@@ -176,9 +176,11 @@ fn ruff_reports_only_pyflakes_and_runtime_error_codes_as_errors() {
     };
     let report = format!(
         "[{}]",
-        ["F401", "E902", "FBT001", "FIX002", "FURB101", "E501", "ERA001"]
-            .map(item)
-            .join(",")
+        [
+            "F401", "E902", "FBT001", "FIX002", "FURB101", "E501", "ERA001"
+        ]
+        .map(item)
+        .join(",")
     );
     let found = ruff::parse_lint(&stdout(&report), Path::new("/work"));
     let severities: Vec<FindingSeverity> = found.iter().map(|item| item.severity).collect();

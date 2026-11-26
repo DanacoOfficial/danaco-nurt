@@ -401,7 +401,10 @@ fn topics_in(directory: &std::path::Path, found: &mut Vec<(String, String)>) {
             continue;
         }
         let source = std::fs::read_to_string(&path).unwrap();
-        for line in source.lines().filter(|line| !line.trim_start().starts_with("//")) {
+        for line in source
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+        {
             for mark in MARKS {
                 let mut rest = line;
                 while let Some(position) = rest.find(mark) {

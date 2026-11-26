@@ -173,9 +173,8 @@ mod tests {
 
     #[test]
     fn theme_of_an_environment_follows_the_variables() {
-        let truecolor = Theme::from_environment(|name| {
-            (name == "COLORTERM").then(|| "truecolor".to_owned())
-        });
+        let truecolor =
+            Theme::from_environment(|name| (name == "COLORTERM").then(|| "truecolor".to_owned()));
         assert_eq!(truecolor, Theme::new(true));
         let plain = Theme::from_environment(|_| None);
         assert_eq!(plain, Theme::new(cfg!(windows)));
@@ -205,7 +204,10 @@ mod tests {
                 "{program}"
             );
         }
-        assert!(!reports_truecolor(&environment(&[("TERM_PROGRAM", "vscode2")])));
+        assert!(!reports_truecolor(&environment(&[(
+            "TERM_PROGRAM",
+            "vscode2"
+        )])));
     }
 
     #[test]

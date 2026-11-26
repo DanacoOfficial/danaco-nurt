@@ -147,9 +147,7 @@ fn reservations_behind_the_oldest_entry_are_dropped() {
     let store = DirStore::new(dir.path(), 50);
     let abandoned = store.next_id(EntryKind::TestRun);
     let saved = store.next_id(EntryKind::TestRun);
-    store
-        .save(EntryKind::TestRun, &entry(&saved, &[]))
-        .unwrap();
+    store.save(EntryKind::TestRun, &entry(&saved, &[])).unwrap();
     let reservation = dir.path().join(format!("verify/runs/{abandoned}.rsv"));
     assert!(!reservation.exists());
     assert_eq!(store.next_id(EntryKind::TestRun), "run-3");
@@ -201,7 +199,12 @@ fn pruned_runs_lose_their_reports_and_coverage() {
     store
         .save(EntryKind::TestRun, &entry("run-2", &[]))
         .unwrap();
-    for name in ["run-1.xml", "run-1.json", "run-1.coverage", "run-1-coverage"] {
+    for name in [
+        "run-1.xml",
+        "run-1.json",
+        "run-1.coverage",
+        "run-1-coverage",
+    ] {
         assert!(!reports.join(name).exists(), "{name}");
     }
     assert!(reports.join("run-2.xml").exists());

@@ -140,7 +140,12 @@ mod tests {
         assert!(documents.change(&uri(), 2, changes, Encoding::Utf32));
         assert_eq!(documents.get(&uri()).unwrap().text, "a\u{1f600}B\r\nC");
         let past_the_end = Range::new(Position::new(0, 99), Position::new(0, 99));
-        assert!(documents.change(&uri(), 3, vec![edit(Some(past_the_end), "!")], Encoding::Utf32));
+        assert!(documents.change(
+            &uri(),
+            3,
+            vec![edit(Some(past_the_end), "!")],
+            Encoding::Utf32
+        ));
         assert_eq!(documents.get(&uri()).unwrap().text, "a\u{1f600}B!\r\nC");
     }
 
@@ -170,7 +175,10 @@ mod tests {
         documents.open(uri(), "count".to_owned(), 1);
         let changes = vec![
             edit(None, "first"),
-            edit(Some(Range::new(Position::new(0, 5), Position::new(0, 5))), " 2"),
+            edit(
+                Some(Range::new(Position::new(0, 5), Position::new(0, 5))),
+                " 2",
+            ),
         ];
         assert!(documents.change(&uri(), 9, changes, Encoding::Utf16));
         let document = documents.get(&uri()).unwrap();

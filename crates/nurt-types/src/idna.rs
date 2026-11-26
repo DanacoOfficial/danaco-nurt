@@ -27,9 +27,7 @@ pub(crate) fn to_ascii(domain: &str) -> Option<String> {
     match url::Host::parse(domain).ok()? {
         url::Host::Domain(name) => Some(name),
         url::Host::Ipv4(address) => is_dotted_quad(domain).then(|| address.to_string()),
-        url::Host::Ipv6(address) => {
-            domain.starts_with('[').then(|| format!("[{address}]"))
-        }
+        url::Host::Ipv6(address) => domain.starts_with('[').then(|| format!("[{address}]")),
     }
 }
 

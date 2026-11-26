@@ -413,7 +413,11 @@ mod tests {
         let journal = MemoryJournal::new();
         let mut tx = journal.begin(OpKind::command("set"));
         let error = tx
-            .preserve(&[target("/srv/app/a.json", TargetAction::Modify, Expect::Unchecked)])
+            .preserve(&[target(
+                "/srv/app/a.json",
+                TargetAction::Modify,
+                Expect::Unchecked,
+            )])
             .unwrap_err();
         assert_eq!(error.code, ErrorCode::NotFound);
     }
@@ -423,13 +427,21 @@ mod tests {
         let journal = MemoryJournal::new().with_file(Path::new("/srv/app/a.json"), b"{}".to_vec());
         let mut tx = journal.begin(OpKind::command("set"));
         let error = tx
-            .preserve(&[target("/srv/app/a.json", TargetAction::Create, Expect::Unchecked)])
+            .preserve(&[target(
+                "/srv/app/a.json",
+                TargetAction::Create,
+                Expect::Unchecked,
+            )])
             .unwrap_err();
         assert_eq!(error.code, ErrorCode::Exists);
         let mut tx = journal.begin(OpKind::command("set"));
         assert!(
-            tx.preserve(&[target("/srv/app/b.json", TargetAction::Create, Expect::Absent)])
-                .is_ok()
+            tx.preserve(&[target(
+                "/srv/app/b.json",
+                TargetAction::Create,
+                Expect::Absent
+            )])
+            .is_ok()
         );
     }
 
@@ -438,8 +450,12 @@ mod tests {
         let path = Path::new("/srv/app/a.json");
         let journal = MemoryJournal::new().with_file(path, b"{}".to_vec());
         let mut tx = journal.begin(OpKind::command("set"));
-        tx.preserve(&[target("/srv/app/a.json", TargetAction::Modify, Expect::Unchecked)])
-            .unwrap();
+        tx.preserve(&[target(
+            "/srv/app/a.json",
+            TargetAction::Modify,
+            Expect::Unchecked,
+        )])
+        .unwrap();
         tx.apply(
             TargetIndex(0),
             nurt_contracts::journal::Mutation::WriteBytes(b"[]".to_vec()),

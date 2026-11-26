@@ -650,8 +650,8 @@ mod tests {
     fn cancelled_stream_returns_the_error_before_any_event() {
         let token = CancelToken::new();
         token.cancel(CancelReason::Requested);
-        let mut stream = LogStream::new((0..3).map(|n| Ok(event(n))), Notices::new(), 5)
-            .with_cancel(token);
+        let mut stream =
+            LogStream::new((0..3).map(|n| Ok(event(n))), Notices::new(), 5).with_cancel(token);
         assert_eq!(
             stream.next().unwrap().unwrap_err().code(),
             ErrorCode::Cancelled

@@ -301,7 +301,10 @@ mod tests {
 
     #[test]
     fn install_keeps_a_directory_with_multi_byte_characters() {
-        let args = vec!["install".to_owned(), "r\u{f3}\u{17c}ne/\u{1f600}".to_owned()];
+        let args = vec![
+            "install".to_owned(),
+            "r\u{f3}\u{17c}ne/\u{1f600}".to_owned(),
+        ];
         assert_eq!(
             parse(&args),
             Ok(Action::Install {

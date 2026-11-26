@@ -468,7 +468,9 @@ fn guarded<T>(work: impl FnOnce() -> Result<T, Failure>) -> Result<T, Failure> {
             .copied()
             .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
             .unwrap_or("unknown cause");
-        Err(Failure::internal(format!("the operation panicked: {cause}")))
+        Err(Failure::internal(format!(
+            "the operation panicked: {cause}"
+        )))
     })
 }
 

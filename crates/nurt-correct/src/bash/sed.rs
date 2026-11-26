@@ -405,9 +405,7 @@ fn substitution(text: &str, delimiter: char) -> Option<Script> {
     } else {
         Some(digits.parse().ok().filter(|number: &i64| *number > 0)?)
     };
-    if pattern.is_empty()
-        || (global && occurrence.is_some())
-        || !supported_replacement(replacement)
+    if pattern.is_empty() || (global && occurrence.is_some()) || !supported_replacement(replacement)
     {
         return None;
     }

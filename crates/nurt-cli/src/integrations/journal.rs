@@ -193,7 +193,10 @@ mod tests {
             parse(&words("salvage /mnt/dane")),
             Ok(PathBuf::from("/mnt/dane"))
         );
-        let args = vec!["salvage".to_owned(), "/mnt/r\u{f3}\u{17c}ne \u{1f600}".to_owned()];
+        let args = vec![
+            "salvage".to_owned(),
+            "/mnt/r\u{f3}\u{17c}ne \u{1f600}".to_owned(),
+        ];
         assert_eq!(
             parse(&args),
             Ok(PathBuf::from("/mnt/r\u{f3}\u{17c}ne \u{1f600}"))

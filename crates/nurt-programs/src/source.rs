@@ -1312,19 +1312,34 @@ mod tests {
         assert_eq!(windows.command_name(".exe"), None);
         assert_eq!(windows.command_name("readme.txt"), None);
         let linux = HostEnv::new(Os::Linux);
-        assert_eq!(linux.command_name("readme.txt").as_deref(), Some("readme.txt"));
+        assert_eq!(
+            linux.command_name("readme.txt").as_deref(),
+            Some("readme.txt")
+        );
     }
 
     #[test]
     fn sys_path_stays_below_the_root_and_maps_drive_letters() {
         let linux = HostEnv::new(Os::Linux).with_root("/r");
-        assert_eq!(linux.sys_path("/usr/bin/../lib"), PathBuf::from("/r/usr/lib"));
+        assert_eq!(
+            linux.sys_path("/usr/bin/../lib"),
+            PathBuf::from("/r/usr/lib")
+        );
         assert_eq!(linux.sys_path("/../../etc"), PathBuf::from("/r/etc"));
-        assert_eq!(linux.host_path(Path::new("/r/usr/lib")), PathBuf::from("/usr/lib"));
+        assert_eq!(
+            linux.host_path(Path::new("/r/usr/lib")),
+            PathBuf::from("/usr/lib")
+        );
         let windows = HostEnv::new(Os::Windows).with_root("/r");
-        assert_eq!(windows.sys_path("C:\\Tools\\x.exe"), PathBuf::from("/r/c/Tools/x.exe"));
+        assert_eq!(
+            windows.sys_path("C:\\Tools\\x.exe"),
+            PathBuf::from("/r/c/Tools/x.exe")
+        );
         assert_eq!(windows.sys_path("d:/data"), PathBuf::from("/r/d/data"));
-        assert_eq!(HostEnv::new(Os::Linux).sys_path("/usr/bin"), PathBuf::from("/usr/bin"));
+        assert_eq!(
+            HostEnv::new(Os::Linux).sys_path("/usr/bin"),
+            PathBuf::from("/usr/bin")
+        );
     }
 
     #[test]

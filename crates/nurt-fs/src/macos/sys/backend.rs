@@ -510,9 +510,9 @@ impl FsWrite for MacosFs {
                             path.as_path(),
                         ));
                     }
-                    thread::sleep(deadline.map_or(LOCK_POLL, |deadline| {
-                        LOCK_POLL.min(deadline - now)
-                    }));
+                    thread::sleep(
+                        deadline.map_or(LOCK_POLL, |deadline| LOCK_POLL.min(deadline - now)),
+                    );
                 }
                 Err(errno) => return Err(plain(OP, path)(errno)),
             }

@@ -458,7 +458,10 @@ fn field_paths_look_into_a_list_of_one_and_stay_null_for_a_missing_member() {
         resolve(&report, "effect.change.files[*].name").unwrap(),
         json!(["x", "y"])
     );
-    assert_eq!(resolve(&report, "effect.change.files[7].name").unwrap(), Json::Null);
+    assert_eq!(
+        resolve(&report, "effect.change.files[7].name").unwrap(),
+        Json::Null
+    );
     let single = Report {
         changes: vec![json!({ "files": [{ "name": "x" }] })],
         ..report.clone()
@@ -467,7 +470,10 @@ fn field_paths_look_into_a_list_of_one_and_stay_null_for_a_missing_member() {
         resolve(&single, "effect.change.files.name").unwrap(),
         json!("x")
     );
-    assert_eq!(resolve(&single, "effect.change.missing").unwrap(), Json::Null);
+    assert_eq!(
+        resolve(&single, "effect.change.missing").unwrap(),
+        Json::Null
+    );
     assert!(resolve(&single, "[0]").is_err());
     assert!(resolve(&single, "entries[1").is_err());
     assert!(resolve(&single, "entries[x]").is_err());
@@ -493,7 +499,12 @@ fn error_codes_of_the_previous_vocabulary_stand_only_for_their_listed_codes() {
         ..Report::default()
     };
     assert_eq!(
-        check_field(&failed, "error.code", Comparison::Value, &json!("E_ARGUMENT")),
+        check_field(
+            &failed,
+            "error.code",
+            Comparison::Value,
+            &json!("E_ARGUMENT")
+        ),
         Ok(())
     );
     assert!(check_field(&failed, "error.code", Comparison::Value, &json!("E_RANGE")).is_err());

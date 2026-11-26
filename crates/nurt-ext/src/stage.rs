@@ -558,11 +558,8 @@ write = ["/project"]
             path: test_path(name).unwrap(),
             content: content.as_bytes().to_vec(),
         };
-        let kept = super::last_write_per_path(vec![
-            write("/a", "1"),
-            write("/b", "2"),
-            write("/a", "3"),
-        ]);
+        let kept =
+            super::last_write_per_path(vec![write("/a", "1"), write("/b", "2"), write("/a", "3")]);
         assert_eq!(kept, [write("/a", "3"), write("/b", "2")]);
         assert!(super::last_write_per_path(Vec::new()).is_empty());
     }

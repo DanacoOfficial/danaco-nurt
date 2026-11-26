@@ -805,9 +805,7 @@ mod tests {
         let scope = TxScope::new_for_journal(OpId(1), ScopePurpose::Maintenance);
         let dir = root.join_name("d").unwrap();
         fs.create_dir(&scope, &dir, 0o755).unwrap();
-        let mut handle = fs
-            .create_new(&scope, &dir.join_name("f").unwrap())
-            .unwrap();
+        let mut handle = fs.create_new(&scope, &dir.join_name("f").unwrap()).unwrap();
         handle.write_all(b"x").unwrap();
         drop(handle);
         let snapshot = TreeSnapshot::capture(&fs, &root, &[]).unwrap();

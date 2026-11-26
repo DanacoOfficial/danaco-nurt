@@ -206,7 +206,10 @@ mod tests {
     #[test]
     fn leaves_text_without_control_characters_unchanged() {
         assert_eq!(single_line(""), "");
-        assert_eq!(single_line("caf\u{e9} \u{4e2d}\\path"), "caf\u{e9} \u{4e2d}\\path");
+        assert_eq!(
+            single_line("caf\u{e9} \u{4e2d}\\path"),
+            "caf\u{e9} \u{4e2d}\\path"
+        );
     }
 
     #[test]

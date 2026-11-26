@@ -361,7 +361,12 @@ fn rejects_units_and_digits_written_with_multi_byte_characters() {
 #[test]
 fn rejects_instants_cut_inside_a_multi_byte_character() {
     let utc = TimeZone::UTC;
-    for text in ["2026-11-2é", "2026-11-21é", "2026-11-21T1é:00:00", "é026-11-21"] {
+    for text in [
+        "2026-11-2é",
+        "2026-11-21é",
+        "2026-11-21T1é:00:00",
+        "é026-11-21",
+    ] {
         let error = parse_instant(text, &utc).unwrap_err();
         assert_eq!(error.type_name, "instant", "{text}");
         assert_eq!(error.input, text);

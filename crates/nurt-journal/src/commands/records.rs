@@ -122,7 +122,13 @@ pub(super) fn change(outcome: &TargetOutcome, fs: Option<&dyn Fs>) -> Change {
         .as_ref()
         .filter(|after| after.exists)
         .and_then(|after| after.kind)
-        .or_else(|| outcome.before.exists.then_some(outcome.before.kind).flatten());
+        .or_else(|| {
+            outcome
+                .before
+                .exists
+                .then_some(outcome.before.kind)
+                .flatten()
+        });
     if kind == Some(FileKind::Directory) {
         let content = match (&outcome.path, fs) {
             (TargetPath::Fs(path), Some(fs)) if change.action == ChangeAction::Create => {
@@ -397,7 +403,10 @@ mod tests {
         let fs = tree_fs();
         assert_eq!(count_tree(&fs, &AbsPath::new("/d/none").unwrap()), None);
         let content = count_tree(&fs, &AbsPath::new("/d/tree/empty").unwrap()).unwrap();
-        assert_eq!((content.files, content.directories, content.bytes), (0, 0, 0));
+        assert_eq!(
+            (content.files, content.directories, content.bytes),
+            (0, 0, 0)
+        );
     }
 
     #[test]
@@ -510,11 +519,20 @@ mod tests {
     fn numbers_and_counts_saturate_instead_of_wrapping() {
         assert_eq!(number(0), Value::Int(0));
         assert_eq!(number(u64::MAX), Value::Int(i64::MAX));
-        assert_eq!(number(u64::try_from(i64::MAX).unwrap()), Value::Int(i64::MAX));
+        assert_eq!(
+            number(u64::try_from(i64::MAX).unwrap()),
+            Value::Int(i64::MAX)
+        );
         assert_eq!(count(0), 0);
-        assert_eq!(count(usize::MAX), u64::try_from(usize::MAX).unwrap_or(u64::MAX));
+        assert_eq!(
+            count(usize::MAX),
+            u64::try_from(usize::MAX).unwrap_or(u64::MAX)
+        );
         assert_eq!(op_list(&[]), Value::List(Vec::new()));
-        assert_eq!(op_list(&[OpId(u64::MAX)]), Value::List(vec![Value::Int(i64::MAX)]));
+        assert_eq!(
+            op_list(&[OpId(u64::MAX)]),
+            Value::List(vec![Value::Int(i64::MAX)])
+        );
     }
 
     #[test]
@@ -531,13 +549,16 @@ mod tests {
         assert_eq!(created.action, ChangeAction::Create);
         assert_eq!(created.path, Path::from("/d/ñüé"));
 
-        let moved = change(&outcome_of(
-            "/d/a.txt",
-            TargetAction::Rename {
-                to: AbsPath::new("/d/b.txt").unwrap(),
-                replace: true,
-            },
-        ), None);
+        let moved = change(
+            &outcome_of(
+                "/d/a.txt",
+                TargetAction::Rename {
+                    to: AbsPath::new("/d/b.txt").unwrap(),
+                    replace: true,
+                },
+            ),
+            None,
+        );
         assert_eq!(moved.action, ChangeAction::Rename);
         assert_eq!(moved.to, Some(Path::from("/d/b.txt")));
         assert_eq!(moved.from, Some(Path::from("/d/a.txt")));
@@ -596,7 +617,11 @@ mod tests {
 
     #[test]
     fn effect_outcomes_carry_changes_and_markers_only_when_there_are_some() {
-        let bare = outcome(effect("journal.pin", EffectStatus::Ok), Vec::new(), Vec::new());
+        let bare = outcome(
+            effect("journal.pin", EffectStatus::Ok),
+            Vec::new(),
+            Vec::new(),
+        );
         assert!(bare.changes.is_empty());
         assert!(bare.irreversible.is_empty());
         let marker = marker(Irreversible::Purged, &[OpId(1)]).unwrap();
@@ -646,8 +671,14 @@ mod tests {
 
     #[test]
     fn undoing_an_append_truncates_and_undoing_a_truncate_modifies() {
-        assert_eq!(reverse_action(&TargetAction::Append), ChangeAction::Truncate);
-        assert_eq!(reverse_action(&TargetAction::Truncate), ChangeAction::Modify);
+        assert_eq!(
+            reverse_action(&TargetAction::Append),
+            ChangeAction::Truncate
+        );
+        assert_eq!(
+            reverse_action(&TargetAction::Truncate),
+            ChangeAction::Modify
+        );
         assert_eq!(reverse_action(&TargetAction::Create), ChangeAction::Delete);
         assert_eq!(reverse_action(&TargetAction::Delete), ChangeAction::Create);
     }

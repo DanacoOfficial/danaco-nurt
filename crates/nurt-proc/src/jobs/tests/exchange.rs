@@ -53,9 +53,8 @@ fn requests_are_taken_in_the_order_of_their_counters() {
     let (table, _lock, _) = supervised(dir.path());
     let control_dir = table.control_dir("j1");
     fs::create_dir_all(&control_dir).unwrap();
-    let body = |action: &str| {
-        format!(r#"{{"protocol": {PROTOCOL}, "action": {{"action": "{action}"}}}}"#)
-    };
+    let body =
+        |action: &str| format!(r#"{{"protocol": {PROTOCOL}, "action": {{"action": "{action}"}}}}"#);
     for (name, action) in [
         ("42-10", "resume"),
         ("42-9", "suspend"),

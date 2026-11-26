@@ -522,7 +522,10 @@ mod tests {
         };
         assert_eq!(tolerate(Ok(()), ERROR_SERVICE_NOT_ACTIVE), Ok(()));
         assert_eq!(
-            tolerate(Err(error(ERROR_SERVICE_NOT_ACTIVE)), ERROR_SERVICE_NOT_ACTIVE),
+            tolerate(
+                Err(error(ERROR_SERVICE_NOT_ACTIVE)),
+                ERROR_SERVICE_NOT_ACTIVE
+            ),
             Ok(())
         );
         assert_eq!(

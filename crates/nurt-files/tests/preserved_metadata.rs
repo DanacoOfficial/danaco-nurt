@@ -76,7 +76,10 @@ fn assert_kept(test: &TestContext, path: &AbsPath) {
         .fs()
         .metadata(path, Follow::NoFollow)
         .expect("the file exists");
-    assert_eq!(meta.modified_ns, MODIFIED_NS, "modification time of {path:?}");
+    assert_eq!(
+        meta.modified_ns, MODIFIED_NS,
+        "modification time of {path:?}"
+    );
     assert_eq!(meta.mode & PERMISSION_BITS, MODE, "mode of {path:?}");
 }
 

@@ -173,7 +173,10 @@ mod tests {
 
     #[test]
     fn applies_edits_in_position_order() {
-        let edits = [ByteEdit::replace(Span::new(4, 5), "E"), ByteEdit::insert(0, ">")];
+        let edits = [
+            ByteEdit::replace(Span::new(4, 5), "E"),
+            ByteEdit::insert(0, ">"),
+        ];
         assert_eq!(apply(b"abcdef", &edits).unwrap().bytes, b">abcdEf");
         assert_eq!(apply(b"abc", &[]).unwrap().bytes, b"abc");
     }
@@ -186,9 +189,15 @@ mod tests {
 
     #[test]
     fn insertions_at_the_boundaries_of_a_replacement_are_allowed() {
-        let after = [ByteEdit::replace(Span::new(2, 4), "X"), ByteEdit::insert(4, "!")];
+        let after = [
+            ByteEdit::replace(Span::new(2, 4), "X"),
+            ByteEdit::insert(4, "!"),
+        ];
         assert_eq!(apply(b"abcdef", &after).unwrap().bytes, b"abX!ef");
-        let before = [ByteEdit::replace(Span::new(2, 4), "X"), ByteEdit::insert(2, "!")];
+        let before = [
+            ByteEdit::replace(Span::new(2, 4), "X"),
+            ByteEdit::insert(2, "!"),
+        ];
         assert_eq!(apply(b"abcdef", &before).unwrap().bytes, b"ab!Xef");
         let end = [ByteEdit::insert(6, "!")];
         assert_eq!(apply(b"abcdef", &end).unwrap().bytes, b"abcdef!");
@@ -202,7 +211,10 @@ mod tests {
         ];
         let error = apply(b"abcdef", &overlapping).unwrap_err();
         assert_eq!(error.code, ErrorCode::KeyConflict);
-        let inside = [ByteEdit::replace(Span::new(1, 4), "x"), ByteEdit::insert(2, "y")];
+        let inside = [
+            ByteEdit::replace(Span::new(1, 4), "x"),
+            ByteEdit::insert(2, "y"),
+        ];
         let error = apply(b"abcdef", &inside).unwrap_err();
         assert_eq!(error.code, ErrorCode::KeyConflict);
         let past = [ByteEdit::replace(Span::new(4, 9), "x")];

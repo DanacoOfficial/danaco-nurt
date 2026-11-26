@@ -668,10 +668,15 @@ mod tests {
         let options = ServeOptions::with_backend(Box::new(NoBackend));
         assert_eq!(options.max_inflight(), DEFAULT_MAX_INFLIGHT);
         assert_eq!(options.max_message_bytes(), DEFAULT_MAX_MESSAGE_BYTES);
-        let options = options.with_max_inflight(usize::MAX).with_max_message_bytes(usize::MAX);
+        let options = options
+            .with_max_inflight(usize::MAX)
+            .with_max_message_bytes(usize::MAX);
         assert_eq!(options.max_inflight(), usize::MAX);
         assert_eq!(options.max_message_bytes(), usize::MAX);
-        assert_eq!(options.with_framing(Framing::ContentLength).framing(), Framing::ContentLength);
+        assert_eq!(
+            options.with_framing(Framing::ContentLength).framing(),
+            Framing::ContentLength
+        );
     }
 
     #[test]
@@ -808,7 +813,10 @@ mod tests {
         );
         assert_eq!(reply_to(&messages, 3)["result"], json!({"cancelled": true}));
         let stopped = &reply_to(&messages, 2)["error"];
-        assert_eq!(stopped["code"], protocol::application_code(AbiStatus::Cancelled));
+        assert_eq!(
+            stopped["code"],
+            protocol::application_code(AbiStatus::Cancelled)
+        );
         assert_eq!(stopped["data"]["response"], json!({"stopped": true}));
     }
 

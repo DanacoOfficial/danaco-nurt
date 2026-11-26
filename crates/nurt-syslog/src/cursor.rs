@@ -489,7 +489,11 @@ mod tests {
     fn id_accepts_upper_case_digits_and_prints_lower_case() {
         let id: Id128 = "ABCDEF00112233445566778899aabbcc".parse().unwrap();
         assert_eq!(id.to_string(), "abcdef00112233445566778899aabbcc");
-        assert!("\u{e9}0000000000000000000000000000000".parse::<Id128>().is_err());
+        assert!(
+            "\u{e9}0000000000000000000000000000000"
+                .parse::<Id128>()
+                .is_err()
+        );
         assert!(" 0000000000000000000000000000000".parse::<Id128>().is_err());
     }
 
@@ -511,19 +515,30 @@ mod tests {
             assert_eq!(cursor.to_string(), text);
             assert_eq!(cursor.time(), Some(Instant::from_unix_nanos(nanos)));
         }
-        assert!("v1:m:9223372036854775808:0:0:0000000000000000"
-            .parse::<Cursor>()
-            .is_err());
+        assert!(
+            "v1:m:9223372036854775808:0:0:0000000000000000"
+                .parse::<Cursor>()
+                .is_err()
+        );
     }
 
     #[test]
     fn event_log_cursor_rejects_signs_and_spaces_in_the_record_number() {
-        for text in ["v1:w:System:+1", "v1:w:System:-1", "v1:w:System: 1", "v1:w:System:1 "] {
+        for text in [
+            "v1:w:System:+1",
+            "v1:w:System:-1",
+            "v1:w:System: 1",
+            "v1:w:System:1 ",
+        ] {
             assert!(text.parse::<Cursor>().is_err(), "accepted {text:?}");
         }
         let channel = "v1:w:Microsoft-Windows-X/Operational:18446744073709551615";
         assert!(channel.parse::<Cursor>().is_ok());
-        assert!("v1:w:System:18446744073709551616".parse::<Cursor>().is_err());
+        assert!(
+            "v1:w:System:18446744073709551616"
+                .parse::<Cursor>()
+                .is_err()
+        );
     }
 
     #[test]

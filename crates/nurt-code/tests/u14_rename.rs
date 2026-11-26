@@ -928,7 +928,10 @@ fn file_that_is_not_utf8_is_left_alone_by_a_syntax_rename() {
     )
     .unwrap();
     assert_eq!(outcome.changes.len(), 2);
-    assert_eq!(std::fs::read(fixture.root.join("legacy.py")).unwrap(), b"# total \xe9\n");
+    assert_eq!(
+        std::fs::read(fixture.root.join("legacy.py")).unwrap(),
+        b"# total \xe9\n"
+    );
 }
 
 fn leftover_lines(plan: &EffectPlan) -> Vec<String> {
@@ -962,7 +965,10 @@ fn files_that_cannot_be_read_as_text_are_reported_when_they_hold_the_name() {
             .any(|line| line.ends_with("legacy.py:0 unreadable")),
         "{lines:?}"
     );
-    assert!(lines.iter().all(|line| !line.contains("blob.bin")), "{lines:?}");
+    assert!(
+        lines.iter().all(|line| !line.contains("blob.bin")),
+        "{lines:?}"
+    );
     assert!(codes(&plan).contains(&Notable::ReferencesLeft));
 }
 
@@ -971,8 +977,14 @@ fn files_over_the_size_limit_are_reported_when_they_hold_the_name() {
     let fixture = fixture();
     let mut config = Config::default();
     config.code.file_bytes_max = SizeSetting::from_bytes(64);
-    write(&fixture.root.join("big.py"), &"# total of everything\n".repeat(10));
-    write(&fixture.root.join("big_clean.py"), &"# nothing here at all\n".repeat(10));
+    write(
+        &fixture.root.join("big.py"),
+        &"# total of everything\n".repeat(10),
+    );
+    write(
+        &fixture.root.join("big_clean.py"),
+        &"# nothing here at all\n".repeat(10),
+    );
     let plan = preview(
         &CodeRename::new(None),
         &rename_args(&fixture.a, &[syntax()]),
@@ -980,8 +992,16 @@ fn files_over_the_size_limit_are_reported_when_they_hold_the_name() {
     )
     .unwrap();
     let lines = leftover_lines(&plan);
-    assert!(lines.iter().any(|line| line.ends_with("big.py:0 unreadable")), "{lines:?}");
-    assert!(lines.iter().all(|line| !line.contains("big_clean.py")), "{lines:?}");
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.ends_with("big.py:0 unreadable")),
+        "{lines:?}"
+    );
+    assert!(
+        lines.iter().all(|line| !line.contains("big_clean.py")),
+        "{lines:?}"
+    );
 }
 
 /// Listing service that lists the given files and reports one directory it
@@ -1021,18 +1041,16 @@ fn an_unreadable_directory_does_not_abort_the_rename() {
     let listing = PartlyReadableListing {
         files: vec![fixture.a.clone(), fixture.b.clone()],
     };
-    let ctx = nurt_contracts::stage::ExecCtx::builder(
-        Arc::new(TestClock),
-        Arc::new(TestHost::new()),
-    )
-    .fs(Arc::new(StdFs))
-    .services(Arc::new(
-        Services::new()
-            .with_code(Arc::new(ToyCode))
-            .with_file_list(Arc::new(listing)),
-    ))
-    .config(Arc::new(Config::default()))
-    .build();
+    let ctx =
+        nurt_contracts::stage::ExecCtx::builder(Arc::new(TestClock), Arc::new(TestHost::new()))
+            .fs(Arc::new(StdFs))
+            .services(Arc::new(
+                Services::new()
+                    .with_code(Arc::new(ToyCode))
+                    .with_file_list(Arc::new(listing)),
+            ))
+            .config(Arc::new(Config::default()))
+            .build();
     let plan = preview(
         &CodeRename::new(None),
         &rename_args(&fixture.a, &[syntax()]),

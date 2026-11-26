@@ -1190,9 +1190,9 @@ impl<'a> Parser<'a> {
             let code = ((1..=MAX_BRACED_HEX_DIGITS).contains(&hex.len())
                 && hex.bytes().all(|b| b.is_ascii_hexdigit()))
             .then(|| u32::from_str_radix(hex, 16).ok())
-                .flatten()
-                .and_then(char::from_u32)
-                .ok_or_else(|| invalid(self))?;
+            .flatten()
+            .and_then(char::from_u32)
+            .ok_or_else(|| invalid(self))?;
             self.pos += length + 1;
             return Ok(code);
         }
@@ -1673,8 +1673,24 @@ mod tests {
     #[test]
     fn canonical_text_of_awkward_names_reads_back_unchanged() {
         let names = [
-            "", "$", "*", "**", "a.b", " lead", "trail ", "it's", "q\"uote", "back\\slash",
-            "tab\there", "nul\u{0}", "#1:x", "z\u{1F600}", "a b", "-1", "0", "[x]",
+            "",
+            "$",
+            "*",
+            "**",
+            "a.b",
+            " lead",
+            "trail ",
+            "it's",
+            "q\"uote",
+            "back\\slash",
+            "tab\there",
+            "nul\u{0}",
+            "#1:x",
+            "z\u{1F600}",
+            "a b",
+            "-1",
+            "0",
+            "[x]",
         ];
         for name in names {
             for document in [None, Some(DocSelector::Index(2)), Some(DocSelector::All)] {
@@ -1742,7 +1758,9 @@ mod tests {
             KeyPathErrorKind::IndexOutOfRange
         );
         assert_eq!(
-            KeyPath::parse("a[-9223372036854775808]").unwrap().segments()[1],
+            KeyPath::parse("a[-9223372036854775808]")
+                .unwrap()
+                .segments()[1],
             KeySegment::Index(i64::MIN)
         );
         assert_eq!(

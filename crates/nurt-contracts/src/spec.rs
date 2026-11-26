@@ -1889,7 +1889,10 @@ mod tests {
     }
 
     fn messages(spec: &StageSpec) -> Vec<String> {
-        spec.check().into_iter().map(|issue| issue.message).collect()
+        spec.check()
+            .into_iter()
+            .map(|issue| issue.message)
+            .collect()
     }
 
     #[test]
@@ -1948,8 +1951,14 @@ mod tests {
             let parsed: ParamType = text.parse().unwrap();
             assert_eq!(parsed.to_string(), text);
         }
-        assert_eq!("list".parse::<ParamType>().unwrap().to_string(), "list<any>");
-        assert_eq!("  int  |\tbool ".parse::<ParamType>().unwrap().to_string(), "int | bool");
+        assert_eq!(
+            "list".parse::<ParamType>().unwrap().to_string(),
+            "list<any>"
+        );
+        assert_eq!(
+            "  int  |\tbool ".parse::<ParamType>().unwrap().to_string(),
+            "int | bool"
+        );
     }
 
     #[test]
@@ -1994,12 +2003,21 @@ mod tests {
         assert_eq!(error.offset, 7);
         assert!(matches!(
             error.kind,
-            TypeParseErrorKind::UnexpectedChar { found: '\u{17c}', .. }
+            TypeParseErrorKind::UnexpectedChar {
+                found: '\u{17c}',
+                ..
+            }
         ));
         let error = "list<".parse::<ParamType>().unwrap_err();
-        assert!(matches!(error.kind, TypeParseErrorKind::UnexpectedEnd { .. }));
+        assert!(matches!(
+            error.kind,
+            TypeParseErrorKind::UnexpectedEnd { .. }
+        ));
         let error = "text text".parse::<ParamType>().unwrap_err();
-        assert!(matches!(error.kind, TypeParseErrorKind::UnexpectedChar { .. }));
+        assert!(matches!(
+            error.kind,
+            TypeParseErrorKind::UnexpectedChar { .. }
+        ));
     }
 
     #[test]
@@ -2014,8 +2032,14 @@ mod tests {
     fn io_specs_read_keywords_scalars_and_record_kinds() {
         assert_eq!("none".parse::<IoSpec>().unwrap(), IoSpec::None);
         assert_eq!("same".parse::<IoSpec>().unwrap(), IoSpec::Same);
-        assert_eq!("duration".parse::<IoSpec>().unwrap(), IoSpec::Value(ScalarType::Duration));
-        assert_eq!("test_run".parse::<IoSpec>().unwrap().to_string(), "test_run");
+        assert_eq!(
+            "duration".parse::<IoSpec>().unwrap(),
+            IoSpec::Value(ScalarType::Duration)
+        );
+        assert_eq!(
+            "test_run".parse::<IoSpec>().unwrap().to_string(),
+            "test_run"
+        );
         for text in ["", "Entry", "a-b", "1x"] {
             assert!(text.parse::<IoSpec>().is_err(), "{text:?}");
         }
@@ -2029,8 +2053,14 @@ mod tests {
             {"name": "b", "type": "text", "summary": "B again."}
         ]));
         let found = messages(&spec);
-        assert!(found.iter().any(|m| m.contains("do not form the sequence")), "{found:?}");
-        assert!(found.iter().any(|m| m.contains("duplicate parameter name")), "{found:?}");
+        assert!(
+            found.iter().any(|m| m.contains("do not form the sequence")),
+            "{found:?}"
+        );
+        assert!(
+            found.iter().any(|m| m.contains("duplicate parameter name")),
+            "{found:?}"
+        );
     }
 
     #[test]
@@ -2045,11 +2075,19 @@ mod tests {
             {"name": "order", "type": "enum(asc|desc)", "values": ["asc", "desc"],
              "default": "up", "summary": "Order."}
         ]));
-        assert!(messages(&wrong_default).iter().any(|m| m.contains("is not a value of the type")));
+        assert!(
+            messages(&wrong_default)
+                .iter()
+                .any(|m| m.contains("is not a value of the type"))
+        );
         let missing_values = spec_with(json!([
             {"name": "order", "type": "enum(asc|desc)", "summary": "Order."}
         ]));
-        assert!(messages(&missing_values).iter().any(|m| m.contains("do not repeat")));
+        assert!(
+            messages(&missing_values)
+                .iter()
+                .any(|m| m.contains("do not repeat"))
+        );
     }
 
     #[test]
@@ -2059,9 +2097,18 @@ mod tests {
             {"name": "b", "type": "text", "repeated": true, "summary": "B."}
         ]));
         let found = messages(&spec);
-        assert!(found.iter().any(|m| m.contains("has a single member")), "{found:?}");
-        assert!(found.iter().any(|m| m.contains("must accept a list")), "{found:?}");
-        assert!(found.iter().any(|m| m.contains("must be positional")), "{found:?}");
+        assert!(
+            found.iter().any(|m| m.contains("has a single member")),
+            "{found:?}"
+        );
+        assert!(
+            found.iter().any(|m| m.contains("must accept a list")),
+            "{found:?}"
+        );
+        assert!(
+            found.iter().any(|m| m.contains("must be positional")),
+            "{found:?}"
+        );
     }
 
     #[test]
@@ -2076,7 +2123,11 @@ mod tests {
                 commands: 1,
             }],
         };
-        let found: Vec<String> = index.check().into_iter().map(|issue| issue.message).collect();
+        let found: Vec<String> = index
+            .check()
+            .into_iter()
+            .map(|issue| issue.message)
+            .collect();
         assert_eq!(found, ["entries list 1 commands, total is 2"]);
         assert_eq!(index.listed_total(), 1);
         assert!(index.entry("missing").is_none());

@@ -887,7 +887,11 @@ mod tests {
         ]));
         expected.materialize(root.path()).unwrap();
         let mode = |path: &str| {
-            fs::metadata(root.path().join(path)).unwrap().permissions().mode() & MODE_MASK
+            fs::metadata(root.path().join(path))
+                .unwrap()
+                .permissions()
+                .mode()
+                & MODE_MASK
         };
         assert_eq!(mode("locked"), 0o555);
         assert_eq!(mode("locked/inner"), 0o500);
@@ -897,8 +901,7 @@ mod tests {
         );
         // The tree is removed by the temporary directory.
         for path in ["locked/inner", "locked"] {
-            fs::set_permissions(root.path().join(path), fs::Permissions::from_mode(0o755))
-                .unwrap();
+            fs::set_permissions(root.path().join(path), fs::Permissions::from_mode(0o755)).unwrap();
         }
     }
 

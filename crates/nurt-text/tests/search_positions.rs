@@ -146,7 +146,10 @@ fn context_lines_surround_a_hit() {
 
 #[test]
 fn long_lines_are_shortened_around_the_match() {
-    let searcher = searcher(&[Pattern::literal("needle")], SearchOptions::new().max_line(20));
+    let searcher = searcher(
+        &[Pattern::literal("needle")],
+        SearchOptions::new().max_line(20),
+    );
     let line = format!("{}needle{}\n", "x".repeat(60), "y".repeat(60));
     let mut shortened = Vec::new();
     let summary = searcher.search_slice(line.as_bytes(), |hit| {
@@ -156,5 +159,9 @@ fn long_lines_are_shortened_around_the_match() {
     });
     assert_eq!(summary.truncated_lines, 1);
     assert!(shortened[0].contains("needle"), "{}", shortened[0]);
-    assert!(shortened[0].contains("characters omitted"), "{}", shortened[0]);
+    assert!(
+        shortened[0].contains("characters omitted"),
+        "{}",
+        shortened[0]
+    );
 }

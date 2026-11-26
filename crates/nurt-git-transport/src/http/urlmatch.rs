@@ -55,9 +55,7 @@ impl UrlParts {
             None => (None, authority),
         };
         let (host, port) = match host_port.rsplit_once(':') {
-            Some((host, port)) if !port.contains(']') => {
-                (host, port.parse::<u16>().ok())
-            }
+            Some((host, port)) if !port.contains(']') => (host, port.parse::<u16>().ok()),
             _ => (host_port, None),
         };
         let port = port.or_else(|| default_port(&scheme));

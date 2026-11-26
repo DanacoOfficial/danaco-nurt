@@ -390,7 +390,10 @@ fn locates_an_invalid_escape_by_scalar_value_columns_and_lines() {
     let error = error_of("find \"żółw\\q\"");
     assert_eq!(error.code, ErrorCode::Escape);
     let at = error.at.expect("position");
-    assert_eq!((at.line, at.column, at.length), (Some(1), Some(11), Some(2)));
+    assert_eq!(
+        (at.line, at.column, at.length),
+        (Some(1), Some(11), Some(2))
+    );
     let error = error_of("find \"ab\ncd\\q\"");
     assert_eq!(error.code, ErrorCode::Escape);
     let at = error.at.expect("position");

@@ -354,8 +354,16 @@ mod tests {
         for found in [&["-n", "10"][..], &["-n10"], &["-vn", "10"], &["-vn10"]] {
             assert!(token.find(&strings(found), false).is_some(), "{found:?}");
         }
-        for missing in [&["-n", "11"][..], &["-m", "10"], &["--n", "10"], &["n", "10"]] {
-            assert!(token.find(&strings(missing), false).is_none(), "{missing:?}");
+        for missing in [
+            &["-n", "11"][..],
+            &["-m", "10"],
+            &["--n", "10"],
+            &["n", "10"],
+        ] {
+            assert!(
+                token.find(&strings(missing), false).is_none(),
+                "{missing:?}"
+            );
         }
     }
 
@@ -379,8 +387,16 @@ mod tests {
         ] {
             assert!(token.find(&strings(found), false).is_some(), "{found:?}");
         }
-        for missing in [&["--request=GET"][..], &["--request"], &["-X"], &["--other=POST"]] {
-            assert!(token.find(&strings(missing), false).is_none(), "{missing:?}");
+        for missing in [
+            &["--request=GET"][..],
+            &["--request"],
+            &["-X"],
+            &["--other=POST"],
+        ] {
+            assert!(
+                token.find(&strings(missing), false).is_none(),
+                "{missing:?}"
+            );
         }
     }
 
@@ -389,7 +405,12 @@ mod tests {
         let token = OptionToken::parse("-f").unwrap();
         assert!(token.find(&strings(&["--", "-f"]), false).is_none());
         assert!(token.find(&strings(&["x", "-f"]), false).is_some());
-        assert_eq!(token.find(&strings(&["x", "-f"]), false).map(|hit| hit.index), Some(1));
+        assert_eq!(
+            token
+                .find(&strings(&["x", "-f"]), false)
+                .map(|hit| hit.index),
+            Some(1)
+        );
     }
 
     #[test]
@@ -402,9 +423,18 @@ mod tests {
 
     #[test]
     fn positional_tokens_match_from_the_first_positional_argument() {
-        assert_eq!(matched("git push", &["git", "push", "origin"], false), Some(1));
-        assert_eq!(matched("git push", &["git", "--no-pager", "push"], false), Some(2));
-        assert_eq!(matched("git push", &["git", "-C", "x", "push"], false), None);
+        assert_eq!(
+            matched("git push", &["git", "push", "origin"], false),
+            Some(1)
+        );
+        assert_eq!(
+            matched("git push", &["git", "--no-pager", "push"], false),
+            Some(2)
+        );
+        assert_eq!(
+            matched("git push", &["git", "-C", "x", "push"], false),
+            None
+        );
         assert_eq!(matched("git push", &["git", "status"], false), None);
         assert_eq!(matched("git push", &["git"], false), None);
         assert_eq!(matched("git push", &["git", "origin", "push"], false), None);
@@ -413,7 +443,10 @@ mod tests {
 
     #[test]
     fn alternatives_and_gaps_consume_positional_arguments() {
-        assert_eq!(matched("npm publish|pack", &["npm", "PACK"], false), Some(1));
+        assert_eq!(
+            matched("npm publish|pack", &["npm", "PACK"], false),
+            Some(1)
+        );
         assert_eq!(
             matched("cmd ** /c|/k", &["cmd", "a", "b", "/C", "dir"], false),
             Some(3)
@@ -428,7 +461,10 @@ mod tests {
         assert_eq!(matched("rm -r", &["rm", "-rf", "x"], false), Some(0));
         assert_eq!(matched("rm -r", &["rm", "x", "-r"], false), Some(0));
         assert_eq!(matched("rm -r", &["rm", "x"], false), None);
-        assert_eq!(matched("rm -r|--recursive", &["rm", "--recursive"], false), Some(0));
+        assert_eq!(
+            matched("rm -r|--recursive", &["rm", "--recursive"], false),
+            Some(0)
+        );
         assert_eq!(matched("rm -r -f", &["rm", "-r"], false), None);
     }
 

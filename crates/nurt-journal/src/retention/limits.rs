@@ -1018,7 +1018,10 @@ mod tests {
         assert!(!edited.contains("max_ops = 5"), "{edited}");
 
         let volume = edit_user_config(None, Some("/mnt/zażółć"), &values).unwrap();
-        assert!(volume.contains("[journal.volume.\"/mnt/zażółć\"]"), "{volume}");
+        assert!(
+            volume.contains("[journal.volume.\"/mnt/zażółć\"]"),
+            "{volume}"
+        );
 
         let unlimited = LimitValues {
             steps: Some(StepLimit::Unlimited),

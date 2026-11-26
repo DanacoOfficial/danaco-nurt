@@ -107,7 +107,11 @@ fn classify(root: Node<'_>, out: &mut Vec<ClassifiedSpan>) {
             Step::Visit(node) => node,
         };
         let mut steps = Vec::new();
-        match node.is_named().then(|| class_of_kind(node.kind())).flatten() {
+        match node
+            .is_named()
+            .then(|| class_of_kind(node.kind()))
+            .flatten()
+        {
             Some(class) => with_holes(node, class, &mut steps),
             None => {
                 let mut cursor = node.walk();
@@ -142,7 +146,11 @@ fn with_holes<'t>(node: Node<'t>, class: SpanClass, steps: &mut Vec<Step<'t>>) {
 
 /// Kinds of the nodes of PHP that hold interpolated strings; every named
 /// child other than the text and the escape sequences is an expression.
-const PHP_INTERPOLATED: [&str; 3] = ["encapsed_string", "heredoc_body", "shell_command_expression"];
+const PHP_INTERPOLATED: [&str; 3] = [
+    "encapsed_string",
+    "heredoc_body",
+    "shell_command_expression",
+];
 
 /// Kinds of the children of [`PHP_INTERPOLATED`] nodes that are text.
 const PHP_TEXT: [&str; 2] = ["string_content", "escape_sequence"];
@@ -377,7 +385,10 @@ mod tests {
         let tokens = tokens(&tree);
         assert_eq!(tokens.len(), 2 * DEEP + 1);
         assert_eq!(tokens[DEEP].kind, "number");
-        assert_eq!(tokens[DEEP].bytes, ByteRange::new(DEEP as u64, DEEP as u64 + 1));
+        assert_eq!(
+            tokens[DEEP].bytes,
+            ByteRange::new(DEEP as u64, DEEP as u64 + 1)
+        );
     }
 
     #[test]
@@ -412,10 +423,7 @@ mod tests {
             .iter()
             .map(|span| &source[span.bytes.start as usize..span.bytes.end as usize])
             .collect();
-        assert_eq!(
-            text,
-            [&b"`x "[..], &b"\"in\""[..], &b" y`"[..]]
-        );
+        assert_eq!(text, [&b"`x "[..], &b"\"in\""[..], &b" y`"[..]]);
         assert_eq!(spans[0].class, SpanClass::String);
         assert_eq!(class_at(&spans, 14), SpanClass::Code);
     }
@@ -476,7 +484,11 @@ mod tests {
     fn php_shell_command_text_is_a_string_with_code_holes() {
         let source = "<?php\n$o = `ls $dir`;\n";
         let spans = php_spans(source);
-        assert!(spans.iter().any(|(class, text)| *class == SpanClass::String && text.starts_with("`ls ")));
+        assert!(
+            spans
+                .iter()
+                .any(|(class, text)| *class == SpanClass::String && text.starts_with("`ls "))
+        );
         assert!(spans.iter().all(|(_, text)| !text.contains("$dir")));
     }
 

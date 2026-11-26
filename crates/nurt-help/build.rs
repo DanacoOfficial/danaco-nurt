@@ -23,9 +23,8 @@ const SOURCES: [(&str, &str); 2] = [("docs/commands", "PAGES"), ("docs/guides", 
 const OUTPUT: &str = "embedded_docs.rs";
 
 fn main() -> Result<(), String> {
-    let manifest = PathBuf::from(
-        env::var_os("CARGO_MANIFEST_DIR").ok_or("CARGO_MANIFEST_DIR is not set")?,
-    );
+    let manifest =
+        PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("CARGO_MANIFEST_DIR is not set")?);
     let root = manifest.join("../..");
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").ok_or("OUT_DIR is not set")?);
     let mut stdout = std::io::stdout();

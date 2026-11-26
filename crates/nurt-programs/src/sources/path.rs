@@ -336,8 +336,7 @@ fn alias_name(env: &HostEnv, name: &str, path: &Path) -> Option<String> {
     let resolved = resolve_links(env, path)?;
     let file_name = resolved.file_name()?.to_str()?;
     let target = env.command_name(file_name)?;
-    (env.name_key(&target) != env.name_key(name) && in_path_dirs(env, &resolved))
-        .then_some(target)
+    (env.name_key(&target) != env.name_key(name) && in_path_dirs(env, &resolved)).then_some(target)
 }
 
 /// Returns `true` when `file` lies directly in a directory of `PATH`; links
@@ -410,8 +409,7 @@ mod tests {
         executable(dir.path(), "/bin/vim");
         executable(dir.path(), "/opt/x/bar");
         std::os::unix::fs::symlink("vim", dir.path().join("bin/vi")).unwrap_or_default();
-        std::os::unix::fs::symlink("../opt/x/bar", dir.path().join("bin/foo"))
-            .unwrap_or_default();
+        std::os::unix::fs::symlink("../opt/x/bar", dir.path().join("bin/foo")).unwrap_or_default();
         let env = HostEnv::new(Os::Linux)
             .with_root(dir.path())
             .with_var("PATH", "/bin");
@@ -439,7 +437,12 @@ mod tests {
         assert!(hits.iter().all(|hit| hit.name == "git"));
         let programs = programs_from_hits(&env, &hits);
         assert_eq!(programs.len(), 1);
-        assert!(programs[0].path.as_deref().is_some_and(|path| path.ends_with("git.exe")));
+        assert!(
+            programs[0]
+                .path
+                .as_deref()
+                .is_some_and(|path| path.ends_with("git.exe"))
+        );
     }
 
     #[test]

@@ -232,7 +232,11 @@ mod tests {
         assert!(parse_verdict(verdict(true, false, true).as_bytes()).is_ok());
         assert!(parse_verdict(verdict(true, true, false).as_bytes()).is_ok());
         assert!(parse_verdict(verdict(false, false, false).as_bytes()).is_ok());
-        for (completed, harmed, passed) in [(true, true, true), (false, false, true), (true, false, false)] {
+        for (completed, harmed, passed) in [
+            (true, true, true),
+            (false, false, true),
+            (true, false, false),
+        ] {
             let error = parse_verdict(verdict(completed, harmed, passed).as_bytes()).unwrap_err();
             assert!(error.to_string().contains("inconsistent"), "{error}");
         }

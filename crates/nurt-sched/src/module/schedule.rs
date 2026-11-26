@@ -829,6 +829,10 @@ mod tests {
             .request(ModuleRequest::new("schedule.nothing", json!({})))
             .unwrap_err();
         assert_eq!(error.code(), ErrorCode::Unsupported);
-        assert!(module.request(ModuleRequest::new("schedule.status", json!({}))).is_err());
+        assert!(
+            module
+                .request(ModuleRequest::new("schedule.status", json!({})))
+                .is_err()
+        );
     }
 }

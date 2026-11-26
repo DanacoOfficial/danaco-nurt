@@ -233,8 +233,23 @@ pub fn shorten_hover(text: &str) -> (String, String) {
 
 /// Words that follow `#` in preprocessor directives.
 const DIRECTIVES: [&str; 17] = [
-    "include", "define", "undef", "if", "ifdef", "ifndef", "elif", "else", "endif", "pragma",
-    "error", "warning", "line", "import", "region", "endregion", "using",
+    "include",
+    "define",
+    "undef",
+    "if",
+    "ifdef",
+    "ifndef",
+    "elif",
+    "else",
+    "endif",
+    "pragma",
+    "error",
+    "warning",
+    "line",
+    "import",
+    "region",
+    "endregion",
+    "using",
 ];
 
 /// Returns `true` for a line that starts a comment; an attribute (`#[...]`,

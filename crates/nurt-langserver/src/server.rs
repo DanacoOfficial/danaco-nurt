@@ -554,7 +554,11 @@ mod tests {
     fn only_errors_that_wrap_another_error_have_a_source() {
         let invalid = serde_json::from_str::<Value>("{").unwrap_err();
         assert!(ServerError::Encode(invalid).source().is_some());
-        assert!(ServerError::Io(std::io::Error::other("x")).source().is_some());
+        assert!(
+            ServerError::Io(std::io::Error::other("x"))
+                .source()
+                .is_some()
+        );
         assert!(ServerError::Initialize("x".to_owned()).source().is_none());
         assert!(ServerError::Disconnected.source().is_none());
         assert!(ServerError::ExitWithoutShutdown.source().is_none());
@@ -601,7 +605,10 @@ mod tests {
 
     #[test]
     fn strings_copies_every_character() {
-        assert_eq!(strings(&["a", "\u{142}"]), vec!["a".to_owned(), "\u{142}".to_owned()]);
+        assert_eq!(
+            strings(&["a", "\u{142}"]),
+            vec!["a".to_owned(), "\u{142}".to_owned()]
+        );
         assert!(strings(&[]).is_empty());
     }
 
@@ -616,11 +623,13 @@ mod tests {
             "{}",
             failure.message
         );
-        assert!(request_params::<HoverRequest>(json!({
-            "textDocument": {"uri": "file:///work/a.nurt"},
-            "position": {"line": 0, "character": 0}
-        }))
-        .is_ok());
+        assert!(
+            request_params::<HoverRequest>(json!({
+                "textDocument": {"uri": "file:///work/a.nurt"},
+                "position": {"line": 0, "character": 0}
+            }))
+            .is_ok()
+        );
     }
 
     #[test]

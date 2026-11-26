@@ -376,7 +376,8 @@ mod tests {
 
     #[test]
     fn parameters_may_be_an_array_and_numbers_may_be_fractions() {
-        let request = parse_message(br#"{"jsonrpc":"2.0","id":1.5,"method":"info","params":[1,2]}"#);
+        let request =
+            parse_message(br#"{"jsonrpc":"2.0","id":1.5,"method":"info","params":[1,2]}"#);
         assert_eq!(
             request,
             Incoming::Message(Message {
@@ -390,7 +391,10 @@ mod tests {
     #[test]
     fn a_message_without_the_version_is_rejected_with_its_identifier() {
         let (id, error) = rejected_error(br#"{"id":3,"method":"info"}"#);
-        assert_eq!((id, error["code"].clone()), (json!(3), json!(INVALID_REQUEST)));
+        assert_eq!(
+            (id, error["code"].clone()),
+            (json!(3), json!(INVALID_REQUEST))
+        );
         let (_, error) = rejected_error(br#"{"jsonrpc":2,"id":3,"result":null}"#);
         assert_eq!(error["code"], INVALID_REQUEST);
     }
@@ -399,7 +403,10 @@ mod tests {
     fn invalid_utf8_and_empty_messages_are_parse_errors() {
         for bytes in [&b"\xff\xfe"[..], b"", b"   "] {
             let (id, error) = rejected_error(bytes);
-            assert_eq!((id, error["code"].clone()), (Value::Null, json!(PARSE_ERROR)));
+            assert_eq!(
+                (id, error["code"].clone()),
+                (Value::Null, json!(PARSE_ERROR))
+            );
         }
     }
 

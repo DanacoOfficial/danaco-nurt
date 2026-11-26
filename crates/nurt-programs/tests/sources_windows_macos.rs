@@ -1160,8 +1160,14 @@ fn winget_identifiers_may_contain_underscores() {
         winget::package_of_dir(&format!("Vendor.Tool_{source}")).as_deref(),
         Some("Vendor.Tool")
     );
-    assert_eq!(winget::package_of_dir("Vendor.Tool_x").as_deref(), Some("Vendor.Tool"));
-    assert_eq!(winget::package_of_dir("_Microsoft.Winget.Source_8wekyb3d8bbwe"), None);
+    assert_eq!(
+        winget::package_of_dir("Vendor.Tool_x").as_deref(),
+        Some("Vendor.Tool")
+    );
+    assert_eq!(
+        winget::package_of_dir("_Microsoft.Winget.Source_8wekyb3d8bbwe"),
+        None
+    );
     assert_eq!(
         winget::package_of_link(&format!(
             "C:\\L\\Packages\\Vendor.My_Tool_{source}\\tool.exe"

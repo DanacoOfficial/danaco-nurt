@@ -137,7 +137,12 @@ fn vim_filetype(line: &str) -> Option<String> {
         .iter()
         .filter_map(|marker| {
             line.match_indices(marker)
-                .find(|(at, _)| line[..*at].chars().next_back().is_none_or(char::is_whitespace))
+                .find(|(at, _)| {
+                    line[..*at]
+                        .chars()
+                        .next_back()
+                        .is_none_or(char::is_whitespace)
+                })
                 .map(|(at, _)| at + marker.len())
         })
         .min()?;
@@ -203,7 +208,10 @@ mod tests {
         assert_eq!(modeline_language(b"# convex: ft=go\n"), None);
         assert_eq!(modeline_language(b"# invim: ft=go\n"), None);
         assert_eq!(modeline_language(b"ex: ft=go\n").as_deref(), Some("go"));
-        assert_eq!(modeline_language(b"/* ex: ft=go */\n").as_deref(), Some("go"));
+        assert_eq!(
+            modeline_language(b"/* ex: ft=go */\n").as_deref(),
+            Some("go")
+        );
         assert_eq!(modeline_language(b"# vi: ft=lua\n").as_deref(), Some("lua"));
         assert_eq!(
             modeline_language(b"# index: x vim: ft=go\n").as_deref(),

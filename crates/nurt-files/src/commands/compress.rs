@@ -1099,7 +1099,11 @@ mod tests {
     #[test]
     fn an_empty_file_round_trips_through_both_commands() {
         let test = with_files(&[("/data/empty.txt", b"")]);
-        let pack = args(COMPRESS, &["/data/empty.txt"], &[(KEEP, Value::Bool(false))]);
+        let pack = args(
+            COMPRESS,
+            &["/data/empty.txt"],
+            &[(KEEP, Value::Bool(false))],
+        );
         compress_run(&test, &pack).unwrap();
         assert!(!test.fs().exists(&abs("/data/empty.txt")));
         assert!(test.fs().exists(&abs("/data/empty.txt.gz")));

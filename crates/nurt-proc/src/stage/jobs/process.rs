@@ -139,12 +139,10 @@ impl EffectStage for ProcessControl {
         let mut records = Vec::with_capacity(targets.len());
         let mut irreversible = Vec::with_capacity(targets.len());
         for target in &targets {
-            let acted = self
-                .act(ctx, target, signal, grace)
-                .map_err(|error| {
-                    let sent = error.data().effect_applied || !records.is_empty();
-                    error.with_effect_applied(sent)
-                })?;
+            let acted = self.act(ctx, target, signal, grace).map_err(|error| {
+                let sent = error.data().effect_applied || !records.is_empty();
+                error.with_effect_applied(sent)
+            })?;
             let entry = marker(self.kind, target);
             tx.mark_irreversible(entry.clone());
             irreversible.push(entry.clone());

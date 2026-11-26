@@ -77,7 +77,10 @@ fn inspect(dir: &Path, pid: u32, target: &Target) -> (Holder, bool) {
     }
     match std::fs::read(dir.join("maps")) {
         Ok(maps) => {
-            for path in maps.split(|&byte| byte == b'\n').filter_map(mapped_path_bytes) {
+            for path in maps
+                .split(|&byte| byte == b'\n')
+                .filter_map(mapped_path_bytes)
+            {
                 holder.check(target, Access::Mmap, OsStr::from_bytes(path));
             }
         }

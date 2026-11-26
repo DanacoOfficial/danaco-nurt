@@ -395,7 +395,12 @@ mod tests {
         assert_eq!(supervisor.state(), ModuleState::Failed);
         let described = supervisor.describe();
         assert_eq!(described["state"], "failed");
-        assert!(described["reason"].as_str().unwrap().contains("out of memory"));
+        assert!(
+            described["reason"]
+                .as_str()
+                .unwrap()
+                .contains("out of memory")
+        );
     }
 
     #[test]
@@ -403,7 +408,9 @@ mod tests {
         let module = Arc::new(AlwaysFails {
             starts: AtomicUsize::new(0),
         });
-        let supervisor = Arc::new(Supervisor::new(Arc::clone(&module) as Arc<dyn ServiceModule>));
+        let supervisor = Arc::new(Supervisor::new(
+            Arc::clone(&module) as Arc<dyn ServiceModule>
+        ));
         let shared = Shared {
             clock: Arc::new(SystemClock::new()),
             config: Arc::new(Mutex::new(Arc::new(Config::default()))),

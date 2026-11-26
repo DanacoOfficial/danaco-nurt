@@ -172,9 +172,14 @@ fn example_2_removes_a_tree_as_one_target_and_skips_a_missing_path() {
     assert_eq!(
         changes[0].flags,
         Some(
-            ["recursive", "directory", "files_inside=2", "directories_inside=1"]
-                .map(str::to_owned)
-                .to_vec()
+            [
+                "recursive",
+                "directory",
+                "files_inside=2",
+                "directories_inside=1"
+            ]
+            .map(str::to_owned)
+            .to_vec()
         )
     );
     assert_eq!(counter(&effect, "directories"), Some(2));
@@ -270,7 +275,11 @@ fn removed_tree_reports_the_entries_inside_in_plan_and_result() {
     assert_eq!(planned.size_before.map(|size| size.bytes()), Some(7));
     let flags = planned.flags.clone().expect("notes of a directory");
     assert_eq!(nurt_contracts::report::tree_counts(&flags), Some((3, 2)));
-    assert!(flags.iter().any(|flag| flag == nurt_contracts::report::FLAG_DIRECTORY));
+    assert!(
+        flags
+            .iter()
+            .any(|flag| flag == nurt_contracts::report::FLAG_DIRECTORY)
+    );
 
     let applied = execute(&test, &args, None).unwrap();
     let change = applied.changes.clone().unwrap().remove(0);
@@ -297,7 +306,10 @@ fn removed_empty_directory_is_marked_as_a_directory() {
         .expect("planned");
     let flags = plan.changes[0].flags.clone().expect("notes of a directory");
     assert_eq!(flags, nurt_contracts::report::tree_flags(0, 0));
-    assert_eq!(plan.changes[0].size_before.map(|size| size.bytes()), Some(0));
+    assert_eq!(
+        plan.changes[0].size_before.map(|size| size.bytes()),
+        Some(0)
+    );
 }
 
 /// A file carries no notes of a directory.

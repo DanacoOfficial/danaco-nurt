@@ -387,10 +387,7 @@ mod tests {
         cache.put(path, etag(1), "ąę".as_bytes().to_vec());
         assert_eq!(cache.entries(), 1);
         assert_eq!(cache.bytes(), 4);
-        assert_eq!(
-            cache.get(path, &etag(1)).as_deref(),
-            Some("ąę".as_bytes())
-        );
+        assert_eq!(cache.get(path, &etag(1)).as_deref(), Some("ąę".as_bytes()));
     }
 
     #[test]

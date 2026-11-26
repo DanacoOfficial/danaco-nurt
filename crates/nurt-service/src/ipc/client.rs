@@ -258,8 +258,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let paths = ServicePaths::new(dir.path());
         let listener = std::os::unix::net::UnixListener::bind(paths.socket_file()).unwrap();
-        let mut client =
-            ControlClient::connect_limited(&paths, Duration::from_millis(50)).unwrap();
+        let mut client = ControlClient::connect_limited(&paths, Duration::from_millis(50)).unwrap();
         let (_silent, _) = listener.accept().unwrap();
         let error = client.call(protocol::OP_PING, json!({})).unwrap_err();
         assert!(

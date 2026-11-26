@@ -36,7 +36,10 @@ fn safe_destination(target: String) -> String {
         .filter(|c| !c.is_whitespace() && !c.is_control())
         .collect::<String>()
         .to_ascii_lowercase();
-    if ACTIVE_SCHEMES.iter().any(|scheme| compact.starts_with(scheme)) {
+    if ACTIVE_SCHEMES
+        .iter()
+        .any(|scheme| compact.starts_with(scheme))
+    {
         "#".to_owned()
     } else {
         target
@@ -433,7 +436,10 @@ mod tests {
             assert_eq!(rendered.html, "<p><a href=\"#\">a</a></p>\n", "{url}");
         }
         let kept = html_of("[a](https://example.com/?q=1&r=2) [b](#anchor) [c](data.md)");
-        assert!(kept.html.contains("href=\"https://example.com/?q=1&amp;r=2\""));
+        assert!(
+            kept.html
+                .contains("href=\"https://example.com/?q=1&amp;r=2\"")
+        );
         assert!(kept.html.contains("href=\"#anchor\"") && kept.html.contains("href=\"data.md\""));
     }
 

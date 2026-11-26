@@ -710,7 +710,10 @@ fn preference_variables_are_not_translated_to_let_names() -> Outcome {
 #[test]
 fn words_of_the_language_do_not_name_let_results() -> Outcome {
     for name in ["null", "true", "in", "not"] {
-        let failure = error(&format!("${name} = Get-Process"), &TranslateContext::default())?;
+        let failure = error(
+            &format!("${name} = Get-Process"),
+            &TranslateContext::default(),
+        )?;
         assert_eq!(failure.problem.as_deref(), Some("variable_name"), "{name}");
     }
     let named = live("$nullable = Get-Process")?;
@@ -747,7 +750,11 @@ fn long_chains_of_conditions_are_uncorrectable() -> Outcome {
     assert_eq!(failure.code, ErrorCode::Uncorrectable);
     assert_eq!(failure.problem.as_deref(), Some("script_block"));
     let short = live("Get-Process | Where-Object { $_.Name -eq 'a' -or $_.Name -eq 'b' }")?;
-    assert!(short.text().ends_with(" or lower(name) == \"b\""), "{}", short.text());
+    assert!(
+        short.text().ends_with(" or lower(name) == \"b\""),
+        "{}",
+        short.text()
+    );
     Ok(())
 }
 
@@ -756,7 +763,11 @@ fn deeply_nested_text_is_a_syntax_error_in_script_mode() -> Outcome {
     let nested = format!("Remove-Item {}x{}", "(".repeat(10_000), ")".repeat(10_000));
     let failure = error(&nested, &script())?;
     assert_eq!(failure.code, ErrorCode::Syntax);
-    assert!(failure.message.contains("nested too deeply"), "{}", failure.message);
+    assert!(
+        failure.message.contains("nested too deeply"),
+        "{}",
+        failure.message
+    );
     assert!(translate(&nested).is_none());
     Ok(())
 }
@@ -785,11 +796,8 @@ fn a_program_without_a_working_directory_is_refused_in_a_script() -> Outcome {
             .ok_or("no translation")?
             .is_ok()
     );
-    let given = translate_with(
-        "Start-Process app.exe -WorkingDirectory C:\\srv",
-        &script(),
-    )
-    .ok_or("no translation")??;
+    let given = translate_with("Start-Process app.exe -WorkingDirectory C:\\srv", &script())
+        .ok_or("no translation")??;
     assert!(given.text().contains("cwd:"), "{}", given.text());
     assert!(translate("Start-Process app.exe").is_some());
     Ok(())
@@ -807,7 +815,9 @@ fn enumerated_values_and_registry_numbers_are_text() -> Outcome {
     );
     let registry = live("Set-ItemProperty -Path HKCU:\\Software\\A -Name N -Value 2")?;
     assert!(
-        registry.text().contains("\"registry:/HKCU/Software/A/N\" \"2\""),
+        registry
+            .text()
+            .contains("\"registry:/HKCU/Software/A/N\" \"2\""),
         "{}",
         registry.text()
     );

@@ -406,7 +406,10 @@ mod tests {
     fn request_options_are_taken_from_the_flags() {
         let none = options_of(&Flags::default());
         assert_eq!(none.preview, None);
-        assert_eq!((none.format, none.limit, none.verbosity), (None, None, None));
+        assert_eq!(
+            (none.format, none.limit, none.verbosity),
+            (None, None, None)
+        );
         let flags = Flags {
             preview: true,
             format: Some(OutputFormat::Compact),
@@ -516,7 +519,10 @@ mod tests {
     fn shebang_is_removed_up_to_the_line_feed_only_at_the_start() {
         assert_eq!(without_shebang("#!/usr/bin/env nurt\r\ncount"), "\ncount");
         assert_eq!(without_shebang("#!"), "");
-        assert_eq!(without_shebang(" #!/bin/nurt\ncount"), " #!/bin/nurt\ncount");
+        assert_eq!(
+            without_shebang(" #!/bin/nurt\ncount"),
+            " #!/bin/nurt\ncount"
+        );
         assert_eq!(without_shebang(""), "");
     }
 
@@ -535,7 +541,10 @@ mod tests {
             notation(Some("c"), Notation::Cbor, false).unwrap(),
             Notation::Variant(SyntaxVariant::C)
         );
-        assert_eq!(notation(None, Notation::Cbor, false).unwrap(), Notation::Cbor);
+        assert_eq!(
+            notation(None, Notation::Cbor, false).unwrap(),
+            Notation::Cbor
+        );
     }
 
     #[test]

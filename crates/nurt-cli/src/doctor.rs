@@ -282,6 +282,9 @@ mod tests {
         assert_eq!(missing.verdict, Verdict::Unavailable);
         assert_eq!(missing.detail, "E_UNSUPPORTED");
         let present = component("journal", Ok(()));
-        assert_eq!((present.verdict, present.detail.as_str()), (Verdict::Ok, "available"));
+        assert_eq!(
+            (present.verdict, present.detail.as_str()),
+            (Verdict::Ok, "available")
+        );
     }
 }

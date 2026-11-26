@@ -697,7 +697,10 @@ mod tests {
         let mut builder = TreeBuilder::new(b"");
         let root = builder.node(None, spec(NodeKind::Map));
         let inner = builder.node(Some(root), spec(NodeKind::List).with_name("l"));
-        builder.node(Some(inner), spec(NodeKind::Scalar).with_value(Value::Int(1)));
+        builder.node(
+            Some(inner),
+            spec(NodeKind::Scalar).with_value(Value::Int(1)),
+        );
         let tree = builder.finish();
         let value = tree.value_of(root, &MapSemantics::LAST_WINS, Some(1));
         assert_eq!(value.get("l"), Some(&Value::List(Vec::new())));

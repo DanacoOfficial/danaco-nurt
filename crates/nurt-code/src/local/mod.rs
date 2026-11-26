@@ -1037,7 +1037,11 @@ mod tests {
             .filter(|reference| reference.class == SpanClass::Code)
             .count();
         assert_eq!(in_code, 3);
-        assert!(found.iter().all(|reference| reference.class != SpanClass::String));
+        assert!(
+            found
+                .iter()
+                .all(|reference| reference.class != SpanClass::String)
+        );
     }
 
     #[test]
@@ -1070,7 +1074,11 @@ mod tests {
                     })
                     .min_by_key(|symbol| symbol.span.bytes.len())
                     .map(|symbol| qualified_name(&symbol.name, symbol.container.as_deref()));
-                assert_eq!(analysis.container_at(offset), expected, "{language} {offset}");
+                assert_eq!(
+                    analysis.container_at(offset),
+                    expected,
+                    "{language} {offset}"
+                );
             }
         }
     }

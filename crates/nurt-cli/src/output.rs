@@ -172,7 +172,11 @@ mod tests {
                 .with_fix("remove \"/tmp/a\"")
                 .with_help("syntax"),
         );
-        let text = render(&Response::new(report), OutputFormat::Markdown, Style::plain());
+        let text = render(
+            &Response::new(report),
+            OutputFormat::Markdown,
+            Style::plain(),
+        );
         assert_eq!(
             text,
             "failed remove\nE_UNKNOWN_COMMAND: unknown command `remvoe`\nfix: remove \"/tmp/a\"\nhelp: syntax"

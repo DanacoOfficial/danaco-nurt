@@ -280,7 +280,11 @@ mod tests {
         let issues = check_cookbook(&[category], &CatalogChecker::new(&catalog));
         let messages: Vec<&str> = issues.iter().map(|i| i.message.as_str()).collect();
         assert!(messages.iter().any(|m| m.contains("no problem statement")));
-        assert!(messages.iter().any(|m| m.contains("exactly one is required")));
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("exactly one is required"))
+        );
     }
 
     #[test]

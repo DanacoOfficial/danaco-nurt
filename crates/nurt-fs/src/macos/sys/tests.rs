@@ -271,10 +271,7 @@ fn lock_refuses_a_symbolic_link_at_the_lock_path() {
         root.join_name("lock").unwrap(),
     );
     std::os::unix::fs::symlink(target.as_path(), link.as_path()).unwrap();
-    let error = fs
-        .lock_exclusive(&link, Duration::ZERO)
-        .err()
-        .unwrap();
+    let error = fs.lock_exclusive(&link, Duration::ZERO).err().unwrap();
     assert_eq!(error.kind, FsErrorKind::Loop);
     assert!(!target.as_path().exists());
 }

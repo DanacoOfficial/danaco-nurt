@@ -895,7 +895,10 @@ mod tests {
             kind: Some(FileKind::Directory),
             ..Observed::default()
         };
-        assert_eq!(Expected::Absent.classify(&directory), Some(ConflictKind::Created));
+        assert_eq!(
+            Expected::Absent.classify(&directory),
+            Some(ConflictKind::Created)
+        );
         let unknown_kind = Observed {
             exists: true,
             ..Observed::default()
@@ -943,8 +946,16 @@ mod tests {
             mode: None,
             hash: None,
         };
-        assert!(check_address(&probe, OpId(4), &path, &loose).unwrap().is_none());
-        assert!(check_address(&probe, OpId(4), &path, &present(b)).unwrap().is_none());
+        assert!(
+            check_address(&probe, OpId(4), &path, &loose)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            check_address(&probe, OpId(4), &path, &present(b))
+                .unwrap()
+                .is_none()
+        );
         assert_eq!(*probe.hash_requests.borrow(), [true, false, true]);
     }
 
@@ -968,21 +979,38 @@ mod tests {
 
         for mode in [PreserveMode::Copy, PreserveMode::Clone, PreserveMode::None] {
             let private = outcome(3, "/home/user/a", TargetAction::Delete, mode);
-            assert!(check_blob(&BlobHashes::new(), OpId(1), &private).unwrap().is_none());
+            assert!(
+                check_blob(&BlobHashes::new(), OpId(1), &private)
+                    .unwrap()
+                    .is_none()
+            );
         }
         let mut directory = outcome(3, "/home/user/d", TargetAction::Delete, PreserveMode::Moved);
         directory.before.kind = Some(FileKind::Directory);
-        assert!(check_blob(&BlobHashes::new(), OpId(1), &directory).unwrap().is_none());
+        assert!(
+            check_blob(&BlobHashes::new(), OpId(1), &directory)
+                .unwrap()
+                .is_none()
+        );
         let mut unhashed = outcome(3, "/home/user/a", TargetAction::Delete, PreserveMode::Moved);
         unhashed.before.hash = None;
-        assert!(check_blob(&BlobHashes::new(), OpId(1), &unhashed).unwrap().is_none());
+        assert!(
+            check_blob(&BlobHashes::new(), OpId(1), &unhashed)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
     fn preserved_hashes_are_read_once_per_entry_for_checked_targets_only() {
         let first = outcome(0, "/home/user/a", TargetAction::Delete, PreserveMode::Moved);
         let copied = outcome(1, "/home/user/b", TargetAction::Modify, PreserveMode::Copy);
-        let second = outcome(5, "/home/user/c", TargetAction::Modify, PreserveMode::Exchange);
+        let second = outcome(
+            5,
+            "/home/user/c",
+            TargetAction::Modify,
+            PreserveMode::Exchange,
+        );
         let mut probe = Probe::new(Observed::default());
         probe.blobs.insert(TargetIndex(0), hash_of(b"zero"));
         probe.blobs.insert(TargetIndex(1), hash_of(b"one"));
@@ -1003,7 +1031,11 @@ mod tests {
             ]
         );
         let none = Probe::new(Observed::default());
-        assert!(preserved_hashes(&none, [(OpId(1), &copied)]).unwrap().is_empty());
+        assert!(
+            preserved_hashes(&none, [(OpId(1), &copied)])
+                .unwrap()
+                .is_empty()
+        );
         assert!(none.blob_calls.borrow().is_empty());
     }
 
@@ -1013,7 +1045,11 @@ mod tests {
         assert_eq!(expired.code, ErrorCode::JournalExpired);
         assert_eq!(expired.details["expired"], serde_json::json!([3, 4]));
         assert!(expired.message.starts_with("2 operations of the selection"));
-        assert!(expired_error(&[OpId(3)]).message.starts_with("1 operation of"));
+        assert!(
+            expired_error(&[OpId(3)])
+                .message
+                .starts_with("1 operation of")
+        );
 
         let corrupt = corrupt_error(OpId(8));
         assert_eq!(corrupt.code, ErrorCode::JournalCorrupt);

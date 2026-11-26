@@ -688,7 +688,10 @@ fn error_positions_count_characters_of_the_line() {
     let error = failed(&document);
     assert_eq!(error.code(), ErrorCode::UnknownCommand);
     let at = error.error().at.unwrap();
-    assert_eq!((at.line, at.column, at.length), (Some(1), Some(19), Some(6)));
+    assert_eq!(
+        (at.line, at.column, at.length),
+        (Some(1), Some(19), Some(6))
+    );
     assert_eq!(error.error().found.as_deref(), Some("remvoe"));
 }
 

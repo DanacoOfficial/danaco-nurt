@@ -233,9 +233,13 @@ mod tests {
 
     #[test]
     fn shared_aliases_written_in_nurt_notation_are_not_powershell() {
-        assert!(!detected(r#"move "C:\praca\t1\sub\b.go" to: "C:\praca\t1\sub\c.go""#));
+        assert!(!detected(
+            r#"move "C:\praca\t1\sub\b.go" to: "C:\praca\t1\sub\c.go""#
+        ));
         assert!(!detected(r#"move r"C:\a\b.go" to: r"C:\a\c.go""#));
-        assert!(!detected(r#"write "C:\praca\t1\m.txt" "new" mode: overwrite"#));
+        assert!(!detected(
+            r#"write "C:\praca\t1\m.txt" "new" mode: overwrite"#
+        ));
         assert!(!detected(r#"write r"C:\a\m.txt" "x""#));
         assert!(!detected(r#"copy "C:\a\x" into: "C:\b""#));
         assert!(!detected(r##"write r#"C:\a\m.txt"# "x""##));

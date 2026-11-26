@@ -34,7 +34,11 @@ fn call(function: &str, args: Vec<BoundExpr>) -> Value {
 
 #[test]
 fn coerce_reads_day_and_week_durations() {
-    let cases = [("24h", 86_400_000), ("1w", 604_800_000), ("1w1d", 691_200_000)];
+    let cases = [
+        ("24h", 86_400_000),
+        ("1w", 604_800_000),
+        ("1w1d", 691_200_000),
+    ];
     for (written, millis) in cases {
         assert_eq!(
             coerce(Value::from(written), ValueType::Duration).unwrap(),
@@ -106,7 +110,10 @@ fn coerce_rejects_values_that_are_not_texts_for_typed_places() {
     }
     let error = coerce(Value::Path("/a".to_owned()), ValueType::Glob).unwrap_err();
     assert_eq!(error.code, ErrorCode::Type);
-    assert_eq!(coerce(Value::Null, ValueType::Duration).unwrap(), Value::Null);
+    assert_eq!(
+        coerce(Value::Null, ValueType::Duration).unwrap(),
+        Value::Null
+    );
 }
 
 #[test]
@@ -122,7 +129,10 @@ fn text_functions_count_characters_and_keep_multi_byte_text() {
         Value::Path("/srv/ü".to_owned())
     );
     assert_eq!(
-        call("join_path", vec![text("/srv/ü"), text("日本"), text("../é")]),
+        call(
+            "join_path",
+            vec![text("/srv/ü"), text("日本"), text("../é")]
+        ),
         Value::Path("/srv/ü/é".to_owned())
     );
 }

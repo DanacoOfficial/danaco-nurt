@@ -289,9 +289,9 @@ pub fn is_complete(path: &Path) -> bool {
 /// again.
 #[must_use]
 pub fn is_final(path: &Path) -> bool {
-    read(path).is_ok_and(|events| {
-        matches!(events.last(), Some(Event::End(end)) if end.outcome != Outcome::Error)
-    })
+    read(path).is_ok_and(
+        |events| matches!(events.last(), Some(Event::End(end)) if end.outcome != Outcome::Error),
+    )
 }
 
 /// Writer of a run log. Events are written to `<path>.partial` and the file

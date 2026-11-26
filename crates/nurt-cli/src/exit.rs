@@ -103,7 +103,15 @@ mod tests {
     #[test]
     fn the_codes_are_those_of_the_reference() {
         assert_eq!(
-            [SUCCESS, FAILURE, USAGE, UNAVAILABLE, TIMEOUT, INTERNAL, CANCELLED],
+            [
+                SUCCESS,
+                FAILURE,
+                USAGE,
+                UNAVAILABLE,
+                TIMEOUT,
+                INTERNAL,
+                CANCELLED
+            ],
             [0, 1, 2, 3, 4, 70, 130]
         );
     }

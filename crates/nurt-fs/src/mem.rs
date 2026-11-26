@@ -3910,9 +3910,7 @@ mod tests {
     #[test]
     fn lock_with_the_longest_timeout_is_taken_when_the_file_is_free() {
         let fs = MemFs::new().expect("build");
-        let lock = fs
-            .lock_exclusive(&p("/lock"), Duration::MAX)
-            .expect("lock");
+        let lock = fs.lock_exclusive(&p("/lock"), Duration::MAX).expect("lock");
         assert_eq!(lock.path(), &p("/lock"));
     }
 

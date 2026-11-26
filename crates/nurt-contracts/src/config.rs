@@ -2884,7 +2884,11 @@ fn env_value(var: &EnvVar, text: &str, list_separator: char) -> Result<Json, Str
         EnvKind::Integer => {
             let trimmed = text.trim();
             Ok(trimmed.parse::<i64>().map_or_else(
-                |_| trimmed.parse::<u64>().map_or_else(|_| Json::from(text), Json::from),
+                |_| {
+                    trimmed
+                        .parse::<u64>()
+                        .map_or_else(|_| Json::from(text), Json::from)
+                },
                 Json::from,
             ))
         }
@@ -2932,7 +2936,10 @@ mod tests {
         let size = SizeSetting::from_bytes(u64::MAX);
         assert_eq!(size.to_string().parse::<SizeSetting>().unwrap(), size);
         let duration = DurationSetting::from_millis(u64::MAX);
-        assert_eq!(duration.to_string().parse::<DurationSetting>().unwrap(), duration);
+        assert_eq!(
+            duration.to_string().parse::<DurationSetting>().unwrap(),
+            duration
+        );
         assert!("18446744073709551616b".parse::<SizeSetting>().is_err());
         assert!("18446744073709551616ms".parse::<DurationSetting>().is_err());
         assert!("30500000000000000w".parse::<DurationSetting>().is_err());
@@ -3024,7 +3031,10 @@ mod tests {
         };
         let layers = [
             layer(ConfigLevel::Environment, r#"{"journal": {"max_ops": 50}}"#),
-            layer(ConfigLevel::User, r#"{"journal": {"max_ops": 40}, "run": {"timeout": "10s"}}"#),
+            layer(
+                ConfigLevel::User,
+                r#"{"journal": {"max_ops": 40}, "run": {"timeout": "10s"}}"#,
+            ),
             layer(ConfigLevel::User, r#"{"run": {"timeout": "20s"}}"#),
         ];
         let resolved = resolve(&layers, false).unwrap();
@@ -3039,7 +3049,11 @@ mod tests {
             serde_json::from_str(r#"{"journal": {"volume": {"/mnt/a.b": {"max_ops": 5}}}}"#)
                 .unwrap();
         let key = r#"journal.volume."/mnt/a.b".max_ops"#;
-        let user = [ConfigLayer::new(ConfigLevel::User, "nurt.toml", values.clone())];
+        let user = [ConfigLayer::new(
+            ConfigLevel::User,
+            "nurt.toml",
+            values.clone(),
+        )];
         let resolved = resolve(&user, false).unwrap();
         let volume = resolved.config.journal.volume.get("/mnt/a.b").unwrap();
         assert_eq!(volume.max_ops, Some(StepLimit::Limited(5)));

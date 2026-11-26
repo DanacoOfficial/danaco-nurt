@@ -91,7 +91,8 @@ pub fn commands_index(catalog: &Catalog, options: &ManOptions<'_>) -> String {
         markdown.push_str(&format!(
             "\n### {}\n\n{}\n\n| Command | Summary |\n|---|---|\n",
             file.group, file.summary
-        ));        for spec in &file.commands {
+        ));
+        for spec in &file.commands {
             markdown.push_str(&format!(
                 "| `{}` | {} |\n",
                 spec.name,
@@ -307,7 +308,10 @@ mod tests {
     #[test]
     fn table_cells_keep_pipes_inside_the_cell() {
         assert_eq!(table_cell("a | b"), "a \\| b");
-        let rows = crate::markdown::parse(&format!("| A | B |\n|---|---|\n| x | {} |\n", table_cell("p | q")));
+        let rows = crate::markdown::parse(&format!(
+            "| A | B |\n|---|---|\n| x | {} |\n",
+            table_cell("p | q")
+        ));
         let Some(crate::markdown::Block::Table { rows, .. }) = rows.blocks.first() else {
             panic!("expected a table");
         };
@@ -317,7 +321,10 @@ mod tests {
     #[test]
     fn page_escapes_quotes_and_backslashes_of_the_name_line() {
         let text = page("nurt-x", 1, "a \"quoted\" back\\slash.", "", &OPTIONS);
-        assert!(text.contains(".SH NAME\nnurt\\-x \\- a \"quoted\" back\\eslash\n"), "{text}");
+        assert!(
+            text.contains(".SH NAME\nnurt\\-x \\- a \"quoted\" back\\eslash\n"),
+            "{text}"
+        );
     }
 
     #[test]

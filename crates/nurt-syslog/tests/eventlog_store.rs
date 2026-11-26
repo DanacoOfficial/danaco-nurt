@@ -605,7 +605,10 @@ fn eventlog_pattern_unit_skips_denied_channels_with_a_notice() {
 fn eventlog_events_of_equal_time_in_two_channels_keep_a_stable_order() {
     let source = MockSource::default()
         .channel("System", vec![event("System", 2, 10, 4, "Example-A")])
-        .channel("Application", vec![event("Application", 9, 10, 4, "Example-A")]);
+        .channel(
+            "Application",
+            vec![event("Application", 9, 10, 4, "Example-A")],
+        );
     let (store, _) = open_store(source);
     let (first, _, _) = run(&store, &LogQuery::default());
     let (second, _, _) = run(&store, &LogQuery::default());
@@ -621,7 +624,10 @@ fn eventlog_pattern_unit_reads_only_the_matching_channels() {
         ..LogQuery::default()
     };
     let (events, _, _) = run(&store, &query);
-    assert_eq!(records(&events), ["v1:w:Application:7", "v1:w:Application:6"]);
+    assert_eq!(
+        records(&events),
+        ["v1:w:Application:7", "v1:w:Application:6"]
+    );
 }
 
 #[test]

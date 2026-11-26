@@ -438,7 +438,13 @@ fn compare(
             &measured_clusters,
             bootstrap,
         ),
-        cost("steps", &shell_steps, &nurt_steps, &both_clusters, bootstrap),
+        cost(
+            "steps",
+            &shell_steps,
+            &nurt_steps,
+            &both_clusters,
+            bootstrap,
+        ),
         cost(
             "seconds",
             &shell_seconds,
@@ -488,9 +494,7 @@ fn comparisons(
         let pairs: Vec<(&RunMeasures, &RunMeasures)> = runs
             .iter()
             .filter(|run| run.condition == condition)
-            .filter_map(|run| {
-                shells.get(&pair_key(run)).map(|shell| (*shell, run))
-            })
+            .filter_map(|run| shells.get(&pair_key(run)).map(|shell| (*shell, run)))
             .collect();
         if pairs.is_empty() {
             continue;
@@ -1130,7 +1134,11 @@ mod tests {
         let runs = vec![run("m", Condition::Bash, 1, true, 100), silent];
         let analysis = analyse(&runs, &BOOT);
         let comparison = &analysis.comparisons[0];
-        let tokens = comparison.costs.iter().find(|c| c.measure == "tokens").unwrap();
+        let tokens = comparison
+            .costs
+            .iter()
+            .find(|c| c.measure == "tokens")
+            .unwrap();
         assert!(tokens.nurt_median.is_nan() && tokens.shell_median.is_nan());
         assert!(!comparison.cost_met);
     }

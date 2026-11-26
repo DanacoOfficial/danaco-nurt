@@ -239,7 +239,11 @@ fn invalid_messages_get_error_replies_and_reading_continues() {
         .collect();
     assert_eq!(
         codes,
-        [json!(PARSE_ERROR), json!(INVALID_REQUEST), json!(INVALID_REQUEST)]
+        [
+            json!(PARSE_ERROR),
+            json!(INVALID_REQUEST),
+            json!(INVALID_REQUEST)
+        ]
     );
     assert!(replies[1..4].iter().all(|reply| reply["id"].is_null()));
     assert_eq!(replies[4]["id"], 2);
@@ -443,7 +447,11 @@ fn cancel_names_exactly_one_target_and_job_cancelling_is_not_available() {
 #[test]
 fn initialize_ignores_unknown_members_and_is_accepted_once() {
     let input = ndjson(&[
-        request(1, "initialize", json!({"protocol": "nurt-rpc/1", "client": {"name": "x"}})),
+        request(
+            1,
+            "initialize",
+            json!({"protocol": "nurt-rpc/1", "client": {"name": "x"}}),
+        ),
         request(2, "history", json!({"limit": 1})),
         initialize(3),
     ]);
@@ -467,6 +475,9 @@ fn parameters_of_the_wrong_type_are_invalid_params() {
     let (_, output) = serve_bytes(ServeOptions::engine(engine()), input);
     let replies = replies(&lines(&output));
     for id in 2..=6 {
-        assert_eq!(replies[&id]["error"]["code"], INVALID_PARAMS, "request {id}");
+        assert_eq!(
+            replies[&id]["error"]["code"], INVALID_PARAMS,
+            "request {id}"
+        );
     }
 }

@@ -866,7 +866,12 @@ impl YamlModel {
     /// Value of a node, computed with an explicit work stack: a collection
     /// is a frame on the stack, so the depth of a document never reaches the
     /// call stack.
-    fn expand(&self, root: NodeId, overrides: &ValueOverrides, budget: &mut usize) -> Result<Value> {
+    fn expand(
+        &self,
+        root: NodeId,
+        overrides: &ValueOverrides,
+        budget: &mut usize,
+    ) -> Result<Value> {
         let mut stack: Vec<Work<'_>> = Vec::new();
         let mut next = Next::Enter(root);
         loop {

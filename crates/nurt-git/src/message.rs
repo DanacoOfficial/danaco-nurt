@@ -421,7 +421,10 @@ mod tests {
             "subj\n",
             &[trailer("Co-Authored-By: Zażółć Gęślą <z@example.com>")],
         );
-        assert_eq!(out, "subj\n\nCo-Authored-By: Zażółć Gęślą <z@example.com>\n");
+        assert_eq!(
+            out,
+            "subj\n\nCo-Authored-By: Zażółć Gęślą <z@example.com>\n"
+        );
         assert_eq!(
             trailers(&out).get("Co-Authored-By").map(String::as_str),
             Some("Zażółć Gęślą <z@example.com>")

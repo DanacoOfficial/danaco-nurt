@@ -161,16 +161,16 @@ fn unsupported_requests_are_method_not_found_errors() {
         .request("textDocument/definition", json!({}))
         .unwrap_err();
     assert_eq!(error["code"], -32601);
-    assert_eq!(error["message"], "unsupported method textDocument/definition");
+    assert_eq!(
+        error["message"],
+        "unsupported method textDocument/definition"
+    );
     client.shutdown().unwrap();
 }
 
 #[test]
 fn requests_for_a_document_that_is_not_open_are_answered_with_null() {
-    let (mut client, _) = Client::start(
-        Options::new(catalog()),
-        json!({"capabilities": {}}),
-    );
+    let (mut client, _) = Client::start(Options::new(catalog()), json!({"capabilities": {}}));
     let uri = "file:///work/closed.nurt";
     let position = json!({"textDocument": {"uri": uri}, "position": {"line": 0, "character": 0}});
     for method in [
@@ -178,7 +178,11 @@ fn requests_for_a_document_that_is_not_open_are_answered_with_null() {
         "textDocument/hover",
         "textDocument/signatureHelp",
     ] {
-        assert_eq!(client.request(method, position.clone()), Ok(Value::Null), "{method}");
+        assert_eq!(
+            client.request(method, position.clone()),
+            Ok(Value::Null),
+            "{method}"
+        );
     }
     let tokens = json!({"textDocument": {"uri": uri}});
     assert_eq!(

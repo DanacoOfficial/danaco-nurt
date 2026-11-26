@@ -154,7 +154,11 @@ fn programs_with_a_process_effect_do_not_report_nothing_matched() {
             .effect(effect)
             .build()
             .unwrap();
-        assert_eq!(report.notable[0].code, Notable::NothingMatched, "{effect:?}");
+        assert_eq!(
+            report.notable[0].code,
+            Notable::NothingMatched,
+            "{effect:?}"
+        );
     }
 }
 

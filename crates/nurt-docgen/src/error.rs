@@ -137,7 +137,10 @@ mod tests {
         let dir = tempfile::tempdir().expect("temporary directory");
         let path = dir.path().join("a").join("b").join("page.html");
         write_text(&path, "za\u{17c}\u{f3}\u{142}\u{107}\r\n").expect("written");
-        assert_eq!(read_text(&path).expect("read"), "za\u{17c}\u{f3}\u{142}\u{107}\r\n");
+        assert_eq!(
+            read_text(&path).expect("read"),
+            "za\u{17c}\u{f3}\u{142}\u{107}\r\n"
+        );
     }
 
     #[test]
@@ -146,7 +149,11 @@ mod tests {
         let missing = dir.path().join("missing");
         let error = read_text(&missing).expect_err("missing file");
         assert!(matches!(error, DocgenError::Io { .. }));
-        assert!(error.to_string().starts_with(&missing.display().to_string()));
+        assert!(
+            error
+                .to_string()
+                .starts_with(&missing.display().to_string())
+        );
         assert!(std::error::Error::source(&error).is_some());
         assert!(list_files(&missing, "md").is_err());
     }

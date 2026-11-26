@@ -1803,7 +1803,11 @@ mod tests {
     #[test]
     fn instant_rejects_fractions_longer_than_nine_digits() {
         assert!("2026-11-21T10:00:00.123456789Z".parse::<Instant>().is_ok());
-        assert!("2026-11-21T10:00:00.1234567890Z".parse::<Instant>().is_err());
+        assert!(
+            "2026-11-21T10:00:00.1234567890Z"
+                .parse::<Instant>()
+                .is_err()
+        );
         let long = format!("2026-11-21T10:00:00.{}Z", "9".repeat(40));
         assert!(long.parse::<Instant>().is_err());
     }
@@ -1861,7 +1865,9 @@ mod tests {
 
     #[test]
     fn bytes_reject_malformed_base64() {
-        for text in ["A", "AAA", "AA=A", "A===", "====", "AA==AAAA", "AA!A", "AAA=AAAA"] {
+        for text in [
+            "A", "AAA", "AA=A", "A===", "====", "AA==AAAA", "AA!A", "AAA=AAAA",
+        ] {
             assert!(Bytes::from_base64(text).is_err(), "{text:?}");
         }
     }
@@ -1889,8 +1895,14 @@ mod tests {
     #[test]
     fn plain_json_keeps_large_integers_and_drops_non_finite_numbers() {
         assert_eq!(Value::from(u64::MAX), Value::BigInt(u64::MAX.to_string()));
-        assert_eq!(Value::from_plain_json(serde_json::json!(u64::MAX)), Value::from(u64::MAX));
-        assert_eq!(Value::Number(f64::NAN).to_plain_json(), serde_json::Value::Null);
+        assert_eq!(
+            Value::from_plain_json(serde_json::json!(u64::MAX)),
+            Value::from(u64::MAX)
+        );
+        assert_eq!(
+            Value::Number(f64::NAN).to_plain_json(),
+            serde_json::Value::Null
+        );
         assert_eq!(
             Value::Duration(Duration::from_millis(-5)).to_plain_json(),
             serde_json::json!(-5)

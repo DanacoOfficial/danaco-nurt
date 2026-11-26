@@ -488,7 +488,10 @@ mod tests {
 
     #[test]
     fn stages_that_read_unnamed_fields_demand_every_field() {
-        let whole = stage("distinct", vec![BoundArg::from_default("by", BoundExpr::Null)]);
+        let whole = stage(
+            "distinct",
+            vec![BoundArg::from_default("by", BoundExpr::Null)],
+        );
         assert!(reads_unnamed_fields(&whole));
         let keyed = stage(
             "distinct",

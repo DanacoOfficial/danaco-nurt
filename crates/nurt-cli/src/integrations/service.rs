@@ -328,7 +328,13 @@ mod tests {
         for empty in [json!(null), json!([]), json!({})] {
             assert!(is_empty(&empty));
         }
-        for filled in [json!(false), json!(0), json!(""), json!([null]), json!({"a": 1})] {
+        for filled in [
+            json!(false),
+            json!(0),
+            json!(""),
+            json!([null]),
+            json!({"a": 1}),
+        ] {
             assert!(!is_empty(&filled), "{filled}");
         }
     }

@@ -1292,7 +1292,10 @@ mod tests {
 
     #[test]
     fn closing_bracket_of_a_class_is_not_escaped() {
-        assert_eq!(glob_of("/a/file[0-9].txt"), ("/a/file[0-9].txt".to_owned(), 7));
+        assert_eq!(
+            glob_of("/a/file[0-9].txt"),
+            ("/a/file[0-9].txt".to_owned(), 7)
+        );
     }
 
     #[test]

@@ -2152,7 +2152,12 @@ mod tests {
 
     fn error_byte(bytes: &[u8]) -> u64 {
         let error = XmlHandle::open(bytes.to_vec()).unwrap_err();
-        error.data().location.as_ref().and_then(|location| location.byte).unwrap()
+        error
+            .data()
+            .location
+            .as_ref()
+            .and_then(|location| location.byte)
+            .unwrap()
     }
 
     #[test]
@@ -2172,7 +2177,10 @@ mod tests {
         let bytes = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><a>\xE9<b></a>".to_vec();
         let in_text = error_byte(&bytes);
         let issues = XmlFormat.check_syntax(&bytes, &DocOptions::default());
-        assert_eq!(issues[0].span.bytes, ByteRange::new(in_text - 1, in_text - 1));
+        assert_eq!(
+            issues[0].span.bytes,
+            ByteRange::new(in_text - 1, in_text - 1)
+        );
     }
 
     #[test]

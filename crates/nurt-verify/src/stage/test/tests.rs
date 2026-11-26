@@ -332,7 +332,10 @@ fn failed_of_a_run_without_results_runs_the_whole_scope_of_that_run_again() {
         Some("TestA"),
     );
     let command = rerun_command(&ctx(state.path()), &[]).unwrap();
-    assert_eq!(command, ["go", "test", "-json", "-run", "TestA", "./pkg/..."]);
+    assert_eq!(
+        command,
+        ["go", "test", "-json", "-run", "TestA", "./pkg/..."]
+    );
 }
 
 #[test]

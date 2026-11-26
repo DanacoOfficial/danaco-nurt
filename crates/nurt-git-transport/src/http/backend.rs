@@ -875,7 +875,11 @@ mod tests {
     fn post_after_a_redirect_to_another_server_does_not_send_credentials() {
         let (origin, _target) = redirecting_origin();
         let mut http = UreqHttp::new(settings());
-        let (headers, _) = get(&mut http, &origin.url("/old/info/refs"), &origin.url("/old"));
+        let (headers, _) = get(
+            &mut http,
+            &origin.url("/old/info/refs"),
+            &origin.url("/old"),
+        );
         assert!(headers.is_ok());
         let PostResponse {
             mut post_body,

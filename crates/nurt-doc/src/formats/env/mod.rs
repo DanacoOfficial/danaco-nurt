@@ -503,13 +503,13 @@ fn parse_entry(text: &str, lines: &[Line], index: usize, start: usize) -> Result
     let rest = &text[value_end..lines[last_line].content_end];
     let trailing = trailing_comment(rest, quote != Quote::None || value_start == value_end)
         .ok_or_else(|| {
-        parse_error(
-            FORMAT,
-            "unexpected text after the closing quote",
-            text,
-            value_end,
-        )
-    })?;
+            parse_error(
+                FORMAT,
+                "unexpected text after the closing quote",
+                text,
+                value_end,
+            )
+        })?;
     Ok(Entry {
         key: key.to_owned(),
         key_range,
@@ -578,7 +578,10 @@ fn parse_value(
         Some('`') => Quote::Backtick,
         _ => {
             let content = &text[start..lines[index].content_end];
-            let after_blank = matches!(text.as_bytes().get(start.wrapping_sub(1)), Some(b' ' | b'\t'));
+            let after_blank = matches!(
+                text.as_bytes().get(start.wrapping_sub(1)),
+                Some(b' ' | b'\t')
+            );
             let cut = if after_blank && content.starts_with('#') {
                 0
             } else {

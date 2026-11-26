@@ -1241,7 +1241,11 @@ mod tests {
             json!({"line": 1, "character": 0})
         );
         assert_eq!(
-            from_lsp(Some(text), &json!({"line": 0, "character": 5}), PositionUnit::Utf8),
+            from_lsp(
+                Some(text),
+                &json!({"line": 0, "character": 5}),
+                PositionUnit::Utf8
+            ),
             Some(TextPosition { line: 1, column: 3 })
         );
         let negative = json!({"line": -1, "character": 0});
@@ -1255,7 +1259,11 @@ mod tests {
             Some("$x")
         );
         assert_eq!(
-            word_at("\u{17c}\u{f3}\u{142}w = 1", TextPosition { line: 1, column: 3 }).as_deref(),
+            word_at(
+                "\u{17c}\u{f3}\u{142}w = 1",
+                TextPosition { line: 1, column: 3 }
+            )
+            .as_deref(),
             Some("\u{17c}\u{f3}\u{142}w")
         );
         assert_eq!(word_at("a", TextPosition { line: 1, column: 0 }), None);

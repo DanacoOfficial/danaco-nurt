@@ -509,13 +509,21 @@ mod tests {
         bytes[64..72].copy_from_slice(&900_u64.to_le_bytes());
         assert_eq!(EntryObject::parse(0, &bytes, false).unwrap().items, [900]);
         let compact = object(KIND_ENTRY, 64 + 6, 64 + 6);
-        assert_eq!(EntryObject::parse(0, &compact, true).unwrap().items.len(), 1);
+        assert_eq!(
+            EntryObject::parse(0, &compact, true).unwrap().items.len(),
+            1
+        );
     }
 
     #[test]
     fn entry_without_items_has_none() {
         let bytes = object(KIND_ENTRY, 64, 64);
-        assert!(EntryObject::parse(8, &bytes, false).unwrap().items.is_empty());
+        assert!(
+            EntryObject::parse(8, &bytes, false)
+                .unwrap()
+                .items
+                .is_empty()
+        );
         assert_eq!(EntryObject::MIN_SIZE, 64);
         assert_eq!(EntryObject::max_size(false), 64 + 16 * 65_536);
     }

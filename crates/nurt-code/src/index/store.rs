@@ -161,7 +161,8 @@ mod tests {
         );
         fs::write(&file, older).unwrap();
         assert_eq!(load(&file, root, "s1"), None);
-        let current = format!("{{\"format\":{FORMAT},\"stamp\":\"s1\",\"root\":\"/repo\",\"files\":[]}}");
+        let current =
+            format!("{{\"format\":{FORMAT},\"stamp\":\"s1\",\"root\":\"/repo\",\"files\":[]}}");
         fs::write(&file, current).unwrap();
         assert_eq!(load(&file, root, "s1"), Some(Vec::new()));
         assert_eq!(FORMAT, 2);

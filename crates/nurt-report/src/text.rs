@@ -435,7 +435,10 @@ fn bulk(out: &mut Lines, report: &Report) {
         return;
     };
     if let Some((count, text)) = bulk_directories(bulk, targets.files.unwrap_or(targets.count)) {
-        out.plain(format!("by directory (top {count}):  {}", single_line(&text)));
+        out.plain(format!(
+            "by directory (top {count}):  {}",
+            single_line(&text)
+        ));
     }
     if let Some((count, text)) = bulk_extensions(bulk, targets.files.unwrap_or(targets.count)) {
         out.plain(format!("by extension (top {count}):  {text}"));

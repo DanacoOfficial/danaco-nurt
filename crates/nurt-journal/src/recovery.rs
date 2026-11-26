@@ -2202,7 +2202,10 @@ mod tests {
             ..sized
         };
         assert_eq!(likeness(&sized, &sized, Identity::Copy), Likeness::Same);
-        assert_eq!(likeness(&sized, &longer, Identity::Copy), Likeness::Different);
+        assert_eq!(
+            likeness(&sized, &longer, Identity::Copy),
+            Likeness::Different
+        );
         let hashed = Facts {
             kind: Some(FileKind::File),
             hash: Some(ContentHash([3; 32])),
@@ -3650,12 +3653,7 @@ mod pass_tests {
     fn prepared_entry_without_a_manifest_becomes_corrupt_without_changes() {
         let world = World::new();
         overwrite_entry(&world, PreserveMode::Exchange);
-        let manifest_path = world
-            .journal()
-            .entry(OpId(1))
-            .unwrap()
-            .manifest()
-            .unwrap();
+        let manifest_path = world.journal().entry(OpId(1)).unwrap().manifest().unwrap();
         world
             .fs
             .remove_file(&World::scope(1), &manifest_path)
@@ -3672,12 +3670,7 @@ mod pass_tests {
     fn prepared_entry_with_a_truncated_manifest_becomes_corrupt_without_changes() {
         let world = World::new();
         overwrite_entry(&world, PreserveMode::Exchange);
-        let manifest_path = world
-            .journal()
-            .entry(OpId(1))
-            .unwrap()
-            .manifest()
-            .unwrap();
+        let manifest_path = world.journal().entry(OpId(1)).unwrap().manifest().unwrap();
         let mut handle = world
             .fs
             .open_in_place(&World::scope(1), &manifest_path)
@@ -3768,10 +3761,6 @@ mod pass_tests {
         assert!(again.rolled_back.is_empty(), "{again:?}");
         assert!(again.corrupt.is_empty(), "{again:?}");
         let second = world.fs.snapshot(&abs("/a")).unwrap();
-        assert!(
-            first.diff(&second).is_empty(),
-            "{:?}",
-            first.diff(&second)
-        );
+        assert!(first.diff(&second).is_empty(), "{:?}", first.diff(&second));
     }
 }

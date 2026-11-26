@@ -122,8 +122,7 @@ impl Tracker {
         ignore.sort();
         ignore.dedup();
         let automatic = spec.mode == TrackMode::Auto;
-        if automatic
-            && let Some(root) = roots.iter().find(|root| root.as_path().parent().is_none())
+        if automatic && let Some(root) = roots.iter().find(|root| root.as_path().parent().is_none())
         {
             return Ok(skipped(
                 reported,
@@ -247,7 +246,9 @@ fn cancelled(ctx: &ExecCtx) -> Error {
 fn timed_out(phase: &str) -> Error {
     Error::new(
         ErrorCode::Timeout,
-        format!("the time limit of the run ended while the watched directories were scanned {phase}"),
+        format!(
+            "the time limit of the run ended while the watched directories were scanned {phase}"
+        ),
     )
     .with_fix("raise `timeout`, name fewer directories in `watch` or use `track_changes: none`")
 }

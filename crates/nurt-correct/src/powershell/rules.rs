@@ -726,7 +726,7 @@ impl<'a> Session<'a> {
         }
         let head = match &pipeline.head {
             Head::Stage(stage) => Some(stage),
-            Head::Ref(_) => None,
+            _ => None,
         };
         let missing = head.into_iter().chain(&pipeline.stages).any(|stage| {
             stage.name == RUN_COMMAND

@@ -990,14 +990,7 @@ fn definition_record_ends_at_the_end_of_the_whole_definition() {
         .unwrap(),
     );
     assert_eq!((served[0].end_line, served[0].end_column), (13, Some(21)));
-    let local = symbols(
-        run(
-            &CodeDefinition::new(None),
-            &position_args,
-            &plain_context(),
-        )
-        .unwrap(),
-    );
+    let local = symbols(run(&CodeDefinition::new(None), &position_args, &plain_context()).unwrap());
     assert_eq!((local[0].end_line, local[0].end_column), (13, Some(21)));
     assert_eq!((local[0].line, local[0].column), (11, 5));
 }

@@ -50,8 +50,13 @@ impl Handle {
     /// and with `E_IO` for another failure.
     pub(crate) fn open(pid: u32) -> Result<Option<Self>> {
         // SAFETY: plain call; a null result is checked below.
-        let raw =
-            unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, 0, pid) };
+        let raw = unsafe {
+            OpenProcess(
+                PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE,
+                0,
+                pid,
+            )
+        };
         if raw.is_null() {
             let error = io::Error::last_os_error();
             return match error.raw_os_error() {

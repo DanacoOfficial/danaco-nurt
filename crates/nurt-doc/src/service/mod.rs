@@ -230,7 +230,10 @@ mod tests {
         let expected = |prefix: &str| 2 + 2 * u64::try_from(prefix.encode_utf16().count()).unwrap();
         for needle in ["é", "😀", "x"] {
             let prefix = &text[..at(needle)];
-            assert_eq!(offsets.offset(text.as_bytes(), at(needle)), expected(prefix));
+            assert_eq!(
+                offsets.offset(text.as_bytes(), at(needle)),
+                expected(prefix)
+            );
         }
         assert_eq!(offsets.offset(text.as_bytes(), text.len()), expected(&text));
         assert_eq!(offsets.offset(text.as_bytes(), usize::MAX), expected(&text));
@@ -263,6 +266,11 @@ mod tests {
             .check_syntax(b"1234", &DocFormatId::JSON)
             .unwrap_err();
         assert_eq!(error.code, ErrorCode::Limit);
-        assert!(service.check_syntax(b"123", &DocFormatId::JSON).unwrap().is_empty());
+        assert!(
+            service
+                .check_syntax(b"123", &DocFormatId::JSON)
+                .unwrap()
+                .is_empty()
+        );
     }
 }

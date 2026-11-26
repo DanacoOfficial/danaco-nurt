@@ -693,7 +693,10 @@ write = ["${project}/out", "/var/acme"]
 
     #[test]
     fn permission_paths_with_backslash_parent_components_are_rejected() {
-        let text = VALID.replace("write = [\"${project}/out\", \"/var/acme\"]", "write = [\"/srv/a\\\\..\\\\b\"]");
+        let text = VALID.replace(
+            "write = [\"${project}/out\", \"/var/acme\"]",
+            "write = [\"/srv/a\\\\..\\\\b\"]",
+        );
         assert!(matches!(
             rejected(&text),
             ManifestError::InvalidField {
@@ -701,7 +704,10 @@ write = ["${project}/out", "/var/acme"]
                 ..
             }
         ));
-        let fine = VALID.replace("write = [\"${project}/out\", \"/var/acme\"]", "write = [\"/srv/a..b\"]");
+        let fine = VALID.replace(
+            "write = [\"${project}/out\", \"/var/acme\"]",
+            "write = [\"/srv/a..b\"]",
+        );
         Manifest::parse(&fine)
             .unwrap()
             .validate(HOST_API, &core())

@@ -220,7 +220,10 @@ fn crashed(tool: Tool) -> ToolReport {
             ..AnalysisCheck::default()
         },
         findings: Vec::new(),
-        note: Some(missing(format!("{}: the check ended in a panic", tool.name()))),
+        note: Some(missing(format!(
+            "{}: the check ended in a panic",
+            tool.name()
+        ))),
     }
 }
 
@@ -236,7 +239,11 @@ mod tests {
         assert_eq!(report.check.check, FindingKind::Lint.to_string());
         assert!(report.findings.is_empty());
         let note = report.note.unwrap();
-        assert!(note.detail.unwrap().contains("eslint: the check ended in a panic"));
+        assert!(
+            note.detail
+                .unwrap()
+                .contains("eslint: the check ended in a panic")
+        );
     }
 }
 

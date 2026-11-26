@@ -658,7 +658,12 @@ mod tests {
         let report = uninstall_with(&manifest, &buses).unwrap();
         assert_eq!(report.removed, [unit]);
         assert!(foreign.exists());
-        assert!(report.notes.iter().any(|note| note.contains("precious.conf")));
+        assert!(
+            report
+                .notes
+                .iter()
+                .any(|note| note.contains("precious.conf"))
+        );
     }
 
     #[test]
@@ -691,7 +696,11 @@ mod tests {
             system: FakeSystem::start(LingerPolicy::Allow),
             session_available: true,
         };
-        for program in ["/opt/nurt/bin/nurt", "/opt/nurt/bin/nurt", "/opt/other/nurt"] {
+        for program in [
+            "/opt/nurt/bin/nurt",
+            "/opt/nurt/bin/nurt",
+            "/opt/other/nurt",
+        ] {
             install_with(
                 &request,
                 Path::new(program),

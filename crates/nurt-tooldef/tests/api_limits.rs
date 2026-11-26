@@ -125,7 +125,13 @@ fn strict_formats_close_every_object_require_every_property_and_drop_unsupported
 fn gemini_uses_upper_case_types_and_none_of_the_rejected_keywords() {
     let schema = schema_of(ToolFormat::Gemini);
     walk(&schema, 0, &mut |map, _| {
-        for keyword in ["default", "additionalProperties", "$schema", "oneOf", "$ref"] {
+        for keyword in [
+            "default",
+            "additionalProperties",
+            "$schema",
+            "oneOf",
+            "$ref",
+        ] {
             assert!(!map.contains_key(keyword), "`{keyword}`");
         }
         if let Some(kind) = map.get("type") {
@@ -208,8 +214,7 @@ fn the_description_carries_multibyte_text_unchanged() {
             _ => &tool["description"],
         };
         assert_eq!(
-            description,
-            "Uruchamia programy: zażółć gęślą jaźń \u{1F600}.",
+            description, "Uruchamia programy: zażółć gęślą jaźń \u{1F600}.",
             "{format}"
         );
     }

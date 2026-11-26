@@ -59,14 +59,22 @@ mod tests {
     #[test]
     fn the_embedded_catalog_gives_commands_binding_and_help() {
         let options = options().unwrap();
-        assert!(options.commands.iter().any(|command| command.name == "find"));
+        assert!(
+            options
+                .commands
+                .iter()
+                .any(|command| command.name == "find")
+        );
         assert!(options.catalog.is_some());
         assert!(options.help.is_some());
     }
 
     #[test]
     fn any_argument_is_a_usage_error_naming_it() {
-        for args in [vec!["--stdio".to_owned()], vec!["a".to_owned(), "b".to_owned()]] {
+        for args in [
+            vec!["--stdio".to_owned()],
+            vec!["a".to_owned(), "b".to_owned()],
+        ] {
             let first = args[0].clone();
             assert!(matches!(
                 run(&args),

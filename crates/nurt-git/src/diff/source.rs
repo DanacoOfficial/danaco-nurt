@@ -506,8 +506,8 @@ mod tests {
         let fixture = Fixture::new();
         fixture.commit(&[("a.txt", "1\n")]);
         fixture.remove("a.txt");
-        let _socket = std::os::unix::net::UnixListener::bind(fixture.root().join("a.txt"))
-            .expect("socket");
+        let _socket =
+            std::os::unix::net::UnixListener::bind(fixture.root().join("a.txt")).expect("socket");
         let repo = fixture.repo();
         let mut reader = Reader::new(&repo).unwrap();
         let error = reader.worktree("a.txt".into(), None).unwrap_err();

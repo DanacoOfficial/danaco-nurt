@@ -577,7 +577,9 @@ impl CaseRun<'_, '_> {
             self.failures.push(Failure {
                 check: Some(format!("{check} ast_hash")),
                 path: Some("/ast_hash".to_owned()),
-                ..Failure::new("the result has no ast_hash although the tree of the program is known")
+                ..Failure::new(
+                    "the result has no ast_hash although the tree of the program is known",
+                )
             });
             return Ok(());
         };

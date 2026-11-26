@@ -378,7 +378,11 @@ mod tests {
         assert_eq!(target.as_str(), "http://[2001:db8::1]/");
         let upper = Target::parse("https://EXAMPLE.test/a").unwrap();
         assert_eq!(upper.host(), "example.test");
-        assert!(Target::parse("https://example.test/").unwrap().same_origin(&upper));
+        assert!(
+            Target::parse("https://example.test/")
+                .unwrap()
+                .same_origin(&upper)
+        );
         let other_scheme = Target::parse("http://example.test/").unwrap();
         let secure = Target::parse("https://example.test/").unwrap();
         assert!(!other_scheme.same_origin(&secure));

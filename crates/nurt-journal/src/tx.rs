@@ -3912,7 +3912,8 @@ mod tests {
         assert_eq!(env.read(&path), b"abXYef");
         let grown = env.file("vol-a/b.txt", b"abc");
         let mut tx = begin(&env.ctx, request("write"));
-        tx.preserve(&[spec(&grown, TargetAction::Truncate)]).unwrap();
+        tx.preserve(&[spec(&grown, TargetAction::Truncate)])
+            .unwrap();
         tx.apply(TargetIndex(0), Mutation::SetLength(5)).unwrap();
         tx.commit().unwrap();
         assert_eq!(env.read(&grown), b"abc\0\0");

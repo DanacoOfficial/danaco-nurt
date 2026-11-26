@@ -142,12 +142,15 @@ pub(crate) fn decode_label(name: &str) -> String {
 
 impl VolumeSource for MountTable {
     fn volumes(&self) -> Result<VolumeList> {
-        let text = self.root.read_to_string("/proc/self/mountinfo").map_err(|error| {
-            Error::new(
-                ErrorCode::Io,
-                format!("cannot read the mount table: {error}"),
-            )
-        })?;
+        let text = self
+            .root
+            .read_to_string("/proc/self/mountinfo")
+            .map_err(|error| {
+                Error::new(
+                    ErrorCode::Io,
+                    format!("cannot read the mount table: {error}"),
+                )
+            })?;
         let mut mounts: Vec<Mount> = mountinfo::parse(&text)
             .into_iter()
             .filter(|mount| !is_pseudo(&mount.fs_type))

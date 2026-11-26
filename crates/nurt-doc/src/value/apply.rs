@@ -374,7 +374,13 @@ mod tests {
     #[test]
     fn setting_the_root_replaces_the_document() {
         let mut root = value(json!({"a": 1}));
-        apply_set(&mut root, &KeyPath::root(), Value::Int(3), &MapSemantics::LAST_WINS).unwrap();
+        apply_set(
+            &mut root,
+            &KeyPath::root(),
+            Value::Int(3),
+            &MapSemantics::LAST_WINS,
+        )
+        .unwrap();
         assert_eq!(root, Value::Int(3));
     }
 

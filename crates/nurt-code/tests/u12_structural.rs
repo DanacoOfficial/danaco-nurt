@@ -176,7 +176,9 @@ fn checking_syntax_of_files_with_a_byte_order_mark_finds_no_error() {
         ("csharp", "\u{feff}using System;\nclass A { }\n"),
         ("powershell", "\u{feff}function Get-A { 1 }\n"),
     ] {
-        let issues = service.check_syntax(source.as_bytes(), &language(id)).unwrap();
+        let issues = service
+            .check_syntax(source.as_bytes(), &language(id))
+            .unwrap();
         assert!(issues.is_empty(), "{id}: {issues:?}");
     }
 }

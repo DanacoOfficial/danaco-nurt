@@ -119,10 +119,8 @@ fn sample_of(ctx: &ExecCtx, dir: &Path, batch: &Batch, file: &str, limit: usize)
     let Some(arguments) = batch.tool.write_args(&[file.to_owned()]) else {
         return Vec::new();
     };
-    let Some(scratch) = fresh_scratch(
-        &std::env::temp_dir(),
-        NEXT.fetch_add(1, Ordering::Relaxed),
-    ) else {
+    let Some(scratch) = fresh_scratch(&std::env::temp_dir(), NEXT.fetch_add(1, Ordering::Relaxed))
+    else {
         return Vec::new();
     };
     let target = scratch.join(file);

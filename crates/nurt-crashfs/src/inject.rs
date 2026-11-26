@@ -779,7 +779,12 @@ mod tests {
     }
 
     fn inner() -> CrashFs {
-        CrashFs::new(CrashProfile::PosixWorstCase, 3, vec![VolumeSpec::new(root())]).unwrap()
+        CrashFs::new(
+            CrashProfile::PosixWorstCase,
+            3,
+            vec![VolumeSpec::new(root())],
+        )
+        .unwrap()
     }
 
     fn at(name: &str) -> AbsPath {

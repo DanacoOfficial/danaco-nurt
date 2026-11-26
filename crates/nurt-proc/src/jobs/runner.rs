@@ -262,18 +262,13 @@ impl JobRun {
             .limits
             .timeout
             .map(|timeout| timeout.saturating_sub(begun.elapsed()));
-        let mut process =
-            match self
-                .components
-                .control
-                .spawn(spawn, sink, cancel.clone())
-            {
-                Ok(process) => process,
-                Err(error) => {
-                    let _ = self.components.spool.remove(ctx, &self.id);
-                    return Err(rolled_back(tx, error));
-                }
-            };
+        let mut process = match self.components.control.spawn(spawn, sink, cancel.clone()) {
+            Ok(process) => process,
+            Err(error) => {
+                let _ = self.components.spool.remove(ctx, &self.id);
+                return Err(rolled_back(tx, error));
+            }
+        };
         let file = self.started_file(process.as_ref());
         if let Err(error) = self.record_start(&file) {
             let _ = process.stop(Signal::Kill, Duration::ZERO);

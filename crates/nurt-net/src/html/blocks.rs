@@ -666,7 +666,11 @@ mod tests {
             &options(),
         );
         assert_eq!(page.links.len(), 2);
-        let numbers: Vec<usize> = page.blocks[0].links.iter().map(|link| link.number).collect();
+        let numbers: Vec<usize> = page.blocks[0]
+            .links
+            .iter()
+            .map(|link| link.number)
+            .collect();
         assert_eq!(numbers, vec![1, 2, 1]);
     }
 

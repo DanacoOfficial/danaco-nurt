@@ -1106,9 +1106,7 @@ fn field_dropped_for_its_size_marks_the_event_truncated() {
 #[test]
 fn bounds_between_microseconds_keep_the_microsecond_of_the_entry() {
     let bytes = sample(8);
-    let after = |micros: u64| {
-        Instant::from_unix_nanos(at(micros).as_unix_nanos() + 1)
-    };
+    let after = |micros: u64| Instant::from_unix_nanos(at(micros).as_unix_nanos() + 1);
     let since = LogQuery {
         since: Some(after(START + 3 * STEP)),
         ..query(LogLevel::Debug)
@@ -1151,7 +1149,10 @@ fn cursor_continues_into_the_archived_file_of_the_same_sequence_space() {
     let root = tempfile::tempdir().unwrap();
     system_root(
         root.path(),
-        &[("system@0001.journal", archived), ("system.journal", active)],
+        &[
+            ("system@0001.journal", archived),
+            ("system.journal", active),
+        ],
     );
     let store = JournaldStore::new(root.path(), LogLimits::default());
     let first = LogQuery {

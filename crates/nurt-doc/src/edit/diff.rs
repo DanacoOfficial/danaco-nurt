@@ -282,10 +282,7 @@ mod tests {
     #[test]
     fn inserts_into_and_deletes_from_an_empty_text() {
         assert_eq!(edits("", "a\n"), vec![ByteEdit::insert(0, "a\n")]);
-        assert_eq!(
-            edits("a\n", ""),
-            vec![ByteEdit::delete(Span::new(0, 2))]
-        );
+        assert_eq!(edits("a\n", ""), vec![ByteEdit::delete(Span::new(0, 2))]);
     }
 
     #[test]

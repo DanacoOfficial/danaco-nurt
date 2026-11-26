@@ -371,14 +371,8 @@ mod tests {
     fn mode_values_never_come_from_a_prefix() {
         let tables = load_embedded().unwrap();
         let options = Options::default();
-        assert_eq!(
-            mode_value("app", &MODES, &tables, &options),
-            Match::Unknown
-        );
-        assert_eq!(
-            mode_value("append", &MODES, &tables, &options),
-            Match::Same
-        );
+        assert_eq!(mode_value("app", &MODES, &tables, &options), Match::Unknown);
+        assert_eq!(mode_value("append", &MODES, &tables, &options), Match::Same);
         assert_eq!(
             corrected(mode_value("truncate", &MODES, &tables, &options)),
             ("overwrite".into(), "T09".into(), Class::Certain)
