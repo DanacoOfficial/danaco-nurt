@@ -1058,7 +1058,8 @@ pub fn symbol_kind(kind: u64) -> SymbolKind {
 
 fn line_text(text: &str, line: u32) -> Option<&str> {
     let index = usize::try_from(line.checked_sub(1)?).ok()?;
-    text.split('\n')
+    crate::rename::split_lines(text)
+        .into_iter()
         .nth(index)
         .map(|line| line.strip_suffix('\r').unwrap_or(line))
 }
@@ -1157,6 +1158,15 @@ mod tests {
         for value in [json!(0), json!(""), json!(false), json!([null])] {
             assert!(!is_empty(&value), "{value}");
         }
+    }
+
+    #[test]
+    fn lines_are_split_at_line_feeds_or_else_at_carriage_returns() {
+        assert_eq!(line_text("one\rtwo\rthree", 2), Some("two"));
+        assert_eq!(line_text("one\r\ntwo\r\n", 2), Some("two"));
+        assert_eq!(line_text("a\rb\nc", 1), Some("a\rb"));
+        assert_eq!(line_text("one", 0), None);
+        assert_eq!(line_text("one", 2), None);
     }
 
     #[test]
