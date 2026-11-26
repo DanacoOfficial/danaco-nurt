@@ -58,7 +58,7 @@ pub(crate) fn names_pattern(cases: &[&TestResult]) -> String {
 pub(crate) fn files_of(cases: &[TestResult]) -> Vec<String> {
     let mut files: Vec<String> = Vec::new();
     for case in cases {
-        if let Some(path) = case.path.as_ref().map(|path| path.as_str().to_owned())
+        if let Some(path) = case.path.as_ref().map(|path| operand(path.as_str()))
             && !path.is_empty()
             && !files.contains(&path)
         {
@@ -66,6 +66,16 @@ pub(crate) fn files_of(cases: &[TestResult]) -> Vec<String> {
         }
     }
     files
+}
+
+/// File as an operand of a command line: a name that starts with `-` would
+/// be read as an option, so it is given relative to the directory.
+fn operand(path: &str) -> String {
+    if path.starts_with('-') {
+        format!("./{path}")
+    } else {
+        path.to_owned()
+    }
 }
 
 /// Text of a path for a command line.

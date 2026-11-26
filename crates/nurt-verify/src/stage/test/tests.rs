@@ -134,6 +134,16 @@ fn show_selects_failed_results_including_errors() {
 }
 
 #[test]
+fn show_rejects_an_unknown_status_and_names_the_accepted_ones() {
+    let state = tempfile::tempdir().unwrap();
+    seed(state.path(), "run-1", "/p", None, mixed_items("run-1"));
+    let error = show(&ctx(state.path()), &[("status", text("broken"))]).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::InvalidValue);
+    assert!(error.data().message.contains("failed, passed, skipped"));
+    assert!(!error.data().fix.is_empty());
+}
+
+#[test]
 fn show_filters_by_part_of_the_identifier_ignoring_case() {
     let state = tempfile::tempdir().unwrap();
     seed(state.path(), "run-1", "/p", None, mixed_items("run-1"));

@@ -27,10 +27,6 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
             argv.push("-k".to_owned());
             argv.push(filter.to_owned());
         }
-    } else {
-        for node in nodes(request.only) {
-            argv.push(node);
-        }
     }
     if request.bail {
         argv.push("-x".to_owned());
@@ -43,6 +39,11 @@ pub(crate) fn plan(request: &PlanRequest<'_>) -> CommandPlan {
         argv.push(format!("--cov-report=lcov:{file}"));
         env.push(("COVERAGE_FILE".to_owned(), format!("{file}.data")));
         coverage_file = Some(file);
+    }
+    if !request.only.is_empty() {
+        // After `--` a node whose name starts with `-` is not an option.
+        argv.push("--".to_owned());
+        argv.extend(nodes(request.only));
     }
     CommandPlan {
         framework: Framework::Pytest,
