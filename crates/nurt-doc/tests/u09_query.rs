@@ -203,6 +203,35 @@ fn the_record_limit_ends_endless_filters() {
 }
 
 #[test]
+fn a_definition_that_recurses_without_end_stops_with_e_limit() {
+    for expression in [
+        "def f: 1 + f; f",
+        "def f: f; f",
+        "def f($n): f($n + 1) | . ; f(0)",
+        "def g: def h: g | h; h; g",
+    ] {
+        let error = failure(query_file(&fixture(), CONFIG, expression));
+        assert_eq!(error.code, ErrorCode::Limit, "{expression}");
+        assert!(error.message.contains("recurses"), "{}", error.message);
+    }
+}
+
+#[test]
+fn deep_but_bounded_recursion_of_a_definition_still_runs() {
+    let expression = "def count: if . == 0 then 0 else (. - 1 | count) + 1 end; 20000 | count";
+    let found = query_file(&fixture(), CONFIG, expression).unwrap();
+    assert_eq!(found[0].value, Value::Int(20000));
+}
+
+#[test]
+fn calls_of_a_definition_are_not_counted_as_generated_values() {
+    let fixture = fixture().with_max_records(50);
+    let expression = "def double: . * 2; [range(0; 40) | double] | length";
+    let found = query_file(&fixture, CONFIG, expression).unwrap();
+    assert_eq!(found[0].value, Value::Int(40));
+}
+
+#[test]
 fn missing_files_are_not_found() {
     let error = failure(query_file(&Fixture::new(), "/data/none.json", "."));
     assert_eq!(error.code, ErrorCode::NotFound);
