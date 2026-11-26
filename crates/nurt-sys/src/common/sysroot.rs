@@ -59,12 +59,20 @@ impl SysRoot {
 
     /// Returns the content of the system file `path` as text.
     ///
+    /// System files are not guaranteed to be UTF-8 (names of accounts, mount
+    /// points and file names are bytes), so bytes that are not valid UTF-8
+    /// are replaced with U+FFFD instead of failing the whole read.
+    ///
     /// # Errors
     ///
     /// Returns the error of the file system, for example
     /// [`io::ErrorKind::NotFound`].
     pub fn read_to_string(&self, path: impl AsRef<Path>) -> io::Result<String> {
-        std::fs::read_to_string(self.path(path))
+        let bytes = std::fs::read(self.path(path))?;
+        Ok(match String::from_utf8(bytes) {
+            Ok(text) => text,
+            Err(error) => String::from_utf8_lossy(error.as_bytes()).into_owned(),
+        })
     }
 }
 
@@ -130,5 +138,22 @@ fn prefix_text(prefix: Prefix<'_>) -> String {
         Prefix::Verbatim(name) | Prefix::DeviceNS(name) => {
             format!("//./{}", name.to_string_lossy())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SysRoot;
+
+    #[test]
+    fn sysroot_read_to_string_replaces_invalid_utf8() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("table"), b"a\xFFb\nc\n").unwrap();
+        std::fs::write(dir.path().join("plain"), "zażółć\n").unwrap();
+        let root = SysRoot::new(dir.path());
+        assert_eq!(root.read_to_string("/table").unwrap(), "a\u{FFFD}b\nc\n");
+        assert_eq!(root.read_to_string("/plain").unwrap(), "zażółć\n");
+        let missing = root.read_to_string("/absent").unwrap_err();
+        assert_eq!(missing.kind(), std::io::ErrorKind::NotFound);
     }
 }
