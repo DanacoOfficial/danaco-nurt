@@ -261,7 +261,8 @@ impl Query {
         }
     }
 
-    /// Port written in the address.
+    /// Port written in the address; only the Unix credential stores read it.
+    #[cfg_attr(not(unix), allow(dead_code))]
     pub(crate) fn port(&self) -> Option<u16> {
         self.host
             .rsplit_once(':')
