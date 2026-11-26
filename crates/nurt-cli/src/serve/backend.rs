@@ -4,6 +4,7 @@
 //! Engines behind the server and the delivery of their events.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 
@@ -58,6 +59,9 @@ pub(crate) trait Backend: Send + Sync {
 pub(crate) struct Events {
     sender: Option<Sender<Value>>,
     request: Option<String>,
+    /// The client cancelled the request; a failed `exec.finished` then
+    /// carries `E_CANCELLED`, which the engine event does not state.
+    cancelled: AtomicBool,
 }
 
 impl Events {
@@ -68,7 +72,16 @@ impl Events {
             Value::Number(number) => Some(number.to_string()),
             _ => None,
         });
-        Self { sender, request }
+        Self {
+            sender,
+            request,
+            cancelled: AtomicBool::new(false),
+        }
+    }
+
+    /// Records that the client cancelled the request.
+    pub(crate) fn mark_cancelled(&self) {
+        self.cancelled.store(true, Ordering::Release);
     }
 
     /// Identifier of the request carried by its events: the `id` of the
@@ -102,9 +115,11 @@ impl EventListener for Events {
         let event = match delivered.body {
             EventBody::Stage(event) => event,
             EventBody::Lifecycle(Lifecycle::Finished { status }) => {
+                let cancelled = self.cancelled.load(Ordering::Acquire)
+                    && matches!(status, ReportStatus::Failed | ReportStatus::RolledBack);
                 Event::ExecFinished(ExecFinished {
                     status,
-                    error: None,
+                    error: cancelled.then_some(ErrorCode::Cancelled),
                 })
             }
             body => {
@@ -146,6 +161,7 @@ impl EngineBackend {
         let handle = self.engine.start(request, listener);
         loop {
             if context.cancel.is_cancelled() {
+                context.events.mark_cancelled();
                 handle.cancel();
             }
             if let Some(response) = handle.wait(Some(CANCEL_POLL)) {
@@ -359,6 +375,22 @@ mod tests {
             messages[2]["params"],
             json!({"seq": 3, "time": "1970-01-01T00:00:01Z", "request": "7", "t": "exec.finished", "status": "ok", "error": null})
         );
+    }
+
+    #[test]
+    fn a_cancelled_request_finishes_with_the_cancelled_error_code() {
+        let finished = |cancelled: bool, status: ReportStatus| {
+            let (sender, receiver) = mpsc::channel();
+            let events = Events::new(Some(sender), Some(&json!(7)));
+            if cancelled {
+                events.mark_cancelled();
+            }
+            events.deliver(delivered(1, EventBody::Lifecycle(Lifecycle::Finished { status })));
+            receiver.try_iter().next().unwrap()["params"]["error"].clone()
+        };
+        assert_eq!(finished(true, ReportStatus::Failed), json!("E_CANCELLED"));
+        assert_eq!(finished(false, ReportStatus::Failed), Value::Null);
+        assert_eq!(finished(true, ReportStatus::Ok), Value::Null);
     }
 
     #[test]
