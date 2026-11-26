@@ -22,6 +22,7 @@ use nurt_contracts::error::ErrorCode;
 use nurt_contracts::kinds::SyntaxVariant;
 use nurt_contracts::report::TextPosition;
 use nurt_contracts::spec::{ParamType, ScalarType, StageSpec};
+use nurt_correct::bash::BashTable;
 use nurt_correct::distance::{EXPECTED_LIMIT, NameEntry, NameIndex, NameKind, Options, expected};
 use nurt_correct::lexical::Rule;
 use nurt_correct::lexical::paths::{EscapePlace, LiteralFix, normalize_path, read_escapes_at};
@@ -277,6 +278,14 @@ fn nearest_first(tie: Vec<String>, nearest: Vec<String>) -> Vec<String> {
     names
 }
 
+/// Whether `name` is an alias that Nurt shares with bash (`cat`, `ls`, `rm`).
+/// The detector of the shell has already judged a text that starts with such a
+/// word and was not translated: it is not a habit, so the word is not renamed
+/// by a synonym and the text takes the Nurt route as written.
+fn is_shared_alias(name: &str) -> bool {
+    BashTable::embedded().is_ok_and(|table| table.is_habit(name))
+}
+
 impl<'a> Binder<'a> {
     /// Returns the corrector when corrections may be made at this point.
     pub(crate) fn active(&self) -> Option<&'a Corrector<'a>> {
@@ -310,7 +319,7 @@ impl<'a> Binder<'a> {
             return Ok(spec);
         }
         let mut tie = Vec::new();
-        if let Some(corrector) = self.active() {
+        if let Some(corrector) = self.active().filter(|_| !is_shared_alias(&stage.name)) {
             let index = corrector.commands(self.catalog);
             match values::resolve(
                 &stage.name,
