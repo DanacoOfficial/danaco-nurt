@@ -158,8 +158,11 @@ export class Nurt extends EventEmitter {
 
   /** Returns the description of a layer of the language. */
   async describe(options: DescribeOptions = {}): Promise<string> {
-    const params = compact({ subject: options.name ?? options.layer ?? "core", language: options.language ?? "en" });
-    return textResult(await this.#call("describe", params), "describe");
+    const params = compact({
+      subject: options.name ?? options.layer ?? "core",
+      language: options.language ?? this.#options.language ?? "en",
+    });
+    return descriptionText(await this.#call("describe", params));
   }
 
   /** Returns a help topic, or the index of topics. */
@@ -366,6 +369,22 @@ function objectResult(result: unknown, method: string): JsonObject {
     throw new NurtError("NURT_E_INTERNAL", `the server returned an invalid result for ${method}`);
   }
   return result;
+}
+
+/**
+ * Reads the result of `describe`: the member `description` of the server, or
+ * the value itself from the library. A value that is not text is returned as
+ * its JSON text.
+ */
+function descriptionText(result: unknown): string {
+  const description = isObject(result) && result["description"] !== undefined ? result["description"] : result;
+  if (typeof description === "string") {
+    return description;
+  }
+  if (description === undefined || description === null) {
+    throw new NurtError("NURT_E_INTERNAL", "the server returned an invalid result for describe");
+  }
+  return JSON.stringify(description);
 }
 
 function textResult(result: unknown, method: string): string {

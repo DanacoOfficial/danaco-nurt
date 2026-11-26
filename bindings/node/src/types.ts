@@ -47,7 +47,9 @@ export interface NurtEvent {
   readonly request?: string | null;
   /** Identifier of the request the event belongs to, in the form used by earlier servers. */
   readonly request_id?: number | string;
-  /** Identifier of the background job the event belongs to. */
+  /** Identifier of the background job, carried by the events `job.*` as `id`. */
+  readonly id?: string;
+  /** Identifier of the background job in the form used by earlier servers. */
   readonly job_id?: string;
   readonly [field: string]: unknown;
 }
@@ -79,7 +81,7 @@ export interface DescribeOptions {
   readonly layer?: string | undefined;
   /** Command or group to describe; default the whole layer. */
   readonly name?: string | undefined;
-  /** Language of the description; default `en`. */
+  /** Language of the description; default the language of the client, then `en`. */
   readonly language?: Language | undefined;
 }
 

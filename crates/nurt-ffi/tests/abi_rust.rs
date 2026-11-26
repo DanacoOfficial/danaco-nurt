@@ -521,7 +521,7 @@ fn events_arrive_in_seq_order_and_end_with_exec_finished() {
     assert!(
         events
             .iter()
-            .all(|event| event["request_id"] == events[0]["request_id"])
+            .all(|event| event["request"] == events[0]["request"] && event["request"].is_string())
     );
     assert_eq!(out.json()["report"]["status"], "ok");
 }

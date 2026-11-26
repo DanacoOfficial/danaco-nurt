@@ -117,6 +117,36 @@ describe("library backend", () => {
     });
   });
 
+  it("applies the language of the client to requests that name none", async () => {
+    observed.requests.length = 0;
+    await withClient({ ...LIBRARY, language: "pl" }, async (client) => {
+      await client.run("echo one");
+      await client.run("echo two", { language: "en" });
+      await client.check("echo three");
+      await client.help("core").catch(() => undefined);
+      await client.describe({ layer: "group" });
+    });
+    const languages = observed.requests.map((request) => request.params.options?.language ?? request.params.language);
+    assert.deepEqual(languages, ["pl", "en", "pl", "pl", "pl"]);
+  });
+
+  it("returns a description that is not text as its JSON text", async () => {
+    await withClient(LIBRARY, async (client) => {
+      const text = await client.describe({ name: "structured" });
+      assert.deepEqual(JSON.parse(text), { layer: "core", commands: [] });
+    });
+  });
+
+  it("uses the language en when the client names none", async () => {
+    observed.requests.length = 0;
+    await withClient(LIBRARY, async (client) => {
+      await client.describe({ layer: "group" });
+      await client.run("echo one");
+    });
+    const languages = observed.requests.map((request) => request.params.options?.language ?? request.params.language);
+    assert.deepEqual(languages, ["en", "en"]);
+  });
+
   it("rejects configuration overrides", async () => {
     await withClient({ ...LIBRARY, config: { journal: { max_ops: 5 } } }, async (client) => {
       await assert.rejects(client.info(), { status: "NURT_E_ARG" });

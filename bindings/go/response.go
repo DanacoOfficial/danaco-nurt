@@ -5,6 +5,7 @@
 package nurt
 
 import (
+	"bytes"
 	"encoding/json"
 )
 
@@ -114,10 +115,33 @@ func decodeResponse(raw json.RawMessage) (*Response, error) {
 // classified effect of the request, and diagnostics.
 type CheckResult struct {
 	// Bound is the bound tree nurt-bound/1 with targets, paths, external
-	// programs, network addresses, corrections and notable effects.
+	// programs, network addresses, corrections and notable effects; empty
+	// when the request does not bind.
 	Bound json.RawMessage `json:"bound"`
-	// Diagnostics lists positions and messages, including a language error.
+	// Diagnostics lists positions and messages.
 	Diagnostics json.RawMessage `json:"diagnostics,omitempty"`
+	// Error is the language error that stopped the binding, or nil.
+	Error *LanguageError `json:"error,omitempty"`
+
+	// Raw is the complete check document as JSON.
+	Raw json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes the check document and keeps a copy in Raw.
+func (r *CheckResult) UnmarshalJSON(data []byte) error {
+	type plain CheckResult
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*r = CheckResult(p)
+	if r.Error == nil {
+		r.Error = reportError(data)
+	}
+	r.Bound = emptyIfNull(r.Bound)
+	r.Diagnostics = emptyIfNull(r.Diagnostics)
+	r.Raw = append(json.RawMessage(nil), data...)
+	return nil
 }
 
 // ParseResult is the result of Client.Parse.
@@ -127,6 +151,50 @@ type ParseResult struct {
 	AST json.RawMessage `json:"ast"`
 	// Diagnostics lists positions and messages.
 	Diagnostics json.RawMessage `json:"diagnostics,omitempty"`
+	// Error is the language error that stopped the parse, or nil.
+	Error *LanguageError `json:"error,omitempty"`
+
+	// Raw is the complete result as JSON.
+	Raw json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes the result and keeps a copy in Raw.
+func (r *ParseResult) UnmarshalJSON(data []byte) error {
+	type plain ParseResult
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*r = ParseResult(p)
+	if r.Error == nil {
+		r.Error = reportError(data)
+	}
+	r.AST = emptyIfNull(r.AST)
+	r.Diagnostics = emptyIfNull(r.Diagnostics)
+	r.Raw = append(json.RawMessage(nil), data...)
+	return nil
+}
+
+// Returns the language error that the server reports in the report of a
+// failure response nurt-response/1, or nil.
+func reportError(data []byte) *LanguageError {
+	var envelope struct {
+		Report struct {
+			Error *LanguageError `json:"error"`
+		} `json:"report"`
+	}
+	if json.Unmarshal(data, &envelope) != nil {
+		return nil
+	}
+	return envelope.Report.Error
+}
+
+// A member that is JSON null is an absent value.
+func emptyIfNull(raw json.RawMessage) json.RawMessage {
+	if string(bytes.TrimSpace(raw)) == "null" {
+		return nil
+	}
+	return raw
 }
 
 // CorrectResult is the result of Client.Correct.

@@ -37,6 +37,11 @@ A language error, such as a syntax error, is part of the response:
 `resp.OK()` reports false and `resp.Err()` returns a `*nurt.LanguageError`.
 Failures of the call itself are returned as `*nurt.Error`.
 
+Both backends report the language error of `Check` and `Parse` in the `Error`
+member of the result, and `Correct`, `Catalog`, `History` and `Space` return the
+failure response `nurt-response/1` of the server (status `failed`, the error in
+`report.error`) as their raw result.
+
 ## Backends
 
 | Backend | Mechanism | Build |

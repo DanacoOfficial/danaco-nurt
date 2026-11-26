@@ -161,8 +161,10 @@ class CaseRun:
         if call in RESPONSE_CALLS and not view["ok"]:
             return "language_error", view, None, view.get("error", {}).get("code")
         value = view.get("value")
-        if isinstance(value, dict) and isinstance(value.get("error"), dict):
-            return "language_error", view, None, value["error"].get("code")
+        for pointer in ("/error", "/report/error"):
+            found, error = pointer_get(value, pointer)
+            if found and isinstance(error, dict):
+                return "language_error", view, None, error.get("code")
         return "ok", view, None, None
 
     def close(self) -> None:

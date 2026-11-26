@@ -84,6 +84,13 @@ describe("Nurt", () => {
     });
   });
 
+  it("describes in the language of the client when the call names none", async () => {
+    await withClient({ ...fakeServe(), language: "pl" }, async (client) => {
+      assert.equal(await client.describe(), "core pl");
+      assert.equal(await client.describe({ language: "en" }), "core en");
+    });
+  });
+
   it("rejects a server of another protocol version with NURT_E_ABI", async () => {
     await withClient(fakeServe("--protocol", "nurt-rpc/2"), async (client) => {
       await assert.rejects(client.info(), (/** @type {any} */ error) => {

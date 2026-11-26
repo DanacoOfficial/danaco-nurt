@@ -247,6 +247,26 @@ func TestLastErrorDescribesFailure(t *testing.T) {
 	}
 }
 
+func TestCancelledWaitCarriesNoRecordOfAnEarlierFailure(t *testing.T) {
+	e := openEngine(t)
+	// A failing call leaves a record on the thread; the status of a
+	// cancelled wait must not pick it up.
+	_, err := Schema("unknown")
+	expectStatus(t, "nurt_schema", err, Arg)
+	x, err := e.Start([]byte(validRequest), nil)
+	expectStatus(t, "nurt_exec_start", err, OK)
+	if err != nil {
+		return
+	}
+	defer x.Free()
+	expectStatus(t, "nurt_exec_cancel", x.Cancel(), OK)
+	_, err = x.Wait(WaitForever)
+	var ce *CallError
+	if errors.As(err, &ce) && ce.Record != nil {
+		t.Fatalf("status %d carries the record %s", ce.Status, ce.Record)
+	}
+}
+
 func TestNULByteIsRejectedBeforeTheCall(t *testing.T) {
 	e := openEngine(t)
 	_, _, err := e.Parse("info\x00more", variantA)

@@ -177,6 +177,7 @@ export class NativeChannel implements Channel {
   readonly #events: ChannelEvents;
   readonly #running = new Set<Running>();
   #engine: NativeEngine | undefined;
+  #language: string | undefined;
   #closed = false;
 
   /**
@@ -236,6 +237,8 @@ export class NativeChannel implements Channel {
       throw new NurtError("NURT_E_ARG", "configuration overrides are not supported by the library backend");
     }
     const session = options["session"];
+    const language = options["language"];
+    this.#language = typeof language === "string" ? language : undefined;
     const engineOptions = typeof session === "string" ? JSON.stringify({ session }) : null;
     let engine: NativeEngine;
     try {
@@ -279,6 +282,26 @@ export class NativeChannel implements Channel {
     return this.#engine;
   }
 
+  /**
+   * Adds the language of the client to what names none. The engine takes only
+   * the session when it is opened, so the language is written into each
+   * request envelope and into the parameters of `describe` and `help`.
+   */
+  #withLanguage(method: string, params: unknown): unknown {
+    const language = this.#language;
+    if (language === undefined || !isObject(params)) {
+      return params;
+    }
+    if (method === "describe" || method === "help") {
+      return params["language"] === undefined ? { ...params, language } : params;
+    }
+    if (method !== "run" && method !== "check") {
+      return params;
+    }
+    const options = isObject(params["options"]) ? params["options"] : {};
+    return options["language"] === undefined ? { ...params, options: { ...options, language } } : params;
+  }
+
   async #operation(method: string, params: unknown): Promise<unknown> {
     if (!NATIVE_OPERATIONS.has(method)) {
       throw new NurtError("NURT_E_ARG", `the library does not implement ${method}`);
@@ -286,7 +309,7 @@ export class NativeChannel implements Channel {
     const engine = this.#open();
     let text: string;
     try {
-      text = await engine.call(method, JSON.stringify(params ?? null));
+      text = await engine.call(method, JSON.stringify(this.#withLanguage(method, params) ?? null));
     } catch (error) {
       throw nativeFailure(error);
     }
@@ -345,7 +368,7 @@ export class NativeChannel implements Channel {
       this.#running.add(running);
       signal?.addEventListener("abort", onAbort, { once: true });
       try {
-        execution = engine.start(JSON.stringify(params ?? null), onMessage);
+        execution = engine.start(JSON.stringify(this.#withLanguage("run", params) ?? null), onMessage);
       } catch (error) {
         running.reject(nativeFailure(error));
       }

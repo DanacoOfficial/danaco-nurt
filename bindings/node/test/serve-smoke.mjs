@@ -22,6 +22,8 @@ try {
   const schema = await client.schema("request");
   assert.equal(typeof schema, "object");
 
+  assert.ok((await client.describe()).length > 0);
+
   const events = [];
   const execution = client.start("find /", { onEvent: (event) => events.push(event) });
   const response = await execution.wait();

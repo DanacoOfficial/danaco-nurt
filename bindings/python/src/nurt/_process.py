@@ -23,8 +23,8 @@ import threading
 from typing import IO, Any, Deque, Dict, Mapping, Optional, Sequence, Tuple, Union
 
 from ._backend import Backend, EventSink, ExecutionHandle, Json
-from ._errors import NurtError, NurtLanguageError, NurtTimeoutError, error_for_status
-from ._response import Response
+from ._errors import NurtError, NurtTimeoutError, error_for_status
+from ._response import query_result
 from ._version import __version__
 
 PROTOCOL = "nurt-rpc/1"
@@ -41,9 +41,6 @@ APPLICATION_ERROR_BASE = -32000
 
 APPLICATION_ERROR_LAST = -32099
 """Last JSON-RPC error code of the application range."""
-
-UNKNOWN_VALUE_CODE = "E_UNKNOWN_VALUE"
-"""Language error code of an argument value that the engine does not know."""
 
 INVALID_PARAMS = -32602
 """JSON-RPC error code of invalid parameters, reported as ``NURT_E_ARG``."""
@@ -442,14 +439,7 @@ class ProcessBackend(Backend):
         in, so the error is raised: as ``NURT_E_ARG`` when it names an unknown
         argument value, as :class:`NurtLanguageError` otherwise.
         """
-        result = self._object(method, params)
-        report = result.get("report")
-        if isinstance(report, dict) and report.get("status") == "failed" and isinstance(report.get("error"), dict):
-            response = Response(result)
-            if report["error"].get("code") == UNKNOWN_VALUE_CODE:
-                raise NurtError("NURT_E_ARG", str(report["error"].get("message", "")))
-            raise NurtLanguageError(response)
-        return result
+        return query_result(self._object(method, params))
 
     def _text(self, method: str, params: Mapping[str, Any]) -> str:
         result = self._query(method, params)

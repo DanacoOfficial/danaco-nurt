@@ -14,8 +14,8 @@
 "use strict";
 
 /** Observations of the tests. */
-/** @type {{ engines: any[], cancelled: number, started: number, running: number, maxRunning: number }} */
-const observed = { engines: [], cancelled: 0, started: 0, running: 0, maxRunning: 0 };
+/** @type {{ engines: any[], requests: any[], cancelled: number, started: number, running: number, maxRunning: number }} */
+const observed = { engines: [], requests: [], cancelled: 0, started: 0, running: 0, maxRunning: 0 };
 
 function report(status, error) {
   return error === undefined ? { status, kind: "program" } : { status, kind: "program", error };
@@ -92,6 +92,7 @@ class NativeEngine {
 
   call(operation, input) {
     const params = JSON.parse(input);
+    observed.requests.push({ operation, params });
     if (operation === "help") {
       return Promise.reject(new Error("NURT_E_IO: the help files cannot be read"));
     }
@@ -99,13 +100,17 @@ class NativeEngine {
       return Promise.resolve(JSON.stringify({ error: { code: "E_SYNTAX", message: "unexpected token" } }));
     }
     if (operation === "describe") {
-      return Promise.resolve(JSON.stringify({ result: { text: `${params.subject} ${params.language}` } }));
+      if (params.subject === "structured") {
+        return Promise.resolve(JSON.stringify({ result: { layer: "core", commands: [] } }));
+      }
+      return Promise.resolve(JSON.stringify({ result: `${params.subject} ${params.language}` }));
     }
     return Promise.resolve(JSON.stringify({ result: { operation, params } }));
   }
 
   start(request, onMessage) {
     const body = JSON.parse(request);
+    observed.requests.push({ operation: "run", params: body });
     if (body.program === "bad") {
       throw new Error("NURT_E_ARG: the request is not valid");
     }
