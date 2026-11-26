@@ -32,6 +32,10 @@ fn no_corpus_has_a_false_correction_or_a_violation() {
         .unwrap()
         .map(|entry| entry.unwrap().path())
         .filter(|path| path.is_dir())
+        // The PowerShell corpus describes the PowerShell translator alone; the
+        // test powershell_corpus of nurt-correct checks it, while binding does
+        // not know the dialect of its input.
+        .filter(|path| path.file_name().is_none_or(|name| name != "powershell"))
         .collect();
     dirs.sort();
     let mut report = Vec::new();

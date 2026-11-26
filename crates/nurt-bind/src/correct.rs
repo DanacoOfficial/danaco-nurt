@@ -278,12 +278,14 @@ fn nearest_first(tie: Vec<String>, nearest: Vec<String>) -> Vec<String> {
     names
 }
 
-/// Whether `name` is an alias that Nurt shares with bash (`cat`, `ls`, `rm`).
-/// The detector of the shell has already judged a text that starts with such a
-/// word and was not translated: it is not a habit, so the word is not renamed
-/// by a synonym and the text takes the Nurt route as written.
+/// Whether `name` is a command word that Nurt shares with bash (`cat`, `ls`,
+/// `rm`, `echo`, `date`). The detector of the shell has already judged a text
+/// that starts with such a word and was not translated: it is not a habit, so
+/// the word is not renamed by a synonym and the text takes the Nurt route as
+/// written.
 fn is_shared_alias(name: &str) -> bool {
-    BashTable::embedded().is_ok_and(|table| table.is_habit(name))
+    BashTable::embedded()
+        .is_ok_and(|table| table.is_habit(name) || table.parameters().contains_key(name))
 }
 
 impl<'a> Binder<'a> {
