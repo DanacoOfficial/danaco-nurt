@@ -86,6 +86,11 @@ func invoke(e *C.nurt_engine, f func() C.nurt_status) error {
 	if st == C.NURT_OK {
 		return nil
 	}
+	// These statuses leave the record of the thread unchanged, so the record
+	// found would belong to an earlier failure.
+	if st == C.NURT_E_TIMEOUT || st == C.NURT_E_CANCELLED {
+		return &CallError{Status: int(st)}
+	}
 	var buf C.nurt_buf
 	defer C.nurt_buf_free(&buf)
 	var record []byte

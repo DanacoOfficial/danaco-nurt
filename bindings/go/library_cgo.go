@@ -173,8 +173,14 @@ func (b *libraryBackend) check(ctx context.Context, env envelope) (*CheckResult,
 	var res CheckResult
 	err = b.use(ctx, func(e *capi.Engine) error {
 		bound, diag, err := e.Check(req)
-		res = CheckResult{Bound: bound, Diagnostics: diag}
-		return libraryError(err)
+		if err != nil {
+			return libraryError(err)
+		}
+		doc, err := checkDocument(bound, diag)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(doc, &res)
 	})
 	if err != nil {
 		return nil, err
@@ -190,8 +196,14 @@ func (b *libraryBackend) parse(ctx context.Context, program string, v Variant) (
 	var res ParseResult
 	err = b.use(ctx, func(e *capi.Engine) error {
 		ast, diag, err := e.Parse(program, code)
-		res = ParseResult{AST: ast, Diagnostics: diag}
-		return libraryError(err)
+		if err != nil {
+			return libraryError(err)
+		}
+		doc, err := parseDocument(ast, diag)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(doc, &res)
 	})
 	if err != nil {
 		return nil, err
