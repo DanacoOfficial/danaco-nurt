@@ -21,7 +21,7 @@ use crate::error::{BenchError, Result};
 use crate::metrics::{NurtCounts, RunMeasures};
 use crate::runlog::{self, Outcome};
 use crate::stats::{Bootstrap, Interval, mcnemar_exact, median, wilcoxon_signed_rank};
-use crate::task::Platform;
+use crate::task::{HostOs, Platform};
 
 /// Significance level of the protocol.
 pub const ALPHA: f64 = 0.05;
@@ -238,13 +238,26 @@ fn share(count: usize, total: usize) -> f64 {
     }
 }
 
-fn rate(outcomes: &[bool], bootstrap: &Bootstrap) -> Rate {
+/// Number of the cluster of every task name, in the order of the first
+/// appearance: the runs of one task form one cluster of the bootstrap.
+fn cluster_ids<'a>(tasks: impl IntoIterator<Item = &'a str>) -> Vec<usize> {
+    let mut seen: BTreeMap<&str, usize> = BTreeMap::new();
+    tasks
+        .into_iter()
+        .map(|task| {
+            let next = seen.len();
+            *seen.entry(task).or_insert(next)
+        })
+        .collect()
+}
+
+fn rate(outcomes: &[bool], clusters: &[usize], bootstrap: &Bootstrap) -> Rate {
     Rate {
         value: share(
             outcomes.iter().filter(|value| **value).count(),
             outcomes.len(),
         ),
-        interval: bootstrap.proportion(outcomes),
+        interval: bootstrap.proportion_by_cluster(outcomes, clusters),
     }
 }
 
@@ -289,18 +302,20 @@ fn condition_row(
         .filter_map(|run| run.description_tokens)
         .map(|t| t as f64)
         .collect();
+    let clusters = cluster_ids(runs.iter().map(|run| run.task.as_str()));
     ConditionRow {
         model: model.to_owned(),
         condition,
         runs: runs.len(),
-        completed: rate(&flags(|run| run.completed), bootstrap),
-        passed: rate(&flags(|run| run.passed), bootstrap),
-        harmed: rate(&flags(|run| run.harmed), bootstrap),
+        completed: rate(&flags(|run| run.completed), &clusters, bootstrap),
+        passed: rate(&flags(|run| run.passed), &clusters, bootstrap),
+        harmed: rate(&flags(|run| run.harmed), &clusters, bootstrap),
         lost: runs.iter().map(|run| run.lost).sum(),
         encoding: runs.iter().map(|run| run.encoding).sum(),
         median_tokens: median(
             &completed
                 .iter()
+                .filter(|run| run.tokens_measured)
                 .map(|run| run.tokens() as f64)
                 .collect::<Vec<_>>(),
         ),
@@ -326,16 +341,43 @@ fn condition_row(
     }
 }
 
-type PairKey<'a> = (&'a str, &'a str, u64);
+/// Model, task, seed and operating system of a run.
+type PairKey<'a> = (&'a str, &'a str, u64, &'static str);
 
-fn shell_index(runs: &[RunMeasures]) -> BTreeMap<PairKey<'_>, &RunMeasures> {
-    runs.iter()
-        .filter(|run| !run.condition.is_nurt())
-        .map(|run| ((run.model.as_str(), run.task.as_str(), run.seed), run))
-        .collect()
+fn pair_key(run: &RunMeasures) -> PairKey<'_> {
+    (
+        run.model.as_str(),
+        run.task.as_str(),
+        run.seed,
+        run.host.display_name(),
+    )
 }
 
-fn cost(measure: &str, shell: &[f64], nurt: &[f64], bootstrap: &Bootstrap) -> CostComparison {
+/// The shell run to which a Danaco Nurt run of the same model, task, seed
+/// and operating system is compared. When both shells ran there, the shell
+/// of the system is taken: PowerShell on Windows, bash elsewhere.
+fn shell_index(runs: &[RunMeasures]) -> BTreeMap<PairKey<'_>, &RunMeasures> {
+    let mut index = BTreeMap::new();
+    for run in runs.iter().filter(|run| !run.condition.is_nurt()) {
+        let native = match run.host {
+            HostOs::Windows => Condition::Pwsh,
+            HostOs::Linux | HostOs::Macos => Condition::Bash,
+        };
+        let key = pair_key(run);
+        if run.condition == native || !index.contains_key(&key) {
+            index.insert(key, run);
+        }
+    }
+    index
+}
+
+fn cost(
+    measure: &str,
+    shell: &[f64],
+    nurt: &[f64],
+    clusters: &[usize],
+    bootstrap: &Bootstrap,
+) -> CostComparison {
     let shell_median = median(shell);
     let nurt_median = median(nurt);
     CostComparison {
@@ -344,7 +386,7 @@ fn cost(measure: &str, shell: &[f64], nurt: &[f64], bootstrap: &Bootstrap) -> Co
         nurt_median,
         difference: Rate {
             value: nurt_median - shell_median,
-            interval: bootstrap.paired_median_difference(nurt, shell),
+            interval: bootstrap.paired_median_difference_by_cluster(nurt, shell, clusters),
         },
         wilcoxon_p: wilcoxon_signed_rank(nurt, shell).p_value,
     }
@@ -373,13 +415,37 @@ fn compare(
     let series = |pick: fn(&RunMeasures) -> f64| -> (Vec<f64>, Vec<f64>) {
         both.iter().map(|(s, n)| (pick(s), pick(n))).unzip()
     };
-    let (shell_tokens, nurt_tokens) = series(|run| run.tokens() as f64);
+    // Runs whose provider reported no token counts are not measured; they
+    // are left out of the token comparison and not counted as 0.
+    let measured: Vec<_> = both
+        .iter()
+        .filter(|(s, n)| s.tokens_measured && n.tokens_measured)
+        .collect();
+    let (shell_tokens, nurt_tokens): (Vec<f64>, Vec<f64>) = measured
+        .iter()
+        .map(|(s, n)| (s.tokens() as f64, n.tokens() as f64))
+        .unzip();
     let (shell_steps, nurt_steps) = series(|run| f64::from(run.steps));
     let (shell_seconds, nurt_seconds) = series(|run| run.wall_ms as f64 / 1000.0);
+    let pair_clusters = cluster_ids(pairs.iter().map(|(_, n)| n.task.as_str()));
+    let both_clusters = cluster_ids(both.iter().map(|(_, n)| n.task.as_str()));
+    let measured_clusters = cluster_ids(measured.iter().map(|(_, n)| n.task.as_str()));
     let costs = vec![
-        cost("tokens", &shell_tokens, &nurt_tokens, bootstrap),
-        cost("steps", &shell_steps, &nurt_steps, bootstrap),
-        cost("seconds", &shell_seconds, &nurt_seconds, bootstrap),
+        cost(
+            "tokens",
+            &shell_tokens,
+            &nurt_tokens,
+            &measured_clusters,
+            bootstrap,
+        ),
+        cost("steps", &shell_steps, &nurt_steps, &both_clusters, bootstrap),
+        cost(
+            "seconds",
+            &shell_seconds,
+            &nurt_seconds,
+            &both_clusters,
+            bootstrap,
+        ),
     ];
     let shell_completed = share(shell.iter().filter(|v| **v).count(), pairs.len());
     let nurt_completed = share(nurt.iter().filter(|v| **v).count(), pairs.len());
@@ -395,7 +461,11 @@ fn compare(
         nurt_completed,
         difference: Rate {
             value: nurt_completed - shell_completed,
-            interval: bootstrap.paired_proportion_difference(&nurt, &shell),
+            interval: bootstrap.paired_proportion_difference_by_cluster(
+                &nurt,
+                &shell,
+                &pair_clusters,
+            ),
         },
         shell_only,
         nurt_only,
@@ -419,9 +489,7 @@ fn comparisons(
             .iter()
             .filter(|run| run.condition == condition)
             .filter_map(|run| {
-                shells
-                    .get(&(run.model.as_str(), run.task.as_str(), run.seed))
-                    .map(|shell| (*shell, run))
+                shells.get(&pair_key(run)).map(|shell| (*shell, run))
             })
             .collect();
         if pairs.is_empty() {
@@ -582,11 +650,13 @@ pub fn analyse(all: &[RunMeasures], bootstrap: &Bootstrap) -> Analysis {
 /// # Errors
 ///
 /// Returns an error when a directory or a log cannot be read.
-pub fn load_measures(root: &Path) -> Result<Vec<RunMeasures>> {
+pub fn load_measures(root: &Path, include_mock: bool) -> Result<Vec<RunMeasures>> {
     let mut measures = Vec::new();
     for path in runlog::find_logs(root)? {
         let events = runlog::read(&path)?;
-        if let Some(run) = RunMeasures::from_events(&events) {
+        if let Some(run) = RunMeasures::from_events(&events)
+            && (include_mock || !run.mock)
+        {
             measures.push(run);
         }
     }
@@ -646,7 +716,7 @@ pub fn render_markdown(analysis: &Analysis) -> String {
         let _ = writeln!(
             out,
             "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
-            row.model,
+            cell(&row.model),
             row.condition,
             row.runs,
             percent_rate(&row.completed),
@@ -669,7 +739,7 @@ pub fn render_markdown(analysis: &Analysis) -> String {
             let _ = writeln!(
                 out,
                 "| {} | {} | {} | {} | {} | {} | {} | {} |",
-                row.model,
+                cell(&row.model),
                 row.condition,
                 n.calls,
                 percent(n.fv),
@@ -700,7 +770,7 @@ pub fn render_markdown(analysis: &Analysis) -> String {
         let _ = writeln!(
             out,
             "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
-            row.model,
+            cell(&row.model),
             row.condition,
             row.pairs,
             percent(row.shell_completed),
@@ -740,7 +810,7 @@ pub fn render_markdown(analysis: &Analysis) -> String {
         let _ = writeln!(
             out,
             "| {} | {} | {} | {} | {} |",
-            row.provocation,
+            cell(&row.provocation),
             row.condition,
             row.runs,
             percent(row.harmed),
@@ -782,6 +852,21 @@ pub fn render_markdown(analysis: &Analysis) -> String {
     out
 }
 
+/// Text of a CSV field: quoted, with doubled quotes, when it holds a comma, a
+/// quote or a line break (RFC 4180).
+fn csv_field(text: &str) -> String {
+    if text.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", text.replace('"', "\"\""))
+    } else {
+        text.to_owned()
+    }
+}
+
+/// Text of a Markdown table cell: the separator and line breaks are escaped.
+fn cell(text: &str) -> String {
+    text.replace('|', "\\|").replace(['\n', '\r'], " ")
+}
+
 /// Renders one row per run as CSV.
 #[must_use]
 pub fn render_csv(runs: &[RunMeasures]) -> String {
@@ -796,11 +881,11 @@ pub fn render_csv(runs: &[RunMeasures]) -> String {
         let _ = writeln!(
             out,
             "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-            run.run_id,
-            run.model,
-            run.producer.replace(',', " "),
+            csv_field(&run.run_id),
+            csv_field(&run.model),
+            csv_field(&run.producer),
             run.condition,
-            run.task,
+            csv_field(&run.task),
             run.domain,
             run.seed,
             outcome,
@@ -830,8 +915,13 @@ pub fn render_csv(runs: &[RunMeasures]) -> String {
 ///
 /// Returns an error when the logs cannot be read or the results cannot be
 /// written.
-pub fn analyse_directory(runs: &Path, out: &Path, bootstrap: &Bootstrap) -> Result<Analysis> {
-    let measures = load_measures(runs)?;
+pub fn analyse_directory(
+    runs: &Path,
+    out: &Path,
+    bootstrap: &Bootstrap,
+    include_mock: bool,
+) -> Result<Analysis> {
+    let measures = load_measures(runs, include_mock)?;
     let analysis = analyse(&measures, bootstrap);
     fs::create_dir_all(out).map_err(|error| BenchError::io(out, error))?;
     let summary = serde_json::to_string_pretty(&analysis)
@@ -872,6 +962,9 @@ mod tests {
             },
             provocation: (task.is_multiple_of(2)).then(|| "failed-cd".to_owned()),
             seed: 1,
+            host: HostOs::Linux,
+            mock: false,
+            tokens_measured: true,
             outcome: Outcome::Answered,
             completed,
             harmed: condition == Condition::Bash && task.is_multiple_of(2),
@@ -988,6 +1081,77 @@ mod tests {
         runs[1].harmed = true;
         let analysis = analyse(&runs, &BOOT);
         assert!(!analysis.entry[0].no_harm && !analysis.entry[0].satisfied);
+    }
+
+    #[test]
+    fn mock_runs_are_left_out_unless_requested() {
+        use crate::model::Provider;
+        use crate::runlog::tests::{end_event, header};
+        use crate::runlog::{Event, RunLog};
+        let dir = tempfile::tempdir().unwrap();
+        for (name, provider) in [("mock", Provider::Mock), ("real", Provider::Openai)] {
+            let mut head = header(Condition::Bash);
+            head.model.provider = provider;
+            head.run_id = format!("{name}/bash/t/s1");
+            let mut log = RunLog::create(&dir.path().join(format!("{name}.jsonl"))).unwrap();
+            log.write(&Event::Run(Box::new(head))).unwrap();
+            log.write(&end_event(Outcome::Answered)).unwrap();
+            log.finish().unwrap();
+        }
+        assert_eq!(load_measures(dir.path(), false).unwrap().len(), 1);
+        assert_eq!(load_measures(dir.path(), true).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn shell_runs_of_other_systems_and_shells_do_not_replace_each_other() {
+        let shell = |condition, host, completed| RunMeasures {
+            host,
+            ..run("m", condition, 1, completed, 10)
+        };
+        let runs = vec![
+            shell(Condition::Pwsh, HostOs::Linux, false),
+            shell(Condition::Bash, HostOs::Linux, true),
+            shell(Condition::Bash, HostOs::Windows, false),
+            shell(Condition::Pwsh, HostOs::Windows, true),
+            run("m", Condition::Nurt, 1, true, 10),
+        ];
+        let index = shell_index(&runs);
+        assert_eq!(index.len(), 2);
+        let linux = index[&("m", "t001", 1, "Linux")];
+        let windows = index[&("m", "t001", 1, "Windows")];
+        assert_eq!(linux.condition, Condition::Bash);
+        assert_eq!(windows.condition, Condition::Pwsh);
+    }
+
+    #[test]
+    fn tokens_that_were_not_measured_are_left_out_of_the_comparison() {
+        let mut silent = run("m", Condition::Nurt, 1, true, 0);
+        silent.tokens_measured = false;
+        let runs = vec![run("m", Condition::Bash, 1, true, 100), silent];
+        let analysis = analyse(&runs, &BOOT);
+        let comparison = &analysis.comparisons[0];
+        let tokens = comparison.costs.iter().find(|c| c.measure == "tokens").unwrap();
+        assert!(tokens.nurt_median.is_nan() && tokens.shell_median.is_nan());
+        assert!(!comparison.cost_met);
+    }
+
+    #[test]
+    fn csv_fields_and_table_cells_are_escaped() {
+        assert_eq!(csv_field("plain"), "plain");
+        assert_eq!(csv_field("a,b"), "\"a,b\"");
+        assert_eq!(csv_field("say \"x\"\nnow"), "\"say \"\"x\"\"\nnow\"");
+        assert_eq!(cell("a|b\nc"), "a\\|b c");
+        let mut odd = run("m,1\"x", Condition::Bash, 1, true, 10);
+        odd.producer = "Lab, Inc".into();
+        let csv = render_csv(&[odd]);
+        let row = csv.lines().nth(1).unwrap();
+        assert!(row.starts_with("\"m,1\"\"x/bash/t1/s1\",\"m,1\"\"x\",\"Lab, Inc\",bash,"));
+        let other = RunMeasures {
+            model: "a|b".into(),
+            ..run("m1", Condition::Bash, 1, true, 10)
+        };
+        let analysis = analyse(&[other], &BOOT);
+        assert!(render_markdown(&analysis).contains("| a\\|b | bash |"));
     }
 
     #[test]

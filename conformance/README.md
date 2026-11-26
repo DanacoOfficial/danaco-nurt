@@ -44,6 +44,10 @@ temporary directory with three subdirectories and passes them to the server:
 
 A case that requires fixtures also gets the fixtures described in "Fixtures".
 
+The server starts with a clean environment: besides the variables of this
+document it inherits only `PATH`, `HOME`, `TMPDIR`, `TMP` and `SYSTEMROOT` of
+the host, when they are set.
+
 Exit codes: `0` when every applicable mandatory case passed, `1` when at least
 one mandatory case failed, `2` for an invalid invocation or an unreadable case
 directory.

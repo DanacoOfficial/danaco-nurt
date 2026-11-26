@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::condition::Condition;
+use crate::model::Provider;
 use crate::oracle::Verdict;
 use crate::runlog::{Event, NurtCall, Outcome, RunHeader, ToolEvent};
-use crate::task::Platform;
+use crate::task::{HostOs, Platform};
 
 /// Interpreters whose use counts as an intermediate script.
 const INTERPRETERS: [&str; 8] = ["python", "py", "perl", "ruby", "node", "php", "deno", "bun"];
@@ -81,6 +82,14 @@ pub struct RunMeasures {
     pub steps: u32,
     /// Tool calls.
     pub tool_calls: u32,
+    /// Operating system of the run.
+    pub host: HostOs,
+    /// Whether the run was made by the mock model and not by a provider.
+    pub mock: bool,
+    /// Whether the provider reported the input tokens of every model call; a
+    /// call without a count has an input of 0 and is not measured, which is
+    /// not the same as a measured 0.
+    pub tokens_measured: bool,
     /// Input tokens.
     pub input_tokens: u64,
     /// Output tokens.
@@ -124,8 +133,23 @@ fn words(text: &str) -> impl Iterator<Item = &str> {
 pub fn shell_uses_script(command: &str) -> bool {
     command
         .split(['\n', ';', '&', '|', '(', '`'])
-        .filter_map(|segment| words(segment).next())
+        .filter_map(launched_word)
         .any(|first| INTERPRETERS.contains(&word_name(first)))
+}
+
+/// Programs that start the program given after their options.
+const LAUNCHERS: [&str; 7] = ["env", "sudo", "xargs", "nohup", "time", "exec", "command"];
+
+/// The program that a command segment starts: its first word, or, behind
+/// `env`, `sudo`, `xargs` and similar launchers, the first word that is not
+/// an option or a variable assignment.
+fn launched_word(segment: &str) -> Option<&str> {
+    let mut words = words(segment);
+    let mut first = words.next()?;
+    while LAUNCHERS.contains(&word_name(first)) {
+        first = words.find(|word| !word.starts_with('-') && !word.contains('='))?;
+    }
+    Some(first)
 }
 
 /// Whether a Danaco Nurt program runs an interpreter or a shell with `run`.
@@ -239,11 +263,11 @@ impl RunMeasures {
                 _ => None,
             })
             .collect();
-        let description_tokens = groups
-            .iter()
-            .try_fold(header.tool.description_tokens?, |total, group| {
-                group.tokens.map(|tokens| total + tokens)
-            });
+        let description_tokens = header.tool.description_tokens.and_then(|core| {
+            groups.iter().try_fold(core, |total, group| {
+                group.tokens.map(|tokens| total.saturating_add(tokens))
+            })
+        });
         let nurt_calls: Vec<&NurtCall> =
             tools.iter().filter_map(|tool| tool.nurt.as_ref()).collect();
         let retries = tools.windows(2).filter(|pair| pair[0].is_error).count();
@@ -268,6 +292,12 @@ impl RunMeasures {
             forbidden: harm.map_or(0, |harm| harm.forbidden.len()),
             steps: end.steps,
             tool_calls: end.tool_calls,
+            host: header.host,
+            mock: header.model.provider == Provider::Mock,
+            tokens_measured: events.iter().all(|event| match event {
+                Event::Model(model) => model.response.usage.input > 0,
+                _ => true,
+            }),
             input_tokens: end.tokens.input,
             output_tokens: end.tokens.output,
             description_tokens,
@@ -335,6 +365,14 @@ mod tests {
         assert!(shell_uses_script("py.exe -3 x.py"));
         assert!(!shell_uses_script("sed -i 's/python/py/' a.txt"));
         assert!(!shell_uses_script("ls python"));
+        assert!(shell_uses_script("env python3 fix.py"));
+        assert!(shell_uses_script("env -i LC_ALL=C python fix.py"));
+        assert!(shell_uses_script("sudo perl -e 1"));
+        assert!(shell_uses_script("ls | xargs -n1 python3 check.py"));
+        assert!(shell_uses_script("cd src && nohup ruby run.rb"));
+        assert!(!shell_uses_script("env FOO=1 ls python"));
+        assert!(!shell_uses_script("sudo"));
+        assert!(!shell_uses_script("xargs grep python"));
         assert!(nurt_uses_script("run \"bash\" args: [\"-c\", \"ls\"]"));
         assert!(!nurt_uses_script("run \"cargo\" args: [\"test\"]"));
     }
@@ -366,6 +404,65 @@ mod tests {
         assert_eq!(measures.description_tokens, Some(3));
         assert!(RunMeasures::from_events(&events[..3]).is_none());
         assert!(RunMeasures::from_events(&events[1..]).is_none());
+    }
+
+    #[test]
+    fn calls_without_a_token_count_are_not_measured() {
+        let counted = vec![
+            Event::Run(Box::new(header(Condition::Bash))),
+            model_event(1, "a", None),
+            end_event(Outcome::Answered),
+        ];
+        let measures = RunMeasures::from_events(&counted).unwrap();
+        assert!(measures.tokens_measured);
+        assert_eq!(measures.host, HostOs::Linux);
+
+        let mut silent = model_event(1, "a", None);
+        if let Event::Model(model) = &mut silent {
+            model.response.usage.input = 0;
+        }
+        let uncounted = vec![
+            Event::Run(Box::new(header(Condition::Bash))),
+            silent,
+            end_event(Outcome::Answered),
+        ];
+        assert!(!RunMeasures::from_events(&uncounted).unwrap().tokens_measured);
+    }
+
+    #[test]
+    fn a_provider_without_token_counts_still_gives_measures() {
+        let mut uncounted = header(Condition::NurtGroups);
+        uncounted.tool.description_tokens = None;
+        let events = vec![
+            Event::Run(Box::new(uncounted)),
+            Event::Group(GroupEvent {
+                step: 1,
+                group: "git".into(),
+                chars: 100,
+                tokens: Some(30),
+            }),
+            oracle(&[]),
+            end_event(Outcome::Answered),
+        ];
+        let measures = RunMeasures::from_events(&events).unwrap();
+        assert_eq!(measures.description_tokens, None);
+        assert_eq!(measures.description_chars, 110);
+        assert!(measures.passed);
+
+        let mut partial = header(Condition::NurtGroups);
+        partial.tool.description_tokens = Some(3);
+        let events = vec![
+            Event::Run(Box::new(partial)),
+            Event::Group(GroupEvent {
+                step: 1,
+                group: "git".into(),
+                chars: 100,
+                tokens: None,
+            }),
+            end_event(Outcome::Answered),
+        ];
+        let measures = RunMeasures::from_events(&events).unwrap();
+        assert_eq!(measures.description_tokens, None);
     }
 
     #[test]

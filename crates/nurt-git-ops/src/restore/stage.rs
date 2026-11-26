@@ -145,11 +145,13 @@ fn request_of(args: &BoundArgs, root: &Path) -> Result<RestoreRequest> {
         .iter()
         .map(|path| relative_path(root, path))
         .collect::<Result<Vec<_>>>()?;
+    let staged = args::flag(args, "staged")?;
     Ok(RestoreRequest {
         paths,
         source: args::text(args, "source")?,
-        staged: args::flag(args, "staged")?,
-        worktree: args.bool("worktree")?.unwrap_or(true),
+        staged,
+        // As in Git, `staged` alone leaves the working tree untouched.
+        worktree: args.bool("worktree")?.unwrap_or(!staged),
         hunks: args::list(args, "hunks")?,
     })
 }
@@ -163,7 +165,7 @@ fn relative_path(root: &Path, path: &str) -> Result<BString> {
     }
     let outside = || {
         Error::new(
-            ErrorCode::Arg,
+            ErrorCode::InvalidValue,
             format!(
                 "{path} is outside the repository at {}; give paths inside it",
                 root.display()
@@ -408,6 +410,34 @@ mod tests {
     }
 
     #[test]
+    fn staged_alone_leaves_the_working_tree_alone() {
+        let root = Path::new("/r");
+        let only_index = request_of(
+            &args(
+                root,
+                &[("paths", paths(&["a"])), ("staged", Value::Bool(true))],
+            ),
+            root,
+        )
+        .expect("request");
+        assert!(only_index.staged);
+        assert!(!only_index.worktree);
+        let both = request_of(
+            &args(
+                root,
+                &[
+                    ("paths", paths(&["a"])),
+                    ("staged", Value::Bool(true)),
+                    ("worktree", Value::Bool(true)),
+                ],
+            ),
+            root,
+        )
+        .expect("request");
+        assert!(both.staged && both.worktree);
+    }
+
+    #[test]
     fn absolute_paths_outside_the_root_are_refused() {
         let root = Path::new("/r/repo");
         assert_eq!(
@@ -417,6 +447,7 @@ mod tests {
         assert_eq!(relative_path(root, "/r/repo").expect("root"), ".");
         assert_eq!(relative_path(root, "*.txt").expect("pattern"), "*.txt");
         let error = relative_path(root, "/elsewhere/a.txt").expect_err("outside");
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
         assert_eq!(error.data().problem.as_deref(), Some("outside_repository"));
     }
 

@@ -198,18 +198,22 @@ fn estimate(chars: usize) -> u64 {
         .div_ceil(CHARS_PER_TOKEN)
 }
 
+fn chars(text: &str) -> usize {
+    text.chars().count()
+}
+
 fn request_chars(request: &ChatRequest<'_>) -> usize {
     let parts: usize = request
         .messages
         .iter()
         .flat_map(|message| &message.parts)
         .map(|part| match part {
-            Part::Text { text } => text.len(),
-            Part::ToolCall { input, .. } => input.to_string().len(),
-            Part::ToolResult { output, .. } => output.len(),
+            Part::Text { text } => chars(text),
+            Part::ToolCall { input, .. } => chars(&input.to_string()),
+            Part::ToolResult { output, .. } => chars(output),
         })
         .sum();
-    request.system.len() + request.tool.description.len() + parts
+    chars(request.system) + chars(&request.tool.description) + parts
 }
 
 impl ModelClient for MockClient {
@@ -227,10 +231,10 @@ impl ModelClient for MockClient {
                 }
             })
             .collect();
-        let output_chars = step.text.len()
+        let output_chars = chars(&step.text)
             + tool_calls
                 .iter()
-                .map(|call| call.input.to_string().len())
+                .map(|call| chars(&call.input.to_string()))
                 .sum::<usize>();
         let usage = step.usage.unwrap_or(Usage {
             input: estimate(request_chars(request)),
@@ -250,7 +254,7 @@ impl ModelClient for MockClient {
     }
 
     fn count_tokens(&mut self, text: &str) -> Result<Option<u64>> {
-        Ok(Some(estimate(text.len())))
+        Ok(Some(estimate(chars(text))))
     }
 }
 
@@ -331,6 +335,15 @@ mod tests {
         assert_eq!(ask(&mut other).text, "No script.");
         assert_eq!(model().info().id, "scripted");
         assert_eq!(other.count_tokens("12345").unwrap(), Some(2));
+    }
+
+    #[test]
+    fn token_estimates_count_characters_not_bytes() {
+        let mut client = model().client(&key("git-001", Condition::Nurt, 1));
+        // Four characters of two bytes each are one token, not two.
+        assert_eq!(client.count_tokens("żółw").unwrap(), Some(1));
+        assert_eq!(client.count_tokens("żółwia").unwrap(), Some(2));
+        assert_eq!(client.count_tokens("").unwrap(), Some(0));
     }
 
     #[test]

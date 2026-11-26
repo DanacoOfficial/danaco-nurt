@@ -257,6 +257,19 @@ fn push_of_an_unknown_path_is_rejected() {
 }
 
 #[test]
+fn push_of_a_path_outside_the_repository_is_an_invalid_value() {
+    let fx = base();
+    let journal = Journal::new();
+    write(&fx, "a.txt", "x\n");
+    let request = StashRequest {
+        paths: vec![PathBuf::from("/nurt-outside-the-repository/a.txt")],
+        ..StashRequest::new(StashAction::Push)
+    };
+    let err = run(&fx, &journal, &request).unwrap_err();
+    assert_eq!(err.code, ErrorCode::InvalidValue);
+}
+
+#[test]
 fn push_counts_and_keeps_excluded_files() {
     let fx = base();
     let journal = Journal::new();
@@ -353,6 +366,22 @@ fn apply_on_another_commit_merges_cleanly() {
 }
 
 #[test]
+fn a_number_that_names_no_commit_is_a_position() {
+    let fx = base();
+    let journal = Journal::new();
+    dirty(&fx);
+    let pushed = push(&fx, &journal);
+    let repo = GitRepo::open(fx.path(), &ctx()).unwrap();
+    for spec in ["0", "0000", "stash@{0}"] {
+        let (position, id) = entries::resolve(&repo, Some(spec)).unwrap();
+        assert_eq!(position, Some(0), "{spec}");
+        assert_eq!(Some(id), pushed.created, "{spec}");
+    }
+    assert!(!entries::is_digit_only_hash(&repo, Some("0000")));
+    assert!(!entries::is_digit_only_hash(&repo, None));
+}
+
+#[test]
 fn pop_removes_the_entry_after_a_clean_merge() {
     let fx = base();
     let journal = Journal::new();
@@ -364,6 +393,7 @@ fn pop_removes_the_entry_after_a_clean_merge() {
     assert_eq!(git_file(&fx, "refs/stash"), None);
     assert_eq!(git_file(&fx, "logs/refs/stash"), None);
     assert_eq!(read(&fx, "a.txt").as_deref(), Some("a-work\n"));
+    assert_eq!(git_file(&fx, "AUTO_MERGE"), None);
 }
 
 #[test]

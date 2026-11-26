@@ -7,8 +7,8 @@
 use std::ffi::OsString;
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
+use std::process::{Child, Command, Stdio};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread;
 use std::time::Instant;
 
@@ -180,7 +180,11 @@ fn take_until(chars: &mut std::str::Chars<'_>, end: char, escapes: bool) -> Opti
 #[derive(Debug)]
 pub struct ProcessConnection {
     child: Child,
-    stdin: Option<ChildStdin>,
+    /// Lines for the writer thread, which owns the standard input of the
+    /// server; `None` once the input is closed.
+    writer: Option<Sender<String>>,
+    /// Result of every write of the writer thread.
+    written: Receiver<Result<(), String>>,
     messages: Receiver<Result<Value, String>>,
     next_id: u64,
     deadline: Instant,
@@ -188,9 +192,11 @@ pub struct ProcessConnection {
 }
 
 impl ProcessConnection {
-    /// Starts the server with the given environment variables.
+    /// Starts the server with a clean environment: only the variables of
+    /// [`INHERITED_VARIABLES`] of the host are passed on, then `env`.
     ///
-    /// Calls fail with [`CallError::Timeout`] once `deadline` has passed;
+    /// Calls fail with [`CallError::Timeout`] once `deadline` has passed,
+    /// also when the server does not read a request;
     /// [`Self::set_deadline`] replaces it.
     ///
     /// # Errors
@@ -205,8 +211,14 @@ impl ProcessConnection {
             .words()
             .split_first()
             .ok_or_else(|| CallError::Transport("empty command".to_owned()))?;
-        let mut child = Command::new(program)
-            .args(args)
+        let mut command = Command::new(program);
+        command.args(args).env_clear();
+        for name in INHERITED_VARIABLES {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
+        let mut child = command
             .envs(env.iter().map(|(name, value)| (name, value)))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -217,6 +229,23 @@ impl ProcessConnection {
             .stdout
             .take()
             .ok_or_else(|| CallError::Transport("no standard output".to_owned()))?;
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| CallError::Transport("no standard input".to_owned()))?;
+        let (writer, requests) = channel::<String>();
+        let (done, written) = channel();
+        thread::spawn(move || {
+            for line in requests {
+                let sent = stdin
+                    .write_all(line.as_bytes())
+                    .and_then(|()| stdin.flush())
+                    .map_err(|error| error.to_string());
+                if done.send(sent).is_err() {
+                    return;
+                }
+            }
+        });
         let (sender, messages) = channel();
         thread::spawn(move || {
             for line in BufReader::new(stdout).lines() {
@@ -232,7 +261,8 @@ impl ProcessConnection {
             }
         });
         Ok(Self {
-            stdin: child.stdin.take(),
+            writer: Some(writer),
+            written,
             child,
             messages,
             next_id: 1,
@@ -257,7 +287,7 @@ impl ProcessConnection {
     pub fn shutdown(mut self) {
         // The process is killed in `drop` when it does not end by itself.
         let _ = self.call(method::SHUTDOWN, &Value::Object(serde_json::Map::new()));
-        self.stdin = None;
+        self.writer = None;
         let _ = self.wait_for_exit();
     }
 
@@ -303,6 +333,12 @@ impl ProcessConnection {
     }
 }
 
+/// Variables of the host that the server under test inherits, besides the
+/// variables that the suite sets: the search path, the home and temporary
+/// directories and the system directory that Windows needs to start a
+/// program.
+pub const INHERITED_VARIABLES: [&str; 5] = ["PATH", "HOME", "TMPDIR", "TMP", "SYSTEMROOT"];
+
 /// Interval of checks whether the server process has ended.
 const EXIT_POLL: std::time::Duration = std::time::Duration::from_millis(10);
 
@@ -336,16 +372,24 @@ impl Connection for ProcessConnection {
     fn call(&mut self, method: &str, params: &Value) -> Result<Value, CallError> {
         let id = self.next_id;
         self.next_id += 1;
-        let stdin = self
-            .stdin
-            .as_mut()
-            .ok_or_else(|| CallError::Transport("standard input is closed".to_owned()))?;
+        let closed = || CallError::Transport("standard input is closed".to_owned());
+        let writer = self.writer.as_ref().ok_or_else(closed)?;
         let mut line = protocol::request(id, method, params).to_string();
         line.push('\n');
-        stdin
-            .write_all(line.as_bytes())
-            .and_then(|()| stdin.flush())
-            .map_err(|error| CallError::Transport(format!("cannot write a request: {error}")))?;
+        // The result of a write that timed out earlier is not the one of this call.
+        while self.written.try_recv().is_ok() {}
+        writer.send(line).map_err(|_| closed())?;
+        let remaining = self.deadline.saturating_duration_since(Instant::now());
+        match self.written.recv_timeout(remaining) {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                return Err(CallError::Transport(format!(
+                    "cannot write a request: {error}"
+                )));
+            }
+            Err(RecvTimeoutError::Timeout) => return Err(CallError::Timeout),
+            Err(RecvTimeoutError::Disconnected) => return Err(closed()),
+        }
         self.receive(id)
     }
 
@@ -432,6 +476,37 @@ mod tests {
                 .contains("reachable")
         );
         assert_eq!(CallError::Timeout.to_string(), "time limit reached");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_server_gets_a_clean_environment() {
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("server.sh");
+        std::fs::write(
+            &script,
+            "read -r line\nprintf '{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"host\":\"%s\",\"suite\":\"%s\"}}\\n' \"${CARGO_MANIFEST_DIR:-unset}\" \"${NURT_TEST_VARIABLE:-unset}\"\n",
+        )
+        .unwrap();
+        let command = CommandLine::parse(&format!("sh {}", script.display())).unwrap();
+        let env = [("NURT_TEST_VARIABLE".to_owned(), OsString::from("set"))];
+        let deadline = Instant::now() + std::time::Duration::from_secs(20);
+        let mut connection = ProcessConnection::spawn(&command, &env, deadline).unwrap();
+        let result = connection.call("initialize", &json!({})).unwrap();
+        assert_eq!(result, json!({"host": "unset", "suite": "set"}));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_server_that_does_not_read_its_input_ends_in_a_timeout() {
+        let command = CommandLine::parse("sleep 30").unwrap();
+        let deadline = Instant::now() + std::time::Duration::from_millis(300);
+        let mut connection = ProcessConnection::spawn(&command, &[], deadline).unwrap();
+        let params = json!({"text": "x".repeat(4 << 20)});
+        assert_eq!(
+            connection.call("check", &params),
+            Err(CallError::Timeout)
+        );
     }
 
     #[test]

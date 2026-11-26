@@ -127,6 +127,7 @@ git.stash "/home/user/repo" action: drop stash: "stash@{1}"
 | `E_GIT_NOT_REPOSITORY` | `repo` is not inside a repository. | Give the path of a working tree |
 | `E_GIT_REF` | The branch has no commit yet (`unborn_branch`), the stash is empty (`no_stash`) or `pop`/`drop` names a commit outside the list (`not_a_stash_reference`). | `git.stash "/home/user/repo" action: list` |
 | `E_GIT_REVISION` | The entry does not exist (`out_of_range`) or is not a stash commit (`not_a_stash`). | `git.stash "/home/user/repo" action: list` |
+| `E_INVALID_VALUE` | A path of `paths` is outside the repository (`outside_repository`). | Give a path inside the working tree |
 | `E_NO_MATCH` | A path of `paths` names no file known to git. | Check the path with `git.status "/home/user/repo"` |
 | `E_GIT_IN_PROGRESS` | The index has unresolved conflicts (`unmerged_paths`). | Resolve and stage the conflicting files |
 | `E_GIT_DIRTY` | Local changes would be overwritten (`local_changes`) or untracked files of the entry exist (`untracked_overwritten`); the paths are in `details.paths`. | `git.stash "/home/user/repo" action: push`, or move the files away |

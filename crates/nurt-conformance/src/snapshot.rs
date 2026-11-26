@@ -639,6 +639,28 @@ fn read_tree(root: &Path) -> Result<BTreeMap<String, Actual>, SnapshotError> {
     Ok(tree)
 }
 
+/// Text of a file name. A name that is not valid UTF-8 keeps every invalid
+/// byte as U+FFFD and its two hexadecimal digits, so that two different names
+/// never give the same text.
+fn name_text(name: &std::ffi::OsStr) -> String {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt as _;
+        let mut text = String::new();
+        for chunk in name.as_bytes().utf8_chunks() {
+            text.push_str(chunk.valid());
+            for byte in chunk.invalid() {
+                text.push_str(&format!("\u{FFFD}{byte:02x}"));
+            }
+        }
+        text
+    }
+    #[cfg(not(unix))]
+    {
+        name.to_string_lossy().into_owned()
+    }
+}
+
 fn read_dir_into(
     dir: &Path,
     prefix: &str,
@@ -648,7 +670,7 @@ fn read_dir_into(
     for item in fs::read_dir(dir).map_err(io_error(dir))? {
         empty = false;
         let item = item.map_err(io_error(dir))?;
-        let name = item.file_name().to_string_lossy().into_owned();
+        let name = name_text(&item.file_name());
         let relative = if prefix.is_empty() {
             name
         } else {
@@ -724,6 +746,19 @@ mod tests {
             Some("2026-01-31T12:00:00Z")
         );
         assert_eq!(Snapshot::from_json(&captured.to_json()).unwrap(), captured);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn names_that_are_not_utf8_stay_distinct() {
+        use std::os::unix::ffi::OsStrExt as _;
+        let root = tempfile::tempdir().unwrap();
+        for name in [&b"a\xff"[..], &b"a\xfe"[..], "ż.txt".as_bytes()] {
+            fs::write(root.path().join(std::ffi::OsStr::from_bytes(name)), "x").unwrap();
+        }
+        let captured = Snapshot::capture(root.path(), false, false).unwrap();
+        let paths: Vec<&str> = captured.entries.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(paths, vec!["a\u{FFFD}fe", "a\u{FFFD}ff", "ż.txt"]);
     }
 
     #[test]

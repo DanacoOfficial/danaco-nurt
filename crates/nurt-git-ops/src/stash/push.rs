@@ -43,7 +43,7 @@ impl Scope {
             .map(|path| {
                 relative_path(repo, path).ok_or_else(|| {
                     error(
-                        ErrorCode::NoMatch,
+                        ErrorCode::InvalidValue,
                         format!("path {} is outside the repository", path.display()),
                     )
                     .with_problem("outside_repository")
