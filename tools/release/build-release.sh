@@ -117,8 +117,9 @@ esac
 if [ "$windows" -eq 1 ]; then targets+=("$WINDOWS"); fi
 log "version $version, targets: ${targets[*]}"
 
-# Archive of the nurt-lib library. Another executor splits the library into
-# its own archive; adjust only this function once its interface is fixed.
+# Archive of the nurt-lib library, run only with --lib-archive. The split of
+# the library archive (#58) is not merged: --kind is a placeholder that pack.py
+# does not accept yet. Adjust only this function after the merge of #58.
 # Arguments: target, library file, output directory.
 lib_pack_command() {
   python3 -I "$root/packaging/release/pack.py" --root "$root" --version "$version" \

@@ -40,7 +40,9 @@ tools/release/build-release.sh 0.1.1 /tmp/release-0.1.1 --sign /path/to/gnupg-ho
 
 Steps: build of `nurt-cli` and `nurt-ffi` for `x86_64-unknown-linux-gnu`, for `x86_64-unknown-linux-musl` when the target is installed (`NURT_RELEASE_MUSL=auto`, `1` or `0`) and for `x86_64-pc-windows-msvc` with `cargo xwin build` (skipped with `--no-windows`); `nurt-docgen man`, `completions` and `site`; `packaging/release/pack.py` for each target; `checksums.txt`; with `--sign` a detached armored signature `checksums.txt.asc` and `gpg --verify`; `nurt version` and `nurt doctor` from the unpacked Linux archive.
 
-The archive of the library `nurt-lib` is assembled with `--lib-archive`. The command is the function `lib_pack_command` at the top of the script; changing the call of the executor of the library archive is a change of that function only.
+The current layout has one archive per target; the shared library (`libnurt.so.1`, `nurt.dll`) and the header lie inside it, packed by `pack.py --library`.
+
+The separate archive of the library `nurt-lib` is a step after the merge of #58 (the split of the library archive). Until then the flag `--lib-archive` is off, and with the flag the script runs the function `lib_pack_command`, whose call of `pack.py` (`--kind library`) is a placeholder that `pack.py` does not accept yet. After the merge of #58, adjusting the arguments in `lib_pack_command` (one function, `build-release.sh`) and running the script with `--lib-archive` completes the step.
 
 The environment of the build (`CARGO_TARGET_DIR`, `RUSTUP_TOOLCHAIN`, `RUSTC_WRAPPER`) is taken from the caller. The output directory must be empty or absent. A key is never read from a default location: `--sign` requires an explicit GnuPG home.
 
