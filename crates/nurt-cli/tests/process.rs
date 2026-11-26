@@ -11,6 +11,8 @@
 )]
 
 use std::io::Write;
+#[cfg(feature = "mcp")]
+use std::io::{BufRead, BufReader};
 use std::process::{Command, Output, Stdio};
 
 use nurt_contracts::envelope::Response;
@@ -246,4 +248,135 @@ fn session_reads_programs_from_a_pipe() {
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert!(!stdout(&output).contains("E_UNSUPPORTED"));
     assert!(!stderr(&output).contains("E_UNSUPPORTED"));
+}
+
+/// Command of the executable with the state and configuration directories
+/// in `home` and without the variables of the configuration.
+fn command(args: &[&str], home: &std::path::Path) -> Command {
+    let mut command = Command::new(BIN);
+    command
+        .args(args)
+        .env_clear()
+        .env("HOME", home)
+        .env("XDG_STATE_HOME", home.join("state"))
+        .env("XDG_CONFIG_HOME", home.join("config"));
+    command
+}
+
+/// Message with the framing of the language server protocol.
+#[cfg(feature = "lsp")]
+fn framed(body: &str) -> String {
+    format!("Content-Length: {}\r\n\r\n{body}", body.len())
+}
+
+/// Next reply with the identifier `id` in the output of a server that writes
+/// one JSON-RPC message per line.
+#[cfg(feature = "mcp")]
+fn reply_of(
+    lines: &mut std::io::Lines<BufReader<std::process::ChildStdout>>,
+    id: u64,
+) -> serde_json::Value {
+    loop {
+        let line = lines.next().expect("the server closed its output").unwrap();
+        let message: serde_json::Value = serde_json::from_str(&line).unwrap();
+        if message["id"] == id {
+            return message;
+        }
+    }
+}
+
+#[cfg(feature = "mcp")]
+#[test]
+fn mcp_server_answers_initialize_and_tools_list_and_ends_at_the_end_of_the_input() {
+    let home = tempfile::tempdir().unwrap();
+    let mut child = command(&["mcp", "--stdio"], home.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut input = child.stdin.take().unwrap();
+    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+
+    let initialize = serde_json::json!({
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1.0.0"}
+        }
+    });
+    writeln!(input, "{initialize}").unwrap();
+    input.flush().unwrap();
+    let reply = reply_of(&mut lines, 1);
+    assert_eq!(reply["result"]["protocolVersion"], "2025-06-18");
+    assert_eq!(reply["result"]["serverInfo"]["name"], "nurt");
+
+    writeln!(
+        input,
+        r#"{{"jsonrpc":"2.0","method":"notifications/initialized"}}"#
+    )
+    .unwrap();
+    writeln!(input, r#"{{"jsonrpc":"2.0","id":2,"method":"tools/list"}}"#).unwrap();
+    input.flush().unwrap();
+    let reply = reply_of(&mut lines, 2);
+    let names: Vec<&str> = reply["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect();
+    assert_eq!(names, ["nurt", "nurt_help", "nurt_check"]);
+
+    drop(input);
+    assert!(lines.next().is_none(), "output after the end of the input");
+    assert_eq!(child.wait().unwrap().code(), Some(0));
+}
+
+#[cfg(feature = "lsp")]
+#[test]
+fn language_server_answers_a_whole_session_on_the_standard_streams() {
+    let session = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
+        r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"shutdown"}"#,
+        r#"{"jsonrpc":"2.0","method":"exit"}"#,
+    ]
+    .map(framed)
+    .concat();
+    let output = nurt(&["lsp"], &session);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(text.starts_with("Content-Length: "), "{text}");
+    assert!(text.contains(r#""serverInfo":{"name":"nurt""#), "{text}");
+    assert!(text.contains(r#""id":2"#), "{text}");
+}
+
+#[test]
+fn check_reads_the_program_from_the_standard_input() {
+    let output = nurt(&["check", "-"], "find \"/srv\"\n");
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(stdout(&output).starts_with("ok"));
+}
+
+#[test]
+fn fmt_reads_the_program_from_the_standard_input() {
+    let output = nurt(&["fmt", "-"], "find \"/srv\"\n");
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(stdout(&output).contains("find"));
+}
+
+#[cfg(unix)]
+#[test]
+fn argument_that_is_not_utf8_is_a_usage_error() {
+    use std::os::unix::ffi::OsStrExt;
+
+    let home = tempfile::tempdir().unwrap();
+    let output = command(&[], home.path())
+        .arg(std::ffi::OsStr::from_bytes(b"find \xff"))
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(stderr(&output).contains("not valid UTF-8"));
 }

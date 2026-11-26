@@ -618,6 +618,61 @@ mod tests {
     }
 
     #[test]
+    fn major_versions_ignore_the_minor_and_patch_parts() {
+        assert_eq!(major(Some("1.2.3")), Some("1"));
+        assert_eq!(major(Some("")), Some(""));
+        assert_eq!(major(Some(".5")), Some(""));
+        assert_eq!(major(Some("10.0")), Some("10"));
+        assert_ne!(major(Some("1")), major(Some("10")));
+        assert_eq!(PROTOCOL.strip_prefix(PROTOCOL_FAMILY), Some("1"));
+        assert_eq!("lsp/1".strip_prefix(PROTOCOL_FAMILY), None);
+    }
+
+    #[test]
+    fn interface_versions_are_compared_by_their_upper_half() {
+        assert_eq!(abi_major(0), 0);
+        assert_eq!(abi_major(0x0000_ffff), 0);
+        assert_eq!(abi_major(0x0001_0000), 1);
+        assert_eq!(abi_major(u32::MAX), 0xffff);
+        assert_ne!(abi_major(0x0001_ffff), abi_major(0x0002_0000));
+    }
+
+    #[test]
+    fn identifiers_of_every_json_type_have_distinct_keys() {
+        let keys = [
+            id_key(&json!(1)),
+            id_key(&json!(1.5)),
+            id_key(&json!("1")),
+            id_key(&Value::Null),
+            id_key(&json!("null")),
+        ];
+        for (index, key) in keys.iter().enumerate() {
+            assert!(!keys[..index].contains(key), "{key}");
+        }
+        assert_eq!(id_key(&json!("\u{142}")), "\"\u{142}\"");
+    }
+
+    #[test]
+    fn a_panic_payload_of_another_type_has_no_detail() {
+        let error = panicked(&42_i32);
+        assert_eq!(error.code, protocol::application_code(AbiStatus::Internal));
+        assert_eq!(error.data["panic"], "");
+    }
+
+    #[test]
+    fn the_limits_have_the_documented_defaults() {
+        assert_eq!(DEFAULT_MAX_INFLIGHT, 16);
+        assert_eq!(DEFAULT_MAX_MESSAGE_BYTES, 16 * 1024 * 1024);
+        let options = ServeOptions::with_backend(Box::new(NoBackend));
+        assert_eq!(options.max_inflight(), DEFAULT_MAX_INFLIGHT);
+        assert_eq!(options.max_message_bytes(), DEFAULT_MAX_MESSAGE_BYTES);
+        let options = options.with_max_inflight(usize::MAX).with_max_message_bytes(usize::MAX);
+        assert_eq!(options.max_inflight(), usize::MAX);
+        assert_eq!(options.max_message_bytes(), usize::MAX);
+        assert_eq!(options.with_framing(Framing::ContentLength).framing(), Framing::ContentLength);
+    }
+
+    #[test]
     fn identifiers_keep_their_json_type() {
         assert_ne!(id_key(&json!(1)), id_key(&json!("1")));
         assert_eq!(id_key(&json!("a")), "\"a\"");

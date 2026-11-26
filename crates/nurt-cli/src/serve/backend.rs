@@ -362,6 +362,65 @@ mod tests {
     }
 
     #[test]
+    fn the_request_of_an_event_is_null_for_a_notification() {
+        let (sender, receiver) = mpsc::channel();
+        let events = Events::new(Some(sender), None);
+        events.deliver(delivered(4, EventBody::Lifecycle(Lifecycle::Started)));
+        let message = receiver.try_recv().unwrap();
+        assert!(message["params"]["request"].is_null());
+        assert_eq!(message["params"]["t"], "exec.started");
+        assert_eq!(message["params"]["seq"], 4);
+        assert_eq!(message["jsonrpc"], "2.0");
+    }
+
+    #[test]
+    fn identifiers_that_are_not_text_or_numbers_name_no_request() {
+        assert_eq!(Events::new(None, Some(&json!(true))).request(), None);
+        assert_eq!(Events::new(None, Some(&json!([1]))).request(), None);
+        assert_eq!(
+            Events::new(None, Some(&json!(2.5))).request().as_deref(),
+            Some("2.5")
+        );
+        assert_eq!(
+            Events::new(None, Some(&json!("\u{142}\u{f3}d\u{17a}")))
+                .request()
+                .as_deref(),
+            Some("\u{142}\u{f3}d\u{17a}")
+        );
+    }
+
+    #[test]
+    fn events_for_a_client_that_is_gone_are_dropped() {
+        let (sender, receiver) = mpsc::channel();
+        let events = Events::new(Some(sender), Some(&json!(1)));
+        drop(receiver);
+        events.deliver(delivered(1, EventBody::Lifecycle(Lifecycle::Started)));
+        events.deliver(delivered(
+            2,
+            EventBody::Lifecycle(Lifecycle::Finished {
+                status: ReportStatus::Failed,
+            }),
+        ));
+    }
+
+    #[test]
+    fn the_end_of_an_execution_names_its_status() {
+        let (sender, receiver) = mpsc::channel();
+        let events = Events::new(Some(sender), Some(&json!("r")));
+        events.deliver(delivered(
+            2,
+            EventBody::Lifecycle(Lifecycle::Finished {
+                status: ReportStatus::Failed,
+            }),
+        ));
+        let message = receiver.try_recv().unwrap();
+        let params = &message["params"];
+        assert_eq!(params["t"], "exec.finished");
+        assert_eq!(params["status"], "failed");
+        assert_eq!(params["request"], "r");
+    }
+
+    #[test]
     fn events_are_dropped_when_disabled() {
         let events = Events::new(None, Some(&json!("a")));
         assert_eq!(events.request().as_deref(), Some("a"));
