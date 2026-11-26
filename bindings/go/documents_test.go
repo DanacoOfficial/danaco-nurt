@@ -63,9 +63,6 @@ func TestParseDocumentKeepsTheLanguageError(t *testing.T) {
 	if res.Error == nil || res.Error.Code != "E_LEXICAL" {
 		t.Errorf("Error = %+v", res.Error)
 	}
-	if string(res.Diagnostics) != `[{"message":"m"}]` {
-		t.Errorf("Diagnostics = %s", res.Diagnostics)
-	}
 	if len(res.Raw) == 0 {
 		t.Error("Raw is empty")
 	}
@@ -122,6 +119,63 @@ func TestCheckDocumentAfterALanguageError(t *testing.T) {
 	}
 	if _, err := checkDocument([]byte("[1]"), nil); err == nil {
 		t.Error("a check document that is not an object was accepted")
+	}
+}
+
+func TestLanguageErrorOfAnOperationIsTheFailureResponseOfTheServer(t *testing.T) {
+	diagnostics := `{"diagnostics":[],"error":{"code":"E_LEXICAL","message":"unterminated text"}}`
+	doc, err := parseDocument([]byte("null"), []byte(diagnostics))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal(doc, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	report, _ := envelope["report"].(map[string]any)
+	failure, _ := report["error"].(map[string]any)
+	if envelope["nurt"] != "1.0" || len(envelope) != 2 || report["status"] != "failed" || report["kind"] != "parse" || failure["code"] != "E_LEXICAL" {
+		t.Errorf("response = %s", doc)
+	}
+}
+
+func TestQueryDocumentOfALanguageErrorBecomesTheFailureResponse(t *testing.T) {
+	failed, err := queryDocument("space", []byte(`{"error":{"code":"E_PATH_RELATIVE","message":"relative"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal(failed, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	report, _ := envelope["report"].(map[string]any)
+	failure, _ := report["error"].(map[string]any)
+	if report["kind"] != "space" || report["status"] != "failed" || failure["code"] != "E_PATH_RELATIVE" {
+		t.Errorf("response = %s", failed)
+	}
+	for _, same := range []string{`{"volumes":[]}`, `{"error":null}`, `{"error":{"code":"E"},"program":"x"}`, `[1]`} {
+		got, err := queryDocument("space", []byte(same))
+		if err != nil || string(got) != same {
+			t.Errorf("document %s became %s, %v", same, got, err)
+		}
+	}
+}
+
+func TestResultsTakeTheErrorOfAFailureResponse(t *testing.T) {
+	failure := `{"nurt":"1.0","report":{"nurt":"1.0","status":"failed","kind":"parse","error":{"code":"E_SYNTAX","message":"m"}}}`
+	var parsed ParseResult
+	if err := json.Unmarshal([]byte(failure), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Error == nil || parsed.Error.Code != "E_SYNTAX" || len(parsed.AST) != 0 {
+		t.Errorf("parse result = %+v", parsed)
+	}
+	var checked CheckResult
+	if err := json.Unmarshal([]byte(failure), &checked); err != nil {
+		t.Fatal(err)
+	}
+	if checked.Error == nil || checked.Error.Code != "E_SYNTAX" || string(checked.Raw) != failure {
+		t.Errorf("check result = %+v", checked)
 	}
 }
 

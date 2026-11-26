@@ -491,9 +491,11 @@ func classify(call string, view map[string]any, err error) repoOutcome {
 		text, _ := code.(string)
 		return repoOutcome{kind: outcomeLanguage, view: view, code: text}
 	}
-	if code, ok := pointerGet(view, "/value/error/code"); ok {
-		text, _ := code.(string)
-		return repoOutcome{kind: outcomeLanguage, view: view, code: text}
+	for _, pointer := range []string{"/value/error/code", "/value/report/error/code"} {
+		if code, ok := pointerGet(view, pointer); ok {
+			text, _ := code.(string)
+			return repoOutcome{kind: outcomeLanguage, view: view, code: text}
+		}
 	}
 	return repoOutcome{kind: outcomeOK, view: view}
 }

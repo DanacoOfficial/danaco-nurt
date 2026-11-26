@@ -135,6 +135,9 @@ func (r *CheckResult) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*r = CheckResult(p)
+	if r.Error == nil {
+		r.Error = reportError(data)
+	}
 	r.Bound = emptyIfNull(r.Bound)
 	r.Diagnostics = emptyIfNull(r.Diagnostics)
 	r.Raw = append(json.RawMessage(nil), data...)
@@ -163,10 +166,27 @@ func (r *ParseResult) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*r = ParseResult(p)
+	if r.Error == nil {
+		r.Error = reportError(data)
+	}
 	r.AST = emptyIfNull(r.AST)
 	r.Diagnostics = emptyIfNull(r.Diagnostics)
 	r.Raw = append(json.RawMessage(nil), data...)
 	return nil
+}
+
+// Returns the language error that the server reports in the report of a
+// failure response nurt-response/1, or nil.
+func reportError(data []byte) *LanguageError {
+	var envelope struct {
+		Report struct {
+			Error *LanguageError `json:"error"`
+		} `json:"report"`
+	}
+	if json.Unmarshal(data, &envelope) != nil {
+		return nil
+	}
+	return envelope.Report.Error
 }
 
 // A member that is JSON null is an absent value.

@@ -230,7 +230,7 @@ func (b *libraryBackend) correct(ctx context.Context, program string, v Variant)
 	if err != nil {
 		return nil, err
 	}
-	return b.query(ctx, func(e *capi.Engine) ([]byte, error) { return e.Correct(program, code) })
+	return b.document(ctx, "correct", func(e *capi.Engine) ([]byte, error) { return e.Correct(program, code) })
 }
 
 func (b *libraryBackend) page(ctx context.Context, cursor string, limit int) (json.RawMessage, error) {
@@ -258,7 +258,7 @@ func (b *libraryBackend) help(ctx context.Context, topic string) (string, error)
 }
 
 func (b *libraryBackend) catalog(ctx context.Context, what json.RawMessage) (json.RawMessage, error) {
-	return b.query(ctx, func(e *capi.Engine) ([]byte, error) { return e.Catalog(what) })
+	return b.document(ctx, "catalog", func(e *capi.Engine) ([]byte, error) { return e.Catalog(what) })
 }
 
 func (b *libraryBackend) schema(ctx context.Context, which string) (json.RawMessage, error) {
@@ -266,15 +266,25 @@ func (b *libraryBackend) schema(ctx context.Context, which string) (json.RawMess
 }
 
 func (b *libraryBackend) history(ctx context.Context, query json.RawMessage) (json.RawMessage, error) {
-	return b.query(ctx, func(e *capi.Engine) ([]byte, error) { return e.History(query) })
+	return b.document(ctx, "history", func(e *capi.Engine) ([]byte, error) { return e.History(query) })
 }
 
 func (b *libraryBackend) space(ctx context.Context, volume string) (json.RawMessage, error) {
-	return b.query(ctx, func(e *capi.Engine) ([]byte, error) { return e.Space(volume) })
+	return b.document(ctx, "space", func(e *capi.Engine) ([]byte, error) { return e.Space(volume) })
 }
 
 func (b *libraryBackend) info(ctx context.Context) (json.RawMessage, error) {
 	return b.query(ctx, func(*capi.Engine) ([]byte, error) { return capi.Info() })
+}
+
+// Runs a function whose result is one JSON document; the document of a
+// language error becomes the failure response, as nurt serve answers.
+func (b *libraryBackend) document(ctx context.Context, kind string, f func(*capi.Engine) ([]byte, error)) (json.RawMessage, error) {
+	out, err := b.query(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	return queryDocument(kind, out)
 }
 
 func (b *libraryBackend) query(ctx context.Context, f func(*capi.Engine) ([]byte, error)) (json.RawMessage, error) {
