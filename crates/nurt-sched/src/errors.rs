@@ -31,6 +31,15 @@ pub(crate) fn busy(schedule: &str, run: &str) -> Error {
     .with_actual(serde_json::Value::String(run.to_owned()))
 }
 
+/// A run of the schedule is in progress in another process, whose run
+/// identifier is not known here.
+pub(crate) fn busy_elsewhere(schedule: &str) -> Error {
+    Error::new(
+        ErrorCode::JobState,
+        format!("schedule `{schedule}` is running in another process; wait until its run ends"),
+    )
+}
+
 /// Schedules that do not exist.
 pub(crate) fn not_found(ids: &[String]) -> Error {
     let list = ids.join("`, `");

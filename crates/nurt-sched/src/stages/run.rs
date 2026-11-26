@@ -13,7 +13,7 @@ use nurt_contracts::value::Record;
 
 use super::{now, running_link, schedule_record, store, text_arg};
 use crate::action::{PIPELINE_KIND, definition_hash};
-use crate::errors::{busy, failed, not_found};
+use crate::errors::{busy_elsewhere, failed, not_found};
 use crate::module::ModuleRequest;
 use crate::store::{Definition, check_id};
 
@@ -133,7 +133,7 @@ fn run_here(definition: &Definition, ctx: &ExecCtx) -> Result<Vec<Record>, Error
     }
     let store = store(ctx)?;
     let Some(_lock) = store.try_run_lock(&definition.id)? else {
-        return Err(busy(&definition.id, &definition.id));
+        return Err(busy_elsewhere(&definition.id));
     };
     let output = ctx.pipelines()?.run(pipeline, StageInput::none(), ctx)?;
     match output.data {
