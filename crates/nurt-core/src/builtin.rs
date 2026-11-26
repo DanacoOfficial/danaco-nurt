@@ -26,11 +26,15 @@ use nurt_help::help::{HelpQuery, TopicKind, render};
 
 const EXPRESSION: &str = "expression";
 
+/// Language of the fixed texts: the `language` of the request, then
+/// `output.language` of the configuration.
 fn language_of(ctx: &ExecCtx) -> Language {
-    match ctx.config().output.language {
-        ConfigLanguage::Pl => Language::Pl,
-        _ => Language::En,
-    }
+    ctx.options()
+        .language
+        .unwrap_or(match ctx.config().output.language {
+            ConfigLanguage::Pl => Language::Pl,
+            _ => Language::En,
+        })
 }
 
 fn source(command: &str) -> StageDescriptor {
@@ -318,6 +322,48 @@ mod tests {
     #[test]
     fn describe_of_an_empty_stream_lists_nothing() {
         assert!(described(Vec::new()).is_empty());
+    }
+
+    fn help_text(language: Option<Language>, topic: Option<&str>) -> String {
+        let context = TestContext::new();
+        let options = nurt_contracts::envelope::RequestOptions {
+            language,
+            ..Default::default()
+        };
+        let ctx = context.builder().options(Arc::new(options)).build();
+        let mut args = BoundArgs::new("help");
+        if let Some(topic) = topic {
+            args.insert(
+                "topic",
+                nurt_contracts::stage::ArgValue::Value(Value::from(topic)),
+                false,
+            );
+        }
+        let output = Help::new()
+            .unwrap()
+            .execute(&args, StageInput::none(), &ctx)
+            .unwrap();
+        let StageData::Value(Value::Text(text)) = output.data else {
+            panic!("text expected");
+        };
+        text
+    }
+
+    #[test]
+    fn help_uses_the_language_of_the_request() {
+        let polish = help_text(Some(Language::Pl), None);
+        assert!(polish.contains("Program jest potokiem"));
+        let english = help_text(Some(Language::En), None);
+        assert!(english.contains("A program is a pipeline"));
+        assert!(help_text(None, None).contains("A program is a pipeline"));
+    }
+
+    #[test]
+    fn help_lists_the_commands_of_every_group() {
+        let text = help_text(None, Some("commands"));
+        assert!(text.contains("help — "));
+        assert!(text.contains("git.log — "));
+        assert!(text.contains("program.catalog — "));
     }
 
     #[test]
