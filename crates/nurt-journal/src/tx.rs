@@ -1655,6 +1655,10 @@ impl Tx<'_> {
         let mut hasher = Sha256::new();
         let mut hashed = false;
         let mut cloned = false;
+        let copied = match &content {
+            Content::Copy { source, .. } => fs.extended_metadata(source, Follow::NoFollow).ok(),
+            _ => None,
+        };
         let mut handle = match &content {
             Content::Staged => {
                 if self.targets[position].staged.as_ref() != Some(&staged) {
@@ -1714,7 +1718,7 @@ impl Tx<'_> {
         self.step(FailPoint::StageWritten, index)?;
         let previous = self.targets[position].old_meta.as_ref().filter(|_| existed);
         let complete = match self
-            .metadata_for(index, previous, &staged)
+            .metadata_for(index, previous, &staged, copied.as_ref())
             .map_err(as_target)?
         {
             Some(meta) => handle.apply_meta(&meta).map_err(as_target)?.is_complete(),
@@ -1763,12 +1767,15 @@ impl Tx<'_> {
     /// back, also to a file that does not exist any more, so that the file is
     /// never visible with other permissions. Any other change transfers the
     /// metadata of the previous file `previous`, except the modification
-    /// time, which is the time of the write.
+    /// time, which is the time of the write. The content of a copy takes the
+    /// times of the file it was copied from, `copied`; a new file takes all
+    /// its metadata, so that a copy keeps times, permissions and attributes.
     fn metadata_for(
         &self,
         index: TargetIndex,
         previous: Option<&ExtendedMeta>,
         written: &AbsPath,
+        copied: Option<&ExtendedMeta>,
     ) -> FsResult<Option<ExtendedMeta>> {
         let fs = self.ctx.fs.as_ref();
         let recorded = usize::try_from(index.0)
@@ -1781,9 +1788,12 @@ impl Tx<'_> {
             return Ok(kept);
         }
         let Some(previous) = previous else {
-            return Ok(None);
+            return Ok(copied.cloned());
         };
-        let current = fs.metadata(written, Follow::NoFollow)?;
+        let current = match copied {
+            Some(source) => source.basic.clone(),
+            None => fs.metadata(written, Follow::NoFollow)?,
+        };
         let mut meta = nurt_fs::transfer::for_content_change(previous, &current);
         if let Some(modified_ns) = recorded.and_then(|recorded| recorded.modified_ns) {
             meta.basic.modified_ns = modified_ns;
@@ -3854,6 +3864,34 @@ mod tests {
         assert_eq!(env.read(&path), b"new");
         assert_eq!(written.mode & 0o777, 0o600);
         assert!(written.modified_ns > 1_000_000_000_000, "{written:?}");
+    }
+
+    #[test]
+    fn a_copy_takes_the_times_of_its_source() {
+        let env = Env::new();
+        let source = env.file("vol-a/source.txt", b"copied");
+        let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000);
+        std::fs::File::options()
+            .write(true)
+            .open(source.as_path())
+            .unwrap()
+            .set_modified(old)
+            .unwrap();
+        let target = env.fixture.fs.path("vol-a/copy.txt");
+        let mut tx = begin(&env.ctx, request("copy"));
+        tx.preserve(&[spec(&target, TargetAction::Create)]).unwrap();
+        tx.apply(
+            TargetIndex(0),
+            Mutation::CopyFrom {
+                source,
+                clone: CloneMode::Never,
+            },
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        let copied = env.fixture.fs.metadata(&target, Follow::NoFollow).unwrap();
+        assert_eq!(env.read(&target), b"copied");
+        assert_eq!(copied.modified_ns, 1_000_000_000_000);
     }
 
     #[test]

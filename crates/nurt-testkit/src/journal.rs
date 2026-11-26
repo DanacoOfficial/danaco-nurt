@@ -46,7 +46,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{
     AbsPath, Durability, ExtendedMeta, FileKind, FileMeta, Follow, FsError, FsErrorKind, FsResult,
-    FsWrite, LinkKind, RenameMode, ScopePurpose, TxScope, VolumeId, WriteHandle,
+    FsWrite, LinkKind, MetaChange, RenameMode, ScopePurpose, TxScope, VolumeId, WriteHandle,
 };
 use nurt_contracts::journal::{
     Admission, AdmissionDecision, AdmissionRequest, AfterState, Applied, BeforeState, BeginRequest,
@@ -62,6 +62,9 @@ use nurt_contracts::report::{Irreversible, IrreversibleEntry};
 /// Parallelism passed to [`FsWrite::remove_tree`] by the journals of this
 /// module.
 const REMOVE_PARALLELISM: usize = 1;
+
+/// Permission bits of a mode, including the set-id and sticky bits.
+const PERMISSION_BITS: u32 = 0o7777;
 
 /// Converts a file system error into the language error with the code given
 /// by [`FsError::code_id`]; the kind and the path become error details.
@@ -1263,6 +1266,25 @@ impl NoopTx<'_> {
             .map_err(convert)
     }
 
+    /// Gives content copied or moved from a file the times of that file, as
+    /// the journal does for a copy and for a move across volumes; the
+    /// permission bits follow when the content went to a new file.
+    fn take_over(
+        &self,
+        scope: &TxScope,
+        path: &AbsPath,
+        origin: &FileMeta,
+        with_mode: bool,
+    ) -> Result<()> {
+        let change = MetaChange {
+            mode: with_mode.then_some(origin.mode & PERMISSION_BITS),
+            modified_ns: Some(origin.modified_ns),
+            accessed_ns: origin.accessed_ns,
+            ..MetaChange::default()
+        };
+        self.fs().set_meta(scope, path, &change).map_err(convert)
+    }
+
     fn read_all(&self, path: &AbsPath) -> Result<Vec<u8>> {
         let mut handle = self.fs().open_read(path).map_err(convert)?;
         let mut bytes = Vec::new();
@@ -1317,7 +1339,9 @@ impl NoopTx<'_> {
                     )));
                 }
                 let bytes = self.read_all(from)?;
+                let origin = fs.metadata(from, Follow::NoFollow).map_err(convert)?;
                 self.write_content(scope, to, &bytes)?;
+                self.take_over(scope, to, &origin, true)?;
                 fs.remove_file(scope, from).map_err(convert)
             }
             other => other.map_err(convert),
@@ -1368,7 +1392,12 @@ impl NoopTx<'_> {
                     }
                 }
                 let bytes = self.read_all(source)?;
-                self.write_content(&scope, path, &bytes)
+                let origin = fs.metadata(source, Follow::NoFollow).map_err(convert)?;
+                let replaced = self
+                    .meta(path)?
+                    .is_some_and(|meta| meta.kind == FileKind::File);
+                self.write_content(&scope, path, &bytes)?;
+                self.take_over(&scope, path, &origin, !replaced)
             }
             Mutation::Remove => {
                 let is_dir = self
