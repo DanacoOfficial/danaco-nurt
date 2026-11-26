@@ -44,6 +44,8 @@ jobs:
         with:
           node-version: "24"
       - name: Install the dependencies without the console package
-        run: npm install --no-save --omit=optional $(node -p "Object.keys(require('./package.json').dependencies).filter((name) => name !== 'nurt').join(' ')")
+        run: |
+          mapfile -t dependencies < <(node -p "Object.keys(require('./package.json').dependencies).filter((name) => name !== 'nurt').join('\n')")
+          npm install --no-save --omit=optional "${dependencies[@]}"
       - name: Test
         run: npm test
