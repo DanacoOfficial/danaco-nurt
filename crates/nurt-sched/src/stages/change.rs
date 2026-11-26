@@ -213,6 +213,7 @@ impl EffectStage for ChangeStage {
                     tx.mark_irreversible(IrreversibleEntry {
                         reason: Irreversible::ProcessStopped,
                         path: Some(format!("schedule:{}", item.definition.id)),
+                        raw_path: None,
                         count: u64::try_from(stopped.len()).ok(),
                         detail: Some(stopped.join(", ")),
                     });
@@ -270,6 +271,7 @@ impl ChangeStage {
             effect.irreversible = Some(vec![IrreversibleEntry {
                 reason: Irreversible::ProcessStopped,
                 path: effect.target.clone(),
+                raw_path: None,
                 count: u64::try_from(stopped.len()).ok(),
                 detail: Some(stopped.join(", ")),
             }]);

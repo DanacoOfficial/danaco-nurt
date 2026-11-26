@@ -4,7 +4,26 @@
 //! Collection of the targets that meet one rule, with a bounded number of
 //! entries per rule.
 
+use std::collections::HashMap;
+
+use nurt_contracts::value::Bytes;
+
 use super::paths::{reportable_ancestor, shrink_to_common};
+use crate::assemble::TargetChange;
+
+/// Native bytes of the targets that are not valid Unicode, by the display form
+/// of their path, so that an entry about such a target can carry them.
+pub(crate) fn raw_paths(changes: &[TargetChange]) -> HashMap<&str, &Bytes> {
+    changes
+        .iter()
+        .filter_map(|target| {
+            Some((
+                target.change.path.as_str(),
+                target.change.raw_path.as_ref()?,
+            ))
+        })
+        .collect()
+}
 
 /// Largest number of targets reported one by one for a single code or
 /// reason; beyond it the targets are reported as one entry with their number

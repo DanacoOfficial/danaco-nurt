@@ -917,6 +917,56 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::InvalidValue);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn a_record_of_a_path_that_is_not_valid_unicode_removes_that_entry() {
+        let test = TestContext::new();
+        let path = AbsPath::from_raw_bytes(b"/data/bad\xffname.txt").unwrap();
+        dir(&test, "/data");
+        test.fs().write_file(&path, b"abc").unwrap();
+        let record = entry(&path).with(
+            "raw_path",
+            Value::Bytes(path.raw_bytes().expect("the name is not valid Unicode")),
+        );
+        let run = run(&Remove, &test, &BoundArgs::new(COMMAND), Some(vec![record])).unwrap();
+        assert!(!test.fs().exists(&path));
+        assert_eq!(run.changes.len(), 1);
+        assert_eq!(run.changes[0].path.as_str(), "/data/bad\u{fffd}name.txt");
+        assert_eq!(run.changes[0].raw_path, path.raw_bytes());
+        assert_journaled(&test);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_display_form_of_a_path_that_is_not_valid_unicode_names_no_entry() {
+        let test = TestContext::new();
+        let path = AbsPath::from_raw_bytes(b"/data/bad\xffname.txt").unwrap();
+        dir(&test, "/data");
+        test.fs().write_file(&path, b"abc").unwrap();
+        let record = entry(&path);
+        let run = run(&Remove, &test, &BoundArgs::new(COMMAND), Some(vec![record])).unwrap();
+        assert!(run.changes.is_empty());
+        assert_eq!(run.codes(), [Notable::NothingMatched]);
+        assert!(test.fs().exists(&path));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_path_written_by_a_stage_wins_over_the_raw_path_of_the_record() {
+        let test = TestContext::new();
+        let bad = AbsPath::from_raw_bytes(b"/data/bad\xffname.txt").unwrap();
+        dir(&test, "/data");
+        test.fs().write_file(&bad, b"abc").unwrap();
+        let other = file(&test, "/data/other.txt", b"o");
+        let record = entry(&other).with(
+            "raw_path",
+            Value::Bytes(bad.raw_bytes().expect("the name is not valid Unicode")),
+        );
+        run(&Remove, &test, &BoundArgs::new(COMMAND), Some(vec![record])).unwrap();
+        assert!(!test.fs().exists(&other));
+        assert!(test.fs().exists(&bad));
+    }
+
     #[test]
     fn check_references_reports_names_left_in_other_files() {
         let test = TestContext::new();

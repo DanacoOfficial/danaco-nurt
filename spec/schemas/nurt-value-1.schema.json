@@ -2079,6 +2079,17 @@
           "$ref": "#/$defs/Path",
           "description": "Absolute path in canonical form."
         },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the path; present only when the path is not valid\nUnicode, in which case `path` shows the invalid bytes as U+FFFD."
+        },
         "name": {
           "type": "string",
           "description": "Last component of the path, in NFC."
@@ -2107,6 +2118,17 @@
             }
           ],
           "description": "Parent directory."
+        },
+        "raw_parent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the parent directory; present only when it is not\nvalid Unicode."
         },
         "type": {
           "$ref": "#/$defs/EntryType",
@@ -2204,6 +2226,17 @@
             }
           ],
           "description": "Target of a link."
+        },
+        "raw_link_target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the target of a link; present only when it is not\nvalid Unicode."
         },
         "link_type": {
           "anyOf": [
@@ -2366,6 +2399,17 @@
             "null"
           ],
           "description": "Path relative to the root of the listing."
+        },
+        "raw_relative": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the relative path, with `/` separators; present\nonly when it is not valid Unicode."
         },
         "total_size": {
           "anyOf": [
@@ -2546,6 +2590,17 @@
         "path": {
           "$ref": "#/$defs/Path",
           "description": "File."
+        },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the path; present only when it is not valid\nUnicode."
         },
         "text": {
           "type": "string",
@@ -3069,6 +3124,17 @@
           "$ref": "#/$defs/Path",
           "description": "File after the change."
         },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the path; present only when it is not valid\nUnicode."
+        },
         "old_start": {
           "type": "integer",
           "format": "uint64",
@@ -3124,6 +3190,17 @@
             }
           ],
           "description": "File before a rename."
+        },
+        "raw_old_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of `old_path`; present only when it is not valid\nUnicode."
         },
         "status": {
           "anyOf": [
@@ -3313,6 +3390,17 @@
           "$ref": "#/$defs/Path",
           "description": "File."
         },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the path; present only when it is not valid\nUnicode."
+        },
         "no": {
           "type": "integer",
           "format": "uint64",
@@ -3381,6 +3469,17 @@
         "path": {
           "$ref": "#/$defs/Path",
           "description": "File."
+        },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the path; present only when it is not valid\nUnicode."
         },
         "no": {
           "type": "integer",
@@ -4135,6 +4234,17 @@
           "$ref": "#/$defs/Path",
           "description": "File."
         },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the path; present only when it is not valid\nUnicode, in which case `path` shows the invalid bytes as U+FFFD."
+        },
         "action": {
           "$ref": "#/$defs/ChangeAction",
           "description": "Action."
@@ -4150,6 +4260,17 @@
           ],
           "description": "Previous path of a rename."
         },
+        "raw_from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of `from`; present only when it is not valid Unicode."
+        },
         "to": {
           "anyOf": [
             {
@@ -4160,6 +4281,17 @@
             }
           ],
           "description": "New path of a move or a copy."
+        },
+        "raw_to": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of `to`; present only when it is not valid Unicode."
         },
         "size_before": {
           "anyOf": [
@@ -4303,6 +4435,17 @@
             }
           ],
           "description": "Target of a created link."
+        },
+        "raw_link_target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of `link_target`; present only when it is not valid\nUnicode."
         },
         "store": {
           "type": [
@@ -7958,6 +8101,17 @@
           ],
           "description": "Target concerned, when the effect concerns one target."
         },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of `path`; present only when it is not valid Unicode."
+        },
         "count": {
           "type": [
             "integer",
@@ -8011,6 +8165,17 @@
         "path": {
           "$ref": "#/$defs/Path",
           "description": "Target of the item."
+        },
+        "raw_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bytes"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Native bytes of the target; present only when it is not valid\nUnicode."
         },
         "action": {
           "type": "string",

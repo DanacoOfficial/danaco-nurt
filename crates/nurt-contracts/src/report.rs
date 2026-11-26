@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ast::AST_HASH_PREFIX;
 use crate::error::{Error, ErrorCode};
-use crate::value::{Record, RecordKind};
+use crate::value::{Bytes, Record, RecordKind};
 
 pub use crate::record::{Change, ChangeAction, Hunk};
 
@@ -1216,6 +1216,10 @@ pub struct Summary {
 pub struct DirectoryCount {
     /// Directory in canonical form.
     pub directory: String,
+    /// Native bytes of the directory; present only when it is not valid
+    /// Unicode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_directory: Option<Bytes>,
     /// Number of targets in the directory.
     pub count: u64,
     /// Total size of the targets in bytes.
@@ -1250,9 +1254,17 @@ pub struct Bulk {
     /// First targets in enumeration order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sample_head: Vec<String>,
+    /// Native bytes of the targets of `sample_head`, item by item, `null` for
+    /// a target that is valid Unicode; omitted when all of them are.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub raw_sample_head: Vec<Option<Bytes>>,
     /// Last targets in enumeration order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sample_tail: Vec<String>,
+    /// Native bytes of the targets of `sample_tail`, item by item, `null` for
+    /// a target that is valid Unicode; omitted when all of them are.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub raw_sample_tail: Vec<Option<Bytes>>,
 }
 
 /// Records returned by a reading program.
@@ -1283,6 +1295,9 @@ pub struct NotableEntry {
     /// Target concerned, when the effect concerns one target.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+    /// Native bytes of `path`; present only when it is not valid Unicode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_path: Option<Bytes>,
     /// Number of targets or occurrences concerned.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count: Option<u64>,
@@ -1299,6 +1314,7 @@ impl NotableEntry {
             code,
             severity: code.default_severity(),
             path: None,
+            raw_path: None,
             count: None,
             detail: None,
         }
@@ -1313,6 +1329,9 @@ pub struct IrreversibleEntry {
     /// Target concerned, when the effect concerns one target.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+    /// Native bytes of `path`; present only when it is not valid Unicode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_path: Option<Bytes>,
     /// Number of targets concerned.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count: Option<u64>,
@@ -1328,6 +1347,7 @@ impl IrreversibleEntry {
         Self {
             reason,
             path: None,
+            raw_path: None,
             count: None,
             detail: None,
         }

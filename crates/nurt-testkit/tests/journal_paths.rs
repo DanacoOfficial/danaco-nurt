@@ -367,6 +367,7 @@ fn misused_transactions_fail_with_stage_failed_and_stay_rolled_back() {
     tx.mark_irreversible(IrreversibleEntry {
         reason: Irreversible::Network,
         path: None,
+        raw_path: None,
         count: None,
         detail: None,
     });
@@ -648,6 +649,7 @@ fn observed_external_changes_are_registered() {
     tx.mark_irreversible(IrreversibleEntry {
         reason: Irreversible::ExternalEffect,
         path: None,
+        raw_path: None,
         count: Some(2),
         detail: None,
     });

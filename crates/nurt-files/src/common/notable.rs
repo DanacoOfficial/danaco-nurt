@@ -20,6 +20,7 @@ use super::text::{TextFile, record_line_ending};
 pub fn at_path(code: Notable, path: &AbsPath) -> NotableEntry {
     NotableEntry {
         path: Some(path.to_language_string()),
+        raw_path: path.raw_bytes(),
         ..NotableEntry::new(code)
     }
 }

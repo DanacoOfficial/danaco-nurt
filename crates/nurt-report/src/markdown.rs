@@ -13,6 +13,7 @@ use crate::facts::{
     irreversible_parts, json_array, notable_parts, record_text, targets_parts, timing_parts,
     value_text,
 };
+use crate::lines::single_line;
 use crate::shape::Shaped;
 use crate::tree;
 use crate::units::plural;
@@ -28,7 +29,7 @@ pub(crate) fn render(shaped: &Shaped) -> String {
         blocks.push(list(report.corrections.iter().map(correction_line)));
     }
     if let Some(ran) = &report.ran {
-        blocks.push(format!("ran: `{ran}`"));
+        blocks.push(format!("ran: {}", code(ran)));
     }
     if let Some(targets) = &report.targets {
         blocks.push(targets_parts(targets, report.summary.as_ref()).join(SEPARATOR));
@@ -45,7 +46,7 @@ pub(crate) fn render(shaped: &Shaped) -> String {
         ("git", &report.git),
     ] {
         if let Some(record) = record {
-            blocks.push(format!("**{label}** `{}`", record_text(record)));
+            blocks.push(format!("**{label}** {}", code(&record_text(record))));
         }
     }
     if !report.notable.is_empty() {
@@ -73,10 +74,10 @@ pub(crate) fn render(shaped: &Shaped) -> String {
         blocks.push(error_block(error, "error"));
     }
     if let Some(cursor) = &report.next_cursor {
-        blocks.push(format!("next cursor `{cursor}`"));
+        blocks.push(format!("next cursor {}", code(cursor)));
     }
     if let Some(path) = &report.result_file {
-        blocks.push(format!("result file `{path}`"));
+        blocks.push(format!("result file {}", code(path)));
     }
     let timing = report.timing.map(timing_parts).unwrap_or_default();
     if !timing.is_empty() {
@@ -85,15 +86,32 @@ pub(crate) fn render(shaped: &Shaped) -> String {
     blocks.join("\n\n")
 }
 
+/// Bulleted list; an item is written on one line, so that a line break in a
+/// value cannot end the item.
 fn list(items: impl Iterator<Item = String>) -> String {
     items
-        .map(|item| format!("- {item}"))
+        .map(|item| format!("- {}", single_line(&item)))
         .collect::<Vec<_>>()
         .join("\n")
 }
 
+/// Table cell: the text on one line, line breaks and control characters as
+/// escape sequences, and the pipes escaped.
 fn cell(text: &str) -> String {
-    text.replace('|', "\\|").replace(['\n', '\r'], " ")
+    single_line(text).replace('|', "\\|")
+}
+
+/// Inline code span of a text written on one line, delimited by more
+/// backticks than the longest run in the text.
+fn code(text: &str) -> String {
+    let text = single_line(text);
+    let fence = "`".repeat(longest_backtick_run(&text) + 1);
+    let pad = if text.starts_with('`') || text.ends_with('`') {
+        " "
+    } else {
+        ""
+    };
+    format!("{fence}{pad}{text}{pad}{fence}")
 }
 
 fn table(header: &[&str], rows: &[Vec<String>]) -> String {
@@ -119,7 +137,7 @@ fn changes_block(blocks: &mut Vec<String>, shaped: &Shaped) {
         .map(|change| {
             let cells = change_cells(change);
             vec![
-                format!("`{}`", change.path),
+                code(change.path.as_str()),
                 cells.detail,
                 cells.sizes,
                 cells.hashes,
@@ -150,8 +168,8 @@ fn diff_block(blocks: &mut Vec<String>, shaped: &Shaped) {
         let body = hunk.lines.join("\n");
         let fence = fence_for(&body);
         blocks.push(format!(
-            "`{}`\n{fence}diff\n{body}\n{fence}",
-            hunk_location(hunk)
+            "{}\n{fence}diff\n{body}\n{fence}",
+            code(&hunk_location(hunk))
         ));
     }
 }
@@ -160,6 +178,11 @@ fn diff_block(blocks: &mut Vec<String>, shaped: &Shaped) {
 /// longer than every run of backticks in the text, so the text cannot close
 /// the block.
 fn fence_for(text: &str) -> String {
+    "`".repeat((longest_backtick_run(text) + 1).max(FENCE.len()))
+}
+
+/// Length of the longest run of backticks in `text`.
+fn longest_backtick_run(text: &str) -> usize {
     let mut longest = 0;
     let mut run = 0;
     for character in text.chars() {
@@ -170,7 +193,7 @@ fn fence_for(text: &str) -> String {
             run = 0;
         }
     }
-    "`".repeat((longest + 1).max(FENCE.len()))
+    longest
 }
 
 fn bulk_block(blocks: &mut Vec<String>, report: &Report) {
@@ -199,11 +222,11 @@ fn exec_block(blocks: &mut Vec<String>, report: &Report) {
     };
     let mut items = Vec::new();
     if let Some(cwd) = field_str(exec, "cwd") {
-        items.push(format!("cwd `{cwd}`"));
+        items.push(format!("cwd {}", code(cwd)));
     }
     items.push(format!(
-        "command `{}`",
-        json_array(&field_texts(exec, "command"))
+        "command {}",
+        code(&json_array(&field_texts(exec, "command")))
     ));
     for name in ["exit_code", "elapsed", "pid"] {
         if let Some(value) = exec.get(name) {
@@ -236,7 +259,7 @@ fn records_block(blocks: &mut Vec<String>, report: &Report) {
     summary.push(format!("shown {}", page.rows.len()));
     blocks.push(summary.join(SEPARATOR));
     if let Some(header) = &page.header {
-        blocks.push(format!("`{}`", record_text(header)));
+        blocks.push(code(&record_text(header)));
     }
     if page.rows.is_empty() {
         return;
@@ -301,6 +324,13 @@ mod tests {
 
     #[test]
     fn pipes_and_line_breaks_of_a_cell_stay_in_the_cell() {
-        assert_eq!(cell("a|b\nc\r\nd"), "a\\|b c  d");
+        assert_eq!(cell("a|b\nc\r\nd"), "a\\|b\\nc\\r\\nd");
+    }
+
+    #[test]
+    fn a_code_span_is_one_line_and_outlasts_the_backticks_inside() {
+        assert_eq!(code("a\nb"), "`a\\nb`");
+        assert_eq!(code("a`b"), "``a`b``");
+        assert_eq!(code("`a"), "`` `a ``");
     }
 }

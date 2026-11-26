@@ -386,11 +386,9 @@ impl Describer<'_> {
             return;
         }
         if self.wants("link_target") {
-            entry.link_target = self
-                .fs
-                .read_link(path)
-                .ok()
-                .map(|target| link_text(&target));
+            let target = self.fs.read_link(path).ok();
+            entry.link_target = target.as_deref().map(link_text);
+            entry.raw_link_target = target.as_deref().and_then(raw_link_bytes);
         }
         if self.wants("real_path") {
             entry.real_path = self.fs.real_path(path).ok().map(|real| path_field(&real));
@@ -660,6 +658,20 @@ fn xattr_text(value: &[u8]) -> String {
             format!("{HEX_PREFIX}{digits}")
         }
     }
+}
+
+/// Native bytes of the target of a link when it is not valid Unicode, in the
+/// same normalisation as [`link_text`].
+fn raw_link_bytes(target: &Path) -> Option<value::Bytes> {
+    if target.is_absolute()
+        && let Ok(absolute) = AbsPath::new(target)
+    {
+        return absolute.raw_bytes();
+    }
+    target
+        .to_str()
+        .is_none()
+        .then(|| value::Bytes::new(target.as_os_str().as_encoded_bytes().to_vec()))
 }
 
 /// Target of a link in language form: an absolute target normalised, a
@@ -1414,6 +1426,25 @@ mod tests {
     fn relative_link_targets_keep_their_components() {
         assert_eq!(link_text(Path::new("./a/../b")).as_str(), "./a/../b");
         assert_eq!(link_text(Path::new("a/b")).as_str(), "a/b");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_target_that_is_not_valid_unicode_keeps_its_bytes() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let relative = Path::new(OsStr::from_bytes(b"../bad\xffname"));
+        assert_eq!(
+            raw_link_bytes(relative).unwrap().as_slice(),
+            b"../bad\xffname"
+        );
+        let absolute = Path::new(OsStr::from_bytes(b"/data/./bad\xffname"));
+        assert_eq!(
+            raw_link_bytes(absolute).unwrap().as_slice(),
+            b"/data/bad\xffname"
+        );
+        assert_eq!(raw_link_bytes(Path::new("../a.so")), None);
     }
 
     #[test]

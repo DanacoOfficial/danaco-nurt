@@ -269,6 +269,7 @@ fn transactions_without_changes_have_no_number() {
     tx.mark_irreversible(IrreversibleEntry {
         reason: Irreversible::Network,
         path: None,
+        raw_path: None,
         count: None,
         detail: Some("POST https://example.com/".to_owned()),
     });

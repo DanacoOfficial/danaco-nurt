@@ -371,6 +371,7 @@ impl HookRunner<'_> {
         irreversible.push(IrreversibleEntry {
             reason: Irreversible::ExternalEffect,
             path: Some(run.program.display().to_string()),
+            raw_path: None,
             count: (changed > 0).then(|| u64::try_from(changed).unwrap_or(u64::MAX)),
             detail: Some(format!("the {hook} hook ran as a user program")),
         });
