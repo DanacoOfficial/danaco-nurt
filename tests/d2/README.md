@@ -45,6 +45,16 @@ missing component or condition.
 | `NURT_TEST_OVERLAY_SMALL_DIR` | overlay mount with a 64 MiB upper layer and a directory `lower` of 48 MiB from the lower layer |
 | `NURT_TEST_TMPFS_DIR` | tmpfs |
 
+The script `tools/ci/prepare-test-volumes.sh` creates and mounts all of them
+(and `NURT_TEST_REFLINK_DIR`, `NURT_TEST_QUOTA_DIR` of the tests of `nurt-fs`)
+as sparse image files in a work directory and writes `volumes.env`:
+
+```
+tools/ci/prepare-test-volumes.sh up "$HOME/volumes"
+. "$HOME/volumes/volumes.env"
+tools/ci/prepare-test-volumes.sh down "$HOME/volumes"
+```
+
 A volume test run without its variable fails and names the variable. The
 journal tests never use tmpfs as a journaled volume: the journal is inactive
 there.
