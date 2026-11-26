@@ -416,8 +416,91 @@ mod tests {
     use nurt_contracts::error::{AbiStatus, Error, ErrorCode};
     use nurt_contracts::report::{Report, ReportStatus};
 
-    use super::{resource_error, tool_result};
-    use crate::backend::CallError;
+    use serde_json::json;
+
+    use super::{
+        call_error_text, check_result, error_text, resource_error, run_result, tool_result,
+    };
+    use crate::backend::{CallError, CheckOutcome};
+
+    fn as_json(result: rmcp::model::CallToolResult) -> serde_json::Value {
+        serde_json::to_value(result).unwrap()
+    }
+
+    #[test]
+    fn a_check_document_is_the_text_and_the_structured_content() {
+        let document = json!({"format": "nurt-check/1", "effect": "read"});
+        let result = as_json(check_result(CheckOutcome::Report(document.clone())).unwrap());
+        assert_eq!(result["isError"], false);
+        assert_eq!(result["structuredContent"], document);
+        assert_eq!(result["content"][0]["text"], document.to_string());
+    }
+
+    #[test]
+    fn a_rejected_check_is_an_error_with_the_language_error_as_structured_content() {
+        let error = Error::new(ErrorCode::Syntax, "unexpected token");
+        let result = as_json(check_result(CheckOutcome::Failed(error)).unwrap());
+        assert_eq!(result["isError"], true);
+        assert_eq!(
+            result["content"][0]["text"],
+            "error E_SYNTAX: unexpected token"
+        );
+        assert_eq!(result["structuredContent"]["error"]["code"], "E_SYNTAX");
+        assert_eq!(
+            result["structuredContent"]["error"]["message"],
+            "unexpected token"
+        );
+    }
+
+    #[test]
+    fn a_failed_call_is_an_error_result_with_the_status_name() {
+        let result = as_json(
+            run_result(Ok(Err(CallError::new(
+                AbiStatus::Io,
+                "journal is not writable",
+            ))))
+            .unwrap(),
+        );
+        assert_eq!(result["isError"], true);
+        assert_eq!(
+            result["content"][0]["text"],
+            "call failed: NURT_E_IO: journal is not writable"
+        );
+        assert!(result["structuredContent"].is_null());
+    }
+
+    #[test]
+    fn a_finished_run_is_the_result_of_its_response() {
+        let response = Response::new(Report::new(ReportStatus::Ok, "find"));
+        let result = as_json(run_result(Ok(Ok(response))).unwrap());
+        assert_eq!(result["isError"], false);
+        assert_eq!(result["structuredContent"]["kind"], "find");
+    }
+
+    #[test]
+    fn text_errors_carry_only_their_message() {
+        let result = as_json(error_text("bad \u{142}\u{f3}d\u{17a}".to_owned()));
+        assert_eq!(result["isError"], true);
+        assert_eq!(result["content"][0]["text"], "bad \u{142}\u{f3}d\u{17a}");
+        let call = as_json(call_error_text(&CallError::new(AbiStatus::Arg, "x")));
+        assert_eq!(call["content"][0]["text"], "call failed: NURT_E_ARG: x");
+    }
+
+    #[test]
+    fn a_report_that_failed_without_an_error_is_not_an_error_result() {
+        let result = as_json(
+            tool_result(Response::new(Report::new(ReportStatus::Failed, "find"))).unwrap(),
+        );
+        assert_eq!(result["isError"], false);
+    }
+
+    #[test]
+    fn other_call_failures_of_a_resource_are_internal_errors() {
+        for status in [AbiStatus::Timeout, AbiStatus::Cancelled, AbiStatus::Internal] {
+            let error = resource_error("nurt://help/x", &CallError::new(status, "x"));
+            assert_eq!(error.code, rmcp::model::ErrorCode::INTERNAL_ERROR);
+        }
+    }
 
     #[test]
     fn rendered_text_is_the_first_content() {
