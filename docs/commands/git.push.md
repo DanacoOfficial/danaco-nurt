@@ -98,6 +98,7 @@ transports start programs and are not supported.
 | Effect | `external` |
 | Reversibility | `irreversible` |
 | Implementation | `builtin` |
+| External use | `user_program`; Runs the pre-push hook of the repository, and the pre-receive, update and post-receive hooks of a remote on the local file system, as user programs. |
 
 ## Examples
 

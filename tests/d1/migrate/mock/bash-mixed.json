@@ -75,7 +75,7 @@
         "the pattern is a basic regular expression without special characters"
       ],
       "fix": [],
-      "output": "search \"oldName(\" ...@sources.path"
+      "output": "search \"oldName(\" [...@sources.path]"
     },
     {
       "line": 13,
