@@ -220,13 +220,9 @@ fn body(
     );
     stages.extend(value_template(session, "awk", "split", bindings, span)?);
     if let Some(condition) = &program.condition {
-        let field = Expr::Ident {
-            v: field_name(condition.field),
-            span: None,
-        };
         let test = Expr::Bin {
             op: condition.op,
-            l: Box::new(field),
+            l: Box::new(cell(condition.field)),
             r: Box::new(condition.value.clone()),
             span: None,
         };
@@ -247,12 +243,7 @@ fn body(
     let fields = program
         .fields
         .iter()
-        .map(|n| {
-            Bound::Node(Expr::Ident {
-                v: field_name(*n),
-                span: None,
-            })
-        })
+        .map(|n| Bound::Node(cell(*n)))
         .collect();
     bindings.set("fields", fields);
     stages.extend(value_template(session, "awk", "select", bindings, span)?);
@@ -261,6 +252,23 @@ fn body(
 
 fn field_name(number: u32) -> String {
     format!("f{number}")
+}
+
+/// Field of the `row` records of `split` that holds the cells.
+const CELLS: &str = "cells";
+
+/// The cell named for the awk field `$number`: `cells.f<number>`. `split`
+/// gives `row` records, whose parts are inside `cells`, not fields of the
+/// record.
+fn cell(number: u32) -> Expr {
+    Expr::Field {
+        name: field_name(number),
+        of: Some(Box::new(Expr::Ident {
+            v: CELLS.to_owned(),
+            span: None,
+        })),
+        span: None,
+    }
 }
 
 /// Field separator: whitespace runs by default, a single character as
@@ -420,6 +428,21 @@ mod tests {
         assert_eq!(parse_program("$0 > 1"), None);
         assert_eq!(parse_program("$1 > x"), None);
         assert_eq!(parse_program("/x"), None);
+    }
+
+    #[test]
+    fn awk_fields_are_cells_of_the_row_record() {
+        assert_eq!(
+            cell(3),
+            Expr::Field {
+                name: "f3".to_owned(),
+                of: Some(Box::new(Expr::Ident {
+                    v: "cells".to_owned(),
+                    span: None
+                })),
+                span: None
+            }
+        );
     }
 
     #[test]

@@ -26,7 +26,7 @@
     {
       "line": 3,
       "column": 1,
-      "source": "Start-Process -FilePath git -ArgumentList \"status --short\" -Wait",
+      "source": "Start-Process -FilePath git -ArgumentList \"status --short\" -WorkingDirectory C:\\proj -Wait",
       "status": "assumption",
       "rules": [
         "P23"
@@ -35,7 +35,7 @@
         "the argument text is split at white space; PowerShell passes it to the program as one command line"
       ],
       "fix": [],
-      "output": "run [\"git\", \"status\", \"--short\"] wait: forever"
+      "output": "run [\"git\", \"status\", \"--short\"] cwd: \"C:/proj\" wait: forever"
     }
   ]
 }

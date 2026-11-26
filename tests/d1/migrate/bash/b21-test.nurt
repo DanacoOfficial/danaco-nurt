@@ -8,9 +8,9 @@
 # B21: test and brackets guarding a command.
 # translated: B21, L21, B01
 info "/srv/app/.ready"
-|> assert all: type == file
+|> assert all: type == "file"
 |> remove on_missing: error
 # translated: B21, L21, B01
 info "/srv/app/out"
-|> assert all: type == directory
+|> assert all: type == "directory"
 |> remove
