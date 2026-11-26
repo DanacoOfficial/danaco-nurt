@@ -382,6 +382,34 @@ mod tests {
     }
 
     #[test]
+    fn reflog_lines_keep_their_bytes_and_expose_time_and_message() {
+        let line = format!(
+            "{} {} Zażółć <z> x> 1700000000 +0100\tWIP on main: abc zażółć\n",
+            "1".repeat(40),
+            "2".repeat(40)
+        );
+        let entries = parse_reflog(line.as_bytes());
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].seconds(), Some(1_700_000_000));
+        assert_eq!(entries[0].message(), "WIP on main: abc zażółć");
+        assert_eq!(entries[0].to_line(), line.into_bytes());
+    }
+
+    #[test]
+    fn reflog_parser_skips_lines_that_are_not_entries() {
+        let valid = format!("{} {} A <a> 1 +0000\tm\n", "1".repeat(40), "2".repeat(40));
+        let text = format!("garbage\nnot-hex not-hex rest\n{valid}\n");
+        assert_eq!(parse_reflog(text.as_bytes()).len(), 1);
+        let entry = ReflogEntry {
+            old: ObjectId::null(gix::hash::Kind::Sha1),
+            new: ObjectId::null(gix::hash::Kind::Sha1),
+            rest: BString::default(),
+        };
+        assert_eq!(entry.message(), "");
+        assert_eq!(entry.seconds(), None);
+    }
+
+    #[test]
     fn positions_accept_reflog_and_number_forms() {
         assert_eq!(position_of(None), Some(0));
         assert_eq!(position_of(Some("stash@{2}")), Some(2));
