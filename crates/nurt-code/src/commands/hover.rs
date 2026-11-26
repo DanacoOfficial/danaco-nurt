@@ -231,6 +231,34 @@ pub fn shorten_hover(text: &str) -> (String, String) {
     )
 }
 
+/// Words that follow `#` in preprocessor directives.
+const DIRECTIVES: [&str; 17] = [
+    "include", "define", "undef", "if", "ifdef", "ifndef", "elif", "else", "endif", "pragma",
+    "error", "warning", "line", "import", "region", "endregion", "using",
+];
+
+/// Returns `true` for a line that starts a comment; an attribute (`#[...]`,
+/// `#![...]`) and a preprocessor directive that start with `#` are code.
+fn is_comment_line(line: &str) -> bool {
+    let Some(prefix) = COMMENT_PREFIX.as_ref() else {
+        return false;
+    };
+    if !prefix.is_match(line) {
+        return false;
+    }
+    let Some(rest) = line.trim_start().strip_prefix('#') else {
+        return true;
+    };
+    if rest.starts_with('[') || rest.starts_with("![") {
+        return false;
+    }
+    let word = rest
+        .split(|c: char| !c.is_ascii_alphabetic())
+        .next()
+        .unwrap_or_default();
+    !DIRECTIVES.contains(&word)
+}
+
 /// Documentation of a definition from the source: a docstring on the line
 /// after the name, or the comment lines directly above the definition.
 fn local_documentation(file: &FileText, info: &SymbolInfo) -> String {
@@ -255,7 +283,7 @@ fn local_documentation(file: &FileText, info: &SymbolInfo) -> String {
         let Some(text) = file.line(line) else {
             break;
         };
-        if !prefix.is_match(text) {
+        if !is_comment_line(text) {
             break;
         }
         let stripped = prefix.replace(text, "");
@@ -288,5 +316,44 @@ impl ReadStage for CodeHover {
     ) -> Result<StageOutput<'a>> {
         let records = self.records(args, ctx)?;
         Ok(StageOutput::records(RecordStream::from_records(records)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn comment_lines_are_recognized_in_common_styles() {
+        for line in [
+            "// text",
+            "/// text",
+            "  /* text */",
+            " * text",
+            "# text",
+            "#text",
+            "## text",
+            "#!/bin/sh",
+            "\"\"\"text",
+        ] {
+            assert!(is_comment_line(line), "{line}");
+        }
+    }
+
+    #[test]
+    fn attributes_and_directives_are_not_comments() {
+        for line in [
+            "#[derive(Debug)]",
+            "  #![allow(dead_code)]",
+            "#include <stdio.h>",
+            "#define MAX 3",
+            "#ifdef DEBUG",
+            "#pragma once",
+            "#endif",
+            "let x = 1;",
+            "",
+        ] {
+            assert!(!is_comment_line(line), "{line}");
+        }
     }
 }

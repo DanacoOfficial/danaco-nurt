@@ -101,7 +101,7 @@ fn local_implementations(ctx: &ExecCtx, files: &Files<'_>, target: &Target) -> R
         return Ok(Vec::new());
     };
     let mut records = Vec::new();
-    for path in shared::project_files(ctx, files, target) {
+    for path in shared::project_files(ctx, files, target)? {
         ctx.checkpoint()?;
         let Some(file) = files.get(&path) else {
             continue;

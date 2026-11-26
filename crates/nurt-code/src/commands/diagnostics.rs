@@ -146,7 +146,7 @@ impl CodeDiagnostics {
                     format!("`{COMMAND}` needs a path or changed: true"),
                 ));
             }
-            return Ok(expand(ctx, files, &given));
+            return expand(ctx, files, &given);
         }
         let changed = self.changed_files(ctx, files, &given)?;
         Ok(changed
@@ -302,18 +302,18 @@ fn checkable(ctx: &ExecCtx, path: &Path) -> bool {
         .is_some_and(|doc| doc.detect_format(Some(path), &[]).is_some())
 }
 
-fn expand(ctx: &ExecCtx, files: &Files<'_>, given: &[PathBuf]) -> Vec<PathBuf> {
+fn expand(ctx: &ExecCtx, files: &Files<'_>, given: &[PathBuf]) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     for path in given {
         if files.is_dir(path) {
-            let (listed, _) = files.walk(path, &|candidate: &Path| checkable(ctx, candidate));
+            let (listed, _) = files.walk(path, &|candidate: &Path| checkable(ctx, candidate))?;
             paths.extend(listed);
         } else {
             paths.push(path.clone());
         }
     }
     paths.dedup();
-    paths
+    Ok(paths)
 }
 
 fn syntax_issues(

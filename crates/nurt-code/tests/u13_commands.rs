@@ -45,7 +45,9 @@ use nurt_contracts::services::{
     GitQueryService, LanguageId, LanguageInfo, Services, SymbolInfo, SymbolKind, SymbolReference,
     SyntaxIssue, SyntaxMatch, SyntaxPattern, SyntaxToken, TextPosition, TextSpan,
 };
-use nurt_contracts::stage::{ArgValue, BoundArgs, ExecCtx, RecordStream, StageImpl, StageInput};
+use nurt_contracts::stage::{
+    ArgValue, BoundArgs, CancelReason, ExecCtx, RecordStream, StageImpl, StageInput,
+};
 use nurt_contracts::value::{Record, Value};
 
 use u14_support::{StdFs, TestClock, TestHost, ToyCode};
@@ -1397,6 +1399,30 @@ fn hover_from_syntax_reads_the_comment_above_the_definition() {
 }
 
 #[test]
+fn hover_from_syntax_does_not_take_attributes_or_directives_as_documentation() {
+    let project = Project::new();
+    let geometry = project.path("geometry.py");
+    for above in ["#[derive(Debug)]", "#include <stdio.h>"] {
+        std::fs::write(
+            &geometry,
+            format!("# Real note.\n{above}\ndef triple(value):\n    return value * 3\n"),
+        )
+        .unwrap();
+        let records = run(
+            &CodeHover::new(None),
+            &args(
+                "code.hover",
+                &[("path", path_value(&geometry)), ("symbol", word("triple"))],
+            ),
+            &plain_context(),
+        )
+        .unwrap();
+        let hover = Hover::try_from(records.into_iter().next().unwrap()).unwrap();
+        assert_eq!(hover.documentation, None, "{above}");
+    }
+}
+
+#[test]
 fn hover_from_syntax_without_documentation_has_only_the_signature() {
     let project = Project::new();
     let records = run(
@@ -1930,6 +1956,24 @@ fn diagnostics_with_changed_check_only_changed_files() {
     assert_eq!(
         *script.asked_paths.lock().unwrap(),
         vec![project.path("main.py")]
+    );
+}
+
+#[test]
+fn listing_a_directory_stops_when_the_execution_is_cancelled() {
+    let project = Project::new();
+    let empty = project.path("empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    let ctx = plain_context();
+    ctx.cancel().cancel(CancelReason::Timeout);
+    let error = failure(run(
+        &CodeDiagnostics::new(None, None),
+        &args("code.diagnostics", &[("path", path_value(&empty))]),
+        &ctx,
+    ));
+    assert!(
+        matches!(error.code(), ErrorCode::Cancelled | ErrorCode::Timeout),
+        "{error:?}"
     );
 }
 
