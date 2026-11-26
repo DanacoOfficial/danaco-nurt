@@ -61,6 +61,10 @@ pub(super) struct KnownVolume {
     mount: PathBuf,
     source: Vec<u8>,
     case_sensitive: bool,
+    /// Identifier of the mount the description was made for; a device number
+    /// can be given to another file system after an unmount, a mount
+    /// identifier is not. `None` when the description has no case data.
+    mount_id: Option<u64>,
 }
 
 /// Volumes described so far, by device number.
@@ -170,6 +174,7 @@ pub(super) fn volume(cache: &VolumeCache, path: &Path) -> FsResult<VolumeInfo> {
             mount: described.mount.clone(),
             source: described.source.clone(),
             case_sensitive: features.case_sensitive,
+            mount_id: Some(stat.stx_mnt_id),
         },
     );
     Ok(VolumeInfo {
@@ -360,8 +365,8 @@ pub(super) fn case_sensitive(cache: &VolumeCache, path: &Path) -> FsResult<bool>
     let (_, stat) = nearest_existing(path)?;
     let dev = device_number(stat.stx_dev_major, stat.stx_dev_minor);
     match cache.known(dev) {
-        Some(known) => Ok(known.case_sensitive),
-        None => volume(cache, path).map(|info| info.features.case_sensitive),
+        Some(known) if known.mount_id == Some(stat.stx_mnt_id) => Ok(known.case_sensitive),
+        _ => volume(cache, path).map(|info| info.features.case_sensitive),
     }
 }
 
@@ -378,6 +383,7 @@ pub(super) fn space(cache: &VolumeCache, id: &VolumeId) -> FsResult<SpaceInfo> {
                 mount: PathBuf::from(OsStr::from_bytes(&entry.mount_point)),
                 source: entry.source.clone(),
                 case_sensitive: true,
+                mount_id: None,
             })
     });
     let Some(known) = known else {
@@ -443,6 +449,30 @@ fn account_quota(source: &[u8]) -> Option<QuotaFigures> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn description_of_another_mount_with_the_same_device_number_is_not_reused() {
+        let dir = tempfile::tempdir().expect("directory");
+        let reference = VolumeCache::default();
+        let actual = case_sensitive(&reference, dir.path()).expect("case");
+        let (_, stat) = nearest_existing(dir.path()).expect("stat");
+        let dev = device_number(stat.stx_dev_major, stat.stx_dev_minor);
+        let cache = VolumeCache::default();
+        cache.remember(
+            dev,
+            KnownVolume {
+                mount: dir.path().to_path_buf(),
+                source: Vec::new(),
+                case_sensitive: !actual,
+                mount_id: Some(stat.stx_mnt_id.wrapping_add(1)),
+            },
+        );
+        assert_eq!(case_sensitive(&cache, dir.path()), Ok(actual));
+        assert_eq!(
+            cache.known(dev).map(|known| known.mount_id),
+            Some(Some(stat.stx_mnt_id))
+        );
+    }
 
     #[test]
     fn reports_no_quota_for_sources_without_block_device() {
