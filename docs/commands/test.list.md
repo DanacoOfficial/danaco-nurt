@@ -20,7 +20,11 @@ test.list [name: value]...
 
 Returns the `test_run` headers of the stored runs, newest first. The history
 keeps the number of runs set by `verify.history_max` (default `50`); older runs
-are removed when a new run is stored.
+are removed when a new run is stored. A stored run that cannot be read is left
+out of the list and reported in the notes of the result as
+`source_unavailable`, with the path of its file and the advice to remove the
+file; the other runs are listed. `test.show` of that run still fails with the
+error of the unreadable entry.
 
 ## Parameters
 
