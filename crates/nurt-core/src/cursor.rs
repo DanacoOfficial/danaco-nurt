@@ -25,7 +25,7 @@ use std::time::Duration;
 use nurt_contracts::config::DurationSetting;
 use nurt_contracts::env::WallTime;
 use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::report::Report;
+use nurt_contracts::report::{Report, ReportStatus};
 use serde::{Deserialize, Serialize};
 
 use crate::state::{read_optional, sha256_hex, write_atomic};
@@ -155,6 +155,7 @@ impl CursorStore {
         {
             let _ = write_atomic(&dir.join(format!("{entry}.{ENTRY_EXTENSION}")), &bytes);
         }
+        self.evict_expired(now);
         self.lock().insert(entry, Arc::new(stored));
         page
     }
@@ -174,7 +175,9 @@ impl CursorStore {
             .filter(|stored| stored.program.starts_with(parsed.program))
             .ok_or_else(|| self.unknown(cursor, None))?;
         if stored.expires <= now {
-            let fix = stored.text.clone().filter(|_| stored.report.op.is_none());
+            let fix = stored.text.clone().filter(|_| {
+                stored.report.op.is_none() && stored.report.status != ReportStatus::Planned
+            });
             return Err(self.unknown(cursor, fix));
         }
         if parsed.offset > item_count(&stored.report) {
@@ -212,6 +215,28 @@ impl CursorStore {
             }
         }
         removed
+    }
+
+    /// Drops the results expired at `now` that this process holds, so that a
+    /// long-running engine does not keep every result it ever paged.
+    fn evict_expired(&self, now: WallTime) {
+        let expired: Vec<String> = {
+            let mut memory = self.lock();
+            let entries: Vec<String> = memory
+                .iter()
+                .filter(|(_, stored)| stored.expires <= now)
+                .map(|(entry, _)| entry.clone())
+                .collect();
+            for entry in &entries {
+                memory.remove(entry);
+            }
+            entries
+        };
+        if let Some(dir) = &self.dir {
+            for entry in expired {
+                let _ = fs::remove_file(dir.join(format!("{entry}.{ENTRY_EXTENSION}")));
+            }
+        }
     }
 
     fn lock(&self) -> MutexGuard<'_, HashMap<String, Arc<StoredResult>>> {

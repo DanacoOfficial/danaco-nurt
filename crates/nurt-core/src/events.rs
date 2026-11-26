@@ -9,8 +9,8 @@
 //! [`Engine::start`](crate::Engine::start). The first event of an execution
 //! is `exec.started` and the last one `exec.finished`.
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use nurt_contracts::env::{Clock, WallTime};
 use nurt_contracts::report::ReportStatus;
@@ -94,7 +94,7 @@ pub(crate) struct Sequencer {
     listener: Arc<dyn EventListener>,
     clock: Arc<dyn Clock>,
     request_id: String,
-    seq: AtomicU64,
+    seq: Mutex<u64>,
     started: AtomicBool,
     finished: AtomicBool,
 }
@@ -109,7 +109,7 @@ impl Sequencer {
             listener,
             clock,
             request_id,
-            seq: AtomicU64::new(0),
+            seq: Mutex::new(0),
             started: AtomicBool::new(false),
             finished: AtomicBool::new(false),
         }
@@ -130,10 +130,14 @@ impl Sequencer {
         }
     }
 
+    /// Numbers the event and hands it to the listener under one lock, so that
+    /// the listener receives the events in the order of `seq` also when stages
+    /// emit them from several threads.
     fn deliver(&self, body: EventBody) {
-        let seq = self.seq.fetch_add(1, Ordering::SeqCst) + 1;
+        let mut seq = self.seq.lock().unwrap_or_else(PoisonError::into_inner);
+        *seq = seq.saturating_add(1);
         self.listener.deliver(DeliveredEvent {
-            seq,
+            seq: *seq,
             time: self.clock.now(),
             request_id: self.request_id.clone(),
             body,

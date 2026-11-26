@@ -72,6 +72,9 @@ use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
 use crate::system::{SystemClock, SystemHost};
 
+/// Report kind of a request that fails the envelope rules before any program
+/// is known.
+const REQUEST_KIND: &str = "request";
 /// Report kind of a failed request whose program is not known.
 const PROGRAM_KIND: &str = "program";
 /// Report kind of a failed page request.
@@ -929,7 +932,7 @@ impl Engine {
         let prepared = match self.prepare(request) {
             Ok(prepared) => prepared,
             Err(error) => {
-                let report = failed_report(input_kind(request), error);
+                let report = failed_report(REQUEST_KIND, error);
                 return respond_with(&report, &request.options);
             }
         };
@@ -1084,7 +1087,15 @@ impl Engine {
                     strip_items(&mut report);
                     report.result_file = Some(path);
                 }
-                Err(error) if report.error.is_none() => report.error = Some(error),
+                Err(error) if report.error.is_none() => {
+                    if matches!(
+                        report.status,
+                        ReportStatus::Ok | ReportStatus::Planned | ReportStatus::Running
+                    ) {
+                        report.status = ReportStatus::Failed;
+                    }
+                    report.error = Some(error.with_effect_applied(report.op.is_some()));
+                }
                 Err(_) => {}
             }
         }

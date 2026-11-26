@@ -148,6 +148,9 @@ impl Sessions {
     /// starts again without settings.
     pub fn touch(&self, id: &SessionId, now: WallTime) -> Session {
         let mut entries = self.lock();
+        if !entries.contains_key(id) {
+            entries.retain(|_, session| !expired(session, now, self.ttl));
+        }
         let session = entries
             .entry(id.clone())
             .and_modify(|session| {
