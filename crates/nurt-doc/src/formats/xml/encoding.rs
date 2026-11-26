@@ -179,8 +179,8 @@ impl Markup {
         }
         if subset {
             for (opener, closer) in [("<!--", "-->"), ("<?", "?>")] {
-                if rest.starts_with(opener) {
-                    return rest[opener.len()..]
+                if let Some(after) = rest.strip_prefix(opener) {
+                    return after
                         .find(closer)
                         .map_or(rest.len(), |at| opener.len() + at + closer.len());
                 }
