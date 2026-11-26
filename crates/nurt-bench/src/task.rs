@@ -21,6 +21,15 @@ pub const TASK_FORMAT: &str = "nurt-bench-task/1";
 /// Step limit of the protocol.
 pub const DEFAULT_STEPS: u32 = 15;
 
+/// Value of `split` of a task of the public set.
+const SPLIT_PUBLIC: &str = "public";
+
+/// Value of `split` of a task of the held-out set.
+const SPLIT_HOLDOUT: &str = "holdout";
+
+/// Domains of the task set.
+const DOMAINS: std::ops::RangeInclusive<u8> = 1..=12;
+
 /// Systems a task runs on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -219,6 +228,23 @@ impl TaskFile {
         if task.limits.steps == 0 || task.limits.seconds == 0 {
             return Err(BenchError::format(path, "task", "limits must be positive"));
         }
+        if task.split != SPLIT_PUBLIC && task.split != SPLIT_HOLDOUT {
+            return Err(BenchError::format(
+                path,
+                "task",
+                format!(
+                    "split {:?} is neither {SPLIT_PUBLIC:?} nor {SPLIT_HOLDOUT:?}",
+                    task.split
+                ),
+            ));
+        }
+        if !DOMAINS.contains(&task.domain) {
+            return Err(BenchError::format(
+                path,
+                "task",
+                format!("domain {} is not between 1 and 12", task.domain),
+            ));
+        }
         Ok(Self {
             path: path.to_path_buf(),
             task,
@@ -229,7 +255,7 @@ impl TaskFile {
     /// Whether the task belongs to the held-out set.
     #[must_use]
     pub fn is_holdout(&self) -> bool {
-        self.task.split == "holdout"
+        self.task.split == SPLIT_HOLDOUT
     }
 }
 
@@ -359,6 +385,31 @@ pub(crate) mod tests {
         let mut document = task_document("edit-001");
         document["limits"]["steps"] = json!(0);
         assert!(TaskFile::from_document(Path::new("t.json"), document).is_err());
+    }
+
+    #[test]
+    fn rejects_unknown_splits_and_domains() {
+        for split in ["Holdout", "held-out", ""] {
+            let mut document = task_document("edit-001");
+            document["split"] = json!(split);
+            assert!(
+                TaskFile::from_document(Path::new("t.json"), document).is_err(),
+                "{split}"
+            );
+        }
+        for domain in [0, 13] {
+            let mut document = task_document("edit-001");
+            document["domain"] = json!(domain);
+            assert!(TaskFile::from_document(Path::new("t.json"), document).is_err());
+        }
+        let mut document = task_document("edit-001");
+        document["split"] = json!("holdout");
+        document["domain"] = json!(12);
+        assert!(
+            TaskFile::from_document(Path::new("t.json"), document)
+                .unwrap()
+                .is_holdout()
+        );
     }
 
     #[test]
