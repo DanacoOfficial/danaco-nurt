@@ -15,6 +15,7 @@ use std::io::{self, PipeReader};
 use std::os::fd::RawFd;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use libc::{c_int, rlim_t};
@@ -245,6 +246,9 @@ pub(crate) struct Tree {
     pid: libc::pid_t,
     cpu_limit: Option<Duration>,
     membership: Membership,
+    /// The leader was collected or its collection failed: the group
+    /// identifier may name an unrelated group and is never signalled again.
+    collected: AtomicBool,
 }
 
 impl Tree {
@@ -298,6 +302,7 @@ impl Tree {
             pid,
             cpu_limit: request.limits.max_cpu,
             membership,
+            collected: AtomicBool::new(false),
         };
         let streams = Streams {
             stdin,
@@ -310,6 +315,12 @@ impl Tree {
     /// Process identifier of the main process.
     pub(crate) fn pid(&self) -> u32 {
         self.pid.cast_unsigned()
+    }
+
+    /// Whether the group identifier is no longer signalled.
+    #[cfg(test)]
+    pub(crate) fn is_collected(&self) -> bool {
+        self.collected.load(Ordering::Acquire)
     }
 
     /// Blocks until the main process ends, without collecting it.
@@ -376,6 +387,7 @@ impl Tree {
         // collected regardless.
         self.membership.kill();
         self.send(libc::SIGKILL).ok();
+        self.collected.store(true, Ordering::Release);
         let mut status: c_int = 0;
         let mut usage = std::mem::MaybeUninit::<libc::rusage>::zeroed();
         loop {
@@ -430,6 +442,9 @@ impl Tree {
     }
 
     fn send(&self, number: c_int) -> Result<()> {
+        if self.collected.load(Ordering::Acquire) {
+            return Ok(());
+        }
         // SAFETY: a negative identifier addresses the process group created
         // for this tree; the leader is not collected before `finish`.
         if unsafe { libc::kill(-self.pid, number) } == 0 {
