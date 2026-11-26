@@ -37,6 +37,12 @@ fn check_command_pages(
 ) -> Result<()> {
     let dir = layout.commands();
     if !dir.exists() {
+        if !options.allow_missing_pages {
+            problems.push(format!(
+                "{}: the directory of the command pages is missing",
+                dir.display()
+            ));
+        }
         return Ok(());
     }
     for spec in catalog.commands() {
@@ -307,5 +313,30 @@ mod tests {
         )
         .expect("check runs");
         assert!(!relaxed.iter().any(|p| p.contains("has no page")));
+    }
+
+    #[test]
+    fn a_missing_directory_of_pages_is_reported_unless_missing_pages_are_allowed() {
+        let dir = repository();
+        let layout = Layout::new(dir.path());
+        let strict = check_repository(&layout, &CheckOptions::default()).expect("check runs");
+        assert!(
+            strict
+                .iter()
+                .any(|p| p.contains("directory of the command pages"))
+        );
+        let relaxed = check_repository(
+            &layout,
+            &CheckOptions {
+                allow_missing_pages: true,
+                ..CheckOptions::default()
+            },
+        )
+        .expect("check runs");
+        assert!(
+            !relaxed
+                .iter()
+                .any(|p| p.contains("directory of the command pages"))
+        );
     }
 }

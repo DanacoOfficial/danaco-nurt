@@ -157,7 +157,7 @@ Syntax:
 nurt fmt <file | -> [--variant a|b|c] [--json | --format F]
 ```
 
-Result: the program text in the given variant, by default the configured variant. Errors: a language error is written as described in "Output and colour"; the successful result is the program text in every format.
+Result: the program text in the given variant, by default the configured variant. Errors: a language error is written as described in "Output and colour"; the successful result is the program text in every format. Comments are kept: a comment on a line of its own stays before the statement or stage that follows it, and a comment at the end of a line stays at the end of the line of the stage that ended there; blank lines are removed.
 
 Example:
 

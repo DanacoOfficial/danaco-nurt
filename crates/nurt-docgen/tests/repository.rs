@@ -83,11 +83,7 @@ fn catalog_has_the_documented_command_counts() {
 
 #[test]
 fn documentation_passes_all_checks() {
-    let options = CheckOptions {
-        allow_missing_pages: true,
-        ..CheckOptions::default()
-    };
-    let problems = check_repository(&layout(), &options).expect("check runs");
+    let problems = check_repository(&layout(), &CheckOptions::default()).expect("check runs");
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 

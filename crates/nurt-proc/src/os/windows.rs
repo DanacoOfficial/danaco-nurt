@@ -420,7 +420,6 @@ fn console_has(pid: u32) -> bool {
 pub(crate) struct Target {
     process: OwnedHandle,
     pid: u32,
-    started: WallTime,
 }
 
 impl Target {
@@ -453,11 +452,7 @@ impl Target {
         let process = unsafe { OwnedHandle::from_raw_handle(handle) };
         let actual = creation_time(&process)
             .ok_or_else(|| io_error("read the start time", &io::Error::last_os_error()))?;
-        let target = Self {
-            process,
-            pid: id,
-            started: actual,
-        };
+        let target = Self { process, pid: id };
         if target.has_ended() {
             return Err(process_gone(pid));
         }
@@ -479,12 +474,14 @@ impl Target {
         match signal {
             Signal::Kill => self.terminate(),
             Signal::Terminate | Signal::Interrupt | Signal::Hangup => {
-                // SAFETY: plain call; the group identifier is the process
-                // identifier, which names a group only for a process created
-                // with `CREATE_NEW_PROCESS_GROUP`; otherwise the call fails.
-                if console_has(self.pid)
-                    && unsafe { GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, self.pid) } != 0
-                {
+                let sent = console_has(self.pid) && {
+                    // SAFETY: plain call; the group identifier is the process
+                    // identifier, which names a group only for a process
+                    // created with `CREATE_NEW_PROCESS_GROUP`; otherwise the
+                    // call fails.
+                    unsafe { GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, self.pid) != 0 }
+                };
+                if sent {
                     return Ok(());
                 }
                 self.terminate()

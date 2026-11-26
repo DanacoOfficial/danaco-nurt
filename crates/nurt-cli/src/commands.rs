@@ -249,13 +249,13 @@ fn format_program(
     let context = Context::open(io.terminal, source)?;
     // The text is read in the requested variant; a text that is not in it is
     // read in the configured variant and printed in the requested one.
-    let tree = match context.engine.parse(text, flags.variant) {
-        Err(first) if flags.variant.is_some() => {
-            context.engine.parse(text, None).map_err(|_| first)?
-        }
+    let printed = match context.engine.format(text, flags.variant, flags.variant) {
+        Err(first) if flags.variant.is_some() => context
+            .engine
+            .format(text, None, flags.variant)
+            .map_err(|_| first)?,
         other => other?,
     };
-    let printed = context.engine.print(&tree, flags.variant)?;
     writeln!(io.out, "{}", printed.trim_end())?;
     Ok(exit::SUCCESS)
 }

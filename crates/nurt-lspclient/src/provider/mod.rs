@@ -377,8 +377,14 @@ impl Session<'_> {
             if !ready {
                 break;
             }
-            answer = self.attempt(method, params)?;
+            let retried = self.attempt(method, params)?;
             round += 1;
+            // A failed repetition does not take back an answer that was
+            // already given: the server only had not finished loading.
+            if retried.error.is_some() && answer.error.is_none() && !answer.empty {
+                break;
+            }
+            answer = retried;
         }
         match answer.error {
             Some(error) => Err(error),
@@ -971,9 +977,12 @@ fn code_action(
             command: Some(command.to_owned()),
         });
     }
-    let edit = item
-        .get("edit")
-        .and_then(|edit| workspace_change(edit, unit, text_of).ok());
+    // An action whose edit cannot be converted is left out: listed without
+    // its edit it would claim a fix that changes nothing.
+    let edit = match item.get("edit") {
+        Some(edit) => Some(workspace_change(edit, unit, text_of).ok()?),
+        None => None,
+    };
     Some(CodeActionInfo {
         title,
         kind: item.get("kind").and_then(Value::as_str).map(str::to_owned),
@@ -1111,7 +1120,9 @@ pub fn from_lsp(text: Option<&str>, position: &Value, unit: PositionUnit) -> Opt
                 units = units.saturating_add(width(current, unit));
                 columns += 1;
             }
-            columns.saturating_add(character.saturating_sub(units))
+            // A character beyond the end of the line stands for the end of the
+            // line (LSP 3.17, `Position`), not for a column past it.
+            columns
         }
         None => character,
     };
@@ -1210,6 +1221,15 @@ mod tests {
     }
 
     #[test]
+    fn an_action_with_an_edit_that_cannot_be_converted_is_left_out() {
+        let no_text = |_: &Path| None;
+        let action = json!({"title": "t", "edit": {"changes": {"untitled:1": [
+            {"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}}, "newText": "x"}
+        ]}}});
+        assert!(code_action(&action, PositionUnit::Utf16, &no_text).is_none());
+    }
+
+    #[test]
     fn lines_are_found_without_their_carriage_returns() {
         assert_eq!(line_text("a\r\nb", 1), Some("a"));
         assert_eq!(line_text("a\r\nb", 2), Some("b"));
@@ -1250,6 +1270,22 @@ mod tests {
         );
         let negative = json!({"line": -1, "character": 0});
         assert!(from_lsp(Some(text), &negative, PositionUnit::Utf16).is_none());
+    }
+
+    #[test]
+    fn a_character_beyond_the_end_of_the_line_is_the_end_of_the_line() {
+        let end = TextPosition { line: 1, column: 3 };
+        for character in [2, 40, 2_147_483_647] {
+            assert_eq!(
+                from_lsp(
+                    Some("ab\n"),
+                    &json!({"line": 0, "character": character}),
+                    PositionUnit::Utf16
+                ),
+                Some(end),
+                "{character}"
+            );
+        }
     }
 
     #[test]

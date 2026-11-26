@@ -105,7 +105,7 @@ jobs:
           version="${TAG#v}"
           for archive in downloads/nurt-"$version"-*; do
             name="$(basename "$archive")"
-            target="${name#nurt-$version-}"
+            target="${name#"nurt-$version-"}"
             target="${target%.tar.gz}"
             target="${target%.zip}"
             mkdir -p "unpacked/$target" "artifacts/$target"
@@ -120,7 +120,8 @@ jobs:
         run: test "v$(python -c 'import re;print(re.search(r"\"(.+)\"", open("src/nurt/_version.py").read())[1])')" = "$TAG"
       - name: Build wheels
         run: |
-          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          export SOURCE_DATE_EPOCH
           python tools/build_wheels.py --artifacts artifacts --out dist
           python -m pip install twine
           python -m twine check dist/*.whl

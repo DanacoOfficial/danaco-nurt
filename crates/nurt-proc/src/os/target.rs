@@ -119,6 +119,10 @@ impl Target {
             .is_none_or(|identity| identity.ended || !same_start(self.started, identity.started))
     }
 
+    #[allow(
+        clippy::useless_conversion,
+        reason = "the result of the system call is 32 bits wide on 32-bit Linux"
+    )]
     fn send(&self, number: c_int) -> Result<()> {
         let pid = u64::try_from(self.pid).unwrap_or_default();
         #[cfg(target_os = "linux")]

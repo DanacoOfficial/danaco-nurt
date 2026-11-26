@@ -97,7 +97,7 @@ id = "errors/execution/edit-without-match"
 kind = "error"
 code = "E_NO_MATCH"
 summary = "An edit whose replacement finds no match changes nothing."
-program = 'edit "a.txt" changes: [{replace: "zzz", with: "y"}]'
+program = 'edit "a.txt" changes: [{replace: "zzz", with: "y"}] on_missing: error'
 fs_before = { entries = [{ path = "a.txt", type = "file", content_utf8 = "abc\n" }] }
 expect = { report = { status = "failed", error = { code = "E_NO_MATCH" } } }
 fs_after = "unchanged"

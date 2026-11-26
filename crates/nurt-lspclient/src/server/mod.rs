@@ -458,20 +458,24 @@ impl LanguageServer {
         text: &str,
         stamp: Option<FileStamp>,
     ) {
-        let notification = lock(&self.shared.documents).sync(path, language_id, text, stamp);
-        if let Some(notification) = notification {
+        // The notification is queued before the lock of the documents is
+        // released: the versions of one document reach the server in the
+        // order in which they were numbered, whichever thread is faster.
+        let mut documents = lock(&self.shared.documents);
+        if let Some(notification) = documents.sync(path, language_id, text, stamp) {
             send(&self.shared, &notification);
         }
     }
 
     /// Closes the document in the server.
     pub fn forget_document(&self, path: &Path) {
-        let notification = lock(&self.shared.documents).forget(path);
-        if let Some(notification) = notification {
+        let mut documents = lock(&self.shared.documents);
+        if let Some(notification) = documents.forget(path) {
+            send(&self.shared, &notification);
+            drop(documents);
             if let Some(uri) = path_to_uri(path) {
                 self.shared.diagnostics.forget(&uri);
             }
-            send(&self.shared, &notification);
         }
     }
 
@@ -483,7 +487,14 @@ impl LanguageServer {
 
     /// Brings the documents opened earlier up to date with the disk.
     pub fn refresh_documents(&self, max_bytes: u64) {
-        let notifications = lock(&self.shared.documents).refresh(max_bytes);
+        let notifications = {
+            let mut documents = lock(&self.shared.documents);
+            let notifications = documents.refresh(max_bytes);
+            for notification in &notifications {
+                send(&self.shared, notification);
+            }
+            notifications
+        };
         for notification in &notifications {
             if let Message::Notification { method, params } = notification
                 && method == "textDocument/didClose"
@@ -491,7 +502,6 @@ impl LanguageServer {
             {
                 self.shared.diagnostics.forget(uri);
             }
-            send(&self.shared, notification);
         }
     }
 

@@ -265,9 +265,8 @@ impl RegistryApi for Win32Registry {
             Err(error) if error.kind == FsErrorKind::PermissionDenied => return Ok(None),
             Err(error) => return Err(error),
         };
-        let mut length = 0u32;
         let mut buffer: Vec<u32> = Vec::new();
-        loop {
+        let length = loop {
             let mut capacity = u32::try_from(buffer.len() * size_of::<u32>()).unwrap_or(u32::MAX);
             // SAFETY: `buffer` is aligned for a security descriptor and holds
             // `capacity` writable bytes; an empty buffer only asks for the
@@ -281,10 +280,7 @@ impl RegistryApi for Win32Registry {
                 )
             };
             match status {
-                ERROR_SUCCESS => {
-                    length = capacity;
-                    break;
-                }
+                ERROR_SUCCESS => break capacity,
                 ERROR_INSUFFICIENT_BUFFER => {
                     let words = usize::try_from(capacity)
                         .unwrap_or(usize::MAX)
@@ -294,7 +290,7 @@ impl RegistryApi for Win32Registry {
                 ERROR_ACCESS_DENIED => return Ok(None),
                 code => return Err(error(code, "get_security", key)),
             }
-        }
+        };
         let mut descriptor: Vec<u8> = buffer.iter().flat_map(|word| word.to_ne_bytes()).collect();
         descriptor.truncate(usize::try_from(length).unwrap_or(descriptor.len()));
         Ok(Some(descriptor))

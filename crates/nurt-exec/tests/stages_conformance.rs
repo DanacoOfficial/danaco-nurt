@@ -49,6 +49,7 @@ fn conformance_cases_give_their_expected_results() {
     for command in COMMANDS {
         for dir in case_dirs(command) {
             let report = GoldenRunner::new(&dir)
+                .bless(false)
                 .run(|case| match &case.input {
                     GoldenInput::Json(input) => {
                         assert_eq!(input["command"], command, "{}", dir.display());

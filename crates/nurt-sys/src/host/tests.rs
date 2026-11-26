@@ -6,14 +6,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use nurt_contracts::env::WallTime;
-use nurt_contracts::record::{
-    Account, EnvironmentVariable, HostInfo as HostRecord, Process, ServiceAvailability,
-};
+#[cfg(unix)]
+use nurt_contracts::record::ServiceAvailability;
+use nurt_contracts::record::{Account, EnvironmentVariable, HostInfo as HostRecord, Process};
 use nurt_contracts::services::Services;
 use nurt_contracts::stage::{ExecCtx, StageImpl};
 use nurt_contracts::value::{Record, Value};
 
-use super::service_state::{self, Probe};
+use super::service_state;
+#[cfg(unix)]
+use super::service_state::Probe;
 use super::test_support::{self, FixedClock, TestHost};
 use super::{HostStage, SysRoot, procfs};
 
@@ -110,11 +112,13 @@ fn heartbeat(pid: u32, beat: jiff::Timestamp) -> String {
     format!(r#"{{"pid":{pid},"started":"{beat}","beat":"{beat}","version":"0.1.0"}}"#)
 }
 
+#[cfg(unix)]
 fn probe<'a>(root: &'a SysRoot, state: &Path, home: &Path, now: jiff::Timestamp) -> Probe<'a> {
     Probe {
         root,
         state_dir: Some(state.to_path_buf()),
         home: home.to_path_buf(),
+        #[cfg(target_os = "linux")]
         config_home: None,
         now: WallTime::from_unix_nanos(now.as_nanosecond()),
         max_age: Duration::from_millis(2000),
