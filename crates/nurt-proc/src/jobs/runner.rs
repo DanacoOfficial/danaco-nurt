@@ -296,7 +296,7 @@ impl JobRun {
 
     fn started_file(&self, process: &dyn RunningProcess) -> JobFile {
         let mut request = self.launch.request.clone();
-        request.spawn.env = Vec::new();
+        request.spawn.env = Arc::from([]);
         request.spawn.stdin = StdinSource::Null;
         JobFile {
             protocol: PROTOCOL,
@@ -316,7 +316,7 @@ impl JobRun {
         self.table.write_input(
             &self.id,
             &StoredInput {
-                env: spawn.env.clone(),
+                env: spawn.env.to_vec(),
                 stdin: spawn.stdin.clone(),
             },
         )?;

@@ -18,6 +18,7 @@ mod record;
 #[cfg(test)]
 mod tests;
 
+use std::ffi::OsString;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -129,6 +130,7 @@ impl EffectStage for RunStage {
             env_defaults(ctx),
             &settings.env,
         )?;
+        let env = LaunchEnv::new(env);
         let classifier = effect_classifier(ctx)?;
         let mut launches = Vec::with_capacity(processes.len());
         for (index, (command, batch_args)) in processes.into_iter().enumerate() {
@@ -257,16 +259,30 @@ fn processes(
     Ok((base, processes))
 }
 
+/// Environment of a run: the one the programs are resolved with and the one
+/// every request carries, which all batches share instead of copying.
+struct LaunchEnv {
+    child: ChildEnv,
+    shared: Arc<[(OsString, OsString)]>,
+}
+
+impl LaunchEnv {
+    fn new(child: ChildEnv) -> Self {
+        let shared = child.shared_vars();
+        Self { child, shared }
+    }
+}
+
 fn plan_launch(
     ctx: &ExecCtx,
     settings: &Settings,
-    env: &ChildEnv,
+    env: &LaunchEnv,
     classifier: &EffectClassifier,
     index: usize,
     command: Vec<String>,
     batch_args: Vec<String>,
 ) -> Result<PlannedLaunch> {
-    let launch = spawn::prepare_launch(&command, &settings.cwd, env)?;
+    let launch = spawn::prepare_launch(&command, &settings.cwd, &env.child)?;
     let info = LaunchInfo {
         command: command.clone(),
         program: launch.program.clone(),
@@ -284,7 +300,7 @@ fn plan_launch(
         env_keys: settings.env_keys(),
         spawn: launch.request(
             &settings.cwd,
-            env.clone(),
+            Arc::clone(&env.shared),
             settings.stdin.clone(),
             settings.merge_stderr,
             settings.limits.clone(),
@@ -509,6 +525,7 @@ pub(crate) fn run_tool(
         &run.env,
     )?;
     let launch = spawn::prepare_launch(&run.command, &run.cwd, &env)?;
+    let shared = env.shared_vars();
     let limits = ProcessLimits {
         timeout: Some(run.timeout),
         idle_timeout: params::non_zero(config.run.idle_timeout.as_std()),
@@ -522,7 +539,7 @@ pub(crate) fn run_tool(
         program: launch.program.clone(),
         env_keys: run.env.iter().map(|var| var.name.clone()).collect(),
         command: run.command,
-        spawn: launch.request(&run.cwd, env, StdinSource::Null, false, limits),
+        spawn: launch.request(&run.cwd, shared, StdinSource::Null, false, limits),
         track: TrackSpec {
             mode: params::track_mode(config.run.track_changes),
             watch: run.watch,

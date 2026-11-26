@@ -616,7 +616,7 @@ fn request(dir: &Path, millis: u64, code: i32, lines: u32) -> RunRequest {
             launcher: Launcher::Direct,
             raw_command_line: None,
             cwd: dir.to_path_buf(),
-            env: vec![(SECRET_NAME.into(), SECRET_VALUE.into())],
+            env: Arc::from([(SECRET_NAME.into(), SECRET_VALUE.into())]),
             stdin: StdinSource::Bytes(b"input".to_vec()),
             merge_stderr: false,
             limits: ProcessLimits {
@@ -1416,7 +1416,7 @@ mod jobs_retry {
         let spawned = control.spawned.lock().unwrap();
         let repeated = spawned.last().unwrap();
         assert_eq!(
-            repeated.env,
+            repeated.env.to_vec(),
             vec![(SECRET_NAME.into(), SECRET_VALUE.into())]
         );
         assert_eq!(repeated.stdin, StdinSource::Bytes(b"input".to_vec()));
@@ -2305,7 +2305,7 @@ mod jobs_matches_reference_behaviour {
         assert_eq!(launch.command_name, "run");
         let job = background(&ctx, &components(), request(dir.path(), 0, 0, 0));
         let file = wait_finished(dir.path(), &job.id);
-        assert_eq!(file.request.0.spawn.env, Vec::new());
+        assert!(file.request.0.spawn.env.is_empty());
         assert_eq!(file.request.0.command, request(dir.path(), 0, 0, 0).command);
         assert_eq!(file.command_name, "run");
     }
