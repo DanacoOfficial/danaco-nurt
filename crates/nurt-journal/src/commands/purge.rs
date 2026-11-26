@@ -34,7 +34,7 @@ pub(super) fn parse(args: &BoundArgs) -> Result<PurgeArgs> {
     let params = Params::new(args);
     let volume = match params.value("volume")? {
         None => None,
-        Some(Value::Enum(word)) if word == ALL_VOLUMES => None,
+        Some(Value::Enum(word) | Value::Text(word)) if word == ALL_VOLUMES => None,
         Some(Value::Path(path) | Value::Text(path)) => Some(path.clone()),
         Some(_) => return Err(params.type_error("volume", "path or `all`")),
     };
@@ -173,6 +173,44 @@ mod tests {
         let error = apply(&env, &Purge, &args, &ctx).err().unwrap();
         assert_eq!(error.code, ErrorCode::NotFound);
         assert_eq!(env.available(), 3);
+    }
+
+    #[test]
+    fn the_word_all_selects_every_volume_whether_given_as_word_or_text() {
+        for value in [
+            Value::Enum("all".to_owned()),
+            Value::Text("all".to_owned()),
+        ] {
+            let parsed = parse(&call(NAME, &[("volume", value)])).unwrap();
+            assert_eq!(parsed.volume, None);
+            assert_eq!(parsed.selector, PurgeSelector::All);
+        }
+        let path = parse(&call(NAME, &[("volume", Value::Path("all".to_owned()))])).unwrap();
+        assert_eq!(path.volume.as_deref(), Some("all"));
+        let other = parse(&call(NAME, &[("volume", Value::Text("ALL".to_owned()))])).unwrap();
+        assert_eq!(other.volume.as_deref(), Some("ALL"));
+    }
+
+    #[test]
+    fn rejects_volumes_of_a_wrong_type_and_empty_or_invalid_entry_lists() {
+        let wrong = parse(&call(NAME, &[("volume", Value::Int(1))])).unwrap_err();
+        assert_eq!(wrong.code, ErrorCode::Type);
+        let empty = call(NAME, &[("id", Value::List(Vec::new()))]);
+        assert_eq!(parse(&empty).unwrap_err().code, ErrorCode::InvalidValue);
+        for number in [0, -1] {
+            let args = call(NAME, &[("up_to", Value::Int(number))]);
+            assert_eq!(parse(&args).unwrap_err().code, ErrorCode::InvalidValue);
+        }
+        let mixed = call(
+            NAME,
+            &[("id", Value::List(vec![Value::Int(1), Value::Text("x".to_owned())]))],
+        );
+        assert_eq!(parse(&mixed).unwrap_err().code, ErrorCode::Type);
+        let single = call(NAME, &[("id", Value::Int(7))]);
+        assert_eq!(
+            parse(&single).unwrap().selector,
+            PurgeSelector::Ids(vec![OpId(7)])
+        );
     }
 
     #[test]

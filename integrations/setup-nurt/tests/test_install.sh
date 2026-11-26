@@ -124,6 +124,17 @@ run_setup 1.2.3 true "$cache"
 assert_eq 'fails when the archive lacks the executable' 1 $?
 assert_contains 'names the missing executable' 'does not contain nurt' "$(cat "$work/stderr")"
 
+cache="$work/cache-i"
+stage=$(mktemp -d "$work/stage.XXXXXX")
+mkdir -p "$stage/nurt-1.2.3-$target"
+printf '#!/bin/sh\necho "nurt 1.2.3"\n' >"$stage/nurt-1.2.3-$target/nurt"
+chmod +x "$stage/nurt-1.2.3-$target/nurt"
+tar -czf "$release/v1.2.3/nurt-1.2.3-$target.tar.gz" -C "$stage" "nurt-1.2.3-$target"
+(cd "$release/v1.2.3" && { sha256sum "nurt-1.2.3-$target.tar.gz" 2>/dev/null || shasum -a 256 "nurt-1.2.3-$target.tar.gz"; } >SHA256SUMS)
+run_setup 1.2.3 true "$cache"
+assert_eq 'installs an archive with the top directory of the release layout' 0 $?
+assert_file 'places the executable of the nested archive in the tool cache' "$cache/nurt/1.2.3/x64/nurt"
+
 cache="$work/cache-h"
 env RUNNER_OS=FreeBSD RUNNER_ARCH=X64 RUNNER_TOOL_CACHE="$cache" INPUT_VERSION=1.2.3 \
   bash "$setup" >/dev/null 2>"$work/stderr"

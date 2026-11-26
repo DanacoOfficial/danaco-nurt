@@ -333,39 +333,86 @@ struct Counts {
     last_write: Instant,
 }
 
-fn query_info(handle: &Key, key: &KeyPath) -> FsResult<Counts> {
-    let mut class = vec![0u16; MAX_CLASS_UNITS];
-    let mut class_length = units(&class);
-    let mut subkeys = 0u32;
-    let mut values = 0u32;
-    let mut written = FILETIME {
-        dwLowDateTime: 0,
-        dwHighDateTime: 0,
+/// Raw output of `RegQueryInfoKeyW`.
+struct RawInfo {
+    subkeys: u32,
+    values: u32,
+    max_class: u32,
+    class_length: u32,
+    written: FILETIME,
+}
+
+/// Calls `RegQueryInfoKeyW`; an empty `class` asks for the counts and the
+/// longest class name only, without a class buffer.
+fn raw_info(handle: &Key, class: &mut [u16]) -> (RawInfo, WIN32_ERROR) {
+    let mut info = RawInfo {
+        subkeys: 0,
+        values: 0,
+        max_class: 0,
+        class_length: units(class),
+        written: FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        },
     };
-    // SAFETY: `class` holds `class_length` writable UTF-16 units, the other
-    // outputs are valid locations, and unused outputs are null.
+    let (class_pointer, length_pointer) = if class.is_empty() {
+        (ptr::null_mut(), ptr::null_mut())
+    } else {
+        (class.as_mut_ptr(), &raw mut info.class_length)
+    };
+    // SAFETY: the class buffer, when given, holds `class_length` writable
+    // UTF-16 units; the other outputs are valid locations of `info` and
+    // unused outputs are null.
     let status = unsafe {
         RegQueryInfoKeyW(
             handle.0,
-            class.as_mut_ptr(),
-            &mut class_length,
+            class_pointer,
+            length_pointer,
             ptr::null(),
-            &mut subkeys,
+            &raw mut info.subkeys,
+            ptr::null_mut(),
+            &raw mut info.max_class,
+            &raw mut info.values,
             ptr::null_mut(),
             ptr::null_mut(),
-            &mut values,
             ptr::null_mut(),
-            ptr::null_mut(),
-            ptr::null_mut(),
-            &mut written,
+            &raw mut info.written,
         )
     };
+    (info, status)
+}
+
+/// Reads the counts, the time of the last write and the class of a key.
+///
+/// The class buffer is sized from the longest class name the key reports: a
+/// buffer of the largest possible size is refused by the system with
+/// `ERROR_INSUFFICIENT_BUFFER`.
+fn query_info(handle: &Key, key: &KeyPath) -> FsResult<Counts> {
+    let (counts, status) = raw_info(handle, &mut []);
     check(status, "query_key", key)?;
+    let mut size = usize::try_from(counts.max_class).unwrap_or(MAX_CLASS_UNITS);
+    let mut class = String::new();
+    let mut known = counts;
+    while size > 0 {
+        let mut buffer = vec![0u16; size.min(MAX_CLASS_UNITS) + 1];
+        let (info, status) = raw_info(handle, &mut buffer);
+        match status {
+            ERROR_SUCCESS => {
+                class = text(&buffer, info.class_length);
+                known = info;
+                break;
+            }
+            ERROR_MORE_DATA | ERROR_INSUFFICIENT_BUFFER if size < MAX_CLASS_UNITS => {
+                size = size.saturating_mul(2);
+            }
+            code => return Err(error(code, "query_key", key)),
+        }
+    }
     Ok(Counts {
-        class: text(&class, class_length),
-        subkeys,
-        values,
-        last_write: filetime_to_instant(&written),
+        class,
+        subkeys: known.subkeys,
+        values: known.values,
+        last_write: filetime_to_instant(&known.written),
     })
 }
 

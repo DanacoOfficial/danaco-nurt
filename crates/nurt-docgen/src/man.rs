@@ -83,7 +83,27 @@ fn escape_inline(text: &str) -> String {
 fn line_of(inlines: &[Inline]) -> String {
     let mut out = String::new();
     inline_text(inlines, &mut out);
-    protect_line_start(out)
+    protect_lines(&out)
+}
+
+/// Protects the start of every line of rendered inline text; the break
+/// request written for a hard break stays a request.
+fn protect_lines(text: &str) -> String {
+    text.split('\n')
+        .map(|line| {
+            if line == ".br" {
+                line.to_owned()
+            } else {
+                protect_line_start(line.to_owned())
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Escapes text for a double-quoted macro argument.
+fn quoted_argument(text: &str) -> String {
+    text.replace('\\', "\\e").replace('"', "\\(dq")
 }
 
 fn protect_line_start(line: String) -> String {
@@ -111,11 +131,11 @@ pub fn render(header: &ManHeader<'_>, document: &Document) -> String {
 pub fn title_line(header: &ManHeader<'_>) -> String {
     format!(
         ".TH \"{}\" \"{}\" \"{}\" \"{}\" \"{}\"\n",
-        header.name.to_ascii_uppercase().replace('-', "\\-"),
+        quoted_argument(&header.name.to_ascii_uppercase()).replace('-', "\\-"),
         header.section,
-        header.date,
-        header.source,
-        header.manual
+        quoted_argument(header.date),
+        quoted_argument(header.source),
+        quoted_argument(header.manual)
     )
 }
 
@@ -134,11 +154,14 @@ fn blocks(items: &[Block], out: &mut String) {
             Block::Heading { level: 2, content } => {
                 out.push_str(&format!(
                     ".SH {}\n",
-                    plain_text(content).to_uppercase().replace('-', "\\-")
+                    escape_inline(&plain_text(content).to_uppercase())
                 ));
             }
             Block::Heading { content, .. } => {
-                out.push_str(&format!(".SS \"{}\"\n", escape(&plain_text(content))));
+                out.push_str(&format!(
+                    ".SS \"{}\"\n",
+                    quoted_argument(&plain_text(content)).replace('-', "\\-")
+                ));
             }
             Block::Paragraph(content) => {
                 out.push_str(".PP\n");
@@ -211,7 +234,7 @@ fn table(header: &[Vec<Inline>], rows: &[Vec<Vec<Inline>>], out: &mut String) {
                 _ => parts.push(rendered),
             }
         }
-        out.push_str(&protect_line_start(parts.join("; ")));
+        out.push_str(&protect_lines(&parts.join("; ")));
         out.push('\n');
     }
 }
@@ -269,6 +292,40 @@ mod tests {
         let out = render(&HEADER, &parse("- a\n\n1. b\n"));
         assert!(out.contains(".IP \\(bu 2\na\n"));
         assert!(out.contains(".IP 1. 4\nb\n"));
+    }
+
+    #[test]
+    fn protects_a_request_character_after_a_hard_break() {
+        let out = render(&HEADER, &parse("a\\\n.b\n"));
+        assert!(out.contains(".PP\na\n.br\n\\&.b\n"), "{out}");
+    }
+
+    #[test]
+    fn escapes_quotes_and_backslashes_in_the_title_line() {
+        let header = ManHeader {
+            name: "nurt-a\"b",
+            section: 1,
+            date: "2026-01-01",
+            source: "Source \"x\" \\ y",
+            manual: "Manual \"z\"",
+        };
+        assert_eq!(
+            title_line(&header),
+            ".TH \"NURT\\-A\\(dqB\" \"1\" \"2026-01-01\" \"Source \\(dqx\\(dq \\e y\" \"Manual \\(dqz\\(dq\"\n"
+        );
+    }
+
+    #[test]
+    fn escapes_backslashes_and_quotes_in_headings() {
+        let out = render(&HEADER, &parse("## A\\\\B-c\n\n### Say \"hi\" a-b\n"));
+        assert!(out.contains(".SH A\\eB\\-C\n"), "{out}");
+        assert!(out.contains(".SS \"Say \\(dqhi\\(dq a\\-b\"\n"), "{out}");
+    }
+
+    #[test]
+    fn escapes_multi_byte_text_without_changing_it() {
+        let out = render(&HEADER, &parse("za\u{17c}\u{f3}\u{142}\u{107} \u{1f600}\n"));
+        assert!(out.contains(".PP\nza\u{17c}\u{f3}\u{142}\u{107} \u{1f600}\n"));
     }
 
     #[test]

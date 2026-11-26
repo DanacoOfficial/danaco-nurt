@@ -29,6 +29,9 @@ use super::table::{Cmdlet, PowerShellTable};
 /// followed by one letter is a POSIX flag.
 const MIN_PARAMETER_LEN: usize = 2;
 
+/// Drive of PowerShell that holds the environment variables, `env:`.
+const ENVIRONMENT_DRIVE: &str = "env";
+
 /// Whether any statement of the script is written in PowerShell notation.
 pub(crate) fn is_habit(table: &PowerShellTable, script: &Script) -> bool {
     script
@@ -85,8 +88,55 @@ fn is_own_cmdlet(table: &PowerShellTable, element: &Element) -> bool {
     }
 }
 
+/// Whether the arguments of a command show Nurt notation: a named argument,
+/// `to: "x"`, or a raw text, `r"x"`. A shared alias written so is a command of
+/// Nurt, whatever its other arguments show.
+fn shows_nurt(table: &PowerShellTable, command: &Command) -> bool {
+    command.args.iter().enumerate().any(|(index, arg)| {
+        let RawArg::Value(Value {
+            kind: ValueKind::Bare(text),
+            end,
+            ..
+        }) = arg
+        else {
+            return false;
+        };
+        is_named_argument(table, text)
+            || (is_raw_text_prefix(text)
+                && matches!(
+                    command.args.get(index + 1),
+                    Some(RawArg::Value(next)) if next.start == *end
+                ))
+    })
+}
+
+/// A bare word of lower-case letters, digits and `_` with a colon, other
+/// than a drive of PowerShell: `to:`, `into:`, `mode:`.
+fn is_named_argument(table: &PowerShellTable, word: &str) -> bool {
+    let Some(name) = word.strip_suffix(':') else {
+        return false;
+    };
+    name.chars().count() >= MIN_PARAMETER_LEN
+        && name.starts_with(|c: char| c.is_ascii_lowercase())
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+        && table.registry.hive(name).is_none()
+        && !name.eq_ignore_ascii_case(ENVIRONMENT_DRIVE)
+}
+
+/// `r` or `r#`, the start of a raw text that the tokenizer of PowerShell
+/// splits from its quotation mark.
+fn is_raw_text_prefix(word: &str) -> bool {
+    word.strip_prefix('r')
+        .is_some_and(|rest| rest.chars().all(|c| c == '#'))
+}
+
 /// Whether the arguments of a shared alias show PowerShell notation.
 fn shows_powershell(table: &PowerShellTable, cmdlet: &Cmdlet, command: &Command) -> bool {
+    if shows_nurt(table, command) {
+        return false;
+    }
     let mut previous_end = command.name_end;
     for arg in &command.args {
         let (found, end) = match arg {
@@ -179,6 +229,25 @@ mod tests {
         assert!(detected("echo $env:PATH"));
         assert!(detected("ls /srv | Sort-Object Length"));
         assert!(detected("ls /srv | ? { $_.Length -gt 1 }"));
+    }
+
+    #[test]
+    fn shared_aliases_written_in_nurt_notation_are_not_powershell() {
+        assert!(!detected(r#"move "C:\praca\t1\sub\b.go" to: "C:\praca\t1\sub\c.go""#));
+        assert!(!detected(r#"move r"C:\a\b.go" to: r"C:\a\c.go""#));
+        assert!(!detected(r#"write "C:\praca\t1\m.txt" "new" mode: overwrite"#));
+        assert!(!detected(r#"write r"C:\a\m.txt" "x""#));
+        assert!(!detected(r#"copy "C:\a\x" into: "C:\b""#));
+        assert!(!detected(r##"write r#"C:\a\m.txt"# "x""##));
+    }
+
+    #[test]
+    fn shared_aliases_with_powershell_paths_stay_powershell() {
+        assert!(detected(r"move C:\a\b.go C:\a\c.go"));
+        assert!(detected(r"write C:\a\m.txt"));
+        assert!(detected(r"copy C:\a\x C:\b -Recurse"));
+        assert!(detected(r"dir hklm: -Recurse"));
+        assert!(detected(r"ls env: -Recurse"));
     }
 
     #[test]

@@ -416,6 +416,22 @@ mod tests {
     }
 
     #[test]
+    fn keeps_multi_byte_names_and_surrogate_pairs() {
+        assert_eq!(
+            verbatim("C:/za\u{17c}\u{f3}\u{142}\u{107}/\u{1f600}.txt").as_deref(),
+            Some("\\\\?\\C:\\za\u{17c}\u{f3}\u{142}\u{107}\\\u{1f600}.txt")
+        );
+        let hint = "\u{17c}".repeat(2 * TEMP_HINT_MAX_CHARS);
+        let name = temp_file_name(&hint, 1, 0, 0);
+        assert_eq!(name.matches('\u{17c}').count(), TEMP_HINT_MAX_CHARS);
+        let decoded = decode_stream_name(&nul_terminated(":\u{17c}\u{f3}\u{142}\u{107}:$DATA"));
+        assert_eq!(
+            decoded.unwrap().as_deref(),
+            Some("\u{17c}\u{f3}\u{142}\u{107}")
+        );
+    }
+
+    #[test]
     fn terminates_and_trims_wide_strings() {
         let units = nul_terminated("ab");
         assert_eq!(units, [97, 98, 0]);

@@ -115,12 +115,21 @@ pub fn check_table(table: &Table, checker: &dyn ProgramChecker) -> Vec<String> {
     problems
 }
 
+/// Text on one table row with the pipe escaped.
+fn flatten(text: &str) -> String {
+    text.replace(['\r', '\n'], " ").replace('|', "\\|")
+}
+
+/// Code span of a table cell; the fence is longer than every run of
+/// backticks in the text.
 fn cell(text: &str) -> String {
-    let flat = text.replace('\n', " ").replace('|', "\\|");
-    if flat.contains('`') {
-        format!("`` {flat} ``")
-    } else {
+    let flat = flatten(text);
+    let longest = flat.split(|c| c != '`').map(str::len).max().unwrap_or(0);
+    if longest == 0 {
         format!("`{flat}`")
+    } else {
+        let fence = "`".repeat(longest + 1);
+        format!("{fence} {flat} {fence}")
     }
 }
 
@@ -166,7 +175,7 @@ pub fn render(table: &Table) -> String {
         for entry in table.entries.iter().filter(|e| e.topic == topic) {
             let mut result = entry.outcome.label().to_string();
             if !entry.note.is_empty() {
-                result.push_str(&format!(": {}", entry.note.replace('|', "\\|")));
+                result.push_str(&format!(": {}", flatten(&entry.note)));
             }
             out.push_str(&format!(
                 "| {} | {} | {} | {} |\n",
@@ -218,6 +227,35 @@ note = "two effects in one program"
         assert!(text.contains("## Control flow\n"));
         assert!(text.contains("| B01 | `rm -rf /home/user/build` | `remove \"/home/user/build\"` | corrected automatically |"));
         assert!(text.contains("error with fix: two effects in one program"));
+    }
+
+    #[test]
+    fn code_span_fence_is_longer_than_any_backtick_run_in_the_text() {
+        assert_eq!(cell("a|b"), "`a\\|b`");
+        assert_eq!(cell("echo `date`"), "`` echo `date` ``");
+        assert_eq!(cell("a ``b`` c"), "``` a ``b`` c ```");
+        assert_eq!(cell("l1\r\nl2"), "`l1  l2`");
+        assert_eq!(
+            cell("za\u{17c}\u{f3}\u{142}\u{107}"),
+            "`za\u{17c}\u{f3}\u{142}\u{107}`"
+        );
+    }
+
+    #[test]
+    fn notes_with_pipes_and_line_breaks_stay_in_their_row() {
+        let mut table = table();
+        table.entries[1].note = "a | b\nc".to_owned();
+        let text = render(&table);
+        assert!(text.contains("error with fix: a \\| b c |\n"), "{text}");
+    }
+
+    #[test]
+    fn labels_and_file_names_of_sheets() {
+        assert_eq!(shell_label("powershell"), "PowerShell");
+        assert_eq!(shell_label("bash"), "Bash");
+        assert_eq!(shell_label(""), "");
+        assert_eq!(sheet_file_name(&table()), "nurt-for-bash-users.md");
+        assert_eq!(Outcome::Corrected.label(), "corrected automatically");
     }
 
     #[test]

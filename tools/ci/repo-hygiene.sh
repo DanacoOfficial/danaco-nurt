@@ -152,6 +152,14 @@ case "${1:-}" in
     ;;
 esac
 
+case "$selected" in
+  *[!\ ]*) ;;
+  *)
+    echo "repo-hygiene: no checks selected" >&2
+    exit 2
+    ;;
+esac
+
 export LC_ALL=C
 
 if root=$(git rev-parse --show-toplevel 2>/dev/null); then

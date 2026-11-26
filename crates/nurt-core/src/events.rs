@@ -9,8 +9,8 @@
 //! [`Engine::start`](crate::Engine::start). The first event of an execution
 //! is `exec.started` and the last one `exec.finished`.
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use nurt_contracts::env::{Clock, WallTime};
 use nurt_contracts::report::ReportStatus;
@@ -94,7 +94,7 @@ pub(crate) struct Sequencer {
     listener: Arc<dyn EventListener>,
     clock: Arc<dyn Clock>,
     request_id: String,
-    seq: AtomicU64,
+    seq: Mutex<u64>,
     started: AtomicBool,
     finished: AtomicBool,
 }
@@ -109,7 +109,7 @@ impl Sequencer {
             listener,
             clock,
             request_id,
-            seq: AtomicU64::new(0),
+            seq: Mutex::new(0),
             started: AtomicBool::new(false),
             finished: AtomicBool::new(false),
         }
@@ -130,10 +130,14 @@ impl Sequencer {
         }
     }
 
+    /// Numbers the event and hands it to the listener under one lock, so that
+    /// the listener receives the events in the order of `seq` also when stages
+    /// emit them from several threads.
     fn deliver(&self, body: EventBody) {
-        let seq = self.seq.fetch_add(1, Ordering::SeqCst) + 1;
+        let mut seq = self.seq.lock().unwrap_or_else(PoisonError::into_inner);
+        *seq = seq.saturating_add(1);
         self.listener.deliver(DeliveredEvent {
-            seq,
+            seq: *seq,
             time: self.clock.now(),
             request_id: self.request_id.clone(),
             body,
@@ -196,6 +200,61 @@ mod tests {
         assert_eq!(json[1]["t"], "exec.started");
         assert_eq!(json[2]["t"], "exec.finished");
         assert_eq!(json[2]["status"], "ok");
+    }
+
+    /// Listener that lets other threads run before it records an event.
+    #[derive(Default)]
+    struct Yielding(Mutex<Vec<u64>>);
+
+    impl EventListener for Yielding {
+        fn deliver(&self, event: DeliveredEvent) {
+            std::thread::yield_now();
+            self.0.lock().unwrap().push(event.seq);
+        }
+    }
+
+    #[test]
+    fn delivery_order_follows_sequence_numbers_across_threads() {
+        const THREADS: u64 = 4;
+        const PER_THREAD: u64 = 100;
+        let listener = Arc::new(Yielding::default());
+        let sequencer = Sequencer::new(
+            listener.clone(),
+            Arc::new(VirtualClock::new()),
+            "r3".to_owned(),
+        );
+        std::thread::scope(|scope| {
+            for _ in 0..THREADS {
+                scope.spawn(|| {
+                    for _ in 0..PER_THREAD {
+                        sequencer.emit(Event::Log(LogEvent {
+                            level: LogLevel::Debug,
+                            message: String::new(),
+                            source: None,
+                        }));
+                    }
+                });
+            }
+        });
+        let seqs = listener.0.lock().unwrap().clone();
+        assert_eq!(seqs, (1..=THREADS * PER_THREAD).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn closing_twice_delivers_the_lifecycle_once() {
+        let listener = Arc::new(Collect::default());
+        let sequencer = Sequencer::new(
+            listener.clone(),
+            Arc::new(VirtualClock::new()),
+            "r2".to_owned(),
+        );
+        sequencer.close(ReportStatus::Failed);
+        sequencer.close(ReportStatus::Ok);
+        let events = listener.0.lock().unwrap().clone();
+        assert_eq!(events.len(), 2);
+        let finished = serde_json::to_value(&events[1]).unwrap();
+        assert_eq!(finished["t"], "exec.finished");
+        assert_eq!(finished["status"], "failed");
     }
 
     #[test]

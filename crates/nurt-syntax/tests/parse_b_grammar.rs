@@ -413,6 +413,28 @@ fn word_notation_is_not_accepted() {
 }
 
 #[test]
+fn crlf_line_endings_and_multi_byte_text_keep_scalar_value_spans() {
+    let document = parse(
+        "find(\"zażółć\")\r\n|> count()\r\n",
+        Variant::B,
+        &ParseOptions::default(),
+    )
+    .unwrap();
+    let tree = serde_json::to_value(&document).unwrap();
+    let statement = &tree["program"]["statements"][0];
+    assert_eq!(statement["head"]["span"], json!([1, 1, 1, 15]));
+    assert_eq!(statement["stages"][0]["span"], json!([2, 4, 2, 11]));
+}
+
+#[test]
+fn regular_expression_argument_may_start_with_a_hash() {
+    assert_eq!(
+        only_value("search(/#include/i)"),
+        json!({"t": "regex", "v": "#include", "flags": "i"})
+    );
+}
+
+#[test]
 fn deep_nesting_is_rejected_without_stack_overflow() {
     let depth = 1_000;
     let text = format!("{}count(){}", "a.b(".repeat(depth), ")".repeat(depth));

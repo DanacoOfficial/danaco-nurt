@@ -48,6 +48,32 @@ fn interpreter_line_stays_first() {
 }
 
 #[test]
+fn interpreter_line_stays_first_after_a_byte_order_mark() {
+    let text = "\u{FEFF}#!/usr/bin/env nurt\njobs |> count # all\n";
+    assert_eq!(format_a(text), "#!/usr/bin/env nurt\njobs |> count # all\n");
+}
+
+#[test]
+fn crlf_line_endings_are_formatted_to_line_feeds() {
+    let text = "#!/usr/bin/env nurt\r\n# head\r\njobs |> count # all\r\n";
+    assert_eq!(format_a(text), "#!/usr/bin/env nurt\n# head\njobs |> count # all\n");
+}
+
+#[test]
+fn end_of_line_comment_after_multi_byte_characters_stays_at_the_end_of_its_line() {
+    let text = "find \"zażółć\" glob: \"*.go\" # żółw\n|> count\n";
+    assert_eq!(format_a(text), text);
+    let text = "find \"zażółć\" # żółw\n";
+    assert_eq!(format_a(text), text);
+}
+
+#[test]
+fn indented_comment_between_stages_stays_before_the_next_stage_without_indentation() {
+    let text = "find \"zażółć\"\n  # żółw\n|> count\n";
+    assert_eq!(format_a(text), "find \"zażółć\"\n# żółw\n|> count\n");
+}
+
+#[test]
 fn end_of_line_comments_of_joined_lines_move_before_the_statement() {
     let text = "jobs # all jobs\n|> count # how many\n";
     assert_eq!(format_a(text), "# all jobs\njobs |> count # how many\n");
@@ -97,6 +123,26 @@ fn converts_variant_a_to_variants_b_and_c_with_comments() {
     assert_eq!(
         fmt::convert(text, Variant::A, Variant::C, Some(&Names)).expect("converts"),
         "# largest\nfind path=\"/srv\" glob=\"*.go\"\n|> first count=20 # top\n"
+    );
+}
+
+#[test]
+fn converts_variant_b_text_with_crlf_line_endings_to_variant_a() {
+    let text = "find(\"/srv\", glob: \"*.go\")\r\n|> first(20) # top\r\n";
+    assert_eq!(
+        fmt::convert(text, Variant::B, Variant::A, None).expect("converts"),
+        "find \"/srv\" glob: \"*.go\"\n|> first 20 # top\n"
+    );
+}
+
+#[test]
+fn text_without_a_form_that_reads_back_is_reported_at_the_offending_node() {
+    let error = fmt::format("search / a/\n", Variant::A).expect_err("white space after `/`");
+    assert_eq!(error.code, ErrorCode::Syntax);
+    assert_eq!(error.problem.as_deref(), Some("no_text_form"));
+    assert_eq!(
+        error.at.map(|at| (at.line, at.column, at.length)),
+        Some((Some(1), Some(8), Some(4)))
     );
 }
 

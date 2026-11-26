@@ -90,3 +90,16 @@ fn an_empty_directory_is_an_error() {
     let error = GoldenRunner::new(dir.path()).cases().unwrap_err();
     assert!(matches!(error, GoldenError::NoCases { .. }));
 }
+
+#[test]
+fn a_case_with_two_input_files_is_an_error() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("case.in.json"), "[1]").unwrap();
+    std::fs::write(dir.path().join("case.in.txt"), "a\n").unwrap();
+    let error = GoldenRunner::new(dir.path()).cases().unwrap_err();
+    let GoldenError::Io { message, .. } = &error else {
+        panic!("unexpected error: {error}");
+    };
+    assert!(message.contains("`case`"), "{message}");
+    assert!(message.contains("more than one input file"), "{message}");
+}

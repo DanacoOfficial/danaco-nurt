@@ -30,6 +30,7 @@ use nurt_archive::list::Format;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{AbsPath, FileKind, FileMeta, Follow, Fs};
 use nurt_contracts::journal::{Expect, Mutation, MutationTx, TargetAction, TargetSpec};
+use nurt_contracts::record::EntryType;
 use nurt_contracts::report::{Notable, NotableEntry};
 use nurt_contracts::stage::{
     BoundArgs, EffectOutcome, EffectPlan, EffectStage, ExecCtx, InputKinds, StageDescriptor,
@@ -61,6 +62,12 @@ const FORMAT_VALUES: [&str; 8] = [
 /// Field of `entry` records with the path relative to the listed
 /// directory.
 const RELATIVE_FIELD: &str = "relative";
+
+/// Value of the `relative` field of the root of a listing.
+const ROOT_RELATIVE: &str = ".";
+
+/// Field of `entry` records with the type of the entry.
+const TYPE_FIELD: &str = "type";
 
 /// Permission bits stored, including the set-id and sticky bits.
 const PERMISSION_BITS: u32 = 0o7777;
@@ -306,7 +313,11 @@ fn member_name(record: &Record, path: &AbsPath, base: Option<&AbsPath>) -> Resul
         Some(Value::Text(text) | Value::Path(text)) if !text.is_empty() => Some(text.clone()),
         _ => None,
     };
-    let name = match relative {
+    let is_root = relative.as_deref() == Some(ROOT_RELATIVE);
+    if is_root && is_directory_record(record) {
+        return Ok(None);
+    }
+    let name = match relative.filter(|_| !is_root) {
         Some(relative) => relative,
         None => {
             let Some(name) = path.file_name() else {
@@ -319,6 +330,15 @@ fn member_name(record: &Record, path: &AbsPath, base: Option<&AbsPath>) -> Resul
         }
     };
     normalised_name(&name, path).map(Some)
+}
+
+/// Whether an input record is a directory, by its `type` field.
+fn is_directory_record(record: &Record) -> bool {
+    let directory = EntryType::Directory.as_str();
+    matches!(
+        record.get(TYPE_FIELD),
+        Some(Value::Enum(kind) | Value::Text(kind)) if kind == directory
+    )
 }
 
 /// Relative member name without `.` and empty components.
@@ -584,6 +604,29 @@ mod tests {
         let escaping = entry("/src/app/a.txt").with("relative", Value::Text("../a.txt".to_owned()));
         let error = run(&test, &args("/src/c.tgz", &[]), vec![escaping]).unwrap_err();
         assert_eq!(error.code(), ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn the_root_record_of_a_listing_adds_its_content_without_a_member() {
+        let test = TestContext::new();
+        tree(&test);
+        let root = entry("/src/app")
+            .with("relative", Value::Text(".".to_owned()))
+            .with("type", Value::Enum("directory".to_owned()));
+        let child = entry("/src/app/a.txt").with("relative", Value::Text("a.txt".to_owned()));
+        let names = run(&test, &args("/src/dot.tar", &[]), vec![root, child]).unwrap();
+        assert_eq!(names, ["a.txt", "sub", "sub/b.txt"]);
+    }
+
+    #[test]
+    fn a_root_file_is_stored_under_its_own_name() {
+        let test = TestContext::new();
+        tree(&test);
+        let record = entry("/src/app/a.txt")
+            .with("relative", Value::Text(".".to_owned()))
+            .with("type", Value::Enum("file".to_owned()));
+        let names = run(&test, &args("/src/file.tar", &[]), vec![record]).unwrap();
+        assert_eq!(names, ["a.txt"]);
     }
 
     #[test]

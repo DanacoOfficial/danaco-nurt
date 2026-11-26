@@ -229,3 +229,125 @@ pub fn run(args: &[String]) -> Result<u8, CliError> {
     let mut err = std::io::stderr().lock();
     execute(args, &mut out, &mut err)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn words(text: &str) -> Vec<String> {
+        text.split_whitespace().map(str::to_owned).collect()
+    }
+
+    fn usage(text: &str) -> bool {
+        matches!(parse(&words(text)), Err(CliError::Usage(_)))
+    }
+
+    #[test]
+    fn a_script_file_alone_gives_the_defaults() {
+        assert_eq!(
+            parse(&words("deploy.sh")).unwrap(),
+            Arguments {
+                file: PathBuf::from("deploy.sh"),
+                format: ReportFormat::Text,
+                output: None,
+                script: None,
+                language: None,
+            }
+        );
+    }
+
+    #[test]
+    fn every_option_is_read_in_any_order() {
+        let arguments = parse(&words(
+            "--language powershell --output out.nurt a.ps1 --script /opt/a.ps1 --format json",
+        ))
+        .unwrap();
+        assert_eq!(arguments.file, PathBuf::from("a.ps1"));
+        assert_eq!(arguments.format, ReportFormat::Json);
+        assert_eq!(arguments.output, Some(PathBuf::from("out.nurt")));
+        assert_eq!(arguments.script.as_deref(), Some("/opt/a.ps1"));
+        assert_eq!(arguments.language, Some(ScriptLanguage::PowerShell));
+        let bash = parse(&words("a.sh --language bash")).unwrap();
+        assert_eq!(bash.language, Some(ScriptLanguage::Bash));
+    }
+
+    #[test]
+    fn a_file_name_with_multi_byte_characters_is_kept() {
+        let args = vec!["migrate-\u{142}\u{f3}d\u{17a}.sh".to_owned()];
+        assert_eq!(
+            parse(&args).unwrap().file,
+            PathBuf::from("migrate-\u{142}\u{f3}d\u{17a}.sh")
+        );
+    }
+
+    #[test]
+    fn options_given_twice_are_rejected() {
+        for bad in [
+            "a.sh --format text --format json",
+            "a.sh --output x --output y",
+            "a.sh --script x --script y",
+            "a.sh --language bash --language powershell",
+            "a.sh b.sh",
+        ] {
+            assert!(usage(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn missing_files_values_and_unknown_names_are_rejected() {
+        for bad in [
+            "",
+            "--format json",
+            "a.sh --format",
+            "a.sh --output",
+            "a.sh --script",
+            "a.sh --language",
+            "a.sh --format yaml",
+            "a.sh --language zsh",
+            "a.sh --help",
+            "a.sh --unknown",
+        ] {
+            assert!(usage(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn the_unknown_option_is_named_in_the_message() {
+        assert_eq!(
+            parse(&words("a.sh --help")),
+            Err(CliError::Usage("unknown option `--help` of `migrate`".to_owned()))
+        );
+    }
+
+    #[test]
+    fn the_script_path_is_the_given_one_or_the_absolute_path_of_the_file() {
+        let mut arguments = parse(&words("dir/deploy.sh")).unwrap();
+        let derived = script_path(&arguments).unwrap();
+        assert!(Path::new(&derived).is_absolute(), "{derived}");
+        assert!(derived.ends_with("deploy.sh"), "{derived}");
+        arguments.script = Some("/opt/deploy.sh".to_owned());
+        assert_eq!(script_path(&arguments).unwrap(), "/opt/deploy.sh");
+    }
+
+    #[test]
+    fn a_missing_script_is_a_failure_naming_the_file() {
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let result = execute(
+            &words("/nonexistent/nurt/deploy.sh"),
+            &mut out,
+            &mut err,
+        );
+        assert!(matches!(
+            result,
+            Err(CliError::Failure(message)) if message.starts_with("cannot read `/nonexistent/nurt/deploy.sh`")
+        ));
+        assert!(out.is_empty() && err.is_empty());
+    }
+
+    #[test]
+    fn invalid_arguments_are_rejected_before_the_file_is_read() {
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let result = execute(&words("--format"), &mut out, &mut err);
+        assert!(matches!(result, Err(CliError::Usage(_))));
+    }
+}

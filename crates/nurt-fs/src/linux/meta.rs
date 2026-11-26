@@ -403,12 +403,14 @@ impl Transfer<'_> {
             .map_err(|errno| sys_error(errno, OP, self.report))?;
         let wanted_flags = if self.symlink { None } else { meta.flags };
         let mut flags = self.current_flags(OP)?;
+        let mut blocked = None;
         if let (Some(fd), Some(current_flags)) = (self.flags_fd, flags)
             && current_flags.intersects(BLOCKING_FLAGS)
         {
             let lifted = current_flags.difference(BLOCKING_FLAGS);
             if retry(|| rustix::fs::ioctl_setflags(fd, lifted)).is_ok() {
                 flags = Some(lifted);
+                blocked = Some(current_flags);
             } else {
                 push_once(&mut missing, "flags");
             }
@@ -453,7 +455,8 @@ impl Transfer<'_> {
             missing.push("times".to_owned());
         }
 
-        if let (Some(wanted), Some(fd)) = (wanted_flags.map(flags_from_u64), self.flags_fd)
+        let closing = wanted_flags.map(flags_from_u64).or(blocked);
+        if let (Some(wanted), Some(fd)) = (closing, self.flags_fd)
             && wanted.intersects(BLOCKING_FLAGS)
             && retry(|| rustix::fs::ioctl_setflags(fd, wanted)).is_err()
         {

@@ -361,7 +361,7 @@ fn parse_duration_millis(text: &str) -> Result<u64, SettingParseError> {
 /// Size in bytes written with a unit: decimal `b`, `kb`, `mb`, `gb`, `tb`
 /// (powers of 1000) or binary `kib`, `mib`, `gib`, `tib` (powers of 1024);
 /// a fraction is allowed (`1.5tb`) and a bare integer means bytes. Written
-/// back with the largest unit that represents it exactly, binary first.
+/// back with the largest unit that represents it exactly.
 ///
 /// # Examples
 ///
@@ -427,7 +427,8 @@ impl fmt::Display for SizeSetting {
         let unit = SIZE_UNITS
             .iter()
             .copied()
-            .find(|(_, factor)| self.bytes != 0 && self.bytes.is_multiple_of(*factor));
+            .filter(|(_, factor)| self.bytes != 0 && self.bytes.is_multiple_of(*factor))
+            .max_by_key(|(_, factor)| *factor);
         match unit {
             Some((name, factor)) => write!(f, "{}{name}", self.bytes / factor),
             None => write!(f, "{}b", self.bytes),
@@ -2880,10 +2881,13 @@ where
 fn env_value(var: &EnvVar, text: &str, list_separator: char) -> Result<Json, String> {
     match var.kind {
         EnvKind::Text => Ok(Json::from(text)),
-        EnvKind::Integer => Ok(text
-            .trim()
-            .parse::<i64>()
-            .map_or_else(|_| Json::from(text), Json::from)),
+        EnvKind::Integer => {
+            let trimmed = text.trim();
+            Ok(trimmed.parse::<i64>().map_or_else(
+                |_| trimmed.parse::<u64>().map_or_else(|_| Json::from(text), Json::from),
+                Json::from,
+            ))
+        }
         EnvKind::List => Ok(Json::from(
             text.split(list_separator)
                 .map(str::trim)
@@ -2899,5 +2903,190 @@ fn env_value(var: &EnvVar, text: &str, list_separator: char) -> Result<Json, Str
                 var.name
             )),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn writes_sizes_with_the_largest_exact_unit_of_both_families() {
+        let cases = [
+            (1_000_000_000_000_u64, "1tb"),
+            (4_000_000_000, "4gb"),
+            (1_500_000_000_000, "1500gb"),
+            (1 << 41, "2tib"),
+            (1_000_000, "1mb"),
+            (1_500, "1500b"),
+        ];
+        for (bytes, text) in cases {
+            let size = SizeSetting::from_bytes(bytes);
+            assert_eq!(size.to_string(), text);
+            assert_eq!(text.parse::<SizeSetting>().unwrap(), size);
+        }
+    }
+
+    #[test]
+    fn size_and_duration_extremes_round_trip() {
+        let size = SizeSetting::from_bytes(u64::MAX);
+        assert_eq!(size.to_string().parse::<SizeSetting>().unwrap(), size);
+        let duration = DurationSetting::from_millis(u64::MAX);
+        assert_eq!(duration.to_string().parse::<DurationSetting>().unwrap(), duration);
+        assert!("18446744073709551616b".parse::<SizeSetting>().is_err());
+        assert!("18446744073709551616ms".parse::<DurationSetting>().is_err());
+        assert!("30500000000000000w".parse::<DurationSetting>().is_err());
+    }
+
+    #[test]
+    fn environment_integer_accepts_the_full_unsigned_range() {
+        let layer = env_layer([("NURT_MAX_RECORDS", "18446744073709551615")], ':').unwrap();
+        let resolved = resolve(&[layer], false).unwrap();
+        assert_eq!(resolved.config.limits.max_records, u64::MAX);
+    }
+
+    #[test]
+    fn environment_integer_that_is_not_a_number_is_reported_with_its_key() {
+        let layer = env_layer([("NURT_SPACE_POLL_MS", "fast")], ':').unwrap();
+        let error = resolve(&[layer], false).unwrap_err();
+        assert_eq!(error.key.as_deref(), Some("space.poll_ms"));
+        assert_eq!(error.level, Some(ConfigLevel::Environment));
+    }
+
+    #[test]
+    fn project_file_cannot_set_journal_keys_of_an_untrusted_project() {
+        let values: Map<String, Json> =
+            serde_json::from_str(r#"{"journal": {"max_ops": 5}, "output": {"head": 3}}"#).unwrap();
+        let layers = [ConfigLayer::new(ConfigLevel::Project, ".nurt.toml", values)];
+        let untrusted = resolve(&layers, false).unwrap();
+        assert_eq!(untrusted.config.journal.max_ops, StepLimit::Limited(30));
+        let kinds: Vec<_> = untrusted.notes.iter().map(|note| note.kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                ConfigNoteKind::JournalConfigIgnored,
+                ConfigNoteKind::ProjectConfigIgnored
+            ]
+        );
+        let trusted = resolve(&layers, true).unwrap();
+        assert_eq!(trusted.config.journal.max_ops, StepLimit::Limited(5));
+        assert_eq!(trusted.source("journal.max_ops"), ConfigLevel::Project);
+    }
+
+    #[test]
+    fn trust_keys_are_ignored_at_project_and_runtime_levels() {
+        for level in [ConfigLevel::Project, ConfigLevel::Runtime] {
+            let values: Map<String, Json> =
+                serde_json::from_str(r#"{"scope": {"trusted_projects": ["/home/user/repo"]}}"#)
+                    .unwrap();
+            let layers = [ConfigLayer::new(level, "layer", values)];
+            assert!(trusted_projects(&layers).unwrap().is_empty());
+        }
+    }
+
+    #[test]
+    fn age_limit_bounds_are_inclusive() {
+        assert!("10s".parse::<AgeLimit>().is_ok());
+        assert!("9s".parse::<AgeLimit>().is_err());
+        assert!("365d".parse::<AgeLimit>().is_ok());
+        assert!("365d1ms".parse::<AgeLimit>().is_err());
+        assert!("52w1d".parse::<AgeLimit>().is_ok());
+    }
+
+    #[test]
+    fn unknown_keys_are_reported_and_the_other_keys_are_applied() {
+        let values: Map<String, Json> =
+            serde_json::from_str(r#"{"nosuch": {"x": 1}, "output": {"head": 7}}"#).unwrap();
+        let layers = [ConfigLayer::new(ConfigLevel::User, "nurt.toml", values)];
+        let resolved = resolve(&layers, false).unwrap();
+        assert_eq!(resolved.config.output.head, 7);
+        assert_eq!(resolved.source("output.head"), ConfigLevel::User);
+        assert_eq!(resolved.notes.len(), 1);
+        assert_eq!(resolved.notes[0].kind, ConfigNoteKind::UnknownKey);
+        assert_eq!(resolved.notes[0].key, "nosuch.x");
+    }
+
+    #[test]
+    fn a_value_given_for_a_table_names_the_key_level_and_origin() {
+        let values: Map<String, Json> = serde_json::from_str(r#"{"journal": 5}"#).unwrap();
+        let layers = [ConfigLayer::new(ConfigLevel::User, "nurt.toml", values)];
+        let error = resolve(&layers, false).unwrap_err();
+        assert_eq!(error.key.as_deref(), Some("journal"));
+        assert_eq!(error.level, Some(ConfigLevel::User));
+        assert_eq!(error.origin.as_deref(), Some("nurt.toml"));
+    }
+
+    #[test]
+    fn higher_levels_win_regardless_of_the_order_of_the_layers() {
+        let layer = |level, text: &str| {
+            let values: Map<String, Json> = serde_json::from_str(text).unwrap();
+            ConfigLayer::new(level, "layer", values)
+        };
+        let layers = [
+            layer(ConfigLevel::Environment, r#"{"journal": {"max_ops": 50}}"#),
+            layer(ConfigLevel::User, r#"{"journal": {"max_ops": 40}, "run": {"timeout": "10s"}}"#),
+            layer(ConfigLevel::User, r#"{"run": {"timeout": "20s"}}"#),
+        ];
+        let resolved = resolve(&layers, false).unwrap();
+        assert_eq!(resolved.config.journal.max_ops, StepLimit::Limited(50));
+        assert_eq!(resolved.source("journal.max_ops"), ConfigLevel::Environment);
+        assert_eq!(resolved.config.run.timeout.as_millis(), 20_000);
+    }
+
+    #[test]
+    fn settings_of_one_volume_are_keyed_by_the_mount_point() {
+        let values: Map<String, Json> =
+            serde_json::from_str(r#"{"journal": {"volume": {"/mnt/a.b": {"max_ops": 5}}}}"#)
+                .unwrap();
+        let key = r#"journal.volume."/mnt/a.b".max_ops"#;
+        let user = [ConfigLayer::new(ConfigLevel::User, "nurt.toml", values.clone())];
+        let resolved = resolve(&user, false).unwrap();
+        let volume = resolved.config.journal.volume.get("/mnt/a.b").unwrap();
+        assert_eq!(volume.max_ops, Some(StepLimit::Limited(5)));
+        assert_eq!(resolved.source(key), ConfigLevel::User);
+        let project = [ConfigLayer::new(ConfigLevel::Project, ".nurt.toml", values)];
+        let ignored = resolve(&project, false).unwrap();
+        assert!(ignored.config.journal.volume.is_empty());
+        assert_eq!(ignored.notes[0].kind, ConfigNoteKind::JournalConfigIgnored);
+        assert_eq!(ignored.notes[0].key, key);
+    }
+
+    #[test]
+    fn keys_are_written_with_quotes_where_toml_requires_them() {
+        let segments = ["a", "b c", "d\"e", "f\\g", ""].map(String::from);
+        assert_eq!(display_key(&segments), r#"a."b c"."d\"e"."f\\g"."""#);
+    }
+
+    #[test]
+    fn environment_layer_reads_lists_booleans_and_rejects_other_booleans() {
+        let layer = env_layer(
+            [
+                ("NURT_PROJECT_ROOTS", "/home/user/a::/home/user/b: "),
+                ("NURT_SYNTAX_TOLERANT", "NO"),
+                ("NURT_THREADS", " 4 "),
+            ],
+            ':',
+        )
+        .unwrap();
+        let resolved = resolve(&[layer], false).unwrap();
+        assert_eq!(
+            resolved.config.scope.project_roots,
+            ["/home/user/a", "/home/user/b"]
+        );
+        assert!(!resolved.config.syntax.tolerant);
+        assert_eq!(resolved.config.limits.threads, Some(4));
+        let error = env_layer([("NURT_SYNTAX_TOLERANT", "maybe")], ':').unwrap_err();
+        assert_eq!(error.key.as_deref(), Some("syntax.tolerant"));
+    }
+
+    #[test]
+    fn every_environment_variable_sets_a_known_key() {
+        let known = known_keys().unwrap();
+        for var in ENV_VARS {
+            assert!(known.iter().any(|key| key == var.key), "{}", var.key);
+        }
+        assert!(known.iter().any(|key| key == "journal.pin_max_age"));
+        assert!(known.iter().any(|key| key == "journal.volume"));
+        assert!(!known.iter().any(|key| key.starts_with("journal.volume.")));
     }
 }

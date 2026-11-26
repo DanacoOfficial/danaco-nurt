@@ -69,6 +69,15 @@ impl Tree {
             ));
         }
         for (at, sub) in tree.subcommands.iter().enumerate() {
+            if !is_word(&sub.name) {
+                return Err(DocgenError::invalid(
+                    input,
+                    format!(
+                        "subcommand name {:?} must use lower-case letters, digits and hyphens",
+                        sub.name
+                    ),
+                ));
+            }
             if tree.subcommands[..at].iter().any(|s| s.name == sub.name) {
                 return Err(DocgenError::invalid(
                     input,
@@ -468,6 +477,29 @@ arguments = ["<file | -e program>"]
         assert!(Tree::parse("table", &wrong).is_err());
         let twice = format!("{TABLE}\n[[subcommand]]\nname = \"exec\"\ndescription = \"x\"\n");
         assert!(Tree::parse("table", &twice).is_err());
+    }
+
+    #[test]
+    fn rejects_subcommand_names_that_would_break_completion_scripts() {
+        for name in ["a b", "a;b", "$(x)", "A", "", "-x", "za\u{17c}"] {
+            let text = format!(
+                "format = \"nurt-cli-subcommands/1\"\n\n[[subcommand]]\nname = {name:?}\ndescription = \"x\"\n"
+            );
+            assert!(Tree::parse("table", &text).is_err(), "{name:?}");
+        }
+    }
+
+    #[test]
+    fn completion_scripts_keep_descriptions_with_quotes_and_dollars() {
+        let text = "format = \"nurt-cli-subcommands/1\"\n\n[[subcommand]]\nname = \"quote\"\ndescription = \"Say 'hi', \\\"there\\\" $HOME `date`.\"\n";
+        let tree = Tree::parse("table", text).expect("parses");
+        let out = tempfile::tempdir().expect("temporary directory");
+        let names = write_completions(&tree, out.path()).expect("completions are written");
+        for name in names {
+            let script = std::fs::read_to_string(out.path().join(&name)).expect("script");
+            assert!(script.contains("quote"), "{name}");
+            assert!(!script.contains("$(date)"), "{name}");
+        }
     }
 
     #[test]

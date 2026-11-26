@@ -72,6 +72,9 @@ use crate::session::{SessionId, Sessions};
 use crate::state::{StateArea, StateDir, write_atomic};
 use crate::system::{SystemClock, SystemHost};
 
+/// Report kind of a request that fails the envelope rules before any program
+/// is known.
+const REQUEST_KIND: &str = "request";
 /// Report kind of a failed request whose program is not known.
 const PROGRAM_KIND: &str = "program";
 /// Report kind of a failed page request.
@@ -929,7 +932,7 @@ impl Engine {
         let prepared = match self.prepare(request) {
             Ok(prepared) => prepared,
             Err(error) => {
-                let report = failed_report(input_kind(request), error);
+                let report = failed_report(REQUEST_KIND, error);
                 return respond_with(&report, &request.options);
             }
         };
@@ -1084,7 +1087,15 @@ impl Engine {
                     strip_items(&mut report);
                     report.result_file = Some(path);
                 }
-                Err(error) if report.error.is_none() => report.error = Some(error),
+                Err(error) if report.error.is_none() => {
+                    if matches!(
+                        report.status,
+                        ReportStatus::Ok | ReportStatus::Planned | ReportStatus::Running
+                    ) {
+                        report.status = ReportStatus::Failed;
+                    }
+                    report.error = Some(error.with_effect_applied(report.op.is_some()));
+                }
                 Err(_) => {}
             }
         }
@@ -1619,6 +1630,7 @@ fn save_result(path: &str, report: &Report) -> Result<(), Error> {
 mod tests {
     use std::sync::atomic::AtomicUsize;
 
+    use nurt_contracts::value::Value;
     use nurt_testkit::clock::VirtualClock;
     use nurt_testkit::host::TestHost;
 
@@ -1729,6 +1741,59 @@ mod tests {
         );
         assert_eq!(response.report.error.as_ref().unwrap().code, ErrorCode::Io);
         assert_eq!(response.report.changes.len(), 2);
+        assert_eq!(response.report.status, ReportStatus::Failed);
+        assert!(response.report.error.as_ref().unwrap().effect_applied);
+    }
+
+    #[test]
+    fn unwritable_result_file_fails_a_preview_that_changed_nothing() {
+        let temp = tempfile::tempdir().unwrap();
+        let engine = engine(&temp.path().join("state"));
+        let blocker = temp.path().join("file");
+        std::fs::write(&blocker, b"x").unwrap();
+        let options = RequestOptions {
+            save_to: Some(blocker.join("result.json").to_string_lossy().into_owned()),
+            ..RequestOptions::default()
+        };
+        let mut preview = removal(2);
+        preview.status = ReportStatus::Planned;
+        preview.op = None;
+        let response = engine.finish(
+            preview,
+            &prepared(&engine, options),
+            None,
+            Duration::ZERO,
+        );
+        assert_eq!(response.report.status, ReportStatus::Failed);
+        let error = response.report.error.as_ref().unwrap();
+        assert_eq!(error.code, ErrorCode::Io);
+        assert!(!error.effect_applied);
+    }
+
+    #[test]
+    fn single_value_is_listed_as_one_row() {
+        let page = records_page(&ResultData::from_value(Value::Int(3)), &[]).unwrap();
+        assert_eq!(page.record_type, RecordKind::Row);
+        assert_eq!(page.matched, Some(1));
+        assert_eq!(page.rows.len(), 1);
+        assert_eq!(page.rows[0].get("value"), Some(&Value::Int(3)));
+    }
+
+    #[test]
+    fn records_of_the_effect_are_left_out_of_the_rows() {
+        let mut result = ResultData::from_records(vec![Record::new(RecordKind::Effect)]);
+        assert!(records_page(&result, &[RecordKind::Effect]).is_none());
+        result.header = Some(Record::new(RecordKind::TestRun));
+        let page = records_page(&result, &[RecordKind::Effect]).unwrap();
+        assert_eq!(page.record_type, RecordKind::TestRun);
+        assert!(page.rows.is_empty());
+    }
+
+    #[test]
+    fn report_kind_of_a_request_without_a_program_follows_its_input() {
+        assert_eq!(input_kind(&Request::cursor("c_1")), PAGE_KIND);
+        assert_eq!(input_kind(&Request::accept("c1")), ACCEPT_KIND);
+        assert_eq!(input_kind(&Request::program("find")), PROGRAM_KIND);
     }
 
     fn engine_with(overrides: &str, state: &std::path::Path) -> Engine {

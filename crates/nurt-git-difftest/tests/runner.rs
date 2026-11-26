@@ -246,6 +246,42 @@ command = "git.fetch"
     }
 
     #[test]
+    fn a_supported_git_program_is_present_when_the_run_requires_one() {
+        let required = std::env::var("NURT_DIFFTEST_REQUIRE_GIT").is_ok_and(|value| value == "1");
+        if required {
+            assert!(
+                git().is_some(),
+                "NURT_DIFFTEST_REQUIRE_GIT=1 but no supported git program is on the search path"
+            );
+        }
+    }
+
+    #[test]
+    fn the_child_environment_does_not_leak_the_account_of_the_test_process() {
+        let Some(git) = git() else {
+            return;
+        };
+        let work = tempfile::tempdir().unwrap();
+        let env = GitEnv::new(&home(work.path()), ScenarioClock::default());
+        let output = git
+            .run_ok(&env, work.path(), &["var", "GIT_COMMITTER_IDENT"])
+            .unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&output).trim(),
+            "Nurt Test <test@nurt.invalid> 1767268800 +0000"
+        );
+        let configured = git
+            .run(&env, work.path(), &["config", "--global", "--list"])
+            .unwrap();
+        assert_eq!(configured.code, 0, "{}", configured.stderr_text());
+        assert!(configured.stdout.is_empty());
+        let system = git
+            .run(&env, work.path(), &["config", "--system", "--list"])
+            .unwrap();
+        assert!(system.stdout.is_empty());
+    }
+
+    #[test]
     fn corpus_repositories_build_identically_twice_and_pass_fsck() {
         let Some(git) = git() else {
             return;

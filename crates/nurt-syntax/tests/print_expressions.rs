@@ -294,6 +294,19 @@ fn argument_boundaries_of_variant_a_read_back() {
 }
 
 #[test]
+fn regular_expression_starting_with_a_hash_reads_back_after_another_argument() {
+    let regex = Expr::Regex {
+        v: "#include".to_owned(),
+        flags: "i".to_owned(),
+        span: None,
+    };
+    assert_a(
+        &one(stage("search", vec![pos(text("/src")), pos(regex)])),
+        "search \"/src\" /#include/i\n",
+    );
+}
+
+#[test]
 fn single_stage_sub_pipeline_guards_its_first_argument() {
     let verify = |args| {
         one(stage(
