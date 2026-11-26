@@ -183,6 +183,27 @@ mod resolution {
     }
 
     #[test]
+    fn the_command_interpreter_comes_from_the_system_root_of_the_host() {
+        let bin = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        touch(&bin.path().join("build.BAT"), true);
+        let inherited = vars(&[
+            ("SYSTEMROOT", r"D:\Win"),
+            ("PATH", &bin.path().to_string_lossy()),
+            ("PATHEXT", ".EXE;.BAT"),
+        ]);
+        let changes = [set("SystemRoot", r"E:\Planted")];
+        let env =
+            ChildEnv::build(Platform::Windows, inherited, InheritEnv::All, [], &changes).unwrap();
+        assert_eq!(
+            env.get("SystemRoot"),
+            Some(std::ffi::OsStr::new(r"E:\Planted"))
+        );
+        let launch = prepare_launch(&command(&["build.BAT"]), cwd.path(), &env).unwrap();
+        assert_eq!(launch.executable, PathBuf::from(r"D:\Win\System32\cmd.exe"));
+    }
+
+    #[test]
     fn variable_names_are_compared_without_case_on_windows() {
         let env = ChildEnv::build(
             Platform::Windows,

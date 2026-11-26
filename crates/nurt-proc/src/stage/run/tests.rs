@@ -406,6 +406,26 @@ mod batches {
     }
 
     #[test]
+    fn the_requests_of_all_batches_share_one_environment() {
+        let dir = tempfile::tempdir().unwrap();
+        let host = DirectRunHost::new(HostMode::Run);
+        let args = run_args(&["print-argv"], dir.path(), vec![("batch", Value::Int(1))]);
+        execute(
+            &host,
+            &args,
+            entries(&["a", "b", "c"]),
+            &ctx(&[("SHARED", "1")]),
+        )
+        .unwrap();
+        let recorded = host.recorded();
+        assert_eq!(recorded.len(), 3);
+        assert!(!recorded[0].0.spawn.env.is_empty());
+        for (request, _) in &recorded[1..] {
+            assert!(Arc::ptr_eq(&recorded[0].0.spawn.env, &request.spawn.env));
+        }
+    }
+
+    #[test]
     fn without_batch_one_process_runs_per_record() {
         let dir = tempfile::tempdir().unwrap();
         let host = DirectRunHost::new(HostMode::Run);

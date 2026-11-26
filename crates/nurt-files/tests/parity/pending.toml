@@ -638,3 +638,11 @@ reason = "parameter `index` is not in the catalog of `notebook.move`"
 [[scenario]]
 name = "ops and find replacement in many cells: preview writes nothing, apply changes only the cells from the preview"
 reason = "command not in the catalog: the"
+
+[[scenario]]
+name = "all or nothing: an error detected in the third file restores the first two"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"
+
+[[scenario]]
+name = "plan introducing a syntax error is not created"
+reason = "syntax validation needs the document or code service of another group, which the test doubles do not provide"

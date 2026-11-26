@@ -112,6 +112,7 @@ macro_rules! rejected {
     }};
 }
 
+#[allow(clippy::cognitive_complexity)] // one assertion per function of the C interface, kept in one table
 #[test]
 fn functions_with_a_buffer_reject_a_null_output() {
     let open = Open::new();
@@ -219,6 +220,7 @@ fn a_null_output_of_nurt_info_is_an_argument_error_with_the_argument_named() {
     assert_eq!(record["detail"]["argument"], "out_json");
 }
 
+#[allow(clippy::cognitive_complexity)] // one assertion per function of the C interface, kept in one table
 #[test]
 fn text_arguments_that_are_not_utf8_are_rejected_by_every_function() {
     let open = Open::new();
@@ -298,6 +300,7 @@ fn exec_start_clears_its_handle_when_the_request_is_rejected() {
     assert_eq!(status, NurtStatus::Arg);
 }
 
+#[allow(clippy::cognitive_complexity)] // one assertion per function of the C interface, kept in one table
 #[test]
 fn json_arguments_that_are_not_objects_are_rejected() {
     let open = Open::new();

@@ -156,9 +156,7 @@ mod tests {
         let root = Path::new("/repo");
         let file = index_file(directory.path(), root);
         fs::create_dir_all(file.parent().unwrap()).unwrap();
-        let older = format!(
-            "{{\"format\":1,\"stamp\":\"s1\",\"root\":\"/repo\",\"files\":[{{\"path\":\"/repo/a.rs\",\"language\":null,\"size\":1,\"modified_ns\":1,\"etag\":\"sha256:00\",\"symbols\":[]}}]}}"
-        );
+        let older = "{\"format\":1,\"stamp\":\"s1\",\"root\":\"/repo\",\"files\":[{\"path\":\"/repo/a.rs\",\"language\":null,\"size\":1,\"modified_ns\":1,\"etag\":\"sha256:00\",\"symbols\":[]}]}";
         fs::write(&file, older).unwrap();
         assert_eq!(load(&file, root, "s1"), None);
         let current =

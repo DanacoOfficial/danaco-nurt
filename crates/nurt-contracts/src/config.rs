@@ -1610,8 +1610,10 @@ pub struct RunConfig {
     /// Key `run.parallel`: default number of batches run at the same time.
     /// Default `1`.
     pub parallel: u32,
-    /// Key `run.spool_max`: largest output kept per program; more output is
-    /// reported. Default `unlimited`.
+    /// Key `run.spool_max`: largest output kept per program: its first part
+    /// and, up to a quarter of the limit (at most 64 MiB), its last part; the
+    /// bytes between them are omitted, marked in the file and reported.
+    /// `unlimited` keeps everything. Default `1gib`.
     pub spool_max: ByteLimit,
     /// Key `run.supervisor`: supervision of background programs (`auto` or
     /// `none`). Default `auto`.
@@ -1659,7 +1661,7 @@ impl Default for RunConfig {
             ]),
             irreversible_patterns: Vec::new(),
             parallel: 1,
-            spool_max: ByteLimit::Unlimited,
+            spool_max: ByteLimit::Bytes(SizeSetting::from_gib(1)),
             supervisor: Supervisor::Auto,
             waits_threshold: DurationSetting::from_secs(3),
         }
