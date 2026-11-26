@@ -28,7 +28,7 @@ use nurt_contracts::report::{ChangeAction, Notable, NotableEntry, Severity};
 use nurt_contracts::value::{Path, Size};
 
 use super::format::{count_noun, format_size, percent};
-use super::hits::{Collected, Hits, combine_counts, many_targets};
+use super::hits::{Collected, Hits, combine_counts, many_targets, raw_paths};
 use super::paths::{PathContext, is_fs_path, parent, reportable_ancestor, shrink_to_common};
 use crate::assemble::{EntryKind, ReportContext, ScopeDirectory, TargetChange};
 
@@ -68,7 +68,24 @@ pub fn derive_notable(
     entries.extend(deletions.mass_delete(ctx.paths(), thresholds, scope_directories));
     entries.extend(deletions.delete_trees());
     entries.extend(target_count_high(thresholds, targets));
+    attach_raw_paths(&mut entries, changes);
     entries
+}
+
+/// Gives the entries about a target that is not valid Unicode its native
+/// bytes, taken from the change of the target.
+fn attach_raw_paths(entries: &mut [NotableEntry], changes: &[TargetChange]) {
+    let raw = raw_paths(changes);
+    if raw.is_empty() {
+        return;
+    }
+    for entry in entries {
+        entry.raw_path = entry
+            .path
+            .as_deref()
+            .and_then(|path| raw.get(path))
+            .map(|bytes| (*bytes).clone());
+    }
 }
 
 /// Merges derived entries with the entries emitted by commands and orders

@@ -26,7 +26,7 @@ use nurt_contracts::stage::{
     BoundArgs, ExecCtx, InputKinds, ReadStage, RecordStream, StageDescriptor, StageImpl,
     StageInput, StageOutput,
 };
-use nurt_contracts::value::{self, Range, Record, RecordKind, Value};
+use nurt_contracts::value::{self, Bytes, Range, Record, RecordKind, Value};
 use nurt_text::codec::{Codec, encode};
 use nurt_text::hash::{HashAlgorithm, Hasher};
 
@@ -334,6 +334,7 @@ struct FileLines {
     range: Range,
     cr_only: bool,
     path: value::Path,
+    raw_path: Option<Bytes>,
     etag: String,
     encoding: Option<String>,
     offsets: Option<OffsetMapper>,
@@ -346,6 +347,7 @@ impl FileLines {
             cr_only: splits_at_cr(&file.text),
             offsets: OffsetMapper::for_file(&file.encoding),
             path: path_field(&file.path),
+            raw_path: file.path.raw_bytes(),
             encoding: Some(file.encoding.label.clone()),
             text: file.text,
             position: 0,
@@ -372,6 +374,7 @@ impl FileLines {
             no: u64::try_from(first).unwrap_or(1),
             range,
             path: content.path,
+            raw_path: content.raw_path,
             etag: content.etag,
             encoding: Some(content.encoding),
             offsets,
@@ -410,6 +413,7 @@ impl Iterator for FileLines {
             };
             let line = Line {
                 path: self.path.clone(),
+                raw_path: self.raw_path.clone(),
                 no,
                 text: self
                     .text
@@ -806,6 +810,23 @@ mod tests {
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].code, Notable::BinarySkipped);
         assert_eq!(notes[0].count, Some(1));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn lines_of_a_path_that_is_not_valid_unicode_carry_its_raw_form() {
+        let test = TestContext::new();
+        let path = AbsPath::from_raw_bytes(b"/data/bad\xffname.txt").unwrap();
+        test.fs().create_dir_all(&abs("/data")).unwrap();
+        test.fs().write_file(&path, b"one\ntwo\n").unwrap();
+        let meta = test.fs().metadata(&path, Follow::NoFollow).unwrap();
+        let record = Record::from(entry_record(&path, &meta));
+        let lines = stage(&test.ctx(), &args(None, None), vec![record]);
+        let lines: Vec<Line> = lines.into_iter().map(Result::unwrap).collect();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[1].text, "two");
+        assert_eq!(lines[1].path.as_str(), "/data/bad\u{fffd}name.txt");
+        assert_eq!(lines[1].raw_path, path.raw_bytes());
     }
 
     #[test]

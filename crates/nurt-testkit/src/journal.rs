@@ -1720,6 +1720,7 @@ impl MutationTx for NoopTx<'_> {
                 outcome.irreversible.map(|reason| IrreversibleEntry {
                     reason,
                     path: Some(path_text(&outcome.path)),
+                    raw_path: None,
                     count: None,
                     detail: None,
                 })

@@ -10,7 +10,7 @@
 
 use nurt_contracts::report::{Irreversible, IrreversibleEntry};
 
-use super::hits::{Collected, Hits, combine_counts, many_targets};
+use super::hits::{Collected, Hits, combine_counts, many_targets, raw_paths};
 use crate::assemble::TargetChange;
 
 /// Collects the irreversible effects of an operation.
@@ -47,6 +47,16 @@ pub fn collect_irreversible(
         .into_iter()
         .flat_map(|(reason, hits)| entries_for(reason, hits))
         .collect();
+    let raw = raw_paths(changes);
+    if !raw.is_empty() {
+        for entry in &mut entries {
+            entry.raw_path = entry
+                .path
+                .as_deref()
+                .and_then(|path| raw.get(path))
+                .map(|bytes| (*bytes).clone());
+        }
+    }
     entries.extend(reported);
     entries.sort_by(|left, right| merge_key(left).cmp(&merge_key(right)));
     entries.dedup_by(|later, earlier| {

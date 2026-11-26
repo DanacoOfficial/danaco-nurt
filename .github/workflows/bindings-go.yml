@@ -140,7 +140,7 @@ jobs:
           cat > "$RUNNER_TEMP/pkgconfig/nurt.pc" <<PC
           Name: nurt
           Description: C interface of the Danaco Nurt library
-          Version: 0.1.0
+          Version: 0.1.1
           Cflags: -I$GITHUB_WORKSPACE/crates/nurt-ffi/include
           Libs: -L$GITHUB_WORKSPACE/target/release -lnurt_ffi
           PC

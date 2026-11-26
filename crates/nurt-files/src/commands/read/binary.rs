@@ -468,6 +468,7 @@ fn hashed_etag(file: &File<'_>, bytes: &[u8]) -> Etag {
 fn base_content(file: &File<'_>, etag: &Etag) -> Content {
     Content {
         path: path_field(file.path),
+        raw_path: file.path.raw_bytes(),
         size: Size::from_bytes(file.size),
         etag: etag_text(etag),
         encoding: BINARY_ENCODING.to_owned(),

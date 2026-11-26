@@ -247,7 +247,28 @@ fn path_value(
     }
 }
 
-/// Path of an input record, from its [`PATH_FIELD`] field.
+/// Field of input records that holds the native bytes of a path that is not
+/// valid Unicode; see [`PATH_FIELD`].
+pub const RAW_PATH_FIELD: &str = "raw_path";
+
+/// Path of the [`RAW_PATH_FIELD`] field of a record, when it is an absolute
+/// path and the [`PATH_FIELD`] field, if the record has one, is still its
+/// display form: a stage that wrote another `path` named another file.
+fn raw_record_path(record: &Record) -> Option<AbsPath> {
+    let Some(Value::Bytes(raw)) = record.get(RAW_PATH_FIELD) else {
+        return None;
+    };
+    let path = AbsPath::from_raw_bytes(raw.as_slice()).ok()?;
+    match record.get(PATH_FIELD) {
+        Some(Value::Path(text) | Value::Text(text)) if *text != path.to_language_string() => None,
+        _ => Some(path),
+    }
+}
+
+/// Path of an input record, from its [`PATH_FIELD`] field, or from its
+/// [`RAW_PATH_FIELD`] field when the record has one: the text of a path that is
+/// not valid Unicode shows the invalid bytes as U+FFFD and does not lead back
+/// to the entry.
 ///
 /// # Errors
 ///
@@ -255,6 +276,9 @@ fn path_value(
 /// not a path, and as [`resolve`].
 pub fn record_path(record: &Record, ctx: &ExecCtx) -> Result<AbsPath> {
     let kind = record.kind.as_str();
+    if let Some(path) = raw_record_path(record) {
+        return Ok(path);
+    }
     match record.get(PATH_FIELD) {
         Some(Value::Path(text) | Value::Text(text)) => resolve(ctx, text),
         Some(_) => Err(Error::new(

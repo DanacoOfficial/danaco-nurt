@@ -35,6 +35,14 @@ The tagged JSON form of a value is an object with the type in `t` and the payloa
 
 A record has a kind and fields in a fixed order. A field marked as required is always present; any other field is present only when it makes sense or was computed. In the plain JSON form of a record, absent fields are left out, sizes are bytes, durations milliseconds, instants RFC 3339 text in UTC, and fields of type `any` use the tagged form. A typed record of any kind is written as `{"kind": "entry", "record": {...}}`; the dynamic form used by stages that work on fields by name is `{"kind": "entry", "fields": {...}}` with tagged values.
 
+### Paths that are not valid Unicode
+
+A path is text in canonical form, so a path with bytes that are not valid Unicode (a Unix name with the byte `0xFF`) is written with each such byte replaced by U+FFFD, the form for display. The text does not lead back to the entry, so every path field of a record that can hold such a path has a companion field `raw_<field>` of type `bytes` (`raw_path` for `path`, `raw_parent` for `parent`, `raw_from` for `from`). The companion holds the native bytes of the whole path, in the form the system takes: on Unix the bytes of the path, absolute, with `/` separators. It is present only when the path is not valid Unicode; for any other path the record has the display field alone. Only systems whose paths are byte strings (Unix) have the companion fields; a Windows path is always shown in its display form. `raw_name` is older and also covers a name that is valid Unicode but not in NFC.
+
+A command that takes the records of a previous stage reads the path of a record from `raw_path` when the record has it and its `path` is still the display form of it, and from `path` otherwise, so that `find ... |> remove`, `move`, `copy`, `replace` and the other commands act on the entry that was listed. A path written in a program is text and cannot name such an entry; the entry is reached through the records of `list`, `find`, `info` or `search`. The journal keeps the native bytes of the targets of an operation, so `undo` and `redo` restore the entry under its original name. Reports show the display form in the formats `text`, `markdown` and `compact` and give the raw form in the format `json`.
+
+The records of the file system commands (`entry`, `content`, `line`, `match`, `hunk`, `change` and the items of an `operation`) follow this rule; records of other families, for example `symbol`, `item` or `cell`, show the display form only. The fields of the report that name a path follow the same rule: `raw_path`, `raw_from`, `raw_to` and `raw_link_target` of [`change`](#change), `raw_path` of [`hunk`](#hunk), of `notable` and of `irreversible` entries, `raw_directory` of the directories of a bulk summary, and `raw_sample_head` and `raw_sample_tail` of its sample (one item for each target of the sample, `null` for a target that is valid Unicode).
+
 | Kind | Description |
 |---|---|
 | [`entry`](#entry) | File system entry: file, directory, link or another object. |
@@ -114,10 +122,12 @@ For an entry that does not exist (`exists: false` in the result of `info`), `siz
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `path` | path | yes | Absolute path in canonical form. |
+| `raw_path` | bytes | no | Native bytes of `path`; present only when the path is not valid Unicode. |
 | `name` | text | yes | Last component of the path, in NFC. |
 | `stem` | text | no | Name without the last extension. |
 | `extension` | text | no | Last extension, without the leading period. |
 | `parent` | path | no | Parent directory. |
+| `raw_parent` | bytes | no | Native bytes of `parent`; present only when it is not valid Unicode. |
 | `type` | enum(file\|directory\|link\|other) | yes | Type of the entry. |
 | `exists` | bool | no | Whether the entry exists; set in the result of `info`. |
 | `size` | size | yes | Size in bytes; for directories as reported by the system. |
@@ -131,6 +141,7 @@ For an entry that does not exist (`exists: false` in the result of `info`), `siz
 | `readonly` | bool | no | Read-only. |
 | `hidden` | bool | no | Hidden. |
 | `link_target` | path | no | Target of a link. |
+| `raw_link_target` | bytes | no | Native bytes of `link_target`; present only when it is not valid Unicode. |
 | `link_type` | enum(symbolic\|junction\|hard) | no | Kind of a link. |
 | `links` | int | no | Number of hard links. |
 | `volume` | path | no | Mount point of the volume. |
@@ -150,6 +161,7 @@ For an entry that does not exist (`exists: false` in the result of `info`), `siz
 | `portability` | list<text> | no | Portability problems of the name, for example `windows_reserved_name`. |
 | `depth` | int | no | Depth below the root of the listing. |
 | `relative` | text | no | Path relative to the root of the listing. |
+| `raw_relative` | bytes | no | Native bytes of `relative`, with `/` separators; present only when it is not valid Unicode. |
 | `total_size` | size | no | Total size of a directory tree. |
 | `file_count` | int | no | Number of files in a directory tree. |
 | `rank` | number | no | Similarity rank of a fuzzy search. |
@@ -167,6 +179,7 @@ Text content of a file, decoded to UTF-8.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `path` | path | yes | File. |
+| `raw_path` | bytes | no | Native bytes of `path`; present only when the path is not valid Unicode. |
 | `text` | text | yes | Text, possibly limited to a range. |
 | `lines` | int | yes | Number of lines in `text`. |
 | `size` | size | yes | Size of the file in bytes. |
@@ -198,6 +211,7 @@ One line of a file.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `path` | path | yes | File. |
+| `raw_path` | bytes | no | Native bytes of `path`; present only when the path is not valid Unicode. |
 | `no` | int | yes | Line number, from 1. |
 | `text` | text | yes | Text without the line ending. |
 | `line_ending` | enum(lf\|crlf\|cr\|mixed\|none) | yes | Line ending. |
@@ -216,6 +230,7 @@ Match of a search.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `path` | path | yes | File. |
+| `raw_path` | bytes | no | Native bytes of `path`; present only when the path is not valid Unicode. |
 | `no` | int | yes | Line number, from 1. |
 | `column` | int | yes | Column of the match, from 1. |
 | `start` | int | yes | Byte offset of the match from the start of the file. |
@@ -371,6 +386,7 @@ Hunk of a unified difference.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `path` | path | yes | File after the change. |
+| `raw_path` | bytes | no | Native bytes of `path`; present only when the path is not valid Unicode. |
 | `old_start` | int | yes | First line before, from 1. |
 | `old_len` | int | yes | Number of lines before. |
 | `new_start` | int | yes | First line after, from 1. |
@@ -379,6 +395,7 @@ Hunk of a unified difference.
 | `id` | text | no | Stable identifier, `path#number`. |
 | `header` | text | no | Section heading after `@@`. |
 | `old_path` | path | no | File before a rename. |
+| `raw_old_path` | bytes | no | Native bytes of `old_path`; present only when it is not valid Unicode. |
 | `status` | enum(modified\|added\|deleted\|renamed\|binary\|copied) | no | Status of the file. |
 | `binary` | bool | no | Binary content. |
 | `old_mode` | text | no | Mode before. |
@@ -407,9 +424,12 @@ Change of one file within an effect.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `path` | path | yes | File. |
+| `raw_path` | bytes | no | Native bytes of `path`; present only when the path is not valid Unicode. |
 | `action` | enum(create\|modify\|delete\|rename\|attributes\|link\|truncate\|state) | yes | Action. |
 | `from` | path | no | Previous path of a rename. |
+| `raw_from` | bytes | no | Native bytes of `from`; present only when it is not valid Unicode. |
 | `to` | path | no | New path of a move or a copy. |
+| `raw_to` | bytes | no | Native bytes of `to`; present only when it is not valid Unicode. |
 | `size_before` | size | no | Size before. |
 | `size_after` | size | no | Size after. |
 | `hash_before` | text | no | Hash before. |
@@ -426,6 +446,7 @@ Change of one file within an effect.
 | `bom_before` | bool | no | Byte order mark before. |
 | `bom_after` | bool | no | Byte order mark after. |
 | `link_target` | path | no | Target of a created link. |
+| `raw_link_target` | bytes | no | Native bytes of `link_target`; present only when it is not valid Unicode. |
 | `store` | text | no | How the previous content was kept. |
 | `irreversible` | enum (reason of the effect report) | no | Reason why the change cannot be undone, for example `no_space_for_copy`. |
 | `diff` | list<record [`hunk`](#hunk)> | no | Difference of the content. |
@@ -818,6 +839,7 @@ The record shows no expiry time and nothing from which one could be derived.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `path` | path | yes | Target of the item. |
+| `raw_path` | bytes | no | Native bytes of `path`; present only when the path is not valid Unicode. |
 | `action` | text | yes | Action on the target, the name of the journal target action, for example `create`, `modify` or `rename`. |
 | `mode` | text | yes | Preserve mode of the previous content, for example `clone` or `none`. |
 | `before_hash` | text | no | Hash of the content before the operation; absent when there was none. |

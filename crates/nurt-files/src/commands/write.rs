@@ -1707,6 +1707,7 @@ impl<'c> Planner<'c> {
         self.note(Notable::SpecialFile, path, None);
         self.irreversible.push(IrreversibleEntry {
             path: Some(path.to_language_string()),
+            raw_path: path.raw_bytes(),
             ..IrreversibleEntry::new(Irreversible::SpecialFile)
         });
         self.push(target, Work::Apply(Mutation::AppendBytes(bytes)), change);

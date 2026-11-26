@@ -474,6 +474,7 @@ fn boxed(content: Content) -> Selected {
 fn base_content(source: &TextSource) -> Content {
     Content {
         path: path_field(&source.path),
+        raw_path: source.path.raw_bytes(),
         size: Size::from_bytes(source.size),
         etag: etag_text(&source.etag()),
         encoding: source.encoding.label.clone(),
@@ -604,7 +605,10 @@ fn since_content(source: &TextSource, lines: &Lines<'_>, old: &str) -> Content {
     let hunks: Vec<Hunk> = unified_diff(old, &source.text, DIFF_CONTEXT, false)
         .iter()
         .enumerate()
-        .map(|(index, hunk)| hunk_record(&path, index + 1, hunk))
+        .map(|(index, hunk)| Hunk {
+            raw_path: source.path.raw_bytes(),
+            ..hunk_record(&path, index + 1, hunk)
+        })
         .collect();
     Content {
         unchanged: hunks.is_empty().then_some(true),

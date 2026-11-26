@@ -10,7 +10,7 @@
   <parent>
     <groupId>pl.danaco-group</groupId>
     <artifactId>nurt-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
   </parent>
 
   <artifactId>nurt-ffm</artifactId>

@@ -34,7 +34,10 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
         out.plain(format!("corrected: {}", report.corrections.len()));
     }
     for correction in &report.corrections {
-        out.plain(format!("{INDENT}{}", correction_line(correction)));
+        out.plain(format!(
+            "{INDENT}{}",
+            single_line(&correction_line(correction))
+        ));
     }
     if let Some(ran) = &report.ran {
         out.plain(format!("ran: {ran}"));
@@ -53,7 +56,7 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
         ("git", &report.git),
     ] {
         if let Some(record) = record {
-            out.plain(format!("{label}  {}", record_text(record)));
+            out.plain(format!("{label}  {}", single_line(&record_text(record))));
         }
     }
     notable(&mut out, report);
@@ -64,10 +67,10 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
     if report.records.is_none()
         && let Some(cursor) = &report.next_cursor
     {
-        out.plain(format!("next cursor {cursor}"));
+        out.plain(single_line(&format!("next cursor {cursor}")));
     }
     if let Some(path) = &report.result_file {
-        out.plain(format!("result file {path}"));
+        out.plain(single_line(&format!("result file {path}")));
     }
     let timing = report.timing.map(timing_parts).unwrap_or_default();
     if !timing.is_empty() {
@@ -170,7 +173,7 @@ fn exec_block(out: &mut Lines, report: &Report, options: &RenderOptions) {
     };
     let mut place = Vec::new();
     if let Some(cwd) = field_str(exec, "cwd") {
-        place.push(format!("cwd {cwd}"));
+        place.push(format!("cwd {}", single_line(cwd)));
     }
     place.push(format!(
         "command {}",
@@ -300,7 +303,7 @@ fn job_block(out: &mut Lines, report: &Report) {
             parts.push(format!("{label} {}", value_text(value)));
         }
     }
-    out.plain(parts.join("  "));
+    out.plain(single_line(&parts.join("  ")));
     if report.status == ReportStatus::Running
         && let Some(id) = field_str(job, "id")
     {
@@ -327,7 +330,7 @@ fn records(out: &mut Lines, report: &Report, options: &RenderOptions) {
         return;
     };
     if let Some(header) = &page.header {
-        out.plain(record_text(header));
+        out.plain(single_line(&record_text(header)));
     }
     if page.rows.is_empty() {
         return;
@@ -492,11 +495,11 @@ fn irreversible(out: &mut Lines, report: &Report) {
 
 fn error_lines(out: &mut Lines, error: &Error, indent: &str, label: &str) {
     out.styled(
-        format!("{indent}{label} {}", error_head(error).join("  ")),
+        single_line(&format!("{indent}{label} {}", error_head(error).join("  "))),
         Style::Red,
     );
     for (name, text) in error_facts(error) {
-        out.plain(format!("{indent}{INDENT}{name} {text}"));
+        out.plain(single_line(&format!("{indent}{INDENT}{name} {text}")));
     }
     if let Some(cause) = &error.cause {
         error_lines(out, cause, &format!("{indent}{INDENT}"), "cause");

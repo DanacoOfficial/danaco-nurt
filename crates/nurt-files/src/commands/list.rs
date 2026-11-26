@@ -34,7 +34,7 @@ use nurt_contracts::stage::{
     BoundArgs, CheckCtx, ExecCtx, InputKinds, ReadStage, RecordStream, RenderHint, StageDescriptor,
     StageImpl, StageInput, StageOutput, StaticInfo,
 };
-use nurt_contracts::value::{Record, Size, Value};
+use nurt_contracts::value::{Bytes, Record, Size, Value};
 use unicode_normalization::UnicodeNormalization;
 
 use super::file_types::TypeFilter;
@@ -556,11 +556,14 @@ impl Collector<'_> {
         if is_link(entry.kind) {
             record.link_type = link_type(entry.kind);
             if self.link_target {
-                record.link_target = link_target(self.fs, &entry.path);
+                let target = link_target(self.fs, &entry.path);
+                record.link_target = target.as_ref().map(path_field);
+                record.raw_link_target = target.as_ref().and_then(AbsPath::raw_bytes);
             }
         }
         record.depth = Some(u64::from(entry.depth));
         record.relative = Some(relative_text(entry));
+        record.raw_relative = raw_relative(entry);
         record.portability = portability(&entry.name);
         if entry.depth == 0 {
             record.case_alias.clone_from(&self.root_alias);
@@ -637,16 +640,28 @@ fn kind_matches(filter: KindFilter, entry: &walk::Entry) -> bool {
 
 /// Target of a link as an absolute path; a relative target is resolved
 /// against the directory of the link.
-fn link_target(fs: &dyn Fs, path: &AbsPath) -> Option<nurt_contracts::value::Path> {
+fn link_target(fs: &dyn Fs, path: &AbsPath) -> Option<AbsPath> {
     let target = fs.read_link(path).ok()?;
     let absolute = if target.is_absolute() {
         target
     } else {
         path.parent()?.as_path().join(target)
     };
-    AbsPath::new(absolute)
-        .ok()
-        .map(|target| path_field(&target))
+    AbsPath::new(absolute).ok()
+}
+
+/// Native bytes of the relative path of an entry that is not valid Unicode,
+/// with `/` separators.
+fn raw_relative(entry: &walk::Entry) -> Option<Bytes> {
+    if entry.depth == 0 || entry.relative.to_str().is_some() {
+        return None;
+    }
+    let components: Vec<&[u8]> = entry
+        .relative
+        .components()
+        .map(|component| component.as_os_str().as_encoded_bytes())
+        .collect();
+    Some(Bytes::new(components.join(&b'/')))
 }
 
 fn relative_text(entry: &walk::Entry) -> String {
@@ -927,6 +942,7 @@ fn sampled(code: Notable, count: u64, paths: &[AbsPath], what: Option<&str>) -> 
     };
     NotableEntry {
         path: paths.first().map(AbsPath::to_language_string),
+        raw_path: paths.first().and_then(AbsPath::raw_bytes),
         count: Some(count),
         detail: Some(detail),
         ..NotableEntry::new(code)
@@ -1408,6 +1424,46 @@ mod tests {
         )
         .unwrap();
         assert_eq!(relatives(&listed), ["tea.txt"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_path_that_is_not_valid_unicode_carries_its_raw_form() {
+        let test = TestContext::new();
+        let raw = b"/data/sub/bad\xffname.txt";
+        test.fs().create_dir_all(&abs("/data/sub")).unwrap();
+        test.fs()
+            .write_file(&AbsPath::from_raw_bytes(raw).unwrap(), b"x")
+            .unwrap();
+        test.fs()
+            .write_file(&abs("/data/sub/ok.txt"), b"x")
+            .unwrap();
+        let listed = run(&test, &args("/data", &[(DEPTH, Value::Int(2))])).unwrap();
+        let bad = listed
+            .entries
+            .iter()
+            .find(|entry| entry.raw_name.is_some())
+            .unwrap();
+        assert_eq!(bad.path.as_str(), "/data/sub/bad\u{fffd}name.txt");
+        assert_eq!(bad.raw_path.as_ref().unwrap().as_slice(), raw);
+        assert_eq!(bad.relative.as_deref(), Some("sub/bad\u{fffd}name.txt"));
+        assert_eq!(
+            bad.raw_relative.as_ref().unwrap().as_slice(),
+            b"sub/bad\xffname.txt"
+        );
+        assert_eq!(bad.raw_parent, None);
+        let ok = listed
+            .entries
+            .iter()
+            .find(|entry| entry.name == "ok.txt")
+            .unwrap();
+        assert_eq!((&ok.raw_path, &ok.raw_relative), (&None, &None));
+        let note = listed
+            .notes
+            .iter()
+            .find(|note| note.code == Notable::Portability)
+            .unwrap();
+        assert_eq!(note.raw_path.as_ref().unwrap().as_slice(), raw);
     }
 
     #[test]

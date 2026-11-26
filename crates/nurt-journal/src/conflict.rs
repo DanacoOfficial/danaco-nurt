@@ -20,6 +20,7 @@ use nurt_contracts::journal::{
     AfterState, BeforeState, Conflict, ConflictKind, EntryState, Expect, OpId, OpState,
     PreserveMode, TargetAction, TargetIndex, TargetOutcome, TargetPath,
 };
+use nurt_contracts::value::Bytes;
 use serde_json::Value;
 
 use crate::history;
@@ -260,6 +261,15 @@ pub(crate) fn expected_after(
             (TargetPath::Fs(to.clone()), Expected::after(after)),
         ],
         None => vec![(target.path.clone(), Expected::after(after))],
+    }
+}
+
+/// Native bytes of a file system address that is not valid Unicode, which
+/// [`display_path`] shows with U+FFFD; `None` for any other address.
+pub(crate) fn raw_path(path: &TargetPath) -> Option<Bytes> {
+    match path {
+        TargetPath::Fs(path) => path.raw_bytes(),
+        TargetPath::Provider(_) => None,
     }
 }
 

@@ -358,7 +358,8 @@ fn schemas_describe_hash_and_path_strings() {
     let hash = serde_json::to_value(schemars::schema_for!(ContentHash)).unwrap();
     assert_eq!(hash["pattern"], json!("^sha256:[0-9a-f]{64}$"));
     let path = serde_json::to_value(schemars::schema_for!(AbsPath)).unwrap();
-    assert_eq!(path["type"], json!("string"));
+    assert_eq!(path["anyOf"][0]["type"], json!("string"));
+    assert_eq!(path["anyOf"][1]["required"], json!(["path", "raw_path"]));
 }
 
 #[test]

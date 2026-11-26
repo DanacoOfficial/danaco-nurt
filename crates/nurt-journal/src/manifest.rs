@@ -55,6 +55,7 @@ use nurt_contracts::journal::{
     SessionId, TargetAction, TargetIndex, TargetPath, UndoScope, UndoneCause,
 };
 use nurt_contracts::report::{Correction, Irreversible, IrreversibleEntry};
+use nurt_contracts::value::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -902,8 +903,12 @@ pub struct TreeListing {
 /// One entry of a [`TreeListing`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreeEntry {
-    /// Path relative to the listed directory, with `/` separators.
+    /// Path relative to the listed directory, with `/` separators; the
+    /// invalid bytes of a name that is not valid Unicode are shown as U+FFFD.
     pub path: String,
+    /// Native bytes of `path`, present only when it is not valid Unicode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_path: Option<Bytes>,
     /// Kind.
     #[serde(rename = "type")]
     pub kind: FileKind,
@@ -923,8 +928,8 @@ impl TreeListing {
     /// Returns the first error of listing, inspecting or reading an entry.
     pub fn build(fs: &dyn Fs, dir: &AbsPath) -> FsResult<Self> {
         let mut entries = Vec::new();
-        let mut pending = vec![(dir.clone(), String::new())];
-        while let Some((current, prefix)) = pending.pop() {
+        let mut pending = vec![(dir.clone(), String::new(), Vec::new())];
+        while let Some((current, prefix, raw_prefix)) = pending.pop() {
             let mut children = Vec::new();
             for child in fs.read_dir(&current)? {
                 children.push(child?.name);
@@ -933,22 +938,31 @@ impl TreeListing {
             let mut subdirs = Vec::new();
             for name in children {
                 let text = name.to_string_lossy().into_owned();
-                let path = current.join_name(&text)?;
+                let path = AbsPath::new(current.as_path().join(&name))?;
                 let meta = fs.metadata(&path, Follow::NoFollow)?;
                 let relative = if prefix.is_empty() {
                     text
                 } else {
                     format!("{prefix}/{text}")
                 };
+                let mut raw_relative = raw_prefix.clone();
+                if !raw_relative.is_empty() {
+                    raw_relative.push(b'/');
+                }
+                raw_relative.extend_from_slice(name.as_encoded_bytes());
+                let raw_path = std::str::from_utf8(&raw_relative)
+                    .is_err()
+                    .then(|| Bytes::new(raw_relative.clone()));
                 let hash = match meta.kind {
                     FileKind::File => Some(fs.content_hash(&path)?),
                     _ => None,
                 };
                 if meta.kind == FileKind::Directory {
-                    subdirs.push((path, relative.clone()));
+                    subdirs.push((path, relative.clone(), raw_relative));
                 }
                 entries.push(TreeEntry {
                     path: relative,
+                    raw_path,
                     kind: meta.kind,
                     size: meta.size,
                     hash,
@@ -2041,6 +2055,45 @@ pub(crate) mod tests {
         record.inline = None;
         assert!(record.plain_meta().is_none());
         assert!(!serde_json::to_string(&record).unwrap().contains("inline"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tree_listing_reads_names_that_are_not_valid_unicode_by_their_bytes() {
+        use nurt_fs::mem::{MemFs, VolumeSpec};
+
+        let fs = MemFs::builder()
+            .volume(VolumeSpec::posix(abs("/v")))
+            .build()
+            .unwrap();
+        let bad = AbsPath::from_raw_bytes(b"/v/t/d\xfe/bad\xffname.txt").unwrap();
+        fs.seed_dir(&AbsPath::from_raw_bytes(b"/v/t/d\xfe").unwrap())
+            .unwrap();
+        fs.seed_file(&bad, b"raw").unwrap();
+        fs.seed_file(&abs("/v/t/ok.txt"), b"ok").unwrap();
+        let listing = TreeListing::build(&fs, &abs("/v/t")).unwrap();
+        let nested = listing
+            .entries
+            .iter()
+            .find(|entry| entry.kind == FileKind::File && entry.raw_path.is_some())
+            .unwrap();
+        assert_eq!(nested.path, "d\u{fffd}/bad\u{fffd}name.txt");
+        assert_eq!(
+            nested.raw_path.as_ref().unwrap().as_slice(),
+            b"d\xfe/bad\xffname.txt"
+        );
+        assert_eq!(nested.hash, Some(hash_bytes(b"raw")));
+        let plain = listing
+            .entries
+            .iter()
+            .find(|entry| entry.path == "ok.txt")
+            .unwrap();
+        assert_eq!(plain.raw_path, None);
+        let encoded = serde_json::to_vec(&listing).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<TreeListing>(&encoded).unwrap(),
+            listing
+        );
     }
 
     proptest! {

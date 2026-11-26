@@ -9,7 +9,7 @@ use nurt_contracts::value::Record;
 use serde::Serialize;
 
 use crate::facts::{error_facts, json_text, short_hash, value_text};
-use crate::lines::visible_controls;
+use crate::lines::{single_line, visible_controls};
 use crate::options::RenderOptions;
 use crate::shape::Shaped;
 
@@ -79,7 +79,7 @@ fn body(lines: &mut Vec<String>, shaped: &Shaped, options: &RenderOptions) {
         for line in &hunk.lines {
             lines.push(format!(
                 "diff {}:{} {}",
-                hunk.path,
+                single_line(hunk.path.as_str()),
                 hunk.new_start,
                 visible_controls(line)
             ));
@@ -201,13 +201,16 @@ fn pair(key: &str, value: &str) -> String {
     format!("{key}={}", token(value))
 }
 
-/// Quotes a value that is empty or contains a space, a quote or an equals
-/// sign.
+/// Quotes a value that is empty or contains a space, a control character, a
+/// quote or an equals sign.
 fn token(value: &str) -> String {
     let plain = !value.is_empty()
-        && !value
-            .chars()
-            .any(|character| character.is_whitespace() || character == '"' || character == '=');
+        && !value.chars().any(|character| {
+            character.is_whitespace()
+                || character.is_control()
+                || character == '"'
+                || character == '='
+        });
     if plain {
         value.to_owned()
     } else {
@@ -225,6 +228,7 @@ mod tests {
         assert_eq!(token("two words"), "\"two words\"");
         assert_eq!(token("a=b"), "\"a=b\"");
         assert_eq!(token(""), "\"\"");
+        assert_eq!(token("a\u{1}b"), "\"a\\u0001b\"");
     }
 
     #[test]

@@ -60,6 +60,7 @@ fn purged() -> IrreversibleEntry {
     IrreversibleEntry {
         reason: Irreversible::Purged,
         path: None,
+        raw_path: None,
         count: None,
         detail: None,
     }

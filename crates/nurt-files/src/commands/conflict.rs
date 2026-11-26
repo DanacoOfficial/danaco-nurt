@@ -802,13 +802,16 @@ impl Step {
             .unwrap_or_else(|| planned_change(&self.target));
         if let Some(source) = &self.from {
             change.from = Some(path_field(source));
+            change.raw_from = source.raw_bytes();
         }
         if change.action == ChangeAction::Rename && change.from.is_none() {
             // A detail that names only the source and the destination: the path of
             // the record is the path after the change.
             change.from = Some(change.path.clone());
+            change.raw_from = change.raw_path.clone();
             if let Some(to) = &change.to {
                 change.path = to.clone();
+                change.raw_path = change.raw_to.clone();
             }
         }
         change

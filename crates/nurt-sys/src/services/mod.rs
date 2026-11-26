@@ -1109,6 +1109,7 @@ fn irreversible_entry(transition: &ServiceTransition) -> IrreversibleEntry {
     IrreversibleEntry {
         reason: Irreversible::ServiceChanged,
         path: Some(transition.target()),
+        raw_path: None,
         count: None,
         detail: Some(transition.action.as_str().to_owned()),
     }

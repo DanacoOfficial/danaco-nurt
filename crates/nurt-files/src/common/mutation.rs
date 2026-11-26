@@ -77,10 +77,16 @@ pub fn apply_changes(tx: &mut dyn MutationTx, ops: Vec<FileOp>) -> Result<Vec<Ch
 #[must_use]
 pub fn planned_change(target: &TargetSpec) -> Change {
     let mut change = Change::new(target_field(&target.path), change_action(&target.action));
+    if let TargetPath::Fs(path) = &target.path {
+        change.raw_path = path.raw_bytes();
+    }
     if let TargetAction::Rename { to, .. } = &target.action {
         change.from = Some(change.path.clone());
+        change.raw_from = change.raw_path.clone();
         change.path = path_field(to);
+        change.raw_path = to.raw_bytes();
         change.to = Some(path_field(to));
+        change.raw_to = to.raw_bytes();
     }
     change.size_before = target.size_hint.map(Size::from_bytes);
     change

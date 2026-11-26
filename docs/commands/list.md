@@ -30,6 +30,12 @@ not valid on every supported system carries `portability` with one or more
 of `windows_reserved_name`, `windows_invalid_character`,
 `windows_trailing_character` and `invalid_unicode`.
 
+A path that is not valid Unicode (on Linux, a name with the byte `0xFF`) is
+written with U+FFFD in `path`, `parent` and `relative`; the record then carries
+the native bytes in `raw_path`, `raw_parent` and `raw_relative`, and the target
+of a link in `raw_link_target`. The next stage reads the entry from `raw_path`,
+so `list ... |> remove` removes the entry that was listed.
+
 The order depends on `view`:
 
 | `view` | Order of the records |

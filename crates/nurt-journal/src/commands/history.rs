@@ -18,6 +18,7 @@ use nurt_contracts::value::{Path, Record};
 use crate::conflict::display_path;
 
 use super::Params;
+use super::records::target_raw;
 
 const NAME: &str = "history";
 
@@ -85,6 +86,7 @@ fn items_of(store: &dyn JournalStore, operation: &OperationRecord) -> Result<Vec
 fn operation_item(detail: &ItemDetail) -> OperationItem {
     OperationItem {
         path: Path::from(display_path(&detail.path)),
+        raw_path: target_raw(&detail.path),
         action: action_name(&detail.action),
         mode: detail.mode.as_str().to_owned(),
         before_hash: detail.before_hash.map(|hash| hash.to_string()),
