@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use std::thread;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::{AbsPath, ContentHash, Follow};
+use nurt_contracts::fs::{AbsPath, ContentHash, FileId, FileMeta, Follow};
 use nurt_contracts::services::{LanguageId, SymbolInfo};
 use nurt_contracts::stage::ExecCtx;
 use serde::{Deserialize, Serialize};
@@ -64,6 +64,11 @@ pub struct SourceText {
     pub size: u64,
     /// Modification time when opened, in nanoseconds since the Unix epoch.
     pub modified_ns: i64,
+    /// Status change time when opened, in nanoseconds since the Unix epoch,
+    /// when the system reports it.
+    pub changed_ns: Option<i64>,
+    /// Identity of the file when opened.
+    pub file_id: FileId,
     /// Digest of the content.
     pub etag: ContentHash,
 }
@@ -101,6 +106,8 @@ fn read_limited(ctx: &ExecCtx, path: &Path, max: u64) -> Result<SourceText> {
         etag: content_hash(&bytes),
         size: meta.size,
         modified_ns: meta.modified_ns,
+        changed_ns: meta.changed_ns,
+        file_id: meta.file_id,
         bytes,
     })
 }
@@ -137,10 +144,31 @@ pub struct IndexedFile {
     pub size: u64,
     /// Modification time when indexed, in nanoseconds since the Unix epoch.
     pub modified_ns: i64,
+    /// Status change time when indexed, in nanoseconds since the Unix epoch,
+    /// when the system reports it.
+    pub changed_ns: Option<i64>,
+    /// Identity of the file when indexed.
+    pub file_id: FileId,
     /// Digest of the indexed content (`sha256:…`).
     pub etag: String,
     /// Symbols in source order.
     pub symbols: Vec<SymbolInfo>,
+}
+
+impl IndexedFile {
+    /// Returns `true` when the file on disk has the size, the modification
+    /// time, the status change time and the identity of the indexed file.
+    ///
+    /// A file replaced by another with the same size and modification time
+    /// (a rename over it, a copy that keeps the time) differs in its identity
+    /// or its status change time.
+    #[must_use]
+    pub fn matches(&self, meta: &FileMeta) -> bool {
+        self.size == meta.size
+            && self.modified_ns == meta.modified_ns
+            && self.changed_ns == meta.changed_ns
+            && self.file_id == meta.file_id
+    }
 }
 
 /// Limits of an index refresh.
@@ -268,7 +296,7 @@ impl SymbolIndex {
                 continue;
             };
             match previous.remove(path) {
-                Some(file) if file.size == meta.size && file.modified_ns == meta.modified_ns => {
+                Some(file) if file.matches(&meta) => {
                     stats.reused += 1;
                     kept.push(file);
                 }
@@ -398,6 +426,8 @@ fn index_file(ctx: &ExecCtx, registry: &Registry, path: &Path, max: u64) -> Opti
         language,
         size: source.size,
         modified_ns: source.modified_ns,
+        changed_ns: source.changed_ns,
+        file_id: source.file_id,
         etag: source.etag.to_string(),
         symbols,
     })
@@ -426,6 +456,52 @@ mod tests {
         assert_eq!(over, None);
         let endless = read_bounded(std::io::repeat(b'x'), 1024).unwrap();
         assert_eq!(endless, None);
+    }
+
+    fn meta(size: u64, modified_ns: i64, changed_ns: Option<i64>, inode: u64) -> FileMeta {
+        FileMeta {
+            kind: nurt_contracts::fs::FileKind::File,
+            size,
+            mode: 0o644,
+            uid: None,
+            gid: None,
+            links: 1,
+            modified_ns,
+            accessed_ns: None,
+            created_ns: None,
+            changed_ns,
+            file_id: FileId {
+                volume: 1,
+                low: inode,
+                high: 0,
+            },
+            windows_attributes: 0,
+        }
+    }
+
+    fn indexed(meta: &FileMeta) -> IndexedFile {
+        IndexedFile {
+            path: PathBuf::from("/repo/a.rs"),
+            language: None,
+            size: meta.size,
+            modified_ns: meta.modified_ns,
+            changed_ns: meta.changed_ns,
+            file_id: meta.file_id,
+            etag: String::new(),
+            symbols: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn a_file_replaced_with_the_same_size_and_time_is_not_reused() {
+        let before = meta(10, 5, Some(7), 100);
+        let file = indexed(&before);
+        assert!(file.matches(&before));
+        assert!(!file.matches(&meta(11, 5, Some(7), 100)));
+        assert!(!file.matches(&meta(10, 6, Some(7), 100)));
+        assert!(!file.matches(&meta(10, 5, Some(8), 100)));
+        assert!(!file.matches(&meta(10, 5, None, 100)));
+        assert!(!file.matches(&meta(10, 5, Some(7), 101)));
     }
 
     #[test]
