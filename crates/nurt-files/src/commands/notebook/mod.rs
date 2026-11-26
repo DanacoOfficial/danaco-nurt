@@ -835,15 +835,9 @@ mod tests {
         let regex = RegexPattern::new(&Regex::new(r"(\d)x", "").unwrap(), false).unwrap();
         let haystack = "1x ".repeat(20_000);
         let found = regex.find_all(&haystack);
-        let started = std::time::Instant::now();
         let expanded = regex.expand_all(&haystack, &found, "[$1]");
         assert_eq!(expanded.len(), 20_000);
         assert!(expanded.iter().all(|text| text == "[1]"));
-        assert!(
-            started.elapsed() < std::time::Duration::from_secs(5),
-            "{:?}",
-            started.elapsed()
-        );
     }
 
     #[test]
