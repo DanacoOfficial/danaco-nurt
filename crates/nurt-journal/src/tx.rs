@@ -465,20 +465,40 @@ impl<'a> Tx<'a> {
     /// Whether an entry, a temporary entry, a marker, a reclaimed entry or a
     /// tombstone of `op` exists in an active journal.
     fn named_in_journals(&self, op: OpId) -> bool {
+        self.ctx
+            .active_journals()
+            .iter()
+            .any(|journal| self.named_in(journal, op))
+    }
+
+    /// Whether an entry, a temporary entry, a marker, a reclaimed entry or a
+    /// tombstone of `op` exists in `journal`.
+    fn named_in(&self, journal: &JournalLayout, op: OpId) -> bool {
         let fs = self.ctx.fs.as_ref();
-        self.ctx.active_journals().iter().any(|journal| {
-            let names = [
-                journal.entry(op).map(|entry| entry.dir().clone()),
-                journal.entry_tmp(op).map(|entry| entry.dir().clone()),
-                journal.reaped(op).map(|entry| entry.dir().clone()),
-                journal.pending(op),
-                journal.tomb(op),
-            ];
-            names
-                .into_iter()
-                .flatten()
-                .any(|name| fs.metadata(&name, Follow::NoFollow).is_ok())
-        })
+        let names = [
+            journal.entry(op).map(|entry| entry.dir().clone()),
+            journal.entry_tmp(op).map(|entry| entry.dir().clone()),
+            journal.reaped(op).map(|entry| entry.dir().clone()),
+            journal.pending(op),
+            journal.tomb(op),
+        ];
+        names
+            .into_iter()
+            .flatten()
+            .any(|name| fs.metadata(&name, Follow::NoFollow).is_ok())
+    }
+
+    /// Replaces the number of an operation that has no open part yet with a
+    /// number no active journal names; `None` when the account lock cannot be
+    /// taken.
+    fn renumber(&mut self) -> std::result::Result<Option<OpId>, Fault> {
+        let Ok(lock) = self.ctx.lock_account() else {
+            return Ok(None);
+        };
+        let op = self.allocate_unused()?;
+        drop(lock);
+        self.op = Some(op);
+        Ok(Some(op))
     }
 
     /// Part of `volume`, opened on first use; `Err` names the reason why the
@@ -508,10 +528,21 @@ impl<'a> Tx<'a> {
             JournalLocation::Active(dir) => dir,
             JournalLocation::Inactive(reason) => return skip(self, reason.irreversible()),
         };
-        let Some(op) = self.op else {
+        let Some(mut op) = self.op else {
             let reason = self.unavailable.unwrap_or(Irreversible::JournalError);
             return skip(self, reason);
         };
+        // The number was checked against the journals known to the account.
+        // A volume met for the first time registers its journal only now, so
+        // a number another account already used there is replaced while no
+        // part is open.
+        if self.parts.is_empty() && self.named_in(&JournalLayout::new(dir.clone()), op) {
+            match self.renumber() {
+                Ok(Some(renumbered)) => op = renumbered,
+                Ok(None) | Err(Fault::Fs(_)) => return skip(self, Irreversible::JournalError),
+                Err(Fault::Halt) => return Err(Located::Halt),
+            }
+        }
         match self.open_part(op, volume.clone(), dir) {
             Ok(part) => {
                 self.parts.push(part);
@@ -3827,6 +3858,49 @@ mod tests {
         assert!(handle.irreversible.is_empty(), "{handle:?}");
         assert_eq!(env.read(&env.blob(0, 3, 0, BlobRole::Previous)), b"old");
         assert!(used.iter().all(|entry| env.fixture.exists(entry.dir())));
+    }
+
+    /// Journals that become known to the account on the first `locate`, as
+    /// with the volume registry of a new account.
+    struct FirstUse {
+        inner: Arc<crate::store::test_support::TestJournals>,
+        known: std::sync::Mutex<Vec<AbsPath>>,
+    }
+
+    impl crate::store::VolumeJournals for FirstUse {
+        fn locate(&self, volume: &VolumeInfo) -> JournalLocation {
+            let location = self.inner.locate(volume);
+            if let JournalLocation::Active(dir) = &location {
+                let mut known = self.known.lock().unwrap();
+                if !known.contains(dir) {
+                    known.push(dir.clone());
+                    known.sort();
+                }
+            }
+            location
+        }
+
+        fn active(&self) -> Vec<AbsPath> {
+            self.known.lock().unwrap().clone()
+        }
+    }
+
+    #[test]
+    fn number_used_by_another_account_on_a_volume_met_first_is_replaced() {
+        let mut env = Env::new();
+        env.ctx.journals = Arc::new(FirstUse {
+            inner: env.fixture.journals.clone(),
+            known: std::sync::Mutex::new(Vec::new()),
+        });
+        let used = env.layout(0).entry(OpId(1)).unwrap();
+        std::fs::create_dir_all(used.dir().as_path()).unwrap();
+        let path = env.file("vol-a/a.txt", b"old");
+        let handle = env.overwrite(&path, b"new");
+        assert_eq!(handle.op, Some(OpId(2)));
+        assert_eq!(handle.targets[0].mode, PreserveMode::Exchange);
+        assert!(handle.irreversible.is_empty(), "{handle:?}");
+        assert_eq!(env.read(&env.blob(0, 2, 0, BlobRole::Previous)), b"old");
+        assert!(env.fixture.exists(used.dir()));
     }
 
     #[test]

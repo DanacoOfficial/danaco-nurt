@@ -492,10 +492,13 @@ fn info_reports_the_revision_of_the_built_in_catalog() {
     assert_eq!(unsafe { nurt_info(out.ptr()) }, NurtStatus::Ok);
     let info = out.json();
     assert!(info["catalog_rev"].as_str().unwrap().starts_with("sha256:"));
-    let features: Vec<&str> = [("stub", cfg!(feature = "stub")), ("e2e", cfg!(feature = "e2e"))]
-        .into_iter()
-        .filter_map(|(name, enabled)| enabled.then_some(name))
-        .collect();
+    let features: Vec<&str> = [
+        ("stub", cfg!(feature = "stub")),
+        ("e2e", cfg!(feature = "e2e")),
+    ]
+    .into_iter()
+    .filter_map(|(name, enabled)| enabled.then_some(name))
+    .collect();
     assert_eq!(info["features"], json!(features));
 }
 

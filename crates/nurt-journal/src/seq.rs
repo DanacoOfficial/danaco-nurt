@@ -320,8 +320,16 @@ mod tests {
     #[test]
     fn concurrent_assignment_yields_unique_numbers() {
         let fixture = Fixture::new();
-        let first = Arc::new(fixture.ctx());
-        let second = Arc::new(fixture.ctx());
+        // Eight threads queue for one lock, each holding it for a synced
+        // write; the short lock timeout of the fixture is too short for that
+        // queue on a loaded machine.
+        let context = || {
+            let mut ctx = fixture.ctx();
+            ctx.settings.lock_timeout = std::time::Duration::from_secs(60);
+            Arc::new(ctx)
+        };
+        let first = context();
+        let second = context();
         let mut threads = Vec::new();
         for worker in 0..8 {
             let ctx = if worker % 2 == 0 {
