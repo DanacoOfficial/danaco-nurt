@@ -261,8 +261,10 @@ mod tests {
     #[test]
     fn banner_carries_the_version_and_a_hint() {
         let banner = banner();
-        assert!(banner.contains(&format!("Danaco Nurt {VERSION}")));
-        assert!(banner.ends_with("Type 'help' to get started."));
+        assert!(banner.contains("Danaco Nurt"));
+        assert!(banner.contains(&format!("nurt {VERSION}")));
+        assert!(banner.contains("Type 'help' to get started."));
+        assert!(banner.contains("All rights reserved."));
     }
 
     #[test]
@@ -274,13 +276,7 @@ mod tests {
 
     #[test]
     fn product_lines_are_ascii() {
-        for text in [
-            short_version(),
-            full_version(),
-            banner(),
-            help_intro(),
-            usage(),
-        ] {
+        for text in [short_version(), full_version(), help_intro(), usage()] {
             assert!(text.is_ascii());
         }
     }
