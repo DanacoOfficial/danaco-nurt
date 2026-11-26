@@ -2,7 +2,7 @@
   "name": "nurt-example-anthropic-typescript",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": { "node": ">=24.2" },
   "scripts": {
     "start": "node agent.ts",
     "test": "node --test agent.test.ts"

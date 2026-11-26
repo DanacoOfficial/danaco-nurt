@@ -52,3 +52,39 @@ pub fn run(args: &[String]) -> Result<u8, CliError> {
     run_stdio(&options).map_err(|error| failure(&error))?;
     Ok(EXIT_OK)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_embedded_catalog_gives_commands_binding_and_help() {
+        let options = options().unwrap();
+        assert!(options.commands.iter().any(|command| command.name == "find"));
+        assert!(options.catalog.is_some());
+        assert!(options.help.is_some());
+    }
+
+    #[test]
+    fn any_argument_is_a_usage_error_naming_it() {
+        for args in [vec!["--stdio".to_owned()], vec!["a".to_owned(), "b".to_owned()]] {
+            let first = args[0].clone();
+            assert!(matches!(
+                run(&args),
+                Err(CliError::Usage(message)) if message.contains(&format!("`{first}`"))
+            ));
+        }
+    }
+
+    #[test]
+    fn a_session_error_becomes_a_failure_with_its_message() {
+        assert_eq!(
+            failure(&ServerError::Disconnected),
+            CliError::Failure("the client closed the connection before shutdown".to_owned())
+        );
+        assert_eq!(
+            failure(&ServerError::ExitWithoutShutdown),
+            CliError::Failure("the client sent exit before shutdown".to_owned())
+        );
+    }
+}
