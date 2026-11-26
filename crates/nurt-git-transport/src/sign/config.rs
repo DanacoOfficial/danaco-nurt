@@ -18,10 +18,12 @@ use super::{OpenPgpSource, SignatureFormat, SigningConfig, VerifyConfig};
 
 const NANOS_PER_SECOND: i128 = 1_000_000_000;
 
-/// Configuration keys naming signing programs; Nurt does not run them.
-const PROGRAM_KEYS: [&str; 5] = [
-    "gpg.program",
-    "gpg.openpgp.program",
+/// Configuration keys naming the program of OpenPGP signatures, in the order
+/// of precedence.
+const OPENPGP_PROGRAM_KEYS: [&str; 2] = ["gpg.openpgp.program", "gpg.program"];
+
+/// Configuration keys naming signing programs that Nurt does not run.
+const PROGRAM_KEYS: [&str; 3] = [
     "gpg.x509.program",
     "gpg.ssh.program",
     "gpg.ssh.defaultKeyCommand",
@@ -58,7 +60,7 @@ impl SigningConfig {
             passphrase_file: None,
             ssh_passphrase_file: None,
             gnupg_home: None,
-            agent_socket_dir: None,
+            gpg_program: None,
             ssh_auth_sock: None,
             home: None,
             work_dir: None,
@@ -75,9 +77,11 @@ impl SigningConfig {
     /// `git.signing.key_file` from the Nurt configuration of `ctx`, the
     /// variables `GNUPGHOME`, `SSH_AUTH_SOCK`, `NURT_GPG_PASSPHRASE_FILE` and
     /// `NURT_SSH_KEY_PASSPHRASE_FILE` from the host of `ctx`, and the time
-    /// from its clock. Keys naming programs (`gpg.program`,
-    /// `gpg.ssh.program`, `gpg.ssh.defaultKeyCommand` and the like) are
-    /// listed in [`ignored_settings`](SigningConfig::ignored_settings).
+    /// from its clock. `gpg.openpgp.program` or `gpg.program` names the
+    /// program of OpenPGP signatures. Keys naming other programs
+    /// (`gpg.ssh.program`, `gpg.ssh.defaultKeyCommand` and the like) are
+    /// listed in [`ignored_settings`](SigningConfig::ignored_settings);
+    /// `gpg.program` is listed there too when the format is not `openpgp`.
     ///
     /// # Errors
     ///
@@ -105,8 +109,11 @@ impl SigningConfig {
         config.ssh_passphrase_file = env.path(ENV_SSH_PASSPHRASE_FILE);
         config.gnupg_home = Some(env.gnupg_home());
         config.ssh_auth_sock = env.ssh_auth_sock();
-        config.ignored_settings = PROGRAM_KEYS
+        config.gpg_program = openpgp_program(git);
+        config.ignored_settings = OPENPGP_PROGRAM_KEYS
             .iter()
+            .filter(|_| format != SignatureFormat::Openpgp)
+            .chain(PROGRAM_KEYS.iter())
             .filter(|key| git.string(**key).is_some())
             .map(|key| (*key).to_owned())
             .collect();
@@ -146,7 +153,7 @@ impl SigningConfig {
         let mut entry = NotableEntry::new(Notable::SigningProgramIgnored);
         entry.count = u64::try_from(self.ignored_settings.len()).ok();
         entry.detail = Some(format!(
-            "signing is built in; ignored {}",
+            "no program is run for these signatures; ignored {}",
             self.ignored_settings.join(", ")
         ));
         Some(entry)
@@ -183,6 +190,7 @@ impl VerifyConfig {
         };
         Self {
             gnupg_home: Some(env.gnupg_home()),
+            gpg_program: openpgp_program(git),
             public_key_files: ctx
                 .config()
                 .git
@@ -198,6 +206,15 @@ impl VerifyConfig {
             utc_offset: utc_offset(&ctx.host().info().timezone, now_seconds(ctx)),
         }
     }
+}
+
+/// The program of OpenPGP signatures named by the Git configuration.
+fn openpgp_program(git: &gix::config::File) -> Option<String> {
+    OPENPGP_PROGRAM_KEYS.iter().find_map(|key| {
+        git.string(*key)
+            .map(|value| value.to_str_lossy().trim().to_owned())
+            .filter(|value| !value.is_empty())
+    })
 }
 
 fn openpgp_sources(configured: Option<ConfiguredSource>) -> Vec<OpenPgpSource> {

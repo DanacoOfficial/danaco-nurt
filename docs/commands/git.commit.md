@@ -57,7 +57,16 @@ to `commit.cleanup` (`strip` also removes lines starting with
 `i18n.commitEncoding` other than UTF-8 is recorded in the `encoding` header.
 With `sign: true`, or without `sign` when `commit.gpgSign` is set, the
 commit is signed with the key of `user.signingKey` in the format of
-`gpg.format` (`openpgp` or `ssh`) without running `gpg` or `ssh-keygen`;
+`gpg.format` (`openpgp` or `ssh`). An OpenPGP signature is made by GnuPG: the
+program named by `gpg.openpgp.program` or `gpg.program` (`gpg` by default) is
+started through the program service, as `run` starts programs, with the
+arguments of `git commit -S` and the commit on its standard input. The key of
+`git.signing.key_file` is imported into a temporary GnuPG home directory that
+is removed, with its agent, after signing; the passphrase comes from the file
+named by `NURT_GPG_PASSPHRASE_FILE`. A missing or failing program refuses the
+commit with `E_GIT_SIGN` and the problem `program_unavailable` or
+`program_failed`, and nothing is written. An SSH signature is made in the
+process, without running `ssh-keygen`; `gpg.ssh.program` is not run.
 `sign: false` leaves the commit unsigned whatever `commit.gpgSign` says.
 
 A commit whose tree equals the tree of its first parent (the empty tree for
