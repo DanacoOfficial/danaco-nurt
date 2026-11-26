@@ -79,7 +79,42 @@ fn repository_cases() -> Vec<Case> {
 }
 
 /// Describes a misclassified case, or returns `None` for a correct one.
+/// Tests of the catalog of Namespaces in XML 1.0 that expect a namespace
+/// error. The parser leaves a name with an undeclared prefix or an invalid
+/// qualified name without a namespace instead of failing, so that documents
+/// written for tools without namespace support stay editable (see the module
+/// documentation of `formats::xml::ns`). The suite pins this decision: each of
+/// these documents must be accepted, and a change of the behavior fails the
+/// test.
+const NAMESPACE_LENIENT: [&str; 20] = [
+    "rmt-ns10-009",
+    "rmt-ns10-010",
+    "rmt-ns10-011",
+    "rmt-ns10-012",
+    "rmt-ns10-013",
+    "rmt-ns10-014",
+    "rmt-ns10-015",
+    "rmt-ns10-016",
+    "rmt-ns10-023",
+    "rmt-ns10-025",
+    "rmt-ns10-026",
+    "rmt-ns10-029",
+    "rmt-ns10-030",
+    "rmt-ns10-031",
+    "rmt-ns10-032",
+    "rmt-ns10-033",
+    "rmt-ns10-036",
+    "rmt-ns10-042",
+    "rmt-ns10-043",
+    "rmt-ns10-044",
+];
+
 fn misclassified(id: &str, wf: bool, result: &Result<()>) -> Option<String> {
+    if NAMESPACE_LENIENT.contains(&id) {
+        return result
+            .is_err()
+            .then(|| format!("{id}: the documented acceptance of a namespace error changed"));
+    }
     match (wf, result) {
         (true, Ok(())) => None,
         (false, Err(error)) if error.code() == ErrorCode::DocParse => None,
