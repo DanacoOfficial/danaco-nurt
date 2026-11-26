@@ -52,6 +52,15 @@ pub struct AgentResult {
     pub error: Option<String>,
 }
 
+/// Longest time of one tool call; a call that hangs must not use the whole
+/// time of the run, so that the model can still react to it.
+pub const TOOL_CALL_LIMIT: Duration = Duration::from_secs(120);
+
+/// Time limit of a tool call when `remaining` of the run is left.
+fn tool_call_limit(remaining: Duration) -> Duration {
+    remaining.min(TOOL_CALL_LIMIT)
+}
+
 fn millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
@@ -92,7 +101,10 @@ impl Loop<'_, '_> {
                 return Ok(false);
             }
             let called = Instant::now();
-            let outcome = match self.tool.call(&call.input, self.remaining()) {
+            let outcome = match self
+                .tool
+                .call(&call.input, tool_call_limit(self.remaining()))
+            {
                 Ok(outcome) => outcome,
                 Err(error) => {
                     self.fail(error.to_string());
@@ -354,6 +366,15 @@ mod tests {
         assert_eq!(result.outcome, Outcome::Error);
         assert!(result.error.unwrap().contains("server ended"));
         assert_eq!(events.len(), 1);
+    }
+
+    #[test]
+    fn one_tool_call_never_gets_more_than_its_own_limit() {
+        let hour = Duration::from_secs(3600);
+        assert_eq!(tool_call_limit(hour), TOOL_CALL_LIMIT);
+        let short = Duration::from_secs(5);
+        assert_eq!(tool_call_limit(short), short);
+        assert_eq!(tool_call_limit(Duration::ZERO), Duration::ZERO);
     }
 
     #[test]

@@ -284,6 +284,16 @@ pub fn is_complete(path: &Path) -> bool {
     read(path).is_ok_and(|events| matches!(events.last(), Some(Event::End(_))))
 }
 
+/// Whether a log is complete and its run did not end with an error: only
+/// such a log is kept when a series is repeated; a run that failed is run
+/// again.
+#[must_use]
+pub fn is_final(path: &Path) -> bool {
+    read(path).is_ok_and(|events| {
+        matches!(events.last(), Some(Event::End(end)) if end.outcome != Outcome::Error)
+    })
+}
+
 /// Writer of a run log. Events are written to `<path>.partial` and the file
 /// is renamed to its final name by [`RunLog::finish`], so that an
 /// interrupted run leaves no log that looks complete.
@@ -498,6 +508,22 @@ pub(crate) mod tests {
         let foreign = serde_json::to_string(&Event::Run(Box::new(foreign))).unwrap();
         assert!(parse(&foreign).is_err());
         assert!(!is_complete(Path::new("/nonexistent/run.jsonl")));
+    }
+
+    #[test]
+    fn a_log_of_a_run_that_ended_with_an_error_is_not_final() {
+        let dir = tempfile::tempdir().unwrap();
+        for (name, outcome) in [("answered", Outcome::Answered), ("error", Outcome::Error)] {
+            let path = dir.path().join(format!("{name}.jsonl"));
+            let mut log = RunLog::create(&path).unwrap();
+            log.write(&Event::Run(Box::new(header(Condition::Bash))))
+                .unwrap();
+            log.write(&end_event(outcome)).unwrap();
+            log.finish().unwrap();
+            assert!(is_complete(&path), "{name}");
+            assert_eq!(is_final(&path), outcome != Outcome::Error, "{name}");
+        }
+        assert!(!is_final(&dir.path().join("absent.jsonl")));
     }
 
     #[test]
