@@ -23,7 +23,9 @@ empty.
 The registration is written to `.git/worktrees/<name>/` with the files `HEAD`,
 `ORIG_HEAD`, `commondir`, `gitdir`, `index` and `logs/HEAD`, as `git worktree
 add` writes them, and the new directory receives a `.git` file that points at
-the registration. `<name>` is the last component of `path`; when the name is
+the registration. The reflogs of `HEAD` and of a new branch are written as
+`core.logAllRefUpdates` asks, and not written when it is `false`. `<name>` is
+the last component of `path`; when the name is
 taken, the smallest number that makes it unique is appended (`wt`, `wt1`,
 `wt2`).
 

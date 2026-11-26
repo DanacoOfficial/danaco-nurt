@@ -64,9 +64,11 @@ pub enum LogAllRefUpdates {
 }
 
 impl LogAllRefUpdates {
-    /// Parses a value of `core.logAllRefUpdates`.
+    /// Parses a value of `core.logAllRefUpdates` as Git does: `always`, a
+    /// boolean word, or an integer where zero is `false` and any other value
+    /// is `true`.
     ///
-    /// Returns `None` for a value that is neither a boolean nor `always`.
+    /// Returns `None` for any other value.
     ///
     /// # Examples
     ///
@@ -75,6 +77,7 @@ impl LogAllRefUpdates {
     ///
     /// assert_eq!(LogAllRefUpdates::parse("always"), Some(LogAllRefUpdates::Always));
     /// assert_eq!(LogAllRefUpdates::parse("no"), Some(LogAllRefUpdates::Never));
+    /// assert_eq!(LogAllRefUpdates::parse("2"), Some(LogAllRefUpdates::Standard));
     /// assert_eq!(LogAllRefUpdates::parse("sometimes"), None);
     /// ```
     #[must_use]
@@ -82,26 +85,95 @@ impl LogAllRefUpdates {
         let value = value.trim().to_ascii_lowercase();
         match value.as_str() {
             "always" => Some(Self::Always),
-            "true" | "yes" | "on" | "1" => Some(Self::Standard),
-            "false" | "no" | "off" | "0" | "" => Some(Self::Never),
-            _ => None,
+            "true" | "yes" | "on" => Some(Self::Standard),
+            "false" | "no" | "off" | "" => Some(Self::Never),
+            other => match parse_config_integer(other)? {
+                0 => Some(Self::Never),
+                _ => Some(Self::Standard),
+            },
+        }
+    }
+
+    /// Setting of `core.logAllRefUpdates` in `repo`; the default is
+    /// [`Self::Standard`] for a repository with a working tree and
+    /// [`Self::Never`] for a bare one. A key without a value means `true`.
+    ///
+    /// # Errors
+    ///
+    /// `E_GIT_UNSUPPORTED` with problem `invalid_config` when the value is
+    /// one Git does not accept.
+    pub fn of_repo(repo: &gix::Repository) -> Result<Self> {
+        let config = repo.config_snapshot();
+        match config.string("core.logAllRefUpdates") {
+            Some(value) => {
+                let text = value.to_str_lossy();
+                Self::parse(&text).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::GitUnsupported,
+                        format!("core.logAllRefUpdates has the invalid value `{text}`; use true, false or always"),
+                    )
+                    .with_problem("invalid_config")
+                    .with_found(text.into_owned())
+                })
+            }
+            None if config.boolean("core.logAllRefUpdates") == Some(true) => Ok(Self::Standard),
+            None if repo.is_bare() => Ok(Self::Never),
+            None => Ok(Self::Standard),
         }
     }
 
     /// Whether a missing reflog of `name` is created.
     fn creates_log_for(self, name: &FullNameRef) -> bool {
+        self.creates_log_for_name(name.as_bstr())
+    }
+
+    /// Whether a missing reflog of the reference called `name` is created.
+    pub(crate) fn creates_log_for_name(self, name: &[u8]) -> bool {
         match self {
             Self::Never => false,
             Self::Always => true,
             Self::Standard => {
-                let name = name.as_bstr();
-                name == "HEAD"
+                name == b"HEAD"
                     || name.starts_with(b"refs/heads/")
                     || name.starts_with(b"refs/remotes/")
                     || name.starts_with(b"refs/notes/")
             }
         }
     }
+}
+
+/// Integer of a configuration value as `git_parse_int` reads it: an optional
+/// sign, decimal, octal (`0` prefix) or hexadecimal (`0x` prefix) digits and
+/// an optional factor `k`, `m` or `g`; `None` when the text is not one or
+/// the value overflows.
+fn parse_config_integer(text: &str) -> Option<i64> {
+    let (negative, rest) = match text.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, text.strip_prefix('+').unwrap_or(text)),
+    };
+    let (digits, factor) = match rest.chars().last()? {
+        'k' => (&rest[..rest.len() - 1], 1u64 << 10),
+        'm' => (&rest[..rest.len() - 1], 1u64 << 20),
+        'g' => (&rest[..rest.len() - 1], 1u64 << 30),
+        _ => (rest, 1),
+    };
+    let (digits, radix) = if let Some(hex) = digits.strip_prefix("0x") {
+        (hex, 16)
+    } else if digits.len() > 1 && digits.starts_with('0') {
+        (&digits[1..], 8)
+    } else {
+        (digits, 10)
+    };
+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let magnitude = i64::try_from(
+        u64::from_str_radix(digits, radix)
+            .ok()?
+            .checked_mul(factor)?,
+    )
+    .ok()?;
+    Some(if negative { -magnitude } else { magnitude })
 }
 
 /// Location and settings of the reference store of one working tree.
@@ -144,22 +216,7 @@ impl RefLayout {
     /// `E_GIT_UNSUPPORTED` with problem `invalid_config` when
     /// `core.logAllRefUpdates` has a value Git does not accept.
     pub fn from_repo(repo: &gix::Repository) -> Result<Self> {
-        let config = repo.config_snapshot();
-        let log_all = match config.string("core.logAllRefUpdates") {
-            Some(value) => {
-                let text = value.to_str_lossy();
-                LogAllRefUpdates::parse(&text).ok_or_else(|| {
-                    Error::new(
-                        ErrorCode::GitUnsupported,
-                        format!("core.logAllRefUpdates has the invalid value `{text}`; use true, false or always"),
-                    )
-                    .with_problem("invalid_config")
-                    .with_found(text.into_owned())
-                })?
-            }
-            None if repo.is_bare() => LogAllRefUpdates::Never,
-            None => LogAllRefUpdates::Standard,
-        };
+        let log_all = LogAllRefUpdates::of_repo(repo)?;
         Ok(Self::new(
             abs_path(repo.git_dir())?,
             abs_path(repo.common_dir())?,
