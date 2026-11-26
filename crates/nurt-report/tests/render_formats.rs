@@ -399,6 +399,26 @@ fn a_multi_line_value_stays_on_one_line_in_compact() {
 }
 
 #[test]
+fn a_carriage_return_in_a_hunk_line_is_shown_as_an_escape_in_text() {
+    let mut report = Report::new(ReportStatus::Ok, "replace");
+    report.diff.push(Hunk {
+        path: "/srv/app/a.txt".into(),
+        lines: vec!["-old\r".to_owned(), "+\tnew\r".to_owned()],
+        ..Hunk::default()
+    });
+    let text = render(&report, &options(OutputFormat::Text));
+    assert!(!text.contains('\r'), "{text:?}");
+    assert!(text.contains("- old\\r"), "{text}");
+    assert!(text.contains("+ \tnew\\r"), "{text}");
+    let compact = render(&report, &options(OutputFormat::Compact));
+    assert!(!compact.contains('\r'), "{compact:?}");
+    assert!(
+        compact.contains("diff /srv/app/a.txt:0 -old\\r"),
+        "{compact}"
+    );
+}
+
+#[test]
 fn a_fence_in_a_hunk_does_not_close_the_markdown_block() {
     let mut report = Report::new(ReportStatus::Ok, "replace");
     report.diff.push(Hunk {

@@ -743,37 +743,23 @@ fn split_range(text: &str) -> Option<(Option<i64>, Option<i64>)> {
 }
 
 fn local_instant(text: &str, time_zone: &TimeZone) -> Option<String> {
+    // A field is exactly `width` digits: `str::parse` also accepts a sign, so
+    // `+123` would read as a year.
+    fn field<T: std::str::FromStr>(part: Option<&str>, width: usize) -> Option<T> {
+        part.filter(|part| part.len() == width && part.bytes().all(|b| b.is_ascii_digit()))?
+            .parse()
+            .ok()
+    }
     let (date, time) = text.split_once([' ', 'T', 't'])?;
     let mut date_parts = date.split('-');
-    let year = date_parts
-        .next()
-        .filter(|part| part.len() == 4)?
-        .parse::<i16>()
-        .ok()?;
-    let month = date_parts
-        .next()
-        .filter(|part| part.len() == 2)?
-        .parse::<i8>()
-        .ok()?;
-    let day = date_parts
-        .next()
-        .filter(|part| part.len() == 2)?
-        .parse::<i8>()
-        .ok()?;
+    let year = field::<i16>(date_parts.next(), 4)?;
+    let month = field::<i8>(date_parts.next(), 2)?;
+    let day = field::<i8>(date_parts.next(), 2)?;
     let mut time_parts = time.trim().split(':');
-    let hour = time_parts
-        .next()
-        .filter(|part| part.len() == 2)?
-        .parse::<i8>()
-        .ok()?;
-    let minute = time_parts
-        .next()
-        .filter(|part| part.len() == 2)?
-        .parse::<i8>()
-        .ok()?;
+    let hour = field::<i8>(time_parts.next(), 2)?;
+    let minute = field::<i8>(time_parts.next(), 2)?;
     let second = match time_parts.next() {
-        Some(part) if part.len() == 2 => part.parse::<i8>().ok()?,
-        Some(_) => return None,
+        Some(part) => field::<i8>(Some(part), 2)?,
         None => 0,
     };
     if date_parts.next().is_some() || time_parts.next().is_some() {
@@ -1214,6 +1200,22 @@ mod tests {
             duration(Written::quoted("zażółć"), &tables),
             Outcome::NotApplicable
         );
+    }
+
+    #[test]
+    fn a_signed_field_is_not_a_date_or_a_time() {
+        let utc = &TimeZone::UTC;
+        assert!(local_instant("2026-11-21 10:00", utc).is_some());
+        for text in [
+            "+026-11-21 10:00",
+            "2026-+1-21 10:00",
+            "2026-11-+1 10:00",
+            "2026-11-21 +1:00",
+            "2026-11-21 10:+1",
+            "2026-11-21 10:00:+1",
+        ] {
+            assert_eq!(local_instant(text, utc), None, "{text}");
+        }
     }
 
     #[test]

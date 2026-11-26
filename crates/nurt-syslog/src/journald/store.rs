@@ -276,7 +276,16 @@ impl<'a> Shared<'a> {
         self.limits.read_cache_bytes / files
     }
 
+    /// Reports a file that was skipped or read in part. A file is reported
+    /// once, with the first cause: a truncated file that also fails later
+    /// would otherwise appear twice with contradicting classes.
     fn skip(&self, path: String, detail: &str) {
+        let reported = self.notices.snapshot().iter().any(|known| {
+            known.code == NoticeCode::FileSkipped && known.path.as_ref() == Some(&path)
+        });
+        if reported {
+            return;
+        }
         let mut notice = LogNotice::new(NoticeCode::FileSkipped);
         notice.path = Some(path);
         notice.detail = Some(detail.to_owned());
@@ -761,6 +770,20 @@ mod tests {
         };
         let error = query_bytes(Vec::new(), &query, &LogLimits::default()).unwrap_err();
         assert_eq!(error.code(), ErrorCode::InvalidValue);
+    }
+
+    #[test]
+    fn a_file_is_reported_as_skipped_once_with_the_first_cause() {
+        let query = LogQuery::default();
+        let shared = Shared::new(&query, &LogLimits::default()).unwrap();
+        shared.skip("/var/log/journal/a.journal".to_owned(), "truncated");
+        shared.skip("/var/log/journal/a.journal".to_owned(), "corrupt");
+        shared.skip("/var/log/journal/b.journal".to_owned(), "corrupt");
+        let notices = shared.notices.snapshot();
+        assert_eq!(notices.len(), 2);
+        assert_eq!(notices[0].detail.as_deref(), Some("truncated"));
+        assert_eq!(notices[0].count, Some(1));
+        assert_eq!(notices[1].detail.as_deref(), Some("corrupt"));
     }
 
     #[test]

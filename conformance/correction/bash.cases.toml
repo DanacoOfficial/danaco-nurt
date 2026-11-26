@@ -613,7 +613,7 @@ id = "correction/bash/b16-sed-first-only"
 kind = "correction"
 class = "mandatory"
 language = "1.0"
-summary = "A substitution without g replaces the first occurrence; the program is offered with occurrence 1."
+summary = "A substitution without g replaces the first occurrence; the program is offered with the pattern anchored to the first match of a line."
 method = "correct"
 program = "sed -i 's/foo/bar/' /home/user/app/a.txt"
 

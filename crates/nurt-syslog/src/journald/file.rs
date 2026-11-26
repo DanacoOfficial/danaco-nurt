@@ -247,6 +247,9 @@ impl JournalFile {
                 Err(fault) => return Err(fault),
             };
             if data.hash == hash {
+                // The writer keeps the compressed form of a DATA object only
+                // when it is shorter than the payload, so a stored form longer
+                // than the searched payload cannot be a match.
                 let stored = self.payload(&data, payload.len() as u64 + 1)?;
                 if stored.bytes == payload {
                     return Ok(Some(data));

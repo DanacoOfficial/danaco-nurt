@@ -234,6 +234,18 @@ mod tests {
     }
 
     #[test]
+    fn turns_a_lone_carriage_return_into_a_line_feed_and_keeps_crlf() {
+        let normalized = normalize("list \"/a\"\rcount");
+        assert_eq!(normalized.text, "list \"/a\"\ncount");
+        assert_eq!(normalized.corrections.len(), 1);
+        assert_eq!(normalized.corrections[0].from, "U+000D");
+        assert_eq!(normalized.corrections[0].to, "U+000A");
+        let windows = normalize("list \"/a\"\r\ncount");
+        assert_eq!(windows.text, "list \"/a\"\r\ncount");
+        assert!(windows.corrections.is_empty());
+    }
+
+    #[test]
     fn brings_foreign_words_into_composed_form_without_a_correction() {
         let normalized = normalize("e\u{301}cho");
         assert_eq!(normalized.text, "\u{e9}cho");

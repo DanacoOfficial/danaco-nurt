@@ -113,12 +113,38 @@ struct Scan {
     in_regex: bool,
     escaped: bool,
     depth: usize,
+    /// Number of `#` read so far after the `r` of a raw text; set until the
+    /// opening quote.
+    raw_opening: Option<usize>,
+    /// Number of `#` that close the raw text being read, when inside one.
+    raw_hashes: Option<usize>,
+    /// Number of `#` still needed after a quote to close the raw text.
+    raw_closing: Option<usize>,
 }
 
 impl Scan {
     /// Advances over `ch` and tells whether it is at the top level, outside
     /// strings, regular expressions and brackets.
     fn step(&mut self, previous: Option<char>, ch: char, next: Option<char>) -> bool {
+        if let Some(hashes) = self.raw_hashes {
+            self.step_in_raw(hashes, ch);
+            return false;
+        }
+        if let Some(hashes) = self.raw_opening {
+            match ch {
+                '#' => {
+                    self.raw_opening = Some(hashes + 1);
+                    return false;
+                }
+                '"' => {
+                    self.raw_opening = None;
+                    self.raw_hashes = Some(hashes);
+                    self.raw_closing = None;
+                    return false;
+                }
+                _ => self.raw_opening = None,
+            }
+        }
         if self.escaped {
             self.escaped = false;
             return false;
@@ -137,6 +163,10 @@ impl Scan {
                 self.in_string = true;
                 false
             }
+            'r' if starts_raw_text(previous, next) => {
+                self.raw_opening = Some(0);
+                self.depth == 0
+            }
             '/' if starts_regex(previous, next) => {
                 self.in_regex = true;
                 false
@@ -152,6 +182,34 @@ impl Scan {
             _ => self.depth == 0,
         }
     }
+}
+
+impl Scan {
+    /// Advances over `ch` inside a raw text, which has no escapes and ends at
+    /// a quote followed by `hashes` hash characters.
+    fn step_in_raw(&mut self, hashes: usize, ch: char) {
+        let left = match (ch, self.raw_closing) {
+            ('"', _) => hashes,
+            ('#', Some(left)) => left.saturating_sub(1),
+            _ => {
+                self.raw_closing = None;
+                return;
+            }
+        };
+        if left == 0 {
+            self.raw_hashes = None;
+            self.raw_closing = None;
+        } else {
+            self.raw_closing = Some(left);
+        }
+    }
+}
+
+/// Tells whether an `r` starts a raw text: it stands where a word starts and
+/// is followed by a quote or by the hash characters of the delimiter.
+fn starts_raw_text(previous: Option<char>, next: Option<char>) -> bool {
+    let word_start = previous.is_none_or(|ch| !(ch.is_alphanumeric() || ch == '_'));
+    word_start && matches!(next, Some('"' | '#'))
 }
 
 fn starts_regex(previous: Option<char>, next: Option<char>) -> bool {
@@ -233,6 +291,26 @@ mod tests {
                 r#"["a", "b"]"#
             ]
         );
+    }
+
+    #[test]
+    fn a_raw_text_ending_in_a_backslash_closes_at_its_quote() {
+        let words = split_words(r#"remove r"C:\dir\" glob: "x y""#);
+        assert_eq!(words, ["remove", r#"r"C:\dir\""#, "glob:", r#""x y""#]);
+    }
+
+    #[test]
+    fn a_hashed_raw_text_keeps_quotes_and_spaces() {
+        let words = split_words(r##"write r#"say "hi" \"# "/a b""##);
+        assert_eq!(words, ["write", r##"r#"say "hi" \"#"##, r#""/a b""#]);
+        let stages = split_stages(r##"read r#"a "|>" b"# |> count"##);
+        assert_eq!(stages.len(), 2);
+    }
+
+    #[test]
+    fn a_letter_r_inside_a_word_does_not_start_a_raw_text() {
+        let words = split_words(r#"bar "x y""#);
+        assert_eq!(words, ["bar", r#""x y""#]);
     }
 
     #[test]

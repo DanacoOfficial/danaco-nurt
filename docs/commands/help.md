@@ -41,6 +41,11 @@ command and a group (`verify`): `help verify` answers for the command,
 | `pipelines`, `let`, `paths`, `records`, `lists` | the part of the syntax that the name says, the lines of `syntax` that apply; the hints of errors point at these topics |
 | `search` | commands, error codes and guides that match the words, best first |
 
+With `kind: syntax` the topic is empty, `syntax` or one of the topics
+`pipelines`, `let`, `paths`, `records`, `lists`; with `kind: corrections` it is
+empty or `corrections`. Any other name fails with `E_UNKNOWN_NAME` and is not
+ignored.
+
 The topics `group`, `skill` and `search` exclude each other and the positional
 topic. An unknown topic fails with `E_UNKNOWN_NAME`; the error lists up to
 eight nearest names in `expected`.

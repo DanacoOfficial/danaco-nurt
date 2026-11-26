@@ -9,6 +9,7 @@ use nurt_contracts::ast::{Arg, Expr, MapEntry, Span, Stage};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::CorrectionClass;
 
+use super::catalog::is_switch;
 use super::lex::{Quoting, Word, WordPart};
 use super::session::{
     Piece, Session, Variants, append_args, is_absolute, is_glob, piece_text, trim_trailing_slash,
@@ -637,6 +638,14 @@ fn long_flag(
         (None, [param]) => (*param).clone(),
         _ => return Err(unknown_flag(session, entry, word, text)),
     };
+    if value.is_none() && !is_switch(&entry.target, &param) {
+        return Err(session.error(
+            ErrorCode::Uncorrectable,
+            "flag_without_value",
+            word.span,
+            &[("flag", text)],
+        ));
+    }
     let span = Some(word.span);
     let value = match value {
         None => Expr::Bool { v: true, span },

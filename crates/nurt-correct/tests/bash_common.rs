@@ -7,8 +7,10 @@ use std::path::PathBuf;
 
 use nurt_correct::bash::{Mode, TranslateContext, translate_with};
 
-/// Number of lines of the list that translate without an error.
-const MINIMUM_TRANSLATED: usize = 222;
+/// Number of lines of the list that translate without an error. The line
+/// `tail -n +2` is not among them: it asks for the lines from the second on,
+/// which no Nurt parameter says.
+const MINIMUM_TRANSLATED: usize = 221;
 
 const SCRIPT: TranslateContext<'static> = TranslateContext {
     base: None,

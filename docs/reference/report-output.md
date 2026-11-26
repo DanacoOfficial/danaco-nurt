@@ -101,6 +101,14 @@ the line `effect applied` after it.
 
 The line `result file <path>` appears when the result was written to a file.
 
+The headings and labels of the formats `text`, `markdown` and `compact` are
+keywords and stay English whatever the call parameter `language` is; `language`
+changes the messages that the producer of the report puts into its data.
+
+A control character in a line of a difference, such as the carriage return of
+a file with CRLF line endings, is written as an escape sequence (`\r`) in the
+formats `text` and `compact`; the tab stays as it is.
+
 ### json
 
 The reduced report as one line of JSON that validates against

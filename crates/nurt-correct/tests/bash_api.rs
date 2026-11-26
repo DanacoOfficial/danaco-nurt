@@ -161,10 +161,10 @@ fn script_mode_applies_probable_translations_with_alternatives() {
         .expect("a translation");
     assert_eq!(
         translation.text(),
-        "replace \"a+b\" \"c\" in: [\"/srv/x.txt\"] occurrence: 1"
+        "replace /^(.*?)(a\\+b)/ \"${1}c\" in: [\"/srv/x.txt\"]"
     );
-    assert_eq!(translation.alternatives.len(), 2);
-    assert_eq!(translation.rules[0].alternatives.len(), 2);
+    assert_eq!(translation.alternatives.len(), 1);
+    assert_eq!(translation.rules[0].alternatives.len(), 1);
 }
 
 #[test]
@@ -296,6 +296,19 @@ fn redirections_with_an_equivalent_are_translated() {
 }
 
 #[test]
+fn a_byte_order_mark_is_not_part_of_the_first_word() {
+    assert_reactions(&[
+        ("\u{feff}rm -f /srv/a.txt", "remove \"/srv/a.txt\""),
+        ("\u{feff}ls -l /srv", "list \"/srv\" hidden: false"),
+    ]);
+    assert!(detect("\u{feff}rm -f /srv/a.txt"));
+}
+
+#[test]
+fn a_pipe_that_carries_standard_error_is_uncorrectable() {
+    assert_reactions(&[("ls -l /srv |& wc -l", "E_UNCORRECTABLE")]);
+}
+#[test]
 fn flags_and_operands_outside_the_entry_are_uncorrectable() {
     assert_reactions(&[
         ("rm -f", "E_UNCORRECTABLE"),
@@ -304,6 +317,11 @@ fn flags_and_operands_outside_the_entry_are_uncorrectable() {
         ("cat /srv/a | mkdir -p", "E_UNCORRECTABLE"),
         ("rm /srv/**.tmp", "E_UNCORRECTABLE"),
         ("rm *.tmp", "E_PATH_RELATIVE"),
+        ("tail -n +5 /srv/a.txt", "E_UNCORRECTABLE"),
+        ("tail -n 5 /srv/a.txt", "read \"/srv/a.txt\" last: 5"),
+        ("rm -f /srv/{a,b}.tmp", "E_UNCORRECTABLE"),
+        ("rm -f /srv/a{1..3}.tmp", "E_UNCORRECTABLE"),
+        ("rm -f '/srv/{a,b}.tmp'", "remove \"/srv/{a,b}.tmp\""),
         ("curl -H 'X' https://a.example.com/x", "E_UNCORRECTABLE"),
         ("service nginx > /dev/null", "E_UNCORRECTABLE"),
         ("service nginx frobnicate > /dev/null", "E_UNCORRECTABLE"),
@@ -330,7 +348,9 @@ fn long_flags_name_parameters_of_the_target_command() {
             "ls --sort='a b' /srv",
             "list \"/srv\" hidden: false sort: \"a b\"",
         ),
-        ("ls --dep /srv", "list \"/srv\" hidden: false depth: true"),
+        ("ls --hidden /srv", "list \"/srv\" hidden: true"),
+        ("ls --dep /srv", "E_UNCORRECTABLE"),
+        ("ls --depth /srv", "E_UNCORRECTABLE"),
     ]);
 }
 
@@ -509,11 +529,11 @@ fn sed_scripts_with_flags_and_addresses_are_translated() {
         ),
         (
             "sed -E -i 's/a+/b/' /srv/f",
-            "replace /a+/ \"b\" in: [\"/srv/f\"] occurrence: 1",
+            "replace /^(.*?)(a+)/ \"${1}b\" in: [\"/srv/f\"]",
         ),
         (
             "sed -i -e 's/a/b/' /srv/f",
-            "replace /a/ \"b\" in: [\"/srv/f\"] occurrence: 1",
+            "replace /^(.*?)(a)/ \"${1}b\" in: [\"/srv/f\"]",
         ),
     ]);
 }
