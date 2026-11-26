@@ -29,10 +29,10 @@ pub(crate) const INITIAL_PULL: &str = "initial pull";
 /// Nanoseconds per second of the clock of the execution context.
 const NANOSECONDS_PER_SECOND: i128 = 1_000_000_000;
 
-/// Prefix of the full names of remote branches.
 /// File of the repository directory that keeps the commit before an update.
 const ORIG_HEAD: &str = "ORIG_HEAD";
 
+/// Prefix of the full names of local branches.
 const HEADS: &str = "refs/heads/";
 
 /// Why the integration did not complete.
