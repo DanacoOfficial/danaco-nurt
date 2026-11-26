@@ -577,6 +577,19 @@ fn parse_pytest_does_not_probe_paths_made_of_empty_class_name_parts() {
 }
 
 #[test]
+fn parse_pytest_does_not_probe_an_absolute_path_named_by_a_class() {
+    let project = tempfile::tempdir().unwrap();
+    let outside = tempfile::Builder::new().prefix("probe").tempdir().unwrap();
+    write(outside.path(), "mod.py", "");
+    let class = format!("{}/mod", outside.path().display());
+    let report = format!(
+        "<testsuites><testsuite name=\"s\"><testcase classname=\"{class}\" name=\"t\"/></testsuite></testsuites>"
+    );
+    let results = read(Framework::Pytest, "", Some(&report), project.path());
+    assert_eq!(results[0].path, None);
+}
+
+#[test]
 fn parse_pytest_keeps_class_name_when_module_is_missing() {
     let dir = tempfile::tempdir().unwrap();
     let results = read(
