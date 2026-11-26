@@ -12,11 +12,12 @@
 //! input records. With correction, a literal that does not have the form of
 //! its place is corrected by the type rules before it is reported.
 
-use nurt_contracts::ast::{Expr, KeySeg, MapEntry, Pipeline, Span, UnOp};
+use nurt_contracts::ast::{BinOp, Expr, KeySeg, MapEntry, Pipeline, Span, UnOp};
 use nurt_contracts::bound::{BoundExpr, BoundMapEntry};
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::keypath::KeyPath;
 use nurt_contracts::spec::{ParamType, ScalarType};
+use nurt_types::{ValueType, literal_comparison_error};
 
 use crate::binder::{Binder, unsupported};
 use crate::error::BindError;
@@ -394,17 +395,53 @@ impl Binder<'_> {
                 op: *op,
                 x: Box::new(self.expression(x)?),
             }),
-            Expr::Bin { op, l, r, .. } => Ok(BoundExpr::Bin {
-                op: *op,
-                l: Box::new(self.expression(l)?),
-                r: Box::new(self.expression(r)?),
-            }),
+            Expr::Bin { op, l, r, .. } => {
+                let (bound_l, bound_r) = (self.expression(l)?, self.expression(r)?);
+                self.check_comparison(*op, (l, &bound_l), (r, &bound_r))?;
+                Ok(BoundExpr::Bin {
+                    op: *op,
+                    l: Box::new(bound_l),
+                    r: Box::new(bound_r),
+                })
+            }
             Expr::Sub { span, .. } => Err(BindError::new(
                 ErrorCode::Type,
                 "a sub-pipeline is not an expression; use it as the argument of `verify` or of a parameter of type pipeline",
             )
             .at(*span)),
             _ => Err(unsupported("expression")),
+        }
+    }
+
+    /// Rejects the comparison of a field of a known type with a literal that
+    /// cannot be compared with it, with the error that evaluating the
+    /// comparison raises for every record.
+    fn check_comparison(
+        &self,
+        op: BinOp,
+        left: (&Expr, &BoundExpr),
+        right: (&Expr, &BoundExpr),
+    ) -> Result<(), BindError> {
+        for (field_first, (_, field), (literal, bound)) in
+            [(true, left, right), (false, right, left)]
+        {
+            let Some(ty) = self.field_type(field) else {
+                continue;
+            };
+            let error =
+                literal_comparison_error(op, ty, bound, field_first, &self.context.local_tz);
+            if let Some(error) = error {
+                return Err(BindError::from(error).at(literal_span(literal)));
+            }
+        }
+        Ok(())
+    }
+
+    /// Type of a bound field of the input records, when it is known.
+    fn field_type(&self, expr: &BoundExpr) -> Option<ValueType> {
+        match expr {
+            BoundExpr::Field { name, of: None } => self.field_types.get(name.as_str()).copied(),
+            _ => None,
         }
     }
 
@@ -446,6 +483,21 @@ fn constant(expr: &Expr) -> Option<BoundExpr> {
             Expr::Num { v, .. } => Some(BoundExpr::Num { v: -v }),
             _ => None,
         },
+        _ => None,
+    }
+}
+
+/// Span of a written literal.
+fn literal_span(expr: &Expr) -> Option<Span> {
+    match expr {
+        Expr::Text { span, .. }
+        | Expr::Regex { span, .. }
+        | Expr::Int { span, .. }
+        | Expr::Num { span, .. }
+        | Expr::Size { span, .. }
+        | Expr::Dur { span, .. }
+        | Expr::Bool { span, .. }
+        | Expr::Un { span, .. } => *span,
         _ => None,
     }
 }

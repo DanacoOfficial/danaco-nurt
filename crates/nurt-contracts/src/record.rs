@@ -154,12 +154,21 @@ impl From<RecordError> for Error {
     }
 }
 
+/// Names and language types of the fields of a typed record, in the order of
+/// its structure.
+pub type FieldTypes = &'static [(&'static str, &'static str)];
+
 /// Conversion of a field of a typed record to and from a [`Value`].
 ///
 /// Implemented for the field types of typed records: text, numbers,
 /// truth values, units, paths, enumerations, nested objects and records,
 /// and `Option`, `Vec` and `IndexMap` of those.
 pub trait FieldValue: Sized {
+    /// Name of the language type of the values of the field, as listed in
+    /// the type names of values (`size`, `text`, `list`, …); `any` when the
+    /// field holds a value of any type.
+    const TYPE: &'static str = "any";
+
     /// The field as a value; `None` when the field is absent.
     fn to_field(self) -> Option<Value>;
 
@@ -227,6 +236,8 @@ impl FieldValue for Value {
 }
 
 impl FieldValue for String {
+    const TYPE: &'static str = "text";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Text(self))
     }
@@ -241,6 +252,8 @@ impl FieldValue for String {
 }
 
 impl FieldValue for bool {
+    const TYPE: &'static str = "bool";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Bool(self))
     }
@@ -254,6 +267,8 @@ impl FieldValue for bool {
 }
 
 impl FieldValue for i64 {
+    const TYPE: &'static str = "int";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Int(self))
     }
@@ -267,6 +282,8 @@ impl FieldValue for i64 {
 }
 
 impl FieldValue for u64 {
+    const TYPE: &'static str = "int";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::from(self))
     }
@@ -285,6 +302,8 @@ impl FieldValue for u64 {
 }
 
 impl FieldValue for f64 {
+    const TYPE: &'static str = "number";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Number(self))
     }
@@ -299,6 +318,8 @@ impl FieldValue for f64 {
 }
 
 impl FieldValue for Size {
+    const TYPE: &'static str = "size";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Size(self))
     }
@@ -315,6 +336,8 @@ impl FieldValue for Size {
 }
 
 impl FieldValue for Duration {
+    const TYPE: &'static str = "duration";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Duration(self))
     }
@@ -329,6 +352,8 @@ impl FieldValue for Duration {
 }
 
 impl FieldValue for Instant {
+    const TYPE: &'static str = "instant";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Instant(self))
     }
@@ -345,6 +370,8 @@ impl FieldValue for Instant {
 }
 
 impl FieldValue for Path {
+    const TYPE: &'static str = "path";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Path(self.into_string()))
     }
@@ -358,6 +385,8 @@ impl FieldValue for Path {
 }
 
 impl FieldValue for Bytes {
+    const TYPE: &'static str = "bytes";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Bytes(self))
     }
@@ -371,6 +400,8 @@ impl FieldValue for Bytes {
 }
 
 impl FieldValue for Range {
+    const TYPE: &'static str = "range";
+
     fn to_field(self) -> Option<Value> {
         Some(Value::Range(self))
     }
@@ -405,6 +436,8 @@ report_field!(Irreversible, "irreversible reason");
 report_field!(IrreversibleEntry, "irreversible entry");
 
 impl<T: FieldValue> FieldValue for Option<T> {
+    const TYPE: &'static str = T::TYPE;
+
     fn to_field(self) -> Option<Value> {
         self.and_then(T::to_field)
     }
@@ -422,6 +455,8 @@ impl<T: FieldValue> FieldValue for Option<T> {
 }
 
 impl<T: FieldValue> FieldValue for Vec<T> {
+    const TYPE: &'static str = "list";
+
     fn to_field(self) -> Option<Value> {
         let items = self
             .into_iter()
@@ -445,6 +480,8 @@ impl<T: FieldValue> FieldValue for Vec<T> {
 }
 
 impl<T: FieldValue> FieldValue for IndexMap<String, T> {
+    const TYPE: &'static str = "map";
+
     fn to_field(self) -> Option<Value> {
         let entries = self
             .into_iter()
@@ -517,6 +554,8 @@ macro_rules! text_enum {
         }
 
         impl FieldValue for $name {
+            const TYPE: &'static str = "enum";
+
             fn to_field(self) -> Option<Value> {
                 Some(Value::Enum(self.as_str().to_owned()))
             }
@@ -563,6 +602,13 @@ macro_rules! define_struct {
         }
 
         impl $name {
+            /// Names of the fields in JSON and in the dynamic record, each
+            /// with the name of its language type (`any` for a field of any
+            /// type).
+            pub const FIELD_TYPES: FieldTypes = &[
+                $( (field_name!($field $($json)?), <$ty as FieldValue>::TYPE), )+
+            ];
+
             fn into_fields(self) -> Fields {
                 let mut fields = Fields::new();
                 $( put(&mut fields, field_name!($field $($json)?), self.$field); )+
@@ -586,6 +632,8 @@ macro_rules! object_struct {
         define_struct! { $(#[$meta])* $name $body }
 
         impl FieldValue for $name {
+            const TYPE: &'static str = "map";
+
             fn to_field(self) -> Option<Value> {
                 Some(Value::Map(self.into_fields()))
             }
@@ -4247,6 +4295,16 @@ macro_rules! typed_records {
             /// Kinds that have a typed structure, in a stable order.
             pub const KINDS: &'static [RecordKind] = &[$(RecordKind::$variant),+];
 
+            /// Names and language types of the fields of a record kind;
+            /// `None` for a kind without a typed structure.
+            #[must_use]
+            pub const fn field_types(kind: RecordKind) -> Option<FieldTypes> {
+                match kind {
+                    $(RecordKind::$variant => Some($ty::FIELD_TYPES),)+
+                    _ => None,
+                }
+            }
+
             /// Kind of the record.
             #[must_use]
             pub const fn kind(&self) -> RecordKind {
@@ -4442,6 +4500,37 @@ mod tests {
                 field: "changes.0.path".to_owned()
             }
         );
+    }
+
+    #[test]
+    fn field_types_name_the_language_type_of_every_field() {
+        let entry = TypedRecord::field_types(RecordKind::Entry).unwrap();
+        let type_of = |name: &str| {
+            entry
+                .iter()
+                .find(|(field, _)| *field == name)
+                .map(|(_, ty)| *ty)
+        };
+        assert_eq!(type_of("size"), Some("size"));
+        assert_eq!(type_of("modified"), Some("instant"));
+        assert_eq!(type_of("created"), Some("instant"));
+        assert_eq!(type_of("exists"), Some("bool"));
+        assert_eq!(type_of("path"), Some("path"));
+        assert_eq!(type_of("name"), Some("text"));
+        assert_eq!(type_of("links"), Some("int"));
+        assert_eq!(type_of("type"), Some("enum"));
+        assert_eq!(type_of("no_such_field"), None);
+        let job = TypedRecord::field_types(RecordKind::Job).unwrap();
+        assert!(job.contains(&("elapsed", "duration")));
+        assert!(job.contains(&("command", "list")));
+        assert_eq!(TypedRecord::field_types(RecordKind::Map), None);
+    }
+
+    #[test]
+    fn every_typed_kind_has_field_types() {
+        for kind in TypedRecord::KINDS {
+            assert!(TypedRecord::field_types(*kind).is_some(), "{kind}");
+        }
     }
 
     #[test]

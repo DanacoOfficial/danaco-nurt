@@ -34,7 +34,9 @@
 //!   operand is `null`.
 //! * In a comparison, a text literal facing a `path`, `glob`, `instant`,
 //!   `key`, `size` or `duration` converts to that type
-//!   (`modified > "2026-11-01"`); other values never convert.
+//!   (`modified > "2026-11-01"`); other values never convert. The binder
+//!   raises the errors of such a comparison before the evaluation, for a
+//!   field of a known type, with [`literal_comparison_error`].
 //! * `~` and `!~` match text-like values against a `regex`.
 //! * `in` tests membership in a list, an integer range or the keys of a
 //!   map.
@@ -83,7 +85,7 @@ pub use coerce::{ValueType, coerce, coerce_in, converts_implicitly};
 pub use compare::{OrderedValue, comparable, compare, equal};
 pub use display::display_short;
 pub use env::{ClockEnv, EvalEnv, FixedEnv, RandomSource, instant_from_wall};
-pub use eval::Evaluator;
+pub use eval::{Evaluator, literal_comparison_error};
 pub use units::{
     display_duration, display_instant, display_size, format_duration, format_size, parse_duration,
     parse_instant, parse_range, parse_size,

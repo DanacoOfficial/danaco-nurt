@@ -707,3 +707,90 @@ fn unknown_values_of_multi_byte_text_are_reported_as_written() {
     assert_eq!(error.code(), ErrorCode::UnknownValue);
     assert_eq!(error.error().found.as_deref(), Some("fïl"));
 }
+
+fn parsed(program: &str) -> nurt_contracts::ast::AstDocument {
+    nurt_syntax::parse::parse(
+        program,
+        nurt_contracts::kinds::SyntaxVariant::A,
+        &nurt_syntax::parse::ParseOptions::default(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_literal_that_is_not_a_value_of_the_field_is_rejected_at_binding() {
+    let invalid = [
+        ("find \"/tmp\" |> filter size > \"abc\"", "size"),
+        ("find \"/tmp\" |> filter size == \"abc\"", "size"),
+        ("find \"/tmp\" |> filter size != \"1 mb\"", "size"),
+        ("find \"/tmp\" |> filter \"abc\" < size", "size"),
+        ("find \"/tmp\" |> filter modified < \"never\"", "instant"),
+        ("processes |> filter started >= \"soon\"", "instant"),
+        ("jobs |> filter elapsed > \"slow\"", "duration"),
+        ("jobs |> filter \"slow\" <= elapsed", "duration"),
+        (
+            "find \"/tmp\" |> filter size > \"1mb\" and modified < \"never\"",
+            "instant",
+        ),
+        ("find \"/tmp\" |> filter not size > \"abc\"", "size"),
+    ];
+    for (program, ty) in invalid {
+        let error = failed(&parsed(program));
+        assert_eq!(error.code(), ErrorCode::InvalidValue, "{program}");
+        assert_eq!(error.error().stage(), Some(ExecStage::Bind), "{program}");
+        assert_eq!(expected_names(&error), [ty], "{program}");
+        assert!(error.error().at.is_some(), "{program}");
+    }
+}
+
+#[test]
+fn the_rejected_literal_is_reported_at_its_place() {
+    let error = failed(&parsed("find \"/tmp\" |> filter size > \"abc\""));
+    assert_eq!(error.error().found.as_deref(), Some("abc"));
+    let at = error.error().at.unwrap();
+    assert_eq!(
+        (at.line, at.column, at.length),
+        (Some(1), Some(30), Some(5))
+    );
+}
+
+#[test]
+fn an_ordering_with_a_literal_of_another_family_is_a_type_error() {
+    for program in [
+        "find \"/tmp\" |> filter size > 5",
+        "find \"/tmp\" |> filter name > 5",
+        "find \"/tmp\" |> filter exists > 1",
+        "find \"/tmp\" |> filter 5 < size",
+        "jobs |> filter exit_code > \"abc\"",
+        "jobs |> filter elapsed > 5",
+        "processes |> filter cpu > \"abc\"",
+        "processes |> filter memory < true",
+    ] {
+        let error = failed(&parsed(program));
+        assert_eq!(error.code(), ErrorCode::Type, "{program}");
+        assert_eq!(error.error().stage(), Some(ExecStage::Bind), "{program}");
+        assert!(error.error().at.is_some(), "{program}");
+    }
+}
+
+#[test]
+fn a_literal_that_can_be_compared_with_the_field_binds() {
+    for program in [
+        "find \"/tmp\" |> filter size > \"1mb\"",
+        "find \"/tmp\" |> filter size > 5mb",
+        "find \"/tmp\" |> filter modified > \"2026-01-01\"",
+        "find \"/tmp\" |> filter name == 5",
+        "find \"/tmp\" |> filter name > \"a\"",
+        "find \"/tmp\" |> filter exists == true",
+        "find \"/tmp\" |> filter path == \"/tmp/a\"",
+        "jobs |> filter elapsed > 5s",
+        "jobs |> filter elapsed > \"5s\"",
+        "jobs |> filter exit_code == \"abc\"",
+        "jobs |> filter exit_code > 1",
+        "processes |> filter cpu > 1",
+        "processes |> filter cpu > 1.5",
+        "processes |> filter name ~ /a/",
+    ] {
+        bound(&parsed(program));
+    }
+}

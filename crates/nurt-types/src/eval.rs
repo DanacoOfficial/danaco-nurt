@@ -10,7 +10,7 @@ use jiff::tz::TimeZone;
 use nurt_contracts::ast::{BinOp, UnOp};
 use nurt_contracts::bound::{BoundExpr, BoundMapEntry, BoundRef};
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::value::{Duration, Fields, Range, Record, Regex, Size, Value};
+use nurt_contracts::value::{Duration, Fields, Instant, Range, Record, Regex, Size, Value};
 use serde_json::json;
 
 use crate::access::{get_field, get_path};
@@ -333,14 +333,80 @@ fn convert_literal(literal: Value, other: &Value, tz: &TimeZone) -> Result<Value
     }
 }
 
+/// Error that every evaluation of a comparison of a field of the type
+/// `field` with the bound literal `literal` raises, found without a record.
+///
+/// The error is the one the evaluator raises: `E_INVALID_VALUE` for a text
+/// that does not form a value of the type of the field (see
+/// [`converts_implicitly`]), and `E_TYPE` for an ordering operator applied to
+/// a literal of another type family. `field_first` tells whether the field
+/// is the left operand. `None` when the comparison can succeed, when `op` is
+/// not a comparison, when `literal` is not a literal, and for the types of
+/// fields whose family this function does not know.
+///
+/// # Examples
+///
+/// ```rust
+/// use jiff::tz::TimeZone;
+/// use nurt_contracts::ast::BinOp;
+/// use nurt_contracts::bound::BoundExpr;
+/// use nurt_types::{ValueType, literal_comparison_error};
+///
+/// let literal = BoundExpr::Text { v: "abc".to_owned() };
+/// let error = literal_comparison_error(BinOp::Gt, ValueType::Size, &literal, true, &TimeZone::UTC);
+/// assert!(error.is_some());
+/// let literal = BoundExpr::Text { v: "1mb".to_owned() };
+/// assert!(literal_comparison_error(BinOp::Gt, ValueType::Size, &literal, true, &TimeZone::UTC).is_none());
+/// ```
+#[must_use]
+pub fn literal_comparison_error(
+    op: BinOp,
+    field: ValueType,
+    literal: &BoundExpr,
+    field_first: bool,
+    tz: &TimeZone,
+) -> Option<Error> {
+    if !is_comparison(op) {
+        return None;
+    }
+    let value = literal_value(literal, tz).ok()?;
+    if is_text_literal(literal) && converts_implicitly(ValueType::Text, field) {
+        return coerce_in(value, field, tz).err();
+    }
+    let sample = representative(field)?;
+    if field_first {
+        ordering_error(op, &sample, &value)
+    } else {
+        ordering_error(op, &value, &sample)
+    }
+}
+
+/// A value of the type, enough to tell which type family it belongs to.
+fn representative(ty: ValueType) -> Option<Value> {
+    Some(match ty {
+        ValueType::Bool => Value::Bool(false),
+        ValueType::Int => Value::Int(0),
+        ValueType::Number => Value::Number(0.0),
+        ValueType::Text => Value::Text(String::new()),
+        ValueType::Enum => Value::Enum(String::new()),
+        ValueType::Size => Value::Size(Size::from_bytes(0)),
+        ValueType::Duration => Value::Duration(Duration::from_millis(0)),
+        ValueType::Instant => Value::Instant(Instant::UNIX_EPOCH),
+        ValueType::Path => Value::Path(String::new()),
+        ValueType::Glob => Value::Glob(String::new()),
+        ValueType::Key => Value::Key(String::new()),
+        _ => return None,
+    })
+}
+
 fn apply(op: BinOp, left: &Value, right: &Value, regexes: &RegexCache) -> Result<Value> {
     match op {
         BinOp::Eq => Ok(Value::Bool(equal(left, right))),
         BinOp::Ne => Ok(Value::Bool(!equal(left, right))),
-        BinOp::Lt => order("`<`", left, right, Ordering::is_lt),
-        BinOp::Le => order("`<=`", left, right, Ordering::is_le),
-        BinOp::Gt => order("`>`", left, right, Ordering::is_gt),
-        BinOp::Ge => order("`>=`", left, right, Ordering::is_ge),
+        BinOp::Lt => order(op, left, right, Ordering::is_lt),
+        BinOp::Le => order(op, left, right, Ordering::is_le),
+        BinOp::Gt => order(op, left, right, Ordering::is_gt),
+        BinOp::Ge => order(op, left, right, Ordering::is_ge),
         BinOp::Match => matches(left, right, regexes).map(Value::Bool),
         BinOp::NotMatch => matches(left, right, regexes).map(|found| Value::Bool(!found)),
         BinOp::In => membership(left, right).map(Value::Bool),
@@ -352,18 +418,35 @@ fn apply(op: BinOp, left: &Value, right: &Value, regexes: &RegexCache) -> Result
     }
 }
 
-fn order(operator: &str, left: &Value, right: &Value, test: fn(Ordering) -> bool) -> Result<Value> {
+fn order(op: BinOp, left: &Value, right: &Value, test: fn(Ordering) -> bool) -> Result<Value> {
+    if let Some(error) = ordering_error(op, left, right) {
+        return Err(error);
+    }
     if left.is_null() || right.is_null() {
         return Ok(Value::Bool(false));
     }
-    if !comparable(left, right) {
-        return Err(type_error(
-            &format!("{operator} with {}", left.type_name()),
-            &family_types(left),
-            right,
-        ));
-    }
     Ok(Value::Bool(test(compare(left, right))))
+}
+
+/// `E_TYPE` of an ordering operator applied to values of different type
+/// families; `None` when a value is `null`, when the families agree and for
+/// an operator that is not an ordering.
+fn ordering_error(op: BinOp, left: &Value, right: &Value) -> Option<Error> {
+    let operator = match op {
+        BinOp::Lt => "`<`",
+        BinOp::Le => "`<=`",
+        BinOp::Gt => "`>`",
+        BinOp::Ge => "`>=`",
+        _ => return None,
+    };
+    if left.is_null() || right.is_null() || comparable(left, right) {
+        return None;
+    }
+    Some(type_error(
+        &format!("{operator} with {}", left.type_name()),
+        &family_types(left),
+        right,
+    ))
 }
 
 fn matches(left: &Value, right: &Value, regexes: &RegexCache) -> Result<bool> {

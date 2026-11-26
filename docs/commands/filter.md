@@ -23,6 +23,15 @@ for which it is `true`. A condition that evaluates to `null`, for example a
 comparison with a field that has no value, counts as `false`. Any other value
 than a `bool` stops the program with `E_TYPE`.
 
+When the kinds of the input records are known, the comparison of a field with
+a literal is checked before the program runs, by `check` and by the binding of
+every run, with the error the evaluation would raise for every record. A text
+that does not form a value of the type of the field (`size > "abc"`,
+`modified < "never"`) is `E_INVALID_VALUE` with the type in `expected`; `<`,
+`<=`, `>` and `>=` with a literal of another type family (`size > 5`,
+`name > 5`) are `E_TYPE`. The error is placed at the literal. `==` and `!=`
+with a literal of another type are not an error and are `false` or `true`.
+
 The stage is lazy: it reads the next input record only when the following
 stage asks for one, so `filter … |> first 10` stops reading the source after
 the tenth match. The order of the records, the header of the stream and the
@@ -79,7 +88,8 @@ run ["go", "vet", "./..."] cwd: "/home/user/project" |> filter exit_code != 0
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_MISSING_PARAM` | `condition` is missing | write a condition after `filter` |
-| `E_TYPE` | the condition gives a value other than `bool` | compare the field, for example `size > 1mb` instead of `size` |
+| `E_TYPE` | the condition gives a value other than `bool`, or `<`, `<=`, `>` or `>=` compares a field with a literal of another type family | compare the field, for example `size > 1mb` instead of `size`, and write a literal of the type of the field |
+| `E_INVALID_VALUE` | a text compared with a `size`, `duration` or `instant` field does not form a value of that type; `expected` names the type | write a valid value, for example `"1mb"`, `"5m"` or `"2026-11-01"` |
 | `E_UNKNOWN_FIELD` | the condition names a field the records do not have; `expected` lists their fields | use one of the listed fields |
 
 ## Related

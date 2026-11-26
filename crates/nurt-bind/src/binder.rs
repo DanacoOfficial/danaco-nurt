@@ -19,6 +19,7 @@ use crate::catalog::Catalog;
 use crate::context::BindContext;
 use crate::correct::{Applied, Corrector};
 use crate::error::BindError;
+use crate::fields::FieldTypes;
 use crate::phase::Walk;
 
 /// Kind of the records that flow into a stage.
@@ -76,6 +77,8 @@ pub(crate) struct Binder<'a> {
     /// Fields of the records that flow into the stage being bound; absent
     /// when their kind is not known.
     pub(crate) fields: Option<Vec<&'static str>>,
+    /// Types of those fields whose type is known.
+    pub(crate) field_types: FieldTypes,
 }
 
 /// Major version of the surface tree format accepted by the binder.
@@ -118,6 +121,7 @@ fn run(
         strict: 0,
         applied: Vec::new(),
         fields: None,
+        field_types: FieldTypes::new(),
     };
     let statements = binder.statements()?;
     let bound = BoundDocument::new(
@@ -263,9 +267,11 @@ impl<'a> Binder<'a> {
     pub(crate) fn sub_pipeline(&mut self, pipeline: &Pipeline) -> Result<BoundPipeline, BindError> {
         let location = self.location.take();
         let fields = self.fields.take();
+        let field_types = std::mem::take(&mut self.field_types);
         let bound = self.pipeline(pipeline, Mode::Sub, None);
         self.location = location;
         self.fields = fields;
+        self.field_types = field_types;
         bound.map(|(pipeline, _)| pipeline)
     }
 
