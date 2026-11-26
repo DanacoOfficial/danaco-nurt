@@ -286,12 +286,12 @@ def main(argv):
     parser.add_argument("--board", type=Path, help="write a review board to this SVG file")
     arguments = parser.parse_args(argv)
     if arguments.board is not None:
-        arguments.board.write_text(board(), encoding="utf-8")
+        arguments.board.write_text(board(), encoding="utf-8", newline="\n")
         print(f"{arguments.board} written")
         return 0
     arguments.out.mkdir(parents=True, exist_ok=True)
     for name, content in files().items():
-        (arguments.out / name).write_text(header() + content, encoding="utf-8")
+        (arguments.out / name).write_text(header() + content, encoding="utf-8", newline="\n")
         print(f"{arguments.out / name} written")
     return 0
 
