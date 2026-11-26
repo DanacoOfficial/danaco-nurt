@@ -476,6 +476,78 @@ fn launchd_list_without_services_block_warns_and_reports_unknown() {
     }));
 }
 
+const BOOTSTRAP_IO_ERROR: &str = "Bootstrap failed: 5: Input/output error";
+
+#[test]
+fn launchd_bootstrap_exit_code_5_is_an_error_while_the_service_is_not_loaded() {
+    let fixture = Fixture::new(
+        FakeLaunchctl::default()
+            .on(
+                "print system/org.example.backup",
+                EXIT_NOT_FOUND,
+                "",
+                NOT_FOUND_STDERR,
+            )
+            .on(
+                "bootstrap system /Library/LaunchDaemons/org.example.backup.plist",
+                5,
+                "",
+                BOOTSTRAP_IO_ERROR,
+            ),
+    );
+    let error = fixture
+        .backend()
+        .start("org.example.backup", ServiceScope::System)
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Service);
+    assert_eq!(
+        fixture.fake.calls(),
+        [
+            "print system/org.example.backup",
+            "bootstrap system /Library/LaunchDaemons/org.example.backup.plist",
+            "print system/org.example.backup",
+        ]
+    );
+}
+
+#[test]
+fn launchd_bootstrap_exit_code_5_is_success_when_the_service_is_loaded() {
+    let fixture = Fixture::new(
+        FakeLaunchctl::default()
+            .on(
+                "print system/org.example.backup",
+                EXIT_NOT_FOUND,
+                "",
+                NOT_FOUND_STDERR,
+            )
+            .on(
+                "print system/org.example.backup",
+                0,
+                fixture!("print-service-running.txt"),
+                "",
+            )
+            .on(
+                "bootstrap system /Library/LaunchDaemons/org.example.backup.plist",
+                5,
+                "",
+                BOOTSTRAP_IO_ERROR,
+            ),
+    );
+    fixture
+        .backend()
+        .start("org.example.backup", ServiceScope::System)
+        .unwrap();
+    assert_eq!(
+        fixture.fake.calls(),
+        [
+            "print system/org.example.backup",
+            "bootstrap system /Library/LaunchDaemons/org.example.backup.plist",
+            "print system/org.example.backup",
+            "kickstart system/org.example.backup",
+        ]
+    );
+}
+
 #[test]
 fn launchd_start_bootstrap_then_kickstart_argv() {
     let fixture = Fixture::new(FakeLaunchctl::default().on(

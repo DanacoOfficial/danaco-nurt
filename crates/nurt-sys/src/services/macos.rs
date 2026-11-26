@@ -186,7 +186,6 @@ fn denied(output: &Output, target: &Target<'_>) -> Error {
 fn classify(output: &Output, action: Action, target: &Target<'_>) -> Result<()> {
     match output.code {
         0 => Ok(()),
-        EXIT_ALREADY_LOADED if action == Action::Bootstrap => Ok(()),
         EXIT_NO_PROCESS if matches!(action, Action::Bootout | Action::Kill) => Ok(()),
         EXIT_NOT_FOUND => Err(service_not_found(MANAGER, target.label)),
         EXIT_NOT_PERMITTED | EXIT_PROTECTED if output.message().contains(NOT_PERMITTED) => {
@@ -507,8 +506,14 @@ impl<'a> LaunchdBackend<'a> {
             label,
             path: Some(path),
         };
-        self.call(&["bootstrap", domain, path], Action::Bootstrap, &target)
-            .map(drop)
+        let output = self.run(&["bootstrap", domain, path])?;
+        // Exit code 5 is the answer for a service that is already loaded and
+        // also the generic input/output error of a refusal, so only a service
+        // that `print` finds loaded counts as bootstrapped.
+        if output.code == EXIT_ALREADY_LOADED && self.print_service(domain, label)?.is_some() {
+            return Ok(());
+        }
+        classify(&output, Action::Bootstrap, &target)
     }
 
     fn launch(&self, name: &str, scope: ServiceScope, kickstart: &[&str]) -> Result<()> {
