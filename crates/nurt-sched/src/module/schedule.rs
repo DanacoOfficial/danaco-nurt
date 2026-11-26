@@ -32,6 +32,14 @@ pub const SCHEDULE_MODULE: &str = "schedule";
 const POLL: Duration = Duration::from_secs(1);
 const DUE_POLL: Duration = Duration::from_millis(100);
 const SESSION_PREFIX: &str = "schedule:";
+/// End states a client can acknowledge a run with.
+const ACK_STATES: [RunState; 5] = [
+    RunState::Ok,
+    RunState::Exit,
+    RunState::Timeout,
+    RunState::Stopped,
+    RunState::Failed,
+];
 
 /// The schedule module: runs schedules at their run times.
 ///
@@ -232,14 +240,22 @@ impl ScheduleModule {
             _ => RunTrigger::Manual,
         };
         let (sender, receiver) = mpsc::channel();
-        self.shared.with_core(|shared, core| {
+        let started = self.shared.with_core(|shared, core| {
             let now = core.now();
             let launch = core.scheduler.run_now(&id, trigger, now)?;
-            core.waiters.insert(launch.id(), sender);
+            let run = launch.id();
+            // The creation of a schedule does not wait for its first run; the
+            // record of that run is in the history.
+            if trigger != RunTrigger::RunNow {
+                core.waiters.insert(run.clone(), sender);
+            }
             Shared::dispatch(shared, core, launch);
             shared.publish(core);
-            Ok(())
+            Ok(run)
         })?;
+        if trigger == RunTrigger::RunNow {
+            return Ok(json!({ "started": started }));
+        }
         let (record, output) = receiver.recv().map_err(|_| {
             Error::new(
                 ErrorCode::Cancelled,
@@ -289,11 +305,13 @@ impl ScheduleModule {
         let body = &request.body;
         let token = required_text(body, "token")?;
         let state_text = body.get("state").and_then(Json::as_str).unwrap_or("ok");
-        let state = RunState::parse(state_text).ok_or_else(|| {
-            bad_request(format!(
-                "unknown run state `{state_text}`; use ok, exit, timeout, stopped or failed"
-            ))
-        })?;
+        let state = RunState::parse(state_text)
+            .filter(|state| ACK_STATES.contains(state))
+            .ok_or_else(|| {
+                bad_request(format!(
+                    "unknown run state `{state_text}`; use ok, exit, timeout, stopped or failed"
+                ))
+            })?;
         let pending = {
             let mut acks = lock(&self.shared.acks);
             let owned = acks.get(&token).is_none_or(|pending| {

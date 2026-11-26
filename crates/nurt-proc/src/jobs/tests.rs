@@ -38,6 +38,7 @@ use super::control::{self, ControlAction};
 use super::host::LocalHost;
 use super::journal::Unjournaled;
 use super::runner::Launch;
+use super::store::JobStore;
 use super::table::{JobFile, JobTable, PROTOCOL};
 use super::wire::StoredRequest;
 use super::{Supervision, SupervisorCommand, run_host, supervisor};
@@ -471,6 +472,8 @@ impl FileStore {
             stderr_bytes: fs::metadata(&self.stderr)
                 .map(|meta| meta.len())
                 .unwrap_or(0),
+            stdout_read: line_bytes(out),
+            stderr_read: line_bytes(err),
             stdout_lines: u64::try_from(all_out).unwrap_or(0),
             stderr_lines: u64::try_from(all_err).unwrap_or(0),
             decoded_as: "utf-8".to_owned(),
@@ -482,6 +485,10 @@ impl FileStore {
             ..RenderedOutput::default()
         }
     }
+}
+
+fn line_bytes(lines: &[String]) -> u64 {
+    lines.iter().map(|line| line.len() as u64 + 1).sum()
 }
 
 impl OutputSink for FileStore {
@@ -1212,6 +1219,31 @@ mod jobs_wait {
             Some(job.id.clone())
         );
     }
+
+    #[test]
+    fn a_call_cancelled_when_its_wait_elapses_stops_the_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        ctx.cancel().cancel(CancelReason::Requested);
+        let outcome = run(
+            &ctx,
+            &components,
+            request(dir.path(), 10_000, 0, 1),
+            Some(Duration::ZERO),
+        );
+        assert!(
+            !matches!(outcome, Ok(RunWait::Background(_))),
+            "the cancelled run stayed in the background"
+        );
+        let (running, _) = read_jobs(
+            &components,
+            &ctx,
+            &BoundArgs::new("jobs").with("state", word("running"), false),
+        )
+        .unwrap();
+        assert!(running.is_empty());
+    }
 }
 
 fn stop_all(ctx: &ExecCtx, components: &Components) {
@@ -1426,6 +1458,21 @@ mod jobs_retry {
                 .any(|entry| entry.code == Notable::PostStagesDeferred)
         );
         stop_all(&ctx, &components);
+    }
+
+    #[test]
+    fn a_retry_ended_by_its_time_limit_fails_like_a_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let mut slow = request(dir.path(), 10_000, 0, 0);
+        slow.spawn.limits.timeout = Some(Duration::from_millis(20));
+        let job = background(&ctx, &components, slow);
+        wait_finished(dir.path(), &job.id);
+        let args = BoundArgs::new("retry").with("wait", word("forever"), false);
+        let error = effect_on(&components, &ctx, "retry", &args, vec![job]).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert!(error.effect_applied);
     }
 
     #[test]
@@ -1791,6 +1838,47 @@ mod jobs_remove {
         let ids: Vec<&str> = jobs.iter().map(|job| job.id.as_str()).collect();
         assert_eq!(ids, [running.id.as_str()]);
         stop_all(&ctx, &components);
+    }
+
+    #[test]
+    fn a_job_that_cannot_be_removed_does_not_stop_the_sweep() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.output.spool_ttl = DurationSetting::from_millis(1);
+        let (ctx, _) = context_with(dir.path(), config, None);
+        let components = components();
+        let stuck = background(&ctx, &components, request(dir.path(), 0, 0, 1));
+        wait_finished(dir.path(), &stuck.id);
+        let removable = background(&ctx, &components, request(dir.path(), 0, 0, 1));
+        wait_finished(dir.path(), &removable.id);
+        let input = dir
+            .path()
+            .join("jobs")
+            .join(format!("{}.input.json", stuck.id));
+        fs::remove_file(&input).unwrap();
+        fs::create_dir_all(input.join("blocker")).unwrap();
+        std::thread::sleep(Duration::from_millis(20));
+        let (jobs, _) = read_jobs(&components, &ctx, &BoundArgs::new("jobs")).unwrap();
+        let ids: Vec<&str> = jobs.iter().map(|job| job.id.as_str()).collect();
+        assert_eq!(ids, [stuck.id.as_str()]);
+    }
+
+    #[test]
+    fn retry_without_the_stored_input_fails_instead_of_running_with_an_empty_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(dir.path());
+        let components = components();
+        let job = finished(&ctx, &components, dir.path());
+        let store = JobStore::open(&ctx, &components).unwrap();
+        assert!(store.retry_request(&job.id, None).is_ok());
+        fs::remove_file(
+            dir.path()
+                .join("jobs")
+                .join(format!("{}.input.json", job.id)),
+        )
+        .unwrap();
+        let error = store.retry_request(&job.id, None).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Io);
     }
 }
 

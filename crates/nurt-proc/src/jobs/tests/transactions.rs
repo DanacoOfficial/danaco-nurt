@@ -102,7 +102,11 @@ fn observed_changes_carry_their_state_after_the_run() {
         ])
         .unwrap();
     let indexes: Vec<u32> = applied.iter().map(|entry| entry.index.0).collect();
-    assert_eq!(indexes, [0, 2, 3, 4]);
+    assert_eq!(indexes, [0, 1, 2, 3]);
+    let later = tx
+        .observe_external(&[change(&gone, ExternalChangeKind::Deleted, None)])
+        .unwrap();
+    assert_eq!(later[0].index.0, 4);
     assert_eq!(
         (applied[0].after.kind, applied[0].after.size),
         (Some(FileKind::File), Some(4))
@@ -123,6 +127,7 @@ fn observed_changes_carry_their_state_after_the_run() {
     assert_eq!(
         reasons,
         [
+            Irreversible::JournalInactive,
             Irreversible::JournalInactive,
             Irreversible::JournalInactive,
             Irreversible::JournalInactive,

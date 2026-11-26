@@ -60,7 +60,15 @@ pub fn stage_spec(manifest: &Manifest, entry: &StageEntry) -> Result<StageSpec> 
     if output.is_empty() {
         output.push(IoSpec::Any);
     }
-    let (category, effect, reversibility) = if entry.writes {
+    let (category, effect, reversibility) = if entry.writes && entry.network {
+        // The writes are journaled; what the command sends over the network
+        // cannot be undone.
+        (
+            Category::Change,
+            EffectKind::External,
+            Reversibility::ReversibleIfPreserved,
+        )
+    } else if entry.writes {
         (
             Category::Change,
             EffectKind::Local,
@@ -165,6 +173,7 @@ mod tests {
 
     use nurt_catalog::Registry;
     use nurt_contracts::error::{ErrorCode, Result};
+    use nurt_contracts::kinds::{EffectKind, Reversibility};
     use nurt_contracts::spec::IoSpec;
     use nurt_contracts::stage::ExecCtx;
     use nurt_contracts::value::RecordKind;
@@ -206,6 +215,35 @@ source = true
 [permissions]
 write = ["${project}"]
 "#;
+
+    const NETWORK_MANIFEST: &str = r#"
+[ext]
+name = "acme"
+version = "1.0.0"
+api = "nurt:ext@1.0"
+kind = "wasm"
+wasm = "acme.wasm"
+
+[[stage]]
+name = "sync"
+input = ["entry"]
+writes = true
+network = true
+
+[permissions]
+write = ["${project}"]
+network = ["example.org"]
+"#;
+
+    #[test]
+    fn a_command_that_writes_and_uses_the_network_has_an_external_effect() {
+        let extension = extension(NETWORK_MANIFEST);
+        let manifest = &extension.manifest;
+        let sync = stage_spec(manifest, &manifest.stage[0]).unwrap();
+        assert_eq!(sync.effect, EffectKind::External);
+        assert_eq!(sync.reversibility, Reversibility::ReversibleIfPreserved);
+        assert!(sync.check().is_empty(), "{:?}", sync.check());
+    }
 
     struct Idle;
 

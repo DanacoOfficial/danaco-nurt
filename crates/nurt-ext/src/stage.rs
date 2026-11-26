@@ -315,7 +315,7 @@ impl EffectStage for ExtensionStage {
         _args: &'a BoundArgs,
         mut plan: EffectPlan,
         tx: &mut dyn MutationTx,
-        _ctx: &'a ExecCtx,
+        ctx: &'a ExecCtx,
     ) -> Result<EffectOutcome<'a>> {
         let state = plan.take_state::<PlannedEffect>().ok_or_else(|| {
             error(
@@ -323,6 +323,20 @@ impl EffectStage for ExtensionStage {
                 format!("the plan of `{}` lost its planned writes", self.command),
             )
         })?;
+        // The grants were checked when the extension asked for the writes;
+        // a path may have been replaced by a link since, so they are checked
+        // again before anything is written.
+        let policy = PathPolicy::new(
+            &self.extension,
+            &self.permissions,
+            &PlaceholderRoots::from_ctx(ctx, &self.dir),
+        );
+        if !state.writes.is_empty() {
+            let fs = ctx.require_fs()?;
+            for (write, _, _) in &state.writes {
+                policy.check_write(&write.path.as_path().to_string_lossy(), fs)?;
+            }
+        }
         let targets: Vec<TargetSpec> = state
             .writes
             .iter()
@@ -550,6 +564,28 @@ write = ["/project"]
         effect.apply(&args, plan, tx.as_mut(), &ctx).unwrap();
         tx.commit().unwrap();
         assert_eq!(context.fs().read_file(&path).unwrap(), b"second");
+    }
+
+    #[test]
+    fn a_write_outside_the_grants_is_refused_when_it_is_applied() {
+        let context = TestContext::new();
+        let outside = test_path("/secret/key").unwrap();
+        let output = GuestOutput {
+            records: Vec::new(),
+            writes: vec![PlannedWrite {
+                path: outside.clone(),
+                content: b"x".to_vec(),
+            }],
+        };
+        let (fix, _) = stage(1, output);
+        let ctx = context.ctx();
+        let args = BoundArgs::new("acme.fix");
+        let effect = fix.as_effect().unwrap();
+        let plan = effect.plan(&args, items(), &ctx).unwrap();
+        let mut tx = context.journal().begin(begin_request("acme.fix"));
+        let error = effect.apply(&args, plan, tx.as_mut(), &ctx).err().unwrap();
+        assert_eq!(error.code(), ErrorCode::Permission);
+        assert!(!context.fs().exists(&outside));
     }
 
     #[test]

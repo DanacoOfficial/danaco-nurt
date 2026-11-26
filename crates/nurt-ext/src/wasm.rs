@@ -90,6 +90,9 @@ struct HostState {
     command: String,
     writes_allowed: bool,
     writes: Vec<PlannedWrite>,
+    /// Bytes of the planned writes; the writes are held in memory until the
+    /// plan of the effect is made.
+    written: u64,
     denied: Option<Error>,
     limits: StoreLimits,
 }
@@ -146,8 +149,11 @@ impl HostState {
     }
 
     fn write_file(&mut self, path: &str, content: Vec<u8>) -> std::result::Result<(), Failure> {
-        match self.try_write_file(path) {
+        match self.try_write_file(path, content.len()) {
             Ok(path) => {
+                self.written = self
+                    .written
+                    .saturating_add(u64::try_from(content.len()).unwrap_or(u64::MAX));
                 self.writes.push(PlannedWrite { path, content });
                 Ok(())
             }
@@ -155,12 +161,25 @@ impl HostState {
         }
     }
 
-    fn try_write_file(&self, path: &str) -> Result<nurt_contracts::fs::AbsPath> {
+    fn try_write_file(&self, path: &str, size: usize) -> Result<nurt_contracts::fs::AbsPath> {
         if !self.writes_allowed {
             return Err(error(
                 ErrorCode::Permission,
                 format!(
                     "`{}` may not write files; declare it with `writes = true`",
+                    self.command
+                ),
+            ));
+        }
+        let max = self.ctx.limits().max_file_bytes_text;
+        let total = self
+            .written
+            .saturating_add(u64::try_from(size).unwrap_or(u64::MAX));
+        if total > max {
+            return Err(error(
+                ErrorCode::Limit,
+                format!(
+                    "`{}` writes more than {max} bytes in one call; the limit is `limits.max_file_bytes_text`",
                     self.command
                 ),
             ));
@@ -368,6 +387,7 @@ impl ExtRuntime for WasmExtension {
             command: command.to_owned(),
             writes_allowed: call.writes,
             writes: Vec::new(),
+            written: 0,
             denied: None,
             limits: StoreLimitsBuilder::new().memory_size(MEMORY_LIMIT).build(),
         };

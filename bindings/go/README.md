@@ -49,6 +49,18 @@ failure response `nurt-response/1` of the server (status `failed`, the error in
 | `process` (default) | `nurt serve --stdio`, JSON-RPC 2.0 | pure Go, any target |
 | `library` | `libnurt` through cgo | `-tags nurt_cgo`, `libnurt` registered with `pkg-config` |
 
+## Testing
+
+`go test ./...` runs the unit tests of the module. The binding cases of the
+repository (`conformance/bindings`, test `TestConformanceBindings`) run
+against the implementation named by `NURT_TEST_COMMAND`, a JSON array with the
+command that starts a server of the form `nurt serve --stdio`, for example
+`["/path/to/nurt-conformance","serve","--stdio"]`, and against `libnurt` when
+the module is built with `-tags nurt_cgo`. The test sets
+`NURT_CONFORMANCE_CASES` and `NURT_CONFORMANCE_CASE` for each case; without
+`NURT_TEST_COMMAND` and without the tag the cases are skipped.
+`NURT_CONFORMANCE_BINDINGS` overrides the directory of the cases.
+
 ## Documentation
 
 API reference: [pkg.go.dev](https://pkg.go.dev/github.com/DanacoOfficial/nurt/bindings/go).

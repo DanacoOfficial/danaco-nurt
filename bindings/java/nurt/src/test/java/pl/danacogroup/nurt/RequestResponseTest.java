@@ -72,6 +72,17 @@ class RequestResponseTest {
     }
 
     @Test
+    void responseListsTheReportOfEveryPipeline() {
+        NurtResponse script = NurtResponse.parse("{\"nurt\":\"1.0\",\"report\":{\"status\":\"ok\",\"kind\":\"remove\"},"
+                + "\"reports\":[{\"status\":\"ok\",\"kind\":\"find\"},{\"status\":\"ok\",\"kind\":\"remove\"}]}");
+        assertEquals(2, script.reports().size());
+        assertEquals("find", script.reports().get(0).get("kind"));
+        assertEquals("remove", script.reports().get(1).get("kind"));
+        NurtResponse single = NurtResponse.parse("{\"nurt\":\"1.0\",\"report\":{\"status\":\"ok\",\"kind\":\"find\"}}");
+        assertTrue(single.reports().isEmpty());
+    }
+
+    @Test
     void responseExposesTextCursorAndStatus() {
         NurtResponse response = NurtResponse.parse("{\"nurt\":\"1.0\",\"report\":{\"status\":\"ok\",\"next_cursor\":\"c_9\"},"
                 + "\"rendered\":{\"format\":\"text\",\"text\":\"3 files\"}}");

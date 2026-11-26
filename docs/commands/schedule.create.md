@@ -62,7 +62,8 @@ Schedules run in the background service of the account. When the service
 does not run, the schedule is saved and the record carries `active: false`
 and `reason: service_not_running`; the service applies the schedule when it
 starts. With `run_now: true` and a running service the action also runs once
-at creation, outside the run times and the run limit.
+at creation, outside the run times and the run limit; the creation does not
+wait for that run, and its record appears in `schedule.history`.
 
 A run time reached later than `misfire` after it is not made up one by one:
 `on_missed: skip` records one skipped run (`reason: misfire`) and

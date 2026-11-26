@@ -153,14 +153,13 @@ impl MutationTx for Unjournaled {
 
     fn observe_external(&mut self, changes: &[ExternalChange]) -> Result<Vec<Applied>> {
         let mut applied = Vec::with_capacity(changes.len());
-        for (position, change) in changes.iter().enumerate() {
+        for change in changes {
             let after = after_state(change);
             self.not_kept(change.path.as_path().to_string_lossy().into_owned());
             let index = change.declared.unwrap_or_else(|| {
-                TargetIndex(
-                    self.targets
-                        .saturating_add(u32::try_from(position).unwrap_or(0)),
-                )
+                let index = TargetIndex(self.targets);
+                self.targets = self.targets.saturating_add(1);
+                index
             });
             applied.push(Applied { index, after });
         }

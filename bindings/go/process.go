@@ -541,7 +541,7 @@ func (p *serverProcess) dispatch(method string, params json.RawMessage) {
 // Request identifiers are sent as numbers; events carry them as decimal
 // text, and a number is accepted as well.
 func parseRequestID(raw json.RawMessage) (int64, bool) {
-	if len(raw) == 0 {
+	if len(raw) == 0 || strings.TrimSpace(string(raw)) == "null" {
 		return 0, false
 	}
 	var n int64

@@ -100,6 +100,12 @@ class NativeEngine {
       return Promise.resolve(JSON.stringify({ error: { code: "E_SYNTAX", message: "unexpected token" } }));
     }
     if (operation === "describe") {
+      if (params.subject === "missing") {
+        return Promise.resolve(JSON.stringify({ error: { code: "E_NOT_FOUND", message: "no such group" } }));
+      }
+      if (params.subject === "unknown") {
+        return Promise.resolve(JSON.stringify({ error: { code: "E_UNKNOWN_VALUE", message: "unknown layer" } }));
+      }
       if (params.subject === "structured") {
         return Promise.resolve(JSON.stringify({ result: { layer: "core", commands: [] } }));
       }

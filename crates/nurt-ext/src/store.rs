@@ -13,6 +13,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use nurt_contracts::error::{ErrorCode, Result};
 use serde::Serialize;
@@ -27,6 +28,9 @@ const STAGING_PREFIX: &str = ".";
 const STAGING_SUFFIX: &str = ".staging";
 /// Suffix of the directory holding the replaced version during installation.
 const PREVIOUS_SUFFIX: &str = ".previous";
+/// Number of the next installation of this process; it keeps the temporary
+/// directories of concurrent installations of one extension apart.
+static INSTALLATIONS: AtomicU64 = AtomicU64::new(0);
 
 /// An extension directory with a manifest accepted by the host.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -192,13 +196,31 @@ impl ExtStore {
         }
         let root = self.locations.dir();
         fs::create_dir_all(root).map_err(|source| io_error("create", root, &source))?;
-        let staging = root.join(format!("{STAGING_PREFIX}{name}{STAGING_SUFFIX}"));
-        remove_if_present(&staging)?;
+        let holds_store = matches!(
+            (fs::canonicalize(root), fs::canonicalize(source)),
+            (Ok(root), Ok(source)) if root.starts_with(&source)
+        );
+        if holds_store {
+            return Err(error(
+                ErrorCode::InvalidValue,
+                format!(
+                    "{} holds the extension directory {}; copy the extension to a directory outside it",
+                    source.display(),
+                    root.display()
+                ),
+            ));
+        }
+        let unique = format!(
+            "{}-{}",
+            std::process::id(),
+            INSTALLATIONS.fetch_add(1, Ordering::Relaxed)
+        );
+        let staging = root.join(format!("{STAGING_PREFIX}{name}.{unique}{STAGING_SUFFIX}"));
         if let Err(problem) = copy_tree(source, &staging) {
             remove_if_present(&staging)?;
             return Err(problem);
         }
-        let previous = root.join(format!("{STAGING_PREFIX}{name}{PREVIOUS_SUFFIX}"));
+        let previous = root.join(format!("{STAGING_PREFIX}{name}.{unique}{PREVIOUS_SUFFIX}"));
         switch_in(&staging, &target, &previous)?;
         Ok(InstalledExt {
             manifest: extension.manifest,
@@ -413,6 +435,33 @@ mod tests {
     fn store(root: &Path) -> ExtStore {
         let core: BTreeSet<String> = ["git".to_owned()].into_iter().collect();
         ExtStore::new(ExtLocations::new(root.join("ext")), core)
+    }
+
+    #[test]
+    fn a_source_that_holds_the_extension_directory_is_refused() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        fs::create_dir_all(root.join("grammar")).unwrap();
+        fs::write(root.join(MANIFEST_FILE), manifest("acme", "1.0.0")).unwrap();
+        fs::write(root.join("ext.wasm"), "1.0.0").unwrap();
+        fs::write(root.join("grammar/acme.wasm"), b"grammar").unwrap();
+        let error = store(root).install(root, false).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert!(!root.join("ext/acme").exists());
+    }
+
+    #[test]
+    fn an_installation_leaves_no_staging_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = store(temp.path());
+        let source = source(temp.path(), "acme", "1.0.0");
+        store.install(&source, false).unwrap();
+        store.install(&source, true).unwrap();
+        let names: Vec<String> = fs::read_dir(temp.path().join("ext"))
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["acme"]);
     }
 
     #[test]

@@ -136,6 +136,10 @@ impl Target {
                         0_u32,
                     )
                 };
+                #[allow(
+                    clippy::useless_conversion,
+                    reason = "`libc::syscall` returns `c_long`, which is 32 bits wide on 32-bit targets"
+                )]
                 return check(i64::from(status), pid);
             }
         }

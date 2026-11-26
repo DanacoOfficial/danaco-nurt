@@ -71,6 +71,10 @@ type Response struct {
 	Nurt string `json:"nurt"`
 	// Report is the effect report.
 	Report Report `json:"report"`
+	// Reports holds one report per executed pipeline, in program order, when a
+	// script ran several operations; it is empty for a program with a single
+	// operation. The reports are not paged and have no next cursor.
+	Reports []Report `json:"reports,omitempty"`
 	// Rendered is the rendered text, or nil for the JSON format.
 	Rendered *Rendered `json:"rendered,omitempty"`
 

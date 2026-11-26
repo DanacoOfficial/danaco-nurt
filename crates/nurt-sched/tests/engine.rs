@@ -262,6 +262,41 @@ fn tc_16_overlap_queue_runs_one_deferred_run() {
 }
 
 #[test]
+fn a_queued_run_waits_for_a_free_place_among_max_parallel_runs() {
+    let settings = ScheduleSettings {
+        max_parallel: 1,
+        ..ScheduleSettings::default()
+    };
+    let mut queued = ten_minutes("s1");
+    queued.overlap = Overlap::Queue;
+    let mut scheduler = scheduler_with(
+        settings,
+        StateFile::default(),
+        vec![queued, ten_minutes("s2")],
+        "14:30:00",
+    );
+    let first = run_at(&mut scheduler, "14:40:00");
+    assert_eq!(first.schedule, "s1");
+    let manual = scheduler
+        .run_now("s2", RunTrigger::Manual, time("14:41:00"))
+        .unwrap();
+    assert!(tick_one(&mut scheduler, "14:50:00").is_none());
+    assert!(scheduler.entry("s1").unwrap().queued);
+    assert!(
+        scheduler
+            .finish(&first.id(), &ok(), time("14:51:00"))
+            .is_none()
+    );
+    assert!(scheduler.entry("s1").unwrap().queued);
+    assert_eq!(scheduler.running(), vec![manual.id()]);
+    scheduler.finish(&manual.id(), &ok(), time("14:52:00"));
+    let deferred = run_at(&mut scheduler, "14:53:00");
+    assert_eq!(deferred.schedule, "s1");
+    assert_eq!(deferred.trigger, RunTrigger::Queued);
+    assert!(!scheduler.entry("s1").unwrap().queued);
+}
+
+#[test]
 fn overlap_queue_single_slot() {
     let mut queued = ten_minutes("s1");
     queued.overlap = Overlap::Queue;

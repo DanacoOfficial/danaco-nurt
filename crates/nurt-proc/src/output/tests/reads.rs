@@ -109,6 +109,17 @@ fn holds_back_partial_line_while_program_runs() {
 }
 
 #[test]
+fn counts_the_raw_bytes_an_incremental_read_covered() {
+    let bench = Bench::new();
+    let store = bench.finished("raw-bytes", b"one\r\ntwo\r\n", b"err\n");
+    let first = store.read_since(None, &view()).unwrap();
+    assert_eq!((first.stdout_read, first.stderr_read), (10, 4));
+    let cursor = first.output_cursor.unwrap();
+    let again = store.read_since(Some(&cursor), &view()).unwrap();
+    assert_eq!((again.stdout_read, again.stderr_read), (0, 0));
+}
+
+#[test]
 fn continues_long_output_over_several_reads() {
     let bench = Bench::new();
     let text = numbered("line with some padding to fill the budget", 60_000);

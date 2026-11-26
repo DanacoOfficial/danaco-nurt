@@ -29,6 +29,23 @@ public sealed class ResponseTests
     }
 
     [TestMethod]
+    public void ReportsOfAScriptListEveryPipeline()
+    {
+        NurtResponse script = NurtResponse.Parse("""
+            {"nurt": "1.0",
+             "report": {"nurt": "1.0", "status": "ok", "kind": "remove", "op": 21},
+             "reports": [{"nurt": "1.0", "status": "ok", "kind": "find"},
+                         {"nurt": "1.0", "status": "ok", "kind": "remove", "op": 21}]}
+            """);
+        NurtResponse single = NurtResponse.Parse("""{"nurt": "1.0", "report": {"nurt": "1.0", "status": "ok", "kind": "find"}}""");
+
+        Assert.AreEqual(2, script.Reports.Count);
+        Assert.AreEqual("find", script.Reports[0].Kind);
+        Assert.AreEqual(21L, script.Reports[1].Operation);
+        Assert.AreEqual(0, single.Reports.Count);
+    }
+
+    [TestMethod]
     public void StatusOfALaterVersionIsUnknown()
     {
         NurtResponse response = NurtResponse.Parse("""{"nurt": "1.1", "report": {"nurt": "1.1", "status": "deferred", "kind": "run"}}""");

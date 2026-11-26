@@ -62,7 +62,13 @@ fn main() -> Result<(), String> {
 
 /// Names and paths of the documentation pages of a directory, by name.
 fn markdown_files(dir: &Path) -> Result<Vec<(String, PathBuf)>, String> {
-    let entries = fs::read_dir(dir).map_err(|error| format!("{}: {error}", dir.display()))?;
+    let entries = fs::read_dir(dir).map_err(|error| {
+        format!(
+            "{}: {error}; the help crate embeds the documentation of the repository, so it \
+             builds only inside the workspace (it is not published)",
+            dir.display()
+        )
+    })?;
     let mut files = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| format!("{}: {error}", dir.display()))?;

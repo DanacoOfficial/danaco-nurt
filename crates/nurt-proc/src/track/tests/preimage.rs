@@ -143,6 +143,43 @@ fn copy_limit_marks_files_without_copy() {
 }
 
 #[test]
+fn a_first_file_above_the_copy_limit_does_not_stop_the_files_after_it() {
+    let h = Harness::with_config(config(|config| {
+        config.run.preimage_copy_max = SizeSetting::from_bytes(4);
+    }));
+    h.write("a", "0123456789");
+    h.write("b", "0123");
+    h.write("c", "0123");
+    let mut tx = RecordingTx::new();
+    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| {
+        h.write("a", "changed");
+        h.write("b", "changed");
+    });
+    assert_eq!(tx.declared.len(), 1);
+    assert_eq!(h.change(&outcome, "b").irreversible, None);
+    assert_eq!(
+        h.change(&outcome, "a").flags,
+        Some(vec!["preimage_limit".to_owned()])
+    );
+}
+
+#[test]
+fn a_file_above_the_copy_limit_is_kept_on_a_volume_that_clones() {
+    let h = Harness::with_config(config(|config| {
+        config.run.preimage_copy_max = SizeSetting::from_bytes(4);
+    }));
+    h.write("a", "0123456789");
+    h.write("b", "0123");
+    let mut tx = RecordingTx::with_mode(PreserveMode::Clone);
+    let outcome = h.run(&h.spec(TrackMode::Scan), &mut tx, |h| {
+        h.write("a", "changed");
+    });
+    assert_eq!(tx.declared.len(), 2);
+    assert_eq!(outcome.preimage, Preimage::Clone);
+    assert_eq!(h.change(&outcome, "a").store.as_deref(), Some("clone"));
+}
+
+#[test]
 fn excluded_names_are_not_kept() {
     let h = Harness::new();
     h.write("node_modules/pkg/index.js", "module.exports = 1");

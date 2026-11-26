@@ -105,9 +105,8 @@ type LanguageError struct {
 	Code string `json:"code"`
 	// Message describes the error.
 	Message string `json:"message"`
-	// Stage is the processing stage that reported the error.
-	Stage string `json:"stage,omitempty"`
-	// At is the position in the program text.
+	// At is the position of the error: the execution stage and the place in
+	// the program text.
 	At *Position `json:"at,omitempty"`
 	// Fix lists corrected forms of the program.
 	Fix []string `json:"fix,omitempty"`
@@ -118,11 +117,16 @@ type LanguageError struct {
 	Raw json.RawMessage `json:"-"`
 }
 
-// Position is a location in program text; lines and columns start at 1.
+// Position is the position of a language error: a location in program text,
+// whose lines and columns start at 1, and the execution stage that reported
+// the error.
 type Position struct {
 	Line   int `json:"line"`
 	Column int `json:"column"`
 	Length int `json:"length,omitempty"`
+	// Stage is the execution stage in which the error occurred, for example
+	// "0" or "5a".
+	Stage string `json:"stage,omitempty"`
 }
 
 func (e *LanguageError) Error() string {

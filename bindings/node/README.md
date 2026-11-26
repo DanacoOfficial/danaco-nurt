@@ -62,7 +62,11 @@ options `signal` (an `AbortSignal` that cancels the call) and `raiseOnError`.
 `run` cancelled through its `signal` is rejected with `NURT_E_CANCELLED`.
 
 Errors of the language are returned in `response.error`; with
-`raiseOnError: true` they are thrown as `NurtLanguageError`. Call failures are
+`raiseOnError: true` they are thrown as `NurtLanguageError`. `check`, `parse`
+and `correct` return a failed report (`report.error`) in the same way on both
+backends; `print`, `describe`, `help`, `catalog`, `schema`, `history` and
+`space` have no response to return it in, so they throw `NurtLanguageError`
+(`NurtError` with `NURT_E_ARG` for an unknown argument value). Call failures are
 thrown as `NurtError` with `status` set to a name from `nurt.h`
 (`NURT_E_TIMEOUT`, `NURT_E_CANCELLED`, `NURT_E_ARG`, `NURT_E_ABI`, `NURT_E_IO`,
 `NURT_E_INTERNAL`).

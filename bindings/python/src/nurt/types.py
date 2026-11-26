@@ -817,6 +817,7 @@ _ResponseDataRequired = TypedDict(
 _ResponseDataOptional = TypedDict(
     "_ResponseDataOptional",
     {
+        "reports": List[Dict[str, Any]],
         "rendered": Rendered,
     },
     total=False,
