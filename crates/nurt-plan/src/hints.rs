@@ -395,6 +395,11 @@ fn collect_refs<'a>(value: &'a BoundExpr, names: &mut HashSet<&'a str>) {
                 collect_refs(item, names);
             }
         }
+        BoundExpr::Map { entries } => {
+            for entry in entries {
+                collect_refs(&entry.v, names);
+            }
+        }
         BoundExpr::Field { of: Some(base), .. }
         | BoundExpr::Un { x: base, .. }
         | BoundExpr::Spread { x: base } => {
