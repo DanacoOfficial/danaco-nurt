@@ -257,13 +257,29 @@ fn topic_kinds_are_found_by_their_names() {
 }
 
 #[test]
-fn the_kind_selects_the_topic_whatever_the_name_is() {
-    let syntax = text(&HelpQuery::topic("anything").with_kind(TopicKind::Syntax));
-    assert!(syntax.contains("program = [let name = PIPELINE]"));
-    let corrections = text(&HelpQuery::topic("anything").with_kind(TopicKind::Corrections));
-    assert!(corrections.contains("classes: C certain"));
+fn the_kind_selects_the_topic_of_that_kind() {
+    for name in ["", "syntax"] {
+        let syntax = text(&HelpQuery::topic(name).with_kind(TopicKind::Syntax));
+        assert!(syntax.contains("program = [let name = PIPELINE]"), "{name}");
+    }
+    for name in ["", "corrections"] {
+        let corrections = text(&HelpQuery::topic(name).with_kind(TopicKind::Corrections));
+        assert!(corrections.contains("classes: C certain"), "{name}");
+    }
     let error = text(&HelpQuery::topic("E_STALE").with_kind(TopicKind::Error));
     assert!(error.starts_with("E_STALE — "));
+}
+
+#[test]
+fn the_syntax_kind_answers_a_part_and_does_not_ignore_the_name() {
+    let part = text(&HelpQuery::topic("pipelines").with_kind(TopicKind::Syntax));
+    assert_eq!(part, text(&HelpQuery::topic("pipelines")));
+    let catalog = common::catalog();
+    for kind in [TopicKind::Syntax, TopicKind::Corrections] {
+        let query = HelpQuery::topic("anything").with_kind(kind);
+        let error = help::render(&query, &catalog).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::UnknownName, "{kind:?}");
+    }
 }
 
 #[test]
