@@ -706,3 +706,23 @@ fn the_stage_pushes_and_lists_entries() {
     let shown = read_records(fx.path(), &StashRequest::new(StashAction::Show), &ctx).unwrap();
     assert_eq!(shown.len(), 1);
 }
+
+#[test]
+fn abbreviated_hash_of_digits_only_is_a_hash_and_not_a_position() {
+    for attempt in 0..400 {
+        let fx = RepoBuilder::new()
+            .file("a.txt", "a\n")
+            .commit(&format!("c{attempt}"))
+            .build();
+        let repo = GitRepo::open(fx.path(), &ctx()).unwrap();
+        let id = repo.head_id().unwrap().unwrap();
+        let hex = id.to_hex_with_len(4).to_string();
+        if hex.bytes().all(|byte| byte.is_ascii_digit()) {
+            assert!(entries::is_digit_only_hash(&repo, Some(&hex)));
+            assert!(!entries::is_digit_only_hash(&repo, Some("0")));
+            assert!(!entries::is_digit_only_hash(&repo, None));
+            return;
+        }
+    }
+    panic!("no commit with an abbreviation of digits only was found");
+}

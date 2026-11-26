@@ -649,6 +649,50 @@ fn abort_returns_to_the_original_branch() {
 }
 
 #[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the fixture adds a submodule entry by writing the index directly, outside a transaction"
+)]
+fn changed_submodule_is_not_an_unstaged_change() {
+    let repo = three_commits(false);
+    let sub = repo.root().join("sub");
+    let inner = gix::init(&sub).expect("nested repository");
+    let author = committer();
+    let inner_commit = gix_object::Commit {
+        tree: inner.empty_tree().id,
+        parents: Default::default(),
+        author: author.clone(),
+        committer: author,
+        encoding: None,
+        message: "inner\n".into(),
+        extra_headers: Vec::new(),
+    };
+    let inner_head = inner.write_object(&inner_commit).expect("commit").detach();
+    std::fs::write(sub.join(".git").join("HEAD"), format!("{inner_head}\n")).expect("HEAD");
+    repo.write(
+        ".gitmodules",
+        "[submodule \"sub\"]\n\tpath = sub\n\turl = https://example.com/sub.git\n",
+    );
+    let recorded = repo.reference("refs/heads/main");
+    let mut index = repo.gix().open_index().expect("index");
+    index.dangerously_push_entry(
+        Default::default(),
+        recorded,
+        gix::index::entry::Flags::empty(),
+        gix::index::entry::Mode::COMMIT,
+        "sub".into(),
+    );
+    index.sort_entries();
+    index.write(Default::default()).expect("index written");
+    let fresh = gix::open(repo.root()).expect("reopen");
+    let unstaged = super::command::unstaged_paths(&fresh).expect("status");
+    assert!(
+        !unstaged.iter().any(|path| path == "sub"),
+        "a submodule was reported as unstaged: {unstaged:?}"
+    );
+}
+
+#[test]
 fn uncommitted_changes_refuse_the_rebase() {
     let repo = three_commits(false);
     repo.write("a.txt", "local\n");
