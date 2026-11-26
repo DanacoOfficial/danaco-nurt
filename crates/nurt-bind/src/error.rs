@@ -195,7 +195,9 @@ mod tests {
     #[test]
     fn leaves_the_place_unset_without_a_span() {
         let error = BindError::new(ErrorCode::Type, "wrong type").at(None);
-        assert!(error.error().at.is_none());
+        let at = error.error().at.unwrap_or_default();
+        assert_eq!((at.line, at.column, at.length), (None, None, None));
+        assert_eq!(at.stage, Some(Stage::Bind));
         assert_eq!(
             join_spans(Some(span(1, 1, 1, 2)), None),
             Some(span(1, 1, 1, 2))

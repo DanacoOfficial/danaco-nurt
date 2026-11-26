@@ -149,10 +149,10 @@ mod tests {
     fn sysroot_read_to_string_replaces_invalid_utf8() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("table"), b"a\xFFb\nc\n").unwrap();
-        std::fs::write(dir.path().join("plain"), "zażółć\n").unwrap();
+        std::fs::write(dir.path().join("plain"), "naïve café ü\n").unwrap();
         let root = SysRoot::new(dir.path());
         assert_eq!(root.read_to_string("/table").unwrap(), "a\u{FFFD}b\nc\n");
-        assert_eq!(root.read_to_string("/plain").unwrap(), "zażółć\n");
+        assert_eq!(root.read_to_string("/plain").unwrap(), "naïve café ü\n");
         let missing = root.read_to_string("/absent").unwrap_err();
         assert_eq!(missing.kind(), std::io::ErrorKind::NotFound);
     }

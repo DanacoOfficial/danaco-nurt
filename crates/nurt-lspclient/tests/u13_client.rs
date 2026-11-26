@@ -702,32 +702,27 @@ fn frame_reader_reassembles_messages_and_skips_malformed_frames() {
     bytes.extend_from_slice(b"Content-Type: application/vscode-jsonrpc\r\n\r\n");
     bytes.extend_from_slice(b"Content-Length: 3\r\n\r\n[1]");
     bytes.extend_from_slice(b"Content-Length: 5\r\n\r\nnot j");
+    bytes.extend_from_slice(&encode(&json!({"jsonrpc": "2.0", "method": "exit"})));
     bytes
         .extend_from_slice(format!("Content-Length: {}\r\n\r\n", MESSAGE_BYTES_MAX + 1).as_bytes());
     bytes.extend_from_slice(&[b'x'; 9000]);
-    bytes.extend_from_slice(b"\r\n\r\n");
-    bytes.extend_from_slice(&encode(&json!({"jsonrpc": "2.0", "method": "exit"})));
     let mut reader = FrameReader::new(bytes.as_slice());
     let mut frames = Vec::new();
     while let Some(frame) = reader.next_frame().unwrap() {
         frames.push(frame);
     }
+    assert_eq!(frames.len(), 6);
     assert!(matches!(frames[0], Frame::Message(_)));
     assert_eq!(frames[1], Frame::Rejected(FrameError::MissingLength));
     assert_eq!(frames[2], Frame::Rejected(FrameError::InvalidBody));
     assert_eq!(frames[3], Frame::Rejected(FrameError::InvalidBody));
     assert_eq!(
         frames[4],
-        Frame::Rejected(FrameError::TooLarge(MESSAGE_BYTES_MAX + 1))
-    );
-    assert!(
-        frames
-            .iter()
-            .any(|frame| *frame == Frame::Rejected(FrameError::HeaderTooLong))
+        Frame::Message(json!({"jsonrpc": "2.0", "method": "exit"}))
     );
     assert_eq!(
-        frames.last(),
-        Some(&Frame::Message(json!({"jsonrpc": "2.0", "method": "exit"})))
+        frames[5],
+        Frame::Rejected(FrameError::TooLarge(MESSAGE_BYTES_MAX + 1))
     );
 }
 

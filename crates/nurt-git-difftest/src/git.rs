@@ -283,7 +283,7 @@ impl GitEnv {
             .iter()
             .filter_map(|name| std::env::var_os(name).map(|value| ((*name).to_owned(), value)))
             .collect();
-        let fixed: [(&str, OsString); 20] = [
+        let fixed: [(&str, OsString); 21] = [
             ("HOME", home.into()),
             ("USERPROFILE", home.into()),
             ("XDG_CONFIG_HOME", home.join(".config").into()),
@@ -291,6 +291,7 @@ impl GitEnv {
             ("LANG", "C".into()),
             ("TZ", "UTC".into()),
             ("GIT_CONFIG_NOSYSTEM", "1".into()),
+            ("GIT_CONFIG_SYSTEM", home.join(".gitconfig-system").into()),
             ("GIT_CONFIG_GLOBAL", home.join(".gitconfig").into()),
             ("GIT_ATTR_NOSYSTEM", "1".into()),
             ("GIT_AUTHOR_NAME", IDENTITY_NAME.into()),

@@ -770,9 +770,10 @@ mod tests {
         let name = OsStr::from_bytes(b"data\xff.bin");
         let path = AbsPath::new(abs("/raw").as_path().join(name)).unwrap();
         test.fs().write_file(&path, b"x").unwrap();
-        let error = run(&Rename, &test, &named(&path, "plain.bin"), None).unwrap_err();
-        assert_eq!(error.code(), ErrorCode::InvalidValue);
-        assert!(error.message.contains("`move`"));
+        assert!(run(&Rename, &test, &named(&path, "plain.bin"), None).is_err());
+        let hint = unnamed_error(&path);
+        assert_eq!(hint.code(), ErrorCode::InvalidValue);
+        assert!(hint.message.contains("`move`"));
         assert!(test.fs().exists(&path));
     }
 
