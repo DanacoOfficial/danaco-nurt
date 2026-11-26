@@ -121,6 +121,21 @@ fn a_rename_of_an_entry_gives_the_previous_path_in_plan_and_outcome() {
         assert_eq!(changes[0].action, ChangeAction::Rename);
         assert!(changes[0].from.is_some(), "a rename gives `from`");
         support_report::assert_changes_valid("rename", changes);
+        // Whichever of `path`, `from` and `to` holds the old and the new
+        // name, together they name both of them.
+        let mentioned: Vec<&str> = [
+            Some(changes[0].path.as_str()),
+            changes[0].from.as_ref().map(|from| from.as_str()),
+            changes[0].to.as_ref().map(|to| to.as_str()),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        assert!(mentioned.contains(&draft.to_language_string().as_str()));
+        assert!(
+            mentioned.iter().any(|path| path.ends_with("/final.md")),
+            "{mentioned:?}"
+        );
     }
 }
 
