@@ -60,6 +60,11 @@ argument member `default`; the bound schema requires them.
   text), `variant` (`a`, `b` or `c`) and `comments` (objects `{span, text}`,
   the text without the leading `#`); other members are preserved. Comments are
   not part of the program; a formatter restores them from `meta.comments`.
+* A document is at most 128 levels deep: the nesting depth is the number of
+  JSON values on the path from the root to the deepest value, the root being at
+  depth 1. The parser measures the same depth on the tree it builds and rejects
+  a deeper program with `E_SYNTAX` (`nesting_too_deep`), so a program the parser
+  accepts always encodes to a surface document that the decoders accept.
 * `span` is `[line, column, end_line, end_column]`. Lines and columns start at
   1, columns count Unicode scalar values and the end position is exclusive (the
   position directly after the last character). Positions do not exceed
@@ -71,7 +76,7 @@ argument member `default`; the bound schema requires them.
 |---|---|
 | `let` | from `let` to the end of the pipeline |
 | `pipeline` | from the start of the head to the end of the last stage |
-| `stage` | from the command name to the end of the last argument |
+| `stage` | from the command name to its last token: the end of the last argument, or, when the arguments are written in parentheses (notation B), the closing parenthesis |
 | argument | a named argument from its name to the end of its value; a positional argument equals its value |
 | literal, identifier | the token, including quotes, the `r#` delimiters of raw text and the regular expression flags |
 | `ref` | from `@` to the end of the last field |

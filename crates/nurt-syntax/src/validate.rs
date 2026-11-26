@@ -179,6 +179,24 @@ pub fn validate_surface(document: &AstDocument) -> Result<(), SyntaxError> {
     Ok(())
 }
 
+/// Position of the first statement whose JSON form is deeper than
+/// [`MAX_DEPTH`], measured as the surface decoders measure it.
+///
+/// Only the depth is judged: any other violation is left to
+/// [`validate_surface`].
+pub(crate) fn first_statement_too_deep(document: &AstDocument) -> Option<usize> {
+    let statements = Place::root().member("program").member("statements");
+    document
+        .program
+        .statements
+        .iter()
+        .enumerate()
+        .position(|(index, statement)| {
+            surface_statement(&statements.index(index), statement)
+                .is_err_and(|error| error.data().message == DEPTH_MESSAGE)
+        })
+}
+
 fn surface_statement(place: &Place, statement: &Statement) -> Checked {
     match statement {
         Statement::Let(binding) => {
