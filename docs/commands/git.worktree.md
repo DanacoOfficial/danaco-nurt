@@ -28,7 +28,10 @@ taken, the smallest number that makes it unique is appended (`wt`, `wt1`,
 `wt2`).
 
 The branch is `branch`. Without `branch` and `start_point` it is the last
-component of `path`. Without `branch`, a `start_point` that names a local
+component of `path` exactly as written, as in `git worktree add`; a component
+that is not a valid branch name (a space, `~`, `^`, `:`, `..`, a leading `.`
+or a trailing `.lock`) fails with `E_GIT_REF` (`invalid_name`), so pass
+`branch`. Without `branch`, a `start_point` that names a local
 branch checks that branch out, and any other `start_point` is checked out
 detached: `HEAD` holds the commit and the record has `detached: true`. An
 existing branch is checked out and must not be checked out in
