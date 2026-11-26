@@ -72,7 +72,7 @@ enum Rule {
     Literal { pattern: String, with: String },
     /// Every match of a regular expression replaced by a template.
     Regex {
-        searcher: Searcher,
+        searcher: Box<Searcher>,
         template: Template,
     },
 }
@@ -127,7 +127,10 @@ impl Rule {
             Groups::from_names(std::iter::once(None).chain(names.iter().map(Option::as_deref)));
         let template = Template::parse(with, &groups)
             .map_err(|error| Error::new(error.code(), format!("`with`: {error}")))?;
-        Ok(Self::Regex { searcher, template })
+        Ok(Self::Regex {
+            searcher: Box::new(searcher),
+            template,
+        })
     }
 
     fn new_name(

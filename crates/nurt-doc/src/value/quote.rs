@@ -251,6 +251,64 @@ fn yaml11_float(unsigned: &str) -> Option<PlainKind> {
     (whole_ok && fraction_ok && exponent_ok && nonempty).then_some(PlainKind::Float)
 }
 
+/// YAML 1.1 timestamp: `YYYY-MM-DD` or a date with time.
+fn is_timestamp(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let year_ok = bytes.len() >= "0000-0-0".len()
+        && bytes[..4].iter().all(u8::is_ascii_digit)
+        && bytes[4] == b'-';
+    if !year_ok {
+        return false;
+    }
+    let rest = &text[5..];
+    let date_end = rest
+        .find(|c: char| !(c.is_ascii_digit() || c == '-'))
+        .unwrap_or(rest.len());
+    let mut date = rest[..date_end].split('-');
+    let (Some(month), Some(day), None) = (date.next(), date.next(), date.next()) else {
+        return false;
+    };
+    let date_ok = (1..=2).contains(&month.len())
+        && (1..=2).contains(&day.len())
+        && digits(month, 10)
+        && digits(day, 10);
+    let time = &rest[date_end..];
+    date_ok && (time.is_empty() || is_time_part(time))
+}
+
+/// Matches `([Tt]|[ \t]+)[0-9]{1,2}:[0-9]{2}:[0-9]{2}(\.[0-9]*)?` followed by an
+/// optional zone.
+fn is_time_part(text: &str) -> bool {
+    let time = text
+        .strip_prefix(['T', 't'])
+        .unwrap_or_else(|| text.trim_start_matches([' ', '\t']));
+    if time.len() == text.len() {
+        return false;
+    }
+    let clock_end = time
+        .find(|c: char| !(c.is_ascii_digit() || c == ':' || c == '.'))
+        .unwrap_or(time.len());
+    let (clock, zone) = time.split_at(clock_end);
+    let (hms, _) = clock.split_once('.').unwrap_or((clock, ""));
+    let parts: Vec<&str> = hms.split(':').collect();
+    let clock_ok = parts.len() == 3
+        && (1..=2).contains(&parts[0].len())
+        && parts[1].len() == 2
+        && parts[2].len() == 2
+        && parts.iter().all(|part| digits(part, 10));
+    let zone = zone.trim_start_matches([' ', '\t']);
+    let zone_ok = zone.is_empty()
+        || zone == "Z"
+        || zone.strip_prefix(['+', '-']).is_some_and(|offset| {
+            let (hours, minutes) = offset.split_once(':').unwrap_or((offset, "00"));
+            (1..=2).contains(&hours.len())
+                && digits(hours, 10)
+                && minutes.len() == 2
+                && digits(minutes, 10)
+        });
+    clock_ok && zone_ok
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,62 +429,4 @@ mod tests {
         assert!(needs_quotes("a`b", QuoteRules::Env));
         assert!(!needs_quotes("a-b_c.d/e", QuoteRules::Env));
     }
-}
-
-/// YAML 1.1 timestamp: `YYYY-MM-DD` or a date with time.
-fn is_timestamp(text: &str) -> bool {
-    let bytes = text.as_bytes();
-    let year_ok = bytes.len() >= "0000-0-0".len()
-        && bytes[..4].iter().all(u8::is_ascii_digit)
-        && bytes[4] == b'-';
-    if !year_ok {
-        return false;
-    }
-    let rest = &text[5..];
-    let date_end = rest
-        .find(|c: char| !(c.is_ascii_digit() || c == '-'))
-        .unwrap_or(rest.len());
-    let mut date = rest[..date_end].split('-');
-    let (Some(month), Some(day), None) = (date.next(), date.next(), date.next()) else {
-        return false;
-    };
-    let date_ok = (1..=2).contains(&month.len())
-        && (1..=2).contains(&day.len())
-        && digits(month, 10)
-        && digits(day, 10);
-    let time = &rest[date_end..];
-    date_ok && (time.is_empty() || is_time_part(time))
-}
-
-/// Matches `([Tt]|[ \t]+)[0-9]{1,2}:[0-9]{2}:[0-9]{2}(\.[0-9]*)?` followed by an
-/// optional zone.
-fn is_time_part(text: &str) -> bool {
-    let time = text
-        .strip_prefix(['T', 't'])
-        .unwrap_or_else(|| text.trim_start_matches([' ', '\t']));
-    if time.len() == text.len() {
-        return false;
-    }
-    let clock_end = time
-        .find(|c: char| !(c.is_ascii_digit() || c == ':' || c == '.'))
-        .unwrap_or(time.len());
-    let (clock, zone) = time.split_at(clock_end);
-    let (hms, _) = clock.split_once('.').unwrap_or((clock, ""));
-    let parts: Vec<&str> = hms.split(':').collect();
-    let clock_ok = parts.len() == 3
-        && (1..=2).contains(&parts[0].len())
-        && parts[1].len() == 2
-        && parts[2].len() == 2
-        && parts.iter().all(|part| digits(part, 10));
-    let zone = zone.trim_start_matches([' ', '\t']);
-    let zone_ok = zone.is_empty()
-        || zone == "Z"
-        || zone.strip_prefix(['+', '-']).is_some_and(|offset| {
-            let (hours, minutes) = offset.split_once(':').unwrap_or((offset, "00"));
-            (1..=2).contains(&hours.len())
-                && digits(hours, 10)
-                && minutes.len() == 2
-                && digits(minutes, 10)
-        });
-    clock_ok && zone_ok
 }
