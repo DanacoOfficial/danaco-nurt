@@ -8,6 +8,11 @@
 //! with `include_str!`, so that `help` can show examples and guides without
 //! reading files at run time. Files whose name starts with `_` and
 //! `README.md` are not documentation pages.
+//!
+//! The documentation lies outside the crate directory, so the crate builds
+//! inside the repository only. That is intended: the workspace has
+//! `publish = false`, and a build without the directories fails with the
+//! path that is missing.
 
 use std::env;
 use std::fmt::Write as _;
