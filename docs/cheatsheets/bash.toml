@@ -17,7 +17,7 @@ note = "recursion is implicit and a missing path is skipped"
 id = "B02"
 topic = "Files and directories"
 habit = "rm /home/user/app/build/*.tmp"
-canonical = 'find "/home/user/app/build" glob: "*.tmp" depth: 1 hidden: false |> remove'
+canonical = 'find "/home/user/app/build" glob: "*.tmp" depth: 1 hidden: false |> remove on_missing: error'
 outcome = "corrected"
 note = "the glob is expanded as bash would, without recursion"
 
@@ -32,7 +32,7 @@ outcome = "corrected"
 id = "B04"
 topic = "Files and directories"
 habit = "cp -r /home/user/app /home/user/backup"
-canonical = 'copy "/home/user/app" to: "/home/user/backup"'
+canonical = 'copy "/home/user/app" to: "/home/user/backup" preserve: false'
 outcome = "corrected"
 
 [[entry]]
@@ -109,7 +109,7 @@ outcome = "corrected"
 id = "B15"
 topic = "Reading and searching text"
 habit = "grep -rni 'todo' /home/user/app/src"
-canonical = 'search /todo/i "/home/user/app/src"'
+canonical = 'search /todo/ "/home/user/app/src" case_sensitive: false'
 outcome = "corrected"
 note = "a pattern in basic regular expression syntax is converted with an assumption that the report names"
 
@@ -138,7 +138,7 @@ outcome = "corrected"
 id = "B37b"
 topic = "Reading and searching text"
 habit = "sha256sum /home/user/app/a.tar.gz"
-canonical = 'hash "/home/user/app/a.tar.gz" algorithm: sha256'
+canonical = 'hash "/home/user/app/a.tar.gz"'
 outcome = "corrected"
 
 [[entry]]
@@ -159,7 +159,7 @@ outcome = "corrected"
 id = "B34b"
 topic = "Archives"
 habit = "gzip /home/user/app/a.log"
-canonical = 'compress "/home/user/app/a.log"'
+canonical = 'compress "/home/user/app/a.log" keep: false'
 outcome = "corrected"
 
 [[entry]]
@@ -180,7 +180,7 @@ outcome = "corrected"
 id = "B35c"
 topic = "Processes and system"
 habit = "ss -ltnp"
-canonical = 'ports state: listen'
+canonical = 'ports protocol: tcp'
 outcome = "corrected"
 
 [[entry]]
@@ -208,15 +208,17 @@ outcome = "corrected"
 id = "B29"
 topic = "Running programs"
 habit = "npm run build &"
-canonical = 'run ["npm", "run", "build"] background: true'
-outcome = "corrected"
+canonical = 'run ["npm", "run", "build"] cwd: "/home/user/app" background: true'
+outcome = "error"
+note = "there is no current directory; the fix passes the directory as cwd or base"
 
 [[entry]]
 id = "B30"
 topic = "Running programs"
 habit = "timeout 60 make test"
-canonical = 'run ["make", "test"] timeout: 60s'
-outcome = "corrected"
+canonical = 'run ["make", "test"] cwd: "/home/user/app" timeout: 60s'
+outcome = "error"
+note = "there is no current directory; the fix passes the directory as cwd or base"
 
 [[entry]]
 id = "B20"
@@ -230,14 +232,15 @@ note = "only a change to an absolute directory in the same line is converted"
 id = "B31"
 topic = "Running programs"
 habit = "CI=1 npm test"
-canonical = 'run ["npm", "test"] env: {CI: "1"}'
-outcome = "corrected"
+canonical = 'run ["npm", "test"] cwd: "/home/user/app" env: {CI: "1"}'
+outcome = "error"
+note = "there is no current directory; the fix passes the directory as cwd or base"
 
 [[entry]]
 id = "B32"
 topic = "Network"
-habit = "curl -fsS https://example.com/health"
-canonical = 'http.request "https://example.com/health"'
+habit = "curl -s https://example.com/health"
+canonical = 'http.request "https://example.com/health" follow_redirects: false'
 outcome = "corrected"
 
 [[entry]]
@@ -250,7 +253,7 @@ outcome = "corrected"
 [[entry]]
 id = "B38"
 topic = "Git"
-habit = "git status --short"
+habit = "git -C /home/user/app status"
 canonical = 'git.status "/home/user/app"'
 outcome = "corrected"
 
@@ -264,8 +267,8 @@ outcome = "corrected"
 [[entry]]
 id = "B40b"
 topic = "Services and packages"
-habit = "apt install ripgrep"
-canonical = 'package.install ["ripgrep"]'
+habit = "apt install -y ripgrep"
+canonical = 'package.install ["ripgrep"] manager: apt'
 outcome = "corrected"
 
 [[entry]]

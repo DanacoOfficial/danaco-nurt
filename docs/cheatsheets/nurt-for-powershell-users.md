@@ -12,10 +12,10 @@ Every row pairs a PowerShell command with its form in Nurt. The last column stat
 
 | Rule | PowerShell | Nurt | Result |
 |---|---|---|---|
-| P01 | `Get-ChildItem -Path C:\Users\user\app` | `list "C:/Users/user/app"` | corrected automatically |
-| P02 | `Get-ChildItem C:\Users\user\app -Recurse -Filter *.go` | `find "C:/Users/user/app" glob: "**/*.go"` | corrected automatically |
+| P01 | `Get-ChildItem -Path C:\Users\user\app` | `list "C:/Users/user/app" hidden: false` | corrected automatically |
+| P02 | `Get-ChildItem C:\Users\user\app -Recurse -Filter *.go` | `find "C:/Users/user/app" glob: "**/*.go" type: any hidden: false` | corrected automatically |
 | P06 | `Copy-Item C:\Users\user\app C:\Users\user\backup -Recurse` | `copy "C:/Users/user/app" to: "C:/Users/user/backup"` | corrected automatically |
-| P07 | `Move-Item C:\Users\user\a.txt C:\Users\user\archive` | `move "C:/Users/user/a.txt" to: "C:/Users/user/archive"` | corrected automatically |
+| P07 | `Move-Item C:\Users\user\a.txt C:\Users\user\archive` | `move "C:/Users/user/a.txt" to: "C:/Users/user/archive" on_conflict: error` | corrected automatically |
 | P08 | `Remove-Item C:\Users\user\app\build -Recurse -Force` | `remove "C:/Users/user/app/build"` | corrected automatically |
 | P09 | `New-Item -ItemType Directory -Path C:\Users\user\app\out` | `create "C:/Users/user/app/out" type: directory` | corrected automatically |
 | P10 | `Rename-Item C:\Users\user\a.txt -NewName b.txt` | `rename path: "C:/Users/user/a.txt" to: "b.txt"` | corrected automatically |
@@ -26,7 +26,7 @@ Every row pairs a PowerShell command with its form in Nurt. The last column stat
 | Rule | PowerShell | Nurt | Result |
 |---|---|---|---|
 | P03 | `Get-Content C:\Users\user\a.log -Tail 20` | `read "C:/Users/user/a.log" last: 20` | corrected automatically |
-| P05 | `Select-String -Pattern todo -Path C:\Users\user\app\a.go` | `search /todo/i "C:/Users/user/app/a.go"` | corrected automatically: Select-String ignores letter case by default, so the pattern is case-insensitive |
+| P05 | `Select-String -Pattern todo -Path C:\Users\user\app\a.go` | `search /todo/ "C:/Users/user/app/a.go" case_sensitive: false` | corrected automatically: Select-String ignores letter case by default, so the pattern is case-insensitive |
 | P21 | `Get-FileHash C:\Users\user\a.zip -Algorithm SHA256` | `hash "C:/Users/user/a.zip" algorithm: sha256` | corrected automatically |
 | P20 | `Compare-Object (Get-Content a.txt) (Get-Content b.txt)` | `diff "C:/Users/user/a.txt" "C:/Users/user/b.txt"` | error with fix: only files are compared; the fix names both files |
 
@@ -47,7 +47,7 @@ Every row pairs a PowerShell command with its form in Nurt. The last column stat
 
 | Rule | PowerShell | Nurt | Result |
 |---|---|---|---|
-| P15 | `Get-ChildItem C:\Users\user\app -Recurse \| Where-Object { $_.Length -gt 1MB }` | `find "C:/Users/user/app" \|> filter size > 1mb` | corrected automatically |
+| P15 | `Get-ChildItem C:\Users\user\app -Recurse \| Where-Object { $_.Length -gt 1MB }` | `find "C:/Users/user/app" type: any hidden: false \|> filter size > 1mib` | corrected automatically |
 | P16 | `Get-Process \| Select-Object -First 5` | `processes \|> first 5` | corrected automatically |
 | P17 | `Get-Process \| Sort-Object WorkingSet -Descending` | `processes \|> sort memory order: desc` | corrected automatically |
 | P18 | `Get-Process \| Measure-Object` | `processes \|> count` | corrected automatically |
@@ -77,7 +77,7 @@ Every row pairs a PowerShell command with its form in Nurt. The last column stat
 
 | Rule | PowerShell | Nurt | Result |
 |---|---|---|---|
-| P29 | `Expand-Archive -Path C:\Users\user\a.zip -DestinationPath C:\Users\user\data` | `archive.extract "C:/Users/user/a.zip" into: "C:/Users/user/data"` | corrected automatically |
+| P29 | `Expand-Archive -Path C:\Users\user\a.zip -DestinationPath C:\Users\user\data` | `archive.extract "C:/Users/user/a.zip" into: "C:/Users/user/data" on_conflict: error` | corrected automatically |
 
 ## Other
 

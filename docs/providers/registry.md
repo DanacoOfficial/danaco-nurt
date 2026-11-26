@@ -54,19 +54,18 @@ last write to the key and `size` 0. A symbolic link key is an `entry` with
 
 ## Writing
 
-`write "registry:/…" <value> value_type: <type>` sets a value and creates
-missing keys. Without `value_type`, the type of the existing value is kept;
-for a new value the type follows the value: text gives `string`, an int up to
-4294967295 gives `dword`, a larger int gives `qword`, a list gives
-`multi_string` and bytes give `binary`.
+`write "registry:/…" "<value>" value_type: <type>` sets a value and creates
+missing keys. The value is the text parameter of `write`; without
+`value_type` it is written as `string`. Numbers are written as text and
+converted to the type.
 
 | `value_type` | Accepted value |
 |---|---|
-| `string`, `expand_string` | text without NUL characters |
-| `dword` | int from 0 to 4294967295 |
-| `qword` | int from 0 to 18446744073709551615 |
-| `multi_string` | list of non-empty texts without NUL characters |
-| `binary` | bytes |
+| `string`, `expand_string` | text |
+| `dword` | text with a decimal or `0x` hexadecimal number from 0 to 4294967295 |
+| `qword` | text with a decimal or `0x` hexadecimal number from 0 to 18446744073709551615 |
+| `multi_string` | text with one string per line |
+| `binary` | bytes in the parameter `data` |
 
 `remove` deletes a value, or a key with all its subkeys and values. A root
 key cannot be removed. `copy` and `move` copy a key with its subtree, or a
