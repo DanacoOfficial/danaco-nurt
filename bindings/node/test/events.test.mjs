@@ -53,8 +53,8 @@ describe("events of an execution", () => {
     await withClient(fakeServe(), async (client) => {
       const first = [];
       const second = [];
-      const a = client.start(`events ${EVENT_COUNT}`, { onEvent: (event) => first.push(event.request_id) });
-      const b = client.start("events 1", { onEvent: (event) => second.push(event.request_id) });
+      const a = client.start(`events ${EVENT_COUNT}`, { onEvent: (event) => first.push(event.request) });
+      const b = client.start("events 1", { onEvent: (event) => second.push(event.request) });
       await Promise.all([a.wait(), b.wait()]);
       assert.equal(first.length, EXPECTED_TYPES.length);
       assert.equal(second.length, 2);
