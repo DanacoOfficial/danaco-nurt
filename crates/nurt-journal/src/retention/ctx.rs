@@ -405,18 +405,21 @@ impl RetentionStore for CtxStore<'_> {
         let fs = self.fs();
         let commits = Commits::new(self.0);
         let mut entries = Vec::new();
+        let ops_dir = layout.ops_dir()?;
         for op in layout::entries(fs, &layout)? {
-            let entry = layout.entry(op)?;
-            let (state, rolled_back) = match manifest::read_state(fs, &entry.state()?) {
-                Ok(record) => (record.state, commits.rolled_back(op, &record)),
-                Err(ReadError::Format(_)) => (EntryState::Corrupt, false),
+            let entry = EntryLayout::new(ops_dir.join_name(&layout::entry_name(op))?);
+            // The manifest is read first: an entry directory without a usable
+            // manifest is skipped, so its state file is never opened.
+            let manifest = match manifest::read_manifest(fs, &entry.manifest()?) {
+                Ok(manifest) => manifest,
                 Err(error) => match read_error(error) {
                     Some(error) => return Err(error),
                     None => continue,
                 },
             };
-            let manifest = match manifest::read_manifest(fs, &entry.manifest()?) {
-                Ok(manifest) => manifest,
+            let (state, rolled_back) = match manifest::read_state(fs, &entry.state()?) {
+                Ok(record) => (record.state, commits.rolled_back(op, &record)),
+                Err(ReadError::Format(_)) => (EntryState::Corrupt, false),
                 Err(error) => match read_error(error) {
                     Some(error) => return Err(error),
                     None => continue,
