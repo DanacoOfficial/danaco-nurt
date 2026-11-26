@@ -145,12 +145,21 @@ pub(crate) fn remove_files(plan: &mut ApplyPlan, root: &Path, files: &[BString])
         .collect();
     let mut deletes = Vec::new();
     for path in files {
-        let data = std::fs::read(join_slash(root, path))
-            .map_err(|cause| io_error("cannot read file", cause))?;
+        let native = join_slash(root, path);
+        let is_link = std::fs::symlink_metadata(&native)
+            .map_err(|cause| io_error("cannot read file", cause))?
+            .file_type()
+            .is_symlink();
+        let expect = if is_link {
+            Expect::Unchecked
+        } else {
+            let data = std::fs::read(&native).map_err(|cause| io_error("cannot read file", cause))?;
+            Expect::Hash(content_hash(&data))
+        };
         deletes.push(PlanEntry {
             path: path.clone(),
             action: EntryAction::Delete,
-            expect: Expect::Hash(content_hash(&data)),
+            expect,
             content: None,
             kind: None,
         });

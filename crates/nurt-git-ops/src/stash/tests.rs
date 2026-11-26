@@ -205,6 +205,26 @@ fn push_of_paths_saves_and_resets_only_those_paths() {
     assert_eq!(reflog_messages(&fx, "HEAD"), head_log);
 }
 
+#[cfg(unix)]
+#[test]
+fn push_saves_and_removes_an_untracked_symlink_that_points_nowhere() {
+    let fx = base();
+    let journal = Journal::new();
+    std::os::unix::fs::symlink("missing-target", fx.path().join("dangling")).unwrap();
+    let request = StashRequest {
+        include_untracked: true,
+        ..StashRequest::new(StashAction::Push)
+    };
+    let outcome = run(&fx, &journal, &request).unwrap();
+    assert!(outcome.created.is_some());
+    assert!(std::fs::symlink_metadata(fx.path().join("dangling")).is_err());
+    run(&fx, &journal, &StashRequest::new(StashAction::Apply)).unwrap();
+    assert_eq!(
+        std::fs::read_link(fx.path().join("dangling")).unwrap(),
+        Path::new("missing-target")
+    );
+}
+
 #[test]
 fn push_of_paths_without_changes_there_saves_nothing() {
     let fx = base();
