@@ -844,6 +844,7 @@ mod tests {
         );
     }
 
+    #[allow(clippy::disallowed_methods)] // the test builds a transaction scope as the journal does
     #[test]
     fn a_captured_tree_lists_entries_below_the_root_and_honours_exclusions() {
         let root = AbsPath::new(if cfg!(windows) { "C:\\vol" } else { "/vol" }).unwrap();
