@@ -27,8 +27,8 @@ use crate::client::{NameResolver, Pins, ProxyChoice, Target, effective_proxy};
 pub struct AddressClass {
     /// Class: `public`, `private`, `loopback`, `link_local`, `unspecified`,
     /// `multicast`, `broadcast`, `shared`, `documentation`, `benchmarking`,
-    /// `reserved`, `ietf_protocol`, `ipv4_mapped`, `ipv4_translated`,
-    /// `6to4`, `teredo`, `discard` or `unique_local`.
+    /// `reserved`, `ietf_protocol`, `ipv4_mapped`, `ipv4_compatible`,
+    /// `ipv4_translated`, `6to4`, `teredo`, `discard` or `unique_local`.
     pub class: &'static str,
     /// IPv4 address carried inside an IPv6 address, with its own class.
     pub embedded: Option<(Ipv4Addr, &'static str)>,
@@ -74,7 +74,10 @@ fn classify_v4(ip: Ipv4Addr) -> &'static str {
         ([172, 16, 0, 0], 12, "private"),
         ([192, 0, 0, 0], 24, "ietf_protocol"),
         ([192, 0, 2, 0], 24, "documentation"),
+        ([192, 31, 196, 0], 24, "ietf_protocol"),
+        ([192, 52, 193, 0], 24, "ietf_protocol"),
         ([192, 88, 99, 0], 24, "6to4"),
+        ([192, 175, 48, 0], 24, "ietf_protocol"),
         ([192, 168, 0, 0], 16, "private"),
         ([198, 18, 0, 0], 15, "benchmarking"),
         ([198, 51, 100, 0], 24, "documentation"),
@@ -105,12 +108,29 @@ fn embed(class: &'static str, ip: Ipv4Addr) -> AddressClass {
     }
 }
 
+/// IPv4 address of a local-use NAT64 address in `64:ff9b:1::/48`: the
+/// address is spread over the bits 48 to 63 and 72 to 87, as RFC 6052 section
+/// 2.2 lays it out for a 48 bit prefix.
+fn local_nat64_v4(ip: Ipv6Addr) -> Ipv4Addr {
+    let octets = ip.octets();
+    Ipv4Addr::new(octets[6], octets[7], octets[9], octets[10])
+}
+
 fn classify_v6(ip: Ipv6Addr) -> AddressClass {
     if in_v6(ip, [0, 0, 0, 0, 0, 0xffff, 0, 0], 96) {
         return embed("ipv4_mapped", low_v4(ip));
     }
     if in_v6(ip, [0x64, 0xff9b, 0, 0, 0, 0, 0, 0], 96) {
         return embed("ipv4_translated", low_v4(ip));
+    }
+    if in_v6(ip, [0x64, 0xff9b, 1, 0, 0, 0, 0, 0], 48) {
+        return embed("ipv4_translated", local_nat64_v4(ip));
+    }
+    if in_v6(ip, [0, 0, 0, 0, 0xffff, 0, 0, 0], 96) {
+        return embed("ipv4_translated", low_v4(ip));
+    }
+    if !ip.is_unspecified() && !ip.is_loopback() && in_v6(ip, [0; 8], 96) {
+        return embed("ipv4_compatible", low_v4(ip));
     }
     if in_v6(ip, [0x2001, 0, 0, 0, 0, 0, 0, 0], 32) {
         let client = !u32::from(low_v4(ip));
@@ -127,8 +147,11 @@ fn classify_v6(ip: Ipv6Addr) -> AddressClass {
         ([0x2001, 0x2, 0, 0, 0, 0, 0, 0], 48, "benchmarking"),
         ([0x2001, 0xdb8, 0, 0, 0, 0, 0, 0], 32, "documentation"),
         ([0x2001, 0, 0, 0, 0, 0, 0, 0], 23, "ietf_protocol"),
+        ([0x3fff, 0, 0, 0, 0, 0, 0, 0], 20, "documentation"),
+        ([0x5f00, 0, 0, 0, 0, 0, 0, 0], 16, "reserved"),
         ([0xfc00, 0, 0, 0, 0, 0, 0, 0], 7, "unique_local"),
         ([0xfe80, 0, 0, 0, 0, 0, 0, 0], 10, "link_local"),
+        ([0xfec0, 0, 0, 0, 0, 0, 0, 0], 10, "reserved"),
         ([0xff00, 0, 0, 0, 0, 0, 0, 0], 8, "multicast"),
         ([0, 0, 0, 0, 0, 0, 0, 0], 8, "reserved"),
     ];
@@ -420,11 +443,61 @@ mod tests {
             ("fd00::1", "unique_local"),
             ("fe80::1", "link_local"),
             ("ff02::1", "multicast"),
+            ("fec0::1", "reserved"),
+            ("3fff::1", "documentation"),
+            ("5f00::1", "reserved"),
             ("2606:4700::1", "public"),
         ];
         for (ip, expected) in cases {
             assert_eq!(class(ip), expected, "{ip}");
         }
+    }
+
+    #[test]
+    fn classifies_more_ipv4_special_ranges() {
+        for ip in ["192.31.196.1", "192.52.193.1", "192.175.48.1"] {
+            assert_eq!(class(ip), "ietf_protocol", "{ip}");
+        }
+    }
+
+    #[test]
+    fn reports_the_ipv4_address_of_less_common_ipv6_forms() {
+        let cases = [
+            (
+                "::127.0.0.1",
+                "ipv4_compatible",
+                Ipv4Addr::LOCALHOST,
+                "loopback",
+            ),
+            (
+                "::a00:5",
+                "ipv4_compatible",
+                Ipv4Addr::new(10, 0, 0, 5),
+                "private",
+            ),
+            (
+                "::ffff:0:a9fe:a9fe",
+                "ipv4_translated",
+                Ipv4Addr::new(169, 254, 169, 254),
+                "link_local",
+            ),
+            (
+                "64:ff9b:1:0:0:a:0:0",
+                "ipv4_translated",
+                Ipv4Addr::new(0, 0, 0, 0),
+                "unspecified",
+            ),
+        ];
+        for (text, class, address, address_class) in cases {
+            let found = classify(text.parse().unwrap());
+            assert_eq!(found.class, class, "{text}");
+            assert_eq!(found.embedded, Some((address, address_class)), "{text}");
+        }
+        // 64:ff9b:1::/48 spreads the IPv4 address over two parts of the
+        // address, around the reserved octet.
+        let local = classify("64:ff9b:1:c0a8:0:a:0:0".parse().unwrap());
+        assert_eq!(local.class, "ipv4_translated");
+        assert_eq!(local.embedded.map(|e| e.1), Some("private"));
     }
 
     #[test]
