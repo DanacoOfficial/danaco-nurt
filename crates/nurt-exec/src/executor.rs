@@ -428,6 +428,10 @@ impl<'e> Execution<'e> {
             outcome.effect = Some(report);
             return;
         }
+        if let Err(error) = self.ctx.checkpoint() {
+            outcome.effect = Some(report);
+            return outcome.fail(at_step(error, ExecStep::Plan));
+        }
         let planned_changes = plan.changes.clone();
         let applied = clock.time(ExecStep::Apply, || {
             self.apply(pipeline, effect_stage, &effect, &state, effect_index, plan)
@@ -559,6 +563,9 @@ impl<'e> Execution<'e> {
             match result {
                 Ok(result) => outcome.result = result,
                 Err(error) => {
+                    if is_stop(&error) {
+                        outcome.status = ReportStatus::Failed;
+                    }
                     outcome.result = effect_records;
                     outcome.error = Some(at_step(error, ExecStep::After).with_effect_applied(true));
                     outcome.effect = Some(report);
@@ -629,6 +636,16 @@ impl<'e> Execution<'e> {
             }
         }
     }
+}
+
+/// Whether the error stopped the program by the time limit, a resource limit
+/// or cancellation; such a program ends with the status `failed`, also after
+/// the effect was applied.
+fn is_stop(error: &Error) -> bool {
+    matches!(
+        error.code(),
+        ErrorCode::Timeout | ErrorCode::Cancelled | ErrorCode::Limit
+    )
 }
 
 /// Largest number of records the stage at `index` needs from its input: the
