@@ -646,7 +646,7 @@ pub fn render_markdown(analysis: &Analysis) -> String {
         let _ = writeln!(
             out,
             "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
-            row.model,
+            cell(&row.model),
             row.condition,
             row.runs,
             percent_rate(&row.completed),
@@ -669,7 +669,7 @@ pub fn render_markdown(analysis: &Analysis) -> String {
             let _ = writeln!(
                 out,
                 "| {} | {} | {} | {} | {} | {} | {} | {} |",
-                row.model,
+                cell(&row.model),
                 row.condition,
                 n.calls,
                 percent(n.fv),
@@ -700,7 +700,7 @@ pub fn render_markdown(analysis: &Analysis) -> String {
         let _ = writeln!(
             out,
             "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
-            row.model,
+            cell(&row.model),
             row.condition,
             row.pairs,
             percent(row.shell_completed),
@@ -740,7 +740,7 @@ pub fn render_markdown(analysis: &Analysis) -> String {
         let _ = writeln!(
             out,
             "| {} | {} | {} | {} | {} |",
-            row.provocation,
+            cell(&row.provocation),
             row.condition,
             row.runs,
             percent(row.harmed),
@@ -782,6 +782,21 @@ pub fn render_markdown(analysis: &Analysis) -> String {
     out
 }
 
+/// Text of a CSV field: quoted, with doubled quotes, when it holds a comma, a
+/// quote or a line break (RFC 4180).
+fn csv_field(text: &str) -> String {
+    if text.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", text.replace('"', "\"\""))
+    } else {
+        text.to_owned()
+    }
+}
+
+/// Text of a Markdown table cell: the separator and line breaks are escaped.
+fn cell(text: &str) -> String {
+    text.replace('|', "\\|").replace(['\n', '\r'], " ")
+}
+
 /// Renders one row per run as CSV.
 #[must_use]
 pub fn render_csv(runs: &[RunMeasures]) -> String {
@@ -796,11 +811,11 @@ pub fn render_csv(runs: &[RunMeasures]) -> String {
         let _ = writeln!(
             out,
             "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-            run.run_id,
-            run.model,
-            run.producer.replace(',', " "),
+            csv_field(&run.run_id),
+            csv_field(&run.model),
+            csv_field(&run.producer),
             run.condition,
-            run.task,
+            csv_field(&run.task),
             run.domain,
             run.seed,
             outcome,
@@ -988,6 +1003,25 @@ mod tests {
         runs[1].harmed = true;
         let analysis = analyse(&runs, &BOOT);
         assert!(!analysis.entry[0].no_harm && !analysis.entry[0].satisfied);
+    }
+
+    #[test]
+    fn csv_fields_and_table_cells_are_escaped() {
+        assert_eq!(csv_field("plain"), "plain");
+        assert_eq!(csv_field("a,b"), "\"a,b\"");
+        assert_eq!(csv_field("say \"x\"\nnow"), "\"say \"\"x\"\"\nnow\"");
+        assert_eq!(cell("a|b\nc"), "a\\|b c");
+        let mut odd = run("m,1\"x", Condition::Bash, 1, true, 10);
+        odd.producer = "Lab, Inc".into();
+        let csv = render_csv(&[odd]);
+        let row = csv.lines().nth(1).unwrap();
+        assert!(row.starts_with("\"m,1\"\"x/bash/t1/s1\",\"m,1\"\"x\",\"Lab, Inc\",bash,"));
+        let other = RunMeasures {
+            model: "a|b".into(),
+            ..run("m1", Condition::Bash, 1, true, 10)
+        };
+        let analysis = analyse(&[other], &BOOT);
+        assert!(render_markdown(&analysis).contains("| a\\|b | bash |"));
     }
 
     #[test]
