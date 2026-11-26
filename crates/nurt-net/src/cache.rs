@@ -138,10 +138,17 @@ impl CacheStore {
     /// absent.
     #[must_use]
     pub fn load(&self, key: &str) -> Option<CachedResponse> {
-        let meta = fs::read(self.path(key, META_SUFFIX)).ok()?;
-        let mut entry: CachedResponse = serde_json::from_slice(&meta).ok()?;
+        let mut entry = self.load_meta(key)?;
         entry.body = fs::read(self.path(key, BODY_SUFFIX)).ok()?;
         Some(entry)
+    }
+
+    /// The entry stored under `key` without its body, which stays on disk:
+    /// cleaning the cache reads the use times of all entries and must not
+    /// read all bodies for it.
+    fn load_meta(&self, key: &str) -> Option<CachedResponse> {
+        let meta = fs::read(self.path(key, META_SUFFIX)).ok()?;
+        serde_json::from_slice(&meta).ok()
     }
 
     /// Stores an entry, then removes the least recently used entries while
@@ -203,8 +210,13 @@ impl CacheStore {
             else {
                 continue;
             };
-            let size = fs::metadata(self.path(key, BODY_SUFFIX)).map_or(0, |meta| meta.len());
-            let used = self.load(key).map_or(i64::MIN, |entry| entry.used);
+            let body = fs::metadata(self.path(key, BODY_SUFFIX));
+            let size = body.as_ref().map_or(0, |meta| meta.len());
+            // An entry without a body is damaged and goes first.
+            let used = body
+                .ok()
+                .and_then(|_| self.load_meta(key))
+                .map_or(i64::MIN, |entry| entry.used);
             total += size;
             entries.push((used, key.to_owned(), size));
         }
@@ -262,6 +274,30 @@ mod tests {
         assert!(cut.serves(100));
         assert!(!cut.serves(101));
         assert!(entry(b"abc", 0).serves(1000));
+    }
+
+    #[test]
+    fn the_metadata_of_an_entry_is_read_without_its_body() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = CacheStore::in_state_dir(dir.path());
+        store.store("k", &entry(b"body", 10)).unwrap();
+        fs::remove_file(store.path("k", BODY_SUFFIX)).unwrap();
+        let meta = store.load_meta("k").unwrap();
+        assert_eq!(meta.used, 10);
+        assert!(meta.body.is_empty());
+        assert!(store.load("k").is_none());
+    }
+
+    #[test]
+    fn an_entry_without_a_body_is_evicted_before_a_used_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = CacheStore::new(dir.path().to_path_buf(), DEFAULT_TTL, 10);
+        store.store("damaged", &entry(b"1234", 100)).unwrap();
+        fs::remove_file(store.path("damaged", BODY_SUFFIX)).unwrap();
+        store.store("older", &entry(b"123456", 1)).unwrap();
+        store.store("newer", &entry(b"123456", 2)).unwrap();
+        assert!(store.load_meta("damaged").is_none());
+        assert!(store.load("newer").is_some());
     }
 
     #[test]

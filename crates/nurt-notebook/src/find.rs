@@ -22,6 +22,19 @@ pub trait Pattern: fmt::Debug + Send + Sync {
         with.to_owned()
     }
 
+    /// Replacement texts for the matches `found` of `haystack`, in order.
+    ///
+    /// The default expands each match with [`Pattern::expand`]; an
+    /// implementation whose `expand` has to search `haystack` again for the
+    /// groups of every match evaluates them for all matches in one pass, so
+    /// that a cell with many matches costs one search, not one per match.
+    fn expand_all(&self, haystack: &str, found: &[Range<usize>], with: &str) -> Vec<String> {
+        found
+            .iter()
+            .map(|range| self.expand(haystack, range.clone(), with))
+            .collect()
+    }
+
     /// The pattern as written, for messages.
     fn display(&self) -> String;
 }
@@ -94,11 +107,12 @@ pub(crate) fn replace_all(pattern: &dyn Pattern, haystack: &str, with: &str) -> 
     if found.is_empty() {
         return (haystack.to_owned(), 0);
     }
+    let replacements = pattern.expand_all(haystack, &found, with);
     let mut out = String::with_capacity(haystack.len());
     let mut cursor = 0;
-    for range in &found {
+    for (range, replacement) in found.iter().zip(&replacements) {
         out.push_str(&haystack[cursor..range.start]);
-        out.push_str(&pattern.expand(haystack, range.clone(), with));
+        out.push_str(replacement);
         cursor = range.end;
     }
     out.push_str(&haystack[cursor..]);

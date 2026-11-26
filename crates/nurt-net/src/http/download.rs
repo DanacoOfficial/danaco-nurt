@@ -741,6 +741,41 @@ fn planned_change(to: &AbsPath, existing: Option<Existing>) -> Change {
     change
 }
 
+/// Requires room for a second copy of the downloaded content on the volume
+/// of the target.
+///
+/// The journal receives the content through a staged file while the partial
+/// file still holds it, so for a moment both occupy the volume. A volume that
+/// has no room for the copy fails here with `E_NO_SPACE`, and the partial
+/// file stays for a later call, instead of the switch failing halfway. A
+/// volume whose free space is unknown is not refused.
+fn require_room(ctx: &ExecCtx, to: &AbsPath, size: u64) -> Result<()> {
+    let Some(fs) = ctx.fs() else {
+        return Ok(());
+    };
+    let space = to
+        .parent()
+        .and_then(|directory| fs.volume(&directory).ok())
+        .and_then(|volume| fs.space(&volume.id).ok());
+    let Some(space) = space else {
+        return Ok(());
+    };
+    let available = space
+        .quota_remaining
+        .map_or(space.available, |quota| quota.min(space.available));
+    if available >= size {
+        return Ok(());
+    }
+    Err(Error::new(
+        ErrorCode::NoSpace,
+        format!(
+            "`{}` needs {size} bytes for the downloaded content next to the partial file, and the volume has {available} free: free space and repeat the call, which uses the partial file",
+            to.to_language_string()
+        ),
+    )
+    .with_detail("path", serde_json::Value::from(to.to_language_string())))
+}
+
 /// Switches the content of the partial file into the target through `tx`.
 fn switch_in(
     planned: &Planned,
@@ -913,6 +948,7 @@ impl EffectStage for Download {
                 &fetched.digest,
             ))));
         }
+        require_room(ctx, &planned.params.to, fetched.size)?;
         let change = switch_in(&planned, &transfer.part, &fetched, tx)?;
         transfer.part.discard()?;
         let effect = Effect {
@@ -936,8 +972,32 @@ impl EffectStage for Download {
 mod tests {
     use nurt_contracts::stage::ArgValue;
     use nurt_contracts::value::Duration as ValueDuration;
+    use nurt_testkit::ctx::TestContext;
+    use nurt_testkit::vfs::{VolumeConfig, test_path};
 
     use super::*;
+
+    #[test]
+    fn a_volume_without_room_for_the_copy_is_refused_before_the_switch() {
+        let test = TestContext::new();
+        let config = VolumeConfig {
+            capacity: Some(1000),
+            ..VolumeConfig::default()
+        };
+        test.fs()
+            .add_volume(&test_path("/small").unwrap(), config)
+            .unwrap();
+        test.fs()
+            .write_file(&test_path("/small/part").unwrap(), &[0; 900])
+            .unwrap();
+        let ctx = test.ctx();
+        let target = test_path("/small/file.bin").unwrap();
+        let error = require_room(&ctx, &target, 500).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NoSpace);
+        assert!(require_room(&ctx, &target, 100).is_ok());
+        let roomy = test_path("/other/file.bin").unwrap();
+        assert!(require_room(&ctx, &roomy, 500).is_ok());
+    }
 
     fn head(headers: &[(&str, &str)], status: u16) -> ResponseHead {
         ResponseHead {

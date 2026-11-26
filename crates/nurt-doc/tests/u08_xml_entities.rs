@@ -320,6 +320,9 @@ fn unchanged_ranges_keep_references_byte_for_byte() {
     );
 }
 
+// The address is written as `file://` and the path of the file, which names
+// a file on Unix only.
+#[cfg(unix)]
 #[test]
 fn external_file_entity_is_never_read() {
     let dir = tempfile::tempdir().unwrap();

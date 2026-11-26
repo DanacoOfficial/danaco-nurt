@@ -112,6 +112,39 @@ const STREAM_PREFIX: usize = 64 * 1024;
 /// Fields of `match` records filled from capture groups.
 const GROUP_FIELDS: [&str; 2] = ["groups", "named"];
 
+/// Byte order marks of UTF-16 text: little endian, then big endian.
+const UTF16_LE_MARK: [u8; 2] = [0xFF, 0xFE];
+const UTF16_BE_MARK: [u8; 2] = [0xFE, 0xFF];
+
+/// `prefix` without the character its end cuts in two: the detection of a
+/// large file sees whole characters, as a cut one reads as damaged text and
+/// can make the file look binary.
+fn whole_characters(prefix: &[u8]) -> &[u8] {
+    let big_endian = if prefix.starts_with(&UTF16_LE_MARK) {
+        Some(false)
+    } else if prefix.starts_with(&UTF16_BE_MARK) {
+        Some(true)
+    } else {
+        None
+    };
+    if let Some(big_endian) = big_endian {
+        let units = &prefix[..prefix.len() & !1];
+        let cut_pair = units.last_chunk::<2>().is_some_and(|bytes| {
+            let unit = if big_endian {
+                u16::from_be_bytes(*bytes)
+            } else {
+                u16::from_le_bytes(*bytes)
+            };
+            (0xD800..0xDC00).contains(&unit)
+        });
+        return &units[..units.len() - if cut_pair { 2 } else { 0 }];
+    }
+    match std::str::from_utf8(prefix) {
+        Err(error) if error.error_len().is_none() => &prefix[..error.valid_up_to()],
+        _ => prefix,
+    }
+}
+
 /// Stage of the `search` command.
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct Search;
@@ -1156,7 +1189,11 @@ impl<'a> Run<'a> {
             .take(byte_count(STREAM_PREFIX))
             .read_to_end(&mut prefix)
             .map_err(|error| read_error(&job.path, &error))?;
-        if text_codec(self.ctx).detect(&prefix).binary && !self.params.binary_text {
+        if text_codec(self.ctx)
+            .detect(whole_characters(&prefix))
+            .binary
+            && !self.params.binary_text
+        {
             return Ok(FileOutcome::Binary);
         }
         let mut scan = Scan::new(self.pattern_count());
@@ -1490,7 +1527,14 @@ impl<'a> Run<'a> {
     fn scan_line(&self, record: Record) -> Result<FileResult> {
         let line = Line::try_from(record).map_err(Error::from)?;
         let path = resolve(self.ctx, line.path.as_str())?;
-        let mut place = Placement::shifted(line.start.unwrap_or(0), line.no.saturating_sub(1));
+        // The text is UTF-8, but the file may store it in another encoding,
+        // so offsets inside the line are converted to the stored bytes.
+        let start = line.start.unwrap_or(0);
+        let mapper = line.encoding.as_deref().map_or_else(
+            || OffsetMapper::shifted(start),
+            |label| OffsetMapper::from_start(label, start),
+        );
+        let mut place = Placement::decoded(&line.text, mapper, line.no.saturating_sub(1));
         let scan = self.scan(&path, line.text.as_bytes(), &mut place)?;
         Ok(FileResult {
             path,
@@ -2064,6 +2108,32 @@ mod tests {
         params.adaptive = adaptive;
         let matcher = Matcher::new(&params).unwrap();
         Run::new(params, matcher, ctx)
+    }
+
+    #[test]
+    fn a_prefix_ends_at_a_whole_character() {
+        let euro = "a\u{20ac}".as_bytes();
+        assert_eq!(whole_characters(&euro[..2]), b"a");
+        assert_eq!(whole_characters(&euro[..3]), b"a");
+        assert_eq!(whole_characters(euro), euro);
+        assert_eq!(whole_characters(b"a\xFFb"), b"a\xFFb");
+        assert_eq!(whole_characters(b""), b"");
+    }
+
+    #[test]
+    fn a_utf16_prefix_ends_at_a_whole_character() {
+        let le: Vec<u8> = [0xFEFF_u16, 0x61, 0xD83D, 0xDE00]
+            .into_iter()
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        assert_eq!(whole_characters(&le[..le.len() - 2]), &le[..4]);
+        assert_eq!(whole_characters(&le[..le.len() - 3]), &le[..4]);
+        assert_eq!(whole_characters(&le), &le[..]);
+        let be: Vec<u8> = [0xFEFF_u16, 0x61, 0xD83D, 0xDE00]
+            .into_iter()
+            .flat_map(u16::to_be_bytes)
+            .collect();
+        assert_eq!(whole_characters(&be[..be.len() - 2]), &be[..4]);
     }
 
     #[test]

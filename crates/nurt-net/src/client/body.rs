@@ -123,7 +123,7 @@ impl ResponseBody {
     pub(crate) fn new(source: BodySource, ctx: &ExecCtx, url: String, progress_step: u64) -> Self {
         let reader: Box<dyn Read + Send> = match &source.encoding {
             BodyEncoding::Decompressed(coding) if coding == "deflate" => {
-                Box::new(flate2::read::ZlibDecoder::new(source.reader))
+                deflate_decoder(source.reader)
             }
             _ => Box::new(source.reader),
         };
@@ -285,9 +285,56 @@ fn is_decode(error: &Error) -> bool {
     error.code() == ErrorCode::Network && error.data().problem.as_deref() == Some("decode")
 }
 
+/// Whether two bytes are the header of a zlib stream (RFC 1950): the method
+/// `deflate` in the low bits of the first byte and a check value that makes
+/// the two bytes a multiple of 31.
+fn is_zlib_header(first: u8, second: u8) -> bool {
+    first & 0x0f == 8 && (u16::from(first) << 8 | u16::from(second)) % 31 == 0
+}
+
+/// Decoder of a body sent with the coding `deflate`.
+///
+/// RFC 9110 defines the coding as the zlib format, but many servers send the
+/// raw deflate stream without the zlib header; the first two bytes tell them
+/// apart.
+fn deflate_decoder<R: Read + Send + 'static>(source: R) -> Box<dyn Read + Send> {
+    let mut buffered = io::BufReader::new(source);
+    let zlib = match io::BufRead::fill_buf(&mut buffered) {
+        Ok([first, second, ..]) => is_zlib_header(*first, *second),
+        _ => true,
+    };
+    if zlib {
+        Box::new(flate2::read::ZlibDecoder::new(buffered))
+    } else {
+        Box::new(flate2::read::DeflateDecoder::new(buffered))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use flate2::Compression;
+    use flate2::write::{DeflateEncoder, ZlibEncoder};
+
     use super::*;
+
+    fn decoded(bytes: Vec<u8>) -> String {
+        let mut text = String::new();
+        deflate_decoder(io::Cursor::new(bytes))
+            .read_to_string(&mut text)
+            .unwrap();
+        text
+    }
+
+    #[test]
+    fn deflate_bodies_are_read_with_or_without_the_zlib_header() {
+        let text = "a deflate body, a deflate body, a deflate body".repeat(8);
+        let mut zlib = ZlibEncoder::new(Vec::new(), Compression::default());
+        zlib.write_all(text.as_bytes()).unwrap();
+        assert_eq!(decoded(zlib.finish().unwrap()), text);
+        let mut raw = DeflateEncoder::new(Vec::new(), Compression::default());
+        raw.write_all(text.as_bytes()).unwrap();
+        assert_eq!(decoded(raw.finish().unwrap()), text);
+    }
 
     #[test]
     fn classifies_content_codings() {

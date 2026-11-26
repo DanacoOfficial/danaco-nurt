@@ -177,11 +177,23 @@ impl Planner<'_> {
         let replace = match self.placer.occupant(&meta, &target)? {
             Occupant::Free => false,
             Occupant::Same(_) if is_case_variant(&source.path, &target) => false,
+            // Renaming onto another hard link of the same file removes
+            // nothing, so the source would stay while the plan reports it
+            // moved.
+            Occupant::Same(_) => match self.on_conflict {
+                OnConflict::Skip => {
+                    self.summary.skipped += 1;
+                    return Ok(());
+                }
+                OnConflict::Overwrite | OnConflict::Error => {
+                    return Err(same_entry_error(&source.path));
+                }
+            },
             Occupant::Directory(_) => return Err(directory_exists_error(&target)),
-            Occupant::Same(_) | Occupant::Other(_) if meta.kind == FileKind::Directory => {
+            Occupant::Other(_) if meta.kind == FileKind::Directory => {
                 return Err(kind_mismatch_error(&target));
             }
-            Occupant::Same(_) | Occupant::Other(_) => match self.on_conflict {
+            Occupant::Other(_) => match self.on_conflict {
                 OnConflict::Overwrite => {
                     self.summary.overwritten += 1;
                     true
@@ -230,7 +242,8 @@ impl Planner<'_> {
 
 #[cfg(test)]
 mod tests {
-    use nurt_contracts::fs::Follow;
+    use nurt_contracts::fs::{Follow, FsWrite, ScopePurpose, TxScope};
+    use nurt_contracts::journal::OpId;
     use nurt_contracts::record::ChangeAction;
     use nurt_contracts::value::Value;
     use nurt_testkit::ctx::TestContext;
@@ -341,6 +354,45 @@ mod tests {
         assert_eq!(error.problem.as_deref(), Some("duplicate_destination"));
         assert!(test.fs().exists(&first));
         assert_untouched(&test);
+    }
+
+    // The virtual file system needs a transaction scope to create a hard
+    // link; no journal takes part in this test.
+    #[allow(clippy::disallowed_methods)]
+    #[test]
+    fn another_hard_link_of_the_source_is_not_a_destination() {
+        let test = TestContext::new();
+        let source = file(&test, "/data/a.txt", b"a");
+        let link = abs("/data/b.txt");
+        let scope = TxScope::new_for_journal(OpId(1), ScopePurpose::Operation);
+        test.fs().hard_link(&scope, &source, &link).unwrap();
+        let error = run(&Move, &test, &to(args(&[&source]), &link), None).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert!(test.fs().exists(&source));
+        assert_untouched(&test);
+        let skipping = to(args(&[&source]), &link).with(ON_CONFLICT, choice_arg("skip"), false);
+        let skipped = run(&Move, &test, &skipping, None).unwrap();
+        assert_eq!(skipped.summary("skipped"), Some(1));
+        assert_eq!(skipped.summary("moved"), Some(0));
+        assert!(skipped.changes.is_empty());
+        assert!(test.fs().exists(&source));
+    }
+
+    #[test]
+    fn a_source_named_twice_is_moved_once() {
+        let test = TestContext::new();
+        let source = file(&test, "/data/a.txt", b"a");
+        let call = args(&[&source, &source]).with(INTO, path_arg(&abs("/out")), false);
+        let moved = run(&Move, &test, &call, None).unwrap();
+        let renames = moved
+            .changes
+            .iter()
+            .filter(|change| change.action == ChangeAction::Rename)
+            .count();
+        assert_eq!(renames, 1);
+        assert_eq!(moved.summary("moved"), Some(1));
+        assert!(test.fs().exists(&abs("/out/a.txt")));
+        assert_journaled(&test);
     }
 
     #[test]

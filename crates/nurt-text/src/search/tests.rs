@@ -380,6 +380,37 @@ fn crlf_line_endings_are_not_part_of_the_line() {
 }
 
 #[test]
+fn a_carriage_return_at_the_end_of_the_input_stays_in_the_last_line() {
+    let s = searcher(&[Pattern::literal("b")], SearchOptions::new());
+    let (seen, _) = search(&s, b"a\nb\r");
+    assert_eq!(
+        seen.iter().map(|h| h.text.as_str()).collect::<Vec<_>>(),
+        ["b\r"]
+    );
+    let (seen, _) = search(&s, b"a\nb\r\n");
+    assert_eq!(
+        seen.iter().map(|h| h.text.as_str()).collect::<Vec<_>>(),
+        ["b"]
+    );
+}
+
+#[test]
+fn searches_of_readers_reuse_their_line_searcher() {
+    let s = searcher(&[Pattern::literal("a")], SearchOptions::new().context(1));
+    assert_eq!(s.line_pool.idle(), 0);
+    for _ in 0..3 {
+        search_reader(&s, b"a\nb\n");
+    }
+    assert_eq!(s.line_pool.idle(), 1);
+    std::thread::scope(|scope| {
+        for _ in 0..4 {
+            scope.spawn(|| search_reader(&s, b"b\na\n"));
+        }
+    });
+    assert!((1..=4).contains(&s.line_pool.idle()));
+}
+
+#[test]
 fn match_never_crosses_a_line_without_multiline() {
     let s = searcher(
         &[Pattern::regex(r"b\s+c"), Pattern::literal("d\ne")],

@@ -21,6 +21,8 @@ use jaq_json::{Map, Val};
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::stage::{Event, ExecCtx, LogEvent, LogLevel};
 
+use super::guard;
+
 /// Generator steps between two checks of cancellation and the deadline.
 const CHECK_INTERVAL: u64 = 256;
 
@@ -104,12 +106,16 @@ pub(crate) struct Runtime<'a> {
     ctx: &'a ExecCtx,
     /// Generator steps allowed in one run, from `limits.max_records`.
     max_steps: u64,
+    /// Lowest stack address a guarded filter may reach; 0 for a run that is
+    /// not guarded.
+    floor: usize,
     state: RefCell<RunState>,
 }
 
 #[derive(Default)]
 struct RunState {
     steps: u64,
+    calls: u64,
     stopped: Option<Error>,
     buffered: Option<Vec<LogEvent>>,
     last_stderr: Option<String>,
@@ -122,8 +128,10 @@ impl<'a> HasLut<'a, Doc> for &'a Runtime<'a> {
 }
 
 impl<'a> Runtime<'a> {
-    /// Runtime of one run; log events are held back while `buffered`.
-    pub(crate) fn new(lut: &'a Lut<Doc>, ctx: &'a ExecCtx, buffered: bool) -> Self {
+    /// Runtime of one run; log events are held back while `buffered`. A
+    /// `floor` other than 0 is the lowest stack address that the filter may
+    /// reach before a guard stops it.
+    pub(crate) fn new(lut: &'a Lut<Doc>, ctx: &'a ExecCtx, buffered: bool, floor: usize) -> Self {
         let state = RunState {
             buffered: buffered.then(Vec::new),
             ..RunState::default()
@@ -132,6 +140,7 @@ impl<'a> Runtime<'a> {
             lut,
             ctx,
             max_steps: ctx.limits().max_records,
+            floor,
             state: RefCell::new(state),
         }
     }
@@ -196,6 +205,35 @@ impl<'a> Runtime<'a> {
             }
         }
         Err(Exn::halt(STOP_EXIT_CODE))
+    }
+
+    /// Guards the call of a definition of the filter: stops the filter, as
+    /// [`Runtime::step`] does, when the stack in use reaches the floor of the
+    /// run, and checks the context at every [`CHECK_INTERVAL`] calls. Calls
+    /// are not counted against the steps, which bound the values a filter
+    /// generates.
+    fn guard(&self) -> Result<(), Exn<'a, Val>> {
+        let mut state = self.state.borrow_mut();
+        if state.stopped.is_none() {
+            if self.floor != 0 && guard::stack_address() < self.floor {
+                state.stopped = Some(Error::new(
+                    ErrorCode::Limit,
+                    "the filter recurses deeper than the stack of the run allows; give the recursion an end",
+                ));
+            } else {
+                state.calls += 1;
+                if state.calls.is_multiple_of(CHECK_INTERVAL)
+                    && let Err(error) = self.ctx.checkpoint()
+                {
+                    state.stopped = Some(error);
+                }
+            }
+        }
+        if state.stopped.is_some() {
+            Err(Exn::halt(STOP_EXIT_CODE))
+        } else {
+            Ok(())
+        }
     }
 
     fn log(&self, level: LogLevel, message: String) {
@@ -273,7 +311,16 @@ pub(crate) fn funs() -> Vec<Fun<Doc>> {
             Ok(()) => update(cv.1),
             Err(exn) => box_once(Err(exn)),
         });
-    let own: [Fun<Doc>; 6] = [
+    let guard_filter = Native::<Doc>::new(|cv| pass_guarded(cv.0.data(), cv.1))
+        .with_paths(|cv| match cv.0.data().guard() {
+            Ok(()) => box_once(Ok(cv.1)),
+            Err(exn) => box_once(Err(exn)),
+        })
+        .with_update(|cv, update| match cv.0.data().guard() {
+            Ok(()) => update(cv.1),
+            Err(exn) => box_once(Err(exn)),
+        });
+    let own: [Fun<Doc>; 7] = [
         (
             "range",
             v(3),
@@ -312,12 +359,20 @@ pub(crate) fn funs() -> Vec<Fun<Doc>> {
             }),
         ),
         ("__checkpoint", v(0), checkpoint),
+        (guard::GUARD_NAME, v(0), guard_filter),
     ];
     library.chain(own).collect()
 }
 
 fn pass<'a>(runtime: &&'a Runtime<'a>, value: Val) -> ValXs<'a, Val> {
     match runtime.step() {
+        Ok(()) => box_once(Ok(value)),
+        Err(exn) => box_once(Err(exn)),
+    }
+}
+
+fn pass_guarded<'a>(runtime: &&'a Runtime<'a>, value: Val) -> ValXs<'a, Val> {
+    match runtime.guard() {
         Ok(()) => box_once(Ok(value)),
         Err(exn) => box_once(Err(exn)),
     }

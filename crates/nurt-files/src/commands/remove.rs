@@ -468,13 +468,15 @@ impl TextEdit {
         }
         for span in &self.matches {
             let line = line_range(span.line)?;
-            let rest = &text[line.start..];
-            let offset = rest
+            // The column counts within the line, up to its line ending; the
+            // text of a match may run on into the following lines.
+            let within = text[line.clone()].trim_end_matches(['\n', '\r']);
+            let offset = within
                 .char_indices()
                 .map(|(offset, _)| offset)
-                .chain(std::iter::once(rest.len()))
+                .chain(std::iter::once(within.len()))
                 .nth(usize::try_from(span.column - 1).unwrap_or(usize::MAX))
-                .filter(|offset| rest[*offset..].starts_with(&span.text))
+                .filter(|offset| text[line.start + offset..].starts_with(&span.text))
                 .ok_or_else(|| self.moved_match_error(span))?;
             let start = line.start + offset;
             ranges.push(start..start + span.text.len());
@@ -828,6 +830,26 @@ mod tests {
         assert_eq!(error.code(), ErrorCode::Stale);
         assert_eq!(test.fs().read_file(&path).unwrap(), b"foo bar\n");
         assert_untouched(&test);
+    }
+
+    #[test]
+    fn a_column_past_the_end_of_its_line_does_not_reach_the_next_line() {
+        let test = TestContext::new();
+        let path = file(&test, "/data/a.txt", b"ab\nfoo\n");
+        let records = vec![found(&test, &path, 1, 4, "foo")];
+        let error = run(&Remove, &test, &BoundArgs::new(COMMAND), Some(records)).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Stale);
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"ab\nfoo\n");
+        assert_untouched(&test);
+    }
+
+    #[test]
+    fn a_match_that_starts_at_a_line_ending_is_removed() {
+        let test = TestContext::new();
+        let path = file(&test, "/data/a.txt", b"ab\nfoo\n");
+        let records = vec![found(&test, &path, 1, 3, "\nfoo")];
+        run(&Remove, &test, &BoundArgs::new(COMMAND), Some(records)).unwrap();
+        assert_eq!(test.fs().read_file(&path).unwrap(), b"ab\n");
     }
 
     #[test]

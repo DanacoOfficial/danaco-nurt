@@ -611,6 +611,25 @@ fn gitconfig_names_compare_without_case_except_subsections() {
 }
 
 #[test]
+fn an_ini_document_above_the_size_limit_is_refused_before_its_tree_is_built() {
+    let content: Vec<u8> = (0..1000)
+        .flat_map(|index| format!("k{index} = v\n").into_bytes())
+        .collect();
+    let options = DocOptions {
+        max_bytes: 1024,
+        ..DocOptions::default()
+    };
+    let format = IniFormat::new();
+    let error = nurt_doc::registry::open_with(&format, &content, &options).unwrap_err();
+    assert_eq!(error.code(), ErrorCode::Limit);
+    let within = DocOptions {
+        max_bytes: u64::try_from(content.len()).unwrap(),
+        ..DocOptions::default()
+    };
+    assert!(nurt_doc::registry::open_with(&format, &content, &within).is_ok());
+}
+
+#[test]
 fn registered_format_resolves_gitconfig_subsections_by_exact_name() {
     let content = b"[remote \"Origin\"]\n\turl = a\n[remote \"origin\"]\n\turl = b\n".to_vec();
     let format = IniFormat::with_profile(IniProfile::Gitconfig);

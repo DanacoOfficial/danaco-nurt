@@ -31,8 +31,8 @@ use serde_json::Value as Json;
 use super::conflict::{
     CHECK_REFERENCES, CHECKPOINT_INTERVAL, Occupant, OnConflict, Placer, Source, Step, TO, child,
     directory_exists_error, effect_output, exists_error, flag, fold, is_case_variant,
-    kind_mismatch_error, missing_state, on_conflict_param, references_left, run_steps, sources,
-    type_error,
+    kind_mismatch_error, missing_state, on_conflict_param, references_left, run_steps,
+    same_entry_error, sources, type_error,
 };
 use crate::common::path::PATH_FIELD;
 
@@ -438,6 +438,16 @@ impl Planner<'_> {
         }
         if item.meta.kind == FileKind::Directory {
             return Err(kind_mismatch_error(&item.target));
+        }
+        // Renaming onto another hard link of the same file removes nothing.
+        if existing.file_id == item.meta.file_id {
+            return match self.on_conflict {
+                OnConflict::Skip => {
+                    self.summary.skipped += 1;
+                    Ok(Decision::Skipped)
+                }
+                OnConflict::Overwrite | OnConflict::Error => Err(same_entry_error(&item.source)),
+            };
         }
         match self.on_conflict {
             OnConflict::Overwrite => {

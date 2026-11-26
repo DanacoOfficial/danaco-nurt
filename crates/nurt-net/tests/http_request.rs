@@ -1342,6 +1342,30 @@ fn tf_29_binary_body_is_saved_not_decoded() {
 }
 
 #[test]
+fn an_error_answer_is_not_saved_over_the_file() {
+    let server = TestServer::start(|_: &Request| Reply::body(404, "text/html", "not found page"));
+    let harness = Harness::new();
+    let target = harness.state.path().join("kept.txt");
+    std::fs::write(&target, b"kept").unwrap();
+    let mut tx = FileTx::default();
+    let applied = harness
+        .apply(
+            &[
+                ("url", text(&server.url("/missing"))),
+                ("as", text("raw")),
+                ("save", Value::Path(target.to_str().unwrap().to_owned())),
+            ],
+            &mut tx,
+        )
+        .unwrap();
+    assert_eq!(applied.responses[0].status, 404);
+    assert_eq!(applied.responses[0].saved, None);
+    assert_eq!(std::fs::read(&target).unwrap(), b"kept");
+    assert!(applied.changes.is_empty());
+    assert!(tx.committed.is_empty());
+}
+
+#[test]
 fn request_no_policy_private_address_allowed() {
     let server = html_server(ARTICLE);
     let url = text(&server.url("/private"));

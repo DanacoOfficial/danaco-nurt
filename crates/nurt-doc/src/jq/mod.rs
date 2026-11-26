@@ -16,6 +16,7 @@
 //! available.
 
 mod convert;
+mod guard;
 mod runtime;
 
 use std::fmt;
@@ -49,6 +50,10 @@ const MAX_FOUND_CHARS: usize = 40;
 pub struct Query {
     expression: String,
     filter: jaq_core::Filter<Doc>,
+    /// Whether the filter defines filters of its own and carries a guard
+    /// against unbounded recursion in every definition; such a filter runs
+    /// on a thread with a stack of known size.
+    guarded: bool,
 }
 
 /// One result of a filter.
@@ -123,6 +128,30 @@ fn is_path_refusal(error: &jaq_core::Error<Val>) -> bool {
     error.to_string().starts_with(PATH_REFUSAL)
 }
 
+/// Compiles `source`, which is `expression` or `expression` with guards;
+/// errors quote `expression`.
+fn compile_source(expression: &str, source: &str) -> Result<jaq_core::Filter<Doc>> {
+    let prelude = runtime::prelude().ok_or_else(|| {
+        Error::new(
+            ErrorCode::StageFailed,
+            "the built-in query definitions do not parse",
+        )
+    })?;
+    let arena = Arena::default();
+    let file = File {
+        code: source,
+        path: (),
+    };
+    let modules = Loader::new(prelude)
+        .load(&arena, file)
+        .map_err(|errors| load_error(expression, errors))?;
+    jaq_core::Compiler::default()
+        .with_funs(runtime::funs())
+        .with_global_vars([ENV_VAR])
+        .compile(modules)
+        .map_err(|errors| compile_error(expression, errors))
+}
+
 impl Query {
     /// Compiles a filter in `jq` syntax.
     ///
@@ -133,28 +162,23 @@ impl Query {
     /// and the details `line`, `column` and `offset` its position in the
     /// filter.
     pub fn compile(expression: &str) -> Result<Self> {
-        let prelude = runtime::prelude().ok_or_else(|| {
-            Error::new(
-                ErrorCode::StageFailed,
-                "the built-in query definitions do not parse",
-            )
-        })?;
-        let arena = Arena::default();
-        let file = File {
-            code: expression,
-            path: (),
-        };
-        let modules = Loader::new(prelude)
-            .load(&arena, file)
-            .map_err(|errors| load_error(expression, errors))?;
-        let filter = jaq_core::Compiler::default()
-            .with_funs(runtime::funs())
-            .with_global_vars([ENV_VAR])
-            .compile(modules)
-            .map_err(|errors| compile_error(expression, errors))?;
+        let filter = compile_source(expression, expression)?;
+        // The filter as written is compiled first, so that errors name the
+        // text of the user; a filter with definitions is compiled again with
+        // the guards in them, which cannot fail where this compilation passed.
+        if let Some(source) = guard::guarded(expression)
+            && let Ok(guarded) = compile_source(expression, &source)
+        {
+            return Ok(Self {
+                expression: expression.to_owned(),
+                filter: guarded,
+                guarded: true,
+            });
+        }
         Ok(Self {
             expression: expression.to_owned(),
             filter,
+            guarded: false,
         })
     }
 
@@ -189,13 +213,26 @@ impl Query {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// A filter that defines filters of its own and recurses without end
+    /// stops with `E_LIMIT` when it has used the stack of its run, instead of
+    /// ending the process.
     #[must_use]
     pub fn run(&self, input: &Value, ctx: &ExecCtx) -> QueryRun {
+        if self.guarded {
+            return guard::on_large_stack(|floor| self.run_above(input, ctx, floor));
+        }
+        self.run_above(input, ctx, 0)
+    }
+
+    /// Runs the filter; a guard stops it when the stack in use reaches the
+    /// address `floor`, unless `floor` is 0.
+    fn run_above(&self, input: &Value, ctx: &ExecCtx, floor: usize) -> QueryRun {
         let val = to_val(input);
-        let (raw, error) = match self.run_paths(&val, ctx) {
+        let (raw, error) = match self.run_paths(&val, ctx, floor) {
             PathRun::Done(raw) => (raw, None),
             PathRun::Failed(raw, error) => (raw, Some(error)),
-            PathRun::NotPath => self.run_values(val, ctx),
+            PathRun::NotPath => self.run_values(val, ctx, floor),
         };
         let outputs = raw
             .into_iter()
@@ -209,8 +246,8 @@ impl Query {
     /// A failure that is not the refusal of a non-path filter ends the run
     /// here, so that the filter is evaluated once; only a non-path filter is
     /// evaluated again for its values.
-    fn run_paths(&self, input: &Val, ctx: &ExecCtx) -> PathRun {
-        let runtime = Runtime::new(&self.filter.lut, ctx, true);
+    fn run_paths(&self, input: &Val, ctx: &ExecCtx, floor: usize) -> PathRun {
+        let runtime = Runtime::new(&self.filter.lut, ctx, true, floor);
         let vars = Vars::new([runtime.environment()]);
         let start = (
             Ctx::<Doc>::new(&runtime, vars),
@@ -241,8 +278,13 @@ impl Query {
         PathRun::Done(outputs)
     }
 
-    fn run_values(&self, input: Val, ctx: &ExecCtx) -> (Vec<RawOutput>, Option<Error>) {
-        let runtime = Runtime::new(&self.filter.lut, ctx, false);
+    fn run_values(
+        &self,
+        input: Val,
+        ctx: &ExecCtx,
+        floor: usize,
+    ) -> (Vec<RawOutput>, Option<Error>) {
+        let runtime = Runtime::new(&self.filter.lut, ctx, false, floor);
         let vars = Vars::new([runtime.environment()]);
         let mut outputs = Vec::new();
         for item in self.filter.id.run((Ctx::<Doc>::new(&runtime, vars), input)) {

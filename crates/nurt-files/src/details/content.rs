@@ -17,6 +17,7 @@ use nurt_contracts::services::{LineEnding, TextCodecService, TextEncoding};
 use nurt_contracts::value::{Fields, Value};
 use serde_json::Value as Json;
 
+use crate::commands::lines::splits_at_cr;
 use crate::read::image::inspect;
 use crate::read::pdf::PdfDocument;
 
@@ -166,29 +167,13 @@ pub(crate) fn text_facts(codec: &dyn TextCodecService, bytes: &[u8]) -> Option<T
     })
 }
 
-/// Number of lines of a text: every `\n`, `\r\n` and lone `\r` ends a line,
-/// and a last line without a terminator counts as well.
+/// Number of lines of a text, split as `read` and `lines` split it: every
+/// `\n` ends a line, with a `\r` before it, and a text with `\r` and no `\n`
+/// ends its lines at `\r`. A last line without a terminator counts as well.
 pub(crate) fn count_lines(text: &str) -> u64 {
-    let mut lines = 0;
-    let mut chars = text.chars().peekable();
-    let mut open = false;
-    while let Some(letter) = chars.next() {
-        match letter {
-            '\n' => {
-                lines += 1;
-                open = false;
-            }
-            '\r' => {
-                if chars.peek() == Some(&'\n') {
-                    chars.next();
-                }
-                lines += 1;
-                open = false;
-            }
-            _ => open = true,
-        }
-    }
-    lines + u64::from(open)
+    let separator = if splits_at_cr(text) { '\r' } else { '\n' };
+    let ended = u64::try_from(text.matches(separator).count()).unwrap_or(u64::MAX);
+    ended.saturating_add(u64::from(!text.is_empty() && !text.ends_with(separator)))
 }
 
 /// EXIF tags of the primary image, by tag name, with values in their
@@ -288,7 +273,9 @@ mod tests {
             ("a\n", 1),
             ("a\nb", 2),
             ("a\r\nb\r\n", 2),
-            ("a\rb\n\n", 3),
+            ("a\rb\n\n", 2),
+            ("a\rb", 2),
+            ("a\r\rb\r", 3),
             ("\n\n", 2),
         ];
         for (text, expected) in cases {

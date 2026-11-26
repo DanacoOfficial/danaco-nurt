@@ -223,7 +223,7 @@ Match of a search.
 | `text` | text | yes | Matched text. |
 | `line` | text | yes | Whole line. |
 | `etag` | text | yes | Entity tag of the file. |
-| `groups` | list<text> | no | Capture groups by number; `null` for a group that did not match. |
+| `groups` | list<text> | no | Capture groups by number; index 0 is the whole match and `null` marks a group that did not match. |
 | `named` | map<text> | no | Named capture groups. |
 | `before` | list<text> | no | Lines before the match. |
 | `after` | list<text> | no | Lines after the match. |

@@ -367,6 +367,34 @@ fn long_lines_are_shortened_and_counted() {
 }
 
 #[test]
+fn a_max_per_file_of_zero_means_no_limit() {
+    let test = tree(&[("/t/a.txt", b"x\nx\nx\n")]);
+    let ctx = test.ctx();
+    let limited = found(&ctx, text("x"), "/t", vec![("max_per_file", Value::Int(2))]);
+    assert_eq!(positions(&limited), [(1, 1), (2, 1)]);
+    let unlimited = found(&ctx, text("x"), "/t", vec![("max_per_file", Value::Int(0))]);
+    assert_eq!(positions(&unlimited), [(1, 1), (2, 1), (3, 1)]);
+    assert_eq!(positions(&found(&ctx, text("x"), "/t", vec![])).len(), 3);
+}
+
+#[test]
+fn a_pattern_that_exceeds_the_backtracking_limit_is_reported() {
+    // The nested repetition before the back-reference makes the number of
+    // steps of the backtracking engine grow exponentially with the run of `a`.
+    let line = format!("{}c\n", "a".repeat(28));
+    let test = tree(&[("/t/a.txt", line.as_bytes())]);
+    let ctx = test.ctx();
+    let found = found(&ctx, regex(r"(a*)*\1b"), "/t", vec![]);
+    assert!(found.is_empty());
+    let notes = ctx.take_notes();
+    assert!(
+        notes
+            .iter()
+            .any(|note| note.code == Notable::RegexBacktracking && note.count == Some(1))
+    );
+}
+
+#[test]
 fn binary_files_are_skipped_or_searched_as_text() {
     let test = tree(&[
         ("/t/a.bin", b"\x00\x01needle\x00\x02"),
@@ -685,6 +713,29 @@ fn lines_of_one_file_are_counted_together() {
         .map(|found| (found.no, found.column, found.start))
         .collect();
     assert_eq!(offsets, [(5, 1, 20), (6, 1, 24), (6, 5, 28), (1, 1, 0)]);
+}
+
+#[test]
+fn offsets_in_a_line_of_a_legacy_file_count_the_stored_bytes() {
+    let test = TestContext::new();
+    let ctx = test.ctx();
+    // In windows-1250 every Polish letter is one byte; in the UTF-8 text of
+    // the record it is two.
+    let mut record =
+        Line::try_from(line_record("/t/a.txt", 3, "\u{142}\u{f3}d\u{17a} x", 100)).unwrap();
+    record.encoding = Some("windows-1250".to_owned());
+    let args = bound(vec![("pattern", text("x"))]);
+    let found = matches(
+        execute(
+            &ctx,
+            &args,
+            StageInput::records(RecordStream::from_records(vec![Record::from(record)])),
+        )
+        .unwrap(),
+    );
+    assert_eq!(found.len(), 1);
+    assert_eq!((found[0].no, found[0].column), (3, 6));
+    assert_eq!((found[0].start, found[0].end), (105, 106));
 }
 
 #[test]

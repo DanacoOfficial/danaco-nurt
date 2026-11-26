@@ -567,17 +567,25 @@ fn exchange(
         )
     })?;
     let timeout = ctx.remaining().map_or(timeout, |left| left.min(timeout));
-    let answer = udp_exchange(server, &bytes, id, timeout, ctx)?;
+    let question = Question { name, record_type };
+    let answer = udp_exchange(server, &bytes, id, &question, timeout, ctx)?;
     if answer.metadata.truncation {
-        return tcp_exchange(server, &bytes, id, timeout);
+        return tcp_exchange(server, &bytes, id, &question, timeout);
     }
     Ok(answer)
+}
+
+/// What a query asks, to recognise the answer to it.
+struct Question<'a> {
+    name: &'a Name,
+    record_type: RecordType,
 }
 
 fn udp_exchange(
     server: SocketAddr,
     query: &[u8],
     id: u16,
+    question: &Question<'_>,
     timeout: Duration,
     ctx: &ExecCtx,
 ) -> Result<Message> {
@@ -616,7 +624,7 @@ fn udp_exchange(
                 let answer = buffer
                     .get(..length)
                     .and_then(|bytes| Message::from_vec(bytes).ok());
-                if let Some(answer) = answer.filter(|answer| is_answer_to(answer, id)) {
+                if let Some(answer) = answer.filter(|answer| is_answer_to(answer, id, question)) {
                     return Ok(answer);
                 }
             }
@@ -630,7 +638,13 @@ fn udp_exchange(
     }
 }
 
-fn tcp_exchange(server: SocketAddr, query: &[u8], id: u16, timeout: Duration) -> Result<Message> {
+fn tcp_exchange(
+    server: SocketAddr,
+    query: &[u8],
+    id: u16,
+    question: &Question<'_>,
+    timeout: Duration,
+) -> Result<Message> {
     let io_error = |error: io::Error| {
         network_error(
             format!("DNS server {server} cannot be reached over TCP: {error}"),
@@ -655,7 +669,7 @@ fn tcp_exchange(server: SocketAddr, query: &[u8], id: u16, timeout: Duration) ->
     stream.read_exact(&mut body).map_err(io_error)?;
     Message::from_vec(&body)
         .ok()
-        .filter(|answer| is_answer_to(answer, id))
+        .filter(|answer| is_answer_to(answer, id, question))
         .ok_or_else(|| {
             network_error(
                 format!("DNS server {server} sent an answer that cannot be read"),
@@ -664,8 +678,17 @@ fn tcp_exchange(server: SocketAddr, query: &[u8], id: u16, timeout: Duration) ->
         })
 }
 
-fn is_answer_to(message: &Message, id: u16) -> bool {
-    message.metadata.id == id && message.metadata.message_type == MessageType::Response
+/// Whether `message` answers the query with the identifier `id` and the
+/// question `question`: an answer to another question, whose identifier a
+/// forger or a late reply to an earlier query may repeat, is not accepted.
+fn is_answer_to(message: &Message, id: u16, question: &Question<'_>) -> bool {
+    message.metadata.id == id
+        && message.metadata.message_type == MessageType::Response
+        && matches!(
+            message.queries.as_slice(),
+            [asked] if asked.name() == question.name
+                && asked.query_type() == question.record_type
+        )
 }
 
 fn query_type(args: &BoundArgs) -> Result<QueryType> {
@@ -788,6 +811,43 @@ mod tests {
 
     fn answer(name: &str, data: RData) -> Answer {
         Answer::from_rdata(Name::from_ascii(name).unwrap(), 300, data)
+    }
+
+    fn response(id: u16, questions: &[(&str, RecordType)]) -> Message {
+        let mut message = Message::query();
+        message.metadata.id = id;
+        message.metadata.message_type = MessageType::Response;
+        for (name, record_type) in questions {
+            message.add_query(Query::query(Name::from_ascii(name).unwrap(), *record_type));
+        }
+        message
+    }
+
+    #[test]
+    fn an_answer_must_repeat_the_question_of_the_query() {
+        let name = Name::from_ascii("example.test.").unwrap();
+        let question = Question {
+            name: &name,
+            record_type: RecordType::A,
+        };
+        let same = response(7, &[("EXAMPLE.test.", RecordType::A)]);
+        assert!(is_answer_to(&same, 7, &question));
+        let other_name = response(7, &[("other.test.", RecordType::A)]);
+        assert!(!is_answer_to(&other_name, 7, &question));
+        let other_type = response(7, &[("example.test.", RecordType::AAAA)]);
+        assert!(!is_answer_to(&other_type, 7, &question));
+        let no_question = response(7, &[]);
+        assert!(!is_answer_to(&no_question, 7, &question));
+        let two = response(
+            7,
+            &[
+                ("example.test.", RecordType::A),
+                ("other.test.", RecordType::A),
+            ],
+        );
+        assert!(!is_answer_to(&two, 7, &question));
+        let other_id = response(8, &[("example.test.", RecordType::A)]);
+        assert!(!is_answer_to(&other_id, 7, &question));
     }
 
     #[test]

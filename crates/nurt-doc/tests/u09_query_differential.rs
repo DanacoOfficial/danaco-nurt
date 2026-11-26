@@ -265,24 +265,43 @@ fn installed_jq() -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-fn jq_outputs(jq: &PathBuf, filter: &str, input: &Json) -> (Vec<Json>, Option<&'static str>) {
-    let mut child = Command::new(jq)
-        .arg("-c")
-        .arg(filter)
+/// Runs `command` with `input` on its standard input and returns its output.
+///
+/// The input is written from a thread while the output is read: a child that
+/// answers before it has read everything would otherwise block on a full
+/// output pipe while the harness blocks on a full input pipe. A child that
+/// exits without reading its input, as `jq` does after a compile error, closes
+/// the pipe; a broken pipe means the end of the input and the exit status
+/// tells what happened.
+fn run_with_input(mut command: Command, input: Vec<u8>) -> std::process::Output {
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
     let mut stdin = child.stdin.take().unwrap();
-    // `jq` exits without reading its input after a compile error, so a broken
-    // pipe means the end of the input; the exit status tells what happened.
-    match stdin.write_all(input.to_string().as_bytes()) {
+    let writer = std::thread::spawn(move || match stdin.write_all(&input) {
         Err(error) if error.kind() != std::io::ErrorKind::BrokenPipe => panic!("{error}"),
         Ok(()) | Err(_) => {}
-    }
-    drop(stdin);
+    });
     let output = child.wait_with_output().unwrap();
+    writer.join().unwrap();
+    output
+}
+
+#[cfg(unix)]
+#[test]
+fn a_child_that_answers_while_it_reads_does_not_block_the_harness() {
+    let input = vec![b'x'; 4 * 1024 * 1024];
+    let output = run_with_input(Command::new("cat"), input.clone());
+    assert_eq!(output.stdout, input);
+}
+
+fn jq_outputs(jq: &PathBuf, filter: &str, input: &Json) -> (Vec<Json>, Option<&'static str>) {
+    let mut command = Command::new(jq);
+    command.arg("-c").arg(filter);
+    let output = run_with_input(command, input.to_string().into_bytes());
     let outputs = String::from_utf8_lossy(&output.stdout)
         .lines()
         .filter(|line| !line.is_empty())
