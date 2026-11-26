@@ -532,7 +532,7 @@ def snapshot_errors(snapshot: object) -> list[str]:
     for entry in snapshot.get("entries", []):
         path = entry.get("path", "")
         parts = path.split("/")
-        if not path or path.startswith("/") or "\\" in path or "." in parts or ".." in parts:
+        if not path or path.startswith("/") or "\\" in path or "" in parts or "." in parts or ".." in parts:
             problems.append(f"entry path {path!r} is not relative and normalised")
         kind = entry.get("type")
         content = [k for k in ("content_utf8", "content_base64") if k in entry]

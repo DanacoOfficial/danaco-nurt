@@ -293,9 +293,9 @@ def main(argv):
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -38 %s 46"><title>Danaco Nurt</title>%s</svg>\n'
         % (fmt(width + 4), text)
     )
-    (arguments.out / "wordmark-custom-dark.svg").write_text(document, encoding="utf-8")
+    (arguments.out / "wordmark-custom-dark.svg").write_text(document, encoding="utf-8", newline="\n")
     if arguments.board is not None:
-        arguments.board.write_text(board(), encoding="utf-8")
+        arguments.board.write_text(board(), encoding="utf-8", newline="\n")
     print(f"{arguments.out} written")
     return 0
 
