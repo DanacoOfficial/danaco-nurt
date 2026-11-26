@@ -118,12 +118,23 @@ impl TomlDocument {
             parse_error(FORMAT, error.message(), text, offset)
         })?;
         let line_table = lines(text);
-        let comment_lines = line_table
+        let mut comment_lines: Vec<bool> = line_table
             .iter()
             .map(|line| line.content(text).trim_start().starts_with('#'))
             .collect();
         let mut leaves = Vec::new();
         let root = root_table(&doc)?;
+        let mut strings = Vec::new();
+        string_spans(root, &mut strings);
+        for span in strings {
+            let first = line_table.partition_point(|line| line.end <= span.start);
+            for (index, line) in line_table.iter().enumerate().skip(first + 1) {
+                if line.start >= span.end {
+                    break;
+                }
+                comment_lines[index] = false;
+            }
+        }
         let tree = table_node(root, text, &mut leaves);
         let mut header_spans = Vec::new();
         collect_headers(root, &mut header_spans);
@@ -413,6 +424,40 @@ pub(crate) fn value_end(value: &toml_edit::Value) -> Option<usize> {
     }
 }
 
+/// Byte ranges of the string values of a table and its descendants. The
+/// lines that a string spans after its first one are text, not comments.
+fn string_spans(table: &Table, out: &mut Vec<Range<usize>>) {
+    for (_, item) in table.iter() {
+        match item {
+            Item::Value(value) => value_string_spans(value, out),
+            Item::Table(child) => string_spans(child, out),
+            Item::ArrayOfTables(tables) => {
+                for child in tables.iter() {
+                    string_spans(child, out);
+                }
+            }
+            Item::None => {}
+        }
+    }
+}
+
+fn value_string_spans(value: &toml_edit::Value, out: &mut Vec<Range<usize>>) {
+    match value {
+        toml_edit::Value::String(_) => out.extend(value.span()),
+        toml_edit::Value::Array(array) => {
+            for element in array.iter() {
+                value_string_spans(element, out);
+            }
+        }
+        toml_edit::Value::InlineTable(table) => {
+            for (_, member) in table.iter() {
+                value_string_spans(member, out);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn collect_headers(table: &Table, out: &mut Vec<usize>) {
     for (_, item) in table.iter() {
         match item {
@@ -496,7 +541,7 @@ fn table_node(table: &Table, text: &str, leaves: &mut Vec<Value>) -> Node {
             ),
             Item::None => continue,
         };
-        map.members.push((name.to_owned(), node));
+        map.push(name.to_owned(), node);
     }
     Node::Map(map)
 }
@@ -509,8 +554,7 @@ fn value_node(value: &toml_edit::Value, text: &str, leaves: &mut Vec<Value>) -> 
         toml_edit::Value::InlineTable(table) => {
             let mut map = Map::new(false);
             for (name, child) in table.iter() {
-                map.members
-                    .push((name.to_owned(), value_node(child, text, leaves)));
+                map.push(name.to_owned(), value_node(child, text, leaves));
             }
             Node::Map(map)
         }
@@ -632,6 +676,29 @@ name = \"banana\"
         assert_eq!(error.code(), ErrorCode::DocParse);
         assert_eq!(error.location.as_ref().and_then(|l| l.line), Some(2));
         assert!(TomlDocument::parse("a = 1\na = 2\n").is_err());
+    }
+
+    #[test]
+    fn lines_inside_multi_line_strings_are_not_comments() {
+        let text = "a = 1\n# real\ns = \"\"\"\nx\n# not a comment\n  # nor this\n\"\"\"\nb = '''\n# lit\n'''\nc = [\n  # inside array\n  1,\n]\n";
+        let doc = TomlDocument::parse(text).unwrap();
+        let flags: Vec<bool> = doc.comment_lines.clone();
+        assert_eq!(
+            flags,
+            [
+                false, true, false, false, false, false, false, false, false, false, false, true,
+                false, false
+            ]
+        );
+    }
+
+    #[test]
+    fn removing_a_key_keeps_the_text_of_the_string_above() {
+        let mut doc = TomlDocument::parse("s = \"\"\"\nline\n# kept\"\"\"\nk = 1\n").unwrap();
+        doc.remove(&key("k")).unwrap();
+        assert_eq!(doc.text(), "s = \"\"\"\nline\n# kept\"\"\"\n");
+        let value = doc.to_value();
+        assert_eq!(value.get("s"), Some(&Value::Text("line\n# kept".into())));
     }
 
     #[test]
