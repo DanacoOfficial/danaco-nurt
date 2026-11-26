@@ -123,22 +123,35 @@ fn origin_part(origin: &str, sources: &[&MergeSource]) -> String {
     part
 }
 
-/// Matches `name` against a `wildmatch` pattern with `*` and `?`.
+/// Matches `name` against a `wildmatch` pattern with `*` and `?`; the
+/// position after the last `*` is retried, so the time is bounded by the
+/// product of the lengths.
 fn glob_matches(pattern: &[u8], name: &[u8]) -> bool {
-    match (pattern.split_first(), name.split_first()) {
-        (None, None) => true,
-        (Some((b'*', rest)), _) => {
-            glob_matches(rest, name)
-                || name
-                    .split_first()
-                    .is_some_and(|(_, tail)| glob_matches(pattern, tail))
+    let (mut at_pattern, mut at_name) = (0, 0);
+    let mut star: Option<(usize, usize)> = None;
+    while let Some(found) = name.get(at_name) {
+        match pattern.get(at_pattern) {
+            Some(b'*') => {
+                star = Some((at_pattern, at_name));
+                at_pattern += 1;
+            }
+            Some(expected) if *expected == b'?' || expected == found => {
+                at_pattern += 1;
+                at_name += 1;
+            }
+            _ => match star {
+                Some((star_pattern, star_name)) => {
+                    star = Some((star_pattern, star_name + 1));
+                    at_pattern = star_pattern + 1;
+                    at_name = star_name + 1;
+                }
+                None => return false,
+            },
         }
-        (Some((b'?', rest)), Some((_, tail))) => glob_matches(rest, tail),
-        (Some((expected, rest)), Some((found, tail))) => {
-            expected == found && glob_matches(rest, tail)
-        }
-        _ => false,
     }
+    pattern
+        .get(at_pattern..)
+        .is_some_and(|rest| rest.iter().all(|byte| *byte == b'*'))
 }
 
 /// Whether the merge title leaves out ` into <branch>`.
@@ -320,5 +333,21 @@ mod tests {
         assert!(glob_matches(b"a*c", b"abbbc"));
         assert!(!glob_matches(b"a*c", b"abd"));
         assert!(!glob_matches(b"?", b""));
+        assert!(glob_matches(b"", b""));
+        assert!(!glob_matches(b"", b"a"));
+        assert!(!glob_matches(b"a?", b"a"));
+    }
+
+    #[test]
+    fn wildcard_matching_terminates_on_many_stars() {
+        let name = "a".repeat(60);
+        assert!(!glob_matches(
+            b"*a*a*a*a*a*a*a*a*a*a*a*a*a*b",
+            name.as_bytes()
+        ));
+        assert!(glob_matches(
+            b"*a*a*a*a*a*a*a*a*a*a*a*a*a*",
+            name.as_bytes()
+        ));
     }
 }

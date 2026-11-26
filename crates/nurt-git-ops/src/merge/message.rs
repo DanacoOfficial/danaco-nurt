@@ -207,20 +207,36 @@ pub fn reflog_commit_merge(message: &str) -> String {
     format!("commit (merge): {subject}")
 }
 
+/// Matches `text` against a pattern with `*` and `?`; the position after the
+/// last `*` is retried, so the time is bounded by the product of the lengths.
 fn glob_match(pattern: &str, text: &str) -> bool {
-    fn go(pattern: &[char], text: &[char]) -> bool {
-        match pattern.split_first() {
-            None => text.is_empty(),
-            Some(('*', rest)) => (0..=text.len()).any(|skip| go(rest, &text[skip..])),
-            Some(('?', rest)) => text.split_first().is_some_and(|(_, tail)| go(rest, tail)),
-            Some((c, rest)) => text
-                .split_first()
-                .is_some_and(|(first, tail)| first == c && go(rest, tail)),
-        }
-    }
     let pattern: Vec<char> = pattern.chars().collect();
     let text: Vec<char> = text.chars().collect();
-    go(&pattern, &text)
+    let (mut at_pattern, mut at_text) = (0, 0);
+    let mut star: Option<(usize, usize)> = None;
+    while let Some(current) = text.get(at_text) {
+        match pattern.get(at_pattern) {
+            Some('*') => {
+                star = Some((at_pattern, at_text));
+                at_pattern += 1;
+            }
+            Some(expected) if *expected == '?' || expected == current => {
+                at_pattern += 1;
+                at_text += 1;
+            }
+            _ => match star {
+                Some((star_pattern, star_text)) => {
+                    star = Some((star_pattern, star_text + 1));
+                    at_pattern = star_pattern + 1;
+                    at_text = star_text + 1;
+                }
+                None => return false,
+            },
+        }
+    }
+    pattern
+        .get(at_pattern..)
+        .is_some_and(|rest| rest.iter().all(|c| *c == '*'))
 }
 
 #[cfg(test)]
@@ -304,6 +320,18 @@ mod tests {
             merge_message(&source, Some("main"), &["feat"]),
             "Merge branch 'dev' into main\n"
         );
+    }
+
+    #[test]
+    fn glob_matching_terminates_on_many_wildcards() {
+        let text = "a".repeat(60);
+        assert!(!glob_match("*a*a*a*a*a*a*a*a*a*a*a*a*a*b", &text));
+        assert!(glob_match("*a*a*a*a*a*a*a*a*a*a*a*a*a*", &text));
+        assert!(glob_match("", ""));
+        assert!(!glob_match("", "a"));
+        assert!(glob_match("a*", "a"));
+        assert!(glob_match("*ä?", "żółwiä!"));
+        assert!(!glob_match("a?", "a"));
     }
 
     #[test]

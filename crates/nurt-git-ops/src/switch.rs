@@ -445,13 +445,35 @@ fn tracking_config(
         content.push(b'\n');
     }
     content.extend_from_slice(
-        format!("[branch \"{branch}\"]\n\tremote = {remote}\n\tmerge = {merge}\n").as_bytes(),
+        format!(
+            "[branch \"{}\"]\n\tremote = {}\n\tmerge = {}\n",
+            escape_config(branch),
+            config_value(remote),
+            config_value(merge)
+        )
+        .as_bytes(),
     );
     Ok(StateFilePlan {
         path: "config".to_owned(),
         content: Some(content),
         expect: Expect::Unchecked,
     })
+}
+
+/// Escapes `"` and `\` as the configuration file format requires inside a
+/// quoted subsection name or value.
+fn escape_config(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// Value of a configuration variable; quoted when an unquoted value would be
+/// cut at a comment character or lose surrounding whitespace.
+fn config_value(text: &str) -> String {
+    if text.contains([';', '#', '"', '\\']) || text.trim() != text {
+        format!("\"{}\"", escape_config(text))
+    } else {
+        text.to_owned()
+    }
 }
 
 fn with_switch_fixes(error: Error, request: &SwitchRequest) -> Error {
@@ -687,6 +709,22 @@ mod tests {
             git_file(&fixture, "logs/refs/heads/feature")
                 .ends_with("branch: Created from refs/remotes/origin/feature\n")
         );
+    }
+
+    #[test]
+    fn tracking_configuration_quotes_comment_characters_and_quotes() {
+        let fixture = fixture();
+        let plan = tracking_config(&fixture.repo, "feat#1\"x", "origin", "refs/heads/feat#1")
+            .expect("plan");
+        let content = String::from_utf8(plan.content.expect("content")).expect("utf-8");
+        assert!(
+            content.ends_with(
+                "[branch \"feat#1\\\"x\"]\n\tremote = origin\n\tmerge = \"refs/heads/feat#1\"\n"
+            ),
+            "{content}"
+        );
+        assert_eq!(config_value("refs/heads/a;b"), "\"refs/heads/a;b\"");
+        assert_eq!(config_value("refs/heads/a"), "refs/heads/a");
     }
 
     #[test]
