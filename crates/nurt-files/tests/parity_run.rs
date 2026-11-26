@@ -591,6 +591,15 @@ fn comparisons_follow_the_report_conventions() {
     assert!(same(&json!(false), &Json::Null));
     assert!(same(&json!(2), &json!(["a", "b"])));
     assert!(same(&json!(1), &json!(1.0)));
+    assert_failed_report_comparisons();
+    let listing = report_with(vec![Item::Record(
+        "entry".into(),
+        json!({ "path": "src/a.ts" }),
+    )]);
+    assert_listing_comparisons(&listing);
+}
+
+fn assert_failed_report_comparisons() {
     let failed = Report {
         status: "failed".into(),
         error: Some(json!({ "code": "E_OUT_OF_RANGE", "message": "line 99 is past the end" })),
@@ -611,51 +620,29 @@ fn comparisons_follow_the_report_conventions() {
         ),
         Ok(())
     );
-    assert_eq!(
-        check_field(
-            &failed,
-            "effect.status",
-            Comparison::Value,
-            &json!("failed")
-        ),
-        Ok(())
-    );
-    assert!(
-        check_field(
-            &failed,
-            "effect.status",
-            Comparison::Value,
-            &json!("rolled_back")
-        )
-        .is_err(),
-        "a failure without a rollback is not a rollback"
-    );
+}
+
+#[test]
+fn a_failure_without_a_rollback_is_not_a_rollback() {
+    let failed = Report {
+        status: "failed".into(),
+        error: Some(json!({ "code": "E_OUT_OF_RANGE", "message": "line 99 is past the end" })),
+        ..Report::default()
+    };
+    let status = |report: &Report, word: &str| {
+        check_field(report, "effect.status", Comparison::Value, &json!(word))
+    };
+    assert_eq!(status(&failed, "failed"), Ok(()));
+    assert!(status(&failed, "rolled_back").is_err());
     let reverted = Report {
         status: "rolled_back".into(),
         ..failed.clone()
     };
-    assert_eq!(
-        check_field(
-            &reverted,
-            "effect.status",
-            Comparison::Value,
-            &json!("rolled_back")
-        ),
-        Ok(())
-    );
-    assert!(
-        check_field(
-            &reverted,
-            "effect.status",
-            Comparison::Value,
-            &json!("failed")
-        )
-        .is_err()
-    );
-    let listing = report_with(vec![Item::Record(
-        "entry".into(),
-        json!({ "path": "src/a.ts" }),
-    )]);
+    assert_eq!(status(&reverted, "rolled_back"), Ok(()));
+    assert!(status(&reverted, "failed").is_err());
+}
+
+fn assert_listing_comparisons(listing: &Report) {
     assert_eq!(
         check_field(
             &listing,

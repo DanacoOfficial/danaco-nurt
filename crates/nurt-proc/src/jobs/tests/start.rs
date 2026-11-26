@@ -152,7 +152,9 @@ fn a_cancelled_call_reaches_the_supervisor_before_the_program_starts() {
     };
     wait_until(|| entered.load(Ordering::SeqCst));
     cancel.cancel(CancelReason::Requested);
-    let error = caller.join().unwrap().err().expect("the call is cancelled");
+    let Err(error) = caller.join().unwrap() else {
+        panic!("the call was not cancelled");
+    };
     assert_eq!(error.code(), ErrorCode::Cancelled);
     assert!(
         begun.elapsed() < Duration::from_secs(6),
@@ -237,7 +239,9 @@ fn a_call_cancelled_before_exec_never_starts_the_program() {
     };
     wait_until(|| entered.load(Ordering::SeqCst));
     cancel.cancel(CancelReason::Requested);
-    let error = caller.join().unwrap().err().expect("the call is cancelled");
+    let Err(error) = caller.join().unwrap() else {
+        panic!("the call was not cancelled");
+    };
     assert_eq!(error.code(), ErrorCode::Cancelled);
     assert!(
         control.spawned.lock().unwrap().is_empty(),
