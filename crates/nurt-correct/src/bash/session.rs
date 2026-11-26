@@ -306,6 +306,13 @@ impl<'a> Session<'a> {
                         index += 1;
                         continue;
                     }
+                    Some("set") if !last && self.is_strict_mode(simple) => {
+                        // Nurt stops a program at the first error, which is
+                        // what `set -e` and `pipefail` ask a shell for.
+                        self.assume("B22", "script_stops");
+                        index += 1;
+                        continue;
+                    }
                     Some("test" | "[") if !last && steps[index + 1].link == Link::And => {
                         let guarded = produce::guard(self, simple, steps[index + 1].pipe)?;
                         results.push((guarded, join_steps(step, steps[index + 1])));
@@ -335,6 +342,38 @@ impl<'a> Session<'a> {
             .words
             .get(index)
             .and_then(|word| word.value.literal())
+    }
+
+    /// Whether the command is `set` with the options `-e`, `-u` and
+    /// `-o pipefail` only, written as `-e -u -o pipefail` or joined as in
+    /// `-euo pipefail`.
+    fn is_strict_mode(&self, simple: &Simple) -> bool {
+        let mut seen = false;
+        let mut expecting_name = false;
+        for index in 1..simple.words.len() {
+            let Some(arg) = self.word(simple, index) else {
+                return false;
+            };
+            if expecting_name {
+                if arg != "pipefail" {
+                    return false;
+                }
+                expecting_name = false;
+                continue;
+            }
+            let Some(flags) = arg.strip_prefix('-') else {
+                return false;
+            };
+            let valid = !flags.is_empty()
+                && flags.chars().all(|flag| matches!(flag, 'e' | 'u' | 'o'))
+                && flags.matches('o').count() == usize::from(flags.ends_with('o'));
+            if !valid {
+                return false;
+            }
+            seen = true;
+            expecting_name = flags.ends_with('o');
+        }
+        seen && !expecting_name
     }
 
     fn change_directory(&self, simple: &Simple, last: bool) -> Result<(), Error> {
