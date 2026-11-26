@@ -7,4 +7,4 @@
 info "C:/out/a.txt"
 # translated: P11, L19
 info "C:/out/a.txt"
-|> assert all: type == file
+|> assert all: type == "file"

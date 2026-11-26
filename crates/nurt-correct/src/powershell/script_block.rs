@@ -528,7 +528,7 @@ impl<'r> Parser<'_, 'r> {
             Some(map) if map.equals.is_some() => Ok(bin(
                 BinOp::Eq,
                 field.expr.clone(),
-                ident(map.equals.clone().unwrap_or_default(), span),
+                text(map.equals.clone().unwrap_or_default(), span),
                 span,
             )),
             Some(map) if map.ty.as_deref() == Some("bool") => Ok(field.expr.clone()),
@@ -564,7 +564,7 @@ impl<'r> Parser<'_, 'r> {
             };
             let positive = (op.op == BinOp::Eq) == flag;
             let op = if positive { BinOp::Eq } else { BinOp::Ne };
-            return Ok(bin(op, field.expr, ident(equals, span), span));
+            return Ok(bin(op, field.expr, text(equals, span), span));
         }
         let mut left = field.expr;
         let right_expr = match op.pattern {
@@ -749,7 +749,7 @@ impl<'r> Parser<'_, 'r> {
                     .find(|(name, _)| name.eq_ignore_ascii_case(written))
                     .map(|(_, value)| value.clone());
                 return match mapped {
-                    Some(mapped) => Ok((ident(mapped, span), false)),
+                    Some(mapped) => Ok((text(mapped, span), false)),
                     None => {
                         let names: Vec<&str> =
                             map.values.iter().map(|(name, _)| name.as_str()).collect();

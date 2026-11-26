@@ -122,9 +122,9 @@ translated	sed -i 's/version: 1.4.1/version: 1.4.2/' /srv/app/chart.yaml	replace
 translated	sed '5d' /srv/app/list.txt	lines "/srv/app/list.txt" |> filter no != 5
 translated	sed -i 's/\r$//' /srv/app/script.sh	replace /\r$/ "" in: ["/srv/app/script.sh"] occurrence: 1
 failed	sed -i.bak 's/old/new/g' /srv/app/readme.md	E_UNCORRECTABLE: flag `-i.bak` of `sed` has no equivalent; parameters of ``:  (flag_without_equivalent)
-translated	awk '{print $1}' /var/log/nginx/access.log	lines "/var/log/nginx/access.log" |> split /\s+/ names: ["f1"] |> select f1
-translated	awk -F: '{print $1}' /etc/passwd	lines "/etc/passwd" |> split ":" names: ["f1"] |> select f1
-translated	awk -F, '{print $3}' /srv/app/data.csv	lines "/srv/app/data.csv" |> split "," names: ["f1", "f2", "f3"] |> select f3
+translated	awk '{print $1}' /var/log/nginx/access.log	lines "/var/log/nginx/access.log" |> split /\s+/ names: ["f1"] |> select cells.f1
+translated	awk -F: '{print $1}' /etc/passwd	lines "/etc/passwd" |> split ":" names: ["f1"] |> select cells.f1
+translated	awk -F, '{print $3}' /srv/app/data.csv	lines "/srv/app/data.csv" |> split "," names: ["f1", "f2", "f3"] |> select cells.f3
 translated	awk 'NR==5' /srv/app/list.txt	read "/srv/app/list.txt" lines: 5..5
 failed	awk '{sum += $1} END {print sum}' /srv/app/numbers.txt	E_UNCORRECTABLE: awk program `{sum += $1} END {print sum}` has no translation; only `{print $N}` with a pattern or a field comparison is translated (unsupported_awk_program)
 translated	awk '/error/ {print}' /var/log/app.log	lines "/var/log/app.log" |> filter text ~ /error/
@@ -141,10 +141,10 @@ translated	cd /srv/app && git pull	git.pull "/srv/app"
 translated	cd /srv/app && npm install	run ["npm", "install"] cwd: "/srv/app"
 translated	cd /home/dev/project && cargo build	run ["cargo", "build"] cwd: "/home/dev/project"
 translated	cd /srv/app && go test ./...	run ["go", "test", "./..."] cwd: "/srv/app"
-translated	test -f /etc/app/config.yaml	info "/etc/app/config.yaml" |> assert all: type == file
-translated	[ -d /srv/app ]	info "/srv/app" |> assert all: type == directory
-translated	test -d /var/lib/app	info "/var/lib/app" |> assert all: type == directory
-translated	[ -f /srv/app/.env ]	info "/srv/app/.env" |> assert all: type == file
+translated	test -f /etc/app/config.yaml	info "/etc/app/config.yaml" |> assert all: type == "file"
+translated	[ -d /srv/app ]	info "/srv/app" |> assert all: type == "directory"
+translated	test -d /var/lib/app	info "/var/lib/app" |> assert all: type == "directory"
+translated	[ -f /srv/app/.env ]	info "/srv/app/.env" |> assert all: type == "file"
 translated	test -e /tmp/lock	info "/tmp/lock" |> assert all: exists
 translated	mkdir -p /srv/out && cp /srv/a.txt /srv/out/	create "/srv/out" type: directory copy "/srv/a.txt" into: "/srv/out" preserve: false
 translated	rm -rf /srv/app/build && mkdir /srv/app/build	remove "/srv/app/build" create "/srv/app/build" type: directory parents: false

@@ -22,7 +22,7 @@
       ],
       "assumptions": [],
       "fix": [],
-      "output": "info \"/srv/app/.ready\"\n|> assert all: type == file\n|> remove on_missing: error"
+      "output": "info \"/srv/app/.ready\"\n|> assert all: type == \"file\"\n|> remove on_missing: error"
     },
     {
       "line": 6,
@@ -36,7 +36,7 @@
       ],
       "assumptions": [],
       "fix": [],
-      "output": "info \"/srv/app/out\"\n|> assert all: type == directory\n|> remove"
+      "output": "info \"/srv/app/out\"\n|> assert all: type == \"directory\"\n|> remove"
     }
   ]
 }

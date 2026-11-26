@@ -385,6 +385,24 @@ fn text_written_to_a_file_keeps_its_bytes() {
 }
 
 #[test]
+fn the_type_tests_compare_with_the_name_of_the_type_as_text() {
+    assert_reactions(&[
+        (
+            "test -f /srv/a",
+            "info \"/srv/a\"\n|> assert all: type == \"file\"",
+        ),
+        (
+            "[ -d /srv/a ]",
+            "info \"/srv/a\"\n|> assert all: type == \"directory\"",
+        ),
+        (
+            "[ -L /srv/a ]",
+            "info \"/srv/a\"\n|> assert all: type == \"link\"",
+        ),
+    ]);
+}
+
+#[test]
 fn tests_outside_the_table_are_uncorrectable() {
     assert_reactions(&[
         ("[ -f /srv/a", "E_UNCORRECTABLE"),
@@ -393,7 +411,7 @@ fn tests_outside_the_table_are_uncorrectable() {
         ("[ -d /srv/a ] && make", "E_UNCORRECTABLE"),
         (
             "[ ! -f /srv/a ]",
-            "info \"/srv/a\"\n|> assert all: not type == file",
+            "info \"/srv/a\"\n|> assert all: not type == \"file\"",
         ),
     ]);
 }

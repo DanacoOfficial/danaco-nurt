@@ -1,13 +1,13 @@
 # Source: p42-invoke.ps1 (powershell)
 # Statements run in order; the first error stops the script.
-# Statements: 4; translated: 2; with assumptions: 0; impossible: 2; errors: 0.
+# Statements: 4; translated: 0; with assumptions: 0; impossible: 4; errors: 0.
 # Untranslated statements run unchanged with: run ["pwsh", "p42-invoke.ps1"]
 
 # P42: call operator, Invoke-Expression and Invoke-Command.
-# translated: P42
-run ["git", "status"]
-# translated: P42, L19
-run ["C:/Program Files/Git/bin/git.exe", "log", "-5"]
+# untranslated: E_UNCORRECTABLE: & git status
+#   problem: the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base (working_directory)
+# untranslated: E_UNCORRECTABLE: & "C:\Program Files\Git\bin\git.exe" log -5
+#   problem: the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base (working_directory)
 # untranslated: E_UNCORRECTABLE: Invoke-Expression "Get-Date"
 #   problem: evaluation of text as code has no equivalent
 # untranslated: E_UNCORRECTABLE: Invoke-Command -ComputerName srv01 -ScriptBlock { Get-Process }

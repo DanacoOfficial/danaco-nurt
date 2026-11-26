@@ -10,15 +10,15 @@
 # assumption: fields are split by split; leading whitespace and numeric comparison may differ from awk
 lines "/var/log/nginx/access.log"
 |> split /\s+/ names: ["f1"]
-|> select f1
+|> select cells.f1
 # translated: B18, L21
 # assumption: fields are split by split; leading whitespace and numeric comparison may differ from awk
 lines "/etc/passwd"
 |> split ":" names: ["f1", "f2", "f3", "f4", "f5", "f6", "f7"]
-|> select f1 f7
+|> select cells.f1 cells.f7
 # translated: B18, L21
 # assumption: fields are split by split; leading whitespace and numeric comparison may differ from awk
 lines "/srv/data.txt"
 |> split /\s+/ names: ["f1", "f2", "f3"]
-|> filter f3 > 100
-|> select f1
+|> filter cells.f3 > 100
+|> select cells.f1

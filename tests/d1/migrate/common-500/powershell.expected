@@ -1,4 +1,4 @@
-translated without error: 223 of 250
+translated without error: 218 of 250
 translated	Get-ChildItem C:\proj	list "C:/proj" hidden: false
 translated	Get-ChildItem -Path C:\Users\dev\Documents	list "C:/Users/dev/Documents" hidden: false
 translated	gci C:\Windows\Temp	list "C:/Windows/Temp" hidden: false
@@ -86,8 +86,8 @@ translated	ren C:\temp\draft.md final.md	rename path: "C:/temp/draft.md" to: "fi
 translated	rni C:\logs\app.log app.old.log	rename path: "C:/logs/app.log" to: "app.old.log"
 translated	Rename-Item -Path C:\proj\build -NewName build-old	rename path: "C:/proj/build" to: "build-old"
 translated	Test-Path C:\proj\config.json	info "C:/proj/config.json"
-translated	Test-Path -Path C:\temp -PathType Container	info "C:/temp" |> assert all: type == directory
-translated	Test-Path C:\proj\app.exe -PathType Leaf	info "C:/proj/app.exe" |> assert all: type == file
+translated	Test-Path -Path C:\temp -PathType Container	info "C:/temp" |> assert all: type == "directory"
+translated	Test-Path C:\proj\app.exe -PathType Leaf	info "C:/proj/app.exe" |> assert all: type == "file"
 translated	Test-Path HKLM:\SOFTWARE\MyApp	info "registry:/HKLM/SOFTWARE/MyApp"
 translated	Get-Item C:\proj\app.exe	info "C:/proj/app.exe"
 translated	Get-Item -Path C:\proj	info "C:/proj"
@@ -96,7 +96,7 @@ translated	Get-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersio
 translated	Get-ItemProperty C:\proj\app.exe	info "C:/proj/app.exe"
 translated	Get-ItemPropertyValue -Path HKCU:\Software\MyApp -Name Version	read "registry:/HKCU/Software/MyApp/Version"
 translated	Get-Item C:\proj\app.exe | Select-Object Name, Length	info "C:/proj/app.exe" |> select name size
-translated	Set-ItemProperty -Path HKCU:\Software\MyApp -Name Version -Value 2	write "registry:/HKCU/Software/MyApp/Version" 2 mode: overwrite
+translated	Set-ItemProperty -Path HKCU:\Software\MyApp -Name Version -Value 2	write "registry:/HKCU/Software/MyApp/Version" "2" mode: overwrite
 translated	Set-ItemProperty -Path C:\proj\a.txt -Name IsReadOnly -Value $true	attributes "C:/proj/a.txt" readonly: true
 translated	New-ItemProperty -Path HKCU:\Software\MyApp -Name Mode -Value Fast	write "registry:/HKCU/Software/MyApp/Mode" "Fast" mode: overwrite
 translated	Get-Acl C:\proj	info "C:/proj"
@@ -106,10 +106,10 @@ translated	attrib +R C:\proj\a.txt	attributes "C:/proj/a.txt" readonly: true
 translated	attrib -H C:\proj\hidden.txt	attributes "C:/proj/hidden.txt" hidden: false
 failed	Get-Process | Where-Object { $_.CPU -gt 100 }	E_UNCORRECTABLE: property CPU has no field in process records; properties: Id, Name, ProcessName, WorkingSet, WorkingSet64, WS, StartTime, Path, UserName (unknown_property)
 translated	Get-ChildItem C:\logs | Where-Object { $_.Length -gt 1MB }	list "C:/logs" hidden: false |> filter size > 1mib
-translated	Get-Service | Where-Object Status -eq Running	services |> filter state == running
+translated	Get-Service | Where-Object Status -eq Running	services |> filter state == "running"
 translated	Get-ChildItem C:\proj | ? { $_.Name -like "*.cs" }	list "C:/proj" hidden: false |> filter name ~ /\.cs$/i
 translated	Get-Process | where { $_.WorkingSet -gt 500MB }	processes |> filter memory > 500mib
-translated	Get-Service | Where-Object { $_.StartType -eq "Automatic" }	services |> filter start_type == automatic
+translated	Get-Service | Where-Object { $_.StartType -eq "Automatic" }	services |> filter start_type == "automatic"
 translated	Get-Process | Where-Object Name -eq "chrome"	processes |> filter lower(name) == "chrome"
 translated	Get-ChildItem C:\data | Where-Object Extension -eq ".csv"	list "C:/data" hidden: false |> filter lower(extension) == "csv"
 translated	Get-Process | Select-Object Name, Id	processes |> select name pid
@@ -152,11 +152,11 @@ translated	Stop-Process -Name notepad	processes name: "notepad" |> stop
 translated	kill 4321	processes pid: 4321 |> stop
 translated	Stop-Process -Name chrome -Force	processes name: "chrome" |> stop signal: kill
 translated	spps -Id 999	processes pid: 999 |> stop
-translated	Start-Process notepad.exe	run ["notepad.exe"]
-translated	Start-Process -FilePath C:\tools\app.exe -Wait	run ["C:/tools/app.exe"] wait: forever
-translated	Start-Process -FilePath git -ArgumentList "status --short" -Wait	run ["git", "status", "--short"] wait: forever
+failed	Start-Process notepad.exe	E_UNCORRECTABLE: the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base (working_directory)
+failed	Start-Process -FilePath C:\tools\app.exe -Wait	E_UNCORRECTABLE: the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base (working_directory)
+failed	Start-Process -FilePath git -ArgumentList "status --short" -Wait	E_UNCORRECTABLE: the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base (working_directory)
 failed	Start-Process -FilePath powershell -Verb RunAs	E_UNCORRECTABLE: programs run with the rights of the console; start the console with the required rights (unsupported_parameter)
-translated	Start-Process -FilePath C:\tools\setup.exe -ArgumentList "/S" -Wait	run ["C:/tools/setup.exe", "/S"] wait: forever
+failed	Start-Process -FilePath C:\tools\setup.exe -ArgumentList "/S" -Wait	E_UNCORRECTABLE: the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base (working_directory)
 translated	Get-Service	services
 translated	Get-Service -Name sshd	services name: "sshd"
 translated	gsv wuauserv	services name: "wuauserv"
@@ -245,7 +245,7 @@ translated	Get-ScheduledTask	windows.cim "MSFT_ScheduledTask" namespace: "Root/M
 translated	Get-ScheduledTask -TaskName Backup	windows.cim "MSFT_ScheduledTask" where: "TaskName = 'Backup'" namespace: "Root/Microsoft/Windows/TaskScheduler"
 failed	Start-ScheduledTask -TaskName Backup	E_UNCORRECTABLE: tasks of the system scheduler are started by the schtasks program; run it with run (system_task)
 failed	Invoke-Expression "Get-Process"	E_UNCORRECTABLE: evaluation of text as code has no equivalent
-translated	& C:\tools\app.exe --version	run ["C:/tools/app.exe", "--version"]
+failed	& C:\tools\app.exe --version	E_UNCORRECTABLE: the working directory of the program is not given; write `Start-Process -WorkingDirectory <absolute path>` or give the call parameter base (working_directory)
 failed	Invoke-Command -ScriptBlock { Get-Process }	E_UNCORRECTABLE: remote execution belongs to the host that sends the program to the other device; write the program itself (remote_execution)
 failed	foreach ($f in Get-ChildItem C:\logs) { Remove-Item $f.FullName }	E_UNCORRECTABLE: loops have no equivalent; a pattern or a pipeline over records replaces a loop
 failed	if (Test-Path C:\a.txt) { Remove-Item C:\a.txt }	E_UNCORRECTABLE: conditional statements have no equivalent; assert checks a precondition
