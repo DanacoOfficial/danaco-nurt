@@ -69,6 +69,13 @@ export interface ConnectionOptions extends ChannelEvents {
 export interface CallHooks {
   /** Cancels the call when aborted. */
   readonly signal?: AbortSignal | undefined;
+  /**
+   * Keeps the call open when the signal is aborted: the request is sent if it
+   * has not been, the server is asked to cancel it and the call ends with its
+   * answer, which for a cancelled `run` is an error with the response that
+   * carries `E_CANCELLED`.
+   */
+  readonly awaitCancel?: boolean | undefined;
   /** Called with the request identifier before the request is written. */
   readonly onSent?: ((id: number) => void) | undefined;
   /**
@@ -224,7 +231,7 @@ export class Connection implements Channel {
         return;
       }
       const signal = hooks.signal;
-      if (signal?.aborted === true) {
+      if (signal?.aborted === true && hooks.awaitCancel !== true) {
         reject(cancelled(signal));
         return;
       }
@@ -277,10 +284,22 @@ export class Connection implements Channel {
     this.#updateReference();
     call.hooks.onSent?.(id);
     this.#child.stdin.write(line);
+    if (call.hooks.awaitCancel === true && call.hooks.signal?.aborted === true) {
+      // The cancellation came before the request was sent; it follows the request.
+      queueMicrotask(() => {
+        this.#abort(call);
+      });
+    }
   }
 
   #abort(call: Call): void {
     if (call.settled) {
+      return;
+    }
+    if (call.hooks.awaitCancel === true) {
+      if (call.id !== undefined && this.#failure === undefined) {
+        this.#start("cancel", { request_id: call.id }, {}, false).catch(() => undefined);
+      }
       return;
     }
     const reason = cancelled(call.hooks.signal);

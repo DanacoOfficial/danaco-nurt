@@ -200,7 +200,7 @@ export class NativeChannel implements Channel {
     if (this.#closed) {
       throw new NurtError("NURT_E_CANCELLED", "the client is closing");
     }
-    if (hooks.signal?.aborted === true) {
+    if (hooks.signal?.aborted === true && hooks.awaitCancel !== true) {
       throw cancelled(hooks.signal);
     }
     switch (method) {
@@ -336,6 +336,11 @@ export class NativeChannel implements Channel {
         cancel: () => execution?.cancel(),
       };
       const onAbort = (): void => {
+        if (hooks.awaitCancel === true) {
+          // The response of the cancelled execution ends the call.
+          running.cancel();
+          return;
+        }
         running.reject(cancelled(signal));
         running.cancel();
       };
@@ -371,6 +376,10 @@ export class NativeChannel implements Channel {
         execution = engine.start(JSON.stringify(this.#withLanguage("run", params) ?? null), onMessage);
       } catch (error) {
         running.reject(nativeFailure(error));
+        return;
+      }
+      if (hooks.awaitCancel === true && signal?.aborted === true) {
+        execution.cancel();
       }
     });
   }

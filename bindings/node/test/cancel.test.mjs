@@ -45,15 +45,19 @@ describe("cancellation", () => {
     });
   });
 
-  it("cancels an execution and reports NURT_E_CANCELLED from wait", async () => {
+  it("cancels an execution and returns its response with E_CANCELLED from wait", async () => {
     await withClient(fakeServe(), async (client) => {
       await client.info();
       const execution = client.start(`delay ${LONG_MS} x`);
       await delay(SETTLE_MS);
       execution.cancel();
-      await assert.rejects(execution.wait(), isCancelled);
+      const response = await execution.wait();
+      assert.equal(response.ok, false);
+      assert.equal(response.error.code, "E_CANCELLED");
       assert.equal(execution.done, true);
       execution.cancel();
+      const info = await client.info();
+      assert.equal(info.cancel_requests, 1);
     });
   });
 
@@ -64,7 +68,25 @@ describe("cancellation", () => {
       const execution = client.start(`delay ${LONG_MS} x`, { signal: controller.signal });
       await delay(SETTLE_MS);
       controller.abort();
-      await assert.rejects(execution.wait(), isCancelled);
+      assert.equal((await execution.wait()).error.code, "E_CANCELLED");
+    });
+  });
+
+  it("cancels an execution that is cancelled before its request is sent", async () => {
+    await withClient(fakeServe(), async (client) => {
+      const execution = client.start(`delay ${LONG_MS} x`);
+      execution.cancel();
+      assert.equal((await execution.wait()).error.code, "E_CANCELLED");
+    });
+  });
+
+  it("throws the language error of a cancelled execution started with raiseOnError", async () => {
+    await withClient(fakeServe(), async (client) => {
+      await client.info();
+      const execution = client.start(`delay ${LONG_MS} x`, { raiseOnError: true });
+      await delay(SETTLE_MS);
+      execution.cancel();
+      await assert.rejects(execution.wait(), { name: "NurtLanguageError", code: "E_CANCELLED" });
     });
   });
 

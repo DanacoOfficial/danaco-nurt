@@ -109,6 +109,7 @@ export class Nurt extends EventEmitter {
         try {
           const result = await session.connection.call("run", requestEnvelope(program, options), {
             signal: control.signal,
+            awaitCancel: true,
             onEvent: control.deliver,
             onSent: (id) => {
               route = String(id);
@@ -116,6 +117,12 @@ export class Nurt extends EventEmitter {
             },
           });
           return finish(toResponse(result), options.raiseOnError);
+        } catch (error) {
+          // A cancelled execution ends with its response, which carries E_CANCELLED.
+          if (error instanceof NurtError && error.status === "NURT_E_CANCELLED" && error.response !== undefined && control.signal.aborted) {
+            return finish(error.response, options.raiseOnError);
+          }
+          throw error;
         } finally {
           if (route !== undefined) {
             this.#routes.delete(route);

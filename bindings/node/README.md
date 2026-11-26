@@ -57,6 +57,9 @@ executable with the given arguments.
 `{ cursor }`, `{ accept }` (`nurt-request/1`). `options` holds the request
 options (`preview`, `base`, `limit`, `format`, `timeout`, ...) and the client
 options `signal` (an `AbortSignal` that cancels the call) and `raiseOnError`.
+`Execution.cancel()` (or the `signal` of `start`) cancels the execution and
+`wait()` returns its response, whose `error.code` is `E_CANCELLED`; a call of
+`run` cancelled through its `signal` is rejected with `NURT_E_CANCELLED`.
 
 Errors of the language are returned in `response.error`; with
 `raiseOnError: true` they are thrown as `NurtLanguageError`. Call failures are
