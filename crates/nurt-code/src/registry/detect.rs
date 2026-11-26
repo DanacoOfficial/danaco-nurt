@@ -135,7 +135,11 @@ fn emacs_mode(line: &str) -> Option<String> {
 fn vim_filetype(line: &str) -> Option<String> {
     let marker = ["vim:", "vi:", "ex:"]
         .iter()
-        .filter_map(|marker| line.find(marker).map(|at| at + marker.len()))
+        .filter_map(|marker| {
+            line.match_indices(marker)
+                .find(|(at, _)| line[..*at].chars().next_back().is_none_or(char::is_whitespace))
+                .map(|(at, _)| at + marker.len())
+        })
         .min()?;
     line[marker..]
         .split(|c: char| c.is_whitespace() || c == ':')
@@ -191,6 +195,20 @@ mod tests {
         assert_eq!(modeline_language(too_deep), None);
         let tail = b"1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n# vim: ft=go\n";
         assert_eq!(modeline_language(tail).as_deref(), Some("go"));
+    }
+
+    #[test]
+    fn vim_marker_is_a_separate_word() {
+        assert_eq!(modeline_language(b"index: syntax=ruby\n"), None);
+        assert_eq!(modeline_language(b"# convex: ft=go\n"), None);
+        assert_eq!(modeline_language(b"# invim: ft=go\n"), None);
+        assert_eq!(modeline_language(b"ex: ft=go\n").as_deref(), Some("go"));
+        assert_eq!(modeline_language(b"/* ex: ft=go */\n").as_deref(), Some("go"));
+        assert_eq!(modeline_language(b"# vi: ft=lua\n").as_deref(), Some("lua"));
+        assert_eq!(
+            modeline_language(b"# index: x vim: ft=go\n").as_deref(),
+            Some("go")
+        );
     }
 
     #[test]

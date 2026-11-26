@@ -397,7 +397,11 @@ impl StructuralPattern {
                 ),
             )
         })?;
-        let root = AstGrep::<StrDoc<PatternLanguage>>::try_new(text, self.grammar.clone())
+        let parsed_text: Cow<'_, str> = match text.strip_prefix('\u{feff}') {
+            Some(rest) => Cow::Owned(format!("   {rest}")),
+            None => Cow::Borrowed(text),
+        };
+        let root = AstGrep::<StrDoc<PatternLanguage>>::try_new(&parsed_text, self.grammar.clone())
             .map_err(|message| internal_parse_error(&self.language, &message))?;
         let lines = LineIndex::new(source);
         let top = root.root();
