@@ -328,6 +328,17 @@ fn mcp_server_answers_initialize_and_tools_list_and_ends_at_the_end_of_the_input
         .collect();
     assert_eq!(names, ["nurt", "nurt_help", "nurt_check"]);
 
+    let printed: serde_json::Value =
+        serde_json::from_str(&stdout(&nurt(&["schema", "tool", "--format", "mcp"], ""))).unwrap();
+    let listed = &reply["result"]["tools"][0];
+    for member in ["name", "description", "inputSchema"] {
+        assert_eq!(listed[member], printed[member], "{member}");
+    }
+    assert!(
+        !printed["description"].as_str().unwrap().starts_with('{'),
+        "the description is text, not a JSON document"
+    );
+
     drop(input);
     assert!(lines.next().is_none(), "output after the end of the input");
     assert_eq!(child.wait().unwrap().code(), Some(0));

@@ -96,8 +96,13 @@ impl Backend for Engine {
         };
         let description =
             Engine::describe(self, name, None::<Language>).map_err(|error| call_error(&error))?;
-        serde_json::to_string(&description)
-            .map_err(|error| CallError::new(AbiStatus::Internal, error.to_string()))
+        description
+            .get("text")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| {
+                CallError::new(AbiStatus::Internal, "the description of the engine has no text")
+            })
     }
 
     fn schema(&self, name: SchemaName) -> Result<String, CallError> {
