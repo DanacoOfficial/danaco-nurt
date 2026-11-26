@@ -833,8 +833,18 @@ fn mcp_tool_offers_a_misspelt_changing_command_and_runs_a_misspelt_reading_comma
             "params": {"name": "nurt", "arguments": {"program": program}}
         })
     };
-    writeln!(input, "{}", call(2, format!("remvoe \"{}\"", file.display()))).unwrap();
-    writeln!(input, "{}", call(3, format!("lsit \"{}\"", dir.path().display()))).unwrap();
+    writeln!(
+        input,
+        "{}",
+        call(2, format!("remvoe \"{}\"", file.display()))
+    )
+    .unwrap();
+    writeln!(
+        input,
+        "{}",
+        call(3, format!("lsit \"{}\"", dir.path().display()))
+    )
+    .unwrap();
     input.flush().unwrap();
     let offered = reply_of(&mut lines, 2).to_string();
     assert!(offered.contains("E_AMBIGUOUS"), "{offered}");

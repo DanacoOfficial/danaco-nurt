@@ -22,7 +22,7 @@ const CORPORA: &str = "tests/d1/correction";
 const MAX_AMBIGUITY: f64 = 0.05;
 
 /// Number of listed problems per corpus in a failure message.
-const REPORT_LIMIT: usize = 10;
+const REPORT_LIMIT: usize = 1000;
 
 #[test]
 #[ignore = "runs every correction corpus; slow in a debug build"]

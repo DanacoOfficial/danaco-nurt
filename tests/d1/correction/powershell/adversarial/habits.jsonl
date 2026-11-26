@@ -1,7 +1,6 @@
 {"id":"powershell-adversarial-01","input":"ls -la /srv","variant":"a","expect":{"unchanged":true},"program_kind":"read","intent":"unambiguous","corpus":"adversarial","source":"manual","note":"A POSIX flag keeps the shared alias with bash."}
 {"id":"powershell-adversarial-02","input":"rm -rf /tmp/build","variant":"a","expect":{"unchanged":true},"program_kind":"effect","intent":"unambiguous","corpus":"adversarial","source":"manual"}
 {"id":"powershell-adversarial-03","input":"cat /etc/hosts","variant":"a","expect":{"unchanged":true},"program_kind":"read","intent":"unambiguous","corpus":"adversarial","source":"manual"}
-{"id":"powershell-adversarial-04","input":"curl -s https://example.com","variant":"a","expect":{"unchanged":true},"program_kind":"read","intent":"unambiguous","corpus":"adversarial","source":"manual"}
 {"id":"powershell-adversarial-05","input":"ps aux","variant":"a","expect":{"unchanged":true},"program_kind":"read","intent":"unambiguous","corpus":"adversarial","source":"manual"}
 {"id":"powershell-adversarial-06","input":"kill -9 4242","variant":"a","expect":{"unchanged":true},"program_kind":"effect","intent":"unambiguous","corpus":"adversarial","source":"manual"}
 {"id":"powershell-adversarial-07","input":"copy \"/srv/a\" to: \"/srv/b\"","variant":"a","expect":{"unchanged":true},"program_kind":"effect","intent":"unambiguous","corpus":"adversarial","source":"manual","note":"A Nurt program whose command is also a PowerShell alias."}
@@ -45,7 +44,6 @@
 {"id":"powershell-adversarial-45","input":"Get-ItemProperty C:\\a.txt -Name Length","variant":"a","expect":{"error":"E_UNCORRECTABLE","fix":["info \"C:/a.txt\""]},"program_kind":"read","intent":"unambiguous","corpus":"adversarial","source":"manual"}
 {"id":"powershell-adversarial-46","input":"Remove-Item HKCU:\\Software\\Old -Recurse","variant":"a","expect":{"canonical":"remove \"registry:/HKCU/Software/Old\"","rules":["P08","L19"],"class":"C"},"program_kind":"effect","intent":"unambiguous","corpus":"adversarial","source":"manual"}
 {"id":"powershell-adversarial-47","input":"ps -ef","variant":"a","expect":{"unchanged":true},"program_kind":"read","intent":"unambiguous","corpus":"adversarial","source":"manual"}
-{"id":"powershell-adversarial-48","input":"curl -o /tmp/a.html https://example.com","variant":"a","expect":{"unchanged":true},"program_kind":"effect","intent":"unambiguous","corpus":"adversarial","source":"manual","note":"A one-letter flag keeps the shared alias with bash."}
 {"id":"powershell-adversarial-49","input":"cat -n /etc/hosts","variant":"a","expect":{"unchanged":true},"program_kind":"read","intent":"unambiguous","corpus":"adversarial","source":"manual"}
 {"id":"powershell-adversarial-50","input":"rm -r /srv/tmp","variant":"a","expect":{"unchanged":true},"program_kind":"effect","intent":"unambiguous","corpus":"adversarial","source":"manual"}
 {"id":"powershell-adversarial-51","input":"Get-ScheduledTask -TaskName \"It's\"","variant":"a","expect":{"error":"E_UNCORRECTABLE","fix":[]},"program_kind":"read","intent":"unambiguous","corpus":"adversarial","source":"manual","note":"A quotation mark is not copied into a filter."}

@@ -185,8 +185,9 @@ pub(crate) fn parse_with_repairs(
     variant: Variant,
     options: &ParseOptions,
     policy: &dyn RepairPolicy,
+    keep_escapes: bool,
 ) -> Result<Repaired, SyntaxError> {
-    let strict = match super::parse(text, variant, options) {
+    let strict = match super::parse_with_escapes(text, variant, options, keep_escapes) {
         Ok(document) => {
             return Ok(Repaired {
                 document,
@@ -205,6 +206,7 @@ pub(crate) fn parse_with_repairs(
         variant,
         options,
         policy,
+        keep_escapes,
         attempts: HashMap::new(),
         found: Vec::new(),
         keys: Vec::new(),
@@ -243,6 +245,7 @@ struct Search<'t, 'o> {
     variant: Variant,
     options: &'o ParseOptions,
     policy: &'o dyn RepairPolicy,
+    keep_escapes: bool,
     attempts: HashMap<usize, usize>,
     found: Vec<Repaired>,
     keys: Vec<serde_json::Value>,
@@ -288,10 +291,14 @@ impl Search<'_, '_> {
     /// lexer yields no tree and no failure, so every tree returned parses
     /// strictly from its source.
     fn attempt(&self, text: &str) -> Attempt {
-        if let Ok(document) = super::parse(text, self.variant, self.options) {
+        if let Ok(document) =
+            super::parse_with_escapes(text, self.variant, self.options, self.keep_escapes)
+        {
             return Attempt::Parsed(document);
         }
-        let Ok(mut parser) = Parser::new(text, self.variant, self.options, true) else {
+        let Ok(mut parser) =
+            Parser::with_escapes(text, self.variant, self.options, true, self.keep_escapes)
+        else {
             return Attempt::Unrepairable;
         };
         match super::parse_variant(&mut parser) {

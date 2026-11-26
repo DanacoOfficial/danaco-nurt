@@ -42,6 +42,7 @@ use nurt_contracts::error::{At, Candidate, Error, ErrorCode, Stage};
 use nurt_contracts::report::TextPosition;
 use nurt_syntax::parse::{
     ParseOptions, Repaired, Variant, parse, parse_keeping_escapes, parse_tolerant,
+    parse_tolerant_keeping_escapes,
 };
 use nurt_syntax::print::try_print;
 
@@ -202,17 +203,17 @@ fn read(
         catalog,
         is_habit: &is_habit,
     };
-    let strict = match parse(text, variant, &options) {
+    let keep_escapes = keep_escapes && correction.enabled;
+    let read_strict = if keep_escapes {
+        parse_keeping_escapes
+    } else {
+        parse
+    };
+    let strict = match read_strict(text, variant, &options) {
         Ok(document) if !correction.enabled || !has_habit_statement(text, &context, tables) => {
             return Ok(Front::strict(text, document));
         }
         Err(error) if !correction.enabled => return Err(error.into()),
-        Err(error) if keep_escapes && error.code == ErrorCode::Escape => {
-            match parse_keeping_escapes(text, variant, &options) {
-                Ok(document) => return Ok(Front::strict(text, document)),
-                Err(_) => Err(error),
-            }
-        }
         strict => strict,
     };
     let mut work = Work::new(text, normalize(text));
@@ -227,7 +228,12 @@ fn read(
     }
     work.rewrite(&context);
     let policy = LexicalRepairs::new(variant, catalog, &is_habit);
-    let Ok(repaired) = parse_tolerant(&work.text, variant, &options, &policy) else {
+    let read_tolerant = if keep_escapes {
+        parse_tolerant_keeping_escapes
+    } else {
+        parse_tolerant
+    };
+    let Ok(repaired) = read_tolerant(&work.text, variant, &options, &policy) else {
         return strict
             .map(|document| Front::strict(text, document))
             .map_err(Into::into);

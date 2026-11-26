@@ -361,3 +361,12 @@ fn keeps_valid_escapes_and_an_escaped_backslash_as_written() {
     let outcome = corrected("list \"/srv/a\\nb\"").unwrap();
     assert!(outcome.corrections.is_empty());
 }
+
+#[test]
+fn reads_an_unknown_escape_together_with_a_lexical_correction() {
+    let outcome = corrected("Search \"\\d+\" /srv/app").unwrap();
+    let found = rules(&outcome);
+    assert!(found.contains(&"L03".to_owned()), "{found:?}");
+    assert!(found.contains(&"L24".to_owned()), "{found:?}");
+    assert_eq!(outcome.canonical, "search /\\d+/ \"/srv/app\"");
+}
