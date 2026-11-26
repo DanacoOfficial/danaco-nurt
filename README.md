@@ -2,6 +2,11 @@
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="branding/svg/lockup-horizontal-color-dark.svg">
+  <img src="branding/svg/lockup-horizontal-color-light.svg" alt="Danaco Nurt" width="360">
+</picture>
+
 # Danaco Nurt
 
 Danaco Nurt is a command shell and language where every change can be undone,
