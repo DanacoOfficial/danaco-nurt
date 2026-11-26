@@ -293,7 +293,7 @@ fn position(text: Option<&str>, at: Position, unit: PositionUnit) -> TextPositio
             column: at.character.saturating_add(1),
         };
     };
-    let lines: Vec<&str> = text.split('\n').collect();
+    let lines = split_lines(text);
     let index = usize::try_from(at.line).unwrap_or(usize::MAX);
     let Some(line) = lines.get(index) else {
         let last = lines.last().copied().unwrap_or_default();
@@ -314,6 +314,16 @@ fn position(text: Option<&str>, at: Position, unit: PositionUnit) -> TextPositio
     TextPosition {
         line: at.line.saturating_add(1),
         column,
+    }
+}
+
+/// Lines of a text: split at line feeds; a text with carriage returns and no
+/// line feed is split at the carriage returns, as Nurt numbers its lines.
+pub(crate) fn split_lines(text: &str) -> Vec<&str> {
+    if !text.contains('\n') && text.contains('\r') {
+        text.split('\r').collect()
+    } else {
+        text.split('\n').collect()
     }
 }
 

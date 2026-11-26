@@ -201,3 +201,21 @@ fn malformed_answer_fails() {
     .unwrap_err();
     assert_eq!(error.kind, SemanticErrorKind::Failed);
 }
+
+#[test]
+fn text_with_carriage_returns_and_no_line_feed_is_split_at_the_carriage_returns() {
+    let edit = json!({"changes": {"file:///work/a.txt": [{"range": range(2, 1, 2), "newText": "x"}]}});
+    let text = only("/work/a.txt", "one\rtwo\rthree\r");
+    let change = workspace_change(&edit, PositionUnit::Utf16, &text).unwrap();
+    let first = texts(&change.changes)[0];
+    assert_eq!(first.range.start, at(3, 2));
+    assert_eq!(first.range.end, at(3, 3));
+}
+
+#[test]
+fn line_feeds_keep_priority_over_carriage_returns() {
+    let edit = json!({"changes": {"file:///work/a.txt": [{"range": range(1, 0, 1), "newText": "x"}]}});
+    let text = only("/work/a.txt", "a\rb\nc\r\nd\n");
+    let change = workspace_change(&edit, PositionUnit::Utf16, &text).unwrap();
+    assert_eq!(texts(&change.changes)[0].range.start, at(2, 1));
+}
