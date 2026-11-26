@@ -411,8 +411,31 @@ impl Escapes {
     }
 }
 
+/// Pattern of a regular expression written as a text: `\/` stands for `/`,
+/// read in one pass so that the pair `\\` is kept whole and the `/` after it
+/// stays an unescaped slash.
+fn slash_escapes_removed(content: &str) -> String {
+    let mut pattern = String::with_capacity(content.len());
+    let mut characters = content.chars();
+    while let Some(character) = characters.next() {
+        if character != '\\' {
+            pattern.push(character);
+            continue;
+        }
+        match characters.next() {
+            Some('/') => pattern.push('/'),
+            Some(escaped) => {
+                pattern.push('\\');
+                pattern.push(escaped);
+            }
+            None => pattern.push('\\'),
+        }
+    }
+    pattern
+}
+
 fn regex_fix(content: &str, written: &str, at: TextPosition) -> LiteralFix {
-    let pattern = content.replace("\\/", "/");
+    let pattern = slash_escapes_removed(content);
     let correction = Rule::L24.record(
         at,
         written,
@@ -634,6 +657,26 @@ mod tests {
                 },
                 CorrectionClass::Probable
             ))
+        );
+    }
+
+    #[test]
+    fn an_escaped_backslash_before_a_slash_is_kept_in_a_regex_pattern() {
+        assert_eq!(slash_escapes_removed(r"a\/b"), "a/b");
+        assert_eq!(slash_escapes_removed(r"a\\/b"), r"a\\/b");
+        assert_eq!(slash_escapes_removed(r"a\\\/b"), r"a\\/b");
+        assert_eq!(slash_escapes_removed(r"\d+\"), r"\d+\");
+        let fix = reinterpret_escapes(r#""\d\\/x""#, EscapePlace::Regex, AT)
+            .ok()
+            .flatten()
+            .map(|fix| fix.value);
+        assert_eq!(
+            fix,
+            Some(Expr::Regex {
+                v: r"\d\\/x".to_owned(),
+                flags: String::new(),
+                span: None
+            })
         );
     }
 
