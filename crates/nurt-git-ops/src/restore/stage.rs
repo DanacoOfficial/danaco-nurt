@@ -161,7 +161,7 @@ fn relative_path(root: &Path, path: &str) -> Result<BString> {
     if !given.is_absolute() {
         return Ok(BString::from(path));
     }
-    let relative = given.strip_prefix(root).map_err(|_| {
+    let outside = || {
         Error::new(
             ErrorCode::Arg,
             format!(
@@ -171,14 +171,16 @@ fn relative_path(root: &Path, path: &str) -> Result<BString> {
         )
         .with_problem("outside_repository")
         .with_found(path.to_owned())
-    })?;
-    let parts: Vec<String> = relative
-        .components()
-        .filter_map(|component| match component {
-            Component::Normal(part) => Some(part.to_string_lossy().into_owned()),
-            _ => None,
-        })
-        .collect();
+    };
+    let relative = given.strip_prefix(root).map_err(|_| outside())?;
+    let mut parts: Vec<String> = Vec::new();
+    for component in relative.components() {
+        match component {
+            Component::Normal(part) => parts.push(part.to_string_lossy().into_owned()),
+            Component::ParentDir if parts.pop().is_none() => return Err(outside()),
+            _ => {}
+        }
+    }
     Ok(if parts.is_empty() {
         BString::from(".")
     } else {
@@ -415,6 +417,17 @@ mod tests {
         assert_eq!(relative_path(root, "/r/repo").expect("root"), ".");
         assert_eq!(relative_path(root, "*.txt").expect("pattern"), "*.txt");
         let error = relative_path(root, "/elsewhere/a.txt").expect_err("outside");
+        assert_eq!(error.data().problem.as_deref(), Some("outside_repository"));
+    }
+
+    #[test]
+    fn parent_components_of_absolute_paths_are_resolved_not_dropped() {
+        let root = Path::new("/r/repo");
+        assert_eq!(
+            relative_path(root, "/r/repo/sub/../a.txt").expect("inside"),
+            "a.txt"
+        );
+        let error = relative_path(root, "/r/repo/../other/a.txt").expect_err("outside");
         assert_eq!(error.data().problem.as_deref(), Some("outside_repository"));
     }
 
