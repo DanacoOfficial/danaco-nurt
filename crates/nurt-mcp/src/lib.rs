@@ -171,3 +171,29 @@ fn runtime() -> Result<tokio::runtime::Runtime, McpError> {
         .enable_all()
         .build()?)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn options_start_without_a_session() {
+        assert_eq!(McpOptions::new().session, None);
+        assert_eq!(McpOptions::new(), McpOptions::default());
+    }
+
+    #[test]
+    fn a_session_is_set_from_any_text_and_the_last_one_wins() {
+        let options = McpOptions::new().with_session("s1");
+        assert_eq!(options.session.as_deref(), Some("s1"));
+        let options = options.with_session(String::from("\u{142}\u{f3}d\u{17a}"));
+        assert_eq!(options.session.as_deref(), Some("\u{142}\u{f3}d\u{17a}"));
+        assert_eq!(McpOptions::new().with_session("").session.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn the_runtime_of_a_blocking_entry_point_starts() {
+        let runtime = runtime().unwrap();
+        assert_eq!(runtime.block_on(async { 1 + 1 }), 2);
+    }
+}
