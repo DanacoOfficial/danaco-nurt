@@ -364,6 +364,7 @@ fn pop_removes_the_entry_after_a_clean_merge() {
     assert_eq!(git_file(&fx, "refs/stash"), None);
     assert_eq!(git_file(&fx, "logs/refs/stash"), None);
     assert_eq!(read(&fx, "a.txt").as_deref(), Some("a-work\n"));
+    assert_eq!(git_file(&fx, "AUTO_MERGE"), None);
 }
 
 #[test]
