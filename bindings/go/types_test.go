@@ -31,6 +31,25 @@ func TestTimeoutUsesLanguageDurationSyntax(t *testing.T) {
 	}
 }
 
+func TestResponseListsTheReportOfEveryPipeline(t *testing.T) {
+	var resp Response
+	text := `{"nurt":"1.0","report":{"nurt":"1.0","status":"ok","kind":"remove"},` +
+		`"reports":[{"nurt":"1.0","status":"ok","kind":"find"},{"nurt":"1.0","status":"ok","kind":"remove"}]}`
+	if err := json.Unmarshal([]byte(text), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Reports) != 2 || resp.Reports[0].Kind != "find" || resp.Reports[1].Kind != "remove" {
+		t.Fatalf("Reports = %+v, want the reports of find and remove", resp.Reports)
+	}
+	var single Response
+	if err := json.Unmarshal([]byte(`{"nurt":"1.0","report":{"nurt":"1.0","status":"ok","kind":"find"}}`), &single); err != nil {
+		t.Fatal(err)
+	}
+	if len(single.Reports) != 0 {
+		t.Fatalf("a single operation has no reports, got %+v", single.Reports)
+	}
+}
+
 func TestEmptyOptionsAreOmitted(t *testing.T) {
 	raw, err := json.Marshal(Options{})
 	if err != nil {

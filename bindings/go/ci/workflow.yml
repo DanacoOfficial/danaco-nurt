@@ -115,7 +115,8 @@ jobs:
         env:
           NURT_CONFORMANCE_BINDINGS: ${{ github.workspace }}/conformance/bindings
         run: |
-          export NURT_TEST_COMMAND="[\"$GITHUB_WORKSPACE/target/release/nurt-conformance\",\"fake-serve\",\"--cases\",\"$GITHUB_WORKSPACE/conformance/bindings\"]"
+          # The test sets NURT_CONFORMANCE_CASES and NURT_CONFORMANCE_CASE for each case.
+          export NURT_TEST_COMMAND="[\"$GITHUB_WORKSPACE/target/release/nurt-conformance\",\"serve\",\"--stdio\"]"
           go test -race -count=1 -run 'TestConformanceBindings' -v .
 
   library:

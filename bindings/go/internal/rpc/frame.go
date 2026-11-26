@@ -79,6 +79,9 @@ func (r *Reader) readLine() ([]byte, error) {
 		}
 		line = bytes.TrimSuffix(line, []byte("\n"))
 		line = bytes.TrimSuffix(line, []byte("\r"))
+		if len(line) > r.max {
+			return nil, ErrMessageTooLarge
+		}
 		if len(line) > 0 {
 			return line, nil
 		}
