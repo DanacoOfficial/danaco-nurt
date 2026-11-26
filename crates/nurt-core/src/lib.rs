@@ -34,6 +34,7 @@ pub mod registry;
 pub mod session;
 pub mod state;
 pub mod system;
+mod system_services;
 
 pub use engine::{CheckReport, Engine, EngineConfig, EngineInfo, ExecHandle, Formats};
 pub use error::EngineError;

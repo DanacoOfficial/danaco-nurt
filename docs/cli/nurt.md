@@ -427,7 +427,7 @@ nurt ext list
 
 ## `doctor`
 
-Checks the installation and prints a table of checks: version, platform, formats, features, state directory (created and removed probe file), configuration files, services, journal, language components and the subcommands that are not available. A part that the build cannot examine is listed as `unavailable`. The exit code is 1 when a check failed, otherwise 0.
+Checks the installation and prints a table of checks: version, platform, formats, features, state directory (created and removed probe file), configuration files, services (the shared services that the engine registered, by name), journal, language components and the subcommands that are not available. A part that the build cannot examine is listed as `unavailable`. The exit code is 1 when a check failed, otherwise 0.
 
 Syntax:
 

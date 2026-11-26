@@ -115,12 +115,12 @@ impl EventListener for Events {
         let time = Instant::from_unix_nanos(nanos);
         let event = match delivered.body {
             EventBody::Stage(event) => event,
-            EventBody::Lifecycle(Lifecycle::Finished { status }) => {
+            EventBody::Lifecycle(Lifecycle::Finished { status, error }) => {
                 let cancelled = self.cancelled.load(Ordering::Acquire)
                     && matches!(status, ReportStatus::Failed | ReportStatus::RolledBack);
                 Event::ExecFinished(ExecFinished {
                     status,
-                    error: cancelled.then_some(ErrorCode::Cancelled),
+                    error: error.or(cancelled.then_some(ErrorCode::Cancelled)),
                 })
             }
             body => {
@@ -356,6 +356,7 @@ mod tests {
             3,
             EventBody::Lifecycle(Lifecycle::Finished {
                 status: ReportStatus::Ok,
+                error: None,
             }),
         ));
         let messages: Vec<Value> = receiver.try_iter().collect();
@@ -387,7 +388,10 @@ mod tests {
             }
             events.deliver(delivered(
                 1,
-                EventBody::Lifecycle(Lifecycle::Finished { status }),
+                EventBody::Lifecycle(Lifecycle::Finished {
+                    status,
+                    error: None,
+                }),
             ));
             receiver.try_iter().next().unwrap()["params"]["error"].clone()
         };
@@ -434,6 +438,7 @@ mod tests {
             2,
             EventBody::Lifecycle(Lifecycle::Finished {
                 status: ReportStatus::Failed,
+                error: None,
             }),
         ));
     }
@@ -446,12 +451,14 @@ mod tests {
             2,
             EventBody::Lifecycle(Lifecycle::Finished {
                 status: ReportStatus::Failed,
+                error: Some(ErrorCode::Syntax),
             }),
         ));
         let message = receiver.try_recv().unwrap();
         let params = &message["params"];
         assert_eq!(params["t"], "exec.finished");
         assert_eq!(params["status"], "failed");
+        assert_eq!(params["error"], "E_SYNTAX");
         assert_eq!(params["request"], "r");
     }
 

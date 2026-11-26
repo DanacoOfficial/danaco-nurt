@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use nurt_contracts::env::{Clock, WallTime};
+use nurt_contracts::error::ErrorCode;
 use nurt_contracts::report::ReportStatus;
 use nurt_contracts::stage::{Event, EventSink};
 use serde::Serialize;
@@ -30,6 +31,9 @@ pub enum Lifecycle {
     Finished {
         /// Status of the report.
         status: ReportStatus,
+        /// Code of the error that ended the execution; `None` when the
+        /// report holds no error.
+        error: Option<ErrorCode>,
     },
 }
 
@@ -121,12 +125,12 @@ impl Sequencer {
 
     /// Completes the sequence: delivers `exec.started` and `exec.finished`
     /// unless the executor has delivered them.
-    pub(crate) fn close(&self, status: ReportStatus) {
+    pub(crate) fn close(&self, status: ReportStatus, error: Option<ErrorCode>) {
         if !self.started.swap(true, Ordering::SeqCst) {
             self.lifecycle(Lifecycle::Started);
         }
         if !self.finished.swap(true, Ordering::SeqCst) {
-            self.lifecycle(Lifecycle::Finished { status });
+            self.lifecycle(Lifecycle::Finished { status, error });
         }
     }
 
@@ -185,7 +189,7 @@ mod tests {
             message: "scanning".to_owned(),
             source: None,
         }));
-        sequencer.close(ReportStatus::Ok);
+        sequencer.close(ReportStatus::Ok, None);
         let events = listener.0.lock().unwrap().clone();
         let seqs: Vec<u64> = events.iter().map(|event| event.seq).collect();
         assert_eq!(seqs, vec![1, 2, 3]);
@@ -248,13 +252,14 @@ mod tests {
             Arc::new(VirtualClock::new()),
             "r2".to_owned(),
         );
-        sequencer.close(ReportStatus::Failed);
-        sequencer.close(ReportStatus::Ok);
+        sequencer.close(ReportStatus::Failed, Some(ErrorCode::Syntax));
+        sequencer.close(ReportStatus::Ok, None);
         let events = listener.0.lock().unwrap().clone();
         assert_eq!(events.len(), 2);
         let finished = serde_json::to_value(&events[1]).unwrap();
         assert_eq!(finished["t"], "exec.finished");
         assert_eq!(finished["status"], "failed");
+        assert_eq!(finished["error"], "E_SYNTAX");
     }
 
     #[test]
@@ -273,7 +278,7 @@ mod tests {
             status: ReportStatus::Ok,
             error: None,
         }));
-        sequencer.close(ReportStatus::Ok);
+        sequencer.close(ReportStatus::Ok, None);
         assert_eq!(listener.0.lock().unwrap().len(), 2);
     }
 }
