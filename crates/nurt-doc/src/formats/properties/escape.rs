@@ -40,6 +40,9 @@ pub(crate) fn unescape(raw: &[char]) -> Result<String, &'static str> {
                     .iter()
                     .collect();
                 i += UNICODE_DIGITS;
+                if !digits.chars().all(|digit| digit.is_ascii_hexdigit()) {
+                    return Err(MALFORMED);
+                }
                 u16::from_str_radix(&digits, 16).map_err(|_| MALFORMED)?
             }
             other => {
@@ -147,7 +150,9 @@ mod tests {
 
     #[test]
     fn rejects_malformed_unicode_escapes() {
-        for raw in [r"\u12", r"\uXYZW", r"\uD83Dx", r"\uDE00", r"\uD83D"] {
+        for raw in [
+            r"\u12", r"\uXYZW", r"\uD83Dx", r"\uDE00", r"\uD83D", r"\u+123", r"\u-123", r"\u 123",
+        ] {
             assert!(unescape(&chars(raw)).is_err(), "{raw}");
         }
     }

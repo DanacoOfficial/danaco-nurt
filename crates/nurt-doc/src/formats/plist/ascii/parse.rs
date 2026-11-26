@@ -382,6 +382,7 @@ impl Parser<'_> {
         let unit = self
             .text
             .get(self.position..self.position + UNICODE_ESCAPE_DIGITS)
+            .filter(|digits| digits.iter().all(u8::is_ascii_hexdigit))
             .and_then(|digits| std::str::from_utf8(digits).ok())
             .and_then(|digits| u32::from_str_radix(digits, 16).ok())
             .ok_or_else(|| self.error("\\U must be followed by four hexadecimal digits"))?;
@@ -582,6 +583,9 @@ mod tests {
             "<*BX>",
             "<*>",
             "\"\\U12\"",
+            "\"\\U+123\"",
+            "\"\\U-123\"",
+            "\"\\u 123\"",
             "#",
         ];
         for source in cases {
