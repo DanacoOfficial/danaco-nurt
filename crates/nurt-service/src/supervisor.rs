@@ -130,6 +130,12 @@ impl Supervisor {
         status.reason = reason;
     }
 
+    /// Records that the module could not be started at all, so that `status`
+    /// and the heartbeat report it as failed.
+    pub(crate) fn mark_failed(&self, reason: String) {
+        self.set(ModuleState::Failed, Some(reason));
+    }
+
     pub(crate) fn state(&self) -> ModuleState {
         self.status().state
     }
@@ -377,6 +383,19 @@ mod tests {
         }
 
         fn client_closed(&self, _client: &str) {}
+    }
+
+    #[test]
+    fn a_module_that_could_not_be_started_is_reported_as_failed() {
+        let supervisor = Supervisor::new(Arc::new(AlwaysFails {
+            starts: AtomicUsize::new(0),
+        }));
+        assert_eq!(supervisor.state(), ModuleState::Starting);
+        supervisor.mark_failed("cannot start the module thread: out of memory".to_owned());
+        assert_eq!(supervisor.state(), ModuleState::Failed);
+        let described = supervisor.describe();
+        assert_eq!(described["state"], "failed");
+        assert!(described["reason"].as_str().unwrap().contains("out of memory"));
     }
 
     #[test]
