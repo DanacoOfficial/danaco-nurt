@@ -743,12 +743,10 @@ fn plan_three_way_in(
         write_state(StateFile::MergeMsg, merge_msg.into_bytes()),
         write_state(StateFile::MergeMode, mode),
     ]);
-    // Git records the tree with conflict markers only for a conflicted merge.
-    if !outcome.is_clean() {
-        plan.apply
-            .state_files
-            .push(write_state(StateFile::AutoMerge, id_content(&outcome.tree)));
-    }
+    // A merge stopped before the commit records its result tree, clean or not.
+    plan.apply
+        .state_files
+        .push(write_state(StateFile::AutoMerge, id_content(&outcome.tree)));
     plan.merge_head = Some(sides.target.commit);
     plan.conflicts = outcome.conflicts;
     Ok(plan)

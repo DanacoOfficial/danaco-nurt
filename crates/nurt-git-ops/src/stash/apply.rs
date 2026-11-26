@@ -229,8 +229,9 @@ pub(crate) fn plan_apply(
         expect: context.index_expect().clone(),
         record_resolve_undo: false,
     });
-    // As in Git, the tree with conflict markers is kept for conflicts only.
-    if !clean {
+    // As in Git, the merge result is recorded for conflicted applies and for
+    // clean ones, except when the entry holds no tracked changes.
+    if !clean || base != work {
         change.plan.state_files.push(state_write(
             repo,
             AUTO_MERGE,
