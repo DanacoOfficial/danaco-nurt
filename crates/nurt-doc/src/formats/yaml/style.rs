@@ -88,7 +88,8 @@ impl Layout {
     }
 }
 
-fn text_unit(model: &YamlModel) -> usize {
+/// Indentation step of the text of `model`, or [`DEFAULT_INDENT`].
+pub(crate) fn text_unit(model: &YamlModel) -> usize {
     match StyleProbe::new(model.source().as_bytes()).indent_unit() {
         Some(Indent::Spaces(width)) if (1..=MAX_INDENT).contains(&width) => width,
         _ => DEFAULT_INDENT,

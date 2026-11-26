@@ -21,6 +21,15 @@ pub(super) fn to_sqlite(value: &Value, label: &str) -> Result<SqlValue> {
         Value::Null => SqlValue::Null,
         Value::Bool(flag) => SqlValue::Integer(i64::from(*flag)),
         Value::Int(integer) => SqlValue::Integer(*integer),
+        Value::Number(number) if number.is_nan() => {
+            return Err(Error::new(
+                ErrorCode::InvalidValue,
+                format!(
+                    "parameter {label} is not a number (NaN), which SQLite stores as NULL; pass null or text"
+                ),
+            )
+            .with_problem("parameter_value"));
+        }
         Value::Number(number) => SqlValue::Real(*number),
         Value::Text(text)
         | Value::Decimal(text)
@@ -133,6 +142,18 @@ mod tests {
         assert_eq!(
             from_sqlite(ValueRef::Text(&[0xff, 0x00])),
             Value::Bytes(Bytes::new(vec![0xff, 0x00]))
+        );
+    }
+
+    #[test]
+    fn rejects_nan_and_binds_infinity() {
+        let error = to_sqlite(&Value::Number(f64::NAN), "`:x`").unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        assert_eq!(error.problem.as_deref(), Some("parameter_value"));
+        assert!(error.message.contains("`:x`"), "{}", error.message);
+        assert_eq!(
+            to_sqlite(&Value::Number(f64::INFINITY), "1").ok(),
+            Some(SqlValue::Real(f64::INFINITY))
         );
     }
 

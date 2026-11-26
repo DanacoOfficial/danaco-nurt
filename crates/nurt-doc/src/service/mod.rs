@@ -34,7 +34,9 @@ use nurt_contracts::services::{
 use nurt_contracts::value::Record;
 
 use crate::model::{DocTree, Span};
-use crate::registry::{DocFormat, DocOptions, InputKind, Registry, TextEncoding, issue_of};
+use crate::registry::{
+    DocFormat, DocOptions, InputKind, Registry, TextEncoding, check_size, issue_of,
+};
 
 /// Length of the UTF-8 byte order mark.
 const UTF8_BOM_LEN: u64 = 3;
@@ -99,13 +101,14 @@ impl DocService for DocumentService {
         let tree = handle.tree();
         let text = handle.text();
         let several = tree.roots().len() > 1;
+        let offsets = FileOffsets::new(document.encoding, text);
         let items = handle
             .get(key)?
             .into_iter()
             .map(|resolved| {
                 let node = &tree[resolved.node];
                 let mut span = tree.text_span(text, node.value_span);
-                span.bytes = file_range(document.encoding, text, node.value_span);
+                span.bytes = offsets.range(text, node.value_span);
                 DocItem {
                     key: resolved.key,
                     value: tree.value_of(resolved.node, handle.semantics(), depth),
@@ -123,6 +126,7 @@ impl DocService for DocumentService {
 
     fn check_syntax(&self, bytes: &[u8], format: &DocFormatId) -> Result<Vec<SyntaxIssue>> {
         let doc_format = self.format(format)?;
+        check_size(bytes, &self.options)?;
         let text = match doc_format.input() {
             InputKind::Utf8Text => match TextEncoding::decode(bytes) {
                 Ok((_, text)) => text,
@@ -148,20 +152,117 @@ fn alias_name(tree: &DocTree, node: crate::model::NodeId) -> Option<String> {
     tree.get(target).and_then(|target| target.anchor.clone())
 }
 
-/// Byte range of `span` of the decoded `text` in the file.
-fn file_range(encoding: TextEncoding, text: &[u8], span: Span) -> ByteRange {
-    let offset = |at: usize| -> u64 {
+/// Bytes of the decoded text between two entries of the offset index.
+const OFFSET_BLOCK: usize = 1024;
+
+/// Conversion of offsets in the decoded text to offsets in the file.
+///
+/// For UTF-16 the index holds the number of code units before every
+/// [`OFFSET_BLOCK`]th byte of the text, so that an offset costs one block
+/// instead of a scan from the start of the text.
+struct FileOffsets {
+    encoding: TextEncoding,
+    units_before_block: Vec<u64>,
+}
+
+impl FileOffsets {
+    fn new(encoding: TextEncoding, text: &[u8]) -> Self {
+        let mut units_before_block = Vec::new();
+        if matches!(encoding, TextEncoding::Utf16Le | TextEncoding::Utf16Be) {
+            let mut total = 0_u64;
+            units_before_block.push(total);
+            for block in text.chunks(OFFSET_BLOCK) {
+                total += utf16_units(block);
+                units_before_block.push(total);
+            }
+        }
+        Self {
+            encoding,
+            units_before_block,
+        }
+    }
+
+    fn offset(&self, text: &[u8], at: usize) -> u64 {
+        let at = at.min(text.len());
         let at_u64 = u64::try_from(at).unwrap_or(u64::MAX);
-        match encoding {
+        match self.encoding {
             TextEncoding::Utf8 => at_u64,
             TextEncoding::Utf8Bom => at_u64 + UTF8_BOM_LEN,
             TextEncoding::Utf16Le | TextEncoding::Utf16Be => {
-                let units = String::from_utf8_lossy(text.get(..at).unwrap_or_default())
-                    .encode_utf16()
-                    .count();
-                UTF16_UNIT_LEN + UTF16_UNIT_LEN * u64::try_from(units).unwrap_or(u64::MAX / 2)
+                let block = at / OFFSET_BLOCK;
+                let before = self.units_before_block.get(block).copied().unwrap_or(0);
+                let start = block * OFFSET_BLOCK;
+                let units = before + utf16_units(text.get(start..at).unwrap_or_default());
+                UTF16_UNIT_LEN + UTF16_UNIT_LEN * units
             }
         }
-    };
-    ByteRange::new(offset(span.start), offset(span.end))
+    }
+
+    /// Byte range of `span` of the decoded `text` in the file.
+    fn range(&self, text: &[u8], span: Span) -> ByteRange {
+        ByteRange::new(self.offset(text, span.start), self.offset(text, span.end))
+    }
+}
+
+/// UTF-16 code units of the characters that start in `bytes`, a part of
+/// valid UTF-8 text: a leading byte of four bytes gives a surrogate pair,
+/// other leading bytes one unit, continuation bytes none.
+fn utf16_units(bytes: &[u8]) -> u64 {
+    bytes
+        .iter()
+        .map(|byte| match byte {
+            0x80..=0xBF => 0,
+            0xF0..=0xFF => 2,
+            _ => 1,
+        })
+        .sum()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn utf16_offsets_count_code_units_across_blocks() {
+        let text = format!("{}é😀x", "a".repeat(OFFSET_BLOCK * 3 - 2));
+        let offsets = FileOffsets::new(TextEncoding::Utf16Le, text.as_bytes());
+        let at = |needle: &str| text.find(needle).unwrap();
+        let expected = |prefix: &str| 2 + 2 * u64::try_from(prefix.encode_utf16().count()).unwrap();
+        for needle in ["é", "😀", "x"] {
+            let prefix = &text[..at(needle)];
+            assert_eq!(offsets.offset(text.as_bytes(), at(needle)), expected(prefix));
+        }
+        assert_eq!(offsets.offset(text.as_bytes(), text.len()), expected(&text));
+        assert_eq!(offsets.offset(text.as_bytes(), usize::MAX), expected(&text));
+    }
+
+    #[test]
+    fn utf8_offsets_account_for_the_byte_order_mark() {
+        let text = "zażółć";
+        let plain = FileOffsets::new(TextEncoding::Utf8, text.as_bytes());
+        let marked = FileOffsets::new(TextEncoding::Utf8Bom, text.as_bytes());
+        assert_eq!(plain.offset(text.as_bytes(), 3), 3);
+        assert_eq!(marked.offset(text.as_bytes(), 3), 6);
+        let range = marked.range(text.as_bytes(), Span::new(1, 2));
+        assert_eq!(range, ByteRange::new(4, 5));
+    }
+
+    #[test]
+    fn syntax_check_refuses_documents_above_the_size_limit() {
+        let options = DocOptions {
+            max_bytes: 3,
+            ..DocOptions::default()
+        };
+        let service = DocumentService::new(Registry::new(), options);
+        let error = service
+            .check_syntax(b"1234", &DocFormatId::JSON)
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::UnknownValue);
+        let service = DocumentService::new(Registry::builtin(), options);
+        let error = service
+            .check_syntax(b"1234", &DocFormatId::JSON)
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Limit);
+        assert!(service.check_syntax(b"123", &DocFormatId::JSON).unwrap().is_empty());
+    }
 }

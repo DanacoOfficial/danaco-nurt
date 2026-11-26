@@ -10,12 +10,14 @@
 
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
+use std::sync::OnceLock;
 
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::value::{Fields, Value};
 
 pub use nurt_contracts::config::YamlVersion;
 
+use super::anchor::Anchors;
 use super::scalar;
 use crate::constructs::{self, YAML_ALIAS_EXPANSION_LIMIT};
 
@@ -23,10 +25,173 @@ use crate::constructs::{self, YAML_ALIAS_EXPANSION_LIMIT};
 /// to a value, beyond the nodes written in the document.
 pub const ALIAS_EXPANSION_LIMIT: usize = 1_000_000;
 
-/// Deepest nesting of collections in an expanded value. Aliases nest
-/// collections beyond the depth of the text, and the expansion is recursive,
-/// so this bound keeps it within the stack of a thread.
-pub const MAX_EXPANSION_DEPTH: usize = 1024;
+/// Deepest nesting of collections in an expanded value; equal to the deepest
+/// nesting the parser accepts, so every document that parses can be read.
+/// Aliases nest collections beyond the depth of the text, and the consumers
+/// of a value (comparison, drop, serialization) recurse over its depth.
+pub const MAX_EXPANSION_DEPTH: usize = 512;
+
+/// What the expansion does next.
+enum Next {
+    /// Evaluate a node.
+    Enter(NodeId),
+    /// Hand a finished value to the collection that waits for it.
+    Deliver(Value),
+    /// Ask the collection on top of the stack for its next node.
+    Advance,
+}
+
+/// Evaluation of one node.
+enum Entered<'m> {
+    /// A scalar, or a node whose value an override replaces.
+    Value(Value),
+    /// A collection whose members are still to be evaluated.
+    Frame(Work<'m>),
+}
+
+/// Request of a collection on top of the stack.
+enum Advance {
+    /// Evaluate this node and deliver its value.
+    Enter(NodeId),
+    /// The collection is complete.
+    Done(Value),
+}
+
+/// What the value delivered to a mapping becomes.
+enum Awaiting {
+    Nothing,
+    /// The value of the entry with this key.
+    Key(String),
+    /// A mapping merged by a `<<` key.
+    Source,
+}
+
+/// Mappings merged by one `<<` key, in order of precedence.
+struct Merging {
+    sources: Vec<NodeId>,
+    next: usize,
+}
+
+/// A collection being expanded.
+enum Work<'m> {
+    List {
+        id: NodeId,
+        sequence: &'m SequenceNode,
+        next: usize,
+        items: Vec<Value>,
+    },
+    Map {
+        id: NodeId,
+        mapping: &'m MappingNode,
+        next: usize,
+        fields: Fields,
+        local: HashSet<String>,
+        merging: Option<Merging>,
+        awaiting: Awaiting,
+    },
+}
+
+impl Work<'_> {
+    fn id(&self) -> NodeId {
+        match self {
+            Self::List { id, .. } | Self::Map { id, .. } => *id,
+        }
+    }
+
+    /// Takes the value of the member that was requested last.
+    fn accept(&mut self, value: Value) {
+        match self {
+            Self::List { items, .. } => items.push(value),
+            Self::Map {
+                fields,
+                local,
+                awaiting,
+                ..
+            } => match std::mem::replace(awaiting, Awaiting::Nothing) {
+                Awaiting::Key(key) => {
+                    fields.insert(key, value);
+                }
+                Awaiting::Source => {
+                    if let Value::Map(inherited) = value {
+                        for (key, inherited_value) in inherited {
+                            if !local.contains(&key) && !fields.contains_key(&key) {
+                                fields.insert(key, inherited_value);
+                            }
+                        }
+                    }
+                }
+                Awaiting::Nothing => {}
+            },
+        }
+    }
+
+    /// The next node to evaluate, or the finished collection.
+    fn advance(&mut self, model: &YamlModel, overrides: &ValueOverrides) -> Advance {
+        match self {
+            Self::List {
+                id,
+                sequence,
+                next,
+                items,
+            } => loop {
+                let Some(item) = sequence.items.get(*next) else {
+                    if let Some(extra) = overrides.appended_items.get(id) {
+                        items.extend(extra.iter().cloned());
+                    }
+                    return Advance::Done(Value::List(std::mem::take(items)));
+                };
+                let index = *next;
+                *next += 1;
+                if !overrides.removed_items.contains(&(*id, index)) {
+                    return Advance::Enter(item.node);
+                }
+            },
+            Self::Map {
+                id,
+                mapping,
+                next,
+                fields,
+                merging,
+                awaiting,
+                ..
+            } => loop {
+                if let Some(state) = merging.as_mut() {
+                    if let Some(source) = state.sources.get(state.next).copied() {
+                        state.next += 1;
+                        *awaiting = Awaiting::Source;
+                        return Advance::Enter(source);
+                    }
+                    *merging = None;
+                }
+                let Some(entry) = mapping.entries.get(*next) else {
+                    if let Some(extra) = overrides.appended_entries.get(id) {
+                        for (key, value) in extra {
+                            // An appended key that overrides a merged key is
+                            // written last in the text, so it is read last.
+                            fields.shift_remove(key);
+                            fields.insert(key.clone(), value.clone());
+                        }
+                    }
+                    return Advance::Done(Value::Map(std::mem::take(fields)));
+                };
+                let index = *next;
+                *next += 1;
+                if overrides.removed_entries.contains(&(*id, index)) {
+                    continue;
+                }
+                if entry.merge {
+                    *merging = Some(Merging {
+                        sources: model.merge_sources(entry.value),
+                        next: 0,
+                    });
+                    continue;
+                }
+                *awaiting = Awaiting::Key(model.key_text(entry.key).unwrap_or_default());
+                return Advance::Enter(entry.value);
+            },
+        }
+    }
+}
 
 /// Identifier of a node in a [`YamlModel`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -399,9 +564,23 @@ impl ValueOverrides {
     }
 }
 
+/// Anchor resolution of a model, computed on first use. Two models are equal
+/// whether or not the resolution was computed.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct AnchorCache(OnceLock<Anchors>);
+
+impl PartialEq for AnchorCache {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for AnchorCache {}
+
 /// Lossless model of a YAML stream.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct YamlModel {
+    pub(crate) anchor_cache: AnchorCache,
     pub(crate) source: String,
     pub(crate) bom: bool,
     pub(crate) documents: Vec<YamlDocument>,
@@ -412,6 +591,12 @@ pub struct YamlModel {
 }
 
 impl YamlModel {
+    /// Targets of the aliases of the stream, resolved once per model.
+    #[must_use]
+    pub fn anchors(&self) -> &Anchors {
+        self.anchor_cache.0.get_or_init(|| Anchors::new(self))
+    }
+
     /// Source text, including a byte order mark.
     #[must_use]
     pub fn source(&self) -> &str {
@@ -675,125 +860,138 @@ impl YamlModel {
     /// As for [`YamlModel::value`].
     pub fn value_with(&self, id: NodeId, overrides: &ValueOverrides) -> Result<Value> {
         let mut budget = self.nodes.len().saturating_add(ALIAS_EXPANSION_LIMIT);
-        self.expand(id, overrides, &mut budget, &mut Vec::new())
+        self.expand(id, overrides, &mut budget)
     }
 
-    fn expand(
-        &self,
-        id: NodeId,
-        overrides: &ValueOverrides,
-        budget: &mut usize,
-        active: &mut Vec<NodeId>,
-    ) -> Result<Value> {
-        if *budget == 0 {
-            return Err(constructs::unsupported(
-                YAML_ALIAS_EXPANSION_LIMIT,
-                format!("the expansion of aliases adds more than {ALIAS_EXPANSION_LIMIT} nodes"),
-            ));
-        }
-        if active.len() >= MAX_EXPANSION_DEPTH {
-            return Err(constructs::unsupported(
-                YAML_ALIAS_EXPANSION_LIMIT,
-                format!(
-                    "the expansion of aliases nests collections deeper than {MAX_EXPANSION_DEPTH} levels"
-                ),
-            ));
-        }
-        *budget -= 1;
-        if let Some(value) = overrides.replaced.get(&id) {
-            return Ok(value.clone());
-        }
-        let node = self.node(id);
-        match &node.kind {
-            NodeKind::Scalar(content) => Ok(scalar::scalar_value(
-                content,
-                node.tag.as_ref(),
-                self.version_of(id),
-            )),
-            NodeKind::Alias(name) => {
-                let target = self.anchor_target(id).ok_or_else(|| {
-                    Error::new(
-                        ErrorCode::DocParse,
-                        format!("alias `*{}` refers to an undefined anchor", name.name),
-                    )
-                })?;
-                if active.contains(&target) {
-                    return Err(Error::new(
-                        ErrorCode::DocParse,
-                        format!("alias `*{}` refers to its own ancestor", name.name),
-                    ));
-                }
-                self.expand(target, overrides, budget, active)
-            }
-            NodeKind::Sequence(sequence) => {
-                active.push(id);
-                let mut items = Vec::with_capacity(sequence.items.len());
-                for (index, item) in sequence.items.iter().enumerate() {
-                    if !overrides.removed_items.contains(&(id, index)) {
-                        items.push(self.expand(item.node, overrides, budget, active)?);
+    /// Value of a node, computed with an explicit work stack: a collection
+    /// is a frame on the stack, so the depth of a document never reaches the
+    /// call stack.
+    fn expand(&self, root: NodeId, overrides: &ValueOverrides, budget: &mut usize) -> Result<Value> {
+        let mut stack: Vec<Work<'_>> = Vec::new();
+        let mut next = Next::Enter(root);
+        loop {
+            next = match next {
+                Next::Enter(node) => match self.enter(node, overrides, budget, &stack)? {
+                    Entered::Value(value) => Next::Deliver(value),
+                    Entered::Frame(frame) => {
+                        stack.push(frame);
+                        Next::Advance
                     }
-                }
-                if let Some(extra) = overrides.appended_items.get(&id) {
-                    items.extend(extra.iter().cloned());
-                }
-                active.pop();
-                Ok(Value::List(items))
-            }
-            NodeKind::Mapping(mapping) => {
-                active.push(id);
-                let fields = self.expand_mapping(id, mapping, overrides, budget, active)?;
-                active.pop();
-                Ok(Value::Map(fields))
-            }
-        }
-    }
-
-    fn expand_mapping(
-        &self,
-        id: NodeId,
-        mapping: &MappingNode,
-        overrides: &ValueOverrides,
-        budget: &mut usize,
-        active: &mut Vec<NodeId>,
-    ) -> Result<Fields> {
-        let live = |index: &usize| !overrides.removed_entries.contains(&(id, *index));
-        let local: HashSet<String> = mapping
-            .entries
-            .iter()
-            .enumerate()
-            .filter(|(index, entry)| live(index) && !entry.merge)
-            .filter_map(|(_, entry)| self.key_text(entry.key))
-            .collect();
-        let mut fields = Fields::new();
-        for (index, entry) in mapping.entries.iter().enumerate() {
-            if !live(&index) {
-                continue;
-            }
-            if entry.merge {
-                for source in self.merge_sources(entry.value) {
-                    if let Value::Map(inherited) = self.expand(source, overrides, budget, active)? {
-                        for (key, value) in inherited {
-                            if !local.contains(&key) && !fields.contains_key(&key) {
-                                fields.insert(key, value);
-                            }
+                },
+                Next::Deliver(value) => match stack.last_mut() {
+                    None => return Ok(value),
+                    Some(top) => {
+                        top.accept(value);
+                        Next::Advance
+                    }
+                },
+                Next::Advance => {
+                    let Some(top) = stack.last_mut() else {
+                        return Err(Error::new(
+                            ErrorCode::Internal,
+                            "the expansion of a value lost its work stack",
+                        ));
+                    };
+                    match top.advance(self, overrides) {
+                        Advance::Enter(node) => Next::Enter(node),
+                        Advance::Done(value) => {
+                            stack.pop();
+                            Next::Deliver(value)
                         }
                     }
                 }
-                continue;
-            }
-            let key = self.key_text(entry.key).unwrap_or_default();
-            let value = self.expand(entry.value, overrides, budget, active)?;
-            fields.insert(key, value);
+            };
         }
-        if let Some(extra) = overrides.appended_entries.get(&id) {
-            for (key, value) in extra {
-                // An appended key that overrides a merged key is written last
-                // in the text, so it is read last.
-                fields.shift_remove(key);
-                fields.insert(key.clone(), value.clone());
+    }
+
+    /// Value of a scalar or the frame of a collection; aliases are followed.
+    fn enter<'m>(
+        &'m self,
+        mut id: NodeId,
+        overrides: &ValueOverrides,
+        budget: &mut usize,
+        stack: &[Work<'m>],
+    ) -> Result<Entered<'m>> {
+        loop {
+            if *budget == 0 {
+                return Err(constructs::unsupported(
+                    YAML_ALIAS_EXPANSION_LIMIT,
+                    format!(
+                        "the expansion of aliases adds more than {ALIAS_EXPANSION_LIMIT} nodes"
+                    ),
+                ));
+            }
+            *budget -= 1;
+            if let Some(value) = overrides.replaced.get(&id) {
+                return Ok(Entered::Value(value.clone()));
+            }
+            let node = self.node(id);
+            let depth_error = || {
+                constructs::unsupported(
+                    YAML_ALIAS_EXPANSION_LIMIT,
+                    format!(
+                        "the expansion of aliases nests collections deeper than {MAX_EXPANSION_DEPTH} levels"
+                    ),
+                )
+            };
+            match &node.kind {
+                NodeKind::Scalar(content) => {
+                    return Ok(Entered::Value(scalar::scalar_value(
+                        content,
+                        node.tag.as_ref(),
+                        self.version_of(id),
+                    )));
+                }
+                NodeKind::Alias(name) => {
+                    let target = self.anchor_target(id).ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::DocParse,
+                            format!("alias `*{}` refers to an undefined anchor", name.name),
+                        )
+                    })?;
+                    if stack.iter().any(|work| work.id() == target) {
+                        return Err(Error::new(
+                            ErrorCode::DocParse,
+                            format!("alias `*{}` refers to its own ancestor", name.name),
+                        ));
+                    }
+                    id = target;
+                }
+                NodeKind::Sequence(sequence) => {
+                    if stack.len() >= MAX_EXPANSION_DEPTH {
+                        return Err(depth_error());
+                    }
+                    return Ok(Entered::Frame(Work::List {
+                        id,
+                        sequence,
+                        next: 0,
+                        items: Vec::with_capacity(sequence.items.len()),
+                    }));
+                }
+                NodeKind::Mapping(mapping) => {
+                    if stack.len() >= MAX_EXPANSION_DEPTH {
+                        return Err(depth_error());
+                    }
+                    let live = |index: &usize| !overrides.removed_entries.contains(&(id, *index));
+                    let local: HashSet<String> = mapping
+                        .entries
+                        .iter()
+                        .enumerate()
+                        .filter(|(index, entry)| live(index) && !entry.merge)
+                        .filter_map(|(_, entry)| self.key_text(entry.key))
+                        .collect();
+                    return Ok(Entered::Frame(Work::Map {
+                        id,
+                        mapping,
+                        next: 0,
+                        fields: Fields::new(),
+                        local,
+                        merging: None,
+                        awaiting: Awaiting::Nothing,
+                    }));
+                }
             }
         }
-        Ok(fields)
     }
 
     /// Mappings merged by a `<<` value: an alias or mapping, or a sequence of

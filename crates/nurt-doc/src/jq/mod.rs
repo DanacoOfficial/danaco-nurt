@@ -105,6 +105,24 @@ enum Outcome {
 
 type RawOutput = (Val, Option<Vec<Val>>);
 
+/// Result of running a filter as a path expression.
+enum PathRun {
+    /// Every result, with its path.
+    Done(Vec<RawOutput>),
+    /// The results before the error that ended the run.
+    Failed(Vec<RawOutput>, Error),
+    /// The filter is not a path expression.
+    NotPath,
+}
+
+/// Start of the message of the error of a non-path filter run as a path
+/// expression.
+const PATH_REFUSAL: &str = "invalid path expression";
+
+fn is_path_refusal(error: &jaq_core::Error<Val>) -> bool {
+    error.to_string().starts_with(PATH_REFUSAL)
+}
+
 impl Query {
     /// Compiles a filter in `jq` syntax.
     ///
@@ -175,9 +193,9 @@ impl Query {
     pub fn run(&self, input: &Value, ctx: &ExecCtx) -> QueryRun {
         let val = to_val(input);
         let (raw, error) = match self.run_paths(&val, ctx) {
-            Ok(Some(raw)) => (raw, None),
-            Ok(None) => self.run_values(val, ctx),
-            Err(error) => (Vec::new(), Some(error)),
+            PathRun::Done(raw) => (raw, None),
+            PathRun::Failed(raw, error) => (raw, Some(error)),
+            PathRun::NotPath => self.run_values(val, ctx),
         };
         let outputs = raw
             .into_iter()
@@ -186,8 +204,12 @@ impl Query {
         QueryRun { outputs, error }
     }
 
-    /// Runs the filter as a path expression; `None` when it is not one.
-    fn run_paths(&self, input: &Val, ctx: &ExecCtx) -> Result<Option<Vec<RawOutput>>> {
+    /// Runs the filter as a path expression.
+    ///
+    /// A failure that is not the refusal of a non-path filter ends the run
+    /// here, so that the filter is evaluated once; only a non-path filter is
+    /// evaluated again for its values.
+    fn run_paths(&self, input: &Val, ctx: &ExecCtx) -> PathRun {
         let runtime = Runtime::new(&self.filter.lut, ctx, true);
         let vars = Vars::new([runtime.environment()]);
         let start = (
@@ -200,17 +222,23 @@ impl Query {
                 Ok((value, path)) => {
                     let mut steps: Vec<Val> = path.iter().cloned().collect();
                     steps.reverse();
-                    push_bounded(&mut outputs, (value, Some(steps)), ctx)?;
+                    if let Err(error) = push_bounded(&mut outputs, (value, Some(steps)), ctx) {
+                        return PathRun::Failed(Vec::new(), error);
+                    }
                 }
                 Err(exn) => match outcome(exn, &runtime) {
                     Outcome::Halted => break,
-                    Outcome::Fatal(error) => return Err(error),
-                    Outcome::Failed(_) => return Ok(None),
+                    Outcome::Fatal(error) => return PathRun::Failed(Vec::new(), error),
+                    Outcome::Failed(error) if is_path_refusal(&error) => return PathRun::NotPath,
+                    Outcome::Failed(error) => {
+                        runtime.release_logs();
+                        return PathRun::Failed(outputs, runtime_error(error));
+                    }
                 },
             }
         }
         runtime.release_logs();
-        Ok(Some(outputs))
+        PathRun::Done(outputs)
     }
 
     fn run_values(&self, input: Val, ctx: &ExecCtx) -> (Vec<RawOutput>, Option<Error>) {
@@ -782,6 +810,75 @@ mod tests {
             })
             .collect();
         assert_eq!(messages, ["[\"DEBUG:\",1]", "[\"DEBUG:\",2]", "1"]);
+    }
+
+    #[test]
+    fn range_with_non_numeric_bounds_fails_before_any_value() {
+        for filter in [
+            r#"range("a"; 3)"#,
+            "range(0; null)",
+            r#"range(0; 3; "x")"#,
+            "range([1]; 3)",
+        ] {
+            let run = Query::compile(filter).unwrap().run(&Value::Null, &ctx());
+            assert!(run.outputs.is_empty(), "{filter}");
+            let error = run.error.unwrap_or_else(|| panic!("{filter} succeeded"));
+            assert!(
+                error.message.contains("Range bounds must be numeric"),
+                "{filter}: {}",
+                error.message
+            );
+        }
+        assert_eq!(values("[range(2; 4)]", "null"), vec![json("[2, 3]")]);
+    }
+
+    #[test]
+    fn generator_steps_are_limited_by_the_record_limit() {
+        let limits = Limits {
+            max_records: 10,
+            ..Limits::default()
+        };
+        let ctx = ExecCtx::builder(Arc::new(FixedClock), host())
+            .limits(limits)
+            .build();
+        for filter in ["[range(100)] | length", "[limit(50; repeat(1))] | length"] {
+            let run = Query::compile(filter).unwrap().run(&Value::Null, &ctx);
+            assert_eq!(
+                run.error.map(|error| error.code),
+                Some(ErrorCode::Limit),
+                "{filter}"
+            );
+        }
+        let run = Query::compile("[range(5)] | length")
+            .unwrap()
+            .run(&Value::Null, &ctx);
+        assert!(run.error.is_none());
+    }
+
+    #[test]
+    fn runtime_error_of_a_path_filter_keeps_the_paths_of_earlier_results() {
+        let run = Query::compile(".[] | .a")
+            .unwrap()
+            .run(&json(r#"[{"a": 1}, "x"]"#), &ctx());
+        assert_eq!(
+            run.outputs[0].path,
+            Some(vec![PathStep::Index(0), key("a")])
+        );
+        assert!(run.error.is_some());
+    }
+
+    #[test]
+    fn non_path_filter_is_evaluated_for_its_values() {
+        let events = Arc::new(Events::default());
+        let ctx = ExecCtx::builder(Arc::new(FixedClock), host())
+            .events(events.clone())
+            .build();
+        let run = Query::compile(".a + 1 | debug")
+            .unwrap()
+            .run(&json(r#"{"a": 1}"#), &ctx);
+        assert_eq!(run.outputs[0].value, Value::Int(2));
+        assert!(run.outputs[0].path.is_none());
+        assert_eq!(events.0.lock().unwrap().len(), 1);
     }
 
     #[test]

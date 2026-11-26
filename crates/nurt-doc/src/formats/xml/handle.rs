@@ -419,9 +419,34 @@ impl DocFormat for XmlFormat {
     fn check_syntax(&self, content: &[u8], options: &DocOptions) -> Vec<SyntaxIssue> {
         match self.open(content.to_vec(), options) {
             Ok(_) => Vec::new(),
-            Err(error) => vec![syntax_issue(&error)],
+            Err(error) => vec![syntax_issue(&in_file_bytes(error, content))],
         }
     }
+}
+
+/// `error` with the byte of its location counted in the bytes of the file.
+///
+/// Parse errors locate the decoded text, which has no byte order mark and,
+/// for encodings other than UTF-8, other byte lengths than the file. Errors
+/// of detecting and decoding the file already count file bytes.
+fn in_file_bytes(error: Error, content: &[u8]) -> Error {
+    let Ok(encoding) = XmlEncoding::detect(content) else {
+        return error;
+    };
+    let Ok(text) = encoding.decode(content, Some(&CODEC)) else {
+        return error;
+    };
+    let Some(mut location) = error.data().location.clone() else {
+        return error;
+    };
+    let Some(byte) = location.byte.and_then(|byte| usize::try_from(byte).ok()) else {
+        return error;
+    };
+    let Ok(offsets) = ByteOffsets::new(&encoding, &text) else {
+        return error;
+    };
+    location.byte = u64::try_from(offsets.byte(byte)).ok();
+    error.with_location(location)
 }
 
 /// Syntax issue of an error located by [`Error::with_location`].
@@ -2123,6 +2148,37 @@ mod tests {
         let error = handle.remove(&key("a.b")).unwrap_err();
         assert_eq!(error.found.as_deref(), Some(DOC_SEMANTIC_MISMATCH));
         assert_eq!(text(&handle), "<a>x<b/>y</a>");
+    }
+
+    fn error_byte(bytes: &[u8]) -> u64 {
+        let error = XmlHandle::open(bytes.to_vec()).unwrap_err();
+        error.data().location.as_ref().and_then(|location| location.byte).unwrap()
+    }
+
+    #[test]
+    fn syntax_issue_counts_bytes_of_the_file_after_a_byte_order_mark() {
+        let plain = b"<a><b></a>".to_vec();
+        let marked = [UTF8_BOM, plain.as_slice()].concat();
+        let issues = XmlFormat.check_syntax(&marked, &DocOptions::default());
+        let expected = error_byte(&plain) + 3;
+        assert_eq!(issues[0].span.bytes, ByteRange::new(expected, expected));
+        let issues = XmlFormat.check_syntax(&plain, &DocOptions::default());
+        let expected = error_byte(&plain);
+        assert_eq!(issues[0].span.bytes, ByteRange::new(expected, expected));
+    }
+
+    #[test]
+    fn syntax_issue_counts_bytes_of_the_file_in_a_single_byte_encoding() {
+        let bytes = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><a>\xE9<b></a>".to_vec();
+        let in_text = error_byte(&bytes);
+        let issues = XmlFormat.check_syntax(&bytes, &DocOptions::default());
+        assert_eq!(issues[0].span.bytes, ByteRange::new(in_text - 1, in_text - 1));
+    }
+
+    #[test]
+    fn syntax_issue_of_a_decoding_error_keeps_the_offset_of_the_file() {
+        let issues = XmlFormat.check_syntax(b"<a>\xFF</a>", &DocOptions::default());
+        assert_eq!(issues[0].span.bytes, ByteRange::new(3, 3));
     }
 
     #[test]

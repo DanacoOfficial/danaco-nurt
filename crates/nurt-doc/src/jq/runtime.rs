@@ -18,7 +18,7 @@ use jaq_core::load::parse::Def;
 use jaq_core::native::{Fun, v};
 use jaq_core::{DataT, Exn, Lut, Native, ValXs};
 use jaq_json::{Map, Val};
-use nurt_contracts::error::Error;
+use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::stage::{Event, ExecCtx, LogEvent, LogLevel};
 
 /// Generator steps between two checks of cancellation and the deadline.
@@ -102,6 +102,8 @@ impl DataT for Doc {
 pub(crate) struct Runtime<'a> {
     lut: &'a Lut<Doc>,
     ctx: &'a ExecCtx,
+    /// Generator steps allowed in one run, from `limits.max_records`.
+    max_steps: u64,
     state: RefCell<RunState>,
 }
 
@@ -129,6 +131,7 @@ impl<'a> Runtime<'a> {
         Self {
             lut,
             ctx,
+            max_steps: ctx.limits().max_records,
             state: RefCell::new(state),
         }
     }
@@ -170,6 +173,15 @@ impl<'a> Runtime<'a> {
         let due = {
             let mut state = self.state.borrow_mut();
             state.steps += 1;
+            if state.stopped.is_none() && state.steps > self.max_steps {
+                state.stopped = Some(Error::new(
+                    ErrorCode::Limit,
+                    format!(
+                        "the filter generated more than {} values; narrow the filter",
+                        self.max_steps
+                    ),
+                ));
+            }
             state.stopped.is_some() || state.steps.is_multiple_of(CHECK_INTERVAL)
         };
         if !due {
@@ -323,6 +335,11 @@ fn stderr_text(value: &Val) -> String {
 /// before `$to`; with a step of zero it is endless unless `$from == $to`.
 fn range<'a>(runtime: &&'a Runtime<'a>, from: Val, to: Val, by: Val) -> ValXs<'a, Val> {
     let runtime: &'a Runtime<'a> = runtime;
+    if [&from, &to, &by].iter().any(|bound| !matches!(bound, Val::Num(_))) {
+        return box_once(Err(Exn::from(jaq_core::Error::<Val>::str(
+            "Range bounds must be numeric",
+        ))));
+    }
     let direction = by.cmp(&Val::from(0_usize));
     let mut next = Some(from);
     Box::new(std::iter::from_fn(move || {
