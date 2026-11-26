@@ -643,6 +643,15 @@ impl Image {
                     return;
                 }
                 let bytes = torn.map_or(data.as_slice(), |prefix| &data[..prefix.min(data.len())]);
+                // Model of ext4 with `data=ordered`: the size of a file after
+                // a crash is the one of the last persisted inode, and bytes
+                // beyond it are not visible. The size grows only with data
+                // that became durable, so a write that persisted no byte, as
+                // a write torn at a sector border before its first sector,
+                // changes neither the size nor the times.
+                if bytes.is_empty() {
+                    return;
+                }
                 self.set_data(*id, |content| write_at(content, *offset, bytes));
                 self.touch(*id, *time, seq);
             }
@@ -2482,6 +2491,42 @@ mod tests {
             },
             unsynced_dirs: Vec::new(),
         }
+    }
+
+    #[test]
+    fn a_torn_write_grows_the_file_only_by_the_bytes_that_became_durable() {
+        let id = 2;
+        let file = Node {
+            body: Body::File(Arc::new(vec![7; 4])),
+            meta: Meta::new(0o644, 100),
+            nlink: 0,
+            stamp: 0,
+        };
+        let inits = HashMap::from([(id, file)]);
+        let write = Pending {
+            seq: 1,
+            op: Op::Write {
+                id,
+                offset: 10,
+                data: vec![1; 8],
+                time: 900,
+            },
+            unsynced_dirs: Vec::new(),
+        };
+        let length = |image: &Image| match &image.nodes[&id].body {
+            Body::File(data) => data.len(),
+            _ => usize::MAX,
+        };
+        let mut none = Image::new(0);
+        none.apply(&write, &inits, Some(0));
+        assert_eq!(length(&none), 4);
+        assert_eq!(none.nodes[&id].meta.modified_ns, 100);
+        let mut part = Image::new(0);
+        part.apply(&write, &inits, Some(3));
+        assert_eq!(length(&part), 13);
+        let mut whole = Image::new(0);
+        whole.apply(&write, &inits, None);
+        assert_eq!(length(&whole), 18);
     }
 
     #[test]

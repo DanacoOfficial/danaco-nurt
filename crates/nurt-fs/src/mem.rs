@@ -960,9 +960,9 @@ impl FsWrite for MemFs {
 
     fn open_in_place(&self, _scope: &TxScope, path: &AbsPath) -> FsResult<Box<dyn WriteHandle>> {
         let (vol, ino) = self.run("open_in_place", path, |state, at| {
-            let loc = state.locate(path.as_path(), true, at)?;
+            let loc = state.locate(path.as_path(), false, at)?;
             let ino = loc.existing(at)?;
-            state.require_file(loc.vol, ino, at)?;
+            state.require_file_not_link(loc.vol, ino, at)?;
             state.writable(loc.vol, at)?;
             state.copy_up(loc.vol, ino, at)?;
             state.open(loc.vol, ino);
@@ -1148,9 +1148,9 @@ impl FsWrite for MemFs {
 
     fn truncate(&self, _scope: &TxScope, path: &AbsPath, length: u64) -> FsResult<()> {
         self.run("truncate", path, |state, at| {
-            let loc = state.locate(path.as_path(), true, at)?;
+            let loc = state.locate(path.as_path(), false, at)?;
             let ino = loc.existing(at)?;
-            state.require_file(loc.vol, ino, at)?;
+            state.require_file_not_link(loc.vol, ino, at)?;
             state.writable(loc.vol, at)?;
             state.copy_up(loc.vol, ino, at)?;
             state.edit(
@@ -1763,6 +1763,15 @@ impl State {
             Body::Dir(_) => Err(at.err(FsErrorKind::IsADirectory)),
             Body::Link { .. } => Err(at.err(FsErrorKind::InvalidPath)),
         }
+    }
+
+    /// Like `require_file`, but a symbolic link ends with `Loop`, as the
+    /// system back ends refuse it with `O_NOFOLLOW` or `FILE_FLAG_OPEN_REPARSE_POINT`.
+    fn require_file_not_link(&self, vol: usize, ino: u64, at: At<'_>) -> FsResult<()> {
+        if matches!(self.node(vol, ino, at)?.body, Body::Link { .. }) {
+            return Err(at.err(FsErrorKind::Loop));
+        }
+        self.require_file(vol, ino, at)
     }
 
     fn require_streams(&self, vol: usize, at: At<'_>) -> FsResult<()> {
