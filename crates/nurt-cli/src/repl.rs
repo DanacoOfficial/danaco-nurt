@@ -617,7 +617,7 @@ mod tests {
         let painted = coloured_banner(&banner, true, Theme::new(false));
         let lines: Vec<&str> = painted.lines().collect();
         assert!(
-            lines[0].starts_with("\x1b[38;5;250m _   _  _   _ \x1b[38;5;179m"),
+            lines[0].starts_with("\x1b[38;5;251m _   _  _   _ \x1b[38;5;179m"),
             "{}",
             lines[0]
         );
