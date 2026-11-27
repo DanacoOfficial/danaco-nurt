@@ -159,6 +159,35 @@ class CheckCommitsTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("longer than 72", result.stderr)
 
+    def allow_file(self, content):
+        path = Path(self.temp.name) / "commits-allow.txt"
+        path.write_text(content, encoding="utf-8")
+        self.environment["NURT_COMMITS_ALLOW_FILE"] = str(path)
+
+    def head(self):
+        return self.git("rev-parse", "HEAD").stdout.strip()
+
+    def test_skips_a_commit_listed_in_the_allow_list(self):
+        self.commit("fix(nonexistent): correct the example", signed=False)
+        self.allow_file(f"# published history\n{self.head()} published before the check\n")
+        result = self.check("HEAD~1..HEAD")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_checks_a_commit_that_is_not_in_the_allow_list(self):
+        self.commit("fix(nonexistent): correct the example")
+        listed = self.head()
+        self.commit("fix(nonexistent): correct the example again")
+        self.allow_file(f"{listed}\n")
+        result = self.check("HEAD~2..HEAD")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr.count("unknown scope"), 1)
+
+    def test_ignores_an_abbreviated_identifier_in_the_allow_list(self):
+        self.commit("fix(nonexistent): correct the example")
+        self.allow_file(f"{self.head()[:12]}\n")
+        result = self.check("HEAD~1..HEAD")
+        self.assertEqual(result.returncode, 1)
+
 
 class WorkflowCopiesTest(unittest.TestCase):
     def test_installed_workflows_match_their_sources_in_the_packaging_directory(self):

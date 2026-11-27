@@ -20,6 +20,15 @@
 # Usage: tools/ci/check-commits.sh <revision-range>
 # Example: tools/ci/check-commits.sh origin/main..HEAD
 #
+# Environment:
+#   NURT_COMMITS_ALLOW_FILE   list of already published commits that are
+#                             exempt from the checks because their history is
+#                             not rewritten (default tools/ci/commits-allow.txt).
+#                             Each line is a full 40-character commit
+#                             identifier, optionally followed by a comment;
+#                             lines starting with "#" and empty lines are
+#                             ignored.
+#
 # Allowed scopes are the names of the crates in "crates/" without the "nurt-"
 # prefix and the repository areas listed in AREAS below.
 #
@@ -40,6 +49,12 @@ range=$1
 root=$(git rev-parse --show-toplevel)
 cd "$root"
 
+allow_file=${NURT_COMMITS_ALLOW_FILE:-tools/ci/commits-allow.txt}
+allowed=" "
+if [ -f "$allow_file" ]; then
+  allowed=" $(sed -nE 's/^([0-9a-f]{40})([[:space:]].*)?$/\1/p' "$allow_file" | tr '\n' ' ')"
+fi
+
 scopes=" $AREAS "
 for dir in crates/*/; do
   [ -d "$dir" ] || continue
@@ -55,6 +70,9 @@ fail() {
 
 commits=$(git rev-list --no-merges --reverse "$range")
 for commit in $commits; do
+  case "$allowed" in
+    *" $commit "*) continue ;;
+  esac
   short=$(git rev-parse --short "$commit")
   subject=$(git log -1 --format=%s "$commit")
   author_email=$(git log -1 --format=%ae "$commit")

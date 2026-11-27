@@ -16,6 +16,11 @@ and every commit is signed off under the Developer Certificate of Origin 1.1
 (see [CONTRIBUTING.md](../../CONTRIBUTING.md)). Pull requests are checked by
 `tools/ci/check-commits.sh`.
 
+Commits that were published before these checks applied to them are listed
+with their full 40-character identifiers in `tools/ci/commits-allow.txt` and
+are skipped by the script, because published history is not rewritten. A new
+commit is never added to that list.
+
 ## Format
 
 ```text
