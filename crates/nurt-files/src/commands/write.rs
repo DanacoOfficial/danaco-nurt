@@ -37,8 +37,8 @@ use std::sync::Arc;
 use nurt_contracts::config;
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::{
-    AbsPath, Durability, FileKind, FileMeta, Follow, Fs, FsErrorKind, ProviderValue, RegistryKind,
-    WriteHandle,
+    AbsPath, Durability, Etag, FileKind, FileMeta, Follow, Fs, FsErrorKind, ProviderValue,
+    RegistryKind, WriteHandle,
 };
 use nurt_contracts::journal::{
     Applied, Expect, FileOp, Mutation, MutationTx, Preserved, TargetAction, TargetPath, TargetSpec,
@@ -1252,10 +1252,10 @@ fn mode_conflict(name: &str, mode: Mode) -> Error {
     )
 }
 
-fn existing_spec(path: &AbsPath, action: TargetAction, meta: &FileMeta) -> TargetSpec {
+fn existing_spec(path: &AbsPath, action: TargetAction, meta: &FileMeta, etag: Etag) -> TargetSpec {
     TargetSpec {
         size_hint: Some(meta.size),
-        ..fs_target(path, action, Expect::Etag(meta.etag()))
+        ..fs_target(path, action, Expect::Etag(etag))
     }
 }
 
@@ -1528,7 +1528,7 @@ impl<'c> Planner<'c> {
         self.preserved_notes(file);
         self.change_notes(file, &form);
         self.replaced(&file.path, file.size, byte_len(&bytes), overwrite);
-        let target = existing_spec(&file.path, TargetAction::Modify, &file.meta);
+        let target = existing_spec(&file.path, TargetAction::Modify, &file.meta, file.etag());
         let mut change = planned_change(&target);
         describe_text(&mut change, Some(file), &form.encoding, &bytes);
         self.push(target, Work::Apply(Mutation::WriteBytes(bytes)), change);
@@ -1549,7 +1549,7 @@ impl<'c> Planner<'c> {
         };
         let bytes = encode_text(&rendered, &encoding, &file.path)?;
         self.preserved_notes(file);
-        let target = existing_spec(&file.path, TargetAction::Append, &file.meta);
+        let target = existing_spec(&file.path, TargetAction::Append, &file.meta, file.etag());
         let mut change = planned_change(&target);
         describe_text(&mut change, Some(file), &encoding, &bytes);
         let added = line_ending(&bytes, &encoding);
@@ -1670,7 +1670,7 @@ impl<'c> Planner<'c> {
             self.note(Notable::Unchanged, path, None);
             return;
         }
-        let target = existing_spec(path, TargetAction::Append, meta);
+        let target = existing_spec(path, TargetAction::Append, meta, meta.etag());
         let mut change = planned_change(&target);
         change.size_after = Some(Size::from_bytes(meta.size.saturating_add(byte_len(&bytes))));
         self.push(target, Work::Apply(Mutation::AppendBytes(bytes)), change);
@@ -1688,7 +1688,7 @@ impl<'c> Planner<'c> {
             return Ok(());
         }
         self.replaced(path, meta.size, byte_len(&bytes), overwrite);
-        let target = existing_spec(path, TargetAction::Modify, meta);
+        let target = existing_spec(path, TargetAction::Modify, meta, meta.etag());
         let mut change = planned_change(&target);
         change.size_after = Some(Size::from_bytes(byte_len(&bytes)));
         self.push(target, Work::Apply(Mutation::WriteBytes(bytes)), change);
@@ -1737,7 +1737,7 @@ impl<'c> Planner<'c> {
                 Err(special_error(&target.path, OFFSET))
             }
             Some(meta) => {
-                let spec = existing_spec(&target.path, TargetAction::Modify, meta);
+                let spec = existing_spec(&target.path, TargetAction::Modify, meta, meta.etag());
                 let mut change = planned_change(&spec);
                 change.size_after = Some(Size::from_bytes(end.max(meta.size)));
                 self.push(
@@ -1775,7 +1775,7 @@ impl<'c> Planner<'c> {
             }
             Some(meta) => {
                 self.size_notes(&target.path, meta.size, length);
-                let spec = existing_spec(&target.path, TargetAction::Truncate, meta);
+                let spec = existing_spec(&target.path, TargetAction::Truncate, meta, meta.etag());
                 let mut change = planned_change(&spec);
                 change.size_after = Some(Size::from_bytes(length));
                 self.push(spec, Work::Apply(Mutation::SetLength(length)), change);

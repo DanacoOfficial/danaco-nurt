@@ -348,7 +348,7 @@ impl<'c> Planner<'c> {
         let ctx = self.ctx;
         let fs = ctx.require_fs()?;
         match observe(fs, &path)? {
-            Observed::Present(meta) => self.existing(&path, &meta),
+            Observed::Present(meta, _) => self.existing(&path, &meta),
             Observed::Absent => self.absent(fs, path),
         }
     }

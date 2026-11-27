@@ -114,14 +114,14 @@ pub enum Observed {
     Absent,
     /// The target exists; metadata of the entry itself, a link in the last
     /// component not followed.
-    Present(FileMeta),
+    Present(FileMeta, Option<ContentHash>),
 }
 
 impl Observed {
     /// Returns `true` when the target exists.
     #[must_use]
     pub fn exists(&self) -> bool {
-        matches!(self, Self::Present(_))
+        matches!(self, Self::Present(..))
     }
 
     /// Metadata of an existing target.
@@ -129,14 +129,20 @@ impl Observed {
     pub fn meta(&self) -> Option<&FileMeta> {
         match self {
             Self::Absent => None,
-            Self::Present(meta) => Some(meta),
+            Self::Present(meta, _) => Some(meta),
         }
     }
 
     /// Entity tag of an existing target.
     #[must_use]
     pub fn etag(&self) -> Option<Etag> {
-        self.meta().map(FileMeta::etag)
+        match self {
+            Self::Absent => None,
+            Self::Present(meta, hash) => Some(Etag {
+                hash: *hash,
+                ..meta.etag()
+            }),
+        }
     }
 
     /// State the journal checks immediately before the change:
@@ -146,7 +152,7 @@ impl Observed {
     pub fn expect(&self) -> Expect {
         match self {
             Self::Absent => Expect::Absent,
-            Self::Present(meta) => Expect::Etag(meta.etag()),
+            Self::Present(..) => self.etag().map_or(Expect::Absent, Expect::Etag),
         }
     }
 }
@@ -160,7 +166,7 @@ impl Observed {
 /// missing entry, for example `E_PERMISSION` or `E_IO`.
 pub fn observe(fs: &dyn Fs, path: &AbsPath) -> Result<Observed> {
     match fs.metadata(path, Follow::NoFollow) {
-        Ok(meta) => Ok(Observed::Present(meta)),
+        Ok(meta) => Ok(Observed::Present(meta, None)),
         Err(error) if error.kind == FsErrorKind::NotFound => Ok(Observed::Absent),
         Err(error) => Err(error.into()),
     }

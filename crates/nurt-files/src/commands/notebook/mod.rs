@@ -22,7 +22,7 @@ use std::ops::{ControlFlow, Range as Span};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use nurt_contracts::error::{Error, ErrorCode, Location, Result};
-use nurt_contracts::fs::{AbsPath, Etag, FileMeta, Follow, Fs};
+use nurt_contracts::fs::{AbsPath, ContentHash, Etag, FileMeta, Follow, Fs};
 use nurt_contracts::journal::MutationTx;
 use nurt_contracts::record::{Cell, CellType, Change, Effect, EffectStatus};
 use nurt_contracts::stage::{
@@ -86,7 +86,15 @@ pub(crate) struct LoadedNotebook {
 impl LoadedNotebook {
     /// Entity tag of the file as read.
     pub(crate) fn etag(&self) -> Etag {
-        self.meta.etag()
+        Etag {
+            hash: Some(self.hash()),
+            ..self.meta.etag()
+        }
+    }
+
+    /// SHA-256 hash of the file as read.
+    pub(crate) fn hash(&self) -> ContentHash {
+        nurt_text::hash::content_hash(&self.bytes)
     }
 
     /// Size of the file as read, in bytes.

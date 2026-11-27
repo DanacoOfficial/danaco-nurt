@@ -70,3 +70,15 @@ pub fn fs_target(path: &AbsPath, action: TargetAction) -> TargetSpec {
         size_hint: None,
     }
 }
+
+/// Modification time, in nanoseconds since the Unix epoch, that is racy
+/// (`nurt_contracts::fs::RACY_WINDOW`) however long the test runs: one hour
+/// after the present.
+#[must_use]
+pub fn racy_time_ns() -> i64 {
+    let since = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        + std::time::Duration::from_secs(3600);
+    i64::try_from(since.as_nanos()).unwrap_or(i64::MAX)
+}

@@ -267,7 +267,7 @@ impl Source {
     /// entry.
     pub(crate) fn require(&self, fs: &dyn Fs) -> Result<FileMeta> {
         match self.observe(fs)? {
-            Observed::Present(meta) => Ok(meta),
+            Observed::Present(meta, _) => Ok(meta),
             Observed::Absent => Err(not_found_error(&self.path)),
         }
     }
@@ -593,7 +593,7 @@ impl<'a> Placer<'a> {
         {
             return Ok(Occupant::Free);
         }
-        let Observed::Present(meta) = observe(self.fs, destination)? else {
+        let Observed::Present(meta, _) = observe(self.fs, destination)? else {
             return Ok(Occupant::Free);
         };
         if meta.file_id == source.file_id {

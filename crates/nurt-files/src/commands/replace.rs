@@ -1093,7 +1093,7 @@ impl<'o> Run<'o> {
         if let Some(if_match) = if_match {
             check_if_match(
                 &target.path,
-                &Observed::Present(file.meta.clone()),
+                &Observed::Present(file.meta.clone(), Some(file.hash)),
                 if_match.expected(&target.path),
             )?;
         }

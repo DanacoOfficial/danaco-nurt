@@ -90,6 +90,15 @@ their own version numbers, described in the specification.
     files up to `run.preimage_copy_max` (64 MiB when unlimited) are hashed for
     this; a larger file is still compared by metadata, so a same-size rewrite
     of it within the timestamp granularity stays undetected.
+  - an edit, convert or compress after a read, and an `if_match` with the etag
+    of a read, refuse with `E_STALE` a file that another program rewrote with
+    the same size within the timestamp granularity of the file system: the
+    etag (`etag`) of a file whose content was read carries the SHA-256 of the
+    bytes returned, and the journal compares it with the current content. Etags
+    made from metadata only (`list`, `find`, `info`, git apply) are checked by
+    metadata as before. The etag is opaque, and its form depends on the
+    operation that made it (with or without the hash, 72 characters longer).
+    Etags without the hash are still accepted.
 
 ### Changed
 
