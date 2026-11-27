@@ -232,10 +232,10 @@ fn validation_reports_kind_missing_from_the_catalog_input() {
 #[test]
 fn unimplemented_commands_shrink_as_implementations_register() {
     let mut registry = registry();
-    assert_eq!(registry.unimplemented_commands().len(), 158);
+    assert_eq!(registry.unimplemented_commands().len(), 177);
     registry.register_impl(Fake::any("count")).unwrap();
     let remaining = registry.unimplemented_commands();
-    assert_eq!(remaining.len(), 157);
+    assert_eq!(remaining.len(), 176);
     assert!(!remaining.contains(&"count"));
 }
 

@@ -223,6 +223,17 @@
         "null"
       ]
     },
+    "continuation": {
+      "description": "Continuation of a shortened response: what remains and how `next`\nreads it; absent when the response leaves nothing out.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Continuation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "timing": {
       "description": "Durations of the processing steps (verbosity `detailed`).",
       "anyOf": [
@@ -2367,6 +2378,13 @@
             "string",
             "null"
           ]
+        },
+        "continuation": {
+          "description": "Identifier of the continuation (`c3`) that reads what the effect\nconcerns, for `truncated_lines` and `limit_reached`; absent when\nnothing continues.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
@@ -3218,6 +3236,11 @@
           "const": "E_ARG"
         },
         {
+          "description": "A continuation read by `next` has expired or was removed by the limits\nof `[continuation]`; `next_steps` holds the call that produced it.",
+          "type": "string",
+          "const": "E_CONTINUATION_EXPIRED"
+        },
+        {
           "description": "A program required by the command is not installed; `fix` shows how\nto install it.",
           "type": "string",
           "const": "E_EXTERNAL_MISSING"
@@ -3758,6 +3781,64 @@
       "required": [
         "rank",
         "program"
+      ]
+    },
+    "Continuation": {
+      "description": "Field `continuation` of a response that leaves something out.\n\n# Examples\n\n```\nuse nurt_contracts::continuation::{Continuation, ContinuationUnit};\n\nlet continuation = Continuation {\n    id: \"c1\".to_owned(),\n    unit: ContinuationUnit::Lines,\n    shown: 25,\n    remaining: 975,\n    cut_lines: 0,\n    older: false,\n};\nassert_eq!(continuation.more_text(), \"more: next\");\nlet older = Continuation { older: true, ..continuation };\nassert_eq!(older.more_text(), \"more: next c1\");\n```",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Short identifier, `c1`, `c2`, … within the session of the console.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit of the parts.",
+          "$ref": "#/$defs/ContinuationUnit"
+        },
+        "shown": {
+          "description": "Units in the responses given so far.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "remaining": {
+          "description": "Units not yet given; `-1` when not known in advance.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "cut_lines": {
+          "description": "Lines of the shown part that were shortened by `max_line` or\n`max_chars`.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "required": [
+        "id",
+        "unit",
+        "shown",
+        "remaining"
+      ]
+    },
+    "ContinuationUnit": {
+      "description": "Unit of the parts of a continuation.",
+      "oneOf": [
+        {
+          "description": "Lines of text.",
+          "type": "string",
+          "const": "lines"
+        },
+        {
+          "description": "Records of a result.",
+          "type": "string",
+          "const": "records"
+        },
+        {
+          "description": "Bytes of content.",
+          "type": "string",
+          "const": "bytes"
+        }
       ]
     },
     "Timing": {

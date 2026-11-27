@@ -28,14 +28,14 @@ statements 18: translated 4, assumption 3, impossible 9, error 2
   source: ls /srv/app/out || echo "missing output"
   problem: no alternative branch; check the condition with assert and run the alternative as a separate step
   fix: list "/srv/app/out"
-16:1 impossible: E_UNCORRECTABLE (loop)
+16:1 impossible: E_ONE_EFFECT (rule)
   source: for f in /srv/app/out/*.tmp; do
             rm "$f"
           done
-  problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
-20:1 impossible: E_UNCORRECTABLE (function)
+  problem: the statement contains two operations
+20:1 impossible: E_ONE_EFFECT (rule)
   source: cleanup() { rm -rf /tmp/app; }
-  problem: definitions of functions and types have no equivalent
+  problem: the statement contains two operations
 21:1 impossible: E_UNCORRECTABLE (eval)
   source: eval "$EXTRA_STEPS"
   problem: evaluation of text as code has no equivalent
@@ -58,9 +58,9 @@ statements 18: translated 4, assumption 3, impossible 9, error 2
   source: tar -czf /srv/backup/app.tgz /srv/app/out &
   problem: `background: true` is not a parameter of the command
   output: find "/srv/app/out" |> archive.create "/srv/backup/app.tgz" background: true
-30:1 impossible: E_UNCORRECTABLE (condition)
+30:1 impossible: E_ONE_EFFECT (rule)
   source: if [ -f /srv/app/out/VERSION ]; then echo ok; fi
-  problem: conditional statements have no equivalent; assert checks a precondition
+  problem: the statement contains two operations
 31:1 error: E_SYNTAX (syntax)
   source: rm "/srv/app/out/unterminated
   problem: the script has a syntax error at 31:30; correct the script or run it unchanged

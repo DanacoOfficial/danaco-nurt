@@ -267,8 +267,29 @@ pub(crate) struct RenderedOutput {
     pub(crate) notes: Vec<NotableEntry>,
     /// Errors and warnings of a recognised tool.
     pub(crate) diagnostics: Option<ExecDiagnostics>,
-    /// Sentence with the commands that read what the response leaves out.
-    pub(crate) read_hint: Option<String>,
+    /// Lines of the output file that the response leaves out or cuts.
+    pub(crate) continuation: Option<LinesContinuation>,
+}
+
+/// Lines of an output file that a response leaves out or cuts; the source of
+/// the continuation of a run.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(crate) struct LinesContinuation {
+    /// Output file.
+    pub(crate) path: PathBuf,
+    /// First line of the file left out, from 1; with `last_line` the range
+    /// between the head and the tail of the response.
+    pub(crate) first_line: u64,
+    /// Last line of the file left out; one less than `first_line` when no
+    /// line is left out.
+    pub(crate) last_line: u64,
+    /// Lines of the file the response shows.
+    pub(crate) shown: u64,
+    /// Lines of the file that the response cut, by line number.
+    pub(crate) cut: Vec<u64>,
+    /// The same for the other streams of the run, read after this one.
+    #[serde(default)]
+    pub(crate) more: Vec<LinesContinuation>,
 }
 
 /// Captured output of one run, kept in spool files.

@@ -158,6 +158,15 @@ Read the events of all timer units:
 logs unit: "*.timer" level: debug
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the kept events first and then
+continues the query from the cursor of the last event, so that parts neither
+overlap nor skip events that arrive later.
+
+```text
+shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

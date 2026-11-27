@@ -44,6 +44,39 @@ their own version numbers, described in the specification.
   (text, int and bool values). A method with a documented opposite
   (`StartService` and `StopService`, `Enable` and `Disable`, `Pause` and
   `Resume`) is undone by the opposite call; any other call is irreversible.
+- Administration commands for accounts, groups, mounts, the kernel, power and
+  disks: `accounts.create`, `accounts.modify`, `accounts.remove` (`keep_home`),
+  `accounts.password` (the value is a secret and goes to standard input),
+  `groups.create`, `groups.remove`, `groups.add_member`,
+  `groups.remove_member`, `mount` and `unmount` (`persistent` edits
+  `/etc/fstab` through the journal), `sysctl.set` (`persistent` writes
+  `/etc/sysctl.d/90-nurt.conf`), `modules.load`, `modules.unload`,
+  `power.restart`, `power.shutdown` (`at`, `delay`, `message`),
+  `power.cancel`, `disks.partition` and `disks.format`. Every command reads
+  the state it changes, reports `unchanged` when nothing is to do, records the
+  state before and after, and accepts `privilege`. `undo` runs the inverse
+  command; a password, an immediate restart or shutdown, a cancelled schedule,
+  a partition change and a format are irreversible, and the preview of a disk
+  change lists the partitions, file systems, mount points and the size of the
+  data that is lost.
+
+- Translation of bash into the constructs of the language (language brief,
+  section 11): `if`, `elif`, `else`, `case`, `[ ]`, `[[ ]]` and `test` become
+  `when`; `for`, `while` and `until` become `each`, `while` and `repeat until`;
+  functions become `define` and their calls calls; `$1`, `$2`, `$@`, `shift`
+  and `getopts` of a script become `params`; `A && B && C` with changes becomes
+  `steps` (in a single call, `E_ONE_EFFECT` carries the `steps` program as its
+  first candidate, also for PowerShell); `test ... || CMD` becomes `when not`.
+  The translation of the administration programs `mkfifo`, `mknod`, `useradd`,
+  `usermod`, `userdel`, `groupadd`, `groupdel`, `gpasswd`, `passwd`, `mount`,
+  `umount`, `sysctl -w`, `modprobe`, `rmmod`, `ufw`, `firewall-cmd`, `nft`,
+  `iptables`, `ip route`, `resolvectl dns`, `timedatectl`, `date -s`,
+  `shutdown`, `reboot`, `poweroff`, `parted`, `mkfs.*` and `sqlite3` writes the
+  native commands (rules `B41` to `B44`). `nurt migrate` translates these
+  structures, declares the `params` block first and remembers the functions of
+  a script. Only `eval`, subshells, groups, the arithmetic `for`, `select`,
+  interactive input and here-documents other than `cat > file` stay without a
+  translation (`docs/guides/bash-migration.md`).
 
 ### Changed
 
@@ -136,6 +169,24 @@ their own version numbers, described in the specification.
   through `macos-unifiedlogs` and `russh-util` (RUSTSEC-2026-0543), for which
   `deny.toml` records the reason.
 - The lock files of the fuzz targets are regenerated.
+
+### Added
+
+- The command `next` and the field `continuation` of every shortened response
+  (decision P-19): a response that leaves lines, records or the end of long
+  lines out carries `continuation` (`id`, `unit`, `shown`, `remaining`,
+  `cut_lines`) and its text ends with `more: next`; `next`, `next c3`,
+  `next 200`, `next c3 200`, `next all` and `next full` return the next part
+  from the output file of `run`, from the kept result of a reading command or
+  from the cursor of `logs`, without running the program again. The keys
+  `continuation.max_age` (`1h`), `continuation.max_count` (`50`) and
+  `continuation.max_size` (`256mib`) bound the kept results; an expired
+  continuation ends with the new error `E_CONTINUATION_EXPIRED`. The record
+  `exec` no longer has the field `read_hint`; `continuation` replaces it.
+  The default sizes of the responses are unchanged. A continuation belongs to
+  the session that made it and is allocated under a lock file, so that several
+  processes can share one state directory. When one program has several stages
+  that cut their output, the first one in program order is continued.
 
 ### Fixed
 

@@ -1993,6 +1993,42 @@ default = "false"
 summary = "Include the changes and differences of each operation."
 
 [[command]]
+name = "next"
+category = "source"
+reversibility = "read"
+effect = "read"
+implementation = "builtin"
+input = ["none"]
+output = ["any"]
+summary = "Read the next part of a shortened result."
+
+[[command.param]]
+name = "id"
+type = "int | field | text"
+position = 1
+default_note = "the latest continuation"
+summary = "Continuation to read, `c3`; also a count (`next 200`) or the words `all` and `full`."
+
+[[command.param]]
+name = "count"
+type = "int | field | text"
+position = 2
+default_note = "the size of the first response"
+summary = "Units in the part."
+
+[[command.param]]
+name = "all"
+type = "bool"
+default = "false"
+summary = "Read everything that is left."
+
+[[command.param]]
+name = "full_lines"
+type = "bool"
+default = "false"
+summary = "Read the lines of the last shown part that were cut, whole."
+
+[[command]]
 name = "undo"
 category = "journal"
 reversibility = "reversible"

@@ -19,12 +19,12 @@ use nurt_contracts::spec::{
 };
 
 /// Number of commands in the whole catalog.
-const EXPECTED_TOTAL: u32 = 158;
+const EXPECTED_TOTAL: u32 = 177;
 
 /// Number of mutually exclusive conditions of `assert`.
 const ASSERT_CONDITIONS: usize = 8;
 
-const CORE_COMMANDS: [&str; 33] = [
+const CORE_COMMANDS: [&str; 34] = [
     "list",
     "find",
     "info",
@@ -55,6 +55,7 @@ const CORE_COMMANDS: [&str; 33] = [
     "stop",
     "retry",
     "history",
+    "next",
     "undo",
     "redo",
     "help",
@@ -484,7 +485,7 @@ fn core_categories_match_the_catalog_legend() {
             .filter(|command| command.category == category)
             .count()
     };
-    assert_eq!(count(Category::Source), 7);
+    assert_eq!(count(Category::Source), 8);
     assert_eq!(count(Category::Transform), 7);
     assert_eq!(count(Category::Check), 2);
     assert_eq!(count(Category::Change), 10);

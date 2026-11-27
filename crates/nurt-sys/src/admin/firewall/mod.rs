@@ -13,7 +13,7 @@
 //!
 //! The effect of `allow`, `deny` and `remove` is a change of the target
 //! `firewall:<rule>` from `absent` to `present` or back. `undo` runs the
-//! opposite command (see [`crate::admin::inverse`]).
+//! opposite command (see [`crate::admin::undo`]).
 
 mod backend;
 mod firewalld;

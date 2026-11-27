@@ -52,7 +52,21 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
         report
             .next_cursor
             .as_ref()
+            .filter(|_| report.continuation.is_none())
             .map(|cursor| format!("next {}", pair("cursor", cursor))),
+    );
+    lines.extend(
+        report
+            .continuation
+            .as_ref()
+            .map(|continuation| object_line("continuation", continuation)),
+    );
+    lines.extend(
+        report
+            .continuation
+            .as_ref()
+            .filter(|continuation| continuation.has_more())
+            .map(nurt_contracts::continuation::Continuation::more_text),
     );
     lines.extend(
         report

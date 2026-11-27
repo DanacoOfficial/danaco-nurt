@@ -98,6 +98,9 @@ pub(crate) struct ExpiryInput<'a> {
     pub(crate) max_size_total: Option<u64>,
     /// Entry ages at the moment of the plan.
     pub(crate) ages: AgeEvaluator<'a>,
+    /// Account that runs the call; only its entries (and entries without an
+    /// account) are expired.
+    pub(crate) account: Option<&'a str>,
 }
 
 /// Parts of every entry, by number.
@@ -117,6 +120,17 @@ fn groups(entries: &[EntryFacts]) -> Groups<'_> {
     grouped(entries.iter().filter(|part| !part.rolled_back))
 }
 
+/// Whether the entry belongs to `account`: it was made by it or before the
+/// account was recorded. Without a known account every entry is own.
+fn is_own(parts: &[&EntryFacts], account: Option<&str>) -> bool {
+    let Some(account) = account else {
+        return true;
+    };
+    parts
+        .iter()
+        .all(|part| part.account.as_deref().is_none_or(|owner| owner == account))
+}
+
 /// Whether limits may expire the entry: every part is expirable and none
 /// is pinned.
 fn removable(parts: &[&EntryFacts]) -> bool {
@@ -128,10 +142,15 @@ fn removable(parts: &[&EntryFacts]) -> bool {
 /// Entries to expire, in removal order.
 pub(crate) fn plan(input: &ExpiryInput<'_>) -> Vec<ExpiredEntry> {
     let groups = groups(input.entries);
+    let own: Groups<'_> = groups
+        .iter()
+        .filter(|(_, parts)| is_own(parts, input.account))
+        .map(|(op, parts)| (*op, parts.clone()))
+        .collect();
     let mut plan = Vec::new();
     let mut taken = BTreeSet::new();
     let distances = Distances::new(input.steps, input.count_undo_as_op);
-    for (op, parts) in &groups {
+    for (op, parts) in &own {
         if !removable(parts) {
             continue;
         }
@@ -152,12 +171,12 @@ pub(crate) fn plan(input: &ExpiryInput<'_>) -> Vec<ExpiredEntry> {
             let victim = |part: &EntryFacts| {
                 &part.volume == volume && !(keep_oversize && part.bytes_held > budget)
             };
-            evict(&groups, &mut held, &mut taken, &mut plan, over, victim);
+            evict(&own, &mut held, &mut taken, &mut plan, over, victim);
         }
     }
     if let Some(total) = input.max_size_total {
         let over = |held: &BTreeMap<AbsPath, u64>| held.values().sum::<u64>() > total;
-        evict(&groups, &mut held, &mut taken, &mut plan, over, |_| true);
+        evict(&own, &mut held, &mut taken, &mut plan, over, |_| true);
     }
     plan
 }
@@ -239,6 +258,8 @@ pub(crate) struct Snapshot {
     pub(crate) volumes: Vec<VolumeFacts>,
     /// Entry parts of every volume.
     pub(crate) entries: Vec<EntryFacts>,
+    /// Account that runs the call, when the store tells it.
+    pub(crate) account: Option<String>,
     /// Committed entries of the account.
     pub(crate) steps: Vec<StepMark>,
 }
@@ -271,6 +292,7 @@ impl Snapshot {
             volumes,
             entries,
             steps: store.steps()?,
+            account: store.account_id(),
         })
     }
 
@@ -320,6 +342,7 @@ impl Snapshot {
                 ByteLimit::Unlimited => None,
             },
             ages: AgeEvaluator::new(&self.age, &self.now),
+            account: self.account.as_deref(),
         })
     }
 
@@ -396,12 +419,19 @@ fn execute(
             .map(Vec::as_slice)
             .unwrap_or_default();
         let mut locks = Vec::with_capacity(parts.len());
+        let mut moved = Vec::with_capacity(parts.len());
         for part in parts {
             locks.push(store.lock_entry(&part.volume, part.op)?);
-            store.begin_reap(&part.volume, part.op, expired.reason)?;
+            match store.begin_reap(&part.volume, part.op, expired.reason) {
+                Ok(()) => moved.push(part),
+                // Another process reclaimed the entry after the plan was made:
+                // nothing is left to do for this part.
+                Err(error) if error.code() == ErrorCode::JournalNoop => continue,
+                Err(error) => return Err(error),
+            }
             store.hit(FailPoint::ReclaimMoved)?;
         }
-        for part in parts {
+        for part in moved {
             finish(store, part, expired.reason)?;
             bytes = bytes.saturating_add(part.bytes_held);
             touched.insert(&part.volume);
@@ -976,6 +1006,69 @@ mod tests {
                 },
             ]
         );
+    }
+
+    fn owned(op: u64, account: &str) -> EntryFacts {
+        let mut facts = entry(op, "/home");
+        facts.account = Some(account.to_owned());
+        facts
+    }
+
+    #[test]
+    fn the_step_limit_of_one_account_does_not_expire_the_entries_of_another() {
+        let store = store();
+        store.set_account("a");
+        store.layer(ConfigLevel::User, json!({ "journal": { "max_ops": 1 } }));
+        store.add(owned(1, "b"), StepKind::Operation);
+        store.add(owned(2, "a"), StepKind::Operation);
+        store.add(owned(3, "a"), StepKind::Operation);
+        store.add(entry(4, "/home"), StepKind::Operation);
+        store.add(owned(5, "a"), StepKind::Operation);
+        let report = sweep_store(&store).unwrap();
+        assert_eq!(
+            expired(&report),
+            [
+                (2, ExpiryReason::Ops),
+                (3, ExpiryReason::Ops),
+                (4, ExpiryReason::Ops)
+            ]
+        );
+        assert_eq!(store.live("/home"), [1, 5]);
+    }
+
+    #[test]
+    fn the_age_limit_of_one_account_does_not_expire_the_entries_of_another() {
+        let store = store();
+        store.set_account("a");
+        store.layer(
+            ConfigLevel::User,
+            json!({ "journal": { "max_ops": "unlimited", "max_age": "1h" } }),
+        );
+        store.add(owned(1, "b"), StepKind::Operation);
+        store.add(owned(2, "a"), StepKind::Operation);
+        store.set_clock(7200);
+        let report = sweep_store(&store).unwrap();
+        assert_eq!(expired(&report), [(2, ExpiryReason::Time)]);
+        assert_eq!(store.live("/home"), [1]);
+    }
+
+    #[test]
+    fn the_shared_size_budget_evicts_only_entries_of_the_account() {
+        let store = store();
+        store.set_account("a");
+        store.layer(
+            ConfigLevel::User,
+            json!({ "journal": { "max_ops": "unlimited", "max_size": "1gib" } }),
+        );
+        let mut foreign = sized(1, "/home", GIB);
+        foreign.account = Some("b".to_owned());
+        store.add(foreign, StepKind::Operation);
+        let mut own = sized(2, "/home", GIB);
+        own.account = Some("a".to_owned());
+        store.add(own, StepKind::Operation);
+        let report = sweep_store(&store).unwrap();
+        assert_eq!(expired(&report), [(2, ExpiryReason::Size)]);
+        assert_eq!(store.live("/home"), [1]);
     }
 
     #[test]

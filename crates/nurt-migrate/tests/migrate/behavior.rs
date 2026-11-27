@@ -313,55 +313,77 @@ fn syntax_error_affects_only_its_statement() {
 }
 
 #[test]
-fn bash_constructs_are_impossible_without_translation() {
+fn bash_structures_are_submitted_and_the_forms_of_the_shell_stay_impossible() {
     let source = "\
 for f in /a/*; do rm \"$f\"; done
 while read l; do echo \"$l\"; done < /a/list
-until false; do sleep 1; done
+until false; do touch /a/p; done
 if [ -f /a ]; then rm /a; fi
-case $1 in x) echo x;; esac
+case $x in y) echo y;; esac
 clean() { rm -rf /tmp/x; }
 ( cd /a && make )
 { echo a; echo b; } > /a/out
+for ((i = 0; i < 3; i++)); do echo; done
 eval \"$CMD\"
 source /etc/profile
 . /etc/profile
 ";
     let mock = MockTranslator::new();
     let migration = run(source, BASH, &mock);
-    assert!(mock.requests().is_empty());
+    assert_eq!(
+        mock.requests(),
+        [
+            "for f in /a/*; do rm \"$f\"; done",
+            "while read l; do echo \"$l\"; done < /a/list",
+            "until false; do touch /a/p; done",
+            "if [ -f /a ]; then rm /a; fi",
+            "case $x in y) echo y;; esac",
+            "clean() { rm -rf /tmp/x; }",
+        ]
+    );
     assert_eq!(
         reasons(&migration),
         [
-            Some(Reason::Loop),
-            Some(Reason::Loop),
-            Some(Reason::Loop),
-            Some(Reason::Condition),
-            Some(Reason::Condition),
-            Some(Reason::Function),
+            Some(Reason::Rule),
+            Some(Reason::Rule),
+            Some(Reason::Rule),
+            Some(Reason::Rule),
+            Some(Reason::Rule),
+            Some(Reason::Rule),
             Some(Reason::Block),
             Some(Reason::Block),
+            Some(Reason::Loop),
             Some(Reason::Eval),
             Some(Reason::Source),
             Some(Reason::Source),
         ]
     );
-    assert!(migration.report.items.iter().all(|item| {
-        item.status == Status::Impossible && item.code == Some(ErrorCode::Uncorrectable)
-    }));
+    assert!(
+        migration
+            .report
+            .items
+            .iter()
+            .all(|item| item.status == Status::Impossible)
+    );
+    for item in &migration.report.items {
+        if item.reason != Some(Reason::Rule) {
+            assert_eq!(item.code, Some(ErrorCode::Uncorrectable), "{}", item.source);
+        }
+    }
 }
 
 #[test]
-fn loop_inside_pipeline_or_substitution_is_a_loop() {
+fn a_loop_in_a_pipeline_or_a_substitution_is_submitted_with_its_statement() {
     let mock = MockTranslator::new();
     let migration = run(
         "ls /a | while read f; do rm \"$f\"; done\nX=$(for i in 1 2; do echo $i; done)\n",
         BASH,
         &mock,
     );
+    assert_eq!(mock.requests().len(), 2);
     assert_eq!(
         reasons(&migration),
-        [Some(Reason::Loop), Some(Reason::Loop)]
+        [Some(Reason::Rule), Some(Reason::Rule)]
     );
 }
 
@@ -704,7 +726,11 @@ fn migration_is_deterministic() {
 #[test]
 fn json_report_has_format_summary_and_items() {
     let mock = MockTranslator::new().program("rm /srv/a", "remove \"/srv/a\"", &["B01"]);
-    let migration = run("rm /srv/a\nfor f in *; do echo; done\n", BASH, &mock);
+    let migration = run(
+        "rm /srv/a\nfor ((i = 0; i < 3; i++)); do echo; done\n",
+        BASH,
+        &mock,
+    );
     let json: serde_json::Value = match serde_json::from_str(&migration.report.to_json()) {
         Ok(json) => json,
         Err(error) => panic!("invalid JSON: {error}"),

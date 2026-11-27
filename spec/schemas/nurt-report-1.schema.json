@@ -39,6 +39,7 @@
     },
     "error": { "$ref": "#/$defs/error" },
     "next_cursor": { "type": "string", "minLength": 1, "x-nurt-volatile": true, "description": "Cursor of the next page; absent on the last page." },
+    "continuation": { "$ref": "#/$defs/continuation" },
     "timing": { "$ref": "#/$defs/timing" },
     "parts": { "type": "array", "description": "The parts of a control construct in order: the chosen branch, every iteration, every step.", "items": { "$ref": "#/$defs/part" } },
     "parts_total": { "type": "integer", "minimum": 0, "description": "Number of parts of the construct when `parts` is shortened to the first 200." }
@@ -63,6 +64,19 @@
         "op": { "type": "integer", "minimum": 1 },
         "note": { "type": "string" }
       }
+    },
+    "continuation": {
+      "type": "object",
+      "required": ["id", "unit", "shown", "remaining"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^c[0-9]+$", "description": "Short identifier of the continuation, `c1`, `c2`, ... within the session of the console." },
+        "unit": { "enum": ["lines", "records", "bytes"], "description": "Unit of the parts." },
+        "shown": { "type": "integer", "minimum": 0, "description": "Units in the responses given so far." },
+        "remaining": { "type": "integer", "minimum": -1, "description": "Units not yet given; -1 when not known in advance." },
+        "cut_lines": { "type": "integer", "minimum": 0, "description": "Lines of the shown part that were shortened." }
+      },
+      "description": "What a shortened response leaves out; `next` reads the next part."
     },
     "status": {
       "enum": ["ok", "planned", "running", "partial", "rolled_back", "failed"]
@@ -262,7 +276,8 @@
         "severity": { "$ref": "#/$defs/severity" },
         "path": { "type": "string" },
         "count": { "type": "integer", "minimum": 0 },
-        "detail": { "type": "string" }
+        "detail": { "type": "string" },
+        "continuation": { "type": "string", "pattern": "^c[0-9]+$", "description": "Identifier of the continuation that reads what the effect concerns; only for `truncated_lines` and `limit_reached`." }
       }
     },
     "notable_code": {
@@ -321,7 +336,7 @@
         "E_UNKNOWN_COMMAND", "E_UNKNOWN_PARAM", "E_UNKNOWN_NAME", "E_UNKNOWN_FIELD", "E_UNKNOWN_VALUE",
         "E_MISSING_PARAM", "E_PARAM_CONFLICT", "E_TYPE", "E_ARITY", "E_INVALID_VALUE", "E_PATH_RELATIVE", "E_PATH_FOREIGN",
         "E_ONE_EFFECT", "E_OS_ONLY", "E_UNSUPPORTED", "E_REGEX", "E_KEY_SYNTAX", "E_PATTERN_SYNTAX",
-        "E_QUERY", "E_SQL", "E_ARG", "E_EXTERNAL_MISSING", "E_EXTERNAL_FAILED", "E_PROGRAM_NOT_FOUND",
+        "E_QUERY", "E_SQL", "E_ARG", "E_CONTINUATION_EXPIRED", "E_EXTERNAL_MISSING", "E_EXTERNAL_FAILED", "E_PROGRAM_NOT_FOUND",
         "E_SPAWN", "E_ASSERT", "E_BINARY", "E_DOC_PARSE", "E_FORMAT", "E_ENCRYPTED",
         "E_UNSUPPORTED_CONSTRUCT", "E_KEY_NOT_FOUND", "E_KEY_CONFLICT", "E_UNSUPPORTED_LANGUAGE",
         "E_SYMBOL_NOT_FOUND", "E_SYMBOL_AMBIGUOUS", "E_RENAME_CONFLICT", "E_NO_MATCH",

@@ -14,8 +14,8 @@
 
 use nurt_sys::admin::clock::ClockCommand;
 use nurt_sys::admin::firewall::FirewallChange;
-use nurt_sys::admin::inverse::{Undo, derive};
 use nurt_sys::admin::network::{DnsSet, RouteChange};
+use nurt_sys::admin::undo::{Undo, derive};
 
 mod admin_support;
 

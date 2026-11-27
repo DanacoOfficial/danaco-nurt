@@ -2826,9 +2826,6 @@ record_struct! {
         diagnostics: Option<ExecDiagnostics>,
         /// One line about a successful run: exit code, time, lines and bytes.
         digest: Option<String>,
-        /// Sentence with the commands that read what the response leaves out
-        /// from the output file.
-        read_hint: Option<String>,
     }
 }
 

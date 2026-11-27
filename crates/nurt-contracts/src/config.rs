@@ -1255,6 +1255,8 @@ pub struct Config {
     pub output: OutputConfig,
     /// Thresholds of the effect report.
     pub report: ReportConfig,
+    /// Continuation of shortened results: lifetime and space.
+    pub continuation: ContinuationConfig,
     /// Text encodings and line endings.
     pub text: TextConfig,
     /// Resource limits.
@@ -1715,6 +1717,32 @@ impl Default for OutputConfig {
             max_bytes: 4096,
             spool_ttl: DurationSetting::from_secs(3600),
             results_dir: None,
+        }
+    }
+}
+
+/// Section `[continuation]`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct ContinuationConfig {
+    /// Key `continuation.max_age`: a continuation older than this expires.
+    /// Default `1h`.
+    pub max_age: DurationSetting,
+    /// Key `continuation.max_count`: most continuations kept; the oldest is
+    /// removed first. Default `50`.
+    pub max_count: u32,
+    /// Key `continuation.max_size`: most space of all kept results; the
+    /// oldest is removed first. Default `256mib`.
+    pub max_size: SizeSetting,
+}
+
+impl Default for ContinuationConfig {
+    fn default() -> Self {
+        Self {
+            max_age: DurationSetting::from_secs(3600),
+            max_count: 50,
+            max_size: SizeSetting::from_bytes(256 << 20),
         }
     }
 }

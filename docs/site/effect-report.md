@@ -32,7 +32,7 @@ Each run returns a description of the effect, not only the fact that something r
 
 ## Verbosity and paging
 
-The call parameter `verbosity` selects `quiet`, `normal` or `detailed`. `limit` sets the number of records or changes on a page and `cursor` reads the next page; reading a page again never runs a changing program again. `format` selects `text`, `json`, `markdown` or `compact`.
+The call parameter `verbosity` selects `quiet`, `normal` or `detailed`. `limit` sets the number of records or changes on a page and `cursor` reads the next page; reading a page again never runs a changing program again. A response that leaves lines, records or the end of long lines out carries the field `continuation` and its text ends with `more: next`; the command `next` returns the next part (`next 200`, `next all`, `next full`). `format` selects `text`, `json`, `markdown` or `compact`.
 
 ## Operations on many targets
 

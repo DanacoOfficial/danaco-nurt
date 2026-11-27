@@ -19,7 +19,7 @@ use nurt_contracts::value::Value;
 
 use super::wql::CimQuery;
 use crate::admin::effects::{effect_record, marker, state_change};
-use crate::admin::inverse::CIM_PREFIX;
+use crate::admin::undo::CIM_PREFIX;
 
 /// Name of the parameter that selects the method.
 pub(super) const PARAM_INVOKE: &str = "invoke";

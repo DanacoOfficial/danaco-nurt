@@ -36,6 +36,7 @@
 pub mod ast;
 pub mod bound;
 pub mod config;
+pub mod continuation;
 pub mod env;
 pub mod envelope;
 pub mod error;

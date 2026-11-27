@@ -3,13 +3,13 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 
 format = "nurt-catalog-index/1"
-total = 158
+total = 177
 
 [[file]]
 name = "core"
 file = "core.toml"
 summary = "Core commands for files, text, records, programs, the journal and help."
-commands = 33
+commands = 34
 
 [[file]]
 name = "documents"
@@ -56,8 +56,8 @@ commands = 11
 [[file]]
 name = "admin"
 file = "admin.toml"
-summary = "System services, the registry provider, CIM, the firewall, routes, DNS and the clock."
-commands = 16
+summary = "System services, accounts, groups, mounts, kernel parameters, power, disks, the registry provider, CIM, the firewall, routes, DNS and the clock."
+commands = 34
 
 [[file]]
 name = "package"

@@ -93,6 +93,14 @@ Count the annotated lines per author.
 git.blame "/home/user/repo/src/parser.rs" revision: "HEAD" |> group author |> sort count order: desc
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 640  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

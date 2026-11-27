@@ -59,11 +59,17 @@ fn analyze(builder: &Builder<'_>, node: Node<'_>) -> Analysis {
 
 fn construct(source: &str, node: Node<'_>) -> Option<Reason> {
     match node.kind() {
-        "for_statement" | "c_style_for_statement" | "while_statement" | "select_statement" => {
-            Some(Reason::Loop)
+        // Loops over words, `while`, `if`, `case` and functions are translated
+        // into constructs of the language; the arithmetic `for` and `select`
+        // have no counterpart.
+        "c_style_for_statement" | "select_statement" => Some(Reason::Loop),
+        "compound_statement"
+            if node
+                .parent()
+                .is_some_and(|parent| parent.kind() == "function_definition") =>
+        {
+            None
         }
-        "if_statement" | "case_statement" => Some(Reason::Condition),
-        "function_definition" => Some(Reason::Function),
         "subshell" | "compound_statement" => Some(Reason::Block),
         "command" => {
             let name = command_name(source, node)?;

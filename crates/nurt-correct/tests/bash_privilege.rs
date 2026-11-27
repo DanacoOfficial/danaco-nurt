@@ -96,6 +96,7 @@ fn only_the_statement_with_sudo_is_elevated() {
         &TranslateContext {
             base: None,
             lets: &[],
+            functions: &[],
             mode: Mode::Script,
         },
     )

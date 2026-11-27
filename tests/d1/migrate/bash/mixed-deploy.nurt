@@ -1,6 +1,6 @@
 # Source: mixed-deploy.sh (bash)
 # Statements run in order; the first error stops the script.
-# Statements: 9; translated: 1; with assumptions: 0; impossible: 8; errors: 0.
+# Statements: 9; translated: 1; with assumptions: 1; impossible: 7; errors: 0.
 # Untranslated statements run unchanged with: run ["bash", "mixed-deploy.sh"]
 # Relative paths require the invocation parameter base: "/srv/app/current"
 
@@ -15,9 +15,12 @@
 # untranslated: E_UNCORRECTABLE: ln -sfn $RELEASE /srv/app/current
 #   problem: flag `-sfn` of `ln` has no equivalent; parameters of `create`: path, type, target, hard, temporary, parents, on_exists (flag_without_equivalent)
 # untranslated: E_UNCORRECTABLE: for f in /srv/app/current/conf/*.dist; do cp "$f" "${f%.dist}"; done
-#   problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
-# untranslated: E_UNCORRECTABLE: notify() { curl -s -X POST -d "$1" https://hooks.example.com/deploy; }
-#   problem: definitions of functions and types have no equivalent
+#   problem: `$f%.dist` is not substituted; Nurt has no variables: write the value, or name a result with `let f%.dist = …` and use `@f%.dist` (unknown_variable)
+# translated: B41, B32, B25
+# assumption: notify: no name for $1 in the script; the parameter is called arg1
+define notify(arg1: text) {
+    http.request "https://hooks.example.com/deploy" method: post body: @arg1 follow_redirects: false
+}
 # untranslated: E_UNCORRECTABLE: eval "$POST_DEPLOY"
 #   problem: evaluation of text as code has no equivalent
 # translated: B39, L21

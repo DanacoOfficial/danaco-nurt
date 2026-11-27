@@ -644,6 +644,10 @@ const GROUP_EXAMPLES: &[(&str, &str)] = &[
     ),
     ("system", "disks |> filter free < 10gib"),
     ("admin", r#"services name: "nginx" |> restart"#),
+    (
+        "admin",
+        r#"accounts.create "deploy" groups: ["docker"] privilege: elevated"#,
+    ),
     ("package", r#"package.install ["jq"] manager: apt"#),
     (
         "network",

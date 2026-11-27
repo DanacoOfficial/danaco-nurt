@@ -25,8 +25,8 @@ use admin_support::{args, context, run, text, word};
 use nurt_contracts::value::Value;
 use nurt_sys::admin::clock::ClockCommand;
 use nurt_sys::admin::firewall::FirewallChange;
-use nurt_sys::admin::inverse::{Undo, derive};
 use nurt_sys::admin::network::DnsSet;
+use nurt_sys::admin::undo::{Undo, derive};
 
 fn powershell(script: &str) -> String {
     let output = Command::new("powershell")

@@ -6,11 +6,11 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 # B21: test and brackets guarding a command.
-# translated: B21, L21, B01
-info "/srv/app/.ready"
-|> assert all: type == "file"
-|> remove on_missing: error
-# translated: B21, L21, B01
-info "/srv/app/out"
-|> assert all: type == "directory"
-|> remove
+# translated: B41, B01, L21
+when exists("/srv/app/.ready") and ((info "/srv/app/.ready" |> first 1)).type == "file" {
+    remove "/srv/app/.ready" on_missing: error
+}
+# translated: B41, B01, L21
+when exists("/srv/app/out") and ((info "/srv/app/out" |> first 1)).type == "directory" {
+    remove "/srv/app/out"
+}

@@ -275,6 +275,7 @@ pub struct Session<'a> {
     next_job: u32,
     last: u8,
     interrupt: Interrupt,
+    id: String,
 }
 
 enum Flow {
@@ -293,6 +294,14 @@ impl<'a> Session<'a> {
     /// Creates a session on `engine`; `style` colours the output.
     #[must_use]
     pub fn new(engine: &'a Engine, style: Palette) -> Self {
+        let id = format!(
+            "repl:{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |elapsed| elapsed.as_nanos())
+        );
+        engine.set_console(Some(id.clone()));
         Self {
             engine,
             style,
@@ -300,6 +309,7 @@ impl<'a> Session<'a> {
             next_job: 1,
             last: exit::SUCCESS,
             interrupt: Interrupt::new(),
+            id,
         }
     }
 
@@ -309,6 +319,12 @@ impl<'a> Session<'a> {
     pub fn with_interrupt(mut self, interrupt: Interrupt) -> Self {
         self.interrupt = interrupt;
         self
+    }
+
+    /// Identifier of the session in the engine.
+    #[must_use]
+    pub fn id(&self) -> &str {
+        &self.id
     }
 
     /// Exit code of the last program that ran.
@@ -570,6 +586,7 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resul
     } else {
         session.run(&mut PlainLines::new(*input), *out, *err)?;
     }
+    context.engine.end_session(Some(session.id()));
     Ok(session.last_exit_code())
 }
 

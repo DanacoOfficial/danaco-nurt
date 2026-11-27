@@ -115,6 +115,14 @@ List the operations that removed files and can still be undone:
 history deleted: true state: available
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 90  shown 20  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

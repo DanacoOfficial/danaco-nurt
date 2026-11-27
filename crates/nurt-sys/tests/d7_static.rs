@@ -103,8 +103,8 @@ struct Site {
 /// Commands that manage services.
 const SERVICE_COMMANDS: &[&str] = &["services", "start", "restart", "enable", "disable"];
 
-/// Programs of the firewall, network and clock commands.
-const ADMIN_PROGRAMS: &[&str] = &[
+/// Programs of the firewall, network and clock commands (`admin/tool.rs`).
+const NETWORK_PROGRAMS: &[&str] = &[
     "nft",
     "firewall-cmd",
     "ufw",
@@ -122,7 +122,7 @@ const ADMIN_PROGRAMS: &[&str] = &[
 ];
 
 /// Commands that change the firewall, the routes, the DNS and the clock.
-const ADMIN_COMMANDS: &[&str] = &[
+const NETWORK_COMMANDS: &[&str] = &[
     "firewall.rules",
     "firewall.allow",
     "firewall.deny",
@@ -135,8 +135,61 @@ const ADMIN_COMMANDS: &[&str] = &[
     "clock.ntp",
 ];
 
+/// Commands that change accounts, groups, mounts, kernel parameters, power
+/// and disks through system programs.
+const ADMIN_COMMANDS: &[&str] = &[
+    "accounts.create",
+    "accounts.modify",
+    "accounts.remove",
+    "accounts.password",
+    "groups.create",
+    "groups.remove",
+    "groups.add_member",
+    "groups.remove_member",
+    "mount",
+    "unmount",
+    "sysctl.set",
+    "modules.load",
+    "modules.unload",
+    "power.restart",
+    "power.shutdown",
+    "power.cancel",
+    "disks.partition",
+    "disks.format",
+];
+
+/// Programs that the administration commands start; they build the program
+/// from the plan of the command, so the site of the execution takes the
+/// program named by the caller.
+const ADMIN_PROGRAMS: &[&str] = &[
+    "useradd",
+    "sysadminctl",
+    "net",
+    "usermod",
+    "dscl",
+    "userdel",
+    "chpasswd",
+    "powershell",
+    "groupadd",
+    "dseditgroup",
+    "groupdel",
+    "gpasswd",
+    "mount",
+    "mountvol",
+    "umount",
+    "sysctl",
+    "modprobe",
+    "lsmod",
+    "shutdown",
+    "pkill",
+    "parted",
+    "lsblk",
+    "diskutil",
+    "mkfs",
+];
+
 /// Sites permitted to start programs.
-const SITES: [Site; 5] = [
+const SITES: [Site; 7] = [
     Site {
         path: "crates/nurt-sys/src/services/macos.rs",
         allowed: Allowed::Only(&["launchctl"]),
@@ -147,6 +200,18 @@ const SITES: [Site; 5] = [
         path: "crates/nurt-service/src/install/macos.rs",
         allowed: Allowed::Only(&["launchctl"]),
         commands: &[],
+        approved: true,
+    },
+    Site {
+        path: "crates/nurt-sys/src/admin/sys.rs",
+        allowed: Allowed::DescribedProgram,
+        commands: &[],
+        approved: true,
+    },
+    Site {
+        path: "crates/nurt-sys/src/admin/mod.rs",
+        allowed: Allowed::Only(ADMIN_PROGRAMS),
+        commands: ADMIN_COMMANDS,
         approved: true,
     },
     Site {
@@ -163,8 +228,8 @@ const SITES: [Site; 5] = [
     },
     Site {
         path: "crates/nurt-sys/src/admin/tool.rs",
-        allowed: Allowed::NamedByCall(ADMIN_PROGRAMS),
-        commands: ADMIN_COMMANDS,
+        allowed: Allowed::NamedByCall(NETWORK_PROGRAMS),
+        commands: NETWORK_COMMANDS,
         approved: true,
     },
 ];
@@ -1052,7 +1117,10 @@ fn used_programs(files: &[ProductionFile], site: &Site) -> Option<Vec<String>> {
 fn static_admin_calls_name_approved_programs() {
     let root = workspace_root();
     let call = Regex::new(r#"Call\s*::\s*(?:new|owned)\s*\(\s*""#).expect("pattern is valid");
-    let admin = Regex::new(r"^crates/nurt-sys/src/admin/").expect("pattern is valid");
+    let admin = Regex::new(
+        r"^crates/nurt-sys/src/admin/(clock\.rs|effects\.rs|tool\.rs|firewall/|network/)",
+    )
+    .expect("pattern is valid");
     let mut findings = Vec::new();
     let mut named = BTreeSet::new();
     for file in production_files(&root)
@@ -1063,7 +1131,7 @@ fn static_admin_calls_name_approved_programs() {
             let Some(program) = file.scanned.literals.get(&(found.end() - 1)).cloned() else {
                 continue;
             };
-            if !ADMIN_PROGRAMS.contains(&program.as_str()) {
+            if !NETWORK_PROGRAMS.contains(&program.as_str()) {
                 let line = line_of(&file.scanned.code, found.start());
                 findings.push(format!(
                     "{}:{line}: `{program}` is not an approved program",
@@ -1073,7 +1141,7 @@ fn static_admin_calls_name_approved_programs() {
             named.insert(program);
         }
     }
-    for program in ADMIN_PROGRAMS {
+    for program in NETWORK_PROGRAMS {
         if !named.contains(*program) && *program != "powershell" {
             findings.push(format!("approved program `{program}` is not used"));
         }
@@ -1488,7 +1556,7 @@ fn site_rules_reject_programs_outside_the_site() {
         program: Some(program),
     };
     let launchd = &SITES[0];
-    let help = &SITES[3];
+    let help = &SITES[5];
     let rel = launchd.path;
     assert!(
         program_findings(
@@ -1585,7 +1653,7 @@ fn delegated_runs_require_specs_from_the_site_builder() {
 const SYSTEMS: [&str; 3] = ["linux", "windows", "macos"];
 
 /// Number of commands in the catalog groups of [`GROUPS`].
-const COMMAND_COUNT: usize = 46;
+const COMMAND_COUNT: usize = 64;
 
 /// Levels of a matrix case: a test on synthetic data or doubles, a test on
 /// the running system, a comparison with a system program, and the
@@ -1742,7 +1810,7 @@ fn coverage_findings(name: &str, command: &toml::Table, cases: &[&toml::Table]) 
 }
 
 #[test]
-fn matrix_covers_all_46_commands() {
+fn matrix_covers_all_64_commands() {
     let root = workspace_root();
     let commands = domain_commands(&root);
     assert_eq!(

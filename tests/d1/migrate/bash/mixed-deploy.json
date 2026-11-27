@@ -5,8 +5,8 @@
   "summary": {
     "statements": 9,
     "translated": 1,
-    "assumption": 0,
-    "impossible": 8,
+    "assumption": 1,
+    "impossible": 7,
     "error": 0
   },
   "items": [
@@ -54,21 +54,25 @@
       "rules": [],
       "assumptions": [],
       "code": "E_UNCORRECTABLE",
-      "reason": "loop",
-      "problem": "loops have no equivalent; a pattern or a pipeline over records replaces a loop",
+      "reason": "rule",
+      "problem": "`$f%.dist` is not substituted; Nurt has no variables: write the value, or name a result with `let f%.dist = …` and use `@f%.dist` (unknown_variable)",
       "fix": []
     },
     {
       "line": 10,
       "column": 1,
       "source": "notify() { curl -s -X POST -d \"$1\" https://hooks.example.com/deploy; }",
-      "status": "impossible",
-      "rules": [],
-      "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "function",
-      "problem": "definitions of functions and types have no equivalent",
-      "fix": []
+      "status": "assumption",
+      "rules": [
+        "B41",
+        "B32",
+        "B25"
+      ],
+      "assumptions": [
+        "notify: no name for $1 in the script; the parameter is called arg1"
+      ],
+      "fix": [],
+      "output": "define notify(arg1: text) {\n    http.request \"https://hooks.example.com/deploy\" method: post body: @arg1 follow_redirects: false\n}"
     },
     {
       "line": 11,

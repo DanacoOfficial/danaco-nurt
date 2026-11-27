@@ -83,6 +83,7 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_QUERY` | 1, 2, 5 | `NURT_E_ARG` | A document query does not compile or fails to run. |
 | `E_SQL` | 1, 2, 5 | `NURT_E_ARG` | An SQL statement cannot be prepared or executed, or changes data with `write: false`. |
 | `E_ARG` | 1, 5 | `NURT_E_ARG` | An argument of a call cannot be passed without changing its meaning, for example a NUL character in a process argument. |
+| `E_CONTINUATION_EXPIRED` | 2 | `NURT_E_ARG` | A continuation read by `next` expired or was removed by the limits `continuation.max_age`, `continuation.max_count` or `continuation.max_size`, or none is kept; `next_steps` holds the call that produced it. |
 | `E_EXTERNAL_MISSING` | 1, 5 | `NURT_OK` | A program required by the command is not installed; `fix` shows how to install it. |
 | `E_EXTERNAL_FAILED` | 2, 5 | `NURT_OK` | An external program used by the command, such as a language server, failed or broke its protocol. |
 | `E_PROGRAM_NOT_FOUND` | 1, 5 | `NURT_OK` | A program to run was not found in the search path; `candidates` lists similar names. |

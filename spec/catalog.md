@@ -422,6 +422,17 @@ recorded in a bound tree, which names the built-in catalog used for binding.
 The revision of the correction tables, `corr_rev`, has the same
 form.
 
+### 9.2 The command `next`
+
+`next` is a core command of category `source` that reads the next part of a
+shortened result (`spec/report.md`, section 2.1). Its parameters:
+`id` (position 1, text: `c3`, a count or the words `all` and `full`),
+`count` (position 2, int), `all` (bool) and `full_lines` (bool). The short
+forms are `next`, `next c3`, `next 200`, `next c3 200`, `next all` and
+`next full`; every short form has the same result as its long form, and
+`next |> filter …` continues the part as a pipeline. The command changes
+nothing, writes no journal entry and costs no effect in `E_ONE_EFFECT`.
+
 ## 10. Checks
 
 `CatalogFile::check`, `CatalogIndex::check` and `check_catalog` return the list

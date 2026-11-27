@@ -349,6 +349,10 @@ fn read_error(error: ReadError) -> Option<Error> {
 }
 
 impl RetentionStore for CtxStore<'_> {
+    fn account_id(&self) -> Option<String> {
+        Some(self.0.state.account_id())
+    }
+
     fn config_layers(&self) -> Vec<ConfigLayer> {
         self.0.limits.layers()
     }

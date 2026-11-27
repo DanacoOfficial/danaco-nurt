@@ -28,6 +28,9 @@ use std::collections::VecDeque;
 use std::fmt::{self, Write as _};
 use std::sync::Arc;
 
+use nurt_contracts::continuation::{
+    ContinuationRequest, ContinuationSink, ContinuationSource, ContinuationUnit, ResumeOverride,
+};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::report::Severity;
 use nurt_contracts::stage::{
@@ -175,7 +178,15 @@ impl ReadStage for LogsStage {
         ctx: &'a ExecCtx,
     ) -> Result<StageOutput<'a>> {
         let store = self.store.as_deref().ok_or_else(unsupported_system)?;
-        let query = LogQuery::from_args(args, &self.limits)?;
+        let mut query = LogQuery::from_args(args, &self.limits)?;
+        if let Some(resume) = ctx.extensions().get::<ResumeOverride>() {
+            query.cursor = Some(Cursor::parse_param(&resume.cursor)?);
+            if let Some(count) = resume.count {
+                query.limit = self
+                    .limits
+                    .check_limit(i64::try_from(count).unwrap_or(i64::MAX))?;
+            }
+        }
         let mut pages = Pages::new(store, query, ctx);
         pages.fetch()?;
         if let Some(error) = pages.leading_error() {
@@ -309,6 +320,24 @@ impl<'a> Pages<'a> {
         }
     }
 
+    /// Describes the events that follow the cursor to the continuation sink
+    /// of the execution: `next` runs the program again from the cursor.
+    fn offer_continuation(&self, cursor: &Cursor) {
+        let Some(sink) = self.ctx.extensions().get::<ContinuationSink>() else {
+            return;
+        };
+        sink.push(ContinuationRequest {
+            id: None,
+            source: ContinuationSource::Resume {
+                cursor: cursor.to_string(),
+            },
+            unit: ContinuationUnit::Records,
+            shown: u64::from(self.query.limit.saturating_sub(self.remaining)),
+            remaining: -1,
+            cut_lines: 0,
+        });
+    }
+
     /// Reports the notices once.
     fn report(&mut self) {
         if self.reported {
@@ -322,6 +351,7 @@ impl<'a> Pages<'a> {
             }
         }
         if let Some(cursor) = &self.more {
+            self.offer_continuation(cursor);
             diagnostic(
                 self.ctx,
                 NoticeCode::LimitReached.severity(),

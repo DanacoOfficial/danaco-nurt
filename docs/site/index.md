@@ -25,7 +25,7 @@ The command line program `nurt` runs programs in a terminal and in scripts. Othe
 | [Journal and undo](journal.md) | Recording, undoing and redoing changes |
 | [Configuration](configuration.md) | Files, levels and keys |
 | [Integration](integration.md) | Tool definitions, MCP and libraries |
-| [Commands](../commands/README.md) | One page for each of the 158 commands |
+| [Commands](../commands/README.md) | One page for each of the 177 commands |
 | [Cookbook](../cookbook/README.md) | Programs for common tasks |
 | [Cheat sheets](../cheatsheets/nurt-for-bash-users.md) | Habits of bash and PowerShell and their forms in Nurt |
 | [Specification](../../spec/catalog.md) | Language, catalog, report, journal and configuration |
@@ -35,4 +35,4 @@ The command line program `nurt` runs programs in a terminal and in scripts. Othe
 
 ## Commands
 
-The catalog has 158 commands. The 33 core commands cover files, text, records, programs, the journal and help. The other commands belong to 14 optional groups such as `git`, `code`, `archive` and `network`.
+The catalog has 177 commands. The 34 core commands cover files, text, records, programs, the journal and help. The other commands belong to 14 optional groups such as `git`, `code`, `archive` and `network`.

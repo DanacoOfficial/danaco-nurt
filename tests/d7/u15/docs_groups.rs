@@ -22,7 +22,7 @@ const GROUPS: [&str; 6] = [
 
 const COMMANDS_DOCUMENTED_ELSEWHERE: [&str; 2] = ["suspend", "resume"];
 
-const EXPECTED_COMMANDS: usize = 46;
+const EXPECTED_COMMANDS: usize = 64;
 
 const MIN_EXAMPLES: usize = 3;
 

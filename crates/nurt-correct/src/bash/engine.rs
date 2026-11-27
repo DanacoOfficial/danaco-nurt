@@ -93,6 +93,7 @@ pub(crate) fn command(
         Some("test") => produce::test(session, entry, simple, words),
         Some("service") => service(session, simple, words, input),
         Some("at") => produce::at(session, entry, simple, words),
+        Some("admin") => super::admin::translate(session, entry, simple, words),
         _ => generic(session, entry, simple, words, input),
     }
 }

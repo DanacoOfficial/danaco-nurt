@@ -94,6 +94,8 @@ pub(super) struct Window {
     pub(super) cut_lines: u64,
     /// First line of the file among the cut ones.
     pub(super) first_cut: Option<u64>,
+    /// Lines of the file that were cut, by line number.
+    pub(super) cut_at: Vec<u64>,
 }
 
 impl Window {
@@ -109,6 +111,7 @@ impl Window {
             if let Some(shorter) = cut_line(&line.text) {
                 line.text = shorter;
                 cut += 1;
+                self.cut_at.push(line.raw_start);
                 first = first.or(Some(line.raw_start));
             }
         }
@@ -328,6 +331,7 @@ impl Share {
             last.text = clip_to_bytes(&last.text, limit);
             window.cut_lines += 1;
             window.first_cut.get_or_insert(last.raw_start);
+            window.cut_at.push(last.raw_start);
         }
         window.head = head;
         window.tail = tail;

@@ -15,7 +15,7 @@ use nurt_contracts::record::{Change, ChangeAction};
 use nurt_contracts::report::{Irreversible, IrreversibleEntry};
 use nurt_contracts::spec::Os;
 use nurt_syntax::parse::{ParseOptions, parse};
-use nurt_sys::admin::inverse::{Undo, derive};
+use nurt_sys::admin::undo::{Undo, derive};
 
 fn change(path: &str, before: Option<&str>, after: Option<&str>) -> Change {
     let mut change = Change::new(path.to_owned(), ChangeAction::State);

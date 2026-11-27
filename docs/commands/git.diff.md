@@ -135,6 +135,14 @@ Show the changes of one function since the previous commit.
 git.diff "/home/user/repo" from: "HEAD~1" path: ["src/parser.rs"] symbol: "parse_expr"
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 120  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

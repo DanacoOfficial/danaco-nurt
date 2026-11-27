@@ -69,6 +69,11 @@ pub(crate) fn render(shaped: &Shaped, options: &RenderOptions) -> String {
     {
         out.plain(single_line(&format!("next cursor {cursor}")));
     }
+    if report.records.is_none()
+        && let Some(continuation) = report.continuation.as_ref().filter(|c| c.has_more())
+    {
+        out.plain(continuation.more_text());
+    }
     if let Some(path) = &report.result_file {
         out.plain(single_line(&format!("result file {path}")));
     }
@@ -129,8 +134,13 @@ fn read_summary(page: &RecordsPage, report: &Report) -> String {
         parts.push(format!("matched {}", format_count(matched)));
     }
     parts.push(format!("shown {}", format_count(page.rows.len() as u64)));
-    if let Some(cursor) = &report.next_cursor {
+    if report.continuation.is_none()
+        && let Some(cursor) = &report.next_cursor
+    {
         parts.push(format!("next cursor {cursor}"));
+    }
+    if let Some(continuation) = report.continuation.as_ref().filter(|c| c.has_more()) {
+        parts.push(continuation.more_text());
     }
     parts.join(SEPARATOR)
 }
