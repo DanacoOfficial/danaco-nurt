@@ -1,21 +1,20 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
-//! Privilege elevation: the choice of backends, the errors of an elevation
-//! that did not happen and the references to elevated journal entries.
+//! Privilege elevation: the choice of backends and the errors of an elevation
+//! that did not happen.
 //!
 //! The engine routes a request whose call parameter `privilege` is `elevated`
 //! or `auto` through a backend of [`nurt_proc::elevation`]. The request
 //! travels as a syntax tree in the request format of the protocol, never as
-//! shell text; the elevated process runs the same operation code, writes the
-//! journal entry to the system journal and returns the response. The engine of
-//! the account keeps a reference to every elevated journal entry, so that
-//! `undo` of the account reaches it through the same backends.
+//! shell text; the elevated process runs the same operation code and writes
+//! the entry, with the copies of the previous content, into the journal of the
+//! account that asked (one journal, one numbering; the files belong to the
+//! account). `undo` and `redo` of such an entry restore the targets with the
+//! same backends.
 
 use std::ffi::OsString;
-use std::fs::OpenOptions;
-use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use nurt_contracts::config::PrivilegeConfig;
 use nurt_contracts::env::Os;
@@ -28,20 +27,12 @@ pub use nurt_proc::elevation::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-/// File of the references to elevated journal entries in the state directory
-/// of the account.
-pub const REFERENCE_FILE: &str = "elevated-operations.jsonl";
-
-/// Number added to the number of an entry of the system journal to give the
-/// number under which the account sees it; the numbers of the account stay
-/// below it.
-pub const ELEVATED_OP_BASE: u64 = 1_000_000_000;
-
 /// Reason recorded when `auto` repeated a stage with elevated rights.
 pub const REASON_AUTO: &str = "permission_denied";
 
-/// Reason recorded when `undo` reached an entry of the system journal.
-pub const REASON_REFERENCE: &str = "system_journal_entry";
+/// Reason recorded when `undo` or `redo` of an entry that an elevated
+/// operation wrote was sent to a backend.
+pub const REASON_ENTRY: &str = "elevated_entry";
 
 /// Reason of `E_PRIVILEGE` when the configuration forbids elevation.
 pub const DISABLED_BY_CONFIGURATION: &str = "disabled_by_configuration";
@@ -106,25 +97,6 @@ pub(crate) fn system_of(os: Os) -> System {
         Os::Macos => System::MacOs,
         Os::Windows => System::Windows,
         _ => System::Linux,
-    }
-}
-
-/// Directory of the system journal: the state directory of the
-/// administrator.
-///
-/// `/var/lib/nurt` on Linux, `/Library/Application Support/Nurt` on macOS and
-/// `%ProgramData%\Nurt` on Windows. `program_data` is the value of the
-/// variable `ProgramData`.
-#[must_use]
-pub fn system_state_dir(os: Os, program_data: Option<&str>) -> PathBuf {
-    match os {
-        Os::Linux => PathBuf::from("/var/lib/nurt"),
-        Os::Macos => PathBuf::from("/Library/Application Support/Nurt"),
-        Os::Windows => {
-            let base = program_data.unwrap_or("C:\\ProgramData");
-            Path::new(base).join("Nurt")
-        }
-        _ => PathBuf::from("/var/lib/nurt"),
     }
 }
 
@@ -284,134 +256,124 @@ pub(crate) fn refused_error(attempts: &[(Backend, Refusal)], as_user: Option<&st
     error.with_next_step("run nurt as the administrator, or use an account that may elevate")
 }
 
-/// Reference to an entry of the system journal, kept by the account.
+/// Journal of an account that a process writes with the rights of the
+/// administrator: the user, the group and the state directory of the account.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountJournal {
+    /// Numeric user of the account.
+    pub uid: u32,
+    /// Numeric group of the account.
+    pub gid: u32,
+    /// State directory of the account.
+    pub state_dir: std::path::PathBuf,
+}
+
+/// Account that an elevated process writes the journal for, and the backend
+/// that started the process.
+///
+/// The elevated process writes the entries and the copies of the previous
+/// content into the journal of this account, with the user and the group of the
+/// account (`nurt_fs::account`); the targets it changes with the rights of the
+/// administrator.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ElevatedReference {
-    /// Number of the entry; the same in the system journal.
-    pub op: u64,
-    /// Backend that ran the operation.
+pub struct ElevatedOwner {
+    /// Numeric user of the account.
+    pub uid: u32,
+    /// Numeric group of the account.
+    pub gid: u32,
+    /// Absolute state directory of the account.
+    pub state_dir: String,
+    /// Backend that started the process.
     pub backend: String,
-    /// Account the operation ran as, when it was not the administrator.
+}
+
+/// What the standard input of `elevated-exec` carries: the request and, when
+/// the process is to write the journal of the account that sent it, the owner.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ElevatedEnvelope {
+    /// Version of the envelope, `nurt-elevated/1`.
+    pub nurt_elevated: String,
+    /// Account whose journal is written; absent for a process that keeps the
+    /// journal of its own account.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub as_user: Option<String>,
-    /// Kind of the operation.
-    pub kind: String,
-    /// Time of the operation, in milliseconds since the Unix epoch.
-    pub time_ms: i64,
-    /// State directory that holds the system journal.
-    pub journal: String,
-    /// The entry was undone through the backend; the newest line of an entry
-    /// decides.
-    #[serde(default)]
-    pub undone: bool,
+    pub owner: Option<ElevatedOwner>,
+    /// The request in the request format of the protocol.
+    pub request: nurt_contracts::envelope::Request,
 }
 
-/// File of the references of one account.
-#[derive(Debug, Clone)]
-pub(crate) struct ReferenceLog {
-    path: PathBuf,
+/// Checks the owner that a request names before a process that runs as the
+/// administrator writes a journal for it.
+///
+/// The state directory must be an absolute path to a directory (not a link)
+/// that the named user owns, and the user must be the one that the backend
+/// recorded (`SUDO_UID`) when it recorded one. The account that sends the
+/// request can already obtain the rights of the administrator through the
+/// backend; the check keeps a request from naming another account, and every
+/// write below the directory is made with the rights of that account, never
+/// with more.
+///
+/// # Errors
+///
+/// Returns the reason in words.
+pub fn verify_owner(owner: &ElevatedOwner, backend_uid: Option<u32>) -> Result<(), String> {
+    if !cfg!(target_os = "linux") {
+        return Err(
+            "the journal of the account cannot be written by an elevated process on this system"
+                .to_owned(),
+        );
+    }
+    if backend_uid.is_some_and(|uid| uid != owner.uid) {
+        return Err("the owner is not the account that started the backend".to_owned());
+    }
+    let path = std::path::Path::new(&owner.state_dir);
+    if !path.is_absolute() {
+        return Err("the state directory of the owner is not an absolute path".to_owned());
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let meta = std::fs::symlink_metadata(path)
+            .map_err(|error| format!("the state directory of the owner: {error}"))?;
+        if !meta.is_dir() {
+            return Err("the state directory of the owner is not a directory".to_owned());
+        }
+        if meta.uid() != owner.uid {
+            return Err("the state directory is not owned by the owner".to_owned());
+        }
+    }
+    Ok(())
 }
 
-impl ReferenceLog {
-    /// The log in the state directory `root`.
-    pub(crate) fn in_state(root: &Path) -> Self {
-        Self {
-            path: root.join(REFERENCE_FILE),
+/// Version string of [`ElevatedEnvelope`].
+pub const ENVELOPE_VERSION: &str = "nurt-elevated/1";
+
+/// What `elevated-exec` read: an envelope, or a bare request.
+///
+/// # Errors
+///
+/// Returns the message of the parser for text that is neither.
+pub fn parse_envelope(bytes: &[u8]) -> Result<ElevatedEnvelope, String> {
+    if let Ok(envelope) = serde_json::from_slice::<ElevatedEnvelope>(bytes) {
+        if envelope.nurt_elevated != ENVELOPE_VERSION {
+            return Err(format!(
+                "unsupported envelope version `{}`",
+                envelope.nurt_elevated
+            ));
         }
+        return Ok(envelope);
     }
-
-    /// Appends one reference.
-    pub(crate) fn append(&self, reference: &ElevatedReference) -> std::io::Result<()> {
-        self.append_all(std::slice::from_ref(reference))
-    }
-
-    /// Appends the references with one write and makes them durable. When
-    /// the file does not end with a line break (a torn last line of an
-    /// earlier failed write), the new text starts on a new line, so the
-    /// damaged line never swallows a good one.
-    pub(crate) fn append_all(&self, references: &[ElevatedReference]) -> std::io::Result<()> {
-        use std::io::{Read, Seek, SeekFrom};
-
-        let mut file = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .append(true)
-            .open(&self.path)?;
-        let mut text = String::new();
-        let length = file.metadata()?.len();
-        if length > 0 {
-            file.seek(SeekFrom::Start(length - 1))?;
-            let mut last = [0_u8; 1];
-            file.read_exact(&mut last)?;
-            if last[0] != b'\n' {
-                text.push('\n');
-            }
-        }
-        for reference in references {
-            text.push_str(&serde_json::to_string(reference)?);
-            text.push('\n');
-        }
-        file.write_all(text.as_bytes())?;
-        file.sync_data()
-    }
-
-    /// Every reference, oldest first; a missing file is an empty log and a
-    /// damaged line is skipped.
-    pub(crate) fn all(&self) -> Vec<ElevatedReference> {
-        let Ok(file) = std::fs::File::open(&self.path) else {
-            return Vec::new();
-        };
-        BufReader::new(file)
-            .lines()
-            .map_while(Result::ok)
-            .filter_map(|line| serde_json::from_str(&line).ok())
-            .collect()
-    }
-
-    /// The newest line of every entry, oldest entry first.
-    pub(crate) fn latest(&self) -> Vec<ElevatedReference> {
-        let mut order: Vec<u64> = Vec::new();
-        let mut newest: std::collections::HashMap<u64, ElevatedReference> =
-            std::collections::HashMap::new();
-        for reference in self.all() {
-            if newest.insert(reference.op, reference.clone()).is_none() {
-                order.push(reference.op);
-            }
-        }
-        order
-            .into_iter()
-            .filter_map(|op| newest.remove(&op))
-            .collect()
-    }
-
-    /// The newest reference to entry `op`.
-    pub(crate) fn find(&self, op: u64) -> Option<ElevatedReference> {
-        self.all()
-            .into_iter()
-            .rev()
-            .find(|reference| reference.op == op)
-    }
+    serde_json::from_slice::<nurt_contracts::envelope::Request>(bytes)
+        .map(|request| ElevatedEnvelope {
+            nurt_elevated: ENVELOPE_VERSION.to_owned(),
+            owner: None,
+            request,
+        })
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn system_journal_directories() {
-        assert_eq!(
-            system_state_dir(Os::Linux, None),
-            PathBuf::from("/var/lib/nurt")
-        );
-        assert_eq!(
-            system_state_dir(Os::Macos, None),
-            PathBuf::from("/Library/Application Support/Nurt")
-        );
-        assert_eq!(
-            system_state_dir(Os::Windows, Some("D:\\Data")),
-            Path::new("D:\\Data").join("Nurt")
-        );
-    }
 
     #[test]
     fn configured_backends_replace_the_default_order() {
@@ -471,60 +433,51 @@ mod tests {
         assert!(!error.next_steps.is_empty());
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
-    fn references_are_appended_and_found_newest_first() {
+    fn an_owner_must_own_its_state_directory_and_match_the_backend() {
         let dir = tempfile::tempdir().unwrap();
-        let log = ReferenceLog::in_state(dir.path());
-        assert!(log.all().is_empty());
-        let reference = |op, backend: &str| ElevatedReference {
-            op,
-            backend: backend.to_owned(),
-            as_user: None,
-            kind: "write".to_owned(),
-            time_ms: 1,
-            journal: "/var/lib/nurt".to_owned(),
-            undone: false,
-        };
-        log.append(&reference(3, "sudo")).unwrap();
-        log.append(&reference(4, "doas")).unwrap();
-        log.append(&reference(3, "run0")).unwrap();
-        assert_eq!(log.all().len(), 3);
-        assert_eq!(log.find(3).unwrap().backend, "run0");
-        assert_eq!(log.find(4).unwrap().backend, "doas");
-        assert!(log.find(9).is_none());
-    }
-
-    fn sample(op: u64) -> ElevatedReference {
-        ElevatedReference {
-            op,
+        let uid = std::os::unix::fs::MetadataExt::uid(&std::fs::metadata(dir.path()).unwrap());
+        let owner = ElevatedOwner {
+            uid,
+            gid: uid,
+            state_dir: dir.path().to_string_lossy().into_owned(),
             backend: "sudo".to_owned(),
-            as_user: None,
-            kind: "write".to_owned(),
-            time_ms: 1,
-            journal: "/var/lib/nurt".to_owned(),
-            undone: false,
-        }
+        };
+        assert!(verify_owner(&owner, None).is_ok());
+        assert!(verify_owner(&owner, Some(uid)).is_ok());
+        assert!(verify_owner(&owner, Some(uid + 1)).is_err());
+        let other = ElevatedOwner {
+            uid: uid + 1,
+            ..owner.clone()
+        };
+        assert!(verify_owner(&other, None).is_err());
+        let relative = ElevatedOwner {
+            state_dir: "state".to_owned(),
+            ..owner.clone()
+        };
+        assert!(verify_owner(&relative, None).is_err());
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(dir.path(), &link).unwrap();
+        let linked = ElevatedOwner {
+            state_dir: link.to_string_lossy().into_owned(),
+            ..owner
+        };
+        assert!(verify_owner(&linked, None).is_err(), "a link is refused");
     }
 
     #[test]
-    fn a_torn_last_line_does_not_swallow_the_next_reference() {
-        let dir = tempfile::tempdir().unwrap();
-        let log = ReferenceLog::in_state(dir.path());
-        log.append(&sample(1)).unwrap();
-        let path = dir.path().join(REFERENCE_FILE);
-        let mut torn = std::fs::read_to_string(&path).unwrap();
-        torn.push_str("{\"op\":2,\"backe");
-        std::fs::write(&path, torn).unwrap();
-        log.append_all(&[sample(3), sample(4)]).unwrap();
-        let ops: Vec<u64> = log.all().iter().map(|reference| reference.op).collect();
-        assert_eq!(ops, [1, 3, 4]);
-    }
-
-    #[test]
-    fn a_failed_write_is_reported_to_the_caller() {
-        let dir = tempfile::tempdir().unwrap();
-        let log = ReferenceLog::in_state(&dir.path().join("missing"));
-        assert!(log.append(&sample(1)).is_err());
+    fn a_bare_request_and_an_envelope_are_both_read() {
+        let request = r#"{"nurt":"1.0","program":"find \"/\""}"#;
+        let bare = parse_envelope(request.as_bytes()).unwrap();
+        assert!(bare.owner.is_none());
+        let wrapped = format!(
+            r#"{{"nurt_elevated":"nurt-elevated/1","owner":{{"uid":1000,"gid":1000,"state_dir":"/home/a/.local/state/nurt","backend":"sudo"}},"request":{request}}}"#
+        );
+        let envelope = parse_envelope(wrapped.as_bytes()).unwrap();
+        assert_eq!(envelope.owner.unwrap().uid, 1000);
+        assert_eq!(envelope.request, bare.request);
+        assert!(parse_envelope(b"nonsense").is_err());
     }
 
     #[test]

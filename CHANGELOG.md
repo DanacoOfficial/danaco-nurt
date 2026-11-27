@@ -76,17 +76,13 @@ their own version numbers, described in the specification.
   command line (`--privilege`, `--as-user`); the elevation backends `self`,
   `sudo`, `doas` and `run0` (the backend `broker` is reported as
   `not_installed` until the service `nurt-elevation`); the configuration
-  section `[privilege]`; elevated entries in the system journal with
-  references in the journal of the account; and undo of elevated changes and
-  of changes to packages and services by inverse operations.
+  section `[privilege]`; elevated entries in the journal of the account, with
+  the same numbering, whose copies the account can access; and undo of
+  elevated changes and of changes to packages and services by inverse
+  operations.
 
 ### Changed
 
-- A `nurt` process that runs as the administrator keeps its journal, results
-  and candidates in the system state directory (`/var/lib/nurt`,
-  `/Library/Application Support/Nurt`, `%ProgramData%\Nurt`) instead of the
-  state directory of that account; entries made earlier as `root` are not shown
-  there.
 - `sudo`, `doas` and `run0` in bash lines are translated into `privilege:
   elevated` or `as_user` instead of being rejected; `sudo -i` and `su` end with
   `E_AMBIGUOUS`.

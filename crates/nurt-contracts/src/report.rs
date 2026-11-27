@@ -1402,7 +1402,7 @@ pub struct Report {
     pub as_user: Option<String>,
     /// Why the operation was elevated without being asked to: `permission_denied`
     /// when `privilege: auto` repeated the stage after a denial, or
-    /// `system_journal_entry` when `undo` reached an elevated entry.
+    /// `elevated_entry` when `undo` or `redo` of an elevated entry was sent to a backend.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub elevation_reason: Option<String>,
     /// Canonical text of the program that ran; present only when corrections

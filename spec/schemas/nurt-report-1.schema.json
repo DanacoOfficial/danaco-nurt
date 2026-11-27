@@ -14,7 +14,7 @@
     "elevated": { "const": true, "description": "Present only when the operation ran with elevated rights." },
     "backend": { "enum": ["self", "broker", "sudo", "doas", "run0"], "description": "Elevation backend that ran the operation; present only with elevated." },
     "as_user": { "type": "string", "minLength": 1, "description": "Account the operation ran as, when the call gave as_user." },
-    "elevation_reason": { "enum": ["permission_denied", "system_journal_entry"], "description": "Why the operation was elevated without being asked to: privilege auto repeated the stage after a denial, or undo reached an elevated journal entry." },
+    "elevation_reason": { "enum": ["permission_denied", "elevated_entry"], "description": "Why the operation was elevated without being asked to: privilege auto repeated the stage after a denial, or undo or redo of an elevated entry was sent to a backend." },
     "ran": { "type": "string", "description": "Canonical text of the program that ran; present only when corrections were applied." },
     "ast_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "result_file": { "type": "string", "minLength": 1, "x-nurt-volatile": true, "description": "Path of the file holding the full result (UTF-8), when the result was written to a file (save_to or output.results_dir)." },

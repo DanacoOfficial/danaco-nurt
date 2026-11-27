@@ -21,7 +21,7 @@ use nurt_contracts::record::Change;
 use nurt_contracts::report::{
     Correction, FLAG_DIRECTORY, IrreversibleEntry, NotableEntry, tree_counts,
 };
-use nurt_contracts::stage::{BoundArgs, EffectOutcome, EffectPlan, ExecCtx, ExecStep};
+use nurt_contracts::stage::{BoundArgs, EffectOutcome, EffectPlan, ElevatedRun, ExecCtx, ExecStep};
 use serde_json::json;
 
 use crate::flow::at_step;
@@ -164,8 +164,12 @@ impl ProgramSource<'_> {
         bulk: bool,
         preserve_budget: Option<Duration>,
     ) -> BeginRequest {
+        let mut kind = OpKind::command(command);
+        if let Some(run) = ctx.extensions().get::<ElevatedRun>() {
+            kind.action = Some(format!("elevated:{}", run.backend));
+        }
         BeginRequest {
-            kind: OpKind::command(command),
+            kind,
             session: ctx.options().session.clone().map(SessionId),
             program,
             corrections: self.corrections.to_vec(),

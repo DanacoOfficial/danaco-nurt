@@ -14,13 +14,13 @@ use std::time::Duration;
 use nurt_contracts::bound::{BoundDocument, BoundExpr, BoundHead, BoundStatement};
 use nurt_contracts::envelope::{Privilege, Request, RequestInput, Response};
 use nurt_contracts::error::{Error, ErrorCode};
-use nurt_contracts::report::{Correction, Report, ReportStatus};
+use nurt_contracts::report::{Correction, ReportStatus};
 use nurt_contracts::stage::{CancelToken, EventSink};
 use nurt_proc::elevation::{Backend, Refusal, System, run_backend};
 
 use crate::elevation::{
-    ELEVATED_OP_BASE, ElevatedReference, Mark, REASON_AUTO, REASON_REFERENCE, as_user_unsupported,
-    backends_of, disabled_error, refused_error, system_of, system_state_dir,
+    ENVELOPE_VERSION, ElevatedEnvelope, ElevatedOwner, Mark, REASON_AUTO, REASON_ENTRY,
+    as_user_unsupported, backends_of, disabled_error, refused_error, system_of,
 };
 use crate::engine::{Engine, Prepared, failed_report, input_kind, respond_with};
 use crate::frontend::Compiled;
@@ -112,10 +112,12 @@ impl Engine {
     ///
     /// The process must be the administrator, or the account named by
     /// `as_user`; otherwise the response reports `E_PRIVILEGE`. The request
-    /// runs in this process, whatever its `privilege`, and its journal entry
-    /// goes to the journal of this process.
+    /// runs in this process, whatever its `privilege`; its entry goes to the
+    /// journal that this engine was opened with (the journal of the account
+    /// that sent the request, see [`EngineConfig::with_account_journal`]).
+    /// `backend` names the backend that started the process.
     #[must_use]
-    pub fn elevated_exec(&self, request: &Request) -> Response {
+    pub fn elevated_exec(&self, request: &Request, backend: Option<&str>) -> Response {
         let as_user = request.options.as_user.clone();
         let user = &self.inner.host.info().user;
         let allowed = self.inner.elevation.is_administrator()
@@ -128,33 +130,13 @@ impl Engine {
             return respond_with(&failed_report(input_kind(request), error), &request.options);
         }
         let mark = Mark {
-            backend: Backend::SelfProcess,
+            backend: backend
+                .and_then(Backend::from_name)
+                .unwrap_or(Backend::SelfProcess),
             as_user,
             reason: None,
         };
         self.execute_local(request, &CancelToken::new(), None, Some(mark), None)
-    }
-
-    /// The references that this account keeps to entries of the system
-    /// journal, oldest first.
-    #[must_use]
-    pub fn elevated_references(&self) -> Vec<ElevatedReference> {
-        self.inner
-            .references
-            .as_ref()
-            .map(crate::elevation::ReferenceLog::all)
-            .unwrap_or_default()
-    }
-
-    /// The system state directory for the host of this engine.
-    #[must_use]
-    pub fn system_state_dir(&self) -> std::path::PathBuf {
-        let program_data = self
-            .inner
-            .host
-            .env_var("ProgramData")
-            .map(|value| value.to_string_lossy().into_owned());
-        system_state_dir(self.inner.host.info().os, program_data.as_deref())
     }
 
     /// Runs the request through the backends in order.
@@ -180,7 +162,7 @@ impl Engine {
         let backends = backends_of(&prepared.config.config().privilege, system)?;
         let setup = &self.inner.elevation;
         let mut attempts: Vec<(Backend, Refusal)> = Vec::new();
-        let mut payload: Option<(Vec<u8>, Vec<Correction>, Option<String>)> = None;
+        let mut payload: Option<(Request, Vec<Correction>, Option<String>)> = None;
         for backend in backends {
             if backend == Backend::SelfProcess {
                 if as_user.is_some() {
@@ -209,15 +191,16 @@ impl Engine {
                     None => return Ok(self.execute_local(request, cancel, events, None, early)),
                 }
             }
-            let Some((bytes, corrections, ran)) = &payload else {
+            let Some((elevated, corrections, ran)) = &payload else {
                 continue;
             };
+            let bytes = self.envelope_bytes(elevated, backend, as_user.is_none());
             let executable = setup.executable()?;
             let limit = prepared.timeout.saturating_add(BACKEND_GRACE);
             match run_backend(
                 backend,
                 &executable,
-                bytes,
+                &bytes,
                 as_user.as_deref(),
                 setup.search_path.as_deref(),
                 limit,
@@ -265,50 +248,19 @@ impl Engine {
             response.report.corrections = corrected.0.to_vec();
             response.report.ran.clone_from(corrected.1);
         }
-        self.keep_references(&mut response, mark);
+        self.keep_inverses(&mut response);
         if response.reports.is_empty() {
             response = respond_with(&response.report, options);
         }
         response
     }
 
-    /// Stores a reference for every entry of the system journal that the
-    /// response names and gives the entries their numbers in the account; when
-    /// a reference cannot be stored the report fails and keeps the system
-    /// numbers.
-    fn keep_references(&self, response: &mut Response, mark: &Mark) {
-        let mut references: Vec<ElevatedReference> = Vec::new();
-        let all = response
-            .reports
-            .iter()
-            .chain(std::iter::once(&response.report));
-        for report in all {
-            if let Some(op) = report.op
-                && !references.iter().any(|known| known.op == op)
-                && let Some(reference) = self.reference_of(report, mark)
-            {
-                references.push(reference);
-            }
-        }
-        let stored = match &self.inner.references {
-            Some(log) if !references.is_empty() => log.append_all(&references),
-            _ => Ok(()),
-        };
-        match stored {
-            Ok(()) => {
-                for report in
-                    std::iter::once(&mut response.report).chain(response.reports.iter_mut())
-                {
-                    if let Some(op) = report.op {
-                        report.op = Some(ELEVATED_OP_BASE + op);
-                    }
-                }
-            }
-            Err(failure) => {
-                let numbers: Vec<u64> = references.iter().map(|known| known.op).collect();
-                response.report.status = ReportStatus::Partial;
-                response.report.error = Some(reference_not_kept(&numbers, &failure));
-            }
+    /// Keeps the inverse operations of the entries that the response names:
+    /// the account process, not the elevated one, writes them to its state.
+    fn keep_inverses(&self, response: &mut Response) {
+        self.keep_inverse(&mut response.report);
+        for report in &mut response.reports {
+            self.keep_inverse(report);
         }
     }
 
@@ -321,7 +273,7 @@ impl Engine {
         request: &Request,
         prepared: &Prepared,
         early: Option<&Early>,
-    ) -> Option<(Vec<u8>, Vec<Correction>, Option<String>)> {
+    ) -> Option<(Request, Vec<Correction>, Option<String>)> {
         let (mut elevated, corrections, ran) = match request.input().ok()? {
             RequestInput::Program { text, variant } => {
                 let corrected = self.correct(text, variant).ok()?;
@@ -345,39 +297,73 @@ impl Engine {
         };
         elevated.options = prepared.options.clone();
         elevated.options.privilege = Some(Privilege::Elevated);
-        let bytes = serde_json::to_vec(&elevated).ok()?;
-        Some((bytes, corrections, ran))
+        Some((elevated, corrections, ran))
     }
 
-    /// Keeps the reference to the entry of the system journal that an
-    /// elevated operation wrote.
-    fn reference_of(&self, report: &Report, mark: &Mark) -> Option<ElevatedReference> {
-        let op = report.op?;
-        self.inner.references.as_ref()?;
-        if report.status == ReportStatus::Planned {
-            return None;
-        }
-        Some(ElevatedReference {
-            op,
-            backend: mark.backend.as_str().to_owned(),
-            as_user: mark.as_user.clone(),
-            kind: report.kind.clone(),
-            time_ms: i64::try_from(self.now().unix_nanos() / 1_000_000).unwrap_or(0),
-            undone: false,
-            journal: match &mark.as_user {
-                Some(user) => format!("account:{user}"),
-                None => self.system_state_dir().to_string_lossy().into_owned(),
-            },
+    /// What the elevated process reads: the request and, for a process that
+    /// keeps the journal of this account, the owner. A process that runs as
+    /// another account (`as_user`) keeps the journal of that account.
+    fn envelope_bytes(&self, request: &Request, backend: Backend, own_journal: bool) -> Vec<u8> {
+        let owner = if own_journal {
+            self.account_owner(backend)
+        } else {
+            None
+        };
+        let envelope = ElevatedEnvelope {
+            nurt_elevated: ENVELOPE_VERSION.to_owned(),
+            owner,
+            request: request.clone(),
+        };
+        serde_json::to_vec(&envelope).unwrap_or_default()
+    }
+
+    /// The journal of this account, as an owner for the elevated process.
+    #[cfg(target_os = "linux")]
+    fn account_owner(&self, backend: Backend) -> Option<ElevatedOwner> {
+        let state = self.inner.state.as_ref()?;
+        let (uid, gid) = nurt_proc::elevation::effective_ids()?;
+        Some(ElevatedOwner {
+            uid,
+            gid,
+            state_dir: state.root().to_string_lossy().into_owned(),
+            backend: backend.as_str().to_owned(),
         })
     }
 
-    /// The reference that an `undo` of the program names, when the entry is
-    /// one of the system journal and the journal of the account has no entry
-    /// with that number.
-    pub(crate) fn elevated_entry_of(&self, bound: &BoundDocument) -> Option<ElevatedReference> {
-        let log = self.inner.references.as_ref()?;
-        let id = undo_id(bound)?;
-        log.find(id.checked_sub(ELEVATED_OP_BASE)?)
+    /// Other systems keep the journal of the elevated process in its own
+    /// account.
+    #[cfg(not(target_os = "linux"))]
+    fn account_owner(&self, _backend: Backend) -> Option<ElevatedOwner> {
+        None
+    }
+
+    /// Whether the program is `undo` or `redo` of an entry that an elevated
+    /// operation wrote: such an entry is restored with the rights of the
+    /// administrator, through a backend.
+    pub(crate) fn is_elevated_entry(&self, bound: &BoundDocument) -> bool {
+        let Some(id) = entry_id(bound) else {
+            return false;
+        };
+        let record = |id: u64| {
+            self.history(&nurt_contracts::journal::HistoryQuery {
+                id: Some(nurt_contracts::journal::OpId(id)),
+                ..nurt_contracts::journal::HistoryQuery::default()
+            })
+            .ok()
+            .and_then(|found| found.into_iter().next())
+        };
+        let elevated = |action: &Option<String>| {
+            action
+                .as_deref()
+                .is_some_and(|action| action.starts_with("elevated"))
+        };
+        record(id).is_some_and(|found| {
+            elevated(&found.action)
+                || found
+                    .undo_of
+                    .iter()
+                    .any(|undone| record(*undone).is_some_and(|entry| elevated(&entry.action)))
+        })
     }
 
     /// The request that carries the call parameters written on the stages of
@@ -411,54 +397,21 @@ impl Engine {
         Ok(Some(forced))
     }
 
-    /// Runs the `undo` of an elevated entry through the backends.
+    /// Runs the `undo` or `redo` of an elevated entry through the backends.
     pub(crate) fn undo_elevated(
         &self,
         request: &Request,
         prepared: &Prepared,
-        reference: &ElevatedReference,
         cancel: &CancelToken,
         events: Option<Arc<dyn EventSink>>,
     ) -> Response {
         if !prepared.config.config().privilege.allowed {
             return refusal(request, prepared, disabled_error());
         }
-        let inner = Request::program(format!("undo {}", reference.op))
-            .with_options(request.options.clone());
-        let mut options = prepared.options.clone();
-        options.privilege = Some(Privilege::Elevated);
-        options.as_user.clone_from(&reference.as_user);
-        let forced = Prepared {
-            config: Arc::clone(&prepared.config),
-            options,
-            session: prepared.session.clone(),
-            timeout: prepared.timeout,
-            elevation: None,
-            params: prepared.params.clone(),
-        };
-        match self.run_elevated(
-            &inner,
-            &forced,
-            Some(REASON_REFERENCE),
-            cancel,
-            events,
-            None,
-        ) {
-            Ok(response) => {
-                let mut response = response;
-                if response.report.status == ReportStatus::Ok
-                    && !prepared.options.preview()
-                    && let Some(log) = &self.inner.references
-                {
-                    let mut done = reference.clone();
-                    done.undone = true;
-                    if let Err(failure) = log.append(&done) {
-                        response.report.status = ReportStatus::Partial;
-                        response.report.error = Some(reference_not_kept(&[reference.op], &failure));
-                    }
-                }
-                response
-            }
+        let mut forced = prepared.clone();
+        forced.options.privilege = Some(Privilege::Elevated);
+        match self.run_elevated(request, &forced, Some(REASON_ENTRY), cancel, events, None) {
+            Ok(response) => response,
             Err(error) => refusal(request, prepared, error),
         }
     }
@@ -516,23 +469,6 @@ fn denied(response: &Response) -> bool {
         })
 }
 
-/// `E_JOURNAL_PARTIAL`: the operation ran in the system journal but the account
-/// could not keep the reference.
-fn reference_not_kept(numbers: &[u64], failure: &std::io::Error) -> Error {
-    let listed = numbers
-        .iter()
-        .map(u64::to_string)
-        .collect::<Vec<_>>()
-        .join(", ");
-    Error::new(
-        ErrorCode::JournalPartial,
-        format!("the entries {listed} of the system journal were written, but the account could not keep their references: {failure}"),
-    )
-    .with_detail("system_entries", serde_json::json!(numbers))
-    .with_effect_applied(true)
-    .with_next_step("free space or fix the permissions of the state directory, then undo with `undo N privilege: elevated` using the system number")
-}
-
 /// Response that reports `error` for a request that could not be elevated.
 fn refusal(request: &Request, prepared: &Prepared, error: Error) -> Response {
     respond_with(
@@ -541,8 +477,8 @@ fn refusal(request: &Request, prepared: &Prepared, error: Error) -> Response {
     )
 }
 
-/// The `id` of the first `undo` stage of the program.
-pub(crate) fn undo_id(bound: &BoundDocument) -> Option<u64> {
+/// The `id` of the first `undo` or `redo` stage of the program.
+pub(crate) fn entry_id(bound: &BoundDocument) -> Option<u64> {
     for statement in &bound.program.statements {
         let BoundStatement::Pipeline(pipeline) = statement else {
             continue;
@@ -552,7 +488,7 @@ pub(crate) fn undo_id(bound: &BoundDocument) -> Option<u64> {
             _ => None,
         };
         for stage in head.into_iter().chain(pipeline.stages.iter()) {
-            if stage.name != "undo" {
+            if stage.name != "undo" && stage.name != "redo" {
                 continue;
             }
             let arg = stage.args.iter().find(|arg| arg.name == "id")?;
@@ -569,6 +505,7 @@ pub(crate) fn undo_id(bound: &BoundDocument) -> Option<u64> {
 mod tests {
     use super::*;
     use nurt_contracts::record::{Change, ChangeAction};
+    use nurt_contracts::report::Report;
 
     fn denied_response() -> Response {
         let mut report = Report::new(ReportStatus::Failed, "write");

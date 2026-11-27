@@ -213,10 +213,43 @@ pub(crate) fn open_journal(
     clock: Arc<dyn Clock>,
     state_root: &Path,
     registry: Option<Arc<RegistryProvider>>,
+    account: Option<&crate::elevation::AccountJournal>,
 ) -> std::result::Result<Arc<dyn JournalStore>, EngineError> {
-    build(layers, loaded, project_trusted, clock, state_root, registry)
-        .map(|journal| journal as Arc<dyn JournalStore>)
-        .map_err(|error| EngineError::journal(&error))
+    build(
+        layers,
+        loaded,
+        project_trusted,
+        clock,
+        state_root,
+        registry,
+        account,
+    )
+    .map(|journal| journal as Arc<dyn JournalStore>)
+    .map_err(|error| EngineError::journal(&error))
+}
+
+/// The file system of the journal: the system file system, or, for a process
+/// that writes the journal of an account with the rights of the administrator,
+/// one that creates everything below the journal with that account.
+fn journal_fs(
+    account: Option<&crate::elevation::AccountJournal>,
+    _state_root: &Path,
+) -> Arc<dyn FsWrite> {
+    #[cfg(target_os = "linux")]
+    if let Some(account) = account
+        && let Ok(state_dir) = AbsPath::new(account.state_dir.clone())
+    {
+        return Arc::new(nurt_fs::account::AccountFs::new(
+            nurt_fs::system_fs(),
+            nurt_fs::account::AccountIdentity {
+                uid: account.uid,
+                gid: account.gid,
+                state_dir,
+            },
+        ));
+    }
+    let _ = account;
+    nurt_fs::system_fs()
 }
 
 fn with_providers(
@@ -236,9 +269,10 @@ fn build(
     clock: Arc<dyn Clock>,
     state_root: &Path,
     registry: Option<Arc<RegistryProvider>>,
+    account: Option<&crate::elevation::AccountJournal>,
 ) -> Result<Arc<Journal>> {
     let state_dir = AbsPath::new(state_root.to_path_buf()).map_err(Error::from)?;
-    let fs: Arc<dyn FsWrite> = nurt_fs::system_fs();
+    let fs: Arc<dyn FsWrite> = journal_fs(account, state_root);
     let reader: Arc<dyn Fs> = fs.clone();
     let settings = loaded.config();
     let catalog = Arc::new(LateCatalog::default());

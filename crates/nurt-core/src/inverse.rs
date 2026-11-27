@@ -31,7 +31,7 @@ use nurt_contracts::report::{Irreversible, IrreversibleEntry, Report, ReportStat
 use nurt_contracts::stage::{CancelToken, EventSink};
 use serde::{Deserialize, Serialize};
 
-use crate::elevated::undo_id;
+use crate::elevated::entry_id;
 use crate::engine::{Engine, Prepared};
 
 /// Whether the package manager `manager` still offers `version` of
@@ -82,6 +82,10 @@ pub struct InverseOperation {
     /// The entry was undone; set by the last line of an entry.
     #[serde(default)]
     pub undone: bool,
+    /// The change ran with the rights of the administrator, so its inverse
+    /// programs do too.
+    #[serde(default)]
+    pub elevated: bool,
 }
 
 /// What the report of a change leaves to undo.
@@ -342,6 +346,7 @@ impl Engine {
             kind: report.kind.clone(),
             programs,
             undone: false,
+            elevated: report.elevated,
         };
         if log.append(&entry).is_ok() {
             report.irreversible.retain(|entry| {
@@ -370,18 +375,23 @@ impl Engine {
         events: Option<Arc<dyn EventSink>>,
     ) -> Option<Response> {
         let log = self.inner.inverses.as_ref()?;
-        let op = undo_id(bound)?;
+        let op = entry_id(bound)?;
         let entry = log.find(op)?;
         let mut last = None;
         for program in &entry.programs {
-            let inner = Request::program(program.clone()).with_options(request.options.clone());
-            let response = self.execute_local(
-                &inner,
-                cancel,
-                events.clone(),
-                prepared.elevation.clone(),
-                None,
-            );
+            let mut inner = Request::program(program.clone()).with_options(request.options.clone());
+            let response = if entry.elevated && prepared.elevation.is_none() {
+                inner.options.privilege = Some(nurt_contracts::envelope::Privilege::Elevated);
+                self.route(&inner, cancel, events.clone())
+            } else {
+                self.execute_local(
+                    &inner,
+                    cancel,
+                    events.clone(),
+                    prepared.elevation.clone(),
+                    None,
+                )
+            };
             if response.report.status != ReportStatus::Ok
                 && response.report.status != ReportStatus::Planned
             {
@@ -623,6 +633,7 @@ mod tests {
             kind: "start".to_owned(),
             programs: programs.iter().map(|p| (*p).to_owned()).collect(),
             undone,
+            elevated: false,
         };
         assert!(log.find(4).is_none());
         log.append(&entry(&["a"], false)).unwrap();

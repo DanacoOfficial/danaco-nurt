@@ -54,14 +54,21 @@ fn nurt(args: &[&str], stdin: &str, config: Option<&str>) -> (Output, tempfile::
     (output, home)
 }
 
-/// Whether a file `name` exists below `dir`.
-fn contains_file(dir: &Path, name: &str) -> bool {
-    std::fs::read_dir(dir).is_ok_and(|entries| {
-        entries.flatten().any(|entry| {
-            let path = entry.path();
-            path.file_name().is_some_and(|found| found == name)
-                || (path.is_dir() && contains_file(&path, name))
-        })
+/// Whether every file and directory below `dir` belongs to the user that
+/// runs the test, which is the account whose journal the elevated process
+/// wrote.
+#[cfg(unix)]
+fn owned_by_the_account(dir: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let me = std::fs::metadata(dir).map(|meta| meta.uid()).unwrap_or(0);
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return true;
+    };
+    entries.flatten().all(|entry| {
+        let path = entry.path();
+        let meta = std::fs::symlink_metadata(&path);
+        meta.as_ref().is_ok_and(|meta| meta.uid() == me)
+            && (!path.is_dir() || path.is_symlink() || owned_by_the_account(&path))
     })
 }
 
@@ -224,18 +231,30 @@ fn sudo_writes_a_system_file_and_undo_removes_it() {
     let written = response(&output);
     assert_eq!(written.report.status, ReportStatus::Ok, "{written:?}");
     assert!(written.report.elevated);
-    let op = written.report.op.expect("an entry of the system journal");
+    let op = written.report.op.expect("an entry of the account journal");
     assert!(Path::new(target).exists());
-    assert!(contains_file(
-        &home.path().join("state"),
-        "elevated-operations.jsonl"
-    ));
+    let listed = nurt_in(
+        home.path(),
+        &["--format", "json", "history"],
+        "",
+        Some(config),
+    );
+    let text = String::from_utf8_lossy(&listed.stdout).into_owned();
+    assert!(text.contains("elevated:sudo"), "{text}");
+    assert!(
+        owned_by_the_account(home.path()),
+        "the journal below the home of the account holds a file of another owner"
+    );
     let undo = format!("undo {op}");
     let output = nurt_in(home.path(), &["--format", "json", &undo], "", Some(config));
     let undone = response(&output);
     assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
     assert!(undone.report.elevated);
     assert!(!Path::new(target).exists());
+    assert!(
+        owned_by_the_account(home.path()),
+        "the undo left a file of another owner in the journal"
+    );
     let _ = Command::new("sudo")
         .args(["-n", "rm", "-f", target])
         .status();
