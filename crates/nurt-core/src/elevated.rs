@@ -40,6 +40,62 @@ pub(crate) type Early = Result<Compiled, Error>;
 /// Time allowed to a backend beyond the time limit of the request.
 const BACKEND_GRACE: Duration = Duration::from_secs(30);
 
+/// How [`Engine::run_elevated`] picks the backends and what it reports.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct Route {
+    /// Reason stamped on the report.
+    pub(crate) reason: Option<&'static str>,
+    /// The only backend to try: the one that wrote the entry that an `undo` or
+    /// a `redo` restores.
+    pub(crate) only: Option<Backend>,
+}
+
+impl Route {
+    /// A route that tries the configured backends in order.
+    pub(crate) const fn new(reason: Option<&'static str>) -> Self {
+        Self { reason, only: None }
+    }
+}
+
+/// The backends to try: the configured ones, or, for the restore of an entry
+/// that names its backend, that backend alone.
+///
+/// # Errors
+///
+/// `E_PRIVILEGE` naming the backend when the entry was written through a
+/// backend that `privilege.backends` does not allow.
+pub(crate) fn choose_backends(
+    configured: Vec<Backend>,
+    recorded: Option<Backend>,
+) -> Result<Vec<Backend>, Error> {
+    let Some(backend) = recorded else {
+        return Ok(configured);
+    };
+    if configured.contains(&backend) {
+        return Ok(vec![backend]);
+    }
+    Err(Error::new(
+        ErrorCode::Privilege,
+        format!(
+            "the entry was written through `{backend}`, which `privilege.backends` does not allow"
+        ),
+    )
+    .with_detail(
+        "backend",
+        serde_json::json!([{"backend": backend.as_str(), "result": "not_allowed"}]),
+    )
+    .with_next_step(format!(
+        "add `{backend}` to `privilege.backends` to restore the entry"
+    )))
+}
+
+/// The backend named by the action of an entry (`elevated:<backend>`).
+pub(crate) fn backend_of_action(action: &str) -> Option<Backend> {
+    action
+        .strip_prefix("elevated:")
+        .and_then(Backend::from_name)
+}
+
 impl Engine {
     /// Runs a request with the rights its options ask for.
     pub(crate) fn route(
@@ -83,7 +139,7 @@ impl Engine {
             return match self.run_elevated(
                 request,
                 &prepared,
-                Some(REASON_AUTO),
+                Route::new(Some(REASON_AUTO)),
                 cancel,
                 events,
                 early,
@@ -96,7 +152,7 @@ impl Engine {
                 }
             };
         }
-        match self.run_elevated(request, &prepared, None, cancel, events, early) {
+        match self.run_elevated(request, &prepared, Route::new(None), cancel, events, early) {
             Ok(response) => response,
             Err(error) => refusal(request, &prepared, error),
         }
@@ -157,7 +213,7 @@ impl Engine {
         &self,
         request: &Request,
         prepared: &Prepared,
-        reason: Option<&'static str>,
+        route: Route,
         cancel: &CancelToken,
         events: Option<Arc<dyn EventSink>>,
         early: Option<Early>,
@@ -167,7 +223,11 @@ impl Engine {
         if as_user.is_some() && system == System::Windows {
             return Err(as_user_unsupported());
         }
-        let backends = backends_of(&prepared.config.config().privilege, system)?;
+        let backends = choose_backends(
+            backends_of(&prepared.config.config().privilege, system)?,
+            route.only,
+        )?;
+        let reason = route.reason;
         let setup = &self.inner.elevation;
         let mut attempts: Vec<(Backend, Refusal)> = Vec::new();
         let mut payload: Option<(Request, Vec<Correction>, Option<String>)> = None;
@@ -374,6 +434,33 @@ impl Engine {
         })
     }
 
+    /// The backend that wrote the entry that the `undo` or `redo` of the
+    /// request restores: the backend of the entry itself, or of the entry that
+    /// it undid.
+    fn recorded_backend(&self, request: &Request, prepared: &Prepared) -> Option<Backend> {
+        let compiled = self.compile_early(request, prepared)?.ok()?;
+        let id = entry_id(&compiled.bound)?;
+        let record = |id: u64| {
+            self.history(&nurt_contracts::journal::HistoryQuery {
+                id: Some(nurt_contracts::journal::OpId(id)),
+                ..nurt_contracts::journal::HistoryQuery::default()
+            })
+            .ok()
+            .and_then(|found| found.into_iter().next())
+        };
+        let found = record(id)?;
+        found
+            .action
+            .as_deref()
+            .and_then(backend_of_action)
+            .or_else(|| {
+                found.undo_of.iter().find_map(|undone| {
+                    record(*undone)
+                        .and_then(|entry| entry.action.as_deref().and_then(backend_of_action))
+                })
+            })
+    }
+
     /// The entry that a bare `undo` or `redo` (without a number or another
     /// selector) would restore, when an elevated operation wrote it.
     ///
@@ -470,7 +557,11 @@ impl Engine {
         }
         let mut forced = prepared.clone();
         forced.options.privilege = Some(Privilege::Elevated);
-        match self.run_elevated(request, &forced, Some(REASON_ENTRY), cancel, events, None) {
+        let route = Route {
+            reason: Some(REASON_ENTRY),
+            only: self.recorded_backend(request, prepared),
+        };
+        match self.run_elevated(request, &forced, route, cancel, events, None) {
             Ok(response) => response,
             Err(error) => refusal(request, prepared, error),
         }
@@ -611,6 +702,49 @@ mod tests {
         let mut report = Report::new(ReportStatus::Failed, "write");
         report.error = Some(Error::new(ErrorCode::Permission, "denied"));
         Response::new(report)
+    }
+
+    #[test]
+    fn an_entry_is_restored_through_the_backend_that_wrote_it() {
+        let configured = vec![Backend::Doas, Backend::Sudo, Backend::Run0];
+        assert_eq!(
+            choose_backends(configured.clone(), None).unwrap(),
+            configured
+        );
+        assert_eq!(
+            choose_backends(configured, Some(Backend::Sudo)).unwrap(),
+            vec![Backend::Sudo]
+        );
+    }
+
+    #[test]
+    fn a_backend_that_the_configuration_does_not_allow_is_named_in_the_refusal() {
+        let error = choose_backends(vec![Backend::Doas], Some(Backend::Sudo)).unwrap_err();
+        assert_eq!(error.code(), ErrorCode::Privilege);
+        assert!(error.data().message.contains("`sudo`"), "{error:?}");
+        assert!(
+            error
+                .data()
+                .next_steps
+                .iter()
+                .any(|step| step.contains("`sudo`"))
+        );
+        let listed = error.data().details.get("backend").cloned().unwrap();
+        assert_eq!(
+            listed,
+            serde_json::json!([{"backend": "sudo", "result": "not_allowed"}])
+        );
+    }
+
+    #[test]
+    fn the_action_of_an_entry_names_its_backend() {
+        assert_eq!(backend_of_action("elevated:sudo"), Some(Backend::Sudo));
+        assert_eq!(
+            backend_of_action("elevated:self"),
+            Some(Backend::SelfProcess)
+        );
+        assert_eq!(backend_of_action("elevated:ssh"), None);
+        assert_eq!(backend_of_action("sudo"), None);
     }
 
     #[test]
