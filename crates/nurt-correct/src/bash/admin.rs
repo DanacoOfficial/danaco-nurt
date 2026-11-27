@@ -3,19 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::bash::admin
-// Responsibility:   Translation of the administration programs of a shell (`useradd`.
-// Dependencies:     nurt_contracts, nurt_syntax
+// Responsibility:   Translates the administration programs of bash into the native administration commands.
+// Dependencies:     nurt-contracts, nurt-correct bash session
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
-//
-// Module: nurt-correct bash admin
-// Responsibility: Translates the administration programs of bash into the native administration commands.
-// Dependencies: nurt-contracts, nurt-correct bash session
-// Author: Danaco Official
-// Version: 0.1.1, 2026-11-27
-// License: see the LICENSE file or https://www.danaco-group.pl
 //! Translation of the administration programs of a shell (`useradd`,
 //! `mount`, `sysctl -w`, `ufw`, `ip route`, `shutdown`, `mkfs.*`, …) into the
 //! native administration commands of Nurt.

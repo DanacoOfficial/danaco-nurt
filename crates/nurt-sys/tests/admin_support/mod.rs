@@ -3,19 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-sys/tests/admin_support/mod.rs
-// Responsibility:   Harness shared by the tests of the administration commands against the real system.
-// Dependencies:     nurt_contracts, nurt_testkit
+// Responsibility:   Provides the process host, transaction and request helpers shared by the administration tests against the real system.
+// Dependencies:     nurt-contracts, nurt-testkit, which
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
-//
-// Module: nurt-sys tests admin_support
-// Responsibility: Provides the process host, transaction and request helpers shared by the administration tests against the real system.
-// Dependencies: nurt-contracts, nurt-testkit, which
-// Author: Danaco Official
-// Version: 0.1.1, 2026-11-27
-// License: see the LICENSE file or https://www.danaco-group.pl
 //! Harness shared by the tests of the administration commands against the real system.
 #![allow(dead_code, clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 

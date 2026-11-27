@@ -3,19 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-sys/tests/admin_windows.rs
-// Responsibility:   Tests of the firewall, DNS and time zone commands against Windows.
-// Dependencies:     admin_support, nurt_contracts
+// Responsibility:   Tests the firewall, DNS and time zone commands against a disposable Windows machine.
+// Dependencies:     nurt-sys, nurt-contracts, nurt-testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
-//
-// Module: nurt-sys tests admin_windows
-// Responsibility: Tests the firewall, DNS and time zone commands against a disposable Windows machine.
-// Dependencies: nurt-sys, nurt-contracts, nurt-testkit
-// Author: Danaco Official
-// Version: 0.1.1, 2026-11-27
-// License: see the LICENSE file or https://www.danaco-group.pl
 //! Tests of the firewall, DNS and time zone commands against Windows.
 //!
 //! They change the system and need an elevated session on the disposable

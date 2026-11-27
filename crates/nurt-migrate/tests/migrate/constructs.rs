@@ -3,19 +3,12 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-migrate/tests/migrate/constructs.rs
-// Responsibility:   Migration of the bash forms of section 11 of the language brief: the.
-// Dependencies:     nurt_syntax
+// Responsibility:   Tests of the migration of the bash constructs and administration programs of section 11 of the language brief.
+// Dependencies:     nurt-migrate, nurt-syntax
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
-//
-// Module: migrate tests: constructs
-// Responsibility: Tests of the migration of the bash constructs and administration programs of section 11 of the language brief.
-// Dependencies: nurt-migrate, nurt-syntax
-// Author: Danaco Official
-// Version: 0.1.1, 2026-11-27
-// License: see the LICENSE file or https://www.danaco-group.pl
 //! Migration of the bash forms of section 11 of the language brief: the
 //! conditions, loops, functions, script parameters, chains of changes and the
 //! administration programs of a whole script. Every program that the
