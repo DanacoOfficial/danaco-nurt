@@ -203,7 +203,7 @@ adobe-cmap-parser = "0.4.1"
 cff-parser = "0.2.0"
 euclid = "0.20.5"
 log = "0.4.22"
-postscript = "0.14"
+postscript = "0.19"
 type1-encoding-parser = "0.1.1"
 
 # System logs.
