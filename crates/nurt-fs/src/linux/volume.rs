@@ -146,6 +146,13 @@ pub(super) fn volume(cache: &VolumeCache, path: &Path) -> FsResult<VolumeInfo> {
         Some(entry) => Described::from_entry(entry),
         None => Described::from_statfs(&existing, dev)?,
     };
+    // Overlayfs reports the device of the layer below for a file that was
+    // not copied up yet; such a file belongs to the overlay mount, whose
+    // device the mount table names, as every other entry of the overlay.
+    let dev = match entry {
+        Some(entry) if entry.fs_type == "overlay" => device_number(entry.major, entry.minor),
+        _ => dev,
+    };
     let statvfs = retry(|| rustix::fs::statvfs(&existing))
         .map_err(|errno| sys_error(errno, "volume", path))?;
     let block = block_device(stat.stx_dev_major, stat.stx_dev_minor, &described.source);
