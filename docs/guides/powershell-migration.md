@@ -1,7 +1,7 @@
 ---
 name: powershell-migration
 description: Habits from PowerShell and how Nurt corrects, translates or rejects them.
-commands: [list, find, read, write, search, copy, move, remove, create, rename, info, filter, select, sort, first, group, summarize, run, services, evaluate, describe]
+commands: [list, find, read, write, search, copy, move, remove, create, rename, info, filter, select, sort, first, group, summarize, run, services, evaluate, describe, windows.cim]
 ---
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
@@ -27,7 +27,7 @@ find "/home/user/app" glob: "**/*.go" |> filter size > 1mb |> sort size order: d
 
 `Where-Object { $_.Length -gt 1MB }` becomes `filter size > 1mb`. Only comparisons of fields, `-and`, `-or` and `-not` are translated, with the fields `Length`, `LastWriteTime`, `Name`, `FullName` and `Extension` mapped to `size`, `modified`, `name`, `path` and `extension`.
 
-`ForEach-Object { … }` has no counterpart. The exceptions are blocks that read one property, such as `{ $_.Name }`, which become `select name`. Loops are replaced by patterns and pipelines; a computed value is written as `select total: size * 2`.
+`ForEach-Object { … }` has no counterpart. The exceptions are blocks that read one property, such as `{ $_.Name }`, which become `select name`. A loop over records that change something is written with `each` (see below); a computed value is written as `select total: size * 2`.
 
 `Group-Object` and `Measure-Object` become `group by:` and `summarize`. `X | Get-Member` becomes `X |> describe`.
 
@@ -42,6 +42,49 @@ A registry path such as `HKLM:\Software\X` becomes the path `"registry:/HKLM/Sof
 ## Common parameters
 
 `-WhatIf` becomes the call parameter `preview: true`. `-Confirm` is removed with a note, because Nurt does not ask for confirmation. `-ErrorAction SilentlyContinue` becomes `on_missing: skip` where the command has the parameter.
+
+## Conditions, loops, functions and parameters
+
+The corrections translate single cmdlets. The constructs of a script are written in Nurt by hand, because they are part of the language and not of the correction of one line. Each construct is one journal entry and all or nothing, which `try`/`catch` and `$ErrorActionPreference = "Stop"` do not give.
+
+| PowerShell | Nurt |
+|---|---|
+| `if (…) { … } elseif (…) { … } else { … }` | `when … { … } otherwise when … { … } otherwise { … }` |
+| `Test-Path P` in a condition | `exists "P"` |
+| `foreach ($f in Get-ChildItem …) { … }`, `… \| ForEach-Object { … }` with a change | `each (find …) as f { … }`; the record is `f`, a field is `f.path` |
+| `while (…) { … }` | `while … limit: 20 { … }` |
+| `do { … } until (…)` | `repeat until: … every: 5s limit: 2m { … }` |
+| `break`, `continue` | `break`, `continue` inside a loop |
+| `A; B; C` with changes that must stand or fall together | `steps { A  B  C }` |
+| `function F($Dir, $Keep = 7) { … }` | `define F(dir: path, keep: int = 7) { … }`; a call is `F("/x", keep: 14)` |
+| `param([string]$Dir, [int]$Days = 30, [switch]$Dry)` | `params { dir: path  days: int = 30  dry: bool = false }`; a switch is a `bool` written without a value (`dry`) |
+| `$LASTEXITCODE`, `$?` | `exit_code` and the fields of a `let` bound to `run` |
+
+```nurt
+params {
+    dir: path
+    days: int = 30
+    dry: bool = false
+}
+find @dir glob: "**/*.log" |> filter modified < ago(@days * 1d) |> remove preview: @dry
+```
+
+`nurt run cleanup.nurt dir: "D:/logs" days: 7 dry` passes the values, as `.\cleanup.ps1 -Dir D:\logs -Days 7 -Dry` does. `-WhatIf` of a script is the parameter `preview` of every stage.
+
+## Administration
+
+The native commands of the administration group replace the modules of the system. The full list, the systems and the inverse operation of each command are in [administration](administration.md).
+
+| PowerShell | Nurt |
+|---|---|
+| `New-LocalUser`, `Set-LocalUser`, `Remove-LocalUser` | `accounts.create`, `accounts.modify`, `accounts.remove` |
+| `New-LocalGroup`, `Add-LocalGroupMember`, `Remove-LocalGroupMember` | `groups.create`, `groups.add_member`, `groups.remove_member` |
+| `New-NetFirewallRule`, `Remove-NetFirewallRule` | `firewall.allow` or `firewall.deny`, `firewall.remove` |
+| `Set-DnsClientServerAddress`, `New-NetRoute` | `network.dns_set`, `network.route_add` |
+| `Set-TimeZone`, `Set-Date` | `clock.timezone_set`, `clock.set` |
+| `Restart-Computer`, `Stop-Computer` | `power.restart`, `power.shutdown` |
+| `New-Partition`, `Format-Volume` | `disks.partition`, `disks.format` |
+| `Invoke-CimMethod` | `windows.cim` with `invoke: <method>` |
 
 ## What is rejected
 

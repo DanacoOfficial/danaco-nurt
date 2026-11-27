@@ -78,3 +78,43 @@ host
 ```nurt
 disks |> filter free < 10gib
 ```
+
+## Native administration commands
+
+Every command below changes the system, accepts `privilege`, reports its effect and records the previous state in the journal. The inverse is the operation that `undo` runs. The commands are loaded with the group `administration` of the tool description, so a session that does not administer a system does not carry them.
+
+| Group | Commands | Systems | Inverse |
+|---|---|---|---|
+| accounts | `accounts.create`, `accounts.modify` (shell, home, groups, comment, lock), `accounts.remove` (`keep_home: bool`), `accounts.password` | Linux, macOS, Windows | create and remove are inverse (the home directory is kept until the entry expires); `modify` restores the recorded values; `password` is irreversible |
+| groups | `groups.create`, `groups.remove`, `groups.add_member`, `groups.remove_member` | Linux, macOS, Windows | pairwise |
+| mounts | `mount` (device, target, type, options, `persistent`), `unmount` | Linux, macOS; Windows drive letters and folder mounts | `mount` and `unmount` |
+| kernel | `sysctl.set` (key, value, `persistent`), `modules.load`, `modules.unload` | Linux; `sysctl` of writable keys on macOS | the previous value; load and unload |
+| firewall | `firewall.rules` (read), `firewall.allow`, `firewall.deny`, `firewall.remove` (port, protocol, source, direction, zone) | nftables, firewalld and ufw on Linux, pf on macOS, Windows Defender Firewall | the added rule is removed |
+| network | `network.route_add`, `network.route_remove`, `network.dns_set` (servers, search domains) | all | the previous routes and DNS |
+| clock | `clock.timezone_set`, `clock.set`, `clock.ntp` (on, off) | all | the previous time zone and NTP state; `clock.set` is irreversible |
+| power | `power.restart`, `power.shutdown` (`at`, `delay`, `message`), `power.cancel` | all | irreversible once executed; a scheduled one is undone by `power.cancel` |
+| disks | `disks.partition` (create, delete, resize), `disks.format` (file system, label) | Linux, macOS, Windows | irreversible |
+| services | `start`, `stop`, `restart`, `enable`, `disable` | all | as in the table above |
+| Windows management | `windows.cim` method calls (`invoke: <method>`) | Windows | irreversible unless the method has a documented opposite |
+
+A password is given as a secret reference of the engine and never as text; the journal does not store it. `mount` with `persistent: true` writes `/etc/fstab` or a systemd mount unit, and `sysctl.set` with `persistent: true` writes `/etc/sysctl.d/90-nurt.conf`; both files are journaled like any file, so `undo` restores them. The preview of `disks.partition` and `disks.format` lists the device, its partitions, file systems and mount points, and the size of the data that would be lost.
+
+```nurt
+accounts.create "deploy" shell: "/bin/bash" groups: ["www-data"] privilege: elevated
+groups.add_member "www-data" "backup" privilege: elevated
+```
+
+## Several changes as one operation
+
+A change of a system rarely is one command. `steps` runs several changing pipelines as one journal entry, all or nothing; a step marked irreversible (a restart, a program run with `run`, `power.restart`) is listed before the start and, after a later failure, is reported as not rolled back.
+
+```nurt
+steps {
+    sysctl.set "net.ipv4.ip_forward" "1" persistent privilege: elevated
+    firewall.allow port: 8443 protocol: tcp privilege: elevated
+    let r = run ["systemctl", "reload", "app"] cwd: "/" privilege: elevated
+    assert r.exit_code == 0
+}
+```
+
+`when` chooses a branch by the state of the system, and `each` repeats a change over a list; `preview` shows the chosen branch and every iteration without a change. The syntax is described in [language](../site/language.md).
