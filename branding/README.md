@@ -40,6 +40,11 @@ Two identical chevrons on a grid of 96 x 96 units. The left chevron is silver an
 | `print/` | print specification (`print-spec.pdf`), print colour values and print geometry values; Pantone numbers are candidates until the first print |
 | `terminal/` | reference drawings of the start banner in half blocks and in ASCII, with ANSI colour samples |
 | `tokens.css`, `identity.json` | colour tokens and decided values |
+| `guidelines-0.1.1.pdf` | the identity guidelines of the production identity 1.0.0 as shipped in release 0.1.1: mark, name, colour, grounds, finishing, print, icons and terminal banner; written by `book_production.py` through `book.py --edition 0.1.1` |
+| `guidelines-0.1.0.pdf` | the identity guidelines of release 0.1.0, the earlier book, written by `book.py --edition 0.1.0` |
+| `book.py` | the writer of the guidelines of both editions |
+| `book_production.py` | the generator of the edition 0.1.1, which reads the design pack |
+| `edition-0.1.0/` | the identity of release 0.1.0 in its original layout: the scripts `build.py`, `letters.py`, `lockup.py`, `export.py` and `test_branding.py`, the files `svg/` and `raster/` they write, and `render/` with `nurt-hero.png` and the Blender script `two_materials.py`; `book.py --edition 0.1.0` draws from it |
 
 ## Rules of use
 
@@ -51,6 +56,18 @@ Two identical chevrons on a grid of 96 x 96 units. The left chevron is silver an
 6. Gold appears in tint only as the deep gold `#A3722A` on light grounds, never as text on `#F6F7F8`.
 7. Cyan is for the pipe `|>`, not for the logo.
 8. The tile of 150 pixels for Windows is used only with a dark ground declared in a manifest; without a manifest it is not shipped.
+9. The files in `edition-0.1.0/` belong to the identity of release 0.1.0; they are kept as the record of that identity and to reproduce `guidelines-0.1.0.pdf`, and are not used for the product.
+
+## Guidelines
+
+```text
+python3 -I branding/book.py --edition 0.1.1 --pack PACK --python PACK_PYTHON
+python3 -I branding/book.py --edition 0.1.0 --fonts FONT_DIRECTORY --hero branding/edition-0.1.0/render/nurt-hero.png
+```
+
+`book.py` writes the guidelines of one edition per run and names the file after the edition, `guidelines-EDITION.pdf` in this directory, unless `--out` is given. The edition 0.1.1 is the current one and the default; it describes the production identity 1.0.0 as shipped in release 0.1.1 and is written by `book_production.py` from the design pack `PACK` (the directory `design/brand/production` of the design repository of Danaco Official, which holds `backgrounds/`, `icons/`, `lockups/`, `mockups/`, `render/` and `build/kit/`). `PACK_PYTHON` is the interpreter of the Python environment of the pack, with Pillow, fontTools, uharfbuzz, shapely and numpy; `rsvg-convert` must be on the path. Two runs on the same sources write the same bytes, so `guidelines-0.1.1.pdf` is reproduced exactly.
+
+The edition 0.1.0 is the earlier book, drawn by `book.py` itself from the construction in `edition-0.1.0/build.py` and the lettering in `edition-0.1.0/lockup.py`; it needs the package fontTools, `rsvg-convert` and the font files named in `book.py`. By default the scripts in `edition-0.1.0/` write their SVG and PNG files inside `edition-0.1.0/` (`letters.py` only where `--out` points), not over the files of the production identity.
 
 ## Use of the name and the mark
 

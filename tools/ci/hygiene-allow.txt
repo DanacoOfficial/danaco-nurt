@@ -302,3 +302,5 @@ user-path crates/nurt-tooldef/tests/equivalence.rs
 promotional-word */terminal-banner*
 emoji branding/terminal/*
 emoji crates/nurt-contracts/src/product.rs
+# The guidelines of edition 0.1.1 draw the start banner from the same half blocks.
+emoji branding/book_production.py
