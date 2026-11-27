@@ -3672,7 +3672,7 @@ mod tests {
         fs.mark_hidden(&s, &p("/backup")).expect("hide");
         let hidden = fs.metadata(&p("/backup"), Follow::NoFollow).expect("meta");
         assert_ne!(hidden.windows_attributes & FILE_ATTRIBUTE_SYSTEM, 0);
-        fs.create_link(&s, Path::new("/"), &p("/junction"), LinkKind::Junction)
+        fs.create_link(&s, p("/").as_path(), &p("/junction"), LinkKind::Junction)
             .expect("junction");
         assert_eq!(
             kind(fs.create_link(&s, Path::new("rel"), &p("/j2"), LinkKind::Junction)),

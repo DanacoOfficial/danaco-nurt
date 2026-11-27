@@ -267,9 +267,11 @@ fn is_utf8(sample: &[u8], complete: bool) -> bool {
 }
 
 fn legacy(sample: &[u8], complete: bool) -> TextEncoding {
-    if let Some(encoding) = console_encoding() {
-        return encoding;
-    }
+    console_encoding().unwrap_or_else(|| guess(sample, complete))
+}
+
+/// Encoding guessed from the content of `sample`.
+fn guess(sample: &[u8], complete: bool) -> TextEncoding {
     let mut detector = chardetng::EncodingDetector::new(chardetng::Iso2022JpDetection::Deny);
     detector.feed(sample, complete);
     from_encoding(detector.guess(None, chardetng::Utf8Detection::Allow))
@@ -432,9 +434,13 @@ mod tests {
         let text = "Za\u{17c}\u{f3}\u{142}\u{107} g\u{119}\u{15b}l\u{105} ja\u{17a}\u{144} \
                     \u{15b}wi\u{119}ty \u{142}\u{105}ka \u{17c}\u{f3}\u{142}w";
         let (bytes, _, _) = encoding_rs::WINDOWS_1250.encode(text);
-        let detected = detect(&bytes, true);
-        assert!(matches!(detected, TextEncoding::Legacy(_)), "{detected:?}");
-        assert_eq!(detected.decode(&bytes), text);
+        let guessed = guess(&bytes, true);
+        assert!(matches!(guessed, TextEncoding::Legacy(_)), "{guessed:?}");
+        assert_eq!(guessed.decode(&bytes), text);
+        // On Windows a console program writes in the code page of the
+        // console, which takes precedence over the guess.
+        let expected = console_encoding().unwrap_or(guessed);
+        assert_eq!(detect(&bytes, true), expected);
     }
 
     #[test]

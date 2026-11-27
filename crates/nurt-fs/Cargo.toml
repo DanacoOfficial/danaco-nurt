@@ -68,5 +68,6 @@ flate2 = { workspace = true, optional = true }
 zstd = { workspace = true, optional = true }
 
 [dev-dependencies]
+nurt-testkit = { workspace = true }
 tempfile = { workspace = true }
 proptest = { workspace = true }

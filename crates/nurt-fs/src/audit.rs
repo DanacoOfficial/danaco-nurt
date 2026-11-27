@@ -670,7 +670,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "rename on /state/a, /home/user/project/a")]
+    #[should_panic(expected = "/home/user/project/a (operation 4, purpose Reclaim")]
     fn move_from_internal_to_user_data_needs_a_transaction() {
         let fs = audited(&[]);
         let _ = fs.rename(

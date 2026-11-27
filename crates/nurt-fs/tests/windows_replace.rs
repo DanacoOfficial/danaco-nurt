@@ -28,7 +28,7 @@ use nurt_contracts::fs::{
 use nurt_fs::windows::WindowsFs;
 use nurt_fs::windows::meta::attributes::HIDDEN;
 use nurt_fs::windows::replace::ReplaceState;
-use nurt_fs::windows::security::security_differences;
+use nurt_fs::windows::security::{SecurityDescriptor, security_differences};
 
 use common::descriptor::{
     Builder, EVERYONE, FILE_ALL_ACCESS, FILE_GENERIC_READ, LOCAL_SYSTEM, LOCAL_SYSTEM_TEXT, allow,
@@ -197,9 +197,14 @@ fn keeps_account_group_dacl_and_streams_of_the_replaced_file() {
         after.acl.as_deref().unwrap(),
     )
     .unwrap();
+    let control = |acl: &[u8]| SecurityDescriptor::parse(acl).map(|sd| sd.control()).ok();
     assert!(
         differences.is_empty(),
-        "ReplaceFileW changed {differences:?}"
+        "ReplaceFileW changed {differences:?}: control {:?} before, {:?} after; descriptor {:02x?} before, {:02x?} after",
+        control(before.acl.as_deref().unwrap()),
+        control(after.acl.as_deref().unwrap()),
+        before.acl.as_deref().unwrap(),
+        after.acl.as_deref().unwrap()
     );
     assert_eq!(sorted(after.streams), sorted(before.streams));
 }
@@ -245,9 +250,12 @@ fn assert_foreign_account_kept(privileged_replace: bool) {
         after.acl.as_deref().unwrap(),
     )
     .unwrap();
+    let control = |acl: &[u8]| SecurityDescriptor::parse(acl).map(|sd| sd.control()).ok();
     assert!(
         differences.is_empty(),
-        "ReplaceFileW changed {differences:?}"
+        "ReplaceFileW changed {differences:?}: control {:?} before, {:?} after",
+        control(before.acl.as_deref().unwrap()),
+        control(after.acl.as_deref().unwrap())
     );
     let backup = fx.extended(&names.backup);
     assert_eq!(backup.account_sid.as_deref(), Some(LOCAL_SYSTEM_TEXT));

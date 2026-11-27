@@ -877,8 +877,21 @@ mod tests {
         ArchiveProvider::new(Arc::new(fs))
     }
 
+    /// Address of a test archive; an absolute path in POSIX form gets the
+    /// root of `nurt_testkit::paths`.
     fn address(text: &str) -> ArchiveAddress {
-        ArchiveAddress::parse(text).expect("address")
+        let rooted = |path: &str| {
+            if path.starts_with('/') {
+                nurt_testkit::paths::abs(path)
+            } else {
+                path.to_owned()
+            }
+        };
+        let text = match text.strip_prefix("archive:") {
+            Some(rest) => format!("archive:{}", rooted(rest)),
+            None => rooted(text),
+        };
+        ArchiveAddress::parse(&text).expect("address")
     }
 
     fn zip_bytes(method: zip::CompressionMethod, members: &[(&str, &[u8])]) -> Vec<u8> {
