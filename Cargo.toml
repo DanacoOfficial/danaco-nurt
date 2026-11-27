@@ -201,7 +201,7 @@ pdf-extract = { package = "nurt-pdf-extract", path = "crates/nurt-pdf-extract", 
 lopdf = { version = "0.47.0", default-features = false, features = ["rayon"] }
 adobe-cmap-parser = "0.4.1"
 cff-parser = "0.2.0"
-euclid = "0.20.5"
+euclid = "0.22.14"
 log = "0.4.22"
 postscript = "0.14"
 type1-encoding-parser = "0.1.1"
