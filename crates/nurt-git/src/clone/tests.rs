@@ -48,7 +48,7 @@ impl Cloned {
     }
 
     fn id(&self, name: &str) -> Option<ObjectId> {
-        gix::open(&self.root)
+        crate::testutil::open_isolated(&self.root)
             .expect("clone opens")
             .try_find_reference(name)
             .expect("readable reference")
@@ -101,7 +101,8 @@ fn upstream_id(up: &Fixture, name: &str) -> ObjectId {
 fn full_clone_has_the_layout_of_git() {
     let up = upstream();
     let clone = run(up.path(), |_| {});
-    let url = up.path().to_string_lossy().into_owned();
+    // Git stores a local path with `/` separators, on Windows too.
+    let url = up.path().to_string_lossy().replace('\\', "/");
     assert_eq!(clone.read("HEAD"), "ref: refs/heads/main\n");
     let config = clone.read("config");
     assert!(
@@ -156,7 +157,7 @@ fn full_clone_checks_out_the_files_and_the_index() {
             .mode();
         assert_ne!(mode & 0o111, 0);
     }
-    let repo = gix::open(&clone.root).unwrap();
+    let repo = crate::testutil::open_isolated(&clone.root).unwrap();
     let index = repo.index().expect("index is written");
     assert_eq!(index.entries().len(), 3);
     assert_eq!(clone.outcome.files_written, 3);
@@ -167,7 +168,8 @@ fn full_clone_checks_out_the_files_and_the_index() {
 fn reflogs_record_the_clone() {
     let up = upstream();
     let clone = run(up.path(), |_| {});
-    let url = up.path().to_string_lossy().into_owned();
+    // Git stores a local path with `/` separators, on Windows too.
+    let url = up.path().to_string_lossy().replace('\\', "/");
     for log in ["HEAD", "refs/heads/main", "refs/remotes/origin/HEAD"] {
         let text = clone.read(&format!("logs/{log}"));
         assert_eq!(text.lines().count(), 1, "{log}");
