@@ -411,8 +411,9 @@ fn search_without_path_needs_a_base_directory() {
 }
 
 fn server_answers() -> Arc<ScriptedSemantic> {
-    let lib = std::path::Path::new(ROOT).join("src/lib.rs");
-    let outside = std::path::Path::new("/elsewhere/other.rs");
+    // The server names absolute paths of the current system.
+    let lib = nurt_testkit::paths::abs_path(ROOT).join("src/lib.rs");
+    let outside = &nurt_testkit::paths::abs_path("/elsewhere/other.rs");
     ScriptedSemantic::new(Script {
         workspace: Ok(vec![
             server_symbol("parse", RecordKind::Function, &lib, 1),

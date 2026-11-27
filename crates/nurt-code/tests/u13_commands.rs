@@ -110,7 +110,8 @@ impl Project {
 
     /// Path of a record relative to the project root.
     fn relative(&self, path: &str) -> String {
-        let root = format!("{}/", self.root.display());
+        // Records name paths in the language form, with `/` separators.
+        let root = format!("{}/", self.root.display()).replace('\\', "/");
         path.strip_prefix(&root).unwrap_or(path).to_owned()
     }
 }

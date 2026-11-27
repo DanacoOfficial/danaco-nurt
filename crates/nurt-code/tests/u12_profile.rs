@@ -493,7 +493,8 @@ fn script_names_with_shell_metacharacters_are_not_offered_as_commands() {
 #[test]
 fn entry_points_name_their_target_and_origin() {
     let fixture = project();
-    let root = fixture.root().display().to_string();
+    // Records name paths in the language form, with `/` separators.
+    let root = fixture.root().display().to_string().replace('\\', "/");
     let (_, records) = run(&fixture.context(true, true, true), fixture.root(), &[]).unwrap();
     let entries = section(&records, "entry_points");
     let tool = format!("{root}/bin/tool.js");

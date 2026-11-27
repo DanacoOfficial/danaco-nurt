@@ -87,7 +87,7 @@ impl TestHost {
             architecture: "x86_64".to_owned(),
             hostname: "test".to_owned(),
             user: "test".to_owned(),
-            home: PathBuf::from("/home/test"),
+            home: nurt_testkit::paths::abs_path("/home/test"),
             temp: std::env::temp_dir(),
             path_style: PathStyle::Posix,
             timezone: "UTC".to_owned(),

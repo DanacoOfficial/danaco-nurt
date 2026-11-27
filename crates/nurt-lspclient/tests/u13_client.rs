@@ -631,7 +631,14 @@ struct Project {
 impl Project {
     fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().canonicalize().unwrap().join("proj");
+        let canonical = dir.path().canonicalize().unwrap();
+        // A canonical path on Windows carries the verbatim prefix `\\?\`,
+        // which a file URI and the paths read from it do not keep.
+        let plain = canonical
+            .to_str()
+            .and_then(|text| text.strip_prefix(r"\\?\"))
+            .map_or_else(|| canonical.clone(), PathBuf::from);
+        let root = plain.join("proj");
         for (name, text) in [
             ("pyproject.toml", "[project]\nname = \"sample\"\n"),
             ("pkg/shapes.py", SHAPES),

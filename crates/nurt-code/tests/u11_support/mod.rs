@@ -209,7 +209,7 @@ impl Workspace {
 
     /// Absolute path of a project file.
     pub(crate) fn path(&self, relative: &str) -> PathBuf {
-        Path::new(ROOT).join(relative)
+        nurt_testkit::paths::abs_path(&format!("{ROOT}/{relative}"))
     }
 
     /// Writes a project file.
@@ -218,7 +218,7 @@ impl Workspace {
         self.test
             .fs()
             .write_file(
-                &test_path(&path.to_string_lossy()).unwrap(),
+                &test_path(&format!("{ROOT}/{relative}")).unwrap(),
                 content.as_bytes(),
             )
             .unwrap();
@@ -241,7 +241,7 @@ impl Workspace {
     /// Context with `config`.
     pub(crate) fn ctx_with(&self, config: Config) -> ExecCtx {
         let options = RequestOptions {
-            base: Some(ROOT.to_owned()),
+            base: Some(nurt_testkit::paths::abs(ROOT)),
             ..RequestOptions::default()
         };
         self.test
@@ -286,7 +286,14 @@ pub(crate) fn word(value: &str) -> Value {
 
 /// Path argument.
 pub(crate) fn path_value(path: &Path) -> Value {
-    Value::Path(path.to_string_lossy().into_owned())
+    // A project path in POSIX form names the same entry on every system with
+    // the root of `nurt_testkit::paths`.
+    let text = path.to_string_lossy().replace('\\', "/");
+    if text.starts_with('/') {
+        Value::Path(nurt_testkit::paths::abs(&text))
+    } else {
+        Value::Path(text)
+    }
 }
 
 /// Records of a read stage.
@@ -320,7 +327,7 @@ pub(crate) fn names(symbols: &[Symbol]) -> Vec<String> {
 /// Path of a record relative to the project root.
 pub(crate) fn relative(symbol: &Symbol) -> String {
     let path = symbol.path.as_str();
-    path.strip_prefix(&format!("{ROOT}/"))
+    path.strip_prefix(&format!("{}/", nurt_testkit::paths::abs(ROOT)))
         .unwrap_or(path)
         .to_owned()
 }

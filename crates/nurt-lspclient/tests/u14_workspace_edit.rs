@@ -37,29 +37,48 @@ fn at(line: u32, column: u32) -> TextPosition {
 }
 
 fn only(path: &'static str, text: &'static str) -> impl Fn(&Path) -> Option<String> {
-    move |asked: &Path| (asked == Path::new(path)).then(|| text.to_owned())
+    let path = nurt_testkit::paths::abs_path(path);
+    move |asked: &Path| (asked == path).then(|| text.to_owned())
+}
+
+/// `value` with the URIs of `/w` naming absolute paths of the current system
+/// (`file:///C:/w/…` on Windows).
+fn rooted(value: &Value) -> Value {
+    let root = nurt_testkit::paths::ROOT;
+    let prefix = if root.is_empty() {
+        "file:///w".to_owned()
+    } else {
+        format!("file:///{root}/w")
+    };
+    serde_json::from_str(&value.to_string().replace("file:///w", &prefix)).unwrap()
 }
 
 #[test]
 fn utf16_offsets_become_character_columns() {
     let edit =
         json!({"changes": {"file:///w/a.ts": [{"range": range(0, 9, 12), "newText": "total"}]}});
-    let change = workspace_change(&edit, PositionUnit::Utf16, &only("/w/a.ts", WIDE)).unwrap();
+    let change =
+        workspace_change(&rooted(&edit), PositionUnit::Utf16, &only("/w/a.ts", WIDE)).unwrap();
     let edits = texts(&change.changes);
     assert_eq!(edits[0].range.start, at(1, 9));
     assert_eq!(edits[0].range.end, at(1, 12));
-    assert_eq!(edits[0].range.path, PathBuf::from("/w/a.ts"));
+    assert_eq!(
+        edits[0].range.path,
+        nurt_testkit::paths::abs_path("/w/a.ts")
+    );
 }
 
 #[test]
 fn utf8_and_utf32_offsets_are_converted_by_their_unit() {
     let utf8 =
         json!({"changes": {"file:///w/a.ts": [{"range": range(0, 11, 14), "newText": "x"}]}});
-    let change = workspace_change(&utf8, PositionUnit::Utf8, &only("/w/a.ts", WIDE)).unwrap();
+    let change =
+        workspace_change(&rooted(&utf8), PositionUnit::Utf8, &only("/w/a.ts", WIDE)).unwrap();
     assert_eq!(texts(&change.changes)[0].range.start, at(1, 9));
     let utf32 =
         json!({"changes": {"file:///w/a.ts": [{"range": range(0, 8, 11), "newText": "x"}]}});
-    let change = workspace_change(&utf32, PositionUnit::Utf32, &only("/w/a.ts", WIDE)).unwrap();
+    let change =
+        workspace_change(&rooted(&utf32), PositionUnit::Utf32, &only("/w/a.ts", WIDE)).unwrap();
     assert_eq!(texts(&change.changes)[0].range.start, at(1, 9));
 }
 
@@ -72,7 +91,7 @@ fn changes_map_is_ordered_by_path_and_position() {
         ],
         "file:///w/a.py": [{"range": range(0, 4, 7), "newText": "y"}]
     }});
-    let change = workspace_change(&edit, PositionUnit::Utf16, &|_: &Path| None).unwrap();
+    let change = workspace_change(&rooted(&edit), PositionUnit::Utf16, &|_: &Path| None).unwrap();
     let order: Vec<(PathBuf, u32)> = texts(&change.changes)
         .iter()
         .map(|text| (text.range.path.clone(), text.range.start.line))
@@ -80,9 +99,9 @@ fn changes_map_is_ordered_by_path_and_position() {
     assert_eq!(
         order,
         vec![
-            (PathBuf::from("/w/a.py"), 1),
-            (PathBuf::from("/w/b.py"), 1),
-            (PathBuf::from("/w/b.py"), 3)
+            (nurt_testkit::paths::abs_path("/w/a.py"), 1),
+            (nurt_testkit::paths::abs_path("/w/b.py"), 1),
+            (nurt_testkit::paths::abs_path("/w/b.py"), 3)
         ]
     );
 }
@@ -90,7 +109,7 @@ fn changes_map_is_ordered_by_path_and_position() {
 #[test]
 fn unreadable_document_keeps_the_protocol_offsets() {
     let edit = json!({"changes": {"file:///w/a.py": [{"range": range(4, 2, 5), "newText": "y"}]}});
-    let change = workspace_change(&edit, PositionUnit::Utf16, &|_: &Path| None).unwrap();
+    let change = workspace_change(&rooted(&edit), PositionUnit::Utf16, &|_: &Path| None).unwrap();
     assert_eq!(texts(&change.changes)[0].range.start, at(5, 3));
 }
 
@@ -103,13 +122,18 @@ fn document_changes_keep_the_order_of_the_server() {
         {"textDocument": {"uri": "file:///w/created.ts", "version": null}, "edits": [{"range": range(0, 0, 0), "newText": "x"}]},
         {"kind": "delete", "uri": "file:///w/gone", "options": {"recursive": true}}
     ]});
-    let change = workspace_change(&edit, PositionUnit::Utf16, &only("/w/old.ts", WIDE)).unwrap();
+    let change = workspace_change(
+        &rooted(&edit),
+        PositionUnit::Utf16,
+        &only("/w/old.ts", WIDE),
+    )
+    .unwrap();
     assert_eq!(change.changes.len(), 5);
     assert_eq!(
         change.changes[0],
         DocumentChange::Resource(ResourceChange::Rename {
-            from: PathBuf::from("/w/old.ts"),
-            to: PathBuf::from("/w/new.ts"),
+            from: nurt_testkit::paths::abs_path("/w/old.ts"),
+            to: nurt_testkit::paths::abs_path("/w/new.ts"),
             overwrite: true,
             ignore_if_exists: false,
         })
@@ -128,7 +152,7 @@ fn document_changes_keep_the_order_of_the_server() {
     assert_eq!(
         change.changes[2],
         DocumentChange::Resource(ResourceChange::Create {
-            path: PathBuf::from("/w/created.ts"),
+            path: nurt_testkit::paths::abs_path("/w/created.ts"),
             overwrite: false,
             ignore_if_exists: true,
         })
@@ -136,7 +160,7 @@ fn document_changes_keep_the_order_of_the_server() {
     assert_eq!(
         change.changes[4],
         DocumentChange::Resource(ResourceChange::Delete {
-            path: PathBuf::from("/w/gone"),
+            path: nurt_testkit::paths::abs_path("/w/gone"),
             recursive: true,
             ignore_if_not_exists: false,
         })
@@ -151,8 +175,12 @@ fn text_document_edits_with_annotations_are_converted() {
         ]}],
         "changeAnnotations": {"rename": {"label": "Rename"}}
     });
-    let change =
-        workspace_change(&edit, PositionUnit::Utf16, &only("/w/a.py", "old = 1\n")).unwrap();
+    let change = workspace_change(
+        &rooted(&edit),
+        PositionUnit::Utf16,
+        &only("/w/a.py", "old = 1\n"),
+    )
+    .unwrap();
     let edits = texts(&change.changes);
     assert_eq!(edits.len(), 1);
     assert_eq!(edits[0].new_text, "new");
@@ -164,7 +192,12 @@ fn offsets_past_the_line_or_the_text_are_clamped() {
     let text = "ab\r\ncd\n";
     let past_line =
         json!({"changes": {"file:///w/a.py": [{"range": range(0, 1, 40), "newText": ""}]}});
-    let change = workspace_change(&past_line, PositionUnit::Utf16, &only("/w/a.py", text)).unwrap();
+    let change = workspace_change(
+        &rooted(&past_line),
+        PositionUnit::Utf16,
+        &only("/w/a.py", text),
+    )
+    .unwrap();
     assert_eq!(
         texts(&change.changes)[0].range.end,
         at(1, 3),
@@ -174,13 +207,15 @@ fn offsets_past_the_line_or_the_text_are_clamped() {
         json!({"changes": {"file:///w/a.py": [{"range": range(0, 0, 0), "newText": ""}]}});
     let mut value = past_text;
     value["changes"]["file:///w/a.py"][0]["range"]["end"] = json!({"line": 9, "character": 0});
-    let change = workspace_change(&value, PositionUnit::Utf16, &only("/w/a.py", text)).unwrap();
+    let change =
+        workspace_change(&rooted(&value), PositionUnit::Utf16, &only("/w/a.py", text)).unwrap();
     assert_eq!(texts(&change.changes)[0].range.end, at(3, 1));
 }
 
 #[test]
 fn null_answer_is_an_empty_change() {
-    let change = workspace_change(&Value::Null, PositionUnit::Utf16, &|_: &Path| None).unwrap();
+    let change =
+        workspace_change(&rooted(&Value::Null), PositionUnit::Utf16, &|_: &Path| None).unwrap();
     assert!(change.changes.is_empty());
 }
 
@@ -188,16 +223,19 @@ fn null_answer_is_an_empty_change() {
 fn edit_for_a_non_file_document_fails() {
     let edit =
         json!({"changes": {"untitled:Untitled-1": [{"range": range(0, 0, 1), "newText": "x"}]}});
-    let error = workspace_change(&edit, PositionUnit::Utf16, &|_: &Path| None).unwrap_err();
+    let error =
+        workspace_change(&rooted(&edit), PositionUnit::Utf16, &|_: &Path| None).unwrap_err();
     assert_eq!(error.kind, SemanticErrorKind::Failed);
     assert!(error.message.contains("not a local file"));
 }
 
 #[test]
 fn malformed_answer_fails() {
-    let error = workspace_change(&json!({"changes": 3}), PositionUnit::Utf16, &|_: &Path| {
-        None
-    })
+    let error = workspace_change(
+        &rooted(&json!({"changes": 3})),
+        PositionUnit::Utf16,
+        &|_: &Path| None,
+    )
     .unwrap_err();
     assert_eq!(error.kind, SemanticErrorKind::Failed);
 }
@@ -207,7 +245,7 @@ fn text_with_carriage_returns_and_no_line_feed_is_split_at_the_carriage_returns(
     let edit =
         json!({"changes": {"file:///work/a.txt": [{"range": range(2, 1, 2), "newText": "x"}]}});
     let text = only("/work/a.txt", "one\rtwo\rthree\r");
-    let change = workspace_change(&edit, PositionUnit::Utf16, &text).unwrap();
+    let change = workspace_change(&rooted(&edit), PositionUnit::Utf16, &text).unwrap();
     let first = texts(&change.changes)[0];
     assert_eq!(first.range.start, at(3, 2));
     assert_eq!(first.range.end, at(3, 3));
@@ -218,6 +256,6 @@ fn line_feeds_keep_priority_over_carriage_returns() {
     let edit =
         json!({"changes": {"file:///work/a.txt": [{"range": range(1, 0, 1), "newText": "x"}]}});
     let text = only("/work/a.txt", "a\rb\nc\r\nd\n");
-    let change = workspace_change(&edit, PositionUnit::Utf16, &text).unwrap();
+    let change = workspace_change(&rooted(&edit), PositionUnit::Utf16, &text).unwrap();
     assert_eq!(texts(&change.changes)[0].range.start, at(2, 1));
 }

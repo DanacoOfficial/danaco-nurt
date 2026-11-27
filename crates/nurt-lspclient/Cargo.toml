@@ -29,4 +29,5 @@ url = { workspace = true }
 which = { workspace = true }
 
 [dev-dependencies]
+nurt-testkit = { workspace = true }
 proptest = { workspace = true }
