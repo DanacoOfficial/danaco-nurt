@@ -7,85 +7,85 @@
 # contained in the tag v0.1.1) and are exempt because published history is not
 # rewritten. New commits are never added to this list.
 
-05c1eb3bb09cd3a8b2ec69d619d283dad15b6a3d fix(bind): keep shell-shared aliases out of lexical synonym correction
-0613e6f4bd510f3a06d5a28b5bda6cc80eef5a96 style(hygiene): state the reason of a lint suppression and reword a doc comment
-062da4322687b24d6e5fea20f3ff60ee836bcb30 fix(nurt-crashfs): admit operations on volumes without a journal in the mutation audit
-072f19b390daab86c9bb7114bfe65239302eeeb3 test(correct): expect a parent segment resolved against the base to preserve the path
-0d99d0d0d6ce797becfb94b331050923d4e1cbcd test(fs,testkit,proc): run the file-system and decoding tests on Windows
-0e0f170733665a7be5aaca6afde80eeda1e96f4e feat(branding): replace the identity with the production identity 1.0.0
-1546e02bc2d0a11a378dd003d1d9079f86ffa10e fix(bind): keep every bash command word out of lexical synonym correction
-17c753a921ac9cc115f719704e51a006e081990f revert(bind): restore the correction corpora of shell-shared aliases and link targets
-214893b6a7dc81885c5903b990fd120716922c9e feat(cli): draw the mark in the start banner with the colours of the production identity
-2a413dfec46b1db2353e1f6bc0e1479ac708d4a1 feat(packaging): pack nurt-lib for musl targets as a static library
-2b031cca24ccb83c3fa6ac53a9d2b2f9f3e702b8 test(nurt-proc): expect exit code 1 after kill_tree on Windows
-2bcbcf7e2d77a6376b74c3baf968e6ba742fae0a test(doc,net,space,verify,programs,archive,service): run on Windows
-2d20f50ebdc2315db6e990bba978aee59c41ca3c fix(nurt-doc): repeat the interrupt of a cancelled sql change until it ends
-2d64e09d5f12b1e8939c39590e3824d7e69b0875 docs(changelog): list the defects found on Windows and real volumes
-2f5edd688b373b289fd7d9e8852dcda00b92b9c0 chore(release): rename the account directory of the release scripts
-3278095274c5274eff2a35da4fe13e9b7b89946c fix(docgen): keep the producer header and footer of the cheat sheets and check the header
-348a926745478daed13dd4dbcd7d55d456f934c6 test(git): isolate the test repositories from the configuration of the machine
-36236f12c0e5babea7d33fcf04b0b4e76ca97291 test(core,exec): build absolute test paths of the current system
-3909316a861b3d79859525d8a2c1c80475325948 ci(release): build the musl target with zig cc
-41fc72d5b2df5f05cca84c728676bdc611f66984 docs(changelog): date release 0.1.1
-43f6f474bb0a8cf8b1a139f4205d881d54ccd0b3 Revert "test: run the remaining POSIX-path tests on Unix only"
-51c67c2ad8cee92edb00249f557a8058501edf48 chore(hygiene): reword the two remaining comments flagged by repo-hygiene
-5dd66202d219bc4e6cc8a44fab743de9961d723d test(migrate): set the translation measure of the common commands to 87 percent
-6476562734248f8cc5c45af4443251e2224deb16 test(nurt-git-difftest): remove links to directories on Windows
-672c88e4dc5e5fbf739334e27f81870c3705b45c fix(nurt-git-difftest): disable git background maintenance in checkout_perf
-675023ee1ce902dd906c3018668a9c596125f3fe fix(nurt-git-transport): follow git on Windows for helpers, signers files and gpg
-677f3bfb2c1db36752c67b5caf1b0866d0b7ca9b chore(hygiene): allow the TODO marker used as test input in nurt-correct
-6c47972eb482c926762fa7d55c642f2bb0474b5a test(nurt-fs): compare the DACL kept by ReplaceFileW without the auto-inherited bit
-6d229146ace1ccf2d71691c99979ceeaecc3b41a test(nurt-testkit): build absolute test paths of the current system
-6f6b42b8cdd243588f1ff5393b67d1a269fec921 fix(bind): keep the lexical synonym correction of shell-shared aliases
-6fd78ace3efb6795f3c34a0877f9d45f966729cb test: run POSIX-path tests on Unix only
-750e36f13aac927cbd9235797c8221717bbf0222 test(code,lspclient): use paths of the current system in index and client tests
-76134390eb6325ca369828b1f913b0beb0cf58c6 chore(hygiene): reword the user-path allow comment without home paths
-793ccc69d0a4e1b09c15c442cf2ceb25e838fa29 test(nurt-bench): pin that check before run is not a tool call
-7d485b1ade7baaa2de044d248edc0ea1e17a7e67 test(git-ops): escape backslashes of local remote paths in test configurations
-81ff25ce01d2908f3fe52775661c886c2901b722 test(journal): allow the full-scale undo six times the duration of the operation
-8421f86598cb4ee56ce9a25bccfd3ab51fedc304 perf(crashfs): compare mount length instead of counting components in volume lookup
-8c304f01ed11b81db4e56834fd9f88a17f0ee231 fix(nurt-code): repeat the rename of a stored index that Windows refuses for a moment
-8e6c7d68160518d1020428e026ff31cc3f2cd644 style(hygiene): remove promotional wording from comments and a variable name
-9021bffb24e1e6b0840e30fdf9b37c22322f3177 test(bind): align the correction corpora with the shell-shared alias and link target behaviour
-969fa06607ba7fcf0203d3f20a04c721457ee163 test(cli,ffi): use paths of the current system in the engine fixtures
-976185dea1e59f82e98d2330d883a21aa125d009 build(release): remove the nurt-lib placeholder from build-release.sh
-9ae1e6c33553eca1cb8c9756a893d8b2aaf15499 test(nurt-proc): expect a kill signal for a timed-out tree on Windows
-9c53f08cfab0a8997673ea138ad8994284d95e81 fix(nurt-fs): give files of an overlay lower layer the volume of the overlay
-9d6d3155824f09ec38b4e46cfedf5e33be3f1e2d test(nurt-doc,nurt-files): move wall-clock assertions to perf test binaries
-9e226a6130ee7e33768eb03101e7846315a8e5f7 fix(hygiene): use English text in the cut-line marker and allow Polish test data
-9f0b60573de6ae0c4a1f5dfb72d5b6c3ab6e63a2 test(ci): make the small overlay too small for a copy of its lower directory
-9fb89d9e3734ab7a8b97dc737e7f5716718c5a46 docs(changelog): record the production identity in 0.1.1
-9fd4adfb37ca931ce40a85290150d39d4383509b Revert "test: run POSIX-path tests on Unix only"
-a2e2075d9dd0ef6063b14047a1a9f7686e176132 test(nurt-sys): allow the renamed repository address in the portability check
-a4a3ad5683f155730339ee682bbb2e6fe1fae69a test(files,ext): run the file and extension tests on Windows
-a554589a357065e7f92f5f8827e87482f205731a test(nurt-syntax): run fewer proptest cases outside the nightly run
-a7553e9be12e43c0f08bb5d1872fd06589f53540 style(nurt-git-difftest): format the review stub of the runner tests
-a94d8cb79cfc958998c180c1a484db22da1ee10c fix(nurt-exec): match changes to journal targets in the language form of paths
-ac2845baf10cafdc29b51713337c7dc6f5c8e932 fix(nurt-git-ops): drop the verbatim prefix from the common directory of a worktree
-accba4b350bcf15f4c8cd58ef1f004590d80fdbb docs(cheatsheets): add the producer header to the generated cheat sheets
-b0e12f7f2aa6d06b250294079f53fc6a6b021e01 test(nurt-migrate): pin that the habit table follows the script language
-b3008ca693f8d9c073a4b3d285489fb4625c58a3 chore(hygiene): allow Polish test data by directory patterns
-b31084f631eab7835787cbf40c37236f27e8db5d fix(git-ops): write ORIG_HEAD on an up-to-date merge and pull
-b34f962bbe344f063e60bf9cb5b3b4aad52804d2 test(correct): leave the target of a link out of the path mutations of the generated corpus
-b3652761721530861dafaa1602cdd7eefdc0fa2c test(ffi,exec,code): use paths of the current system in the remaining fixtures
-b74c722c4f90f831bfbefcf0fb5bde82dd043b5d fix(nurt-git-transport): pass MSYS paths to GnuPG of Git for Windows
-b79d09f0d6b40cfa0e27f76a07b7f30b083b37d1 build(release): add aarch64 Linux and Windows targets to build-release.sh
-b7a7f718e31de916c512d0627ee0fd99a7dd13c5 test(workspace): build absolute test paths from POSIX literals on every platform
-b82b11a4aaf6cf17c54608f5f7d3d2bbee871dac fix(git-ops): write AUTO_MERGE for clean merges stopped before the commit
-ba7de558672c8c4f4cce4ed9ae5582cef8ee6261 perf(journal): skip state read of entries without manifest and speed up crash model lookups
-bbf6106cd555fbef3c4f5bbbb6e8e20b3f12276e fix(nurt-journal): keep the metadata of entries preserved by copy
-cdfa9833206bb1cab25294e06cdae1a2dda0d663 fix(nurt-git): write the configuration of a clone as git for Windows does
-d1d18d553fe8548f7e2385a0b9549a44218a68ad test(nurt-proc): keep the run pipe out of a detached child on Windows
-d5f5e590fd672d835edb7ca4cd0afc2333c18eeb fix(nurt-proc): suspend and resume a listed process on Windows
-d95a92f4fd96aa97123854f0c2620e00b42b5a3e test(nurt-git-difftest): move worktree locations written with forward slashes
-de0773719ae1cf3fd56813623b63cb9af034cc71 fix(correct): resolve parent segments of a relative path in the literal check
-def8f9d7265e9f0a47ccbb32d1428f31c1607987 chore(hygiene): allow emoji test data and the AI platform wording, reword a marker comment
-e04ebbd9f91b527d4c22e9f962f300eb075f8902 feat(docs): use the production favicon and the web icons on the site
-e07d41e59b0a128973cdbb5cd45301bfe78c65a1 test(nurt-journal): move the recovery time limit to the perf test binary
-e0e4b954a8c2b6a58f5a8b4d4f37a9d031f64180 build(release): link aarch64 musl with the start files of zig and build Windows aarch64 with clang
-e253995d76ddfc211320d4b4693a700efe73c59c fix(contracts): accept a development dependency of a crate on itself in the graph check
-e5361867ac7ae89533b9f9e7e9dc06b0bfc5e48a docs(readme): show the horizontal lockup at the top
-ed1ff25e9df900dcdb3b9ab18500fab83572b8dd style(clippy): clear the findings of the Windows lint run
-f19673ff8a1b33b55f36926a0478e7a3c6da4ea1 feat(cli): use the icon of the production identity in nurt.exe
-fbf2fd4b2c6490efe1dcb53ec9cfffbf95a4889a test(nurt-journal): run the journal tests on Windows
-fe0a61961b8a797c43761bc8b7b6029f9a35b823 build(release): build aarch64-pc-windows-msvc from Linux with translated clang options
+05c1eb3bb09cd3a8b2ec69d619d283dad15b6a3d
+0613e6f4bd510f3a06d5a28b5bda6cc80eef5a96
+062da4322687b24d6e5fea20f3ff60ee836bcb30
+072f19b390daab86c9bb7114bfe65239302eeeb3
+0d99d0d0d6ce797becfb94b331050923d4e1cbcd
+0e0f170733665a7be5aaca6afde80eeda1e96f4e
+1546e02bc2d0a11a378dd003d1d9079f86ffa10e
+17c753a921ac9cc115f719704e51a006e081990f
+214893b6a7dc81885c5903b990fd120716922c9e
+2a413dfec46b1db2353e1f6bc0e1479ac708d4a1
+2b031cca24ccb83c3fa6ac53a9d2b2f9f3e702b8
+2bcbcf7e2d77a6376b74c3baf968e6ba742fae0a
+2d20f50ebdc2315db6e990bba978aee59c41ca3c
+2d64e09d5f12b1e8939c39590e3824d7e69b0875
+2f5edd688b373b289fd7d9e8852dcda00b92b9c0
+3278095274c5274eff2a35da4fe13e9b7b89946c
+348a926745478daed13dd4dbcd7d55d456f934c6
+36236f12c0e5babea7d33fcf04b0b4e76ca97291
+3909316a861b3d79859525d8a2c1c80475325948
+41fc72d5b2df5f05cca84c728676bdc611f66984
+43f6f474bb0a8cf8b1a139f4205d881d54ccd0b3
+51c67c2ad8cee92edb00249f557a8058501edf48
+5dd66202d219bc4e6cc8a44fab743de9961d723d
+6476562734248f8cc5c45af4443251e2224deb16
+672c88e4dc5e5fbf739334e27f81870c3705b45c
+675023ee1ce902dd906c3018668a9c596125f3fe
+677f3bfb2c1db36752c67b5caf1b0866d0b7ca9b
+6c47972eb482c926762fa7d55c642f2bb0474b5a
+6d229146ace1ccf2d71691c99979ceeaecc3b41a
+6f6b42b8cdd243588f1ff5393b67d1a269fec921
+6fd78ace3efb6795f3c34a0877f9d45f966729cb
+750e36f13aac927cbd9235797c8221717bbf0222
+76134390eb6325ca369828b1f913b0beb0cf58c6
+793ccc69d0a4e1b09c15c442cf2ceb25e838fa29
+7d485b1ade7baaa2de044d248edc0ea1e17a7e67
+81ff25ce01d2908f3fe52775661c886c2901b722
+8421f86598cb4ee56ce9a25bccfd3ab51fedc304
+8c304f01ed11b81db4e56834fd9f88a17f0ee231
+8e6c7d68160518d1020428e026ff31cc3f2cd644
+9021bffb24e1e6b0840e30fdf9b37c22322f3177
+969fa06607ba7fcf0203d3f20a04c721457ee163
+976185dea1e59f82e98d2330d883a21aa125d009
+9ae1e6c33553eca1cb8c9756a893d8b2aaf15499
+9c53f08cfab0a8997673ea138ad8994284d95e81
+9d6d3155824f09ec38b4e46cfedf5e33be3f1e2d
+9e226a6130ee7e33768eb03101e7846315a8e5f7
+9f0b60573de6ae0c4a1f5dfb72d5b6c3ab6e63a2
+9fb89d9e3734ab7a8b97dc737e7f5716718c5a46
+9fd4adfb37ca931ce40a85290150d39d4383509b
+a2e2075d9dd0ef6063b14047a1a9f7686e176132
+a4a3ad5683f155730339ee682bbb2e6fe1fae69a
+a554589a357065e7f92f5f8827e87482f205731a
+a7553e9be12e43c0f08bb5d1872fd06589f53540
+a94d8cb79cfc958998c180c1a484db22da1ee10c
+ac2845baf10cafdc29b51713337c7dc6f5c8e932
+accba4b350bcf15f4c8cd58ef1f004590d80fdbb
+b0e12f7f2aa6d06b250294079f53fc6a6b021e01
+b3008ca693f8d9c073a4b3d285489fb4625c58a3
+b31084f631eab7835787cbf40c37236f27e8db5d
+b34f962bbe344f063e60bf9cb5b3b4aad52804d2
+b3652761721530861dafaa1602cdd7eefdc0fa2c
+b74c722c4f90f831bfbefcf0fb5bde82dd043b5d
+b79d09f0d6b40cfa0e27f76a07b7f30b083b37d1
+b7a7f718e31de916c512d0627ee0fd99a7dd13c5
+b82b11a4aaf6cf17c54608f5f7d3d2bbee871dac
+ba7de558672c8c4f4cce4ed9ae5582cef8ee6261
+bbf6106cd555fbef3c4f5bbbb6e8e20b3f12276e
+cdfa9833206bb1cab25294e06cdae1a2dda0d663
+d1d18d553fe8548f7e2385a0b9549a44218a68ad
+d5f5e590fd672d835edb7ca4cd0afc2333c18eeb
+d95a92f4fd96aa97123854f0c2620e00b42b5a3e
+de0773719ae1cf3fd56813623b63cb9af034cc71
+def8f9d7265e9f0a47ccbb32d1428f31c1607987
+e04ebbd9f91b527d4c22e9f962f300eb075f8902
+e07d41e59b0a128973cdbb5cd45301bfe78c65a1
+e0e4b954a8c2b6a58f5a8b4d4f37a9d031f64180
+e253995d76ddfc211320d4b4693a700efe73c59c
+e5361867ac7ae89533b9f9e7e9dc06b0bfc5e48a
+ed1ff25e9df900dcdb3b9ab18500fab83572b8dd
+f19673ff8a1b33b55f36926a0478e7a3c6da4ea1
+fbf2fd4b2c6490efe1dcb53ec9cfffbf95a4889a
+fe0a61961b8a797c43761bc8b7b6029f9a35b823
