@@ -66,7 +66,7 @@ modules.load "nf_conntrack" params: ["hashsize=65536"] privilege: elevated
 Preview the load.
 
 ```nurt example
-modules.load "overlay" preview
+modules.load "overlay" preview: true
 ```
 
 ## Errors

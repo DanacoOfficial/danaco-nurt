@@ -153,6 +153,7 @@ impl Sys for FakeSys {
 
     #[allow(
         clippy::too_many_lines,
+        clippy::cognitive_complexity,
         reason = "one arm per program of the fake system"
     )]
     fn run(&self, call: &Call) -> Result<Output> {

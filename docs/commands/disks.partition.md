@@ -57,7 +57,7 @@ A partition change is irreversible: the preview is the only safeguard.
 Preview the deletion of a partition.
 
 ```nurt example
-disks.partition "/dev/sdb" action: delete number: 2 preview
+disks.partition "/dev/sdb" action: delete number: 2 preview: true
 ```
 
 Create a partition of 10 GiB.

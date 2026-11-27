@@ -65,7 +65,7 @@ modules.unload "dummy" privilege: elevated |> select target
 Preview the unload.
 
 ```nurt example
-modules.unload "dummy" preview
+modules.unload "dummy" preview: true
 ```
 
 ## Errors

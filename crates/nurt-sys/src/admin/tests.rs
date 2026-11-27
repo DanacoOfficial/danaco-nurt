@@ -1088,19 +1088,19 @@ fn outputs_of_the_system_programs_are_parsed() {
     use super::accounts::{parse_dscl, parse_locked, parse_net_user, parse_passwd};
     use super::groups::{parse_dscl_group, parse_group_line, parse_net_localgroup};
     use super::mounts::{parse_findmnt, parse_mount_list};
-    let passwd = parse_passwd("ann:x:1001:1001:Ann,,,:/home/ann:/bin/bash").unwrap();
+    let passwd = parse_passwd("ann:x:1001:1001:Ann,,,:/srv/ann:/bin/bash").unwrap();
     assert_eq!((passwd.uid, passwd.comment.as_str()), (Some(1001), "Ann"));
     assert!(parse_locked("ann L 2020-01-01 0 99999 7 -1"));
     assert!(!parse_locked("ann P 2020-01-01"));
     let dscl = parse_dscl(
-        "NFSHomeDirectory: /Users/ann\nRealName:\n Ann Smith\nUniqueID: 501\nUserShell: /bin/zsh\n",
+        "NFSHomeDirectory: /srv/ann\nRealName:\n Ann Smith\nUniqueID: 501\nUserShell: /bin/zsh\n",
     );
     assert_eq!(
         (dscl.uid, dscl.comment.as_str(), dscl.home.as_deref()),
-        (Some(501), "Ann Smith", Some("/Users/ann"))
+        (Some(501), "Ann Smith", Some("/srv/ann"))
     );
     let net = parse_net_user(
-        "User name  ann\nFull Name  Ann Smith\nHome directory  C:\\Users\\ann\nAccount active  No\nLocal Group Memberships  *Administrators  *Users\nGlobal Group memberships  *None\nThe command completed successfully.\n",
+        "User name  ann\nFull Name  Ann Smith\nHome directory  D:\\homes\\ann\nAccount active  No\nLocal Group Memberships  *Administrators  *Users\nGlobal Group memberships  *None\nThe command completed successfully.\n",
     );
     assert_eq!(net.comment, "Ann Smith");
     assert!(net.locked);

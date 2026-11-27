@@ -65,7 +65,7 @@ groups.create "ops" gid: 3000 privilege: elevated
 Create a system group.
 
 ```nurt example
-groups.create "svc" system privilege: elevated
+groups.create "svc" system: true privilege: elevated
 ```
 
 ## Errors

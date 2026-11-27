@@ -54,7 +54,7 @@ A format is irreversible: the preview is the only safeguard.
 Preview a format.
 
 ```nurt example
-disks.format "/dev/sdb1" fs: ext4 label: "data" preview
+disks.format "/dev/sdb1" fs: ext4 label: "data" preview: true
 ```
 
 Format a partition.

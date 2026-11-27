@@ -56,7 +56,7 @@ power.cancel privilege: elevated
 Preview the cancellation.
 
 ```nurt example
-power.cancel preview
+power.cancel preview: true
 ```
 
 Cancel and show the effect.

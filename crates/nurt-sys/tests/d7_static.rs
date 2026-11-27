@@ -99,8 +99,61 @@ struct Site {
 /// Commands that manage services.
 const SERVICE_COMMANDS: &[&str] = &["services", "start", "restart", "enable", "disable"];
 
+/// Commands that change accounts, groups, mounts, kernel parameters, power
+/// and disks through system programs.
+const ADMIN_COMMANDS: &[&str] = &[
+    "accounts.create",
+    "accounts.modify",
+    "accounts.remove",
+    "accounts.password",
+    "groups.create",
+    "groups.remove",
+    "groups.add_member",
+    "groups.remove_member",
+    "mount",
+    "unmount",
+    "sysctl.set",
+    "modules.load",
+    "modules.unload",
+    "power.restart",
+    "power.shutdown",
+    "power.cancel",
+    "disks.partition",
+    "disks.format",
+];
+
+/// Programs that the administration commands start; they build the program
+/// from the plan of the command, so the site of the execution takes the
+/// program named by the caller.
+const ADMIN_PROGRAMS: &[&str] = &[
+    "useradd",
+    "sysadminctl",
+    "net",
+    "usermod",
+    "dscl",
+    "userdel",
+    "chpasswd",
+    "powershell",
+    "groupadd",
+    "dseditgroup",
+    "groupdel",
+    "gpasswd",
+    "mount",
+    "mountvol",
+    "umount",
+    "sysctl",
+    "modprobe",
+    "lsmod",
+    "shutdown",
+    "pkill",
+    "parted",
+    "lsblk",
+    "diskutil",
+    "mkfs",
+];
+
 /// Sites permitted to start programs.
-const SITES: [Site; 4] = [
+const SITES: [Site; 6] = [
     Site {
         path: "crates/nurt-sys/src/services/macos.rs",
         allowed: Allowed::Only(&["launchctl"]),
@@ -111,6 +164,18 @@ const SITES: [Site; 4] = [
         path: "crates/nurt-service/src/install/macos.rs",
         allowed: Allowed::Only(&["launchctl"]),
         commands: &[],
+        approved: true,
+    },
+    Site {
+        path: "crates/nurt-sys/src/admin/sys.rs",
+        allowed: Allowed::DescribedProgram,
+        commands: &[],
+        approved: true,
+    },
+    Site {
+        path: "crates/nurt-sys/src/admin/mod.rs",
+        allowed: Allowed::Only(ADMIN_PROGRAMS),
+        commands: ADMIN_COMMANDS,
         approved: true,
     },
     Site {
@@ -1480,7 +1545,7 @@ fn delegated_runs_require_specs_from_the_site_builder() {
 const SYSTEMS: [&str; 3] = ["linux", "windows", "macos"];
 
 /// Number of commands in the catalog groups of [`GROUPS`].
-const COMMAND_COUNT: usize = 36;
+const COMMAND_COUNT: usize = 54;
 
 /// Levels of a matrix case: a test on synthetic data or doubles, a test on
 /// the running system, a comparison with a system program, and the
@@ -1637,7 +1702,7 @@ fn coverage_findings(name: &str, command: &toml::Table, cases: &[&toml::Table]) 
 }
 
 #[test]
-fn matrix_covers_all_36_commands() {
+fn matrix_covers_all_54_commands() {
     let root = workspace_root();
     let commands = domain_commands(&root);
     assert_eq!(

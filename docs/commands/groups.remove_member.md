@@ -64,7 +64,7 @@ groups.remove_member name: "ops" member: "ann" privilege: elevated
 Preview the change.
 
 ```nurt example
-groups.remove_member "ops" "ann" preview
+groups.remove_member "ops" "ann" preview: true
 ```
 
 ## Errors

@@ -83,7 +83,7 @@ fn collect_files(dir: &Path, extension: &str, out: &mut Vec<PathBuf>) {
 fn catalog_has_the_documented_command_counts() {
     let catalog = catalog(&layout());
     assert_eq!(catalog.group_size(CORE_GROUP), 33);
-    assert_eq!(catalog.total(), 148);
+    assert_eq!(catalog.total(), 166);
     assert_eq!(catalog.optional_groups(), 14);
 }
 

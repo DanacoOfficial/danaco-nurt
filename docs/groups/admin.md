@@ -131,9 +131,29 @@ the service manager is reported as `E_SERVICE`.
 | `restart` | [X] | macOS only: services are restarted through `launchctl` |
 | `enable` | [X] | macOS only: services are enabled through `launchctl` |
 | `disable` | [X] | macOS only: services are disabled through `launchctl` |
+| `accounts.create` | [X] | the system program of the operating system named on the page of the command |
+| `accounts.modify` | [X] | the system program of the operating system named on the page of the command |
+| `accounts.remove` | [X] | the system program of the operating system named on the page of the command |
+| `accounts.password` | [X] | the system program of the operating system named on the page of the command |
+| `groups.create` | [X] | the system program of the operating system named on the page of the command |
+| `groups.remove` | [X] | the system program of the operating system named on the page of the command |
+| `groups.add_member` | [X] | the system program of the operating system named on the page of the command |
+| `groups.remove_member` | [X] | the system program of the operating system named on the page of the command |
+| `mount` | [X] | the system program of the operating system named on the page of the command |
+| `unmount` | [X] | the system program of the operating system named on the page of the command |
+| `sysctl.set` | [X] | the system program of the operating system named on the page of the command |
+| `modules.load` | [X] | the system program of the operating system named on the page of the command |
+| `modules.unload` | [X] | the system program of the operating system named on the page of the command |
+| `power.restart` | [X] | the system program of the operating system named on the page of the command |
+| `power.shutdown` | [X] | the system program of the operating system named on the page of the command |
+| `power.cancel` | [X] | the system program of the operating system named on the page of the command |
+| `disks.partition` | [X] | the system program of the operating system named on the page of the command |
+| `disks.format` | [X] | the system program of the operating system named on the page of the command |
 
 The [X] marker names a component of the operating system that a command
-starts as a program. macOS offers no public interface for these operations, so `launchctl` is the
+starts as a program. The commands for accounts, groups, mounts, kernel
+parameters, power and disks start the programs of the operating system on
+every system; the page of each command names them. macOS offers no public interface for these operations, so `launchctl` is the
 one component of the operating system that the commands of this group start. They start it through the process interface and report it in the check of
 the program. Linux and Windows use system interfaces and start no program. When `launchctl` is missing on macOS, the
 command fails with `E_EXTERNAL_MISSING`.

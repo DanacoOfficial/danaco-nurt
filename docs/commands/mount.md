@@ -62,13 +62,13 @@ mount "/dev/sdb1" "/srv/data" type: "ext4" privilege: elevated
 Mount read-only and keep the mount after a restart.
 
 ```nurt example
-mount "/dev/sdb1" "/srv/data" type: "ext4" options: ["ro", "noatime"] persistent privilege: elevated
+mount "/dev/sdb1" "/srv/data" type: "ext4" options: ["ro", "noatime"] persistent: true privilege: elevated
 ```
 
-Mount a volume on a drive letter of Windows.
+Mount a USB stick for one account.
 
 ```nurt example
-mount "\\?\Volume{0f0c7d1e-0000-0000-0000-100000000000}\" "X:\" privilege: elevated
+mount "/dev/sdc1" "/mnt/usb" type: "vfat" options: ["uid=1000"] privilege: elevated
 ```
 
 ## Errors

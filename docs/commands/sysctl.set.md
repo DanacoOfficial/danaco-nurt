@@ -61,13 +61,13 @@ sysctl.set "net.ipv4.ip_forward" 1 privilege: elevated
 Set a value and keep it after a restart.
 
 ```nurt example
-sysctl.set "vm.swappiness" 10 persistent privilege: elevated
+sysctl.set "vm.swappiness" 10 persistent: true privilege: elevated
 ```
 
 Preview the change.
 
 ```nurt example
-sysctl.set "vm.swappiness" 10 preview
+sysctl.set "vm.swappiness" 10 preview: true
 ```
 
 ## Errors

@@ -59,13 +59,13 @@ unmount "/srv/data" privilege: elevated
 Unmount and remove the line of `/etc/fstab`.
 
 ```nurt example
-unmount "/srv/data" persistent privilege: elevated
+unmount "/srv/data" persistent: true privilege: elevated
 ```
 
 Preview the unmount.
 
 ```nurt example
-unmount "/srv/data" preview
+unmount "/srv/data" preview: true
 ```
 
 ## Errors

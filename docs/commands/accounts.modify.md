@@ -63,7 +63,7 @@ accounts.modify "deploy" shell: "/bin/zsh" privilege: elevated
 Lock an account.
 
 ```nurt example
-accounts.modify "ann" lock privilege: elevated
+accounts.modify "ann" lock: true privilege: elevated
 ```
 
 Replace the groups of an account.

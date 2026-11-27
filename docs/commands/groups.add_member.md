@@ -64,7 +64,7 @@ groups.add_member name: "ops" member: "ann" privilege: elevated
 Preview the change.
 
 ```nurt example
-groups.add_member "ops" "ann" preview
+groups.add_member "ops" "ann" preview: true
 ```
 
 ## Errors

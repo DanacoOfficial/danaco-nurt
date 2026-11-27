@@ -65,7 +65,7 @@ accounts.create "deploy" shell: "/bin/bash" groups: ["docker"] privilege: elevat
 Create a system account without a home directory.
 
 ```nurt example
-accounts.create "svc-backup" system privilege: elevated
+accounts.create "svc-backup" system: true privilege: elevated
 ```
 
 Create an account with a fixed identifier and a comment.

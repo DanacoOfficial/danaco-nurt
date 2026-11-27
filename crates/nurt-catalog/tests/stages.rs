@@ -235,7 +235,7 @@ fn unimplemented_commands_shrink_as_implementations_register() {
     assert_eq!(registry.unimplemented_commands().len(), 166);
     registry.register_impl(Fake::any("count")).unwrap();
     let remaining = registry.unimplemented_commands();
-    assert_eq!(remaining.len(), 147);
+    assert_eq!(remaining.len(), 165);
     assert!(!remaining.contains(&"count"));
 }
 

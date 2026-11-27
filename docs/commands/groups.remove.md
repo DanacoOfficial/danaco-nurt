@@ -64,7 +64,7 @@ groups.remove "ops" privilege: elevated |> select target before
 Preview the removal.
 
 ```nurt example
-groups.remove "ops" preview
+groups.remove "ops" preview: true
 ```
 
 ## Errors

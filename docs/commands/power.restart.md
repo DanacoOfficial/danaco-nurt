@@ -66,7 +66,7 @@ power.restart at: "2026-12-01T03:00:00Z" privilege: elevated
 Preview the immediate action.
 
 ```nurt example
-power.restart preview
+power.restart preview: true
 ```
 
 ## Errors
