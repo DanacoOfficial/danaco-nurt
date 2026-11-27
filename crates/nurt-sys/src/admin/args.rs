@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::args
-// Responsibility:   Reading of the arguments of the administration commands, the checks of.
+// Responsibility:   Reading of the arguments of the administration commands, the checks of names and the text form of the programs that undo a change.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-core/tests/engine_registry.rs
-// Responsibility:   Access to the registry in the context of stages that run through the.
+// Responsibility:   Access to the registry in the context of stages that run through the engine.
 // Dependencies:     nurt_contracts, nurt_sys, nurt_testkit, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

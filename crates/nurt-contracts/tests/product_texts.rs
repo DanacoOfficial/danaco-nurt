@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/product_texts.rs
-// Responsibility:   Tests that the product texts outside the code use the canonical sentence.
+// Responsibility:   Tests that the product texts outside the code use the canonical sentence of `nurt_contracts::product`.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::patch
-// Responsibility:   `patch`: application of a unified or git diff to the files under a root.
+// Responsibility:   `patch`: application of a unified or git diff to the files under a root directory, in one transaction.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_text, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

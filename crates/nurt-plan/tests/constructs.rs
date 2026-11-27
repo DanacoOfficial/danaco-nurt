@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-plan/tests/constructs.rs
-// Responsibility:   Planning of the control constructs: the plan keeps the structure, every.
+// Responsibility:   Planning of the control constructs.
 // Dependencies:     common, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

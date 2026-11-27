@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-report/tests/assemble_bulk.rs
-// Responsibility:   Bulk summaries: threshold, ranking of directories and extensions.
+// Responsibility:   Bulk summaries: threshold, ranking of directories and extensions, samples and determinism on large operations.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

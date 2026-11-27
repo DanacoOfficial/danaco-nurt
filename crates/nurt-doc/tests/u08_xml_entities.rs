@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u08_xml_entities.rs
-// Responsibility:   Entities, the document type declaration and the limits that protect.
+// Responsibility:   Entities, the document type declaration and the limits that protect reading against entity expansion attacks.
 // Dependencies:     nurt_contracts, u08_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

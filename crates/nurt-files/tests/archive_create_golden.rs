@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/archive_create_golden.rs
-// Responsibility:   The examples of the `archive.create` page of the command documentation.
+// Responsibility:   The examples of the `archive.create` page of the command documentation and the transaction checks of the command, run on the virtual file system.
 // Dependencies:     archive_support, nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

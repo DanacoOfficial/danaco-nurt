@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-plan::check
-// Responsibility:   Check without effect: what a plan would touch, known before any step.
+// Responsibility:   Check without effect: what a plan would touch, known before any step runs.
 // Dependencies:     indexmap, nurt_catalog, nurt_contracts, schemars, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

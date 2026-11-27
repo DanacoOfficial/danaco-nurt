@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-difftest::output
-// Responsibility:   Comparison of the output records of a command with the output of a `git`.
+// Responsibility:   Comparison of the output records of a command with the output of a `git` command.
 // Dependencies:     nurt_contracts, serde, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

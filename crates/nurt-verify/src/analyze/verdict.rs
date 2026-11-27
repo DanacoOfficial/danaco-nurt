@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-verify::analyze::verdict
-// Responsibility:   Ordering of findings, counts, verdict and selection of the findings.
+// Responsibility:   Ordering of findings, counts, verdict and selection of the findings returned to the caller.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

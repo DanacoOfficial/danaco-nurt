@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/coverage/journal_rows.rs
-// Responsibility:   Coverage cases of the journal commands and of the parameters common to.
+// Responsibility:   Coverage cases of the journal commands and of the parameters common to every command, run against the journal implementation itself.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

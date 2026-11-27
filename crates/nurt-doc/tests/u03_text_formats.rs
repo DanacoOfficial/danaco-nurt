@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u03_text_formats.rs
-// Responsibility:   Changes to property and environment documents through the document.
+// Responsibility:   Changes to property and environment documents through the document handle.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syslog/tests/unified_macos.rs
-// Responsibility:   Reads of the unified log of the running system and of log archives on.
+// Responsibility:   Reads of the unified log of the running system and of log archives on macOS.
 // Dependencies:     nurt_contracts, regex
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

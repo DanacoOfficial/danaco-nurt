@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-langserver/tests/lsp_correction.rs
-// Responsibility:   Sessions that bind programs to the catalog of the workspace: diagnostics.
+// Responsibility:   Sessions that bind programs to the catalog of the workspace: diagnostics of golden programs, fields of input records and help on hover.
 // Dependencies:     lsp_support, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

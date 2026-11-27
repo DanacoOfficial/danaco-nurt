@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::open_files
-// Responsibility:   Processes that hold a file or directory open: the `open_files` command.
+// Responsibility:   Processes that hold a file or directory open: the `open_files` command and the [`SystemFileHolders`] service.
 // Dependencies:     indexmap, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

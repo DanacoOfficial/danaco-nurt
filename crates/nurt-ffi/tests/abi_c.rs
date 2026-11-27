@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-ffi/tests/abi_c.rs
-// Responsibility:   Interface tests in C: `tests/abi/c/abi_test.c` (feature `stub`) or.
+// Responsibility:   Interface tests in C: a test program is compiled with `clang` against `nurt.h`, linked with the shared library and run.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::track::tests
-// Responsibility:   Tests of change detection on real directories with a recording journal.
+// Responsibility:   Tests of change detection on real directories with a recording journal transaction.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

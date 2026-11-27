@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-report/tests/render_formats.rs
-// Responsibility:   Rendering of reports in the four formats, the levels of detail and the.
+// Responsibility:   Rendering of reports in the four formats, the levels of detail and the response envelope.
 // Dependencies:     common, nurt_contracts, serde_json, unicode_width
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

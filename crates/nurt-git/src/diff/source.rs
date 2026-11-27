@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::diff::source
-// Responsibility:   Repository access for differences and status: opening without external.
+// Responsibility:   Repository access for differences and status.
 // Dependencies:     bstr, gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

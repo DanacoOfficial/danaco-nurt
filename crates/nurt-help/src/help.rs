@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-help::help
-// Responsibility:   The `help` topics: overview, command, group, error code, guide, syntax.
+// Responsibility:   The `help` topics: overview, command, group, error code, guide, syntax, corrections and search.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           tests/d7/system/run-linux.sh
-# Responsibility:   Runs the cross-system tests of the system, log, network, schedule, service.
+# Responsibility:   Runs the cross-system tests of the system, log, network, schedule, service and program crates on Linux.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

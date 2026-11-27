@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/bash_api.rs
-// Responsibility:   Interface of the bash translation: detection, the POSIX lexer, script.
+// Responsibility:   Interface of the bash translation: detection, the POSIX lexer, script mode, assumptions and the translation table as data.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

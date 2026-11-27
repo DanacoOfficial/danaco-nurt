@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-programs::catalog::index
-// Responsibility:   Reading of a catalog directory: the index, its included parts, the front.
+// Responsibility:   Reading of a catalog directory: the index, its included parts, the front matter of its guides and the consistency of references.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

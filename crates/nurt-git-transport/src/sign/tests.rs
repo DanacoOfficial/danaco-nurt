@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::sign::tests
-// Responsibility:   Tests of the signing settings, of signatures inside Git objects and of.
+// Responsibility:   Tests of the signing settings, of signatures inside Git objects and of OpenPGP key files.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

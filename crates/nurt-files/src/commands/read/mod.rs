@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::read
-// Responsibility:   The `read` command: text of files with line selections, conditional.
+// Responsibility:   The `read` command: text of files with line selections, conditional reads, outlines, document keys and notebook cells.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

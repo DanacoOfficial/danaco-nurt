@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::host::test_support
-// Responsibility:   Test doubles of the clock, the host and the process host, shared by the.
+// Responsibility:   Test doubles of the clock, the host and the process host, shared by the tests of `host`, `environment`, `accounts` and `open_files`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

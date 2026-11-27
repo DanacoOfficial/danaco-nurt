@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::edit
-// Responsibility:   The `edit` command, and the planning and writing of text changes shared.
+// Responsibility:   The `edit` command, and the planning and writing of text changes shared with `replace` and `insert`.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_text, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

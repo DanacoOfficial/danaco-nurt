@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::os::linux
-// Responsibility:   Process group measurement through `/proc` and memory limits through a.
+// Responsibility:   Process group measurement through `/proc` and memory limits through a delegated cgroup v2.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

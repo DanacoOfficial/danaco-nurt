@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u11_registry.rs
-// Responsibility:   Tests of the language registry, language detection, grammar providers.
+// Responsibility:   Tests of the language registry, language detection, grammar providers and name matching.
 // Dependencies:     nurt_contracts, u11_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

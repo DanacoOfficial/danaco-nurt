@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/keypath_properties.rs
-// Responsibility:   Properties of key paths: generated round trips, serialization, schema and.
+// Responsibility:   Properties of key paths: generated round trips, serialization, schema and conversion from the structured key of the syntax tree.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-service::ipc
-// Responsibility:   Control channel of the service: a Unix socket `service.sock` in the.
+// Responsibility:   Control channel of the service.
 // Dependencies:     nurt_contracts, protocol, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

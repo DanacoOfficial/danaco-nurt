@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-cli::tool_definition
-// Responsibility:   `nurt schema tool` with options: the definition of the `nurt` tool in the.
+// Responsibility:   `nurt schema tool` with options: the definition of the `nurt` tool in the format of an AI platform.
 // Dependencies:     nurt_contracts, nurt_core, nurt_tooldef, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

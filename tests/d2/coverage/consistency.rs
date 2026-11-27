@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/coverage/consistency.rs
-// Responsibility:   Checks of the coverage table against the catalog and against the coverage.
+// Responsibility:   Checks of the coverage table against the catalog and against the coverage cases; they need no journal implementation and always run.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

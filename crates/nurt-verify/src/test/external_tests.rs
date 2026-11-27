@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-verify::test::external_tests
-// Responsibility:   Parsers on the output of installed test frameworks. Every test needs its.
+// Responsibility:   Parsers on the output of installed test frameworks.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

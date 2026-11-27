@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-plan/tests/golden.rs
-// Responsibility:   Plans of the golden bound trees: the split into execution steps, the.
+// Responsibility:   Plans of the golden bound trees: the split into execution steps, the effect class and the check without effect.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

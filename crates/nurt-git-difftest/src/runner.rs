@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-difftest::runner
-// Responsibility:   Runner of scenarios: preparation, the two sides, comparison, undo and the.
+// Responsibility:   Runner of scenarios: preparation, the two sides, comparison, undo and the summary of a run.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

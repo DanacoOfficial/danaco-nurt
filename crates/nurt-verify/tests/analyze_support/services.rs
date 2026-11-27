@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-verify/tests/analyze_support/services.rs
-// Responsibility:   Doubles of the services that the commands reach through the context: the.
+// Responsibility:   Doubles of the services that the commands reach through the context: the code service, the file listing and the repository queries.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

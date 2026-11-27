@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/lexical_hygiene.rs
-// Responsibility:   The sources and corpus of the lexical correction rules contain no.
+// Responsibility:   The sources and corpus of the lexical correction rules contain no internal identifiers, build paths, work markers or Polish text.
 // Dependencies:     regex
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

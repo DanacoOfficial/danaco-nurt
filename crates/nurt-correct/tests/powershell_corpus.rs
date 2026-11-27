@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/powershell_corpus.rs
-// Responsibility:   The PowerShell correction corpus and the consistency of the PowerShell.
+// Responsibility:   The PowerShell correction corpus and the consistency of the PowerShell translation table with the command catalog.
 // Dependencies:     nurt_contracts, nurt_syntax, serde_json, toml_edit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

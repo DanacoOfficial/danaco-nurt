@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-report/tests/rules_notable.rs
-// Responsibility:   Thresholds, severities and ordering of the notable effects derived from.
+// Responsibility:   Thresholds, severities and ordering of the notable effects derived from changes.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

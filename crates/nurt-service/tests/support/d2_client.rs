@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-service/tests/support/d2_client.rs
-// Responsibility:   Reference client of the journal liveness rule, written against the file.
+// Responsibility:   Reference client of the journal liveness rule, written against the file and wire formats only.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::revwalk::record
-// Responsibility:   Records of commits: identities mapped through `.mailmap`, subject.
+// Responsibility:   Records of commits: identities mapped through `.mailmap`, subject, trailers, names of references, signature format and changed files.
 // Dependencies:     bstr, gix, indexmap, nurt_contracts, nurt_git_transport
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

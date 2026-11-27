@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-programs/tests/sources.rs
-// Responsibility:   Providers of system data and the index cache, read from synthetic files.
+// Responsibility:   Providers of system data and the index cache, read from synthetic files below a test root.
 // Dependencies:     nurt_contracts, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

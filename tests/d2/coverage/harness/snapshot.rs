@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/coverage/harness/snapshot.rs
-// Responsibility:   Snapshot of a directory tree with the content hash and the complete.
+// Responsibility:   Snapshot of a directory tree with the content hash and the complete metadata of every entry, compared before an operation and after its undo.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::http::settings
-// Responsibility:   HTTP options of one remote address, resolved from the repository.
+// Responsibility:   HTTP options of one remote address, resolved from the repository configuration and the process environment with the precedence of `git`.
 // Dependencies:     bstr
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

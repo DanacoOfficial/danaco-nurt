@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-core/tests/engine_fixtures.rs
-// Responsibility:   Requests through the fixture front end on the bound trees of the.
+// Responsibility:   Requests through the fixture front end on the bound trees of the specification (`nurt-bound/1`).
 // Dependencies:     nurt_contracts, nurt_testkit, serde_json, tempfile
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

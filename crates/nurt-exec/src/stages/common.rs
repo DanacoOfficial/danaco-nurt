@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-exec::stages::common
-// Responsibility:   Argument access, per-record keys, stream adapters and errors shared by.
+// Responsibility:   Argument access, per-record keys, stream adapters and errors shared by the record stages.
 // Dependencies:     nurt_contracts, nurt_types, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

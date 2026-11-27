@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/schema_registry.rs
-// Responsibility:   Tests that `nurt_contracts::schema` publishes every file of `spec/schemas/`.
+// Responsibility:   Tests that `nurt_contracts::schema` publishes every file of `spec/schemas/` and that the schemas accept and reject the expected documents.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

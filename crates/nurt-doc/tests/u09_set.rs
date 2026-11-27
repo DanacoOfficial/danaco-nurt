@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u09_set.rs
-// Responsibility:   Tests of the `set` stage and of `remove` for `item` records: layout of.
+// Responsibility:   Tests of the `set` stage and of `remove` for `item` records.
 // Dependencies:     nurt_contracts, nurt_testkit, u09_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

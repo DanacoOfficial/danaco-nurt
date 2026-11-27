@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::clone::direct
-// Responsibility:   Transaction adapter that writes directly below a directory created by.
+// Responsibility:   Transaction adapter that writes directly below a directory created by the same operation.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

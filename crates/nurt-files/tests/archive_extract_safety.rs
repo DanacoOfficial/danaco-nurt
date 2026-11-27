@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/archive_extract_safety.rs
-// Responsibility:   Containment of `archive.extract` in its destination, the round trip of.
+// Responsibility:   Containment of `archive.extract` in its destination, the round trip of `archive.create` and `archive.extract`, and bulk extraction.
 // Dependencies:     archive_support, nurt_archive, nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

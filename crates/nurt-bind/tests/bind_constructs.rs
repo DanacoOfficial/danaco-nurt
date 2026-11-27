@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/bind_constructs.rs
-// Responsibility:   Binding of the control constructs and of the boolean shorthand: every.
+// Responsibility:   Binding of the control constructs and of the boolean shorthand: every check happens before any effect and names the nearest correct form.
 // Dependencies:     bind_support, nurt_contracts, nurt_syntax
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

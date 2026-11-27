@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-core/tests/engine_exec.rs
-// Responsibility:   Programs run end to end through the engine on a virtual file system and a.
+// Responsibility:   Programs run end to end through the engine on a virtual file system and a recording journal.
 // Dependencies:     nurt_contracts, nurt_testkit, serde_json, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

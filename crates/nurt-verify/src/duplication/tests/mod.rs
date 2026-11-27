@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-verify::duplication::tests
-// Responsibility:   Detection of duplicated blocks on tokens produced by a small lexer that.
+// Responsibility:   Detection of duplicated blocks on tokens produced by a small lexer that stands in for the code service.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

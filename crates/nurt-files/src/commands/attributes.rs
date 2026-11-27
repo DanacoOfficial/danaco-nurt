@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::attributes
-// Responsibility:   The `attributes` command: permissions, account and group, times.
+// Responsibility:   The `attributes` command: permissions, account and group, times, read-only and hidden attributes, extended attributes and access control of entries.
 // Dependencies:     nurt_contracts, nurt_testkit, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

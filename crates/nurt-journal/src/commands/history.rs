@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::commands::history
-// Responsibility:   Stage of the `history` command: journal entries as `operation` records.
+// Responsibility:   Stage of the `history` command: journal entries as `operation` records, latest first.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

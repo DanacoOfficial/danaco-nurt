@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-core/tests/engine_checks.rs
-// Responsibility:   Checks around an effect, end to end through the engine: `assert` before.
+// Responsibility:   Checks around an effect, end to end through the engine.
 // Dependencies:     nurt_contracts, nurt_testkit, serde_json, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

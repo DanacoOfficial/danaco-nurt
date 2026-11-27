@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::yaml::multidoc
-// Responsibility:   Documents of a YAML stream: the document selector of a key path.
+// Responsibility:   Documents of a YAML stream.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

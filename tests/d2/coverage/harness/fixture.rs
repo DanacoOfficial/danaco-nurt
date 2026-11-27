@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/coverage/harness/fixture.rs
-// Responsibility:   Fixture of the journal under test: volumes, the journal bound to them, a.
+// Responsibility:   Fixture of the journal under test: volumes, the journal bound to them, a read view of the file system and a virtual clock.
 // Dependencies:     nurt_contracts, nurt_fs
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

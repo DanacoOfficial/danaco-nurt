@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-fs::linux::sys
-// Responsibility:   Error conversion, retries and time conversion shared by the system calls.
+// Responsibility:   Error conversion, retries and time conversion shared by the system calls of the Linux back end.
 // Dependencies:     nurt_contracts, rustix
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

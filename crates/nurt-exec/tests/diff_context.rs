@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-exec/tests/diff_context.rs
-// Responsibility:   Context lines of the hunks of an effect: the executor limits them to the.
+// Responsibility:   Context lines of the hunks of an effect: the executor limits them to the request option `diff_context`, falling back to its default.
 // Dependencies:     common, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::jobs::host
-// Responsibility:   Run hosts: runs supervised by this process and runs supervised by the.
+// Responsibility:   Run hosts: runs supervised by this process and runs supervised by the detached supervisor process.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

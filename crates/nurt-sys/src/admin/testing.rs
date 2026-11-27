@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::testing
-// Responsibility:   Doubles for the tests of the administration stages: a scripted process.
+// Responsibility:   Doubles for the tests of the administration stages: a scripted process host, a host of a chosen system and a transaction that records markers.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

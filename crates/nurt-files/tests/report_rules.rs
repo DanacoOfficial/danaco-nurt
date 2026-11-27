@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/report_rules.rs
-// Responsibility:   The changes of `move` and `rename` satisfy the rules of the report: the.
+// Responsibility:   The changes of `move` and `rename` satisfy the rules of the report.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

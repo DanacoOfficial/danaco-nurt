@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::repo::pathspec
-// Responsibility:   Path selection of the `git` commands: the `paths` and `exclude`.
+// Responsibility:   Path selection of the `git` commands: the `paths` and `exclude` parameters, and the paths a working tree may contain.
 // Dependencies:     bstr, nurt_contracts, nurt_testkit, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

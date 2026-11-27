@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-verify/tests/analyze_docs.rs
-// Responsibility:   The command pages of the analysis commands agree with the catalog and have.
+// Responsibility:   The command pages of the analysis commands agree with the catalog and have the sections and examples of a command page.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

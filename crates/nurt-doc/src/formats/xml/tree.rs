@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::xml::tree
-// Responsibility:   Lossless XML tree: nodes with byte ranges over the unchanged source.
+// Responsibility:   Lossless XML tree: nodes with byte ranges over the unchanged source text, and resolution of key paths to nodes.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

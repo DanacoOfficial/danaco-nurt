@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-conformance/tests/fixture_runner.rs
-// Responsibility:   The runner against the fake server on a small suite that uses the test.
+// Responsibility:   The runner against the fake server on a small suite that uses the test clock, events, placeholders and the local HTTP server.
 // Dependencies:     Status
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

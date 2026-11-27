@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/elevation_process.rs
-// Responsibility:   Privilege elevation through the `nurt` executable: the call parameters on.
+// Responsibility:   Privilege elevation through the `nurt` executable: the call parameters on the command line and on a stage, and the hidden subcommand `elevated-exec`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::walk::service
-// Responsibility:   Items passed from the walking thread to the iterator before the walking.
+// Responsibility:   Items passed from the walking thread to the iterator before the walking thread waits for the consumer.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

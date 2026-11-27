@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::pull::integrate
-// Responsibility:   Local integration of the fetched heads in the transaction of the.
+// Responsibility:   Local integration of the fetched heads in the transaction of the transfer.
 // Dependencies:     bstr, nurt_contracts, nurt_git
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

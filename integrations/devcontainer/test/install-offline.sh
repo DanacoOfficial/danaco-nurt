@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           integrations/devcontainer/test/install-offline.sh
-# Responsibility:   Tests install.sh against a release tree in a temporary directory, addressed.
+# Responsibility:   Tests install.sh against a release tree in a temporary directory, addressed through file:// URLs, with the install directory redirected to the same tree.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

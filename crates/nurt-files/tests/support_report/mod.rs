@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/support_report/mod.rs
-// Responsibility:   Checks of the report rules on the changes of a stage: the changes of a.
+// Responsibility:   Checks of the report rules on the changes of a stage.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

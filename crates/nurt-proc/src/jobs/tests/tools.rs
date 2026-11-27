@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::jobs::tests::tools
-// Responsibility:   Background jobs of tool runs and the final records built by the.
+// Responsibility:   Background jobs of tool runs and the final records built by the finishers of the test and analysis commands.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

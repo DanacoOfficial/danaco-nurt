@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::merge::driver
-// Responsibility:   Content merge drivers: the built-in drivers of `gix-merge` and the.
+// Responsibility:   Content merge drivers: the built-in drivers of `gix-merge` and the detection of drivers configured as programs (`merge.<name>.driver`).
 // Dependencies:     bstr, gix_merge, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

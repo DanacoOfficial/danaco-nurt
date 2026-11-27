@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::merge::message
-// Responsibility:   Messages of merge commits, of `MERGE_MSG` and of the reflog, formatted.
+// Responsibility:   Messages of merge commits, of `MERGE_MSG` and of the reflog, formatted as by `git fmt-merge-msg` and `git merge`.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-service::host
-// Responsibility:   The service process: instance lock, control channel, heartbeat and module.
+// Responsibility:   The service process: instance lock, control channel, heartbeat and module supervision.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

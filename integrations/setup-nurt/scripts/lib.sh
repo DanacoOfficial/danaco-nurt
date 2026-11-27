@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           integrations/setup-nurt/scripts/lib.sh
-# Responsibility:   Functions used by setup-nurt.sh. Compatible with bash 3.2 (macOS runners).
+# Responsibility:   Functions used by setup-nurt.sh.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

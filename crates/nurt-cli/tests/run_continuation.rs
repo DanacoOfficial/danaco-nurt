@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/run_continuation.rs
-// Responsibility:   End-to-end tests of the continuation of shortened results: the field.
+// Responsibility:   End-to-end tests of the continuation of shortened results.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

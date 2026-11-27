@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-bench::model::openai
-// Responsibility:   Adapter of the OpenAI Chat Completions API, also used for servers with a.
+// Responsibility:   Adapter of the OpenAI Chat Completions API, also used for servers with a compatible API.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

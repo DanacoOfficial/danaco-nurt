@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-fs/tests/windows_volume.rs
-// Responsibility:   Volume description, space figures, journal directory attributes, flushes.
+// Responsibility:   Volume description, space figures, journal directory attributes, flushes and block cloning.
 // Dependencies:     common, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

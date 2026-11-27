@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::control::tests::targets
-// Responsibility:   Signals to single processes named by identifier and start time, started.
+// Responsibility:   Signals to single processes named by identifier and start time, started by the tests and signalled through the `process` functions.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

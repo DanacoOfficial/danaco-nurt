@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           integrations/containers/tests/check-dockerfiles.sh
-# Responsibility:   Static checks of the image definitions: labels, license files, build.
+# Responsibility:   Static checks of the image definitions: labels, license files, build arguments, absence of compilation steps and the non-root user.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

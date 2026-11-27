@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/coverage/harness/clock.rs
-// Responsibility:   Virtual clock: wall time, boot identity and both boot clocks move only when.
+// Responsibility:   Virtual clock: wall time, boot identity and both boot clocks move only when a test moves them.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

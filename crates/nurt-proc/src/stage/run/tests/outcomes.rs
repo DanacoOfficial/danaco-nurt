@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::stage::run::tests::outcomes
-// Responsibility:   Outcomes of `run` that the run host decides: runs over input records.
+// Responsibility:   Outcomes of `run` that the run host decides: runs over input records that cannot finish, runs ended by a limit, and command lines with an external effect.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

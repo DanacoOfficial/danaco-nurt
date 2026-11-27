@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u11_local.rs
-// Responsibility:   Tests of local analysis (definitions, references, roles, calls, test.
+// Responsibility:   Tests of local analysis (definitions, references, roles, calls, test files) on samples of Python, TypeScript, Go, Rust, Java and C#, and of the syntax check.
 // Dependencies:     nurt_contracts, u11_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

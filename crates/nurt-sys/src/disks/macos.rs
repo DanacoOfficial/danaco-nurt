@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::disks::macos
-// Responsibility:   Volumes of macOS, read with `getmntinfo` and the volume resource keys of.
+// Responsibility:   Volumes of macOS, read with `getmntinfo` and the volume resource keys of Core Foundation.
 // Dependencies:     core_foundation, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-verify/examples/tool_fixture.rs
-// Responsibility:   Test program that imitates analyzers and formatters for the tests of the.
+// Responsibility:   Test program that imitates analyzers and formatters for the tests of the analysis commands.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

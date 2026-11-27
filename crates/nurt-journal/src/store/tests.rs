@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::store::tests
-// Responsibility:   Journal store on the in-memory file system, driven through the journal.
+// Responsibility:   Journal store on the in-memory file system, driven through the journal interface and the entry catalog.
 // Dependencies:     nurt_contracts, nurt_fs, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::clone::layout
-// Responsibility:   Files of a new clone that `git clone` writes itself: the configuration.
+// Responsibility:   Files of a new clone that `git clone` writes itself: the configuration, `packed-refs`, `HEAD`, the branch and its reflogs.
 // Dependencies:     bstr, gix, nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

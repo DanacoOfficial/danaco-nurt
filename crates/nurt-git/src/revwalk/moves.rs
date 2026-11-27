@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::revwalk::moves
-// Responsibility:   Lines moved within a file and copied between files, attributed to the.
+// Responsibility:   Lines moved within a file and copied between files, attributed to the commit that wrote them, as `git blame -M` and `-C` attribute them.
 // Dependencies:     bstr, gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

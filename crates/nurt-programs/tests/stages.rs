@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-programs/tests/stages.rs
-// Responsibility:   Behaviour of `program.find`, `program.search`, `program.describe` and.
+// Responsibility:   Behaviour of `program.find`, `program.search`, `program.describe` and `program.catalog`, including the parity with the reference algorithm.
 // Dependencies:     nurt_contracts, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

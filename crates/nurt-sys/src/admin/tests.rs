@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::tests
-// Responsibility:   Tests of the administration commands on the in-memory system: the plan.
+// Responsibility:   Tests of the administration commands on the in-memory system: the plan, the programs, the recorded states and the undo of every command.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

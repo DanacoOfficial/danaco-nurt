@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::apply::twoway
-// Responsibility:   Two-tree update of the working tree and the index, the rules of.
+// Responsibility:   Two-tree update of the working tree and the index, the rules of `twoway_merge` used by `git checkout` and `git switch`.
 // Dependencies:     bstr, gix_index, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

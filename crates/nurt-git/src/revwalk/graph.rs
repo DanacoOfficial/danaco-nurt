@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::revwalk::graph
-// Responsibility:   Parents, committer times and trees of commits, read from the commit-graph.
+// Responsibility:   Parents, committer times and trees of commits, read from the commit-graph file when the repository has one and from the commit objects otherwise.
 // Dependencies:     gix, smallvec
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

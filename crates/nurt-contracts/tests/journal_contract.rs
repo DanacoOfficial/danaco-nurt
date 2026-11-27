@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/journal_contract.rs
-// Responsibility:   Checks of the journal and file system contracts: object safety and thread.
+// Responsibility:   Checks of the journal and file system contracts.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

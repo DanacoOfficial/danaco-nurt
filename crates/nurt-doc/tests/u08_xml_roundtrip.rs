@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u08_xml_roundtrip.rs
-// Responsibility:   Round trip over the XML corpus `tests/d5/corpus/xml/advanced`: entities.
+// Responsibility:   Round trip over the XML corpus `tests/d5/corpus/xml/advanced`.
 // Dependencies:     nurt_contracts, u08_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

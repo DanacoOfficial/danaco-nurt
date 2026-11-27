@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/serve_schema.rs
-// Responsibility:   Conformance of the messages of `nurt serve` with the published schemas.
+// Responsibility:   Conformance of the messages of `nurt serve` with the published schemas `nurt-rpc/1` and `nurt-event/1`.
 // Dependencies:     nurt_contracts, nurt_core, nurt_ffi, nurt_testkit, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

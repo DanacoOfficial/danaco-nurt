@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-code::profile::history
-// Responsibility:   Change hotspots: files changed most often in the history of the.
+// Responsibility:   Change hotspots: files changed most often in the history of the repository, uncommitted changes, and the current revision used to invalidate the cache.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

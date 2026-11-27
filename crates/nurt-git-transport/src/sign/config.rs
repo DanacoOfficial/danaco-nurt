@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::sign::config
-// Responsibility:   Signing and verification settings from the Git configuration, the Nurt.
+// Responsibility:   Signing and verification settings from the Git configuration, the Nurt configuration and the environment.
 // Dependencies:     bstr, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u06_support/mod.rs
-// Responsibility:   Helpers of the YAML tests for sequences, anchors, merge keys, documents.
+// Responsibility:   Helpers of the YAML tests for sequences, anchors, merge keys, documents, comments and tags.
 // Dependencies:     nurt_contracts, saphyr, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-code::local::calls
-// Responsibility:   Approximate call hierarchy: the calls written in the body of each.
+// Responsibility:   Approximate call hierarchy: the calls written in the body of each function.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

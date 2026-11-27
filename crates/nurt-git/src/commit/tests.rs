@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::commit::tests
-// Responsibility:   Files and links of the fixture, without the object store, which keeps.
+// Responsibility:   Files and links of the fixture, without the object store, which keeps written objects after undo.
 // Dependencies:     bstr, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

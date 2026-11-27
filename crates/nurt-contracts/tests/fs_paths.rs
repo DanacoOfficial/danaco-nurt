@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/fs_paths.rs
-// Responsibility:   Paths, content hashes, entity tags and file system errors of the file.
+// Responsibility:   Paths, content hashes, entity tags and file system errors of the file system contract.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

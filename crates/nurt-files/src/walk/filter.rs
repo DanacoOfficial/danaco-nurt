@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::walk::filter
-// Responsibility:   Directories excluded by the `vcs` preset. A `.git` file, which links a.
+// Responsibility:   Directories excluded by the `vcs` preset.
 // Dependencies:     globset, ignore, nurt_contracts, unicode_normalization
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

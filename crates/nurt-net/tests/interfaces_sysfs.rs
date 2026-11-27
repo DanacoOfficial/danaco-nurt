@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-net/tests/interfaces_sysfs.rs
-// Responsibility:   `network.interfaces` on Linux: a synthetic `/sys/class/net` and.
+// Responsibility:   `network.interfaces` on Linux: a synthetic `/sys/class/net` and `/proc/net` tree below a system root, and the interfaces of the host.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u10_sql_write.rs
-// Responsibility:   Changes of SQLite databases with `sql write: true` through the operation.
+// Responsibility:   Changes of SQLite databases with `sql write: true` through the operation journal.
 // Dependencies:     nurt_contracts, rusqlite, u10_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

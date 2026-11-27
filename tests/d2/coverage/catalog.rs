@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/coverage/catalog.rs
-// Responsibility:   Commands of the command catalog `catalog/*.toml` with the fields that.
+// Responsibility:   Commands of the command catalog `catalog/*.toml` with the fields that decide journal coverage.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

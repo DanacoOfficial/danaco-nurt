@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::bash::produce
-// Responsibility:   Commands that produce or consume text and records around the table.
+// Responsibility:   Commands that produce or consume text and records around the table entries.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

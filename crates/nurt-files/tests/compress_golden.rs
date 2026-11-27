@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/compress_golden.rs
-// Responsibility:   Examples of `docs/commands/compress.md` and `docs/commands/decompress.md`.
+// Responsibility:   Examples of `docs/commands/compress.md` and `docs/commands/decompress.md`, run on the virtual file system with the recording journal.
 // Dependencies:     nurt_archive, nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

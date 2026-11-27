@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-net/tests/download_http.rs
-// Responsibility:   `http.download` against a server on the loopback interface: ranges.
+// Responsibility:   `http.download` against a server on the loopback interface: ranges, entity tags, digests, status errors, cancellation and the journal.
 // Dependencies:     http_server, nurt_contracts, nurt_testkit, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

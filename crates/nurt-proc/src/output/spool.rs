@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::output::spool
-// Responsibility:   Spool files of one run and the factory that creates, reopens and removes.
+// Responsibility:   Spool files of one run and the factory that creates, reopens and removes them.
 // Dependencies:     nurt_contracts, serde, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

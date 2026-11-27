@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::inverse
-// Responsibility:   The programs that undo an administration command, derived from the.
+// Responsibility:   The programs that undo an administration command, derived from the states that its report recorded.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

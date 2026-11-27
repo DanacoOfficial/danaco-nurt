@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::notebook::export
-// Responsibility:   `notebook.export`: a notebook written to a new script, Markdown or text.
+// Responsibility:   `notebook.export`: a notebook written to a new script, Markdown or text file.
 // Dependencies:     nurt_contracts, nurt_notebook, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

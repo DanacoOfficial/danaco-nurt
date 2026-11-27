@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::insert
-// Responsibility:   The `insert` command: insertion of lines before or after lines and.
+// Responsibility:   The `insert` command: insertion of lines before or after lines and matches, or at the start or end of files.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_text
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

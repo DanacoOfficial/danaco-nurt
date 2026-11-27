@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/corpus_bind.rs
-// Responsibility:   Corpus of the type and value rules applied during binding.
+// Responsibility:   Corpus of the type and value rules applied during binding (`tests/d1/bind/corpus`), run through the full correction pipeline.
 // Dependencies:     corpus_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::disks::linux
-// Responsibility:   Volumes of Linux, read from `/proc/self/mountinfo`, `statvfs`, `/sys`.
+// Responsibility:   Volumes of Linux, read from `/proc/self/mountinfo`, `statvfs`, `/sys` and `/dev/disk/by-label`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

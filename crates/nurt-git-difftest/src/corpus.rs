@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-difftest::corpus
-// Responsibility:   Corpus of test repositories, generated deterministically with the `git`.
+// Responsibility:   Corpus of test repositories, generated deterministically with the `git` program.
 // Dependencies:     extended
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

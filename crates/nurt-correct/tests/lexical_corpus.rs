@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/lexical_corpus.rs
-// Responsibility:   Lexical correction corpus: the format of every case and the result of the.
+// Responsibility:   Lexical correction corpus: the format of every case and the result of the character normalization and token rules on the cases they decide alone.
 // Dependencies:     nurt_contracts, serde_json, toml_edit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

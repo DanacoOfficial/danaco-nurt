@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::commands::undo
-// Responsibility:   Stage of the `undo` command: restores the state that preceded selected.
+// Responsibility:   Stage of the `undo` command: restores the state that preceded selected journal entries, as a new journal entry.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

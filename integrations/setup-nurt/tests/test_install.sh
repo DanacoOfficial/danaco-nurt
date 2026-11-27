@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           integrations/setup-nurt/tests/test_install.sh
-# Responsibility:   End-to-end tests of setup-nurt.sh against a release tree in a temporary.
+# Responsibility:   End-to-end tests of setup-nurt.sh against a release tree in a temporary directory, addressed through file:// URLs.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

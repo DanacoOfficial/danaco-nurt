@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::registry::broadcast
-// Responsibility:   Notification of programs after a change of persistent environment.
+// Responsibility:   Notification of programs after a change of persistent environment variables.
 // Dependencies:     windows_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

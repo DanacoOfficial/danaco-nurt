@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/adversarial_corpus.rs
-// Responsibility:   Adversarial corpus: generation of cases whose correct reaction is no.
+// Responsibility:   Adversarial corpus: generation of cases whose correct reaction is no correction or `E_AMBIGUOUS`, and the checks of every case.
 // Dependencies:     nurt_contracts, serde_json, toml_edit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::commit::apply
-// Responsibility:   Execution of a planned commit: the hooks, the final message, the commit.
+// Responsibility:   Execution of a planned commit.
 // Dependencies:     bstr, gix, gix_ref, nurt_contracts, nurt_git_transport
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

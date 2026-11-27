@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/write_golden.rs
-// Responsibility:   Examples of `docs/commands/write.md`, run on the virtual file system.
+// Responsibility:   Examples of `docs/commands/write.md`, run on the virtual file system, and the validation of written text.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

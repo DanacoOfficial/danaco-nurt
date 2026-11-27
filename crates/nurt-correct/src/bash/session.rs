@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::bash::session
-// Responsibility:   Translation of shell structure: lists, `&&`, `||`, `;`, pipes, `cd`.
+// Responsibility:   Translation of shell structure.
 // Dependencies:     nurt_contracts, nurt_syntax
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-help::errors
-// Responsibility:   Meanings and fixes of the error codes, and the help reference attached.
+// Responsibility:   Meanings and fixes of the error codes, and the help reference attached to an error.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

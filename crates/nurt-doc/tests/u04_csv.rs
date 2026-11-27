@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u04_csv.rs
-// Responsibility:   CSV and TSV documents: identity of every corpus file, reading compared.
+// Responsibility:   CSV and TSV documents: identity of every corpus file, reading compared with the `csv` crate, and changes of single cells and rows.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

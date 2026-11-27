@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::commands::pin
-// Responsibility:   Stage of the `journal.pin` command: protects journal entries from expiry.
+// Responsibility:   Stage of the `journal.pin` command: protects journal entries from expiry by steps, age and size, or releases that protection.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

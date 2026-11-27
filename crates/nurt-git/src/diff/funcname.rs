@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::diff::funcname
-// Responsibility:   Function lines: the text after `@@` in a hunk header and the boundaries.
+// Responsibility:   Function lines: the text after `@@` in a hunk header and the boundaries used by the function context.
 // Dependencies:     regex
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

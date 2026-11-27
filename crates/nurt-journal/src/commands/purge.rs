@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::commands::purge
-// Responsibility:   Stage of the `journal.purge` command: releases journal entries and the.
+// Responsibility:   Stage of the `journal.purge` command: releases journal entries and the space they hold at once.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syslog/tests/journald_properties.rs
-// Responsibility:   Random entries written by the test writer and read back equal the result.
+// Responsibility:   Random entries written by the test writer and read back equal the result of a direct filter over the same entries.
 // Dependencies:     journal_writer, nurt_contracts, proptest
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

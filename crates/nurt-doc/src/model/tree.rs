@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::model::tree
-// Responsibility:   Longest chain of aliases followed before a node is treated as having no.
+// Responsibility:   Longest chain of aliases followed before a node is treated as having no target; guards against cycles in malformed documents.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

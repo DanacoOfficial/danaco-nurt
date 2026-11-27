@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-programs::catalog::types
-// Responsibility:   Types of a catalog after reading, limits of the format and the patterns.
+// Responsibility:   Types of a catalog after reading, limits of the format and the patterns of names and identifiers.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

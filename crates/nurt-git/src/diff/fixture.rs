@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::diff::fixture
-// Responsibility:   Test repositories built in temporary directories without the `git`.
+// Responsibility:   Test repositories built in temporary directories without the `git` program.
 // Dependencies:     gix
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

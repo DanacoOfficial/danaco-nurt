@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::merge::tests_command
-// Responsibility:   Tests of the `git.merge` actions against repositories in temporary.
+// Responsibility:   Tests of the `git.merge` actions against repositories in temporary directories, with a recording journal that can undo each action.
 // Dependencies:     bstr, gix_hash, gix_index, nurt_contracts, nurt_git
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

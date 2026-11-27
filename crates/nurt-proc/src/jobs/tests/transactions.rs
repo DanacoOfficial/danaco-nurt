@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::jobs::tests::transactions
-// Responsibility:   The journal transaction of a run: the bound program of its entry and the.
+// Responsibility:   The journal transaction of a run: the bound program of its entry and the transaction used without a journal store.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

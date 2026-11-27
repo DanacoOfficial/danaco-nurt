@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::compress
-// Responsibility:   `compress` and `decompress`: whole-file compression with gzip, zstd, xz.
+// Responsibility:   `compress` and `decompress`: whole-file compression with gzip, zstd, xz, bzip2 or lz4.
 // Dependencies:     nurt_archive, nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

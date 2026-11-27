@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::local::upload_pack
-// Responsibility:   Server side of `git-upload-pack` with protocol version 2, run in a.
+// Responsibility:   Server side of `git-upload-pack` with protocol version 2, run in a thread of the client process.
 // Dependencies:     bstr, gix, gix_packetline
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

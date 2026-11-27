@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/lexical_front.rs
-// Responsibility:   The front part of correction on the lexical corpus: expected canonical.
+// Responsibility:   The front part of correction on the lexical corpus.
 // Dependencies:     lexical_support, nurt_contracts, nurt_syntax, proptest
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

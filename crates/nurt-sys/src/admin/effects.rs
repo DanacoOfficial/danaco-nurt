@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::effects
-// Responsibility:   Shared parts of the effect stages of this module: markers, changes.
+// Responsibility:   Shared parts of the effect stages of this module: markers, changes, notes and effect records.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

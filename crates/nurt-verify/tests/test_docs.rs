@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-verify/tests/test_docs.rs
-// Responsibility:   The pages of `test.run`, `test.failed`, `test.show` and `test.list` agree.
+// Responsibility:   The pages of `test.run`, `test.failed`, `test.show` and `test.list` agree with the catalog and have the sections and examples of a command page.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

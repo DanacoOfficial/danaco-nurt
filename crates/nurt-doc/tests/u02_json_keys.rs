@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u02_json_keys.rs
-// Responsibility:   Key paths that JSON edits refuse or resolve in a less common way: the.
+// Responsibility:   Key paths that JSON edits refuse or resolve in a less common way.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

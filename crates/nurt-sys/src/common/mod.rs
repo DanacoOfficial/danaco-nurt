@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::common
-// Responsibility:   Facilities shared by the readers of system sources: the root of system.
+// Responsibility:   Facilities shared by the readers of system sources: the root of system files, errors of unreadable sources and canonical record paths.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

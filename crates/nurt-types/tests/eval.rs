@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-types/tests/eval.rs
-// Responsibility:   Evaluation of bound expressions: operators, fields, named results and.
+// Responsibility:   Evaluation of bound expressions: operators, fields, named results and built-in functions.
 // Dependencies:     jiff, nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

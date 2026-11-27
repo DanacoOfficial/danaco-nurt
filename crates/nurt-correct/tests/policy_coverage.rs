@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/policy_coverage.rs
-// Responsibility:   Policy helpers on whole trees: program kind, effecting commands, and the.
+// Responsibility:   Policy helpers on whole trees: program kind, effecting commands, and the invariant check on every expression form.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

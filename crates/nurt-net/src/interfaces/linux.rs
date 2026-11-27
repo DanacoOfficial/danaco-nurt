@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-net::interfaces::linux
-// Responsibility:   Interfaces on Linux: `getifaddrs` for addresses, `/sys/class/net` for the.
+// Responsibility:   Interfaces on Linux: addresses, state, hardware address, MTU, kind and default gateway read from the system.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

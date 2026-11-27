@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-text/tests/search_positions.rs
-// Responsibility:   Positions, line endings, context and limits of the search of a slice and.
+// Responsibility:   Positions, line endings, context and limits of the search of a slice and of a reader.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/retention/leak.rs
-// Responsibility:   Results of operations carry no expiry time and nothing from which one can.
+// Responsibility:   Results of operations carry no expiry time and nothing from which one can be derived; retention state is reported only by `journal.status`.
 // Dependencies:     nurt_contracts, serde, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

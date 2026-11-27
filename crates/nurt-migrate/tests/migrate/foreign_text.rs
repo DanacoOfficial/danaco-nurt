@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-migrate/tests/migrate/foreign_text.rs
-// Responsibility:   The program of a migration holds the comments of the script and the text.
+// Responsibility:   The program of a migration holds the comments of the script and the text the migration itself writes, and nothing else.
 // Dependencies:     nurt_contracts, nurt_syntax
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

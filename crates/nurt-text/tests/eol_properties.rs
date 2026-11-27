@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-text/tests/eol_properties.rs
-// Responsibility:   Properties of line terminator detection, conversion, preservation and.
+// Responsibility:   Properties of line terminator detection, conversion, preservation and positions, 10 000 cases each with a fixed seed.
 // Dependencies:     nurt_contracts, proptest
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::accounts::files
-// Responsibility:   Parsers of the account files `/etc/passwd`, `/etc/group`, `/etc/shadow`.
+// Responsibility:   Parsers of the account files `/etc/passwd`, `/etc/group`, `/etc/shadow` and `/etc/login.defs`.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

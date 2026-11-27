@@ -4,7 +4,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           integrations/containers/tests/smoke.sh
-# Responsibility:   Runs a built image and checks the executable, the license files, the user.
+# Responsibility:   Runs a built image and checks the executable, the license files, the user and the state directory.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

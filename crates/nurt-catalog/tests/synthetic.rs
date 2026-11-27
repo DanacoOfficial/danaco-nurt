@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-catalog/tests/synthetic.rs
-// Responsibility:   Tests of catalog loading, validation, extensions and results on synthetic.
+// Responsibility:   Tests of catalog loading, validation, extensions and results on synthetic catalogs.
 // Dependencies:     common, nurt_contracts, tempfile
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

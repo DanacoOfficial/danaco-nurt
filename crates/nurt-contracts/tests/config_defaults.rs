@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/config_defaults.rs
-// Responsibility:   Built-in defaults, the approved schema and the reference documentation of.
+// Responsibility:   Built-in defaults, the approved schema and the reference documentation of the configuration.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

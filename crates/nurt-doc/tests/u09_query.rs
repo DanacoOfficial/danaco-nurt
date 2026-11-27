@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u09_query.rs
-// Responsibility:   Tests of the `query` stage: the source form, the input record kinds.
+// Responsibility:   Tests of the `query` stage: the source form, the input record kinds, keys of results, errors and limits.
 // Dependencies:     nurt_contracts, u09_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

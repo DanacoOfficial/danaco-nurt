@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::iface
-// Responsibility:   Interfaces between process control, output capture, change detection and.
+// Responsibility:   Interfaces between process control, output capture, change detection and job management.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

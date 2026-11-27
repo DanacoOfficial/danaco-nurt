@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u01_harness.rs
-// Responsibility:   Round-trip harness, the `key = value` test format and the in-memory.
+// Responsibility:   Round-trip harness, the `key = value` test format and the in-memory journal.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

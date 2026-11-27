@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-programs::catalog::entries
-// Responsibility:   Readers of the objects of a catalog: categories, programs, aliases.
+// Responsibility:   Readers of the objects of a catalog: categories, programs, aliases, sections, tasks outside the purpose and standalone guides.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

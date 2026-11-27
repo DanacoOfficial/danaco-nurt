@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-difftest::corpus::extended
-// Responsibility:   Recipes of the corpus repositories for operation states, configuration.
+// Responsibility:   Recipes of the corpus repositories for operation states, configuration variants, remotes and object forms.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

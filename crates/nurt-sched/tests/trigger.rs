@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-sched/tests/trigger.rs
-// Responsibility:   Cron expressions, intervals, single times, time zones and changes to and.
+// Responsibility:   Cron expressions, intervals, single times, time zones and changes to and from daylight saving time.
 // Dependencies:     nurt_contracts, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

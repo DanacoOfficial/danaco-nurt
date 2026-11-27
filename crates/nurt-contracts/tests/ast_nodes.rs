@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/ast_nodes.rs
-// Responsibility:   Node by node checks of the surface tree and the bound tree: the JSON form.
+// Responsibility:   Node by node checks of the surface tree and the bound tree: the JSON form of every expression kind, rejected members, spans and the hash form.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-ffi/tests/abi_python.rs
-// Responsibility:   Interface tests in Python: `tests/abi/python/abi_test.py` (feature.
+// Responsibility:   Interface tests in Python.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

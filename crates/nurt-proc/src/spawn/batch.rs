@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::spawn::batch
-// Responsibility:   Runs over record streams: arguments split into batches and run one after.
+// Responsibility:   Runs over record streams: arguments split into batches and run one after another or several at a time, with results in batch order.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

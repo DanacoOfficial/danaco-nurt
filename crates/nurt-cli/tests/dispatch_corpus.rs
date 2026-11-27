@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/dispatch_corpus.rs
-// Responsibility:   Corpus of invocations with the expected resolution: a subcommand is chosen.
+// Responsibility:   Corpus of invocations with the expected resolution.
 // Dependencies:     Expect
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

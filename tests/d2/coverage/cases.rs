@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/coverage/cases.rs
-// Responsibility:   Registry of the coverage cases: every case is one test function, tied to.
+// Responsibility:   Registry of the coverage cases: every case is one test function, tied to the rows of the coverage table it exercises.
 // Dependencies:     Rows, Variant
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

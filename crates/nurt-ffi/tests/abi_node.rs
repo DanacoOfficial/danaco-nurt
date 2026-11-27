@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-ffi/tests/abi_node.rs
-// Responsibility:   Interface tests in Node: `tests/abi/node/addon.c` is compiled with `clang`.
+// Responsibility:   Interface tests in Node: a Node-API module is compiled with `clang` against the installed Node headers and loaded by a test script.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

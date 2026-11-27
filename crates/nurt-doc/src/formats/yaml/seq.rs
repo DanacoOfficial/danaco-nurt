@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::yaml::seq
-// Responsibility:   YAML sequences: indices, appending, removal of items and the text of new.
+// Responsibility:   YAML sequences: indices, appending, removal of items and the text of new values written into sequences.
 // Dependencies:     indexmap, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

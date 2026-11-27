@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u03_ini_edit.rs
-// Responsibility:   Changes to INI documents through the API of `IniDocument` and the.
+// Responsibility:   Changes to INI documents through the API of `IniDocument` and the registered format.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-bind::flow
-// Responsibility:   Binding of the control constructs: conditions, loops, `steps`, functions.
+// Responsibility:   Binding of the control constructs: conditions, loops, `steps`, functions and script parameters.
 // Dependencies:     nurt_contracts, nurt_correct, nurt_types
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

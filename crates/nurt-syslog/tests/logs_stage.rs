@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syslog/tests/logs_stage.rs
-// Responsibility:   The stage of `logs` over journal files produced by the test writer and.
+// Responsibility:   The stage of `logs` over journal files produced by the test writer and over a scripted store.
 // Dependencies:     journal_writer, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

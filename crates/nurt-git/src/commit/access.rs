@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::commit::access
-// Responsibility:   Working tree access of `git.commit`: files in their stored form, untracked.
+// Responsibility:   Working tree access of `git.commit`: files in their stored form, untracked files, index entry updates, tree contents and changed line counts.
 // Dependencies:     bstr, gix, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

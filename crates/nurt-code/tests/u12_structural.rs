@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u12_structural.rs
-// Responsibility:   Code service: structural replacement with templates, classification of.
+// Responsibility:   Code service: structural replacement with templates, classification of source spans, enclosing declarations, syntax checks and references.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

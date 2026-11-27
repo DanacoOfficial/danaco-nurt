@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::ssh::session
-// Responsibility:   SSH sessions: the runtime thread, host key checking, `ProxyJump` hops.
+// Responsibility:   SSH sessions: the runtime thread, host key checking, `ProxyJump` hops and public key authentication.
 // Dependencies:     nurt_contracts, russh
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

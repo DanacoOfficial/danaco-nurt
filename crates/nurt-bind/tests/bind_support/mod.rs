@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/bind_support/mod.rs
-// Responsibility:   Shared helpers of the binder tests: the reference catalog and builders of.
+// Responsibility:   Shared helpers of the binder tests: the reference catalog and builders of surface trees.
 // Dependencies:     nurt_contracts, nurt_correct, nurt_syntax
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

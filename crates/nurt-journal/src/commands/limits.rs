@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::commands::limits
-// Responsibility:   Stage of the `journal.limits` command: reports the effective expiry.
+// Responsibility:   Stage of the `journal.limits` command: reports the effective expiry limits, or sets them and reports the entries that expire.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

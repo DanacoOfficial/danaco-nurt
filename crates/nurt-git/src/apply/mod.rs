@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::apply
-// Responsibility:   Working tree update engine: plans changes of the working tree and the.
+// Responsibility:   Working tree update engine: plans changes of the working tree and the index and applies them through a mutation transaction.
 // Dependencies:     context, error, exec, nurt_contracts, oneway, paths, plan, refs, twoway
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

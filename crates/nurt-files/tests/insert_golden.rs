@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/insert_golden.rs
-// Responsibility:   Examples of the page of `insert` and the behaviour of `insert` on the.
+// Responsibility:   Examples of the page of `insert` and the behaviour of `insert` on the virtual file system: every form, line endings, entity tags and the transaction protocol.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

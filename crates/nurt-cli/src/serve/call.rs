@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-cli::serve::call
-// Responsibility:   Methods of the protocol, their parameters and the shapes of their.
+// Responsibility:   Methods of the protocol, their parameters and the shapes of their results.
 // Dependencies:     nurt_contracts, nurt_core, serde, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

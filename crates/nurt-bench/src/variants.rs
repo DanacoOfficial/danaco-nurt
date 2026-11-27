@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-bench::variants
-// Responsibility:   Syntax variants B and C of the reference programs, generated from the.
+// Responsibility:   Syntax variants B and C of the reference programs, generated from the syntax tree of variant A by `nurt serve` (`parse` and `print`).
 // Dependencies:     serde, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

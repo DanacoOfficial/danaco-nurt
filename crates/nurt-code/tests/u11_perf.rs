@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u11_perf.rs
-// Responsibility:   Measurements of the symbol index on a generated repository of 20 000.
+// Responsibility:   Measurements of the symbol index on a generated repository of 20 000 source files in the virtual file system.
 // Dependencies:     nurt_contracts, nurt_testkit, u11_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

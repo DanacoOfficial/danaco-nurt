@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::csv::scan
-// Responsibility:   Lossless scanner of delimited text that records the byte range of every.
+// Responsibility:   Lossless scanner of delimited text that records the byte range of every field, record and line terminator.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

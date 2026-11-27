@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/archive_support/mod.rs
-// Responsibility:   Helpers of the archive command tests: stages and arguments, archives.
+// Responsibility:   Helpers of the archive command tests.
 // Dependencies:     nurt_archive, nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

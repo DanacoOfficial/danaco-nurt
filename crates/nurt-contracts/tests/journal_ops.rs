@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/journal_ops.rs
-// Responsibility:   Command-level file operations, the protocol pass of `apply_ops` and the.
+// Responsibility:   Command-level file operations, the protocol pass of `apply_ops` and the serialized names of the journal types.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

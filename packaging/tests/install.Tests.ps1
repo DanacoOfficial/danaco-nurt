@@ -3,7 +3,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
 # Module:           packaging/tests/install.Tests.ps1
-# Responsibility:   Pester tests of packaging/install/install.ps1 against a release tree in a.
+# Responsibility:   Pester tests of packaging/install/install.ps1 against a release tree in a temporary directory.
 # Dependencies:     none
 # Author:           Danaco Official
 # Version:          0.1.1, 2026-11-27

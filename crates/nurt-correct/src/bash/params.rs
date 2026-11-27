@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::bash::params
-// Responsibility:   Mapping of the positional parameters of a shell script or function.
+// Responsibility:   Mapping of the positional parameters of a shell script or function (`$1`, `$2`, `$@`, `shift`) to named parameters of a program.
 // Dependencies:     regex
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

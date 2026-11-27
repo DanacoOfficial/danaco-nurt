@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u05_yaml_edit.rs
-// Responsibility:   Changes of YAML scalars and mappings through the document handle: style.
+// Responsibility:   Changes of YAML scalars and mappings through the document handle.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

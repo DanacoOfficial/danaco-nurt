@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::stage::jobs::remove
-// Responsibility:   The `remove` command on job records: deletes finished jobs with their.
+// Responsibility:   The `remove` command on job records: deletes finished jobs with their kept output from the state directory.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

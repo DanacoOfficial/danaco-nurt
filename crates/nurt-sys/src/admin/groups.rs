@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::groups
-// Responsibility:   `groups.create`, `groups.remove`, `groups.add_member` and.
+// Responsibility:   `groups.create`, `groups.remove`, `groups.add_member` and `groups.remove_member`.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

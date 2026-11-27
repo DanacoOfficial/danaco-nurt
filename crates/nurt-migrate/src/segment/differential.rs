@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-migrate::segment::differential
-// Responsibility:   Differential test of the division of scripts into statements: the.
+// Responsibility:   Differential test of the division of scripts into statements: the tree-sitter grammars against the lexers of the bash and PowerShell habit tables.
 // Dependencies:     nurt_correct
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

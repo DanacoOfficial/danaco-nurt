@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-net::html::select
-// Responsibility:   Selection of parts of a page: sections, pattern matches, the blocks that.
+// Responsibility:   Selection of parts of a page: sections, pattern matches, the blocks that best match a query, and the outline of a long page.
 // Dependencies:     regex
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

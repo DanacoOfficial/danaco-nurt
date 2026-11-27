@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt/tests/process_backend.rs
-// Responsibility:   Client of `nurt serve` against an in-process server speaking.
+// Responsibility:   Client of `nurt serve` against an in-process server speaking `nurt-rpc/1` over pipes.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

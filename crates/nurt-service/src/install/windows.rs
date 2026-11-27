@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-service::install::windows
-// Responsibility:   Service of the service control manager (mode `system`) and task of the.
+// Responsibility:   Service of the service control manager (mode `system`) and task of the Task Scheduler (mode `user`) on Windows.
 // Dependencies:     nurt_contracts, windows_service
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

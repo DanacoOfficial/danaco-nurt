@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-types::idna
-// Responsibility:   Internationalised domain names: conversion between Unicode labels and.
+// Responsibility:   Internationalised domain names: conversion between Unicode labels and their ASCII form `xn--…` (RFC 5891, Punycode of RFC 3492).
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

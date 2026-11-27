@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/session.rs
-// Responsibility:   Invocations of the command line on an engine with a front end of recorded.
+// Responsibility:   Invocations of the command line on an engine with a front end of recorded trees and virtual components.
 // Dependencies:     nurt_contracts, nurt_core, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

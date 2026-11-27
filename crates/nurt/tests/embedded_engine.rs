@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt/tests/embedded_engine.rs
-// Responsibility:   The embedded engine, opened over a state directory in a temporary.
+// Responsibility:   The embedded engine, opened over a state directory in a temporary directory.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

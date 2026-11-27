@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-transport::credentials::secret_service
-// Responsibility:   Credentials in the Secret Service of the desktop session, stored with the.
+// Responsibility:   Credentials in the Secret Service of the desktop session, stored with the attributes used by `git-credential-libsecret`.
 // Dependencies:     zbus
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

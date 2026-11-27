@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/services_contract.rs
-// Responsibility:   Contract tests of the shared services: object safety, the registry.
+// Responsibility:   Contract tests of the shared services: object safety, the registry, identifiers and the serialized form of the data types.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

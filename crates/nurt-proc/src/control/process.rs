@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::control::process
-// Responsibility:   Signals to single processes of the system, as the `stop`, `suspend` and.
+// Responsibility:   Signals to single processes of the system, as the `stop`, `suspend` and `resume` commands send them to `process` records.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-exec/tests/fixtures/stages/harness.rs
-// Responsibility:   Harness of the record stage tests: an execution context with the.
+// Responsibility:   Harness of the record stage tests.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_types, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

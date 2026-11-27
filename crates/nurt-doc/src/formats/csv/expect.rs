@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::csv::expect
-// Responsibility:   Value of a table after a change, computed from the cell texts the change.
+// Responsibility:   Value of a table after a change, computed from the cell texts the change writes, for the meaning guard.
 // Dependencies:     indexmap, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

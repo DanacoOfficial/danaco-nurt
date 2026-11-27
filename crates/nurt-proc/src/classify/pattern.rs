@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::classify::pattern
-// Responsibility:   Command-line patterns: words with wildcards and alternatives, positional.
+// Responsibility:   Command-line patterns: words with wildcards and alternatives, positional tokens and option tokens.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

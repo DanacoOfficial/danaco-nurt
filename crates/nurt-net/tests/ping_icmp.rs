@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-net/tests/ping_icmp.rs
-// Responsibility:   `network.ping`: argument checks, and echo requests to the loopback.
+// Responsibility:   `network.ping`: argument checks, and echo requests to the loopback address where the system allows ICMP datagram sockets.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

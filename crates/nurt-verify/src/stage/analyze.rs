@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-verify::stage::analyze
-// Responsibility:   The `analyze.check`, `analyze.show`, `analyze.format` and `analyze.tools`.
+// Responsibility:   The `analyze.check`, `analyze.show`, `analyze.format` and `analyze.tools` commands.
 // Dependencies:     nurt_contracts, nurt_proc, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/corpus_mutate.rs
-// Responsibility:   Mutation corpus: generation from valid programs and the check of name.
+// Responsibility:   Mutation corpus: generation from valid programs and the check of name, unit and boolean correction against it.
 // Dependencies:     serde_json, toml_edit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

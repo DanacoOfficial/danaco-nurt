@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-plan::hints
-// Responsibility:   Hints for stages: the fields the rest of the pipeline uses, whether file.
+// Responsibility:   Hints for stages: the fields the rest of the pipeline uses, whether file records must carry their entity tag, and how many records are used.
 // Dependencies:     nurt_catalog, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

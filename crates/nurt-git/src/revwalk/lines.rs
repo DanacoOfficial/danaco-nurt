@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::revwalk::lines
-// Responsibility:   Differences of two file contents by lines: changed blocks, line counts.
+// Responsibility:   Differences of two file contents by lines.
 // Dependencies:     bstr, gix_imara_diff
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

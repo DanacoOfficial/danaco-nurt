@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::testsys
-// Responsibility:   An in-memory Linux for the tests of the administration commands: it.
+// Responsibility:   An in-memory Linux for the tests of the administration commands.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

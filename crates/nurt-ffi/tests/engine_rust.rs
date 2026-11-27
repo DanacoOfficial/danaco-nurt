@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-ffi/tests/engine_rust.rs
-// Responsibility:   Exported functions called through their Rust declarations on the engine.
+// Responsibility:   Exported functions called through their Rust declarations on the engine of `nurt-core`, in a build without the feature `stub`.
 // Dependencies:     nurt_contracts, serde_json, tempfile
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::switch::stage
-// Responsibility:   Stage implementation of `git.switch`, and the parts of the effect report.
+// Responsibility:   Stage implementation of `git.switch`, and the parts of the effect report shared with `git.restore`.
 // Dependencies:     bstr, gix, nurt_contracts, nurt_git
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

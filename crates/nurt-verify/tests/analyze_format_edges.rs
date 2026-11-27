@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-verify/tests/analyze_format_edges.rs
-// Responsibility:   Edge cases of `analyze.format`: tools that do not format, programs that.
+// Responsibility:   Edge cases of `analyze.format`: tools that do not format, programs that are not installed, formatters without files in scope and very large rewrites.
 // Dependencies:     analyze_support, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

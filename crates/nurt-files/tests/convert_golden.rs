@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/convert_golden.rs
-// Responsibility:   Examples of `docs/commands/convert.md`, run on the virtual file system.
+// Responsibility:   Examples of `docs/commands/convert.md`, run on the virtual file system with the recording journal.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_text
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

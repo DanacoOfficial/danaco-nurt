@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-programs/tests/catalog_format.rs
-// Responsibility:   Reader, provider and validation of catalogs in the format.
+// Responsibility:   Reader, provider and validation of catalogs in the format `nurt-program-catalog/1`.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

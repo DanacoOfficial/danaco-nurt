@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-programs/tests/perf.rs
-// Responsibility:   Timing targets of the `program` commands on a synthetic system: 2000.
+// Responsibility:   Timing targets of the `program` commands on a synthetic system: 2000 executables in `PATH`, 300 dpkg packages and 300 compressed manual pages.
 // Dependencies:     nurt_contracts, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

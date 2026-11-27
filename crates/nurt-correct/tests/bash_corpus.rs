@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-correct/tests/bash_corpus.rs
-// Responsibility:   Corpus of bash habits: every case of `tests/d1/correction/bash` is.
+// Responsibility:   Corpus of bash habits: every case of `tests/d1/correction/bash` is translated in a live call and compared with its expected reaction.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

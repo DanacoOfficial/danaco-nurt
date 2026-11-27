@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::csv::table
-// Responsibility:   Table model of a delimited file: header, data rows and the layout facts.
+// Responsibility:   Table model of a delimited file: header, data rows and the layout facts that new content follows.
 // Dependencies:     indexmap, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

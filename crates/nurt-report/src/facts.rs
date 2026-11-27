@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-report::facts
-// Responsibility:   Statements about a report that the text, Markdown and compact renderers.
+// Responsibility:   Statements about a report that the text, Markdown and compact renderers have in common.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-service::process
-// Responsibility:   Facts about processes and the account: liveness of a process.
+// Responsibility:   Facts about processes and the account: liveness of a process identifier, administrator rights and, on Windows, the account SID.
 // Dependencies:     imp, nix, windows_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

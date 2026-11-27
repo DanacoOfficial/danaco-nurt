@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::accounts
-// Responsibility:   `accounts.create`, `accounts.modify`, `accounts.remove` and.
+// Responsibility:   `accounts.create`, `accounts.modify`, `accounts.remove` and `accounts.password`.
 // Dependencies:     nurt_contracts, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

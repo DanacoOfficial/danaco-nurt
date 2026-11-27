@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::refs_tx::tests
-// Responsibility:   Unit tests of reference transactions on repositories built in temporary.
+// Responsibility:   Unit tests of reference transactions on repositories built in temporary directories.
 // Dependencies:     bstr, gix_hash, gix_ref, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

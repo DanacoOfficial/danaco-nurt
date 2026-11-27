@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::stage::run::tests
-// Responsibility:   Tests of the `run` stage with a run host that starts the test program.
+// Responsibility:   Tests of the `run` stage with a run host that starts the test program directly.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

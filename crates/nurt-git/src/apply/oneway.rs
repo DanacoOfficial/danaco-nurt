@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git::apply::oneway
-// Responsibility:   One-tree updates: the index and the working tree become a given tree.
+// Responsibility:   One-tree updates: the index and the working tree become a given tree, as with `git reset --hard`.
 // Dependencies:     bstr, gix_index, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

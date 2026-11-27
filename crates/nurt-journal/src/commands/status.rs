@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::commands::status
-// Responsibility:   Stage of the `journal.status` command: one `journal_state` record per.
+// Responsibility:   Stage of the `journal.status` command: one `journal_state` record per journal volume with the effective limits and their sources.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

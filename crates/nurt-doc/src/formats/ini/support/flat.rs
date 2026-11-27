@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::ini::support::flat
-// Responsibility:   Key handling of flat documents (property and environment files) and.
+// Responsibility:   Key handling of flat documents (property and environment files) and scalar text of values.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

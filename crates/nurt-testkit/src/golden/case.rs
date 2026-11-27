@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-testkit::golden::case
-// Responsibility:   Case directories: one directory per case, shared by the conformance.
+// Responsibility:   Case directories: one directory per case, shared by the conformance suite and the crate tests.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

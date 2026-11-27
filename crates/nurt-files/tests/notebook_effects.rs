@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/notebook_effects.rs
-// Responsibility:   Journal coverage, entity tag checks, lossless writes and format errors of.
+// Responsibility:   Journal coverage, entity tag checks, lossless writes and format errors of the `notebook.*` commands.
 // Dependencies:     notebook_support, nurt_contracts, nurt_testkit, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

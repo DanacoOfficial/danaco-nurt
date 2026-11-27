@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-bench::stats
-// Responsibility:   Statistical tests of the analysis: exact McNemar test, Wilcoxon.
+// Responsibility:   Statistical tests of the analysis: exact McNemar test, Wilcoxon signed-rank test and percentile bootstrap.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

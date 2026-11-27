@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-verify::analyze::tools
-// Responsibility:   Analyzers and formatters: detection in a project, command lines and.
+// Responsibility:   Analyzers and formatters: detection in a project, command lines and output parsers.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

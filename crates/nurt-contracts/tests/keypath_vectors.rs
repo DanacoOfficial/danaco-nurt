@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/keypath_vectors.rs
-// Responsibility:   Test vectors of the key path grammar: canonical forms, segments, errors.
+// Responsibility:   Test vectors of the key path grammar: canonical forms, segments, errors and the parse, print, parse round trip.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

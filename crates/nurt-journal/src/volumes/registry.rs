@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-journal::volumes::registry
-// Responsibility:   Registry of journal directories of the account (`volumes.json` in the.
+// Responsibility:   Registry of journal directories of the account (`volumes.json` in the state directory).
 // Dependencies:     nurt_contracts, nurt_testkit, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

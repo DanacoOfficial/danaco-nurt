@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u10_sql_sqlite3.rs
-// Responsibility:   Differential tests of `sql` against the `sqlite3` program. The program is.
+// Responsibility:   Differential tests of `sql` against the `sqlite3` program.
 // Dependencies:     u10_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

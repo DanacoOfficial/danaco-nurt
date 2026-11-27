@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/property/model.rs
-// Responsibility:   Reference model of retention by steps and age, against which the journal.
+// Responsibility:   Reference model of retention by steps and age, against which the journal is compared after random sequences of operations.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

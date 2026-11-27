@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::services::tests
-// Responsibility:   Tests of the stages independent of the service manager, and test doubles.
+// Responsibility:   Tests of the stages independent of the service manager, and test doubles shared with the tests of the backends.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

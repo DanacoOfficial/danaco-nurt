@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::spawn::windows_cmd
-// Responsibility:   Command lines of batch files started through the Windows command.
+// Responsibility:   Command lines of batch files started through the Windows command interpreter.
 // Dependencies:     serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-service::install::linux
-// Responsibility:   Systemd units and lingering over D-Bus, without `systemctl` or.
+// Responsibility:   Systemd units and lingering over D-Bus, without `systemctl` or `loginctl`.
 // Dependencies:     nurt_contracts, serde_json, zbus
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

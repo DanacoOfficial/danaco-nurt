@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-bind/tests/bind_elevated_run.rs
-// Responsibility:   `run ["sudo", ...]` written in Nurt is corrected into the same `run`.
+// Responsibility:   `run ["sudo", ...]` written in Nurt is corrected into the same `run` without the elevation program and with `privilege: elevated`.
 // Dependencies:     bind_support, nurt_contracts, nurt_correct
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

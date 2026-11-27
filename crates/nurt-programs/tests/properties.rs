@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-programs/tests/properties.rs
-// Responsibility:   Property tests of the parsers of package databases, manual pages and.
+// Responsibility:   Property tests of the parsers of package databases, manual pages and desktop entries.
 // Dependencies:     proptest, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

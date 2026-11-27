@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_c_syntax.rs
-// Responsibility:   Strict parser of variant C: stages, assignments, values, sub-pipelines.
+// Responsibility:   Strict parser of variant C: stages, assignments, values, sub-pipelines, spans and errors.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

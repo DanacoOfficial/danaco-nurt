@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u04_plist.rs
-// Responsibility:   Property lists: identity of every corpus file, XML read as the `plist`.
+// Responsibility:   Property lists: identity of every corpus file, reading compared with the `plist` crate, round trips of binary lists and changes of single values.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

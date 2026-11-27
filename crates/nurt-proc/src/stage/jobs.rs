@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::stage::jobs
-// Responsibility:   The `jobs`, `stop`, `retry`, `suspend` and `resume` commands and `remove`.
+// Responsibility:   The `jobs`, `stop`, `retry`, `suspend` and `resume` commands and `remove` on job records, and `stop`, `suspend` and `resume` on process records.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

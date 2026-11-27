@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-plan/tests/check.rs
-// Responsibility:   Check without effect: network endpoints, launched programs, paths.
+// Responsibility:   Check without effect: network endpoints, launched programs, paths, waiting, effect class and the static checks of implementations.
 // Dependencies:     common, nurt_catalog, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

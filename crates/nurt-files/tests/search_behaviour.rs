@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-files/tests/search_behaviour.rs
-// Responsibility:   Behaviour of `search`: patterns, options, outputs, inputs, encodings and.
+// Responsibility:   Behaviour of `search`: patterns, options, outputs, inputs, encodings and the use of the code service.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-fs::account
-// Responsibility:   File system of a process that runs with elevated rights and keeps the.
+// Responsibility:   File system of a process that runs with elevated rights and keeps the journal of an ordinary account (Unix systems).
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27
@@ -50,9 +50,6 @@
 //! devices, as it would between two volumes, so that the journal copies the
 //! content instead of moving it.
 
-// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
-// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
-// https://github.com/DanacoOfficial | support@danaco-group.pl
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::fd::OwnedFd;
 use std::path::{Path, PathBuf};

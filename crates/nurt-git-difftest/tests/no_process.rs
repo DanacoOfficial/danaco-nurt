@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-git-difftest/tests/no_process.rs
-// Responsibility:   Checks of the product crates of the Git commands: no process is started.
+// Responsibility:   Checks of the product crates of the Git commands: no process is started outside the hook module, and no native Git, TLS or HTTP library is linked.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

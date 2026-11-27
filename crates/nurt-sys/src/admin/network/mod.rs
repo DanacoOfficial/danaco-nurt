@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sys::admin::network
-// Responsibility:   The commands `network.route_add`, `network.route_remove` and.
+// Responsibility:   The commands `network.route_add`, `network.route_remove` and `network.dns_set`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-testkit/tests/services_data.rs
-// Responsibility:   Data service doubles: registered answers, unsupported inputs and scripted.
+// Responsibility:   Data service doubles: registered answers, unsupported inputs and scripted process details.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

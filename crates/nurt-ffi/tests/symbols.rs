@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-ffi/tests/symbols.rs
-// Responsibility:   The list `nurt.symbols` matches the header and the exports of the shared.
+// Responsibility:   The list `nurt.symbols` matches the header and the exports of the shared library.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u10_sql_stage.rs
-// Responsibility:   The `sql` stage as a catalog command: the descriptor, the static check of.
+// Responsibility:   The `sql` stage as a catalog command: the descriptor, the static check of the arguments and the effect step called without a planned state.
 // Dependencies:     nurt_contracts, nurt_testkit, u10_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

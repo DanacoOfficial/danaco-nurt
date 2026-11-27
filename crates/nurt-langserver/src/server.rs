@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-langserver::server
-// Responsibility:   Session of the language server: initialization, message loop and.
+// Responsibility:   Session of the language server: initialization, message loop and dispatch.
 // Dependencies:     lsp_server, lsp_types, nurt_bind, nurt_contracts, nurt_correct, nurt_help, nurt_syntax, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

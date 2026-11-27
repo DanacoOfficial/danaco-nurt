@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u14_languages.rs
-// Responsibility:   Tests of `code.languages`: grammar languages, configured servers and the.
+// Responsibility:   Tests of `code.languages`: grammar languages, configured servers and the state of the server pool.
 // Dependencies:     nurt_contracts, u14_support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

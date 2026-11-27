@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_flow.rs
-// Responsibility:   Parsing of the control constructs: conditions, loops, `steps`, functions.
+// Responsibility:   Parsing of the control constructs: conditions, loops, `steps`, functions and script parameters, in the three syntax variants.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

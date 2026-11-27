@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_b_props.rs
-// Responsibility:   Properties of the call notation parser (variant B): no panic on any.
+// Responsibility:   Properties of the call notation parser (variant B).
 // Dependencies:     nurt_contracts, proptest, roundtrip_support, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

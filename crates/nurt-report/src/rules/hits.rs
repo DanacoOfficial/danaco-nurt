@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-report::rules::hits
-// Responsibility:   Collection of the targets that meet one rule, with a bounded number of.
+// Responsibility:   Collection of the targets that meet one rule, with a bounded number of entries per rule.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

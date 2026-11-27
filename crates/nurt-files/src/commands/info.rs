@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::info
-// Responsibility:   The `info` command: `entry` records of paths, including paths that do not.
+// Responsibility:   The `info` command: `entry` records of paths, including paths that do not exist.
 // Dependencies:     nurt_contracts, nurt_testkit, nurt_text, pdf_extract, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

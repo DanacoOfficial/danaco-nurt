@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::create
-// Responsibility:   `create`: files, directories, links and junctions, and entries with a.
+// Responsibility:   `create`: files, directories, links and junctions, and entries with a unique name in a temporary directory.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

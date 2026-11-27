@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-code/tests/u11_support/mod.rs
-// Responsibility:   Test doubles and helpers of the syntax analysis tests: a workspace on.
+// Responsibility:   Test doubles and helpers of the syntax analysis tests.
 // Dependencies:     nurt_contracts, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

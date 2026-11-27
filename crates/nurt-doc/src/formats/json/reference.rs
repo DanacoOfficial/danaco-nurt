@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::json::reference
-// Responsibility:   Reference reading with `serde_json`, independent of the parser used for.
+// Responsibility:   Reference reading with `serde_json`, independent of the parser used for editing; edited documents are read again with it and compared with the expected value.
 // Dependencies:     indexmap, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-net/tests/support/http_server.rs
-// Responsibility:   HTTP/1.1 server on the loopback interface for tests of the `network`.
+// Responsibility:   HTTP/1.1 server on the loopback interface for tests of the `network` commands, and a name resolver that answers from a table.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

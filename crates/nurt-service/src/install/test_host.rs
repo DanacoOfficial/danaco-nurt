@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-service::install::test_host
-// Responsibility:   Program execution that records the programs it is asked to run, for the.
+// Responsibility:   Program execution that records the programs it is asked to run, for the launchd installer tests.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::formats::json::layout
-// Responsibility:   Layout of a parsed document: line structure, indentation, separators.
+// Responsibility:   Layout of a parsed document: line structure, indentation, separators and comment placement, used to give new content the style of its neighbours.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

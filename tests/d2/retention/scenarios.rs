@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           tests/d2/retention/scenarios.rs
-// Responsibility:   Retention scenarios on the full journal stack: step, age and size limits.
+// Responsibility:   Retention scenarios on the full journal stack.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

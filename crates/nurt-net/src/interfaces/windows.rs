@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-net::interfaces::windows
-// Responsibility:   Interfaces on Windows: `GetAdaptersAddresses` with unicast and gateway.
+// Responsibility:   Interfaces on Windows: `GetAdaptersAddresses` with unicast and gateway addresses.
 // Dependencies:     nurt_contracts, windows_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

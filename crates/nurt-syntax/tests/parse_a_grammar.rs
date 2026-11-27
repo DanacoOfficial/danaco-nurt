@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-syntax/tests/parse_a_grammar.rs
-// Responsibility:   Productions of the variant A grammar: statements, stages, arguments.
+// Responsibility:   Productions of the variant A grammar: statements, stages, arguments, expressions, sub-pipelines, spans, nesting and metadata.
 // Dependencies:     nurt_contracts, parse_a_support, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

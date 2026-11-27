@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::output::window
-// Responsibility:   Lines kept for one stream: the first and the last lines, the cutting of.
+// Responsibility:   Lines kept for one stream: the first and the last lines, the cutting of long lines and the shared byte budget of a response.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

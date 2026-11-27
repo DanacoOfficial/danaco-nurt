@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-doc::sql::names
-// Responsibility:   Database names of `ATTACH` and `VACUUM INTO`: plain paths and `file:`.
+// Responsibility:   Database names of `ATTACH` and `VACUUM INTO`: plain paths and `file:` URIs, and their resolution like every path argument.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

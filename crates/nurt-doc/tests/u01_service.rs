@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u01_service.rs
-// Responsibility:   Format registry, encodings and the document service over the.
+// Responsibility:   Format registry, encodings and the document service over the `key = value` test format.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

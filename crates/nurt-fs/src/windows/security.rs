@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-fs::windows::security
-// Responsibility:   Self-relative security descriptors kept in.
+// Responsibility:   Self-relative security descriptors kept in [`ExtendedMeta::acl`](nurt_contracts::fs::ExtendedMeta::acl).
 // Dependencies:     control, nurt_contracts, windows_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

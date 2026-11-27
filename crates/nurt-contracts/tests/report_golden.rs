@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/report_golden.rs
-// Responsibility:   Golden reports in `spec/golden/report/`: every file validates against the.
+// Responsibility:   Golden reports in `spec/golden/report/`.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

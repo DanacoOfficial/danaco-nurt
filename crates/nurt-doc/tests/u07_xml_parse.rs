@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-doc/tests/u07_xml_parse.rs
-// Responsibility:   Parsing of XML documents into a lossless tree: byte ranges of every.
+// Responsibility:   Parsing of XML documents into a lossless tree: byte ranges of every syntactic part, rejection of malformed documents, key resolution and the value model.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

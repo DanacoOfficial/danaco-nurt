@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::track::tests::support
-// Responsibility:   Test doubles: a file system over a real directory, a virtual clock, a.
+// Responsibility:   Test doubles: a file system over a real directory, a virtual clock, a host and a journal transaction that keeps byte copies in memory.
 // Dependencies:     nurt_contracts, sha2
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

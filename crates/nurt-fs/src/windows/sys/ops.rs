@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-fs::windows::sys::ops
-// Responsibility:   Single system calls that change names; each returns the Win32 code of a.
+// Responsibility:   Single system calls that change names; each returns the Win32 code of a failure.
 // Dependencies:     windows_sys
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

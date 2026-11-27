@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-files::commands::remove
-// Responsibility:   `remove`: removes files, links and directory trees, and lines and.
+// Responsibility:   `remove`: removes files, links and directory trees, and lines and matches from files.
 // Dependencies:     nurt_contracts, nurt_testkit, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

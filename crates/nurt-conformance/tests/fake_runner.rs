@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-conformance/tests/fake_runner.rs
-// Responsibility:   The runner against the fake server: every mandatory case passes on the.
+// Responsibility:   The runner against the fake server.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

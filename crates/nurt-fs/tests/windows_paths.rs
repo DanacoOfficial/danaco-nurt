@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-fs/tests/windows_paths.rs
-// Responsibility:   Verbatim paths, reserved names, long paths and tree removal across.
+// Responsibility:   Verbatim paths, reserved names, long paths and tree removal across reparse points.
 // Dependencies:     common, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-verify::stage::test::launch
-// Responsibility:   Preparation and start of a test run, shared by `test.run` and.
+// Responsibility:   Preparation and start of a test run, shared by `test.run` and `test.failed`.
 // Dependencies:     nurt_contracts, nurt_proc, serde
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

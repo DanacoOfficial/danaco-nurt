@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-proc::control::tests::tree
-// Responsibility:   The process tree of the operating system, used without the supervisor.
+// Responsibility:   The process tree of the operating system, used without the supervisor, and start errors reported before a program runs.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

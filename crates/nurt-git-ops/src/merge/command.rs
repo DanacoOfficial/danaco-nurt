@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-git-ops::merge::command
-// Responsibility:   The `git.merge` command: starting a merge, concluding a stopped merge.
+// Responsibility:   The `git.merge` command: starting a merge, concluding a stopped merge and aborting it.
 // Dependencies:     bstr, gix_hash, gix_index, gix_object, nurt_contracts, nurt_git
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

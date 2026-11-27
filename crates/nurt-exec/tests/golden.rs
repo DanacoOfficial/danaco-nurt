@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-exec/tests/golden.rs
-// Responsibility:   End-to-end execution of bound programs from the golden documents: the.
+// Responsibility:   End-to-end execution of bound programs from the golden documents.
 // Dependencies:     common, nurt_contracts, nurt_plan, nurt_testkit
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

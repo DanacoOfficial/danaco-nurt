@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::powershell
-// Responsibility:   Translation of commands written in PowerShell notation into Nurt.
+// Responsibility:   Translation of commands written in PowerShell notation into Nurt programs.
 // Dependencies:     lex, nurt_contracts, table
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

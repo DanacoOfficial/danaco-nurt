@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-sched/tests/engine.rs
-// Responsibility:   Run decisions: missed and late runs, overlapping runs, run limits, expiry.
+// Responsibility:   Run decisions: missed and late runs, overlapping runs, run limits, expiry, pauses, restarts of the service and changed definitions.
 // Dependencies:     nurt_contracts, support
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

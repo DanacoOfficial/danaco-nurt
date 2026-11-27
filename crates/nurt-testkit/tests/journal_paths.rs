@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-testkit/tests/journal_paths.rs
-// Responsibility:   Mutations, expectations, restoring and failure paths of the pass-through.
+// Responsibility:   Mutations, expectations, restoring and failure paths of the pass-through and keeping journals, and the fixed-answer admission.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

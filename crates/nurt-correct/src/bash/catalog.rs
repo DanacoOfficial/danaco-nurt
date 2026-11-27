@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-correct::bash::catalog
-// Responsibility:   The command catalog as the translation of bash reads it: the types of the.
+// Responsibility:   The command catalog as the translation of bash reads it: the types of the parameters that a long flag sets and the parameter names that mark Nurt notation.
 // Dependencies:     nurt_catalog, nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-tooldef
-// Responsibility:   Definitions of the `nurt` tool for model providers and the Model Context.
+// Responsibility:   Definitions of the `nurt` tool for model providers and the Model Context Protocol.
 // Dependencies:     nurt_contracts, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

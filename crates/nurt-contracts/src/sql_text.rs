@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-contracts::sql_text
-// Responsibility:   Lexical reading of SQL text: statement boundaries and the kind of each.
+// Responsibility:   Lexical reading of SQL text: statement boundaries and the kind of each statement.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

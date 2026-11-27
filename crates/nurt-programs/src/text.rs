@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-programs::text
-// Responsibility:   Text folding, stop words, sentences, edit distance and decoding of.
+// Responsibility:   Text folding, stop words, sentences, edit distance and decoding of description files.
 // Dependencies:     unicode_normalization
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

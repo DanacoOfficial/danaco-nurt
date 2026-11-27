@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-proc/examples/proc_fixture/spawn.rs
-// Responsibility:   Modes for the tests of program resolution, arguments, environment and.
+// Responsibility:   Modes for the tests of program resolution, arguments, environment and input.
 // Dependencies:     none
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

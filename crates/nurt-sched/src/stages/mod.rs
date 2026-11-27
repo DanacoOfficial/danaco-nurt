@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           nurt-sched::stages
-// Responsibility:   The commands `schedule.create`, `schedule.list`, `schedule.remove`.
+// Responsibility:   The commands `schedule.create`, `schedule.list`, `schedule.remove`, `schedule.pause`, `schedule.resume`, `schedule.run` and `schedule.history`.
 // Dependencies:     nurt_contracts
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

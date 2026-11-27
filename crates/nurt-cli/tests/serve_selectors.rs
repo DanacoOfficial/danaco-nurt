@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-cli/tests/serve_selectors.rs
-// Responsibility:   Parameters `{what}` of `catalog` and `{query}` of `history`, and the.
+// Responsibility:   Parameters `{what}` of `catalog` and `{query}` of `history`, and the check document returned by `check`, through the protocol server.
 // Dependencies:     nurt_contracts, nurt_core, nurt_ffi, nurt_testkit, serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27

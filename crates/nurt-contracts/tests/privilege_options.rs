@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-contracts/tests/privilege_options.rs
-// Responsibility:   The call parameters `privilege` and `as_user`, the report fields of an.
+// Responsibility:   The call parameters `privilege` and `as_user`, the report fields of an elevated operation and the configuration section `[privilege]`.
 // Dependencies:     serde_json
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27
