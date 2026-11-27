@@ -496,17 +496,20 @@ fn read_unix(sys: &dyn Sys, name: &str) -> Result<Option<AccountState>> {
     Ok(Some(state))
 }
 
-/// Fields of a line of `getent passwd`.
+/// Fields of a line of `getent passwd`. The shell is the last field and the
+/// home directory is the sixth field up to the shell, so that a home directory
+/// with a drive letter keeps its colon.
 pub(crate) fn parse_passwd(line: &str) -> Option<AccountState> {
-    let fields: Vec<&str> = line.split(':').collect();
-    if fields.len() < 7 {
+    let (head, shell) = line.rsplit_once(':')?;
+    let fields: Vec<&str> = head.splitn(6, ':').collect();
+    if fields.len() < 6 {
         return None;
     }
     Some(AccountState {
         uid: fields[2].parse().ok(),
         comment: fields[4].split(',').next().unwrap_or_default().to_owned(),
         home: Some(fields[5].to_owned()),
-        shell: Some(fields[6].to_owned()),
+        shell: Some(shell.to_owned()),
         groups: Vec::new(),
         locked: false,
     })
