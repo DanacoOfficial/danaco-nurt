@@ -96,7 +96,7 @@ fn break_and_continue_stand_inside_a_loop() {
     );
     assert_eq!(code("continue\n"), ErrorCode::Arg);
     let document = bound(&tree(
-        "each (find \"/srv\") as f {\n  when f.size > 1 {\n    continue\n  }\n  break\n}\n",
+        "each (find \"/srv\") as f {\n  when f.size > 1kb {\n    continue\n  }\n  break\n}\n",
     ));
     assert!(matches!(
         document.program.statements[0],

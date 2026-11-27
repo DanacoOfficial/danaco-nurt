@@ -1063,6 +1063,104 @@ fn an_effect_picked_by_a_value_that_is_not_a_literal_is_refused_in_a_condition()
     );
 }
 
+fn field_condition_is_refused_before_any_effect(condition: &str) {
+    let world = world();
+    world.put("src/a.log", "a");
+    let response = world.run(&format!(
+        "steps {{\n    write \"{out}\" \"x\" mode: overwrite\n    each (find \"{src}\") as f {{\n        when {condition} {{\n            remove f.path\n        }}\n    }}\n}}\n",
+        out = world.at("out"),
+        src = world.at("src"),
+    ));
+    assert_eq!(
+        code(&response),
+        Some(ErrorCode::Type),
+        "{condition}: {:?}",
+        response.report.error
+    );
+    assert!(world.read("out").is_none(), "{condition}");
+    assert!(world.read("src/a.log").is_some(), "{condition}");
+}
+
+#[test]
+fn every_misuse_of_a_field_of_a_known_type_is_refused_before_any_effect() {
+    for condition in [
+        "f.size ~ \"x\"",
+        "f.size > 1",
+        "f.name ~ \"txt\"",
+        "f.size ~ /x/",
+        "f.size !~ \"x\"",
+        "f.name < 3",
+        "f.name >= 3",
+        "f.size == \"big\" and f.name == 3",
+        "f.name == 3",
+        "f.size == true",
+        "f.size and f.name == \"a\"",
+        "f.name or true",
+        "not f.name",
+        "1 in f.size",
+        "f.path - 1 > 0",
+        "f.name * 2 > 0",
+        "f.name == f.size and f.size < f.name and 1 + f.path > 0",
+        "f.modified * 2 > 0",
+    ] {
+        field_condition_is_refused_before_any_effect(condition);
+    }
+}
+
+#[test]
+fn a_field_of_a_known_type_used_as_its_type_is_accepted() {
+    let world = world();
+    world.put("src/a.log", "a");
+    world.put("src/b.txt", "bb");
+    let response = world.run(&format!(
+        "each (find \"{src}\" sort: path) as f {{\n    when f.size > 1b and f.name ~ /txt/ and f.name != \"x\" {{\n        remove f.path\n    }}\n}}\n",
+        src = world.at("src"),
+    ));
+    assert_eq!(
+        response.report.status,
+        ReportStatus::Ok,
+        "{:?}",
+        response.report.error
+    );
+    assert!(world.read("src/b.txt").is_none());
+    assert!(world.read("src/a.log").is_some());
+}
+
+#[test]
+fn a_field_without_a_declared_type_is_checked_when_the_condition_is_evaluated() {
+    let world = world();
+    world.put("a.json", "{\"v\": 1}");
+    let response = world.run(&format!(
+        "each (read \"{src}\" key: .v |> first 1) as r {{\n    when r.value ~ \"x\" {{\n        find \"/\"\n    }}\n}}\n",
+        src = world.at("a.json"),
+    ));
+    let error = response.report.error.as_ref();
+    assert!(
+        error.is_none_or(|error| !error.message.contains("takes text")),
+        "{error:?}"
+    );
+}
+
+#[test]
+fn a_stage_that_may_affect_and_takes_its_action_from_a_value_is_refused_in_a_condition() {
+    for stage in [
+        "git.branch repo: \"/tmp\" delete: @a",
+        "sql \"/tmp/x.db\" \"select 1\" write: @w",
+        "http.request \"https://example.invalid/\" method: @a",
+    ] {
+        let world = world();
+        let response = world.run(&format!(
+            "params {{\n    a: text = \"x\"\n    w: bool = true\n}}\nwhen ((({stage}) |> count)) > 0 {{\n    find \"/\"\n}}\n",
+        ));
+        assert_eq!(
+            code(&response),
+            Some(ErrorCode::Type),
+            "{stage}: {:?}",
+            response.report.error
+        );
+    }
+}
+
 #[test]
 fn parallel_treats_a_path_and_its_descendant_as_overlapping_between_other_names() {
     let world = world();

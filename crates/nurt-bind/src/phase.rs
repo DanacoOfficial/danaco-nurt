@@ -139,7 +139,7 @@ fn exceeds(value: &BoundExpr, threshold: u64) -> bool {
 
 /// Returns `true` when the command changes the world or runs a program for
 /// its default or for one of its actions.
-fn may_affect(spec: &StageSpec) -> bool {
+pub(crate) fn may_affect(spec: &StageSpec) -> bool {
     spec.effect != EffectKind::Read
         || spec
             .effects
