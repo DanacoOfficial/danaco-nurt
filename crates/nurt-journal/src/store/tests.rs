@@ -306,6 +306,92 @@ fn build_fails_without_the_state_directory() {
 }
 
 #[test]
+fn an_incremental_transaction_preserves_after_its_first_change_and_is_one_entry() {
+    let env = Env::new(&json!({}));
+    let first = env.seed(NOTES, b"one");
+    let second = env.seed(OTHER_FILE, b"two");
+    let journal = env.journal();
+
+    let mut tx = journal.begin(request("steps"));
+    tx.allow_incremental();
+    apply_ops(
+        tx.as_mut(),
+        vec![FileOp::write(first.clone(), b"ONE".to_vec())],
+    )
+    .unwrap();
+    apply_ops(
+        tx.as_mut(),
+        vec![FileOp::write(second.clone(), b"TWO".to_vec())],
+    )
+    .unwrap();
+    let handle = tx.commit().unwrap();
+    assert_eq!(handle.op, Some(OpId(1)));
+    assert_eq!(env.read(&first), b"ONE");
+    assert_eq!(env.read(&second), b"TWO");
+    assert_eq!(handle.targets.len(), 2);
+    assert_eq!(journal.history(&HistoryQuery::default()).unwrap().len(), 1);
+
+    journal.undo(&undo_last()).unwrap();
+    assert_eq!(env.read(&first), b"one");
+    assert_eq!(env.read(&second), b"two");
+}
+
+#[test]
+fn rolling_back_an_incremental_transaction_restores_every_target() {
+    let env = Env::new(&json!({}));
+    let first = env.seed(NOTES, b"one");
+    let second = env.seed(OTHER_FILE, b"two");
+    let journal = env.journal();
+
+    let mut tx = journal.begin(request("steps"));
+    tx.allow_incremental();
+    apply_ops(
+        tx.as_mut(),
+        vec![FileOp::write(first.clone(), b"ONE".to_vec())],
+    )
+    .unwrap();
+    apply_ops(
+        tx.as_mut(),
+        vec![FileOp::write(second.clone(), b"TWO".to_vec())],
+    )
+    .unwrap();
+    let report = tx
+        .rollback(nurt_contracts::journal::RollbackReason::TargetFailed)
+        .unwrap();
+    assert!(report.failed.is_empty());
+    assert_eq!(env.read(&first), b"one");
+    assert_eq!(env.read(&second), b"two");
+    assert!(
+        journal
+            .history(&HistoryQuery::default())
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn a_transaction_that_is_not_incremental_refuses_to_preserve_after_a_change() {
+    let env = Env::new(&json!({}));
+    let first = env.seed(NOTES, b"one");
+    let second = env.seed(OTHER_FILE, b"two");
+    let journal = env.journal();
+
+    let mut tx = journal.begin(request("write"));
+    apply_ops(
+        tx.as_mut(),
+        vec![FileOp::write(first.clone(), b"ONE".to_vec())],
+    )
+    .unwrap();
+    let refused = apply_ops(
+        tx.as_mut(),
+        vec![FileOp::write(second.clone(), b"TWO".to_vec())],
+    );
+    assert!(refused.is_err());
+    assert_eq!(env.read(&first), b"one");
+    assert_eq!(env.read(&second), b"two");
+}
+
+#[test]
 fn write_is_listed_undone_and_redone() {
     let env = Env::new(&json!({}));
     let notes = env.seed(NOTES, b"draft");

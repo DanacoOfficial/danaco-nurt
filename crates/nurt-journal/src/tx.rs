@@ -269,6 +269,8 @@ pub(crate) struct Tx<'a> {
     inline_admission: Vec<(usize, u64)>,
     /// New content and directory changes not yet flushed.
     unsynced: Unsynced,
+    /// Whether `preserve` is allowed after the first change.
+    incremental: bool,
 }
 
 /// Changes of a transaction whose flush is deferred to one flush of all of
@@ -505,6 +507,7 @@ impl<'a> Tx<'a> {
             inline_batch: false,
             inline_admission: Vec::new(),
             unsynced: Unsynced::default(),
+            incremental: false,
         }
     }
 
@@ -3217,9 +3220,13 @@ impl MutationTx for Tx<'_> {
         self.op
     }
 
+    fn allow_incremental(&mut self) {
+        self.incremental = true;
+    }
+
     fn preserve(&mut self, targets: &[TargetSpec]) -> Result<Vec<Preserved>> {
         self.usable()?;
-        if self.phase == Phase::Applying {
+        if self.phase == Phase::Applying && !self.incremental {
             let error = misuse("preserve was called after the first change");
             return Err(self.fail(error));
         }

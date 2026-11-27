@@ -54,6 +54,14 @@
     "options": {
       "description": "Call options.",
       "$ref": "#/$defs/RequestOptions"
+    },
+    "params": {
+      "description": "Values of the parameters of a script that starts with `params { … }`,\nby parameter name. A value is typed JSON, or text that is read by the\ndeclared type, as the command line passes it. Checked against the\ndeclaration before any effect.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
     }
   },
   "additionalProperties": false,
@@ -152,6 +160,132 @@
             }
           },
           "$ref": "#/$defs/Pipeline",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Conditional, `when … { … } otherwise { … }`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "when"
+            }
+          },
+          "$ref": "#/$defs/When",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Loop over records, `each … as name { … }`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "each"
+            }
+          },
+          "$ref": "#/$defs/Each",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Loop with a condition after the body, `repeat until: … { … }`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "repeat"
+            }
+          },
+          "$ref": "#/$defs/Repeat",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Loop with a condition before the body, `while … { … }`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "while"
+            }
+          },
+          "$ref": "#/$defs/While",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Ends the innermost loop.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "break"
+            }
+          },
+          "$ref": "#/$defs/Jump",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Starts the next iteration of the innermost loop.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "continue"
+            }
+          },
+          "$ref": "#/$defs/Jump",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Several changes in one call, `steps { … }`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "steps"
+            }
+          },
+          "$ref": "#/$defs/Steps",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Definition of a function, `define name(…) { … }`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "define"
+            }
+          },
+          "$ref": "#/$defs/Define",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Parameters of a script, `params { … }`.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "params"
+            }
+          },
+          "$ref": "#/$defs/Params",
           "required": [
             "t"
           ]
@@ -1229,6 +1363,353 @@
       "required": [
         "name",
         "value"
+      ]
+    },
+    "Branch": {
+      "description": "A branch of a `when`: a condition and the block that runs when it is the\nfirst condition that holds.",
+      "type": "object",
+      "properties": {
+        "cond": {
+          "description": "Condition of the branch; a `bool` expression.",
+          "$ref": "#/$defs/Expr"
+        },
+        "body": {
+          "description": "Statements of the branch, at least one.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Statement"
+          }
+        },
+        "span": {
+          "description": "Source range, from the keyword to the closing brace.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "cond",
+        "body"
+      ]
+    },
+    "When": {
+      "description": "Conditional: `when c { … } otherwise when d { … } otherwise { … }`.",
+      "type": "object",
+      "properties": {
+        "branches": {
+          "description": "The `when` branch followed by every `otherwise when` branch.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Branch"
+          }
+        },
+        "otherwise": {
+          "description": "The `otherwise` block; absent when the construct has none.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Statement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "branches"
+      ]
+    },
+    "Each": {
+      "description": "Loop over the records of an expression: `each (find …) as f { … }`.",
+      "type": "object",
+      "properties": {
+        "source": {
+          "description": "Expression whose records the loop visits, in input order.",
+          "$ref": "#/$defs/Expr"
+        },
+        "name": {
+          "description": "Name bound to the record of the iteration; referenced as `@name`.",
+          "type": "string"
+        },
+        "options": {
+          "description": "Named options: `parallel`, `atomic`.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Arg"
+          }
+        },
+        "body": {
+          "description": "Statements of the body.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Statement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "source",
+        "name",
+        "body"
+      ]
+    },
+    "Repeat": {
+      "description": "Loop that tests its condition after each run of the body:\n`repeat until: c every: 5s limit: 2m { … }`.",
+      "type": "object",
+      "properties": {
+        "options": {
+          "description": "Named options: `until` (required), `every`, `limit`, `atomic`.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Arg"
+          }
+        },
+        "body": {
+          "description": "Statements of the body.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Statement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "options",
+        "body"
+      ]
+    },
+    "While": {
+      "description": "Loop that tests its condition before each run of the body:\n`while c limit: 20 { … }`.",
+      "type": "object",
+      "properties": {
+        "cond": {
+          "description": "Condition; a `bool` expression.",
+          "$ref": "#/$defs/Expr"
+        },
+        "options": {
+          "description": "Named options: `limit`, `atomic`.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Arg"
+          }
+        },
+        "body": {
+          "description": "Statements of the body.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Statement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "cond",
+        "body"
+      ]
+    },
+    "Jump": {
+      "description": "`break` or `continue`.",
+      "type": "object",
+      "properties": {
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "Steps": {
+      "description": "Several changes in one call: `steps { … }`.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "Steps in order, at least one.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Statement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "body"
+      ]
+    },
+    "Param": {
+      "description": "Declaration of a typed parameter of a function or of a script.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Parameter name, `[a-z][a-z0-9_]*`.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type name, for example `path`, `int`, `bool`, `text`.",
+          "type": "string"
+        },
+        "default": {
+          "description": "Default value; absent for a required parameter.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ]
+    },
+    "Define": {
+      "description": "Definition of a function: `define name(a: path, b: int = 7) { … }`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Function name, `[a-z][a-z0-9_]*`.",
+          "type": "string"
+        },
+        "params": {
+          "description": "Declared parameters in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Param"
+          }
+        },
+        "body": {
+          "description": "Statements of the body, at least one.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Statement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "body"
+      ]
+    },
+    "Params": {
+      "description": "Parameters of a `.nurt` file: `params { dir: path  days: int = 30 }`.",
+      "type": "object",
+      "properties": {
+        "params": {
+          "description": "Declared parameters in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Param"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "params"
       ]
     },
     "RequestOptions": {

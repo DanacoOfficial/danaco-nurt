@@ -92,6 +92,20 @@ impl ExprBinding {
 
     /// Stores the snapshot of a named result; a later definition of the same
     /// name replaces it.
+    /// Replaces every name, returning the names that were defined: a
+    /// function sees its parameters and nothing of its caller.
+    pub fn replace_names(&self, names: Fields) -> Arc<Fields> {
+        let mut current = self.names.write().unwrap_or_else(PoisonError::into_inner);
+        std::mem::replace(&mut *current, Arc::new(names))
+    }
+
+    /// Restores the names returned by [`ExprBinding::names`] or
+    /// [`ExprBinding::replace_names`]: the names defined since are dropped.
+    pub fn restore_names(&self, names: Arc<Fields>) {
+        *self.names.write().unwrap_or_else(PoisonError::into_inner) = names;
+    }
+
+    /// Defines a name for the value, replacing a name of the same spelling.
     pub fn define(&self, name: impl Into<String>, value: Value) {
         let mut names = self.names.write().unwrap_or_else(PoisonError::into_inner);
         Arc::make_mut(&mut names).insert(name.into(), value);

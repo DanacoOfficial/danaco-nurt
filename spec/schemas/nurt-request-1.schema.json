@@ -17,7 +17,8 @@
     },
     "cursor": { "type": "string", "minLength": 1, "description": "Cursor of a further page of an earlier result." },
     "accept": { "type": "string", "minLength": 1, "description": "Identifier of a candidate from an earlier E_AMBIGUOUS error." },
-    "options": { "$ref": "#/$defs/options" }
+    "options": { "$ref": "#/$defs/options" },
+    "params": { "type": "object", "description": "Values of the parameters of a script that starts with `params { … }`, by name: typed JSON, or text that the declared type reads." }
   },
   "oneOf": [
     { "required": ["program"] },

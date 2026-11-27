@@ -8,9 +8,12 @@ use nurt_contracts::kinds::EffectKind;
 use nurt_contracts::record::Operation;
 use nurt_contracts::report::{
     Change, Correction, Hunk, IrreversibleEntry, Notable, NotableEntry, RecordsPage, Report,
-    ReportStatus, ReportViolation, Targets, Timing,
+    ReportPart, ReportStatus, ReportViolation, Targets, Timing,
 };
 use nurt_contracts::value::Record;
+
+/// The largest number of parts of a control construct a report lists.
+const MAX_PARTS: usize = 200;
 
 use super::bulk::summarize_bulk;
 use super::context::ReportContext;
@@ -278,6 +281,19 @@ impl<'c> ReportBuilder<'c> {
     #[must_use]
     pub fn next_cursor(mut self, cursor: impl Into<String>) -> Self {
         self.report.next_cursor = Some(cursor.into());
+        self
+    }
+
+    /// Sets the parts of a control construct. The report keeps the first
+    /// [`MAX_PARTS`] parts and states the total when there are more.
+    #[must_use]
+    pub fn parts(mut self, mut parts: Vec<ReportPart>) -> Self {
+        let total = u64::try_from(parts.len()).unwrap_or(u64::MAX);
+        if parts.len() > MAX_PARTS {
+            parts.truncate(MAX_PARTS);
+            self.report.parts_total = Some(total);
+        }
+        self.report.parts = parts;
         self
     }
 

@@ -285,6 +285,14 @@ behaviour in the meaning column applies.
 | `limits.threads` | integer | none: number of processor cores | worker threads |
 | `fs.sharing_retry_ms` | integer | `2000` | time of retries after a sharing violation (Windows), in milliseconds |
 
+### 7.9a `[loop]`, `[function]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `loop.max_iterations` | integer | `10000` | largest number of iterations of a `repeat` or `while` without `limit`; reaching it ends `repeat` with `E_LIMIT` and `while` normally, and the report says so |
+| `loop.max_time` | duration | `10m` | longest time of a `repeat` or `while` without `limit`, with the same outcome |
+| `function.max_depth` | integer | `64` | deepest nesting of calls of functions defined with `define`; deeper recursion ends with `E_LIMIT` |
+
 ### 7.10 `[code]`
 
 | Key | Type | Default | Meaning |

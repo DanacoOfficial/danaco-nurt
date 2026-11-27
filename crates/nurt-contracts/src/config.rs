@@ -1258,6 +1258,11 @@ pub struct Config {
     pub text: TextConfig,
     /// Resource limits.
     pub limits: LimitsConfig,
+    /// Limits of the loops of the language.
+    #[serde(rename = "loop")]
+    pub loop_limits: LoopConfig,
+    /// Limits of the functions of the language.
+    pub function: FunctionConfig,
     /// File system behaviour.
     pub fs: FsConfig,
     /// Source code analysis and language servers.
@@ -1826,6 +1831,45 @@ impl Default for LimitsConfig {
             max_file_bytes_text: SizeSetting::from_gib(1),
             threads: None,
         }
+    }
+}
+
+/// Section `[loop]`: limits of a `repeat` or a `while` without `limit`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct LoopConfig {
+    /// Key `loop.max_iterations`: largest number of iterations of a loop
+    /// without `limit`; reaching it ends the loop with `E_LIMIT` in `repeat`
+    /// and normally in `while`. Default `10000`.
+    pub max_iterations: u64,
+    /// Key `loop.max_time`: longest time of a loop without `limit`. Default
+    /// `10m`.
+    pub max_time: DurationSetting,
+}
+
+impl Default for LoopConfig {
+    fn default() -> Self {
+        Self {
+            max_iterations: 10_000,
+            max_time: DurationSetting::from_millis(600_000),
+        }
+    }
+}
+
+/// Section `[function]`: limits of the functions defined with `define`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct FunctionConfig {
+    /// Key `function.max_depth`: deepest nesting of calls of functions;
+    /// deeper recursion ends with `E_LIMIT`. Default `64`.
+    pub max_depth: u32,
+}
+
+impl Default for FunctionConfig {
+    fn default() -> Self {
+        Self { max_depth: 64 }
     }
 }
 

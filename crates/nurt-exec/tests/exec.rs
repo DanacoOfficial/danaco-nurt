@@ -467,6 +467,7 @@ fn pipeline(head: Option<&str>, stages: Vec<BoundStage>) -> PipelinePlan {
             name: name.to_owned(),
             fields: Vec::new(),
         }),
+        call: None,
         stages: stages
             .into_iter()
             .zip(offset..)

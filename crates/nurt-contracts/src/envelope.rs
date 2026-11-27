@@ -381,6 +381,12 @@ pub struct Request {
     /// Call options.
     #[serde(default, skip_serializing_if = "RequestOptions::is_empty")]
     pub options: RequestOptions,
+    /// Values of the parameters of a script that starts with `params { … }`,
+    /// by parameter name. A value is typed JSON, or text that is read by the
+    /// declared type, as the command line passes it. Checked against the
+    /// declaration before any effect.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub params: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 /// The single input of a [`Request`].
@@ -417,6 +423,7 @@ impl Request {
             cursor,
             accept,
             options: RequestOptions::default(),
+            params: None,
         }
     }
 

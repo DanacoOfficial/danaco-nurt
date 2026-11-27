@@ -958,6 +958,37 @@
         }
       }
     },
+    "LoopConfig": {
+      "description": "Section `[loop]`: limits of a `repeat` or a `while` without `limit`.",
+      "type": "object",
+      "properties": {
+        "max_iterations": {
+          "description": "Key `loop.max_iterations`: largest number of iterations of a loop\nwithout `limit`; reaching it ends the loop with `E_LIMIT` in `repeat`\nand normally in `while`. Default `10000`.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 10000
+        },
+        "max_time": {
+          "description": "Key `loop.max_time`: longest time of a loop without `limit`. Default\n`10m`.",
+          "$ref": "#/$defs/DurationSetting",
+          "default": "10m"
+        }
+      }
+    },
+    "FunctionConfig": {
+      "description": "Section `[function]`: limits of the functions defined with `define`.",
+      "type": "object",
+      "properties": {
+        "max_depth": {
+          "description": "Key `function.max_depth`: deepest nesting of calls of functions;\ndeeper recursion ends with `E_LIMIT`. Default `64`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 64
+        }
+      }
+    },
     "FsConfig": {
       "description": "Section `[fs]`.",
       "type": "object",
@@ -1775,6 +1806,21 @@
         "max_records": 5000000,
         "max_file_bytes_text": "1gib",
         "threads": null
+      }
+    },
+    "loop": {
+      "description": "Limits of the loops of the language.",
+      "$ref": "#/$defs/LoopConfig",
+      "default": {
+        "max_iterations": 10000,
+        "max_time": "10m"
+      }
+    },
+    "function": {
+      "description": "Limits of the functions of the language.",
+      "$ref": "#/$defs/FunctionConfig",
+      "default": {
+        "max_depth": 64
       }
     },
     "fs": {
