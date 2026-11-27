@@ -664,6 +664,10 @@ func TestConformanceBindings(t *testing.T) {
 			opts.Env = []string{"NURT_STATE_DIR=" + stateDir, caseNameVariable + "=" + id, casesRootVariable + "=" + root}
 		} else {
 			t.Setenv("NURT_STATE_DIR", stateDir)
+			// A library built with the feature stub opens only on a directory of cases.
+			if dir, err := filepath.Abs("../../crates/nurt-ffi/tests/fixtures/stub"); err == nil {
+				t.Setenv("NURT_STUB_DIR", dir)
+			}
 		}
 		c := newTestClient(t, opts)
 		if b == BackendLibrary && libraryIsStub(t, c) {

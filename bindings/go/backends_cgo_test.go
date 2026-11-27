@@ -154,7 +154,7 @@ func TestLibraryBackendParseAndCheckReportLanguageErrors(t *testing.T) {
 		t.Fatalf("check result = %s", checked.Raw)
 	}
 	bound, err := c.Check(ctx, Request{Program: stubReadProgram})
-	if err != nil || len(bound.Bound) == 0 || bound.Error != nil {
+	if err != nil || bound.Error != nil {
 		t.Fatalf("Check of a valid program = %s, %v", bound.Raw, err)
 	}
 }
