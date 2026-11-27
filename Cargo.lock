@@ -3981,7 +3981,7 @@ dependencies = [
  "indexmap",
  "jaq-core",
  "jaq-std",
- "num-bigint 0.4.8",
+ "num-bigint 0.5.1",
  "num-traits",
  "ryu",
  "self_cell",
