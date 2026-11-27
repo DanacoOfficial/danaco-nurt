@@ -14,7 +14,7 @@
 //! what was declared, so that writes outside a transaction are detected.
 //!
 //! The journal follows the protocol of
-//! [`MutationTx`](nurt_contracts::journal::MutationTx): targets are declared
+//! [`MutationTx`]: targets are declared
 //! and preserved before the first change, every change names a declared
 //! target, and the expected state is checked before the change. Misuse of the
 //! protocol is recorded as a violation and fails the call with

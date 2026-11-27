@@ -293,7 +293,7 @@ impl<'c> ReportBuilder<'c> {
     }
 
     /// Sets the parts of a control construct. The report keeps the first
-    /// [`MAX_PARTS`] parts and states the total when there are more.
+    /// `MAX_PARTS` parts and states the total when there are more.
     #[must_use]
     pub fn parts(mut self, mut parts: Vec<ReportPart>) -> Self {
         let total = u64::try_from(parts.len()).unwrap_or(u64::MAX);

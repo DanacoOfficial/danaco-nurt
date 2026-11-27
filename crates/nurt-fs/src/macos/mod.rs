@@ -11,7 +11,7 @@
 
 //! macOS back end.
 //!
-//! [`MacosFs`] implements the file system interface with the calls of macOS:
+//! `MacosFs` implements the file system interface with the calls of macOS:
 //! `renamex_np` with `RENAME_SWAP` and `RENAME_EXCL` for exchange and rename
 //! without replacement, `clonefile` for block-sharing clones on APFS,
 //! `F_FULLFSYNC` for durable flushes, extended attributes including the
@@ -20,7 +20,7 @@
 //! the capacity keys of Core Foundation, which report the space ordinary
 //! programs can use.
 //!
-//! The functions and types exported next to [`MacosFs`] hold the logic that
+//! The functions and types exported next to `MacosFs` hold the logic that
 //! needs no system call (classification of `errno` values, volume types,
 //! attribute buffers, ACL text, space figures and flag arithmetic). They
 //! are compiled on every system so that they are tested independently of
