@@ -164,6 +164,26 @@
           "null"
         ],
         "description": "Script mode: several pipelines, each its own operation. Default: `false`."
+      },
+      "privilege": {
+        "enum": [
+          "account",
+          "elevated",
+          "auto",
+          null
+        ],
+        "description": "Rights of the operation: the account, the administrator, or the account with one elevated repetition after E_PERMISSION or E_PRIVILEGE. Default: `account`.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "as_user": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Account that runs the operation (Linux and macOS); implies elevation for the switch. Minimum length: `1`."
       }
     },
     "required": [
@@ -184,7 +204,9 @@
       "timeout",
       "session",
       "language",
-      "script"
+      "script",
+      "privilege",
+      "as_user"
     ],
     "additionalProperties": false
   },

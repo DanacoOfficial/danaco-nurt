@@ -114,6 +114,20 @@
         "type": "boolean",
         "default": false,
         "description": "Script mode: several pipelines, each its own operation."
+      },
+      "privilege": {
+        "enum": [
+          "account",
+          "elevated",
+          "auto"
+        ],
+        "default": "account",
+        "description": "Rights of the operation: the account, the administrator, or the account with one elevated repetition after E_PERMISSION or E_PRIVILEGE."
+      },
+      "as_user": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Account that runs the operation (Linux and macOS); implies elevation for the switch."
       }
     },
     "additionalProperties": false
