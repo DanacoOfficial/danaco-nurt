@@ -775,3 +775,58 @@ fn a_database_attached_for_reading_is_not_reported_as_changed() {
     .unwrap();
     assert_eq!(written.changes.len(), 2);
 }
+
+#[test]
+fn preview_lists_extension_and_process_pragma_effects() {
+    use nurt_contracts::report::Irreversible;
+    use nurt_contracts::stage::{StageImpl, StageInput};
+    use nurt_doc::commands::sql::SqlStage;
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let before = contents(&database_files(&db));
+    let plan_of = |query: &str| {
+        SqlStage
+            .as_effect()
+            .unwrap()
+            .plan(
+                &args_auto(&db, query, Vec::new()),
+                StageInput::none(),
+                &ctx(),
+            )
+            .unwrap()
+    };
+    let plan = plan_of(
+        "select load_extension('/x.so'); pragma temp_store_directory = '/tmp'; \
+         PRAGMA main.data_store_directory('/tmp'); pragma journal_mode = wal",
+    );
+    assert_eq!(plan.irreversible.len(), 3);
+    assert!(
+        plan.irreversible
+            .iter()
+            .all(|entry| entry.reason == Irreversible::ExternalEffect)
+    );
+    let details: Vec<_> = plan
+        .irreversible
+        .iter()
+        .filter_map(|entry| entry.detail.as_deref())
+        .collect();
+    assert!(details[0].contains("load_extension"));
+    assert!(details[1].contains("temp_store_directory"));
+    assert!(details[2].contains("data_store_directory"));
+    assert!(
+        details
+            .iter()
+            .all(|detail| detail.contains("from the text"))
+    );
+    assert!(
+        plan_of("insert into users(name) values ('x')")
+            .irreversible
+            .is_empty()
+    );
+    assert!(
+        plan_of("pragma temp_store_directory")
+            .irreversible
+            .is_empty()
+    );
+    assert_eq!(contents(&database_files(&db)), before);
+}

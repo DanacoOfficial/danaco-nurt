@@ -125,13 +125,13 @@ impl EffectStage for Create {
 
     fn apply<'a>(
         &'a self,
-        _args: &'a BoundArgs,
+        args: &'a BoundArgs,
         mut plan: EffectPlan,
         tx: &mut dyn MutationTx,
         ctx: &'a ExecCtx,
     ) -> Result<EffectOutcome<'a>> {
         let ops = take_ops(&mut plan, COMMAND)?;
-        let changes = apply_planned(tx, ops, ctx)?;
+        let changes = apply_planned(tx, ops, ctx).map_err(|error| elevation_hint(error, args))?;
         Ok(EffectOutcome {
             changes,
             ..EffectOutcome::new(StageOutput::none())
@@ -140,6 +140,18 @@ impl EffectStage for Create {
 }
 
 /// Kind of the new entry.
+/// Adds the elevated form of the call to a privilege error of a device node,
+/// which only an administrator can create; the routing of `privilege` is the
+/// engine's.
+fn elevation_hint(error: Error, args: &BoundArgs) -> Error {
+    let device = matches!(choice(args, TYPE, &TYPE_VALUES), Ok(Some("device")));
+    let elevated = args.text("privilege").ok().flatten() == Some("elevated");
+    if error.code() != ErrorCode::Privilege || !device || elevated {
+        return error;
+    }
+    error.with_next_step("repeat the call with `privilege: elevated`: a device node needs the rights of an administrator")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Kind {
     File,
@@ -1344,5 +1356,20 @@ mod tests {
                 &mac.ctx(),
             )
             .unwrap();
+    }
+
+    #[test]
+    fn a_privilege_error_of_a_device_names_the_elevated_call() {
+        let denied = || Error::new(ErrorCode::Privilege, "mknod needs root");
+        let hinted = elevation_hint(denied(), &device("/dev/x", "char", 1, 3));
+        assert_eq!(hinted.next_steps.len(), 1);
+        assert!(hinted.next_steps[0].contains("privilege: elevated"));
+        let pipe = elevation_hint(denied(), &args(&["/data/p"], "fifo"));
+        assert!(pipe.next_steps.is_empty());
+        let other = elevation_hint(
+            Error::new(ErrorCode::Io, "x"),
+            &device("/dev/x", "char", 1, 3),
+        );
+        assert!(other.next_steps.is_empty());
     }
 }
