@@ -7,7 +7,7 @@
 //! [`SUBCOMMANDS`] exactly; any other first argument starts a program of the
 //! language. `nurt exec` is always unambiguous.
 
-use nurt_contracts::envelope::{OutputFormat, Verbosity};
+use nurt_contracts::envelope::{OutputFormat, Privilege, Verbosity};
 use nurt_contracts::kinds::SyntaxVariant;
 
 use crate::app::CliError;
@@ -28,10 +28,20 @@ pub const EXEC_FLAGS: &[&str] = &[
     "--limit",
     "--cursor",
     "--verbosity",
+    "--privilege",
+    "--as-user",
 ];
 
 /// Options of `script`.
-pub const SCRIPT_FLAGS: &[&str] = &["--preview", "--json", "--format", "--limit", "--verbosity"];
+pub const SCRIPT_FLAGS: &[&str] = &[
+    "--preview",
+    "--json",
+    "--format",
+    "--limit",
+    "--verbosity",
+    "--privilege",
+    "--as-user",
+];
 
 /// Options of `check`.
 pub const CHECK_FLAGS: &[&str] = &["-e", "--variant", "--json", "--format"];
@@ -118,6 +128,10 @@ pub struct Flags {
     pub cursor: Option<String>,
     /// Value of the option `--verbosity`.
     pub verbosity: Option<Verbosity>,
+    /// Value of the option `--privilege`.
+    pub privilege: Option<Privilege>,
+    /// Value of the option `--as-user`.
+    pub as_user: Option<String>,
     /// Program text given with the option `-e`.
     pub program: Option<String>,
     /// Value of the option `--from`.
@@ -210,6 +224,8 @@ fn store(flags: &mut Flags, name: &str, value: String) -> Result<(), CliError> {
             })?);
         }
         "--cursor" => flags.cursor = Some(value),
+        "--privilege" => flags.privilege = Some(privilege(&value)?),
+        "--as-user" => flags.as_user = Some(value),
         "-e" => flags.program = Some(value),
         "--from" => flags.from = Some(value),
         "--to" => flags.to = Some(value),
@@ -242,6 +258,18 @@ fn format(value: &str) -> Result<OutputFormat, CliError> {
         .ok_or_else(|| {
             CliError::Usage(format!(
                 "`{value}` is not a format; expected text, json, markdown or compact"
+            ))
+        })
+}
+
+fn privilege(value: &str) -> Result<Privilege, CliError> {
+    Privilege::ALL
+        .iter()
+        .copied()
+        .find(|level| level.as_str() == value)
+        .ok_or_else(|| {
+            CliError::Usage(format!(
+                "`{value}` is not a privilege; expected account, elevated or auto"
             ))
         })
 }

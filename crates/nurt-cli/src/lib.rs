@@ -21,6 +21,7 @@ pub mod banner;
 pub mod commands;
 pub mod complete;
 pub mod doctor;
+mod elevated;
 pub mod exit;
 pub mod integrations;
 pub mod output;

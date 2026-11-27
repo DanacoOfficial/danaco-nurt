@@ -66,6 +66,8 @@ pub fn usage() -> String {
          \x20 --limit N             records per page\n\
          \x20 --cursor C            read a further page of an earlier result\n\
          \x20 --verbosity V         quiet, normal or detailed\n\
+         \x20 --privilege P         account, elevated or auto\n\
+         \x20 --as-user NAME        run as another account (Linux and macOS)\n\
          \x20 -V, --version         print the version\n\
          \x20 -h, --help            print this help",
         product::help_summary()
@@ -85,6 +87,8 @@ const SUBCOMMAND_USAGE: &[(&str, &str, &[&str])] = &[
             "[--limit N]",
             "[--cursor C]",
             "[--verbosity V]",
+            "[--privilege P]",
+            "[--as-user NAME]",
             "<program>",
         ],
     ),
@@ -97,6 +101,8 @@ const SUBCOMMAND_USAGE: &[(&str, &str, &[&str])] = &[
             "[--json | --format F]",
             "[--limit N]",
             "[--verbosity V]",
+            "[--privilege P]",
+            "[--as-user NAME]",
         ],
     ),
     ("repl", "Start an interactive session.", &[]),
