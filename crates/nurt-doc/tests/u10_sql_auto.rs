@@ -351,3 +351,32 @@ fn load_extension_is_attempted_instead_of_refused() {
         error.message
     );
 }
+
+#[test]
+fn attach_of_a_computed_file_is_resolved_and_journaled_before_the_change() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let other = database(dir.path(), "other.db", USERS);
+    let before_other = contents(&database_files(&other));
+    let mut tx = RecordingTx::new();
+    let query = format!(
+        "attach '{}/' || 'other.db' as o; delete from o.users",
+        text(dir.path())
+    );
+    write(&args_auto(&db, &query, Vec::new()), &ctx(), &mut tx).unwrap();
+    assert_eq!(count(&other, "select count(*) from users"), 0);
+    assert!(declares(&tx, &other));
+    tx.undo();
+    assert_eq!(contents(&database_files(&other)), before_other);
+}
+
+#[test]
+fn attach_of_an_unresolvable_file_is_marked_irreversible_before_the_change() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let mut tx = RecordingTx::new();
+    let query = "attach (select name from users where 0) as o; select 1";
+    let written = write(&args_auto(&db, query, Vec::new()), &ctx(), &mut tx).unwrap();
+    assert_eq!(written.irreversible.len(), 1);
+    assert_eq!(tx.declared.len(), 4);
+}

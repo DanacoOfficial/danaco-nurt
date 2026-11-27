@@ -295,22 +295,37 @@ impl Database {
         for (position, _, mut detach) in detaches {
             self.emit_rows(&mut detach, position, request, None, &mut |_| Ok(()))?;
         }
-        if let Some(file) = statement
-            .expanded_sql()
+        let sql = statement.expanded_sql();
+        let file = sql
             .as_deref()
             .and_then(target::attached_file)
-        {
-            declare_file(files, &file)?;
+            .or_else(|| sql.as_deref().and_then(|text| self.evaluate_file(text)));
+        match file {
+            Some(file) => declare_file(files, &file)?,
+            None => files.untracked(
+                number,
+                "ATTACH names a file that could not be resolved before the statement ran, so the file is not preserved",
+            ),
         }
         self.emit_rows(&mut statement, number, request, None, &mut |_| Ok(()))?;
-        let attached = self.schemas(request)?;
-        for (name, file) in &attached {
-            if !script.known.contains(name) {
-                declare_file(files, file)?;
-            }
-        }
-        script.known = attached.into_iter().map(|(name, _)| name).collect();
+        script.known = self
+            .schemas(request)?
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
         Ok(())
+    }
+
+    /// Value of the expression that names the file of an `ATTACH`, computed
+    /// with a `SELECT` of the same expression; `None` when it is not text.
+    fn evaluate_file(&self, sql: &str) -> Option<String> {
+        let expression = target::attached_expression(sql)?;
+        self.connection
+            .query_row(&format!("SELECT ({expression})"), [], |row| {
+                row.get::<_, Option<String>>(0)
+            })
+            .ok()
+            .flatten()
     }
 
     /// Declares the file a `VACUUM INTO` creates, or notes that it is not

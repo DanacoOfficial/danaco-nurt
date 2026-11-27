@@ -26,6 +26,57 @@ pub(super) fn attached_file(sql: &str) -> Option<String> {
     Some(file)
 }
 
+/// Text of the expression that names the file of `ATTACH [DATABASE] <expr>
+/// AS <name>`; `None` for another statement. The expression is the text up to
+/// the last `AS` outside quotes and parentheses.
+pub(super) fn attached_expression(sql: &str) -> Option<String> {
+    let mut scan = Scan::new(sql);
+    scan.keyword("ATTACH")?;
+    if scan
+        .peek_word()
+        .is_some_and(|word| word.eq_ignore_ascii_case("DATABASE"))
+    {
+        scan.word();
+    }
+    let body = scan.rest;
+    let mut depth = 0_usize;
+    let mut quote: Option<char> = None;
+    let mut end = None;
+    let mut previous = ' ';
+    for (index, character) in body.char_indices() {
+        match quote {
+            Some(close) => {
+                if character == close {
+                    quote = None;
+                }
+            }
+            None => match character {
+                '\'' | '"' | '`' => quote = Some(character),
+                '(' => depth += 1,
+                ')' => depth = depth.saturating_sub(1),
+                _ => {}
+            },
+        }
+        let word_start = !previous.is_alphanumeric() && previous != '_';
+        if quote.is_none()
+            && depth == 0
+            && word_start
+            && body[index..].len() >= 2
+            && body.is_char_boundary(index + 2)
+            && body[index..index + 2].eq_ignore_ascii_case("as")
+            && body[index + 2..]
+                .chars()
+                .next()
+                .is_some_and(|next| !(next.is_alphanumeric() || next == '_'))
+        {
+            end = Some(index);
+        }
+        previous = character;
+    }
+    let expression = body[..end?].trim();
+    (!expression.is_empty()).then(|| expression.to_owned())
+}
+
 /// File of `VACUUM [<schema>] INTO '<file>'`; `None` for another statement
 /// and for a file that is not a text literal.
 pub(super) fn vacuum_target(sql: &str) -> Option<String> {
@@ -146,6 +197,20 @@ mod tests {
         assert_eq!(attached_file("attach (select 1) as o"), None);
         assert_eq!(attached_file("attach NULL as o"), None);
         assert_eq!(attached_file("select 1"), None);
+    }
+
+    #[test]
+    fn reads_the_attach_expression() {
+        assert_eq!(
+            attached_expression("ATTACH DATABASE '/t/' || 'x.db' AS o").as_deref(),
+            Some("'/t/' || 'x.db'")
+        );
+        assert_eq!(
+            attached_expression("attach (select 'a as b') as o").as_deref(),
+            Some("(select 'a as b')")
+        );
+        assert_eq!(attached_expression("attach 'x' alias"), None);
+        assert_eq!(attached_expression("select 1"), None);
     }
 
     #[test]
