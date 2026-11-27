@@ -908,6 +908,7 @@ fn mutation_name(mutation: &Mutation) -> &'static str {
         Mutation::Remove => "remove",
         Mutation::Rename => "rename",
         Mutation::CreateDir { .. } => "create_dir",
+        Mutation::CreateNode { .. } => "create_node",
         Mutation::CreateLink { .. } => "create_link",
         Mutation::CreateHardLink { .. } => "create_hard_link",
         Mutation::SetMeta(_) => "set_meta",
@@ -928,7 +929,10 @@ fn allowed(action: &TargetAction, mutation: &Mutation) -> bool {
     );
     let creates_entry = matches!(
         mutation,
-        Mutation::CreateDir { .. } | Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. }
+        Mutation::CreateDir { .. }
+            | Mutation::CreateNode { .. }
+            | Mutation::CreateLink { .. }
+            | Mutation::CreateHardLink { .. }
     );
     match action {
         TargetAction::Create => {
@@ -1429,6 +1433,9 @@ impl NoopTx<'_> {
                 _ => Err(self.misuse("rename for a target not declared as rename")),
             },
             Mutation::CreateDir { mode } => fs.create_dir(&scope, path, *mode).map_err(convert),
+            Mutation::CreateNode { node, mode } => {
+                fs.create_node(&scope, path, *node, *mode).map_err(convert)
+            }
             Mutation::CreateLink { target, kind } => {
                 fs.create_link(&scope, target, path, *kind).map_err(convert)
             }

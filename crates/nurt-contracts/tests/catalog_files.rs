@@ -368,7 +368,10 @@ fn core_signatures_keep_the_safety_rules() {
     let create = core.command("create").unwrap();
     let kind = create.param("type").unwrap();
     assert!(kind.required && kind.default.is_none());
-    assert_eq!(kind.values, ["file", "directory", "link", "junction"]);
+    assert_eq!(
+        kind.values,
+        ["file", "directory", "link", "junction", "fifo", "device"]
+    );
     let assert = core.command("assert").unwrap();
     assert_eq!(assert.required_groups, ["condition"]);
     assert_eq!(

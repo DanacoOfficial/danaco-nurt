@@ -481,6 +481,71 @@ impl Etag {
     }
 }
 
+/// Kind of a special entry that the journal can create: a named pipe or a
+/// device node.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum SpecialKind {
+    /// Named pipe (FIFO).
+    Fifo,
+    /// Character device node.
+    Char,
+    /// Block device node.
+    Block,
+}
+
+impl SpecialKind {
+    /// Name used by the language: `fifo`, `char` or `block`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Fifo => "fifo",
+            Self::Char => "char",
+            Self::Block => "block",
+        }
+    }
+}
+
+/// A special entry: its kind and, for a device node, its device numbers.
+///
+/// # Examples
+///
+/// ```
+/// use nurt_contracts::fs::{SpecialKind, SpecialNode};
+///
+/// let node = SpecialNode::device(SpecialKind::Char, 1, 3);
+/// assert_eq!((node.major, node.minor), (1, 3));
+/// assert_eq!(SpecialNode::fifo().kind, SpecialKind::Fifo);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+pub struct SpecialNode {
+    /// Kind of the entry.
+    pub kind: SpecialKind,
+    /// Major device number; 0 for a named pipe.
+    pub major: u32,
+    /// Minor device number; 0 for a named pipe.
+    pub minor: u32,
+}
+
+impl SpecialNode {
+    /// A named pipe.
+    #[must_use]
+    pub const fn fifo() -> Self {
+        Self {
+            kind: SpecialKind::Fifo,
+            major: 0,
+            minor: 0,
+        }
+    }
+
+    /// A device node of `kind` with the given numbers.
+    #[must_use]
+    pub const fn device(kind: SpecialKind, major: u32, minor: u32) -> Self {
+        Self { kind, major, minor }
+    }
+}
+
 /// Kind of a directory entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -1079,6 +1144,18 @@ pub trait Fs: Send + Sync {
     /// [`Follow::Follow`]) or [`FsErrorKind::Io`].
     fn metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<FileMeta>;
 
+    /// Kind and device numbers of a special entry (named pipe or device
+    /// node), or `None` for any other entry and for a volume that does not
+    /// report them.
+    ///
+    /// # Errors
+    ///
+    /// Fails as [`Fs::metadata`].
+    fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        let _ = path;
+        Ok(None)
+    }
+
     /// Complete metadata for exact restoration (extended attributes, ACL,
     /// flags, alternate streams, link target).
     ///
@@ -1362,6 +1439,30 @@ pub trait FsWrite: Fs {
     /// Fails with [`FsErrorKind::Exists`], and with [`FsErrorKind::NotFound`]
     /// for a missing parent.
     fn create_dir(&self, scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()>;
+
+    /// Creates a named pipe or a device node with the given permission bits.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`FsErrorKind::Exists`], with [`FsErrorKind::NotFound`] for
+    /// a missing parent, with [`FsErrorKind::Privilege`] or
+    /// [`FsErrorKind::PermissionDenied`] for a device node without the
+    /// privilege, and with [`FsErrorKind::Unsupported`] on a volume or a
+    /// system without such entries (the default).
+    fn create_node(
+        &self,
+        scope: &TxScope,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: u32,
+    ) -> FsResult<()> {
+        let _ = (scope, node, mode);
+        Err(FsError::new(
+            FsErrorKind::Unsupported,
+            "create_node",
+            Some(path.as_path()),
+        ))
+    }
 
     /// Creates a symbolic link or junction at `link` pointing to `target`.
     ///

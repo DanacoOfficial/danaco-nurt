@@ -706,7 +706,11 @@ text_enum! {
         Directory = "directory",
         /// Symbolic link, junction or other link.
         Link = "link",
-        /// Device, socket, FIFO or another special object.
+        /// Named pipe (FIFO).
+        Fifo = "fifo",
+        /// Character or block device node; `major` and `minor` hold its numbers.
+        Device = "device",
+        /// Socket or another special object.
         Other = "other",
     }
 }
@@ -2152,6 +2156,10 @@ record_struct! {
         raw_link_target: Option<Bytes>,
         /// Kind of a link.
         link_type: Option<LinkType>,
+        /// Major device number of a device node.
+        major: Option<u64>,
+        /// Minor device number of a device node.
+        minor: Option<u64>,
         /// Number of hard links.
         links: Option<u64>,
         /// Mount point of the volume.
@@ -4695,7 +4703,9 @@ mod tests {
         );
         assert!("dir".parse::<EntryType>().is_err());
         assert!("File".parse::<EntryType>().is_err());
-        assert_eq!(EntryType::ALL.len(), 4);
+        assert_eq!(EntryType::ALL.len(), 6);
+        assert_eq!("fifo".parse::<EntryType>().unwrap(), EntryType::Fifo);
+        assert_eq!("device".parse::<EntryType>().unwrap(), EntryType::Device);
         assert_eq!(RegistryView::Bits32.as_str(), "32");
         assert_eq!("64".parse::<RegistryView>().unwrap(), RegistryView::Bits64);
     }

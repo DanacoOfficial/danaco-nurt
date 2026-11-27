@@ -30,8 +30,8 @@ use nurt_contracts::fs::{
     AbsPath, ContentHash, DirEntry, ExtendedMeta, FileLock, FileMeta, Follow, Fs, FsResult,
     FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport, PathKey, Provider, ProviderCaps,
     ProviderChild, ProviderKey, ProviderScheme, ProviderSnapshot, ProviderValue, ProviderWrite,
-    ReadHandle, RemoveStats, RenameMode, ScopePurpose, SpaceInfo, TxScope, VolumeId, VolumeInfo,
-    WriteHandle,
+    ReadHandle, RemoveStats, RenameMode, ScopePurpose, SpaceInfo, SpecialNode, TxScope, VolumeId,
+    VolumeInfo, WriteHandle,
 };
 use nurt_contracts::journal::{EntryState, OpId};
 
@@ -268,6 +268,10 @@ impl<F: ?Sized + FsWrite> Fs for AuditFs<F> {
         self.inner.metadata(path, follow)
     }
 
+    fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        self.inner.special_node(path)
+    }
+
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
         self.inner.extended_metadata(path, follow)
     }
@@ -412,6 +416,17 @@ impl<F: ?Sized + FsWrite> FsWrite for AuditFs<F> {
     ) -> FsResult<RemoveStats> {
         self.admit(scope, "remove_tree", &[path]);
         self.inner.remove_tree(scope, path, parallelism)
+    }
+
+    fn create_node(
+        &self,
+        scope: &TxScope,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: u32,
+    ) -> FsResult<()> {
+        self.admit(scope, "create_node", &[path]);
+        self.inner.create_node(scope, path, node, mode)
     }
 
     fn create_dir(&self, scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {

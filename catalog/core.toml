@@ -1459,7 +1459,7 @@ effect = "local"
 implementation = "builtin"
 input = ["none"]
 output = ["effect"]
-summary = "Create files, directories, links, junctions or temporary entries."
+summary = "Create files, directories, links, junctions, named pipes, device nodes or temporary entries."
 
 [[command.param]]
 name = "path"
@@ -1470,10 +1470,10 @@ summary = "Paths to create; with temporary, the directory of the new entry."
 
 [[command.param]]
 name = "type"
-type = "enum(file|directory|link|junction)"
+type = "enum(file|directory|link|junction|fifo|device)"
 required = true
-values = ["file", "directory", "link", "junction"]
-summary = "Kind of entry; there is no default."
+values = ["file", "directory", "link", "junction", "fifo", "device"]
+summary = "Kind of entry; there is no default. fifo (named pipe) and device (device node) exist on Linux and macOS; a device needs privilege elevated."
 
 [[command.param]]
 name = "target"
@@ -1504,6 +1504,27 @@ type = "enum(skip|error|touch)"
 default = "skip"
 values = ["skip", "error", "touch"]
 summary = "Behaviour when the entry exists; touch updates its modification time."
+
+[[command.param]]
+name = "kind"
+type = "enum(char|block)"
+values = ["char", "block"]
+summary = "Kind of device node for type device."
+
+[[command.param]]
+name = "major"
+type = "int"
+summary = "Major device number for type device."
+
+[[command.param]]
+name = "minor"
+type = "int"
+summary = "Minor device number for type device."
+
+[[command.param]]
+name = "mode"
+type = "text"
+summary = "Permission bits of a fifo or device node in octal, for example \"0660\"; the default is 0666 reduced by the umask."
 
 [[command]]
 name = "attributes"

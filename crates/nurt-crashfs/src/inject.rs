@@ -22,8 +22,8 @@ use std::time::Duration;
 use nurt_contracts::fs::{
     AbsPath, ContentHash, DirEntry, Durability, ExtendedMeta, FileLock, FileMeta, Follow, Fs,
     FsError, FsErrorKind, FsResult, FsWrite, Holder, LinkKind, MetaChange, MetaTransferReport,
-    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, TxScope, VolumeId, VolumeInfo,
-    WriteHandle,
+    PathKey, ReadHandle, RemoveStats, RenameMode, SpaceInfo, SpecialNode, TxScope, VolumeId,
+    VolumeInfo, WriteHandle,
 };
 use nurt_fs::failpoint::SplitMix64;
 use serde::{Deserialize, Serialize};
@@ -461,6 +461,10 @@ impl<F: FsWrite> Fs for InjectFs<F> {
         self.inner.metadata(path, follow)
     }
 
+    fn special_node(&self, path: &AbsPath) -> FsResult<Option<SpecialNode>> {
+        self.inner.special_node(path)
+    }
+
     fn extended_metadata(&self, path: &AbsPath, follow: Follow) -> FsResult<ExtendedMeta> {
         self.inner.extended_metadata(path, follow)
     }
@@ -618,6 +622,16 @@ impl<F: FsWrite> FsWrite for InjectFs<F> {
     ) -> FsResult<RemoveStats> {
         self.gate(Call::RemoveTree, path)?;
         self.inner.remove_tree(scope, path, parallelism)
+    }
+
+    fn create_node(
+        &self,
+        scope: &TxScope,
+        path: &AbsPath,
+        node: SpecialNode,
+        mode: u32,
+    ) -> FsResult<()> {
+        self.inner.create_node(scope, path, node, mode)
     }
 
     fn create_dir(&self, scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {

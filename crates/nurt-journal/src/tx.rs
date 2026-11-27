@@ -447,6 +447,9 @@ fn accepts(action: &TargetAction, mutation: &Mutation, provider: bool) -> bool {
             action,
             TargetAction::Create | TargetAction::CreateTree | TargetAction::Replace
         ),
+        Mutation::CreateNode { .. } => {
+            matches!(action, TargetAction::Create | TargetAction::Replace)
+        }
         Mutation::CreateLink { .. } | Mutation::CreateHardLink { .. } => matches!(
             action,
             TargetAction::Create | TargetAction::Link | TargetAction::Replace
@@ -1878,6 +1881,9 @@ impl Tx<'_> {
             Mutation::CreateDir { mode } => {
                 self.create(position, |fs, scope, path| fs.create_dir(scope, path, mode))
             }
+            Mutation::CreateNode { node, mode } => self.create(position, |fs, scope, path| {
+                fs.create_node(scope, path, node, mode)
+            }),
             Mutation::CreateLink { target, kind } => self.create(position, |fs, scope, path| {
                 fs.create_link(scope, &target, path, kind)
             }),
