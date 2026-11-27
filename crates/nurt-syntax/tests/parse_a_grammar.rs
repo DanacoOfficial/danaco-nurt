@@ -451,7 +451,7 @@ fn literals_keep_their_written_kind() {
 fn spans_follow_the_specification_example() {
     let json = json_a("ports state: listen |> filter port == 8080");
     let expected: Value = serde_json::from_str(
-        r#"{"nurt": "1.0", "program": {"statements": [{"t": "pipeline",
+        r#"{"nurt": "1.1", "program": {"statements": [{"t": "pipeline",
           "head": {"t": "stage", "name": "ports", "args": [
             {"name": "state", "value": {"t": "ident", "v": "listen", "span": [1, 14, 1, 20]}, "span": [1, 7, 1, 20]}],
             "span": [1, 1, 1, 20]},

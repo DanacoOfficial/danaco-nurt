@@ -73,6 +73,13 @@ pub(crate) struct CallNotation<'t> {
     text: &'t str,
 }
 
+impl<'t> CallNotation<'t> {
+    /// Call notation over the program text.
+    pub(crate) fn new(text: &'t str) -> Self {
+        Self { text }
+    }
+}
+
 impl StageSyntax for CallNotation<'_> {
     fn parse_stage(&self, p: &mut Parser<'_>) -> Result<Parsed<Stage>, SyntaxError> {
         let (name, first, last) = p.parse_command_name(LexContext::Operator)?;

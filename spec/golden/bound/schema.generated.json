@@ -89,6 +89,132 @@
           "required": [
             "t"
           ]
+        },
+        {
+          "description": "Conditional.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "when"
+            }
+          },
+          "$ref": "#/$defs/BoundWhen",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Loop over records.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "each"
+            }
+          },
+          "$ref": "#/$defs/BoundEach",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Loop that tests its condition after the body.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "repeat"
+            }
+          },
+          "$ref": "#/$defs/BoundRepeat",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Loop that tests its condition before the body.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "while"
+            }
+          },
+          "$ref": "#/$defs/BoundWhile",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Ends the innermost loop.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "break"
+            }
+          },
+          "$ref": "#/$defs/BoundJump",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Starts the next iteration of the innermost loop.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "continue"
+            }
+          },
+          "$ref": "#/$defs/BoundJump",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Several changes in one call.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "steps"
+            }
+          },
+          "$ref": "#/$defs/BoundSteps",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Definition of a function.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "define"
+            }
+          },
+          "$ref": "#/$defs/BoundDefine",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "Parameters of a script.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "params"
+            }
+          },
+          "$ref": "#/$defs/BoundParams",
+          "required": [
+            "t"
+          ]
         }
       ]
     },
@@ -136,6 +262,20 @@
             }
           },
           "$ref": "#/$defs/BoundRef",
+          "required": [
+            "t"
+          ]
+        },
+        {
+          "description": "A call of a defined function.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "type": "string",
+              "const": "call"
+            }
+          },
+          "$ref": "#/$defs/BoundCall",
           "required": [
             "t"
           ]
@@ -927,6 +1067,39 @@
         "args"
       ]
     },
+    "BoundCall": {
+      "description": "Call of a defined function, the head of a pipeline.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the function.",
+          "type": "string"
+        },
+        "args": {
+          "description": "Arguments by parameter name, defaults included.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundArg"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "args"
+      ]
+    },
     "StageNode": {
       "oneOf": [
         {
@@ -1005,6 +1178,422 @@
       "required": [
         "name",
         "value"
+      ]
+    },
+    "BoundBranch": {
+      "description": "A branch of a bound `when`.",
+      "type": "object",
+      "properties": {
+        "cond": {
+          "description": "Condition, of type `bool`.",
+          "$ref": "#/$defs/BoundExpr"
+        },
+        "body": {
+          "description": "Statements of the branch.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundStatement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "cond",
+        "body"
+      ]
+    },
+    "BoundWhen": {
+      "description": "Bound conditional.",
+      "type": "object",
+      "properties": {
+        "branches": {
+          "description": "Branches in order; the first whose condition holds runs.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundBranch"
+          }
+        },
+        "otherwise": {
+          "description": "Statements that run when no condition holds.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/BoundStatement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "branches"
+      ]
+    },
+    "BoundEach": {
+      "description": "Bound loop over records.",
+      "type": "object",
+      "properties": {
+        "source": {
+          "description": "Records to visit.",
+          "$ref": "#/$defs/BoundExpr"
+        },
+        "name": {
+          "description": "Name bound to the record of the iteration.",
+          "type": "string"
+        },
+        "parallel": {
+          "description": "Number of iterations that may run concurrently.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "atomic": {
+          "description": "Whether a failure rolls back the iterations already completed.",
+          "type": "boolean"
+        },
+        "body": {
+          "description": "Statements of the body.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundStatement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "source",
+        "name",
+        "body"
+      ]
+    },
+    "BoundLimit": {
+      "description": "Limit of a loop: a number of iterations or a time.",
+      "oneOf": [
+        {
+          "description": "At most `n` iterations.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "iterations"
+            },
+            "n": {
+              "description": "Number of iterations.",
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "kind",
+            "n"
+          ]
+        },
+        {
+          "description": "At most `ms` milliseconds from the start of the loop.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "time"
+            },
+            "ms": {
+              "description": "Milliseconds.",
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "kind",
+            "ms"
+          ]
+        }
+      ]
+    },
+    "BoundRepeat": {
+      "description": "Bound loop that tests its condition after the body.",
+      "type": "object",
+      "properties": {
+        "until": {
+          "description": "Condition that ends the loop when it holds.",
+          "$ref": "#/$defs/BoundExpr"
+        },
+        "every_ms": {
+          "description": "Wait between iterations, in milliseconds.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "limit": {
+          "description": "Limit; the configuration limits apply when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "atomic": {
+          "description": "Whether a failure rolls back the iterations already completed.",
+          "type": "boolean"
+        },
+        "body": {
+          "description": "Statements of the body.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundStatement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "until",
+        "body"
+      ]
+    },
+    "BoundWhile": {
+      "description": "Bound loop that tests its condition before the body.",
+      "type": "object",
+      "properties": {
+        "cond": {
+          "description": "Condition that keeps the loop running while it holds.",
+          "$ref": "#/$defs/BoundExpr"
+        },
+        "limit": {
+          "description": "Limit; the configuration limits apply when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "atomic": {
+          "description": "Whether a failure rolls back the iterations already completed.",
+          "type": "boolean"
+        },
+        "body": {
+          "description": "Statements of the body.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundStatement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "cond",
+        "body"
+      ]
+    },
+    "BoundJump": {
+      "description": "`break` or `continue`.",
+      "type": "object",
+      "properties": {
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "BoundSteps": {
+      "description": "Bound `steps` block.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "Steps in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundStatement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "body"
+      ]
+    },
+    "BoundParam": {
+      "description": "Declared parameter of a function or of a script.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the parameter.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Canonical type, as written in the catalog (`path`, `list<text>`).",
+          "type": "string"
+        },
+        "default": {
+          "description": "Default value; absent for a required parameter.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundExpr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ]
+    },
+    "BoundDefine": {
+      "description": "Bound definition of a function.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Function name.",
+          "type": "string"
+        },
+        "params": {
+          "description": "Declared parameters in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundParam"
+          }
+        },
+        "body": {
+          "description": "Statements of the body; the value of the last one is the result.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundStatement"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "body"
+      ]
+    },
+    "BoundParams": {
+      "description": "Bound parameters of a script.",
+      "type": "object",
+      "properties": {
+        "params": {
+          "description": "Declared parameters in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoundParam"
+          }
+        },
+        "span": {
+          "description": "Source range.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "params"
       ]
     }
   }

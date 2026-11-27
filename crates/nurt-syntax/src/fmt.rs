@@ -165,6 +165,22 @@ struct Element {
     end: u32,
 }
 
+/// Lines a construct covers, so that comments inside it stay before it.
+fn construct_extent(statement: &Statement) -> Option<(u32, u32)> {
+    let span = match statement {
+        Statement::When(construct) => construct.span,
+        Statement::Each(construct) => construct.span,
+        Statement::Repeat(construct) => construct.span,
+        Statement::While(construct) => construct.span,
+        Statement::Steps(construct) => construct.span,
+        Statement::Define(construct) => construct.span,
+        Statement::Params(construct) => construct.span,
+        Statement::Break(jump) | Statement::Continue(jump) => jump.span,
+        _ => None,
+    };
+    span.map(|span| (span.line, span.end_line))
+}
+
 fn elements(document: &AstDocument) -> (Vec<Element>, Vec<Option<(u32, u32)>>) {
     let mut elements = Vec::new();
     let mut extents = Vec::with_capacity(document.program.statements.len());
@@ -172,8 +188,8 @@ fn elements(document: &AstDocument) -> (Vec<Element>, Vec<Option<(u32, u32)>>) {
         let (span, pipeline) = match node {
             Statement::Let(binding) => (binding.span, &binding.value),
             Statement::Pipeline(pipeline) => (pipeline.span, pipeline),
-            _ => {
-                extents.push(None);
+            other => {
+                extents.push(construct_extent(other));
                 continue;
             }
         };

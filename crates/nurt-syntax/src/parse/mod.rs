@@ -25,6 +25,7 @@ mod b;
 mod c;
 pub(crate) mod error;
 pub(crate) mod expr;
+mod flow;
 pub mod repair;
 
 use std::ops::Range;
@@ -289,6 +290,12 @@ pub(crate) struct Parser<'a> {
     /// Whether a text with escapes that the language does not have keeps
     /// their characters instead of being an `E_ESCAPE` error.
     keep_escapes: bool,
+    /// Whether a condition of a construct is being parsed, where `exists`
+    /// is an operator.
+    condition: bool,
+    /// Names of the functions defined so far, which a call writes with
+    /// parentheses in every variant.
+    functions: std::collections::HashSet<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -334,6 +341,8 @@ impl<'a> Parser<'a> {
             brackets: Vec::new(),
             trace: tolerant.then(Vec::new),
             keep_escapes,
+            condition: false,
+            functions: std::collections::HashSet::new(),
         })
     }
 
@@ -548,6 +557,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_statement(&mut self, syntax: &dyn StageSyntax) -> Result<Statement, SyntaxError> {
+        if flow::starts_construct(self) {
+            return flow::parse_construct(self, syntax);
+        }
         if self.at(&TokenKind::Let) {
             return self.parse_let(syntax).map(Statement::Let);
         }
@@ -597,7 +609,11 @@ impl<'a> Parser<'a> {
                 height: reference.height,
             }
         } else {
-            let stage = syntax.parse_stage(self)?;
+            let stage = if self.at_function_call() {
+                b::CallNotation::new(self.text()).parse_stage(self)?
+            } else {
+                syntax.parse_stage(self)?
+            };
             Parsed {
                 value: Head::Stage(stage.value),
                 span: stage.span,
@@ -606,6 +622,14 @@ impl<'a> Parser<'a> {
             }
         };
         self.parse_pipeline_tail(head, syntax)
+    }
+
+    /// Whether the current token is the name of a defined function directly
+    /// followed by `(`.
+    fn at_function_call(&self) -> bool {
+        self.current.kind == TokenKind::Ident
+            && self.current.glued == Glued::LParen
+            && self.functions.contains(self.slice(&self.current))
     }
 
     /// Parses the stages after a head that is already parsed.

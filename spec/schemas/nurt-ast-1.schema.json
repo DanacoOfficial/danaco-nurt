@@ -109,14 +109,7 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "oneOf": [
-              {
-                "$ref": "#/$defs/let"
-              },
-              {
-                "$ref": "#/$defs/pipeline"
-              }
-            ]
+            "$ref": "#/$defs/statement"
           }
         }
       }
@@ -731,6 +724,326 @@
           }
         }
       ]
+    },
+    "statement": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/let"
+        },
+        {
+          "$ref": "#/$defs/pipeline"
+        },
+        {
+          "$ref": "#/$defs/when"
+        },
+        {
+          "$ref": "#/$defs/each"
+        },
+        {
+          "$ref": "#/$defs/repeat"
+        },
+        {
+          "$ref": "#/$defs/while"
+        },
+        {
+          "$ref": "#/$defs/break"
+        },
+        {
+          "$ref": "#/$defs/continue"
+        },
+        {
+          "$ref": "#/$defs/steps"
+        },
+        {
+          "$ref": "#/$defs/define"
+        },
+        {
+          "$ref": "#/$defs/params"
+        }
+      ]
+    },
+    "block": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/statement"
+      }
+    },
+    "branch": {
+      "type": "object",
+      "required": [
+        "cond",
+        "body"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cond": {
+          "$ref": "#/$defs/expr"
+        },
+        "body": {
+          "$ref": "#/$defs/block"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "when": {
+      "type": "object",
+      "required": [
+        "t",
+        "branches"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "when"
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/branch"
+          }
+        },
+        "otherwise": {
+          "$ref": "#/$defs/block"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "break": {
+      "type": "object",
+      "required": [
+        "t"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "break"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "continue": {
+      "type": "object",
+      "required": [
+        "t"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "continue"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "steps": {
+      "type": "object",
+      "required": [
+        "t",
+        "body"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "steps"
+        },
+        "body": {
+          "$ref": "#/$defs/block"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "param": {
+      "type": "object",
+      "required": [
+        "name",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Type written as in the catalog, for example `path` or `list<text>`."
+        },
+        "default": {
+          "$ref": "#/$defs/expr"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "required": [
+        "t",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "params"
+        },
+        "params": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/param"
+          }
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "option": {
+      "type": "object",
+      "required": [
+        "name",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "value": {
+          "$ref": "#/$defs/expr"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "each": {
+      "type": "object",
+      "required": [
+        "t",
+        "source",
+        "name",
+        "body"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "each"
+        },
+        "source": {
+          "$ref": "#/$defs/expr"
+        },
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/option"
+          }
+        },
+        "body": {
+          "$ref": "#/$defs/block"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "repeat": {
+      "type": "object",
+      "required": [
+        "t",
+        "body"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "repeat"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/option"
+          }
+        },
+        "body": {
+          "$ref": "#/$defs/block"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "while": {
+      "type": "object",
+      "required": [
+        "t",
+        "cond",
+        "body"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "while"
+        },
+        "cond": {
+          "$ref": "#/$defs/expr"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/option"
+          }
+        },
+        "body": {
+          "$ref": "#/$defs/block"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
+    },
+    "define": {
+      "type": "object",
+      "required": [
+        "t",
+        "name",
+        "body"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "define"
+        },
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/param"
+          }
+        },
+        "body": {
+          "$ref": "#/$defs/block"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      }
     }
   }
 }

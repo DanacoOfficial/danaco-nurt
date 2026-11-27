@@ -58,8 +58,8 @@ fn pipeline(name: &str) -> Pipeline {
 fn format_constants_name_the_documents() {
     assert_eq!(AST_FORMAT, "nurt-ast/1");
     assert_eq!(BOUND_FORMAT, "nurt-bound/1");
-    assert_eq!(AST_VERSION, "1.0");
-    assert_eq!(BOUND_VERSION, "1.0");
+    assert_eq!(AST_VERSION, "1.1");
+    assert_eq!(BOUND_VERSION, "1.1");
     assert_eq!(AST_HASH_PREFIX, "sha256:");
     assert_eq!(AST_MEDIA_TYPE_JSON, "application/vnd.nurt.ast+json; v=1");
     assert_eq!(AST_MEDIA_TYPE_CBOR, "application/vnd.nurt.ast+cbor; v=1");
@@ -77,7 +77,7 @@ fn format_constants_name_the_documents() {
         KEYWORDS,
         ["let", "true", "false", "null", "and", "or", "not", "in"]
     );
-    assert_eq!(BOUND_KINDS.len(), 26);
+    assert_eq!(BOUND_KINDS.len(), 35);
 }
 
 #[test]
