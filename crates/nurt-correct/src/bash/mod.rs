@@ -246,11 +246,15 @@ pub fn translate(input: &str) -> Option<Translation> {
 /// use nurt_contracts::error::ErrorCode;
 /// use nurt_correct::bash::{TranslateContext, translate_with};
 ///
-/// let error = translate_with("sudo rm -f /etc/x", &TranslateContext::default())
+/// let translation = translate_with("sudo rm -f /etc/x", &TranslateContext::default())
 ///     .expect("a bash habit")
-///     .expect_err("sudo is not translated");
-/// assert_eq!(error.code(), ErrorCode::Uncorrectable);
-/// assert_eq!(error.data().fix, vec!["remove \"/etc/x\"".to_owned()]);
+///     .expect("sudo is translated");
+/// assert_eq!(translation.text(), "remove \"/etc/x\" privilege: elevated");
+///
+/// let error = translate_with("sudo -i", &TranslateContext::default())
+///     .expect("a bash habit")
+///     .expect_err("an elevated session is not a command");
+/// assert_eq!(error.code(), ErrorCode::Ambiguous);
 /// ```
 #[must_use]
 pub fn translate_with(

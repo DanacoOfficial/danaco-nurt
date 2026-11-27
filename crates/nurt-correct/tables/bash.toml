@@ -47,9 +47,13 @@ help = "help corrections"
 message = "environment variables apply only to a program run in the same line: `VAR=x program` or `export VAR=x; program`"
 help = "help run"
 
-[messages.privilege_elevation]
-message = "`sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console"
-help = "help corrections"
+[messages.elevated_session]
+message = "`{program}` without a command opens an elevated session, which is not a command"
+help = "help privilege"
+
+[messages.elevated_option]
+message = "the option `{flag}` of the program that elevates has no translation"
+help = "help privilege"
 
 [messages.options_without_program]
 message = "environment, time limit and output options apply only to a program run with `run`"

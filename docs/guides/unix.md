@@ -20,7 +20,7 @@ find "/srv/app" glob: "**/*.sh" |> filter mode != "0755"
 
 ## Services
 
-On Linux `services` reads systemd units, and `scope: user` selects the units of the current account instead of the system units. On macOS it reads launchd jobs. `start`, `restart`, `enable` and `disable` change the state of the input services and are recorded as irreversible, because the service state is outside the file system.
+On Linux `services` reads systemd units, and `scope: user` selects the units of the current account instead of the system units. On macOS it reads launchd jobs. `start`, `restart`, `enable` and `disable` change the state of the input services; they need the rights of the administrator for system units (`privilege: elevated`). `start`, `stop`, `enable` and `disable` are undone by the opposite command, `restart` is irreversible.
 
 ```nurt
 services name: "nginx" |> restart
@@ -29,7 +29,7 @@ services scope: user
 
 ## Packages
 
-`package.install`, `package.remove` and `package.upgrade` call the package manager of the system. `manager` selects `apt`, `dnf`, `pacman` or `zypper` on Linux and `brew` on macOS; `auto` selects the manager found on the system. Installing and removing packages needs privileges that the console does not raise: without them the command fails with `E_PRIVILEGE`.
+`package.install`, `package.remove` and `package.upgrade` call the package manager of the system. `manager` selects `apt`, `dnf`, `pacman` or `zypper` on Linux and `brew` on macOS; `auto` selects the manager found on the system. Installing and removing packages needs the rights of the administrator: write `privilege: elevated` (`package.install ["jq"] privilege: elevated`); without them the command fails with `E_PRIVILEGE`. `undo` removes a package that was installed, or installs the recorded version again.
 
 ```nurt
 package.list outdated: true manager: apt

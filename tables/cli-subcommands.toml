@@ -13,13 +13,23 @@ arguments = [
   "[--limit N]",
   "[--cursor C]",
   "[--verbosity V]",
+  "[--privilege P]",
+  "[--as-user NAME]",
   "<program>",
 ]
 
 [[subcommand]]
 name = "script"
 description = "Run a script file, each pipeline as its own operation."
-arguments = ["<file | ->", "[--preview]", "[--json | --format F]", "[--limit N]", "[--verbosity V]"]
+arguments = [
+  "<file | ->",
+  "[--preview]",
+  "[--json | --format F]",
+  "[--limit N]",
+  "[--verbosity V]",
+  "[--privilege P]",
+  "[--as-user NAME]",
+]
 
 [[subcommand]]
 name = "repl"

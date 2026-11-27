@@ -117,7 +117,9 @@
       "code": "E_UNCORRECTABLE",
       "reason": "or_list",
       "problem": "`||` has no translation: a program has no alternative branch; check the condition with `assert` and run the alternative as a separate step (alternative_branch)",
-      "fix": []
+      "fix": [
+        "services name: \"app\"\n|> restart privilege: elevated"
+      ]
     }
   ],
   "fallback": "run [\"bash\", \"mixed-deploy.sh\"]",

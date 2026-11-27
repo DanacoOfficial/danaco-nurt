@@ -69,6 +69,8 @@ fn options_of(flags: &Flags) -> RequestOptions {
         format: flags.format,
         limit: flags.limit,
         verbosity: flags.verbosity,
+        privilege: flags.privilege,
+        as_user: flags.as_user.clone(),
         ..RequestOptions::default()
     }
 }

@@ -187,6 +187,44 @@ impl Language {
     }
 }
 
+/// Rights with which an operation runs (call option `privilege`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum Privilege {
+    /// The rights of the account that runs Nurt.
+    #[default]
+    Account,
+    /// The rights of the administrator: `root` on Linux and macOS,
+    /// `LocalSystem` on Windows.
+    Elevated,
+    /// Runs with `account`; a stage that fails with `E_PERMISSION` or
+    /// `E_PRIVILEGE` is repeated once with `elevated` before any change is
+    /// kept.
+    Auto,
+}
+
+impl Privilege {
+    /// Every value, in declaration order.
+    pub const ALL: &'static [Self] = &[Self::Account, Self::Elevated, Self::Auto];
+
+    /// Returns the stable code of the value, as written in JSON.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Account => "account",
+            Self::Elevated => "elevated",
+            Self::Auto => "auto",
+        }
+    }
+
+    /// Whether the value may lead to an elevated run (`elevated` or `auto`).
+    #[must_use]
+    pub const fn may_elevate(self) -> bool {
+        matches!(self, Self::Elevated | Self::Auto)
+    }
+}
+
 /// Call options shared by every command.
 ///
 /// An absent option takes its value from the configuration, and without a
@@ -244,6 +282,14 @@ pub struct RequestOptions {
     /// `false`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub script: Option<bool>,
+    /// Rights of the operation. Default `account`, or the configuration key
+    /// `privilege.default`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privilege: Option<Privilege>,
+    /// Name of another account that runs the operation (Linux and macOS);
+    /// implies elevation for the switch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub as_user: Option<String>,
 }
 
 impl RequestOptions {
@@ -301,6 +347,22 @@ impl RequestOptions {
         self.script.unwrap_or(false)
     }
 
+    /// Effective `privilege`; `account` when absent.
+    #[must_use]
+    pub fn privilege(&self) -> Privilege {
+        self.privilege.unwrap_or_default()
+    }
+
+    /// Effective `privilege` after `as_user`: a call with `as_user` is never
+    /// `account`.
+    #[must_use]
+    pub fn effective_privilege(&self) -> Privilege {
+        match (self.privilege, self.as_user.as_deref()) {
+            (None | Some(Privilege::Account), Some(_)) => Privilege::Elevated,
+            (privilege, _) => privilege.unwrap_or_default(),
+        }
+    }
+
     /// Checks the options.
     ///
     /// # Errors
@@ -333,6 +395,19 @@ impl RequestOptions {
         {
             return Err(EnvelopeError::InvalidTimeout {
                 timeout: timeout.to_owned(),
+            });
+        }
+        if self.as_user.as_deref() == Some("") {
+            return Err(EnvelopeError::EmptyField { field: "as_user" });
+        }
+        if let Some(user) = self.as_user.as_deref()
+            && (user.starts_with(['-', '#'])
+                || user
+                    .chars()
+                    .any(|c| c.is_control() || c == '=' || c.is_whitespace()))
+        {
+            return Err(EnvelopeError::InvalidAccount {
+                account: user.to_owned(),
             });
         }
         if self.session.as_deref() == Some("") {
@@ -658,6 +733,12 @@ pub enum EnvelopeError {
         /// Value given.
         timeout: String,
     },
+    /// `as_user` is not the name of an account: it starts with `-` or `#`, or
+    /// holds a control character, a blank or `=`.
+    InvalidAccount {
+        /// Value given.
+        account: String,
+    },
     /// A response renders text in the format `json`.
     RenderedJson,
     /// The report of a response breaks a rule of the report format.
@@ -690,6 +771,10 @@ impl fmt::Display for EnvelopeError {
             Self::InvalidTimeout { timeout } => write!(
                 f,
                 "`timeout` must be a duration such as `30s` or `1h30m`; given `{timeout}`"
+            ),
+            Self::InvalidAccount { account } => write!(
+                f,
+                "`as_user` must be the name of an account; given `{account}`"
             ),
             Self::RenderedJson => f.write_str("the format `json` is not rendered as text"),
             Self::Report(violation) => write!(f, "invalid report: {violation}"),

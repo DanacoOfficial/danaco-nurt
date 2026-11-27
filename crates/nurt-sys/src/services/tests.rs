@@ -705,7 +705,7 @@ fn stages_cover_the_catalog_commands() {
         .collect();
     assert_eq!(
         commands,
-        ["services", "start", "restart", "enable", "disable"]
+        ["services", "start", "stop", "restart", "enable", "disable"]
     );
     assert!(stages[0].as_read().is_some());
     for stage in &stages[1..] {
@@ -717,7 +717,7 @@ fn stages_cover_the_catalog_commands() {
         .iter()
         .map(|command| command.action().as_str())
         .collect();
-    assert_eq!(actions, ["start", "restart", "enable", "disable"]);
+    assert_eq!(actions, ["start", "stop", "restart", "enable", "disable"]);
 }
 
 /// One parameter of a command as declared in the catalog: name, type,

@@ -11,7 +11,29 @@ commands: [services, logs, processes, ports, disks, host, environment, accounts,
 
 ## Boundaries
 
-Administration commands read the state of the system and, in some cases, change it. A change to a service, a process or a package is outside the file system, so the journal records it as irreversible and cannot undo it. Commands that need privileges that the console does not hold fail with `E_PRIVILEGE`; the console does not raise privileges.
+Administration commands read the state of the system and, in some cases, change it. Changes need the rights of the administrator more often than other work, so the call parameter `privilege` is part of the language, and changes outside the file system have inverse operations.
+
+## Elevated work
+
+Work that needs the rights of the administrator takes the call parameter `privilege`: `account` (the default) runs with the rights of the account, `elevated` runs with those of the administrator, and `auto` runs with the account and repeats the whole stage once with `elevated` when a target fails with `E_PERMISSION` or `E_PRIVILEGE`, before any change is kept. `as_user: "NAME"` runs the operation as another account on Linux and macOS. Both are written on a stage (`write "/etc/hosts" "..." privilege: elevated`), given in the request, or set on the command line with `--privilege` and `--as-user`; the configuration key `privilege.default` sets the value for calls that give none. Nurt starts `sudo`, `doas` or `run0` (or runs in the same process when it already is the administrator), sends the syntax tree of the program, never shell text, and never asks for a password: a backend that would ask is reported as `password_required`. The report of the operation states `elevated: true`, the `backend` and, for `auto`, the `elevation_reason`. When no backend can run the operation, the call ends with `E_PRIVILEGE`; its detail `backend` lists every backend with its result and `next_steps` names the way forward. The embedding engine switches elevation off with `privilege.allowed = false`.
+
+Elevated changes are written to the system journal (`/var/lib/nurt` on Linux, `/Library/Application Support/Nurt` on macOS, `%ProgramData%\Nurt` on Windows). The account keeps a reference to every entry, so `undo` with the number of the entry reaches it through the same backend.
+
+## Undo of changes outside the file system
+
+Changes outside the file system are undone by inverse operations that the engine derives from the state recorded in the report:
+
+| Operation | Undo |
+|---|---|
+| `package.install` | `package.remove` when the package was not installed before; reinstall of the recorded version when the version changed |
+| `package.remove` | `package.install` of the recorded version, when the repository still offers it |
+| `package.upgrade` | install of the recorded versions, when the repository still offers them |
+| `start`, `stop` | the opposite command |
+| `enable`, `disable` | the opposite command with the recorded start type |
+
+`enable` and `disable` are undone only for the start types `disabled` and `automatic`; other start types make the entry irreversible, with the reason in the report. A package version that the repository no longer offers makes only that package irreversible.
+
+Irreversible are `restart`, `stop` of a process, and `run`: files changed by a program started with `run` and `privilege: elevated` are not preserved, and the report states it.
 
 ## Services
 

@@ -43,6 +43,30 @@ their own version numbers, described in the specification.
 
 ## [0.1.1] - 2026-11-27
 
+### Added
+
+- Privilege elevation: the call parameters `privilege` (`account`, `elevated`,
+  `auto`) and `as_user`, written on a stage, given in the request or on the
+  command line (`--privilege`, `--as-user`); the elevation backends `self`,
+  `sudo`, `doas` and `run0` (the backend `broker` is reported as
+  `not_installed` until the service `nurt-elevation`); the configuration
+  section `[privilege]`; elevated entries in the system journal with
+  references in the journal of the account; and undo of elevated changes and
+  of changes to packages and services by inverse operations.
+
+### Changed
+
+- A `nurt` process that runs as the administrator keeps its journal, results
+  and candidates in the system state directory (`/var/lib/nurt`,
+  `/Library/Application Support/Nurt`, `%ProgramData%\Nurt`) instead of the
+  state directory of that account; entries made earlier as `root` are not shown
+  there.
+- `sudo`, `doas` and `run0` in bash lines are translated into `privilege:
+  elevated` or `as_user` instead of being rejected; `sudo -i` and `su` end with
+  `E_AMBIGUOUS`.
+- `E_PRIVILEGE` means that no elevation backend ran the operation or that the
+  system denied the elevation; it carries `backend` and `next_steps`.
+
 ### Security
 
 - The Git library `gix` and its sub-crates are updated to the 0.91 generation,

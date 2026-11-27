@@ -34,6 +34,12 @@ irreversible with `service_changed` before the manager is asked to act, so the
 effect is reported even when the wait fails. Services are processed in input
 order; an error stops the processing of the remaining services.
 
+**Privilege.** System units need the administrator: write `privilege: elevated` on the stage. `undo` of the entry stops the services that the command started.
+
+```nurt
+services name: "nginx" |> start privilege: elevated
+```
+
 ## Parameters
 
 | Parameter | Type | Default | Description |

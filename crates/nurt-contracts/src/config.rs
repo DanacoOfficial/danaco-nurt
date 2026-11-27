@@ -49,6 +49,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value as Json, json};
 
+use crate::envelope::Privilege;
 use crate::kinds::SyntaxVariant;
 
 /// Format identifier of configuration files.
@@ -84,7 +85,7 @@ pub const TRUSTED_PROJECT_KEYS: &[&str] = &["journal.*"];
 /// Keys that a project file can never set; they are ignored and reported as
 /// `trust_config_ignored`. `scope.trust*` is also refused at the run-time
 /// level.
-pub const TRUST_KEYS: &[&str] = &["scope.trust*", "service.*"];
+pub const TRUST_KEYS: &[&str] = &["scope.trust*", "service.*", "privilege.*"];
 
 /// Tables whose keys are chosen by the user (names of variables, languages,
 /// mount points) rather than fixed by the format.
@@ -1284,6 +1285,8 @@ pub struct Config {
     pub log: LogConfig,
     /// Session recorded in the journal.
     pub session: SessionConfig,
+    /// Privilege elevation.
+    pub privilege: PrivilegeConfig,
 }
 
 /// Section `[syntax]`.
@@ -2197,6 +2200,42 @@ pub struct LogConfig {
     pub level: LogLevel,
 }
 
+/// Section `[privilege]`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct PrivilegeConfig {
+    /// Key `privilege.default`: value of the call parameter `privilege` when
+    /// a call does not give it; the embedding engine may set it. Default
+    /// `account`.
+    pub default: Privilege,
+    /// Key `privilege.allowed`: when `false`, `elevated` and `auto` end with
+    /// `E_PRIVILEGE` and the reason `disabled_by_configuration`; the switch
+    /// with which the embedding engine applies its policy. Default `true`.
+    pub allowed: bool,
+    /// Key `privilege.backends`: allowed elevation backends in order of
+    /// trial (`self`, `broker`, `sudo`, `doas`, `run0`). Default none: the
+    /// list of the system, `["self", "broker", "sudo", "doas", "run0"]` on
+    /// Linux, `["self", "broker", "sudo"]` on macOS and `["self", "broker"]`
+    /// on Windows.
+    pub backends: Option<Vec<String>>,
+    /// Key `privilege.group`: group allowed to connect to the service
+    /// `nurt-elevation`. Default none: `sudo` or `wheel` on Linux, `admin` on
+    /// macOS.
+    pub group: Option<String>,
+}
+
+impl Default for PrivilegeConfig {
+    fn default() -> Self {
+        Self {
+            default: Privilege::Account,
+            allowed: true,
+            backends: None,
+            group: None,
+        }
+    }
+}
+
 /// Section `[session]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
@@ -2343,7 +2382,7 @@ impl KeyAccess {
 ///
 /// * trust keys (`scope.trust*`) are ignored in a project file and at run
 ///   time, so that neither a repository nor a request can grant trust;
-/// * `service.*` is ignored in a project file;
+/// * `service.*` and `privilege.*` are ignored in a project file;
 /// * a project file may set `scope.base`, `scope.project_roots`, `report.*`
 ///   and `run.*`, and `journal.*` only for a trusted project; other keys are
 ///   ignored.
@@ -2381,7 +2420,7 @@ fn access(level: ConfigLevel, section: &str, field: &str) -> KeyAccess {
         return KeyAccess::Allowed;
     }
     match section {
-        "service" => KeyAccess::Ignored(ConfigNoteKind::TrustConfigIgnored),
+        "service" | "privilege" => KeyAccess::Ignored(ConfigNoteKind::TrustConfigIgnored),
         "report" | "run" => KeyAccess::Allowed,
         "scope" if matches!(field, "base" | "project_roots") => KeyAccess::Allowed,
         "journal" => KeyAccess::TrustedProjectOnly,

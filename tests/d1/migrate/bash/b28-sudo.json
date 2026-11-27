@@ -4,9 +4,9 @@
   "script": "b28-sudo.sh",
   "summary": {
     "statements": 2,
-    "translated": 0,
+    "translated": 2,
     "assumption": 0,
-    "impossible": 2,
+    "impossible": 0,
     "error": 0
   },
   "items": [
@@ -14,30 +14,28 @@
       "line": 5,
       "column": 1,
       "source": "sudo rm /etc/app.conf",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "B01",
+        "B28",
+        "L21"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "rule",
-      "problem": "`sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)",
-      "fix": [
-        "remove \"/etc/app.conf\" on_missing: error"
-      ]
+      "fix": [],
+      "output": "remove \"/etc/app.conf\" on_missing: error privilege: elevated"
     },
     {
       "line": 6,
       "column": 1,
       "source": "sudo systemctl restart nginx",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "B40",
+        "B28"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "rule",
-      "problem": "`sudo` is not translated; privileges are not raised, and the program runs with the privileges of the console (privilege_elevation)",
-      "fix": [
-        "services name: \"nginx\"\n|> restart"
-      ]
+      "fix": [],
+      "output": "services name: \"nginx\"\n|> restart privilege: elevated"
     }
-  ],
-  "fallback": "run [\"bash\", \"b28-sudo.sh\"]"
+  ]
 }

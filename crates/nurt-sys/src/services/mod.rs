@@ -563,7 +563,7 @@ impl ServiceControl for SystemServiceControl {
 ///     .iter()
 ///     .map(|stage| stage.descriptor().command)
 ///     .collect();
-/// assert_eq!(commands, ["services", "start", "restart", "enable", "disable"]);
+/// assert_eq!(commands, ["services", "start", "stop", "restart", "enable", "disable"]);
 /// ```
 #[must_use]
 pub fn stages() -> Vec<Arc<dyn StageImpl>> {
@@ -760,6 +760,11 @@ impl ServiceCommand {
     pub const START: Self = Self {
         action: ServiceAction::Start,
     };
+    /// The `stop` command for service records; jobs and processes are
+    /// stopped by the program host.
+    pub const STOP: Self = Self {
+        action: ServiceAction::Stop,
+    };
     /// The `restart` command.
     pub const RESTART: Self = Self {
         action: ServiceAction::Restart,
@@ -773,7 +778,13 @@ impl ServiceCommand {
         action: ServiceAction::Disable,
     };
     /// Every command, in catalog order.
-    pub const ALL: [Self; 4] = [Self::START, Self::RESTART, Self::ENABLE, Self::DISABLE];
+    pub const ALL: [Self; 5] = [
+        Self::START,
+        Self::STOP,
+        Self::RESTART,
+        Self::ENABLE,
+        Self::DISABLE,
+    ];
 
     /// Action of the command.
     #[must_use]

@@ -54,10 +54,13 @@ fn lexer_reports_operators_redirections_and_here_documents() {
 #[test]
 fn live_translation_ignores_nurt_programs_and_hides_errors() {
     assert!(translate("remove \"/srv/app/build\"").is_none());
-    assert!(translate("sudo rm -f /srv/x").is_none());
-    let error = translate_with("sudo rm -f /srv/x", &TranslateContext::default())
-        .expect("a bash habit")
-        .expect_err("sudo is never translated");
+    assert!(translate("for f in /srv/*; do rm $f; done").is_none());
+    let error = translate_with(
+        "for f in /srv/*; do rm $f; done",
+        &TranslateContext::default(),
+    )
+    .expect("a bash habit")
+    .expect_err("loops are never translated");
     assert_eq!(error.code(), ErrorCode::Uncorrectable);
 }
 

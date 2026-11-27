@@ -712,6 +712,18 @@ impl Editor<'_> {
     }
 
     fn stage(&mut self, stage: &mut SurfaceStage) {
+        if let Some(Change::Elevate {
+            index,
+            command,
+            extra,
+        }) = self.take(stage.span, |change| {
+            matches!(change, Change::Elevate { .. })
+        }) {
+            if let Some(arg) = stage.args.get_mut(index) {
+                arg.value = command;
+            }
+            stage.args.extend(extra);
+        }
         if let Some(Change::Command(name)) =
             self.take(stage.span, |change| matches!(change, Change::Command(_)))
         {

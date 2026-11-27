@@ -21,6 +21,8 @@ nurt service status
 
 ## Description
 
+The privileged elevation service (`nurt service install --elevation`, `uninstall --elevation`, and its line in `nurt service status`) is not part of release 0.1.1; until it is released the elevation backend `broker` is reported as `not_installed` and elevated calls use `sudo`, `doas` or `run0`.
+
 `service` is a subcommand of the `nurt` program, not a command of the
 pipeline language. The background service hosts the free space module of the
 journal and the schedule module. The journal keeps the previous content of

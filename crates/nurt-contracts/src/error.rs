@@ -496,7 +496,9 @@ error_codes! {
     NotFound = "E_NOT_FOUND", [Read, Apply], Io;
     /// The target is in use; the processes holding it are listed.
     InUse = "E_IN_USE", [Read, Apply], Io;
-    /// The operation requires a privilege the account does not have.
+    /// The operation needs privileges that are not available: no elevation
+    /// backend, or the system denied the elevation to the account; `backend`
+    /// lists the tried backends and `next_steps` the way forward.
     Privilege = "E_PRIVILEGE", [Read, Apply], Io;
     /// Not enough space on the volume.
     NoSpace = "E_NO_SPACE", [Read, Apply], Io;

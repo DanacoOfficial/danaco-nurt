@@ -18,6 +18,8 @@ services [<name>] [name: value]...
 
 ## Description
 
+Reading the state of system units needs no rights; `start`, `stop`, `restart`, `enable` and `disable` on system units need the administrator, which `privilege: elevated` on the last stage provides (see those commands).
+
 `services` lists the services of the service manager of the system: systemd
 on Linux, the service control manager on Windows and launchd on macOS. It
 starts a pipeline and produces one `service` record per service; on Linux the

@@ -142,6 +142,18 @@ pub(crate) fn header_parts(report: &Report) -> Vec<String> {
     if report.bulk.is_some() {
         parts.push("(bulk)".to_owned());
     }
+    if report.elevated {
+        let mut elevated = String::from("elevated");
+        if let Some(backend) = &report.backend {
+            elevated.push(' ');
+            elevated.push_str(backend);
+        }
+        if let Some(user) = &report.as_user {
+            elevated.push_str(" as ");
+            elevated.push_str(user);
+        }
+        parts.push(elevated);
+    }
     parts
 }
 

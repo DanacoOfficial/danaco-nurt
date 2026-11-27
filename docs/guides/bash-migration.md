@@ -31,6 +31,10 @@ find "/srv/app" glob: "**/*.tmp" |> remove
 
 A long flag or a short flag becomes the named parameter of the command with the same meaning: `grep -i` becomes `case_sensitive: false`, `grep -v` becomes `invert: true`, `grep -l` becomes `output: files`. A flag without a counterpart is an error that lists the parameters of the command.
 
+## Privilege elevation
+
+`sudo CMD`, `doas CMD` and `run0 CMD` become the translation of `CMD` with the call parameter `privilege: elevated`, and `sudo -u NAME CMD` (also `--user NAME`, `--user=NAME`) becomes the translation of `CMD` with `as_user: "NAME"`. The options `-n`, `-H`, `-E`, `-k`, `-b` and `--` are dropped. `sudo systemctl restart nginx` becomes `services name: "nginx" |> restart` with `privilege: elevated`; `sudo PROGRAM ARGS` where `PROGRAM` has no counterpart becomes `run ["PROGRAM", ARGS...] cwd: "..."` with `privilege: elevated`. `sudo -i`, `sudo -s`, `su` and `su -` open an elevated session, which is not a command: they end with `E_AMBIGUOUS` and a next step that gives the command with `privilege: elevated`. A group (`sudo -g`) and other options without a counterpart are reported with the option. The correction `run ["sudo", ...]` written in Nurt is replaced by the same `run` without `sudo` and with `privilege: elevated`.
+
 ## Redirection and variables
 
 `echo "x" > F` becomes `write "F" "x\n" mode: overwrite` and `>>` becomes `mode: append`. A here-document written to a file becomes `write` with a raw text.
@@ -50,7 +54,7 @@ A pipe `A | B` becomes `A |> B` when both sides translate. A sequence `A && B` o
 
 ## What is rejected
 
-Loops, conditionals, functions and `case` are rejected with an explanation: patterns and pipelines replace loops. `sudo` is rejected because the console does not raise privileges. `cd D && CMD` is translated only for an absolute path in the same line, as the `cwd` of `run` or as paths resolved against `D`; other uses of `cd` are rejected with a note on the call parameter `base`.
+Loops, conditionals, functions and `case` are rejected with an explanation: patterns and pipelines replace loops. `cd D && CMD` is translated only for an absolute path in the same line, as the `cwd` of `run` or as paths resolved against `D`; other uses of `cd` are rejected with a note on the call parameter `base`.
 
 ## Scripts
 

@@ -9,6 +9,8 @@
 //! it splits a program into stages and words and compares the command of each
 //! stage and every `name:` argument with the catalog.
 
+use nurt_contracts::bound::STAGE_CALL_PARAMETERS;
+
 use crate::catalog::Catalog;
 
 /// Words that are valid values of an enumeration parameter in any command.
@@ -79,7 +81,9 @@ fn check_stage(catalog: &Catalog, stage: &str, problems: &mut Vec<String>) {
             continue;
         };
         let Some(param) = spec.param(name) else {
-            problems.push(format!("command `{}` has no parameter `{name}`", spec.name));
+            if !STAGE_CALL_PARAMETERS.contains(&name) {
+                problems.push(format!("command `{}` has no parameter `{name}`", spec.name));
+            }
             continue;
         };
         let value = words.get(position + 1).map(String::as_str);

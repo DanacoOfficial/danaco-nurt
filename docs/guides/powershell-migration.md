@@ -35,6 +35,10 @@ find "/home/user/app" glob: "**/*.go" |> filter size > 1mb |> sort size order: d
 
 A registry path such as `HKLM:\Software\X` becomes the path `"registry:/HKLM/Software/X"` and works in `list`, `read` and `write`. `Get-Service`, `Start-Service` and `Stop-Service` become `services name: "N"` followed by `|> start` or `|> stop`. `Get-Process` and `Stop-Process` become `processes` and `|> stop`.
 
+## Elevation
+
+`Start-Process -Verb RunAs`, `sudo`-like wrappers and running the console as the administrator have no text translation. Give the call parameter `privilege: elevated` (or `as_user` on Linux and macOS) on the stage that needs the rights; on Windows the backend `self` runs in the same process when the console is elevated, and the service backend arrives in 0.1.2.
+
 ## Common parameters
 
 `-WhatIf` becomes the call parameter `preview: true`. `-Confirm` is removed with a note, because Nurt does not ask for confirmation. `-ErrorAction SilentlyContinue` becomes `on_missing: skip` where the command has the parameter.

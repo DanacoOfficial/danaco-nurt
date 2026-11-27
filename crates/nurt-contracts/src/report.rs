@@ -1389,6 +1389,22 @@ pub struct Report {
     /// reading programs, previews and changing programs without targets.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub op: Option<u64>,
+    /// Whether the operation ran with elevated rights; present only when
+    /// `true`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub elevated: bool,
+    /// Elevation backend that ran the operation (`self`, `sudo`, `doas`,
+    /// `run0`); present only when `elevated` is `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend: Option<String>,
+    /// Account the operation ran as, when the call gave `as_user`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub as_user: Option<String>,
+    /// Why the operation was elevated without being asked to: `permission_denied`
+    /// when `privilege: auto` repeated the stage after a denial, or
+    /// `system_journal_entry` when `undo` reached an elevated entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elevation_reason: Option<String>,
     /// Canonical text of the program that ran; present only when corrections
     /// were applied.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1457,6 +1473,10 @@ pub struct Report {
     pub timing: Option<Timing>,
 }
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 impl Report {
     /// Creates a report with the current format version and no details.
     #[must_use]
@@ -1466,6 +1486,10 @@ impl Report {
             status,
             kind: kind.into(),
             op: None,
+            elevated: false,
+            backend: None,
+            as_user: None,
+            elevation_reason: None,
             ran: None,
             ast_hash: None,
             result_file: None,

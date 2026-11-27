@@ -408,15 +408,26 @@ mod tests {
     }
 
     #[test]
-    fn rejects_privilege_elevation_with_fix() {
+    fn translates_privilege_elevation_with_the_call_parameter_on_the_stage() -> Result<(), Error> {
+        let translator = TableTranslator::new();
+        let translation =
+            translator.translate(&request(ScriptLanguage::Bash, "sudo rm -f /etc/x", &[]))?;
+        assert_eq!(
+            translator.print(&translation.tree),
+            "remove \"/etc/x\" privilege: elevated"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_an_elevated_session_with_next_steps() {
         let translator = TableTranslator::new();
         let error = translator
-            .translate(&request(ScriptLanguage::Bash, "sudo rm -f /etc/x", &[]))
+            .translate(&request(ScriptLanguage::Bash, "sudo -i", &[]))
             .err();
-        assert_eq!(
-            error.map(|error| error.code()),
-            Some(ErrorCode::Uncorrectable)
-        );
+        let data = error.as_ref().map(Error::data);
+        assert_eq!(data.map(|data| data.code), Some(ErrorCode::Ambiguous));
+        assert!(data.is_some_and(|data| !data.next_steps.is_empty()));
     }
 
     #[test]

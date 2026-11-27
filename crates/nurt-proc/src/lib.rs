@@ -15,6 +15,7 @@
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 pub mod api;
+pub mod elevation;
 
 mod classify;
 mod control;

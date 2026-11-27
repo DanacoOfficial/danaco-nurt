@@ -26,3 +26,5 @@ write "/srv/app/current/VERSION" "1.4.2\n" mode: overwrite
 #   problem: there is no current directory; paths are absolute or relative to the call parameter `base`, and `cd` applies only to the command after it in the same line (current_directory)
 # untranslated: E_UNCORRECTABLE: sudo systemctl restart app || journalctl -u app -n 50
 #   problem: `||` has no translation: a program has no alternative branch; check the condition with `assert` and run the alternative as a separate step (alternative_branch)
+#   fix: services name: "app"
+#         |> restart privilege: elevated

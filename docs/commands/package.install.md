@@ -22,11 +22,19 @@ package.install <names>... [name: value]...
 
 With `version` every named package is installed in that version: `name=version` for apt and zypper, `name-version` for dnf, `name@version` for Homebrew and Scoop, and `--version` for Chocolatey and winget. pacman installs the version of the repository only and rejects `version` with `E_UNSUPPORTED`. An installed package is kept by pacman (`--needed`).
 
-`before` comes from the package database read before the run, `after` from the database read again after it. The journal marks the operation as irreversible with the reason `package_changed`; `undo` does not restore the previous packages.
+`before` comes from the package database read before the run, `after` from the database read again after it. The engine keeps the state before the change, and `undo` of the entry restores it (see Privilege).
 
-The command needs the privilege of the manager. apt, dnf, pacman and zypper need the superuser and fail with `E_PRIVILEGE` otherwise; the command never calls `sudo`. Homebrew refuses to run as the superuser and fails with `E_PRIVILEGE` in that case. When the lock of the package database is held, the command fails with `E_IN_USE` and lists the holding processes.
+The command needs the privilege of the manager. apt, dnf, pacman and zypper need the superuser and fail with `E_PRIVILEGE` otherwise; with `privilege: elevated` the call runs through an elevation backend (`sudo`, `doas`, `run0`, or in the same process when Nurt is the administrator), and the command itself never writes `sudo`. Homebrew refuses to run as the superuser and fails with `E_PRIVILEGE` in that case. When the lock of the package database is held, the command fails with `E_IN_USE` and lists the holding processes.
 
 A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and the end of its error output. The effect is reported as executed in that case, because the manager may have changed packages before it failed.
+
+**Privilege.** apt, dnf, pacman and zypper need the administrator. Write `privilege: elevated` on the stage to run the command through an elevation backend; without it the command fails with `E_PRIVILEGE`.
+
+```nurt
+package.install ["jq"] privilege: elevated
+```
+
+`undo` of the entry runs `package.remove` for a package that was not installed before, and installs the recorded version again for a package whose version the command changed.
 
 ## Parameters
 

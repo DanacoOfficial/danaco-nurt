@@ -109,7 +109,7 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 | `E_EXISTS` | 2, 5 | `NURT_E_IO` | The target already exists. |
 | `E_NOT_FOUND` | 2, 5 | `NURT_E_IO` | The target does not exist. |
 | `E_IN_USE` | 2, 5 | `NURT_E_IO` | The target is in use; the processes holding it are listed. |
-| `E_PRIVILEGE` | 2, 5 | `NURT_E_IO` | The operation requires a privilege the account does not have. |
+| `E_PRIVILEGE` | 2, 5 | `NURT_E_IO` | The operation needs privileges that are not available: no elevation backend ran it, or the system denied the elevation to the account. Details: `backend` (the backends tried and the result of each: `not_installed`, `password_required`, `denied`, `not_administrator`, `cannot_switch_user`, `failed`), `reason` (`disabled_by_configuration` when `privilege.allowed` is `false`); `next_steps` names the way forward. |
 | `E_NO_SPACE` | 2, 5 | `NURT_E_IO` | Not enough space on the volume. |
 | `E_TIMEOUT` | 2, 5 | `NURT_E_TIMEOUT` | A time limit was reached. |
 | `E_CANCELLED` | 2, 5 | `NURT_E_CANCELLED` | The execution was cancelled. |

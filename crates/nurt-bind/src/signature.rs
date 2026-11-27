@@ -12,7 +12,10 @@
 use std::collections::BTreeMap;
 
 use nurt_contracts::ast::{Arg, Expr, Stage};
-use nurt_contracts::bound::{BoundArg, BoundExpr, BoundMapEntry, BoundStage, Phase};
+use nurt_contracts::bound::{
+    BoundArg, BoundExpr, BoundMapEntry, BoundStage, Phase, STAGE_CALL_PARAMETERS,
+};
+use nurt_contracts::envelope::Privilege;
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::kinds::Category;
 use nurt_contracts::spec::{FormSpec, IoSpec, Os, ParamSpec, ParamType, ScalarType, StageSpec};
@@ -122,6 +125,23 @@ impl<'a> Binder<'a> {
 
     fn bind_command(&mut self, stage: &Stage, flow: &Flow) -> Result<Vec<Bound>, BindError> {
         let spec = self.spec(stage)?;
+        let elevated = self.elevated_run(stage);
+        let stage = elevated.as_ref().unwrap_or(stage);
+        let (stripped, call) = call_parameters(stage, spec)?;
+        let stage = stripped.as_ref().unwrap_or(stage);
+        let mut bound = self.bind_signature(stage, spec, flow)?;
+        if let Some(last) = bound.last_mut() {
+            last.stage.args.extend(call);
+        }
+        Ok(bound)
+    }
+
+    fn bind_signature(
+        &mut self,
+        stage: &Stage,
+        spec: &StageSpec,
+        flow: &Flow,
+    ) -> Result<Vec<Bound>, BindError> {
         self.check_os(spec, stage)?;
         let (input, form) = select(spec, flow).ok_or_else(|| input_error(spec, flow, stage))?;
         let accepted = Accepted::new(spec, form);
@@ -691,6 +711,72 @@ fn list_element(ty: &ParamType) -> &ParamType {
             _ => None,
         })
         .unwrap_or(ty)
+}
+
+/// Takes the call parameters `privilege` and `as_user` out of a stage.
+///
+/// The parameters apply to the whole call, like the options of the request,
+/// and are accepted on every command that does not declare a parameter of
+/// the same name. The stage without them is returned when there were any,
+/// together with their bound values, which follow the parameters of the
+/// signature.
+fn call_parameters(
+    stage: &Stage,
+    spec: &StageSpec,
+) -> Result<(Option<Stage>, Vec<BoundArg>), BindError> {
+    let is_call = |arg: &Arg| {
+        arg.name.as_deref().is_some_and(|name| {
+            STAGE_CALL_PARAMETERS.contains(&name) && !spec.params.iter().any(|p| p.name == name)
+        })
+    };
+    if !stage.args.iter().any(is_call) {
+        return Ok((None, Vec::new()));
+    }
+    let mut rest = stage.clone();
+    rest.args.retain(|arg| !is_call(arg));
+    let mut bound: Vec<BoundArg> = Vec::new();
+    for arg in stage.args.iter().filter(|arg| is_call(arg)) {
+        let name = arg.name.as_deref().unwrap_or_default();
+        if bound.iter().any(|known| known.name == name) {
+            return Err(given_twice(spec, name, arg));
+        }
+        let word = match &arg.value {
+            Expr::Ident { v, .. } | Expr::Text { v, .. } => v.as_str(),
+            _ => return Err(call_value_error(spec, name, arg, "a word or a text")),
+        };
+        if name == "privilege" && !Privilege::ALL.iter().any(|value| value.as_str() == word) {
+            return Err(call_value_error(
+                spec,
+                name,
+                arg,
+                "account, elevated or auto",
+            ));
+        }
+        if name == "as_user" && word.is_empty() {
+            return Err(call_value_error(spec, name, arg, "the name of an account"));
+        }
+        bound.push(BoundArg {
+            name: name.to_owned(),
+            value: if name == "privilege" {
+                BoundExpr::Enum { v: word.to_owned() }
+            } else {
+                BoundExpr::Text { v: word.to_owned() }
+            },
+            default: false,
+            span: arg.span,
+        });
+    }
+    Ok((Some(rest), bound))
+}
+
+fn call_value_error(spec: &StageSpec, name: &str, arg: &Arg, expected: &str) -> BindError {
+    BindError::new(
+        ErrorCode::InvalidValue,
+        format!("`{name}` of `{}` takes {expected}", spec.name),
+    )
+    .at(arg.span)
+    .found(name.to_owned())
+    .help(spec.name.clone())
 }
 
 /// Joins the arguments written for a parameter into one named argument.

@@ -19,6 +19,9 @@ mod builtin;
 pub mod candidates;
 pub mod config;
 pub mod cursor;
+mod elevated;
+mod elevated_journal;
+pub mod elevation;
 pub mod engine;
 pub mod error;
 pub mod events;
@@ -26,6 +29,7 @@ mod extensions;
 #[cfg(any(test, feature = "fixtures"))]
 pub mod fixtures;
 pub mod frontend;
+pub mod inverse;
 mod journal_setup;
 pub mod language;
 pub mod paths;
@@ -36,6 +40,7 @@ pub mod state;
 pub mod system;
 mod system_services;
 
+pub use elevation::ElevatedReference;
 pub use engine::{CheckReport, Engine, EngineConfig, EngineInfo, ExecHandle, Formats};
 pub use error::EngineError;
 pub use events::{DeliveredEvent, EventBody, EventListener, Lifecycle};

@@ -14,6 +14,7 @@ use nurt_core::{Engine, EngineConfig, EngineError};
 
 use crate::args::{self, Invocation};
 use crate::commands;
+use crate::elevated;
 use crate::exit;
 use crate::integrations;
 use crate::output::Style;
@@ -63,6 +64,17 @@ pub trait EngineSource {
     /// Returns the error of the engine, for example an invalid configuration.
     fn open(&self) -> Result<Engine, EngineError>;
 
+    /// Opens the engine of the hidden subcommand `elevated-exec`, which runs
+    /// with the identity of the administrator and writes to the system
+    /// journal. By default it is the engine of [`open`](Self::open).
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the engine, for example an invalid configuration.
+    fn open_elevated(&self) -> Result<Engine, EngineError> {
+        self.open()
+    }
+
     /// The host of the engine.
     fn host(&self) -> Arc<dyn Host>;
 }
@@ -74,7 +86,25 @@ pub struct SystemEngine;
 
 impl EngineSource for SystemEngine {
     fn open(&self) -> Result<Engine, EngineError> {
-        Engine::open(EngineConfig::system().with_frontend(integrations::frontend()))
+        let config = EngineConfig::system().with_frontend(integrations::frontend());
+        if nurt_core::elevation::is_administrator() {
+            return self.open_elevated();
+        }
+        Engine::open(config)
+    }
+
+    fn open_elevated(&self) -> Result<Engine, EngineError> {
+        let config = EngineConfig::system().with_frontend(integrations::frontend());
+        if !nurt_core::elevation::is_administrator() {
+            return Engine::open(config);
+        }
+        let info = SystemHost::detect();
+        let program_data = std::env::var("ProgramData").ok();
+        let dir = nurt_core::elevation::system_state_dir(
+            nurt_contracts::env::Host::info(&info).os,
+            program_data.as_deref(),
+        );
+        Engine::open(config.with_state_dir(dir))
     }
 
     fn host(&self) -> Arc<dyn Host> {
@@ -160,6 +190,9 @@ pub fn run(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> u8 {
 /// The protocol servers of `serve` and `mcp` own the standard output of the process, so
 /// it is started here; every other invocation runs through [`run`].
 pub fn run_process(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> ExitCode {
+    if args.first().map(String::as_str) == Some(nurt_core::elevation::ELEVATED_EXEC) {
+        return ExitCode::from(elevated::run(io, source));
+    }
     if let Invocation::Subcommand {
         name: "serve",
         args: rest,
