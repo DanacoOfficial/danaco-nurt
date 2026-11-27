@@ -30,6 +30,7 @@ use std::path::PathBuf;
 
 use nurt_contracts::report::Irreversible;
 
+use super::guard::Effects;
 use super::journal::{DatabaseFiles, FileState};
 use super::session::{self, Database, Files, Summary};
 use super::{names, split, target};
@@ -98,6 +99,40 @@ pub(crate) fn planned_changes(request: &SqlRequest) -> Result<Vec<Change>> {
         }
     }
     Ok(changes)
+}
+
+/// Effects that a preview can name before the statements run: calls of
+/// `load_extension` and pragmas that set `temp_store_directory` or
+/// `data_store_directory`. The list is read from the text of the statements,
+/// so it is preliminary: the run reports what the authorizer saw.
+pub(crate) fn planned_irreversible(request: &SqlRequest) -> Vec<IrreversibleEntry> {
+    let mut effects = Effects::default();
+    for text in split::statement_texts(&request.query) {
+        match split::statement_kinds(text).first() {
+            Some(split::StatementKind::Extension) => effects.extension = true,
+            Some(split::StatementKind::Pragma) => {
+                let lower = text.to_ascii_lowercase();
+                for name in ["temp_store_directory", "data_store_directory"] {
+                    if lower.contains(name)
+                        && (lower.contains('=') || lower.contains('('))
+                        && !effects.process_pragmas.iter().any(|seen| seen == name)
+                    {
+                        effects.process_pragmas.push(name.to_owned());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    effects
+        .describe()
+        .into_iter()
+        .map(|note| {
+            let mut entry = IrreversibleEntry::new(Irreversible::ExternalEffect);
+            entry.detail = Some(format!("{note} (from the text of the statements)"));
+            entry
+        })
+        .collect()
 }
 
 /// Runs the statements as one change preserved by `tx`.

@@ -13,6 +13,11 @@ their own version numbers, described in the specification.
 
 ## [Unreleased]
 
+### Changed
+
+- The preview of `sql` lists the effects of `load_extension` and of the pragmas
+  `temp_store_directory` and `data_store_directory` as irreversible entries.
+
 ### Added
 
 - `create` makes named pipes and device nodes on Linux and macOS: `type: fifo

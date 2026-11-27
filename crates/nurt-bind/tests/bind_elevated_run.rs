@@ -67,3 +67,23 @@ fn a_run_without_the_elevation_program_is_left_alone() {
     let outcome = corrected("run [\"id\"] cwd: \"/\"");
     assert!(outcome.corrections.is_empty());
 }
+
+#[test]
+fn a_device_node_accepts_the_elevated_call_parameters() {
+    let outcome = corrected(
+        "create \"/dev/null2\" type: device kind: char major: 1 minor: 3 privilege: elevated",
+    );
+    assert!(
+        outcome.canonical.ends_with("privilege: elevated"),
+        "{}",
+        outcome.canonical
+    );
+    assert!(outcome.corrections.is_empty());
+}
+
+#[test]
+fn a_bash_mknod_under_sudo_keeps_working_through_run() {
+    let outcome =
+        corrected("run [\"sudo\", \"mknod\", \"/dev/x\", \"c\", \"1\", \"3\"] cwd: \"/\"");
+    assert!(outcome.canonical.ends_with("privilege: elevated"));
+}

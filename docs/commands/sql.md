@@ -52,6 +52,7 @@ its file with `TRUNCATE`, so the files hold the new state.
 | `VACUUM`, `VACUUM schema` | run outside the transaction automatically, after the other statements; the database file is journaled first |
 | `VACUUM INTO` | allowed; runs in its place after the earlier statements are committed, so the copy holds their result. The new file is resolved and journaled as created like the file of `ATTACH`, so `undo` removes it |
 | pragmas that set a value or act | run outside the transaction, in their place, so `journal_mode`, `foreign_keys` and `temp_store_directory` work; `temp_store_directory` and `data_store_directory` are allowed and change the state of the whole Nurt process (SQLite keeps them in global variables); the call reports each as an effect that is not undone, and `undo` does not reset them |
+| preview | the plan lists the effects of `load_extension` and of the two pragmas as irreversible entries (`external_effect`, "from the text of the statements"); the run reports what the authorizer saw |
 | `load_extension` | allowed under any spelling (quoted or in another case); the report marks the call with `external_effect`, because the effects of the extension are unknown and cannot be undone |
 
 A call that changes the database turns the defensive mode of SQLite off, as
