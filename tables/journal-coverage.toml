@@ -1938,6 +1938,13 @@ coverage = "no_effect"
 # Group admin: firewall, network and clock commands.
 
 [[row]]
+command = "firewall.rules"
+group = "admin"
+changes = "Nothing; the command only reads."
+preserve = []
+coverage = "no_effect"
+
+[[row]]
 command = "firewall.allow"
 group = "admin"
 changes = "Rules of the firewall."
