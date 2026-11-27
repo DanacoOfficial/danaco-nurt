@@ -77,7 +77,11 @@ their own version numbers, described in the specification.
   `sudo`, `doas` and `run0` (the backend `broker` is reported as
   `not_installed` until the service `nurt-elevation`); the configuration
   section `[privilege]`; elevated entries in the journal of the account, with
-  the same numbering, whose copies the account can access; and undo of
+  the same numbering, whose copies the account can access, written by the
+  elevated process with the rights of the account on Linux and macOS;
+  `undo N` and `redo N` of an elevated entry through the same backend, while
+  `undo` and `redo` without a number that would restore one end with
+  `E_PRIVILEGE` and the next step `undo N privilege: elevated`; and undo of
   elevated changes and of changes to packages and services by inverse
   operations.
 

@@ -318,7 +318,7 @@ impl Engine {
     }
 
     /// The journal of this account, as an owner for the elevated process.
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     fn account_owner(&self, backend: Backend) -> Option<ElevatedOwner> {
         let state = self.inner.state.as_ref()?;
         let (uid, gid) = nurt_proc::elevation::effective_ids()?;
@@ -330,9 +330,9 @@ impl Engine {
         })
     }
 
-    /// Other systems keep the journal of the elevated process in its own
-    /// account.
-    #[cfg(not(target_os = "linux"))]
+    /// Windows runs the backend `self` with the same account, so the journal of
+    /// the elevated process is the journal of the account.
+    #[cfg(not(unix))]
     fn account_owner(&self, _backend: Backend) -> Option<ElevatedOwner> {
         None
     }
@@ -366,6 +366,47 @@ impl Engine {
         })
     }
 
+    /// The entry that a bare `undo` or `redo` (without a number or another
+    /// selector) would restore, when an elevated operation wrote it.
+    ///
+    /// The choice is the one of the journal: for `undo` the newest available
+    /// entry of the session that is not an undo, for `redo` the newest
+    /// available undo entry of the session. An entry that is itself elevated,
+    /// or an undo of an elevated entry, is the case this returns.
+    pub(crate) fn bare_elevated_target(
+        &self,
+        bound: &BoundDocument,
+        session: Option<&crate::session::SessionId>,
+    ) -> Option<(&'static str, u64)> {
+        let name = bare_stage(bound)?;
+        let records = self
+            .history(&nurt_contracts::journal::HistoryQuery::default())
+            .ok()?;
+        let by_id = |id: u64| records.iter().find(|record| record.id == id);
+        let elevated = |action: &Option<String>| {
+            action
+                .as_deref()
+                .is_some_and(|action| action.starts_with("elevated"))
+        };
+        let target = records.iter().find(|record| {
+            let available = matches!(
+                record.state,
+                nurt_contracts::record::OperationState::Available
+                    | nurt_contracts::record::OperationState::Partial
+            );
+            let undo = record.kind == "undo";
+            let mine =
+                session.is_none_or(|session| record.session.as_deref() == Some(session.as_str()));
+            available && mine && (undo == (name == "redo"))
+        })?;
+        let hit = elevated(&target.action)
+            || target
+                .undo_of
+                .iter()
+                .any(|undone| by_id(*undone).is_some_and(|entry| elevated(&entry.action)));
+        hit.then_some((name, target.id))
+    }
+
     /// The request that carries the call parameters written on the stages of
     /// the program, when they differ from the options of the call; a stage
     /// parameter wins over the option and the configured default.
@@ -395,6 +436,17 @@ impl Engine {
         forced.options.privilege = options.privilege;
         forced.options.as_user = options.as_user;
         Ok(Some(forced))
+    }
+
+    /// Refuses a bare `undo` or `redo` whose target is an elevated entry with
+    /// `E_PRIVILEGE` and the next step that names the entry.
+    pub(crate) fn refuse_bare(
+        &self,
+        request: &Request,
+        prepared: &Prepared,
+        target: (&'static str, u64),
+    ) -> Response {
+        refusal(request, prepared, bare_refusal(target.0, target.1))
     }
 
     /// Runs the `undo` or `redo` of an elevated entry through the backends.
@@ -475,6 +527,46 @@ fn refusal(request: &Request, prepared: &Prepared, error: Error) -> Response {
         &failed_report(input_kind(request), error),
         &prepared.options,
     )
+}
+
+/// `undo` or `redo` when the program has such a stage that names no entry and
+/// no other selector.
+fn bare_stage(bound: &BoundDocument) -> Option<&'static str> {
+    const SELECTORS: [&str; 6] = ["id", "to", "file", "paths", "since", "all_sessions"];
+    for statement in &bound.program.statements {
+        let BoundStatement::Pipeline(pipeline) = statement else {
+            continue;
+        };
+        let head = match &pipeline.head {
+            BoundHead::Stage(stage) => Some(stage),
+            _ => None,
+        };
+        for stage in head.into_iter().chain(pipeline.stages.iter()) {
+            let name = match stage.name.as_str() {
+                "undo" => "undo",
+                "redo" => "redo",
+                _ => continue,
+            };
+            let named = stage
+                .args
+                .iter()
+                .any(|arg| !arg.default && SELECTORS.contains(&arg.name.as_str()));
+            return (!named && entry_id(bound).is_none()).then_some(name);
+        }
+    }
+    None
+}
+
+/// Refusal of a bare `undo` or `redo` whose target was written by an elevated
+/// operation: the target is named so that the next call can address it.
+fn bare_refusal(name: &str, target: u64) -> Error {
+    Error::new(
+        ErrorCode::Privilege,
+        format!(
+            "`{name}` without a number would restore operation {target}, which an elevated operation wrote; it is restored with the rights of the administrator, through a backend"
+        ),
+    )
+    .with_next_step(format!("{name} {target} privilege: elevated"))
 }
 
 /// The `id` of the first `undo` or `redo` stage of the program.

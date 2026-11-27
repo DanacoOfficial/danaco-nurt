@@ -1148,6 +1148,12 @@ impl Engine {
         if prepared.elevation.is_none() && self.is_elevated_entry(&compiled.bound) {
             return self.undo_elevated(request, &prepared, cancel, events);
         }
+        if prepared.elevation.is_none()
+            && let Some(target) =
+                self.bare_elevated_target(&compiled.bound, prepared.session.as_ref())
+        {
+            return self.refuse_bare(request, &prepared, target);
+        }
         let kind = ProgramKind::of(&compiled.bound);
         if request.options.script != Some(true) && effect_pipelines(&compiled.bound) > 1 {
             let error = Error::new(

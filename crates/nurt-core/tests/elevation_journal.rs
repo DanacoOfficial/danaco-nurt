@@ -99,8 +99,27 @@ fn undo_stage(id: i64) -> serde_json::Value {
     })
 }
 
+/// `undo` or `redo` without a number: every selector keeps its default.
+fn bare_stage(name: &str) -> serde_json::Value {
+    json!({
+        "t": "stage", "name": name, "effect": "local", "phase": "mutate",
+        "args": [
+            {"name": "id", "value": {"t": "null"}, "default": true},
+            {"name": "to", "value": {"t": "null"}, "default": true},
+            {"name": "file", "value": {"t": "null"}, "default": true},
+            {"name": "since", "value": {"t": "null"}, "default": true},
+            {"name": "paths", "value": {"t": "null"}, "default": true},
+            {"name": "all_sessions", "value": {"t": "bool", "v": false}, "default": true},
+            {"name": "on_conflict", "value": {"t": "enum", "v": "report"}, "default": true}
+        ]
+    })
+}
+
 /// The journal directory is named by the volume, so the tests of this file
-/// share one journal and run one at a time to see consecutive numbers.
+/// share one journal and run one at a time to see consecutive numbers. The
+/// mutex orders the threads of one process; the lock on a file of the
+/// temporary directory orders the processes (`cargo nextest` runs every test
+/// in its own process, and other test runs on the machine use the journal too).
 static JOURNAL: Mutex<()> = Mutex::new(());
 
 struct World {
@@ -108,6 +127,7 @@ struct World {
     dir: tempfile::TempDir,
     programs: Arc<Mutex<Programs>>,
     _turn: MutexGuard<'static, ()>,
+    _process_turn: std::fs::File,
 }
 
 impl World {
@@ -127,6 +147,16 @@ impl World {
             );
         }
         self.run(&text, None)
+    }
+
+    /// Runs `undo` or `redo` without a number.
+    fn bare(&self, name: &str) -> Response {
+        {
+            let mut programs = self.programs.lock().unwrap();
+            let known = std::mem::take(&mut *programs);
+            *programs = known.with(name, program(bare_stage(name), Vec::new()));
+        }
+        self.run(name, None)
     }
 
     fn run(&self, text: &str, privilege: Option<Privilege>) -> Response {
@@ -195,6 +225,13 @@ fn world() -> World {
     let turn = JOURNAL
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let process_turn = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(std::env::temp_dir().join("nurt-elevation-journal.lock"))
+        .unwrap();
+    process_turn.lock().unwrap();
     let dir = tempfile::tempdir().unwrap();
     for name in ["x", "y", "z"] {
         std::fs::write(dir.path().join(name), name).unwrap();
@@ -225,6 +262,7 @@ fn world() -> World {
         dir,
         programs,
         _turn: turn,
+        _process_turn: process_turn,
     }
 }
 
@@ -313,4 +351,65 @@ fn each_entry_is_undone_by_its_own_number_over_a_mixed_journal() {
             .all(|(_, state)| *state == OperationState::Undone),
         "{states:?}"
     );
+}
+
+#[test]
+fn bare_undo_of_an_elevated_entry_is_refused_and_names_the_next_step() {
+    let world = world();
+    let y = world
+        .run("rm y", Some(Privilege::Elevated))
+        .report
+        .op
+        .unwrap();
+    let refused = world.bare("undo");
+    assert_eq!(refused.report.status, ReportStatus::Failed, "{refused:?}");
+    let error = refused.report.error.as_ref().unwrap();
+    assert_eq!(error.code(), nurt_contracts::error::ErrorCode::Privilege);
+    assert_eq!(error.next_steps, [format!("undo {y} privilege: elevated")]);
+    assert!(!world.file("y").exists(), "nothing was restored");
+    let undone = world.undo(y);
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    assert!(world.file("y").exists());
+}
+
+#[test]
+fn bare_undo_of_an_entry_of_the_account_is_not_refused() {
+    let world = world();
+    let _ = world.run("rm y", Some(Privilege::Elevated));
+    let z = world.run("rm z", None).report.op.unwrap();
+    let undone = world.bare("undo");
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    assert!(!undone.report.elevated);
+    assert!(world.file("z").exists() && !world.file("y").exists());
+    assert!(
+        history(&world)
+            .iter()
+            .any(|record| record.id == z && record.state == OperationState::Undone)
+    );
+}
+
+#[test]
+fn bare_redo_of_the_undo_of_an_elevated_entry_is_refused() {
+    let world = world();
+    let y = world
+        .run("rm y", Some(Privilege::Elevated))
+        .report
+        .op
+        .unwrap();
+    let undone = world.undo(y);
+    assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
+    let undo_entry = history(&world)
+        .iter()
+        .find(|record| record.kind == "undo" && record.undo_of == [y])
+        .map(|record| record.id)
+        .unwrap();
+    let refused = world.bare("redo");
+    assert_eq!(refused.report.status, ReportStatus::Failed, "{refused:?}");
+    let error = refused.report.error.as_ref().unwrap();
+    assert_eq!(error.code(), nurt_contracts::error::ErrorCode::Privilege);
+    assert_eq!(
+        error.next_steps,
+        [format!("redo {undo_entry} privilege: elevated")]
+    );
+    assert!(world.file("y").exists(), "nothing was redone");
 }

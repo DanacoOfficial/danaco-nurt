@@ -307,12 +307,19 @@ operation states `elevated: true` and the `backend`.
 The elevated process writes the entry, with the previous content, owner,
 group, mode, access control list, extended attributes and the security context
 of every target (sections 3 to 7), with the rights of the account, not of the
-administrator: on Linux it switches the file system user and group of the
+administrator: on Linux it can switch the file system user and group of the
 calling thread (`fsuid`, `fsgid`) to those of the account for every call that
 concerns the state directory or a journal directory of the account, so the
 kernel checks each component of the path, a link included, with the
 permissions of the account, and every file and directory is created owned by
-the account; it never follows a link with more rights than the account has,
+the account. On macOS and the other Unix systems, which have no `fsuid`, the
+process opens the journal directory without following links (it must be a
+directory owned by the account), creates every file with `openat(O_CREAT |
+O_EXCL | O_NOFOLLOW)` and every directory with `mkdirat` relative to that
+descriptor, and gives each new entry to the account with `fchown` (`fchownat`
+with `AT_SYMLINK_NOFOLLOW` for a link) and `fchmod` before anything is
+written; on Windows the backend `self` runs as the same account and needs
+none of this. In every case the process never follows a link with more rights than the account has,
 and it never leaves a file owned by the administrator below the state
 directory. A copy of a target into the journal is read with the rights of the
 administrator and written with those of the account, block by block; a hard
@@ -322,14 +329,18 @@ in the request (`nurt-elevated/1`); the elevated process refuses a state
 directory that is not an existing directory owned by that user, and a user that
 differs from the one the backend recorded (`SUDO_UID`). The request of an
 operation with `as_user` carries no owner: the entry is in the journal of that
-account. On systems other than Linux an elevated process cannot write the
-journal of another account in 0.1.1 and refuses the request.
+account.
 
 `undo` and `redo` of an entry that an elevated operation wrote restore the
 targets with the rights of the administrator, through the same backend with the
 same access rule, and report `elevation_reason: elevated_entry`; without a
-backend they end with `E_PRIVILEGE` and `next_steps`. `undo` without a number
-and `undo to:` run with the rights of the account.
+backend they end with `E_PRIVILEGE` and `next_steps`. `undo` and `redo` without
+a number first find the entry they would restore, as the journal does (the
+newest available entry that is not an undo, or the newest available undo, of
+the session); when an elevated operation wrote that entry, they end with
+`E_PRIVILEGE` and the next step `undo N privilege: elevated` (`redo N …` for
+`redo`), with the number of the entry. `undo to:` runs with the rights of the
+account.
 
 An `enable` or `disable` is undone only when the recorded start type is
 `disabled` or `automatic` (release 0.1.1). A service whose recorded start type
