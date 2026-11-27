@@ -2,11 +2,11 @@
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 <!-- -->
-<!-- Module:           branding.print.print-colour-values -->
+<!-- Module:           branding/print/print-colour-values.md -->
 <!-- Responsibility:   Print colour values of the Danaco Nurt brand colours (CMYK FOGRA39 and FOGRA47, TAC, CIEDE2000), rich black study, Pantone candidates, foil requirements and millimetre conversions. -->
 <!-- Dependencies:     print-colour-values.json, print-geometry-values.json (same directory). -->
 <!-- Author:           Danaco Official -->
-<!-- Version:          production identity 1.0.0, release 0.1.1 -->
+<!-- Version:          0.1.1, 2026-11-27 -->
 <!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Danaco Nurt: print colour values and print geometry
