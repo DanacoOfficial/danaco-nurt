@@ -837,12 +837,11 @@ fn cancel_needs_a_schedule_and_a_second_schedule_needs_a_cancel() {
         derive("power.cancel", &cancel),
         Inverse::Irreversible(_)
     ));
-    assert_eq!(
+    assert!(
         plan(&sys, &bound("power.cancel", &[]))
             .unwrap()
             .unchanged
-            .is_some(),
-        true
+            .is_some()
     );
 }
 
@@ -1353,7 +1352,7 @@ mod system {
         assert_eq!(shell("sysctl", &["-n", "vm.swappiness"]), before);
         if ProcessSys
             .run(&Call::new("modprobe", ["-n", "dummy"]))
-            .map_or(false, |o| o.ok())
+            .is_ok_and(|o| o.ok())
         {
             let _cleanup = Cleanup(vec![Call::new("modprobe", ["-r", "dummy"])]);
             let loaded = real(&bound("modules.load", &[("name", text("dummy"))]));

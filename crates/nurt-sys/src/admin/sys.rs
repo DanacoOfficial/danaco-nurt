@@ -292,10 +292,8 @@ impl Sys for ProcessSys {
                 format!("cannot start `{}`: {error}", call.program),
             )
         })?;
-        if let Some(mut stdin) = child.stdin.take() {
-            if let Some(text) = &call.stdin {
-                let _ = stdin.write_all(text.as_bytes());
-            }
+        if let (Some(mut stdin), Some(text)) = (child.stdin.take(), &call.stdin) {
+            let _ = stdin.write_all(text.as_bytes());
         }
         let output = child
             .wait_with_output()

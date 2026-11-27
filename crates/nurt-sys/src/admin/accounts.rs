@@ -105,6 +105,88 @@ fn groups_arg(args: &BoundArgs) -> Result<Option<Vec<String>>> {
     Ok(groups)
 }
 
+/// The values of an account to create.
+struct Wanted<'a> {
+    name: &'a str,
+    uid: Option<i64>,
+    shell: Option<&'a str>,
+    home: Option<&'a str>,
+    comment: Option<&'a str>,
+    groups: &'a [String],
+    system: bool,
+    create_home: bool,
+}
+
+fn create_windows(w: &Wanted<'_>) -> Vec<Call> {
+    let mut call = Call::new("net", ["user", w.name, "/add"]);
+    if let Some(comment) = w.comment {
+        call.args.push(format!("/fullname:{comment}"));
+    }
+    if let Some(home) = w.home {
+        call.args.push(format!("/homedir:{home}"));
+    }
+    let mut calls = vec![call];
+    for group in w.groups {
+        calls.push(Call::new("net", ["localgroup", group, w.name, "/add"]));
+    }
+    calls
+}
+
+fn create_macos(w: &Wanted<'_>) -> Vec<Call> {
+    let mut call = Call::new("sysadminctl", ["-addUser", w.name]);
+    if let Some(uid) = w.uid {
+        call.args.extend(["-UID".to_owned(), uid.to_string()]);
+    }
+    for (flag, value) in [
+        ("-shell", w.shell),
+        ("-home", w.home),
+        ("-fullName", w.comment),
+    ] {
+        if let Some(value) = value {
+            call.args.extend([flag.to_owned(), value.to_owned()]);
+        }
+    }
+    let mut calls = vec![call];
+    for group in w.groups {
+        calls.push(Call::new(
+            "dseditgroup",
+            ["-o", "edit", "-a", w.name, "-t", "user", group],
+        ));
+    }
+    calls
+}
+
+fn create_linux(w: &Wanted<'_>) -> Vec<Call> {
+    let mut call = Call::new("useradd", Vec::<String>::new());
+    if let Some(uid) = w.uid {
+        call.args.extend(["-u".to_owned(), uid.to_string()]);
+    }
+    for (flag, value) in [("-s", w.shell), ("-d", w.home)] {
+        if let Some(value) = value {
+            call.args.extend([flag.to_owned(), value.to_owned()]);
+        }
+    }
+    call.args.push(
+        if w.create_home && !w.system {
+            "-m"
+        } else {
+            "-M"
+        }
+        .to_owned(),
+    );
+    if let Some(comment) = w.comment {
+        call.args.extend(["-c".to_owned(), comment.to_owned()]);
+    }
+    if !w.groups.is_empty() {
+        call.args.extend(["-G".to_owned(), w.groups.join(",")]);
+    }
+    if w.system {
+        call.args.push("-r".to_owned());
+    }
+    call.args.push(w.name.to_owned());
+    vec![call]
+}
+
 fn create(sys: &dyn Sys, args: &BoundArgs, name: &str) -> Result<Plan> {
     let (shell, home, comment) = texts(args)?;
     let groups = groups_arg(args)?.unwrap_or_default();
@@ -117,69 +199,21 @@ fn create(sys: &dyn Sys, args: &BoundArgs, name: &str) -> Result<Plan> {
                 .with_fix(format!("accounts.modify name: \"{name}\"")),
         );
     }
-    let mut calls = Vec::new();
-    match sys.os() {
-        Os::Windows => {
-            let mut call = Call::new("net", ["user", name, "/add"]);
-            if let Some(comment) = &comment {
-                call.args.push(format!("/fullname:{comment}"));
-            }
-            if let Some(home) = &home {
-                call.args.push(format!("/homedir:{home}"));
-            }
-            calls.push(call);
-            for group in &groups {
-                calls.push(Call::new("net", ["localgroup", group, name, "/add"]));
-            }
-        }
-        Os::Macos => {
-            let mut call = Call::new("sysadminctl", ["-addUser", name]);
-            if let Some(uid) = uid {
-                call.args.extend(["-UID".to_owned(), uid.to_string()]);
-            }
-            if let Some(shell) = &shell {
-                call.args.extend(["-shell".to_owned(), shell.clone()]);
-            }
-            if let Some(home) = &home {
-                call.args.extend(["-home".to_owned(), home.clone()]);
-            }
-            if let Some(comment) = &comment {
-                call.args.extend(["-fullName".to_owned(), comment.clone()]);
-            }
-            calls.push(call);
-            for group in &groups {
-                calls.push(Call::new(
-                    "dseditgroup",
-                    ["-o", "edit", "-a", name, "-t", "user", group],
-                ));
-            }
-        }
-        _ => {
-            let mut call = Call::new("useradd", Vec::<String>::new());
-            if let Some(uid) = uid {
-                call.args.extend(["-u".to_owned(), uid.to_string()]);
-            }
-            if let Some(shell) = &shell {
-                call.args.extend(["-s".to_owned(), shell.clone()]);
-            }
-            if let Some(home) = &home {
-                call.args.extend(["-d".to_owned(), home.clone()]);
-            }
-            call.args
-                .push(if create_home && !system { "-m" } else { "-M" }.to_owned());
-            if let Some(comment) = &comment {
-                call.args.extend(["-c".to_owned(), comment.clone()]);
-            }
-            if !groups.is_empty() {
-                call.args.extend(["-G".to_owned(), groups.join(",")]);
-            }
-            if system {
-                call.args.push("-r".to_owned());
-            }
-            call.args.push(name.to_owned());
-            calls.push(call);
-        }
-    }
+    let wanted = Wanted {
+        name,
+        uid,
+        shell: shell.as_deref(),
+        home: home.as_deref(),
+        comment: comment.as_deref(),
+        groups: &groups,
+        system,
+        create_home,
+    };
+    let calls = match sys.os() {
+        Os::Windows => create_windows(&wanted),
+        Os::Macos => create_macos(&wanted),
+        _ => create_linux(&wanted),
+    };
     let after = AccountState {
         uid: uid.and_then(|uid| u32::try_from(uid).ok()),
         shell,
@@ -193,6 +227,94 @@ fn create(sys: &dyn Sys, args: &BoundArgs, name: &str) -> Result<Plan> {
         changes: vec![StateChange::new(target(name), None, Some(after.to_text()))],
         ..Plan::default()
     })
+}
+
+/// The fields of an account to change.
+struct Change<'a> {
+    name: &'a str,
+    shell: Option<&'a str>,
+    home: Option<&'a str>,
+    comment: Option<&'a str>,
+    groups: Option<&'a [String]>,
+    lock: Option<bool>,
+    before: &'a AccountState,
+}
+
+fn modify_windows(c: &Change<'_>) -> Vec<Call> {
+    let mut calls = Vec::new();
+    let mut call = Call::new("net", ["user", c.name]);
+    if let Some(comment) = c.comment {
+        call.args.push(format!("/fullname:{comment}"));
+    }
+    if let Some(home) = c.home {
+        call.args.push(format!("/homedir:{home}"));
+    }
+    if let Some(lock) = c.lock {
+        call.args
+            .push(format!("/active:{}", if lock { "no" } else { "yes" }));
+    }
+    if call.args.len() > 2 {
+        calls.push(call);
+    }
+    if let Some(wanted) = c.groups {
+        for group in c.before.groups.iter().filter(|g| !wanted.contains(g)) {
+            calls.push(Call::new("net", ["localgroup", group, c.name, "/delete"]));
+        }
+        for group in wanted.iter().filter(|g| !c.before.groups.contains(g)) {
+            calls.push(Call::new("net", ["localgroup", group, c.name, "/add"]));
+        }
+    }
+    calls
+}
+
+fn modify_macos(c: &Change<'_>) -> Vec<Call> {
+    let mut calls = Vec::new();
+    let record = format!("/Users/{}", c.name);
+    for (key, value) in [
+        ("UserShell", c.shell),
+        ("NFSHomeDirectory", c.home),
+        ("RealName", c.comment),
+    ] {
+        if let Some(value) = value {
+            calls.push(Call::new("dscl", [".", "-create", &record, key, value]));
+        }
+    }
+    if let Some(wanted) = c.groups {
+        for group in c.before.groups.iter().filter(|g| !wanted.contains(g)) {
+            calls.push(Call::new(
+                "dseditgroup",
+                ["-o", "edit", "-d", c.name, "-t", "user", group],
+            ));
+        }
+        for group in wanted.iter().filter(|g| !c.before.groups.contains(g)) {
+            calls.push(Call::new(
+                "dseditgroup",
+                ["-o", "edit", "-a", c.name, "-t", "user", group],
+            ));
+        }
+    }
+    if let Some(lock) = c.lock {
+        let flag = if lock { "-disableuser" } else { "-enableuser" };
+        calls.push(Call::new("pwpolicy", ["-u", c.name, flag]));
+    }
+    calls
+}
+
+fn modify_linux(c: &Change<'_>) -> Vec<Call> {
+    let mut call = Call::new("usermod", Vec::<String>::new());
+    for (flag, value) in [("-s", c.shell), ("-d", c.home), ("-c", c.comment)] {
+        if let Some(value) = value {
+            call.args.extend([flag.to_owned(), value.to_owned()]);
+        }
+    }
+    if let Some(groups) = c.groups {
+        call.args.extend(["-G".to_owned(), groups.join(",")]);
+    }
+    if let Some(lock) = c.lock {
+        call.args.push(if lock { "-L" } else { "-U" }.to_owned());
+    }
+    call.args.push(c.name.to_owned());
+    vec![call]
 }
 
 fn modify(sys: &dyn Sys, args: &BoundArgs, name: &str) -> Result<Plan> {
@@ -231,109 +353,20 @@ fn modify(sys: &dyn Sys, args: &BoundArgs, name: &str) -> Result<Plan> {
             ..Plan::default()
         });
     }
-    let mut calls = Vec::new();
-    match sys.os() {
-        Os::Windows => {
-            let mut call = Call::new("net", ["user", name]);
-            if let Some(comment) = &comment {
-                call.args.push(format!("/fullname:{comment}"));
-            }
-            if let Some(home) = &home {
-                call.args.push(format!("/homedir:{home}"));
-            }
-            if let Some(lock) = lock {
-                call.args
-                    .push(format!("/active:{}", if lock { "no" } else { "yes" }));
-            }
-            if call.args.len() > 2 {
-                calls.push(call);
-            }
-            if let Some(wanted) = &groups {
-                for group in before.groups.iter().filter(|g| !wanted.contains(g)) {
-                    calls.push(Call::new("net", ["localgroup", group, name, "/delete"]));
-                }
-                for group in wanted.iter().filter(|g| !before.groups.contains(g)) {
-                    calls.push(Call::new("net", ["localgroup", group, name, "/add"]));
-                }
-            }
-        }
-        Os::Macos => {
-            if let Some(shell) = &shell {
-                calls.push(Call::new(
-                    "dscl",
-                    [
-                        ".",
-                        "-create",
-                        &format!("/Users/{name}"),
-                        "UserShell",
-                        shell,
-                    ],
-                ));
-            }
-            if let Some(home) = &home {
-                calls.push(Call::new(
-                    "dscl",
-                    [
-                        ".",
-                        "-create",
-                        &format!("/Users/{name}"),
-                        "NFSHomeDirectory",
-                        home,
-                    ],
-                ));
-            }
-            if let Some(comment) = &comment {
-                calls.push(Call::new(
-                    "dscl",
-                    [
-                        ".",
-                        "-create",
-                        &format!("/Users/{name}"),
-                        "RealName",
-                        comment,
-                    ],
-                ));
-            }
-            if let Some(wanted) = &groups {
-                for group in before.groups.iter().filter(|g| !wanted.contains(g)) {
-                    calls.push(Call::new(
-                        "dseditgroup",
-                        ["-o", "edit", "-d", name, "-t", "user", group],
-                    ));
-                }
-                for group in wanted.iter().filter(|g| !before.groups.contains(g)) {
-                    calls.push(Call::new(
-                        "dseditgroup",
-                        ["-o", "edit", "-a", name, "-t", "user", group],
-                    ));
-                }
-            }
-            if let Some(lock) = lock {
-                let flag = if lock { "-disableuser" } else { "-enableuser" };
-                calls.push(Call::new("pwpolicy", ["-u", name, flag]));
-            }
-        }
-        _ => {
-            let mut call = Call::new("usermod", Vec::<String>::new());
-            if let Some(shell) = &shell {
-                call.args.extend(["-s".to_owned(), shell.clone()]);
-            }
-            if let Some(home) = &home {
-                call.args.extend(["-d".to_owned(), home.clone()]);
-            }
-            if let Some(comment) = &comment {
-                call.args.extend(["-c".to_owned(), comment.clone()]);
-            }
-            if let Some(groups) = &groups {
-                call.args.extend(["-G".to_owned(), groups.join(",")]);
-            }
-            if let Some(lock) = lock {
-                call.args.push(if lock { "-L" } else { "-U" }.to_owned());
-            }
-            call.args.push(name.to_owned());
-            calls.push(call);
-        }
-    }
+    let change = Change {
+        name,
+        shell: shell.as_deref(),
+        home: home.as_deref(),
+        comment: comment.as_deref(),
+        groups: groups.as_deref(),
+        lock,
+        before: &before,
+    };
+    let calls = match sys.os() {
+        Os::Windows => modify_windows(&change),
+        Os::Macos => modify_macos(&change),
+        _ => modify_linux(&change),
+    };
     Ok(Plan {
         calls,
         changes: vec![StateChange::new(
@@ -558,11 +591,9 @@ pub(crate) fn parse_net_user(output: &str) -> AccountState {
     let mut state = AccountState::default();
     let mut in_groups = false;
     for line in output.lines() {
-        if in_groups {
-            if line.trim().is_empty() || line.starts_with("The command") {
-                in_groups = false;
-                continue;
-            }
+        if in_groups && (line.trim().is_empty() || line.starts_with("The command")) {
+            in_groups = false;
+            continue;
         }
         let field = |label: &str| line.strip_prefix(label).map(|rest| rest.trim().to_owned());
         if let Some(value) = field("Full Name") {
