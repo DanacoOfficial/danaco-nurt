@@ -349,7 +349,7 @@ impl BindingExpect {
             if let Some(raw_pointer) = raw_pointer(view, view_pointer)
                 && raw.pointer(&raw_pointer).is_none()
             {
-                pointer::insert(&mut raw, &raw_pointer, json!("present"));
+                pointer::insert(&mut raw, &raw_pointer, present_value(&raw_pointer));
             }
         }
         if view == View::Text && raw.get(member::TEXT).is_none() {
@@ -389,6 +389,16 @@ fn required_members(call: &str) -> Vec<(&'static str, Value)> {
         "history" => vec![("operations", json!([]))],
         "space" => vec![("volumes", json!([]))],
         _ => Vec::new(),
+    }
+}
+
+/// Value of a member that an expectation requires without naming a value:
+/// the position of an error is an object, everything else is text.
+fn present_value(raw_pointer: &str) -> Value {
+    if raw_pointer.ends_with("/error/at") {
+        json!({"line": 1, "column": 1})
+    } else {
+        json!("present")
     }
 }
 
@@ -483,6 +493,23 @@ mod tests {
         assert_eq!(view("events"), View::Events);
         assert_eq!(view("close"), View::Empty);
         assert_eq!(view("catalog"), View::Object);
+    }
+
+    #[test]
+    fn a_required_error_position_is_an_object() {
+        let expect: BindingExpect = serde_json::from_value(json!({
+            "outcome": "language_error", "code": "E_SYNTAX",
+            "present": ["/error/at", "/error/message"]
+        }))
+        .unwrap();
+        let Answer::Result(raw) = expect.answer("run", View::Response) else {
+            panic!("result expected")
+        };
+        assert_eq!(
+            raw["report"]["error"]["at"],
+            json!({"line": 1, "column": 1})
+        );
+        assert_eq!(raw["report"]["error"]["message"], "error");
     }
 
     #[test]
