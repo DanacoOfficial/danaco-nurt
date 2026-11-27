@@ -401,7 +401,7 @@ mod tests {
 
     fn frozen_entry() -> toml::Value {
         let path = format!(
-            "{}/../../catalog/admin.toml",
+            "{}/../../catalog/administration.toml",
             std::env::var("CARGO_MANIFEST_DIR")
                 .as_deref()
                 .unwrap_or(env!("CARGO_MANIFEST_DIR"))

@@ -22,7 +22,7 @@ Commands that act on the state reported here belong to other groups:
 | Stop a process, job or service | `stop` | core |
 | Read the operation journal of Danaco Nurt | `journal.*` | journal |
 | Read and change files, including `registry:` paths | `read`, `write`, `list` | core |
-| Manage services | `services`, `start`, `restart` | admin |
+| Manage services | `services`, `start`, `restart` | administration |
 
 `suspend` and `resume` are listed at the end of the command table. Their
 pages are maintained with the commands that run and control programs.
@@ -82,7 +82,7 @@ The parameter `scope` of `environment` selects where the variables are read:
 
 `scope` of `environment` and `scope` of `services` have different values and
 different meaning. For `services` it selects the service manager instance
-(`system` or `user`), see the group `admin`.
+(`system` or `user`), see the group `administration`.
 
 The environment is read through the `env:` provider of the file commands or
 through `environment`. The provider addresses one variable as a path and
@@ -183,6 +183,6 @@ sleep 2s
 
 ## Related
 
-[Group admin](admin.md) manages the services that `processes` and `ports`
+[Group administration](administration.md) manages the services that `processes` and `ports`
 report. [Group program](program.md) describes installed programs. The page of
 the command `sleep` is [sleep](../commands/sleep.md).

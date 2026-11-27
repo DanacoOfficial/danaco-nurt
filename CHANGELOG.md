@@ -26,7 +26,7 @@ their own version numbers, described in the specification.
   `E_OS_ONLY`. Both are journaled as created files, and `undo` removes them.
   `info` and `list` report the types `fifo` and `device`; a device node has
   the fields `major` and `minor`.
-- Administration of the firewall, the network and the clock (group `admin`,
+- Administration of the firewall, the network and the clock (group `administration`,
   language brief section 10): `firewall.rules`, `firewall.allow`,
   `firewall.deny` and `firewall.remove` on nftables, firewalld and ufw (Linux),
   pf (macOS) and the Windows Defender Firewall; `network.route_add`,

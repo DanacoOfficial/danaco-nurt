@@ -1,6 +1,6 @@
 ---
 command: groups.remove_member
-group: admin
+group: administration
 summary: Remove an account from a group.
 since: 0.1.1
 ---

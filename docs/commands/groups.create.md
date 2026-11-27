@@ -1,6 +1,6 @@
 ---
 command: groups.create
-group: admin
+group: administration
 summary: Create a group.
 since: 0.1.1
 ---

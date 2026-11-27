@@ -1,6 +1,6 @@
 ---
 command: firewall.remove
-group: admin
+group: administration
 summary: Remove the firewall rules that match a port, protocol, source, direction and zone.
 since: 0.1.1
 ---

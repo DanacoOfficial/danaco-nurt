@@ -1,6 +1,6 @@
 ---
 command: network.dns_set
-group: admin
+group: administration
 summary: Set the DNS servers and search domains of an interface; an empty list of servers returns to automatic servers.
 since: 0.1.1
 ---

@@ -1,6 +1,6 @@
 ---
 command: power.shutdown
-group: admin
+group: administration
 summary: Shut down the system now or at a given time.
 since: 0.1.1
 ---

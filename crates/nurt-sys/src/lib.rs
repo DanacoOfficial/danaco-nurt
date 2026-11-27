@@ -86,7 +86,7 @@ mod tests {
     use nurt_contracts::stage::StageImpl;
 
     /// Catalog files whose commands the crate implements.
-    const CATALOG_FILES: [&str; 3] = ["system.toml", "admin.toml", "package.toml"];
+    const CATALOG_FILES: [&str; 3] = ["system.toml", "administration.toml", "package.toml"];
     /// Commands of [`CATALOG_FILES`] implemented by other crates.
     const FOREIGN_COMMANDS: [&str; 3] = ["logs", "suspend", "resume"];
 

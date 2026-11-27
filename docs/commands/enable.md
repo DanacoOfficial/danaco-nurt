@@ -1,6 +1,6 @@
 ---
 command: enable
-group: admin
+group: administration
 summary: Make the input services start automatically at boot or login.
 since: 0.1.0
 ---
@@ -94,5 +94,5 @@ services name: /^backup/ |> enable
 ## Related
 
 `services` produces the input records. `disable` stops a service from starting
-automatically and `start` starts it now. The `admin` group page lists the
+automatically and `start` starts it now. The `administration` group page lists the
 other commands of the group.

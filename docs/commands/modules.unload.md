@@ -1,6 +1,6 @@
 ---
 command: modules.unload
-group: admin
+group: administration
 summary: Unload a kernel module.
 since: 0.1.1
 ---

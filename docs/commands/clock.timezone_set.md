@@ -1,6 +1,6 @@
 ---
 command: clock.timezone_set
-group: admin
+group: administration
 summary: Set the time zone of the system.
 since: 0.1.1
 ---

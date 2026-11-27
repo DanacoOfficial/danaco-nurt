@@ -54,8 +54,8 @@ summary = "Processes, ports, disks, host, environment, system logs and suspensio
 commands = 11
 
 [[file]]
-name = "admin"
-file = "admin.toml"
+name = "administration"
+file = "administration.toml"
 summary = "System services, accounts, groups, mounts, kernel parameters, power, disks, the registry provider, CIM, the firewall, routes, DNS and the clock."
 commands = 34
 

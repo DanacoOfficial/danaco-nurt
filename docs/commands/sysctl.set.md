@@ -1,6 +1,6 @@
 ---
 command: sysctl.set
-group: admin
+group: administration
 summary: Set a kernel parameter.
 since: 0.1.1
 ---

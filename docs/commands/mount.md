@@ -1,6 +1,6 @@
 ---
 command: mount
-group: admin
+group: administration
 summary: Mount a device or volume.
 since: 0.1.1
 ---

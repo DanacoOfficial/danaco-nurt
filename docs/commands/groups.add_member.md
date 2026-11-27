@@ -1,6 +1,6 @@
 ---
 command: groups.add_member
-group: admin
+group: administration
 summary: Add an account to a group.
 since: 0.1.1
 ---

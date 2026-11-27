@@ -1,6 +1,6 @@
 ---
 command: accounts.password
-group: admin
+group: administration
 summary: Set the password of an account.
 since: 0.1.1
 ---

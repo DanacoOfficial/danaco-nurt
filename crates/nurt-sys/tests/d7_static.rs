@@ -36,7 +36,12 @@ const CRATES: [&str; 6] = [
 
 /// Catalog groups implemented by [`CRATES`].
 const GROUPS: [&str; 6] = [
-    "system", "admin", "package", "network", "schedule", "program",
+    "system",
+    "administration",
+    "package",
+    "network",
+    "schedule",
+    "program",
 ];
 
 /// Commands of the `system` catalog group implemented by other crates.

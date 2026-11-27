@@ -1,6 +1,6 @@
 ---
 command: accounts.modify
-group: admin
+group: administration
 summary: Change the shell, home, groups, comment or lock state of an account.
 since: 0.1.1
 ---

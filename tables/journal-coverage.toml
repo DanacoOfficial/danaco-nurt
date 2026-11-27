@@ -1470,14 +1470,14 @@ coverage = "no_effect"
 
 [[row]]
 command = "services"
-group = "admin"
+group = "administration"
 changes = "Nothing; the command only reads."
 preserve = []
 coverage = "no_effect"
 
 [[row]]
 command = "start"
-group = "admin"
+group = "administration"
 changes = "State of a service."
 preserve = ["external"]
 coverage = "none"
@@ -1486,7 +1486,7 @@ exception = "Service state is outside the file system."
 
 [[row]]
 command = "restart"
-group = "admin"
+group = "administration"
 changes = "State of a service."
 preserve = ["external"]
 coverage = "none"
@@ -1495,7 +1495,7 @@ exception = "Service state is outside the file system."
 
 [[row]]
 command = "enable"
-group = "admin"
+group = "administration"
 changes = "Start-up configuration of a service."
 preserve = ["external"]
 coverage = "none"
@@ -1504,7 +1504,7 @@ exception = "The service manager changes its configuration itself."
 
 [[row]]
 command = "disable"
-group = "admin"
+group = "administration"
 changes = "Start-up configuration of a service."
 preserve = ["external"]
 coverage = "none"
@@ -1513,7 +1513,7 @@ exception = "The service manager changes its configuration itself."
 
 [[row]]
 command = "windows.cim"
-group = "admin"
+group = "administration"
 changes = "Nothing for a query; the effect of a method called with `invoke`."
 preserve = ["external"]
 coverage = "none"
@@ -1939,7 +1939,7 @@ coverage = "no_effect"
 
 [[row]]
 command = "firewall.allow"
-group = "admin"
+group = "administration"
 changes = "Rules of the firewall."
 preserve = ["value"]
 coverage = "full"
@@ -1947,7 +1947,7 @@ note = "The rule is recorded in the entry and removed by the inverse command, no
 
 [[row]]
 command = "firewall.deny"
-group = "admin"
+group = "administration"
 changes = "Rules of the firewall."
 preserve = ["value"]
 coverage = "full"
@@ -1955,7 +1955,7 @@ note = "The rule is recorded in the entry and removed by the inverse command, no
 
 [[row]]
 command = "firewall.remove"
-group = "admin"
+group = "administration"
 changes = "Rules of the firewall."
 preserve = ["value"]
 coverage = "full"
@@ -1963,7 +1963,7 @@ note = "The removed rules are recorded in the entry and added again by the inver
 
 [[row]]
 command = "network.route_add"
-group = "admin"
+group = "administration"
 changes = "Routes of the routing table."
 preserve = ["value"]
 coverage = "full"
@@ -1971,7 +1971,7 @@ note = "The route is recorded in the entry and removed by the inverse command, n
 
 [[row]]
 command = "network.route_remove"
-group = "admin"
+group = "administration"
 changes = "Routes of the routing table."
 preserve = ["value"]
 coverage = "full"
@@ -1979,7 +1979,7 @@ note = "The removed routes are recorded in the entry and added again by the inve
 
 [[row]]
 command = "network.dns_set"
-group = "admin"
+group = "administration"
 changes = "Name servers and search domains of an interface."
 preserve = ["value"]
 coverage = "full"
@@ -1987,7 +1987,7 @@ note = "The previous servers and domains are recorded in the entry and set again
 
 [[row]]
 command = "clock.timezone_set"
-group = "admin"
+group = "administration"
 changes = "Time zone of the system."
 preserve = ["value"]
 coverage = "full"
@@ -1995,7 +1995,7 @@ note = "The previous time zone is recorded in the entry and set again by the inv
 
 [[row]]
 command = "clock.ntp"
-group = "admin"
+group = "administration"
 changes = "State of network time synchronization."
 preserve = ["value"]
 coverage = "full"
@@ -2003,7 +2003,7 @@ note = "The previous state is recorded in the entry and set again by the inverse
 
 [[row]]
 command = "clock.set"
-group = "admin"
+group = "administration"
 changes = "Time of the system clock."
 preserve = ["external"]
 coverage = "none"
@@ -2013,7 +2013,7 @@ exception = "The previous reading of the clock cannot be restored."
 
 [[row]]
 command = "accounts.create"
-group = "admin"
+group = "administration"
 changes = "State of a user account of the system."
 preserve = ["external"]
 coverage = "none"
@@ -2022,7 +2022,7 @@ exception = "The account database is changed by the system programs; the previou
 
 [[row]]
 command = "accounts.modify"
-group = "admin"
+group = "administration"
 changes = "State of a user account of the system."
 preserve = ["external"]
 coverage = "none"
@@ -2031,7 +2031,7 @@ exception = "The account database is changed by the system programs; the recorde
 
 [[row]]
 command = "accounts.remove"
-group = "admin"
+group = "administration"
 changes = "State of a user account and its home directory."
 preserve = ["external", "clone", "copy", "none"]
 coverage = "partial"
@@ -2040,7 +2040,7 @@ exception = "The account is recreated by accounts.create from the recorded value
 
 [[row]]
 command = "accounts.password"
-group = "admin"
+group = "administration"
 changes = "Password of a user account."
 preserve = ["external"]
 coverage = "none"
@@ -2049,7 +2049,7 @@ exception = "The previous password is not recorded and cannot be restored."
 
 [[row]]
 command = "groups.create"
-group = "admin"
+group = "administration"
 changes = "State of a group of the system."
 preserve = ["external"]
 coverage = "none"
@@ -2058,7 +2058,7 @@ exception = "The group database is changed by the system programs; the previous 
 
 [[row]]
 command = "groups.remove"
-group = "admin"
+group = "administration"
 changes = "State of a group of the system."
 preserve = ["external"]
 coverage = "none"
@@ -2067,7 +2067,7 @@ exception = "The group is recreated by groups.create and groups.add_member from 
 
 [[row]]
 command = "groups.add_member"
-group = "admin"
+group = "administration"
 changes = "Members of a group of the system."
 preserve = ["external"]
 coverage = "none"
@@ -2076,7 +2076,7 @@ exception = "The group database is changed by the system programs; undone by gro
 
 [[row]]
 command = "groups.remove_member"
-group = "admin"
+group = "administration"
 changes = "Members of a group of the system."
 preserve = ["external"]
 coverage = "none"
@@ -2085,7 +2085,7 @@ exception = "The group database is changed by the system programs; undone by gro
 
 [[row]]
 command = "mount"
-group = "admin"
+group = "administration"
 changes = "Mount table of the system and, with persistent, /etc/fstab."
 preserve = ["external", "clone", "copy", "none"]
 coverage = "partial"
@@ -2094,7 +2094,7 @@ exception = "The mount is undone by unmount; the edit of /etc/fstab goes through
 
 [[row]]
 command = "unmount"
-group = "admin"
+group = "administration"
 changes = "Mount table of the system and, with persistent, /etc/fstab."
 preserve = ["external", "clone", "copy", "none"]
 coverage = "partial"
@@ -2103,7 +2103,7 @@ exception = "The mount is restored by mount from the recorded device, type and o
 
 [[row]]
 command = "sysctl.set"
-group = "admin"
+group = "administration"
 changes = "Kernel parameter and, with persistent, /etc/sysctl.d/90-nurt.conf."
 preserve = ["external", "clone", "copy", "none"]
 coverage = "partial"
@@ -2112,7 +2112,7 @@ exception = "The value is restored by sysctl.set from the recorded value; the ed
 
 [[row]]
 command = "modules.load"
-group = "admin"
+group = "administration"
 changes = "Kernel modules loaded in the running system."
 preserve = ["external"]
 coverage = "none"
@@ -2121,7 +2121,7 @@ exception = "The kernel is changed by modprobe; undone by modules.unload."
 
 [[row]]
 command = "modules.unload"
-group = "admin"
+group = "administration"
 changes = "Kernel modules loaded in the running system."
 preserve = ["external"]
 coverage = "none"
@@ -2130,7 +2130,7 @@ exception = "The kernel is changed by modprobe; undone by modules.load."
 
 [[row]]
 command = "power.restart"
-group = "admin"
+group = "administration"
 changes = "Power state of the system."
 preserve = ["external"]
 coverage = "none"
@@ -2139,7 +2139,7 @@ exception = "A scheduled restart is undone by power.cancel; an immediate restart
 
 [[row]]
 command = "power.shutdown"
-group = "admin"
+group = "administration"
 changes = "Power state of the system."
 preserve = ["external"]
 coverage = "none"
@@ -2148,7 +2148,7 @@ exception = "A scheduled shutdown is undone by power.cancel; an immediate shutdo
 
 [[row]]
 command = "power.cancel"
-group = "admin"
+group = "administration"
 changes = "Scheduled restart or shutdown of the system."
 preserve = ["external"]
 coverage = "none"
@@ -2157,7 +2157,7 @@ exception = "A cancelled schedule is not restored."
 
 [[row]]
 command = "disks.partition"
-group = "admin"
+group = "administration"
 changes = "Partition table of a disk."
 preserve = ["external"]
 coverage = "none"
@@ -2166,7 +2166,7 @@ exception = "The data of a changed partition is not preserved; the preview lists
 
 [[row]]
 command = "disks.format"
-group = "admin"
+group = "administration"
 changes = "File system of a device."
 preserve = ["external"]
 coverage = "none"

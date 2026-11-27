@@ -1,6 +1,6 @@
 ---
 command: groups.remove
-group: admin
+group: administration
 summary: Remove a group.
 since: 0.1.1
 ---

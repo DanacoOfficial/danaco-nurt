@@ -1,6 +1,6 @@
 ---
 command: firewall.deny
-group: admin
+group: administration
 summary: Drop traffic on a port.
 since: 0.1.1
 ---

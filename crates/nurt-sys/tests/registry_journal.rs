@@ -792,7 +792,7 @@ fn catalog_signatures_match_frozen() {
     for name in ["list", "find", "read", "info", "remove", "copy", "move"] {
         assert!(core.contains_key(name), "core command {name}");
     }
-    let admin = command_table(&root.join("admin.toml"));
+    let admin = command_table(&root.join("administration.toml"));
     let scope = param(&admin["services"], "scope");
     assert_eq!(scope["type"].as_str(), Some("enum(system|user)"));
     assert_eq!(scope["default"].as_str(), Some("system"));

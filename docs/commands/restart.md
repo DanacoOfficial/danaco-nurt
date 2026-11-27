@@ -1,6 +1,6 @@
 ---
 command: restart
-group: admin
+group: administration
 summary: Restart the input services.
 since: 0.1.0
 ---
@@ -98,5 +98,5 @@ services name: "cron" |> restart wait: 30s
 ## Related
 
 `services` produces the input records. `start` starts services and `stop`
-stops them. `logs unit:` shows why a service failed. The `admin` group page
+stops them. `logs unit:` shows why a service failed. The `administration` group page
 lists the other commands of the group.

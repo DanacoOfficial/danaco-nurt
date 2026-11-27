@@ -433,6 +433,53 @@ forms are `next`, `next c3`, `next 200`, `next c3 200`, `next all` and
 `next |> filter …` continues the part as a pipeline. The command changes
 nothing, writes no journal entry and costs no effect in `E_ONE_EFFECT`.
 
+### 9.3 The group `administration`
+
+The file `administration.toml` holds the commands that change the system
+outside the file system, the service commands and the Windows management
+calls. Every changing command accepts `privilege` (section 2.1) and records
+the state before and after in its report, from which `undo` derives the
+inverse; a command marked `irreversible` has no inverse, and its preview
+lists what is lost. The tool description loads the group on demand under the
+name `administration`.
+
+| Command | Category | Effect | Reversibility |
+|---|---|---|---|
+| `services` | source | read | read |
+| `start` | run | external | irreversible |
+| `restart` | run | external | irreversible |
+| `enable` | change | external | irreversible |
+| `disable` | change | external | irreversible |
+| `windows.cim` | change | read | read |
+| `firewall.rules` | source | read | read |
+| `firewall.allow` | change | external | reversible |
+| `firewall.deny` | change | external | reversible |
+| `firewall.remove` | change | external | reversible |
+| `network.route_add` | change | external | reversible |
+| `network.route_remove` | change | external | reversible |
+| `network.dns_set` | change | external | reversible |
+| `clock.timezone_set` | change | external | reversible |
+| `clock.set` | change | external | irreversible |
+| `clock.ntp` | change | external | reversible |
+| `accounts.create` | change | external | reversible_if_preserved |
+| `accounts.modify` | change | external | reversible_if_preserved |
+| `accounts.remove` | change | external | reversible_if_preserved |
+| `accounts.password` | change | external | irreversible |
+| `groups.create` | change | external | reversible_if_preserved |
+| `groups.remove` | change | external | reversible_if_preserved |
+| `groups.add_member` | change | external | reversible_if_preserved |
+| `groups.remove_member` | change | external | reversible_if_preserved |
+| `mount` | change | external | reversible_if_preserved |
+| `unmount` | change | external | reversible_if_preserved |
+| `sysctl.set` | change | external | reversible_if_preserved |
+| `modules.load` | change | external | reversible_if_preserved |
+| `modules.unload` | change | external | reversible_if_preserved |
+| `power.restart` | change | external | reversible_if_preserved |
+| `power.shutdown` | change | external | reversible_if_preserved |
+| `power.cancel` | change | external | irreversible |
+| `disks.partition` | change | external | irreversible |
+| `disks.format` | change | external | irreversible |
+
 ## 10. Checks
 
 `CatalogFile::check`, `CatalogIndex::check` and `check_catalog` return the list

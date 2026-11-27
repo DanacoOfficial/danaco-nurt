@@ -1,6 +1,6 @@
 ---
 command: disable
-group: admin
+group: administration
 summary: Stop the input services from starting automatically.
 since: 0.1.0
 ---
@@ -93,5 +93,5 @@ services name: /^legacy/ state: "stopped" |> disable
 ## Related
 
 `services` produces the input records. `enable` makes a service start
-automatically and `stop` stops it now. The `admin` group page lists the other
+automatically and `stop` stops it now. The `administration` group page lists the other
 commands of the group.

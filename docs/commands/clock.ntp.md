@@ -1,6 +1,6 @@
 ---
 command: clock.ntp
-group: admin
+group: administration
 summary: Switch network time synchronisation on or off.
 since: 0.1.1
 ---

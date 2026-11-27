@@ -1,6 +1,6 @@
 ---
 command: start
-group: admin
+group: administration
 summary: Start the input services.
 since: 0.1.0
 ---
@@ -101,5 +101,5 @@ services name: "postgresql" |> start wait: 1m
 ## Related
 
 `services` produces the input records. `restart` restarts services and `stop`
-stops them. `logs unit:` shows why a service failed. The `admin` group page
+stops them. `logs unit:` shows why a service failed. The `administration` group page
 lists the other commands of the group.
