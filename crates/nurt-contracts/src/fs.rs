@@ -37,7 +37,7 @@ use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io;
 use std::path::{Component, Path, PathBuf, Prefix};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -449,7 +449,12 @@ pub struct FileId {
 ///
 /// Carried in records from the read stage to the mutation stage. Two tags
 /// match when size, modification time and file identity are equal; `hash` is
-/// compared only when both tags carry it ([`Etag::matches`]). A mismatch
+/// compared only when both tags carry it ([`Etag::matches`]). A read stage
+/// that read the content puts the hash of the bytes it returned into the tag,
+/// because a same-size rewrite within the timestamp granularity of the file
+/// system changes none of the other fields; the journal then compares the hash
+/// with the current content. A tag from metadata only (`list`, `find`, `info`,
+/// the git apply) is checked by metadata. A mismatch
 /// between the tag and the state at mutation time yields `E_STALE`. When
 /// `hash` is present, the journal reuses it as the hash of the previous
 /// content without reading the file again.
@@ -539,7 +544,34 @@ pub struct FileMeta {
     pub windows_attributes: u32,
 }
 
+/// Width of the window before "now" in which a modification time does not
+/// tell two contents apart. File systems store modification times with a
+/// granularity from a few milliseconds (ZFS, ext4 without multigrain
+/// timestamps) up to 2 s (FAT) and 1 s (HFS+), so a rewrite of the same size
+/// within that window can leave the stored time unchanged. 3 s covers the
+/// coarsest of them. A file modified inside the window is racy, as in the Git
+/// index.
+pub const RACY_WINDOW: Duration = Duration::from_secs(3);
+
+/// Modification times at or after the returned value (nanoseconds since the
+/// Unix epoch) are racy for a reader that looks at `now`.
+#[must_use]
+pub fn racy_cutoff_ns(now: SystemTime) -> i64 {
+    let cutoff = now.checked_sub(RACY_WINDOW).unwrap_or(UNIX_EPOCH);
+    cutoff.duration_since(UNIX_EPOCH).map_or(0, |since| {
+        i64::try_from(since.as_nanos()).unwrap_or(i64::MAX)
+    })
+}
+
 impl FileMeta {
+    /// Whether a rewrite of this file at the time of `now` could leave its
+    /// size, modification time and identity unchanged: a regular file whose
+    /// modification time lies within [`RACY_WINDOW`] before `now` or after it.
+    #[must_use]
+    pub fn is_racy(&self, now: SystemTime) -> bool {
+        self.kind == FileKind::File && self.modified_ns >= racy_cutoff_ns(now)
+    }
+
     /// Entity tag of this state, without content hash.
     pub fn etag(&self) -> Etag {
         Etag {

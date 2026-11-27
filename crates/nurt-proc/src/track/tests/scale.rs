@@ -35,6 +35,7 @@ fn scans_a_hundred_thousand_files_within_a_second() {
             roots: &roots,
             ignore: &ignore,
             hash: false,
+            racy: None,
             bound: None,
         },
     );

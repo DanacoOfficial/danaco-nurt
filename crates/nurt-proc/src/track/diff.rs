@@ -224,6 +224,51 @@ mod tests {
         ]
     }
 
+    fn same_path(before: EntryState, after: EntryState) -> Vec<Action> {
+        let old = Snapshot::from([(PathBuf::from("/w/a.txt"), before)]);
+        let new = Snapshot::from([(PathBuf::from("/w/a.txt"), after)]);
+        compare(&old, &new)
+            .into_iter()
+            .map(|change| change.action)
+            .collect()
+    }
+
+    fn hashed(mut state: EntryState, hash: &str) -> EntryState {
+        state.hash = Some(hash.to_owned());
+        state
+    }
+
+    #[test]
+    fn states_equal_except_the_hash_are_a_modification() {
+        let before = hashed(file(7, 5, 100, Some(50)), "sha256:aa");
+        let after = hashed(file(7, 5, 100, Some(50)), "sha256:bb");
+        assert_eq!(same_path(before, after), vec![Action::Modify]);
+    }
+
+    #[test]
+    fn equal_hashes_or_a_hash_on_one_side_only_are_no_change() {
+        let state = file(7, 5, 100, Some(50));
+        assert!(
+            same_path(
+                hashed(state.clone(), "sha256:aa"),
+                hashed(state.clone(), "sha256:aa")
+            )
+            .is_empty()
+        );
+        assert!(same_path(hashed(state.clone(), "sha256:aa"), state).is_empty());
+    }
+
+    #[test]
+    fn a_renamed_file_with_equal_hashes_is_still_a_rename() {
+        assert_eq!(
+            actions(
+                hashed(file(7, 5, 100, Some(50)), "sha256:aa"),
+                hashed(file(7, 5, 100, Some(50)), "sha256:aa")
+            ),
+            rename()
+        );
+    }
+
     #[test]
     fn same_identity_and_birth_time_is_a_rename() {
         assert_eq!(

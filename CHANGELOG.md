@@ -82,6 +82,14 @@ their own version numbers, described in the specification.
   - concurrent refreshes of one symbol index on Windows keep the rule "the
     last rename wins"; before, a refresh could fail to store the index while
     another process replaced the same file.
+  - change detection by scan finds a file rewritten with the same size within
+    the timestamp granularity of the file system (ZFS, ext4 without multigrain
+    timestamps, FAT 2 s, HFS+ 1 s) and restores it on undo: a file modified
+    less than 3 s before the start of the first scan gets its content hash
+    computed in both scans, as the racy-entry rule of the Git index does. Only
+    files up to `run.preimage_copy_max` (64 MiB when unlimited) are hashed for
+    this; a larger file is still compared by metadata, so a same-size rewrite
+    of it within the timestamp granularity stays undetected.
 
 ### Changed
 
