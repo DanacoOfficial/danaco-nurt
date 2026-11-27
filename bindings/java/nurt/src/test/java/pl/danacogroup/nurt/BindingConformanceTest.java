@@ -192,7 +192,9 @@ class BindingConformanceTest {
                     ? client.describe(text(args, "name"), language(args))
                     : client.describe();
             case "help" -> args.get("topic") == null ? client.help() : client.help(text(args, "topic"));
-            case "catalog" -> client.catalog(withoutLocal(args));
+            case "catalog" -> args.get("what") == null
+                    ? client.catalog()
+                    : client.catalog(Json.object(args.get("what")));
             case "schema" -> client.schema(text(args, "which"));
             case "history" -> client.history(withoutLocal(args));
             case "space" -> args.get("volume") == null ? client.space() : client.space(text(args, "volume"));
