@@ -71,13 +71,13 @@ jobs:
       - name: Build
         run: dotnet build Danaco.Nurt.sln -c Release
       - name: Test
-        shell: bash
-        run: |
-          # The default session directory below /run/user is not accessible to
-          # the test host on some runners; a private directory is used instead.
-          XDG_RUNTIME_DIR="$(mktemp -d)"
-          export XDG_RUNTIME_DIR
-          dotnet test Danaco.Nurt.sln -c Release --no-build --collect "XPlat Code Coverage" --results-directory TestResults
+        env:
+          # The directory below /run/user for the session artifacts of the test
+          # host cannot be opened on the ubuntu-24.04-arm runner (errno 22) and
+          # its permission check ends a successful run with exit code 1. The
+          # results and the coverage are written to TestResults.
+          VSTEST_DISABLE_ARTIFACTS_DIRECTORY_VERIFICATION: "1"
+        run: dotnet test Danaco.Nurt.sln -c Release --no-build --collect "XPlat Code Coverage" --results-directory TestResults
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.os == 'ubuntu-latest'
         with:
