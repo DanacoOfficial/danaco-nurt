@@ -26,12 +26,16 @@
 //! assert!(bash::translate("remove \"/srv/app/build\"").is_none());
 //! ```
 
+mod admin;
 mod awk;
 mod catalog;
+mod compound;
+mod construct;
 mod detect;
 mod engine;
 mod find;
 mod lex;
+mod params;
 mod pattern;
 mod produce;
 mod sed;
@@ -50,6 +54,7 @@ pub use lex::{
     HereDoc, LexError, Operator, PosixToken, PosixTokenKind, Quoting, Redirect, RedirectOp, Word,
     WordPart, lex,
 };
+pub use params::{ParamKind, Rewritten, ScriptParam, rewrite_positionals};
 pub use table::{BashTable, TABLE_FORMAT, TableError};
 
 /// How the translated text is executed.
@@ -70,6 +75,16 @@ pub enum Mode {
     Script,
 }
 
+/// A function defined earlier in the script, so that a call of it is a call
+/// and not a program.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionSignature {
+    /// Name of the function.
+    pub name: String,
+    /// Number of its parameters.
+    pub params: usize,
+}
+
 /// Context of a translation.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TranslateContext<'a> {
@@ -78,6 +93,8 @@ pub struct TranslateContext<'a> {
     pub base: Option<&'a str>,
     /// Names of results bound with `let` earlier in the program or script.
     pub lets: &'a [String],
+    /// Functions defined earlier in the script.
+    pub functions: &'a [FunctionSignature],
     /// Execution mode.
     pub mode: Mode,
 }

@@ -164,7 +164,21 @@ pub(crate) fn translate(
     if context.mode == Mode::Live && !detect::is_habit(table, &tokens) {
         return None;
     }
-    Some(translate_tokens(input, &tokens, context, table))
+    Some(translate_tokens(input, &tokens, context, table, true))
+}
+
+/// Translates simple commands only: the text holds no construct of the
+/// language, so that the translation of the constructs does not recurse.
+pub(crate) fn translate_plain(
+    input: &str,
+    context: &TranslateContext<'_>,
+    table: &BashTable,
+) -> Option<Result<Translation, Error>> {
+    let tokens = lex(input).ok()?;
+    let has_word = tokens
+        .iter()
+        .any(|token| matches!(token.kind, super::lex::PosixTokenKind::Word(_)));
+    has_word.then(|| translate_tokens(input, &tokens, context, table, false))
 }
 
 /// Translates a statement that starts with a habit word and shows no Nurt
@@ -176,7 +190,7 @@ pub(crate) fn translate_by_word(
 ) -> Option<Result<Translation, Error>> {
     let tokens = lex(input).ok()?;
     detect::is_habit_by_word(table, &tokens)
-        .then(|| translate_tokens(input, &tokens, context, table))
+        .then(|| translate_tokens(input, &tokens, context, table, true))
 }
 
 fn translate_tokens(
@@ -184,7 +198,19 @@ fn translate_tokens(
     tokens: &[super::lex::PosixToken],
     context: &TranslateContext<'_>,
     table: &BashTable,
+    constructs: bool,
 ) -> Result<Translation, Error> {
+    if constructs {
+        match construct_need(tokens, context) {
+            ConstructNeed::Hard => return super::construct::translate(input, context, table),
+            ConstructNeed::Soft => {
+                if let Ok(translation) = super::construct::translate(input, context, table) {
+                    return Ok(translation);
+                }
+            }
+            ConstructNeed::None => {}
+        }
+    }
     let session = Session::new(table, context, input);
     match syntax::parse(tokens) {
         Ok(script) => session.script(&script),
@@ -195,6 +221,85 @@ fn translate_tokens(
             &[("reason", error.message)],
         )),
     }
+}
+
+/// How much a text needs the constructs of the language.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConstructNeed {
+    /// Simple commands only.
+    None,
+    /// An alternative or a list: the constructs are tried and, when they
+    /// have no translation, the simple translation reports its own error.
+    Soft,
+    /// A compound command or positional parameters of a script: only the
+    /// constructs can translate it.
+    Hard,
+}
+
+/// Whether the text holds positional parameters (`$1`, `$@`).
+fn has_positional(tokens: &[super::lex::PosixToken]) -> bool {
+    use super::lex::{PosixTokenKind, WordPart};
+    tokens.iter().any(|token| match &token.kind {
+        PosixTokenKind::Word(word) => word.parts.iter().any(|part| match part {
+            WordPart::Variable { name, .. } => {
+                name == "@"
+                    || name == "*"
+                    || name
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_digit() && c != '0')
+            }
+            _ => false,
+        }),
+        _ => false,
+    })
+}
+
+/// Whether a command of the text is a call of a function defined before.
+fn calls_function(tokens: &[super::lex::PosixToken], context: &TranslateContext<'_>) -> bool {
+    use super::lex::{Operator, PosixTokenKind};
+    if context.functions.is_empty() {
+        return false;
+    }
+    let mut at_start = true;
+    for token in tokens {
+        match &token.kind {
+            PosixTokenKind::Word(word) if at_start => {
+                if context.functions.iter().any(|f| f.name == word.raw) {
+                    return true;
+                }
+                at_start = false;
+            }
+            PosixTokenKind::Operator(
+                Operator::Semicolon | Operator::And | Operator::Or | Operator::Pipe,
+            )
+            | PosixTokenKind::Newline => at_start = true,
+            _ => at_start = false,
+        }
+    }
+    false
+}
+
+fn construct_need(
+    tokens: &[super::lex::PosixToken],
+    context: &TranslateContext<'_>,
+) -> ConstructNeed {
+    use super::lex::{Operator, PosixTokenKind};
+    if super::compound::has_compound(tokens) {
+        return ConstructNeed::Hard;
+    }
+    let operator = |wanted: Operator| {
+        tokens
+            .iter()
+            .any(|token| token.kind == PosixTokenKind::Operator(wanted))
+    };
+    if context.mode == Mode::Script && (has_positional(tokens) || calls_function(tokens, context)) {
+        return ConstructNeed::Hard;
+    }
+    if operator(Operator::Or) || (context.mode == Mode::Script && operator(Operator::And)) {
+        return ConstructNeed::Soft;
+    }
+    ConstructNeed::None
 }
 
 /// A step of a list: a pipeline with the connector before it.
@@ -1406,7 +1511,7 @@ impl<'a> Session<'a> {
         }
     }
 
-    fn loop_error(&self, span: Span, keyword: &str) -> Error {
+    pub(crate) fn loop_error(&self, span: Span, keyword: &str) -> Error {
         let mut error = self.error(
             ErrorCode::Uncorrectable,
             "loop",
@@ -1551,8 +1656,20 @@ impl<'a> Session<'a> {
         };
         let names = effects.join(", ");
         let mut error = self.error(code, problem, span, &[("stages", &names)]);
-        for (variants, _) in statements {
-            error = error.with_next_step(self.program_text(variants));
+        let programs: Vec<String> = statements
+            .iter()
+            .map(|(variants, _)| self.program_text(variants))
+            .collect();
+        if code == ErrorCode::OneEffect {
+            error = error.with_candidate(Candidate {
+                rank: 1,
+                reference: None,
+                program: steps_text(&programs),
+                why: None,
+            });
+        }
+        for program in programs {
+            error = error.with_next_step(program);
         }
         error
     }
@@ -1653,6 +1770,48 @@ impl<'a> Session<'a> {
             },
         };
         Correction::try_from(written).ok()
+    }
+
+    /// Builds the translation of a program of constructs written as text:
+    /// the corrections of the session and of the translated parts, and the
+    /// tree read back from the text, so that the result always parses.
+    pub(crate) fn construct_translation(
+        &self,
+        text: String,
+        parts: Vec<Correction>,
+        assumptions: Vec<Assumption>,
+    ) -> Result<Translation, Error> {
+        let tree = nurt_syntax::parse::parse(
+            &text,
+            nurt_syntax::parse::Variant::A,
+            &nurt_syntax::parse::ParseOptions::default(),
+        )
+        .map_err(|error| {
+            Error::new(
+                ErrorCode::InternalCorrection,
+                format!("the translated program does not parse: {error}\n{text}"),
+            )
+        })?;
+        let log = self.log.borrow();
+        let mut pending: Vec<&Pending> = log.corrections.iter().collect();
+        pending.sort_by_key(|item| (item.span.line, item.span.column));
+        let mut rules: Vec<Correction> = pending
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, item)| self.correction(index, item, &[]))
+            .collect();
+        rules.extend(parts);
+        for (index, rule) in rules.iter_mut().enumerate() {
+            rule.id = format!("C{}", index + 1);
+        }
+        let mut all = log.assumptions.clone();
+        all.extend(assumptions);
+        Ok(Translation {
+            tree,
+            rules,
+            assumptions: all,
+            alternatives: Vec::new(),
+        })
     }
 
     pub(crate) fn has_effect(&self, piece: &Piece) -> bool {
@@ -1784,6 +1943,20 @@ pub(crate) fn parse_duration(text: &str) -> Option<u64> {
 
 /// Upper bound of a translated duration, far above any practical value.
 const MAX_DURATION_MILLIS: f64 = 1e15;
+
+/// The programs as the steps of one `steps` block.
+fn steps_text(programs: &[String]) -> String {
+    let mut text = String::from("steps {\n");
+    for program in programs {
+        for line in program.split('\n') {
+            text.push_str("    ");
+            text.push_str(line);
+            text.push('\n');
+        }
+    }
+    text.push('}');
+    text
+}
 
 fn compound<'s>(steps: &[Step<'s>]) -> Option<(Span, &'s str)> {
     steps.iter().find_map(|step| {

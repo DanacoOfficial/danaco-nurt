@@ -22,6 +22,8 @@ source = "find $dir glob: $pattern:text depth: $depth"
 hidden = "hidden: false"
 
 [assumptions]
+password_secret = "the password is taken from a secret reference of the engine; a program never holds the value"
+firewall_permanent = "the rule is changed as the firewall backend keeps rules; --permanent has no parameter"
 binary_units = "the size units k, M and G of find are binary (KiB, MiB, GiB)"
 decimal_units = "the size units are decimal (kB, MB, GB)"
 pattern_literal = "the pattern is read as literal text"
@@ -92,8 +94,24 @@ message = "relative path `{path}` without the call parameter `base`; write an ab
 help = "help corrections"
 
 [messages.loop]
-message = "`{keyword}` has no translation: loops, conditions, functions and here-documents other than `cat > file` are not translated; patterns and pipelines replace loops, and a script runs as `run [\"bash\", \"script.sh\"]`"
+message = "`{keyword}` has no translation: subshells, `select`, arithmetic `for` loops, `eval` and here-documents other than `cat > file` are not translated; a script runs as `run [\"bash\", \"script.sh\"]`"
 help = "help run"
+
+[messages.admin_value]
+message = "`{command}` needs its values written as text: Nurt has no variables in an administration command"
+help = "help corrections"
+
+[messages.admin_form]
+message = "`{command}` has no translation for {what}; the native administration commands cover the forms listed in the guide bash-migration"
+help = "help corrections"
+
+[messages.complex_firewall_rule]
+message = "`{command}` with a rule that is not a rule on a port is run as a program: write `run [...] privilege: elevated`"
+help = "help run"
+
+[messages.unsupported_construct]
+message = "the construct has no translation: {reason}"
+help = "help corrections"
 
 [messages.alternative_branch]
 message = "`||` has no translation: a program has no alternative branch; check the condition with `assert` and run the alternative as a separate step"
@@ -104,7 +122,7 @@ message = "several commands joined by `&&` or `;` are separate programs; send th
 help = "help corrections"
 
 [messages.one_effect]
-message = "several changing stages in one program ({stages}); nothing was run, send the next steps as separate calls"
+message = "several changing stages in one program ({stages}); nothing was run, send the candidate `steps` program, or the next steps as separate calls"
 help = "help corrections"
 
 [messages.probable_change]
@@ -1545,7 +1563,11 @@ help = "evaluate"
 max = 0
 template = "evaluate now()"
 output = "other"
-option = [{ flags = ["-u", "--utc"] }]
+option = [
+  { flags = ["-u", "--utc"] },
+  { flags = ["-s", "--set"], id = "s", value = "text" },
+]
+form = [{ when = { options = ["s"] }, template = "clock.set $s:text", output = "effect" }]
 
 [[entry]]
 name = "sleep"
@@ -1556,6 +1578,274 @@ min = 1
 max = 1
 template = "sleep $1:duration"
 output = "exec"
+
+
+# Administration: B43. Native administration commands of section 10.
+
+[[entry]]
+name = "useradd"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "usermod"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "userdel"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "groupadd"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "groupdel"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "gpasswd"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "passwd"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mount"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "umount"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "sysctl"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "modprobe"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "rmmod"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "ufw"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "firewall-cmd"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "nft"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "iptables"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "ip"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "resolvectl"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "timedatectl"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "shutdown"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "reboot"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "poweroff"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "halt"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "parted"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mknod"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs.ext2"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs.ext3"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs.ext4"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs.xfs"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs.btrfs"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs.vfat"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs.fat"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs.ntfs"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfs.f2fs"
+rule = "B43"
+class = "C"
+help = "corrections"
+interpreter = "admin"
+
+[[entry]]
+name = "mkfifo"
+rule = "B43"
+class = "C"
+help = "create"
+min = 1
+template = "create $all type: fifo"
+output = "effect"
+option = [{ flags = ["-m", "--mode"], id = "m", value = "text", args = "mode: $value:text" }]
+
+[[entry]]
+name = "sqlite3"
+rule = "B43"
+class = "C"
+help = "sql"
+min = 2
+max = 2
+template = "sql $1 $2:text"
+output = "effect"
 
 # Commands of the catalog that change the world or run programs.
 [effects]
@@ -1569,6 +1859,12 @@ change = [
   "notebook.ops", "notebook.remove", "notebook.replace", "package.install", "package.remove",
   "package.upgrade", "patch", "remove", "rename", "replace", "schedule.create", "schedule.pause",
   "schedule.remove", "schedule.resume", "set", "sql", "write",
+  "accounts.create", "accounts.modify", "accounts.remove", "accounts.password", "clock.ntp",
+  "clock.set", "clock.timezone_set", "disks.format", "disks.partition", "firewall.allow",
+  "firewall.deny", "firewall.remove", "groups.add_member", "groups.create", "groups.remove",
+  "groups.remove_member", "modules.load", "modules.unload", "mount", "network.dns_set",
+  "network.route_add", "network.route_remove", "power.cancel", "power.restart",
+  "power.shutdown", "sysctl.set", "unmount",
 ]
 run = [
   "analyze.check", "restart", "resume", "retry", "run", "schedule.run", "sleep", "start", "stop",
