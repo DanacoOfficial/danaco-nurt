@@ -215,3 +215,8 @@ level = "warn"
 [session]
 # The key id is not set by default.
 ttl = "1d"
+
+[privilege]
+# The keys backends and group default to the values of the system.
+default = "account"
+allowed = true

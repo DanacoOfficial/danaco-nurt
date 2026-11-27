@@ -1358,6 +1358,24 @@
             "boolean",
             "null"
           ]
+        },
+        "privilege": {
+          "description": "Rights of the operation. Default `account`, or the configuration key\n`privilege.default`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Privilege"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "as_user": {
+          "description": "Name of another account that runs the operation (Linux and macOS);\nimplies elevation for the switch.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "additionalProperties": false
@@ -1439,6 +1457,26 @@
           "description": "Polish.",
           "type": "string",
           "const": "pl"
+        }
+      ]
+    },
+    "Privilege": {
+      "description": "Rights with which an operation runs (call option `privilege`).",
+      "oneOf": [
+        {
+          "description": "The rights of the account that runs Nurt.",
+          "type": "string",
+          "const": "account"
+        },
+        {
+          "description": "The rights of the administrator: `root` on Linux and macOS,\n`LocalSystem` on Windows.",
+          "type": "string",
+          "const": "elevated"
+        },
+        {
+          "description": "Runs with `account`; a stage that fails with `E_PERMISSION` or\n`E_PRIVILEGE` is repeated once with `elevated` before any change is\nkept.",
+          "type": "string",
+          "const": "auto"
         }
       ]
     }

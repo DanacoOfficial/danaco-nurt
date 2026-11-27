@@ -1601,6 +1601,61 @@
           "default": "1d"
         }
       }
+    },
+    "PrivilegeConfig": {
+      "description": "Section `[privilege]`.",
+      "type": "object",
+      "properties": {
+        "default": {
+          "description": "Key `privilege.default`: value of the call parameter `privilege` when\na call does not give it; the embedding engine may set it. Default\n`account`.",
+          "$ref": "#/$defs/Privilege",
+          "default": "account"
+        },
+        "allowed": {
+          "description": "Key `privilege.allowed`: when `false`, `elevated` and `auto` end with\n`E_PRIVILEGE` and the reason `disabled_by_configuration`; the switch\nwith which the embedding engine applies its policy. Default `true`.",
+          "type": "boolean",
+          "default": true
+        },
+        "backends": {
+          "description": "Key `privilege.backends`: allowed elevation backends in order of\ntrial (`self`, `broker`, `sudo`, `doas`, `run0`). Default none: the\nlist of the system, `[\"self\", \"broker\", \"sudo\", \"doas\", \"run0\"]` on\nLinux, `[\"self\", \"broker\", \"sudo\"]` on macOS and `[\"self\", \"broker\"]`\non Windows.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": null
+        },
+        "group": {
+          "description": "Key `privilege.group`: group allowed to connect to the service\n`nurt-elevation`. Default none: `sudo` or `wheel` on Linux, `admin` on\nmacOS.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    },
+    "Privilege": {
+      "description": "Rights with which an operation runs (call option `privilege`).",
+      "oneOf": [
+        {
+          "description": "The rights of the account that runs Nurt.",
+          "type": "string",
+          "const": "account"
+        },
+        {
+          "description": "The rights of the administrator: `root` on Linux and macOS,\n`LocalSystem` on Windows.",
+          "type": "string",
+          "const": "elevated"
+        },
+        {
+          "description": "Runs with `account`; a stage that fails with `E_PERMISSION` or\n`E_PRIVILEGE` is repeated once with `elevated` before any change is\nkept.",
+          "type": "string",
+          "const": "auto"
+        }
+      ]
     }
   },
   "title": "Config",
@@ -1948,6 +2003,16 @@
       "default": {
         "id": null,
         "ttl": "1d"
+      }
+    },
+    "privilege": {
+      "description": "Privilege elevation.",
+      "$ref": "#/$defs/PrivilegeConfig",
+      "default": {
+        "default": "account",
+        "allowed": true,
+        "backends": null,
+        "group": null
       }
     }
   }

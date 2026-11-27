@@ -122,6 +122,8 @@ command. They apply to every command and are never listed in catalog files.
 | `session` | `text` | session identifier recorded in the journal |
 | `language` | `enum(en\|pl) = en` | language of help and hints; codes, fields and keywords are always English |
 | `script` | `bool = false` | script mode: several pipelines, each a separate operation |
+| `privilege` | `enum(account\|elevated\|auto) = account` | rights of the operation: the account that runs Nurt; the administrator (`root` on Linux and macOS, `LocalSystem` on Windows); or `auto`, which runs with the account and repeats the whole stage once with `elevated` when a target fails with `E_PERMISSION` or `E_PRIVILEGE` before any change is kept. The default comes from the configuration key `privilege.default`. Valid on every changing command, on `run` and on reading commands. No command is marked "never elevated" |
+| `as_user` | `text` | account that runs the operation (equivalent of `sudo -u NAME`; Linux and macOS); implies elevation for the switch; ends with `E_UNSUPPORTED` on Windows |
 
 A command may have a parameter with the name of a call parameter when its
 meaning is narrower and stated in the catalog: `run timeout:` limits one
@@ -129,6 +131,21 @@ program, while the call parameter `timeout` limits the whole program;
 `write format:` is the serialization of written records, while the call
 parameter `format` is the form of the result. The two never collide, because
 call parameters are not part of the program text.
+
+The two call parameters `privilege` and `as_user` are the exception: they may
+also be written on a stage, as named arguments, on every command that does not
+declare a parameter of the same name (`write "/etc/hosts" "..." privilege:
+elevated`, `package.install ["jq"] privilege: elevated`, `run [...] cwd: "/"
+as_user: "deploy"`). The binder takes them out of the signature, checks the
+value (`privilege` is `account`, `elevated` or `auto`, written as a word or a
+text; `as_user` is a non-empty word or text; each at most once per stage) and
+appends them to the arguments of the stage as `text` values after the
+parameters of the signature, with `default: false`. A value written on a stage
+replaces the option of the request and the configuration key
+`privilege.default` for the whole call. A stage reads the effective value from
+the options of its context: `ctx.options().privilege()` and
+`ctx.options().effective_privilege()`; the executor has already run the call
+with the rights that value names, so a stage never needs to elevate itself.
 
 ### 2.1 Shared command parameters
 

@@ -43,6 +43,10 @@ name never appears in the output of a program.
 | `kind` | text, required | the changing command, or the source command of a reading program (`replace`, `remove`, `run`, `find`); `request` for envelope errors detected before any program is known |
 | `op` | integer from 1 | journal entry of the operation; absent for reading programs, previews and changing programs without targets |
 | `ran` | text | canonical text of the program that ran; present only when corrections were applied |
+| `elevated` | `true` | present only when the operation ran with elevated rights |
+| `backend` | `self`, `broker`, `sudo`, `doas`, `run0` | elevation backend that ran the operation; present only with `elevated` |
+| `as_user` | text | account the operation ran as, when the call gave `as_user` |
+| `elevation_reason` | `permission_denied`, `system_journal_entry` | why the operation was elevated without being asked to: `privilege: auto` repeated the stage after a denial, or `undo` reached an entry of the system journal |
 | `ast_hash` | `sha256:<64 hex>` | hash of the syntax tree, see `syntax-tree.md` |
 | `result_file` | path | file holding the full result (UTF-8) when the result was written to a file (`save_to` or `output.results_dir`) |
 | `corrections` | list | corrections applied to the program text: `id`, `rule` (`L`, `T`, `V`, `B` or `P` and two digits), `class` (`C`, `S`, `F`, `P`), `at` (`line`, `column`, `length`), `from`, `to`, `kind`, `alternatives` |

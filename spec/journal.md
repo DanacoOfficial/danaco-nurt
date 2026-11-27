@@ -277,6 +277,47 @@ with its own number; it keeps the current state of every restored item, so it
 can be redone. A later ordinary operation on the same items invalidates `redo`
 through the conflict check.
 
+### 8.1 Elevated entries
+
+An operation that runs with `privilege: elevated` (or `as_user`) is executed by
+a separate process with the identity of the administrator, which writes the
+entry with the rules of sections 3 to 7: previous content, owner, group, mode,
+access control list, extended attributes and the security context are kept.
+
+| System | System journal |
+|---|---|
+| Linux | `/var/lib/nurt` |
+| macOS | `/Library/Application Support/Nurt` |
+| Windows | `%ProgramData%\Nurt` |
+
+The directory is the state directory of the administrator; the journal of the
+administrator lives in it as the journal of an account lives in the state
+directory of the account. The account that asked for the operation keeps a
+reference to the entry in the file `elevated-operations.jsonl` of its state
+directory: the number of the entry, the backend, `as_user`, the kind of the
+operation, the time and the directory of the system journal. A line is one JSON
+object.
+
+`undo` with an entry number that has a reference and no entry of the account
+with that number runs through the same backends, with the same access rule, and
+reports `elevation_reason: system_journal_entry`; without a backend it ends
+with `E_PRIVILEGE` and `next_steps`. An entry of the account with the same
+number takes precedence: undo the elevated entry with `privilege: elevated`.
+
+Operations outside the file system are undone by inverse operations:
+
+| Operation | Recorded state | Undo |
+|---|---|---|
+| `package.install` | whether the package was installed before and its version | `package.remove` when it was not installed before; reinstall of the recorded version when the install changed the version |
+| `package.remove` | installed version | `package.install` of that version when the repository still offers it; otherwise irreversible at the time of the change |
+| `package.upgrade` | versions before the upgrade | install of the recorded versions when the repository still offers them; otherwise irreversible per package |
+| `start`, `stop` (services) | previous state | the opposite command |
+| `enable`, `disable` | previous start type | the opposite command with the recorded start type |
+| `restart`, `stop` of a process, `run` | none | irreversible; the report states `irreversible` before the change |
+
+Files changed by a program started with `run` and `privilege: elevated` are not
+preserved; the entry is irreversible and the report says so.
+
 ## 9. Errors
 
 All methods of `MutationTx` and `JournalStore` return the language error. The

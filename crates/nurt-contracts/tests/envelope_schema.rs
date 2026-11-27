@@ -142,6 +142,8 @@ fn options_cover_every_shared_call_parameter() {
         "session",
         "language",
         "script",
+        "privilege",
+        "as_user",
     ]
     .into_iter()
     .map(str::to_owned)

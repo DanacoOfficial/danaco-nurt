@@ -200,6 +200,10 @@ pub enum BoundHead {
     Ref(BoundRef),
 }
 
+/// Names of the call parameters that can be written on a stage; they follow
+/// the parameters of the signature in [`BoundStage::args`].
+pub const STAGE_CALL_PARAMETERS: [&str; 2] = ["privilege", "as_user"];
+
 /// Bound command invocation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -223,6 +227,21 @@ pub struct BoundStage {
     /// Source range of the surface stage.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub span: Option<Span>,
+}
+
+impl BoundStage {
+    /// Text of the call parameter `name` (`privilege` or `as_user`) written on
+    /// the stage, when it was written.
+    #[must_use]
+    pub fn call_parameter(&self, name: &str) -> Option<&str> {
+        self.args
+            .iter()
+            .find(|arg| arg.name == name && !arg.default)
+            .and_then(|arg| match &arg.value {
+                BoundExpr::Text { v } => Some(v.as_str()),
+                _ => None,
+            })
+    }
 }
 
 /// Execution phase of a bound stage.

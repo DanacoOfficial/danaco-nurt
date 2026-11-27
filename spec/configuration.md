@@ -74,6 +74,7 @@ Keys that are not applied are reported with these notable codes:
 |---|---|---|
 | `scope.trust*` | project, runtime | `trust_config_ignored` |
 | `service.*` | project | `trust_config_ignored` |
+| `privilege.*` | project | `trust_config_ignored` |
 | `journal.*` | project that is not trusted | `journal_config_ignored` |
 | any other key outside the list above | project | `project_config_ignored` |
 
@@ -349,6 +350,17 @@ cover only what Git does not define.
 | `log.level` | `error`, `warn`, `info`, `debug`, `trace` | `warn` | level of diagnostic logs |
 | `session.id` | text | none | session identifier recorded in the journal |
 | `session.ttl` | duration | `24h` | time without calls after which session settings (for example limits set by `journal.limits` for a session) expire |
+
+### 7.15 `[privilege]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `privilege.default` | `account`, `elevated`, `auto` | `account` | value of the call parameter `privilege` when a call does not give it; the embedding engine may set it |
+| `privilege.allowed` | boolean | `true` | when `false`, `elevated` and `auto` end with `E_PRIVILEGE` and the reason `disabled_by_configuration`; the switch with which the embedding engine applies its policy |
+| `privilege.backends` | list of `self`, `broker`, `sudo`, `doas`, `run0` | none: the list of the system | allowed backends in order of trial; the list of the system is `["self", "broker", "sudo", "doas", "run0"]` on Linux, `["self", "broker", "sudo"]` on macOS and `["self", "broker"]` on Windows; `broker` is reported as `not_installed` until the service `nurt-elevation` exists |
+| `privilege.group` | text | none: `sudo` or `wheel` (Linux), `admin` (macOS) | group allowed to connect to the service `nurt-elevation` |
+
+A project file cannot set `privilege.*`.
 
 ## 8. Interface for implementations
 

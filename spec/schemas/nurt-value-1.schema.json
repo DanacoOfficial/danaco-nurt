@@ -12402,7 +12402,7 @@
         {
           "type": "string",
           "const": "E_PRIVILEGE",
-          "description": "The operation requires a privilege the account does not have."
+          "description": "The operation needs privileges that are not available: no elevation\nbackend, or the system denied the elevation to the account; `backend`\nlists the tried backends and `next_steps` the way forward."
         },
         {
           "type": "string",

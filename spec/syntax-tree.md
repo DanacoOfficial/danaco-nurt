@@ -181,7 +181,7 @@ A stage has the members:
 | `effect` | effect kind from the catalog: `read`, `local`, `external`, `process` |
 | `phase` | execution phase (section 5); required |
 | `waits` | `true` when the stage blocks the call by waiting; omitted when `false`. The catalog marks the command `waits`, or a parameter marked `waits` has a value greater than its default or the value `forever` |
-| `args` | every parameter of the signature, in signature order |
+| `args` | every parameter of the signature, in signature order, followed by the call parameters `privilege` and `as_user` when they were written on the stage (`catalog.md`, section 2) |
 | `span` | source range of the surface stage |
 
 An argument has `name`, `value`, `default` (`true` when the value comes from
