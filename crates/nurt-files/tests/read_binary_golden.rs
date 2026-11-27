@@ -4,6 +4,8 @@
 //! Examples of the reference page of `read` for PDF documents, images,
 //! hexadecimal dumps and compressed files, run on a virtual file system.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests report failures by panicking.
 #![allow(clippy::expect_used)]
 
@@ -79,6 +81,7 @@ fn hexadecimal_dump_of_the_first_rows() {
     assert_eq!(read[0].total_lines, Some(3));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn last_line_of_a_compressed_log() {
     let test = TestContext::new();

@@ -465,6 +465,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn resolves_relative_paths_against_the_base_option() {
         let env = testing::Env::new();
@@ -480,6 +481,7 @@ mod tests {
         assert_eq!(error.code, ErrorCode::InvalidValue);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn absolute_paths_ignore_the_base_option_and_multibyte_names_are_kept() {
         let env = testing::Env::new();

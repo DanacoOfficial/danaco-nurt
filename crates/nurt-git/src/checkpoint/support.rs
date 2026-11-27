@@ -909,6 +909,7 @@ mod tests {
         assert!(in_scope(b"anything".as_bstr(), &[BString::default()]));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn relative_paths_reject_escapes_and_git_directory() {
         let root = Path::new("/srv/repo");

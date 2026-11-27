@@ -260,6 +260,7 @@ mod tests {
         fs
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn grants_follow_the_expanded_permissions() {
         let policy = policy();
@@ -272,6 +273,7 @@ mod tests {
         assert!(!policy.grants_read(Path::new("/home/user/.acme")));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn checks_paths_against_the_file_system() {
         let fs = fs();
@@ -290,6 +292,7 @@ mod tests {
         assert_eq!(relative.code(), ErrorCode::PathRelative);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn links_cannot_lead_outside_granted_directories() {
         let fs = fs();

@@ -9,6 +9,8 @@
 //! sources, and creates and verifies OpenPGP and SSH signatures. No external
 //! program is run.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 

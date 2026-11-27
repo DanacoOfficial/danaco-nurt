@@ -664,6 +664,7 @@ mod tests {
         std::mem::take(&mut *events.lock().unwrap())
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn start_recovers_and_calibrates_before_the_first_heartbeat() {
         let world = World::new();
@@ -955,6 +956,7 @@ mod tests {
         assert!(run(&mut module, &*world.clock, &CancelToken::new()).is_err());
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn registry_link_reports_volumes_eligibility_liveness_and_wakes() {
         let world = World::new();

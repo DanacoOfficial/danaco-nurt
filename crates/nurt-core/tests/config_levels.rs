@@ -5,6 +5,8 @@
 //! protection floors and validation, through the configuration loader of the
 //! engine.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests stop at the first unexpected value by unwrapping or panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -111,6 +113,7 @@ fn load_up_to(top: usize) -> LoadedConfig {
     setup.load(sources, &host)
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn every_level_overrides_the_levels_below() {
     for (top, level) in LEVELS.iter().enumerate() {
@@ -205,6 +208,7 @@ fn journal_keys_of_an_untrusted_project_are_ignored() {
     assert_eq!(loaded.notes()[0].kind, ConfigNoteKind::JournalConfigIgnored);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn trusted_project_values_are_raised_to_the_project_floor() {
     let setup = Setup::new();
@@ -229,6 +233,7 @@ fn trusted_project_values_are_raised_to_the_project_floor() {
     );
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn golden_trusted_project_applies_its_journal_keys() {
     let setup = Setup::new();

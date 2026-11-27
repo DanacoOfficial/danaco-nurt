@@ -1011,6 +1011,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn create_from_a_remote_tracking_branch_sets_the_upstream() {
         let repo = TestRepo::new();

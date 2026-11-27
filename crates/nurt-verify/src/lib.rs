@@ -9,6 +9,8 @@
 //! complexity and duplicated code, and keeps the history of runs and
 //! analyses in the state directory.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 

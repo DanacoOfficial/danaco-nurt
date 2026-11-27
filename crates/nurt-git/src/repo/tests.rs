@@ -42,6 +42,7 @@ fn bare_repository_has_its_directory_as_root() {
     assert!(repo.head_id().unwrap().is_some());
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn separate_git_directory_is_followed_through_the_git_file() {
     let fixture = RepoBuilder::new()

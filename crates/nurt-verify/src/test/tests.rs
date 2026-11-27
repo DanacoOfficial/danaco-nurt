@@ -149,6 +149,7 @@ fn detect_finds_nothing_in_an_empty_project() {
     assert!(detect(dir.path()).is_empty());
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn command_for_bun_selects_report_filter_bail_and_coverage() {
     let mut request = Request::new(Framework::Bun);

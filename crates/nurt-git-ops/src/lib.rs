@@ -10,6 +10,8 @@
 //! journal mutation transaction, so the exact previous content is preserved
 //! and each operation can be undone individually.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 

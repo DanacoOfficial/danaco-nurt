@@ -4,6 +4,8 @@
 //! Environments of an execution: without a journal and with extensions of
 //! the stage contexts.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -60,6 +62,7 @@ fn runs_a_program_that_only_reads_without_a_journal() {
     assert_eq!(outcome.last().unwrap().result.value, Some(Value::Int(2)));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn refuses_an_effect_without_a_journal() {
     let world = World::new();
@@ -85,6 +88,7 @@ fn refuses_an_effect_without_a_journal() {
     assert_eq!(world.content(&file), common::ORIGINAL);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn previews_an_effect_without_a_journal() {
     let world = World::new();

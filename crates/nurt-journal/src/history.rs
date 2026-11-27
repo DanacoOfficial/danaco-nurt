@@ -1123,6 +1123,7 @@ mod tests {
         assert!(!entry.in_session(Some(&SessionId("other".to_owned()))));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn an_entry_reports_irreversible_targets_of_its_manifest() {
         use nurt_contracts::report::Irreversible;

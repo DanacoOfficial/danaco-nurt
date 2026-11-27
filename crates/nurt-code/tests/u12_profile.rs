@@ -8,6 +8,8 @@
 //! status. Manifests are read through a document service that understands
 //! JSON and the subset of TOML used by the fixtures.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -490,6 +492,7 @@ fn script_names_with_shell_metacharacters_are_not_offered_as_commands() {
     }
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn entry_points_name_their_target_and_origin() {
     let fixture = project();

@@ -328,6 +328,7 @@ mod options_tests {
         }
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn linux_defaults_follow_xdg_and_etc() {
         let env = env_of(&[

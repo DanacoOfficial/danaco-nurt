@@ -4,6 +4,8 @@
 //! Examples of `docs/commands/attributes.md`, run on the virtual file
 //! system, and the transaction rules of the command.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -93,6 +95,7 @@ fn meta(test: &TestContext, path: &str) -> FileMeta {
     test.fs().metadata(&abs(path), Follow::NoFollow).unwrap()
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn makes_a_script_executable() {
     // The example program is `attributes "/home/user/run.sh" mode: "u+x"`.
@@ -114,6 +117,7 @@ fn makes_a_script_executable() {
     assert_eq!(effect.targets, Some(1));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn sets_permissions_and_the_modification_time() {
     // The example program is `attributes "/home/user/notes.txt" mode: "0600" modified: "2026-01-31T12:00:00Z"`.
@@ -132,6 +136,7 @@ fn sets_permissions_and_the_modification_time() {
     assert_eq!(after.modified_ns, expected.as_unix_nanos());
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn removes_write_permission_of_a_tree() {
     // The example program is `attributes "/home/user/site" mode: "go-w" recursive: true`.
@@ -157,6 +162,7 @@ fn removes_write_permission_of_a_tree() {
     );
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn changes_input_entries_of_a_pipeline() {
     // The example program is `find "/home/user/site" type: file |> attributes readonly: true`.
@@ -184,6 +190,7 @@ fn changes_input_entries_of_a_pipeline() {
     assert_eq!(meta(&test, "/home/user/site/css/main.css").mode, 0o444);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn every_change_is_declared_before_it_is_applied() {
     let test = home();

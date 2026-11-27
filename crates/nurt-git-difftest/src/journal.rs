@@ -1346,6 +1346,7 @@ mod tests {
         assert_eq!(journal.committed(), 0);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn deletes_and_restores_directory_trees_and_links() {
         let (_dir, work, journal) = setup();

@@ -529,6 +529,7 @@ write = ["/project"]
         assert!(error.message.contains("writes = true"));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn a_file_written_twice_is_planned_once_with_the_last_content() {
         let context = TestContext::new();
@@ -600,6 +601,7 @@ write = ["/project"]
         assert!(super::last_write_per_path(Vec::new()).is_empty());
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn effect_stages_plan_and_apply_writes_through_the_journal() {
         let context = TestContext::new();

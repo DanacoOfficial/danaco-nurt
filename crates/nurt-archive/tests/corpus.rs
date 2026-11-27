@@ -8,6 +8,8 @@
 //! way the extraction command does (directories, file content, hard links,
 //! symbolic links last), so the tests can check what reaches the disk.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Helper functions outside `#[test]` functions build fixtures; an
 // unexpected error there is a test failure, so they unwrap.
 #![allow(
@@ -437,6 +439,7 @@ fn assert_contained(root: &Path, into: &Path) {
     }
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn malicious_tar_writes_nothing_outside_destination() {
     for compression in [None, Some(Algorithm::Gzip), Some(Algorithm::Zstd)] {
@@ -487,6 +490,7 @@ fn malicious_tar_writes_nothing_outside_destination() {
     }
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn malicious_zip_writes_nothing_outside_destination() {
     let temp = tempfile::tempdir().unwrap();

@@ -552,6 +552,7 @@ mod tests {
         assert_eq!(head.commit(), Some(id(2)));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn stored_url_requires_absolute_local_paths() {
         assert_eq!(stored_url("/srv/up/").unwrap(), "/srv/up");

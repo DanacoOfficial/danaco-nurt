@@ -761,6 +761,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn verifies_signatures_made_by_gnupg() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -790,6 +791,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_signature_of_an_unknown_key() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -803,6 +805,7 @@ mod tests {
         assert_eq!(result.key.as_deref(), Some(ED25519_FINGERPRINT));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_garbage_as_a_bad_signature() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -825,6 +828,7 @@ mod tests {
         assert_eq!(missing.status, SignatureStatus::Unsupported);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn signs_with_a_key_file_and_verifies_the_signature() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -855,6 +859,7 @@ mod tests {
         stop_generated_agent(&key.home);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn signs_with_the_agent_of_a_gnupg_home() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -872,6 +877,7 @@ mod tests {
         stop_generated_agent(&key.home);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_key_file_without_matching_user_as_missing_key() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -918,6 +924,7 @@ mod tests {
         assert_eq!(error.data().problem.as_deref(), Some("program_unavailable"));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_a_failing_program_as_failed() {
         let mut config = SigningConfig::new(SignatureFormat::Openpgp, CREATED);

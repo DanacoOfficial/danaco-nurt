@@ -877,6 +877,7 @@ mod tests {
         assert_eq!(config.attempts, DEFAULT_ATTEMPTS);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn missing_resolv_conf_gives_defaults() {
         let dir = tempfile::tempdir().unwrap();

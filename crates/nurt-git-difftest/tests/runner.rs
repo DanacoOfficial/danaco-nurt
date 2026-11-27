@@ -9,6 +9,9 @@
 //! Every test returns without checks when no supported `git` program is on
 //! the search path; the scenario test binary reports that case.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
+
 #[cfg(test)]
 mod checks {
     use std::path::{Path, PathBuf};
@@ -476,6 +479,7 @@ command = "git.fetch"
         assert!(failures(&outcome).contains("git side"));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn expected_records_of_a_read_command_are_checked() {
         let passing = scenario("common/review", REVIEW);

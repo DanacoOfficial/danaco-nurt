@@ -11,6 +11,8 @@
 //! checks, undo and redo, conflict detection and retention by operation count,
 //! age and size.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 

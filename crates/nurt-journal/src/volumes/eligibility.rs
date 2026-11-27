@@ -313,6 +313,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn memory_volume_is_enabled_only_by_its_own_setting_and_never_when_read_only() {
         let config = with_override("/dev/shm", true);
@@ -330,6 +331,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn disabling_a_volume_wins_over_every_class_rule() {
         let config = with_override("/mnt/data", false);
@@ -403,6 +405,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn override_keys_match_mount_points_in_language_form() {
         let volume = volume_info(1, "/mnt/zażółć", "tmpfs", VolumeKind::Memory);
@@ -433,6 +436,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn per_volume_setting_overrides_class_and_global_setting() {
         let memory = volume_info(1, "/mnt/scratch", "tmpfs", VolumeKind::Memory);

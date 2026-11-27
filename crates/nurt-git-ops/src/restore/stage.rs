@@ -437,6 +437,7 @@ mod tests {
         assert!(both.staged && both.worktree);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn absolute_paths_outside_the_root_are_refused() {
         let root = Path::new("/r/repo");
@@ -451,6 +452,7 @@ mod tests {
         assert_eq!(error.data().problem.as_deref(), Some("outside_repository"));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn parent_components_of_absolute_paths_are_resolved_not_dropped() {
         let root = Path::new("/r/repo");

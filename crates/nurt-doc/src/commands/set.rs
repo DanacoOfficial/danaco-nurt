@@ -943,6 +943,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn paths_of_one_file_share_a_group_key() {
         let test = TestContext::new();
@@ -959,6 +960,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn names_of_one_existing_file_share_a_group_key_whatever_the_link() {
         let test = TestContext::new();

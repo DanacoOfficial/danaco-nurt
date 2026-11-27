@@ -94,6 +94,7 @@ mod tests {
     use super::super::testing::{Env, call, read};
     use super::*;
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_the_volumes_of_the_space_service() {
         let env = Env::with_space();

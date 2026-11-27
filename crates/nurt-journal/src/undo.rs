@@ -3457,6 +3457,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn on_conflict_report_lists_conflicts_and_ready_programs() {
         let journal = TestJournal::new();
@@ -3885,6 +3886,7 @@ mod tests {
         assert_eq!(whole.code, ErrorCode::JournalNoop);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn undo_paths_checks_only_selected_items() {
         let journal = TestJournal::new();
@@ -4484,6 +4486,7 @@ mod tests {
         assert_eq!(super::quoted("zażółć/ü"), "\"zażółć/ü\"");
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn path_list_of_a_selection_names_file_paths_only() {
         assert_eq!(
@@ -4638,6 +4641,7 @@ mod tests {
         assert_eq!(journal.get("/home/user/a"), file(b"a"));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn paths_conflict_offers_ready_programs_with_quoted_paths() {
         let journal = TestJournal::new();

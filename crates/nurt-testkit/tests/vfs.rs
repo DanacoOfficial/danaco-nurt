@@ -3,6 +3,8 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Reference semantics of the virtual file system.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -215,6 +217,7 @@ fn file_identities_count_up_per_volume() {
     assert_eq!((a.low, b.low), (2, 3));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn symbolic_links_resolve_and_loops_are_detected() {
     let (_clock, fs, scope) = setup();

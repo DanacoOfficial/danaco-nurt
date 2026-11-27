@@ -681,6 +681,7 @@ mod tests {
         assert_eq!(Expected::before(&kept).hash(), Some(hash_of(b"x")));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn observe_fs_reports_missing_entries_as_absent() {
         let journal = TestJournal::new();
@@ -869,6 +870,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn addresses_are_shown_to_the_language_as_paths_and_provider_keys() {
         assert_eq!(

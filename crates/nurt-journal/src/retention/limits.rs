@@ -816,6 +816,7 @@ mod tests {
         assert!(store.user_writes().is_empty());
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn user_scope_writes_volume_settings_in_their_table() {
         let store = store();

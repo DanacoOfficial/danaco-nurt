@@ -8,6 +8,8 @@
 //! call `read-file` and returns the content as one record, or the message of
 //! the failed host call. The component `spinner` never returns.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![cfg(feature = "wasm")]
 // Test assertions fail through unwrap, expect and panic by design.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -185,6 +187,7 @@ fn show(stage: &dyn StageImpl, context: &TestContext, path: &str) -> Result<Vec<
     stream.collect()
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn component_commands_return_records_read_through_the_host() {
     let temp = tempfile::tempdir().unwrap();
@@ -196,6 +199,7 @@ fn component_commands_return_records_read_through_the_host() {
     );
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn paths_outside_the_manifest_are_refused() {
     let temp = tempfile::tempdir().unwrap();
@@ -384,6 +388,7 @@ fn run_worker(writes: bool, granted: bool) -> (Result<nurt_ext::stage::GuestOutp
     (output, context)
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn write_requests_are_planned_and_messages_reach_the_event_stream() {
     let (output, context) = run_worker(true, true);
@@ -436,6 +441,7 @@ fn the_bytes_a_guest_plans_to_write_are_limited() {
     );
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn writes_are_refused_without_the_declaration_or_the_grant() {
     let (undeclared, _) = run_worker(false, true);

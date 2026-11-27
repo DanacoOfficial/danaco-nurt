@@ -1076,6 +1076,7 @@ mod tests {
         record
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn create_records_untracked_and_modified_files_without_touching_the_repository() {
         let fixture = Fixture::new(&[
@@ -1443,6 +1444,7 @@ mod tests {
         assert_eq!(err.code(), ErrorCode::InvalidValue);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn stage_restore_saves_current_state_and_checks_expected_state() {
         let fixture = Fixture::new(&[("a.txt", "one\n")]);

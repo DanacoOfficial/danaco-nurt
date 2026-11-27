@@ -886,6 +886,7 @@ mod tests {
         assert_eq!(found[2].exists, Some(true));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn files_carry_content_fields_and_identity() {
         let test = TestContext::new();

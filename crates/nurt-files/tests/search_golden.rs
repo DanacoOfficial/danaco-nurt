@@ -3,6 +3,8 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Examples of `docs/commands/search.md`, run on the virtual file system.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Test helpers unwrap results so that a failure aborts the test with the original error.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -94,6 +96,7 @@ fn matches(records: Vec<Record>) -> Vec<Match> {
         .collect()
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn literal_text_in_a_directory() {
     let (_test, ctx) = project();
@@ -116,6 +119,7 @@ fn literal_text_in_a_directory() {
     assert!(!first.etag.is_empty());
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn regular_expression_with_a_named_group() {
     let (_test, ctx) = project();
@@ -159,6 +163,7 @@ fn regular_expression_with_a_named_group() {
     );
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn case_insensitive_search_with_context() {
     let (_test, ctx) = project();
@@ -181,6 +186,7 @@ fn case_insensitive_search_with_context() {
     assert_eq!(found[0].after.as_deref(), Some(&["end".to_owned()][..]));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn counts_per_pattern_of_a_list() {
     let (_test, ctx) = project();
@@ -216,6 +222,7 @@ fn counts_per_pattern_of_a_list() {
     );
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn files_with_matches_sorted_by_count() {
     let (_test, ctx) = project();

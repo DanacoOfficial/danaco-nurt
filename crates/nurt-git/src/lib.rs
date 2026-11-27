@@ -8,6 +8,8 @@
 //! branches, tags, checkpoints, work trees, fetch, clone and the remaining
 //! repository operations in Rust, without running an external program.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 

@@ -5,6 +5,8 @@
 //! recording journal. The commands `find` and `remove` are test stages that
 //! work on the virtual file system; the record stages are those of the build.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests stop at the first unexpected value by unwrapping or panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -39,6 +41,7 @@ impl EventListener for Collect {
     }
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn counting_filtered_entries_returns_the_count() {
     let world = world();
@@ -55,6 +58,7 @@ fn counting_filtered_entries_returns_the_count() {
     assert!(exists(&world, "/data/a.log"));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn script_with_two_pipelines_reports_each_pipeline_with_its_own_kind() {
     const SCRIPT: &str = "find /data |> count\nfind /data |> filter size > 150 |> remove";
@@ -110,6 +114,7 @@ fn program_with_one_pipeline_has_no_pipeline_reports() {
     assert!(response.reports.is_empty());
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn reading_returns_the_records_of_the_source() {
     let world = world();
@@ -120,6 +125,7 @@ fn reading_returns_the_records_of_the_source() {
     assert_eq!(page.matched, Some(3));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn removing_found_entries_deletes_them_and_reports_the_changes() {
     let world = world();
@@ -143,6 +149,7 @@ fn removing_found_entries_deletes_them_and_reports_the_changes() {
     assert_eq!(world.journal.committed().len(), 1);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn removing_filtered_entries_keeps_the_others() {
     let world = world();
@@ -154,6 +161,7 @@ fn removing_filtered_entries_keeps_the_others() {
     assert!(!exists(&world, "/data/c.log"));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn preview_plans_the_changes_without_applying_them() {
     let world = world();
@@ -192,6 +200,7 @@ fn engine_without_journal() -> Engine {
     .unwrap()
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn read_only_program_runs_without_journal() {
     let response = engine_without_journal().run(&Request::program("find /data"));
@@ -201,6 +210,7 @@ fn read_only_program_runs_without_journal() {
     assert_eq!(response.report.ast_hash.as_deref(), Some(PROGRAM_HASH));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn program_with_effects_fails_without_journal() {
     let response = engine_without_journal().run(&Request::program("find /data |> remove"));
@@ -209,6 +219,7 @@ fn program_with_effects_fails_without_journal() {
     assert_eq!(error.code, ErrorCode::StageFailed);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn started_requests_deliver_the_events_of_the_executor_once() {
     let world = world();

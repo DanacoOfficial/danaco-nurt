@@ -332,6 +332,7 @@ mod tests {
         assert!(!volume.exists(&root));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn cost_calibration_two_thousand_files_within_budget() {
         let volume = TestVolume::new(1 << 30);

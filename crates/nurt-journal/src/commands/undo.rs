@@ -352,6 +352,7 @@ mod tests {
         assert_eq!(parse(&wrong).unwrap_err().code, ErrorCode::Type);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn requests_resolve_relative_paths_and_convert_instants_to_wall_times() {
         use super::super::testing::path;

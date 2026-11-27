@@ -291,6 +291,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn creates_and_records_journal_directory_once() {
         let (fs, registry) = setup();
@@ -319,6 +320,7 @@ mod tests {
         assert_eq!(fs.calls().len(), calls);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_ineligible_volume_without_writing() {
         let (fs, registry) = setup();
@@ -337,6 +339,7 @@ mod tests {
         assert!(fs.calls().is_empty());
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn enables_memory_volume_by_per_volume_setting() {
         let (fs, registry) = setup();
@@ -348,6 +351,7 @@ mod tests {
         assert_eq!(journal_dir(&resolved), format!("/tmp/{}", expected_name()));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_no_anchor_when_volume_is_not_writable() {
         let (fs, registry) = setup();
@@ -366,6 +370,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn recreates_journal_directory_that_disappeared() {
         let (fs, registry) = setup();
@@ -387,6 +392,7 @@ mod tests {
         assert!(fs.exists(&format!("{dir}/CACHEDIR.TAG")));
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn detects_another_volume_mounted_at_the_same_place() {
         let (fs, registry) = setup();
@@ -450,6 +456,7 @@ mod tests {
         assert_eq!(registry.load(&moved).unwrap().len(), 2);
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn passes_on_file_system_failures() {
         let (fs, registry) = setup();
@@ -467,6 +474,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn overlay_journal_lives_in_upper_layer_and_lower_directories_need_copy() {
         let fs = TestFs::new();
@@ -517,6 +525,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn locates_journals_for_the_journal_store() {
         let (fs, registry) = setup();

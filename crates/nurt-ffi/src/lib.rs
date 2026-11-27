@@ -38,6 +38,8 @@
 //! unsafe { nurt_buf_free(&mut info) };
 //! ```
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![allow(
     unsafe_code,

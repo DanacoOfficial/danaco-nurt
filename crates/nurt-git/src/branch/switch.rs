@@ -182,6 +182,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn changes_list_a_file_replaced_by_a_directory_as_modified() {
         let fixture = RepoBuilder::new()

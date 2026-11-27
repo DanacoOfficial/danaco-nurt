@@ -3,6 +3,8 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Tests of the `nurt` executable as a process.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -99,6 +101,7 @@ fn help_option_after_a_subcommand_prints_its_usage_and_succeeds() {
     }
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn program_with_the_front_end_prints_a_valid_json_response() {
     let output = nurt(&["--format", "json", "find", "\"/srv\""], "");
@@ -359,6 +362,7 @@ fn doctor_lists_the_services_registered_by_the_engine() {
     }
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn read_of_a_key_uses_the_document_service() {
     let home = tempfile::tempdir().unwrap();
@@ -453,6 +457,7 @@ fn protocol_server_rejects_invalid_arguments() {
     assert!(output.stdout.is_empty());
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn session_reads_programs_from_a_pipe() {
     let output = nurt(&["repl"], "find \"/srv\"\nexit\n");
@@ -853,6 +858,7 @@ fn check_translates_a_bash_habit_that_reads_as_a_nurt_program() {
     assert!(text.contains("\"command\":\"http.request\""), "{text}");
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn a_misspelt_changing_command_is_offered_and_not_run() {
     let dir = tempfile::tempdir().unwrap();
@@ -872,6 +878,7 @@ fn a_misspelt_changing_command_is_offered_and_not_run() {
     assert!(combined(&checked).contains("E_AMBIGUOUS"));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn a_misspelt_reading_command_is_corrected_and_run() {
     let dir = tempfile::tempdir().unwrap();
@@ -909,6 +916,7 @@ fn a_text_with_an_unknown_escape_is_read_as_a_regular_expression_or_rejected_wit
 }
 
 #[cfg(feature = "mcp")]
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn mcp_tool_offers_a_misspelt_changing_command_and_runs_a_misspelt_reading_command() {
     let home = tempfile::tempdir().unwrap();

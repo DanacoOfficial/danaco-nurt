@@ -172,6 +172,7 @@ fn fetch_rejects_an_unknown_remote() {
     assert_eq!(error.code(), ErrorCode::GitRef);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn rebase_treats_merge_preserving_mode_as_plain_for_linear_history() {
     let pair = Pair::new(LOCAL);
@@ -198,6 +199,7 @@ fn rebase_refuses_merge_preserving_mode_before_any_write() {
     assert_eq!(pair.branch(), pair.tip);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn rebase_replays_local_commits_onto_the_fetched_head() {
     let pair = Pair::new(LOCAL);
@@ -211,6 +213,7 @@ fn rebase_replays_local_commits_onto_the_fetched_head() {
     assert!(!outcome.changes.is_empty());
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn rebase_stops_with_a_conflict_when_changes_overlap() {
     let pair = Pair::new(CONFLICTING);

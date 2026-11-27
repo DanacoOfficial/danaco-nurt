@@ -5,6 +5,8 @@
 //! the effect (step 3) and after it (step 5a), and `verify` with the rollback
 //! of the effect when the check fails.
 
+// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
+#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests stop at the first unexpected value by unwrapping or panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -72,6 +74,7 @@ fn programs() -> Programs {
         )
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn assert_before_the_effect_lets_a_met_condition_pass() {
     let world = world_with(programs());
@@ -88,6 +91,7 @@ fn assert_before_the_effect_lets_a_met_condition_pass() {
     assert_eq!(world.journal.committed().len(), 1);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn assert_before_the_effect_stops_the_program_without_a_change() {
     let world = world_with(programs());
@@ -103,6 +107,7 @@ fn assert_before_the_effect_stops_the_program_without_a_change() {
     assert!(world.journal.committed().is_empty());
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn assert_after_the_effect_lets_a_met_condition_pass() {
     let world = world_with(programs());
@@ -117,6 +122,7 @@ fn assert_after_the_effect_lets_a_met_condition_pass() {
     assert!(!exists(&world, "/data/a.log"));
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn failed_assert_after_the_effect_keeps_the_effect() {
     let world = world_with(programs());
@@ -131,6 +137,7 @@ fn failed_assert_after_the_effect_keeps_the_effect() {
     assert_eq!(world.journal.committed().len(), 1);
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn verify_with_a_met_check_keeps_the_effect() {
     let world = world_with(programs());
@@ -147,6 +154,7 @@ fn verify_with_a_met_check_keeps_the_effect() {
     }
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn verify_with_a_failed_check_rolls_the_effect_back() {
     let world = world_with(programs());
@@ -173,6 +181,7 @@ fn verify_with_a_failed_check_rolls_the_effect_back() {
     );
 }
 
+#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn verify_in_preview_does_not_run_the_check_or_change_files() {
     let world = world_with(programs());
