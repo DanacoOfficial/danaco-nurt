@@ -1233,19 +1233,31 @@ fn producer() -> String {
 
 /// Line of the producer header or footer, permitted to name the producer.
 ///
-/// The three lines at the start of a file are always permitted; the fixed
-/// header fields and the three lines of the footer are permitted at any
-/// position.
+/// The lines of the fixed header and of the fixed footer that name the
+/// producer are permitted at any position and behind any comment mark (`//`,
+/// `#` or a one-line `<!-- -->`); among the first lines of a file the
+/// copyright, license and contact lines of other forms are permitted as well.
 fn is_header_line(index: usize, line: &str) -> bool {
-    let contact = ["support@", "dan", "aco-group.pl"].concat();
-    let block = [
-        "// Copyright (c) ",
-        "// Use is subject to license terms",
-        "// Author: ",
-        "// License: see the LICENSE file",
-        "// Support: support@",
+    let name = ["Dan", "aco"].concat();
+    let domain = format!("{}-group.pl", name.to_lowercase());
+    let contact = format!("support@{domain}");
+    let license = format!("see the LICENSE file or https://www.{domain}");
+    let content = line
+        .trim()
+        .trim_start_matches("<!--")
+        .trim_end_matches("-->")
+        .trim_start_matches("//")
+        .trim_start_matches('#')
+        .trim();
+    let fixed = [
+        format!("Use is subject to license terms: {license}"),
+        format!("https://github.com/{name}Official | {contact}"),
+        format!("Author:           {name} Official"),
+        format!("License:          {license}"),
+        format!("Support: {contact}"),
     ];
-    block.iter().any(|prefix| line.starts_with(prefix))
+    (content.starts_with("Copyright (c) ") && content.ends_with(&producer()))
+        || fixed.iter().any(|text| content == text)
         || (index < HEADER_LINES
             && (line.contains("Copyright (c) ")
                 || line.contains("Use is subject to license terms")
