@@ -69,7 +69,7 @@
   },
   "oracle_program": "set \"package.json\" key: \"version\" value: \"2.4.0\"",
   "reference_bash": "python3 - <<'EOF'\nimport json\np = 'package.json'\nd = json.load(open(p, encoding='utf-8'))\nd['version'] = '2.4.0'\nopen(p, 'w', encoding='utf-8').write(json.dumps(d, indent=2) + '\\n')\nEOF\n",
-  "reference_pwsh": "$p = Join-Path $PWD 'package.json'\n$d = Get-Content $p -Raw | ConvertFrom-Json\n$d.version = '2.4.0'\n$d | ConvertTo-Json -Depth 20 | Set-Content $p\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'package.json'\n$d = Get-Content $p -Raw | ConvertFrom-Json\n$d.version = '2.4.0'\n[IO.File]::WriteAllText($p, (($d | ConvertTo-Json -Depth 20) -replace \"`r`n\", \"`n\") + \"`n\")\n",
   "tags": [
     "json",
     "set-key"

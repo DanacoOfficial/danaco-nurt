@@ -59,7 +59,7 @@
   },
   "oracle_program": "set \"config/app.json\" key: \"features.beta_ui\" value: true",
   "reference_bash": "python3 - <<'EOF'\nimport json\np = 'config/app.json'\nd = json.load(open(p, encoding='utf-8'))\nd['features']['beta_ui'] = True\nopen(p, 'w', encoding='utf-8').write(json.dumps(d, indent=2) + '\\n')\nEOF\n",
-  "reference_pwsh": "$p = Join-Path $PWD 'config/app.json'\n$d = Get-Content $p -Raw | ConvertFrom-Json\n$d.features.beta_ui = $true\n$d | ConvertTo-Json -Depth 20 | Set-Content $p\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'config/app.json'\n$d = Get-Content $p -Raw | ConvertFrom-Json\n$d.features.beta_ui = $true\n[IO.File]::WriteAllText($p, (($d | ConvertTo-Json -Depth 20) -replace \"`r`n\", \"`n\") + \"`n\")\n",
   "tags": [
     "json",
     "set-key"

@@ -21,7 +21,7 @@
       {
         "path": "tools/writer.py",
         "type": "file",
-        "content_utf8": "import os\nimport sys\nimport time\n\npath, pidfile = sys.argv[2], sys.argv[3]\nwith open(path, \"a\") as log:\n    with open(pidfile, \"w\") as handle:\n        handle.write(str(os.getpid()))\n    for n in range(1, 11):\n        log.write(f\"line {n}\\n\")\n        log.flush()\n        time.sleep(0.25)\n    log.write(\"writer done\\n\")\n"
+        "content_utf8": "import os\nimport sys\nimport time\n\npath, pidfile = sys.argv[2], sys.argv[3]\nwith open(path, \"a\", newline=\"\\n\") as log:\n    with open(pidfile, \"w\") as handle:\n        handle.write(str(os.getpid()))\n    for n in range(1, 11):\n        log.write(f\"line {n}\\n\")\n        log.flush()\n        time.sleep(0.25)\n    log.write(\"writer done\\n\")\n"
       }
     ]
   },

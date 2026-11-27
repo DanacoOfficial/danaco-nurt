@@ -69,7 +69,7 @@
   },
   "oracle_program": "[{\"name\": \"cleanup\", \"cron\": \"0 3 * * *\", \"command\": \"cleanup --days 14\", \"enabled\": true}, {\"name\": \"sync-all\", \"cron\": \"*/15 * * * *\", \"command\": \"sync --all\", \"enabled\": true}, {\"name\": \"legacy-export\", \"cron\": \"0 1 * * 0\", \"command\": \"export --legacy\", \"enabled\": false}] |> write \"admin/jobs.json\" format: json",
   "reference_bash": "python3 - <<'EOF'\nimport json\nd = json.load(open('admin/jobs.json'))\nd[1]['name'] = 'sync-all'\nopen('admin/jobs.json', 'w').write(json.dumps(d, indent=2) + '\\n')\nEOF\n",
-  "reference_pwsh": "$p = Join-Path $PWD 'admin/jobs.json'\n$d = @(Get-Content $p -Raw | ConvertFrom-Json)\n$d[1].name = 'sync-all'\nConvertTo-Json -InputObject @($d) -Depth 5 | Set-Content $p\n",
+  "reference_pwsh": "$p = Join-Path $PWD 'admin/jobs.json'\n$d = @(Get-Content $p -Raw | ConvertFrom-Json)\n$d[1].name = 'sync-all'\n[IO.File]::WriteAllText($p, ((ConvertTo-Json -InputObject @($d) -Depth 5) -replace \"`r`n\", \"`n\") + \"`n\")\n",
   "tags": [
     "admin",
     "config"

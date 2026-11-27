@@ -85,7 +85,7 @@
   },
   "oracle_program": "git.stage \".\" action: untrack paths: [\"conf/secrets.yaml\"]\nwrite \".gitignore\" \"conf/secrets.yaml\" mode: append ensure_newline: true\ngit.commit \".\" message: \"Stop tracking conf/secrets.yaml\" paths: [\".gitignore\", \"conf/secrets.yaml\"]",
   "reference_bash": "git rm -q --cached -- 'conf/secrets.yaml'\necho 'conf/secrets.yaml' >> .gitignore\ngit add .gitignore\ngit commit -qm 'Stop tracking conf/secrets.yaml'\n",
-  "reference_pwsh": "git rm -q --cached -- 'conf/secrets.yaml'\nAdd-Content .gitignore 'conf/secrets.yaml'\ngit add .gitignore\ngit commit -qm 'Stop tracking conf/secrets.yaml'\n",
+  "reference_pwsh": "git rm -q --cached -- 'conf/secrets.yaml'\n[IO.File]::AppendAllText((Join-Path $PWD '.gitignore'), \"conf/secrets.yaml`n\")\ngit add .gitignore\ngit commit -qm 'Stop tracking conf/secrets.yaml'\n",
   "negatives": [
     {
       "shell": "bash",

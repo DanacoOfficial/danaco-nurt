@@ -56,8 +56,8 @@
   "negatives": [
     {
       "shell": "pwsh",
-      "script": "Get-ChildItem docs -Filter '*.htm' | Remove-Item",
-      "defect": "the filter also matches .html files"
+      "script": "Remove-Item docs/*.htm*",
+      "defect": "the pattern also matches .html files"
     }
   ],
   "provocation": "glob-mismatch",

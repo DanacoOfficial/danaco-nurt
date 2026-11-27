@@ -84,7 +84,7 @@
     "seconds": 120
   },
   "oracle_program": "git.stage \".\" action: untrack paths: [\"local/override.toml\"]\nwrite \".gitignore\" \"local/override.toml\" mode: append ensure_newline: true\ngit.commit \".\" message: \"Stop tracking local/override.toml\" paths: [\".gitignore\", \"local/override.toml\"]",
-  "reference_pwsh": "git rm -q --cached -- 'local/override.toml'\nAdd-Content .gitignore 'local/override.toml'\ngit add .gitignore\ngit commit -qm 'Stop tracking local/override.toml'\n",
+  "reference_pwsh": "git rm -q --cached -- 'local/override.toml'\n[IO.File]::AppendAllText((Join-Path $PWD '.gitignore'), \"local/override.toml`n\")\ngit add .gitignore\ngit commit -qm 'Stop tracking local/override.toml'\n",
   "tags": [
     "git",
     "gitignore"
