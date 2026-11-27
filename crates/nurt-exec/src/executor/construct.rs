@@ -567,7 +567,7 @@ impl<'e> Execution<'e> {
                 claimed.push((change.change.path.to_string(), index));
             }
         }
-        if overlapping(&mut claimed) {
+        if overlapping(&claimed) {
             return Ok(None);
         }
         let next = std::sync::atomic::AtomicUsize::new(0);
@@ -613,7 +613,12 @@ impl<'e> Execution<'e> {
         });
         let mut count = 0;
         let mut failure = started.err();
-        for slot in results.into_inner().unwrap_or_else(PoisonError::into_inner) {
+        for (index, slot) in results
+            .into_inner()
+            .unwrap_or_else(PoisonError::into_inner)
+            .into_iter()
+            .enumerate()
+        {
             let Some((state, outcome)) = slot else {
                 continue;
             };
@@ -628,7 +633,7 @@ impl<'e> Execution<'e> {
             if let Err(error) = outcome
                 && failure.is_none()
             {
-                failure = Some(error.with_detail("iteration", json!(count)));
+                failure = Some(error.with_detail("iteration", json!(index + 1)));
             }
         }
         match failure {
@@ -657,7 +662,9 @@ impl<'e> Execution<'e> {
             Ok(control) => {
                 self.with_tx(|tx| tx.release_savepoint());
                 self.with_state(|state| state.completed = Some(number));
-                Ok(control)
+                // A nested loop that failed has ended the whole construct.
+                let failed = self.with_state(|state| state.deferred.is_some());
+                Ok(if failed { Control::Break } else { control })
             }
             Err(error) => {
                 if let Some(Err(failure)) = self.with_tx(|tx| tx.rollback_to_savepoint()) {
@@ -1118,19 +1125,43 @@ fn contains_jump(body: &[PlanStatement]) -> bool {
     })
 }
 
-/// Whether two iterations claim the same target or one a target inside
-/// another; `claimed` is sorted by path.
-fn overlapping(claimed: &mut [(String, usize)]) -> bool {
-    claimed.sort();
-    claimed.windows(2).any(|pair| {
-        let [(first, left), (second, right)] = pair else {
-            return false;
-        };
-        left != right
-            && (first == second
-                || second
-                    .strip_prefix(first.as_str())
-                    .is_some_and(|rest| rest.starts_with('/')))
+/// Components of a path for the comparison of targets: both separators
+/// split, and case is folded, so that a case-insensitive volume is treated as
+/// overlapping, which is the cautious answer.
+fn components(path: &str) -> Vec<String> {
+    path.split(['/', '\\'])
+        .filter(|part| !part.is_empty())
+        .map(str::to_lowercase)
+        .collect()
+}
+
+/// Whether two different iterations claim the same target, or one claims a
+/// target inside another: every path is compared with all its ancestors and
+/// all its descendants among the claims of other iterations.
+fn overlapping(claimed: &[(String, usize)]) -> bool {
+    use std::collections::{HashMap, HashSet};
+    let mut exact: HashMap<Vec<String>, HashSet<usize>> = HashMap::new();
+    let mut below: HashMap<Vec<String>, HashSet<usize>> = HashMap::new();
+    let parsed: Vec<(Vec<String>, usize)> = claimed
+        .iter()
+        .map(|(path, iteration)| (components(path), *iteration))
+        .collect();
+    for (path, iteration) in &parsed {
+        exact.entry(path.clone()).or_default().insert(*iteration);
+        for length in 0..path.len() {
+            below
+                .entry(path[..length].to_vec())
+                .or_default()
+                .insert(*iteration);
+        }
+    }
+    let others = |set: Option<&HashSet<usize>>, iteration: usize| {
+        set.is_some_and(|set| set.iter().any(|other| *other != iteration))
+    };
+    parsed.iter().any(|(path, iteration)| {
+        others(exact.get(path), *iteration)
+            || others(below.get(path), *iteration)
+            || (0..path.len()).any(|length| others(exact.get(&path[..length]), *iteration))
     })
 }
 
@@ -1304,4 +1335,49 @@ fn bound_pipeline(pipeline: &PipelinePlan) -> BoundStatement {
         stages,
         span: pipeline.span,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::overlapping;
+
+    fn claims(items: &[(&str, usize)]) -> Vec<(String, usize)> {
+        items
+            .iter()
+            .map(|(path, n)| ((*path).to_owned(), *n))
+            .collect()
+    }
+
+    #[test]
+    fn a_path_and_a_descendant_overlap_even_when_other_names_sort_between() {
+        assert!(overlapping(&claims(&[
+            ("/srv/a", 1),
+            ("/srv/a.log", 2),
+            ("/srv/a/x", 3),
+        ])));
+    }
+
+    #[test]
+    fn disjoint_paths_and_the_same_iteration_do_not_overlap() {
+        assert!(!overlapping(&claims(&[
+            ("/srv/a", 1),
+            ("/srv/a.log", 2),
+            ("/srv/ab/x", 3),
+        ])));
+        assert!(!overlapping(&claims(&[("/srv/a", 1), ("/srv/a/x", 1)])));
+    }
+
+    #[test]
+    fn the_same_target_overlaps() {
+        assert!(overlapping(&claims(&[("/srv/a", 1), ("/srv/a", 2)])));
+    }
+
+    #[test]
+    fn windows_separators_and_case_are_compared_cautiously() {
+        assert!(overlapping(&claims(&[
+            ("C:\\Srv\\A", 1),
+            ("c:/srv/a/x", 2)
+        ])));
+        assert!(overlapping(&claims(&[("/Srv/A", 1), ("/srv/a", 2)])));
+    }
 }

@@ -86,8 +86,18 @@ impl Binder<'_> {
             Statement::Each(construct) => {
                 let options =
                     self.loop_options("each", &construct.options, &["parallel", "atomic"])?;
+                self.last_flow = None;
                 let source = self.sequence(&construct.source)?;
-                let body = self.block(index, &construct.body, &[&construct.name], true)?;
+                let flow = match &construct.source {
+                    Expr::Ref(reference) => self.let_flow(&reference.name),
+                    _ => self.last_flow.take(),
+                };
+                let types = flow.as_ref().map(crate::fields::flow_field_types);
+                self.var_types
+                    .push((construct.name.clone(), types.unwrap_or_default()));
+                let body = self.block(index, &construct.body, &[&construct.name], true);
+                self.var_types.pop();
+                let body = body?;
                 Ok(BoundStatement::Each(BoundEach {
                     source,
                     name: construct.name.clone(),
@@ -341,7 +351,7 @@ impl Binder<'_> {
     /// Binds the condition of a construct and checks that it is `bool`.
     fn condition(&mut self, expr: &Expr) -> Result<BoundExpr, BindError> {
         let bound = self.construct_expression(expr)?;
-        match kind_of(&bound) {
+        match self.condition_kind(&bound) {
             Kind::Other(found) => Err(BindError::new(
                 ErrorCode::Type,
                 format!("a condition is `bool`, found {found}; compare the value with `==`, `<` or `exists`"),
@@ -349,6 +359,33 @@ impl Binder<'_> {
             .at(crate::cast::expr_span(expr))
             .expected(&["bool".to_owned()])),
             Kind::Bool | Kind::Unknown => Ok(bound),
+        }
+    }
+
+    /// What a condition is: as `kind_of`, and for a field of a loop variable
+    /// the type the output record of the source command declares.
+    fn condition_kind(&self, expr: &BoundExpr) -> Kind {
+        let kind = kind_of(expr);
+        if kind != Kind::Unknown {
+            return kind;
+        }
+        let BoundExpr::Ref(reference) = expr else {
+            return kind;
+        };
+        let [field] = reference.fields.as_slice() else {
+            return kind;
+        };
+        let Some((_, types)) = self
+            .var_types
+            .iter()
+            .rev()
+            .find(|(name, _)| name == &reference.name)
+        else {
+            return kind;
+        };
+        match types.get(field.as_str()) {
+            Some(nurt_types::ValueType::Bool) | None => Kind::Unknown,
+            Some(_) => Kind::Other("a field that is not `bool`"),
         }
     }
 
@@ -629,7 +666,9 @@ impl Binder<'_> {
             nurt_contracts::bound::BoundHead::Call(call)
                 if self.functions.iter().any(|known| known.name == call.name && known.changes)
         );
+        let unknown_action = self.stage_with_open_action(&bound);
         let changing = calls_changing
+            || unknown_action
             || bound
                 .head_phase()
                 .into_iter()
@@ -643,6 +682,45 @@ impl Binder<'_> {
             .at(span));
         }
         Ok(BoundExpr::Sub { p: bound })
+    }
+}
+
+impl Binder<'_> {
+    /// Whether a stage of the pipeline has actions that change the world and
+    /// takes the value that picks the action from a name or an expression, so
+    /// that its effect is not known before the run (`method: @m`).
+    fn stage_with_open_action(&self, pipeline: &nurt_contracts::bound::BoundPipeline) -> bool {
+        use nurt_contracts::spec::ParamType;
+        let head = match &pipeline.head {
+            nurt_contracts::bound::BoundHead::Stage(stage) => Some(stage),
+            _ => None,
+        };
+        head.into_iter().chain(&pipeline.stages).any(|stage| {
+            let Some(spec) = self.catalog.command(&stage.name) else {
+                return false;
+            };
+            let changing = spec
+                .effects
+                .iter()
+                .any(|action| action.effect != nurt_contracts::kinds::EffectKind::Read);
+            changing
+                && stage.args.iter().any(|arg| {
+                    let picks = spec.effects.iter().any(|action| action.action == arg.name)
+                        || spec
+                            .param(&arg.name)
+                            .is_some_and(|param| matches!(param.ty, ParamType::Enum(_)));
+                    picks
+                        && matches!(
+                            arg.value,
+                            BoundExpr::Ref(_)
+                                | BoundExpr::Field { .. }
+                                | BoundExpr::Call { .. }
+                                | BoundExpr::Bin { .. }
+                                | BoundExpr::Un { .. }
+                                | BoundExpr::Sub { .. }
+                        )
+                })
+        })
     }
 }
 

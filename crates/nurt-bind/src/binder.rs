@@ -77,6 +77,10 @@ pub(crate) struct Binder<'a> {
     pub(crate) nesting: usize,
     /// Whether the body of a function is bound: no name of the caller is visible.
     pub(crate) isolated: bool,
+    /// Flow of the last pipeline bound as a value in an expression.
+    pub(crate) last_flow: Option<Flow>,
+    /// Types of the fields of the records of the loop variables in scope.
+    pub(crate) var_types: Vec<(String, FieldTypes)>,
     /// Whether a reading pipeline in parentheses is a value.
     pub(crate) allow_sub: bool,
     /// Correction of names and literals; absent for a binding without
@@ -177,6 +181,8 @@ impl<'a> Binder<'a> {
             loops: 0,
             nesting: 0,
             isolated: false,
+            last_flow: None,
+            var_types: Vec::new(),
             allow_sub: false,
             corrector,
             strict: 0,
@@ -334,7 +340,10 @@ impl<'a> Binder<'a> {
         self.location = location;
         self.fields = fields;
         self.field_types = field_types;
-        bound.map(|(pipeline, _)| pipeline)
+        bound.map(|(pipeline, flow)| {
+            self.last_flow = Some(flow);
+            pipeline
+        })
     }
 
     /// Binds a reference to a named result.
