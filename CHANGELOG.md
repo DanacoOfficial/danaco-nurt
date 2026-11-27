@@ -62,6 +62,20 @@ their own version numbers, described in the specification.
   - `nurt schema tool` prints the tool definition for the platforms of the
     integrators, as documented;
   - `service install` writes the user unit where the service manager reads it.
+- Defects found by running the whole test suite on Windows and on real Linux
+  volumes:
+  - a file of the lower layer of an overlay belongs to the volume of the
+    overlay, so that the journal preserves it on the right volume;
+  - an entry preserved by copy keeps its permissions and times;
+  - `clone` on Windows writes the configuration as Git for Windows does (line
+    ends, `core.symlinks` from the system configuration) and stores a local
+    URL with forward slashes;
+  - credential helpers, `gpg.ssh.allowedSignersFile` and GnuPG of Git for
+    Windows (an MSYS program, which gets `/c/…` paths) work on Windows;
+  - `push` from a second worktree on Windows finds the common directory of the
+    repository;
+  - the change report of a command that writes through the journal names the
+    kind of every changed entry on Windows as well.
 
 ### Changed
 
