@@ -197,6 +197,19 @@ their own version numbers, described in the specification.
 
 ### Fixed
 
+- The bindings for Python, Go, Node, Java and .NET read the answers of the
+  engine in the shape it returns: `describe` returns its text from the field
+  `text` of the description, `catalog` sends the chosen group or command as
+  `what`, `correct` returns the program that ran, and a language error of
+  `describe`, `help`, `print` or `schema` ends in a language error of the
+  binding, not in an empty text or a protocol error. Each binding has tests
+  that run against the engine when `NURT_TEST_EXECUTABLE` names it.
+- The request types of the Go, .NET and Java bindings carry `params`,
+  `privilege` and `as_user`, and the test of the Python binding expects the
+  tree format 1.1 that the engine reports.
+- The tests of the journal that undo operations create their directories on
+  the disk of the build and no longer end with `E_JOURNAL_NOOP` when
+  `TMPDIR` is a tmpfs, where the journal of a volume is inactive.
 - The code review of 0.1.0 corrected the defects found in every crate of the
   workspace, the bindings, the packaging and the documentation; the main ones:
   - requests of `nurt serve` resolve relative paths against `options.base`;
