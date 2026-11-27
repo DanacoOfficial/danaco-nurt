@@ -97,6 +97,11 @@ pub fn remove_entry(path: &Path) -> Result<()> {
     };
     if meta.is_dir() {
         fs::remove_dir_all(path).map_err(io_error("remove directory", path))
+    } else if meta.file_type().is_symlink() {
+        // Windows removes a link to a directory as a directory.
+        fs::remove_file(path)
+            .or_else(|_| fs::remove_dir(path))
+            .map_err(io_error("remove", path))
     } else {
         fs::remove_file(path).map_err(io_error("remove", path))
     }
