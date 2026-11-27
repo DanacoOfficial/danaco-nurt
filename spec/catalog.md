@@ -130,6 +130,24 @@ program, while the call parameter `timeout` limits the whole program;
 parameter `format` is the form of the result. The two never collide, because
 call parameters are not part of the program text.
 
+### 2.0 `preview` on a stage and the boolean shorthand
+
+A stage that has no parameter named `preview` accepts `preview` as its last
+argument: `remove preview`, `remove preview: true` and `remove preview: @dry`
+compute the effect of that stage without applying it. The binder keeps the
+value in the bound stage as the argument `preview`; the executor plans the
+stage and reports status `planned` for its part. The call parameter `preview`
+of the envelope previews the whole program.
+
+A parameter of type `bool` written without a value is `true`: a word that
+names a `bool` parameter of the command, that is not written otherwise and
+that is not a value of an enumeration parameter of the command stands for
+`name: true`. `false` is always written out (`hidden: false`). The long form
+stays valid. The rule applies to commands, to the call of a function and to
+the parameters of a script (`nurt run file.nurt dry`). A parameter of a
+function or of a script that is not `bool`, written without a value, is
+`E_MISSING_PARAM` with the expected type.
+
 ### 2.1 Shared command parameters
 
 Parameters with the same name have the same meaning and type in every command

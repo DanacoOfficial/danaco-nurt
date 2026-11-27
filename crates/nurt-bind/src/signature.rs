@@ -904,65 +904,6 @@ fn os_name(os: Os) -> &'static str {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn distributes_positional_arguments_around_a_repeated_parameter() {
-        assert_eq!(distribute(2, Some(0), 3), [0, 0, 1]);
-        assert_eq!(distribute(2, Some(0), 2), [0, 1]);
-        assert_eq!(distribute(2, Some(0), 1), [0]);
-        assert_eq!(distribute(1, Some(0), 3), [0, 0, 0]);
-        assert_eq!(distribute(3, Some(1), 4), [0, 1, 1, 2]);
-        assert_eq!(distribute(3, Some(1), 1), [0]);
-    }
-
-    #[test]
-    fn distributes_positional_arguments_without_a_repeated_parameter() {
-        assert_eq!(distribute(2, None, 2), [0, 1]);
-        assert_eq!(distribute(2, None, 3), [0, 1]);
-        assert!(distribute(0, None, 1).is_empty());
-    }
-
-    #[test]
-    fn chooses_the_input_kind_by_preference() {
-        let inputs = [IoSpec::None, IoSpec::Record("entry".to_owned())];
-        assert_eq!(choose_input(&inputs, &Flow::Start), Some(IoSpec::None));
-        let matches = Flow::Records(vec![
-            IoSpec::Record("match".to_owned()),
-            IoSpec::Record("entry".to_owned()),
-        ]);
-        assert_eq!(
-            choose_input(&inputs, &matches),
-            Some(IoSpec::Record("entry".to_owned()))
-        );
-        assert_eq!(
-            choose_input(&inputs, &Flow::any()),
-            Some(IoSpec::Record("entry".to_owned()))
-        );
-        assert_eq!(choose_input(&[IoSpec::Any], &Flow::Start), None);
-        assert_eq!(choose_input(&[IoSpec::Any], &Flow::Open), Some(IoSpec::Any));
-    }
-
-    #[test]
-    fn converts_a_single_value_to_a_list() {
-        let ty: ParamType = "list<path>".parse().unwrap();
-        let path = BoundExpr::Path {
-            v: "/srv".to_owned(),
-        };
-        assert_eq!(
-            converted(path.clone(), &ty),
-            BoundExpr::List {
-                items: vec![path.clone()]
-            }
-        );
-        let single: ParamType = "path".parse().unwrap();
-        assert_eq!(converted(path.clone(), &single), path);
-        assert_eq!(converted(BoundExpr::Null, &ty), BoundExpr::Null);
-    }
-}
-
 /// Source range of an expression, when it has one.
 fn preview_span(expr: &Expr) -> Option<nurt_contracts::ast::Span> {
     crate::cast::expr_span(expr)
@@ -1044,4 +985,63 @@ fn expand_flags(stage: &Stage, spec: &StageSpec) -> Option<Stage> {
         };
     }
     changed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn distributes_positional_arguments_around_a_repeated_parameter() {
+        assert_eq!(distribute(2, Some(0), 3), [0, 0, 1]);
+        assert_eq!(distribute(2, Some(0), 2), [0, 1]);
+        assert_eq!(distribute(2, Some(0), 1), [0]);
+        assert_eq!(distribute(1, Some(0), 3), [0, 0, 0]);
+        assert_eq!(distribute(3, Some(1), 4), [0, 1, 1, 2]);
+        assert_eq!(distribute(3, Some(1), 1), [0]);
+    }
+
+    #[test]
+    fn distributes_positional_arguments_without_a_repeated_parameter() {
+        assert_eq!(distribute(2, None, 2), [0, 1]);
+        assert_eq!(distribute(2, None, 3), [0, 1]);
+        assert!(distribute(0, None, 1).is_empty());
+    }
+
+    #[test]
+    fn chooses_the_input_kind_by_preference() {
+        let inputs = [IoSpec::None, IoSpec::Record("entry".to_owned())];
+        assert_eq!(choose_input(&inputs, &Flow::Start), Some(IoSpec::None));
+        let matches = Flow::Records(vec![
+            IoSpec::Record("match".to_owned()),
+            IoSpec::Record("entry".to_owned()),
+        ]);
+        assert_eq!(
+            choose_input(&inputs, &matches),
+            Some(IoSpec::Record("entry".to_owned()))
+        );
+        assert_eq!(
+            choose_input(&inputs, &Flow::any()),
+            Some(IoSpec::Record("entry".to_owned()))
+        );
+        assert_eq!(choose_input(&[IoSpec::Any], &Flow::Start), None);
+        assert_eq!(choose_input(&[IoSpec::Any], &Flow::Open), Some(IoSpec::Any));
+    }
+
+    #[test]
+    fn converts_a_single_value_to_a_list() {
+        let ty: ParamType = "list<path>".parse().unwrap();
+        let path = BoundExpr::Path {
+            v: "/srv".to_owned(),
+        };
+        assert_eq!(
+            converted(path.clone(), &ty),
+            BoundExpr::List {
+                items: vec![path.clone()]
+            }
+        );
+        let single: ParamType = "path".parse().unwrap();
+        assert_eq!(converted(path.clone(), &single), path);
+        assert_eq!(converted(BoundExpr::Null, &ty), BoundExpr::Null);
+    }
 }

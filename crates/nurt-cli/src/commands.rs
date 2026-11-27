@@ -11,7 +11,8 @@ use serde_json::Value as Json;
 use crate::EngineSource;
 use crate::app::{CliError, Context, Io};
 use crate::args::{
-    self, AST_FLAGS, CHECK_FLAGS, EXEC_FLAGS, FMT_FLAGS, Flags, SCHEMA_FLAGS, SCRIPT_FLAGS,
+    self, AST_FLAGS, CHECK_FLAGS, EXEC_FLAGS, FMT_FLAGS, Flags, RUN_FLAGS, SCHEMA_FLAGS,
+    SCRIPT_FLAGS,
 };
 use crate::doctor;
 use crate::exit;
@@ -35,6 +36,7 @@ pub fn run_subcommand(
     match name {
         "exec" => exec(args, io, source),
         "script" => script(args, io, source),
+        "run" => run_file(args, io, source),
         "repl" => repl::run(args, io, source),
         "check" => check(args, io, source),
         "fmt" => fmt(args, io, source),
@@ -150,6 +152,33 @@ fn script(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result
     let text = read_text(&path, io)?;
     let mut request = program_request(without_shebang(&text).to_owned(), &flags);
     request.options.script = Some(true);
+    run_request(&request, flags.format, io, source)
+}
+
+/// Runs a program file with the values of its parameters:
+/// `nurt run cleanup.nurt dir: "/srv/app" days: 7 dry`. Without `params` in
+/// the file the program takes no values. `--help` after the file prints the
+/// declaration of the parameters.
+fn run_file(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result<u8, CliError> {
+    let (flags, words) = args::parse_flags(args, RUN_FLAGS, false)?;
+    let Some((path, rest)) = words.split_first() else {
+        return Err(CliError::Usage("`run` needs a program file".to_owned()));
+    };
+    let text = read_text(path, io)?;
+    let text = without_shebang(&text).to_owned();
+    if rest.iter().any(|word| word == "--help" || word == "-h") {
+        let context = Context::open(io.terminal, source)?;
+        let document = context.engine.parse(&text, flags.variant)?;
+        let declaration = crate::params::declaration(&context.engine, &document, flags.variant)?;
+        writeln!(
+            io.out,
+            "{}",
+            crate::params::help(path, &document, &declaration)
+        )?;
+        return Ok(exit::SUCCESS);
+    }
+    let mut request = program_request(text, &flags);
+    request.params = crate::params::from_words(rest)?;
     run_request(&request, flags.format, io, source)
 }
 

@@ -4,6 +4,8 @@
 //! Parsing of the control constructs: conditions, loops, `steps`, functions
 //! and script parameters, in the three syntax variants.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use nurt_contracts::ast::{AstDocument, Statement};
 use nurt_syntax::parse::{ParseOptions, Variant, parse};
 

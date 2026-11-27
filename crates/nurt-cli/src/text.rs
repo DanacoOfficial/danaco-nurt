@@ -58,6 +58,8 @@ pub fn usage() -> String {
          \x20 exec, script, repl, check, fmt, ast, schema, catalog, help,\n\
          \x20 history, undo, redo, serve, mcp, lsp, migrate, service, journal,\n\
          \x20 ext, doctor, version\n\n\
+         Program file:\n\
+         \x20 nurt run <FILE.nurt> [name: value | flag ...]\n\n\
          Options of a program:\n\
          \x20 --variant a|b|c       notation variant of the program\n\
          \x20 --preview             compute the effect without applying it\n\
