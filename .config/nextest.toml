@@ -16,6 +16,13 @@
 filter = "package(nurt-correct) & (binary(lexical_regressions) | binary(lexical_front) | binary(powershell_translate))"
 slow-timeout = { period = "30s", terminate-after = 4 }
 
+# The tests of the binaries named `perf` assert wall-clock limits. They run
+# alone, with every thread of the machine reserved, so that the other tests
+# running in parallel do not distort the measured time.
+[[profile.default.overrides]]
+filter = "binary(perf)"
+threads-required = "num-cpus"
+
 # The nurt-proc tests start the `proc_fixture` example from the `examples`
 # directory next to the test binaries. `cargo test --no-run` builds it, but an
 # archive carries test binaries only, so the example travels as an included
