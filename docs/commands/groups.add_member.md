@@ -61,10 +61,10 @@ Add an account named by parameter.
 groups.add_member name: "ops" member: "ann" privilege: elevated
 ```
 
-Preview the change.
+Run the change with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-groups.add_member "ops" "ann" preview: true
+groups.add_member "ops" "ann" privilege: elevated
 ```
 
 ## Errors

@@ -63,10 +63,10 @@ Load a module with a parameter.
 modules.load "nf_conntrack" params: ["hashsize=65536"] privilege: elevated
 ```
 
-Preview the load.
+Run the load with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-modules.load "overlay" preview: true
+modules.load "overlay" privilege: elevated
 ```
 
 ## Errors

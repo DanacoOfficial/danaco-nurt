@@ -62,10 +62,10 @@ Remove an account and keep the home directory.
 accounts.remove "olduser" keep_home: true privilege: elevated
 ```
 
-Preview the removal.
+Run the removal with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-accounts.remove "olduser" preview: true
+accounts.remove "olduser" privilege: elevated
 ```
 
 ## Errors

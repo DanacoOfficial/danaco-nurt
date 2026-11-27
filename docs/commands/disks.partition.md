@@ -54,10 +54,10 @@ A partition change is irreversible: the preview is the only safeguard.
 
 ## Examples
 
-Preview the deletion of a partition.
+Run the deletion of a partition with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-disks.partition "/dev/sdb" action: delete number: 2 preview: true
+disks.partition "/dev/sdb" action: delete number: 2 privilege: elevated
 ```
 
 Create a partition of 10 GiB.

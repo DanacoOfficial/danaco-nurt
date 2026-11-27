@@ -53,10 +53,10 @@ Cancel the schedule.
 power.cancel privilege: elevated
 ```
 
-Preview the cancellation.
+Run the cancellation with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-power.cancel preview: true
+power.cancel privilege: elevated
 ```
 
 Cancel and show the effect.

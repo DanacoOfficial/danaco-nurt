@@ -62,10 +62,10 @@ Unload and show the effect.
 modules.unload "dummy" privilege: elevated |> select target
 ```
 
-Preview the unload.
+Run the unload with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-modules.unload "dummy" preview: true
+modules.unload "dummy" privilege: elevated
 ```
 
 ## Errors

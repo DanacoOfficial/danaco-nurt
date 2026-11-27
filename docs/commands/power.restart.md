@@ -63,10 +63,10 @@ Schedule at a time.
 power.restart at: "2026-12-01T03:00:00Z" privilege: elevated
 ```
 
-Preview the immediate action.
+Run the immediate action with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-power.restart preview: true
+power.restart privilege: elevated
 ```
 
 ## Errors

@@ -64,10 +64,10 @@ Set a value and keep it after a restart.
 sysctl.set "vm.swappiness" 10 persistent: true privilege: elevated
 ```
 
-Preview the change.
+Run the change with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-sysctl.set "vm.swappiness" 10 preview: true
+sysctl.set "vm.swappiness" 10 privilege: elevated
 ```
 
 ## Errors

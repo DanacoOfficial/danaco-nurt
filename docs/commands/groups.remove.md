@@ -61,10 +61,10 @@ Remove a group and show the effect.
 groups.remove "ops" privilege: elevated |> select target before
 ```
 
-Preview the removal.
+Run the removal with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-groups.remove "ops" preview: true
+groups.remove "ops" privilege: elevated
 ```
 
 ## Errors

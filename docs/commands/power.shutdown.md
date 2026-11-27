@@ -63,10 +63,10 @@ Schedule at a time.
 power.shutdown at: "2026-12-01T03:00:00Z" privilege: elevated
 ```
 
-Preview the immediate action.
+Run the immediate action with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-power.shutdown preview: true
+power.shutdown privilege: elevated
 ```
 
 ## Errors

@@ -1448,7 +1448,7 @@ fn site_rules_reject_programs_outside_the_site() {
         program: Some(program),
     };
     let launchd = &SITES[0];
-    let help = &SITES[3];
+    let help = &SITES[5];
     let rel = launchd.path;
     assert!(
         program_findings(

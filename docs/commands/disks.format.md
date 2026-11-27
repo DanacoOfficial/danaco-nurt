@@ -51,10 +51,10 @@ A format is irreversible: the preview is the only safeguard.
 
 ## Examples
 
-Preview a format.
+Run a format with elevated rights; adding the call parameter `preview: true` shows the effect first.
 
 ```nurt example
-disks.format "/dev/sdb1" fs: ext4 label: "data" preview: true
+disks.format "/dev/sdb1" fs: ext4 label: "data" privilege: elevated
 ```
 
 Format a partition.
