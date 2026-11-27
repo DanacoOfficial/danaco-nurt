@@ -896,35 +896,81 @@ mod tests {
         stages
     }
 
-    #[test]
-    fn commands_parameters_and_values_exist_in_the_catalog() {
-        let catalog = catalog();
-        let table = BashTable::embedded().unwrap();
-        let mut missing = Vec::new();
-        for stage in stages_of(table) {
-            let Some(params) = catalog.get(&stage.name) else {
+    /// Notes in `missing` what a stage of the table uses and the catalog does
+    /// not know.
+    fn stage_gaps(
+        catalog: &BTreeMap<String, CatalogParams>,
+        administration: &[&str],
+        stage: &TemplateStage,
+        missing: &mut Vec<String>,
+    ) {
+        let Some(params) = catalog.get(&stage.name) else {
+            if !administration.contains(&stage.name.as_str()) {
                 missing.push(format!("command {}", stage.name));
-                continue;
-            };
-            for arg in &stage.args {
-                let Some(name) = &arg.name else { continue };
-                match params.get(name) {
-                    None => missing.push(format!("parameter {}.{name}", stage.name)),
-                    Some((values, _)) => {
-                        if let super::super::template::Node::Const(
-                            nurt_contracts::ast::Expr::Ident { v, .. },
-                        ) = &arg.value
-                            && !values.is_empty()
-                            && !values.contains(v)
-                        {
-                            missing.push(format!("value {}.{name} = {v}", stage.name));
-                        }
+            }
+            return;
+        };
+        for arg in &stage.args {
+            let Some(name) = &arg.name else { continue };
+            match params.get(name) {
+                None => missing.push(format!("parameter {}.{name}", stage.name)),
+                Some((values, _)) => {
+                    if let super::super::template::Node::Const(nurt_contracts::ast::Expr::Ident {
+                        v,
+                        ..
+                    }) = &arg.value
+                        && !values.is_empty()
+                        && !values.contains(v)
+                    {
+                        missing.push(format!("value {}.{name} = {v}", stage.name));
                     }
                 }
             }
         }
+    }
+
+    #[test]
+    fn commands_parameters_and_values_exist_in_the_catalog() {
+        /// Commands of the group `administration`, which the translation of
+        /// the administration programs writes; the catalog of that group is
+        /// merged separately from this table.
+        const ADMINISTRATION: &[&str] = &[
+            "accounts.create",
+            "accounts.modify",
+            "accounts.remove",
+            "accounts.password",
+            "clock.ntp",
+            "clock.set",
+            "clock.timezone_set",
+            "disks.format",
+            "disks.partition",
+            "firewall.allow",
+            "firewall.deny",
+            "firewall.remove",
+            "groups.add_member",
+            "groups.create",
+            "groups.remove",
+            "groups.remove_member",
+            "modules.load",
+            "modules.unload",
+            "mount",
+            "network.dns_set",
+            "network.route_add",
+            "network.route_remove",
+            "power.cancel",
+            "power.restart",
+            "power.shutdown",
+            "sysctl.set",
+            "unmount",
+        ];
+        let catalog = catalog();
+        let table = BashTable::embedded().unwrap();
+        let mut missing = Vec::new();
+        for stage in stages_of(table) {
+            stage_gaps(&catalog, ADMINISTRATION, &stage, &mut missing);
+        }
         for name in BUILT_STAGES {
-            if !catalog.contains_key(*name) {
+            if !catalog.contains_key(*name) && !ADMINISTRATION.contains(name) {
                 missing.push(format!("command {name}"));
             }
         }
@@ -939,7 +985,7 @@ mod tests {
             }
         }
         for command in table.effect_commands() {
-            if !catalog.contains_key(command) {
+            if !catalog.contains_key(command) && !ADMINISTRATION.contains(&command) {
                 missing.push(format!("effect command {command}"));
             }
         }
@@ -1008,7 +1054,7 @@ mod tests {
         let table = BashTable::embedded().unwrap();
         for rule in table.rules() {
             let number: u8 = rule.strip_prefix('B').unwrap().parse().unwrap();
-            assert!((1..=40).contains(&number), "{rule}");
+            assert!((1..=44).contains(&number), "{rule}");
         }
     }
 

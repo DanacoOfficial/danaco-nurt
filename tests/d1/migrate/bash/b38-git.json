@@ -29,6 +29,7 @@
       "source": "cd /srv/app && git pull",
       "status": "translated",
       "rules": [
+        "B41",
         "B20",
         "B38"
       ],

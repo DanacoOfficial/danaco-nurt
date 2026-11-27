@@ -1,21 +1,37 @@
 # Source: b39-control.sh (bash)
 # Statements run in order; the first error stops the script.
-# Statements: 6; translated: 1; with assumptions: 0; impossible: 5; errors: 0.
+# Statements: 7; translated: 5; with assumptions: 1; impossible: 1; errors: 0.
 # Untranslated statements run unchanged with: run ["bash", "b39-control.sh"]
 
+# translated: B42
+# assumption: no name for $1 in the script; the parameter is called arg1
+params {
+    arg1: text
+}
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 # B39: loops, conditions, functions, case and here-documents.
-# untranslated: E_UNCORRECTABLE: for f in /srv/logs/*.log; do gzip "$f"; done
-#   problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
-# untranslated: E_UNCORRECTABLE: while true; do sleep 5; done
-#   problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
-# untranslated: E_UNCORRECTABLE: if [ -f /srv/app/.ready ]; then echo ready; fi
-#   problem: conditional statements have no equivalent; assert checks a precondition
-# untranslated: E_UNCORRECTABLE: case "$1" in start) echo start;; stop) echo stop;; esac
-#   problem: conditional statements have no equivalent; assert checks a precondition
+# translated: B41, B34, B25
+each (find "/srv/logs" glob: "*.log" depth: 1 hidden: false) as f {
+    compress @f.path keep: false
+}
+# translated: B41, B40
+while true {
+    sleep 5s
+}
+# translated: B41, B19
+when exists("/srv/app/.ready") and ((info "/srv/app/.ready" |> first 1)).type == "file" {
+    evaluate "ready"
+}
+# translated: B41, B19
+when @arg1 == "start" {
+    evaluate "start"
+} otherwise when @arg1 == "stop" {
+    evaluate "stop"
+}
 # untranslated: E_UNCORRECTABLE: deploy() { rsync -a /srv/app/ /srv/www/; }
-#   problem: definitions of functions and types have no equivalent
+#   problem: the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)
+#   fix: run ["rsync", "-a", "/srv/app/", "/srv/www/"] cwd: "/srv"
 # translated: B39, L21
 write "/srv/app/motd" "Maintenance at 22:00.\n" mode: overwrite

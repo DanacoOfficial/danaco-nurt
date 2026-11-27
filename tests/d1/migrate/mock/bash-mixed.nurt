@@ -31,13 +31,13 @@ copy "/srv/app/static" to: "/srv/app/out"
 #   problem: no alternative branch; check the condition with assert and run the alternative as a separate step
 #   fix: list "/srv/app/out"
 
-# untranslated: E_UNCORRECTABLE: for f in /srv/app/out/*.tmp; do
+# untranslated: E_ONE_EFFECT: for f in /srv/app/out/*.tmp; do
 #   rm "$f"
 # done
-#   problem: loops have no equivalent; a pattern or a pipeline over records replaces a loop
+#   problem: the statement contains two operations
 
-# untranslated: E_UNCORRECTABLE: cleanup() { rm -rf /tmp/app; }
-#   problem: definitions of functions and types have no equivalent
+# untranslated: E_ONE_EFFECT: cleanup() { rm -rf /tmp/app; }
+#   problem: the statement contains two operations
 # untranslated: E_UNCORRECTABLE: eval "$EXTRA_STEPS"
 #   problem: evaluation of text as code has no equivalent
 # untranslated: E_UNCORRECTABLE: source /etc/app/env.sh
@@ -52,7 +52,7 @@ write "/srv/app/out/VERSION" "1.4.2\n" mode: overwrite
 #   problem: the program has no current directory; relative paths resolve against the invocation parameter base
 # untranslated: E_UNKNOWN_PARAM: tar -czf /srv/backup/app.tgz /srv/app/out &
 #   problem: `background: true` is not a parameter of the command
-# untranslated: E_UNCORRECTABLE: if [ -f /srv/app/out/VERSION ]; then echo ok; fi
-#   problem: conditional statements have no equivalent; assert checks a precondition
+# untranslated: E_ONE_EFFECT: if [ -f /srv/app/out/VERSION ]; then echo ok; fi
+#   problem: the statement contains two operations
 # untranslated: E_SYNTAX: rm "/srv/app/out/unterminated
 #   problem: the script has a syntax error at 31:30; correct the script or run it unchanged

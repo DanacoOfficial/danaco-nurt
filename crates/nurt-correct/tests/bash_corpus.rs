@@ -97,6 +97,7 @@ fn reaction(case: &Value) -> Value {
     let context = TranslateContext {
         base: case["context"]["base"].as_str(),
         lets: &lets,
+        functions: &[],
         mode: Mode::Live,
     };
     match translate_with(text(&case["input"]), &context) {
@@ -246,6 +247,7 @@ fn translated_paths_keep_the_written_segments() {
         let context = TranslateContext {
             base,
             lets: &lets,
+            functions: &[],
             mode: Mode::Live,
         };
         let input = text(&case["input"]);

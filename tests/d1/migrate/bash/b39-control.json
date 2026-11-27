@@ -3,60 +3,79 @@
   "language": "bash",
   "script": "b39-control.sh",
   "summary": {
-    "statements": 6,
-    "translated": 1,
-    "assumption": 0,
-    "impossible": 5,
+    "statements": 7,
+    "translated": 5,
+    "assumption": 1,
+    "impossible": 1,
     "error": 0
   },
   "items": [
     {
+      "line": 1,
+      "column": 1,
+      "source": "positional parameters: arg1",
+      "status": "assumption",
+      "rules": [
+        "B42"
+      ],
+      "assumptions": [
+        "no name for $1 in the script; the parameter is called arg1"
+      ],
+      "fix": [],
+      "output": "params {\n    arg1: text\n}"
+    },
+    {
       "line": 5,
       "column": 1,
       "source": "for f in /srv/logs/*.log; do gzip \"$f\"; done",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "B41",
+        "B34",
+        "B25"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "loop",
-      "problem": "loops have no equivalent; a pattern or a pipeline over records replaces a loop",
-      "fix": []
+      "fix": [],
+      "output": "each (find \"/srv/logs\" glob: \"*.log\" depth: 1 hidden: false) as f {\n    compress @f.path keep: false\n}"
     },
     {
       "line": 6,
       "column": 1,
       "source": "while true; do sleep 5; done",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "B41",
+        "B40"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "loop",
-      "problem": "loops have no equivalent; a pattern or a pipeline over records replaces a loop",
-      "fix": []
+      "fix": [],
+      "output": "while true {\n    sleep 5s\n}"
     },
     {
       "line": 7,
       "column": 1,
       "source": "if [ -f /srv/app/.ready ]; then echo ready; fi",
-      "status": "impossible",
-      "rules": [],
+      "status": "translated",
+      "rules": [
+        "B41",
+        "B19"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "condition",
-      "problem": "conditional statements have no equivalent; assert checks a precondition",
-      "fix": []
+      "fix": [],
+      "output": "when exists(\"/srv/app/.ready\") and ((info \"/srv/app/.ready\" |> first 1)).type == \"file\" {\n    evaluate \"ready\"\n}"
     },
     {
       "line": 8,
       "column": 1,
-      "source": "case \"$1\" in start) echo start;; stop) echo stop;; esac",
-      "status": "impossible",
-      "rules": [],
+      "source": "case \"$arg1\" in start) echo start;; stop) echo stop;; esac",
+      "status": "translated",
+      "rules": [
+        "B41",
+        "B19"
+      ],
       "assumptions": [],
-      "code": "E_UNCORRECTABLE",
-      "reason": "condition",
-      "problem": "conditional statements have no equivalent; assert checks a precondition",
-      "fix": []
+      "fix": [],
+      "output": "when @arg1 == \"start\" {\n    evaluate \"start\"\n} otherwise when @arg1 == \"stop\" {\n    evaluate \"stop\"\n}"
     },
     {
       "line": 9,
@@ -66,9 +85,11 @@
       "rules": [],
       "assumptions": [],
       "code": "E_UNCORRECTABLE",
-      "reason": "function",
-      "problem": "definitions of functions and types have no equivalent",
-      "fix": []
+      "reason": "rule",
+      "problem": "the working directory of the program is not given; write `cd <absolute path> &&` before it or use one of the fixes (working_directory)",
+      "fix": [
+        "run [\"rsync\", \"-a\", \"/srv/app/\", \"/srv/www/\"] cwd: \"/srv\""
+      ]
     },
     {
       "line": 10,

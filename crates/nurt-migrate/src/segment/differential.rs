@@ -52,10 +52,27 @@ fn data_directory() -> PathBuf {
     .join(DATA_DIRECTORY)
 }
 
+/// Whether the statement is a compound command of bash (`for`, `while`,
+/// `until`, `if`, `case`, a function). It is translated as a whole into a
+/// construct of the language, so the statements inside it are not compared.
+fn is_compound(segment: &Segment, source: &str) -> bool {
+    let text = segment.text(source);
+    let word: String = text
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+        .collect();
+    let rest = text[word.len()..].trim_start();
+    matches!(
+        word.as_str(),
+        "for" | "while" | "until" | "if" | "case" | "function"
+    ) || (!word.is_empty() && rest.starts_with("()"))
+}
+
 /// Starts of the statements and list parts found by the grammar.
-fn grammar_starts(segments: &[Segment]) -> BTreeSet<Start> {
+fn grammar_starts(segments: &[Segment], source: &str) -> BTreeSet<Start> {
     segments
         .iter()
+        .filter(|segment| !is_compound(segment, source))
         .filter_map(|segment| match &segment.kind {
             SegmentKind::Statement(statement) => Some(statement),
             _ => None,
@@ -66,9 +83,10 @@ fn grammar_starts(segments: &[Segment]) -> BTreeSet<Start> {
 }
 
 /// Whether a position lies in a statement found by the grammar.
-fn in_statement(segments: &[Segment], (line, column): Start) -> bool {
+fn in_statement(segments: &[Segment], source: &str, (line, column): Start) -> bool {
     segments.iter().any(|segment| {
         matches!(segment.kind, SegmentKind::Statement(_))
+            && !is_compound(segment, source)
             && (segment.start.line, segment.start.column) <= (line, column)
             && line <= segment.end_line
     })
@@ -171,11 +189,11 @@ fn segment_lexer_starts(
 /// Differences between the two divisions of one script, as readable lines.
 fn differences(name: &str, source: &str, language: ScriptLanguage) -> Vec<String> {
     let segments = segment(source, language).unwrap();
-    let grammar = grammar_starts(&segments);
+    let grammar = grammar_starts(&segments, source);
     let lexer: BTreeSet<Start> = lexer_starts(source, language)
         .unwrap_or_else(|| segment_lexer_starts(source, &segments, language))
         .into_iter()
-        .filter(|start| in_statement(&segments, *start))
+        .filter(|start| in_statement(&segments, source, *start))
         .collect();
     let only_grammar = grammar
         .difference(&lexer)

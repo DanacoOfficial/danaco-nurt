@@ -15,6 +15,7 @@ const MINIMUM_TRANSLATED: usize = 221;
 const SCRIPT: TranslateContext<'static> = TranslateContext {
     base: None,
     lets: &[],
+    functions: &[],
     mode: Mode::Script,
 };
 

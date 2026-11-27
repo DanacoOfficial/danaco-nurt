@@ -388,6 +388,25 @@ fn check_one_pipeline(input: &str, statements: &[TranslatedStatement]) -> Result
     )
     .with_at(whole_input(input))
     .with_help(HELP_CORRECTIONS);
+    let whole = AstDocument::new(Program {
+        statements: statements
+            .iter()
+            .map(|statement| statement.statement.clone())
+            .collect(),
+    });
+    let mut steps = String::from("steps {\n");
+    for line in program_text(&whole).lines() {
+        steps.push_str("    ");
+        steps.push_str(line);
+        steps.push('\n');
+    }
+    steps.push('}');
+    error = error.with_candidate(Candidate {
+        rank: 1,
+        reference: None,
+        program: steps,
+        why: None,
+    });
     for statement in statements {
         match &statement.statement {
             Statement::Let(_) => lets.push(statement.statement.clone()),

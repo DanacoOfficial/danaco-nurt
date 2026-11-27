@@ -42,6 +42,24 @@ their own version numbers, described in the specification.
   change lists the partitions, file systems, mount points and the size of the
   data that is lost.
 
+- Translation of bash into the constructs of the language (language brief,
+  section 11): `if`, `elif`, `else`, `case`, `[ ]`, `[[ ]]` and `test` become
+  `when`; `for`, `while` and `until` become `each`, `while` and `repeat until`;
+  functions become `define` and their calls calls; `$1`, `$2`, `$@`, `shift`
+  and `getopts` of a script become `params`; `A && B && C` with changes becomes
+  `steps` (in a single call, `E_ONE_EFFECT` carries the `steps` program as its
+  first candidate, also for PowerShell); `test ... || CMD` becomes `when not`.
+  The translation of the administration programs `mkfifo`, `mknod`, `useradd`,
+  `usermod`, `userdel`, `groupadd`, `groupdel`, `gpasswd`, `passwd`, `mount`,
+  `umount`, `sysctl -w`, `modprobe`, `rmmod`, `ufw`, `firewall-cmd`, `nft`,
+  `iptables`, `ip route`, `resolvectl dns`, `timedatectl`, `date -s`,
+  `shutdown`, `reboot`, `poweroff`, `parted`, `mkfs.*` and `sqlite3` writes the
+  native commands (rules `B41` to `B44`). `nurt migrate` translates these
+  structures, declares the `params` block first and remembers the functions of
+  a script. Only `eval`, subshells, groups, the arithmetic `for`, `select`,
+  interactive input and here-documents other than `cat > file` stay without a
+  translation (`docs/guides/bash-migration.md`).
+
 ### Changed
 
 - `sql` has no refusals. A statement that changes anything opens the database
