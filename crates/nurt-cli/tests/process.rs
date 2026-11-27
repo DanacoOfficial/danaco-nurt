@@ -488,18 +488,39 @@ fn framed(body: &str) -> String {
     format!("Content-Length: {}\r\n\r\n{body}", body.len())
 }
 
-/// Next reply with the identifier `id` in the output of a server that writes
-/// one JSON-RPC message per line.
+#[cfg(feature = "mcp")]
+thread_local! {
+    /// Replies read from the server before the test asked for them; the
+    /// server answers concurrent requests in the order they finish.
+    static EARLY_REPLIES: std::cell::RefCell<Vec<serde_json::Value>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Reply with the identifier `id` in the output of a server that writes one
+/// JSON-RPC message per line. Replies to other requests read on the way are
+/// kept for a later call, because JSON-RPC does not order replies.
 #[cfg(feature = "mcp")]
 fn reply_of(
     lines: &mut std::io::Lines<BufReader<std::process::ChildStdout>>,
     id: u64,
 ) -> serde_json::Value {
+    let early = EARLY_REPLIES.with_borrow_mut(|early| {
+        early
+            .iter()
+            .position(|message| message["id"] == id)
+            .map(|index| early.remove(index))
+    });
+    if let Some(message) = early {
+        return message;
+    }
     loop {
         let line = lines.next().expect("the server closed its output").unwrap();
         let message: serde_json::Value = serde_json::from_str(&line).unwrap();
         if message["id"] == id {
             return message;
+        }
+        if !message["id"].is_null() {
+            EARLY_REPLIES.with_borrow_mut(|early| early.push(message));
         }
     }
 }
