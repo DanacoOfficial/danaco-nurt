@@ -710,7 +710,7 @@ mod tests {
 
     #[test]
     fn msys_paths_name_the_drive_as_a_directory() {
-        assert_eq!(msys_path(r"C:\Users\a b".to_owned()), "/c/Users/a b");
+        assert_eq!(msys_path(r"C:\Users\user b".to_owned()), "/c/Users/user b");
         assert_eq!(msys_path("D:/keys/home".to_owned()), "/d/keys/home");
         assert_eq!(msys_path("--batch".to_owned()), "--batch");
         assert_eq!(msys_path("C:".to_owned()), "C:");

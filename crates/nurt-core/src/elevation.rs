@@ -480,7 +480,7 @@ mod tests {
         let bare = parse_envelope(request.as_bytes()).unwrap();
         assert!(bare.owner.is_none());
         let wrapped = format!(
-            r#"{{"nurt_elevated":"nurt-elevated/1","owner":{{"uid":1000,"gid":1000,"state_dir":"/home/a/.local/state/nurt","backend":"sudo"}},"request":{request}}}"#
+            r#"{{"nurt_elevated":"nurt-elevated/1","owner":{{"uid":1000,"gid":1000,"state_dir":"/home/user/.local/state/nurt","backend":"sudo"}},"request":{request}}}"#
         );
         let envelope = parse_envelope(wrapped.as_bytes()).unwrap();
         assert_eq!(envelope.owner.unwrap().uid, 1000);

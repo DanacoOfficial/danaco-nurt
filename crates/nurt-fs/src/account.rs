@@ -725,7 +725,7 @@ mod tests {
         AccountIdentity {
             uid: 1000,
             gid: 1000,
-            state_dir: AbsPath::new("/home/ann/.local/state/nurt").unwrap(),
+            state_dir: AbsPath::new("/home/user/.local/state/nurt").unwrap(),
         }
     }
 
@@ -734,10 +734,10 @@ mod tests {
         let who = identity();
         let path = |text: &str| AbsPath::new(text).unwrap();
         assert!(is_account_path(&who, &path("/.nurt-journal/ops/1/op.json")));
-        assert!(is_account_path(&who, &path("/home/ann/.nurt-journal")));
+        assert!(is_account_path(&who, &path("/home/user/.nurt-journal")));
         assert!(is_account_path(
             &who,
-            &path("/home/ann/.local/state/nurt/user-config.toml")
+            &path("/home/user/.local/state/nurt/user-config.toml")
         ));
         assert!(!is_account_path(&who, &path("/etc/hosts")));
         assert!(!is_account_path(&who, &path("/etc/.nurt-tmp-1-1")));

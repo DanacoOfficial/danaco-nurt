@@ -636,10 +636,10 @@ mod tests {
     #[test]
     fn backend_environment_keeps_only_the_allowed_variables() {
         let vars = [
-            ("NURT_CONFIG", "/home/a/nurt.toml"),
-            ("XDG_CONFIG_HOME", "/home/a/.config"),
-            ("HOME", "/home/a"),
-            ("PATH", "/home/a/bin"),
+            ("NURT_CONFIG", "/home/user/nurt.toml"),
+            ("XDG_CONFIG_HOME", "/home/user/.config"),
+            ("HOME", "/home/user"),
+            ("PATH", "/home/user/bin"),
             ("LANG", "pl_PL.UTF-8"),
             ("LC_ALL", "C"),
             ("TERM", "xterm"),

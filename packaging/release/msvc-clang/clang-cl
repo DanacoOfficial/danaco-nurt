@@ -3,7 +3,7 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 # clang-cl for cross builds from Linux: an option /FI followed by an absolute
-# Linux path (/FI/home/...) is read as a file name, so it is passed as -FI.
+# Linux path (/FI/home/user/...) is read as a file name, so it is passed as -FI.
 for argument in "$@"; do
     shift
     case $argument in
