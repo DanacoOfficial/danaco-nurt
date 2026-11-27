@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/roundtrip_json.rs
+// Responsibility:   Round trip of the golden trees through the JSON codec, the canonical.
+// Dependencies:     nurt_contracts, serde_json, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Round trip of the golden trees through the JSON codec, the canonical
 //! encoding behind `ast_hash` and the decoding errors.
 
@@ -331,3 +339,7 @@ fn rejects_an_object_that_repeats_a_key_at_any_depth() {
     let fine = format!(r#"{{"nurt":"1.0",{program},"meta":{{"a":1,"b":{{"c":1}}}}}}"#);
     json::decode_surface(&fine).unwrap();
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

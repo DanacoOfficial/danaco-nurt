@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u09_query_stage.rs
+// Responsibility:   Tests of the `query` stage: the descriptor and the static check, response.
+// Dependencies:     nurt_contracts, nurt_testkit, u09_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the `query` stage: the descriptor and the static check, response
 //! records, documents read without a document service, the document size
 //! limit and the errors of the stage form.
@@ -325,3 +333,7 @@ fn runtime_errors_name_the_key_of_the_input_value_when_it_has_one() {
     assert_eq!(unkeyed.code, ErrorCode::Query);
     assert!(unkeyed.details.get("key").is_none());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

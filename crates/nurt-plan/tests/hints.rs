@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-plan/tests/hints.rs
+// Responsibility:   Field demand, entity tags and limits computed for the stages of a plan.
+// Dependencies:     common, nurt_catalog, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Field demand, entity tags and limits computed for the stages of a plan.
 
 #![allow(
@@ -472,3 +480,7 @@ fn check_summary_lists_the_reported_limit() {
         Some(&Value::Int(10))
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

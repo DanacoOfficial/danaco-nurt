@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/crash/journal_many.rs
+// Responsibility:   Crash corpus of an operation that overwrites many small files.
+// Dependencies:     nurt_contracts, nurt_crashfs, nurt_fs, nurt_journal
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Crash corpus of an operation that overwrites many small files.
 //!
 //! An operation with many targets keeps the previous content of small files
@@ -321,3 +329,7 @@ fn many_file_overwrite_crash_at_random_points_on_every_profile_keeps_previous_co
         assert_clean(&report);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

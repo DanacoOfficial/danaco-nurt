@@ -6,6 +6,13 @@ commands: [info, read, write, convert, find, filter, select]
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/encodings.md -->
+<!-- Responsibility:   Documents encodings. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # encodings
 
@@ -42,3 +49,7 @@ A file that mixes line endings keeps each line ending unless `convert` is applie
 ## Errors
 
 `E_ENCODING` reports an invalid sequence or an unsupported encoding name. `E_BINARY` reports that a text command met binary content. `E_UNSUPPORTED` reports an encoding that Nurt does not convert.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-cli/tests/serve_selectors.rs
+// Responsibility:   Parameters `{what}` of `catalog` and `{query}` of `history`, and the.
+// Dependencies:     nurt_contracts, nurt_core, nurt_ffi, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Parameters `{what}` of `catalog` and `{query}` of `history`, and the
 //! check document returned by `check`, through the protocol server.
 
@@ -178,3 +186,7 @@ fn check_result_conforms_to_the_check_document() {
     assert_eq!(result["format"], "nurt-check/1", "{result}");
     assert_valid(&validator("check"), result);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

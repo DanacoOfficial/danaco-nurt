@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::ssh::session
+// Responsibility:   SSH sessions: the runtime thread, host key checking, `ProxyJump` hops.
+// Dependencies:     nurt_contracts, russh
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! SSH sessions: the runtime thread, host key checking, `ProxyJump` hops
 //! and public key authentication.
 //!
@@ -710,3 +718,7 @@ mod tests {
         assert!(allows_sha1_rsa(&config));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

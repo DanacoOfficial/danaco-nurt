@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::admin::sys
+// Responsibility:   The system seen by the administration commands: programs that read and.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The system seen by the administration commands: programs that read and
 //! change it, files that describe it, the clock and the operating system.
 //!
@@ -315,3 +323,7 @@ impl Sys for ProcessSys {
             .map_or(0, |elapsed| i128::try_from(elapsed.as_nanos()).unwrap_or(0))
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

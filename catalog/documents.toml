@@ -1,6 +1,13 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           catalog/documents.toml
+# Responsibility:   Configuration or catalog data of catalog/documents.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
 
 format = "nurt-catalog/1"
 group = "documents"
@@ -153,3 +160,7 @@ summary = "Values bound to the placeholders of the statements: a list for positi
 name = "write"
 type = "bool"
 summary = "Optional: a statement that changes the database opens it for writing without it. write: false keeps the call read-only."
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

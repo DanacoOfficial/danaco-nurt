@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::lexical::front
+// Responsibility:   Front part of correction: from program text to a surface tree.
+// Dependencies:     nurt_contracts, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Front part of correction: from program text to a surface tree.
 //!
 //! [`front`] runs the following steps in this order and stops at the first
@@ -1319,3 +1327,7 @@ mod tests {
         assert_eq!((at.line, at.column), (3, 5));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

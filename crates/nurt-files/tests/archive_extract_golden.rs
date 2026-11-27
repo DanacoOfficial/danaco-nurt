@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/archive_extract_golden.rs
+// Responsibility:   The examples of the `archive.extract` page of the command documentation.
+// Dependencies:     archive_support, nurt_archive, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The examples of the `archive.extract` page of the command documentation
 //! and the transaction checks of the command, run on the virtual file
 //! system.
@@ -327,3 +335,7 @@ fn a_target_changed_after_the_plan_fails_with_stale_and_is_kept() {
         b"written meanwhile"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

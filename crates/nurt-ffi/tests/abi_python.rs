@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-ffi/tests/abi_python.rs
+// Responsibility:   Interface tests in Python: `tests/abi/python/abi_test.py` (feature.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Interface tests in Python: `tests/abi/python/abi_test.py` (feature
 //! `stub`) or `tests/abi/python/engine_test.py` (engine of `nurt-core`)
 //! loads the shared library with `ctypes`. The tests are skipped when
@@ -73,3 +81,7 @@ fn python_script_runs_find_filter_count_and_remove_pipelines() {
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ok");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

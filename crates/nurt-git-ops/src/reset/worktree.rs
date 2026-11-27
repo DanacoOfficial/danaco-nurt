@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::reset::worktree
+// Responsibility:   Reading the working tree: comparison with index entries, the form in.
+// Dependencies:     gix, nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Reading the working tree: comparison with index entries, the form in
 //! which files are stored and the list of untracked files.
 //!
@@ -212,3 +220,7 @@ fn is_executable(meta: &std::fs::Metadata) -> bool {
 fn is_executable(_meta: &std::fs::Metadata) -> bool {
     false
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

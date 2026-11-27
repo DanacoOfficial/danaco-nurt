@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::key
+// Responsibility:   Identity keys of paths on case-insensitive and normalising volumes.
+// Dependencies:     nurt_contracts, unicode_normalization
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Identity keys of paths on case-insensitive and normalising volumes.
 //!
 //! Two spellings of a path denote the same entry exactly when their keys are
@@ -180,3 +188,7 @@ mod tests {
         assert_eq!(name_key(Os::Macos, false, name), b"bad\xff");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

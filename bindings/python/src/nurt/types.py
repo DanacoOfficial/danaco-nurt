@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/python/src/nurt/types.py
+# Responsibility:   Script types.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Types of the JSON formats ``nurt-request/1``, ``nurt-response/1`` and ``nurt-report/1``.
 
 The module is produced from ``spec/schemas`` with ``tools/gen_types.py``;
@@ -847,3 +855,7 @@ REQUEST_OPTIONS: Tuple[str, ...] = (
     "script",
 )
 """Names of the options of ``nurt-request/1``."""
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

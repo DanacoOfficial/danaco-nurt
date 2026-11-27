@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/retention/main.rs
+// Responsibility:   Retention scenario tests of the journal.
+// Dependencies:     harness, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Retention scenario tests of the journal.
 
 #![allow(
@@ -60,3 +68,7 @@ fn virtual_clock_wall_steps_leave_boot_clocks_unchanged() {
     assert_eq!(stamp.since_boot_with_suspend, Duration::ZERO);
     assert_eq!(clock.monotonic(), Duration::ZERO);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::retention::expiry
+// Responsibility:   Expiry passes and removal order.
+// Dependencies:     nurt_contracts, nurt_fs, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Expiry passes and removal order.
 //!
 //! An entry expires when any limit is exceeded:
@@ -1568,3 +1576,7 @@ mod tests {
         assert_eq!(sweep_store(&store).unwrap_err().code(), ErrorCode::Config);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

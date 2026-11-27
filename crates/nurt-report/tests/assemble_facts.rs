@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-report/tests/assemble_facts.rs
+// Responsibility:   Facts reported by the executor mapped onto report input.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Facts reported by the executor mapped onto report input.
 
 use nurt_contracts::config::ReportConfig;
@@ -75,3 +83,7 @@ fn shrink_to_half_of_one_kibibyte_is_reported_and_below_is_not() {
     assert!(!shrink(2048, 1025));
     assert!(!shrink(1023, 1));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

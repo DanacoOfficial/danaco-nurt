@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/differential_diff.rs
+// Responsibility:   Differential tests of `nurt_text::diff` against `diff -u`.
+// Dependencies:     nurt_text, support_corpus, support_diff
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differential tests of `nurt_text::diff` against `diff -u`.
 
 #![cfg(all(feature = "differential", unix))]
@@ -191,3 +199,7 @@ fn repeated_lines_give_a_valid_minimal_edit_script() {
         "size of the edit script"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

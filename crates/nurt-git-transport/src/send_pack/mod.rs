@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::send_pack
+// Responsibility:   Client side of the send-pack protocol.
+// Dependencies:     advertisement, client, command, file_plan, objects, pack, refs, report
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Client side of the send-pack protocol.
 //!
 //! A push reads the reference advertisement of `receive-pack`
@@ -36,3 +44,7 @@ pub use refs::{
     ref_path, validate_name,
 };
 pub use report::{PushReport, RefReport, RefStatus, RejectReason, parse_lines, parse_report};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u06_yaml_corpus.rs
+// Responsibility:   Corpus tests of YAML sequences, anchors, merge keys, documents, comments.
+// Dependencies:     nurt_contracts, serde_json, u06_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Corpus tests of YAML sequences, anchors, merge keys, documents, comments
 //! and tags: identity of unchanged documents, appending to and removing from
 //! every list with a check by the reference parser, the YAML Test Suite cases
@@ -337,3 +345,7 @@ fn merged_keys_match_yq_when_yq_is_installed() {
     );
     tally.assert_clean("merge keys against yq");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

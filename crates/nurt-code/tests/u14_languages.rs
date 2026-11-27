@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u14_languages.rs
+// Responsibility:   Tests of `code.languages`: grammar languages, configured servers and the.
+// Dependencies:     nurt_contracts, u14_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of `code.languages`: grammar languages, configured servers and the
 //! state of the server pool.
 
@@ -137,3 +145,7 @@ fn servers_allow_list_keeps_only_the_listed_languages() {
     assert_eq!(find(&records, "go").server.as_deref(), Some("gopls"));
     assert!(find(&records, "python").server.is_none());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

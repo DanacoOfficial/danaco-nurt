@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-lspclient::config
+// Responsibility:   Settings of the language server client and selection of servers.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Settings of the language server client and selection of servers.
 //!
 //! Settings come from the `[code]` section of the configuration
@@ -490,3 +498,7 @@ pub fn host_tsserver_library(tsserver: &Path) -> Option<String> {
         .exists()
         .then(|| library.to_string_lossy().into_owned())
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

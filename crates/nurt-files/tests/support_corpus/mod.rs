@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/support_corpus/mod.rs
+// Responsibility:   Deterministic corpus generator for differential, parity and performance tests.
+// Dependencies:     unicode_normalization
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Deterministic corpus generator for differential, parity and performance tests.
 //!
 //! A corpus is a directory tree whose content depends only on the seed and the
@@ -638,3 +646,7 @@ fn large_block(rng: &mut Rng) -> (Vec<u8>, u64) {
     }
     (block.into_bytes(), needles)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

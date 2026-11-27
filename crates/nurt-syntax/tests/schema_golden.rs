@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/schema_golden.rs
+// Responsibility:   Golden trees and negative cases against the published schemas and the.
+// Dependencies:     hash_support, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Golden trees and negative cases against the published schemas and the
 //! decoders of the crate.
 //!
@@ -220,3 +228,7 @@ fn surface_schema_rejects_every_bound_golden_tree() {
         assert!(!surface.is_valid(&tree.json()), "{}", tree.path.display());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

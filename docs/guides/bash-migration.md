@@ -6,6 +6,13 @@ commands: [remove, move, copy, create, read, find, search, replace, write, run, 
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/bash-migration.md -->
+<!-- Responsibility:   Documents bash-migration. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # bash-migration
 
@@ -155,3 +162,7 @@ Only forms that depend on the shell itself have no translation: `eval`, subshell
 ## Scripts
 
 An existing shell script is run unchanged through `run ["bash", "script.sh"] cwd: "/srv/app"`. The command `nurt migrate` translates a script to a Nurt program with conditions, loops, functions and `params`, and reports what it could not translate. A function defined in the script is a `define`, and the later calls of it are calls.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

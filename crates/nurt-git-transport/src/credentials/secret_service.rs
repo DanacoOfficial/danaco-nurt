@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::credentials::secret_service
+// Responsibility:   Credentials in the Secret Service of the desktop session, stored with the.
+// Dependencies:     zbus
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Credentials in the Secret Service of the desktop session, stored with the
 //! attributes used by `git-credential-libsecret`: schema `org.git.Password`,
 //! `protocol`, `server`, `port`, `object` (the path) and `user`.
@@ -202,3 +210,7 @@ mod tests {
         assert!(!without_user.contains_key("user") && !without_user.contains_key("object"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-mcp::engine
+// Responsibility:   [`Backend`] implementation on [`nurt_core::Engine`].
+// Dependencies:     nurt_contracts, nurt_core, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! [`Backend`] implementation on [`nurt_core::Engine`].
 //!
 //! A request runs through [`Engine::start`]: the events of the execution
@@ -354,3 +362,7 @@ mod tests {
         assert_eq!(*sink.0.lock().expect("lock"), vec![log]);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

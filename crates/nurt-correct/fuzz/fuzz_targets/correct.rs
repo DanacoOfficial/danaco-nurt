@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/fuzz/fuzz_targets/correct.rs
+// Responsibility:   Fuzz target of the front part of correction: any program text, read in.
+// Dependencies:     libfuzzer_sys, nurt_contracts, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Fuzz target of the front part of correction: any program text, read in
 //! every syntax variant with a small command catalog, must never panic, must
 //! give at most the allowed number of alternatives, and the corrected tree,
@@ -89,3 +97,7 @@ fuzz_target!(|data: &[u8]| {
         assert!(again.is_ok_and(|again| again.corrections.is_empty()));
     }
 });
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

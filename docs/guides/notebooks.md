@@ -6,6 +6,13 @@ commands: [notebook.cells, notebook.insert, notebook.replace, notebook.move, not
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/notebooks.md -->
+<!-- Responsibility:   Documents notebooks. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # notebooks
 
@@ -50,3 +57,7 @@ notebook.clear_outputs "/srv/a.ipynb"
 ```nurt
 notebook.export "/srv/a.ipynb" to: "/srv/a.py" format: script
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::processes::windows
+// Responsibility:   Process table of Windows.
+// Dependencies:     nurt_contracts, sysinfo, windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Process table of Windows.
 //!
 //! The table comes from a Toolhelp snapshot. Details of each process are read
@@ -397,3 +405,7 @@ fn lookup_account(sid: PSID) -> Option<String> {
     };
     (ok != 0).then(|| from_wide(&name))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

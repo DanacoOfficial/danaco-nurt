@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u10_sql_auto.rs
+// Responsibility:   `sql` without refusals: a statement that changes anything opens the.
+// Dependencies:     nurt_contracts, u10_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `sql` without refusals: a statement that changes anything opens the
 //! database for writing and journals its files first, transaction
 //! statements merge with the transaction of the call, `ROLLBACK` ends the
@@ -830,3 +838,7 @@ fn preview_lists_extension_and_process_pragma_effects() {
     );
     assert_eq!(contents(&database_files(&db)), before);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

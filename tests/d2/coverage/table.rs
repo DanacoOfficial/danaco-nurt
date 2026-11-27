@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/coverage/table.rs
+// Responsibility:   Model of the journal coverage table `tables/journal-coverage.toml`.
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Model of the journal coverage table `tables/journal-coverage.toml`.
 
 use std::fs;
@@ -108,3 +116,7 @@ pub(crate) fn load() -> CoverageTable {
         .unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()));
     toml::from_str(&text).unwrap_or_else(|error| panic!("{}: {error}", path.display()))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

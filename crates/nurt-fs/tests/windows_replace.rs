@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-fs/tests/windows_replace.rs
+// Responsibility:   Replacement with a backup name (`ReplaceFileW`) on NTFS.
+// Dependencies:     common, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Replacement with a backup name (`ReplaceFileW`) on NTFS.
 //!
 //! Covers what the replacement takes from the replaced file (creation time,
@@ -352,3 +360,7 @@ fn replaces_after_the_holder_closes_the_target_within_the_retry_period() {
     assert_eq!(fx.read(&names.target), NEW);
     assert_eq!(fx.read(&names.backup), OLD);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

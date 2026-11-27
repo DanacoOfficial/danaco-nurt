@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-net/tests/support/http_server.rs
+// Responsibility:   HTTP/1.1 server on the loopback interface for tests of the `network`.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! HTTP/1.1 server on the loopback interface for tests of the `network`
 //! commands, and a name resolver that answers from a table.
 //!
@@ -412,3 +420,7 @@ impl NameResolver for MockDns {
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "unknown name"))
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

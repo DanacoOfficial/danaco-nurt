@@ -6,6 +6,13 @@ commands: [list, find, read, write, search, copy, move, remove, create, rename, 
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/powershell-migration.md -->
+<!-- Responsibility:   Documents powershell-migration. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # powershell-migration
 
@@ -96,3 +103,7 @@ The native commands of the administration group replace the modules of the syste
 ## What is rejected
 
 `Invoke-Expression` is rejected: Nurt has no `eval`. `Set-Location` and `Push-Location` are rejected with an explanation of the call parameter `base` and the parameter `cwd` of `run`. Output cmdlets such as `Write-Output X` become `evaluate "X"` and `Get-Date` becomes `evaluate now()`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

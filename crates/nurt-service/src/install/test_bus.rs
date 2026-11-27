@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-service::install::test_bus
+// Responsibility:   Peer-to-peer D-Bus server with the systemd and login1 objects used by the.
+// Dependencies:     zbus
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Peer-to-peer D-Bus server with the systemd and login1 objects used by the
 //! installer, for tests without a system bus.
 //!
@@ -196,3 +204,7 @@ impl FakeSystem {
             .clone()
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

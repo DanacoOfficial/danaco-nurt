@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-text/tests/diff_patch_properties.rs
+// Responsibility:   Properties of differences and patches on generated texts.
+// Dependencies:     proptest
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Properties of differences and patches on generated texts.
 //!
 //! Texts are built from a few short lines, including an empty line, a line
@@ -146,3 +154,7 @@ fn hunk_ranges_match_their_lines() {
         )
         .unwrap();
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

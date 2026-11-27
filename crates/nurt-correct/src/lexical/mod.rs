@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::lexical
+// Responsibility:   Lexical correction rules.
+// Dependencies:     front, rules
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Lexical correction rules.
 //!
 //! The rules `L01` to `L24` correct the notation of a program: names, quotes,
@@ -62,3 +70,7 @@ pub trait CatalogView {
     /// the given position, counted from 0.
     fn can_take_argument(&self, command: &str, position: usize, shape: ArgumentShape) -> bool;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

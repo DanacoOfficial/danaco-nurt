@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-crashfs::points
+// Responsibility:   Seeded generator of crash points and corpus driver.
+// Dependencies:     nurt_contracts, nurt_fs, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Seeded generator of crash points and corpus driver.
 //!
 //! A [`Scenario`] performs one operation on a [`CrashFs`] and recovers after
@@ -757,3 +765,7 @@ mod tests {
         assert_eq!(again, first);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

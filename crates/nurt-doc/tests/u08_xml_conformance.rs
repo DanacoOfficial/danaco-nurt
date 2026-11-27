@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u08_xml_conformance.rs
+// Responsibility:   Well-formedness conformance of XML reading.
+// Dependencies:     nurt_contracts, u08_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Well-formedness conformance of XML reading.
 //!
 //! The repository suite `tests/d5/data/u08/conformance.toml` runs by default.
@@ -294,3 +302,7 @@ fn w3c_suite_classifies_well_formedness() {
         failures.join("\n")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -2,6 +2,14 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
+// Module:           nurt-correct::bash::admin
+// Responsibility:   Translation of the administration programs of a shell (`useradd`.
+// Dependencies:     nurt_contracts, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
+//
 // Module: nurt-correct bash admin
 // Responsibility: Translates the administration programs of bash into the native administration commands.
 // Dependencies: nurt-contracts, nurt-correct bash session

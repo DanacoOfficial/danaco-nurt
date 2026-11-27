@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u02_json_roundtrip.rs
+// Responsibility:   Round-trip harness runs over the JSON and JSONC corpus and the JSON Test.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Round-trip harness runs over the JSON and JSONC corpus and the JSON Test
 //! Suite, and a change of a document written and undone through the
 //! in-memory journal.
@@ -264,3 +272,7 @@ fn a_change_written_through_the_journal_is_undone_byte_for_byte() {
     journal.undo_last().unwrap();
     assert_eq!(journal.file(path.as_path()), Some(original));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

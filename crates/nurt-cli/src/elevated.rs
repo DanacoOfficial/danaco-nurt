@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::elevated
+// Responsibility:   The hidden subcommand `elevated-exec`.
+// Dependencies:     nurt_core
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The hidden subcommand `elevated-exec`.
 //!
 //! The elevation backends (`sudo`, `doas`, `run0`) start `nurt elevated-exec`
@@ -82,3 +90,7 @@ fn refuse(io: &mut Io<'_>, code: u8, message: &str) -> u8 {
     let _ = writeln!(io.err, "nurt: {message}");
     code
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

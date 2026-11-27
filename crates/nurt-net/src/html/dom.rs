@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-net::html::dom
+// Responsibility:   Element tree built from the `tree-sitter-html` syntax tree.
+// Dependencies:     tree_sitter
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Element tree built from the `tree-sitter-html` syntax tree.
 
 use tree_sitter::{Node as SyntaxNode, Parser};
@@ -399,3 +407,7 @@ mod tests {
         assert!(matches!(&script.children[0], Node::Text(text) if text.contains("<b>")));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::push::http_tests
+// Responsibility:   Pushes over smart HTTP to the in-process `receive-pack` service behind a.
+// Dependencies:     nurt_contracts, nurt_git, nurt_git_transport
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Pushes over smart HTTP to the in-process `receive-pack` service behind a
 //! loopback server, and the stage interface of the command.
 
@@ -477,3 +485,7 @@ fn stage_plan_of_an_http_push_is_irreversible() {
     assert_eq!(plan.preview.len(), 2);
     assert_eq!(remote.ref_value("refs/heads/main"), None);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

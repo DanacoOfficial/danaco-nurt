@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-exec::stages::order
+// Responsibility:   The stages `sort`, `first`, `last`, `skip` and `count`.
+// Dependencies:     nurt_contracts, nurt_types, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The stages `sort`, `first`, `last`, `skip` and `count`.
 
 use std::cmp::Ordering;
@@ -323,3 +331,7 @@ impl ReadStage for Count {
         Ok(StageOutput::value(Value::from(count)))
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

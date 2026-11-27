@@ -5,6 +5,13 @@ order: 12
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/site/security.md -->
+<!-- Responsibility:   Documents Security. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Security
 
 ## Reporting a vulnerability
@@ -36,3 +43,7 @@ A call may ask for the rights of the administrator with the call parameter `priv
 The order and the set of backends come from `privilege.backends`. Access control is that of the operating system: an account that may run `nurt` through `sudo`, `doas` or `run0` is administrator-equivalent, as with those programs. The elevated process refuses to run unless its identity is the administrator (or the account named by `as_user`), writes its journal entry to the journal of the account that asked, with the rights of that account (on Linux through the file system identity of the thread, on macOS through descriptors that are checked and handed to the account with `fchown` before anything is written; on Windows it is the same account), and returns the report, which states `elevated: true` and the `backend`.
 
 The properties that matter for a permission policy of a host program are returned by `nurt check`; see [Integration](integration.md).
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

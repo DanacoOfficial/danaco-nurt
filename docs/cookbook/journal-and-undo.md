@@ -5,6 +5,13 @@ title: Journal, undo and safety
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/cookbook/journal-and-undo.md -->
+<!-- Responsibility:   Documents Journal, undo and safety. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Journal, undo and safety
 
 ## Show the history of operations
@@ -306,3 +313,7 @@ search /legacyApi/ "/home/user/app/src" |> assert paths: 1..5 |> replace "curren
 ```text expected
 E_ASSERT
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

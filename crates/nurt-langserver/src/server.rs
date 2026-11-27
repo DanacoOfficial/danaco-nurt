@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-langserver::server
+// Responsibility:   Session of the language server: initialization, message loop and.
+// Dependencies:     lsp_server, lsp_types, nurt_bind, nurt_contracts, nurt_correct, nurt_help, nurt_syntax, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Session of the language server: initialization, message loop and
 //! dispatch.
 
@@ -651,3 +659,7 @@ mod tests {
         ));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/hash_variants.rs
+// Responsibility:   Equality of the surface hash of variants A and B.
+// Dependencies:     hash_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Equality of the surface hash of variants A and B.
 //!
 //! Variant B writes the same surface tree as variant A, so a variant B text
@@ -126,3 +134,7 @@ fn variant_suffixes_select_the_variant() {
         "task-01-x.b".to_owned()
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

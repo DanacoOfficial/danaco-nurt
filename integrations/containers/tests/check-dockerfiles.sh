@@ -2,6 +2,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           integrations/containers/tests/check-dockerfiles.sh
+# Responsibility:   Static checks of the image definitions: labels, license files, build.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Static checks of the image definitions: labels, license files, build
 # arguments, absence of compilation steps and the non-root user.
 
@@ -52,3 +60,7 @@ require "$root/devcontainer/Dockerfile" 'devcontainer\.metadata=' 'devcontainer 
 require "$root/devcontainer/Dockerfile" '"danaco\.nurt"' 'extension recommendation'
 
 ((failures == 0))
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

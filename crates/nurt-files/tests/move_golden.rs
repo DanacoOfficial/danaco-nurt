@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/move_golden.rs
+// Responsibility:   Examples of `docs/commands/move.md`, run on the virtual file system.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Examples of `docs/commands/move.md`, run on the virtual file system.
 
 // Tests report failures by panicking.
@@ -153,3 +161,7 @@ fn example_3_moves_a_file_to_another_volume() {
     assert_eq!(counter(&effect, "cross_device"), Some(1));
     assert_journaled(&test);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

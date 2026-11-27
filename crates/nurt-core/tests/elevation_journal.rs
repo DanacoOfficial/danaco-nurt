@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/elevation_journal.rs
+// Responsibility:   One journal for the entries of the account and of the elevated operations.
+// Dependencies:     nurt_contracts, nurt_fs, nurt_testkit, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! One journal for the entries of the account and of the elevated operations:
 //! one counter, history over both kinds, `undo` of each entry by its number.
 //!
@@ -422,3 +430,7 @@ fn bare_redo_of_the_undo_of_an_elevated_entry_is_refused() {
     );
     assert!(world.file("y").exists(), "nothing was redone");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

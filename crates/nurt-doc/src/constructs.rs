@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::constructs
+// Responsibility:   Names of format constructs reported by `E_UNSUPPORTED_CONSTRUCT`.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Names of format constructs reported by `E_UNSUPPORTED_CONSTRUCT`.
 //!
 //! When a change cannot be made without losing layout or meaning, nothing is
@@ -203,3 +211,7 @@ pub fn unsupported(construct: &str, message: impl AsRef<str>) -> Error {
     )
     .with_found(construct)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

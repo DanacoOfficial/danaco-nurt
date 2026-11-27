@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::rebase::tests
+// Responsibility:   Tests of the `git.rebase` actions against repositories in temporary.
+// Dependencies:     bstr, gix, gix_index, gix_object, nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the `git.rebase` actions against repositories in temporary
 //! directories, with a recording journal that can undo each action.
 
@@ -910,3 +918,7 @@ fn stage_reports_a_stop_as_an_applied_error_and_continues() {
     run_stage(&repo, &[("action", "abort")]).expect("abort");
     assert!(!repo.has_git("rebase-merge"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

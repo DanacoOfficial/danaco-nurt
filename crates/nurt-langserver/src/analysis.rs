@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-langserver::analysis
+// Responsibility:   Diagnostics, quick fixes and formatting of a document.
+// Dependencies:     ScalarType, lsp_types, nurt_bind, nurt_contracts, nurt_correct, nurt_syntax, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Diagnostics, quick fixes and formatting of a document.
 //!
 //! A document is read with the correction of notation and, when the session
@@ -981,3 +989,7 @@ mod tests {
         assert!(failure.ends_with("at line 1, column 7"), "{failure}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

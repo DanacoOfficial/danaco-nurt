@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u08_xml_entities.rs
+// Responsibility:   Entities, the document type declaration and the limits that protect.
+// Dependencies:     nurt_contracts, u08_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Entities, the document type declaration and the limits that protect
 //! reading against entity expansion attacks.
 // Helper functions of this test target are not `#[test]` functions, which
@@ -501,3 +509,7 @@ fn malformed_declarations_report_the_byte_offset() {
         u64::try_from(unquoted).ok()
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

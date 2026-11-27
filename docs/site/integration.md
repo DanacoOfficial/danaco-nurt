@@ -5,6 +5,13 @@ order: 9
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/site/integration.md -->
+<!-- Responsibility:   Documents Integration. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Integration
 
 A host program can call Danaco Nurt in four ways. The tool seen by a model is named `nurt` in every integration.
@@ -32,3 +39,7 @@ The command `nurt check` and the library function `nurt_check` return the effect
 ## Documentation for integrators
 
 The guide for integrators, with tool definitions for the model providers and examples of policies, is the directory [docs/integrators](https://github.com/DanacoOfficial/danaco-nurt/tree/main/docs/integrators) of the repository.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

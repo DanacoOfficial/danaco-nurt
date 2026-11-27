@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/python/tests/test_implementation.py
+# Responsibility:   Script test_implementation.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Tests against the real artifacts: the stub build of ``libnurt`` and ``nurt serve``.
 
 The library tests replay the recorded cases of the stub
@@ -287,3 +295,7 @@ class ServeProcessTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

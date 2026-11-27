@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/archive_support/mod.rs
+// Responsibility:   Helpers of the archive command tests: stages and arguments, archives.
+// Dependencies:     nurt_archive, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Helpers of the archive command tests: stages and arguments, archives
 //! built in memory, tar archives with members the archive writer refuses,
 //! and runs of effect stages through the recording journal of the virtual
@@ -296,3 +304,7 @@ pub(crate) fn mutated_paths(test: &TestContext) -> Vec<AbsPath> {
         .flat_map(|record| record.paths)
         .collect()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

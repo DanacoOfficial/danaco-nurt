@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u09_query.rs
+// Responsibility:   Tests of the `query` stage: the source form, the input record kinds.
+// Dependencies:     nurt_contracts, u09_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the `query` stage: the source form, the input record kinds,
 //! keys of results, errors and limits.
 
@@ -264,3 +272,7 @@ fn documents_are_opened_with_the_path_of_their_file() {
     let opened = fixture.opened.lock().unwrap();
     assert_eq!(opened.as_slice(), [Some(PathBuf::from("/data/app.kvp"))]);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

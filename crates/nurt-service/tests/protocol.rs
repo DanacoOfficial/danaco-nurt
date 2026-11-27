@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-service/tests/protocol.rs
+// Responsibility:   Service host over its control channel: protocol, heartbeat, instance.
+// Dependencies:     nurt_contracts, nurt_sched, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Service host over its control channel: protocol, heartbeat, instance
 //! lock, module supervision and `status`, with mock modules and the schedule
 //! module of `nurt-sched`.
@@ -694,3 +702,7 @@ fn status_assembles_installed_running_modules() {
     assert_eq!(report.version.as_deref(), Some("0.0.9"));
     assert!(report.modules.is_empty() && report.pid.is_none());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sched::trigger::cron
+// Responsibility:   Five-field cron expressions.
+// Dependencies:     croner, jiff, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Five-field cron expressions.
 //!
 //! Fields are minute (0–59), hour (0–23), day of month (1–31), month (1–12
@@ -360,3 +368,7 @@ fn narrow<T: TryFrom<u64> + Default>(bits: u64) -> T {
 fn set_bits(bits: u64) -> impl Iterator<Item = u32> {
     (0..u64::BITS).filter(move |bit| bits & (1 << bit) != 0)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

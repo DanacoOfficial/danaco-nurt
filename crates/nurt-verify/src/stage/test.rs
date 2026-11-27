@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-verify::stage::test
+// Responsibility:   The `test.run`, `test.failed`, `test.show` and `test.list` commands.
+// Dependencies:     nurt_contracts, nurt_proc
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `test.run`, `test.failed`, `test.show` and `test.list` commands.
 
 use std::sync::Arc;
@@ -34,3 +42,7 @@ pub(crate) fn stages() -> Vec<Arc<dyn StageImpl>> {
 pub(crate) fn job_finisher() -> Arc<dyn JobFinisher> {
     Arc::new(finish::TestFinisher)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

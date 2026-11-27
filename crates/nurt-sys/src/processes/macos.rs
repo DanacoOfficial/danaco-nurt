@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::processes::macos
+// Responsibility:   Process table of macOS, read through `libproc` and `sysctl`.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Process table of macOS, read through `libproc` and `sysctl`.
 //!
 //! `proc_pidinfo(PROC_PIDTASKALLINFO)` succeeds only for processes of the
@@ -308,3 +316,7 @@ fn working_directory(pid: c_int) -> Option<String> {
     let path = c_text(&chars);
     (!path.is_empty()).then_some(path)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

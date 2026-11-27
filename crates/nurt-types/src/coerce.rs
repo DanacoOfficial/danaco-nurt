@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-types::coerce
+// Responsibility:   Language types and the implicit conversions between them.
+// Dependencies:     jiff, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Language types and the implicit conversions between them.
 //!
 //! The only implicit conversions of the language turn a text written in a
@@ -211,3 +219,7 @@ pub(crate) fn text_is_not_regex() -> Error {
     .with_actual(json!("text"))
     .with_help("regex")
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

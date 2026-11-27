@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/parse_c_golden.rs
+// Responsibility:   Variant C texts of the reference tasks parse to their golden trees.
+// Dependencies:     nurt_contracts, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Variant C texts of the reference tasks parse to their golden trees.
 //!
 //! Golden files live in `tests/d1/golden/ast/c`: `<name>.nurt` is the program
@@ -172,3 +180,7 @@ fn argument_spans_start_at_the_parameter_name() {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

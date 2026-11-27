@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-programs::sources::winget
+// Responsibility:   Windows Package Manager packages and links.
+// Dependencies:     nurt_contracts, rusqlite
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Windows Package Manager packages and links.
 //!
 //! The provider reads the command links in `%LOCALAPPDATA%\Microsoft\WinGet\Links`,
@@ -376,3 +384,7 @@ impl ProgramSource for WingetSource {
         Ok(data)
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

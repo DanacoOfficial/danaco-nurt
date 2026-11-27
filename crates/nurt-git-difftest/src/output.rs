@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-difftest::output
+// Responsibility:   Comparison of the output records of a command with the output of a `git`.
+// Dependencies:     nurt_contracts, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Comparison of the output records of a command with the output of a `git`
 //! command.
 //!
@@ -627,3 +635,7 @@ u UU N... 100644 100644 100644 100644 a b c both.txt\0\
         assert!(message.contains("git only: 10 more lines"), "{message}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

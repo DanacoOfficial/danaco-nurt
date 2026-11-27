@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::jobs::control
+// Responsibility:   Control requests to the process that supervises a job.
+// Dependencies:     nurt_contracts, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Control requests to the process that supervises a job.
 //!
 //! A requester writes `<name>.request.json` into the control directory of
@@ -265,3 +273,7 @@ pub(crate) fn reply(table: &JobTable, id: &str, name: &str, result: Result<Job>)
     let path = table.control_dir(id).join(format!("{name}{REPLY_SUFFIX}"));
     let _ = write_json(&path, &reply, true);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

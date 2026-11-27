@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-proc/examples/proc_fixture/control.rs
+// Responsibility:   Modes for the tests of process trees, limits, signals and suspension.
+// Dependencies:     nix, windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Modes for the tests of process trees, limits, signals and suspension.
 //!
 //! | Mode | Arguments | Behaviour |
@@ -202,3 +210,7 @@ fn raise(args: &[String]) -> Option<ExitCode> {
 fn raise(_args: &[String]) -> Option<ExitCode> {
     None
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

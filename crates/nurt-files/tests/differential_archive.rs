@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/differential_archive.rs
+// Responsibility:   Differential tests of `nurt_archive` against `unzip`, `tar`, `bsdtar`, `zip` and `7z`.
+// Dependencies:     nurt_archive, support_corpus, support_diff
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differential tests of `nurt_archive` against `unzip`, `tar`, `bsdtar`, `zip` and `7z`.
 
 #![cfg(all(feature = "differential", unix))]
@@ -516,3 +524,7 @@ fn damaged_zip_is_rejected_by_both() {
     let result = list(Cursor::new(bytes), None, |_| Ok(()));
     assert!(result.is_err(), "Nurt accepts the truncated archive");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

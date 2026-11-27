@@ -1,3 +1,14 @@
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           jaq-json::serde
+// Responsibility:   Implements the module jaq-json::serde.
+// Dependencies:     serde_core
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use crate::{Num, Val};
 use alloc::{fmt, string::String};
 use serde_core::de::{Error, MapAccess, SeqAccess, Visitor};
@@ -83,3 +94,7 @@ impl<'de> Deserialize<'de> for Val {
         deserializer.deserialize_any(ValueVisitor)
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

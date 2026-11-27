@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::read::binary
+// Responsibility:   Content of `read` that is not text: pages of PDF documents, images.
+// Dependencies:     image, nurt_archive, nurt_contracts, nurt_testkit, nurt_text
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Content of `read` that is not text: pages of PDF documents, images,
 //! hexadecimal dumps and compressed files read after decompression.
 //!
@@ -1425,3 +1433,7 @@ mod tests {
         assert!(error.message.contains("mode: text"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

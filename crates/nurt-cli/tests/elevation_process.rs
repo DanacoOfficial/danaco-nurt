@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-cli/tests/elevation_process.rs
+// Responsibility:   Privilege elevation through the `nurt` executable: the call parameters on.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Privilege elevation through the `nurt` executable: the call parameters on
 //! the command line and on a stage, and the hidden subcommand
 //! `elevated-exec`. Tests that need root or a program that elevates without a
@@ -434,3 +442,7 @@ fn service_enable_with_privilege_elevated_is_undone_to_the_previous_start_type()
     assert_eq!(undone.report.status, ReportStatus::Ok, "{undone:?}");
     assert!(enabled("disabled"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

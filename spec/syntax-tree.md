@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/syntax-tree.md -->
+<!-- Responsibility:   Documents Syntax trees: `nurt-ast/1` and `nurt-bound/1`. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Syntax trees: `nurt-ast/1` and `nurt-bound/1`
 
 Nurt executes and records a syntax tree, never program text. Program text in
@@ -356,3 +364,7 @@ serializes back to the same JSON value, survives a CBOR round trip unchanged
 and has the recorded `ast_hash`, and that every invalid document is rejected
 at its layer. Setting `NURT_BLESS=1` regenerates the generated schemas and the
 recorded hashes after a reviewed change.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::xml
+// Responsibility:   XML documents.
+// Dependencies:     attr, cdata, element, handle, ns, nurt_contracts, style, tree
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! XML documents.
 //!
 //! [`XmlTree`] keeps the source text and the byte range of every part of
@@ -332,3 +340,7 @@ pub(crate) fn key_conflict(message: impl Into<String>, candidates: Vec<String>) 
 pub(crate) fn invalid_value(message: impl Into<String>) -> Error {
     Error::new(ErrorCode::InvalidValue, message)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

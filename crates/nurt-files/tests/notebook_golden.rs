@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/notebook_golden.rs
+// Responsibility:   The examples of the `notebook.*` pages of the command documentation, run.
+// Dependencies:     notebook_support, nurt_contracts, nurt_notebook, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The examples of the `notebook.*` pages of the command documentation, run
 //! on the virtual file system.
 
@@ -721,3 +729,7 @@ fn export_example_writes_the_sources_as_text() {
         "# Sales\nMonthly totals.\n\nimport pandas as pd\ndf = pd.read_csv(\"sales.csv\")\nprint(len(df), \"rows\")\n\ndf.plot(x=\"month\", y=\"total\")\n"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

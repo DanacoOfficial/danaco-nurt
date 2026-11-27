@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/catalog_schema.rs
+// Responsibility:   Tests that the published schema of catalog files equals the schema.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Tests that the published schema of catalog files equals the schema
 //! generated from the Rust types. With `NURT_BLESS=1` the generated schema is
@@ -95,3 +102,7 @@ fn schema_rejects_unknown_keys_and_invalid_kinds() {
     missing.as_object_mut().unwrap().remove("summary");
     assert!(!validator.is_valid(&missing));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

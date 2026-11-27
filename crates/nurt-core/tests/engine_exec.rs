@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/engine_exec.rs
+// Responsibility:   Programs run end to end through the engine on a virtual file system and a.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Programs run end to end through the engine on a virtual file system and a
 //! recording journal. The commands `find` and `remove` are test stages that
 //! work on the virtual file system; the record stages are those of the build.
@@ -263,3 +271,7 @@ fn cancelled_execution_reports_the_cancellation() {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

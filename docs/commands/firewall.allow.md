@@ -7,6 +7,13 @@ since: 0.1.1
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/commands/firewall.allow.md -->
+<!-- Responsibility:   Documents firewall.allow. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # firewall.allow
 
@@ -91,3 +98,7 @@ firewall.allow 443 direction: outbound backend: nftables table: "nurt" privilege
 ## Related
 
 `firewall.rules` lists the rules, `firewall.remove` removes them, and `firewall.allow` is the opposite of `firewall.deny`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

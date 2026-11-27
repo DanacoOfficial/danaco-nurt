@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           .github/workflows/packaging.yml
+# Responsibility:   Configuration or workflow definition of .github/workflows/packaging.yml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 name: Packaging
 
 # Builds the system packages from the release archives and checks the
@@ -322,3 +330,7 @@ jobs:
           brew tap-new local/nurt
           cp rendered/homebrew/nurt.rb "$(brew --repository local/nurt)/Formula/nurt.rb"
           brew style local/nurt/nurt
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

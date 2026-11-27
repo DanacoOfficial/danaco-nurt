@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::readcache
+// Responsibility:   Cache of file content seen by earlier reads.
+// Dependencies:     nurt_contracts, nurt_testkit, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Cache of file content seen by earlier reads.
 //!
 //! Commands that compare a file with the content seen by an earlier read
@@ -433,3 +441,7 @@ mod tests {
         assert!(format!("{third:?}").contains("ReadCache"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

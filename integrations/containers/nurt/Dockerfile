@@ -1,3 +1,14 @@
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           integrations/containers/nurt/Dockerfile
+# Responsibility:   Container image definition of integrations/containers/nurt/Dockerfile.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 FROM debian:bookworm-slim AS rootfs
 RUN install -d -m 0755 /rootfs/usr/local/bin /rootfs/usr/share/doc/nurt \
  && install -d -m 1777 /rootfs/tmp \
@@ -23,3 +34,7 @@ ENV NURT_STATE_DIR=/var/lib/nurt
 USER 65532:65532
 WORKDIR /workspace
 ENTRYPOINT ["/usr/local/bin/nurt"]
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-cli/tests/serve_pipeline.rs
+// Responsibility:   Pipelines `find |> filter |> count` and `find |> remove` through the.
+// Dependencies:     nurt_ffi, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Pipelines `find |> filter |> count` and `find |> remove` through the
 //! protocol server, on an engine over a virtual file system.
 
@@ -254,3 +262,7 @@ fn every_run_is_bracketed_by_its_events() {
         assert_eq!(types.last(), Some(&"exec.finished"), "request {id}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

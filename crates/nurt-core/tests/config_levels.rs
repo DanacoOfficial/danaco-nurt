@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/config_levels.rs
+// Responsibility:   Precedence of the seven configuration levels, trust of project files.
+// Dependencies:     nurt_contracts, nurt_testkit, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Precedence of the seven configuration levels, trust of project files,
 //! protection floors and validation, through the configuration loader of the
 //! engine.
@@ -366,3 +374,7 @@ fn unreadable_project_file_is_an_error() {
     assert_eq!(loader.layers().len(), 0);
     assert!(loader.trusted_projects().is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

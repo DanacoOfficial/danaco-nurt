@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-report/tests/assemble_builder.rs
+// Responsibility:   Assembly of reports: targets, summary, operation number, listing.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Assembly of reports: targets, summary, operation number, listing,
 //! notable effects and irreversibility.
 
@@ -647,3 +655,7 @@ fn service_state_change_counts_as_a_target_without_files() {
     assert_eq!(value["irreversible"][0]["reason"], "service_changed");
     assert!(Report::validate(&report).is_ok());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

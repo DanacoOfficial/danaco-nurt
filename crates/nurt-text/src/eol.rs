@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-text::eol
+// Responsibility:   Line terminators: detection, conversion, per-line preservation and.
+// Dependencies:     memchr, nurt_contracts, similar
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Line terminators: detection, conversion, per-line preservation and
 //! positions.
 //!
@@ -703,3 +711,7 @@ mod tests {
         assert_eq!(index.offset(Position { line: 2, column: 1 }), Some(2));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

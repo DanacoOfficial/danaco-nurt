@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::os
+// Responsibility:   Process control calls of the operating system.
+// Dependencies:     nurt_contracts, target, unix, windows
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Process control calls of the operating system.
 //!
 //! Each system module provides `Tree`: a started program together with every
@@ -231,3 +239,7 @@ mod tests {
         assert_eq!(ceil_seconds(Duration::MAX), u64::MAX);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

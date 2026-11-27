@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-code::profile
+// Responsibility:   Repository profile: build commands, entry points, change hotspots and manifests.
+// Dependencies:     cache, files, history, model, nurt_contracts, source
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Repository profile: build commands, entry points, change hotspots and manifests.
 //!
 //! A profile describes a project before its first change: the languages and
@@ -236,3 +244,7 @@ mod tests {
         assert_eq!(names, ["h", "a"]);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

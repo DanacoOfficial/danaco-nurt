@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-testkit/tests/vfs_errors.rs
+// Responsibility:   Error paths and optional features of the virtual file system.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Error paths and optional features of the virtual file system.
 
 #![allow(
@@ -729,3 +737,7 @@ fn path_resolution_handles_parent_components_and_links() {
     assert_eq!(fs.real_path(&path("/w/link")).unwrap(), path("/w/a"));
     assert!(fs.path_key(&path("/w/a")).is_ok());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

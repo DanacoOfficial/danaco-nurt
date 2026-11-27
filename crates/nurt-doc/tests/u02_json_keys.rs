@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u02_json_keys.rs
+// Responsibility:   Key paths that JSON edits refuse or resolve in a less common way: the.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Key paths that JSON edits refuse or resolve in a less common way: the
 //! document root, document selectors, member names on lists, positions on
 //! objects, missing parents that cannot be created and names repeated more
@@ -137,3 +145,7 @@ fn removing_a_name_repeated_three_times_removes_every_occurrence() {
         Value::Map([("b".to_owned(), Value::Int(3))].into_iter().collect())
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

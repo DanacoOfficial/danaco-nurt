@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-notebook/tests/hostile.rs
+// Responsibility:   Notebooks from untrusted sources: malformed and truncated text, wrong.
+// Dependencies:     nurt_contracts, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Notebooks from untrusted sources: malformed and truncated text, wrong
 //! types, unknown members that must survive an edit, and addressing at the
 //! boundaries.
@@ -271,3 +279,7 @@ fn duplicate_ids_do_not_fail_parsing_so_that_normalize_can_repair_them() {
     let repaired = notebook.normalize();
     assert_eq!(repaired.cells, [1]);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

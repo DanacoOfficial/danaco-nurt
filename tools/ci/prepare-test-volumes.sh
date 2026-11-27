@@ -3,6 +3,14 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
+# Module:           tools/ci/prepare-test-volumes.sh
+# Responsibility:   Prepares the file-backed volumes that the ignored volume tests of the.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
+#
 # Prepares the file-backed volumes that the ignored volume tests of the
 # repository mount (tests/d2/volumes, tests/d2/retention and the volume tests
 # of crates/nurt-fs) and writes a file of "export" lines naming them.
@@ -152,3 +160,7 @@ case $action in
   down) down ;;
   *) usage ;;
 esac
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

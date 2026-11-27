@@ -2,6 +2,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           integrations/setup-nurt/tests/test_resolution.sh
+# Responsibility:   Tests for SemVer comparison, range matching and version resolution.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Tests for SemVer comparison, range matching and version resolution.
 
 set -uo pipefail
@@ -127,3 +135,7 @@ out=$( (resolve_version '>=5.0.0') 2>&1 || true)
 assert_contains 'explains the unmatched range' "no release satisfies version '>=5.0.0'" "$out"
 
 finish_tests
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

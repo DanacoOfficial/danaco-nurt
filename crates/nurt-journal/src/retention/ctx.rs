@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::retention::ctx
+// Responsibility:   Retention over the shared context of the journal store.
+// Dependencies:     nurt_contracts, nurt_fs, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Retention over the shared context of the journal store.
 //!
 //! [`CtxStore`] gives retention access to the journal directories and the
@@ -1695,3 +1703,7 @@ mod durability_tests {
         assert!(CtxStore(&ctx).entries(&volume).unwrap().is_empty());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

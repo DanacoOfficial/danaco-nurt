@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-archive/tests/corpus.rs
+// Responsibility:   Archives generated in the test: every supported format and compression.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Archives generated in the test: every supported format and compression,
 //! Unicode names, links and members crafted to escape the destination.
 //!
@@ -704,3 +712,7 @@ fn sink_errors_end_the_stream() {
     assert_eq!(calls, 1);
     assert_eq!(error.code(), ErrorCode::Io);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

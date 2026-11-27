@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/support_parity_run/report.rs
+// Responsibility:   Report of a scenario run and evaluation of the `fields` assertions.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Report of a scenario run and evaluation of the `fields` assertions.
 //!
 //! The report follows the effect report of the engine (status, error,
@@ -485,3 +493,7 @@ fn error_code_matches(expected: &Json, actual: &Json) -> bool {
             .iter()
             .any(|(name, codes)| *name == expected && codes.contains(&actual))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

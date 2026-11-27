@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/schema_registry.rs
+// Responsibility:   Tests that `nurt_contracts::schema` publishes every file of `spec/schemas/`.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests that `nurt_contracts::schema` publishes every file of `spec/schemas/`
 //! under its naming convention, that every schema compiles with the other
 //! published schemas as resources, and that the schemas of catalog query
@@ -449,3 +457,7 @@ fn rpc_schema_names_every_published_schema() {
     let published: BTreeSet<&str> = schema::ALL.iter().map(|(name, _)| *name).collect();
     assert_eq!(named, published);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::linux::tests
+// Responsibility:   Tests of the Linux back end on the file systems of the test host.
+// Dependencies:     nurt_contracts, rustix, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the Linux back end on the file systems of the test host.
 //!
 //! The temporary directory decides the file system under test. Tests that
@@ -2192,3 +2200,7 @@ fn a_created_node_is_removed_only_while_it_is_the_same_entry() {
     );
     assert!(!node.as_path().exists());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

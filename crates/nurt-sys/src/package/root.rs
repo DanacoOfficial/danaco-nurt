@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::package::root
+// Responsibility:   System paths of the package readers.
+// Dependencies:     nurt_contracts, nurt_programs
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! System paths of the package readers.
 //!
 //! The readers write system paths as on the host (`/var/lib/dpkg/status`,
@@ -94,3 +102,7 @@ mod tests {
         assert!(env.exists("/a") && !env.is_dir("/a"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

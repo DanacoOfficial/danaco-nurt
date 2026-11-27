@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-tooldef/tests/docs_examples.rs
+// Responsibility:   Every JSON example of the integrator guide matches its published schema.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Every JSON example of the integrator guide matches its published schema.
 //!
 //! A `json` block is preceded by a comment `<!-- schema: NAME -->` or
@@ -152,3 +160,7 @@ fn rejects_an_example_that_does_not_match() {
     let validator = validator(&registry, "event");
     assert!(!validator.is_valid(&json!({"seq": 0, "time": "2026-11-22T10:15:09Z", "t": "log"})));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

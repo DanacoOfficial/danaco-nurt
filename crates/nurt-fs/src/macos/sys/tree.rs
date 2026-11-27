@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::macos::sys::tree
+// Responsibility:   Bottom-up removal of directory trees.
+// Dependencies:     nurt_contracts, rustix
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Bottom-up removal of directory trees.
 //!
 //! Every directory is opened relative to the descriptor of its parent with
@@ -207,3 +215,7 @@ fn add(total: &mut RemoveStats, removed: RemoveStats) {
 fn error(errno: Errno, path: &Path) -> FsError {
     sys_error(errno, ErrnoContext::Plain, OP, path)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

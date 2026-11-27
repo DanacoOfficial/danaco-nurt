@@ -6,6 +6,13 @@ commands: [read, set, query, sql, write, diff, find]
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/documents.md -->
+<!-- Responsibility:   Documents documents. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # documents
 
@@ -45,3 +52,7 @@ sql "/srv/app/app.db" "select id, name from users where active = 1 limit 5"
 ## Errors
 
 `E_KEY_NOT_FOUND` names a key that does not exist and lists the keys at the nearest level. `E_KEY_SYNTAX` marks a malformed key path. `E_DOC_PARSE` means the file is not valid in its format, and `E_FORMAT` means the format could not be determined.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

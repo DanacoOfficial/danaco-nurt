@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/crash/journal_scale.rs
+// Responsibility:   Recovery time of a large journal on the crash model.
+// Dependencies:     nurt_contracts, nurt_crashfs, nurt_fs, nurt_journal
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Recovery time of a large journal on the crash model.
 //!
 //! The operation under test is interrupted and the crash applied before the
@@ -134,3 +142,7 @@ fn journal_recovery_with_ten_thousand_entries_rolls_back_only_the_interrupted_on
 fn journal_recovery_with_a_million_entries_ends_within_five_seconds() {
     assert_recovered(&recover_with_entries(FULL_ENTRIES));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

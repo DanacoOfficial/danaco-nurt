@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-catalog
+// Responsibility:   Command catalog of Danaco Nurt.
+// Dependencies:     load, nurt_contracts, output, registry, spec_ext, stages
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Command catalog of Danaco Nurt.
 //!
 //! The catalog is the registry of every command known to the engine. It loads
@@ -42,3 +50,7 @@ pub use output::{CATALOG_RESULT_FORMAT, CatalogQuery};
 pub use registry::{Group, GroupOrigin, NameEntry, NameKind, Registry};
 pub use spec_ext::StageSpecExt;
 pub use stages::{AcceptedKinds, descriptors_overlap};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

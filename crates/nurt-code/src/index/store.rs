@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-code::index::store
+// Responsibility:   Storage of symbol indexes in the state directory.
+// Dependencies:     serde, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Storage of symbol indexes in the state directory.
 //!
 //! The index of a root is the JSON file
@@ -201,3 +209,7 @@ mod tests {
         assert!(stamp(Registry::builtin()).starts_with(env!("CARGO_PKG_VERSION")));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

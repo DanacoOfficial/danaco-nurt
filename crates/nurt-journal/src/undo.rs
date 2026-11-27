@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::undo
+// Responsibility:   Undo, redo and the rollback of committed entries.
+// Dependencies:     nurt_contracts, nurt_fs, nurt_testkit, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Undo, redo and the rollback of committed entries.
 //!
 //! An undo runs in three phases. Selection turns the request into a plan:
@@ -5753,3 +5761,7 @@ mod copy_children_tests {
         assert_eq!(std::fs::read(to.as_path().join("sub/y")).unwrap(), b"y");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/grammar.md -->
+<!-- Responsibility:   Documents Grammar. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Grammar
 
 The grammar of program text in EBNF. The parser of the crate `nurt-syntax` is
@@ -103,3 +111,7 @@ operand     = literal | ref | IDENT | call | "(" , ( expression | pipeline ) , "
 A pipeline in parentheses is a value: in a condition or a source it runs and
 yields the only field of its only record, the only record, or the list of
 records. A pipeline of the form `((a …) |> b)` is the pipeline `a … |> b`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

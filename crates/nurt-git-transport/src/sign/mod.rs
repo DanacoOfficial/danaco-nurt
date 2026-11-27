@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::sign
+// Responsibility:   OpenPGP and SSH signatures of commits and tags.
+// Dependencies:     nurt_contracts, object
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! OpenPGP and SSH signatures of commits and tags.
 //!
 //! [`Signer`] creates detached signatures over the bytes of a commit or tag
@@ -290,3 +298,7 @@ fn unsupported(format: Option<SignatureFormat>) -> CommitSignature {
 
 #[cfg(test)]
 mod tests;
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

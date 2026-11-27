@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           tools/release/README.md -->
+<!-- Responsibility:   Documents Release scripts. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Release scripts
 
 Scripts that build, check and verify a release. They run from any directory and locate the repository from their own path.
@@ -65,3 +73,7 @@ The archive is mounted read-only into a container of `debian:stable-slim` (glibc
 ## Tests
 
 `python3 -I -m unittest discover -s packaging/tests -p 'test_release_scripts.py'` tests the parsing of the scenario results and the argument handling of the scripts.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

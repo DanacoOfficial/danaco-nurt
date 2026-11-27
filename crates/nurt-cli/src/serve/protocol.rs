@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::serve::protocol
+// Responsibility:   Messages of `nurt-rpc/1` and the codes of their errors.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Messages of `nurt-rpc/1` and the codes of their errors.
 //!
 //! Every message is a JSON-RPC 2.0 object. Errors of the protocol use the
@@ -477,3 +485,7 @@ mod tests {
         assert_eq!(RpcError::invalid_params("x").code, INVALID_PARAMS);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

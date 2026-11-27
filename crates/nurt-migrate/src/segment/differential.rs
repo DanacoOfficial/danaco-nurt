@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-migrate::segment::differential
+// Responsibility:   Differential test of the division of scripts into statements: the.
+// Dependencies:     nurt_correct
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differential test of the division of scripts into statements: the
 //! tree-sitter grammars against the lexers of the bash and PowerShell habit
 //! tables.
@@ -256,3 +264,7 @@ fn lexer_starts_split_lists() {
     let starts = bash_starts("mkdir /a && cp /b /a; ls /a || echo x\n");
     assert_eq!(starts, Some(vec![(1, 1), (1, 13), (1, 23), (1, 32)]));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

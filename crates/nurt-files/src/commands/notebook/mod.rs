@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::notebook
+// Responsibility:   Commands of the group `notebook`: cells of Jupyter notebooks in.
+// Dependencies:     nurt_contracts, nurt_notebook, nurt_testkit, nurt_text, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Commands of the group `notebook`: cells of Jupyter notebooks in
 //! nbformat 4.
 //!
@@ -887,3 +895,7 @@ pub(crate) mod fixture {
         (test, path)
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

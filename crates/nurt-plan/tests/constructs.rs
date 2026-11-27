@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-plan/tests/constructs.rs
+// Responsibility:   Planning of the control constructs: the plan keeps the structure, every.
+// Dependencies:     common, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Planning of the control constructs: the plan keeps the structure, every
 //! pipeline inside is checked like a pipeline of the top level, and the
 //! effect of a construct is the strongest effect inside.
@@ -150,3 +158,7 @@ fn a_call_inherits_the_effect_of_its_function() {
     assert_eq!(operation.pipeline.effect, EffectKind::Local);
     assert!(operation.pipeline.call.is_some());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

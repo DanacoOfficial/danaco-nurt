@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/roundtrip_print.rs
+// Responsibility:   Printing and parsing are inverse: for every generated tree `T`.
+// Dependencies:     nurt_contracts, proptest, roundtrip_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Printing and parsing are inverse: for every generated tree `T`,
 //! `parse(print(T)) = T` apart from spans and metadata, and printing the
 //! parse of a printed text gives the same text. Variant C is checked on
@@ -87,3 +95,7 @@ proptest! {
         round_trip(&document, Variant::C)?;
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

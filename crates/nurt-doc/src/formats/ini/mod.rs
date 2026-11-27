@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::ini
+// Responsibility:   INI documents and their dialects.
+// Dependencies:     format, nurt_contracts, parse, profile, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! INI documents and their dialects.
 //!
 //! The parser keeps every byte of the document: comments, blank lines,
@@ -359,3 +367,7 @@ fn add_entry(map: &mut Map, parsed: &Parsed, id: usize, profile: IniProfile) -> 
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

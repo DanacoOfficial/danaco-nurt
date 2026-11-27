@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/common/mod.rs
+// Responsibility:   Shared fixtures of the end-to-end tests: a registry with commands of the.
+// Dependencies:     nurt_catalog, nurt_contracts, nurt_plan, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Shared fixtures of the end-to-end tests: a registry with commands of the
 //! mock extension, a virtual world and builders of plans.
 
@@ -501,3 +509,7 @@ pub(crate) fn single(pipeline: PipelinePlan) -> Plan {
 pub(crate) fn error_of(outcome: &Outcome) -> &Error {
     outcome.error.as_ref().expect("the execution failed")
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

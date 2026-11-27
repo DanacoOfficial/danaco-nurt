@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           jaq-json
+// Responsibility:   JSON superset with binary data and non-string object keys.
+// Dependencies:     Ordering, Val, bstr, bytes, funs, indexmap, jaq_core, limit, num, num_bigint, num_traits
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! JSON superset with binary data and non-string object keys.
 //!
 //! This crate provides a few macros for formatting / writing;
@@ -888,3 +896,7 @@ impl fmt::Display for Val {
         write::format(f, &write::Pp::default(), 0, self)
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

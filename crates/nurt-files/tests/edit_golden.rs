@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/edit_golden.rs
+// Responsibility:   Examples of the page of `edit` and the behaviour of `edit` on the virtual.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Examples of the page of `edit` and the behaviour of `edit` on the virtual
 //! file system: lists of changes, all or none, validation of the result and
 //! the transaction protocol.
@@ -533,3 +541,7 @@ fn byte_order_mark_and_crlf_are_kept() {
     );
     assert_eq!(changes[0].bom_after, Some(true));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sched::module
+// Responsibility:   Interface between the background service and its modules.
+// Dependencies:     nurt_contracts, schedule, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Interface between the background service and its modules.
 //!
 //! The service process hosts modules, such as the schedule module of this
@@ -258,3 +266,7 @@ pub trait RunContextFactory: Send + Sync {
     /// Returns the error that prevents the run, for example `E_CONFIG`.
     fn context(&self, request: &RunContextRequest) -> Result<ExecCtx>;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

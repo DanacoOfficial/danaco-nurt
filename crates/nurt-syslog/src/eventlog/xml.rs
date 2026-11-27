@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syslog::eventlog::xml
+// Responsibility:   Parser of the XML form of Windows events.
+// Dependencies:     nurt_contracts, quick_xml
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Parser of the XML form of Windows events.
 //!
 //! `EvtRender` with `EvtRenderEventXml` renders an event as an `Event`
@@ -312,3 +320,7 @@ fn local_name(start: &BytesStart<'_>) -> String {
     let name: &str = name.as_ref();
     name.to_owned()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

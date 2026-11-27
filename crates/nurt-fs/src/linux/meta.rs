@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::linux::meta
+// Responsibility:   Metadata of entries: `statx`, extended attributes, inode flags and the.
+// Dependencies:     nurt_contracts, rustix, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Metadata of entries: `statx`, extended attributes, inode flags and the
 //! transfer of complete metadata to another entry.
 //!
@@ -783,3 +791,7 @@ mod tests {
         assert_eq!(kind_from_mode(0o020_644), FileKind::Special);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

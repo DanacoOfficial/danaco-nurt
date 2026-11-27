@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u02_json_scaling.rs
+// Responsibility:   Cost of edits that touch every member of a large JSON or JSONC document.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Cost of edits that touch every member of a large JSON or JSONC document.
 //!
 //! Each test runs one edit on a document and on one four times as large and
@@ -137,3 +145,7 @@ fn removing_a_name_repeated_many_times_is_linear() {
         String::from_utf8(document.bytes()).unwrap()
     });
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

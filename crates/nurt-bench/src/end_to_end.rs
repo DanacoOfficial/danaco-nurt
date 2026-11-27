@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bench::end_to_end
+// Responsibility:   Complete series without network: 20 tasks under the bash condition and.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Complete series without network: 20 tasks under the bash condition and
 //! the Danaco Nurt condition, with the mock model, an in-process server,
 //! a test oracle, the analysis and the replay of a recorded run.
@@ -309,3 +317,7 @@ fn check_analysis(base: &Path) {
         assert!(base.join("results").join(file).is_file(), "{file}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

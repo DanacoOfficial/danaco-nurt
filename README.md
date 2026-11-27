@@ -1,6 +1,13 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           README.md -->
+<!-- Responsibility:   Documents Danaco Nurt. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="branding/svg/lockup-horizontal-color-dark.svg">
@@ -118,3 +125,7 @@ customary description of the origin of the product; see
 [docs/conventions/naming.md](docs/conventions/naming.md).
 
 Copyright 2026 Danaco Holding Group Sp. z o.o.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

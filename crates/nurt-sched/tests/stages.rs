@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-sched/tests/stages.rs
+// Responsibility:   The `schedule.*` commands without a running service: definitions written.
+// Dependencies:     nurt_contracts, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `schedule.*` commands without a running service: definitions written
 //! through the journal transaction, listings, history, undo and errors.
 
@@ -818,3 +826,7 @@ fn run_without_service_refuses_a_definition_changed_outside_the_commands() {
     assert_eq!(error.code(), ErrorCode::StageFailed);
     assert!(runner.calls.lock().unwrap().is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

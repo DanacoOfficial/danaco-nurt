@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-plan/tests/golden.rs
+// Responsibility:   Plans of the golden bound trees: the split into execution steps, the.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Plans of the golden bound trees: the split into execution steps, the
 //! effect class and the check without effect.
 
@@ -211,3 +219,7 @@ fn plan_round_trips_through_json() {
     let back: nurt_plan::Plan = serde_json::from_value(json).unwrap();
     assert_eq!(back, plan);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

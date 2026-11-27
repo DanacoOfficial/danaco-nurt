@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::engine
+// Responsibility:   The engine: one configured instance serving requests.
+// Dependencies:     nurt_catalog, nurt_contracts, nurt_exec, nurt_fs, nurt_help, nurt_lspclient, nurt_plan, nurt_proc, nurt_report, nurt_sys, nurt_testkit, schemars, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The engine: one configured instance serving requests.
 //!
 //! [`Engine::open`] assembles the configuration, the state directory, the
@@ -2812,3 +2820,7 @@ mod tests {
         );
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

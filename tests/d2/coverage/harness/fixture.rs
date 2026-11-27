@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/coverage/harness/fixture.rs
+// Responsibility:   Fixture of the journal under test: volumes, the journal bound to them, a.
+// Dependencies:     nurt_contracts, nurt_fs
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Fixture of the journal under test: volumes, the journal bound to them, a
 //! read view of the file system and a virtual clock.
 
@@ -427,3 +435,7 @@ pub(crate) fn mounted_dir(variable: &str) -> PathBuf {
     );
     dir
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

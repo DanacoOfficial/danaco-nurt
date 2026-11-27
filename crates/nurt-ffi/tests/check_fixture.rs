@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-ffi/tests/check_fixture.rs
+// Responsibility:   The recorded answer of `nurt_check` carries the members of the check.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The recorded answer of `nurt_check` carries the members of the check
 //! document `nurt-check/1`.
 
@@ -59,3 +67,7 @@ fn recorded_syntax_error_points_into_the_program_text() {
         .unwrap();
     assert_eq!(program.chars().nth(opened - 1), Some('['));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -6,6 +6,13 @@ commands: [run, jobs, stop, retry, assert, sleep]
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/running-programs.md -->
+<!-- Responsibility:   Documents running-programs. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # running-programs
 
@@ -45,3 +52,7 @@ Files that a program changes are detected only in the paths named by `watch`; th
 ```nurt
 run ["./build.sh"] cwd: "/srv/app" watch: ["/srv/app/dist"] track_changes: scan
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

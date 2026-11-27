@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-ffi::log
+// Responsibility:   Process-wide receiver of diagnostic log messages.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Process-wide receiver of diagnostic log messages.
 
 use std::ffi::{CString, c_char, c_int, c_void};
@@ -50,3 +58,7 @@ pub(crate) fn error(message: &str) {
     // The lock is not held, so the receiver may replace itself.
     unsafe { (receiver.function)(receiver.user, NURT_LOG_ERROR, text.as_ptr()) };
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

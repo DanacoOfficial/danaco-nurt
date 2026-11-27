@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/journal_coverage.rs
+// Responsibility:   Checks of the journal coverage table `tables/journal-coverage.toml`: the.
+// Dependencies:     serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Checks of the journal coverage table `tables/journal-coverage.toml`: the
 //! table is well formed, and every command and action of the catalog that
 //! changes data or runs a program has a row.
@@ -434,3 +442,7 @@ fn every_row_names_a_catalog_command() {
     }
     fail_on(&problems);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

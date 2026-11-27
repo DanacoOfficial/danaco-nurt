@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::revwalk::walk
+// Responsibility:   Traversal of commits in the default order of `git log`.
+// Dependencies:     bstr, gix, nurt_contracts, smallvec
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Traversal of commits in the default order of `git log`.
 //!
 //! Commits wait in a queue ordered by committer time, newest first; commits
@@ -474,3 +482,7 @@ mod tests {
         assert_eq!(walk(&fixture, "HEAD ^topic", until), Vec::<String>::new());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

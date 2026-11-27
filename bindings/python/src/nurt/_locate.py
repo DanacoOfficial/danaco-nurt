@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/python/src/nurt/_locate.py
+# Responsibility:   Script _locate.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Location of the ``nurt`` executable and of the ``libnurt`` library.
 
 Both are searched in the same order: the argument of the caller, the
@@ -157,3 +165,7 @@ def _not_found(what: str, checked: List[str], variable: str) -> NurtError:
         f"{what} not found; checked: {places}; set {variable} or install a platform wheel",
         detail={"checked": list(checked)},
     )
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

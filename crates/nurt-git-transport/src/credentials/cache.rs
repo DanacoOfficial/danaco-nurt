@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::credentials::cache
+// Responsibility:   Client of the `git credential-cache` daemon.
+// Dependencies:     gix_credentials
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Client of the `git credential-cache` daemon.
 //!
 //! The daemon keeps credentials in memory and listens on a Unix socket. A
@@ -177,3 +185,7 @@ mod tests {
         assert!(request(&dir.path().join("none"), "get", &Context::default()).is_err());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-mcp::events
+// Responsibility:   Delivery of engine events to the client.
+// Dependencies:     nurt_contracts, rmcp, tokio
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Delivery of engine events to the client.
 //!
 //! The engine emits [`Event`]s from the thread that runs the request. They
@@ -305,3 +313,7 @@ mod tests {
         assert_eq!(received, EVENT_BUFFER);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

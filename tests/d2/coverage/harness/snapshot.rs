@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/coverage/harness/snapshot.rs
+// Responsibility:   Snapshot of a directory tree with the content hash and the complete.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Snapshot of a directory tree with the content hash and the complete
 //! metadata of every entry, compared before an operation and after its undo.
 
@@ -161,3 +169,7 @@ fn entry_state(fs: &dyn Fs, path: &AbsPath) -> EntryState {
         link_target: meta.link_target.clone(),
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-text/tests/codec_corpus.rs
+// Responsibility:   Polish text in every supported encoding, checked against reference bytes.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Polish text in every supported encoding, checked against reference bytes
 //! produced by `iconv` and against byte-exact round trips.
 //!
@@ -215,3 +223,7 @@ fn edit_of_windows_1250_file_keeps_encoding_and_line_endings() {
         b"G\xea\x9cl\xb9\r\nsecond\r\nnew\r\nG\xea\x9cl\xb9"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

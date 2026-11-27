@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/diff_context.rs
+// Responsibility:   Context lines of the hunks of an effect: the executor limits them to the.
+// Dependencies:     common, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Context lines of the hunks of an effect: the executor limits them to the
 //! request option `diff_context`, falling back to its default.
 
@@ -180,3 +188,7 @@ fn context_is_not_added_when_the_stage_gave_less() {
     let hunk = hunk_of(&run(&world, options));
     assert_eq!(context_lines(&hunk), (SURPLUS, SURPLUS));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

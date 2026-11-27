@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u14_rename_syntax.rs
+// Responsibility:   `code.rename` without a language server: whole identifiers in code are.
+// Dependencies:     nurt_contracts, u14_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `code.rename` without a language server: whole identifiers in code are
 //! replaced according to the syntax analysis of the built-in grammars, for
 //! Python, TypeScript, Go, Rust and Java.
@@ -226,3 +234,7 @@ fn renames_comments_and_strings_only_when_included() {
     assert_eq!(u14_support::read(&root.join("lib.py")), case.files[0].2);
     assert!(!outcome.notable.contains(&Notable::ReferencesLeft));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

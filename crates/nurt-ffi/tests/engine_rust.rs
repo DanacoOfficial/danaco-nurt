@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-ffi/tests/engine_rust.rs
+// Responsibility:   Exported functions called through their Rust declarations on the engine.
+// Dependencies:     nurt_contracts, serde_json, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Exported functions called through their Rust declarations on the engine
 //! of `nurt-core`, in a build without the feature `stub`. The engine has no
 //! language front end in this crate, so programs end with language errors,
@@ -521,3 +529,7 @@ fn session_identifiers_are_checked_by_characters() {
     }
     assert_eq!(last_error()["detail"]["function"], "nurt_session_end");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u05_yaml_suite.rs
+// Responsibility:   YAML Test Suite: every valid stream is read with the documents and.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! YAML Test Suite: every valid stream is read with the documents and
 //! values the suite expects, every invalid stream is rejected.
 
@@ -99,3 +107,7 @@ fn converts_the_visual_notation_of_the_suite() {
     assert_eq!(suite::visual_to_raw("a:␣b↵\n»c←\n∎\n"), "a: b\n\tc\r\n");
     assert!(suite::suite_dir().join("LICENSE").is_file());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

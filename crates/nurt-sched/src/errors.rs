@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sched::errors
+// Responsibility:   Errors reported by the schedule commands and the schedule module.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Errors reported by the schedule commands and the schedule module.
 
 use std::path::Path;
@@ -67,3 +75,7 @@ pub(crate) fn format(path: &Path, problem: impl std::fmt::Display) -> Error {
 pub(crate) fn failed(message: impl Into<String>) -> Error {
     Error::new(ErrorCode::StageFailed, message)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

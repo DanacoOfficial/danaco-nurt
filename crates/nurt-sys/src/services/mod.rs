@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::services
+// Responsibility:   Service managers: systemd, the Windows service control manager and launchd.
+// Dependencies:     linux, macos, nurt_contracts, windows
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Service managers: systemd, the Windows service control manager and launchd.
 //!
 //! The stages `services`, `start`, `restart`, `enable` and `disable` do not
@@ -1154,3 +1162,7 @@ fn effect_record(transition: &ServiceTransition, status: EffectStatus) -> Record
     };
     Record::from(effect)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

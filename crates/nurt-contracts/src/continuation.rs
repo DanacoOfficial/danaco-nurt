@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-contracts::continuation
+// Responsibility:   Continuation of shortened results.
+// Dependencies:     schemars, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Continuation of shortened results.
 //!
 //! A response that leaves out lines, records or bytes carries the field
@@ -260,3 +268,7 @@ pub trait ResumeRunner: Send + Sync {
     /// Fails with the error of the program.
     fn resume(&self, program: &str, resume: ResumeOverride) -> Result<ResumedPart>;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

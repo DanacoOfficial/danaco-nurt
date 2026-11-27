@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::switch::stage
+// Responsibility:   Stage implementation of `git.switch`, and the parts of the effect report.
+// Dependencies:     bstr, gix, nurt_contracts, nurt_git
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Stage implementation of `git.switch`, and the parts of the effect report
 //! shared with `git.restore`: the checkpoint taken before the change, the
 //! identity written to reference logs and the conversion of a plan to the
@@ -502,3 +510,7 @@ mod tests {
         assert!(stage.as_read().is_none());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

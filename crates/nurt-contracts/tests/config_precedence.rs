@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/config_precedence.rs
+// Responsibility:   Precedence of the seven configuration levels, project trust and the.
+// Dependencies:     ConfigLevel, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Precedence of the seven configuration levels, project trust and the
 //! environment layer.
 
@@ -443,3 +451,7 @@ fn unknown_fields_of_open_table_entries_are_noted_and_skipped() {
     );
     assert_eq!(resolved.config.run.env_defaults["ANY_NAME"], "x");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

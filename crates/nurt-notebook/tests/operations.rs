@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-notebook/tests/operations.rs
+// Responsibility:   Operations of the command group `notebook` on generated notebooks.
+// Dependencies:     nurt_contracts, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Operations of the command group `notebook` on generated notebooks.
 //!
 //! Expected results are reference serializations of the expected JSON
@@ -701,3 +709,7 @@ fn content_lists_every_cell_with_an_outputs_summary() {
     assert_eq!(content.cells[1].execution_count, Some(1));
     assert_eq!(content.cells[0].outputs_summary, None);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

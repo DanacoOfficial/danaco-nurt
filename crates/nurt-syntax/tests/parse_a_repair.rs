@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/parse_a_repair.rs
+// Responsibility:   Tolerant parsing: the order of repairs, alternatives, the limits per.
+// Dependencies:     nurt_contracts, parse_a_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tolerant parsing: the order of repairs, alternatives, the limits per
 //! statement and the information given to a repair policy.
 #![allow(
@@ -261,3 +269,7 @@ fn repaired_trees_ignore_spans_when_compared() {
     let expected = serde_json::to_value(parse_a("x a").expect("parses")).expect("tree");
     assert_eq!(strip_for_hash(&tree), strip_for_hash(&expected));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

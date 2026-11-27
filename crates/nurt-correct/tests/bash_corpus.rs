@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/bash_corpus.rs
+// Responsibility:   Corpus of bash habits: every case of `tests/d1/correction/bash` is.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Corpus of bash habits: every case of `tests/d1/correction/bash` is
 //! translated in a live call and compared with its expected reaction.
 
@@ -310,3 +318,7 @@ fn expr_texts(expr: &Expr, texts: &mut Vec<String>) {
         _ => {}
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

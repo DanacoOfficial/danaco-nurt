@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-report/tests/render_formats.rs
+// Responsibility:   Rendering of reports in the four formats, the levels of detail and the.
+// Dependencies:     common, nurt_contracts, serde_json, unicode_width
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Rendering of reports in the four formats, the levels of detail and the
 //! response envelope.
 
@@ -1182,3 +1190,7 @@ fn the_continuation_is_a_field_of_the_json_report_without_the_internal_flag() {
         json!({"id": "c3", "unit": "records", "shown": 2, "remaining": 146, "cut_lines": 0})
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

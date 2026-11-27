@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::json::corpus_tests
+// Responsibility:   Conformance and edit runs over the JSON and JSONC corpus in.
+// Dependencies:     indexmap, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Conformance and edit runs over the JSON and JSONC corpus in
 //! `tests/d5/corpus` and the JSON Test Suite in
 //! `tests/d5/third_party/json/jsontestsuite`.
@@ -423,3 +431,7 @@ fn add_below(model: &Value, segments: &[KeySegment], value: &Value) -> (Option<A
     }
     (Some((added, reread)), result)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

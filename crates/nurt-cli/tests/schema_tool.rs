@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-cli/tests/schema_tool.rs
+// Responsibility:   `nurt schema tool` against its documentation: the page of the tool.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `nurt schema tool` against its documentation: the page of the tool
 //! definition for integrators and the reference of the command line.
 //!
@@ -326,3 +334,7 @@ fn without_options_the_published_schema_is_printed() {
         CLI_REFERENCE.contains("nurt schema tool` without options prints the published schema")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-migrate/tests/migrate/tables.rs
+// Responsibility:   Migration with the habit tables of the correction crate.
+// Dependencies:     nurt_correct, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Migration with the habit tables of the correction crate.
 //!
 //! Every script of the table entries is compared byte for byte with the
@@ -372,3 +380,7 @@ fn untranslated_statement_proposes_running_script_unchanged() {
         Some("run [\"bash\", \"/srv/zip.sh\"]")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

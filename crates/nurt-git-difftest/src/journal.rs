@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-difftest::journal
+// Responsibility:   Recording journal: mutation transactions on the real file system that keep.
+// Dependencies:     nurt_contracts, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Recording journal: mutation transactions on the real file system that keep
 //! the previous state of every target, undo committed operations and expose
 //! what was declared, so that writes outside a transaction are detected.
@@ -1388,3 +1396,7 @@ mod tests {
         assert_eq!(fs::read(work.join("index")).unwrap(), b"before");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

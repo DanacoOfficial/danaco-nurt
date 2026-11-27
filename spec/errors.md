@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/errors.md -->
+<!-- Responsibility:   Documents Error codes. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Error codes
 
 Every error of the language has a stable code written in upper case with the prefix `E_`, a message and, where known, the stage, the position in the program and ready replacements of the program text. Errors of the stages `parse` and `bind` have no effect on the world: they describe a mistake in the program and how to correct it, never a refusal. Codes are only added within a major version of the language; the meaning of a code never changes.
@@ -161,3 +169,7 @@ Functions of the C interface that return a response document (`nurt_run_json`, `
 A misspelt name of a command that changes the file system or a remote state, or runs a program (`remvoe "/srv/a.txt"`), is never corrected on its own. The answer is `E_AMBIGUOUS` in stage 1; nothing runs and the first of `candidates` is the program with the name written right, ready to be sent again or accepted with `accept`. A misspelt name of a command that only reads is corrected and the program runs, as are the names written in another letter case or by a synonym.
 
 A text with an escape that the language does not have (`"\d+"`, `"C:\proj\data"`) is read according to its place. In a place of a regular expression it is that expression (`search "\d+" "/srv"` runs as `search /\d+/ "/srv"`), and a text written as a Windows path (`"C:\temp\new"`) in a place of a path is that path with its backslashes as separators. These readings are probable: in a program that reads they are applied and shown, in a program that changes something the answer is `E_AMBIGUOUS` with the corrected program. In every other place an unknown escape is `E_ESCAPE` in stage 0, and `fix` lists the whole program with the text written as raw text (`r"\d"`) and, for a Windows path, with `/`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

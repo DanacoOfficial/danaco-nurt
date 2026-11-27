@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sched::trigger::time
+// Responsibility:   Conversions between the instants of the contracts and the calendar types.
+// Dependencies:     jiff, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Conversions between the instants of the contracts and the calendar types.
 
 use std::time::Duration;
@@ -56,3 +64,7 @@ pub(crate) fn std_duration(duration: nurt_contracts::value::Duration) -> Duratio
 fn saturate(nanos: i128) -> i64 {
     i64::try_from(nanos).unwrap_or(if nanos < 0 { i64::MIN } else { i64::MAX })
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

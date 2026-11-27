@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u14_support/mod.rs
+// Responsibility:   Test doubles for the `code.rename` and `code.languages` tests: a file.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Test doubles for the `code.rename` and `code.languages` tests: a file
 //! system over the real disk, a journal double that keeps the previous
 //! content of every target, a small code service for Python and
@@ -1049,3 +1057,7 @@ impl SemanticProvider for ScriptedProvider {
             .collect()
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

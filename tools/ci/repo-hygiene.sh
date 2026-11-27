@@ -3,6 +3,14 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
+# Module:           tools/ci/repo-hygiene.sh
+# Responsibility:   Repository hygiene check.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
+#
 # Repository hygiene check.
 #
 # Searches the files of the repository for content that does not belong in a
@@ -596,3 +604,7 @@ if [ "$findings" -ne 0 ]; then
   exit 1
 fi
 echo "repo-hygiene: no findings in $total file(s)"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

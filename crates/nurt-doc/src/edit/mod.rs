@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::edit
+// Responsibility:   Byte-range edits and the guards that bound every change to its target.
+// Dependencies:     apply, diff, nurt_contracts, report
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Byte-range edits and the guards that bound every change to its target.
 //!
 //! A document is never written anew. A change is a list of [`ByteEdit`]
@@ -37,3 +45,7 @@ mod report;
 pub use apply::{Applied, ByteEdit, OffsetMap, apply, check_overlaps};
 pub use diff::diff;
 pub use report::EditReport;
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-proc/tests/track_classify.rs
+// Responsibility:   Classification of command lines by external effect and by behaviour.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Classification of command lines by external effect and by behaviour.
 
 use nurt_contracts::error::ErrorCode;
@@ -433,3 +441,7 @@ fn empty_command_line_has_no_class_and_no_effect() {
     assert_eq!(classify_argv(&empty), nurt_proc::ArgvClasses::default());
     assert!(classify_effects(&empty).is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

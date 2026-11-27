@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u04_csv.rs
+// Responsibility:   CSV and TSV documents: identity of every corpus file, reading compared.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! CSV and TSV documents: identity of every corpus file, reading compared
 //! with the `csv` crate, and changes of single cells and rows that leave
 //! every other value and byte of the file as it was.
@@ -410,3 +418,7 @@ fn numbers_and_truth_values_are_written_as_text() {
     let change = document.set(&key("[0].n"), &Value::Int(0)).unwrap();
     assert!(change.is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

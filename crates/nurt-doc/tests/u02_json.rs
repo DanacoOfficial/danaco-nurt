@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u02_json.rs
+// Responsibility:   JSON and JSONC documents through the format registry and the document.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! JSON and JSONC documents through the format registry and the document
 //! handle: detection, encodings, syntax errors and edits that keep layout,
 //! comments and number lexemes.
@@ -414,3 +422,7 @@ fn writes_multi_byte_text_and_escapes_that_read_back_unchanged() {
     assert_eq!(parsed["a"], text);
     assert_eq!(member_of(&document, "a"), Value::Text(text.to_owned()));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

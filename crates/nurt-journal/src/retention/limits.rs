@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::retention::limits
+// Responsibility:   Run-time limit changes and retention status.
+// Dependencies:     nurt_contracts, nurt_testkit, serde, serde_json, sha2, toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Run-time limit changes and retention status.
 //!
 //! `journal.limits` with `scope: session` keeps the limits of a session in a
@@ -1098,3 +1106,7 @@ mod tests {
         super::super::expiry::resolve_config(store).unwrap()
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

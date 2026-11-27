@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::track::tests::support
+// Responsibility:   Test doubles: a file system over a real directory, a virtual clock, a.
+// Dependencies:     nurt_contracts, sha2
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Test doubles: a file system over a real directory, a virtual clock, a
 //! host and a journal transaction that keeps byte copies in memory and can
 //! undo the recorded changes.
@@ -599,3 +607,7 @@ impl Harness {
             .unwrap_or_else(|| panic!("no change of {relative}; notes: {:?}", outcome.notes))
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           integrations/devcontainer/README.md -->
+<!-- Responsibility:   Documents Danaco Nurt devcontainer Feature. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Danaco Nurt devcontainer Feature
 
 Development container Feature that installs Danaco Nurt, a command shell and language where every change can be undone, and recommends the `danaco.nurt` VS Code extension.
@@ -44,3 +52,7 @@ Environment variables for testing against a different release location:
 | `devcontainer features test --project-folder . --features nurt` | `@devcontainers/cli`, Docker, network | Scenarios in `test/nurt`: default options, major prefix, Alpine image. |
 
 The workflow in `ci/devcontainer.yml` runs both and publishes the Feature to `ghcr.io/danacoofficial/features/nurt` when a release is published.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

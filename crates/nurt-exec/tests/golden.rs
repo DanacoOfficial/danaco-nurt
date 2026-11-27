@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/golden.rs
+// Responsibility:   End-to-end execution of bound programs from the golden documents: the.
+// Dependencies:     common, nurt_contracts, nurt_plan, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! End-to-end execution of bound programs from the golden documents: the
 //! document is planned with the catalog and executed on a virtual file
 //! system with mock sources and effects next to the record stages.
@@ -220,3 +228,7 @@ fn reports_a_background_job_as_running() {
     assert_eq!(outcome.status, ReportStatus::Running);
     assert!(outcome.last().unwrap().effect.as_ref().unwrap().detached);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

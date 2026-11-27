@@ -5,6 +5,13 @@ summary: Processes, ports, disks, host, environment, system logs and suspension 
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/groups/system.md -->
+<!-- Responsibility:   Documents Group system. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Group system
 
@@ -186,3 +193,7 @@ sleep 2s
 [Group administration](administration.md) manages the services that `processes` and `ports`
 report. [Group program](program.md) describes installed programs. The page of
 the command `sleep` is [sleep](../commands/sleep.md).
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

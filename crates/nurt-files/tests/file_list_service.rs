@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/file_list_service.rs
+// Responsibility:   The file listing service shared with other command groups.
+// Dependencies:     nurt_contracts, support_fs
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The file listing service shared with other command groups.
 
 // Tests report failures by panicking.
@@ -231,3 +239,7 @@ fn global_ignore_file_applies_to_gitignore_requests() {
     assert_eq!(entries, [(".gitignore".to_owned(), 1, false)]);
     assert!(format!("{service:?}").contains("global_ignore_file"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

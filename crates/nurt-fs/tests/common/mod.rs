@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-fs/tests/common/mod.rs
+// Responsibility:   Fixtures shared by the Windows back end tests: temporary directories.
+// Dependencies:     nurt_contracts, tempfile, windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Fixtures shared by the Windows back end tests: temporary directories,
 //! handles that hold files against deletion, security descriptors in
 //! self-relative form and privileges of the process token.
@@ -492,3 +500,7 @@ pub(crate) mod privilege {
         Ok(Enabled { token, previous })
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

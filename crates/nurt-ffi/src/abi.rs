@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-ffi::abi
+// Responsibility:   Exported functions of the C interface, in the order of `nurt.h`.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Exported functions of the C interface, in the order of `nurt.h`.
 //!
 //! Every function with a status runs its body through the panic boundary
@@ -890,3 +898,7 @@ pub unsafe extern "C" fn nurt_last_error(e: *mut Engine, out_json: *mut NurtBuf)
 pub unsafe extern "C" fn nurt_set_log_callback(cb: LogCallback, user: *mut c_void) {
     guard_void("nurt_set_log_callback", || log::set(cb, user));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

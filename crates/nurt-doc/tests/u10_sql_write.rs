@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u10_sql_write.rs
+// Responsibility:   Changes of SQLite databases with `sql write: true` through the operation.
+// Dependencies:     nurt_contracts, rusqlite, u10_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Changes of SQLite databases with `sql write: true` through the operation
 //! journal: preservation of the database and its journal files, one
 //! transaction, rollback after errors and undo to the previous bytes.
@@ -395,3 +403,7 @@ fn creates_database_in_empty_file_and_undo_empties_it() {
     assert_eq!(fs::read(&empty).unwrap(), b"");
     assert!(!database_files(&empty)[3].exists());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

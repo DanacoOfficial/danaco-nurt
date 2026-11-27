@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u01_harness.rs
+// Responsibility:   Round-trip harness, the `key = value` test format and the in-memory.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Round-trip harness, the `key = value` test format and the in-memory
 //! journal.
 #![cfg(feature = "testing")]
@@ -732,3 +740,7 @@ fn transaction_rejects_misuse() {
         .expect_err("after a change");
     assert_eq!(late.code, ErrorCode::StageFailed);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

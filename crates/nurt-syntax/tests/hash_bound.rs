@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/hash_bound.rs
+// Responsibility:   Bound golden trees of `tests/d1/golden/bound/<variant>/`.
+// Dependencies:     hash_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Bound golden trees of `tests/d1/golden/bound/<variant>/`.
 //!
 //! Every bound tree passes `validate_bound`, survives a CBOR round trip and
@@ -87,3 +95,7 @@ fn variants_of_one_program_have_the_same_bound_hash() {
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

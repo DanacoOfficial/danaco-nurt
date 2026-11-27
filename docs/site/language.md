@@ -5,6 +5,13 @@ order: 4
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/site/language.md -->
+<!-- Responsibility:   Documents Language. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Language
 
 The language is defined by the specification: [syntax tree](../../spec/syntax-tree.md), [catalog](../../spec/catalog.md), [records](../../spec/records.md) and [stages](../../spec/stages.md). This page summarizes the rules that the documentation uses.
@@ -140,3 +147,7 @@ A single pipeline that has more than one changing stage is `E_ONE_EFFECT`; the c
 - `create` makes named pipes (`type: fifo`) and device nodes (`type: device`): see the [guide for Linux and macOS](../guides/unix.md).
 - Accounts, groups, mounts, kernel parameters, firewall, network, clock, power and disks, and elevated work with `privilege` and `as_user`: see the [administration guide](../guides/administration.md).
 - The habits of bash and PowerShell and their form in Nurt: see the guides for [bash](../guides/bash-migration.md) and [PowerShell](../guides/powershell-migration.md).
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

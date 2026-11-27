@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syslog/tests/journald_differential.rs
+// Responsibility:   Comparison of the reader with `journalctl`.
+// Dependencies:     journal_writer, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -176,3 +184,7 @@ fn reader_matches_journalctl_on_the_local_journal() {
     theirs.sort_unstable();
     assert_eq!(ours, theirs);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

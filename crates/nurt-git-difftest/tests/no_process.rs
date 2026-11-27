@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-git-difftest/tests/no_process.rs
+// Responsibility:   Checks of the product crates of the Git commands: no process is started.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Checks of the product crates of the Git commands: no process is started
 //! outside the hook module, and no native Git, TLS or HTTP library is
 //! linked.
@@ -160,3 +168,7 @@ fn product_crates_link_no_native_git_tls_or_http_library() {
         linked.join(", ")
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-programs::index
+// Responsibility:   Index of program cards merged from all providers, with its cache.
+// Dependencies:     nurt_contracts, rayon, serde
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Index of program cards merged from all providers, with its cache.
 //!
 //! Providers are read in parallel within a time budget. The data of each
@@ -1313,3 +1321,7 @@ mod tests {
         assert!(order_of("unordered-cat").is_some_and(|order| order < usize::MAX / 2));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::credentials::config
+// Responsibility:   Credential settings of one remote address: `credential.helper`.
+// Dependencies:     nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Credential settings of one remote address: `credential.helper`,
 //! `credential.username` and `credential.useHttpPath`, including the
 //! `credential.<url>.*` subsections matched as `git` matches them.
@@ -348,3 +356,7 @@ mod tests {
         assert_eq!(script.label(), "!");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

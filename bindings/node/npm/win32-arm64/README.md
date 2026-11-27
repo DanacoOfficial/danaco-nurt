@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           bindings/node/npm/win32-arm64/README.md -->
+<!-- Responsibility:   Documents nurt-win32-arm64. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # nurt-win32-arm64
 
 [Danaco Nurt](https://nurt.danaco-group.pl) is a command shell and language where every change can be undone. This package contains the `nurt` executable for
@@ -12,3 +20,7 @@ package, which selects it on matching systems. It is not used directly.
 ## License
 
 Apache License 2.0. See `LICENSE` and `NOTICE`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

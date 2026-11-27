@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           tables/journal-coverage.toml
+# Responsibility:   Configuration or catalog data of tables/journal-coverage.toml.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Journal coverage table. Every command and every catalog action of the
 # categories change and run, and every journal command with an effect, has a
 # row that states how the previous content is preserved or why it is not.
@@ -1466,7 +1474,7 @@ changes = "Nothing; the command only reads."
 preserve = []
 coverage = "no_effect"
 
-# Group admin.
+# Group administration.
 
 [[row]]
 command = "services"
@@ -2179,3 +2187,7 @@ preserve = ["external"]
 coverage = "none"
 irreversible = ["external_effect"]
 exception = "The data of the device is not preserved; the preview lists the data that is lost."
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::bash::table
+// Responsibility:   Data of the bash translation table and of the habit word set.
+// Dependencies:     nurt_contracts, serde, toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Data of the bash translation table and of the habit word set.
 //!
 //! The table is a TOML document of the format `nurt-correction-table/1`
@@ -1041,3 +1049,7 @@ mod tests {
         assert!(counts.contains(&("chmod".to_owned(), 2)));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

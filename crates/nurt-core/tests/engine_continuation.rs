@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/engine_continuation.rs
+// Responsibility:   The continuation of a query that has its own cursor, end to end through.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The continuation of a query that has its own cursor, end to end through
 //! the engine: the first response cuts the result at the page size, the
 //! stage cuts it again at its own limit, and events arrive between the parts.
@@ -154,3 +162,7 @@ fn parts_of_a_query_cut_twice_join_without_gap_or_overlap_while_events_arrive() 
     }
     assert_eq!(seen, (1..=230).rev().collect::<Vec<_>>());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

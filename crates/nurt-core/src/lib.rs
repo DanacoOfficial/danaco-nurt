@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core
+// Responsibility:   Engine facade of Danaco Nurt.
+// Dependencies:     elevation, engine, error, events, frontend, language, nurt_catalog, nurt_plan
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Engine facade of Danaco Nurt.
 //!
 //! [`Engine`] is the single Rust interface of the program: the C interface,
@@ -50,3 +58,7 @@ pub use frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
 pub use language::LanguageFrontend;
 pub use nurt_catalog::CatalogQuery;
 pub use nurt_plan::CheckSummary;
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

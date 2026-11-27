@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::stage::run::params
+// Responsibility:   Parameters of `run`: bound arguments with the configured defaults.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Parameters of `run`: bound arguments with the configured defaults.
 //!
 //! A parameter the program did not give takes its default from the
@@ -576,3 +584,7 @@ fn type_error(name: &str, expected: &str, found: &Value) -> Error {
 fn invalid(name: &str, reason: &str) -> Error {
     Error::new(ErrorCode::InvalidValue, format!("`{name}` {reason}"))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

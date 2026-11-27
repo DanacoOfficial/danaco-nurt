@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-programs/tests/properties.rs
+// Responsibility:   Property tests of the parsers of package databases, manual pages and.
+// Dependencies:     proptest, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Property tests of the parsers of package databases, manual pages and
 //! desktop entries: arbitrary input never panics, and well-formed input is
 //! read back unchanged.
@@ -265,3 +273,7 @@ proptest! {
         prop_assert!(clip(&text, limit).chars().count() <= limit);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

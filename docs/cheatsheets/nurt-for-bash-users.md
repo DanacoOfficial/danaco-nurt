@@ -4,6 +4,13 @@ title: Nurt for bash users
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/cheatsheets/nurt-for-bash-users.md -->
+<!-- Responsibility:   Documents Nurt for bash users. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Nurt for bash users
 
 Every row pairs a Bash command with its form in Nurt. The last column states whether Nurt corrects the habit automatically, rejects it with an error that carries the fix, or rejects it with an error that carries no program and asks for the program of the row.
@@ -99,3 +106,7 @@ The paths are those of a Linux host, and the call parameter `base` is `/home/use
 | B22 | `mkdir /home/user/out && cp /home/user/a.txt /home/user/out` | `create "/home/user/out" type: directory parents: false` | error with fix: two changing commands are not run in one program; the fix is one call per change, this is the first |
 | B25 | `rm -rf "$BUILD"/*` | `find "/home/user/app/build" glob: "*" depth: 1 \|> remove` | error without fix: there are no variables in text; write the directory |
 | B28 | `sudo systemctl restart nginx` | `services name: "nginx" \|> restart privilege: elevated` | corrected automatically: the program runs with the call parameter privilege: elevated; sudo -u NAME gives as_user |
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

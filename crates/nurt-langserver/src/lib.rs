@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-langserver
+// Responsibility:   Language server for Danaco Nurt program files.
+// Dependencies:     options, server
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Language server for Danaco Nurt program files.
 //!
 //! The server implements the Language Server Protocol 3.17 over JSON-RPC.
@@ -35,3 +43,7 @@ mod signature;
 
 pub use options::Options;
 pub use server::{ServerError, run_stdio, serve};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

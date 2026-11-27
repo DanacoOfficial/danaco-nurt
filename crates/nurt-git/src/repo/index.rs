@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::repo::index
+// Responsibility:   Reading and writing the index, and building trees from it.
+// Dependencies:     bstr, gix, nurt_contracts, sha1
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Reading and writing the index, and building trees from it.
 //!
 //! The repository library serializes the index entries, but it writes the
@@ -831,3 +839,7 @@ mod tests {
         assert!(!is_index_file(Path::new("/r/.git/HEAD")));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

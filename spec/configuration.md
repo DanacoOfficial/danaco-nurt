@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/configuration.md -->
+<!-- Responsibility:   Documents Configuration `nurt-config/1`. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Configuration `nurt-config/1`
 
 Danaco Nurt reads its configuration from TOML files, environment variables
@@ -402,3 +410,7 @@ defaults against `spec/golden/config/defaults.toml`, the generated schema
 against the approved file, every golden file against the schema, the
 precedence of the seven levels for the three retention limits, the trust
 rules and the environment level.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syntax::json
+// Responsibility:   JSON codec of syntax trees.
+// Dependencies:     Child, nurt_contracts, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! JSON codec of syntax trees.
 //!
 //! Decoding checks, in this order: JSON syntax, the nesting depth
@@ -689,3 +697,7 @@ fn check_type(value: &Value, role: Role, pointer: &str) -> Result<(), Fault> {
     };
     result.map_err(|error| Fault::new(pointer.to_owned(), error.to_string()))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

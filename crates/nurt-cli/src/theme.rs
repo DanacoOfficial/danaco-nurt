@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::theme
+// Responsibility:   Colours of the identity in the terminal.
+// Dependencies:     reedline
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Colours of the identity in the terminal.
 //!
 //! The mark has two colours, silver `#DDE1E6` for the step back and gold
@@ -235,3 +243,7 @@ mod tests {
         assert_eq!(theme.gold_escape(), "\x1b[38;5;179m");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

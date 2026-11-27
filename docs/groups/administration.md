@@ -5,6 +5,13 @@ summary: System services, the registry provider, CIM, the firewall, routes, DNS 
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/groups/administration.md -->
+<!-- Responsibility:   Documents Group administration. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # Group administration
 
@@ -293,3 +300,7 @@ runs a call with `privilege: elevated` in the elevated process, and `undo`
 runs the inverse through the same backend. `disks.partition` and
 `disks.format` refuse a mounted partition and list in their preview the
 partitions, file systems, mount points and the size of the data that is lost.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::ports::win32
+// Responsibility:   Decoders of the socket tables returned by `GetExtendedTcpTable` and.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Decoders of the socket tables returned by `GetExtendedTcpTable` and
 //! `GetExtendedUdpTable`.
 //!
@@ -156,3 +164,7 @@ pub(crate) fn decode_table(kind: TableKind, buffer: &[u8]) -> Option<Vec<SocketE
         })
         .collect()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-proc::track::tests::preimage
+// Responsibility:   Keeping previous content before a run: clone, copy, budget and limits.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Keeping previous content before a run: clone, copy, budget and limits.
 
 use std::sync::Arc;
@@ -245,3 +253,7 @@ fn disabled_preimage_marks_changes_without_flag() {
     assert_eq!(change.flags, None);
     assert_eq!(tx.declared_indexes(), vec![None]);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

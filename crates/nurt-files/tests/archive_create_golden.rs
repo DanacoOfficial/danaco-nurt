@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/archive_create_golden.rs
+// Responsibility:   The examples of the `archive.create` page of the command documentation.
+// Dependencies:     archive_support, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The examples of the `archive.create` page of the command documentation
 //! and the transaction checks of the command, run on the virtual file
 //! system.
@@ -252,3 +260,7 @@ fn an_existing_archive_fails_in_the_plan() {
     .expect_err("the archive exists");
     assert_eq!(error.code(), ErrorCode::Exists);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

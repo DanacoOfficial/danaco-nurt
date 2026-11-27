@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u08_xml_roundtrip.rs
+// Responsibility:   Round trip over the XML corpus `tests/d5/corpus/xml/advanced`: entities.
+// Dependencies:     nurt_contracts, u08_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Round trip over the XML corpus `tests/d5/corpus/xml/advanced`: entities
 //! of the internal subset, DocBook, XHTML, SVG, property lists, declared
 //! single-byte encodings and references to external entities.
@@ -231,3 +239,7 @@ fn advanced_corpus_round_trips_and_isolates_text_changes() {
     );
     assert!(outcome.edits > outcome.files, "{} edits", outcome.edits);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

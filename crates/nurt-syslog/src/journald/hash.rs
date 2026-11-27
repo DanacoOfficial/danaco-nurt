@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syslog::journald::hash
+// Responsibility:   Hash functions of the journal file format.
+// Dependencies:     siphasher
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Hash functions of the journal file format.
 //!
 //! Files without the flag `KEYED_HASH` hash payloads with Bob Jenkins'
@@ -177,3 +185,7 @@ mod tests {
         assert_eq!(siphash24(&key, b"MESSAGE=hello"), 0xc1e4_7240_469d_2e88);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

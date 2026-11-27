@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::powershell
+// Responsibility:   Translation of commands written in PowerShell notation into Nurt.
+// Dependencies:     lex, nurt_contracts, table
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Translation of commands written in PowerShell notation into Nurt
 //! programs.
 //!
@@ -493,3 +501,7 @@ fn replace_stage(tree: &AstDocument, alternative: &AlternativeStage) -> Option<A
     *slot = alternative.stage.clone();
     Some(document)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

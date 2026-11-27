@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u11_perf.rs
+// Responsibility:   Measurements of the symbol index on a generated repository of 20 000.
+// Dependencies:     nurt_contracts, nurt_testkit, u11_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Measurements of the symbol index on a generated repository of 20 000
 //! source files in the virtual file system.
 //!
@@ -163,3 +171,7 @@ fn refreshes_and_searches_the_repository() {
     .unwrap();
     assert_eq!(names(&found), ["build_19996"]);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

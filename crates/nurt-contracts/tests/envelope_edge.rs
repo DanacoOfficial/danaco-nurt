@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/envelope_edge.rs
+// Responsibility:   Boundaries of the request envelope and the response: path and duration.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Boundaries of the request envelope and the response: path and duration
 //! notation, option rules, error messages and the form of the JSON documents.
 
@@ -416,3 +424,7 @@ fn a_response_without_rendered_text_omits_the_member() {
     assert_eq!(serde_json::from_value::<Response>(value).unwrap(), response);
     assert!(!response.has_more());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

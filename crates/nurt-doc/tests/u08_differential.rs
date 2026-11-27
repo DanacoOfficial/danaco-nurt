@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u08_differential.rs
+// Responsibility:   Differential tests of the value model against `yq`.
+// Dependencies:     nurt_contracts, serde_json, u08_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differential tests of the value model against `yq`.
 //!
 //! `tests/d5/differential/yq/<format>.jsonl` records the output of
@@ -743,3 +751,7 @@ fn entity_references_and_patterns_are_recognized() {
     assert!(!glob_match("corpus/json/*", "corpus/xml/a.xml"));
     assert!(glob_match("/a/*/b", "/a/1/2/b"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

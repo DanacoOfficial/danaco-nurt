@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/engine_checks.rs
+// Responsibility:   Checks around an effect, end to end through the engine: `assert` before.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Checks around an effect, end to end through the engine: `assert` before
 //! the effect (step 3) and after it (step 5a), and `verify` with the rollback
 //! of the effect when the check fails.
@@ -187,3 +195,7 @@ fn verify_in_preview_does_not_run_the_check_or_change_files() {
         assert!(exists(&world, path), "{path}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

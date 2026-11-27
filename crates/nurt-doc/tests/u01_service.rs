@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u01_service.rs
+// Responsibility:   Format registry, encodings and the document service over the.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Format registry, encodings and the document service over the
 //! `key = value` test format.
 #![cfg(feature = "testing")]
@@ -550,3 +558,7 @@ fn yaml_output_quotes_text_that_would_be_typed() {
         "- flag: \"yes\"\n  empty: \"\"\n  nested:\n    a:\n      - 1\n      - b: null\n    c: {}\n"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

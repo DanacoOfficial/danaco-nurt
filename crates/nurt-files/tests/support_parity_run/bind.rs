@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/support_parity_run/bind.rs
+// Responsibility:   Binding of parsed stages to the signatures of the catalog.
+// Dependencies:     nurt_contracts, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Binding of parsed stages to the signatures of the catalog.
 //!
 //! The binder stands in for the binder of the engine: it assigns positional
@@ -477,3 +485,7 @@ fn option_json(lit: &Lit, root: &str) -> Json {
         Lit::Regex(pattern, _) => Json::String(pattern.clone()),
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

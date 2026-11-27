@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/distance_catalog.rs
+// Responsibility:   Distance checks on the command catalog: pairs of close names, parameters.
+// Dependencies:     toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Distance checks on the command catalog: pairs of close names, parameters
 //! and values of one command, synonyms against catalog names, and the time
 //! of a name lookup on the full comparison set.
@@ -337,3 +345,7 @@ fn corrects_a_typical_program_within_one_millisecond() {
     assert!(median < TYPICAL_LIMIT, "{median:?}");
     assert!(worst < WORST_LIMIT, "{worst:?}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,7 +1,15 @@
-#![allow(
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syslog/tests/logs_stage.rs
+// Responsibility:   The stage of `logs` over journal files produced by the test writer and.
+// Dependencies:     journal_writer, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
+#![allow(
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
@@ -1005,3 +1013,7 @@ fn parts_of_a_query_continue_after_the_cursor_when_newer_events_arrive_between_t
     }
     assert_eq!(all, names((0..ENTRIES).rev()));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

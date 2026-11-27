@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-ffi
+// Responsibility:   C ABI of the Danaco Nurt library.
+// Dependencies:     abi, backend, buffer, engine, error, exec, log
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! C ABI of the Danaco Nurt library.
 //!
 //! The crate exports the functions declared in `include/nurt.h`; the list of
@@ -85,3 +93,7 @@ pub use engine::Engine;
 pub use error::NurtStatus;
 pub use exec::{EventCallback, Exec};
 pub use log::{LogCallback, NURT_LOG_ERROR};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

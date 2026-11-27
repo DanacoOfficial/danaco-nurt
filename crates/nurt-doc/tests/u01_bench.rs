@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u01_bench.rs
+// Responsibility:   Time and peak memory of opening a 10 MiB document and changing one value.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Time and peak memory of opening a 10 MiB document and changing one value
 //! through the guards. Run with `--ignored --nocapture`; the measurement is
 //! written to standard error.
@@ -67,3 +75,7 @@ fn open_and_set_on_ten_mebibyte_document() {
     .expect("standard error is writable");
     assert!(total < TIME_LIMIT, "open and set took {total:?}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

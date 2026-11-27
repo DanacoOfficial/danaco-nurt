@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/engine_api.rs
+// Responsibility:   Public interface of the engine: envelope rules and defaults, sessions.
+// Dependencies:     nurt_contracts, nurt_sys, nurt_testkit, serde_json, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Public interface of the engine: envelope rules and defaults, sessions,
 //! candidates, execution handles, events, the execution context and the
 //! queries that do not run programs.
@@ -666,3 +674,7 @@ fn invalid_project_file_fails_the_request() {
     let response = h.engine.run(&Request::program(FIND).with_options(options));
     assert_eq!(error_of(&response).code, ErrorCode::Config);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

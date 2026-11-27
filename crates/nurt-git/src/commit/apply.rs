@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::commit::apply
+// Responsibility:   Execution of a planned commit: the hooks, the final message, the commit.
+// Dependencies:     bstr, gix, gix_ref, nurt_contracts, nurt_git_transport
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Execution of a planned commit: the hooks, the final message, the commit
 //! object and its signature, and the index, the message file, the merge
 //! state and the references written in one transaction.
@@ -480,3 +488,7 @@ mod tests {
         assert_eq!(mode & 0o777, 0o700);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

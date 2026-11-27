@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::services::macos::tests
+// Responsibility:   Daemon started by a calendar interval, defined in XML.
+// Dependencies:     nurt_contracts, plist
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path as StdPath, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -1300,3 +1308,7 @@ fn it_launchd_test_agent_start_restart_disable() {
     assert!(started && restarted && disabled && cleaned);
     assert_eq!(start_type, Some(StartType::Disabled));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

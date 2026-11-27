@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-verify/tests/analyze_stages.rs
+// Responsibility:   The analysis commands through the public stage list, with the test.
+// Dependencies:     analyze_support, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The analysis commands through the public stage list, with the test
 //! program standing in for the analyzers and formatters.
 
@@ -386,3 +394,7 @@ fn format_is_limited_to_the_given_paths() {
     assert_eq!(summary.changes, vec!["lib/other.ts".to_owned()]);
     assert!(workspace.read("src/loose.ts").contains("1;   "));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

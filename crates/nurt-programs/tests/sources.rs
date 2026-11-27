@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-programs/tests/sources.rs
+// Responsibility:   Providers of system data and the index cache, read from synthetic files.
+// Dependencies:     nurt_contracts, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Providers of system data and the index cache, read from synthetic files
 //! below a test root: RPM SQLite, NDB and Berkeley DB databases, dpkg
 //! status files, the pacman database, desktop entries and manual pages.
@@ -961,3 +969,7 @@ fn relative_xdg_directories_are_ignored() {
         Some(PathBuf::from("/home/user/.cache/nurt/programs"))
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

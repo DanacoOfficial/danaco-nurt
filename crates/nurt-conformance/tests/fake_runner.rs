@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-conformance/tests/fake_runner.rs
+// Responsibility:   The runner against the fake server: every mandatory case passes on the.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The runner against the fake server: every mandatory case passes on the
 //! conforming fake server, and every deviation of the fake server makes a
@@ -287,3 +294,7 @@ fn serve_reads_the_cases_from_the_environment() {
     let message: serde_json::Value = serde_json::from_str(line.trim()).unwrap();
     assert_eq!(message["result"]["ast"]["nurt"], "1.0");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

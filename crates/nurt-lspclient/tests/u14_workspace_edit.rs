@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-lspclient/tests/u14_workspace_edit.rs
+// Responsibility:   Tests of the conversion of `WorkspaceEdit` answers to workspace changes.
+// Dependencies:     nurt_code, nurt_contracts, nurt_testkit, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the conversion of `WorkspaceEdit` answers to workspace changes.
 
 // Tests report failures by panicking.
@@ -259,3 +267,7 @@ fn line_feeds_keep_priority_over_carriage_returns() {
     let change = workspace_change(&rooted(&edit), PositionUnit::Utf16, &text).unwrap();
     assert_eq!(texts(&change.changes)[0].range.start, at(2, 1));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

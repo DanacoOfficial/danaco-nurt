@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-exec
+// Responsibility:   Pipeline executor of Danaco Nurt.
+// Dependencies:     env, eval, events, executor, nurt_plan, outcome, parallel, runner
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Pipeline executor of Danaco Nurt.
 //!
@@ -53,3 +60,7 @@ pub use executor::Executor;
 pub use outcome::{ChangeFacts, EffectReport, OperationOutcome, Outcome, ResultData, StepTiming};
 pub use parallel::{BATCH_PER_THREAD, ordered_filter_map};
 pub use runner::SubpipelineRunner;
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

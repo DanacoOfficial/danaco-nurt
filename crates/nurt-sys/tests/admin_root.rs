@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-sys/tests/admin_root.rs
+// Responsibility:   Tests of the firewall, route and clock commands against the real system.
+// Dependencies:     admin_support, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the firewall, route and clock commands against the real system.
 //!
 //! They change the system and need root, `nft`, `ip` and `timedatectl`, so
@@ -263,3 +271,7 @@ fn name_servers_are_set_and_the_previous_state_is_recorded() {
     };
     assert!(seen.contains("192.0.2.53"), "{seen}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-fs/tests/windows_conformance.rs
+// Responsibility:   Conformance suite of the file system interface on the Windows back end.
+// Dependencies:     common, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Conformance suite of the file system interface on the Windows back end.
 //!
 //! The suite runs on NTFS in the temporary directory of the account. The run
@@ -65,3 +73,7 @@ fn conforms_on_a_refs_volume() {
         assert_eq!(report.outcome(id), Some(&Outcome::Passed), "{id}\n{report}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

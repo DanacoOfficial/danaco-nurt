@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/perf.rs
+// Responsibility:   Wall-clock limits of reading: a rejected entity expansion attack must fail.
+// Dependencies:     nurt_contracts, u08_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Wall-clock limits of reading: a rejected entity expansion attack must fail
 //! within [`ATTACK_DEADLINE`]. The binary is named `perf` so that the filter
 //! `not binary(perf)` of `cargo nextest` skips it on loaded machines. The error
@@ -57,3 +65,7 @@ fn quadratic_blowup_fails_within_the_deadline() {
         r#"<!DOCTYPE a [<!ENTITY big "{block}">]><a>{refs}</a>"#
     ));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

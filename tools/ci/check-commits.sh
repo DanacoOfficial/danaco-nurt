@@ -3,6 +3,14 @@
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 #
+# Module:           tools/ci/check-commits.sh
+# Responsibility:   Checks the commits of a revision range against the contribution rules.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
+#
 # Checks the commits of a revision range against the contribution rules:
 #   - the subject follows Conventional Commits 1.0.0 with an allowed type and
 #     scope, and is at most 72 characters long;
@@ -78,3 +86,7 @@ if [ "$errors" -ne 0 ]; then
   exit 1
 fi
 echo "check-commits: all commits in $range are valid"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

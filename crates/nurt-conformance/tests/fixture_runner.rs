@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-conformance/tests/fixture_runner.rs
+// Responsibility:   The runner against the fake server on a small suite that uses the test.
+// Dependencies:     Status
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! The runner against the fake server on a small suite that uses the test
 //! clock, absent members, events, the configuration placeholder
@@ -269,3 +276,7 @@ fn a_second_volume_on_the_temporary_volume_is_rejected() {
         assert!(stderr.contains("another file system"), "{stderr}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

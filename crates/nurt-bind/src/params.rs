@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bind::params
+// Responsibility:   Values of the parameters of a script.
+// Dependencies:     nurt_contracts, nurt_correct, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Values of the parameters of a script.
 //!
 //! A script declares its parameters with `params { … }`. The caller gives the
@@ -305,3 +313,7 @@ fn string_expr(text: &str, ty: &ParamType) -> Option<Expr> {
     }
     literal_expr(text)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

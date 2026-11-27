@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/lexical_support/mod.rs
+// Responsibility:   Helpers shared by the lexical correction tests: a command catalog read.
+// Dependencies:     nurt_contracts, serde_json, toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 // Every test crate that includes this module uses a part of it.
@@ -225,3 +233,7 @@ pub(crate) fn syntax(variant: SyntaxVariant) -> SyntaxConfig {
 pub(crate) fn correction() -> CorrectionConfig {
     CorrectionConfig::default()
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

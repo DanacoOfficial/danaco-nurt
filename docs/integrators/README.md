@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/integrators/README.md -->
+<!-- Responsibility:   Documents Integrator guide. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Integrator guide
 
 Reference for hosts that give an AI agent the `nurt` tool: agent runtimes, SDK integrations, editors and services that run Danaco Nurt on behalf of a model.
@@ -53,3 +61,7 @@ A call error replaces the result with the `error` object; the codes and their ma
 ```json
 {"jsonrpc": "2.0", "id": 2, "error": {"code": -32002, "message": "the call was cancelled", "data": {"status": "NURT_E_CANCELLED"}}}
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

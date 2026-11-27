@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::catalog
+// Responsibility:   Entries of a volume journal as seen by reclaim for space.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Entries of a volume journal as seen by reclaim for space.
 //!
 //! These functions back [`EntryCatalog`](crate::store::EntryCatalog) of the
@@ -494,3 +502,7 @@ pub(crate) fn finish_release(ctx: &JournalCtx, volume: &VolumeId, op: OpId) -> R
     }
     Ok(ctx.fs.sync_dir(&scope, &journal.layout.pending_dir()?)?)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

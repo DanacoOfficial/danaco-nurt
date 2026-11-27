@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u04_plist.rs
+// Responsibility:   Property lists: identity of every corpus file, XML read as the `plist`.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Property lists: identity of every corpus file, XML read as the `plist`
 //! crate reads it, a semantic round trip of binary property lists generated
 //! from the XML samples, and changes of single values that leave every
@@ -758,3 +766,7 @@ fn json_of_plutil_matches_the_read_values_skipped_without_plutil() {
         compared + skipped.len()
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

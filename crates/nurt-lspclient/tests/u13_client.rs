@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-lspclient/tests/u13_client.rs
+// Responsibility:   Tests of the language server client against an in-memory server.
+// Dependencies:     nurt_code, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the language server client against an in-memory server.
 //!
 //! The mock server runs on a thread and talks to the client through
@@ -1971,3 +1979,7 @@ fn shutdown_sends_exit_after_the_server_answered_shutdown() {
     assert!(shutdown.is_some() && shutdown < exit, "{methods:?}");
     server.shutdown();
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

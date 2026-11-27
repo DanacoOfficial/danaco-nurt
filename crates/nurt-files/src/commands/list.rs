@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::list
+// Responsibility:   `list`: the entries of a directory, and the listing shared with `find`.
+// Dependencies:     globset, nurt_contracts, nurt_testkit, unicode_normalization
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! `list`: the entries of a directory, and the listing shared with `find`.
 //!
 //! Both commands walk one directory with [`Walker`] and produce `entry`
@@ -1706,3 +1714,7 @@ mod tests {
         assert_eq!((find("null").major, find("null").minor), (Some(1), Some(3)));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

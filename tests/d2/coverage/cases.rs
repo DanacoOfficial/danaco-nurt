@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/coverage/cases.rs
+// Responsibility:   Registry of the coverage cases: every case is one test function, tied to.
+// Dependencies:     Rows, Variant
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Registry of the coverage cases: every case is one test function, tied to
 //! the rows of the coverage table it exercises.
 //!
@@ -408,3 +416,7 @@ coverage_cases! {
     validation_failure_rolls_back_without_new_entry => Common("validate"), Plain, journal_rows::validation_failure_rolls_back_without_new_entry;
     if_match_mismatch_rolls_back_without_new_entry => Common("validate"), Plain, journal_rows::if_match_mismatch_rolls_back_without_new_entry;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

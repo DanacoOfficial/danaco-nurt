@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-syslog::eventlog::source
+// Responsibility:   Interface between the reader and the event log of the system.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Interface between the reader and the event log of the system.
 //!
 //! [`EventSource`] is the only part of the reader that calls the operating
@@ -83,3 +91,7 @@ pub trait EventSource: Sync {
     /// returned with the unresolved insertions as the system leaves them.
     fn format(&self, event: &Self::Event, provider: &str, part: MessagePart) -> Option<String>;
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

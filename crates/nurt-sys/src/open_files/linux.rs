@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::open_files::linux
+// Responsibility:   Holders of files on Linux, from the process directories of `/proc`.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Holders of files on Linux, from the process directories of `/proc`.
 //!
 //! For each process the links `fd/*`, `cwd`, `root` and `exe` are read with
@@ -116,3 +124,7 @@ pub(crate) fn mapped_path_bytes(line: &[u8]) -> Option<&[u8]> {
     let path = rest.trim_ascii();
     path.starts_with(b"/").then_some(path)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-bind/tests/correction_facade.rs
+// Responsibility:   Behaviour of `bind_with_correction` that the corpora do not express.
+// Dependencies:     bind_support, nurt_contracts, nurt_correct, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // A failed unwrap, expectation or panic is how a test reports a failure.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -370,3 +378,7 @@ fn reads_an_unknown_escape_together_with_a_lexical_correction() {
     assert!(found.contains(&"L24".to_owned()), "{found:?}");
     assert_eq!(outcome.canonical, "search /\\d+/ \"/srv/app\"");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

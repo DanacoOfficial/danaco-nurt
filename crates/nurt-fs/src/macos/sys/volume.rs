@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::macos::sys::volume
+// Responsibility:   Volume identity, class, capabilities and space.
+// Dependencies:     nurt_contracts, rustix
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Volume identity, class, capabilities and space.
 
 use std::ffi::OsStr;
@@ -167,3 +175,7 @@ fn c_bytes(field: &[std::ffi::c_char]) -> Vec<u8> {
 pub(super) fn read_only(stat: &StatFs) -> bool {
     stat.f_flags & MNT_RDONLY != 0
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

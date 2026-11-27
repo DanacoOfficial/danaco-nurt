@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-programs::sources::rpm
+// Responsibility:   RPM package databases.
+// Dependencies:     header, rusqlite
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! RPM package databases.
 //!
 //! Three storage formats share one header format ([`header`]): SQLite
@@ -307,3 +315,7 @@ mod tests {
         assert_eq!(uri_path(Path::new("/a b/c?d#e%f")), "/a b/c%3fd%23e%25f");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

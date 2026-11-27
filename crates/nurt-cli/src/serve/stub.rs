@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::serve::stub
+// Responsibility:   Answers from the recorded cases of the library stub.
+// Dependencies:     nurt_contracts, nurt_ffi, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Answers from the recorded cases of the library stub.
 //!
 //! The cases are those of `nurt_ffi::stub`: a call is answered by the case
@@ -300,3 +308,7 @@ mod tests {
         assert!(error.path.ends_with("cases"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

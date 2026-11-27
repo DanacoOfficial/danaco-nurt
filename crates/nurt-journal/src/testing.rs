@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::testing
+// Responsibility:   Setup of the recovery measurement of `tests/perf.rs`; it serves only the.
+// Dependencies:     nurt_contracts, nurt_fs
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Setup of the recovery measurement of `tests/perf.rs`; it serves only the
 //! performance tests and is not part of the interface of the crate.
 
@@ -280,3 +288,7 @@ fn seed_prepared_entry(fs: &MemFs, journal: &JournalLayout, volume: VolumeId) {
     fs.seed_file(&staged, NEW)
         .expect("the staged file is seeded");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

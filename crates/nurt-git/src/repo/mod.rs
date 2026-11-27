@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::repo
+// Responsibility:   Repository access: opening without external programs, configuration, path specifications, attributes, content filters, error mapping and record conversion.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Repository access: opening without external programs, configuration, path specifications, attributes, content filters, error mapping and record conversion.
 //!
 //! [`GitRepo`] is the handle every command of the `git` group works with. It
@@ -381,3 +389,7 @@ fn nearby_repositories(path: &Path) -> Vec<PathBuf> {
 
 #[cfg(test)]
 mod tests;
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

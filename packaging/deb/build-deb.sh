@@ -2,6 +2,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           packaging/deb/build-deb.sh
+# Responsibility:   Builds the Debian packages nurt, libnurt1 and libnurt-dev from a release.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 # Builds the Debian packages nurt, libnurt1 and libnurt-dev from a release
 # archive of the glibc Linux target.
 #
@@ -242,3 +250,7 @@ build_package libnurt-dev "$dev_dir"
 printf '%s\n' "$output/nurt_${deb_version}_${arch}.deb" \
     "$output/libnurt1_${deb_version}_${arch}.deb" \
     "$output/libnurt-dev_${deb_version}_${arch}.deb"
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::ssh::channel
+// Responsibility:   Remote command channel bridged to blocking reads and writes.
+// Dependencies:     nurt_contracts, russh, tokio
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Remote command channel bridged to blocking reads and writes.
 //!
 //! A task on the runtime thread moves data between the `exec` channel and
@@ -454,3 +462,7 @@ mod tests {
         writer.flush().unwrap();
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

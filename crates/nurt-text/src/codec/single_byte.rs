@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-text::codec::single_byte
+// Responsibility:   Single-byte encodings of the WHATWG Encoding Standard.
+// Dependencies:     encoding_rs
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Single-byte encodings of the WHATWG Encoding Standard.
 //!
 //! The standard maps every byte of `windows-1250`, `iso-8859-2` and
@@ -67,3 +75,7 @@ pub(super) fn encode(
         }
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

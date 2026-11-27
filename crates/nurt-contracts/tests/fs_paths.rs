@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/fs_paths.rs
+// Responsibility:   Paths, content hashes, entity tags and file system errors of the file.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Paths, content hashes, entity tags and file system errors of the file
 //! system contract.
 
@@ -517,3 +525,7 @@ fn metadata_transfer_is_complete_only_without_refusals() {
         .push("xattr:security.selinux".to_owned());
     assert!(!report.is_complete());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

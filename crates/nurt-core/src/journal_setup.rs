@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::journal_setup
+// Responsibility:   Assembly of the journal of the running process.
+// Dependencies:     nurt_contracts, nurt_fs, nurt_journal, nurt_space, nurt_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Assembly of the journal of the running process.
 //!
 //! The journal is built over the system file system with space admission
@@ -330,3 +338,7 @@ fn build(
     locked(&module).start()?;
     Ok(journal)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

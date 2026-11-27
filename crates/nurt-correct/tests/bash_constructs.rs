@@ -2,6 +2,14 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
+// Module:           crates/nurt-correct/tests/bash_constructs.rs
+// Responsibility:   Translation of the bash forms of the language 1.1 and of the.
+// Dependencies:     nurt_contracts, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
+//
 // Module: nurt-correct tests: bash constructs
 // Responsibility: Tests of the translation of every row of section 11 of the language brief from the bash form.
 // Dependencies: nurt-correct, nurt-syntax, nurt-contracts

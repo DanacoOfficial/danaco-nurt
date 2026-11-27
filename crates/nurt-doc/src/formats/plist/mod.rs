@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::plist
+// Responsibility:   Property lists in XML, binary and ASCII form.
+// Dependencies:     handle, nurt_contracts, plan, value
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Property lists in XML, binary and ASCII form.
 //!
 //! A [`PlistDocument`] reads the three forms of a property list into one
@@ -756,3 +764,7 @@ mod tests {
         assert_eq!(error.code().as_str(), "E_ENCODING");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

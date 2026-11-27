@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-ops::push::ssh_tests
+// Responsibility:   Pushes over SSH to a loopback `russh` server that runs `git receive-pack`.
+// Dependencies:     nurt_contracts, nurt_git_transport, russh, tokio
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Pushes over SSH to a loopback `russh` server that runs `git receive-pack`.
 //!
 //! The tests need the `git` program and are ignored by default:
@@ -537,3 +545,7 @@ fn refuses_an_unknown_ssh_account_without_changing_the_remote() {
     assert_eq!(remote.ref_value("refs/heads/main"), None);
     assert!(tx.irreversible.is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

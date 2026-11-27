@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-code::profile::files
+// Responsibility:   Listing and reading the files of the profiled tree.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Listing and reading the files of the profiled tree.
 //!
 //! The file layer and the file listing service of the execution context are
@@ -190,3 +198,7 @@ pub(crate) fn absolute(root: &Path, relative: &str) -> PathBuf {
         .split('/')
         .fold(root.to_path_buf(), |path, part| path.join(part))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

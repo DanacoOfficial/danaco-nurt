@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-code/tests/u11_index.rs
+// Responsibility:   Tests of the symbol index: refresh by size and modification time.
+// Dependencies:     nurt_contracts, nurt_testkit, u11_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the symbol index: refresh by size and modification time,
 //! storage in the state directory, the limits `code.index_max_files` and
 //! `code.file_bytes_max`, listings with and without the file listing
@@ -459,3 +467,7 @@ fn concurrent_refreshes_of_one_root_agree() {
     let stored = SymbolIndex::open(&first, registry(), &root());
     assert_eq!(stored.files(), results[0].files());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           integrations/examples/README.md -->
+<!-- Responsibility:   Documents Integration examples. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Integration examples
 
 Minimal agent loops and client configurations that give a model the `nurt` tool. Every example uses the same tool name and the same arguments; the definition is rendered by `nurt schema tool --format <format>`.
@@ -27,3 +35,7 @@ python -m unittest discover -s integrations/examples/tests
 ```
 
 `ci/workflow.yml` runs the tests of every example. The integrator guide is in `docs/integrators/`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

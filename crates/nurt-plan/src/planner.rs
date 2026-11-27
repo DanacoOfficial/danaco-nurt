@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-plan::planner
+// Responsibility:   Construction of a plan from a bound document.
+// Dependencies:     nurt_catalog, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Construction of a plan from a bound document.
 //!
 //! Binding assigns every stage its phase. The planner checks the order of
@@ -699,3 +707,7 @@ fn split_let(error: Error, statements: &[BoundStatement], position: usize) -> Er
         .into_iter()
         .fold(error, Error::with_next_step)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-bind/tests/bind_rules.rs
+// Responsibility:   Binding rules: signature order and defaults, casts, expansion of source.
+// Dependencies:     bind_support, nurt_contracts, nurt_syntax
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Binding rules: signature order and defaults, casts, expansion of source
 //! forms, phases and the rule of one effect, and the errors of stage `1`.
 
@@ -1016,3 +1024,7 @@ fn a_call_parameter_needs_a_word_or_a_text() {
     ));
     assert_eq!(error.code(), ErrorCode::InvalidValue);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

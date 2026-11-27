@@ -6,6 +6,13 @@ commands: [code.symbols, code.references, code.rename, code.diagnostics, code.ou
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/refactoring.md -->
+<!-- Responsibility:   Documents refactoring. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # refactoring
 
@@ -41,3 +48,7 @@ code.rename "newName" path: "/srv/app/src/a.go" line: 12 column: 6 |> verify (ru
 ## Limits
 
 A text replacement of a name changes every occurrence, including unrelated ones. When a text replacement is the only option, `check_references` reports references that would remain unchanged, and `assert paths: N` stops the program when the number of affected files differs from the expected one. Dynamic uses of a name, such as names built from strings, are not references and are not renamed.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

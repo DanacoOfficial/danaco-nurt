@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::accounts::files
+// Responsibility:   Parsers of the account files `/etc/passwd`, `/etc/group`, `/etc/shadow`.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Parsers of the account files `/etc/passwd`, `/etc/group`, `/etc/shadow`
 //! and `/etc/login.defs`.
 
@@ -118,3 +126,7 @@ fn entries(text: &str) -> impl Iterator<Item = Vec<&str>> {
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
         .map(|line| line.split(':').collect())
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

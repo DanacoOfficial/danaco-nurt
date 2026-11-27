@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-core::system
+// Responsibility:   Clock and host of the running process, read from the operating system.
+// Dependencies:     nurt_contracts, nurt_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Clock and host of the running process, read from the operating system.
 //!
 //! [`EngineConfig::system`](crate::EngineConfig::system) assembles them with an
@@ -204,3 +212,7 @@ mod tests {
         assert!(!host.info().architecture.is_empty());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

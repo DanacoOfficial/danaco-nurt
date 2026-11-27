@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::fetch::update
+// Responsibility:   Selection of the reference updates of a fetch, as `git fetch` decides.
+// Dependencies:     bstr, gix, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Selection of the reference updates of a fetch, as `git fetch` decides
 //! them: which remote references are stored, which tags are followed, how
 //! every local reference changes and which ones are pruned.
@@ -549,3 +557,7 @@ mod tests {
         assert_eq!((peeled.id, peeled.peeled), (tag, id));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

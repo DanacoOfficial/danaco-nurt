@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-transport::sign::sshsig::allowed
+// Responsibility:   Allowed signers and revoked keys of SSH signature verification.
+// Dependencies:     nurt_contracts, ssh_key
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Allowed signers and revoked keys of SSH signature verification.
 //!
 //! An allowed signers line has the form `principals [options] key`. The
@@ -414,3 +422,7 @@ mod tests {
         assert_eq!(unquote("\"x"), "\"x");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

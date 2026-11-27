@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u06_yaml_advanced.rs
+// Responsibility:   Sequences, anchors and aliases, merge keys, documents, comments, tags and.
+// Dependencies:     indexmap, nurt_contracts, u06_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Sequences, anchors and aliases, merge keys, documents, comments, tags and
 //! explicit keys of YAML documents.
 
@@ -665,3 +673,7 @@ fn reads_tags_of_every_kind_from_the_model() {
     assert_eq!(CoreTag::of(&tag_of("c").resolved), Some(CoreTag::Binary));
     assert_eq!(tag_of("d").resolved, "!");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

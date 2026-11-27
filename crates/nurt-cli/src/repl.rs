@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-cli::repl
+// Responsibility:   The interactive session (`nurt repl`).
+// Dependencies:     crossterm, nurt_contracts, nurt_core, reedline, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The interactive session (`nurt repl`).
 //!
 //! On a terminal the session uses the line editor with a history file in the
@@ -686,3 +694,7 @@ mod tests {
         assert!(EditorLines::new(&vocabulary(), temp.path().to_path_buf()).is_err());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

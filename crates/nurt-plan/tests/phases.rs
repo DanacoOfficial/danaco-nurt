@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-plan/tests/phases.rs
+// Responsibility:   Order of phases checked by the planner independently of binding: the.
+// Dependencies:     common, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Order of phases checked by the planner independently of binding: the
 //! corpus of pipelines rejected with `E_ONE_EFFECT`, malformed phases and the
 //! stages allowed after the effect.
@@ -307,3 +315,7 @@ fn waiting_stage_marks_the_plan() {
     .unwrap();
     assert!(!quiet.waits());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

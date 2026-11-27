@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u10_sql_sqlite3.rs
+// Responsibility:   Differential tests of `sql` against the `sqlite3` program. The program is.
+// Dependencies:     u10_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differential tests of `sql` against the `sqlite3` program. The program is
 //! used only by these tests; a test returns early when `sqlite3` is not in
 //! the search path.
@@ -87,3 +95,7 @@ fn change_is_visible_to_sqlite3_skipped_without_sqlite3() {
     write(&call, &ctx(), &mut RecordingTx::new()).unwrap();
     assert_eq!(sql_rows(&db, QUERY), sqlite3_rows(&program, &db, QUERY));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

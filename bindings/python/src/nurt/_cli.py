@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 # Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 # https://github.com/DanacoOfficial | support@danaco-group.pl
+#
+# Module:           bindings/python/src/nurt/_cli.py
+# Responsibility:   Script _cli.py.
+# Dependencies:     none
+# Author:           Danaco Official
+# Version:          0.1.1, 2026-11-27
+# License:          see the LICENSE file or https://www.danaco-group.pl
+
 """Console script ``nurt``: runs the located ``nurt`` executable."""
 
 from __future__ import annotations
@@ -31,3 +39,7 @@ def main(argv: Optional[List[str]] = None) -> NoReturn:
         os.execv(executable, command)
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     sys.exit(subprocess.call(command))
+
+# Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+# Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+# Support: support@danaco-group.pl

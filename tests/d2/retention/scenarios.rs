@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/retention/scenarios.rs
+// Responsibility:   Retention scenarios on the full journal stack: step, age and size limits.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Retention scenarios on the full journal stack: step, age and size limits,
 //! the space reserve, unlimited dimensions, limit changes, restarts,
 //! suspension, project trust, protection floors, several volumes, hard links,
@@ -733,3 +741,7 @@ fn status_of_volume_without_entries_reports_an_empty_journal() {
     assert_eq!(status.entries_available, 0);
     assert_eq!(status.bytes_held, 0);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

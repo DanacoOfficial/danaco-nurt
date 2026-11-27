@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u10_sql_stage.rs
+// Responsibility:   The `sql` stage as a catalog command: the descriptor, the static check of.
+// Dependencies:     nurt_contracts, nurt_testkit, u10_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The `sql` stage as a catalog command: the descriptor, the static check of
 //! the arguments and the effect step called without a planned state.
 
@@ -154,3 +162,7 @@ fn effect_step_without_a_planned_state_reports_a_missing_database() {
     assert_eq!(error.code, ErrorCode::NotFound);
     assert!(!missing.exists());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

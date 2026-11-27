@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/insert_golden.rs
+// Responsibility:   Examples of the page of `insert` and the behaviour of `insert` on the.
+// Dependencies:     nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Examples of the page of `insert` and the behaviour of `insert` on the
 //! virtual file system: every form, line endings, entity tags and the
 //! transaction protocol.
@@ -345,3 +353,7 @@ fn a_line_record_after_the_last_line_is_out_of_range() {
     assert_eq!(content(&test, &path), "a\nb\n");
     assert_every_change_declared(&test, &[]);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

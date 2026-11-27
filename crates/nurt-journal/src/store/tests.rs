@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-journal::store::tests
+// Responsibility:   Journal store on the in-memory file system, driven through the journal.
+// Dependencies:     nurt_contracts, nurt_fs, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Journal store on the in-memory file system, driven through the journal
 //! interface and the entry catalog.
 //!
@@ -1144,3 +1152,7 @@ fn history_and_undo_by_number_see_the_entries_of_the_account_only() {
     assert!(mine.undo(&by_number).is_err());
     assert_eq!(env.read(&other_file), b"changed");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

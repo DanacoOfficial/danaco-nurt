@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-text/tests/detect_corpus.rs
+// Responsibility:   Detection accuracy on a corpus of Polish and Western European texts in.
+// Dependencies:     oem_cp
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Detection accuracy on a corpus of Polish and Western European texts in
 //! every supported encoding and on binary content.
 //!
@@ -261,3 +269,7 @@ fn short_cp852_and_cp1250_samples_are_separated() {
     assert_eq!(detected_label(&cp852).as_deref(), Some("ibm852"));
     assert_eq!(detected_label(&cp1250).as_deref(), Some("windows-1250"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

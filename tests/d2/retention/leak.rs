@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/retention/leak.rs
+// Responsibility:   Results of operations carry no expiry time and nothing from which one can.
+// Dependencies:     nurt_contracts, serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Results of operations carry no expiry time and nothing from which one can
 //! be derived; retention state is reported only by `journal.status`.
 //!
@@ -386,3 +394,7 @@ fn audit_export_carries_no_expiry_time() {
 fn c_interface_history_carries_no_expiry_time() {
     channel_carries_no_expiry(Channel::CInterfaceHistory);
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

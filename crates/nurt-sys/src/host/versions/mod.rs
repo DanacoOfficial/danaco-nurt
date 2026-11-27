@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-sys::host::versions
+// Responsibility:   Versions of programs read from the metadata of their files.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Versions of programs read from the metadata of their files.
 //!
 //! No program is started. The version is taken from the first source that
@@ -125,3 +133,7 @@ pub(crate) fn plist_version(document: &plist::Value) -> Option<String> {
         .filter(|version| !version.is_empty())
         .map(str::to_owned)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

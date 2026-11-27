@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/perf_walk.rs
+// Responsibility:   Performance measurement of the walker against `fd` on a tree of 10^6 entries.
+// Dependencies:     support_corpus, support_diff, support_walk
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Performance measurement of the walker against `fd` on a tree of 10^6 entries.
 //!
 //! Run with `cargo test -p nurt-files --features differential --test perf_walk -- --ignored`.
@@ -104,3 +112,7 @@ fn walk_over_a_million_entries_is_within_the_ratio_to_fd() {
         "walk takes {ratio:.2} times as long as fd (Nurt {best_nurt:?}, fd {best_fd:?}); limit {MAX_RATIO}"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

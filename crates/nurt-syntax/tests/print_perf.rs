@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/print_perf.rs
+// Responsibility:   Printing time of a typical program, measured in release builds.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Printing time of a typical program, measured in release builds:
 //! `cargo test --release --test print_perf -- --ignored`.
 
@@ -58,3 +66,7 @@ fn prints_a_typical_program_within_budget() {
     println!("print: median {median:?}, p95 {p95:?}, {printed} bytes");
     assert!(median < BUDGET, "median {median:?} exceeds {BUDGET:?}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

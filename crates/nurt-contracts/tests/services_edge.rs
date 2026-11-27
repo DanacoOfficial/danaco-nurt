@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/services_edge.rs
+// Responsibility:   Boundaries of the shared services: identifiers, byte ranges, the registry.
+// Dependencies:     serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Boundaries of the shared services: identifiers, byte ranges, the registry
 //! and the serialized names of the data types.
 
@@ -351,3 +359,7 @@ fn the_default_text_encoding_is_utf8_without_a_mark() {
         json!({"label": "utf-8", "bom": false})
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

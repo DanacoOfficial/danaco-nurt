@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/parse_flow.rs
+// Responsibility:   Parsing of the control constructs: conditions, loops, `steps`, functions.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Parsing of the control constructs: conditions, loops, `steps`, functions
 //! and script parameters, in the three syntax variants.
 
@@ -270,3 +278,7 @@ fn a_call_of_a_function_reads_in_every_variant() {
         assert_eq!(kinds(&document), ["define", "pipeline"], "{variant:?}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

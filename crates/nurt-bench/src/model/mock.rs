@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bench::model::mock
+// Responsibility:   Mock model: scripted or recorded responses without a provider.
+// Dependencies:     serde, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Mock model: scripted or recorded responses without a provider.
 //!
 //! `--model mock:<file>` reads either a script `nurt-bench-mock/1` (JSON) or
@@ -361,3 +369,7 @@ mod tests {
         assert!(MockModel::load(&dir.path().join("absent.json")).is_err());
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

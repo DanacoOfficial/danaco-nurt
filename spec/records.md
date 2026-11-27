@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           spec/records.md -->
+<!-- Responsibility:   Documents Values and records. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Values and records
 
 Programs exchange typed values and records. This specification defines the value types, their JSON form `nurt-value/1` and every record kind with its fields. The schema `nurt-value-1.schema.json` is generated from the types of the crate `nurt-contracts`; a test of the crate compares the two and validates the golden files of `spec/golden/value` against the schema.
@@ -1696,3 +1704,7 @@ Progress of an operation with several steps, such as a rebase.
 |---|---|---|---|
 | `done` | int | yes | Steps done. |
 | `total` | int | yes | Steps in total. |
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

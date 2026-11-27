@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/corpus_mutate.rs
+// Responsibility:   Mutation corpus: generation from valid programs and the check of name.
+// Dependencies:     serde_json, toml_edit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Mutation corpus: generation from valid programs and the check of name,
 //! unit and boolean correction against it.
 //!
@@ -1420,3 +1428,7 @@ fn naive_rules_follow_the_documented_examples() {
     assert!(!unquoted_is_path("/srv/x"));
     assert_eq!(camel_case("line_numbers"), "lineNumbers");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

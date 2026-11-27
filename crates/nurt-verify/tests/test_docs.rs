@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-verify/tests/test_docs.rs
+// Responsibility:   The pages of `test.run`, `test.failed`, `test.show` and `test.list` agree.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The pages of `test.run`, `test.failed`, `test.show` and `test.list` agree
 //! with the catalog and have the sections and examples of a command page.
 
@@ -190,3 +198,7 @@ fn every_page_lists_the_errors_it_names_in_a_table() {
         assert!(errors.contains("| `E_"), "{command}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

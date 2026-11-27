@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-exec/tests/mixed.rs
+// Responsibility:   Execution of pipelines over streams of mixed record kinds, early stop of.
+// Dependencies:     common, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Execution of pipelines over streams of mixed record kinds, early stop of
 //! sources and the records read before a failed stage.
 
@@ -366,3 +374,7 @@ fn reports_the_records_read_before_a_failed_stage() {
     assert_eq!(partial["records"].as_array().unwrap().len(), 3);
     assert!(outcome.last().unwrap().result.records.is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

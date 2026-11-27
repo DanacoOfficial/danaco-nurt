@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/perf.rs
+// Responsibility:   Wall-clock limits of the commands of this crate. The binary is named `perf`.
+// Dependencies:     notebook_support, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Wall-clock limits of the commands of this crate. The binary is named `perf`
 //! so that the filter `not binary(perf)` of `cargo nextest` skips it on loaded
 //! machines.
@@ -55,3 +63,7 @@ fn many_matches_are_replaced_within_the_limit() {
         "replacing {MATCHES} matches took {elapsed:?}"
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

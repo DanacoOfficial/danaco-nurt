@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::json::reference
+// Responsibility:   Reference reading with `serde_json`, independent of the parser used for.
+// Dependencies:     indexmap, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Reference reading with `serde_json`, independent of the parser used for
 //! editing; edited documents are read again with it and compared with the
 //! expected value.
@@ -309,3 +317,7 @@ mod tests {
         assert!(!same_data(&Value::Int(3), &Value::Text("3".to_owned())));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::apply::tests
+// Responsibility:   Unit tests of the working tree update engine on repositories built in.
+// Dependencies:     bstr, gix, gix_index, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Unit tests of the working tree update engine on repositories built in
 //! temporary directories with `gix`.
 
@@ -1300,3 +1308,7 @@ fn reset_to_the_empty_tree_removes_tracked_files_and_keeps_untracked_ones() {
     assert_eq!(read(&repo, "free.txt"), "u\n");
     assert!(index_paths(&repo).is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

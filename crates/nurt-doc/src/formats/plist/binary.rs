@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-doc::formats::plist::binary
+// Responsibility:   Binary property lists (`bplist00`).
+// Dependencies:     nurt_contracts, plist
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Binary property lists (`bplist00`).
 //!
 //! A binary property list has no layout to preserve: object offsets and the
@@ -314,3 +322,7 @@ mod tests {
         assert_eq!(error.code().as_str(), "E_DOC_PARSE");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

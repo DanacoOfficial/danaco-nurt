@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-bind::cast
+// Responsibility:   Casting of surface expressions to the type of their place.
+// Dependencies:     nurt_contracts, nurt_correct, nurt_types
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Casting of surface expressions to the type of their place.
 //!
 //! A quoted text becomes a `path`, `glob`, `instant`, `key`, `size` or
@@ -905,3 +913,7 @@ fn expr_kind(expr: &Expr) -> &'static str {
         _ => "an unknown node",
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

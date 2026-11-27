@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u09_set.rs
+// Responsibility:   Tests of the `set` stage and of `remove` for `item` records: layout of.
+// Dependencies:     nurt_contracts, nurt_testkit, u09_support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests of the `set` stage and of `remove` for `item` records: layout of
 //! changed documents, transactions over several keys, entity tags,
 //! validation, created files, undo through the journal and the operations
@@ -909,3 +917,7 @@ fn documents_are_opened_with_the_path_of_their_file() {
     );
     assert!(!opened.is_empty());
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

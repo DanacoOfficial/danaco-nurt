@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-text/tests/diff_differential.rs
+// Responsibility:   Byte comparison of the unified rendering with GNU `diff -u`.
+// Dependencies:     proptest
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Byte comparison of the unified rendering with GNU `diff -u`.
 //!
 //! The test runs the `diff` program found in `PATH` and is ignored by
@@ -103,3 +111,7 @@ fn rendering_equals_gnu_diff_output() {
         })
         .unwrap();
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

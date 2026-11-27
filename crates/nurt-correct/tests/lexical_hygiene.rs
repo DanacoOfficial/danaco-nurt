@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-correct/tests/lexical_hygiene.rs
+// Responsibility:   The sources and corpus of the lexical correction rules contain no.
+// Dependencies:     regex
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! The sources and corpus of the lexical correction rules contain no
 //! identifiers of internal decisions, no paths of a build environment, no
 //! work markers and no text in Polish.
@@ -117,3 +125,7 @@ fn sources_and_corpus_follow_the_repository_rules() {
     }
     assert!(problems.is_empty(), "{problems:#?}");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

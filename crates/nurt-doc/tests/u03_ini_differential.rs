@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-doc/tests/u03_ini_differential.rs
+// Responsibility:   Differential tests of the INI and property readers: Git configuration.
+// Dependencies:     ini, nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Differential tests of the INI and property readers: Git configuration
 //! against the output of `git config --list`, the generic profile against
 //! `rust-ini`, and property files against `java.util.Properties`.
@@ -304,3 +312,7 @@ fn properties_read_as_java_util_properties_does() {
     }
     assert!(keys >= 500, "{keys} keys");
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

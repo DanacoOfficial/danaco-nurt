@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::linux
+// Responsibility:   Linux back end.
+// Dependencies:     errno, fs, mountinfo, nurt_contracts, quota, table
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
 
 //! Linux back end.
 //!
@@ -48,3 +55,7 @@ pub use fs::LinuxFs;
 pub use mountinfo::{MountEntry, MountTable, MountinfoError, OverlayLayers, device_number};
 pub use quota::{QIF_BLIMITS, QIF_SPACE, QUOTA_BLOCK_SIZE, QuotaFigures, quota_figures};
 pub use table::{features_for, fs_type_from_magic, volume_kind};
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

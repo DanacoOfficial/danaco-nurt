@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-code::symbols::visibility
+// Responsibility:   Visibility of symbols outside their module.
+// Dependencies:     nurt_contracts, tree_sitter
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Visibility of symbols outside their module.
 //!
 //! | Language | Exported when |
@@ -122,3 +130,7 @@ fn has_static_storage(parsed: &ParsedSource<'_>, node: Node<'_>) -> bool {
     node.children(&mut cursor)
         .any(|child| child.kind() == "storage_class_specifier" && parsed.text(child) == "static")
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

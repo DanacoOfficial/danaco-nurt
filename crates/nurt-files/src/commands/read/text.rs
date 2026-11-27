@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-files::commands::read::text
+// Responsibility:   Text content of files for `read`: loading and decoding, `content`.
+// Dependencies:     nurt_contracts, nurt_notebook, nurt_testkit, nurt_text
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Text content of files for `read`: loading and decoding, `content`
 //! records of selected lines, conditional reads, and the outlines, symbols,
 //! document keys and notebook cells served by other command groups.
@@ -1997,3 +2005,7 @@ mod tests {
         assert_eq!(View::parse("tree"), None);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

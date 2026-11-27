@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git::apply
+// Responsibility:   Working tree update engine: plans changes of the working tree and the.
+// Dependencies:     context, error, exec, nurt_contracts, oneway, paths, plan, refs, twoway
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Working tree update engine: plans changes of the working tree and the
 //! index and applies them through a mutation transaction.
 //!
@@ -56,3 +64,7 @@ pub use plan::{
 };
 pub use refs::{keeps_log, log_path, ref_path};
 pub use twoway::plan_two_way;
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

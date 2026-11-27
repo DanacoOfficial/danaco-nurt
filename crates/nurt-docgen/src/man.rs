@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-docgen::man
+// Responsibility:   Manual page (roff, `man` macros) renderer for the Markdown tree.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Manual page (roff, `man` macros) renderer for the Markdown tree.
 
 use crate::markdown::{Block, Document, Inline, plain_text};
@@ -334,3 +342,7 @@ mod tests {
         assert!(out.contains(".PP\na\n.br\nb\n"));
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

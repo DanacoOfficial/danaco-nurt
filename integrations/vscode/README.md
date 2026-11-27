@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           integrations/vscode/README.md -->
+<!-- Responsibility:   Documents Danaco Nurt for Visual Studio Code. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Danaco Nurt for Visual Studio Code
 
 Language support for Danaco Nurt programs (`.nurt`): syntax highlighting, diagnostics and completion from `nurt lsp`, and commands that run and format a file.
@@ -67,3 +75,7 @@ npm run package
 ## License
 
 Apache-2.0. See the `LICENSE` file of the repository.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

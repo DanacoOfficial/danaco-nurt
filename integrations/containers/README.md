@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           integrations/containers/README.md -->
+<!-- Responsibility:   Documents Container images. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Container images
 
 Image definitions for Danaco Nurt. Images contain a prebuilt `nurt` executable copied from the build context; nothing is compiled in the image.
@@ -61,3 +69,7 @@ docker buildx build \
 ## Publication
 
 Publishing requires write access to the `ghcr.io/danacoofficial` namespace through the workflow token and an OIDC identity for `cosign`.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

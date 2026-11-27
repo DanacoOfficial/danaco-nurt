@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           integrations/examples/anthropic-typescript/agent.ts
+// Responsibility:   Source file integrations/examples/anthropic-typescript/agent.ts.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 // Agent loop with the Anthropic Messages API and the nurt tool.
 // Usage: node agent.ts "count the Python files under /home/user/project"
 
@@ -64,3 +72,7 @@ async function main(): Promise<void> {
 }
 
 if (import.meta.main) await main();
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

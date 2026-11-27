@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-text::codec::ibm852
+// Responsibility:   IBM code page 852, the DOS Central European code page.
+// Dependencies:     oem_cp
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! IBM code page 852, the DOS Central European code page.
 //!
 //! Bytes below `0x80` are ASCII, including the control characters, as in the
@@ -39,3 +47,7 @@ pub(super) fn encode(text: &str, out: &mut Vec<u8>) -> Result<(), Unmappable> {
     }
     Ok(())
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-core/tests/elevation.rs
+// Responsibility:   Privilege elevation through the engine: the choice of the backend, the.
+// Dependencies:     nurt_contracts, nurt_testkit, serde_json, support
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Privilege elevation through the engine: the choice of the backend, the
 //! refusals, `auto`, `as_user`
 //! and the hidden execution of a request with the identity of the
@@ -760,3 +768,7 @@ mod fake_programs {
         assert!(!response.report.elevated);
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

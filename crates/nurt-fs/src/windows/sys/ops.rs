@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-fs::windows::sys::ops
+// Responsibility:   Single system calls that change names; each returns the Win32 code of a.
+// Dependencies:     windows_sys
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Single system calls that change names; each returns the Win32 code of a
 //! failure.
 
@@ -275,3 +283,7 @@ pub(crate) fn write_reparse(path: &WidePath, data: &[u8]) -> Result<(), u32> {
     };
     check(ok != 0)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

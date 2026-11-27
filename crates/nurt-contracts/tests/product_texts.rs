@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-contracts/tests/product_texts.rs
+// Responsibility:   Tests that the product texts outside the code use the canonical sentence.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Tests that the product texts outside the code use the canonical sentence
 //! of `nurt_contracts::product`: the `description` of every package that
 //! builds the `nurt` executable or is named `nurt`, the first paragraph of
@@ -171,3 +179,7 @@ fn canonical_sentence_has_no_audience_suffix() {
     assert!(!TAGLINE.ends_with('.'));
     assert!(!TAGLINE.contains("AI agents"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

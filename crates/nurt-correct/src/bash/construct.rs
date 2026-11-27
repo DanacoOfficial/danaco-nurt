@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-correct::bash::construct
+// Responsibility:   Translation of shell conditions, loops, functions and lists with.
+// Dependencies:     nurt_contracts
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Translation of shell conditions, loops, functions and lists with
 //! changes into the constructs of the language (`when`, `each`, `while`,
 //! `repeat`, `steps`, `define`, `params`).
@@ -1382,3 +1390,7 @@ fn glob_regex(pattern: &str) -> String {
 fn regex_literal(pattern: &str) -> String {
     format!("/{}/", pattern.replace('/', "\\/"))
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

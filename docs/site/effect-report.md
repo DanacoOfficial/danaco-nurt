@@ -5,6 +5,13 @@ order: 6
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/site/effect-report.md -->
+<!-- Responsibility:   Documents Effect report. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 # Effect report
 
 Each run returns a description of the effect, not only the fact that something ran. The format is `nurt-report/1`; the schema and the complete field list are in the [specification](../../spec/report.md).
@@ -41,3 +48,7 @@ An operation with 200 or more targets is a bulk operation. The description shows
 ## Errors
 
 An error carries a stable code. [Error codes](../../spec/errors.md) lists the codes, the stage that reports each and the status of the C interface.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

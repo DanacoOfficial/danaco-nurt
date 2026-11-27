@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/cbor_encode.rs
+// Responsibility:   Deterministic CBOR encoding (RFC 8949, section 4.2.1).
+// Dependencies:     hash_support, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Deterministic CBOR encoding (RFC 8949, section 4.2.1).
 //!
 //! The encodings of all golden trees are checked by an independent walker of
@@ -265,3 +273,7 @@ fn rejects_nesting_deeper_than_the_limit() {
     let value = json!([value]);
     assert!(rejected(encode(&value)).contains("nesting"));
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

@@ -6,6 +6,13 @@ commands: [git.status, git.diff, git.log, git.stage, git.commit, git.review, git
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/guides/git-workflow.md -->
+<!-- Responsibility:   Documents git-workflow. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
 
 # git-workflow
 
@@ -52,3 +59,7 @@ git.checkpoint "/srv/app" action: restore label: "before-refactoring"
 git.switch "/srv/app" branch: "feature/parser" create: true
 git.push "/srv/app" remote: "origin" branch: "feature/parser" set_upstream: true
 ```
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

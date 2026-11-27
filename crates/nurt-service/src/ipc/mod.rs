@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-service::ipc
+// Responsibility:   Control channel of the service: a Unix socket `service.sock` in the.
+// Dependencies:     nurt_contracts, protocol, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Control channel of the service: a Unix socket `service.sock` in the
 //! state directory, or the named pipe `\\.\pipe\nurt-service-<SID>` on
 //! Windows, both reachable only by the account of the service.
@@ -287,3 +295,7 @@ fn dispatch(
         )),
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

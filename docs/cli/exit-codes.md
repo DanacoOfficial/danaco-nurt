@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/cli/exit-codes.md -->
+<!-- Responsibility:   Documents Exit codes. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Exit codes
 
 The exit code of `nurt` follows the status of the report of the program and the interface status of its error, so that the command line and the C interface describe the same outcomes.
@@ -18,3 +26,7 @@ The exit code of `nurt` follows the status of the report of the program and the 
 A report with the status `partial`, `rolled_back` or `failed` takes the code of its error; without an error the code is 1. A report with the status `ok`, `planned` or `running` that carries an error, for example `E_ASSERT` of a check that failed in stage 5a after the effect was applied, takes the code of that error too (1 for `E_ASSERT`), so that a script does not go on after it. A journal problem that does not interrupt the operation is not an error of the report (it is listed as `journal_error` in `irreversible`) and leaves the code 0. An engine that cannot be opened, for example because of an invalid configuration, takes the code of its error.
 
 Messages of the command line are written to the standard error output in the form `nurt: <message>`. A language error is written as `<code>: <message>` followed by the ready replacements of the program.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

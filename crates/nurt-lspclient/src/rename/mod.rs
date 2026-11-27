@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-lspclient::rename
+// Responsibility:   Rename plans built from workspace edits.
+// Dependencies:     lsp_types, nurt_code, nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Rename plans built from workspace edits.
 //!
 //! A server answers `textDocument/rename` (and code actions with edits) with a
@@ -349,3 +357,7 @@ fn file_path(uri: &Uri) -> SemanticResult<PathBuf> {
 fn failed(message: String) -> SemanticError {
     SemanticError::new(SemanticErrorKind::Failed, message)
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

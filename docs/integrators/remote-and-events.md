@@ -1,6 +1,14 @@
 <!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
 <!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
+<!-- -->
+<!-- Module:           docs/integrators/remote-and-events.md -->
+<!-- Responsibility:   Documents Remote instances and events. -->
+<!-- Dependencies:     none -->
+<!-- Author:           Danaco Official -->
+<!-- Version:          0.1.1, 2026-11-27 -->
+<!-- License:          see the LICENSE file or https://www.danaco-group.pl -->
+
 # Remote instances and events
 
 ## Syntax trees for another device
@@ -81,3 +89,7 @@ The same event as the parameter of `nurt_event_cb`:
 ```
 
 A program started with `run ... background: true` returns a `job` record at once. The host follows the job through the events or reads its output incrementally with `jobs <id> since: <cursor>`; `stop`, `retry` and `remove` act on the job. Subscriptions, filtering of output lines and delivery of events to the context of the model belong to the host.
+
+<!-- Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved. -->
+<!-- Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl -->
+<!-- Support: support@danaco-group.pl -->

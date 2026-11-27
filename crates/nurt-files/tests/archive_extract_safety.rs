@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-files/tests/archive_extract_safety.rs
+// Responsibility:   Containment of `archive.extract` in its destination, the round trip of.
+// Dependencies:     archive_support, nurt_archive, nurt_contracts, nurt_testkit
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Containment of `archive.extract` in its destination, the round trip of
 //! `archive.create` and `archive.extract`, and bulk extraction, run on the
 //! virtual file system.
@@ -490,3 +498,7 @@ fn created_tar_archives_keep_the_modification_time_of_the_files() {
         assert_ne!(meta.modified_ns, MODIFIED_NS, "{archive}");
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

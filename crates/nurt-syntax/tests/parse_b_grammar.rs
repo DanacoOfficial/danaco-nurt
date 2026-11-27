@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           crates/nurt-syntax/tests/parse_b_grammar.rs
+// Responsibility:   Grammar of the call notation (variant B): stages, argument lists, the.
+// Dependencies:     nurt_contracts, serde_json
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Grammar of the call notation (variant B): stages, argument lists, the
 //! meaning of `name(…)` by position and sub-pipelines as arguments.
 
@@ -467,3 +475,7 @@ fn raw_text_is_read_in_every_argument_position() {
         json!({"t": "text", "v": "/a"})
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

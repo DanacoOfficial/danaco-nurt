@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           tests/d2/coverage/harness/volumes.rs
+// Responsibility:   Volumes of a fixture and the changes other programs make to them.
+// Dependencies:     nurt_contracts, nurt_crashfs, nurt_fs, tempfile
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Volumes of a fixture and the changes other programs make to them.
 //!
 //! Volumes are simulated in memory by default. With a crash seed they are
@@ -354,3 +362,7 @@ impl Volumes {
         self.settle();
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl
