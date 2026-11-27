@@ -29,6 +29,8 @@ use crate::error::BindError;
 pub(crate) struct Function {
     pub(crate) name: String,
     pub(crate) params: Vec<BoundParam>,
+    /// Whether the body changes the world or runs a program.
+    pub(crate) changes: bool,
 }
 
 /// Names a construct reads without `@`: the loop variables in scope.
@@ -160,6 +162,14 @@ impl Binder<'_> {
                 }))
             }
             Statement::Define(construct) => {
+                if self.nesting > 0 {
+                    return Err(BindError::new(
+                        ErrorCode::Arg,
+                        "`define` stands at the top of the program, not inside a block",
+                    )
+                    .at(construct.span)
+                    .help("syntax"));
+                }
                 let params = self.declarations(&construct.params)?;
                 if self.catalog.command(&construct.name).is_some() {
                     return Err(BindError::new(
@@ -185,8 +195,17 @@ impl Binder<'_> {
                 self.functions.push(Function {
                     name: construct.name.clone(),
                     params: params.clone(),
+                    changes: false,
                 });
                 let body = self.function_body(index, &construct.body, &params)?;
+                let changes = self.changes(&body);
+                if let Some(known) = self
+                    .functions
+                    .iter_mut()
+                    .find(|known| known.name == construct.name)
+                {
+                    known.changes = changes;
+                }
                 Ok(BoundStatement::Define(BoundDefine {
                     name: construct.name.clone(),
                     params,
@@ -331,6 +350,46 @@ impl Binder<'_> {
             .expected(&["bool".to_owned()])),
             Kind::Bool | Kind::Unknown => Ok(bound),
         }
+    }
+
+    /// Whether the statements change the world or run a program, calls of
+    /// functions defined earlier included.
+    fn changes(&self, body: &[BoundStatement]) -> bool {
+        body.iter().any(|statement| match statement {
+            BoundStatement::Pipeline(pipeline) => self.pipeline_changes(pipeline),
+            BoundStatement::Let(binding) => self.pipeline_changes(&binding.value),
+            BoundStatement::When(construct) => {
+                construct
+                    .branches
+                    .iter()
+                    .any(|branch| self.changes(&branch.body))
+                    || construct
+                        .otherwise
+                        .as_deref()
+                        .is_some_and(|body| self.changes(body))
+            }
+            BoundStatement::Each(construct) => self.changes(&construct.body),
+            BoundStatement::Repeat(construct) => self.changes(&construct.body),
+            BoundStatement::While(construct) => self.changes(&construct.body),
+            BoundStatement::Steps(construct) => self.changes(&construct.body),
+            _ => false,
+        })
+    }
+
+    fn pipeline_changes(&self, pipeline: &nurt_contracts::bound::BoundPipeline) -> bool {
+        let called = match &pipeline.head {
+            nurt_contracts::bound::BoundHead::Call(call) => self
+                .functions
+                .iter()
+                .any(|known| known.name == call.name && known.changes),
+            _ => false,
+        };
+        called
+            || pipeline
+                .head_phase()
+                .into_iter()
+                .chain(pipeline.stages.iter().map(|stage| stage.phase))
+                .any(Phase::is_effect)
     }
 
     /// Binds the records of an `each`: a list, a reference or a reading
@@ -565,11 +624,17 @@ impl Binder<'_> {
         span: Option<Span>,
     ) -> Result<BoundExpr, BindError> {
         let bound = self.sub_pipeline(pipeline)?;
-        let changing = bound
-            .head_phase()
-            .into_iter()
-            .chain(bound.stages.iter().map(|stage| stage.phase))
-            .any(Phase::is_effect);
+        let calls_changing = matches!(
+            &bound.head,
+            nurt_contracts::bound::BoundHead::Call(call)
+                if self.functions.iter().any(|known| known.name == call.name && known.changes)
+        );
+        let changing = calls_changing
+            || bound
+                .head_phase()
+                .into_iter()
+                .chain(bound.stages.iter().map(|stage| stage.phase))
+                .any(Phase::is_effect);
         if changing {
             return Err(BindError::new(
                 ErrorCode::Type,
@@ -669,6 +734,10 @@ fn kind_of(expr: &BoundExpr) -> Kind {
             _ => Kind::Other("a value"),
         },
         BoundExpr::Call { function, .. } if function == "exists" => Kind::Bool,
+        BoundExpr::Sub { .. } => Kind::Other("the result of a pipeline"),
+        BoundExpr::Ref(reference) if reference.name == EXIT_CODE && reference.fields.is_empty() => {
+            Kind::Other("an exit code")
+        }
         BoundExpr::Null => Kind::Other("null"),
         BoundExpr::Int { .. } | BoundExpr::Num { .. } => Kind::Other("a number"),
         BoundExpr::Text { .. } | BoundExpr::Path { .. } => Kind::Other("text"),

@@ -57,6 +57,16 @@ pub fn describe_params(declared: &[BoundParam]) -> Vec<ParamDescription> {
         .collect()
 }
 
+/// Writes `value` in the largest unit that divides it exactly.
+fn scaled(value: u64, units: &[(&str, u64)]) -> String {
+    let (name, factor) = units
+        .iter()
+        .find(|(_, factor)| value != 0 && value.is_multiple_of(*factor))
+        .copied()
+        .unwrap_or(("", 1));
+    format!("{}{name}", value / factor)
+}
+
 fn default_text(value: &BoundExpr) -> String {
     match value {
         BoundExpr::Null => "null".to_owned(),
@@ -67,8 +77,27 @@ fn default_text(value: &BoundExpr) -> String {
             serde_json::to_string(v).unwrap_or_default()
         }
         BoundExpr::Enum { v } => v.clone(),
-        BoundExpr::Dur { v } => format!("{v}ms"),
-        BoundExpr::Size { v } => format!("{v}b"),
+        BoundExpr::Dur { v } => scaled(
+            *v,
+            &[
+                ("w", 604_800_000),
+                ("d", 86_400_000),
+                ("h", 3_600_000),
+                ("m", 60_000),
+                ("s", 1000),
+                ("ms", 1),
+            ],
+        ),
+        BoundExpr::Size { v } => scaled(
+            *v,
+            &[
+                ("tib", 1 << 40),
+                ("gib", 1 << 30),
+                ("mib", 1 << 20),
+                ("kib", 1 << 10),
+                ("b", 1),
+            ],
+        ),
         BoundExpr::List { items } => {
             let items: Vec<String> = items.iter().map(default_text).collect();
             format!("[{}]", items.join(", "))

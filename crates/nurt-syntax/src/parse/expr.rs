@@ -381,6 +381,9 @@ impl<'s> ExprParser<'s> {
         if p.kind() != &TokenKind::Ident {
             return false;
         }
+        if p.at_function_call() {
+            return true;
+        }
         let checkpoint = p.checkpoint();
         let starts = match p.parse_command_name(LexContext::Operator) {
             Ok((_, _, last)) => self.syntax.starts_arguments(&last, p.current()),

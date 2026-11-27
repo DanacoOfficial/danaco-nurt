@@ -626,7 +626,7 @@ impl<'a> Parser<'a> {
 
     /// Whether the current token is the name of a defined function directly
     /// followed by `(`.
-    fn at_function_call(&self) -> bool {
+    pub(crate) fn at_function_call(&self) -> bool {
         self.current.kind == TokenKind::Ident
             && self.current.glued == Glued::LParen
             && self.functions.contains(self.slice(&self.current))

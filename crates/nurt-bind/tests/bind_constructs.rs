@@ -224,3 +224,17 @@ fn an_unknown_function_names_the_nearest_function() {
     let expected = serde_json::to_string(&error.error().expected).unwrap();
     assert!(expected.contains("rotate_logs"), "{expected}");
 }
+
+#[test]
+fn no_command_of_the_catalog_has_the_name_of_a_construct() {
+    const STARTERS: [&str; 9] = [
+        "when", "each", "repeat", "while", "break", "continue", "steps", "define", "params",
+    ];
+    for command in bind_support::catalog().commands() {
+        assert!(
+            !STARTERS.contains(&command.name.as_str()),
+            "the command `{}` is shadowed by a construct",
+            command.name
+        );
+    }
+}
