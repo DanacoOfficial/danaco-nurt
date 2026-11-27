@@ -7,7 +7,7 @@
 use std::collections::HashSet;
 use std::ffi::{OsStr, OsString};
 use std::io::Read;
-use std::os::fd::{AsFd, OwnedFd};
+use std::os::fd::{AsFd, AsRawFd, OwnedFd};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::process;
@@ -40,6 +40,8 @@ const TEMP_MODE: u32 = 0o600;
 /// Permission bits, before the umask, of files created by
 /// [`FsWrite::create_new`] and of lock files.
 const NEW_FILE_MODE: u32 = 0o666;
+/// Permission bits of a new named pipe or device node before the umask.
+const DEFAULT_NODE_MODE: u32 = 0o666;
 /// Attempts to find an unused temporary name.
 const TEMP_NAME_ATTEMPTS: u32 = 64;
 /// Longest file name in bytes (`NAME_MAX`).
@@ -113,6 +115,32 @@ impl LinuxFs {
     pub fn mount_entry(&self, path: &AbsPath) -> FsResult<MountEntry> {
         volume::mount_entry(path.as_path())
     }
+}
+
+/// Sets the permission bits of the node at `path` without following a
+/// symbolic link: the entry is opened with `O_PATH | O_NOFOLLOW`, checked to
+/// be a named pipe or a device node, and changed through its descriptor.
+fn set_node_mode(path: &AbsPath, bits: Mode) -> FsResult<()> {
+    const OP: &str = "create_node";
+    let fd = retry(|| {
+        rustix::fs::openat(
+            CWD,
+            path.as_path(),
+            OFlags::PATH | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+    })
+    .map_err(|errno| sys_error(errno, OP, path.as_path()))?;
+    let stat = rustix::fs::fstat(&fd).map_err(|errno| sys_error(errno, OP, path.as_path()))?;
+    if !matches!(
+        FileType::from_raw_mode(stat.st_mode),
+        FileType::Fifo | FileType::CharacterDevice | FileType::BlockDevice
+    ) {
+        return Err(FsError::new(FsErrorKind::Io, OP, Some(path.as_path())));
+    }
+    let through_descriptor = format!("/proc/self/fd/{}", fd.as_raw_fd());
+    retry(|| rustix::fs::chmodat(CWD, through_descriptor.as_str(), bits, AtFlags::empty()))
+        .map_err(|errno| sys_error(errno, OP, path.as_path()))
 }
 
 fn open(path: &Path, flags: OFlags, mode: u32, op: &str) -> FsResult<OwnedFd> {
@@ -503,7 +531,7 @@ impl FsWrite for LinuxFs {
         _scope: &TxScope,
         path: &AbsPath,
         node: SpecialNode,
-        mode: u32,
+        mode: Option<u32>,
     ) -> FsResult<()> {
         const OP: &str = "create_node";
         let (file_type, device) = match node.kind {
@@ -524,8 +552,8 @@ impl FsWrite for LinuxFs {
                 ));
             }
         };
-        let bits = Mode::from_raw_mode(mode);
-        retry(|| rustix::fs::mknodat(CWD, path.as_path(), file_type, bits, device)).map_err(
+        let created = Mode::from_raw_mode(mode.unwrap_or(DEFAULT_NODE_MODE));
+        retry(|| rustix::fs::mknodat(CWD, path.as_path(), file_type, created, device)).map_err(
             |errno| {
                 if node.kind == SpecialKind::Fifo {
                     sys_error(errno, OP, path.as_path())
@@ -534,8 +562,10 @@ impl FsWrite for LinuxFs {
                 }
             },
         )?;
-        retry(|| rustix::fs::chmodat(CWD, path.as_path(), bits, AtFlags::empty()))
-            .map_err(|errno| sys_error(errno, OP, path.as_path()))
+        match mode {
+            Some(exact) => set_node_mode(path, Mode::from_raw_mode(exact)),
+            None => Ok(()),
+        }
     }
 
     fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {

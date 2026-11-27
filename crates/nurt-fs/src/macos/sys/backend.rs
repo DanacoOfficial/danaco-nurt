@@ -460,7 +460,7 @@ impl FsWrite for MacosFs {
         _scope: &TxScope,
         path: &AbsPath,
         node: SpecialNode,
-        mode: u32,
+        mode: Option<u32>,
     ) -> FsResult<()> {
         const OP: &str = "create_node";
         let (file_type, device) = match node.kind {
@@ -481,11 +481,27 @@ impl FsWrite for MacosFs {
                 ));
             }
         };
-        let bits = Mode::from_bits_truncate(mode.try_into().unwrap_or_default());
-        retry(|| rustix::fs::mknodat(CWD, path.as_path(), file_type, bits, device))
+        let to_mode = |bits: u32| Mode::from_bits_truncate(bits.try_into().unwrap_or_default());
+        let context = if node.kind == SpecialKind::Fifo {
+            ErrnoContext::Plain
+        } else {
+            ErrnoContext::Privileged
+        };
+        let created = to_mode(mode.unwrap_or(0o666));
+        retry(|| rustix::fs::mknodat(CWD, path.as_path(), file_type, created, device))
+            .map_err(|errno| sys_error(errno, context, OP, path.as_path()))?;
+        if let Some(exact) = mode {
+            retry(|| {
+                rustix::fs::chmodat(
+                    CWD,
+                    path.as_path(),
+                    to_mode(exact),
+                    AtFlags::SYMLINK_NOFOLLOW,
+                )
+            })
             .map_err(plain(OP, path))?;
-        retry(|| rustix::fs::chmodat(CWD, path.as_path(), bits, AtFlags::empty()))
-            .map_err(plain(OP, path))
+        }
+        Ok(())
     }
 
     fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {

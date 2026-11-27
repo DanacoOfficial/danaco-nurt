@@ -423,7 +423,7 @@ impl<F: ?Sized + FsWrite> FsWrite for AuditFs<F> {
         scope: &TxScope,
         path: &AbsPath,
         node: SpecialNode,
-        mode: u32,
+        mode: Option<u32>,
     ) -> FsResult<()> {
         self.admit(scope, "create_node", &[path]);
         self.inner.create_node(scope, path, node, mode)

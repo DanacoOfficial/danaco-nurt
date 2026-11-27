@@ -180,8 +180,19 @@ fn request(args: &BoundArgs, ctx: &ExecCtx) -> Result<SqlRequest> {
         query,
         params: params_arg(args)?,
         write,
+        base: base_dir(ctx),
         busy_timeout: ctx.config().sql.busy_timeout.as_std(),
     })
+}
+
+/// Directory against which relative files of `ATTACH` and `VACUUM INTO` are
+/// resolved: the `base` option, else `scope.base`.
+fn base_dir(ctx: &ExecCtx) -> Option<PathBuf> {
+    ctx.options()
+        .base
+        .as_deref()
+        .or(ctx.config().scope.base.as_deref())
+        .map(PathBuf::from)
 }
 
 fn path_arg(args: &BoundArgs) -> Result<String> {

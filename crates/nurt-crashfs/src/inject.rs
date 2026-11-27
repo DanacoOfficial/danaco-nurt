@@ -629,7 +629,7 @@ impl<F: FsWrite> FsWrite for InjectFs<F> {
         scope: &TxScope,
         path: &AbsPath,
         node: SpecialNode,
-        mode: u32,
+        mode: Option<u32>,
     ) -> FsResult<()> {
         self.inner.create_node(scope, path, node, mode)
     }

@@ -4,32 +4,23 @@
 //! Files that `ATTACH` and `VACUUM INTO` name.
 //!
 //! The reading works on the expanded text of a prepared statement, in which
-//! SQLite has replaced every bound parameter by its literal, so a file given
-//! as a literal or as a text parameter is found before the statement runs.
-//! An expression that is neither, such as a concatenation, is not found; the
-//! caller then learns the file after the statement ran or reports the
-//! effect as untracked.
+//! SQLite has replaced every bound parameter by its literal. A literal is
+//! read as it is; any other expression is computed by the caller with a
+//! `SELECT` of the same expression before the statement runs.
 
-/// File of `ATTACH [DATABASE] '<file>' AS <name>`; `None` for another
-/// statement and for a file that is not a text literal.
-pub(super) fn attached_file(sql: &str) -> Option<String> {
-    let mut scan = Scan::new(sql);
-    scan.keyword("ATTACH")?;
-    if scan
-        .peek_word()
-        .is_some_and(|word| word.eq_ignore_ascii_case("DATABASE"))
-    {
-        scan.word();
-    }
-    let file = scan.literal()?;
-    scan.keyword("AS")?;
-    Some(file)
+/// Parts of `ATTACH [DATABASE] <expression> AS <alias>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct AttachParts {
+    /// Expression that names the file.
+    pub(super) expression: String,
+    /// Text after the last `AS`: the name of the database.
+    pub(super) alias: String,
 }
 
-/// Text of the expression that names the file of `ATTACH [DATABASE] <expr>
-/// AS <name>`; `None` for another statement. The expression is the text up to
-/// the last `AS` outside quotes and parentheses.
-pub(super) fn attached_expression(sql: &str) -> Option<String> {
+/// Parts of an `ATTACH` statement; `None` for another statement. The
+/// expression is the text up to the last `AS` outside quotes and
+/// parentheses.
+pub(super) fn attach_parts(sql: &str) -> Option<AttachParts> {
     let mut scan = Scan::new(sql);
     scan.keyword("ATTACH")?;
     if scan
@@ -61,8 +52,8 @@ pub(super) fn attached_expression(sql: &str) -> Option<String> {
         if quote.is_none()
             && depth == 0
             && word_start
-            && body[index..].len() >= 2
             && body.is_char_boundary(index + 2)
+            && body.len() >= index + 2
             && body[index..index + 2].eq_ignore_ascii_case("as")
             && body[index + 2..]
                 .chars()
@@ -73,24 +64,51 @@ pub(super) fn attached_expression(sql: &str) -> Option<String> {
         }
         previous = character;
     }
-    let expression = body[..end?].trim();
-    (!expression.is_empty()).then(|| expression.to_owned())
+    let end = end?;
+    let expression = body[..end].trim();
+    let alias = body[end + 2..].trim().trim_end_matches(';').trim();
+    (!expression.is_empty() && !alias.is_empty()).then(|| AttachParts {
+        expression: expression.to_owned(),
+        alias: alias.to_owned(),
+    })
 }
 
-/// File of `VACUUM [<schema>] INTO '<file>'`; `None` for another statement
-/// and for a file that is not a text literal.
-pub(super) fn vacuum_target(sql: &str) -> Option<String> {
+/// Parts of `VACUUM [<schema>] INTO <expression>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct VacuumParts {
+    /// Schema as written, when given.
+    pub(super) schema: Option<String>,
+    /// Expression that names the new file.
+    pub(super) expression: String,
+}
+
+/// Parts of a `VACUUM INTO` statement; `None` for another statement.
+pub(super) fn vacuum_parts(sql: &str) -> Option<VacuumParts> {
     let mut scan = Scan::new(sql);
     scan.keyword("VACUUM")?;
+    let mut schema = None;
     if !scan
         .peek_word()
         .is_some_and(|word| word.eq_ignore_ascii_case("INTO"))
     {
+        let before = scan.rest.trim_start();
         scan.identifier()?;
+        let used = before.len() - scan.rest.len();
+        schema = Some(before[..used].trim().to_owned());
     }
     scan.keyword("INTO")?;
-    let file = scan.literal()?;
-    scan.ends().then_some(file)
+    let expression = scan.rest.trim().trim_end_matches(';').trim();
+    (!expression.is_empty()).then(|| VacuumParts {
+        schema,
+        expression: expression.to_owned(),
+    })
+}
+
+/// Text of a single quoted literal; `None` for any other expression.
+pub(super) fn literal_of(expression: &str) -> Option<String> {
+    let mut scan = Scan::new(expression);
+    let text = scan.literal()?;
+    scan.ends().then_some(text)
 }
 
 struct Scan<'a> {
@@ -185,51 +203,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_the_attached_file() {
-        assert_eq!(
-            attached_file("ATTACH DATABASE '/tmp/a b.db' AS other").as_deref(),
-            Some("/tmp/a b.db")
-        );
-        assert_eq!(
-            attached_file("  attach 'it''s.db' as o").as_deref(),
-            Some("it's.db")
-        );
-        assert_eq!(attached_file("attach (select 1) as o"), None);
-        assert_eq!(attached_file("attach NULL as o"), None);
-        assert_eq!(attached_file("select 1"), None);
+    fn reads_the_attach_parts() {
+        let parts = attach_parts("ATTACH DATABASE '/t/' || 'x.db' AS o").unwrap();
+        assert_eq!(parts.expression, "'/t/' || 'x.db'");
+        assert_eq!(parts.alias, "o");
+        let parts = attach_parts("attach (select 'a as b') as \"my db\";").unwrap();
+        assert_eq!(parts.expression, "(select 'a as b')");
+        assert_eq!(parts.alias, "\"my db\"");
+        assert_eq!(attach_parts("attach 'x' alias"), None);
+        assert_eq!(attach_parts("select 1"), None);
     }
 
     #[test]
-    fn reads_the_attach_expression() {
+    fn reads_the_vacuum_parts() {
+        let parts = vacuum_parts("VACUUM INTO '/tmp/copy.db'").unwrap();
         assert_eq!(
-            attached_expression("ATTACH DATABASE '/t/' || 'x.db' AS o").as_deref(),
-            Some("'/t/' || 'x.db'")
+            (parts.schema, parts.expression.as_str()),
+            (None, "'/tmp/copy.db'")
         );
-        assert_eq!(
-            attached_expression("attach (select 'a as b') as o").as_deref(),
-            Some("(select 'a as b')")
-        );
-        assert_eq!(attached_expression("attach 'x' alias"), None);
-        assert_eq!(attached_expression("select 1"), None);
+        let parts = vacuum_parts("vacuum \"my db\" into ?;").unwrap();
+        assert_eq!(parts.schema.as_deref(), Some("\"my db\""));
+        assert_eq!(parts.expression, "?");
+        assert_eq!(vacuum_parts("vacuum"), None);
+        assert_eq!(vacuum_parts("vacuum main"), None);
     }
 
     #[test]
-    fn reads_the_vacuum_target() {
-        assert_eq!(
-            vacuum_target("VACUUM INTO '/tmp/copy.db'").as_deref(),
-            Some("/tmp/copy.db")
-        );
-        assert_eq!(
-            vacuum_target("vacuum main into 'c.db'").as_deref(),
-            Some("c.db")
-        );
-        assert_eq!(
-            vacuum_target("vacuum \"my db\" into 'c.db'").as_deref(),
-            Some("c.db")
-        );
-        assert_eq!(vacuum_target("vacuum"), None);
-        assert_eq!(vacuum_target("vacuum into 'a' || 'b'"), None);
-        assert_eq!(vacuum_target("vacuum into 'a';").as_deref(), Some("a"));
-        assert_eq!(vacuum_target("vacuum into NULL"), None);
+    fn reads_a_single_literal() {
+        assert_eq!(literal_of("'it''s.db'").as_deref(), Some("it's.db"));
+        assert_eq!(literal_of("'a' || 'b'"), None);
+        assert_eq!(literal_of("(select 1)"), None);
     }
 }

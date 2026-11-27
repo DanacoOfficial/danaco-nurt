@@ -2041,7 +2041,7 @@ fn a_fifo_is_created_with_the_requested_mode_and_reported_by_special_node() {
     let path = fixture.path("pipe");
     fixture
         .fs
-        .create_node(&fixture.scope, &path, SpecialNode::fifo(), 0o640)
+        .create_node(&fixture.scope, &path, SpecialNode::fifo(), Some(0o640))
         .expect("create the fifo");
     let meta = fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
     assert_eq!(meta.kind, FileKind::Special);
@@ -2052,7 +2052,7 @@ fn a_fifo_is_created_with_the_requested_mode_and_reported_by_special_node() {
     );
     let again = fixture
         .fs
-        .create_node(&fixture.scope, &path, SpecialNode::fifo(), 0o640)
+        .create_node(&fixture.scope, &path, SpecialNode::fifo(), Some(0o640))
         .unwrap_err();
     assert_eq!(again.kind, FsErrorKind::Exists);
     fixture.fs.remove_file(&fixture.scope, &path).unwrap();
@@ -2081,7 +2081,7 @@ fn a_device_node_needs_a_privilege() {
             &fixture.scope,
             &path,
             SpecialNode::device(SpecialKind::Char, 1, 3),
-            0o666,
+            None,
         )
         .unwrap_err();
     assert!(
@@ -2106,7 +2106,7 @@ fn device_nodes_are_created_with_their_numbers_and_removed() {
         let node = SpecialNode::device(kind, major, minor);
         fixture
             .fs
-            .create_node(&fixture.scope, &path, node, 0o600)
+            .create_node(&fixture.scope, &path, node, Some(0o600))
             .expect("create the device node as root");
         let meta = fixture.fs.metadata(&path, Follow::NoFollow).unwrap();
         assert_eq!(meta.kind, FileKind::Special);
@@ -2115,4 +2115,31 @@ fn device_nodes_are_created_with_their_numbers_and_removed() {
         fixture.fs.remove_file(&fixture.scope, &path).unwrap();
         assert!(!path.as_path().exists());
     }
+}
+
+#[test]
+fn a_node_without_mode_follows_the_umask_and_with_mode_is_exact() {
+    let fixture = Fixture::new();
+    let default = fixture.path("default-pipe");
+    fixture
+        .fs
+        .create_node(&fixture.scope, &default, SpecialNode::fifo(), None)
+        .unwrap();
+    let bits = fixture
+        .fs
+        .metadata(&default, Follow::NoFollow)
+        .unwrap()
+        .mode
+        & 0o7777;
+    assert_eq!(bits & 0o111, 0, "a pipe is never executable: {bits:o}");
+    assert_eq!(bits & !0o666, 0, "the default is 0666 before the umask");
+    let exact = fixture.path("exact-pipe");
+    fixture
+        .fs
+        .create_node(&fixture.scope, &exact, SpecialNode::fifo(), Some(0o666))
+        .unwrap();
+    assert_eq!(
+        fixture.fs.metadata(&exact, Follow::NoFollow).unwrap().mode & 0o7777,
+        0o666
+    );
 }

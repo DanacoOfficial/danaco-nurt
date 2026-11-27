@@ -47,15 +47,16 @@ its file with `TRUNCATE`, so the files hold the new state.
 | `BEGIN`, `COMMIT`, `END` | merged with the transaction of the call; they change nothing |
 | `ROLLBACK` | rolls the call back and ends it with `E_ROLLED_BACK`; the database and the journal stay as before |
 | `SAVEPOINT`, `RELEASE`, `ROLLBACK TO` | run inside the transaction |
-| `ATTACH` | allowed; runs outside the transaction (the transaction is committed before it and opened again for the next change). The file is journaled before the first statement that changes it; a file that does not exist is created and `undo` removes it. The path is the one SQLite resolves: absolute, or relative to the working directory of the process |
-| `DETACH` | allowed; runs after the other statements, or before the next `ATTACH` |
+| `ATTACH` | allowed; runs outside the transaction (the transaction is committed before it and opened again for the next change). The file is computed (a literal, a parameter or any expression, evaluated with a `SELECT` first), resolved like every path argument (a relative file needs `base` or `scope.base`, otherwise `E_PATH_RELATIVE`), and journaled before the statement; a `file:` URI is read to its path and `mode=memory` or `:memory:` needs no file. SQLite then receives the resolved name, so it opens the file that the journal preserved. A new file is journaled as created and `undo` removes it. When the file cannot be told (a URI with a host, an expression that gives no text), the call is marked irreversible (`external_effect`) before the change |
+| `DETACH` | allowed; runs in its place, after the transaction is committed |
 | `VACUUM`, `VACUUM schema` | run outside the transaction automatically, after the other statements; the database file is journaled first |
-| `VACUUM INTO` | allowed; the new file is journaled as created when it is a text literal or a parameter, so `undo` removes it; any other expression makes the call irreversible for that file (`external_effect`) |
-| pragmas that set a value or act | run outside the transaction, in their place, so `journal_mode`, `foreign_keys` and `temp_store_directory` work; `temp_store_directory` and `data_store_directory` are allowed |
-| `load_extension` | allowed; the report marks the call with `external_effect`, because the effects of the extension are unknown and cannot be undone |
+| `VACUUM INTO` | allowed; runs in its place after the earlier statements are committed, so the copy holds their result. The new file is resolved and journaled as created like the file of `ATTACH`, so `undo` removes it |
+| pragmas that set a value or act | run outside the transaction, in their place, so `journal_mode`, `foreign_keys` and `temp_store_directory` work; `temp_store_directory` and `data_store_directory` are allowed and change the state of the whole Nurt process (SQLite keeps them in global variables); the call reports each as an effect that is not undone, and `undo` does not reset them |
+| `load_extension` | allowed under any spelling (quoted or in another case); the report marks the call with `external_effect`, because the effects of the extension are unknown and cannot be undone |
 
-The connection runs in the defensive mode of SQLite with untrusted schema.
-A call with `write: false` refuses `ATTACH`, `DETACH`, the directory pragmas
+A call that changes the database turns the defensive mode of SQLite off, as
+the language allows `load_extension`; the schema stays untrusted. A call
+with `write: false` keeps the defensive mode and refuses `ATTACH`, `DETACH`, the directory pragmas
 (`problem`: `attach`, `pragma`) and `load_extension` (`problem`:
 `extension`).
 
@@ -200,11 +201,12 @@ sql "/home/user/app.db" "select ?2 - ?1 as span, upper(?3) as label" params: [5,
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_SQL` | a statement cannot be prepared or executed, changes the database with `write: false`, is refused with `write: false` (`problem`: `attach`, `extension`, `pragma`), holds no statement (`problem`: `empty_query`), or `params` does not match the statements (`problem`: `parameter_count`, `parameter_name`, `parameter_type`, `parameter_range`); the problem `write_required` marks a statement that changes the database with `write: false`, `VACUUM INTO` included; `details` holds `statement` and `sqlite_code` | correct the statement, remove `write: false`, or pass one value per parameter or one entry per named placeholder |
-| `E_ROLLED_BACK` | a statement `ROLLBACK` ended the call; `details.statement` holds its number and nothing was changed | remove the `ROLLBACK` statement to keep the changes |
+| `E_ROLLED_BACK` | a statement `ROLLBACK` ended the call; `details.statement` holds its number; the message and `details.irreversible` name effects that were reported earlier and cannot be undone | remove the `ROLLBACK` statement to keep the changes |
 | `E_MISSING_PARAM` | `path` or `query` is not given | pass both |
 | `E_TYPE` | `path`, `query`, `params` or `write` has another type | pass `params` as a list or a map |
 | `E_DOC_PARSE` | the file is not an SQLite database, is encrypted or damaged; `details.format` is `sqlite`, `details.sqlite_code` holds the SQLite code when SQLite reported it | pass an SQLite database file |
 | `E_NOT_FOUND` | the database file does not exist | check the path; an empty file is an empty database |
+| `E_PATH_RELATIVE` | the file of `ATTACH` or `VACUUM INTO` is relative and the call has no `base` | give an absolute file or set `base` |
 | `E_IN_USE` | another connection holds a lock longer than `sql.busy_timeout` | retry later or raise `sql.busy_timeout` |
 | `E_IO` | the file cannot be read or written for another reason | see the message |
 | `E_PERMISSION` | the file or its directory cannot be read or written | check the permissions |

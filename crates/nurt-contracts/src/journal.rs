@@ -552,8 +552,8 @@ pub enum Mutation {
     CreateNode {
         /// Kind of the entry and its device numbers.
         node: SpecialNode,
-        /// Permission bits.
-        mode: u32,
+        /// Permission bits set exactly; `None` leaves the umask in effect.
+        mode: Option<u32>,
     },
     /// Create a symbolic link or junction.
     CreateLink {
@@ -938,7 +938,7 @@ impl FileOp {
 
     /// Creates a named pipe or a device node.
     #[must_use]
-    pub fn create_node(path: AbsPath, node: SpecialNode, mode: u32) -> Self {
+    pub fn create_node(path: AbsPath, node: SpecialNode, mode: Option<u32>) -> Self {
         Self::new(
             path,
             TargetAction::Create,

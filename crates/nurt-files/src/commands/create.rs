@@ -58,8 +58,12 @@ const MODE: &str = "mode";
 const TYPE_VALUES: [&str; 6] = ["file", "directory", "link", "junction", "fifo", "device"];
 const KIND_VALUES: [&str; 2] = ["char", "block"];
 
-/// Permission bits of a new named pipe or device node when `mode` is absent.
-const SPECIAL_MODE: u32 = 0o666;
+/// Limits of the device numbers, by system: the largest major and minor
+/// numbers that the 32-bit device number of `mknod` keeps.
+const LINUX_MAJOR_MAX: i64 = 4095;
+const LINUX_MINOR_MAX: i64 = 1_048_575;
+const MACOS_MAJOR_MAX: i64 = 255;
+const MACOS_MINOR_MAX: i64 = 16_777_215;
 /// Largest value of the permission bits.
 const MODE_LIMIT: u32 = 0o7777;
 const ON_EXISTS_VALUES: [&str; 3] = ["skip", "error", "touch"];
@@ -177,7 +181,7 @@ struct Spec {
     parents: bool,
     on_exists: OnExists,
     node: SpecialNode,
-    mode: u32,
+    mode: Option<u32>,
 }
 
 impl Spec {
@@ -203,7 +207,7 @@ impl Spec {
             temporary: args.bool(TEMPORARY)?.unwrap_or(false),
             parents: args.bool(PARENTS)?.unwrap_or(true),
             on_exists,
-            node: special_node(kind, args)?,
+            node: special_node(kind, args, ctx)?,
             mode: special_mode(kind, args)?,
         };
         spec.check(args, ctx)?;
@@ -262,7 +266,7 @@ impl Spec {
             Kind::Link => kind == FileKind::Symlink,
             Kind::Junction => kind == FileKind::Junction,
             Kind::Fifo => special.is_some_and(|node| node.kind == SpecialKind::Fifo),
-            Kind::Device => special.is_some_and(|node| node.kind == self.node.kind),
+            Kind::Device => special == Some(self.node),
         }
     }
 
@@ -294,7 +298,7 @@ fn missing_type(args: &BoundArgs, ctx: &ExecCtx) -> Error {
 ///
 /// A device needs `kind`, `major` and `minor`; the other types take none of
 /// them.
-fn special_node(kind: Kind, args: &BoundArgs) -> Result<SpecialNode> {
+fn special_node(kind: Kind, args: &BoundArgs, ctx: &ExecCtx) -> Result<SpecialNode> {
     let named = [KIND, MAJOR, MINOR];
     if kind != Kind::Device {
         if let Some(name) = named.into_iter().find(|name| present(args, name)) {
@@ -312,43 +316,50 @@ fn special_node(kind: Kind, args: &BoundArgs) -> Result<SpecialNode> {
             ));
         }
     };
+    let (major_max, minor_max) = if ctx.host().info().os == Os::Macos {
+        (MACOS_MAJOR_MAX, MACOS_MINOR_MAX)
+    } else {
+        (LINUX_MAJOR_MAX, LINUX_MINOR_MAX)
+    };
     Ok(SpecialNode::device(
         device,
-        device_number(args, MAJOR)?,
-        device_number(args, MINOR)?,
+        device_number(args, MAJOR, major_max)?,
+        device_number(args, MINOR, minor_max)?,
     ))
 }
 
-fn device_number(args: &BoundArgs, name: &str) -> Result<u32> {
+fn device_number(args: &BoundArgs, name: &str, largest: i64) -> Result<u32> {
     let Some(number) = args.int(name)? else {
         return Err(Error::new(
             ErrorCode::MissingParam,
             format!("`type: device` needs `{name}`: the device number as an integer"),
         ));
     };
-    u32::try_from(number).map_err(|_| {
-        Error::new(
+    match u32::try_from(number) {
+        Ok(value) if number <= largest => Ok(value),
+        _ => Err(Error::new(
             ErrorCode::InvalidValue,
-            format!("`{name}` must be between 0 and {}, not {number}", u32::MAX),
-        )
-    })
+            format!("`{name}` must be between 0 and {largest} on this system, not {number}"),
+        )),
+    }
 }
 
 /// Permission bits of a named pipe or device node from `mode`, written in
 /// octal such as `0660`; `mode` is not accepted for other types.
-fn special_mode(kind: Kind, args: &BoundArgs) -> Result<u32> {
+fn special_mode(kind: Kind, args: &BoundArgs) -> Result<Option<u32>> {
     if !matches!(kind, Kind::Fifo | Kind::Device) {
         if present(args, MODE) {
             return Err(type_conflict(MODE, kind));
         }
-        return Ok(SPECIAL_MODE);
+        return Ok(None);
     }
     let Some(text) = args.text(MODE)? else {
-        return Ok(SPECIAL_MODE);
+        return Ok(None);
     };
     u32::from_str_radix(text, 8)
         .ok()
         .filter(|bits| *bits <= MODE_LIMIT)
+        .map(Some)
         .ok_or_else(|| {
             Error::new(
                 ErrorCode::InvalidValue,
@@ -365,6 +376,19 @@ fn type_conflict(name: &str, kind: Kind) -> Error {
             kind.as_str()
         ),
     )
+}
+
+fn describe_existing(kind: FileKind, special: Option<SpecialNode>) -> String {
+    match special {
+        Some(node) if node.kind == SpecialKind::Fifo => "a fifo".to_owned(),
+        Some(node) => format!(
+            "a {} device {}:{}",
+            node.kind.as_str(),
+            node.major,
+            node.minor
+        ),
+        None => format!("a {}", kind_name(kind)),
+    }
 }
 
 fn kind_name(kind: FileKind) -> &'static str {
@@ -481,8 +505,8 @@ impl<'c> Planner<'c> {
             return Err(Error::new(
                 ErrorCode::Exists,
                 format!(
-                    "`{path}` exists and is a {}, not a {}: choose another path",
-                    kind_name(meta.kind),
+                    "`{path}` exists and is {}, not a {}: choose another path",
+                    describe_existing(meta.kind, special),
                     self.spec.kind.as_str()
                 ),
             ));
@@ -1097,7 +1121,7 @@ mod tests {
         assert!(matches!(
             &op.work,
             Work::Apply(Mutation::CreateNode { node, mode })
-                if *node == SpecialNode::fifo() && *mode == SPECIAL_MODE
+                if *node == SpecialNode::fifo() && mode.is_none()
         ));
     }
 
@@ -1147,7 +1171,7 @@ mod tests {
         assert!(matches!(
             &op.work,
             Work::Apply(Mutation::CreateNode { node, mode })
-                if *node == SpecialNode::device(SpecialKind::Char, 1, 3) && *mode == 0o666
+                if *node == SpecialNode::device(SpecialKind::Char, 1, 3) && *mode == Some(0o666)
         ));
         let block = Create
             .plan(
@@ -1260,5 +1284,65 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(node.code(), ErrorCode::Exists);
+    }
+
+    #[test]
+    fn an_existing_device_with_other_numbers_is_refused_with_its_numbers() {
+        let test = linux();
+        run(&test, &device("/data/d", "char", 1, 3)).unwrap();
+        let same = run(&test, &device("/data/d", "char", 1, 3)).unwrap();
+        assert!(same.changes.is_empty());
+        let other = Create
+            .plan(
+                &device("/data/d", "char", 1, 5),
+                StageInput::none(),
+                &test.ctx(),
+            )
+            .unwrap_err();
+        assert_eq!(other.code(), ErrorCode::Exists);
+        assert!(
+            other.message.contains("char device 1:3"),
+            "{}",
+            other.message
+        );
+    }
+
+    #[test]
+    fn a_preview_of_a_node_creates_nothing() {
+        let test = linux();
+        let plan = Create
+            .plan(&args(&["/data/p"], "fifo"), StageInput::none(), &test.ctx())
+            .unwrap();
+        assert_eq!(plan.changes.len(), 2);
+        assert!(!test.fs().exists(&abs("/data/p")));
+        let plan = Create
+            .plan(
+                &device("/data/d", "block", 8, 0),
+                StageInput::none(),
+                &test.ctx(),
+            )
+            .unwrap();
+        assert_eq!(plan.changes.len(), 2);
+        assert!(!test.fs().exists(&abs("/data/d")));
+    }
+
+    #[test]
+    fn the_device_numbers_of_macos_are_narrower() {
+        let mac = TestContext::with_host(TestHost::macos());
+        let error = Create
+            .plan(
+                &device("/data/d", "char", 256, 0),
+                StageInput::none(),
+                &mac.ctx(),
+            )
+            .unwrap_err();
+        assert_eq!(error.code(), ErrorCode::InvalidValue);
+        Create
+            .plan(
+                &device("/data/d", "char", 255, 16_777_215),
+                StageInput::none(),
+                &mac.ctx(),
+            )
+            .unwrap();
     }
 }

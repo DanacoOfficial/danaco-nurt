@@ -41,8 +41,8 @@ file or directory with a unique name that starts with `nurt-` in each; without
 result hold the new paths.
 
 `type: fifo` creates a named pipe (FIFO) with the permission bits of `mode`,
-written in octal, for example `mode: "0660"` (default `0666`, reduced by the
-umask). `type: device` creates a device node and needs `kind: char` or
+written in octal, for example `mode: "0660"` (without `mode` the default `0666` is reduced by the
+umask; with `mode` the bits are set exactly, without following a link). `type: device` creates a device node and needs `kind: char` or
 `kind: block`, `major` and `minor`; `mode` applies as for a pipe. Both exist
 on Linux and macOS only; on Windows they fail with `E_OS_ONLY`, and for a
 pipe the message points to the named pipes of the system, which are objects
@@ -128,7 +128,7 @@ create "/home/user/tmp" type: file temporary: true
 | `E_MISSING_PARAM` | `type` is missing, `path` is missing without `temporary`, a link has no `target`, or a device lacks `kind`, `major` or `minor` | give the missing parameter |
 | `E_EXISTS` | the entry exists with `on_exists: error`, or exists as another kind | choose another path or `on_exists: skip` |
 | `E_PARAM_CONFLICT` | `target` or `hard` with a type other than `link`, `kind`, `major` or `minor` with a type other than `device`, `mode` with a type other than `fifo` or `device`, `temporary` with a link, a fifo or a device, or a path given twice | remove the parameter |
-| `E_INVALID_VALUE` | `major` or `minor` is not between 0 and 4294967295, or `mode` is not octal permission bits | give a valid value |
+| `E_INVALID_VALUE` | `major` or `minor` exceeds the device number of the system (Linux: major up to 4095, minor up to 1048575; macOS: 255 and 16777215), or `mode` is not octal permission bits | give a valid value |
 | `E_NOT_FOUND` | a parent directory is missing and `parents` is `false`, or the target of a hard link or junction is missing | set `parents: true` or create the target |
 | `E_OS_ONLY` | `type: junction` outside Windows, `type: fifo` or `type: device` on Windows | use `type: link`; on Windows create the named pipe in the program that serves it |
 | `E_PRIVILEGE` | Windows refuses to create a symbolic link, or a device node is created without `privilege: elevated` | enable developer mode, use a junction, or add `privilege: elevated` |

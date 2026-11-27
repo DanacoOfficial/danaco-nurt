@@ -21,7 +21,8 @@ const TRIGGER_KEYWORD_WINDOW: usize = 3;
 
 /// Pragmas that return rows when written as `pragma name(argument)`; every
 /// other pragma with an argument or an assignment sets a value.
-const QUERY_PRAGMAS: [&str; 9] = [
+const QUERY_PRAGMAS: [&str; 10] = [
+    "quick_check",
     "table_info",
     "table_xinfo",
     "table_list",
@@ -63,8 +64,10 @@ pub enum StatementKind {
     Attach,
     /// `DETACH`.
     Detach,
-    /// `VACUUM`, with or without `INTO`.
+    /// `VACUUM` without `INTO`.
     Vacuum,
+    /// `VACUUM INTO`.
+    VacuumInto,
     /// A pragma that sets a value or acts; it runs outside a transaction.
     Pragma,
     /// A statement that calls `load_extension`.
@@ -181,6 +184,9 @@ fn kind_of(tokens: &[Token<'_>]) -> StatementKind {
         "ROLLBACK" => StatementKind::Rollback,
         "ATTACH" => StatementKind::Attach,
         "DETACH" => StatementKind::Detach,
+        "VACUUM" if tokens.iter().any(|token| token.is_keyword("INTO")) => {
+            StatementKind::VacuumInto
+        }
         "VACUUM" => StatementKind::Vacuum,
         _ => StatementKind::Change,
     }
@@ -409,7 +415,7 @@ mod tests {
     fn names_the_kind_of_each_statement() {
         assert_eq!(
             statement_kinds(
-                "begin immediate; attach 'a' as b; detach b; commit; end; rollback; vacuum into 'x'"
+                "begin immediate; attach 'a' as b; detach b; commit; end; rollback; vacuum into 'x'; vacuum"
             ),
             [
                 StatementKind::Begin,
@@ -418,6 +424,7 @@ mod tests {
                 StatementKind::Commit,
                 StatementKind::Commit,
                 StatementKind::Rollback,
+                StatementKind::VacuumInto,
                 StatementKind::Vacuum,
             ]
         );

@@ -16,6 +16,7 @@ mod convert;
 mod error;
 mod guard;
 mod journal;
+mod names;
 mod read;
 mod session;
 mod split;
@@ -56,13 +57,9 @@ pub(crate) struct SqlRequest {
     /// The database is opened for writing: `write: true`, or no `write` and a
     /// statement that changes something.
     pub(crate) write: bool,
+    /// Directory against which a relative file of `ATTACH` or `VACUUM INTO`
+    /// is resolved: the `base` option or `scope.base`.
+    pub(crate) base: Option<PathBuf>,
     /// Longest wait for a lock held by another connection.
     pub(crate) busy_timeout: Duration,
-}
-
-impl SqlRequest {
-    /// `true` when a statement calls `load_extension`.
-    pub(crate) fn extension(&self) -> bool {
-        split::statement_kinds(&self.query).contains(&split::StatementKind::Extension)
-    }
 }

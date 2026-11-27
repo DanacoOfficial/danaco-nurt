@@ -18,6 +18,7 @@ use rusqlite::{Batch, Connection, OpenFlags, Statement};
 
 use super::error::{self, Site};
 use super::guard::Policy;
+use super::names::{self, DatabaseName};
 use super::split::StatementKind;
 use super::{SqlParams, SqlRequest, convert, split, target};
 
@@ -85,6 +86,11 @@ impl Database {
     }
 
     /// The connection, for the statements that `sql` runs itself.
+    /// Actions of the call that the journal cannot undo.
+    pub(super) fn effects(&self) -> super::guard::Effects {
+        self.policy.effects()
+    }
+
     pub(super) fn connection(&self) -> &Connection {
         &self.connection
     }
@@ -171,11 +177,6 @@ impl Database {
         let mut script = Script {
             open: false,
             deferred: Vec::new(),
-            known: self
-                .schemas(request)?
-                .into_iter()
-                .map(|(name, _)| name)
-                .collect(),
         };
         let result = self.run_script(request, files, &mut script, sink);
         if result.is_err() && script.open {
@@ -202,21 +203,29 @@ impl Database {
         let mut number = 0;
         while let Some(mut statement) = self.next_statement(&mut batch, request, number + 1)? {
             number += 1;
-            let kind = kinds
-                .get(number - 1)
-                .copied()
-                .unwrap_or(StatementKind::Change);
+            let Some(kind) = kinds.get(number - 1).copied() else {
+                return Err(split_mismatch(number, kinds.len()));
+            };
             self.bind(&mut binder, &mut statement, number, request)?;
             let table = multiple.then(|| number.to_string());
             match kind {
                 StatementKind::Begin | StatementKind::Commit => {}
-                StatementKind::Rollback => return Err(self.rolled_back(script, number)),
+                StatementKind::Rollback => return Err(self.rolled_back(script, number, files)),
                 StatementKind::Attach => {
-                    self.attach(statement, number, request, files, script)?;
+                    self.commit(script, request)?;
+                    self.attach(statement, number, request, files)?;
                 }
-                StatementKind::Detach | StatementKind::Vacuum => {
-                    summary.wrote |= kind == StatementKind::Vacuum;
-                    script.deferred.push((number, kind, statement));
+                StatementKind::VacuumInto => {
+                    self.commit(script, request)?;
+                    self.vacuum_into(statement, number, request, files)?;
+                }
+                StatementKind::Detach => {
+                    self.commit(script, request)?;
+                    self.emit_rows(&mut statement, number, request, None, &mut |_| Ok(()))?;
+                }
+                StatementKind::Vacuum => {
+                    summary.wrote = true;
+                    script.deferred.push((number, statement));
                 }
                 StatementKind::Pragma => {
                     self.commit(script, request)?;
@@ -231,11 +240,11 @@ impl Database {
             }
         }
         binder.finish()?;
+        if number != kinds.len() {
+            return Err(split_mismatch(number + 1, kinds.len()));
+        }
         self.commit(script, request)?;
-        for (number, kind, mut statement) in std::mem::take(&mut script.deferred) {
-            if kind == StatementKind::Vacuum {
-                self.declare_vacuum(&statement, number, files)?;
-            }
+        for (number, mut statement) in std::mem::take(&mut script.deferred) {
             self.emit_rows(&mut statement, number, request, None, sink)?;
         }
         self.checkpoint_all(request)?;
@@ -263,96 +272,162 @@ impl Database {
         Ok(())
     }
 
-    fn rolled_back(&self, script: &mut Script<'_>, number: usize) -> Error {
+    /// Ends the call for a `ROLLBACK` statement: the open transaction is
+    /// rolled back and the executor restores the journaled files. Effects
+    /// that cannot be undone and were reported before are named in the error.
+    fn rolled_back(&self, script: &mut Script<'_>, number: usize, files: &dyn Files) -> Error {
         if script.open {
             let _ = self.connection.execute_batch("ROLLBACK");
             script.open = false;
         }
-        Error::new(
-            ErrorCode::RolledBack,
-            format!("statement {number} is ROLLBACK: the call is rolled back and changes nothing"),
-        )
-        .with_problem("rolled_back")
-        .with_detail("statement", serde_json::json!(number))
+        let kept = files.notes();
+        let message = if kept.is_empty() {
+            format!("statement {number} is ROLLBACK: the call is rolled back and changes nothing")
+        } else {
+            format!(
+                "statement {number} is ROLLBACK: the call is rolled back; effects that cannot be undone remain: {}",
+                kept.join("; ")
+            )
+        };
+        let error = Error::new(ErrorCode::RolledBack, message)
+            .with_problem("rolled_back")
+            .with_detail("statement", serde_json::json!(number));
+        if kept.is_empty() {
+            error
+        } else {
+            error.with_detail("irreversible", serde_json::json!(kept))
+        }
     }
 
-    /// Runs `ATTACH` outside the transaction, after the pending `DETACH`
-    /// statements, and declares the attached file to the journal before the
-    /// statements that change it.
-    fn attach<'c>(
+    /// Runs `ATTACH` outside the transaction. The file is computed, resolved
+    /// like a path argument and journaled before the statement; the statement
+    /// then runs with the resolved name, so SQLite opens the file that the
+    /// journal preserved. A file that cannot be told is reported as an effect
+    /// that cannot be undone, before the change.
+    fn attach(
         &self,
-        mut statement: Statement<'c>,
+        mut statement: Statement<'_>,
         number: usize,
         request: &SqlRequest,
         files: &mut dyn Files,
-        script: &mut Script<'c>,
     ) -> Result<()> {
-        self.commit(script, request)?;
-        let (detaches, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut script.deferred)
-            .into_iter()
-            .partition(|(_, kind, _)| *kind == StatementKind::Detach);
-        script.deferred = rest;
-        for (position, _, mut detach) in detaches {
-            self.emit_rows(&mut detach, position, request, None, &mut |_| Ok(()))?;
+        let sql = statement.expanded_sql().unwrap_or_default();
+        let parts = target::attach_parts(&sql);
+        let routed = match &parts {
+            Some(parts) => self.route(&parts.expression, number, request, files)?,
+            None => None,
+        };
+        let sink = &mut |_| Ok(());
+        match (parts, routed) {
+            (Some(parts), Some(name)) => {
+                let mut rewritten = self
+                    .connection
+                    .prepare(&format!("ATTACH DATABASE ?1 AS {}", parts.alias))
+                    .map_err(|e| self.fail(&e, request, number))?;
+                rewritten
+                    .raw_bind_parameter(1, name.as_str())
+                    .map_err(|e| self.fail(&e, request, number))?;
+                self.emit_rows(&mut rewritten, number, request, None, sink)
+            }
+            _ => self.emit_rows(&mut statement, number, request, None, sink),
         }
-        let sql = statement.expanded_sql();
-        let file = sql
-            .as_deref()
-            .and_then(target::attached_file)
-            .or_else(|| sql.as_deref().and_then(|text| self.evaluate_file(text)));
-        match file {
-            Some(file) => declare_file(files, &file)?,
-            None => files.untracked(
-                number,
-                "ATTACH names a file that could not be resolved before the statement ran, so the file is not preserved",
-            ),
-        }
-        self.emit_rows(&mut statement, number, request, None, &mut |_| Ok(()))?;
-        script.known = self
-            .schemas(request)?
-            .into_iter()
-            .map(|(name, _)| name)
-            .collect();
-        Ok(())
     }
 
-    /// Value of the expression that names the file of an `ATTACH`, computed
-    /// with a `SELECT` of the same expression; `None` when it is not text.
-    fn evaluate_file(&self, sql: &str) -> Option<String> {
-        let expression = target::attached_expression(sql)?;
-        self.connection
-            .query_row(&format!("SELECT ({expression})"), [], |row| {
-                row.get::<_, Option<String>>(0)
-            })
-            .ok()
-            .flatten()
-    }
-
-    /// Declares the file a `VACUUM INTO` creates, or notes that it is not
-    /// known.
-    fn declare_vacuum(
+    /// Runs `VACUUM [schema] INTO` in its place, after the earlier statements
+    /// committed, with the new file resolved and journaled first.
+    fn vacuum_into(
         &self,
-        statement: &Statement<'_>,
+        mut statement: Statement<'_>,
         number: usize,
+        request: &SqlRequest,
         files: &mut dyn Files,
     ) -> Result<()> {
-        let Some(sql) = statement.expanded_sql() else {
-            return Ok(());
+        let sql = statement.expanded_sql().unwrap_or_default();
+        let parts = target::vacuum_parts(&sql);
+        let routed = match &parts {
+            Some(parts) => self.route(&parts.expression, number, request, files)?,
+            None => None,
         };
-        match target::vacuum_target(&sql) {
-            Some(file) => declare_file(files, &file),
-            None => {
-                if sql.to_ascii_uppercase().contains("INTO") {
-                    files.untracked(
-                        number,
-                        "VACUUM INTO writes a file that is not given as a text literal or parameter",
-                    );
-                }
-                Ok(())
+        let sink = &mut |_| Ok(());
+        match (parts, routed) {
+            (Some(parts), Some(name)) => {
+                let schema = parts
+                    .schema
+                    .map(|schema| format!("{schema} "))
+                    .unwrap_or_default();
+                let mut rewritten = self
+                    .connection
+                    .prepare(&format!("VACUUM {schema}INTO ?1"))
+                    .map_err(|e| self.fail(&e, request, number))?;
+                rewritten
+                    .raw_bind_parameter(1, name.as_str())
+                    .map_err(|e| self.fail(&e, request, number))?;
+                self.emit_rows(&mut rewritten, number, request, None, sink)
+            }
+            _ => self.emit_rows(&mut statement, number, request, None, sink),
+        }
+    }
+
+    /// Computes the file that `expression` names, resolves it, declares it to
+    /// the journal and returns the name SQLite must receive. `None` when the
+    /// database is not a file (memory), or when the file cannot be told; in
+    /// the second case the effect is reported as one that cannot be undone.
+    fn route(
+        &self,
+        expression: &str,
+        number: usize,
+        request: &SqlRequest,
+        files: &mut dyn Files,
+    ) -> Result<Option<String>> {
+        let value = match target::literal_of(expression) {
+            Some(value) => Some(value),
+            None => self.evaluate(expression, request)?,
+        };
+        let Some(value) = value else {
+            files.untracked(
+                number,
+                "the statement names a file that could not be resolved before it ran, so the file is not preserved",
+            );
+            return Ok(None);
+        };
+        match names::database_name(&value) {
+            DatabaseName::Memory => Ok(None),
+            DatabaseName::Unknown => {
+                files.untracked(
+                    number,
+                    "the statement names a URI whose file cannot be told, so the file is not preserved",
+                );
+                Ok(None)
+            }
+            DatabaseName::File { path, uri, query } => {
+                let file = names::absolute(request.base.as_deref(), &path)?;
+                files.watch(file.clone(), &value)?;
+                Ok(Some(names::written(&file, uri, query.as_deref())))
             }
         }
     }
 
+    /// Value of `expression` computed with a `SELECT`; `None` when it is not
+    /// text or cannot be computed. An interrupt is an error.
+    fn evaluate(&self, expression: &str, request: &SqlRequest) -> Result<Option<String>> {
+        match self
+            .connection
+            .query_row(&format!("SELECT ({expression})"), [], |row| {
+                row.get::<_, Option<String>>(0)
+            }) {
+            Ok(value) => Ok(value),
+            Err(rusqlite::Error::SqliteFailure(failure, message))
+                if failure.code == rusqlite::ErrorCode::OperationInterrupted =>
+            {
+                Err(error::from_sqlite(
+                    &rusqlite::Error::SqliteFailure(failure, message),
+                    request,
+                    Site::Transaction,
+                ))
+            }
+            Err(_) => Ok(None),
+        }
+    }
     /// Name and file of every database of the connection.
     fn schemas(&self, request: &SqlRequest) -> Result<Vec<(String, String)>> {
         let failed = |e: rusqlite::Error| error::from_sqlite(&e, request, Site::Transaction);
@@ -451,15 +526,6 @@ fn enable_extensions(connection: &Connection) -> rusqlite::Result<()> {
     unsafe { connection.load_extension_enable() }
 }
 
-/// Declares to the journal the database file that `file` names, unless it
-/// is the memory or a temporary database, or an URI SQLite resolves itself.
-fn declare_file(files: &mut dyn Files, file: &str) -> Result<()> {
-    if file.is_empty() || file == ":memory:" || file.starts_with("file:") {
-        return Ok(());
-    }
-    files.watch(PathBuf::from(file), file)
-}
-
 /// The files that a change touches besides the database of the call; the
 /// journal preserves each of them before the statements change it.
 pub(super) trait Files {
@@ -475,6 +541,20 @@ pub(super) trait Files {
     /// Notes an effect on files that are not known before the statement
     /// runs; the effect cannot be undone.
     fn untracked(&mut self, number: usize, what: &str);
+
+    /// Descriptions of the effects reported so far that cannot be undone.
+    fn notes(&self) -> Vec<String>;
+}
+
+/// Error for statements that the lexer and SQLite split differently.
+fn split_mismatch(number: usize, expected: usize) -> Error {
+    Error::new(
+        ErrorCode::Sql,
+        format!(
+            "statement {number} does not match the {expected} statements the query was read as; split the query at its semicolons"
+        ),
+    )
+    .with_problem("statement_split")
 }
 
 /// State of the statements of one change.
@@ -482,14 +562,12 @@ struct Script<'c> {
     /// A transaction is open.
     open: bool,
     /// `DETACH` and `VACUUM` statements that run after the others.
-    deferred: Vec<(usize, StatementKind, Statement<'c>)>,
-    /// Names of the databases attached to the connection.
-    known: Vec<String>,
+    deferred: Vec<(usize, Statement<'c>)>,
 }
 
 fn configure(connection: &Connection, request: &SqlRequest) -> rusqlite::Result<()> {
     connection.busy_timeout(request.busy_timeout)?;
-    connection.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+    connection.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, !request.write)?;
     connection.set_db_config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, false)?;
     connection.set_db_config(
         DbConfig::SQLITE_DBCONFIG_ENABLE_ATTACH_CREATE,

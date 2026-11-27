@@ -83,6 +83,8 @@ pub(crate) struct CtxOptions {
     pub(crate) busy: Duration,
     pub(crate) cancel: CancelToken,
     pub(crate) max_records: u64,
+    /// `scope.base`: the directory of relative files of `ATTACH`.
+    pub(crate) base: Option<String>,
 }
 
 impl Default for CtxOptions {
@@ -91,6 +93,7 @@ impl Default for CtxOptions {
             busy: Duration::from_secs(5),
             cancel: CancelToken::new(),
             max_records: Limits::default().max_records,
+            base: None,
         }
     }
 }
@@ -98,6 +101,7 @@ impl Default for CtxOptions {
 /// Execution context without file system and services.
 pub(crate) fn context(options: CtxOptions) -> ExecCtx {
     let mut config = Config::default();
+    config.scope.base = options.base.clone();
     config.sql.busy_timeout =
         DurationSetting::from_millis(u64::try_from(options.busy.as_millis()).unwrap());
     let host = TestHost {

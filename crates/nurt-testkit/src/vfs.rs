@@ -2120,7 +2120,7 @@ impl FsWrite for VirtualFs {
         scope: &TxScope,
         path: &AbsPath,
         node: SpecialNode,
-        mode: u32,
+        mode: Option<u32>,
     ) -> FsResult<()> {
         let op = "create_node";
         let now = self.shared.now();
@@ -2130,7 +2130,7 @@ impl FsWrite for VirtualFs {
         if state.slot_inode(&slot).is_some() {
             return Err(fs_error(FsErrorKind::Exists, op, path.as_path()));
         }
-        let mut inode = Inode::new(FileKind::Special, mode, state.account, now);
+        let mut inode = Inode::new(FileKind::Special, mode.unwrap_or(0o644), state.account, now);
         inode.node = Some(node);
         state.insert(&slot, inode);
         state.record(scope, op, &[path]);

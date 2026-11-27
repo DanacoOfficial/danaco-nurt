@@ -24,8 +24,8 @@ use nurt_contracts::error::ErrorCode;
 use nurt_contracts::journal::{ExternalChangeKind, TargetPath};
 use nurt_contracts::value::Value;
 use u10_support::{
-    RecordingTx, args, args_auto, contents, count, ctx, database, database_files, failure, read,
-    text, write,
+    CtxOptions, RecordingTx, args, args_auto, contents, context, count, ctx, database,
+    database_files, failure, read, text, write,
 };
 
 const USERS: &str = "create table users(id integer primary key, name text not null);
@@ -263,19 +263,18 @@ fn vacuum_into_takes_the_file_from_a_parameter() {
 }
 
 #[test]
-fn vacuum_into_an_unknown_file_is_marked_irreversible() {
+fn vacuum_into_a_computed_file_is_resolved_and_journaled() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let copy = dir.path().join("computed.db");
     let query = format!("vacuum into '{}' || ''", text(&copy));
-    let written = write(
-        &args_auto(&db, &query, Vec::new()),
-        &ctx(),
-        &mut RecordingTx::new(),
-    )
-    .unwrap();
+    let mut tx = RecordingTx::new();
+    let written = write(&args_auto(&db, &query, Vec::new()), &ctx(), &mut tx).unwrap();
     assert!(copy.exists());
-    assert_eq!(written.irreversible.len(), 1);
+    assert!(written.irreversible.is_empty());
+    assert!(declares(&tx, &copy));
+    tx.undo();
+    assert!(!copy.exists());
 }
 
 #[test]
@@ -300,22 +299,37 @@ fn vacuum_runs_after_the_statements_outside_the_transaction() {
 }
 
 #[test]
-fn directory_pragmas_are_allowed() {
+fn directory_pragmas_are_allowed_and_reported_as_effects_on_the_process() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
     let query = format!("pragma temp_store_directory = '{}'", text(dir.path()));
-    write(
+    let set = write(
         &args_auto(&db, &query, Vec::new()),
         &ctx(),
         &mut RecordingTx::new(),
     )
     .unwrap();
-    write(
+    let reset = write(
+        &args_auto(&db, "pragma temp_store_directory = ''", Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    )
+    .unwrap();
+    assert_eq!(set.irreversible.len(), 1);
+    assert!(
+        set.irreversible[0]
+            .detail
+            .as_deref()
+            .is_some_and(|detail| detail.contains("whole Nurt process"))
+    );
+    assert_eq!(reset.irreversible.len(), 1);
+    let data = write(
         &args_auto(&db, "pragma data_store_directory = ''", Vec::new()),
         &ctx(),
         &mut RecordingTx::new(),
     )
     .unwrap();
+    assert_eq!(data.irreversible.len(), 1);
 }
 
 #[test]
@@ -379,4 +393,247 @@ fn attach_of_an_unresolvable_file_is_marked_irreversible_before_the_change() {
     let written = write(&args_auto(&db, query, Vec::new()), &ctx(), &mut tx).unwrap();
     assert_eq!(written.irreversible.len(), 1);
     assert_eq!(tx.declared.len(), 4);
+}
+
+fn wal_database(dir: &Path, name: &str) -> std::path::PathBuf {
+    database(
+        dir,
+        name,
+        "pragma journal_mode = wal; create table users(id integer primary key, name text not null); insert into users(name) values ('ada');",
+    )
+}
+
+#[test]
+fn a_file_uri_in_attach_is_journaled_and_undone() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let other = database(dir.path(), "other.db", USERS);
+    let before = contents(&database_files(&other));
+    let mut tx = RecordingTx::new();
+    let query = format!(
+        "attach 'file:{}?mode=rw' as o; delete from o.users",
+        text(&other).replace(' ', "%20")
+    );
+    write(&args_auto(&db, &query, Vec::new()), &ctx(), &mut tx).unwrap();
+    assert_eq!(count(&other, "select count(*) from users"), 0);
+    assert!(declares(&tx, &other));
+    tx.undo();
+    assert_eq!(contents(&database_files(&other)), before);
+}
+
+#[test]
+fn a_file_uri_in_vacuum_into_is_journaled_as_created() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let copy = dir.path().join("copy.db");
+    let mut tx = RecordingTx::new();
+    let query = format!("vacuum into 'file:{}'", text(&copy));
+    write(&args_auto(&db, &query, Vec::new()), &ctx(), &mut tx).unwrap();
+    assert!(copy.exists());
+    assert!(declares(&tx, &copy));
+    tx.undo();
+    assert!(!copy.exists());
+}
+
+#[test]
+fn a_memory_uri_needs_no_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let mut tx = RecordingTx::new();
+    let call = args_auto(
+        &db,
+        "attach 'file:m?mode=memory' as m; create table m.t(x)",
+        Vec::new(),
+    );
+    let written = write(&call, &ctx(), &mut tx).unwrap();
+    assert!(written.irreversible.is_empty());
+    assert_eq!(tx.declared.len(), 4);
+}
+
+#[test]
+fn a_relative_attach_resolves_against_the_base() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let other = database(dir.path(), "other.db", USERS);
+    let mut tx = RecordingTx::new();
+    let context = context(CtxOptions {
+        base: Some(text(dir.path())),
+        ..CtxOptions::default()
+    });
+    let call = args_auto(
+        &db,
+        "attach 'other.db' as o; delete from o.users",
+        Vec::new(),
+    );
+    write(&call, &context, &mut tx).unwrap();
+    assert_eq!(count(&other, "select count(*) from users"), 0);
+    assert!(declares(&tx, &other));
+}
+
+#[test]
+fn a_relative_attach_without_a_base_is_refused_before_any_effect() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let before = contents(&database_files(&db));
+    let mut tx = RecordingTx::new();
+    let call = args_auto(
+        &db,
+        "delete from users; attach 'stray-from-cwd.db' as o; create table o.t(x)",
+        Vec::new(),
+    );
+    let error = failure(write(&call, &ctx(), &mut tx));
+    assert_eq!(error.code(), ErrorCode::PathRelative);
+    assert!(!Path::new("stray-from-cwd.db").exists());
+    tx.undo();
+    assert_eq!(contents(&database_files(&db)), before);
+    let vacuum = args_auto(&db, "vacuum into 'stray-copy.db'", Vec::new());
+    assert_eq!(
+        failure(write(&vacuum, &ctx(), &mut RecordingTx::new())).code(),
+        ErrorCode::PathRelative
+    );
+    assert!(!Path::new("stray-copy.db").exists());
+}
+
+#[test]
+fn vacuum_into_runs_in_its_place_and_copies_the_earlier_state() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let copy = dir.path().join("copy.db");
+    let query = format!("vacuum into '{}'; delete from users", text(&copy));
+    write(
+        &args_auto(&db, &query, Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    )
+    .unwrap();
+    assert_eq!(count(&copy, "select count(*) from users"), 1);
+    assert_eq!(count(&db, "select count(*) from users"), 0);
+}
+
+#[test]
+fn undo_restores_wal_databases_main_and_attached() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = wal_database(dir.path(), "app.db");
+    let other = wal_database(dir.path(), "other.db");
+    let before_main = contents(&database_files(&db));
+    let before_other = contents(&database_files(&other));
+    let mut tx = RecordingTx::new();
+    let query = format!(
+        "insert into users(name) values ('eve'); attach '{}' as o; \
+         insert into o.users(name) values ('zed')",
+        text(&other)
+    );
+    write(&args_auto(&db, &query, Vec::new()), &ctx(), &mut tx).unwrap();
+    assert_eq!(count(&other, "select count(*) from users"), 2);
+    tx.undo();
+    assert_eq!(contents(&database_files(&db)), before_main);
+    assert_eq!(contents(&database_files(&other)), before_other);
+}
+
+#[test]
+fn a_failing_statement_after_attach_and_pragma_leaves_the_files_restorable() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let other = database(dir.path(), "other.db", USERS);
+    let before_main = contents(&database_files(&db));
+    let before_other = contents(&database_files(&other));
+    let mut tx = RecordingTx::new();
+    let query = format!(
+        "insert into users(name) values ('eve'); pragma journal_mode = wal; \
+         attach '{}' as o; insert into o.users(name) values ('zed'); \
+         insert into missing_table values (1)",
+        text(&other)
+    );
+    let error = failure(write(&args_auto(&db, &query, Vec::new()), &ctx(), &mut tx));
+    assert_eq!(error.code(), ErrorCode::Sql);
+    tx.undo();
+    assert_eq!(contents(&database_files(&db)), before_main);
+    assert_eq!(contents(&database_files(&other)), before_other);
+}
+
+#[test]
+fn rollback_after_attach_restores_the_files_and_names_nothing_kept() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let other = database(dir.path(), "other.db", USERS);
+    let before_other = contents(&database_files(&other));
+    let mut tx = RecordingTx::new();
+    let query = format!(
+        "attach '{}' as o; insert into o.users(name) values ('zed'); rollback",
+        text(&other)
+    );
+    let error = failure(write(&args_auto(&db, &query, Vec::new()), &ctx(), &mut tx));
+    assert_eq!(error.code(), ErrorCode::RolledBack);
+    tx.undo();
+    assert_eq!(contents(&database_files(&other)), before_other);
+}
+
+#[test]
+fn a_rollback_names_the_effects_that_stay() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let query = "attach (select name from users where 0) as o; rollback";
+    let error = failure(write(
+        &args_auto(&db, query, Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    ));
+    assert_eq!(error.code(), ErrorCode::RolledBack);
+    assert!(
+        error.message.contains("cannot be undone"),
+        "{}",
+        error.message
+    );
+}
+
+#[test]
+fn preview_of_a_change_touches_nothing_and_names_the_database() {
+    use nurt_contracts::stage::{StageImpl, StageInput};
+    use nurt_doc::commands::sql::SqlStage;
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let copy = dir.path().join("copy.db");
+    let before = contents(&database_files(&db));
+    let query = format!(
+        "attach '{}' as o; vacuum into '{}'; delete from users",
+        text(&dir.path().join("new.db")),
+        text(&copy)
+    );
+    let call = args_auto(&db, &query, Vec::new());
+    let stage = SqlStage;
+    let plan = stage
+        .as_effect()
+        .unwrap()
+        .plan(&call, StageInput::none(), &ctx())
+        .unwrap();
+    assert_eq!(plan.changes.len(), 1);
+    assert!(!copy.exists());
+    assert!(!dir.path().join("new.db").exists());
+    assert_eq!(contents(&database_files(&db)), before);
+}
+
+#[test]
+fn a_statement_split_that_disagrees_with_sqlite_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let call = args_auto(&db, "select 1; select 2", Vec::new());
+    assert_eq!(read(&call, &ctx()).unwrap().len(), 2);
+}
+
+#[test]
+fn a_quoted_load_extension_is_attempted_not_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", USERS);
+    let missing = dir.path().join("none");
+    let query = format!("select \"LOAD_extension\"('{}')", text(&missing));
+    let error = failure(write(
+        &args_auto(&db, &query, Vec::new()),
+        &ctx(),
+        &mut RecordingTx::new(),
+    ));
+    assert!(
+        !error.message.contains("not authorized"),
+        "{}",
+        error.message
+    );
 }

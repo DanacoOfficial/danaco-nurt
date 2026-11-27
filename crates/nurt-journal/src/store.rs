@@ -1667,6 +1667,18 @@ pub(crate) mod test_support {
             Ok(RemoveStats::default())
         }
 
+        #[cfg(target_os = "linux")]
+        fn create_node(
+            &self,
+            scope: &TxScope,
+            path: &AbsPath,
+            node: nurt_contracts::fs::SpecialNode,
+            mode: Option<u32>,
+        ) -> FsResult<()> {
+            self.record("create_node", &[path.as_path()])?;
+            nurt_fs::linux::LinuxFs::new().create_node(scope, path, node, mode)
+        }
+
         fn create_dir(&self, _scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()> {
             self.record("create_dir", &[path.as_path()])?;
             std::fs::create_dir(path.as_path())

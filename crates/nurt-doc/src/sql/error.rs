@@ -334,6 +334,7 @@ mod tests {
             query: "insert into t values (?)\n".to_owned(),
             params,
             write: false,
+            base: None,
             busy_timeout: Duration::from_secs(1),
         }
     }

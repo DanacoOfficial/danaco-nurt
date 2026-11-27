@@ -40,6 +40,17 @@ pub(super) enum Denial {
 pub(super) struct Policy {
     writing: bool,
     denial: Mutex<Option<Denial>>,
+    effects: Mutex<Effects>,
+}
+
+/// Actions that a connection opened for writing performed and whose effect
+/// the journal cannot undo.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub(super) struct Effects {
+    /// A statement called `load_extension`.
+    pub(super) extension: bool,
+    /// Pragmas that set a value of the whole process, by name.
+    pub(super) process_pragmas: Vec<String>,
 }
 
 impl Policy {
@@ -47,6 +58,7 @@ impl Policy {
         Self {
             writing,
             denial: Mutex::new(None),
+            effects: Mutex::new(Effects::default()),
         }
     }
 
@@ -72,6 +84,38 @@ impl Policy {
             .take()
     }
 
+    /// Effects recorded so far.
+    pub(super) fn effects(&self) -> Effects {
+        self.effects
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    fn record(&self, action: &AuthAction<'_>) {
+        let mut effects = self.effects.lock().unwrap_or_else(PoisonError::into_inner);
+        match action {
+            AuthAction::Function { function_name }
+                if function_name.eq_ignore_ascii_case(EXTENSION_FUNCTION) =>
+            {
+                effects.extension = true;
+            }
+            AuthAction::Pragma {
+                pragma_name,
+                pragma_value: Some(_),
+            } => {
+                if let Some(denied) = DENIED_PRAGMAS
+                    .iter()
+                    .find(|denied| pragma_name.eq_ignore_ascii_case(denied))
+                    && !effects.process_pragmas.iter().any(|seen| seen == denied)
+                {
+                    effects.process_pragmas.push((*denied).to_owned());
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn authorize(&self, action: &AuthAction<'_>) -> Authorization {
         match self.denial_of(action) {
             Some(denial) => {
@@ -84,6 +128,7 @@ impl Policy {
 
     fn denial_of(&self, action: &AuthAction<'_>) -> Option<Denial> {
         if self.writing {
+            self.record(action);
             return None;
         }
         match action {
@@ -169,6 +214,31 @@ mod tests {
             function_name: "upper",
         };
         assert_eq!(decide(&policy, upper), (Authorization::Allow, None));
+    }
+
+    #[test]
+    fn records_extension_calls_and_process_pragmas_while_writing() {
+        let policy = Policy::new(true);
+        let quoted_in_another_case = AuthAction::Function {
+            function_name: "Load_Extension",
+        };
+        assert_eq!(
+            decide(&policy, quoted_in_another_case).0,
+            Authorization::Allow
+        );
+        let pragma = AuthAction::Pragma {
+            pragma_name: "TEMP_STORE_DIRECTORY",
+            pragma_value: Some("/tmp"),
+        };
+        decide(&policy, pragma);
+        let read = AuthAction::Pragma {
+            pragma_name: "data_store_directory",
+            pragma_value: None,
+        };
+        decide(&policy, read);
+        let effects = policy.effects();
+        assert!(effects.extension);
+        assert_eq!(effects.process_pragmas, ["temp_store_directory"]);
     }
 
     #[test]

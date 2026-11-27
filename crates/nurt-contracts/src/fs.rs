@@ -1440,7 +1440,9 @@ pub trait FsWrite: Fs {
     /// for a missing parent.
     fn create_dir(&self, scope: &TxScope, path: &AbsPath, mode: u32) -> FsResult<()>;
 
-    /// Creates a named pipe or a device node with the given permission bits.
+    /// Creates a named pipe or a device node. With `mode` the permission bits
+    /// are set exactly, without following a symbolic link; without it the
+    /// umask of the process applies to the default `0666`.
     ///
     /// # Errors
     ///
@@ -1454,7 +1456,7 @@ pub trait FsWrite: Fs {
         scope: &TxScope,
         path: &AbsPath,
         node: SpecialNode,
-        mode: u32,
+        mode: Option<u32>,
     ) -> FsResult<()> {
         let _ = (scope, node, mode);
         Err(FsError::new(

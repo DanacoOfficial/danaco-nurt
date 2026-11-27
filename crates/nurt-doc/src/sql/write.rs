@@ -66,12 +66,6 @@ pub(crate) fn write(
     session::check_file(request)?;
     let mut journal = Journaled::new(tx, request);
     journal.declare(DatabaseFiles::locate(request)?)?;
-    if request.extension() {
-        journal.untracked(
-            0,
-            "the statements call load_extension, whose effects are unknown",
-        );
-    }
     let mut rows = Vec::new();
     let summary = execute(request, ctx, &mut journal, &mut rows)?;
     let (size_before, size_after) = journal.finish(summary.wrote)?;
@@ -162,6 +156,13 @@ impl Files for Journaled<'_> {
         self.declare(files)
     }
 
+    fn notes(&self) -> Vec<String> {
+        self.irreversible
+            .iter()
+            .filter_map(|entry| entry.detail.clone())
+            .collect()
+    }
+
     fn untracked(&mut self, number: usize, what: &str) {
         let mut entry = IrreversibleEntry::new(Irreversible::ExternalEffect);
         entry.detail = Some(if number == 0 {
@@ -189,6 +190,19 @@ fn execute(
         result
     });
     let summary = result.map_err(|error| ctx.checkpoint().err().unwrap_or(error))?;
+    let effects = database.effects();
+    if effects.extension {
+        files.untracked(
+            0,
+            "the statements call load_extension, whose effects are unknown and cannot be undone",
+        );
+    }
+    for name in &effects.process_pragmas {
+        files.untracked(
+            0,
+            &format!("pragma {name} changes the state of the whole Nurt process and is not undone"),
+        );
+    }
     database.close(request)?;
     Ok(summary)
 }
