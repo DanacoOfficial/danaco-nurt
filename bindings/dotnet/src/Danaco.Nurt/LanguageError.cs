@@ -69,11 +69,30 @@ public sealed class LanguageError
     /// <summary>The whole error object as JSON.</summary>
     public JsonElement Element { get; }
 
-    /// <summary>Reads the member <c>error</c> of a result object; <see langword="null"/> when the member is absent.</summary>
-    internal static LanguageError? FromMember(JsonElement? container) =>
-        container is { ValueKind: JsonValueKind.Object } value && JsonRead.Property(value, "error") is { ValueKind: JsonValueKind.Object } error
-            ? new LanguageError(error)
+    /// <summary>
+    /// Reads the member <c>error</c> of a result object, or the member <c>error</c> of its member <c>report</c>, where
+    /// <c>nurt serve</c> reports the language error of a method as a failed response; <see langword="null"/> when there is none.
+    /// </summary>
+    internal static LanguageError? FromMember(JsonElement? container) => ErrorElement(container) is { } error ? new LanguageError(error) : null;
+
+    /// <summary>The object that describes the language error of a result object; <see langword="null"/> when there is none.</summary>
+    internal static JsonElement? ErrorElement(JsonElement? container)
+    {
+        if (container is not { ValueKind: JsonValueKind.Object } value)
+        {
+            return null;
+        }
+
+        if (JsonRead.Property(value, "error") is { ValueKind: JsonValueKind.Object } error)
+        {
+            return error;
+        }
+
+        return JsonRead.Property(value, "report") is { ValueKind: JsonValueKind.Object } report
+            && JsonRead.Property(report, "error") is { ValueKind: JsonValueKind.Object } failure
+            ? failure
             : null;
+    }
 
     private static List<AmbiguityCandidate> ReadCandidates(JsonElement element)
     {

@@ -16,13 +16,18 @@ namespace Danaco.Nurt;
 /// <summary>Result of correcting the written form of a program without running it.</summary>
 public sealed class CorrectResult
 {
-    internal CorrectResult(JsonElement result)
+    internal CorrectResult(JsonElement result, string? unchanged = null)
     {
         Result = result;
-        Program = JsonRead.String(result, "program");
+        Program = JsonRead.String(result, "program")
+            ?? (JsonRead.Property(result, "ast") is null ? null : JsonRead.String(result, "ran") ?? unchanged);
     }
 
-    /// <summary>Corrected program text; <see langword="null"/> when the program cannot be corrected.</summary>
+    /// <summary>
+    /// Corrected program text; <see langword="null"/> when the program cannot be corrected. The text is the member
+    /// <c>program</c> of the result or, as <c>nurt serve</c> answers, the canonical text <c>ran</c> of a program that was corrected;
+    /// a program that needed no correction is its own corrected text.
+    /// </summary>
     public string? Program { get; }
 
     /// <summary>The whole result as JSON, including the list of corrections.</summary>
