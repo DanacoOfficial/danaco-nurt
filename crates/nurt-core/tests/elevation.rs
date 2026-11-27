@@ -28,7 +28,9 @@ use nurt_contracts::config::Config;
 use nurt_contracts::envelope::{Language, Privilege, Request, RequestOptions, Response, Verbosity};
 use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::kinds::SyntaxVariant;
-use nurt_contracts::report::{Report, ReportStatus};
+#[cfg(unix)]
+use nurt_contracts::report::Report;
+use nurt_contracts::report::ReportStatus;
 use nurt_contracts::stage::{
     BoundArgs, ExecCtx, ReadStage, StageDescriptor, StageImpl, StageInput, StageOutput,
 };
