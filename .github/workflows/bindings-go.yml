@@ -47,7 +47,7 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Staticcheck
-        run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+        run: go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
       - name: License files match the repository
         run: |
           cmp LICENSE ../../LICENSE
@@ -74,6 +74,7 @@ jobs:
           go-version: ${{ matrix.go }}
           cache-dependency-path: bindings/go/go.mod
       - name: Test
+        shell: bash
         run: go test -race -count=1 -coverprofile=coverage.out ./...
       - name: Coverage
         shell: bash
