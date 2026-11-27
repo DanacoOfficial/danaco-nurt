@@ -9,7 +9,7 @@
 
 use nurt_contracts::ast::Span;
 
-use super::lex::{Operator, PosixToken, PosixTokenKind, Word};
+use super::lex::{Operator, PosixToken, PosixTokenKind, Quoting, Word, WordPart};
 use super::syntax::{Connector, join};
 
 /// A list of commands.
@@ -63,7 +63,6 @@ pub(crate) enum Node {
     },
     Function {
         name: String,
-        body: Block,
         span: Span,
     },
     Group {
@@ -71,7 +70,10 @@ pub(crate) enum Node {
         span: Span,
     },
     /// A construct without a translation, such as a subshell.
-    Unsupported { keyword: String, span: Span },
+    Unsupported {
+        keyword: String,
+        span: Span,
+    },
 }
 
 impl Node {
@@ -95,8 +97,6 @@ pub(crate) struct Simple {
     pub(crate) span: Span,
     pub(crate) words: Vec<Word>,
     pub(crate) negated: bool,
-    /// The span holds a pipeline or redirections, not one command.
-    pub(crate) composite: bool,
     /// The words are the content of `[[ … ]]`.
     pub(crate) double_bracket: bool,
 }
@@ -310,8 +310,13 @@ impl Parser<'_> {
     }
 
     fn is_function_header(&self) -> bool {
-        matches!(self.kind(1), Some(PosixTokenKind::Operator(Operator::OpenParen)))
-            && matches!(self.kind(2), Some(PosixTokenKind::Operator(Operator::CloseParen)))
+        matches!(
+            self.kind(1),
+            Some(PosixTokenKind::Operator(Operator::OpenParen))
+        ) && matches!(
+            self.kind(2),
+            Some(PosixTokenKind::Operator(Operator::CloseParen))
+        )
     }
 
     fn if_command(&mut self) -> Result<Node, ParseError> {
@@ -419,7 +424,10 @@ impl Parser<'_> {
                 self.pos += 1;
                 break;
             }
-            if matches!(self.kind(0), Some(PosixTokenKind::Operator(Operator::OpenParen))) {
+            if matches!(
+                self.kind(0),
+                Some(PosixTokenKind::Operator(Operator::OpenParen))
+            ) {
                 self.pos += 1;
             }
             let mut patterns = Vec::new();
@@ -439,7 +447,10 @@ impl Parser<'_> {
                 }
             }
             let body = self.block(&[])?;
-            if matches!(self.kind(0), Some(PosixTokenKind::Operator(Operator::CaseEnd))) {
+            if matches!(
+                self.kind(0),
+                Some(PosixTokenKind::Operator(Operator::CaseEnd))
+            ) {
                 self.pos += 1;
             }
             arms.push(CaseArm { patterns, body });
@@ -459,7 +470,10 @@ impl Parser<'_> {
         };
         let name = word.raw.clone();
         self.pos += 1;
-        if matches!(self.kind(0), Some(PosixTokenKind::Operator(Operator::OpenParen))) {
+        if matches!(
+            self.kind(0),
+            Some(PosixTokenKind::Operator(Operator::OpenParen))
+        ) {
             self.pos += 2;
         }
         self.function_body(name, start)
@@ -481,11 +495,10 @@ impl Parser<'_> {
             return self.error("expected { after the function header");
         }
         self.pos += 1;
-        let body = self.block(&[])?;
+        self.block(&[])?;
         self.expect("}")?;
         Ok(Node::Function {
             name,
-            body,
             span: join(start, self.last_span()),
         })
     }
@@ -509,7 +522,6 @@ impl Parser<'_> {
         }
         let double_bracket = self.word_is("[[");
         let mut words = Vec::new();
-        let mut composite = false;
         let mut first_command = true;
         let mut end = start;
         while let Some(token) = self.peek() {
@@ -527,26 +539,41 @@ impl Parser<'_> {
                         break;
                     }
                 }
-                PosixTokenKind::Redirect(_) => composite = true,
+                PosixTokenKind::Redirect(_) => {}
                 PosixTokenKind::Operator(Operator::Pipe | Operator::PipeAll) => {
-                    composite = true;
                     first_command = false;
                 }
-                PosixTokenKind::Operator(_) | PosixTokenKind::Newline | PosixTokenKind::Comment(_) => {
+                PosixTokenKind::Operator(
+                    operator @ (Operator::And
+                    | Operator::Or
+                    | Operator::OpenParen
+                    | Operator::CloseParen),
+                ) if double_bracket => {
+                    let text = operator.as_str();
+                    words.push(Word {
+                        raw: text.to_owned(),
+                        parts: vec![WordPart::Literal {
+                            text: text.to_owned(),
+                            quoting: Quoting::None,
+                        }],
+                    });
+                }
+                PosixTokenKind::Operator(_)
+                | PosixTokenKind::Newline
+                | PosixTokenKind::Comment(_) => {
                     break;
                 }
             }
             end = token.span;
             self.pos += 1;
         }
-        if words.is_empty() && !composite && !double_bracket {
+        if words.is_empty() && !double_bracket {
             return self.error("expected a command");
         }
         Ok(Node::Simple(Simple {
             span: join(start, end),
             words,
             negated,
-            composite,
             double_bracket,
         }))
     }
@@ -621,6 +648,8 @@ mod tests {
     #[test]
     fn plain_commands_are_not_compound() {
         assert!(!has_compound(&lex("rm -rf /a && mkdir /a").expect("lexes")));
-        assert!(has_compound(&lex("cd /a && for f in x; do rm $f; done").expect("lexes")));
+        assert!(has_compound(
+            &lex("cd /a && for f in x; do rm $f; done").expect("lexes")
+        ));
     }
 }

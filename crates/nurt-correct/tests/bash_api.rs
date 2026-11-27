@@ -17,6 +17,7 @@ const HABITS_TABLE: &str = include_str!("../tables/habits_bash.toml");
 const SCRIPT: TranslateContext<'static> = TranslateContext {
     base: None,
     lets: &[],
+    functions: &[],
     mode: Mode::Script,
 };
 
@@ -54,13 +55,13 @@ fn lexer_reports_operators_redirections_and_here_documents() {
 #[test]
 fn live_translation_ignores_nurt_programs_and_hides_errors() {
     assert!(translate("remove \"/srv/app/build\"").is_none());
-    assert!(translate("for f in /srv/*; do rm $f; done").is_none());
+    assert!(translate("for ((i = 0; i < 3; i++)); do rm /srv/a; done").is_none());
     let error = translate_with(
-        "for f in /srv/*; do rm $f; done",
+        "for ((i = 0; i < 3; i++)); do rm /srv/a; done",
         &TranslateContext::default(),
     )
     .expect("a bash habit")
-    .expect_err("loops are never translated");
+    .expect_err("an arithmetic loop is never translated");
     assert_eq!(error.code(), ErrorCode::Uncorrectable);
 }
 
@@ -175,6 +176,7 @@ fn working_directory_is_offered_from_base_and_never_chosen() {
     let context = TranslateContext {
         base: Some("/srv/app"),
         lets: &[],
+        functions: &[],
         mode: Mode::Script,
     };
     let error = translate_with("go build ./...", &context)

@@ -68,6 +68,16 @@ pub struct ScriptParam {
 }
 
 impl ScriptParam {
+    /// A parameter whose declaration is not known, only its place.
+    pub(crate) fn placeholder() -> Self {
+        Self {
+            name: String::new(),
+            kind: ParamKind::Text,
+            default: None,
+            note: None,
+        }
+    }
+
     /// The declaration as written in `params` or `define`.
     #[must_use]
     pub fn declaration(&self) -> String {
@@ -139,6 +149,7 @@ pub fn rewrite_positionals(text: &str) -> Rewritten {
         }
         lines.push(collector.line(line));
     }
+    collector.refine(&lines);
     collector.finish(lines.join("\n"))
 }
 
@@ -153,10 +164,7 @@ fn starts_function(line: &str) -> bool {
     let after = rest[name_end..].trim_start();
     let keyword = line.starts_with("function ");
     (after.starts_with("()") || keyword)
-        && after
-            .trim_start_matches("()")
-            .trim_start()
-            .starts_with('{')
+        && after.trim_start_matches("()").trim_start().starts_with('{')
 }
 
 fn brace_balance(line: &str) -> i32 {
@@ -236,7 +244,6 @@ impl Collector {
 
     /// Rewrites one line and records the uses of parameters in it.
     fn line(&mut self, line: &str) -> String {
-        let kind = line_kind(line);
         let chars: Vec<char> = line.chars().collect();
         let mut out = String::new();
         let mut quote_single = false;
@@ -255,6 +262,7 @@ impl Collector {
                 at += 1;
                 continue;
             }
+            let kind = segment_kind(&chars, at);
             match self.expansion(&chars, at, kind) {
                 Some((text, next)) => {
                     out.push_str(&text);
@@ -291,7 +299,11 @@ impl Collector {
                 self.rest = true;
                 return Some((format!("${REST_NAME}"), close + 1));
             }
-            let index = digit.parse::<usize>().ok().filter(|n| (1..=9).contains(n))? + self.offset;
+            let index = digit
+                .parse::<usize>()
+                .ok()
+                .filter(|n| (1..=9).contains(n))?
+                + self.offset;
             self.raise(index, kind);
             if default.is_some() {
                 self.entry(index).default = default;
@@ -299,6 +311,37 @@ impl Collector {
             return Some((format!("${}", self.name_of(index)), close + 1));
         }
         None
+    }
+
+    /// Raises the kind of a named parameter from the uses of its name in the
+    /// rewritten lines (`rm -rf "$dir"` makes `dir` a path).
+    fn refine(&mut self, lines: &[String]) {
+        let named: Vec<(usize, String)> = self
+            .found
+            .iter()
+            .filter_map(|found| found.name.clone().map(|name| (found.index, name)))
+            .collect();
+        for (index, name) in named {
+            for line in lines {
+                let chars: Vec<char> = line.chars().collect();
+                let lower: Vec<char> = line.to_ascii_lowercase().chars().collect();
+                for needle in [format!("${name}"), format!("${{{name}}}")] {
+                    let pattern: Vec<char> = needle.chars().collect();
+                    let mut at = 0;
+                    while at + pattern.len() <= lower.len() {
+                        if lower[at..at + pattern.len()] == pattern[..] {
+                            let after = lower.get(at + pattern.len());
+                            let ends = needle.ends_with('}')
+                                || after.is_none_or(|c| !(c.is_ascii_alphanumeric() || *c == '_'));
+                            if ends {
+                                self.raise(index, segment_kind(&chars, at));
+                            }
+                        }
+                        at += 1;
+                    }
+                }
+            }
+        }
     }
 
     fn finish(mut self, text: String) -> Rewritten {
@@ -314,7 +357,10 @@ impl Collector {
                         .clone()
                         .unwrap_or_else(|| format!("arg{}", found.index)),
                     kind: found.kind,
-                    default: found.default.as_ref().map(|value| default_text(found.kind, value)),
+                    default: found
+                        .default
+                        .as_ref()
+                        .map(|value| default_text(found.kind, value)),
                     note: (!named).then(|| {
                         format!(
                             "no name for ${} in the script; the parameter is called arg{}",
@@ -344,15 +390,73 @@ fn default_text(kind: ParamKind, value: &str) -> String {
     }
 }
 
+/// Kind of the parameter used at `at`, read from the command that holds it:
+/// the text between the nearest separators around the position.
+fn segment_kind(chars: &[char], at: usize) -> ParamKind {
+    let separator = |c: char| matches!(c, ';' | '&' | '|' | '(' | ')');
+    let start = chars[..at]
+        .iter()
+        .rposition(|c| separator(*c))
+        .map_or(0, |i| i + 1);
+    let end = chars[at..]
+        .iter()
+        .position(|c| separator(*c))
+        .map_or(chars.len(), |i| i + at);
+    let segment: String = chars[start..end].iter().collect();
+    let before: String = chars[start..at].iter().collect();
+    // The value of a flag that takes one: `-mtime +$days` is a number of days,
+    // `-name $pattern` is text and `-C $dir` is a directory.
+    if let Some(previous) = before.split_whitespace().last() {
+        if VALUE_FLAGS_INT.contains(&previous) {
+            return ParamKind::Int;
+        }
+        if VALUE_FLAGS_TEXT.contains(&previous) {
+            return ParamKind::Text;
+        }
+        if VALUE_FLAGS_PATH.contains(&previous) {
+            return ParamKind::Path;
+        }
+    }
+    line_kind(&segment)
+}
+
+/// Flags whose value is a number.
+const VALUE_FLAGS_INT: &[&str] = &[
+    "-mtime",
+    "-mmin",
+    "-atime",
+    "-ctime",
+    "-maxdepth",
+    "-mindepth",
+    "-n",
+    "-c",
+];
+
+/// Flags whose value is text.
+const VALUE_FLAGS_TEXT: &[&str] = &[
+    "-name", "-iname", "-type", "-user", "-group", "-perm", "-m", "-p", "-j", "-u", "-g", "-t",
+];
+
+/// Flags whose value is a path.
+const VALUE_FLAGS_PATH: &[&str] = &["-C", "--directory", "--file", "-f"];
+
 fn line_kind(line: &str) -> ParamKind {
-    let words: Vec<&str> = line.split_whitespace().collect();
+    let words: Vec<&str> = line
+        .split_whitespace()
+        .skip_while(|word| {
+            matches!(
+                *word,
+                "then" | "do" | "else" | "elif" | "if" | "while" | "until"
+            )
+        })
+        .collect();
     let numeric = ["-eq", "-ne", "-gt", "-ge", "-lt", "-le"];
     if words.iter().any(|word| numeric.contains(word)) {
         return ParamKind::Int;
     }
     let first = words
         .iter()
-        .find(|word| !word.contains('=') && !matches!(**word, "if" | "then" | "while" | "sudo"))
+        .find(|word| !word.contains('=') && **word != "sudo")
         .copied()
         .unwrap_or_default();
     let tests = ["-d", "-f", "-e", "-r", "-w", "-x", "-s", "-L"];

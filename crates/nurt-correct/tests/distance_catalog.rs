@@ -271,7 +271,8 @@ fn synonyms_and_habits_close_to_commands_are_documented_ties() {
 /// Synonyms and habit words at distance 1 from a command other than their
 /// target. A string at distance 1 from both is a tie and is not corrected;
 /// the written word itself resolves exactly.
-const DOCUMENTED_COMMAND_TIES: [&str; 6] = [
+const DOCUMENTED_COMMAND_TIES: [&str; 7] = [
+    "count-mount",
     "head-read",
     "ren-run",
     "run-run0",

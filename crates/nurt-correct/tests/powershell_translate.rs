@@ -153,6 +153,10 @@ fn two_pipelines_in_a_live_call_are_next_steps() -> Outcome {
         one_effect.next_steps,
         ["remove \"/srv/a\"", "remove \"/srv/b\""]
     );
+    assert_eq!(
+        one_effect.candidates[0].program,
+        "steps {\n    remove \"/srv/a\"\n    remove \"/srv/b\"\n}"
+    );
     Ok(())
 }
 

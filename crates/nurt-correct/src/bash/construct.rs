@@ -83,6 +83,8 @@ struct Constructs<'t> {
     rules: Vec<Correction>,
     assumptions: Vec<Assumption>,
     params: Vec<ScriptParam>,
+    /// Loop variables bound to records of paths.
+    records: Vec<String>,
     counter: usize,
     probable: bool,
     effects: bool,
@@ -118,10 +120,18 @@ pub(crate) fn translate(
         table,
         context,
         names,
-        functions: Vec::new(),
+        functions: context
+            .functions
+            .iter()
+            .map(|signature| Function {
+                name: signature.name.clone(),
+                params: vec![ScriptParam::placeholder(); signature.params],
+            })
+            .collect(),
         rules: Vec::new(),
         assumptions: Vec::new(),
         params: rewritten.params,
+        records: Vec::new(),
         counter: 0,
         probable: false,
         effects: false,
@@ -165,9 +175,9 @@ pub(crate) fn translate(
         nurt_contracts::report::CorrectionClass::Certain,
         first_span(&block),
         text.lines().next().unwrap_or_default().to_owned(),
-        "construct",
+        "habit",
     );
-    Ok(session.construct_translation(text, constructs.rules, constructs.assumptions))
+    session.construct_translation(text, constructs.rules, constructs.assumptions)
 }
 
 fn first_span(block: &Block) -> Span {
@@ -200,6 +210,7 @@ impl Constructs<'_> {
         TranslateContext {
             base: self.context.base,
             lets: names,
+            functions: &[],
             mode: Mode::Script,
         }
     }
@@ -254,10 +265,11 @@ impl Constructs<'_> {
     }
 
     fn is_plain(&self, entry: &Entry) -> bool {
-        if !entry.rest.is_empty() || entry.background {
-            return false;
-        }
-        let Node::Simple(simple) = &entry.first else {
+        !entry.background && entry.rest.is_empty() && self.is_plain_node(&entry.first)
+    }
+
+    fn is_plain_node(&self, node: &Node) -> bool {
+        let Node::Simple(simple) = node else {
             return false;
         };
         if simple.negated || simple.double_bracket || simple.words.is_empty() {
@@ -266,7 +278,15 @@ impl Constructs<'_> {
         let first = first_word(simple);
         !(matches!(
             first.as_str(),
-            "[" | "test" | "break" | "continue" | "return" | "exit" | "shift" | "true" | "false" | ":"
+            "[" | "test"
+                | "break"
+                | "continue"
+                | "return"
+                | "exit"
+                | "shift"
+                | "true"
+                | "false"
+                | ":"
         ) || self.functions.iter().any(|f| f.name == first))
     }
 
@@ -312,6 +332,13 @@ impl Constructs<'_> {
         nodes: &[&Node],
         span: Span,
     ) -> Result<Unit, Error> {
+        if nodes.iter().all(|node| self.is_plain_node(node)) {
+            let mut unit = self.simple_text(session, span)?;
+            if unit.changes >= 2 {
+                unit = Self::steps(unit);
+            }
+            return Ok(unit);
+        }
         if Self::is_test(nodes[0]) {
             let cond = self.node_condition(session, nodes[0], false, span)?;
             let mut body = Unit::default();
@@ -358,6 +385,16 @@ impl Constructs<'_> {
         right: &Node,
         span: Span,
     ) -> Result<Unit, Error> {
+        if let Node::Simple(simple) = right {
+            if matches!(first_word(simple).as_str(), "true" | ":") && simple.words.len() == 1 {
+                self.probable = true;
+                self.assumptions.push(Assumption {
+                    rule: CONSTRUCT_RULE.to_owned(),
+                    text: "a failure of the command before `|| true` is ignored by the shell; the program stops at it".to_owned(),
+                });
+                return self.node(session, left);
+            }
+        }
         let cond = self.node_condition(session, left, true, span)?;
         let negated = negate(&cond.expr);
         let body = self.node(session, right)?;
@@ -452,14 +489,14 @@ impl Constructs<'_> {
         let text = session.source(span);
         let names = self.names.clone();
         let context = self.child_context(&names);
-        let translation = match session::translate(&text, &context, self.table) {
+        let translation = match session::translate_plain(&text, &context, self.table) {
             Some(Ok(translation)) => translation,
             Some(Err(error)) => return Err(error),
             None => return Err(self.fail(session, span, "the command has no translation")),
         };
         let mut unit = Unit::default();
         for statement in &translation.tree.program.statements {
-            let printed = print_program(vec![statement.clone()]);
+            let printed = self.path_fields(&print_program(vec![statement.clone()]));
             if let Statement::Let(binding) = statement {
                 self.names.push(binding.name.clone());
             }
@@ -479,6 +516,32 @@ impl Constructs<'_> {
         self.assumptions.extend(translation.assumptions);
         self.effects |= unit.changes > 0;
         Ok(unit)
+    }
+
+    /// A reference to a record of a loop is the path of the record where a
+    /// path is expected.
+    fn path_fields(&self, text: &str) -> String {
+        let mut out = text.to_owned();
+        for name in &self.records {
+            let needle = format!("@{name}");
+            let mut result = String::new();
+            let mut rest = out.as_str();
+            while let Some(index) = rest.find(&needle) {
+                let after = &rest[index + needle.len()..];
+                let continues = after
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c == '.' || c == '_' || c.is_ascii_alphanumeric());
+                result.push_str(&rest[..index + needle.len()]);
+                if !continues {
+                    result.push_str(".path");
+                }
+                rest = after;
+            }
+            result.push_str(rest);
+            out = result;
+        }
+        out
     }
 
     fn statement_changes(&self, statement: &Statement) -> bool {
@@ -761,9 +824,8 @@ impl Constructs<'_> {
         value: &str,
         span: Span,
     ) -> Result<String, Error> {
-        let typed = |kind: &str| {
-            format!("exists {value} and (info {value} |> first).type == \"{kind}\"")
-        };
+        let typed =
+            |kind: &str| format!("exists {value} and (info {value} |> first).type == \"{kind}\"");
         Ok(match operator {
             "-e" | "-a" => format!("exists {value}"),
             "-f" => typed("file"),
@@ -982,9 +1044,16 @@ impl Constructs<'_> {
             Some(words) => self.loop_source(session, words, span)?,
         };
         let variable = name.to_ascii_lowercase();
+        let record = source.starts_with('(');
         self.names.push(variable.clone());
+        if record {
+            self.records.push(variable.clone());
+        }
         let inner = self.block(session, body);
         self.names.pop();
+        if record {
+            self.records.pop();
+        }
         let inner = inner?;
         let mut lines = vec![format!("each {source} as {variable} {{")];
         lines.extend(indent(inner.lines));
@@ -1015,7 +1084,7 @@ impl Constructs<'_> {
             {
                 let names = self.names.clone();
                 let context = self.child_context(&names);
-                return match session::translate(body, &context, self.table) {
+                return match session::translate_plain(body, &context, self.table) {
                     Some(Ok(translation)) if translation.tree.program.statements.len() == 1 => {
                         let text = print_program(translation.tree.program.statements);
                         Ok(format!("({})", text.replace("\n|>", " |>")))
@@ -1028,7 +1097,12 @@ impl Constructs<'_> {
                     )),
                 };
             }
-            if let [WordPart::Variable { name, .. }] = word.parts.as_slice() {
+            let parts: Vec<&WordPart> = word
+                .parts
+                .iter()
+                .filter(|part| !matches!(part, WordPart::Literal { text, .. } if text.is_empty()))
+                .collect();
+            if let [WordPart::Variable { name, .. }] = parts.as_slice() {
                 if name == "args" {
                     return Ok("@args".to_owned());
                 }
@@ -1048,23 +1122,19 @@ impl Constructs<'_> {
         Ok(format!("[{}]", values.join(", ")))
     }
 
-    /// The files a pattern names: the source of `rm PATTERN` without `remove`.
-    fn glob_source(
-        &self,
-        session: &Session<'_>,
-        word: &Word,
-        span: Span,
-    ) -> Result<String, Error> {
-        let text = format!("rm {}", word.raw);
+    /// The files a pattern names: the reading translation of `ls PATTERN`.
+    fn glob_source(&self, session: &Session<'_>, word: &Word, span: Span) -> Result<String, Error> {
+        let text = format!("ls {}", word.raw);
         let names = self.names.clone();
         let context = self.child_context(&names);
-        let Some(Ok(translation)) = session::translate(&text, &context, self.table) else {
+        let Some(Ok(translation)) = session::translate_plain(&text, &context, self.table) else {
             return Err(self.fail(session, span, "the pattern of `for` has no translation"));
         };
         let printed = print_program(translation.tree.program.statements).replace("\n|>", " |>");
-        match printed.strip_suffix(" |> remove") {
-            Some(source) => Ok(format!("({source})")),
-            None => Err(self.fail(session, span, "the pattern of `for` has no translation")),
+        if printed.starts_with("find ") && !printed.contains(" |> ") {
+            Ok(format!("({printed})"))
+        } else {
+            Err(self.fail(session, span, "the pattern of `for` has no translation"))
         }
     }
 
@@ -1141,8 +1211,8 @@ impl Constructs<'_> {
                     continue;
                 };
                 let takes_argument = letters.get(position + 1) == Some(&':');
-                let name = assigned_name(arm)
-                    .unwrap_or_else(|| letter.to_ascii_lowercase().to_string());
+                let name =
+                    assigned_name(arm).unwrap_or_else(|| letter.to_ascii_lowercase().to_string());
                 let (kind, default) = if takes_argument {
                     (ParamKind::Text, None)
                 } else {
@@ -1171,8 +1241,8 @@ impl Constructs<'_> {
         let inner_session = Session::new(self.table, self.context, &rewritten.text);
         let tokens =
             lex(&rewritten.text).map_err(|error| self.fail(session, span, &error.to_string()))?;
-        let block = compound::parse(&tokens)
-            .map_err(|error| self.fail(session, span, error.message))?;
+        let block =
+            compound::parse(&tokens).map_err(|error| self.fail(session, span, error.message))?;
         let saved_names = self.names.clone();
         let saved_params = std::mem::take(&mut self.params);
         self.names
@@ -1207,17 +1277,21 @@ impl Constructs<'_> {
 
 /// Variable assigned in a branch of the `case` of `getopts`.
 fn assigned_name(arm: &CaseArm) -> Option<String> {
-    arm.body.entries.iter().find_map(|entry| match &entry.first {
-        Node::Simple(simple) => simple.words.first().and_then(|word| {
-            word.raw
-                .split_once('=')
-                .map(|(name, _)| name.to_ascii_lowercase())
-                .filter(|name| {
-                    !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-                })
-        }),
-        _ => None,
-    })
+    arm.body
+        .entries
+        .iter()
+        .find_map(|entry| match &entry.first {
+            Node::Simple(simple) => simple.words.first().and_then(|word| {
+                word.raw
+                    .split_once('=')
+                    .map(|(name, _)| name.to_ascii_lowercase())
+                    .filter(|name| {
+                        !name.is_empty()
+                            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    })
+            }),
+            _ => None,
+        })
 }
 
 /// Removes the trailing wait of the body of an `until` loop and returns it
