@@ -85,6 +85,9 @@ pub struct ExecEnv {
     pub pool: Option<Arc<ThreadPool>>,
     /// Hash of the executed program, reported in [`nurt_contracts::stage::Event::ExecStarted`].
     pub ast_hash: Option<String>,
+    /// Values of the parameters of the script, in declaration order, bound
+    /// before the run.
+    pub params: Vec<(String, nurt_contracts::bound::BoundExpr)>,
     /// Seed of `random()` and `uuid()`; entropy of the process when absent.
     pub seed: Option<u64>,
     extensions: Vec<ExtensionInstaller>,
@@ -141,6 +144,7 @@ impl ExecEnv {
             state_dir: None,
             pool: None,
             ast_hash: None,
+            params: Vec::new(),
             seed: None,
             extensions: Vec::new(),
         }
@@ -230,6 +234,13 @@ impl ExecEnv {
     #[must_use]
     pub fn with_ast_hash(mut self, hash: impl Into<String>) -> Self {
         self.ast_hash = Some(hash.into());
+        self
+    }
+
+    /// Sets the values of the parameters of the script.
+    #[must_use]
+    pub fn with_params(mut self, params: Vec<(String, nurt_contracts::bound::BoundExpr)>) -> Self {
+        self.params = params;
         self
     }
 

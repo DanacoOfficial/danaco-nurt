@@ -39,9 +39,31 @@
     },
     "error": { "$ref": "#/$defs/error" },
     "next_cursor": { "type": "string", "minLength": 1, "x-nurt-volatile": true, "description": "Cursor of the next page; absent on the last page." },
-    "timing": { "$ref": "#/$defs/timing" }
+    "timing": { "$ref": "#/$defs/timing" },
+    "parts": { "type": "array", "description": "The parts of a control construct in order: the chosen branch, every iteration, every step.", "items": { "$ref": "#/$defs/part" } },
+    "parts_total": { "type": "integer", "minimum": 0, "description": "Number of parts of the construct when `parts` is shortened to the first 200." }
   },
   "$defs": {
+    "part": {
+      "type": "object",
+      "required": ["at", "kind", "ok"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string", "description": "Place of the part in the construct." },
+        "kind": { "enum": ["branch", "iteration", "step", "loop"], "description": "What the part is." },
+        "condition": { "type": "boolean" },
+        "branch": { "type": "integer", "minimum": 1 },
+        "command": { "type": "string" },
+        "targets": { "type": "integer", "minimum": 0 },
+        "ok": { "type": "boolean" },
+        "rolled_back": { "type": "boolean" },
+        "irreversible": { "type": "boolean" },
+        "error": { "type": "string" },
+        "iterations": { "type": "integer", "minimum": 0 },
+        "op": { "type": "integer", "minimum": 1 },
+        "note": { "type": "string" }
+      }
+    },
     "status": {
       "enum": ["ok", "planned", "running", "partial", "rolled_back", "failed"]
     },

@@ -39,7 +39,9 @@ const OVERWROTE_EXISTING: &str = "overwrote_existing";
 #[derive(Debug)]
 pub(crate) struct AppliedEffect {
     pub(crate) records: ResultData,
-    pub(crate) handle: OpHandle,
+    /// Handle of the committed operation; absent when the effect was applied
+    /// in the transaction of a control construct, which commits once.
+    pub(crate) handle: Option<OpHandle>,
     pub(crate) changes: Vec<Change>,
     pub(crate) notable: Vec<NotableEntry>,
     pub(crate) irreversible: Vec<IrreversibleEntry>,
@@ -83,6 +85,60 @@ impl ProgramSource<'_> {
                 })],
             },
         )
+    }
+
+    /// The program of a control construct with the secret arguments of every
+    /// stage inside masked, as the journal records it.
+    pub(crate) fn construct_document(&self, statement: &BoundStatement) -> BoundDocument {
+        BoundDocument::new(
+            self.catalog_rev,
+            self.corr_rev,
+            BoundProgram {
+                statements: vec![self.masked_statement(statement)],
+            },
+        )
+    }
+
+    fn masked_statement(&self, statement: &BoundStatement) -> BoundStatement {
+        let mut statement = statement.clone();
+        self.mask_statement(&mut statement);
+        statement
+    }
+
+    fn mask_statement(&self, statement: &mut BoundStatement) {
+        match statement {
+            BoundStatement::Let(binding) => self.mask_pipeline(&mut binding.value),
+            BoundStatement::Pipeline(pipeline) => self.mask_pipeline(pipeline),
+            BoundStatement::When(construct) => {
+                for branch in &mut construct.branches {
+                    self.mask_block(&mut branch.body);
+                }
+                if let Some(body) = &mut construct.otherwise {
+                    self.mask_block(body);
+                }
+            }
+            BoundStatement::Each(construct) => self.mask_block(&mut construct.body),
+            BoundStatement::Repeat(construct) => self.mask_block(&mut construct.body),
+            BoundStatement::While(construct) => self.mask_block(&mut construct.body),
+            BoundStatement::Steps(construct) => self.mask_block(&mut construct.body),
+            BoundStatement::Define(construct) => self.mask_block(&mut construct.body),
+            _ => {}
+        }
+    }
+
+    fn mask_block(&self, body: &mut [BoundStatement]) {
+        for statement in body {
+            self.mask_statement(statement);
+        }
+    }
+
+    fn mask_pipeline(&self, pipeline: &mut BoundPipeline) {
+        if let BoundHead::Stage(stage) = &mut pipeline.head {
+            *stage = self.masked(stage);
+        }
+        for stage in &mut pipeline.stages {
+            *stage = self.masked(stage);
+        }
     }
 
     fn masked(&self, stage: &BoundStage) -> BoundStage {
@@ -157,7 +213,38 @@ pub(crate) fn apply_effect(
         .map_err(|error| at_step(error, ExecStep::Apply))?;
     Ok(AppliedEffect {
         records,
-        handle,
+        handle: Some(handle),
+        changes,
+        notable,
+        irreversible,
+        detached,
+    })
+}
+
+/// Applies an effect in the transaction of a control construct. The
+/// transaction is neither committed nor rolled back here: the construct does
+/// both once, for all its effects.
+pub(crate) fn apply_effect_in(
+    effect: &Effect,
+    args: &BoundArgs,
+    plan: EffectPlan,
+    tx: &mut dyn MutationTx,
+    ctx: &ExecCtx,
+) -> Result<AppliedEffect> {
+    let EffectOutcome {
+        output,
+        changes,
+        notable,
+        irreversible,
+        detached,
+    } = effect
+        .apply(args, plan, tx, ctx)
+        .map_err(|error| at_step(error, ExecStep::Apply))?;
+    let records = ResultData::collect(output.into(), ctx.limits().max_records)
+        .map_err(|error| at_step(error, ExecStep::Apply))?;
+    Ok(AppliedEffect {
+        records,
+        handle: None,
         changes,
         notable,
         irreversible,

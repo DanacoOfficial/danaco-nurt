@@ -25,6 +25,7 @@ mod elevated;
 pub mod exit;
 pub mod integrations;
 pub mod output;
+pub mod params;
 pub mod repl;
 pub mod serve;
 pub mod system;

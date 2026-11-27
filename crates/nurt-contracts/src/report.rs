@@ -1471,6 +1471,82 @@ pub struct Report {
     /// Durations of the processing steps (verbosity `detailed`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timing: Option<Timing>,
+    /// The parts of a control construct in order: the chosen branch, every
+    /// iteration, every step, with their effects. Empty for a program that
+    /// has no construct. A construct with more parts than the report keeps
+    /// lists the first ones and states the total in [`Report::parts_total`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<ReportPart>,
+    /// Number of parts of the construct when [`Report::parts`] is shortened.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parts_total: Option<u64>,
+}
+
+/// One part of a control construct in a report.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct ReportPart {
+    /// Place of the part in the construct: `when`, `when.branch[1]`,
+    /// `each.iteration[3]`, `steps[2]`, `call rotate_logs`.
+    pub at: String,
+    /// What happened: `condition`, `branch`, `iteration`, `step`, `call`.
+    pub kind: String,
+    /// Value of the condition for a `condition` part.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub condition: Option<bool>,
+    /// Number of the chosen branch for a `branch` part; counted from 1,
+    /// the branch of `otherwise` is one past the last condition.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<u64>,
+    /// Command whose effect the part reports, for a `step` part.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    /// Number of targets the part changed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub targets: Option<u64>,
+    /// Whether the part ran to its end: `false` for the part that failed and
+    /// for a part rolled back.
+    pub ok: bool,
+    /// Whether the effects of the part were rolled back.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rolled_back: bool,
+    /// Whether the effects of the part cannot be rolled back.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub irreversible: bool,
+    /// Code of the error that ended the part.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// Number of iterations of a `loop` part.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub iterations: Option<u64>,
+    /// Number of the journal entry of the part, when the part has an entry
+    /// of its own (`atomic: false`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub op: Option<u64>,
+    /// Remark on the part, for example that a limit ended the loop.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+impl ReportPart {
+    /// A part that ran to its end.
+    #[must_use]
+    pub fn done(at: impl Into<String>, kind: impl Into<String>) -> Self {
+        Self {
+            at: at.into(),
+            kind: kind.into(),
+            condition: None,
+            branch: None,
+            command: None,
+            targets: None,
+            ok: true,
+            rolled_back: false,
+            irreversible: false,
+            error: None,
+            iterations: None,
+            op: None,
+            note: None,
+        }
+    }
 }
 
 fn is_false(value: &bool) -> bool {
@@ -1510,6 +1586,8 @@ impl Report {
             error: None,
             next_cursor: None,
             timing: None,
+            parts: Vec::new(),
+            parts_total: None,
         }
     }
 

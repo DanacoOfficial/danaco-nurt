@@ -233,6 +233,22 @@
           "type": "null"
         }
       ]
+    },
+    "parts": {
+      "description": "The parts of a control construct in order: the chosen branch, every\niteration, every step, with their effects. Empty for a program that\nhas no construct. A construct with more parts than the report keeps\nlists the first ones and states the total in [`Report::parts_total`].",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ReportPart"
+      }
+    },
+    "parts_total": {
+      "description": "Number of parts of the construct when [`Report::parts`] is shortened.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
     }
   },
   "required": [
@@ -3785,6 +3801,101 @@
           "minimum": 0
         }
       }
+    },
+    "ReportPart": {
+      "description": "One part of a control construct in a report.",
+      "type": "object",
+      "properties": {
+        "at": {
+          "description": "Place of the part in the construct: `when`, `when.branch[1]`,\n`each.iteration[3]`, `steps[2]`, `call rotate_logs`.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "What happened: `condition`, `branch`, `iteration`, `step`, `call`.",
+          "type": "string"
+        },
+        "condition": {
+          "description": "Value of the condition for a `condition` part.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "branch": {
+          "description": "Number of the chosen branch for a `branch` part; counted from 1,\nthe branch of `otherwise` is one past the last condition.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "command": {
+          "description": "Command whose effect the part reports, for a `step` part.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targets": {
+          "description": "Number of targets the part changed.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "ok": {
+          "description": "Whether the part ran to its end: `false` for the part that failed and\nfor a part rolled back.",
+          "type": "boolean"
+        },
+        "rolled_back": {
+          "description": "Whether the effects of the part were rolled back.",
+          "type": "boolean"
+        },
+        "irreversible": {
+          "description": "Whether the effects of the part cannot be rolled back.",
+          "type": "boolean"
+        },
+        "error": {
+          "description": "Code of the error that ended the part.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "iterations": {
+          "description": "Number of iterations of a `loop` part.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "op": {
+          "description": "Number of the journal entry of the part, when the part has an entry\nof its own (`atomic: false`).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "note": {
+          "description": "Remark on the part, for example that a limit ended the loop.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "at",
+        "kind",
+        "ok"
+      ]
     }
   }
 }

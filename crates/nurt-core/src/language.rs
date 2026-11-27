@@ -124,6 +124,16 @@ fn unquoted(topic: &str) -> &str {
 }
 
 impl Frontend for LanguageFrontend {
+    fn bind_params(
+        &self,
+        declared: &[nurt_contracts::bound::BoundParam],
+        given: Option<&serde_json::Map<String, serde_json::Value>>,
+        config: &Config,
+    ) -> Result<Vec<(String, nurt_contracts::bound::BoundExpr)>, Error> {
+        nurt_bind::bind_params(&self.bind_catalog, &bind_context(config), declared, given)
+            .map_err(nurt_bind::BindError::into_error)
+    }
+
     fn parse(
         &self,
         text: &str,

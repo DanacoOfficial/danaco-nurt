@@ -43,6 +43,19 @@ pub const SCRIPT_FLAGS: &[&str] = &[
     "--as-user",
 ];
 
+/// Name of the form of `run` that runs a program file.
+pub const RUN_FILE: &str = "run";
+
+/// Options of `run`.
+pub const RUN_FLAGS: &[&str] = &[
+    "--variant",
+    "--preview",
+    "--json",
+    "--format",
+    "--limit",
+    "--verbosity",
+];
+
 /// Options of `check`.
 pub const CHECK_FLAGS: &[&str] = &["-e", "--variant", "--json", "--format"];
 
@@ -94,6 +107,12 @@ pub fn resolve(args: &[String]) -> Invocation {
         "-V" => Invocation::Version { full: false },
         "--version" => Invocation::Version { full: true },
         "-h" | "--help" => Invocation::Help,
+        // `run` is also a command of the language: `nurt run ["make"] cwd: "/x"` is
+        // a program, `nurt run build.nurt` runs a program file with parameters.
+        "run" if args.get(1).is_some_and(|file| is_program_file(file)) => Invocation::Subcommand {
+            name: RUN_FILE,
+            args: args[1..].to_vec(),
+        },
         name => match SUBCOMMANDS.iter().find(|known| **known == name) {
             Some(known) => Invocation::Subcommand {
                 name: known,
@@ -104,6 +123,14 @@ pub fn resolve(args: &[String]) -> Invocation {
             },
         },
     }
+}
+
+/// Whether the argument names a program file for `nurt run`: it ends with
+/// `.nurt`.
+fn is_program_file(argument: &str) -> bool {
+    std::path::Path::new(argument)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("nurt"))
 }
 
 /// Whether the arguments after the name of a subcommand ask for its usage: the

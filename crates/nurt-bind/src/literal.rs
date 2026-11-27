@@ -153,6 +153,15 @@ fn safe(value: u128) -> Option<u64> {
     u64::try_from(value).ok()
 }
 
+/// Reads the text of a literal (`7`, `10mb`, `5s`, `true`, `[1, 2]`) into a
+/// surface expression.
+pub(crate) fn literal_expr(text: &str) -> Option<Expr> {
+    let mut parser = LiteralParser::new(text.trim());
+    let expr = parser.value()?;
+    parser.skip_space();
+    parser.at_end().then_some(expr)
+}
+
 /// Reads a catalog default value into a surface expression.
 pub(crate) fn default_expr(value: &DefaultValue) -> Option<Expr> {
     let mut parser = LiteralParser::new(value.as_str().trim());

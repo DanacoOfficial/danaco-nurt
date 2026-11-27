@@ -434,6 +434,7 @@ impl Engine {
             session: prepared.session.clone(),
             timeout: prepared.timeout,
             elevation: None,
+            params: prepared.params.clone(),
         };
         match self.run_elevated(
             &inner,

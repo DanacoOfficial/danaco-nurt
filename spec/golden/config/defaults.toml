@@ -122,6 +122,13 @@ max_records = 5000000
 max_file_bytes_text = "1gib"
 # The key threads defaults to the number of processor cores.
 
+[loop]
+max_iterations = 10000
+max_time = "10m"
+
+[function]
+max_depth = 64
+
 [fs]
 sharing_retry_ms = 2000
 

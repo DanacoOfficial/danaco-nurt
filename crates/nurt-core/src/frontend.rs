@@ -166,6 +166,34 @@ pub trait Frontend: Send + Sync {
         self.help(topic, language)
     }
 
+    /// Binds the values given for the parameters of a script to the
+    /// declaration `declared`. Returns every parameter with its value, the
+    /// default for a parameter that was not given.
+    ///
+    /// # Errors
+    ///
+    /// The default implementation takes defaults only: a value given, or a
+    /// parameter without default, is `E_UNSUPPORTED`.
+    fn bind_params(
+        &self,
+        declared: &[nurt_contracts::bound::BoundParam],
+        given: Option<&serde_json::Map<String, serde_json::Value>>,
+        config: &Config,
+    ) -> Result<Vec<(String, nurt_contracts::bound::BoundExpr)>, Error> {
+        let _ = config;
+        let mut bound = Vec::with_capacity(declared.len());
+        for param in declared {
+            match (
+                &param.default,
+                given.and_then(|given| given.get(&param.name)),
+            ) {
+                (Some(default), None) => bound.push((param.name.clone(), default.clone())),
+                _ => return Err(unavailable(FRONTEND)),
+            }
+        }
+        Ok(bound)
+    }
+
     /// Corrects and binds program text.
     ///
     /// # Errors

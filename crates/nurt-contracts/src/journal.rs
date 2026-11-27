@@ -729,6 +729,38 @@ pub trait MutationTx: Send + Sync {
     /// for transactions without targets, at commit.
     fn op(&self) -> Option<OpId>;
 
+    /// Allows [`MutationTx::preserve`] after the first change.
+    ///
+    /// A control construct that changes the world in several steps forms one
+    /// entry: each step declares and preserves its targets just before it
+    /// changes them, and one commit or one rollback closes them all. The
+    /// previous state of every target is still durable before its first
+    /// change. A transaction that does not support the mode ignores the call
+    /// and keeps refusing `preserve` after a change.
+    fn allow_incremental(&mut self) {}
+
+    /// Marks the present state of the transaction. Until
+    /// [`MutationTx::release_savepoint`] or [`MutationTx::rollback_to_savepoint`]
+    /// a failing change restores only the targets changed since the mark and
+    /// leaves the transaction usable, so that a loop with `atomic: false` keeps
+    /// the iterations completed before a failure inside one entry. A
+    /// transaction without savepoints ignores the call and rolls back
+    /// everything on a failure.
+    fn savepoint(&mut self) {}
+
+    /// Drops the savepoint: the changes since the mark stay.
+    fn release_savepoint(&mut self) {}
+
+    /// Restores the targets changed since the savepoint and drops it; the
+    /// changes made before the mark stay.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `E_ROLLBACK_FAILED` when a target cannot be restored.
+    fn rollback_to_savepoint(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     /// Declares targets and preserves their previous state before any change.
     ///
     /// Precondition: no change has been applied in this transaction. Indexes

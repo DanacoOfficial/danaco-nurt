@@ -32,7 +32,9 @@ use std::time::Duration;
 
 use nurt_catalog::{CatalogQuery, Registry};
 use nurt_contracts::ast::{AST_VERSION, AstDocument};
-use nurt_contracts::bound::{BOUND_VERSION, BoundDocument, BoundHead, BoundStatement};
+use nurt_contracts::bound::{
+    BOUND_VERSION, BoundDocument, BoundExpr, BoundHead, BoundPipeline, BoundStatement,
+};
 use nurt_contracts::config::{CONFIG_FORMAT, Config, DurationSetting, Language as ConfigLanguage};
 use nurt_contracts::env::{Clock, Host, Os, WallTime};
 use nurt_contracts::envelope::{
@@ -43,7 +45,9 @@ use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::fs::{AbsPath, Fs, RegistryAccess};
 use nurt_contracts::journal::{HistoryQuery, JournalStore, OperationRecord, VolumeSpace};
 use nurt_contracts::kinds::{EffectKind, SyntaxVariant};
-use nurt_contracts::report::{REPORT_VERSION, RecordsPage, Report, ReportStatus, Timing};
+use nurt_contracts::report::{
+    REPORT_VERSION, RecordsPage, Report, ReportPart, ReportStatus, Timing,
+};
 use nurt_contracts::schema;
 use nurt_contracts::services::Services;
 use nurt_contracts::stage::{
@@ -517,6 +521,8 @@ pub(crate) struct Prepared {
     pub(crate) session: Option<SessionId>,
     pub(crate) timeout: Duration,
     pub(crate) elevation: Option<Mark>,
+    /// Values given for the parameters of a script.
+    pub(crate) params: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 /// The engine of Danaco Nurt.
@@ -1184,8 +1190,10 @@ impl Engine {
         let planning = clock.monotonic();
         let plan = self.plan(compiled, prepared)?;
         let planned = clock.monotonic();
+        let params = self.script_params(compiled, prepared)?;
         let env = self
             .exec_env(prepared, cancel, events)?
+            .with_params(params)
             .with_extension(Arc::new(compiled.bound.clone()));
         let env = match &compiled.ast_hash {
             Some(hash) => env.with_ast_hash(hash.clone()),
@@ -1200,6 +1208,31 @@ impl Engine {
             timing
         });
         report_of(reports, kind, compiled, outcome, timing)
+    }
+
+    /// Binds the values given for the parameters of the script to its
+    /// `params` declaration, before anything runs. A program without
+    /// declaration takes no values.
+    fn script_params(
+        &self,
+        compiled: &Compiled,
+        prepared: &Prepared,
+    ) -> Result<Vec<(String, BoundExpr)>, Error> {
+        let declared = compiled
+            .bound
+            .program
+            .statements
+            .iter()
+            .find_map(|statement| match statement {
+                BoundStatement::Params(params) => Some(params.params.as_slice()),
+                _ => None,
+            })
+            .unwrap_or_default();
+        self.inner.frontend.bind_params(
+            declared,
+            prepared.params.as_ref(),
+            prepared.config.config(),
+        )
     }
 
     /// Environment of the executor for one request.
@@ -1429,6 +1462,7 @@ impl Engine {
             session,
             timeout,
             elevation: None,
+            params: request.params.clone(),
         })
     }
 
@@ -1621,20 +1655,20 @@ impl ProgramKind {
 /// Last effect command of a bound program, or the source command of its
 /// first pipeline, and whether the program has an effect command.
 fn kind_of(bound: &BoundDocument) -> (String, bool) {
-    let pipelines = bound
-        .program
-        .statements
-        .iter()
-        .filter_map(|statement| match statement {
-            BoundStatement::Pipeline(pipeline) => Some(pipeline),
-            BoundStatement::Let(binding) => Some(&binding.value),
-            _ => None,
-        });
+    let mut pipelines = Vec::new();
+    let mut construct = None;
+    collect_pipelines(&bound.program.statements, &mut pipelines, &mut construct);
     let mut source = None;
     let mut effect = None;
+    let mut calls = false;
     for pipeline in pipelines {
         let head = match &pipeline.head {
             BoundHead::Stage(stage) => Some(stage),
+            BoundHead::Call(call) => {
+                calls = true;
+                source = source.or_else(|| Some(call.name.clone()));
+                None
+            }
             _ => None,
         };
         source = source.or_else(|| head.map(|stage| stage.name.clone()));
@@ -1647,9 +1681,77 @@ fn kind_of(bound: &BoundDocument) -> (String, bool) {
             effect = Some(stage.name.clone());
         }
     }
-    let changing = effect.is_some();
+    if let Some((name, changes)) = construct {
+        return (name.to_owned(), changes || effect.is_some());
+    }
+    let changing = effect.is_some() || (calls && statements_change(&bound.program.statements));
     let kind = effect.or(source).unwrap_or_else(|| PROGRAM_KIND.to_owned());
     (kind, changing)
+}
+
+/// The pipelines at the top of a program and the first control construct
+/// with its name and whether it changes the world.
+fn collect_pipelines<'b>(
+    statements: &'b [BoundStatement],
+    pipelines: &mut Vec<&'b BoundPipeline>,
+    construct: &mut Option<(&'static str, bool)>,
+) {
+    for statement in statements {
+        let name = match statement {
+            BoundStatement::Pipeline(pipeline) => {
+                pipelines.push(pipeline);
+                continue;
+            }
+            BoundStatement::Let(binding) => {
+                pipelines.push(&binding.value);
+                continue;
+            }
+            BoundStatement::When(_) => "when",
+            BoundStatement::Each(_) => "each",
+            BoundStatement::Repeat(_) => "repeat",
+            BoundStatement::While(_) => "while",
+            BoundStatement::Steps(_) => "steps",
+            _ => continue,
+        };
+        if construct.is_none() {
+            *construct = Some((name, statements_change(std::slice::from_ref(statement))));
+        }
+    }
+}
+
+/// Whether a stage of the statements, nested ones included, changes the world
+/// or runs a program.
+fn statements_change(statements: &[BoundStatement]) -> bool {
+    statements.iter().any(|statement| match statement {
+        BoundStatement::Pipeline(pipeline) => pipeline_changes(pipeline),
+        BoundStatement::Let(binding) => pipeline_changes(&binding.value),
+        BoundStatement::When(construct) => {
+            construct
+                .branches
+                .iter()
+                .any(|branch| statements_change(&branch.body))
+                || construct
+                    .otherwise
+                    .as_deref()
+                    .is_some_and(statements_change)
+        }
+        BoundStatement::Each(construct) => statements_change(&construct.body),
+        BoundStatement::Repeat(construct) => statements_change(&construct.body),
+        BoundStatement::While(construct) => statements_change(&construct.body),
+        BoundStatement::Steps(construct) => statements_change(&construct.body),
+        BoundStatement::Define(construct) => statements_change(&construct.body),
+        _ => false,
+    })
+}
+
+fn pipeline_changes(pipeline: &BoundPipeline) -> bool {
+    let head = match &pipeline.head {
+        BoundHead::Stage(stage) => Some(stage),
+        _ => None,
+    };
+    head.into_iter()
+        .chain(&pipeline.stages)
+        .any(|stage| stage.phase.is_effect())
 }
 
 /// Number of pipelines of a bound program that have an effect stage.
@@ -1676,15 +1778,10 @@ fn effect_pipelines(bound: &BoundDocument) -> usize {
 
 /// Effect kind of the last effect command of a bound program.
 fn effect_kind_of(bound: &BoundDocument) -> Option<EffectKind> {
-    bound
-        .program
-        .statements
-        .iter()
-        .filter_map(|statement| match statement {
-            BoundStatement::Pipeline(pipeline) => Some(pipeline),
-            BoundStatement::Let(binding) => Some(&binding.value),
-            _ => None,
-        })
+    let mut pipelines = Vec::new();
+    nested_pipelines(&bound.program.statements, &mut pipelines);
+    pipelines
+        .into_iter()
         .filter_map(|pipeline| {
             let head = match &pipeline.head {
                 BoundHead::Stage(stage) => Some(stage),
@@ -1697,6 +1794,31 @@ fn effect_kind_of(bound: &BoundDocument) -> Option<EffectKind> {
                 .map(|stage| stage.effect)
         })
         .next_back()
+}
+
+/// Every pipeline of the statements in program order, those inside control
+/// constructs and function bodies included.
+fn nested_pipelines<'b>(statements: &'b [BoundStatement], found: &mut Vec<&'b BoundPipeline>) {
+    for statement in statements {
+        match statement {
+            BoundStatement::Pipeline(pipeline) => found.push(pipeline),
+            BoundStatement::Let(binding) => found.push(&binding.value),
+            BoundStatement::When(construct) => {
+                for branch in &construct.branches {
+                    nested_pipelines(&branch.body, found);
+                }
+                if let Some(body) = &construct.otherwise {
+                    nested_pipelines(body, found);
+                }
+            }
+            BoundStatement::Each(construct) => nested_pipelines(&construct.body, found),
+            BoundStatement::Repeat(construct) => nested_pipelines(&construct.body, found),
+            BoundStatement::While(construct) => nested_pipelines(&construct.body, found),
+            BoundStatement::Steps(construct) => nested_pipelines(&construct.body, found),
+            BoundStatement::Define(construct) => nested_pipelines(&construct.body, found),
+            _ => {}
+        }
+    }
 }
 
 /// Inputs of one program execution.
@@ -1876,8 +1998,16 @@ fn report_of(
         .last()
         .map(|operation| operation.index)
         .filter(|_| !several);
+    let parts: Vec<ReportPart> = operations
+        .iter()
+        .filter_map(|operation| operation.construct.as_ref())
+        .flat_map(|construct| construct.parts.clone())
+        .collect();
     for operation in operations {
         builder = add_operation(builder, operation, last);
+    }
+    if !parts.is_empty() {
+        builder = builder.parts(parts);
     }
     if let Some(error) = error {
         builder = builder.error(error);

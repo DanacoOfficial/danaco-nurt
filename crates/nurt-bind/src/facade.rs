@@ -661,13 +661,7 @@ fn write_edits<'e>(
         placed: vec![false; unique.len()],
         edits: unique,
     };
-    for statement in &mut document.program.statements {
-        match statement {
-            Statement::Let(binding) => editor.pipeline(&mut binding.value),
-            Statement::Pipeline(pipeline) => editor.pipeline(pipeline),
-            _ => {}
-        }
-    }
+    editor.statements(&mut document.program.statements);
     if editor.placed.iter().all(|placed| *placed) {
         Ok(())
     } else {
@@ -684,6 +678,38 @@ struct Editor<'e> {
 }
 
 impl Editor<'_> {
+    /// Writes the edits into the statements, the blocks of the constructs
+    /// included.
+    fn statements(&mut self, statements: &mut [Statement]) {
+        for statement in statements {
+            match statement {
+                Statement::Let(binding) => self.pipeline(&mut binding.value),
+                Statement::Pipeline(pipeline) => self.pipeline(pipeline),
+                Statement::When(construct) => {
+                    for branch in &mut construct.branches {
+                        self.expr(&mut branch.cond);
+                        self.statements(&mut branch.body);
+                    }
+                    if let Some(body) = &mut construct.otherwise {
+                        self.statements(body);
+                    }
+                }
+                Statement::Each(construct) => {
+                    self.expr(&mut construct.source);
+                    self.statements(&mut construct.body);
+                }
+                Statement::Repeat(construct) => self.statements(&mut construct.body),
+                Statement::While(construct) => {
+                    self.expr(&mut construct.cond);
+                    self.statements(&mut construct.body);
+                }
+                Statement::Steps(construct) => self.statements(&mut construct.body),
+                Statement::Define(construct) => self.statements(&mut construct.body),
+                _ => {}
+            }
+        }
+    }
+
     /// Takes the first edit not yet placed at the span whose change fits.
     fn take(
         &mut self,

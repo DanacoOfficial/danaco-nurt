@@ -216,7 +216,8 @@ pub(crate) fn plan_outline(plan: &Plan) -> Vec<String> {
             PlanStatement::Let(binding) => {
                 format!("let {} = {}", binding.name, outline(&binding.pipeline))
             }
-            other => outline(other.pipeline()),
+            PlanStatement::Construct(construct) => format!("construct {}", construct.name()),
+            other => other.pipeline().map_or_else(String::new, outline),
         })
         .collect()
 }

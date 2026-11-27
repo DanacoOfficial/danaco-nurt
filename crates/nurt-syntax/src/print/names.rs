@@ -149,14 +149,32 @@ pub fn name_positional(
 ) -> Result<AstDocument, PrintError> {
     let mut named = document.clone();
     let mut namer = Namer { names };
-    for statement in &mut named.program.statements {
+    name_statements(&mut namer, &mut named.program.statements)?;
+    Ok(named)
+}
+
+fn name_statements(namer: &mut Namer<'_>, statements: &mut [Statement]) -> Result<(), PrintError> {
+    for statement in statements {
         match statement {
             Statement::Let(binding) => namer.pipeline(&mut binding.value, 1)?,
             Statement::Pipeline(pipeline) => namer.pipeline(pipeline, 1)?,
+            Statement::When(construct) => {
+                for branch in &mut construct.branches {
+                    name_statements(namer, &mut branch.body)?;
+                }
+                if let Some(body) = &mut construct.otherwise {
+                    name_statements(namer, body)?;
+                }
+            }
+            Statement::Each(construct) => name_statements(namer, &mut construct.body)?,
+            Statement::Repeat(construct) => name_statements(namer, &mut construct.body)?,
+            Statement::While(construct) => name_statements(namer, &mut construct.body)?,
+            Statement::Steps(construct) => name_statements(namer, &mut construct.body)?,
+            Statement::Define(construct) => name_statements(namer, &mut construct.body)?,
             _ => {}
         }
     }
-    Ok(named)
+    Ok(())
 }
 
 /// Selects the form for a stage with `count` positional arguments; `None`

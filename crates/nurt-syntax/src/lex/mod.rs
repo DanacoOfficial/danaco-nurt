@@ -87,11 +87,12 @@ enum Previous {
 }
 
 /// State of a [`Lexer`] that [`Lexer::rewind`] restores.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Checkpoint {
     position: usize,
     cursor: Cursor,
     depth: u32,
+    blocks: Vec<bool>,
     previous: Previous,
     space_pending: bool,
     glued_word_at: Option<usize>,
@@ -110,6 +111,9 @@ pub struct Lexer<'a> {
     cursor: Cursor,
     /// Number of open brackets; line breaks inside brackets are skipped.
     depth: u32,
+    /// One entry per open brace, innermost last: whether the brace opens a
+    /// block of statements, inside which line breaks end statements.
+    blocks: Vec<bool>,
     previous: Previous,
     /// Whether the next token starts a line after a line break token.
     space_pending: bool,
@@ -167,6 +171,7 @@ impl<'a> Lexer<'a> {
             position,
             cursor: Cursor::START.after(text.get(content_start..position).unwrap_or_default()),
             depth: 0,
+            blocks: Vec::new(),
             previous: Previous::Start,
             space_pending: true,
             glued_word_at: None,
@@ -220,10 +225,23 @@ impl<'a> Lexer<'a> {
             position: self.position,
             cursor: self.cursor,
             depth: self.depth,
+            blocks: self.blocks.clone(),
             previous: self.previous,
             space_pending: self.space_pending,
             glued_word_at: self.glued_word_at,
             comments: self.comments.len(),
+        }
+    }
+
+    /// Declares that the innermost open brace, the last token read, opens a
+    /// block of statements: line breaks inside it end statements instead of
+    /// being skipped. Call it before reading the token after the brace.
+    pub fn mark_block(&mut self) {
+        if let Some(open) = self.blocks.last_mut()
+            && !*open
+        {
+            *open = true;
+            self.depth = self.depth.saturating_sub(1);
         }
     }
 
@@ -234,6 +252,7 @@ impl<'a> Lexer<'a> {
         self.position = checkpoint.position;
         self.cursor = checkpoint.cursor;
         self.depth = checkpoint.depth;
+        self.blocks = checkpoint.blocks;
         self.previous = checkpoint.previous;
         self.space_pending = checkpoint.space_pending;
         self.glued_word_at = checkpoint.glued_word_at;
@@ -391,11 +410,19 @@ impl<'a> Lexer<'a> {
 
     fn update_state(&mut self, kind: &TokenKind) {
         match kind {
-            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+            TokenKind::LParen | TokenKind::LBracket => {
                 self.depth = self.depth.saturating_add(1);
             }
-            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+            TokenKind::LBrace => {
+                self.depth = self.depth.saturating_add(1);
+                self.blocks.push(false);
+            }
+            TokenKind::RParen | TokenKind::RBracket => {
                 self.depth = self.depth.saturating_sub(1);
+            }
+            TokenKind::RBrace => {
+                let block = self.blocks.pop().unwrap_or(false);
+                self.depth = self.depth.saturating_sub(u32::from(!block));
             }
             _ => {}
         }

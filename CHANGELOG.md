@@ -40,6 +40,27 @@ their own version numbers, described in the specification.
   SQLite off when it writes, a preview lists the files of `ATTACH` and
   `VACUUM INTO`, the other database files appear as changes of the report, and
   the kind of each statement is read from its own text.
+- Control constructs (language brief, sections 1 to 6 and 8): `when` with
+  `otherwise when` and `otherwise`; the loops `each`, `repeat until` and
+  `while` with `break`, `continue`, `parallel`, `atomic: false`, `limit` and
+  the configuration keys `loop.max_iterations` and `loop.max_time`; `steps`
+  for several changes in one call; functions with `define` and the key
+  `function.max_depth`; script parameters with `params`, the command
+  `nurt run <file> name: value` with `--help`, and the member `params` of the
+  request. Each construct is one journal entry, all or nothing, previewed
+  without a change and checked before any effect; the report lists its
+  `parts`. A parameter of type `bool` written without a value is `true`.
+- Syntax tree version 1.1 (`nurt-ast/1` and `nurt-bound/1`): the statements
+  `when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define`
+  and `params` and the pipeline head `call`. Documents of version 1.0 are read
+  unchanged. The grammar is in `spec/grammar.md`.
+- Changes of the API of `nurt-syntax`: `lex::Checkpoint` is no longer `Copy`
+  (it keeps the open blocks of the lexer); `MutationTx` gains the methods
+  `allow_incremental`, `savepoint`, `release_savepoint` and
+  `rollback_to_savepoint`, with defaults that keep the old behaviour; `Request`
+  gains the member `params`; `Report` gains `parts` and `parts_total`.
+- `MutationTx::allow_incremental`: a transaction of the journal may preserve
+  further targets after its first change, so that a construct is one entry.
 
 ## [0.1.1] - 2026-11-27
 

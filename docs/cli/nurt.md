@@ -77,6 +77,38 @@ Example:
 nurt exec --preview remove "/tmp/build/old.log"
 ```
 
+## Program files: `nurt run`
+
+Runs a program file with the values of its parameters. The file is one program: several statements, `when`, loops, `steps` and functions are allowed; several pipelines that change are written with `steps`. A first line starting with `#!` is ignored.
+
+```text
+nurt run <file> [name: value | flag ...] [--variant a|b|c] [--preview] [--json | --format F] [--limit N] [--verbosity V]
+nurt run <file> --help
+```
+
+The file declares its parameters with `params { … }` as its first statement. `name: value` gives a value (two arguments, or `name:value` in one); a name alone is a flag of type `bool` and means `true`, and `name: false` is `false`. The command line passes every value as text and the declared type reads it (`7` for `int`, `10mb` for `size`, `/srv/app` for `path`). Before anything runs the engine checks that every required parameter has a value (`E_MISSING_PARAM`), that every name is declared (`E_UNKNOWN_PARAM`, with the nearest name) and that every value fits its type (`E_TYPE`); the error lists the declaration. A file without `params` takes no values.
+
+`nurt run <file> --help` prints the declaration with the types and the defaults and the usage line:
+
+```text
+$ nurt run cleanup.nurt --help
+Usage: nurt run cleanup.nurt dir: <path> [days: <int>] [dry: <bool>]
+
+Parameters of cleanup.nurt:
+  dir: path
+  days: int = 30
+  dry: bool = false
+```
+
+Exit codes are those of `exec`. `nurt run` followed by a name that ends with `.nurt` runs the file; any other `nurt run …` is the program of the command `run`.
+
+Examples:
+
+```text
+nurt run cleanup.nurt dir: /srv/app days: 7 dry
+nurt run cleanup.nurt dir: /srv/app --preview
+```
+
 ## `script`
 
 Runs a script file. Each pipeline of the file is its own operation. A first line starting with `#!` is ignored, so a file can start with `#!/usr/bin/env nurt`.

@@ -190,6 +190,8 @@ struct Target {
     created: bool,
     copied_on_move: bool,
     observed: bool,
+    /// Restored by a rollback to a savepoint: the entry does not record it.
+    restored: bool,
     /// The previous content is kept in the manifest.
     inline: bool,
 }
@@ -269,6 +271,11 @@ pub(crate) struct Tx<'a> {
     inline_admission: Vec<(usize, u64)>,
     /// New content and directory changes not yet flushed.
     unsynced: Unsynced,
+    /// Whether `preserve` is allowed after the first change.
+    incremental: bool,
+    /// Numbers of targets declared when each open savepoint was set, the
+    /// innermost last.
+    savepoints: Vec<usize>,
 }
 
 /// Changes of a transaction whose flush is deferred to one flush of all of
@@ -508,6 +515,8 @@ impl<'a> Tx<'a> {
             inline_batch: false,
             inline_admission: Vec::new(),
             unsynced: Unsynced::default(),
+            incremental: false,
+            savepoints: Vec::new(),
         }
     }
 
@@ -535,6 +544,17 @@ impl<'a> Tx<'a> {
     fn fail(&mut self, error: Error) -> Error {
         if self.phase == Phase::Halted {
             return error;
+        }
+        if let Some(mark) = self.savepoints.last().copied() {
+            return match self.restore_from(mark) {
+                Ok(failed) if failed.is_empty() => error,
+                Ok(failed) => {
+                    self.savepoints.clear();
+                    self.phase = Phase::Failed;
+                    rollback_failed(&failed, error)
+                }
+                Err(_) => self.halt(),
+            };
         }
         let outcome = self.restore_all(UndoneCause::RolledBack);
         self.phase = Phase::Failed;
@@ -1143,6 +1163,7 @@ impl Tx<'_> {
             created: false,
             copied_on_move: false,
             observed: false,
+            restored: false,
             inline: false,
         };
         if let TargetAction::Rename { to, replace } = &spec.action {
@@ -2633,6 +2654,35 @@ impl Tx<'_> {
 
 /// Restoration of targets (step 7).
 impl Tx<'_> {
+    /// Restores the targets from position `mark` on, in reverse order, and
+    /// returns those that could not be restored.
+    fn restore_from(&mut self, mark: usize) -> std::result::Result<Vec<TargetPath>, Fault> {
+        let mut failed = Vec::new();
+        for position in (mark.min(self.targets.len())..self.targets.len()).rev() {
+            let target = &self.targets[position];
+            let dest_changed = target.dest.as_ref().is_some_and(|d| d.moved || d.created);
+            if !target.changed && !dest_changed {
+                continue;
+            }
+            match self
+                .restore(position)
+                .and_then(|()| self.flush_restored(position))
+            {
+                Ok(()) => {}
+                Err(_) => failed.push(self.targets[position].spec.path.clone()),
+            }
+            // A target restored once is not restored again by a later rollback,
+            // and the committed entry does not list it.
+            self.targets[position].changed = false;
+            self.targets[position].restored = true;
+            if let Some(dest) = self.targets[position].dest.as_mut() {
+                dest.created = false;
+                dest.moved = false;
+            }
+        }
+        Ok(failed)
+    }
+
     fn restore_all(&mut self, cause: UndoneCause) -> std::result::Result<RollbackReport, Fault> {
         let ctx = self.ctx;
         let fs = ctx.fs.as_ref();
@@ -2927,7 +2977,9 @@ impl Tx<'_> {
             .targets
             .iter()
             .enumerate()
-            .filter(|(_, t)| t.spec.action == TargetAction::ExternalWrite && !t.observed)
+            .filter(|(_, t)| {
+                t.restored || (t.spec.action == TargetAction::ExternalWrite && !t.observed)
+            })
             .map(|(position, _)| position)
             .collect();
         for position in &dropped {
@@ -3223,9 +3275,38 @@ impl MutationTx for Tx<'_> {
         self.op
     }
 
+    fn allow_incremental(&mut self) {
+        self.incremental = true;
+    }
+
+    fn savepoint(&mut self) {
+        self.savepoints.push(self.targets.len());
+    }
+
+    fn release_savepoint(&mut self) {
+        self.savepoints.pop();
+    }
+
+    fn rollback_to_savepoint(&mut self) -> Result<()> {
+        let Some(mark) = self.savepoints.pop() else {
+            return Ok(());
+        };
+        match self.restore_from(mark) {
+            Ok(failed) if failed.is_empty() => Ok(()),
+            Ok(failed) => {
+                self.phase = Phase::Failed;
+                Err(rollback_failed(
+                    &failed,
+                    Error::new(ErrorCode::RolledBack, "an iteration was rolled back"),
+                ))
+            }
+            Err(_) => Err(self.halt()),
+        }
+    }
+
     fn preserve(&mut self, targets: &[TargetSpec]) -> Result<Vec<Preserved>> {
         self.usable()?;
-        if self.phase == Phase::Applying {
+        if self.phase == Phase::Applying && !self.incremental {
             let error = misuse("preserve was called after the first change");
             return Err(self.fail(error));
         }

@@ -98,6 +98,21 @@ fn classify(text: &str, tokens: &[Token], commands: &Commands) -> Vec<Piece> {
             TokenKind::Ident if is_label(token) => {
                 pieces.push(Piece::new(token.range.clone(), PARAMETER));
             }
+            TokenKind::Ident if is_construct_word(text, tokens, index) => {
+                pieces.push(Piece::new(token.range.clone(), KEYWORD));
+            }
+            TokenKind::Ident
+                if previous.is_some_and(|before| {
+                    before.kind == TokenKind::Ident
+                        && text.get(before.range.clone()) == Some("define")
+                }) =>
+            {
+                pieces.push(Piece {
+                    range: token.range.clone(),
+                    kind: FUNCTION,
+                    modifiers: DECLARATION,
+                });
+            }
             TokenKind::Ident => {
                 let last = chain_end(tokens, index, tokens.len());
                 let range = token.range.start..tokens[last].range.end;
@@ -133,6 +148,43 @@ fn classify(text: &str, tokens: &[Token], commands: &Commands) -> Vec<Piece> {
         index += 1;
     }
     pieces
+}
+
+/// Whether the identifier at `index` is a word of a control construct: a word
+/// that starts a statement (`when`, `each`, `repeat`, `while`, `steps`,
+/// `define`, `params`, `break`, `continue`), `otherwise` after a block, `as`
+/// before the name of an `each`, and `exists` or `when` of an `otherwise when`.
+fn is_construct_word(text: &str, tokens: &[Token], index: usize) -> bool {
+    const STARTERS: [&str; 9] = [
+        "when", "each", "repeat", "while", "steps", "define", "params", "break", "continue",
+    ];
+    let word = text.get(tokens[index].range.clone()).unwrap_or_default();
+    let before = index.checked_sub(1).map(|before| &tokens[before]);
+    let before_word = before
+        .filter(|token| token.kind == TokenKind::Ident)
+        .and_then(|token| text.get(token.range.clone()));
+    let at_statement_start = before.is_none_or(|token| {
+        matches!(
+            token.kind,
+            TokenKind::Nl | TokenKind::LBrace | TokenKind::RBrace
+        )
+    });
+    match word {
+        "otherwise" => {
+            before.is_none_or(|token| matches!(token.kind, TokenKind::RBrace | TokenKind::Nl))
+        }
+        "when" => at_statement_start || before_word == Some("otherwise"),
+        "as" => {
+            before.is_some()
+                && tokens
+                    .get(index + 1)
+                    .is_some_and(|next| next.kind == TokenKind::Ident)
+        }
+        "exists" => !tokens
+            .get(index + 1)
+            .is_some_and(|next| next.kind == TokenKind::Colon),
+        _ => STARTERS.contains(&word) && at_statement_start,
+    }
 }
 
 /// Whether the token at `index` is the first of a stage.
@@ -288,6 +340,31 @@ mod tests {
                 )
             })
             .collect()
+    }
+
+    #[test]
+    fn marks_the_words_of_the_constructs_as_keywords() {
+        let text = "when exists \"/a\" {\n  break\n} otherwise {\n  each (find \"/b\") as f {\n    continue\n  }\n}\ndefine put(a: path) {\n  find @a\n}\n";
+        let found = decoded(text, Variant::A, Encoding::Utf16);
+        let keywords: Vec<(u32, u32, u32)> = found
+            .iter()
+            .filter(|token| token.3 == KEYWORD)
+            .map(|token| (token.0, token.1, token.2))
+            .collect();
+        assert_eq!(
+            keywords,
+            [
+                (0, 0, 4),
+                (0, 5, 6),
+                (1, 2, 5),
+                (2, 2, 9),
+                (3, 2, 4),
+                (3, 19, 2),
+                (4, 4, 8),
+                (7, 0, 6),
+            ]
+        );
+        assert!(found.contains(&(7, 7, 3, FUNCTION, DECLARATION)));
     }
 
     #[test]

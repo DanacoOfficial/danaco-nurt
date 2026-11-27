@@ -1259,6 +1259,11 @@ pub struct Config {
     pub text: TextConfig,
     /// Resource limits.
     pub limits: LimitsConfig,
+    /// Limits of the loops of the language.
+    #[serde(rename = "loop")]
+    pub loop_limits: LoopConfig,
+    /// Limits of the functions of the language.
+    pub function: FunctionConfig,
     /// File system behaviour.
     pub fs: FsConfig,
     /// Source code analysis and language servers.
@@ -1829,6 +1834,63 @@ impl Default for LimitsConfig {
             max_file_bytes_text: SizeSetting::from_gib(1),
             threads: None,
         }
+    }
+}
+
+/// Section `[loop]`: limits of a `repeat` or a `while` without `limit`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct LoopConfig {
+    /// Key `loop.max_iterations`: largest number of iterations of a loop
+    /// without `limit`; reaching it ends the loop with `E_LIMIT` in `repeat`
+    /// and normally in `while`. Default `10000`.
+    pub max_iterations: u64,
+    /// Key `loop.max_time`: longest time of a loop without `limit`. Default
+    /// `10m`.
+    pub max_time: DurationSetting,
+}
+
+impl Default for LoopConfig {
+    fn default() -> Self {
+        Self {
+            max_iterations: 10_000,
+            max_time: DurationSetting::from_millis(600_000),
+        }
+    }
+}
+
+/// Section `[function]`: limits of the functions defined with `define`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+#[non_exhaustive]
+pub struct FunctionConfig {
+    /// Key `function.max_depth`: deepest nesting of calls of functions;
+    /// deeper recursion ends with `E_LIMIT`. From 1 to
+    /// [`FUNCTION_DEPTH_LIMIT`]; default `64`.
+    #[serde(deserialize_with = "function_depth")]
+    #[schemars(range(min = 1, max = 1024))]
+    pub max_depth: u32,
+}
+
+/// Largest value of `function.max_depth`: calls of functions nest on the stack
+/// of the executor, and a larger depth could overflow it before `E_LIMIT`.
+pub const FUNCTION_DEPTH_LIMIT: u32 = 1024;
+
+fn function_depth<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u32, D::Error> {
+    let depth = u32::deserialize(deserializer)?;
+    if (1..=FUNCTION_DEPTH_LIMIT).contains(&depth) {
+        Ok(depth)
+    } else {
+        Err(serde::de::Error::custom(format!(
+            "function.max_depth is from 1 to {FUNCTION_DEPTH_LIMIT}, found {depth}"
+        )))
+    }
+}
+
+impl Default for FunctionConfig {
+    fn default() -> Self {
+        Self { max_depth: 64 }
     }
 }
 

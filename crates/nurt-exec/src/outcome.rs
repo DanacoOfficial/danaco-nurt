@@ -100,6 +100,18 @@ pub struct OperationOutcome {
     /// their records: `read` for a pipeline without effect, `plan` for a
     /// pipeline with one.
     pub timings: Vec<StepTiming>,
+    /// The parts of a control construct, for an operation that is one.
+    pub construct: Option<ConstructOutcome>,
+}
+
+/// What a control construct did, part by part.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct ConstructOutcome {
+    /// Name of the construct: `when`, `each`, `steps`, `call`.
+    pub name: String,
+    /// Parts in order: the chosen branch, every iteration, every step.
+    pub parts: Vec<nurt_contracts::report::ReportPart>,
 }
 
 impl OperationOutcome {
@@ -112,6 +124,7 @@ impl OperationOutcome {
             notable: Vec::new(),
             error: None,
             timings: Vec::new(),
+            construct: None,
         }
     }
 

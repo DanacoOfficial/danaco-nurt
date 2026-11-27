@@ -39,7 +39,8 @@ use nurt_contracts::error::Result;
 
 pub use check::{CHECK_FORMAT, CheckSummary, NetworkUse, ProgramUse, StageDetails, TargetSource};
 pub use model::{
-    LetPlan, OperationPlan, PipelinePlan, Plan, PlanOptions, PlanStatement, PlannedStage,
+    BranchPlan, ConstructPlan, ConstructShape, LetPlan, OperationPlan, PipelinePlan, Plan,
+    PlanOptions, PlanStatement, PlannedStage,
 };
 
 /// Plans a bound document with default options.

@@ -121,6 +121,9 @@ impl Binder<'_> {
         if place.per_record && is_record_expression(expr) {
             return Ok(self.expression(expr)?);
         }
+        if is_computed_from_names(expr) {
+            return Ok(self.expression(expr)?);
+        }
         match ty {
             ParamType::Scalar(scalar) => self.scalar(expr, *scalar, place),
             ParamType::Enum(values) => match expr {
@@ -441,6 +444,11 @@ impl Binder<'_> {
                 function,
                 args,
                 span,
+            } if function == "exists" && self.allow_sub => self.exists_call(args, *span),
+            Expr::Call {
+                function,
+                args,
+                span,
             } => {
                 let function = self.function_name(function, *span);
                 let mut bound = Vec::with_capacity(args.len());
@@ -466,6 +474,7 @@ impl Binder<'_> {
                     r: Box::new(bound_r),
                 })
             }
+            Expr::Sub { p, span } if self.allow_sub => self.value_pipeline(p, *span),
             Expr::Sub { span, .. } => Err(BindError::new(
                 ErrorCode::Type,
                 "a sub-pipeline is not an expression; use it as the argument of `verify` or of a parameter of type pipeline",
@@ -479,6 +488,24 @@ impl Binder<'_> {
     /// operator cannot take, with the error that evaluating it raises for
     /// every record; the error is placed at the literal, or at the whole
     /// operation when both operands are fields.
+    /// Binds `exists <path>` of a condition.
+    fn exists_call(&mut self, args: &[Expr], span: Option<Span>) -> Result<BoundExpr, BindError> {
+        let [path] = args else {
+            return Err(BindError::new(ErrorCode::Arity, "`exists` takes one path").at(span));
+        };
+        let ty = ParamType::Scalar(ScalarType::Path);
+        let place = Place {
+            command: "exists",
+            param: "path",
+            per_record: false,
+        };
+        let bound = self.value(path, &ty, place)?;
+        Ok(BoundExpr::Call {
+            function: "exists".to_owned(),
+            args: vec![bound],
+        })
+    }
+
     fn check_operation(
         &self,
         op: BinOp,
@@ -597,6 +624,31 @@ fn constant(expr: &Expr) -> Option<BoundExpr> {
             _ => None,
         },
         _ => None,
+    }
+}
+
+/// Whether the expression computes a value from a named result, a loop
+/// variable or a parameter: its type is checked when the value is known.
+fn is_computed_from_names(expr: &Expr) -> bool {
+    match expr {
+        Expr::Ref(_) => false,
+        Expr::Bin { l, r, .. } => mentions_name(l) || mentions_name(r),
+        Expr::Un { x, .. } => mentions_name(x),
+        Expr::Call { args, .. } => args.iter().any(mentions_name),
+        Expr::Field { of: Some(of), .. } => mentions_name(of),
+        _ => false,
+    }
+}
+
+fn mentions_name(expr: &Expr) -> bool {
+    match expr {
+        Expr::Ref(_) => true,
+        Expr::Bin { l, r, .. } => mentions_name(l) || mentions_name(r),
+        Expr::Un { x, .. } | Expr::Spread { x, .. } => mentions_name(x),
+        Expr::Call { args, .. } => args.iter().any(mentions_name),
+        Expr::Field { of: Some(of), .. } => mentions_name(of),
+        Expr::List { items, .. } => items.iter().any(mentions_name),
+        _ => false,
     }
 }
 

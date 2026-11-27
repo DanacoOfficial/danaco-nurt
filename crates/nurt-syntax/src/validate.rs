@@ -25,10 +25,11 @@
 use std::collections::HashSet;
 
 use nurt_contracts::ast::{
-    AstDocument, Expr, Head, KeySeg, Meta, Pipeline, Ref, Span, Stage, Statement,
+    Arg, AstDocument, Expr, Head, KeySeg, Meta, Param, Pipeline, Ref, Span, Stage, Statement,
 };
 use nurt_contracts::bound::{
-    BoundDocument, BoundExpr, BoundHead, BoundPipeline, BoundRef, BoundStage, BoundStatement, Phase,
+    BoundArg, BoundDocument, BoundExpr, BoundHead, BoundParam, BoundPipeline, BoundRef, BoundStage,
+    BoundStatement, Phase,
 };
 use nurt_contracts::kinds::EffectKind;
 use serde_json::Value;
@@ -205,8 +206,107 @@ fn surface_statement(place: &Place, statement: &Statement) -> Checked {
             surface_pipeline(&place.member("value"), &binding.value)
         }
         Statement::Pipeline(pipeline) => surface_pipeline(place, pipeline),
+        Statement::When(construct) => {
+            place.object(construct.span.as_ref())?;
+            let branches = place.member("branches");
+            branches.ensure(
+                !construct.branches.is_empty(),
+                "a `when` has at least one branch",
+            )?;
+            for (index, branch) in construct.branches.iter().enumerate() {
+                let at = branches.index(index);
+                at.object(branch.span.as_ref())?;
+                surface_expr(&at.member("cond"), &branch.cond, false)?;
+                surface_block(&at.member("body"), &branch.body)?;
+            }
+            match &construct.otherwise {
+                Some(body) => surface_block(&place.member("otherwise"), body),
+                None => Ok(()),
+            }
+        }
+        Statement::Each(construct) => {
+            place.object(construct.span.as_ref())?;
+            name(&place.member("name"), &construct.name)?;
+            surface_expr(&place.member("source"), &construct.source, false)?;
+            surface_options(&place.member("options"), &construct.options)?;
+            surface_block(&place.member("body"), &construct.body)
+        }
+        Statement::Repeat(construct) => {
+            place.object(construct.span.as_ref())?;
+            surface_options(&place.member("options"), &construct.options)?;
+            surface_block(&place.member("body"), &construct.body)
+        }
+        Statement::While(construct) => {
+            place.object(construct.span.as_ref())?;
+            surface_expr(&place.member("cond"), &construct.cond, false)?;
+            surface_options(&place.member("options"), &construct.options)?;
+            surface_block(&place.member("body"), &construct.body)
+        }
+        Statement::Break(jump) | Statement::Continue(jump) => place.object(jump.span.as_ref()),
+        Statement::Steps(construct) => {
+            place.object(construct.span.as_ref())?;
+            surface_block(&place.member("body"), &construct.body)
+        }
+        Statement::Define(construct) => {
+            place.object(construct.span.as_ref())?;
+            name(&place.member("name"), &construct.name)?;
+            surface_params(&place.member("params"), &construct.params)?;
+            surface_block(&place.member("body"), &construct.body)
+        }
+        Statement::Params(construct) => {
+            place.object(construct.span.as_ref())?;
+            let params = place.member("params");
+            params.ensure(
+                !construct.params.is_empty(),
+                "`params` declares at least one parameter",
+            )?;
+            surface_params(&params, &construct.params)
+        }
         _ => Err(place.fail("unsupported statement kind")),
     }
+}
+
+fn surface_block(place: &Place, body: &[Statement]) -> Checked {
+    place.ensure(
+        !body.is_empty(),
+        "a block must contain at least one statement",
+    )?;
+    for (index, statement) in body.iter().enumerate() {
+        surface_statement(&place.index(index), statement)?;
+    }
+    Ok(())
+}
+
+fn surface_options(place: &Place, options: &[Arg]) -> Checked {
+    for (index, option) in options.iter().enumerate() {
+        let at = place.index(index);
+        at.object(option.span.as_ref())?;
+        let Some(option_name) = &option.name else {
+            return Err(at.fail("an option of a construct has a name"));
+        };
+        identifier(&at.member("name"), option_name)?;
+        surface_expr(&at.member("value"), &option.value, false)?;
+    }
+    Ok(())
+}
+
+fn surface_params(place: &Place, params: &[Param]) -> Checked {
+    let mut seen = HashSet::new();
+    for (index, param) in params.iter().enumerate() {
+        let at = place.index(index);
+        at.object(param.span.as_ref())?;
+        identifier(&at.member("name"), &param.name)?;
+        at.member("name").ensure(
+            seen.insert(param.name.as_str()),
+            "a parameter name is declared once",
+        )?;
+        at.member("type")
+            .ensure(!param.ty.is_empty(), "a parameter has a type")?;
+        if let Some(default) = &param.default {
+            surface_expr(&at.member("default"), default, false)?;
+        }
+    }
+    Ok(())
 }
 
 fn surface_pipeline(place: &Place, pipeline: &Pipeline) -> Checked {
@@ -415,6 +515,12 @@ pub fn validate_bound(document: &BoundDocument) -> Result<(), SyntaxError> {
 }
 
 fn bound_statement(place: &Place, statement: &BoundStatement) -> Checked {
+    bound_statement_in(place, statement, false)
+}
+
+/// Checks a statement; `nested` is set inside the block of a construct, where
+/// a `let` may hold a change.
+fn bound_statement_in(place: &Place, statement: &BoundStatement, nested: bool) -> Checked {
     match statement {
         BoundStatement::Let(binding) => {
             place.object(binding.span.as_ref())?;
@@ -422,13 +528,123 @@ fn bound_statement(place: &Place, statement: &BoundStatement) -> Checked {
             let value = place.member("value");
             let position = bound_pipeline(&value, &binding.value)?;
             value.ensure(
-                position == Position::BeforeEffect,
+                nested || position == Position::BeforeEffect,
                 "the pipeline of a `let` must not contain an effect; move the effect to a pipeline statement",
             )
         }
         BoundStatement::Pipeline(pipeline) => bound_pipeline(place, pipeline).map(drop),
+        BoundStatement::When(construct) => {
+            place.object(construct.span.as_ref())?;
+            let branches = place.member("branches");
+            branches.ensure(
+                !construct.branches.is_empty(),
+                "a `when` has at least one branch",
+            )?;
+            for (index, branch) in construct.branches.iter().enumerate() {
+                let at = branches.index(index);
+                at.object(branch.span.as_ref())?;
+                bound_expr(&at.member("cond"), &branch.cond, false)?;
+                bound_block(&at.member("body"), &branch.body)?;
+            }
+            match &construct.otherwise {
+                Some(body) => bound_block(&place.member("otherwise"), body),
+                None => Ok(()),
+            }
+        }
+        BoundStatement::Each(construct) => {
+            place.object(construct.span.as_ref())?;
+            name(&place.member("name"), &construct.name)?;
+            bound_expr(&place.member("source"), &construct.source, false)?;
+            if let Some(parallel) = construct.parallel {
+                place
+                    .member("parallel")
+                    .ensure(parallel >= 1, "`parallel` is at least 1")?;
+            }
+            bound_block(&place.member("body"), &construct.body)
+        }
+        BoundStatement::Repeat(construct) => {
+            place.object(construct.span.as_ref())?;
+            bound_expr(&place.member("until"), &construct.until, false)?;
+            bound_block(&place.member("body"), &construct.body)
+        }
+        BoundStatement::While(construct) => {
+            place.object(construct.span.as_ref())?;
+            bound_expr(&place.member("cond"), &construct.cond, false)?;
+            bound_block(&place.member("body"), &construct.body)
+        }
+        BoundStatement::Break(jump) | BoundStatement::Continue(jump) => {
+            place.object(jump.span.as_ref())
+        }
+        BoundStatement::Steps(construct) => {
+            place.object(construct.span.as_ref())?;
+            bound_block(&place.member("body"), &construct.body)
+        }
+        BoundStatement::Define(construct) => {
+            place.object(construct.span.as_ref())?;
+            name(&place.member("name"), &construct.name)?;
+            bound_params(&place.member("params"), &construct.params)?;
+            bound_block(&place.member("body"), &construct.body)
+        }
+        BoundStatement::Params(construct) => {
+            place.object(construct.span.as_ref())?;
+            let params = place.member("params");
+            params.ensure(
+                !construct.params.is_empty(),
+                "`params` declares at least one parameter",
+            )?;
+            bound_params(&params, &construct.params)
+        }
         _ => Err(place.fail("unsupported statement kind")),
     }
+}
+
+fn bound_block(place: &Place, body: &[BoundStatement]) -> Checked {
+    place.ensure(
+        !body.is_empty(),
+        "a block must contain at least one statement",
+    )?;
+    for (index, statement) in body.iter().enumerate() {
+        bound_statement_in(&place.index(index), statement, true)?;
+    }
+    Ok(())
+}
+
+fn bound_params(place: &Place, params: &[BoundParam]) -> Checked {
+    let mut seen = HashSet::new();
+    for (index, param) in params.iter().enumerate() {
+        let at = place.index(index);
+        at.object(None)?;
+        identifier(&at.member("name"), &param.name)?;
+        unique(
+            &at.member("name"),
+            &mut seen,
+            &param.name,
+            "duplicate parameter; declare each name once",
+        )?;
+        at.member("type")
+            .ensure(!param.ty.is_empty(), "a parameter has a type")?;
+        if let Some(default) = &param.default {
+            bound_expr(&at.member("default"), default, false)?;
+        }
+    }
+    Ok(())
+}
+
+fn bound_args(place: &Place, args: &[BoundArg]) -> Checked {
+    let mut names = HashSet::new();
+    for (index, arg) in args.iter().enumerate() {
+        let at = place.index(index);
+        at.object(arg.span.as_ref())?;
+        identifier(&at.member("name"), &arg.name)?;
+        unique(
+            &at.member("name"),
+            &mut names,
+            &arg.name,
+            "duplicate parameter; keep a single argument per parameter",
+        )?;
+        bound_expr(&at.member("value"), &arg.value, false)?;
+    }
+    Ok(())
 }
 
 /// Position in a pipeline relative to its effect stage.
@@ -458,6 +674,12 @@ fn bound_pipeline(place: &Place, pipeline: &BoundPipeline) -> Result<Position, S
         BoundHead::Ref(reference) => {
             head.object(None)?;
             bound_ref(&head, reference)?;
+            Position::BeforeEffect
+        }
+        BoundHead::Call(call) => {
+            head.object(call.span.as_ref())?;
+            name(&head.member("name"), &call.name)?;
+            bound_args(&head.member("args"), &call.args)?;
             Position::BeforeEffect
         }
         _ => return Err(head.fail("unsupported pipeline head kind")),

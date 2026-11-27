@@ -15,8 +15,10 @@ use serde_json::{Map, Value};
 
 use crate::error::ToolDefError;
 
-/// Envelope fields that the host fills and the tool does not expose.
-const HOST_FIELDS: &[&str] = &["nurt", "variant"];
+/// Envelope fields that the host fills and the tool does not expose: the
+/// values of the parameters of a script file come from the command line or
+/// the interface of the engine, not from the model.
+const HOST_FIELDS: &[&str] = &["nurt", "variant", "params"];
 
 /// Name of the envelope field that holds the call options.
 pub(crate) const OPTIONS_FIELD: &str = "options";

@@ -59,6 +59,13 @@ impl BindError {
         self
     }
 
+    /// Adds a named detail to the error.
+    #[must_use]
+    pub(crate) fn detail(mut self, name: &str, value: serde_json::Value) -> Self {
+        self.0 = self.0.with_detail(name, value);
+        self
+    }
+
     /// Sets the help topic.
     #[must_use]
     pub(crate) fn help(mut self, topic: impl Into<String>) -> Self {

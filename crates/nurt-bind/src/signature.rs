@@ -143,19 +143,35 @@ impl<'a> Binder<'a> {
         flow: &Flow,
     ) -> Result<Vec<Bound>, BindError> {
         self.check_os(spec, stage)?;
+        let (previewless, preview) = split_preview(stage, spec);
+        let stage = previewless.as_ref().unwrap_or(stage);
         let (input, form) = select(spec, flow).ok_or_else(|| input_error(spec, flow, stage))?;
         let accepted = Accepted::new(spec, form);
         let collects_names = named_expression_param(spec).is_some();
         let corrected = self.correct_params(stage, spec, &accepted.names, collects_names);
         let stage = corrected.as_ref().unwrap_or(stage);
+        let flagged = expand_flags(stage, spec);
+        let stage = flagged.as_ref().unwrap_or(stage);
         let written = self.assign(stage, spec, form, &accepted)?;
         if let Some(form) = form
             && input.is_none()
             && let Some(target) = form.expand.as_deref()
         {
-            return self.expand(stage, spec, form, &written, target);
+            return self.expand(stage, spec, form, &written, (target, preview.as_ref()));
         }
-        let args = self.arguments(stage, spec, form, &written)?;
+        let mut args = self.arguments(stage, spec, form, &written)?;
+        if let Some(preview) = preview {
+            let value = self.value(
+                &preview,
+                &ParamType::Scalar(ScalarType::Bool),
+                Place {
+                    command: &spec.name,
+                    param: PREVIEW,
+                    per_record: false,
+                },
+            )?;
+            args.push(BoundArg::given(PREVIEW, value));
+        }
         let effect = effect_of(spec, &args, &input);
         let waits = waits_of(spec, &args);
         Ok(vec![Bound {
@@ -199,7 +215,7 @@ impl<'a> Binder<'a> {
         spec: &StageSpec,
         form: &FormSpec,
         written: &[Option<Written<'_>>],
-        target: &str,
+        (target, preview): (&str, Option<&Expr>),
     ) -> Result<Vec<Bound>, BindError> {
         self.arguments(stage, spec, Some(form), written)?;
         let mut head_args = Vec::new();
@@ -223,6 +239,13 @@ impl<'a> Binder<'a> {
                 "the catalog has no `{EXPANSION_HEAD}` command for the source form of `{}`",
                 spec.name
             )));
+        }
+        if let Some(preview) = preview {
+            rest_args.push(Arg {
+                name: Some(PREVIEW.to_owned()),
+                value: preview.clone(),
+                span: preview_span(preview),
+            });
         }
         let head = Stage {
             name: EXPANSION_HEAD.to_owned(),
@@ -965,6 +988,89 @@ fn os_name(os: Os) -> &'static str {
         Os::Windows => "windows",
         _ => "other",
     }
+}
+
+/// Source range of an expression, when it has one.
+fn preview_span(expr: &Expr) -> Option<nurt_contracts::ast::Span> {
+    crate::cast::expr_span(expr)
+}
+
+/// Name of the parameter every change accepts, besides its own.
+const PREVIEW: &str = "preview";
+
+/// Takes `preview` out of the arguments of a command that has no parameter of
+/// that name: `remove preview`, `remove preview: true` and
+/// `remove preview: @dry` compute the effect of that stage without applying
+/// it. Returns the stage without the argument and the value written.
+fn split_preview(stage: &Stage, spec: &StageSpec) -> (Option<Stage>, Option<Expr>) {
+    if spec.param(PREVIEW).is_some() {
+        return (None, None);
+    }
+    let Some(index) = stage
+        .args
+        .iter()
+        .position(|arg| match (&arg.name, &arg.value) {
+            (Some(name), _) => name == PREVIEW,
+            (None, Expr::Ident { v, .. }) => v == PREVIEW,
+            _ => false,
+        })
+    else {
+        return (None, None);
+    };
+    let mut rest = stage.clone();
+    let arg = rest.args.remove(index);
+    let value = match arg.name {
+        Some(_) => arg.value,
+        None => Expr::Bool {
+            v: true,
+            span: arg.span,
+        },
+    };
+    (Some(rest), Some(value))
+}
+
+/// Reads a parameter of type `bool` written without a value as `true`:
+/// `remove preview` is `remove preview: true`. A word that names a `bool`
+/// parameter that is not written otherwise, and that is no value of an
+/// enumeration parameter of the command, is the parameter; the long form
+/// stays valid and `false` is always written out.
+fn expand_flags(stage: &Stage, spec: &StageSpec) -> Option<Stage> {
+    let named: Vec<&str> = stage
+        .args
+        .iter()
+        .filter_map(|arg| arg.name.as_deref())
+        .collect();
+    let mut changed: Option<Stage> = None;
+    for (index, arg) in stage.args.iter().enumerate() {
+        let (None, Expr::Ident { v, span }) = (&arg.name, &arg.value) else {
+            continue;
+        };
+        let is_flag = spec
+            .param(v)
+            .is_some_and(|param| matches!(param.ty, ParamType::Scalar(ScalarType::Bool)));
+        let is_value = spec.params.iter().any(|param| match &param.ty {
+            ParamType::Enum(values) => values.contains(v),
+            _ => false,
+        });
+        let repeated = changed
+            .as_ref()
+            .map_or(&stage.args, |changed| &changed.args)
+            .iter()
+            .any(|other| other.name.as_deref() == Some(v.as_str()));
+        if !is_flag || is_value || repeated || named.contains(&v.as_str()) {
+            continue;
+        }
+        let edited = changed.get_or_insert_with(|| stage.clone());
+        edited.args[index] = Arg {
+            name: Some(v.clone()),
+            value: Expr::Bool {
+                v: true,
+                span: *span,
+            },
+            span: arg.span,
+        };
+    }
+    changed
 }
 
 #[cfg(test)]

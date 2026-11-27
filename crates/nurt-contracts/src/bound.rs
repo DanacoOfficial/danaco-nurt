@@ -69,12 +69,20 @@ use serde::{Deserialize, Serialize};
 use crate::ast::{AST_VERSION, BinOp, Meta, Span, UnOp};
 use crate::kinds::EffectKind;
 
+mod flow;
+
+pub use flow::{
+    BoundBranch, BoundCall, BoundDefine, BoundEach, BoundJump, BoundLimit, BoundParam, BoundParams,
+    BoundRepeat, BoundSteps, BoundWhen, BoundWhile, DEFAULT_MAX_DEPTH, DEFAULT_MAX_ITERATIONS,
+    DEFAULT_MAX_TIME_MS, FLOW_BOUND_KINDS,
+};
+
 /// Name of the bound tree format.
 pub const BOUND_FORMAT: &str = "nurt-bound/1";
 
 /// Bound tree version written into the member `"bound"` by this version of
 /// the contract.
-pub const BOUND_VERSION: &str = "1.0";
+pub const BOUND_VERSION: &str = "1.1";
 
 /// Media type of a bound tree encoded as JSON.
 pub const BOUND_MEDIA_TYPE_JSON: &str = "application/vnd.nurt.bound+json; v=1";
@@ -85,10 +93,11 @@ pub const BOUND_MEDIA_TYPE_CBOR: &str = "application/vnd.nurt.bound+cbor; v=1";
 /// Node kinds of the bound tree: the admissible values of the member `"t"`.
 ///
 /// A reader reports node kinds outside this list with `E_AST_VERSION`.
-pub const BOUND_KINDS: [&str; 26] = [
+pub const BOUND_KINDS: [&str; 35] = [
     "let", "pipeline", "stage", "ref", "null", "bool", "int", "num", "text", "path", "glob", "key",
     "enum", "instant", "size", "dur", "regex", "list", "map", "range", "sub", "field", "call",
-    "un", "bin", "spread",
+    "un", "bin", "spread", "when", "each", "repeat", "while", "break", "continue", "steps",
+    "define", "params",
 ];
 
 /// Root of a bound tree document.
@@ -147,6 +156,24 @@ pub enum BoundStatement {
     Let(BoundLet),
     /// A pipeline.
     Pipeline(BoundPipeline),
+    /// Conditional.
+    When(BoundWhen),
+    /// Loop over records.
+    Each(BoundEach),
+    /// Loop that tests its condition after the body.
+    Repeat(BoundRepeat),
+    /// Loop that tests its condition before the body.
+    While(BoundWhile),
+    /// Ends the innermost loop.
+    Break(BoundJump),
+    /// Starts the next iteration of the innermost loop.
+    Continue(BoundJump),
+    /// Several changes in one call.
+    Steps(BoundSteps),
+    /// Definition of a function.
+    Define(BoundDefine),
+    /// Parameters of a script.
+    Params(BoundParams),
 }
 
 /// Bound named result.
@@ -198,6 +225,8 @@ pub enum BoundHead {
     Stage(BoundStage),
     /// A named result.
     Ref(BoundRef),
+    /// A call of a defined function.
+    Call(BoundCall),
 }
 
 /// Names of the call parameters that can be written on a stage; they follow

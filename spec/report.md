@@ -66,6 +66,39 @@ name never appears in the output of a program.
 | `error` | object | error of the language, section 8 |
 | `next_cursor` | text | cursor of the next page; absent on the last page |
 | `timing` | object | `parse_ms`, `read_ms`, `plan_ms`, `apply_ms` (verbosity `detailed`) |
+| `parts` | list | the parts of a control construct in order, section 2.1 |
+| `parts_total` | integer | number of parts when `parts` is shortened to the first 200 |
+
+### 2.1 Parts of a control construct
+
+A program that holds a control construct (`when`, `each`, `repeat`, `while`,
+`steps`, a call of a function) is one operation and one journal entry; `op`
+is the number of the entry and `kind` the word of the construct. The report
+lists the parts in order in `parts`, each with:
+
+| Member | Meaning |
+|---|---|
+| `at` | place of the part: `when`, `when.branch[2]`, `each.iteration[3]`, `steps.step[1]`, `call rotate.step[2]` |
+| `kind` | `branch` (the chosen branch), `iteration`, `step`, `loop` (the totals of a loop) |
+| `condition` | value of the condition of the chosen branch; `false` when no branch ran |
+| `branch` | number of the chosen branch from 1; the `otherwise` branch is one past the last condition |
+| `command` | command whose effect the step reports |
+| `targets` | number of targets the part changed |
+| `ok` | `false` for the part that failed |
+| `rolled_back` | the effects of the part were rolled back (parts that failed or were undone by the failure of a later part) |
+| `irreversible` | the effects of the part cannot be rolled back; they are listed in `irreversible` |
+| `error` | code of the error that ended the part |
+| `iterations` | number of iterations of a `loop` part |
+| `op` | journal entry of an iteration of a loop with `atomic: false` |
+| `note` | remark: the limit ended the loop, a preview plans one iteration |
+
+When a part fails the whole construct is rolled back: the status is
+`rolled_back`, `error.details.restored` lists what was restored and
+`error.details.not_rolled_back` lists the parts the catalog marks irreversible.
+`parallel: N` of `each` reads every iteration twice, once to find its targets and once to run it, and compares paths by components, both separators and without regard to case; only the reading and planning of the iterations run at the same time, their changes are applied one at a time inside the one transaction. It runs iterations at the same time only when their targets are disjoint, found by planning every iteration before the start; otherwise the iterations run in order and the `loop` part says so in `note`. With `preview: true` a `repeat` or a `while` plans one iteration (the number of iterations is known only by running, `note` says so) and an `each` plans every iteration; the status is `planned`, `changes` lists the effects of
+every part and nothing is changed. A loop with `atomic: false` keeps the
+iterations completed before a failure, each in its own entry (`op` of the
+part); the report names the failed iteration.
 
 Records (`exec`, `job`, `test`, `analysis`, `git`, `records.header` and
 `records.rows`) appear in their JSON form defined by the value and record
@@ -290,6 +323,8 @@ Exactly one input is given:
 | `ast` | surface syntax tree `nurt-ast/1` |
 | `cursor` | cursor of a further page of an earlier result; reading a page never runs a changing program again |
 | `accept` | identifier of a candidate from an earlier `E_AMBIGUOUS` error |
+
+The member `params` accompanies `program` or `ast`: an object with the values of the parameters declared by the program with `params { … }`. A value is typed JSON or, as the command line passes it, text that the declared type reads (`"7"` for `int`, `"10mb"` for `size`). A name that is not declared is `E_UNKNOWN_PARAM` with the nearest names, a missing required parameter is `E_MISSING_PARAM` and a value of the wrong type is `E_TYPE`; every error lists the declaration and nothing has run.
 
 Options (`options`) are shared by every command. An absent option takes its
 value from the configuration, and without a configured value from the default
