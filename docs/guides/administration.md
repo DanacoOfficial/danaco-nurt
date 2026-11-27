@@ -31,6 +31,8 @@ Changes outside the file system are undone by inverse operations that the engine
 | `start`, `stop` | the opposite command |
 | `enable`, `disable` | the opposite command with the recorded start type |
 
+`enable` and `disable` are undone only for the start types `disabled` and `automatic`; other start types make the entry irreversible, with the reason in the report. A package version that the repository no longer offers makes only that package irreversible.
+
 Irreversible are `restart`, `stop` of a process, and `run`: files changed by a program started with `run` and `privilege: elevated` are not preserved, and the report states it.
 
 ## Services

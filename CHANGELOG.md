@@ -28,6 +28,11 @@ their own version numbers, described in the specification.
 
 ### Changed
 
+- A `nurt` process that runs as the administrator keeps its journal, results
+  and candidates in the system state directory (`/var/lib/nurt`,
+  `/Library/Application Support/Nurt`, `%ProgramData%\Nurt`) instead of the
+  state directory of that account; entries made earlier as `root` are not shown
+  there.
 - `sudo`, `doas` and `run0` in bash lines are translated into `privilege:
   elevated` or `as_user` instead of being rejected; `sudo -i` and `su` end with
   `E_AMBIGUOUS`.

@@ -308,6 +308,22 @@ entry through the same backends, with the same access rule, and reports
 `E_PRIVILEGE` and `next_steps`. A process that is itself the administrator
 (backend `self`) uses the system journal as its own journal.
 
+`history` merges the elevated and the account entries by time, newest first,
+and applies `limit` afterwards. An elevated entry that was undone through the
+backend shows the state `undone`, and `journal.status` does not count it as
+available. `details` of a number above 1 000 000 000 ends with `E_UNSUPPORTED`
+and a next step; `redo` and `pin` of such an entry, and `undo` without a number,
+do not reach it in 0.1.1. A script that runs through a backend gives every
+pipeline its own number in `reports`.
+
+An `enable` or `disable` is undone only when the recorded start type is
+`disabled` or `automatic` (release 0.1.1). A service whose recorded start type
+is `manual`, `static` or `masked`, or a delayed start on Windows, makes the
+entry irreversible: the report keeps the marker `service_changed` and its
+`detail` gives the reason. A package that the repository no longer offers in
+the recorded version is irreversible per package; the other packages of an
+`upgrade` stay undoable.
+
 Operations outside the file system are undone by inverse operations:
 
 | Operation | Recorded state | Undo |

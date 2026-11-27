@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 use nurt_contracts::bound::BoundDocument;
 use nurt_contracts::envelope::{Request, Response};
-use nurt_contracts::report::{Irreversible, Report, ReportStatus};
+use nurt_contracts::report::{Irreversible, IrreversibleEntry, Report, ReportStatus};
 use nurt_contracts::stage::{CancelToken, EventSink};
 use serde::{Deserialize, Serialize};
 
@@ -42,11 +42,22 @@ fn repository_offers(manager: &str, package: &str, version: &str) -> bool {
         "dnf" => ("dnf", vec!["-q", "list", "--showduplicates", package]),
         _ => return false,
     };
-    std::process::Command::new(program)
-        .args(args)
-        .stdin(std::process::Stdio::null())
-        .output()
-        .is_ok_and(|output| {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let program = program.to_owned();
+    let args: Vec<String> = args.into_iter().map(str::to_owned).collect();
+    std::thread::spawn(move || {
+        let output = std::process::Command::new(program)
+            .args(args)
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output();
+        let _ = sender.send(output);
+    });
+    receiver
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .ok()
+        .and_then(Result::ok)
+        .is_some_and(|output| {
             String::from_utf8_lossy(&output.stdout)
                 .lines()
                 .any(|line| line.split_whitespace().any(|word| word == version))
@@ -82,6 +93,14 @@ pub enum Derived {
     Programs(Vec<String>),
     /// The change cannot be undone, with the reason.
     Irreversible(String),
+    /// Part of the change is undone by `programs`; `irreversible` names the
+    /// packages that no program restores, each with its reason.
+    Partial {
+        /// Programs that restore part of the state.
+        programs: Vec<String>,
+        /// Reasons, one per package that stays irreversible.
+        irreversible: Vec<String>,
+    },
 }
 
 /// Whether `text` can be written as a quoted text of the language without
@@ -159,6 +178,7 @@ pub fn derive_with(report: &Report, offers: &dyn Fn(&str, &str, &str) -> bool) -
 fn derive_packages(report: &Report, offers: &dyn Fn(&str, &str, &str) -> bool) -> Derived {
     let manager = manager_of(report);
     let mut programs = Vec::new();
+    let mut lost: Vec<String> = Vec::new();
     for change in &report.changes {
         let Some(name) = change.path.as_str().strip_prefix(PACKAGE_PREFIX) else {
             continue;
@@ -175,9 +195,10 @@ fn derive_packages(report: &Report, offers: &dyn Fn(&str, &str, &str) -> bool) -
         if let Some(version) = reinstalled
             && !offers(manager.as_deref().unwrap_or(""), name, version)
         {
-            return Derived::Irreversible(format!(
+            lost.push(format!(
                 "the repository no longer offers version {version} of `{name}`"
             ));
+            continue;
         }
         let program = match (report.kind.as_str(), before, after) {
             ("package.install", None, Some(_)) => {
@@ -200,10 +221,14 @@ fn derive_packages(report: &Report, offers: &dyn Fn(&str, &str, &str) -> bool) -
             }
         }
     }
-    if programs.is_empty() {
-        Derived::None
-    } else {
-        Derived::Programs(programs)
+    match (programs.is_empty(), lost.is_empty()) {
+        (true, true) => Derived::None,
+        (true, false) => Derived::Irreversible(lost.join("; ")),
+        (false, true) => Derived::Programs(programs),
+        (false, false) => Derived::Partial {
+            programs,
+            irreversible: lost,
+        },
     }
 }
 
@@ -293,8 +318,24 @@ impl Engine {
         let (Some(log), Some(op)) = (&self.inner.inverses, report.op) else {
             return;
         };
-        let Derived::Programs(programs) = derive_with(report, &repository_offers) else {
-            return;
+        let (programs, lost) = match derive_with(report, &repository_offers) {
+            Derived::Programs(programs) => (programs, Vec::new()),
+            Derived::Partial {
+                programs,
+                irreversible,
+            } => (programs, irreversible),
+            Derived::Irreversible(reason) => {
+                for marker in &mut report.irreversible {
+                    if matches!(
+                        marker.reason,
+                        Irreversible::PackageChanged | Irreversible::ServiceChanged
+                    ) {
+                        marker.detail = Some(reason.clone());
+                    }
+                }
+                return;
+            }
+            Derived::None => return,
         };
         let entry = InverseOperation {
             op,
@@ -309,6 +350,11 @@ impl Engine {
                     Irreversible::PackageChanged | Irreversible::ServiceChanged
                 )
             });
+            for reason in lost {
+                let mut marker = IrreversibleEntry::new(Irreversible::PackageChanged);
+                marker.detail = Some(reason);
+                report.irreversible.push(marker);
+            }
         }
     }
 
@@ -408,6 +454,34 @@ mod tests {
             })),
             ["package.install [\"jq\"] version: \"1.7\" manager: apt"]
         );
+    }
+
+    #[test]
+    fn an_upgrade_loses_only_the_packages_that_are_no_longer_offered() {
+        let mut report = report(
+            "package.upgrade",
+            &[
+                ("package:a", Some("1"), Some("2")),
+                ("package:b", Some("5"), Some("6")),
+            ],
+        );
+        let mut marker = IrreversibleEntry::new(Irreversible::PackageChanged);
+        marker.detail = Some("apt".to_owned());
+        report.irreversible.push(marker);
+        match derive_with(&report, &|_, name, _| name == "a") {
+            Derived::Partial {
+                programs,
+                irreversible,
+            } => {
+                assert_eq!(
+                    programs,
+                    ["package.install [\"a\"] version: \"1\" manager: apt"]
+                );
+                assert_eq!(irreversible.len(), 1);
+                assert!(irreversible[0].contains("`b`"));
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

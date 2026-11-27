@@ -83,6 +83,18 @@ impl Frontend for Elevating {
         variant: Option<SyntaxVariant>,
         config: &Config,
     ) -> Result<Compiled> {
+        if text == "ambiguous" {
+            return Err(
+                Error::new(ErrorCode::Ambiguous, "two readings").with_candidate(
+                    nurt_contracts::error::Candidate {
+                        rank: 1,
+                        reference: None,
+                        program: "find /data".to_owned(),
+                        why: None,
+                    },
+                ),
+            );
+        }
         self.0.compile(text, variant, config)
     }
 }
@@ -146,7 +158,7 @@ fn two_pipelines() -> BoundDocument {
         "nurt": "1.0", "bound": "1.0", "catalog_rev": "cat-1", "corr_rev": "corr-1",
         "program": {"statements": [
             {"t": "pipeline", "head": with_call(find_stage(), "privilege", "elevated"), "stages": []},
-            {"t": "pipeline", "head": find_stage(), "stages": []}
+            {"t": "pipeline", "head": with_call(find_stage(), "privilege", "auto"), "stages": []}
         ]}
     }))
     .unwrap()
@@ -535,7 +547,7 @@ fn a_privilege_error_of_a_stage_names_elevation_and_the_backends() {
 }
 
 #[test]
-fn different_rights_on_two_pipelines_are_refused() {
+fn different_rights_given_on_two_pipelines_are_refused() {
     let setup = setup(TestHost::linux(), true, None, "");
     let mut with_script = options(None, None);
     with_script.script = Some(true);
@@ -744,6 +756,77 @@ mod fake_programs {
             Some("system_journal_entry")
         );
         assert_eq!(fake.request()["options"]["privilege"], json!("elevated"));
+    }
+
+    fn script_response(main: u64, others: &[u64]) -> Response {
+        let mut response = canned(Some(main));
+        for op in others {
+            let mut report = Report::new(ReportStatus::Ok, "write");
+            report.op = Some(*op);
+            response.reports.push(report);
+        }
+        response
+    }
+
+    #[test]
+    fn every_pipeline_of_an_elevated_script_gets_its_own_entry_number() {
+        let fake = Fake::answering("sudo", &script_response(5, &[4, 5]));
+        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
+        let response = call(
+            &setup,
+            "find /data",
+            options(Some(Privilege::Elevated), None),
+        );
+        let base = 1_000_000_000;
+        assert_eq!(response.report.op, Some(base + 5));
+        let ops: Vec<Option<u64>> = response.reports.iter().map(|r| r.op).collect();
+        assert_eq!(ops, [Some(base + 4), Some(base + 5)]);
+        let history = setup
+            .engine
+            .history(&nurt_contracts::journal::HistoryQuery::default())
+            .unwrap();
+        let ids: Vec<u64> = history.iter().map(|record| record.id).collect();
+        assert!(
+            ids.contains(&(base + 4)) && ids.contains(&(base + 5)),
+            "{ids:?}"
+        );
+        assert_eq!(setup.engine.elevated_references().len(), 2);
+    }
+
+    #[test]
+    fn an_undone_elevated_entry_is_shown_as_undone() {
+        let fake = Fake::answering("sudo", &canned(Some(7)));
+        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
+        let _ = call(
+            &setup,
+            "find /data",
+            options(Some(Privilege::Elevated), None),
+        );
+        let undone = call(&setup, "undo 1000000007", options(None, None));
+        assert!(undone.report.elevated);
+        let history = setup
+            .engine
+            .history(&nurt_contracts::journal::HistoryQuery::default())
+            .unwrap();
+        let entry = history
+            .iter()
+            .find(|record| record.id == 1_000_000_007)
+            .unwrap();
+        assert_eq!(entry.state, nurt_contracts::record::OperationState::Undone);
+    }
+
+    #[test]
+    fn an_accepted_candidate_without_correction_runs_through_the_backend() {
+        let fake = Fake::answering("sudo", &canned(None));
+        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
+        let first = call(&setup, "ambiguous", options(None, None));
+        assert_eq!(error_of(&first).code(), ErrorCode::Ambiguous);
+        let response = setup
+            .engine
+            .run(&Request::accept("c1").with_options(options(Some(Privilege::Elevated), None)));
+        assert_eq!(response.report.status, ReportStatus::Ok, "{response:?}");
+        assert!(response.report.elevated);
+        assert_eq!(response.report.backend.as_deref(), Some("sudo"));
     }
 
     #[test]

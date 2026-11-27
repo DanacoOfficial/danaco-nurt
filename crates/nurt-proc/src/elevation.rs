@@ -328,6 +328,9 @@ where
 /// removed, so that the configuration and the state of the elevated process
 /// never come from the caller.
 pub fn reset_environment() {
+    if cfg!(windows) {
+        return;
+    }
     let kept = backend_environment(std::env::vars());
     let names: Vec<std::ffi::OsString> = std::env::vars_os().map(|(name, _)| name).collect();
     for name in names {
@@ -450,8 +453,6 @@ mod imp {
 #[cfg(windows)]
 mod imp {
     use std::ffi::c_void;
-
-    pub(super) fn set_account_variables() {}
     use std::mem;
     use std::ptr;
 
@@ -460,6 +461,8 @@ mod imp {
         GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
     };
     use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    pub(super) fn set_account_variables() {}
 
     pub(super) fn is_administrator() -> bool {
         let mut token: HANDLE = ptr::null_mut();

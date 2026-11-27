@@ -1388,7 +1388,9 @@ impl Engine {
             self.inner
                 .candidates
                 .accept(prepared.session.as_ref(), reference, self.now())?;
-        self.compile(&candidate.program, None, prepared)
+        let mut compiled = self.compile(&candidate.program, None, prepared)?;
+        compiled.ran.get_or_insert(candidate.program);
+        Ok(compiled)
     }
 
     /// Keeps the candidates of an ambiguous program for `accept`.

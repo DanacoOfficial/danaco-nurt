@@ -705,7 +705,7 @@ fn stages_cover_the_catalog_commands() {
         .collect();
     assert_eq!(
         commands,
-        ["services", "start", "restart", "enable", "disable"]
+        ["services", "start", "stop", "restart", "enable", "disable"]
     );
     assert!(stages[0].as_read().is_some());
     for stage in &stages[1..] {

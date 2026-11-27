@@ -200,6 +200,12 @@ impl Engine {
             if payload.is_none() {
                 match self.elevated_payload(request, prepared, early.as_ref()) {
                     Some(built) => payload = Some(built),
+                    None if matches!(request.input(), Ok(RequestInput::Accept(_))) => {
+                        return Err(Error::new(
+                            ErrorCode::Internal,
+                            "the program of the accepted candidate cannot be sent to the elevated process",
+                        ));
+                    }
                     None => return Ok(self.execute_local(request, cancel, events, None, early)),
                 }
             }
@@ -231,9 +237,22 @@ impl Engine {
                             response.report.corrections.clone_from(corrections);
                             response.report.ran.clone_from(ran);
                         }
-                        self.remember(&response.report, &mark);
-                        if let Some(op) = response.report.op {
-                            response.report.op = Some(ELEVATED_OP_BASE + op);
+                        let mut remembered: Vec<u64> = Vec::new();
+                        let all = std::iter::once(&response.report).chain(response.reports.iter());
+                        for report in all {
+                            if let Some(op) = report.op
+                                && !remembered.contains(&op)
+                            {
+                                self.remember(report, &mark);
+                                remembered.push(op);
+                            }
+                        }
+                        for report in
+                            std::iter::once(&mut response.report).chain(response.reports.iter_mut())
+                        {
+                            if let Some(op) = report.op {
+                                report.op = Some(ELEVATED_OP_BASE + op);
+                            }
                         }
                         if response.reports.is_empty() {
                             response = respond_with(&response.report, &prepared.options);
@@ -303,6 +322,7 @@ impl Engine {
             as_user: mark.as_user.clone(),
             kind: report.kind.clone(),
             time_ms: i64::try_from(self.now().unix_nanos() / 1_000_000).unwrap_or(0),
+            undone: false,
             journal: match &mark.as_user {
                 Some(user) => format!("account:{user}"),
                 None => self.system_state_dir().to_string_lossy().into_owned(),
@@ -383,7 +403,17 @@ impl Engine {
             events,
             None,
         ) {
-            Ok(response) => response,
+            Ok(response) => {
+                if response.report.status == ReportStatus::Ok
+                    && !prepared.options.preview()
+                    && let Some(log) = &self.inner.references
+                {
+                    let mut done = reference.clone();
+                    done.undone = true;
+                    let _ = log.append(&done);
+                }
+                response
+            }
             Err(error) => refusal(request, prepared, error),
         }
     }
@@ -415,6 +445,7 @@ fn stage_call(bound: &BoundDocument) -> Result<(Option<Privilege>, Option<String
         }
         found.push((privilege, as_user));
     }
+    found.retain(|pair| pair.0.is_some() || pair.1.is_some());
     if found.windows(2).any(|pair| pair[0] != pair[1]) {
         return Err(Error::new(
             ErrorCode::InvalidValue,

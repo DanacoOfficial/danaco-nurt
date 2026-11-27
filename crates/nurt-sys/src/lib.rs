@@ -120,6 +120,9 @@ mod tests {
             .collect();
         let unique: BTreeSet<String> = names.iter().cloned().collect();
         assert_eq!(unique.len(), names.len(), "a command is registered twice");
-        assert_eq!(unique, catalog_commands());
+        let mut expected = catalog_commands();
+        // `stop` is shared with the program host: this crate stops services.
+        expected.insert("stop".to_owned());
+        assert_eq!(unique, expected);
     }
 }

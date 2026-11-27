@@ -300,6 +300,10 @@ pub struct ElevatedReference {
     pub time_ms: i64,
     /// State directory that holds the system journal.
     pub journal: String,
+    /// The entry was undone through the backend; the newest line of an entry
+    /// decides.
+    #[serde(default)]
+    pub undone: bool,
 }
 
 /// File of the references of one account.
@@ -338,6 +342,18 @@ impl ReferenceLog {
             .map_while(Result::ok)
             .filter_map(|line| serde_json::from_str(&line).ok())
             .collect()
+    }
+
+    /// The newest line of every entry, oldest entry first.
+    pub(crate) fn latest(&self) -> Vec<ElevatedReference> {
+        let mut found: Vec<ElevatedReference> = Vec::new();
+        for reference in self.all() {
+            match found.iter_mut().find(|known| known.op == reference.op) {
+                Some(known) => *known = reference,
+                None => found.push(reference),
+            }
+        }
+        found
     }
 
     /// The newest reference to entry `op`.
@@ -439,6 +455,7 @@ mod tests {
             kind: "write".to_owned(),
             time_ms: 1,
             journal: "/var/lib/nurt".to_owned(),
+            undone: false,
         };
         log.append(&reference(3, "sudo")).unwrap();
         log.append(&reference(4, "doas")).unwrap();

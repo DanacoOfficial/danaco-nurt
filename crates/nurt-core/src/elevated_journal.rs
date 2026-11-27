@@ -12,7 +12,7 @@
 
 use std::sync::Arc;
 
-use nurt_contracts::error::Result;
+use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::fs::AbsPath;
 use nurt_contracts::journal::{
     BeginRequest, HistoryQuery, JournalState, JournalStore, LimitsOutcome, LimitsRequest,
@@ -52,7 +52,11 @@ impl ElevatedJournal {
                 "elevated through {backend}; entry {} of the system journal",
                 reference.op
             ),
-            state: OperationState::Available,
+            state: if reference.undone {
+                OperationState::Undone
+            } else {
+                OperationState::Available
+            },
             files: 0,
             bytes: Size::from_bytes(0),
             irreversible: Vec::new(),
@@ -84,22 +88,23 @@ impl JournalStore for ElevatedJournal {
     }
 
     fn history(&self, query: &HistoryQuery) -> Result<Vec<OperationRecord>> {
-        let mut records = self.inner.history(query)?;
         if query.path.is_some() || query.deleted_only {
-            return Ok(records);
+            return self.inner.history(query);
         }
+        let mut unlimited = query.clone();
+        unlimited.limit = None;
+        let mut records = self.inner.history(&unlimited)?;
         let mut extra: Vec<OperationRecord> = self
             .log
-            .all()
+            .latest()
             .iter()
             .map(Self::record)
             .filter(|record| query.id.is_none_or(|id| id.0 == record.id))
             .filter(|record| query.before.is_none_or(|before| record.id < before.0))
             .filter(|record| query.since.is_none_or(|since| record.id > since.0))
             .collect();
-        extra.sort_by_key(|record| std::cmp::Reverse(record.id));
-        extra.dedup_by_key(|record| record.id);
         extra.append(&mut records);
+        extra.sort_by_key(|record| std::cmp::Reverse(record.time.as_unix_nanos()));
         if let Some(limit) = query.limit {
             extra.truncate(limit as usize);
         }
@@ -107,6 +112,16 @@ impl JournalStore for ElevatedJournal {
     }
 
     fn details(&self, op: OpId) -> Result<OperationDetails> {
+        if op.0 >= ELEVATED_OP_BASE {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "details of an elevated entry are kept in the system journal",
+            )
+            .with_next_step(format!(
+                "run `details {}` with `privilege: elevated`",
+                op.0 - ELEVATED_OP_BASE
+            )));
+        }
         self.inner.details(op)
     }
 
@@ -128,7 +143,12 @@ impl JournalStore for ElevatedJournal {
 
     fn status(&self, volume: Option<&AbsPath>) -> Result<Vec<JournalState>> {
         let mut states = self.inner.status(volume)?;
-        let count = self.log.all().len() as u64;
+        let count = self
+            .log
+            .latest()
+            .iter()
+            .filter(|reference| !reference.undone)
+            .count() as u64;
         if let Some(first) = states.first_mut() {
             first.entries_total += count;
             first.entries_available += count;
