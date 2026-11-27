@@ -83,6 +83,7 @@ struct Inner {
     fail_at: Option<FailPoint>,
     next_op: u64,
     locks: usize,
+    account: Option<String>,
 }
 
 /// Journal store in memory.
@@ -96,6 +97,11 @@ impl MemStore {
         Self {
             inner: Mutex::new(Inner::default()),
         }
+    }
+
+    /// Sets the account that runs the retention call.
+    pub(crate) fn set_account(&self, account: &str) {
+        self.lock().account = Some(account.to_owned());
     }
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
@@ -219,6 +225,10 @@ impl FileLock for MemLock {
 }
 
 impl RetentionStore for MemStore {
+    fn account_id(&self) -> Option<String> {
+        self.lock().account.clone()
+    }
+
     fn lock_entry(&self, volume: &AbsPath, _op: OpId) -> Result<Box<dyn FileLock>> {
         self.lock().locks += 1;
         Ok(Box::new(MemLock(volume.clone())))

@@ -137,6 +137,13 @@ pub(crate) trait RetentionStore {
     /// Returns `E_IO` when the journal directory cannot be read.
     fn entries(&self, volume: &AbsPath) -> Result<Vec<EntryFacts>>;
 
+    /// Identifier of the account that runs the retention call, compared with
+    /// `EntryFacts::account`; `None` when the store does not tell, and then
+    /// every entry counts as the account's own.
+    fn account_id(&self) -> Option<String> {
+        None
+    }
+
     /// Committed entries of the account with their step class, including
     /// entries that expired later.
     ///
