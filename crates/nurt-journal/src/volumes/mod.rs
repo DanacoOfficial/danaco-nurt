@@ -424,7 +424,6 @@ mod tests {
         assert_eq!(registry.load(&replaced).unwrap()[0].id.dev, 5);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn follows_volume_mounted_at_another_place() {
         let (fs, registry) = setup();
