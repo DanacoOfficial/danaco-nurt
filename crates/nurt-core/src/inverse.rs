@@ -459,7 +459,7 @@ mod tests {
         assert_eq!(
             programs(derive(&report)),
             [
-                "firewall.remove \"22\" protocol: tcp direction: in action: allow backend: nftables table: \"nurt\""
+                "firewall.remove \"22\" protocol: tcp direction: inbound action: allow backend: nftables table: \"nurt\""
             ]
         );
     }

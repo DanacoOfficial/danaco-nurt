@@ -105,9 +105,9 @@ fn protocol_of(args: &BoundArgs) -> Result<Protocol> {
 
 fn direction_of(args: &BoundArgs) -> Result<Direction> {
     match word(args, PARAM_DIRECTION)? {
-        None | Some("in") => Ok(Direction::In),
-        Some("out") => Ok(Direction::Out),
-        Some(other) => Err(invalid(PARAM_DIRECTION, other, "in or out")),
+        None | Some("inbound" | "in") => Ok(Direction::In),
+        Some("outbound" | "out") => Ok(Direction::Out),
+        Some(other) => Err(invalid(PARAM_DIRECTION, other, "inbound or outbound")),
     }
 }
 

@@ -158,7 +158,7 @@ impl Backend for Firewalld {
         if rule.direction == Direction::Out {
             return Err(Error::new(
                 ErrorCode::Unsupported,
-                "firewalld filters incoming traffic only; use `direction: in` or the backend `nftables`",
+                "firewalld filters incoming traffic only; use `direction: inbound` or the backend `nftables`",
             ));
         }
         if rule.zone.is_none() {

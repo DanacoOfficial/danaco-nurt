@@ -37,7 +37,7 @@ The firewall is chosen by `backend`. With `auto` the command takes the first tha
 | `port` | `int \| text` | required | Port or range of ports such as 8000-8100. |
 | `protocol` | `enum(tcp\|udp)` | `tcp` | Transport protocol. |
 | `source` | `text` | none | Remote address or network in CIDR form: the sender of incoming and the receiver of outgoing traffic; any when omitted. |
-| `direction` | `enum(in\|out)` | `in` | Direction of the traffic. |
+| `direction` | `enum(inbound\|outbound)` | `inbound` | Direction of the traffic. |
 | `zone` | `text` | none | Zone of firewalld or profile of Windows (domain, private, public); the default one when omitted. |
 | `backend` | `enum(auto\|nftables\|firewalld\|ufw\|pf\|windows)` | `auto` | Firewall to use; auto selects the first one that is installed and running. |
 | `table` | `text` | `"nurt"` | Table of the family inet that holds the rules of nftables. |
@@ -56,8 +56,8 @@ The firewall is chosen by `backend`. With `auto` the command takes the first tha
 | Effect | `external` |
 | Reversibility | `reversible` |
 | Implementation | `builtin` |
-| External use | `system_program`: `nft`, `firewall-cmd`, `ufw`, `pfctl`, `powershell`; The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell. |
 | Reversibility conditions | `undo` removes the rule that was added; a rule that already exists is left alone. |
+| External use | `system_program`: `nft`, `firewall-cmd`, `ufw`, `pfctl`, `powershell`; The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell. |
 
 ## Examples
 
@@ -76,7 +76,7 @@ firewall.deny "8000-8100" protocol: udp source: "10.0.0.0/8" privilege: elevated
 Use nftables and a named table, outgoing traffic.
 
 ```nurt example
-firewall.deny 443 direction: out backend: nftables table: "nurt" privilege: elevated
+firewall.deny 443 direction: outbound backend: nftables table: "nurt" privilege: elevated
 ```
 
 ## Errors
@@ -84,7 +84,7 @@ firewall.deny 443 direction: out backend: nftables table: "nurt" privilege: elev
 | Code | Meaning | Typical fix |
 |---|---|---|
 | `E_INVALID_VALUE` | `port`, `source` or `zone` is not valid. | Write a port from 1 to 65535, an address in CIDR form or a plain name. |
-| `E_UNSUPPORTED` | The backend cannot express the field, for example `zone` on ufw or `direction: out` on firewalld. | Leave the field out or choose another `backend`. |
+| `E_UNSUPPORTED` | The backend cannot express the field, for example `zone` on ufw or `direction: outbound` on firewalld. | Leave the field out or choose another `backend`. |
 | `E_PRIVILEGE` | The program of the system refused the change for want of rights. | Repeat the call with `privilege: elevated`. |
 | `E_EXTERNAL_MISSING` | No program of the system that can do this was found. | Install the program or name the `backend`. |
 

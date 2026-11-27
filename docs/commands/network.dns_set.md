@@ -51,8 +51,8 @@ When the servers and domains already hold, nothing is changed. `undo` sets the p
 | Effect | `external` |
 | Reversibility | `reversible` |
 | Implementation | `builtin` |
-| External use | `system_program`: `ip`, `route`, `netstat`, `resolvectl`, `networksetup`, `powershell`; Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows. |
 | Reversibility conditions | `undo` sets the previous servers and domains; changes of /etc/resolv.conf are restored by the journal. |
+| External use | `system_program`: `ip`, `route`, `netstat`, `resolvectl`, `networksetup`, `powershell`; Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows. |
 
 ## Examples
 

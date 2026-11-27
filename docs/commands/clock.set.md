@@ -42,27 +42,27 @@ The previous value is read before the change and recorded as the target `clock:t
 | Effect | `external` |
 | Reversibility | `irreversible` |
 | Implementation | `builtin` |
-| External use | `system_program`: `timedatectl`, `systemsetup`, `tzutil`, `date`, `powershell`; The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service. |
 | Reversibility conditions | The previous reading of the clock cannot be restored. |
+| External use | `system_program`: `timedatectl`, `systemsetup`, `tzutil`, `date`, `powershell`; The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service. |
 
 ## Examples
 
 Set the clock.
 
 ```nurt example
-clock.set 2026-11-21T09:12:00Z privilege: elevated
+clock.set "2026-11-21T09:12:00Z" privilege: elevated
 ```
 
 Set the clock to midnight UTC.
 
 ```nurt example
-clock.set 2027-01-01T00:00:00Z privilege: elevated
+clock.set "2027-01-01T00:00:00Z" privilege: elevated
 ```
 
-Preview the change without setting the clock.
+Set the clock to the last minute of the year.
 
 ```nurt example
-clock.set 2026-11-21T09:12:00Z privilege: elevated preview
+clock.set "2026-12-31T23:59:00Z" privilege: elevated
 ```
 
 ## Errors

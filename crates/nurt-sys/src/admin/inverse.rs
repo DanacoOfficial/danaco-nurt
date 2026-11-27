@@ -251,7 +251,7 @@ mod tests {
         assert_eq!(
             programs(undo),
             [
-                "firewall.remove \"22\" protocol: tcp direction: in action: allow backend: nftables table: \"nurt\""
+                "firewall.remove \"22\" protocol: tcp direction: inbound action: allow backend: nftables table: \"nurt\""
             ]
         );
     }
@@ -269,7 +269,9 @@ mod tests {
         );
         assert_eq!(
             programs(undo),
-            ["firewall.deny \"53\" protocol: udp direction: out source: \"10.0.0.1\" backend: ufw"]
+            [
+                "firewall.deny \"53\" protocol: udp direction: outbound source: \"10.0.0.1\" backend: ufw"
+            ]
         );
     }
 

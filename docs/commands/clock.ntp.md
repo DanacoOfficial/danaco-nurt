@@ -42,8 +42,8 @@ The previous value is read before the change and recorded as the target `clock:n
 | Effect | `external` |
 | Reversibility | `reversible` |
 | Implementation | `builtin` |
-| External use | `system_program`: `timedatectl`, `systemsetup`, `tzutil`, `date`, `powershell`; The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service. |
 | Reversibility conditions | `undo` restores the previous state. |
+| External use | `system_program`: `timedatectl`, `systemsetup`, `tzutil`, `date`, `powershell`; The clock is read and set through timedatectl, systemsetup, tzutil, date and, on Windows, PowerShell for the time service. |
 
 ## Examples
 

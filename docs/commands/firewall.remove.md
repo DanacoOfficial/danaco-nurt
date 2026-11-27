@@ -37,7 +37,7 @@ The firewall is chosen by `backend`. With `auto` the command takes the first tha
 | `port` | `int \| text` | required | Port or range of ports such as 8000-8100. |
 | `protocol` | `enum(tcp\|udp)` | `tcp` | Transport protocol. |
 | `source` | `text` | none | Remote address or network in CIDR form: the sender of incoming and the receiver of outgoing traffic; any when omitted. |
-| `direction` | `enum(in\|out)` | `in` | Direction of the traffic. |
+| `direction` | `enum(inbound\|outbound)` | `inbound` | Direction of the traffic. |
 | `zone` | `text` | none | Zone of firewalld or profile of Windows (domain, private, public); the default one when omitted. |
 | `backend` | `enum(auto\|nftables\|firewalld\|ufw\|pf\|windows)` | `auto` | Firewall to use; auto selects the first one that is installed and running. |
 | `table` | `text` | `"nurt"` | Table of the family inet that holds the rules of nftables. |
@@ -57,8 +57,8 @@ The firewall is chosen by `backend`. With `auto` the command takes the first tha
 | Effect | `external` |
 | Reversibility | `reversible` |
 | Implementation | `builtin` |
-| External use | `system_program`: `nft`, `firewall-cmd`, `ufw`, `pfctl`, `powershell`; The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell. |
 | Reversibility conditions | `undo` adds the rules that were removed. |
+| External use | `system_program`: `nft`, `firewall-cmd`, `ufw`, `pfctl`, `powershell`; The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell. |
 
 ## Examples
 

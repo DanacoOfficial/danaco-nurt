@@ -45,8 +45,8 @@ Routes and DNS are read before the change. The report holds the state before and
 | Effect | `external` |
 | Reversibility | `reversible` |
 | Implementation | `builtin` |
-| External use | `system_program`: `ip`, `route`, `netstat`, `resolvectl`, `networksetup`, `powershell`; Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows. |
 | Reversibility conditions | `undo` removes the route; a route that already exists is left alone. |
+| External use | `system_program`: `ip`, `route`, `netstat`, `resolvectl`, `networksetup`, `powershell`; Routes and DNS are read and changed through ip, route, netstat, resolvectl and networksetup, and through the NetTCPIP and DnsClient cmdlets of PowerShell on Windows. |
 
 ## Examples
 

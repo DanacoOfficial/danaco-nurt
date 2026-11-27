@@ -150,7 +150,7 @@ reversibility = "read"
 effect = "read"
 implementation = "builtin"
 input = ["none"]
-output = ["map"]
+output = ["any"]
 summary = "List the rules of the firewall with their action, protocol, port, source, direction and zone."
 external = { kind = "system_program", programs = ["nft", "firewall-cmd", "ufw", "pfctl", "powershell"], note = "The rules are read and changed through nft, firewall-cmd, ufw or pfctl; on Windows through the NetSecurity cmdlets of PowerShell." }
 
@@ -212,9 +212,9 @@ summary = "Remote address or network in CIDR form: the sender of incoming and th
 
 [[command.param]]
 name = "direction"
-type = "enum(in|out)"
-default = "in"
-values = ["in", "out"]
+type = "enum(inbound|outbound)"
+default = "inbound"
+values = ["inbound", "outbound"]
 summary = "Direction of the traffic."
 
 [[command.param]]
@@ -268,9 +268,9 @@ summary = "Remote address or network in CIDR form: the sender of incoming and th
 
 [[command.param]]
 name = "direction"
-type = "enum(in|out)"
-default = "in"
-values = ["in", "out"]
+type = "enum(inbound|outbound)"
+default = "inbound"
+values = ["inbound", "outbound"]
 summary = "Direction of the traffic."
 
 [[command.param]]
@@ -324,9 +324,9 @@ summary = "Remote address or network in CIDR form: the sender of incoming and th
 
 [[command.param]]
 name = "direction"
-type = "enum(in|out)"
-default = "in"
-values = ["in", "out"]
+type = "enum(inbound|outbound)"
+default = "inbound"
+values = ["inbound", "outbound"]
 summary = "Direction of the traffic."
 
 [[command.param]]

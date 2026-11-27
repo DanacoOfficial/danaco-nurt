@@ -13,7 +13,7 @@ since: 0.1.1
 ## Synopsis
 
 ```text
-firewall.rules <port> [name: value]...
+firewall.rules [<port>] [name: value]...
 ```
 
 ## Description
@@ -45,7 +45,7 @@ The firewall is chosen by `backend`. With `auto` the command takes the first tha
 
 | Form | Input | Output |
 |---|---|---|
-| default | `none` | `map` |
+| default | `none` | `any` |
 
 ## Effect
 

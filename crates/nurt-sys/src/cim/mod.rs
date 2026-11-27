@@ -721,7 +721,8 @@ mod tests {
         );
         let good = args("Win32_Process").with(invoke::PARAM_INVOKE, text("Create"), false);
         assert!(WindowsCim.check(&good, &check).is_ok());
-        let read = WindowsCim.execute(&good, StageInput::none(), &ctx());
+        let context = ctx();
+        let read = WindowsCim.execute(&good, StageInput::none(), &context);
         assert_eq!(read.err().unwrap().code(), ErrorCode::Arg);
     }
 }

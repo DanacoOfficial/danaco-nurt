@@ -51,6 +51,16 @@ impl Direction {
             Self::Out => "out",
         }
     }
+
+    /// Value of the `direction` parameter: `in` is a keyword of the language,
+    /// so the parameter names the directions `inbound` and `outbound`.
+    #[must_use]
+    pub const fn word(self) -> &'static str {
+        match self {
+            Self::In => "inbound",
+            Self::Out => "outbound",
+        }
+    }
 }
 
 /// Transport protocol of a port rule.
@@ -188,7 +198,7 @@ impl Rule {
             "firewall.{verb} \"{}\" protocol: {} direction: {}",
             self.port_text(),
             self.protocol.as_str(),
-            self.direction.as_str()
+            self.direction.word()
         );
         if let Some(source) = &self.source {
             text.push_str(&format!(" source: \"{source}\""));
@@ -370,7 +380,7 @@ mod tests {
     fn program_of_a_rule_names_every_field() {
         assert_eq!(
             rule().program("remove", Some("ufw"), None),
-            "firewall.remove \"8000-8100\" protocol: tcp direction: in source: \"10.0.0.0/8\" zone: \"public\" action: allow backend: ufw"
+            "firewall.remove \"8000-8100\" protocol: tcp direction: inbound source: \"10.0.0.0/8\" zone: \"public\" action: allow backend: ufw"
         );
         assert!(
             rule()
@@ -387,7 +397,7 @@ mod tests {
                 ..rule()
             }
             .program("deny", None, None),
-            "firewall.deny \"22\" protocol: tcp direction: in"
+            "firewall.deny \"22\" protocol: tcp direction: inbound"
         );
     }
 
