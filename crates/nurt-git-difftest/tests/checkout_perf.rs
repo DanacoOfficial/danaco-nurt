@@ -52,6 +52,10 @@ fn checkout_of_100000_files_takes_at_most_three_times_the_time_of_git() {
     std::fs::create_dir_all(&git_side).expect("repository directory");
     for args in [
         &["init", "-q", "-b", "main"][..],
+        // An automatic gc that git starts in the background after the commit
+        // of the files packs loose objects while the repository is copied.
+        &["config", "gc.auto", "0"],
+        &["config", "maintenance.auto", "false"],
         &["commit", "-q", "--allow-empty", "-m", "empty"],
         &["switch", "-q", "-c", "big"],
     ] {
