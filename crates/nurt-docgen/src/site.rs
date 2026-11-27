@@ -21,7 +21,7 @@ use crate::markdown::{Block, blocks_text, parse, plain_text, split_front_matter}
 use crate::page::{compose, load_page};
 
 /// Base address of the repository files linked from the site.
-pub const REPOSITORY_BLOB: &str = "https://github.com/DanacoOfficial/nurt/blob/main";
+pub const REPOSITORY_BLOB: &str = "https://github.com/DanacoOfficial/danaco-nurt/blob/main";
 
 /// Files of the identity that the build copies unchanged next to the pages: the
 /// touch icon, the application icons and the web manifest.

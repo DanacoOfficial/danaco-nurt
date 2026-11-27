@@ -12,10 +12,10 @@ Commands:
 ReleaseDate: @DATE@
 Installers:
 - Architecture: x64
-  InstallerUrl: https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-x86_64-pc-windows-msvc.zip
+  InstallerUrl: https://github.com/DanacoOfficial/danaco-nurt/releases/download/v@VERSION@/nurt-@VERSION@-x86_64-pc-windows-msvc.zip
   InstallerSha256: @SHA256:x86_64-pc-windows-msvc@
 - Architecture: arm64
-  InstallerUrl: https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@/nurt-@VERSION@-aarch64-pc-windows-msvc.zip
+  InstallerUrl: https://github.com/DanacoOfficial/danaco-nurt/releases/download/v@VERSION@/nurt-@VERSION@-aarch64-pc-windows-msvc.zip
   InstallerSha256: @SHA256:aarch64-pc-windows-msvc@
 ManifestType: installer
 ManifestVersion: 1.6.0

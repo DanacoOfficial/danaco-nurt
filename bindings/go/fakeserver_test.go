@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DanacoOfficial/nurt/bindings/go/internal/rpc"
+	"github.com/DanacoOfficial/danaco-nurt/bindings/go/internal/rpc"
 )
 
 // The test binary doubles as a scripted nurt serve: when fakeServerEnv is

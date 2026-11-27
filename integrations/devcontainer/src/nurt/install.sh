@@ -12,8 +12,8 @@
 set -eu
 
 VERSION=${VERSION:-latest}
-DOWNLOAD_BASE=${NURT_DOWNLOAD_BASE:-https://github.com/DanacoOfficial/nurt/releases/download}
-RELEASES_URL=${NURT_RELEASES_URL:-https://api.github.com/repos/DanacoOfficial/nurt/releases?per_page=100}
+DOWNLOAD_BASE=${NURT_DOWNLOAD_BASE:-https://github.com/DanacoOfficial/danaco-nurt/releases/download}
+RELEASES_URL=${NURT_RELEASES_URL:-https://api.github.com/repos/DanacoOfficial/danaco-nurt/releases?per_page=100}
 INSTALL_DIR=${NURT_INSTALL_DIR:-/usr/local/bin}
 
 fail() {

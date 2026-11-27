@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/DanacoOfficial/nurt/bindings/go/internal/capi"
+	"github.com/DanacoOfficial/danaco-nurt/bindings/go/internal/capi"
 )
 
 // The library backend calls libnurt in process. Synchronous functions of

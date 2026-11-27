@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "name": "Danaco Nurt",
   "description": "Command shell and language where every change can be undone",
-  "documentationURL": "https://github.com/DanacoOfficial/nurt/tree/main/integrations/devcontainer",
-  "licenseURL": "https://github.com/DanacoOfficial/nurt/blob/main/LICENSE",
+  "documentationURL": "https://github.com/DanacoOfficial/danaco-nurt/tree/main/integrations/devcontainer",
+  "licenseURL": "https://github.com/DanacoOfficial/danaco-nurt/blob/main/LICENSE",
   "options": {
     "version": {
       "type": "string",

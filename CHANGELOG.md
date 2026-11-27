@@ -199,6 +199,6 @@ First release.
   the publisher as unverified until a certificate of a public authority replaces
   it.
 
-[Unreleased]: https://github.com/DanacoOfficial/nurt/compare/v0.1.1...main
-[0.1.1]: https://github.com/DanacoOfficial/nurt/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/DanacoOfficial/nurt/releases/tag/v0.1.0
+[Unreleased]: https://github.com/DanacoOfficial/danaco-nurt/compare/v0.1.1...main
+[0.1.1]: https://github.com/DanacoOfficial/danaco-nurt/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/DanacoOfficial/danaco-nurt/releases/tag/v0.1.0

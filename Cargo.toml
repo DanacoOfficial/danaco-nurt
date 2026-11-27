@@ -12,8 +12,8 @@ edition = "2024"
 rust-version = "1.98"
 license = "Apache-2.0"
 authors = ["Danaco Holding Group Sp. z o.o."]
-repository = "https://github.com/DanacoOfficial/nurt"
-homepage = "https://github.com/DanacoOfficial/nurt"
+repository = "https://github.com/DanacoOfficial/danaco-nurt"
+homepage = "https://github.com/DanacoOfficial/danaco-nurt"
 publish = false
 
 [workspace.lints.rust]

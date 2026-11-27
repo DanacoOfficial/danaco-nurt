@@ -29,8 +29,8 @@ classifiers = [
 [project.urls]
 Homepage = "https://nurt.danaco-group.pl"
 Documentation = "https://nurt.danaco-group.pl"
-Repository = "https://github.com/DanacoOfficial/nurt"
-Issues = "https://github.com/DanacoOfficial/nurt/issues"
+Repository = "https://github.com/DanacoOfficial/danaco-nurt"
+Issues = "https://github.com/DanacoOfficial/danaco-nurt/issues"
 
 [project.scripts]
 nurt = "nurt._cli:main"

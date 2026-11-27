@@ -73,7 +73,7 @@ Requirements:
 Build:
 
 ```sh
-git clone https://github.com/DanacoOfficial/nurt.git
+git clone https://github.com/DanacoOfficial/danaco-nurt.git
 cd nurt
 cargo build --release --locked
 ```

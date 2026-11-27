@@ -3,13 +3,13 @@
 <!-- https://github.com/DanacoOfficial | support@danaco-group.pl -->
 # Danaco Nurt for Go
 
-[Danaco Nurt](https://github.com/DanacoOfficial/nurt) is a command shell and
+[Danaco Nurt](https://github.com/DanacoOfficial/danaco-nurt) is a command shell and
 language where every change can be undone. This module is the Go binding.
 
 ## Installation
 
 ```sh
-go get github.com/DanacoOfficial/nurt/bindings/go
+go get github.com/DanacoOfficial/danaco-nurt/bindings/go
 ```
 
 The module requires Go 1.23 or later and has no dependencies outside the
@@ -63,7 +63,7 @@ the module is built with `-tags nurt_cgo`. The test sets
 
 ## Documentation
 
-API reference: [pkg.go.dev](https://pkg.go.dev/github.com/DanacoOfficial/nurt/bindings/go).
+API reference: [pkg.go.dev](https://pkg.go.dev/github.com/DanacoOfficial/danaco-nurt/bindings/go).
 Language and command reference: <https://nurt.danaco-group.pl>.
 
 ## License

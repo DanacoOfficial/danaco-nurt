@@ -25,11 +25,11 @@
 #   NURT_PUBLIC_KEY    file or URL of the ASCII-armored public signing key
 #   NURT_RELEASES_URL  release location; URL, directory or file:// URL with
 #                      the layout of GitHub releases (default:
-#                      https://github.com/DanacoOfficial/nurt/releases)
+#                      https://github.com/DanacoOfficial/danaco-nurt/releases)
 
 set -eu
 
-releases_url=${NURT_RELEASES_URL:-https://github.com/DanacoOfficial/nurt/releases}
+releases_url=${NURT_RELEASES_URL:-https://github.com/DanacoOfficial/danaco-nurt/releases}
 version=${NURT_VERSION:-}
 bin_dir=${NURT_INSTALL_DIR:-}
 public_key=${NURT_PUBLIC_KEY:-}

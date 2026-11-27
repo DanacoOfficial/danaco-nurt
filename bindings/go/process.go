@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DanacoOfficial/nurt/bindings/go/internal/rpc"
+	"github.com/DanacoOfficial/danaco-nurt/bindings/go/internal/rpc"
 )
 
 const (

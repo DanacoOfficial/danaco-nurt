@@ -9,7 +9,7 @@ order: 10
 
 ## License and names
 
-The source code is licensed under the Apache License, Version 2.0, and distributions include the file `NOTICE`. The specification and the data sets are licensed under CC BY 4.0. The license does not grant permission to use the names "Danaco" and "Danaco Nurt" beyond the customary description of the origin of the product. See [LICENSE](https://github.com/DanacoOfficial/nurt/blob/main/LICENSE) and [NOTICE](https://github.com/DanacoOfficial/nurt/blob/main/NOTICE).
+The source code is licensed under the Apache License, Version 2.0, and distributions include the file `NOTICE`. The specification and the data sets are licensed under CC BY 4.0. The license does not grant permission to use the names "Danaco" and "Danaco Nurt" beyond the customary description of the origin of the product. See [LICENSE](https://github.com/DanacoOfficial/danaco-nurt/blob/main/LICENSE) and [NOTICE](https://github.com/DanacoOfficial/danaco-nurt/blob/main/NOTICE).
 
 ## Danaco Nurt Compatible
 

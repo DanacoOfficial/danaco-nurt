@@ -27,7 +27,7 @@ Install the public signing key and the source definition, then install the packa
 ```sh
 sudo install -d /etc/apt/keyrings
 sudo curl -fsSL https://nurt.danaco-group.pl/danaco-nurt.asc -o /etc/apt/keyrings/danaco-nurt.asc
-sudo curl -fsSL https://raw.githubusercontent.com/DanacoOfficial/nurt/main/packaging/apt-repo/nurt.sources \
+sudo curl -fsSL https://raw.githubusercontent.com/DanacoOfficial/danaco-nurt/main/packaging/apt-repo/nurt.sources \
     -o /etc/apt/sources.list.d/nurt.sources
 sudo apt update
 sudo apt install nurt
@@ -44,7 +44,7 @@ The `Signed-By` field of `nurt.sources` restricts the key to this repository.
 | `--version VERSION` | `NURT_VERSION` | latest release |
 | `--bin-dir DIR` | `NURT_INSTALL_DIR` | `$HOME/.local/bin` |
 | `--public-key FILE\|URL` | `NURT_PUBLIC_KEY` | none |
-| | `NURT_RELEASES_URL` | `https://github.com/DanacoOfficial/nurt/releases` |
+| | `NURT_RELEASES_URL` | `https://github.com/DanacoOfficial/danaco-nurt/releases` |
 
 `install.ps1` takes `NURT_VERSION`, `NURT_INSTALL_DIR` (default `%LOCALAPPDATA%\Programs\Nurt\bin`), `NURT_NO_PATH_UPDATE` and `NURT_RELEASES_URL` from the environment, verifies the SHA-256 digest and adds the directory to the user `PATH`.
 

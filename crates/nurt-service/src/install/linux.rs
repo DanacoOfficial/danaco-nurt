@@ -382,7 +382,7 @@ fn unit(
         .map(|(name, value)| environment_line(name, value))
         .collect();
     format!(
-        "[Unit]\nDescription=Danaco Nurt background service\nDocumentation=https://github.com/DanacoOfficial/nurt\n\n\
+        "[Unit]\nDescription=Danaco Nurt background service\nDocumentation=https://github.com/DanacoOfficial/danaco-nurt\n\n\
          [Service]\nType=simple\nExecStart={}\n{environment}{identity}Restart=on-failure\nRestartSec=5\n\n\
          [Install]\nWantedBy={wanted_by}\n",
         exec_start(executable)

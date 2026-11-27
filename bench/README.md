@@ -40,4 +40,4 @@ every command are in [`protocol/PROTOCOL.md`](protocol/PROTOCOL.md).
 A result consists of the run logs, the files written by `nurt-bench
 analyze`, the model configurations and the image digests of the
 containers. Results are submitted as a pull request to
-`github.com/DanacoOfficial/nurt` or to support@danaco-group.pl.
+`github.com/DanacoOfficial/danaco-nurt` or to support@danaco-group.pl.

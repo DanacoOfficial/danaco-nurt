@@ -33,7 +33,7 @@ forbid() {
 for name in nurt ci devcontainer; do
   file="$root/$name/Dockerfile"
   [[ -f $file ]] || { printf 'FAIL %s: missing\n' "$file"; failures=$((failures + 1)); continue; }
-  require "$file" 'org\.opencontainers\.image\.source="https://github\.com/DanacoOfficial/nurt"' 'source label'
+  require "$file" 'org\.opencontainers\.image\.source="https://github\.com/DanacoOfficial/danaco-nurt"' 'source label'
   require "$file" 'org\.opencontainers\.image\.licenses="Apache-2\.0"' 'license label'
   require "$file" 'org\.opencontainers\.image\.vendor="Danaco Holding Group"' 'vendor label'
   require "$file" 'COPY .*LICENSE NOTICE /usr/share/doc/nurt/' 'LICENSE and NOTICE copied'

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	nurt "github.com/DanacoOfficial/nurt/bindings/go"
+	nurt "github.com/DanacoOfficial/danaco-nurt/bindings/go"
 )
 
 func Example() {

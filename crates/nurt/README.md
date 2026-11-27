@@ -59,4 +59,4 @@ that the call itself failed.
 ## License
 
 Apache-2.0. See `LICENSE` and `NOTICE` in the repository
-<https://github.com/DanacoOfficial/nurt>.
+<https://github.com/DanacoOfficial/danaco-nurt>.

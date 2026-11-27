@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DanacoOfficial/nurt/bindings/go/internal/rpc"
+	"github.com/DanacoOfficial/danaco-nurt/bindings/go/internal/rpc"
 )
 
 func TestTimeoutUsesLanguageDurationSyntax(t *testing.T) {

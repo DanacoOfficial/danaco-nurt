@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$releaseUrl = 'https://github.com/DanacoOfficial/nurt/releases/download/v@VERSION@'
+$releaseUrl = 'https://github.com/DanacoOfficial/danaco-nurt/releases/download/v@VERSION@'
 
 if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') {
     $archive = 'nurt-@VERSION@-aarch64-pc-windows-msvc.zip'

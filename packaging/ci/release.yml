@@ -319,7 +319,7 @@ jobs:
                 apt-get install -y -qq ca-certificates curl
                 install -d /etc/apt/keyrings
                 curl -fsSL https://nurt.danaco-group.pl/danaco-nurt.asc -o /etc/apt/keyrings/danaco-nurt.asc
-                curl -fsSL https://raw.githubusercontent.com/DanacoOfficial/nurt/v${{ inputs.version }}/packaging/apt-repo/nurt.sources \
+                curl -fsSL https://raw.githubusercontent.com/DanacoOfficial/danaco-nurt/v${{ inputs.version }}/packaging/apt-repo/nurt.sources \
                   -o /etc/apt/sources.list.d/nurt.sources
                 apt-get update -qq
                 apt-get install -y -qq nurt

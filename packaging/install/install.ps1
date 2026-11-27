@@ -34,7 +34,7 @@ Environment variables:
     NURT_NO_PATH_UPDATE set to 1 to leave PATH unchanged
     NURT_RELEASES_URL   release location; URL or directory with the layout of
                         GitHub releases (default:
-                        https://github.com/DanacoOfficial/nurt/releases)
+                        https://github.com/DanacoOfficial/danaco-nurt/releases)
 #>
 
 function Get-NurtFile {
@@ -68,7 +68,7 @@ function Install-Nurt {
     if ($scope -eq 'machine' -and -not (Test-NurtAdministrator)) {
         throw 'NURT_SCOPE=machine needs a terminal that runs as administrator: start PowerShell with "Run as administrator"'
     }
-    $releasesUrl = if ($env:NURT_RELEASES_URL) { $env:NURT_RELEASES_URL.TrimEnd('/', '\') } else { 'https://github.com/DanacoOfficial/nurt/releases' }
+    $releasesUrl = if ($env:NURT_RELEASES_URL) { $env:NURT_RELEASES_URL.TrimEnd('/', '\') } else { 'https://github.com/DanacoOfficial/danaco-nurt/releases' }
     $version = if ($env:NURT_VERSION) { $env:NURT_VERSION.TrimStart('v') } else { '' }
     $defaultRoot = if ($scope -eq 'machine') { Join-Path $env:ProgramFiles 'Nurt' } else { Join-Path $env:LOCALAPPDATA 'Programs\Nurt' }
     $installDir = if ($env:NURT_INSTALL_DIR) { $env:NURT_INSTALL_DIR } else { Join-Path $defaultRoot 'bin' }

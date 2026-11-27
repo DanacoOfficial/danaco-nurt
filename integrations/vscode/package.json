@@ -8,11 +8,11 @@
   "homepage": "https://nurt.danaco-group.pl",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DanacoOfficial/nurt.git",
+    "url": "https://github.com/DanacoOfficial/danaco-nurt.git",
     "directory": "integrations/vscode"
   },
   "bugs": {
-    "url": "https://github.com/DanacoOfficial/nurt/issues",
+    "url": "https://github.com/DanacoOfficial/danaco-nurt/issues",
     "email": "support@danaco-group.pl"
   },
   "engines": {

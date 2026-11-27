@@ -5,11 +5,11 @@ PackageVersion: @VERSION@
 PackageLocale: en-US
 Publisher: Danaco Holding Group
 PublisherUrl: https://www.danaco-group.pl
-PublisherSupportUrl: https://github.com/DanacoOfficial/nurt/issues
+PublisherSupportUrl: https://github.com/DanacoOfficial/danaco-nurt/issues
 PackageName: Danaco Nurt
 PackageUrl: https://nurt.danaco-group.pl
 License: Apache-2.0
-LicenseUrl: https://github.com/DanacoOfficial/nurt/blob/main/LICENSE
+LicenseUrl: https://github.com/DanacoOfficial/danaco-nurt/blob/main/LICENSE
 Copyright: Copyright (c) 2026 Danaco Holding Group Sp. z o.o.
 ShortDescription: @DESCRIPTION@
 Moniker: nurt
@@ -17,6 +17,6 @@ Tags:
 - console
 - shell
 - command-line
-ReleaseNotesUrl: https://github.com/DanacoOfficial/nurt/releases/tag/v@VERSION@
+ReleaseNotesUrl: https://github.com/DanacoOfficial/danaco-nurt/releases/tag/v@VERSION@
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

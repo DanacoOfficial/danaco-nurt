@@ -7,17 +7,17 @@
     <authors>Danaco Holding Group Sp. z o.o.</authors>
     <owners>Danaco Holding Group Sp. z o.o.</owners>
     <projectUrl>https://nurt.danaco-group.pl</projectUrl>
-    <packageSourceUrl>https://github.com/DanacoOfficial/nurt/tree/main/packaging/chocolatey</packageSourceUrl>
-    <projectSourceUrl>https://github.com/DanacoOfficial/nurt</projectSourceUrl>
+    <packageSourceUrl>https://github.com/DanacoOfficial/danaco-nurt/tree/main/packaging/chocolatey</packageSourceUrl>
+    <projectSourceUrl>https://github.com/DanacoOfficial/danaco-nurt</projectSourceUrl>
     <docsUrl>https://nurt.danaco-group.pl</docsUrl>
-    <bugTrackerUrl>https://github.com/DanacoOfficial/nurt/issues</bugTrackerUrl>
-    <licenseUrl>https://github.com/DanacoOfficial/nurt/blob/main/LICENSE</licenseUrl>
+    <bugTrackerUrl>https://github.com/DanacoOfficial/danaco-nurt/issues</bugTrackerUrl>
+    <licenseUrl>https://github.com/DanacoOfficial/danaco-nurt/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <copyright>Copyright (c) 2026 Danaco Holding Group Sp. z o.o.</copyright>
     <tags>nurt console shell command-line cli</tags>
     <summary>@DESCRIPTION@</summary>
     <description>Danaco Nurt is a command shell and language where every change can be undone. The package installs the nurt executable.</description>
-    <releaseNotes>https://github.com/DanacoOfficial/nurt/releases/tag/v@VERSION@</releaseNotes>
+    <releaseNotes>https://github.com/DanacoOfficial/danaco-nurt/releases/tag/v@VERSION@</releaseNotes>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />

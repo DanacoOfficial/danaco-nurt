@@ -10,12 +10,12 @@
   ],
   "homepage": "https://nurt.danaco-group.pl",
   "bugs": {
-    "url": "https://github.com/DanacoOfficial/nurt/issues",
+    "url": "https://github.com/DanacoOfficial/danaco-nurt/issues",
     "email": "support@danaco-group.pl"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DanacoOfficial/nurt.git",
+    "url": "git+https://github.com/DanacoOfficial/danaco-nurt.git",
     "directory": "bindings/node"
   },
   "license": "Apache-2.0",

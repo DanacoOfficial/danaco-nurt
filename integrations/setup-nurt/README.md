@@ -49,7 +49,7 @@ Pre-releases match a range only through an exact version. The release list is re
 
 ## Release layout
 
-For release `X.Y.Z` the action downloads, from `https://github.com/DanacoOfficial/nurt/releases/download/vX.Y.Z/`:
+For release `X.Y.Z` the action downloads, from `https://github.com/DanacoOfficial/danaco-nurt/releases/download/vX.Y.Z/`:
 
 | File | Content |
 |---|---|

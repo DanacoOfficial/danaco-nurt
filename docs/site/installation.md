@@ -21,7 +21,7 @@ Danaco Nurt is one executable for each operating system: `nurt` on Linux and mac
 
 | Channel | Identifier |
 |---|---|
-| GitHub release | `github.com/DanacoOfficial/nurt` |
+| GitHub release | `github.com/DanacoOfficial/danaco-nurt` |
 | Container image | `ghcr.io/danacoofficial/nurt` |
 | winget | `Danaco.Nurt` |
 | NuGet (library binding) | `Danaco.Nurt` |
@@ -77,7 +77,7 @@ The directory `doc/` holds this documentation as a site that works offline; open
 The build needs a Rust toolchain installed with rustup and a C compiler. The toolchain version is pinned in `rust-toolchain.toml`.
 
 ```text
-git clone https://github.com/DanacoOfficial/nurt.git
+git clone https://github.com/DanacoOfficial/danaco-nurt.git
 cd nurt
 cargo build --release --locked
 ```

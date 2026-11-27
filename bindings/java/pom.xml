@@ -37,8 +37,8 @@
   </developers>
 
   <scm>
-    <url>https://github.com/DanacoOfficial/nurt</url>
-    <connection>scm:git:https://github.com/DanacoOfficial/nurt.git</connection>
+    <url>https://github.com/DanacoOfficial/danaco-nurt</url>
+    <connection>scm:git:https://github.com/DanacoOfficial/danaco-nurt.git</connection>
   </scm>
 
   <modules>

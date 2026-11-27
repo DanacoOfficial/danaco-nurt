@@ -5,5 +5,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/DanacoOfficial/nurt/blob/main/SECURITY.md
+    url: https://github.com/DanacoOfficial/danaco-nurt/blob/main/SECURITY.md
     about: Report security vulnerabilities privately, as described in the security policy.

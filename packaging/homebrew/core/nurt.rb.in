@@ -1,10 +1,10 @@
 class Nurt < Formula
   desc "@DESCRIPTION@"
   homepage "https://nurt.danaco-group.pl"
-  url "https://github.com/DanacoOfficial/nurt/archive/refs/tags/v@VERSION@.tar.gz"
+  url "https://github.com/DanacoOfficial/danaco-nurt/archive/refs/tags/v@VERSION@.tar.gz"
   sha256 "@SHA256:source@"
   license "Apache-2.0"
-  head "https://github.com/DanacoOfficial/nurt.git", branch: "main"
+  head "https://github.com/DanacoOfficial/danaco-nurt.git", branch: "main"
 
   depends_on "rust" => :build
 

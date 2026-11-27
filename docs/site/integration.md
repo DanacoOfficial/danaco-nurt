@@ -31,4 +31,4 @@ The command `nurt check` and the library function `nurt_check` return the effect
 
 ## Documentation for integrators
 
-The guide for integrators, with tool definitions for the model providers and examples of policies, is the directory [docs/integrators](https://github.com/DanacoOfficial/nurt/tree/main/docs/integrators) of the repository.
+The guide for integrators, with tool definitions for the model providers and examples of policies, is the directory [docs/integrators](https://github.com/DanacoOfficial/danaco-nurt/tree/main/docs/integrators) of the repository.
