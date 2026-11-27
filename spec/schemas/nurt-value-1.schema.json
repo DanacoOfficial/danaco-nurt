@@ -5031,13 +5031,6 @@
             "null"
           ],
           "description": "One line about a successful run: exit code, time, lines and bytes."
-        },
-        "read_hint": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "Sentence with the commands that read what the response leaves out\nfrom the output file."
         }
       },
       "required": [
@@ -12296,6 +12289,11 @@
           "type": "string",
           "const": "E_ARG",
           "description": "An argument of a call cannot be passed without changing its meaning,\nfor example a NUL character in a process argument."
+        },
+        {
+          "type": "string",
+          "const": "E_CONTINUATION_EXPIRED",
+          "description": "A continuation read by `next` has expired or was removed by the limits\nof `[continuation]`; `next_steps` holds the call that produced it."
         },
         {
           "type": "string",

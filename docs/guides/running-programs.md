@@ -28,7 +28,7 @@ jobs state: running
 
 ## Output
 
-`show` selects what the result contains: `stdout`, `stderr`, `both`, `errors`, `summary` or `none`. `head` and `tail` keep the first or last lines, `filter` keeps the lines that match a pattern and `dedupe` (on by default) collapses repeated lines, also lines that differ only in numbers. The text of all streams together never exceeds `max_bytes` (4096 by default, `0` is no limit) and a line longer than 400 characters is cut. After exit code 0 the result has the last 5 lines and the field `digest`; after a failure of `cargo` or `pytest` the field `diagnostics` lists the first errors with file and line, and `read_hint` names the `read` and `search` commands that return the rest from the output file without running the program again. The `exec` record carries `exit_code`, `signal` and `timed_out`.
+`show` selects what the result contains: `stdout`, `stderr`, `both`, `errors`, `summary` or `none`. `head` and `tail` keep the first or last lines, `filter` keeps the lines that match a pattern and `dedupe` (on by default) collapses repeated lines, also lines that differ only in numbers. The text of all streams together never exceeds `max_bytes` (4096 by default, `0` is no limit) and a line longer than 400 characters is cut. After exit code 0 the result has the last 5 lines and the field `digest`; after a failure of `cargo` or `pytest` the field `diagnostics` lists the first errors with file and line, and a response that leaves lines out ends with the hint "more: next": `next` returns the lines left out from the output file without running the program again. The `exec` record carries `exit_code`, `signal` and `timed_out`.
 
 ```nurt
 run ["npm", "run", "build"] cwd: "/srv/app" show: errors tail: 40

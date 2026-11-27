@@ -137,7 +137,6 @@ pub(crate) fn exec_record(request: &RunRequest, result: &RunResult, platform: Pl
             .clone()
             .filter(|found| !found.first.is_empty()),
         digest: digest(request, result),
-        read_hint: output.read_hint.clone(),
     }
 }
 

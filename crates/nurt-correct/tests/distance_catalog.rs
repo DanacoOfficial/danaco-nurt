@@ -108,9 +108,9 @@ fn command_entries(commands: &[Command]) -> Vec<NameEntry> {
 }
 
 #[test]
-fn commands_have_one_pair_at_distance_one_and_twenty_six_at_two() {
+fn commands_have_one_pair_at_distance_one_and_twenty_seven_at_two() {
     let commands = catalog();
-    assert_eq!(commands.len(), 148);
+    assert_eq!(commands.len(), 149);
     let pairs = close_pairs(&command_entries(&commands), 2);
     let at = |distance| -> Vec<String> {
         pairs
@@ -138,6 +138,7 @@ fn commands_have_one_pair_at_distance_one_and_twenty_six_at_two() {
             "info-undo",
             "jobs-logs",
             "move-remove",
+            "next-set",
             "notebook.copy-notebook.ops",
             "notebook.move-notebook.remove",
             "ports-sort",

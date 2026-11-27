@@ -18,7 +18,7 @@ use nurt_contracts::spec::{FormSpec, IoSpec, Os, ParamType, ScalarType, StageSpe
 use nurt_correct::policy::is_effecting;
 
 /// Number of commands of the reference catalog.
-const COMMANDS: usize = 148;
+const COMMANDS: usize = 149;
 
 /// Field names tried, in order, where a parameter names a record field.
 const FIELDS: [&str; 6] = ["name", "path", "text", "pid", "id", "port"];

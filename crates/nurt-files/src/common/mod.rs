@@ -23,6 +23,7 @@
 //! ([`mutation::apply_changes`], [`text::write_text_preserving`]); the journal
 //! checks the expectation atomically with the change.
 
+pub mod continuation;
 pub mod entry;
 pub mod etag;
 pub mod mutation;

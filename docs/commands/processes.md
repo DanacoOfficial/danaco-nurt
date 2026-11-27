@@ -110,6 +110,14 @@ Select processes by a pattern of the name:
 processes /^python[0-9.]*$/
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 410  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

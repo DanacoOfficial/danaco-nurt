@@ -67,6 +67,9 @@ pub fn error_text(code: ErrorCode) -> Option<&'static str> {
             "instrukcji SQL nie można przygotować lub wykonać albo zmienia dane bez write: true"
         }
         ErrorCode::Arg => "argumentu nie można przekazać bez zmiany jego znaczenia",
+        ErrorCode::ContinuationExpired => {
+            "kontynuacja wygasła, została usunięta albo żadna nie jest przechowywana"
+        }
         ErrorCode::ExternalMissing => "program wymagany przez polecenie nie jest zainstalowany",
         ErrorCode::ExternalFailed => {
             "program zewnętrzny używany przez polecenie zakończył się błędem lub złamał protokół"

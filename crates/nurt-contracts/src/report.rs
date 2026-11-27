@@ -41,6 +41,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::ast::AST_HASH_PREFIX;
+use crate::continuation::Continuation;
 use crate::error::{Error, ErrorCode};
 use crate::value::{Bytes, Record, RecordKind};
 
@@ -1304,6 +1305,11 @@ pub struct NotableEntry {
     /// Short description of the effect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    /// Identifier of the continuation (`c3`) that reads what the effect
+    /// concerns, for `truncated_lines` and `limit_reached`; absent when
+    /// nothing continues.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<String>,
 }
 
 impl NotableEntry {
@@ -1317,6 +1323,7 @@ impl NotableEntry {
             raw_path: None,
             count: None,
             detail: None,
+            continuation: None,
         }
     }
 }
@@ -1468,6 +1475,10 @@ pub struct Report {
     /// Cursor of the next page; absent on the last page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
+    /// Continuation of a shortened response: what remains and how `next`
+    /// reads it; absent when the response leaves nothing out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<Continuation>,
     /// Durations of the processing steps (verbosity `detailed`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timing: Option<Timing>,
@@ -1585,6 +1596,7 @@ impl Report {
             irreversible: Vec::new(),
             error: None,
             next_cursor: None,
+            continuation: None,
             timing: None,
             parts: Vec::new(),
             parts_total: None,

@@ -202,6 +202,14 @@ List the files with matches, the files with the most matches first.
 search /\brun\b|\bmain\b/ "." output: files sort: count
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 212  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

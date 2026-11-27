@@ -197,6 +197,14 @@ sql "/home/user/app.db" "select ?2 - ?1 as span, upper(?3) as label" params: [5,
 ] }
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 5000  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

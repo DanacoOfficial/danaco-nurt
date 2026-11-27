@@ -396,12 +396,19 @@ fn execute(
             .map(Vec::as_slice)
             .unwrap_or_default();
         let mut locks = Vec::with_capacity(parts.len());
+        let mut moved = Vec::with_capacity(parts.len());
         for part in parts {
             locks.push(store.lock_entry(&part.volume, part.op)?);
-            store.begin_reap(&part.volume, part.op, expired.reason)?;
+            match store.begin_reap(&part.volume, part.op, expired.reason) {
+                Ok(()) => moved.push(part),
+                // Another process reclaimed the entry after the plan was made:
+                // nothing is left to do for this part.
+                Err(error) if error.code() == ErrorCode::JournalNoop => continue,
+                Err(error) => return Err(error),
+            }
             store.hit(FailPoint::ReclaimMoved)?;
         }
-        for part in parts {
+        for part in moved {
             finish(store, part, expired.reason)?;
             bytes = bytes.saturating_add(part.bytes_held);
             touched.insert(&part.volume);

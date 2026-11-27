@@ -66,6 +66,14 @@ Show the first ten matches with their repositories.
 package.search "json" |> first 10 |> select name version source
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 330  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

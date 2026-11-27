@@ -744,6 +744,7 @@ struct Scan {
     matches: u64,
     truncated: u64,
     backtracked: u64,
+    cut: Vec<(u64, String)>,
 }
 
 impl Scan {
@@ -771,6 +772,7 @@ impl Scan {
         self.matches += other.matches;
         self.truncated += other.truncated;
         self.backtracked += other.backtracked;
+        self.cut.extend(other.cut);
         self.hits.extend(other.hits);
     }
 
@@ -999,6 +1001,7 @@ struct Totals {
     denied: AtomicU64,
     truncated: AtomicU64,
     backtracked: AtomicU64,
+    cut: Mutex<Vec<nurt_contracts::continuation::CutLine>>,
 }
 
 /// State of one execution, shared by the producers of results and records.
@@ -1023,6 +1026,14 @@ impl Drop for Run<'_> {
                 self.ctx.note(counted(code, count));
             }
         }
+        let cut = std::mem::take(
+            &mut *self
+                .totals
+                .cut
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner),
+        );
+        crate::common::continuation::offer_cut_lines(self.ctx, cut);
     }
 }
 
@@ -1312,6 +1323,10 @@ impl<'a> Run<'a> {
             return ControlFlow::Continue(());
         }
         let end = place.offset(hit.end());
+        if hit.is_truncated() {
+            scan.cut
+                .push((hit.line() + place.line_base, hit.full_text()));
+        }
         scan.push(Found {
             line: hit.line() + place.line_base,
             start,
@@ -1547,7 +1562,23 @@ impl<'a> Run<'a> {
         })
     }
 
-    fn record_totals(&self, scan: &Scan) {
+    fn record_totals(&self, path: &AbsPath, scan: &Scan) {
+        if !scan.cut.is_empty() {
+            let name = path.to_language_string();
+            self.totals
+                .cut
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .extend(
+                    scan.cut
+                        .iter()
+                        .map(|(no, text)| nurt_contracts::continuation::CutLine {
+                            path: name.clone(),
+                            no: *no,
+                            text: text.clone(),
+                        }),
+                );
+        }
         Self::add(&self.totals.truncated, scan.truncated);
         Self::add(&self.totals.backtracked, scan.backtracked);
     }
@@ -1557,7 +1588,7 @@ impl<'a> Run<'a> {
     fn settle(&self, outcome: FileOutcome) -> Option<FileResult> {
         match outcome {
             FileOutcome::Searched(result) => {
-                self.record_totals(&result.scan);
+                self.record_totals(&result.path, &result.scan);
                 Some(result)
             }
             FileOutcome::Binary => {
@@ -1929,13 +1960,13 @@ impl<'a> InputScanner<'a> {
             }
             RecordKind::Content => {
                 if let Some(result) = self.run.scan_content(record)? {
-                    self.run.record_totals(&result.scan);
+                    self.run.record_totals(&result.path, &result.scan);
                     self.ready.push_back(result);
                 }
             }
             RecordKind::Line => {
                 let result = self.run.scan_line(record)?;
-                self.run.record_totals(&result.scan);
+                self.run.record_totals(&result.path, &result.scan);
                 self.merge_line(result);
             }
             other => {

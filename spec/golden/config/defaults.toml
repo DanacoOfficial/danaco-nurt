@@ -113,6 +113,11 @@ shrink_ratio = 0.5
 per_file_repl = 100
 targets_high = 500
 
+[continuation]
+max_age = "1h"
+max_count = 50
+max_size = "256mib"
+
 [text]
 legacy_encodings = ["windows-1250", "ibm852", "iso-8859-2", "windows-1252"]
 new_file_line_ending = "lf"

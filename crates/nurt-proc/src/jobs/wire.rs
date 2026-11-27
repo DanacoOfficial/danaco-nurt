@@ -229,7 +229,7 @@ struct RenderedOutputDef {
     #[serde(default)]
     diagnostics: Option<ExecDiagnostics>,
     #[serde(default)]
-    read_hint: Option<String>,
+    continuation: Option<crate::iface::LinesContinuation>,
 }
 
 #[derive(Serialize, Deserialize)]

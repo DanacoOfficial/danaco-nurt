@@ -96,6 +96,14 @@ Show the first line of every text file found.
 find "." glob: "*.txt" |> lines 1
 ```
 
+A response that leaves lines out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

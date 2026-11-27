@@ -126,6 +126,14 @@ Compare two scripts without regard to indentation and line endings.
 diff "/srv/app/build.cmd" "/srv/app/build.new.cmd" ignore_whitespace: true
 ```
 
+A response that leaves records out ends with the hint "more: next" and carries the field
+`continuation`; the command `next` returns the next part without running the
+command again.
+
+```text
+matched 140  shown 50  more: next
+```
+
 ## Errors
 
 | Code | Meaning | Typical fix |

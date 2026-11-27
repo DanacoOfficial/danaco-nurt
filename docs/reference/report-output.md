@@ -47,7 +47,10 @@ stay in the changes.
 - Changes beyond `limit` are counted, not listed. `targets.listed` is set to
   the number of listed changes.
 - Rows of a reading program beyond `limit` are counted, not listed. The cursor
-  of the next page is `next_cursor`, set by the engine.
+  of the next page is `next_cursor`, set by the engine. The field
+  `continuation` (`id`, `unit`, `shown`, `remaining`, `cut_lines`) names the
+  kept remainder and the text of the response ends with `more: next`; the
+  command `next` reads the next part from it.
 - Differences are limited as given under Verbosity.
 
 ## Field shortening

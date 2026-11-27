@@ -508,7 +508,6 @@ Result of a finished run of a program.
 | `job` | text | no | Job identifier when the run continued in the background. |
 | `diagnostics` | object [`ExecDiagnostics`](#execdiagnostics) | no | Errors and warnings of a recognised tool. |
 | `digest` | text | no | One line about a successful run: exit code, time, lines and bytes. |
-| `read_hint` | text | no | Sentence with the commands that read what the response leaves out from the output file. |
 
 ### job
 

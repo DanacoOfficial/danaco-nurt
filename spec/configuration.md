@@ -275,6 +275,18 @@ behaviour in the meaning column applies.
 | `report.notable.per_file_repl` | integer | `100` | replacements in one file from which `many_per_file` is reported |
 | `report.notable.targets_high` | integer | `500` | targets from which `target_count_high` is reported |
 
+### 7.8a `[continuation]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `continuation.max_age` | duration | `1h` | a continuation older than this expires |
+| `continuation.max_count` | integer | `50` | most continuations kept; the oldest is removed first |
+| `continuation.max_size` | size | `256mib` | most space of all kept results; the oldest is removed first |
+
+Kept results live in the `results` area of the state directory, outside the
+journal, and are removed at the end of the session of the console or by these
+limits.
+
 ### 7.9 `[text]`, `[limits]`, `[fs]`
 
 | Key | Type | Default | Meaning |
