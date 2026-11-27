@@ -335,13 +335,22 @@ fn a_stage_written_with_preview_plans_without_applying() {
         "params {{\n    dry: bool = false\n}}\nsteps {{\n    remove \"{a}\" preview: @dry\n}}\n",
         a = world.at("a.txt")
     );
+    let entries = |world: &World| world.engine.history(&Default::default()).unwrap().len();
+    let entries_before = entries(&world);
     let dry = world.with_params(&program, json!({"dry": true}));
     assert_eq!(world.snapshot(), before);
     assert_eq!(
-        dry.report.status,
-        ReportStatus::Ok,
-        "{:?}",
-        dry.report.error
+        entries(&world),
+        entries_before,
+        "an empty entry is not written"
+    );
+    assert!(dry.report.changes.is_empty(), "{:?}", dry.report.changes);
+    assert!(dry.report.op.is_none());
+    assert!(
+        dry.report
+            .parts
+            .iter()
+            .any(|part| part.note.as_deref() == Some("planned, not applied"))
     );
     let real = world.with_params(&program, json!({}));
     assert_ok(&real);
@@ -493,7 +502,19 @@ fn script_parameters_are_checked_before_any_effect() {
     let unknown = world.with_params(&program, json!({"name": "x", "nam": "y"}));
     assert_eq!(code(&unknown), Some(ErrorCode::UnknownParam));
     let wrong = world.with_params(&program, json!({"name": "x", "times": "often"}));
-    assert_ne!(wrong.report.status, ReportStatus::Ok);
+    assert!(
+        matches!(
+            code(&wrong),
+            Some(ErrorCode::Type | ErrorCode::InvalidValue)
+        ),
+        "{:?}",
+        wrong.report.error
+    );
+    let declaration = &wrong.report.error.as_ref().unwrap().details["declaration"];
+    assert!(
+        declaration.to_string().contains("times: int = 2"),
+        "{declaration}"
+    );
     assert!(world.read("out").is_none());
     let given = world.with_params(&program, json!({"name": "hello", "times": "3"}));
     assert_ok(&given);
@@ -551,6 +572,11 @@ fn atomic_false_keeps_the_completed_iterations_and_names_the_failed_one() {
         0,
         "the kept iterations are in the one entry of the loop"
     );
+    assert_eq!(
+        world.engine.history(&Default::default()).unwrap().len(),
+        1,
+        "the whole loop is one journal entry"
+    );
     assert_ok(&world.run("undo"));
     assert!(world.read("dst/a.log").is_none() && world.read("dst/b.log").is_none());
     assert_eq!(world.read("dst/c.log").as_deref(), Some("old"));
@@ -581,6 +607,11 @@ fn a_function_result_is_the_value_of_its_last_statement() {
         world.at("logs")
     ));
     assert_ok(&response);
+    let page = response.report.records.as_ref().unwrap();
+    assert_eq!(
+        page.rows[0].get("value"),
+        Some(&nurt_contracts::value::Value::from(2_u64))
+    );
 }
 
 #[test]
@@ -636,13 +667,11 @@ fn the_preview_of_every_construct_changes_nothing() {
 #[test]
 fn a_part_that_cannot_be_rolled_back_is_listed_and_named_after_a_failure() {
     let world = world();
-    let exe = if cfg!(windows) { "cmd" } else { "sh" };
     let args = if cfg!(windows) {
         "[\"cmd\", \"/c\", \"exit 0\"]"
     } else {
         "[\"sh\", \"-c\", \"exit 0\"]"
     };
-    let _ = exe;
     let response = world.run(&format!(
         "steps {{\n    write \"{a}\" \"1\" mode: overwrite\n    run {args} cwd: \"{cwd}\"\n    copy \"{missing}\" into: \"{dst}\"\n}}\n",
         a = world.at("a"),
@@ -650,10 +679,63 @@ fn a_part_that_cannot_be_rolled_back_is_listed_and_named_after_a_failure() {
         missing = world.at("missing"),
         dst = world.at("dst"),
     ));
-    assert_ne!(response.report.status, ReportStatus::Ok);
+    assert_eq!(response.report.status, ReportStatus::RolledBack);
     assert!(world.read("a").is_none(), "the write is rolled back");
     let error = response.report.error.as_ref().unwrap();
-    assert!(error.details.contains_key("restored") || error.cause.is_some());
+    assert_eq!(error.code, ErrorCode::RolledBack);
+    let unrolled = error.details["not_rolled_back"].as_array().unwrap();
+    assert!(
+        unrolled
+            .iter()
+            .any(|entry| entry.to_string().contains("`run`")),
+        "{unrolled:?}"
+    );
+    let part = |command: &str| {
+        response
+            .report
+            .parts
+            .iter()
+            .find(|part| part.command.as_deref() == Some(command))
+            .unwrap()
+    };
+    assert!(part("run").irreversible && !part("run").rolled_back);
+    assert!(part("write").rolled_back && !part("write").irreversible);
+    assert!(
+        response
+            .report
+            .irreversible
+            .iter()
+            .any(|entry| entry.detail.as_deref().is_some_and(|d| d.contains("`run`"))),
+        "{:?}",
+        response.report.irreversible
+    );
+}
+
+#[test]
+fn irreversible_parts_are_listed_before_the_change_in_the_preview() {
+    let world = world();
+    let args = if cfg!(windows) {
+        "[\"cmd\", \"/c\", \"exit 0\"]"
+    } else {
+        "[\"sh\", \"-c\", \"exit 0\"]"
+    };
+    let before = world.snapshot();
+    let response = world.preview(&format!(
+        "steps {{\n    write \"{a}\" \"1\" mode: overwrite\n    run {args} cwd: \"{cwd}\"\n}}\n",
+        a = world.at("a"),
+        cwd = world.at(""),
+    ));
+    assert_eq!(response.report.status, ReportStatus::Planned);
+    assert_eq!(world.snapshot(), before);
+    assert!(
+        response
+            .report
+            .irreversible
+            .iter()
+            .any(|entry| entry.detail.as_deref().is_some_and(|d| d.contains("`run`"))),
+        "{:?}",
+        response.report.irreversible
+    );
 }
 
 #[test]
@@ -793,4 +875,89 @@ fn a_misspelt_command_inside_a_block_is_corrected_like_at_top_level() {
     ));
     assert_eq!(code(&changing), Some(ErrorCode::Ambiguous));
     assert!(world.read("a.txt").is_some());
+}
+
+#[test]
+fn an_explicit_limit_replaces_the_default_limit_of_the_other_dimension() {
+    let world = world();
+    world.put("marker", "");
+    let response = world.run(&format!(
+        "while exists \"{marker}\" limit: 25 {{\n    write \"{log}\" \"x\" mode: append\n}}\n",
+        marker = world.at("marker"),
+        log = world.at("log"),
+    ));
+    assert_ok(&response);
+    assert_eq!(world.read("log").map(|text| text.len()), Some(25));
+    let timed = world.run(&format!(
+        "repeat until: exists \"{never}\" every: 1ms limit: 400ms {{\n    write \"{log}\" \"y\" mode: append\n}}\n",
+        never = world.at("never"),
+        log = world.at("log2"),
+    ));
+    let cause = timed.report.error.as_ref().unwrap().cause.as_ref().unwrap();
+    assert_eq!(cause.code, ErrorCode::Limit);
+    let iterations = cause.details["iterations"].as_u64().unwrap();
+    assert!(iterations > 1, "{iterations}");
+}
+
+#[test]
+fn a_condition_that_cannot_be_bool_is_refused_before_any_effect() {
+    let world = world();
+    world.put("src/a.log", "a");
+    for condition in [
+        format!("(find \"{}\" |> count)", world.at("src")),
+        "exit_code".to_owned(),
+    ] {
+        let response = world.run(&format!(
+            "steps {{\n    write \"{out}\" \"x\" mode: overwrite\n    when {condition} {{\n        remove \"{out}\"\n    }}\n}}\n",
+            out = world.at("out"),
+        ));
+        assert_eq!(code(&response), Some(ErrorCode::Type), "{condition}");
+        assert!(world.read("out").is_none(), "{condition}");
+    }
+}
+
+#[test]
+fn a_function_that_changes_cannot_be_called_inside_a_condition() {
+    let world = world();
+    let response = world.run(&format!(
+        "define clean() {{\n    write \"{out}\" \"x\" mode: overwrite\n}}\nwhen (clean() |> count) > 0 {{\n    find \"{dir}\"\n}}\n",
+        out = world.at("out"),
+        dir = world.at(""),
+    ));
+    assert_eq!(code(&response), Some(ErrorCode::Type));
+    assert!(world.read("out").is_none());
+}
+
+#[test]
+fn define_inside_a_block_is_refused_before_any_effect() {
+    let world = world();
+    let response = world.run(&format!(
+        "steps {{\n    write \"{out}\" \"x\" mode: overwrite\n    when exists \"{no}\" {{\n        define f() {{\n            find \"{dir}\"\n        }}\n    }}\n}}\nf()\n",
+        out = world.at("out"),
+        no = world.at("nothing"),
+        dir = world.at(""),
+    ));
+    assert_eq!(code(&response), Some(ErrorCode::Arg));
+    assert!(world.read("out").is_none());
+}
+
+#[test]
+fn a_function_does_not_see_the_exit_code_of_its_caller() {
+    let world = world();
+    let args = if cfg!(windows) {
+        "[\"cmd\", \"/c\", \"exit 0\"]"
+    } else {
+        "[\"sh\", \"-c\", \"exit 0\"]"
+    };
+    let response = world.run(&format!(
+        "define probe() {{\n    when exit_code == 0 {{\n        write \"{out}\" \"seen\" mode: overwrite\n    }}\n}}\nsteps {{\n    run {args} cwd: \"{cwd}\"\n    probe()\n}}\n",
+        out = world.at("out"),
+        cwd = world.at(""),
+    ));
+    assert_ne!(
+        response.report.status,
+        ReportStatus::Ok,
+        "the name is not visible"
+    );
+    assert!(world.read("out").is_none());
 }

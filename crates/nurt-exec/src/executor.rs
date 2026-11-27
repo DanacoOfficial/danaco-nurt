@@ -195,6 +195,8 @@ struct RunState {
     path: Vec<String>,
     /// Nesting of the calls of functions.
     depth: u32,
+    /// Irreversible parts listed from the plan before the construct runs.
+    announced: Vec<IrreversibleEntry>,
     /// Number of iterations completed before a failure of a loop that is not
     /// atomic.
     completed: Option<u64>,
@@ -775,9 +777,6 @@ impl<'e> Execution<'e> {
     }
 }
 
-/// Whether the error stopped the program by the time limit, a resource limit
-/// or cancellation; such a program ends with the status `failed`, also after
-/// the effect was applied.
 /// Whether the stage was written with `preview` set to `true`.
 fn stage_previews(args: &nurt_contracts::stage::BoundArgs) -> bool {
     matches!(
@@ -786,6 +785,9 @@ fn stage_previews(args: &nurt_contracts::stage::BoundArgs) -> bool {
     )
 }
 
+/// Whether the error stopped the program by the time limit, a resource limit
+/// or cancellation; such a program ends with the status `failed`, also after
+/// the effect was applied.
 fn is_stop(error: &Error) -> bool {
     matches!(
         error.code(),

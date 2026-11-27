@@ -193,9 +193,14 @@ impl Env {
 
     /// Journal whose process stops at the first pass of `point`.
     fn crashing_at(&self, point: FailPoint) -> Journal {
+        self.crashing_at_target(point, None)
+    }
+
+    /// Journal that crashes when `point` is reached for the target `n`.
+    fn crashing_at_target(&self, point: FailPoint, n: Option<u32>) -> Journal {
         let rule = FailRule {
             point,
-            n: None,
+            n,
             occurrence: 0,
             action: FailAction::Crash,
         };
@@ -389,6 +394,47 @@ fn a_transaction_that_is_not_incremental_refuses_to_preserve_after_a_change() {
     assert!(refused.is_err());
     assert_eq!(env.read(&first), b"one");
     assert_eq!(env.read(&second), b"two");
+}
+
+#[test]
+fn an_incremental_transaction_interrupted_at_each_point_is_rolled_back_by_recovery() {
+    for (point, occurrence) in [
+        (FailPoint::PreserveDurable, Some(1)),
+        (FailPoint::ApplySwitched, Some(0)),
+        (FailPoint::ApplySwitched, Some(1)),
+        (FailPoint::CommitWritten, None),
+    ] {
+        let env = Env::new(&json!({}));
+        let first = env.seed(NOTES, b"one");
+        let second = env.seed(OTHER_FILE, b"two");
+        let crashed = env.crashing_at_target(point, occurrence);
+        let mut tx = crashed.begin(request("steps"));
+        tx.allow_incremental();
+        let outcome = apply_ops(
+            tx.as_mut(),
+            vec![FileOp::write(first.clone(), b"ONE".to_vec())],
+        )
+        .and_then(|_| {
+            apply_ops(
+                tx.as_mut(),
+                vec![FileOp::write(second.clone(), b"TWO".to_vec())],
+            )
+        })
+        .and_then(|_| tx.commit().map(drop));
+        assert!(outcome.is_err(), "{point:?} {occurrence:?}");
+        drop(crashed);
+
+        let journal = env.journal();
+        journal.recover().unwrap();
+        assert_eq!(env.read(&first), b"one", "{point:?} {occurrence:?}");
+        assert_eq!(env.read(&second), b"two", "{point:?} {occurrence:?}");
+        assert!(
+            layout::pending_entries(env.fs.as_ref(), &journal_layout())
+                .unwrap()
+                .is_empty(),
+            "{point:?} {occurrence:?}"
+        );
+    }
 }
 
 #[test]

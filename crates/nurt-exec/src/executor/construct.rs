@@ -20,7 +20,8 @@ use nurt_contracts::error::{Error, ErrorCode, Result};
 use nurt_contracts::journal::{
     BeginRequest, MutationTx, OpHandle, OpKind, RollbackReason, SessionId,
 };
-use nurt_contracts::report::{IrreversibleEntry, ReportPart, ReportStatus};
+use nurt_contracts::kinds::{EffectKind, Reversibility};
+use nurt_contracts::report::{Irreversible, IrreversibleEntry, ReportPart, ReportStatus};
 use nurt_contracts::stage::{ExecStep, StageInput};
 use nurt_contracts::value::{Fields, Record, RecordKind, Value};
 use nurt_plan::{
@@ -75,6 +76,7 @@ impl<'e> Execution<'e> {
             &plan.program,
             plan.changes(),
             plan.index,
+            announce_construct(plan),
             || self.run_construct(plan).map(drop),
         );
         outcome.push(operation);
@@ -91,7 +93,8 @@ impl<'e> Execution<'e> {
             .map_or("call", |call| call.name.as_str());
         let changes = operation.pipeline.effect != nurt_contracts::kinds::EffectKind::Read;
         let mut result = ResultData::default();
-        let mut finished = self.entry(name, &program, changes, operation.index, || {
+        let announced = announce_pipeline(&operation.pipeline);
+        let mut finished = self.entry(name, &program, changes, operation.index, announced, || {
             let outcome = self.operation(operation);
             result = outcome.result.clone();
             match outcome.error {
@@ -126,7 +129,8 @@ impl<'e> Execution<'e> {
             .as_ref()
             .map_or("call", |call| call.name.as_str());
         let mut value = None;
-        let operation = self.entry(name, &program, true, u32::MAX, || {
+        let announced = announce_pipeline(&binding.pipeline);
+        let operation = self.entry(name, &program, true, u32::MAX, announced, || {
             value = Some(self.snapshot(&binding.pipeline)?);
             Ok(())
         });
@@ -152,6 +156,7 @@ impl<'e> Execution<'e> {
         program: &BoundStatement,
         changes: bool,
         index: u32,
+        announced: Vec<IrreversibleEntry>,
         body: impl FnOnce() -> Result<()>,
     ) -> OperationOutcome {
         let mut operation = OperationOutcome::new(index);
@@ -192,6 +197,7 @@ impl<'e> Execution<'e> {
             path: outer.path.clone(),
             depth: outer.depth,
             exit_code: outer.exit_code,
+            announced,
             ..RunState::default()
         });
         let mut failure = body().err();
@@ -276,13 +282,23 @@ impl<'e> Execution<'e> {
         let RunState {
             changes,
             notable,
-            irreversible,
+            mut irreversible,
+            announced,
             last,
             handle: kept_handle,
             completed,
             ..
         } = state;
         let handle = handle.or(kept_handle);
+        // The parts the plan marks irreversible are listed whether or not they
+        // ran; the entries the parts reported are added.
+        let mut listed = announced;
+        for entry in irreversible.drain(..) {
+            if !listed_has(&listed, &entry) {
+                listed.push(entry);
+            }
+        }
+        let irreversible = listed;
         let changed = !changes.is_empty() || !irreversible.is_empty() || handle.is_some();
         operation.result = last;
         operation.notable = notable;
@@ -677,9 +693,17 @@ impl<'e> Execution<'e> {
         let config = &self.env.config.loop_limits;
         let mut iterations = config.max_iterations;
         let mut time = Duration::from_millis(config.max_time.as_millis());
+        // An explicit limit replaces both defaults: the other dimension is
+        // then not limited by the configuration.
         match limit {
-            Some(BoundLimit::Iterations { n }) => iterations = n,
-            Some(BoundLimit::Time { ms }) => time = Duration::from_millis(ms),
+            Some(BoundLimit::Iterations { n }) => {
+                iterations = n;
+                time = Duration::MAX;
+            }
+            Some(BoundLimit::Time { ms }) => {
+                time = Duration::from_millis(ms);
+                iterations = u64::MAX;
+            }
             _ => {}
         }
         (iterations, time)
@@ -712,7 +736,8 @@ impl<'e> Execution<'e> {
                 break;
             }
             if let Some(interval) = every_ms {
-                self.pause(Duration::from_millis(interval))?;
+                let left = max_time.saturating_sub(self.elapsed(started));
+                self.pause(Duration::from_millis(interval).min(left))?;
             }
         }
         let mut part = ReportPart::done(self.at("repeat"), "loop");
@@ -735,10 +760,16 @@ impl<'e> Execution<'e> {
         let started = self.ctx.clock().monotonic();
         let mut count: u64 = 0;
         let mut note = None;
-        while self.evaluate_condition(cond)? {
+        loop {
             self.checkpoint()?;
             if count >= max_iterations || self.elapsed(started) >= max_time {
-                note = Some("the limit ended the loop while the condition still held".to_owned());
+                if self.evaluate_condition(cond)? {
+                    note =
+                        Some("the limit ended the loop while the condition still held".to_owned());
+                }
+                break;
+            }
+            if !self.evaluate_condition(cond)? {
                 break;
             }
             count += 1;
@@ -840,14 +871,21 @@ impl<'e> Execution<'e> {
             });
         let mut part = ReportPart::done(self.at(&format!("step[{number}]")), "step");
         part.command = command;
+        // A stage written with `preview` only plans: its changes are not part
+        // of the effects of the construct.
+        let planned = outcome.status == ReportStatus::Planned && !self.preview;
         if let Some(effect) = &outcome.effect {
             part.targets = Some(u64::try_from(effect.changes.len()).unwrap_or(u64::MAX));
             part.irreversible = !effect.irreversible.is_empty();
         }
+        part.irreversible |= !announce_pipeline(pipeline).is_empty();
+        if planned {
+            part.note = Some("planned, not applied".to_owned());
+        }
         let exit = exit_code(&outcome.result);
         let failure = outcome.error.clone();
         self.with_state(|state| {
-            if let Some(effect) = &outcome.effect {
+            if let Some(effect) = outcome.effect.as_ref().filter(|_| !planned) {
                 state.changes.extend(effect.changes.clone());
                 state.irreversible.extend(effect.irreversible.clone());
                 state.notable.extend(effect.notable.clone());
@@ -924,13 +962,14 @@ impl<'e> Execution<'e> {
             names.insert(param.name.clone(), value);
         }
         let outer = self.binding.replace_names(names);
-        let saved = self.with_state(|state| {
+        let (saved, saved_exit) = self.with_state(|state| {
             state.path.push(format!("call {}", call.name));
-            state.last_value.take()
+            (state.last_value.take(), state.exit_code.take())
         });
         let control = self.run_block(definition.body);
         let value = self.with_state(|state| {
             state.path.pop();
+            state.exit_code = saved_exit;
             std::mem::replace(&mut state.last_value, saved)
         });
         self.binding.restore_names(outer);
@@ -1093,6 +1132,54 @@ fn overlapping(claimed: &mut [(String, usize)]) -> bool {
                     .strip_prefix(first.as_str())
                     .is_some_and(|rest| rest.starts_with('/')))
     })
+}
+
+/// Whether `listed` has an entry of the same reason and detail as `entry`.
+fn listed_has(listed: &[IrreversibleEntry], entry: &IrreversibleEntry) -> bool {
+    listed
+        .iter()
+        .any(|known| known.reason == entry.reason && known.detail == entry.detail)
+}
+
+/// The irreversible stages of a pipeline, from its plan.
+fn announce_pipeline(pipeline: &PipelinePlan) -> Vec<IrreversibleEntry> {
+    let mut found: Vec<IrreversibleEntry> = pipeline
+        .all_stages()
+        .into_iter()
+        .filter(|stage| {
+            stage.reversibility == Reversibility::Irreversible
+                || matches!(
+                    stage.stage.effect,
+                    EffectKind::Process | EffectKind::External
+                )
+        })
+        .map(|stage| irreversible_part(stage.command()))
+        .collect();
+    if let Some(call) = &pipeline.call
+        && pipeline.reversibility == Reversibility::Irreversible
+    {
+        found.push(irreversible_part(&call.name));
+    }
+    found
+}
+
+/// The irreversible stages of the pipelines of a construct, from its plan.
+fn announce_construct(plan: &ConstructPlan) -> Vec<IrreversibleEntry> {
+    let mut found: Vec<IrreversibleEntry> = Vec::new();
+    for pipeline in plan.pipelines() {
+        for entry in announce_pipeline(pipeline) {
+            if !listed_has(&found, &entry) {
+                found.push(entry);
+            }
+        }
+    }
+    found
+}
+
+fn irreversible_part(command: &str) -> IrreversibleEntry {
+    let mut entry = IrreversibleEntry::new(Irreversible::ExternalEffect);
+    entry.detail = Some(format!("`{command}` cannot be rolled back"));
+    entry
 }
 
 /// Whether the effect of an operation holds a committed journal entry.
