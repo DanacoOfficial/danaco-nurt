@@ -25,8 +25,28 @@ use super::{Assumption, Mode, TranslateContext, Translation, detect, engine, pro
 /// Largest number of alternatives kept for one translation.
 pub(crate) const MAX_ALTERNATIVES: usize = 3;
 
-/// Options of `sudo` that take a value.
-const PRIVILEGE_VALUE_FLAGS: &[&str] = &["-u", "-g", "--user", "--group"];
+/// Flags of the programs that elevate (`sudo`, `doas`, `run0`) that change
+/// nothing Nurt needs to know: they only keep the program from asking, from
+/// keeping the environment of the account or from refreshing a timestamp.
+const ELEVATION_PLAIN_FLAGS: &[&str] = &[
+    "-n",
+    "--non-interactive",
+    "-H",
+    "--set-home",
+    "-E",
+    "--preserve-env",
+    "-k",
+    "-b",
+    "--background",
+    "--no-ask-password",
+];
+
+/// Flags of the programs that elevate that open a shell or an interactive
+/// session instead of running one command.
+const ELEVATION_SESSION_FLAGS: &[&str] = &["-i", "--login", "-s", "--shell"];
+
+/// Flags that name the account to run as.
+const ELEVATION_USER_FLAGS: &[&str] = &["-u", "--user"];
 
 /// Deepest nesting of command prefixes and command substitutions; a deeper
 /// one is an error, so that crafted text cannot exhaust the stack.
@@ -610,7 +630,10 @@ impl<'a> Session<'a> {
             .literal()
             .unwrap_or_else(|| first.value.raw.clone());
         match name.as_str() {
-            "sudo" => return Err(self.privilege(simple, &words[1..], input, options)),
+            "sudo" | "doas" | "run0" => {
+                return self.elevated(&name, first.span, simple, &words[1..], input, options);
+            }
+            "su" => return Err(self.elevated_session(simple.span, &name)),
             "time" | "nohup" if words.len() > 1 => {
                 let inner = self.nested_words(simple, &words[1..], input, options)?;
                 if name == "time" {
@@ -716,44 +739,111 @@ impl<'a> Session<'a> {
         self.nested_words(simple, rest, input, &options)
     }
 
-    /// `sudo CMD`: never translated; the fix is the translation of `CMD`
-    /// without the options of `sudo`.
-    fn privilege(
+    /// `sudo CMD`, `doas CMD`, `run0 CMD`: the translation of `CMD` with the
+    /// call parameter `privilege: elevated` written on its last stage, and
+    /// `as_user: "NAME"` for `-u NAME`. An elevated session (`sudo -i`, `sudo -s`) is not a command
+    /// and ends with `E_AMBIGUOUS`.
+    fn elevated(
         &self,
+        program: &str,
+        span: Span,
         simple: &Simple,
         words: &[Located<Word>],
         input: Option<&str>,
         options: &RunOptions,
-    ) -> Error {
+    ) -> Result<Variants, Error> {
         let mut inner = words;
+        let mut user: Option<String> = None;
         while let Some((first, tail)) = inner.split_first() {
             let flag = first.value.raw.as_str();
-            if !flag.starts_with('-') {
+            if flag == "--" {
+                inner = tail;
                 break;
             }
-            inner = if PRIVILEGE_VALUE_FLAGS.contains(&flag) {
-                tail.get(1..).unwrap_or_default()
+            if !flag.starts_with('-') || flag == "-" {
+                break;
+            }
+            if ELEVATION_SESSION_FLAGS.contains(&flag) {
+                return Err(self.elevated_session(simple.span, program));
+            }
+            if let Some(name) = flag.strip_prefix("--user=") {
+                user = Some(name.to_owned());
+                inner = tail;
+            } else if ELEVATION_USER_FLAGS.contains(&flag) {
+                let Some((name, rest)) = tail.split_first() else {
+                    return Err(self.elevated_option(first.span, flag));
+                };
+                user = Some(
+                    name.value
+                        .literal()
+                        .unwrap_or_else(|| name.value.raw.clone()),
+                );
+                inner = rest;
+            } else if ELEVATION_PLAIN_FLAGS.contains(&flag) {
+                inner = tail;
             } else {
-                tail
-            };
+                return Err(self.elevated_option(first.span, flag));
+            }
         }
-        let fix = if inner.is_empty() {
-            None
-        } else {
-            self.nested_words(simple, inner, input, options)
-                .ok()
-                .map(|variants| self.program_text(&variants))
+        if inner.is_empty() {
+            return Err(self.elevated_session(simple.span, program));
+        }
+        let variants = self.nested_words(simple, inner, input, options)?;
+        let call = match &user {
+            Some(name) => named(
+                "as_user",
+                Expr::Text {
+                    v: name.clone(),
+                    span: None,
+                },
+            ),
+            None => named(
+                "privilege",
+                Expr::Ident {
+                    v: "elevated".to_owned(),
+                    span: None,
+                },
+            ),
         };
-        let error = self.error(
-            ErrorCode::Uncorrectable,
-            "privilege_elevation",
-            simple.span,
-            &[],
+        let variants = variants.map(|mut piece| {
+            if let Some(stage) = piece.stages.last_mut() {
+                append_args(stage, vec![call.clone()]);
+            }
+            piece
+        });
+        self.record(
+            "B28",
+            CorrectionClass::Certain,
+            span,
+            piece_text(variants.primary()),
+            "habit",
         );
-        match fix {
-            Some(text) => error.with_fix(text),
-            None => error,
-        }
+        Ok(variants)
+    }
+
+    /// `E_AMBIGUOUS`: an elevated session is not a command.
+    fn elevated_session(&self, span: Span, program: &str) -> Error {
+        self.error(
+            ErrorCode::Ambiguous,
+            "elevated_session",
+            span,
+            &[("program", program)],
+        )
+        .with_next_step("give the command itself with the call parameter `privilege: elevated`")
+        .with_next_step(
+            "give the account with the call parameter `as_user: \"NAME\"` to run as another account",
+        )
+    }
+
+    /// `E_UNCORRECTABLE`: a flag of an elevating program that Nurt cannot
+    /// keep.
+    fn elevated_option(&self, span: Span, flag: &str) -> Error {
+        self.error(
+            ErrorCode::Uncorrectable,
+            "elevated_option",
+            span,
+            &[("flag", flag)],
+        )
     }
 
     /// Adds run options to the translated program; they apply only to

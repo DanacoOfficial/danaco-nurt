@@ -304,24 +304,36 @@ fn assignment_name_is_known_to_later_statement() {
 
 #[test]
 fn rejection_names_problem_of_habit_table() {
-    let migration = run(
-        "sudo rm -rf /var/cache/app\n",
-        ScriptLanguage::Bash,
-        "sudo.sh",
-    );
+    let migration = run("sudo -i\n", ScriptLanguage::Bash, "sudo.sh");
     let item = &migration.report.items[0];
     assert_eq!(item.status, Status::Impossible);
     assert!(
         item.problem
             .as_deref()
-            .is_some_and(|problem| problem.ends_with("(privilege_elevation)")),
+            .is_some_and(|problem| problem.ends_with("(elevated_session)")),
         "{item:?}"
     );
+}
+
+#[test]
+fn sudo_translates_with_the_call_parameter_on_the_stage() {
+    let migration = run(
+        "sudo rm -rf /var/cache/app\nsudo -u deploy touch /srv/www/.maintenance\n",
+        ScriptLanguage::Bash,
+        "sudo.sh",
+    );
+    let program = &migration.nurt;
     assert!(
-        item.fix
+        program.contains("remove \"/var/cache/app\" privilege: elevated"),
+        "{program}"
+    );
+    assert!(program.contains("as_user: \"deploy\""), "{program}");
+    assert!(
+        migration
+            .report
+            .items
             .iter()
-            .any(|fix| fix == "remove \"/var/cache/app\""),
-        "{item:?}"
+            .all(|item| item.status == Status::Translated)
     );
 }
 
