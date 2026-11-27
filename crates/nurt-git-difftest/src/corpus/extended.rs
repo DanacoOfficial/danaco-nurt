@@ -1,6 +1,14 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module:           nurt-git-difftest::corpus::extended
+// Responsibility:   Recipes of the corpus repositories for operation states, configuration.
+// Dependencies:     none
+// Author:           Danaco Official
+// Version:          0.1.1, 2026-11-27
+// License:          see the LICENSE file or https://www.danaco-group.pl
+
 //! Recipes of the corpus repositories for operation states, configuration
 //! variants, remotes and object forms.
 
@@ -404,3 +412,7 @@ pub(super) fn build_heavy_branches(builder: &mut Builder<'_>) -> Result<()> {
     builder.git(&["pack-refs", "--all", "--prune"])?;
     builder.git(&["reset", "-q", "--hard", "main"])
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl
