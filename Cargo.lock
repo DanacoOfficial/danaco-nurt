@@ -1285,7 +1285,7 @@ dependencies = [
  "derive_more",
  "document-features",
  "mio",
- "parking_lot 0.12.5",
+ "parking_lot 0.12.4",
  "rustix",
  "serde",
  "signal-hook",
@@ -3489,7 +3489,7 @@ dependencies = [
  "moka",
  "ndk-context",
  "once_cell",
- "parking_lot 0.12.5",
+ "parking_lot 0.12.4",
  "rand",
  "resolv-conf",
  "smallvec",
@@ -4709,7 +4709,7 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "equivalent",
- "parking_lot 0.12.5",
+ "parking_lot 0.12.4",
  "portable-atomic",
  "smallvec",
  "tagptr",
@@ -6322,9 +6322,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-version = "0.12.5"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
+checksum = "70d58bf43669b5795d1576d0641cfb6fbb2057bf629506267a92807158584a13"
 dependencies = [
  "lock_api 0.4.14",
  "parking_lot_core 0.9.12",
@@ -6675,7 +6675,7 @@ version = "31.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf52d87428247c5aa3760ac8e7d8b13ec7b3579b955a8c3f311668b6860acba5"
 dependencies = [
- "parking_lot 0.12.5",
+ "parking_lot 0.12.4",
 ]
 
 [[package]]
@@ -6941,7 +6941,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "itoa",
  "micromap",
- "parking_lot 0.12.5",
+ "parking_lot 0.12.4",
  "percent-encoding",
  "serde_json",
 ]
