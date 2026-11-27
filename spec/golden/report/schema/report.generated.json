@@ -44,7 +44,7 @@
       ]
     },
     "elevation_reason": {
-      "description": "Why the operation was elevated without being asked to: `permission_denied`\nwhen `privilege: auto` repeated the stage after a denial, or\n`system_journal_entry` when `undo` reached an elevated entry.",
+      "description": "Why the operation was elevated without being asked to: `permission_denied`\nwhen `privilege: auto` repeated the stage after a denial, or\n`elevated_entry` when `undo` or `redo` of an elevated entry was sent to a backend.",
       "type": [
         "string",
         "null"
