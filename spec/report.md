@@ -326,6 +326,8 @@ Exactly one input is given:
 
 The member `params` accompanies `program` or `ast`: an object with the values of the parameters declared by the program with `params { … }`. A value is typed JSON or, as the command line passes it, text that the declared type reads (`"7"` for `int`, `"10mb"` for `size`). A name that is not declared is `E_UNKNOWN_PARAM` with the nearest names, a missing required parameter is `E_MISSING_PARAM` and a value of the wrong type is `E_TYPE`; every error lists the declaration and nothing has run.
 
+A condition of a construct is checked at binding against the types declared by the output record of the source command: a use of a field that no value of its type satisfies is `E_TYPE` with `effect_applied: false`. Fields typed `any` or `json` are the only exception and are checked when the condition is evaluated. A stage that may change the world (`may_affect`) and takes its action from a value that is not a literal is `E_TYPE` at binding in a condition.
+
 Options (`options`) are shared by every command. An absent option takes its
 value from the configuration, and without a configured value from the default
 below. Options of the call override the configuration.

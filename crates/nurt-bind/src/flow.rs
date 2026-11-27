@@ -358,7 +358,16 @@ impl Binder<'_> {
             )
             .at(crate::cast::expr_span(expr))
             .expected(&["bool".to_owned()])),
-            Kind::Bool | Kind::Unknown => Ok(bound),
+            Kind::Bool | Kind::Unknown => {
+                let scope = crate::fieldcheck::Scope {
+                    vars: &self.var_types,
+                };
+                match scope.misuse(&bound) {
+                    Some(problem) => Err(BindError::new(ErrorCode::Type, problem)
+                        .at(crate::cast::expr_span(expr))),
+                    None => Ok(bound),
+                }
+            }
         }
     }
 
@@ -699,11 +708,7 @@ impl Binder<'_> {
             let Some(spec) = self.catalog.command(&stage.name) else {
                 return false;
             };
-            let changing = spec
-                .effects
-                .iter()
-                .any(|action| action.effect != nurt_contracts::kinds::EffectKind::Read);
-            changing
+            crate::phase::may_affect(spec)
                 && stage.args.iter().any(|arg| {
                     let picks = spec.effects.iter().any(|action| action.action == arg.name)
                         || spec

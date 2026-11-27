@@ -26,6 +26,7 @@ mod context;
 mod correct;
 mod error;
 mod facade;
+mod fieldcheck;
 mod fields;
 mod flow;
 mod literal;
