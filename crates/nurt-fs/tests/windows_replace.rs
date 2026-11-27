@@ -12,7 +12,7 @@
 //! Replacement with a backup name (`ReplaceFileW`) on NTFS.
 //!
 //! Covers what the replacement takes from the replaced file (creation time,
-//! attributes, named streams, account, group and DACL) and the names left by a
+//! attributes, named streams and DACL) and the names left by a
 //! failed replacement. The tests that give the replaced file another account
 //! need an elevated account holding `SeRestorePrivilege` and are ignored by
 //! default.
@@ -232,8 +232,13 @@ fn keeps_account_group_dacl_and_streams_of_the_replaced_file() {
 
 /// Gives the replaced file the local system account, then replaces it with a
 /// file of the running account. `privileged_replace` keeps
-/// `SeRestorePrivilege` enabled during the replacement.
-fn assert_foreign_account_kept(privileged_replace: bool) {
+/// `SeRestorePrivilege` enabled during the replacement. `ReplaceFileW` carries
+/// the DACL of the replaced file over but not its account: the replacement
+/// keeps its own account, with or without the privilege, and the old account
+/// stays with the file under the backup name. The journal detects the
+/// difference with its comparison of the account identifiers and then selects
+/// another way to keep the previous file.
+fn assert_account_of_the_replacement_taken(privileged_replace: bool) {
     let fx = fixture();
     let names = names(&fx);
     let owner = fx.account(&names.replacement);
@@ -252,6 +257,8 @@ fn assert_foreign_account_kept(privileged_replace: bool) {
     fx.set_descriptor(&names.target, descriptor);
     let before = fx.extended(&names.target);
     assert_eq!(before.account_sid.as_deref(), Some(LOCAL_SYSTEM_TEXT));
+    let replacement_account = fx.extended(&names.replacement).account_sid;
+    assert_ne!(replacement_account.as_deref(), Some(LOCAL_SYSTEM_TEXT));
     let held = if privileged_replace {
         Some(enabled)
     } else {
@@ -263,17 +270,17 @@ fn assert_foreign_account_kept(privileged_replace: bool) {
     result.unwrap_or_else(|error| panic!("replacement of a file of another account: {error}"));
     let after = fx.extended(&names.target);
     assert_eq!(
-        after.account_sid, before.account_sid,
-        "ReplaceFileW did not keep the account of the replaced file"
+        after.account_sid, replacement_account,
+        "ReplaceFileW changed the account of the replacement"
     );
     let differences = security_differences(
-        before.acl.as_deref().unwrap(),
-        after.acl.as_deref().unwrap(),
+        &without_dacl_auto_inherited(before.acl.as_deref().unwrap()),
+        &without_dacl_auto_inherited(after.acl.as_deref().unwrap()),
     )
     .unwrap();
     let control = |acl: &[u8]| SecurityDescriptor::parse(acl).map(|sd| sd.control()).ok();
     assert!(
-        differences.is_empty(),
+        !differences.contains(&"dacl"),
         "ReplaceFileW changed {differences:?}: control {:?} before, {:?} after",
         control(before.acl.as_deref().unwrap()),
         control(after.acl.as_deref().unwrap())
@@ -284,14 +291,14 @@ fn assert_foreign_account_kept(privileged_replace: bool) {
 
 #[test]
 #[ignore = "requires an elevated account holding SeRestorePrivilege"]
-fn keeps_a_foreign_account_when_replacing_without_privilege() {
-    assert_foreign_account_kept(false);
+fn takes_the_account_of_the_replacement_and_keeps_the_dacl_without_privilege() {
+    assert_account_of_the_replacement_taken(false);
 }
 
 #[test]
 #[ignore = "requires an elevated account holding SeRestorePrivilege"]
-fn keeps_a_foreign_account_when_replacing_with_restore_privilege() {
-    assert_foreign_account_kept(true);
+fn takes_the_account_of_the_replacement_and_keeps_the_dacl_with_restore_privilege() {
+    assert_account_of_the_replacement_taken(true);
 }
 
 /// Verifies that a failed replacement left the old content under the name

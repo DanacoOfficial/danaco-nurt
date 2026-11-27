@@ -269,10 +269,10 @@ pub(crate) fn read_text(path: &str) -> Result<Option<String>> {
 
 /// The system of the current process, used by the tests that run on a real
 /// machine: programs are started directly.
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 pub(crate) struct ProcessSys;
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 impl Sys for ProcessSys {
     fn os(&self) -> Os {
         if cfg!(windows) {

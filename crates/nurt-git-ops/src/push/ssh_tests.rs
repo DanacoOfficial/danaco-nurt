@@ -66,6 +66,34 @@ fn identity() -> Identity {
     }
 }
 
+/// Path of a repository in the form written after the port of an `ssh://` URL
+/// and in the remote command: `/C:/Users/user/repo.git` on Windows, the path
+/// itself elsewhere.
+fn ssh_path(path: &Path) -> String {
+    let text = path.display().to_string();
+    if cfg!(windows) {
+        format!("/{}", text.replace('\\', "/"))
+    } else {
+        text
+    }
+}
+
+/// Path given to `git` for the path of a remote command: the drive letter of
+/// `/C:/Users/user/repo.git` loses its leading slash on Windows.
+fn local_path(remote: &str) -> &str {
+    let bytes = remote.as_bytes();
+    if cfg!(windows)
+        && bytes.len() > 2
+        && bytes[0] == b'/'
+        && bytes[1].is_ascii_alphabetic()
+        && bytes[2] == b':'
+    {
+        &remote[1..]
+    } else {
+        remote
+    }
+}
+
 /// `git` with an isolated home directory and without system configuration.
 fn git_command(home: &Path) -> Command {
     let mut command = Command::new("git");
@@ -98,7 +126,7 @@ impl Handler {
         let path = quoted.strip_prefix('\'')?.strip_suffix('\'')?;
         let mut git = git_command(&self.home);
         git.arg("receive-pack")
-            .arg(path)
+            .arg(local_path(path))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -408,7 +436,7 @@ impl Environment {
         format!(
             "ssh://{SSH_USER}@127.0.0.1:{}{}",
             self.server.port,
-            remote.git_dir().display()
+            ssh_path(remote.git_dir())
         )
     }
 }

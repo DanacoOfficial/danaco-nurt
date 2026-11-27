@@ -19,12 +19,14 @@ slow-timeout = { period = "30s", terminate-after = 4 }
 # The nurt-proc tests start the `proc_fixture` example from the `examples`
 # directory next to the test binaries. `cargo test --no-run` builds it, but an
 # archive carries test binaries only, so the example travels as an included
-# path for the native and the cross-compiled targets.
+# path for the native and the cross-compiled targets, Windows included.
 [profile.default.archive]
 include = [
     { path = "debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
     { path = "aarch64-unknown-linux-gnu/debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
     { path = "x86_64-unknown-linux-gnu/debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
+    { path = "x86_64-pc-windows-msvc/debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
+    { path = "aarch64-pc-windows-msvc/debug/examples", relative-to = "target", depth = 1, on-missing = "ignore" },
 ]
 
 # Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
