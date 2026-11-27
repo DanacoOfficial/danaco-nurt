@@ -1073,7 +1073,7 @@ fn names_producer_outside_product_name(line: &str) -> bool {
     let lower = line.to_lowercase();
     lower
         .replace(&format!("{name} nurt"), "")
-        .replace(&format!("github.com/{name}official/nurt"), "")
+        .replace(&format!("github.com/{name}official/{name}-nurt"), "")
         .contains(&name)
 }
 
