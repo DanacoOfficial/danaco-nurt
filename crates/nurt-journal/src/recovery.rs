@@ -1235,8 +1235,18 @@ impl Entry<'_> {
     /// Moves the current target into the entry.
     fn displace(&self, index: TargetIndex, target: &AbsPath) -> Step<()> {
         let destination = self.displaced_name(index)?;
-        self.fs()
-            .rename(&self.scope, target, &destination, RenameMode::NoReplace)?;
+        match self
+            .fs()
+            .rename(&self.scope, target, &destination, RenameMode::NoReplace)
+        {
+            Ok(()) => {}
+            Err(error) if error.kind == FsErrorKind::CrossDevice => {
+                blob::copy_entry(self.fs(), &self.scope, target, &destination)?;
+                blob::sync_tree(self.fs(), &self.scope, &destination)?;
+                blob::remove_entry(self.fs(), &self.scope, target)?;
+            }
+            Err(error) => return Err(error.into()),
+        }
         blob::sync_parents(self.fs(), &self.scope, &[target, &destination])?;
         Ok(())
     }

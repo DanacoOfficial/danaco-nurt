@@ -45,8 +45,10 @@
 //! In both modes a copy from a target into the journal reads the target with
 //! the rights of the process and writes the copy as the account, block by
 //! block. Operations that would leave a file of the target in the journal under
-//! its old owner (hard link, clone, rename into the journal) are not offered;
-//! the journal then copies.
+//! its old owner (hard link, clone) are not offered. A rename between a path
+//! of the account and any other path ends with the error of a rename across
+//! devices, as it would between two volumes, so that the journal copies the
+//! content instead of moving it.
 
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
@@ -532,7 +534,11 @@ impl FsWrite for AccountFs {
                 self.at("rename", to, || self.inner.rename(scope, from, to, mode))
             }),
             (false, false) => self.inner.rename(scope, from, to, mode),
-            _ => Err(Self::unsupported("rename", to)),
+            _ => Err(FsError::new(
+                FsErrorKind::CrossDevice,
+                "rename",
+                Some(to.as_path()),
+            )),
         }
     }
 
@@ -928,6 +934,44 @@ mod tests {
         assert!(fs.create_new(&scope(), &through).is_err());
         assert!(fs.create_dir(&scope(), &through, 0o700).is_err());
         assert!(!outside.join("planted").exists());
+    }
+
+    #[test]
+    fn a_rename_between_a_target_and_the_journal_is_reported_as_across_devices() {
+        for descriptors in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let state = dir.path().join("state");
+            std::fs::create_dir(&state).unwrap();
+            let mut fs = AccountFs::new(crate::system_fs(), own_identity(&state));
+            if descriptors {
+                fs = fs.with_descriptors();
+            }
+            let journal = AbsPath::new(state.join(".nurt-journal")).unwrap();
+            fs.create_dir(&scope(), &journal, 0o700).unwrap();
+            let blob = journal.join_name("blob").unwrap();
+            let target = AbsPath::new(dir.path().join("target")).unwrap();
+            std::fs::write(target.as_path(), b"previous").unwrap();
+
+            let into = fs
+                .rename(&scope(), &target, &blob, RenameMode::NoReplace)
+                .unwrap_err();
+            assert_eq!(into.kind, FsErrorKind::CrossDevice);
+            assert!(target.as_path().exists() && !blob.as_path().exists());
+
+            assert_eq!(fs.copy_file(&scope(), &target, &blob).unwrap(), 8);
+            let back = AbsPath::new(dir.path().join("back")).unwrap();
+            let out = fs
+                .rename(&scope(), &blob, &back, RenameMode::NoReplace)
+                .unwrap_err();
+            assert_eq!(out.kind, FsErrorKind::CrossDevice);
+            assert!(blob.as_path().exists() && !back.as_path().exists());
+            assert_eq!(std::fs::read(blob.as_path()).unwrap(), b"previous");
+
+            let plain = AbsPath::new(dir.path().join("plain")).unwrap();
+            fs.rename(&scope(), &target, &plain, RenameMode::NoReplace)
+                .unwrap();
+            assert!(plain.as_path().exists());
+        }
     }
 }
 
