@@ -664,9 +664,33 @@ func TestConformanceBindings(t *testing.T) {
 			opts.Env = []string{"NURT_STATE_DIR=" + stateDir, caseNameVariable + "=" + id, casesRootVariable + "=" + root}
 		} else {
 			t.Setenv("NURT_STATE_DIR", stateDir)
+			// A library built with the feature stub opens only on a directory of cases.
+			if dir, err := filepath.Abs("../../crates/nurt-ffi/tests/fixtures/stub"); err == nil {
+				t.Setenv("NURT_STUB_DIR", dir)
+			}
 		}
-		return newTestClient(t, opts)
+		c := newTestClient(t, opts)
+		if b == BackendLibrary && libraryIsStub(t, c) {
+			t.Skip("the stub of libnurt answers only recorded calls; the cases need an engine")
+		}
+		return c
 	})
+}
+
+// libraryIsStub reports whether the library was built with the feature stub.
+func libraryIsStub(t *testing.T, c *Client) bool {
+	t.Helper()
+	raw, err := c.Info(context.Background())
+	if err != nil {
+		t.Fatalf("Info: %v", err)
+	}
+	var info struct {
+		Features []string `json:"features"`
+	}
+	if err := json.Unmarshal(raw, &info); err != nil {
+		t.Fatalf("info = %s: %v", raw, err)
+	}
+	return slices.Contains(info.Features, "stub")
 }
 
 const fakeBindingCases = `{"format":"nurt-binding-cases/1","cases":[

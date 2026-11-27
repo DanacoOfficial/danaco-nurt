@@ -551,7 +551,7 @@ pub fn open_engine(frontend: Option<Arc<dyn Frontend>>) -> Result<Engine> {
 
 /// Validator that calls an [`Engine`] in the process: `check` through
 /// [`Engine::check`] and execution through [`Engine::start`] and its
-/// [`ExecHandle`].
+/// [`nurt_core::ExecHandle`].
 ///
 /// While the planner of the engine is not connected, `check` reports
 /// `E_UNSUPPORTED` after the program was bound successfully, which counts as

@@ -257,7 +257,7 @@ impl<'s> Expectation<'s> {
     ///
     /// Fails with `E_KEY_CONFLICT` or `E_KEY_NOT_FOUND` when an operation
     /// does not apply to the value, as described for
-    /// [`apply_set`](crate::value::apply_set).
+    /// [`crate::value::apply_set`].
     pub fn expected(&self) -> Result<Vec<Value>> {
         let mut documents = self.documents.clone();
         for operation in &self.operations {

@@ -16,6 +16,7 @@ package capi
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"slices"
 	"testing"
 )
@@ -48,7 +49,10 @@ const (
 	variantA     = 1
 	invalidUTF8  = "\xff\xfe"
 	notAnObject  = "[]"
-	validRequest = `{"nurt":"1.0","program":"info"}`
+	validRequest = `{"nurt":"1.0","program":"find \"/srv/app\" glob: \"*.go\""}`
+
+	// The stub of libnurt answers only the cases recorded in this directory.
+	stubCases = "../../../../crates/nurt-ffi/tests/fixtures/stub"
 )
 
 func status(err error) int {
@@ -80,6 +84,9 @@ func expectStatus(t *testing.T, fn string, err error, want int) {
 
 func openEngine(t *testing.T) *Engine {
 	t.Helper()
+	if dir, err := filepath.Abs(stubCases); err == nil {
+		t.Setenv("NURT_STUB_DIR", dir)
+	}
 	e, err := Open(nil)
 	if err != nil {
 		t.Fatalf("nurt_engine_open: %v", err)
@@ -152,10 +159,10 @@ func TestStatusMatrixForValidCalls(t *testing.T) {
 	_, err = Schema("request")
 	expectStatus(t, "nurt_schema", err, OK)
 
-	_, _, err = e.Parse("info", variantA)
+	_, _, err = e.Parse(`find "/srv/app"`, variantA)
 	expectStatus(t, "nurt_parse", err, OK)
 
-	_, err = e.Correct("info", variantA)
+	_, err = e.Correct(`fnd "/srv/app"`, variantA)
 	expectStatus(t, "nurt_correct", err, OK)
 
 	_, _, err = e.Check([]byte(validRequest))

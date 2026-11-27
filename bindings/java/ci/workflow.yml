@@ -120,6 +120,7 @@ jobs:
           done
           test -n "${NURT_LIBRARY:-}"
           export NURT_CONFORMANCE="$release/nurt-conformance"
+          export NURT_STUB_DIR="$GITHUB_WORKSPACE/crates/nurt-ffi/tests/fixtures/stub"
           if [ "$RUNNER_OS" = "Windows" ]; then NURT_CONFORMANCE="$NURT_CONFORMANCE.exe"; fi
           mvn -B -ntp verify
 

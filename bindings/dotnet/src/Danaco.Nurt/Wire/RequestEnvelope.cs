@@ -9,6 +9,7 @@
 // Version:          0.1.1, 2026-11-27
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -33,6 +34,9 @@ internal sealed class RequestEnvelope
 
     [JsonPropertyName("accept")]
     public string? Accept { get; set; }
+
+    [JsonPropertyName("params")]
+    public Dictionary<string, JsonElement>? Params { get; set; }
 
     [JsonPropertyName("options")]
     public EnvelopeOptions? Options { get; set; }

@@ -30,7 +30,7 @@ namespace Danaco.Nurt.Tests;
 /// <c>nurt.h</c>, the decoding of <c>nurt_buf</c> and the receiver of <c>nurt_event_cb</c>.
 /// </summary>
 [TestClass]
-public sealed unsafe partial class NativeInteropTests
+public sealed partial class NativeInteropTests
 {
     private static readonly string[] HeaderPath = { "crates", "nurt-ffi", "include", "nurt.h" };
     private static readonly string[] LibraryImportPath = { "bindings", "dotnet", "src", "Danaco.Nurt", "Interop", "NativeMethods.LibraryImport.cs" };
@@ -126,7 +126,7 @@ public sealed unsafe partial class NativeInteropTests
     }
 
     [TestMethod]
-    public void ZeroTerminatedTextIsDecodedUpToTheTerminator()
+    public unsafe void ZeroTerminatedTextIsDecodedUpToTheTerminator()
     {
         byte[] bytes = Encoding.UTF8.GetBytes("łódź\0ignored\0");
 
@@ -329,7 +329,7 @@ public sealed unsafe partial class NativeInteropTests
         _ => false,
     };
 
-    private static string ReadString(byte[] bytes, int length)
+    private static unsafe string ReadString(byte[] bytes, int length)
     {
         fixed (byte* pointer = bytes)
         {
@@ -338,7 +338,7 @@ public sealed unsafe partial class NativeInteropTests
         }
     }
 
-    private static JsonElement? ReadJson(string text)
+    private static unsafe JsonElement? ReadJson(string text)
     {
         byte[] bytes = Utf8.ToNative(text, "text")!;
         fixed (byte* pointer = bytes)
@@ -348,7 +348,7 @@ public sealed unsafe partial class NativeInteropTests
         }
     }
 
-    private static string FromTerminated(byte[] bytes)
+    private static unsafe string FromTerminated(byte[] bytes)
     {
         fixed (byte* pointer = bytes)
         {

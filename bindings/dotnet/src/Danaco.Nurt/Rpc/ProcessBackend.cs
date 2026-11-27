@@ -10,6 +10,7 @@
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
 using System;
+using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -105,7 +106,7 @@ internal sealed class ProcessBackend : IBackend
         CallAsync("schema", JsonSerializer.SerializeToUtf8Bytes(new SchemaParams { Which = which }, WireJsonContext.Default.SchemaParams), cancellationToken);
 
     public Task<JsonElement> HistoryAsync(JsonElement? query, CancellationToken cancellationToken) =>
-        CallAsync("history", Members(query), cancellationToken);
+        CallAsync("history", HistoryMembers(query), cancellationToken);
 
     public Task<JsonElement> SpaceAsync(string? volume, CancellationToken cancellationToken) =>
         CallAsync("space", JsonSerializer.SerializeToUtf8Bytes(new SpaceParams { Volume = volume }, WireJsonContext.Default.SpaceParams), cancellationToken);
@@ -132,6 +133,25 @@ internal sealed class ProcessBackend : IBackend
     /// <summary>Uses the selector object as the parameters; no parameters when it is absent.</summary>
     private static byte[]? Members(JsonElement? value) =>
         value is { } present ? WireFormat.Compact(present) : null;
+
+    /// <summary>The parameters of <c>history</c>: an object is the query itself, the text of a query is the member <c>query</c>.</summary>
+    private static byte[]? HistoryMembers(JsonElement? query)
+    {
+        if (query is not { ValueKind: JsonValueKind.String } text)
+        {
+            return Members(query);
+        }
+
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("query", text.GetString());
+            writer.WriteEndObject();
+        }
+
+        return stream.ToArray();
+    }
 
     /// <summary>Reads a text result: an object with the member <c>text</c> or <c>description</c>, or a JSON string.</summary>
     private static string Text(JsonElement result, string method) => result.ValueKind == JsonValueKind.String

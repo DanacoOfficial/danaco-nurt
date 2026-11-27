@@ -655,7 +655,7 @@ pub unsafe extern "C" fn nurt_catalog(
 ///
 /// # Safety
 ///
-/// As for [`nurt_catalog`], with the output `out_text`.
+/// As for [`nurt_catalog()`], with the output `out_text`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn nurt_describe(
     e: *mut Engine,
@@ -734,7 +734,7 @@ pub unsafe extern "C" fn nurt_schema(which: *const c_char, out_json: *mut NurtBu
 ///
 /// # Safety
 ///
-/// As for [`nurt_catalog`], with the argument `query_json`.
+/// As for [`nurt_catalog()`], with the argument `query_json`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn nurt_history(
     e: *mut Engine,

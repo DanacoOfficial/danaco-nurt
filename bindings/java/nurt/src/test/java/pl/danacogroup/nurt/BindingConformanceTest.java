@@ -132,7 +132,9 @@ class BindingConformanceTest {
                 if (result != null) {
                     view.put("value", result);
                 }
-                outcome = "ok";
+                Map<String, Object> error = result instanceof Map<?, ?> ? Json.object(((Map<?, ?>) result).get("error")) : null;
+                outcome = error == null ? "ok" : "language_error";
+                errorCode = error == null ? null : Json.string(error, "code");
             }
         } catch (NurtLanguageException e) {
             outcome = "language_error";
@@ -245,8 +247,11 @@ class BindingConformanceTest {
             request = Request.cursor(text(args, "cursor"));
         } else if (args.containsKey("accept")) {
             request = Request.accept(text(args, "accept"));
-        } else {
+        } else if (args.containsKey("program")) {
             request = Request.program(text(args, "program"));
+        } else {
+            throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT,
+                    "a request needs a program, a tree, a cursor or a candidate");
         }
         if (args.get("variant") instanceof String variant) {
             request.variant(Request.Variant.valueOf(variant.toUpperCase(java.util.Locale.ROOT)));

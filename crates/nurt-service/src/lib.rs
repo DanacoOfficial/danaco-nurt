@@ -18,9 +18,9 @@
 //! `service.sock` in the state directory or, on Windows, a named pipe of the
 //! account. The protocol is described in [`ipc::protocol`].
 //!
-//! [`install`] registers the service with systemd, launchd, the Windows
+//! [`mod@install`] registers the service with systemd, launchd, the Windows
 //! service control manager or the Windows Task Scheduler, [`uninstall`]
-//! removes it and [`status`] reports whether it is installed and running.
+//! removes it and [`mod@status`] reports whether it is installed and running.
 //!
 //! ```no_run
 //! use std::sync::Arc;

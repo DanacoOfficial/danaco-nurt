@@ -12,7 +12,7 @@
 //! Implementation of the document service used by other commands.
 //!
 //! [`DocumentService`] implements the contract trait
-//! [`DocService`](nurt_contracts::services::DocService) over a [`Registry`]:
+//! [`nurt_contracts::services::DocService`] over a [`Registry`]:
 //! commands of other groups detect formats, read values by key, check the
 //! syntax of content before it is written and write records as JSON, YAML,
 //! TOML, CSV or TSV without depending on the document formats themselves.

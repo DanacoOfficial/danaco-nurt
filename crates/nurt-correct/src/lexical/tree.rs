@@ -12,7 +12,7 @@
 //! Rules applied to the parsed tree: `L14` and `L18`.
 //!
 //! The grammar accepts a positional argument after a named one and a command
-//! name as a bare value, so these notations parse. [`front`](super::front)
+//! name as a bare value, so these notations parse. [`front()`](super::front::front)
 //! applies the rules to programs that needed other corrections; the binder
 //! applies them to any program whose binding fails.
 

@@ -11,7 +11,7 @@
 
 //! Conformance checks run against every file system back end.
 //!
-//! [`run`] exercises every method of [`Fs`] and [`FsWrite`] inside an empty
+//! [`run`] exercises every method of [`nurt_contracts::fs::Fs`] and [`nurt_contracts::fs::FsWrite`] inside an empty
 //! directory and returns one [`CheckResult`] per check. Each check works in a
 //! subdirectory named after its identifier. A check is skipped only when the
 //! volume declares that it lacks a capability ([`FsFeatures`]) and the method

@@ -271,7 +271,7 @@ pub fn io(path: &Path, error: &io::Error) -> Error {
 /// `E_NOT_FOUND`, denied access `E_PERMISSION`, cancellation `E_CANCELLED`,
 /// unsupported features `E_GIT_UNSUPPORTED`; anything else, including
 /// damaged repository data, is `E_IO`. I/O errors found in the cause chain
-/// are converted with [`io`].
+/// are converted with [`io()`].
 #[must_use]
 pub fn from_gix(what: &str, error: &gix::Error) -> Error {
     if let Some(io_error) = error.downcast_any_ref::<io::Error>() {

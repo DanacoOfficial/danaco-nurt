@@ -18,7 +18,7 @@
 //! may arrive in any order. Standard output carries protocol messages only.
 //!
 //! [`run`] serves one connection until `shutdown` or the end of the input.
-//! With the feature `stub`, [`ServeOptions::stub`] answers from the recorded
+//! With the feature `stub`, `ServeOptions::stub` answers from the recorded
 //! cases of the library stub instead of an engine.
 
 mod backend;

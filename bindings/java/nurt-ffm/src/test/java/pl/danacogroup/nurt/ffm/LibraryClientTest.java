@@ -54,6 +54,12 @@ class LibraryClientTest {
     private static final int THREADS = 8;
     private static final int CALLS_PER_THREAD = 25;
 
+    /**
+     * The program of a recorded case of the stub of libnurt; the variable
+     * {@code NURT_STUB_DIR} names the directory of the cases.
+     */
+    private static final String STUB_PROGRAM = "find \"/srv/app\" glob: \"*.go\"";
+
     @TempDir
     Path state;
 
@@ -113,7 +119,7 @@ class LibraryClientTest {
     @Test
     void runReturnsAResponse() {
         try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
-            NurtResponse response = nurt.run(Request.program("help"));
+            NurtResponse response = nurt.run(Request.program(STUB_PROGRAM));
             assertNotNull(response.report());
         }
     }
@@ -121,14 +127,14 @@ class LibraryClientTest {
     @Test
     void runWithinARequestTimeoutGoesThroughAnExecution() {
         try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY).requestTimeout(WAIT))) {
-            assertNotNull(nurt.run(Request.program("help")).report());
+            assertNotNull(nurt.run(Request.program(STUB_PROGRAM)).report());
         }
     }
 
     @Test
     void startedExecutionCompletesItsEventStream() throws Exception {
         try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
-            Execution execution = nurt.start(Request.program("help"));
+            Execution execution = nurt.start(Request.program(STUB_PROGRAM));
             CountDownLatch done = new CountDownLatch(1);
             AtomicReference<Throwable> failure = new AtomicReference<>();
             List<NurtEvent> received = new ArrayList<>();
@@ -171,7 +177,7 @@ class LibraryClientTest {
     @Test
     void cancelledExecutionStillReturnsAResponse() {
         try (NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY))) {
-            Execution execution = nurt.start(Request.program("help"));
+            Execution execution = nurt.start(Request.program(STUB_PROGRAM));
             execution.cancel();
             execution.cancel();
             assertNotNull(execution.await(WAIT).report());
@@ -210,13 +216,13 @@ class LibraryClientTest {
         nurt.close();
         nurt.close();
         NurtCallException error = assertThrows(NurtCallException.class, nurt::info);
-        assertEquals(NurtCallException.Kind.DISCONNECTED, error.kind());
+        assertEquals(NurtCallException.Kind.INVALID_ARGUMENT, error.kind());
     }
 
     @Test
     void closeCancelsRunningExecutions() {
         NurtClient nurt = NurtClient.create(options(BackendKind.LIBRARY));
-        Execution execution = nurt.start(Request.program("help"));
+        Execution execution = nurt.start(Request.program(STUB_PROGRAM));
         nurt.close();
         assertTrue(execution.isDone(), "close waits until the execution is released");
     }

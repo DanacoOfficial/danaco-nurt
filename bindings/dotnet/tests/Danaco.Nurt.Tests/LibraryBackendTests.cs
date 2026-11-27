@@ -21,15 +21,16 @@ namespace Danaco.Nurt.Tests;
 
 /// <summary>
 /// Library backend on a build of <c>libnurt</c> named by <c>NURT_TEST_LIBRARY</c>, for example
-/// the test build of the crate <c>nurt-ffi</c>. The programs <c>sleep 10ms</c> and
-/// <c>sleep 60s</c> are those of the binding cases: a short execution and one that runs until
-/// it is cancelled.
+/// the test build of the crate <c>nurt-ffi</c>. That build answers only the recorded cases of
+/// <c>crates/nurt-ffi/tests/fixtures/stub</c>, which the variable <c>NURT_STUB_DIR</c> names. The
+/// programs are two of them: a short execution that emits events and one that runs until it is
+/// cancelled.
 /// </summary>
 [TestClass]
 public sealed class LibraryBackendTests
 {
-    private const string ShortProgram = "sleep 10ms";
-    private const string LongProgram = "sleep 60s";
+    private const string ShortProgram = "find \"/srv/app\" glob: \"*.rs\"";
+    private const string LongProgram = "find \"/srv/archive\"";
     private const int ExecutionCount = 8;
     private const int ThreadCount = 32;
 

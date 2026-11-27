@@ -11,8 +11,8 @@
 
 //! Conformance checks of the file system interface.
 //!
-//! The checks exercise the behaviour that the contract of [`Fs`] and
-//! [`FsWrite`] fixes for every implementation: error kinds of missing
+//! The checks exercise the behaviour that the contract of [`nurt_contracts::fs::Fs`] and
+//! [`nurt_contracts::fs::FsWrite`] fixes for every implementation: error kinds of missing
 //! entries and wrong entry kinds, directory listings without `.` and `..`,
 //! exclusive creation, renames, links, entity tags, volumes and locks. They
 //! run on the virtual file system of this crate and on the platform back

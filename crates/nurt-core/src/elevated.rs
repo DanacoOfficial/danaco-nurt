@@ -178,7 +178,7 @@ impl Engine {
     /// `as_user`; otherwise the response reports `E_PRIVILEGE`. The request
     /// runs in this process, whatever its `privilege`; its entry goes to the
     /// journal that this engine was opened with (the journal of the account
-    /// that sent the request, see [`EngineConfig::with_account_journal`]).
+    /// that sent the request, see [`EngineConfig::with_account_journal`](crate::EngineConfig::with_account_journal)).
     /// `backend` names the backend that started the process.
     #[must_use]
     pub fn elevated_exec(&self, request: &Request, backend: Option<&str>) -> Response {

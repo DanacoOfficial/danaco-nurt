@@ -190,7 +190,7 @@ final class LibraryBackend implements Backend {
 
     private synchronized void enter() {
         if (closed) {
-            throw new NurtCallException(NurtCallException.Kind.DISCONNECTED, "client is closed");
+            throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT, "client is closed");
         }
         active++;
     }

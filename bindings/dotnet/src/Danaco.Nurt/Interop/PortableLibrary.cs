@@ -24,7 +24,7 @@ namespace Danaco.Nurt;
 /// later (also .NET 5 and later). On a runtime without it <see cref="IsAvailable"/> is
 /// <see langword="false"/> and the runtime searches its default locations for <c>libnurt</c>.
 /// </remarks>
-#pragma warning disable IL2026, IL2057, IL2075 // Reflection on a framework type that is present on every runtime that has it.
+#pragma warning disable IL2026, IL2057, IL2075, IL2080 // Reflection on a framework type that is present on every runtime that has it.
 internal static class PortableLibrary
 {
     private const string TypeName = "System.Runtime.InteropServices.NativeLibrary";

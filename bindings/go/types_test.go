@@ -67,6 +67,51 @@ func TestEmptyOptionsAreOmitted(t *testing.T) {
 	}
 }
 
+func TestRequestCarriesParametersAndPrivilege(t *testing.T) {
+	req := Request{
+		Program: "run p",
+		Params:  map[string]any{"count": 3, "name": "a"},
+		Options: Options{Privilege: PrivilegeAuto, AsUser: "deploy"},
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Params  map[string]any    `json:"params"`
+		Options map[string]string `json:"options"`
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Params["name"] != "a" || got.Params["count"] != float64(3) {
+		t.Errorf("params = %v", got.Params)
+	}
+	if got.Options["privilege"] != "auto" || got.Options["as_user"] != "deploy" {
+		t.Errorf("options = %v", got.Options)
+	}
+	empty, err := json.Marshal(Request{Program: "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(empty), "params") || strings.Contains(string(empty), "privilege") || strings.Contains(string(empty), "as_user") {
+		t.Errorf("empty request carries the new fields: %s", empty)
+	}
+}
+
+func TestHistoryQueryIsSentAsTheMemberQuery(t *testing.T) {
+	cases := map[string]string{
+		"":                 `{}`,
+		`{"limit":5}`:      `{"query":{"limit":5}}`,
+		`"{\"limit\": 5}"`: `{"query":"{\"limit\": 5}"}`,
+	}
+	for query, want := range cases {
+		if got := string(queryParams(json.RawMessage(query))); got != want {
+			t.Errorf("queryParams(%s) = %s, want %s", query, got, want)
+		}
+	}
+}
+
 func TestEnvelopeCarriesFormatVersion(t *testing.T) {
 	c := &Client{opts: ClientOptions{Session: "s1"}}
 	raw, err := json.Marshal(c.envelope(Request{Program: "info", FailOnLanguageError: true}))

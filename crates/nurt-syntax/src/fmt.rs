@@ -11,7 +11,7 @@
 
 //! Formatting of program text into its canonical form (`nurt fmt`).
 //!
-//! [`format`] parses a program, prints it with the canonical printer
+//! [`format()`] parses a program, prints it with the canonical printer
 //! ([`crate::print`]) and puts its comments back:
 //!
 //! * a comment on a line of its own stays on a line of its own before the
@@ -74,7 +74,7 @@ pub fn format(text: &str, variant: Variant) -> Result<String, SyntaxError> {
 }
 
 /// Converts program text from the variant `from` to the canonical text of
-/// the variant `to`, keeping comments as [`format`] does.
+/// the variant `to`, keeping comments as [`format()`] does.
 ///
 /// Variant C names every argument: when `to` is [`Variant::C`] and the
 /// program has positional arguments, `names` supplies their parameter names

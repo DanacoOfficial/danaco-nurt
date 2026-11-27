@@ -57,6 +57,12 @@ internal sealed class EnvelopeOptions
 
     [JsonPropertyName("script")]
     public bool? Script { get; set; }
+
+    [JsonPropertyName("privilege")]
+    public string? Privilege { get; set; }
+
+    [JsonPropertyName("as_user")]
+    public string? AsUser { get; set; }
 }
 
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.

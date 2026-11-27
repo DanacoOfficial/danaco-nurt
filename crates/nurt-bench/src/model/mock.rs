@@ -67,7 +67,7 @@ pub struct Step {
 #[serde(deny_unknown_fields)]
 pub struct Script {
     /// Task identifier or pattern with `*`, see
-    /// [`matches_filter`](crate::task::matches_filter); `*` matches every task.
+    /// [`crate::task::matches_filter`]; `*` matches every task.
     pub task: String,
     /// Condition; any condition when absent.
     #[serde(default)]

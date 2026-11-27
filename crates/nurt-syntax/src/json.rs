@@ -20,7 +20,7 @@
 //! minor version or of another major version is rejected with
 //! `E_AST_VERSION`, naming the node kinds the reader does not know; every
 //! other failure is `E_AST_SCHEMA`. Both carry the JSON Pointer (RFC 6901) of
-//! the offending value in [`SyntaxError::found`]; the empty pointer denotes
+//! the offending value in the field `found` of [`SyntaxError`]; the empty pointer denotes
 //! the whole document.
 //!
 //! Encoding writes members in declaration order ([`encode`],

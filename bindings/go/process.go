@@ -414,7 +414,22 @@ func (b *processBackend) schema(ctx context.Context, which string) (json.RawMess
 }
 
 func (b *processBackend) history(ctx context.Context, query json.RawMessage) (json.RawMessage, error) {
-	return b.call(ctx, "history", objectOrEmpty(query))
+	return b.call(ctx, "history", queryParams(query))
+}
+
+// The parameters of history are {"query": ...}, where the query is an
+// object, the text of an object or null; an absent query is an empty object.
+func queryParams(query json.RawMessage) json.RawMessage {
+	if len(query) == 0 {
+		return json.RawMessage("{}")
+	}
+	wrapped, err := json.Marshal(struct {
+		Query json.RawMessage `json:"query"`
+	}{Query: query})
+	if err != nil {
+		return objectOrEmpty(query)
+	}
+	return wrapped
 }
 
 func (b *processBackend) space(ctx context.Context, volume string) (json.RawMessage, error) {

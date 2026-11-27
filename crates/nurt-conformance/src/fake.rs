@@ -778,10 +778,19 @@ impl Bindings for BindingFields<'_> {
     }
 }
 
+/// Key of a request: the method and the canonical form of its parameters
+/// without what does not tell cases apart. Those are the version of the
+/// envelope, `options.base` and the language `en` of `describe` and `help`,
+/// which is the language of a session that names none.
 fn key(method_name: &str, params: &Value) -> String {
     let mut params = params.clone();
     if let Some(members) = params.as_object_mut() {
         members.remove(member::VERSION);
+        if matches!(method_name, "describe" | "help")
+            && members.get("language") == Some(&json!("en"))
+        {
+            members.remove("language");
+        }
         if let Some(Value::Object(options)) = members.get_mut(member::OPTIONS) {
             options.remove(member::BASE);
             if options.is_empty() {
@@ -1225,6 +1234,23 @@ mod tests {
                 "{name}"
             );
         }
+    }
+
+    #[test]
+    fn the_default_language_does_not_tell_requests_apart() {
+        let plain = key("describe", &json!({"subject": "core"}));
+        assert_eq!(
+            key("describe", &json!({"subject": "core", "language": "en"})),
+            plain
+        );
+        assert_ne!(
+            key("describe", &json!({"subject": "core", "language": "pl"})),
+            plain
+        );
+        assert_ne!(
+            key("run", &json!({"program": "x", "language": "en"})),
+            key("run", &json!({"program": "x"}))
+        );
     }
 
     #[test]

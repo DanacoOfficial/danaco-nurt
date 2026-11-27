@@ -13,8 +13,8 @@
 //!
 //! [`TextCodec`] implements [`TextCodecService`] for the commands of other
 //! groups that decode or encode files: detection follows
-//! [`detect`](crate::detect), conversion follows [`codec`](crate::codec) and
-//! line endings follow [`eol`](crate::eol).
+//! [`crate::detect`], conversion follows [`crate::codec`] and
+//! line endings follow [`crate::eol`].
 
 use encoding_rs::{UTF_16BE, UTF_16LE};
 use nurt_contracts::error::Result;

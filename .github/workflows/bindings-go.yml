@@ -154,6 +154,9 @@ jobs:
           PC
           echo "PKG_CONFIG_PATH=$RUNNER_TEMP/pkgconfig" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/target/release" >> "$GITHUB_ENV"
+          # The library names the soname libnurt.so.1, which the loader looks up.
+          release="$GITHUB_WORKSPACE/target/release"
+          ln -sf libnurt_ffi.so "$release/libnurt.so.1"
       - name: Test with the library backend
         env:
           CGO_ENABLED: "1"

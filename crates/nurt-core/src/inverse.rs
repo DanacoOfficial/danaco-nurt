@@ -169,7 +169,7 @@ pub fn derive(report: &Report) -> Derived {
     derive_with(report, &|_, _, _| true)
 }
 
-/// Like [`derive`], asking `offers(manager, package, version)` whether the
+/// Like [`derive()`], asking `offers(manager, package, version)` whether the
 /// repository still offers a version that an inverse program must install;
 /// a version that it does not offer makes the entry irreversible.
 #[must_use]

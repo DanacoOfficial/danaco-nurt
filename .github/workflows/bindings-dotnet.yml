@@ -69,9 +69,9 @@ jobs:
         with:
           global-json-file: bindings/dotnet/global.json
       - name: Build
-        run: dotnet build Binding.sln -c Release
+        run: dotnet build Danaco.Nurt.sln -c Release
       - name: Test
-        run: dotnet test Binding.sln -c Release --no-build --collect "XPlat Code Coverage" --results-directory TestResults
+        run: dotnet test Danaco.Nurt.sln -c Release --no-build --collect "XPlat Code Coverage" --results-directory TestResults
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.os == 'ubuntu-latest'
         with:
@@ -97,8 +97,9 @@ jobs:
         env:
           NURT_TEST_LIBRARY: ${{ github.workspace }}/target/release/libnurt_ffi.so
           NURT_TEST_SERVE: ${{ github.workspace }}/target/release/nurt-conformance
-          NURT_TEST_SERVE_ARGS: fake-serve --cases ${{ github.workspace }}/conformance/bindings
-        run: dotnet test Binding.sln -c Release --logger "console;verbosity=normal"
+          NURT_TEST_SERVE_ARGS: fake-serve --cases ${{ github.workspace }}/conformance
+          NURT_STUB_DIR: ${{ github.workspace }}/crates/nurt-ffi/tests/fixtures/stub
+        run: dotnet test Danaco.Nurt.sln -c Release --logger "console;verbosity=normal"
 
   pack:
     needs: [version, test]

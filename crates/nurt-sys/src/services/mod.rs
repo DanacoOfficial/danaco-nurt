@@ -13,7 +13,7 @@
 //!
 //! The stages `services`, `start`, `restart`, `enable` and `disable` do not
 //! depend on the operating system. They call the service manager of the
-//! system through [`ServiceBackend`], whose implementation is selected at
+//! system through `ServiceBackend`, whose implementation is selected at
 //! compile time: systemd over D-Bus on Linux, the service control manager on
 //! Windows and launchd on macOS.
 //!

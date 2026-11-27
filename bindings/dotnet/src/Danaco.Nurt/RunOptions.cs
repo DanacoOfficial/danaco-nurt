@@ -62,6 +62,12 @@ public sealed class RunOptions
     /// <summary>Script mode: several pipelines, each its own operation (<c>script</c>).</summary>
     public bool? Script { get; init; }
 
+    /// <summary>Rights of the operation (<c>privilege</c>); <see langword="null"/> keeps the configured default, <see cref="Nurt.Privilege.Account"/>.</summary>
+    public Privilege? Privilege { get; init; }
+
+    /// <summary>Account that runs the operation on Linux and macOS (<c>as_user</c>); implies elevation for the switch.</summary>
+    public string? AsUser { get; init; }
+
     /// <summary>
     /// Raises <see cref="NurtLanguageException"/> when the response carries an error of the
     /// language, instead of returning the response. Not sent to Danaco Nurt.

@@ -38,6 +38,8 @@
 #
 # Exit code: 0 without FAIL, 1 with at least one FAIL, 2 for a usage error.
 
+# The scenario functions are called by name from the dispatcher at the end.
+# shellcheck disable=SC2329
 set -u
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -308,8 +310,9 @@ scn_T17() {
   printf 'x\n' > "$PWD/t/a/b/c/x.txt"
   n "find \"$PWD/t\" glob: \"**/*.txt\""
   [ "$RC" -eq 0 ] || fail "find ended with $RC"
-  printf '%s\n' "$OUT" | grep -q 'a/' && printf '%s\n' "$OUT" | grep -q 'b/' && printf '%s\n' "$OUT" | grep -q 'c/' \
-    || fail "the tree view omits intermediate directories"
+  for part in a/ b/ c/; do
+    printf '%s\n' "$OUT" | grep -q "$part" || fail "the tree view omits intermediate directories"
+  done
   printf 'x\n' > "$PWD/p2/$(printf 'a\nb')"
   n "find \"$PWD/p2\""
   [ "$RC" -eq 0 ] || fail "find of a name with a line feed ended with $RC"

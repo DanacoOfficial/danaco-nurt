@@ -9,6 +9,7 @@
 // Version:          0.1.1, 2026-11-27
 // License:          see the LICENSE file or https://www.danaco-group.pl
 
+using System.Collections.Generic;
 using System.Text.Json;
 
 namespace Danaco.Nurt;
@@ -43,6 +44,28 @@ public sealed class Request
 
     /// <summary>Identifier of an accepted candidate; <see langword="null"/> for the other subjects.</summary>
     public string? Accept { get; }
+
+    /// <summary>
+    /// Values of the parameters of a script that starts with <c>params { ... }</c>, by name;
+    /// <see langword="null"/> when the request has none.
+    /// </summary>
+    public IReadOnlyDictionary<string, JsonElement>? Parameters { get; private init; }
+
+    /// <summary>Returns a copy of this request that carries the values of the parameters of the script.</summary>
+    /// <param name="parameters">Values by name: typed JSON, or text that the declared type reads.</param>
+    /// <returns>The request with the parameters.</returns>
+    /// <exception cref="System.ArgumentNullException"><paramref name="parameters"/> is <see langword="null"/>.</exception>
+    public Request WithParameters(IReadOnlyDictionary<string, JsonElement> parameters)
+    {
+        Guard.NotNull(parameters, nameof(parameters));
+        var copy = new Dictionary<string, JsonElement>();
+        foreach (KeyValuePair<string, JsonElement> parameter in parameters)
+        {
+            copy[parameter.Key] = parameter.Value.Clone();
+        }
+
+        return new Request(Program, Variant, Ast, Cursor, Accept) { Parameters = copy };
+    }
 
     /// <summary>Creates a request that runs a program text.</summary>
     /// <param name="program">Program text in any notation variant.</param>
