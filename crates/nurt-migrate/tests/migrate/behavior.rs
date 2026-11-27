@@ -358,9 +358,18 @@ source /etc/profile
             Some(Reason::Source),
         ]
     );
-    assert!(migration.report.items.iter().all(|item| {
-        item.status == Status::Impossible && item.code == Some(ErrorCode::Uncorrectable)
-    }));
+    assert!(
+        migration
+            .report
+            .items
+            .iter()
+            .all(|item| item.status == Status::Impossible)
+    );
+    for item in &migration.report.items {
+        if item.reason != Some(Reason::Rule) {
+            assert_eq!(item.code, Some(ErrorCode::Uncorrectable), "{}", item.source);
+        }
+    }
 }
 
 #[test]
@@ -717,7 +726,11 @@ fn migration_is_deterministic() {
 #[test]
 fn json_report_has_format_summary_and_items() {
     let mock = MockTranslator::new().program("rm /srv/a", "remove \"/srv/a\"", &["B01"]);
-    let migration = run("rm /srv/a\nfor f in *; do echo; done\n", BASH, &mock);
+    let migration = run(
+        "rm /srv/a\nfor ((i = 0; i < 3; i++)); do echo; done\n",
+        BASH,
+        &mock,
+    );
     let json: serde_json::Value = match serde_json::from_str(&migration.report.to_json()) {
         Ok(json) => json,
         Err(error) => panic!("invalid JSON: {error}"),

@@ -375,7 +375,29 @@ impl Session<'_> {
         item.output = Some(output);
         self.record_lets(unit, &translation.tree, &translation.records);
         self.record_functions(&translation.tree);
+        self.record_params(&translation.tree);
         self.push(unit, item);
+    }
+
+    /// Remembers the parameters a statement declares (the options of
+    /// `getopts`), so that the statements after it read them as names.
+    fn record_params(&mut self, tree: &AstDocument) {
+        for statement in &tree.program.statements {
+            let Statement::Params(params) = statement else {
+                continue;
+            };
+            let single = AstDocument::new(Program {
+                statements: vec![statement.clone()],
+            });
+            self.let_statements.push(self.translator.print(&single));
+            for param in &params.params {
+                self.lets.push(LetBinding {
+                    variable: param.name.clone(),
+                    name: param.name.clone(),
+                    record: None,
+                });
+            }
+        }
     }
 
     /// Remembers the functions a statement defines, so that a later call of

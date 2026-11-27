@@ -363,7 +363,7 @@ fn program_with_a_long_script_path_parses() {
 #[test]
 fn untranslated_statement_proposes_running_script_unchanged() {
     let migration = run(
-        "for f in /srv/*.log; do gzip \"$f\"; done\n",
+        "for ((i = 0; i < 3; i++)); do gzip \"/srv/$i.log\"; done\n",
         ScriptLanguage::Bash,
         "/srv/zip.sh",
     );
