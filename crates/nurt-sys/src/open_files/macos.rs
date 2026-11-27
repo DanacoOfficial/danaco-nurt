@@ -120,8 +120,8 @@ fn inspect(pid: c_int, holder: &mut Holder, target: &Target) -> bool {
         }
     }
     if let Some(info) = pid_info::<libc::proc_vnodepathinfo>(pid, libc::PROC_PIDVNODEPATHINFO) {
-        holder.check(target, Access::Cwd, &vnode_path(&info.pvi_cdir));
-        holder.check(target, Access::Root, &vnode_path(&info.pvi_rdir));
+        holder.check(target, Access::Cwd, vnode_path(&info.pvi_cdir));
+        holder.check(target, Access::Root, vnode_path(&info.pvi_rdir));
     }
     if let Some(path) = executable(pid) {
         holder.check(target, Access::Exe, &path);
