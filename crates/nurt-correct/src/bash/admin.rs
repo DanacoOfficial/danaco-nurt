@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module: nurt-correct bash admin
+// Responsibility: Translates the administration programs of bash into the native administration commands.
+// Dependencies: nurt-contracts, nurt-correct bash session
+// Author: Danaco Official
+// Version: 0.1.1, 2026-11-27
+// License: see the LICENSE file or https://www.danaco-group.pl
 //! Translation of the administration programs of a shell (`useradd`,
 //! `mount`, `sysctl -w`, `ufw`, `ip route`, `shutdown`, `mkfs.*`, …) into the
 //! native administration commands of Nurt.
@@ -81,7 +88,16 @@ pub(crate) fn translate(
     match outcome {
         Ok(text) => program.finish(&text),
         Err(error) if error.problem.as_deref() == Some(COMPLEX_RULE) => {
-            session.run_program(simple, words, None)
+            // An administration program does not depend on the directory of
+            // the script, so the program runs from the root of the file system.
+            let start = simple
+                .words
+                .iter()
+                .position(|word| {
+                    word.value.literal().as_deref() == entry.words.first().map(String::as_str)
+                })
+                .unwrap_or(0);
+            session.run_program(simple, &simple.words[start..], Some("/".to_owned()))
         }
         Err(error) => Err(error),
     }
@@ -942,3 +958,7 @@ fn clear(expr: &mut Expr) {
         _ => {}
     }
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

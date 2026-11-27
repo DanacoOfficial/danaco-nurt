@@ -385,15 +385,16 @@ impl Constructs<'_> {
         right: &Node,
         span: Span,
     ) -> Result<Unit, Error> {
-        if let Node::Simple(simple) = right {
-            if matches!(first_word(simple).as_str(), "true" | ":") && simple.words.len() == 1 {
-                self.probable = true;
-                self.assumptions.push(Assumption {
+        if let Node::Simple(simple) = right
+            && matches!(first_word(simple).as_str(), "true" | ":")
+            && simple.words.len() == 1
+        {
+            self.probable = true;
+            self.assumptions.push(Assumption {
                     rule: CONSTRUCT_RULE.to_owned(),
                     text: "a failure of the command before `|| true` is ignored by the shell; the program stops at it".to_owned(),
                 });
-                return self.node(session, left);
-            }
+            return self.node(session, left);
         }
         let cond = self.node_condition(session, left, true, span)?;
         let negated = negate(&cond.expr);
@@ -803,15 +804,15 @@ impl Constructs<'_> {
                 return Err(self.fail(session, span, "string ordering has no translation"));
             }
         };
-        if matches!(operator, "=" | "==" | "!=") {
-            if let Some(text) = word_text(right).filter(|t| t.contains(['*', '?', '['])) {
-                let matched = format!("{left} ~ {}", regex_literal(&glob_regex(&text)));
-                return Ok(if operator == "!=" {
-                    negate(&matched)
-                } else {
-                    matched
-                });
-            }
+        if matches!(operator, "=" | "==" | "!=")
+            && let Some(text) = word_text(right).filter(|t| t.contains(['*', '?', '[']))
+        {
+            let matched = format!("{left} ~ {}", regex_literal(&glob_regex(&text)));
+            return Ok(if operator == "!=" {
+                negate(&matched)
+            } else {
+                matched
+            });
         }
         let right = self.value(session, right, span, numeric)?;
         Ok(format!("{left} {symbol} {right}"))
@@ -825,13 +826,13 @@ impl Constructs<'_> {
         span: Span,
     ) -> Result<String, Error> {
         let typed =
-            |kind: &str| format!("exists {value} and (info {value} |> first).type == \"{kind}\"");
+            |kind: &str| format!("exists {value} and (info {value} |> first 1).type == \"{kind}\"");
         Ok(match operator {
             "-e" | "-a" => format!("exists {value}"),
             "-f" => typed("file"),
             "-d" => typed("directory"),
             "-L" | "-h" => typed("link"),
-            "-s" => format!("exists {value} and (info {value} |> first).size > 0"),
+            "-s" => format!("exists {value} and (info {value} |> first 1).size > 0"),
             "-z" => format!("{value} == \"\""),
             "-n" => format!("{value} != \"\""),
             _ => {
@@ -897,7 +898,7 @@ impl Constructs<'_> {
         session: &Session<'_>,
         arms: &[(Block, Block)],
         other: Option<&Block>,
-        span: Span,
+        _span: Span,
     ) -> Result<Unit, Error> {
         let mut unit = Unit::default();
         let (first_condition, first_body) = &arms[0];
@@ -907,7 +908,7 @@ impl Constructs<'_> {
         unit.lines.push(format!("when {} {{", cond.expr));
         unit.changes += body.changes;
         unit.lines.extend(indent(body.lines));
-        self.if_tail(session, &mut unit, &arms[1..], other, span)?;
+        self.if_tail(session, &mut unit, &arms[1..], other)?;
         Ok(unit)
     }
 
@@ -918,7 +919,6 @@ impl Constructs<'_> {
         unit: &mut Unit,
         arms: &[(Block, Block)],
         other: Option<&Block>,
-        span: Span,
     ) -> Result<(), Error> {
         let Some(((condition, body), rest)) = arms.split_first() else {
             if let Some(block) = other {
@@ -937,7 +937,7 @@ impl Constructs<'_> {
                 .push(format!("}} otherwise when {} {{", cond.expr));
             unit.changes += body.changes;
             unit.lines.extend(indent(body.lines));
-            return self.if_tail(session, unit, rest, other, span);
+            return self.if_tail(session, unit, rest, other);
         }
         let mut nested = Unit::default();
         nested.lines.extend(cond.prelude);
@@ -945,7 +945,7 @@ impl Constructs<'_> {
         nested.lines.push(format!("when {} {{", cond.expr));
         nested.changes += body.changes;
         nested.lines.extend(indent(body.lines));
-        self.if_tail(session, &mut nested, rest, other, span)?;
+        self.if_tail(session, &mut nested, rest, other)?;
         unit.lines.push("} otherwise {".to_owned());
         unit.changes += nested.changes;
         unit.lines.extend(indent(nested.lines));
@@ -1102,10 +1102,10 @@ impl Constructs<'_> {
                 .iter()
                 .filter(|part| !matches!(part, WordPart::Literal { text, .. } if text.is_empty()))
                 .collect();
-            if let [WordPart::Variable { name, .. }] = parts.as_slice() {
-                if name == "args" {
-                    return Ok("@args".to_owned());
-                }
+            if let [WordPart::Variable { name, .. }] = parts.as_slice()
+                && name == "args"
+            {
+                return Ok("@args".to_owned());
             }
         }
         let mut values = Vec::new();

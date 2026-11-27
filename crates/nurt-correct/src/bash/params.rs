@@ -406,7 +406,11 @@ fn segment_kind(chars: &[char], at: usize) -> ParamKind {
     let before: String = chars[start..at].iter().collect();
     // The value of a flag that takes one: `-mtime +$days` is a number of days,
     // `-name $pattern` is text and `-C $dir` is a directory.
-    if let Some(previous) = before.split_whitespace().last() {
+    let flag = before
+        .split_whitespace()
+        .rev()
+        .find(|word| !word.chars().all(|c| matches!(c, '+' | '-' | '"' | '\'')));
+    if let Some(previous) = flag {
         if VALUE_FLAGS_INT.contains(&previous) {
             return ParamKind::Int;
         }
@@ -460,7 +464,9 @@ fn line_kind(line: &str) -> ParamKind {
         .copied()
         .unwrap_or_default();
     let tests = ["-d", "-f", "-e", "-r", "-w", "-x", "-s", "-L"];
-    if PATH_COMMANDS.contains(&first) || words.iter().any(|word| tests.contains(word)) {
+    let guarded = matches!(words.first().copied(), Some("[" | "[[" | "test"));
+    if PATH_COMMANDS.contains(&first) || (guarded && words.iter().any(|word| tests.contains(word)))
+    {
         return ParamKind::Path;
     }
     ParamKind::Text
@@ -475,8 +481,16 @@ mod tests {
         let out = rewrite_positionals("keep=${2:-7}\ndir=$1\nfind \"$dir\" -mtime +\"$keep\"");
         assert_eq!(out.params.len(), 2);
         assert_eq!(out.params[0].name, "dir");
-        assert_eq!(out.params[1].declaration(), "keep: text = \"7\"");
+        assert_eq!(out.params[1].declaration(), "keep: int = 7");
         assert_eq!(out.text.lines().filter(|l| !l.is_empty()).count(), 1);
+    }
+
+    #[test]
+    fn a_data_flag_of_another_program_is_not_a_file_test() {
+        let out = rewrite_positionals("curl -s -X POST -d \"$1\" https://hooks.example.com/x");
+        assert_eq!(out.params[0].kind, ParamKind::Text);
+        let out = rewrite_positionals("if [ -d \"$1\" ]; then echo yes; fi");
+        assert_eq!(out.params[0].kind, ParamKind::Path);
     }
 
     #[test]

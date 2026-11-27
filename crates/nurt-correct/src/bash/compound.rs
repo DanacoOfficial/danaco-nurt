@@ -231,10 +231,10 @@ impl Parser<'_> {
         loop {
             self.skip_separators();
             let Some(token) = self.peek() else { break };
-            if let PosixTokenKind::Word(word) = &token.kind {
-                if stops.contains(&word.raw.as_str()) || BLOCK_END.contains(&word.raw.as_str()) {
-                    break;
-                }
+            if let PosixTokenKind::Word(word) = &token.kind
+                && (stops.contains(&word.raw.as_str()) || BLOCK_END.contains(&word.raw.as_str()))
+            {
+                break;
             }
             if matches!(
                 token.kind,

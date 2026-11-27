@@ -1,10 +1,20 @@
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
+//
+// Module: nurt-correct tests: bash constructs
+// Responsibility: Tests of the translation of every row of section 11 of the language brief from the bash form.
+// Dependencies: nurt-correct, nurt-syntax, nurt-contracts
+// Author: Danaco Official
+// Version: 0.1.1, 2026-11-27
+// License: see the LICENSE file or https://www.danaco-group.pl
 //! Translation of the bash forms of the language 1.1 and of the
 //! administration programs: every row of section 11 of the brief, from the
 //! bash form to the text of the program. Every translation is also read by
 //! the parser of the language, printed again and read again.
+
+// Test helpers report failures by panicking.
+#![allow(clippy::panic, clippy::expect_used)]
 
 use nurt_contracts::error::ErrorCode;
 use nurt_correct::bash::{FunctionSignature, Mode, TranslateContext, translate_with};
@@ -63,19 +73,19 @@ fn conditions_translate() {
     check(&[
         (
             "if [ -f /srv/a ]; then rm /srv/a; fi",
-            "when exists(\"/srv/a\") and ((info \"/srv/a\" |> first)).type == \"file\" {\n    remove \"/srv/a\" on_missing: error\n}",
+            "when exists(\"/srv/a\") and ((info \"/srv/a\" |> first 1)).type == \"file\" {\n    remove \"/srv/a\" on_missing: error\n}",
         ),
         (
             "if [ -d /srv/x ]; then rm -rf /srv/x; elif [ -f /srv/y ]; then rm /srv/y; else mkdir -p /srv/z; fi",
-            "when exists(\"/srv/x\") and ((info \"/srv/x\" |> first)).type == \"directory\" {\n    remove \"/srv/x\"\n} otherwise when exists(\"/srv/y\") and ((info \"/srv/y\" |> first)).type == \"file\" {\n    remove \"/srv/y\" on_missing: error\n} otherwise {\n    create \"/srv/z\" type: directory\n}",
+            "when exists(\"/srv/x\") and ((info \"/srv/x\" |> first 1)).type == \"directory\" {\n    remove \"/srv/x\"\n} otherwise when exists(\"/srv/y\") and ((info \"/srv/y\" |> first 1)).type == \"file\" {\n    remove \"/srv/y\" on_missing: error\n} otherwise {\n    create \"/srv/z\" type: directory\n}",
         ),
         (
             "if [[ -f /srv/a && ! -d /srv/b ]]; then touch /srv/c; fi",
-            "when exists(\"/srv/a\") and ((info \"/srv/a\" |> first)).type == \"file\" and not (exists \"/srv/b\" and ((info \"/srv/b\" |> first)).type == \"directory\") {\n    create \"/srv/c\" type: file on_exists: touch\n}",
+            "when exists(\"/srv/a\") and ((info \"/srv/a\" |> first 1)).type == \"file\" and not (exists \"/srv/b\" and ((info \"/srv/b\" |> first 1)).type == \"directory\") {\n    create \"/srv/c\" type: file on_exists: touch\n}",
         ),
         (
             "if test -d /srv/a; then rm -rf /srv/a; fi",
-            "when exists(\"/srv/a\") and ((info \"/srv/a\" |> first)).type == \"directory\" {\n    remove \"/srv/a\"\n}",
+            "when exists(\"/srv/a\") and ((info \"/srv/a\" |> first 1)).type == \"directory\" {\n    remove \"/srv/a\"\n}",
         ),
         (
             "case \"$1\" in\n  start) mkdir -p /srv/a;;\n  stop|halt) rm -rf /srv/a;;\n  *) touch /srv/c;;\nesac",
@@ -101,12 +111,12 @@ fn alternative_translate() {
     check(&[
         (
             "test -f /srv/app/.env || cp /srv/app/.env.example /srv/app/.env",
-            "when not (exists \"/srv/app/.env\" and ((info \"/srv/app/.env\" |> first)).type == \"file\") {\n    copy \"/srv/app/.env.example\" to: \"/srv/app/.env\" preserve: false\n}",
+            "when not (exists \"/srv/app/.env\" and ((info \"/srv/app/.env\" |> first 1)).type == \"file\") {\n    copy \"/srv/app/.env.example\" to: \"/srv/app/.env\" preserve: false\n}",
         ),
         ("rm -f /srv/a.lock || true", "remove \"/srv/a.lock\""),
         (
             "[ -d /srv/out ] && rm -rf /srv/out",
-            "when exists(\"/srv/out\") and ((info \"/srv/out\" |> first)).type == \"directory\" {\n    remove \"/srv/out\"\n}",
+            "when exists(\"/srv/out\") and ((info \"/srv/out\" |> first 1)).type == \"directory\" {\n    remove \"/srv/out\"\n}",
         ),
     ]);
 }
@@ -132,11 +142,11 @@ fn loops_translate() {
         ),
         (
             "while [ -f /srv/lock ]; do rm -f /srv/lock; done",
-            "while exists(\"/srv/lock\") and ((info \"/srv/lock\" |> first)).type == \"file\" {\n    remove \"/srv/lock\"\n}",
+            "while exists(\"/srv/lock\") and ((info \"/srv/lock\" |> first 1)).type == \"file\" {\n    remove \"/srv/lock\"\n}",
         ),
         (
             "until [ -f /srv/ready ]; do touch /srv/probe; sleep 5; done",
-            "repeat until: exists(\"/srv/ready\") and ((info \"/srv/ready\" |> first)).type == \"file\" every: 5s {\n    create \"/srv/probe\" type: file on_exists: touch\n}",
+            "repeat until: exists(\"/srv/ready\") and ((info \"/srv/ready\" |> first 1)).type == \"file\" every: 5s {\n    create \"/srv/probe\" type: file on_exists: touch\n}",
         ),
         (
             "for f in \"$@\"; do rm -f \"$f\"; done",
@@ -373,6 +383,20 @@ fn disks_translate() {
 }
 
 #[test]
+fn complex_firewall_rules_run_as_programs() {
+    check(&[
+        (
+            "iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to 10.0.0.2",
+            "run [\n  \"iptables\",\n  \"-t\",\n  \"nat\",\n  \"-A\",\n  \"PREROUTING\",\n  \"-p\",\n  \"tcp\",\n  \"--dport\",\n  \"80\",\n  \"-j\",\n  \"DNAT\",\n  \"--to\",\n  \"10.0.0.2\"\n] cwd: \"/\"",
+        ),
+        (
+            "sudo nft add table inet filter",
+            "run [\"nft\", \"add\", \"table\", \"inet\", \"filter\"] cwd: \"/\" privilege: elevated",
+        ),
+    ]);
+}
+
+#[test]
 fn sql_translate() {
     check(&[(
         "sqlite3 /srv/app.db \"DELETE FROM t\"",
@@ -422,7 +446,7 @@ fn a_single_call_translates_constructs_and_administration_programs() {
     for (input, expected) in [
         (
             "if [ -f /srv/a ]; then rm /srv/a; fi",
-            "when exists(\"/srv/a\") and ((info \"/srv/a\" |> first)).type == \"file\" {\n    remove \"/srv/a\" on_missing: error\n}",
+            "when exists(\"/srv/a\") and ((info \"/srv/a\" |> first 1)).type == \"file\" {\n    remove \"/srv/a\" on_missing: error\n}",
         ),
         ("mkfifo /srv/run/q", "create \"/srv/run/q\" type: fifo"),
         (
@@ -446,7 +470,6 @@ fn forms_that_depend_on_the_shell_have_no_translation() {
         "ls /srv/a || mkdir -p /srv/a",
         "usermod -aG docker,wheel deploy",
         "sysctl -w net.ipv4.ip_forward=1 vm.swappiness=10",
-        "iptables -t nat -A PREROUTING -j DNAT --to 10.0.0.2",
     ] {
         let error = error_of(input, &SCRIPT);
         assert_eq!(error.code(), ErrorCode::Uncorrectable, "{input}");
@@ -483,3 +506,7 @@ fn parameters_get_the_type_of_their_use_and_a_note_when_unnamed() {
             .any(|assumption| assumption.rule == "B42" && assumption.text.contains("arg1"))
     );
 }
+
+// Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
+// Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
+// Support: support@danaco-group.pl

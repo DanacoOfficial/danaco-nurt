@@ -896,6 +896,39 @@ mod tests {
         stages
     }
 
+    /// Notes in `missing` what a stage of the table uses and the catalog does
+    /// not know.
+    fn stage_gaps(
+        catalog: &BTreeMap<String, CatalogParams>,
+        administration: &[&str],
+        stage: &TemplateStage,
+        missing: &mut Vec<String>,
+    ) {
+        let Some(params) = catalog.get(&stage.name) else {
+            if !administration.contains(&stage.name.as_str()) {
+                missing.push(format!("command {}", stage.name));
+            }
+            return;
+        };
+        for arg in &stage.args {
+            let Some(name) = &arg.name else { continue };
+            match params.get(name) {
+                None => missing.push(format!("parameter {}.{name}", stage.name)),
+                Some((values, _)) => {
+                    if let super::super::template::Node::Const(nurt_contracts::ast::Expr::Ident {
+                        v,
+                        ..
+                    }) = &arg.value
+                        && !values.is_empty()
+                        && !values.contains(v)
+                    {
+                        missing.push(format!("value {}.{name} = {v}", stage.name));
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn commands_parameters_and_values_exist_in_the_catalog() {
         /// Commands of the group `administration`, which the translation of
@@ -934,28 +967,7 @@ mod tests {
         let table = BashTable::embedded().unwrap();
         let mut missing = Vec::new();
         for stage in stages_of(table) {
-            let Some(params) = catalog.get(&stage.name) else {
-                if !ADMINISTRATION.contains(&stage.name.as_str()) {
-                    missing.push(format!("command {}", stage.name));
-                }
-                continue;
-            };
-            for arg in &stage.args {
-                let Some(name) = &arg.name else { continue };
-                match params.get(name) {
-                    None => missing.push(format!("parameter {}.{name}", stage.name)),
-                    Some((values, _)) => {
-                        if let super::super::template::Node::Const(
-                            nurt_contracts::ast::Expr::Ident { v, .. },
-                        ) = &arg.value
-                            && !values.is_empty()
-                            && !values.contains(v)
-                        {
-                            missing.push(format!("value {}.{name} = {v}", stage.name));
-                        }
-                    }
-                }
-            }
+            stage_gaps(&catalog, ADMINISTRATION, &stage, &mut missing);
         }
         for name in BUILT_STAGES {
             if !catalog.contains_key(*name) && !ADMINISTRATION.contains(name) {
