@@ -507,6 +507,107 @@ fn parameters_get_the_type_of_their_use_and_a_note_when_unnamed() {
     );
 }
 
+/// Names of the commands of the catalog files with the names of their
+/// parameters.
+fn catalog_parameters() -> std::collections::BTreeMap<String, Vec<String>> {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../catalog");
+    let mut commands = std::collections::BTreeMap::new();
+    for file in std::fs::read_dir(dir).expect("catalog directory") {
+        let path = file.expect("entry").path();
+        if path.extension().is_none_or(|extension| extension != "toml")
+            || path.file_name().is_some_and(|name| name == "_index.toml")
+        {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).expect("catalog file");
+        let document: toml_edit::DocumentMut = text.parse().expect("catalog syntax");
+        let Some(list) = document
+            .get("command")
+            .and_then(toml_edit::Item::as_array_of_tables)
+        else {
+            continue;
+        };
+        for command in list {
+            let name = command["name"].as_str().expect("name").to_owned();
+            let params = command
+                .get("param")
+                .and_then(toml_edit::Item::as_array_of_tables)
+                .map(|params| {
+                    params
+                        .iter()
+                        .map(|param| param["name"].as_str().expect("param name").to_owned())
+                        .collect()
+                })
+                .unwrap_or_default();
+            commands.insert(name, params);
+        }
+    }
+    commands
+}
+
+#[test]
+fn translations_to_administration_commands_use_the_catalog() {
+    let catalog = catalog_parameters();
+    let inputs = [
+        "useradd -m -s /bin/bash -c 'Deploy user' -G docker,www deploy",
+        "useradd -r -u 990 svc",
+        "usermod -s /bin/zsh -L alice",
+        "usermod -aG docker deploy",
+        "userdel bob",
+        "userdel -r bob",
+        "passwd alice",
+        "groupadd -g 1500 ops",
+        "groupdel ops",
+        "gpasswd -a alice ops",
+        "gpasswd -d alice ops",
+        "mount -t ext4 -o noatime,ro /dev/sdb1 /srv/data",
+        "umount /srv/data",
+        "sysctl -w net.ipv4.ip_forward=1",
+        "modprobe overlay",
+        "modprobe -r nfs",
+        "rmmod nfs",
+        "ufw allow 443/tcp",
+        "ufw deny 23",
+        "ufw allow from 10.0.0.0/8 to any port 22 proto tcp",
+        "firewall-cmd --permanent --zone=public --add-port=8080/tcp",
+        "nft add rule inet filter input tcp dport 22 accept",
+        "iptables -A INPUT -p tcp --dport 80 -j ACCEPT",
+        "ip route add 10.1.0.0/16 via 10.0.0.1 dev eth0 metric 100",
+        "ip route del 10.1.0.0/16",
+        "resolvectl dns eth0 1.1.1.1 9.9.9.9",
+        "timedatectl set-timezone Europe/Warsaw",
+        "reboot",
+        "poweroff",
+        "parted -s /dev/sdb rm 2",
+        "mkfs.ext4 -L data /dev/sdb1",
+    ];
+    let mut problems = Vec::new();
+    for input in inputs {
+        let text = translated(input, &SCRIPT);
+        for line in text.lines() {
+            let words: Vec<&str> = line.split_whitespace().collect();
+            let Some(&command) = words.first() else {
+                continue;
+            };
+            if command == "run" {
+                continue;
+            }
+            let Some(params) = catalog.get(command) else {
+                problems.push(format!("{input}: unknown command {command}"));
+                continue;
+            };
+            for word in &words[1..] {
+                if let Some(name) = word.strip_suffix(':')
+                    && !params.iter().any(|param| param == name)
+                {
+                    problems.push(format!("{input}: {command} has no parameter {name}"));
+                }
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{problems:#?}");
+}
+
 // Copyright (c) 2026 Danaco Official | Danaco Holding Group Sp. z o.o. All rights reserved.
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // Support: support@danaco-group.pl

@@ -900,14 +900,11 @@ mod tests {
     /// not know.
     fn stage_gaps(
         catalog: &BTreeMap<String, CatalogParams>,
-        administration: &[&str],
         stage: &TemplateStage,
         missing: &mut Vec<String>,
     ) {
         let Some(params) = catalog.get(&stage.name) else {
-            if !administration.contains(&stage.name.as_str()) {
-                missing.push(format!("command {}", stage.name));
-            }
+            missing.push(format!("command {}", stage.name));
             return;
         };
         for arg in &stage.args {
@@ -931,46 +928,14 @@ mod tests {
 
     #[test]
     fn commands_parameters_and_values_exist_in_the_catalog() {
-        /// Commands of the group `administration`, which the translation of
-        /// the administration programs writes; the catalog of that group is
-        /// merged separately from this table.
-        const ADMINISTRATION: &[&str] = &[
-            "accounts.create",
-            "accounts.modify",
-            "accounts.remove",
-            "accounts.password",
-            "clock.ntp",
-            "clock.set",
-            "clock.timezone_set",
-            "disks.format",
-            "disks.partition",
-            "firewall.allow",
-            "firewall.deny",
-            "firewall.remove",
-            "groups.add_member",
-            "groups.create",
-            "groups.remove",
-            "groups.remove_member",
-            "modules.load",
-            "modules.unload",
-            "mount",
-            "network.dns_set",
-            "network.route_add",
-            "network.route_remove",
-            "power.cancel",
-            "power.restart",
-            "power.shutdown",
-            "sysctl.set",
-            "unmount",
-        ];
         let catalog = catalog();
         let table = BashTable::embedded().unwrap();
         let mut missing = Vec::new();
         for stage in stages_of(table) {
-            stage_gaps(&catalog, ADMINISTRATION, &stage, &mut missing);
+            stage_gaps(&catalog, &stage, &mut missing);
         }
         for name in BUILT_STAGES {
-            if !catalog.contains_key(*name) && !ADMINISTRATION.contains(name) {
+            if !catalog.contains_key(*name) {
                 missing.push(format!("command {name}"));
             }
         }
@@ -985,7 +950,7 @@ mod tests {
             }
         }
         for command in table.effect_commands() {
-            if !catalog.contains_key(command) && !ADMINISTRATION.contains(&command) {
+            if !catalog.contains_key(command) {
                 missing.push(format!("effect command {command}"));
             }
         }
