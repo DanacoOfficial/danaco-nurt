@@ -11,7 +11,6 @@
 //! standard output and exits. It is not listed in the usage and the
 //! documentation of the subcommands, and takes no arguments.
 
-use nurt_contracts::envelope::Request;
 use nurt_core::elevation::{EXIT_BAD_REQUEST, EXIT_NOT_ADMINISTRATOR, is_administrator};
 
 use crate::app::{EngineSource, Io};
@@ -31,12 +30,13 @@ pub(crate) fn run(io: &mut Io<'_>, source: &dyn EngineSource) -> u8 {
             &format!("cannot read the request: {error}"),
         );
     }
-    let request: Request = match serde_json::from_slice(&bytes) {
-        Ok(request) => request,
+    let envelope = match nurt_core::parse_envelope(&bytes) {
+        Ok(envelope) => envelope,
         Err(error) => {
             return refuse(io, EXIT_BAD_REQUEST, &format!("invalid request: {error}"));
         }
     };
+    let request = envelope.request;
     if let Err(error) = request.validate() {
         return refuse(io, EXIT_BAD_REQUEST, &format!("invalid request: {error}"));
     }
@@ -49,12 +49,23 @@ pub(crate) fn run(io: &mut Io<'_>, source: &dyn EngineSource) -> u8 {
             "elevated-exec runs only with the identity of the administrator",
         );
     }
+    if let Some(owner) = &envelope.owner {
+        let recorded = std::env::var("SUDO_UID")
+            .ok()
+            .and_then(|text| text.parse::<u32>().ok());
+        if let Err(reason) = nurt_core::verify_owner(owner, recorded) {
+            return refuse(io, EXIT_BAD_REQUEST, &reason);
+        }
+    }
     nurt_core::elevation::reset_environment();
-    let engine = match source.open_elevated() {
+    let engine = match source.open_elevated(envelope.owner.as_ref()) {
         Ok(engine) => engine,
         Err(error) => return refuse(io, exit::FAILURE, &error.to_string()),
     };
-    let response = engine.elevated_exec(&request);
+    let response = engine.elevated_exec(
+        &request,
+        envelope.owner.as_ref().map(|owner| owner.backend.as_str()),
+    );
     match serde_json::to_writer(&mut *io.out, &response)
         .and_then(|()| io.out.write_all(b"\n").map_err(serde_json::Error::io))
     {

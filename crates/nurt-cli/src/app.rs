@@ -65,13 +65,18 @@ pub trait EngineSource {
     fn open(&self) -> Result<Engine, EngineError>;
 
     /// Opens the engine of the hidden subcommand `elevated-exec`, which runs
-    /// with the identity of the administrator and writes to the system
-    /// journal. By default it is the engine of [`open`](Self::open).
+    /// with the identity of the administrator. With an `owner` the engine
+    /// writes the journal of that account; without one it keeps the journal of
+    /// its own account. By default it is the engine of [`open`](Self::open).
     ///
     /// # Errors
     ///
     /// Returns the error of the engine, for example an invalid configuration.
-    fn open_elevated(&self) -> Result<Engine, EngineError> {
+    fn open_elevated(
+        &self,
+        owner: Option<&nurt_core::ElevatedOwner>,
+    ) -> Result<Engine, EngineError> {
+        let _ = owner;
         self.open()
     }
 
@@ -86,25 +91,22 @@ pub struct SystemEngine;
 
 impl EngineSource for SystemEngine {
     fn open(&self) -> Result<Engine, EngineError> {
-        let config = EngineConfig::system().with_frontend(integrations::frontend());
-        if nurt_core::elevation::is_administrator() {
-            return self.open_elevated();
-        }
-        Engine::open(config)
+        Engine::open(EngineConfig::system().with_frontend(integrations::frontend()))
     }
 
-    fn open_elevated(&self) -> Result<Engine, EngineError> {
+    fn open_elevated(
+        &self,
+        owner: Option<&nurt_core::ElevatedOwner>,
+    ) -> Result<Engine, EngineError> {
         let config = EngineConfig::system().with_frontend(integrations::frontend());
-        if !nurt_core::elevation::is_administrator() {
-            return Engine::open(config);
+        match owner {
+            Some(owner) => Engine::open(config.with_account_journal(nurt_core::AccountJournal {
+                uid: owner.uid,
+                gid: owner.gid,
+                state_dir: std::path::PathBuf::from(&owner.state_dir),
+            })),
+            None => Engine::open(config),
         }
-        let info = SystemHost::detect();
-        let program_data = std::env::var("ProgramData").ok();
-        let dir = nurt_core::elevation::system_state_dir(
-            nurt_contracts::env::Host::info(&info).os,
-            program_data.as_deref(),
-        );
-        Engine::open(config.with_state_dir(dir))
     }
 
     fn host(&self) -> Arc<dyn Host> {

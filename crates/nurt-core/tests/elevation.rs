@@ -2,7 +2,7 @@
 // Use is subject to license terms: see the LICENSE file or https://www.danaco-group.pl
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Privilege elevation through the engine: the choice of the backend, the
-//! refusals, `auto`, `as_user`, the references to elevated journal entries
+//! refusals, `auto`, `as_user`
 //! and the hidden execution of a request with the identity of the
 //! administrator.
 
@@ -99,127 +99,6 @@ impl Frontend for Elevating {
     }
 }
 
-/// Journal of the account that lists the given entries, newest first, and
-/// delegates everything else.
-struct Seeded {
-    inner: Arc<RecordingJournal>,
-    records: Vec<nurt_contracts::journal::OperationRecord>,
-}
-
-impl nurt_contracts::journal::JournalStore for Seeded {
-    fn recover(&self) -> Result<nurt_contracts::journal::RecoveryReport> {
-        self.inner.recover()
-    }
-    fn begin(
-        &self,
-        request: nurt_contracts::journal::BeginRequest,
-    ) -> Box<dyn nurt_contracts::journal::MutationTx + '_> {
-        self.inner.begin(request)
-    }
-    fn rollback_committed(
-        &self,
-        op: nurt_contracts::journal::OpId,
-        reason: nurt_contracts::journal::RollbackReason,
-    ) -> Result<nurt_contracts::journal::UndoOutcome> {
-        self.inner.rollback_committed(op, reason)
-    }
-    fn history(
-        &self,
-        query: &nurt_contracts::journal::HistoryQuery,
-    ) -> Result<Vec<nurt_contracts::journal::OperationRecord>> {
-        let mut found: Vec<_> = self
-            .records
-            .iter()
-            .filter(|record| query.id.is_none_or(|id| id.0 == record.id))
-            .filter(|record| query.before.is_none_or(|before| record.id < before.0))
-            .filter(|record| query.state.is_none_or(|state| record.state == state))
-            .cloned()
-            .collect();
-        found.sort_by_key(|record| std::cmp::Reverse(record.id));
-        if let Some(limit) = query.limit {
-            found.truncate(limit as usize);
-        }
-        Ok(found)
-    }
-    fn details(
-        &self,
-        op: nurt_contracts::journal::OpId,
-    ) -> Result<nurt_contracts::journal::OperationDetails> {
-        self.inner.details(op)
-    }
-    fn undo(
-        &self,
-        request: &nurt_contracts::journal::UndoRequest,
-    ) -> Result<nurt_contracts::journal::UndoOutcome> {
-        self.inner.undo(request)
-    }
-    fn redo(
-        &self,
-        request: &nurt_contracts::journal::RedoRequest,
-    ) -> Result<nurt_contracts::journal::UndoOutcome> {
-        self.inner.redo(request)
-    }
-    fn pin(
-        &self,
-        request: &nurt_contracts::journal::PinRequest,
-    ) -> Result<nurt_contracts::journal::PinOutcome> {
-        self.inner.pin(request)
-    }
-    fn purge(
-        &self,
-        request: &nurt_contracts::journal::PurgeRequest,
-    ) -> Result<nurt_contracts::journal::PurgeOutcome> {
-        self.inner.purge(request)
-    }
-    fn status(
-        &self,
-        volume: Option<&nurt_contracts::fs::AbsPath>,
-    ) -> Result<Vec<nurt_contracts::journal::JournalState>> {
-        self.inner.status(volume)
-    }
-    fn limits(
-        &self,
-        request: &nurt_contracts::journal::LimitsRequest,
-    ) -> Result<nurt_contracts::journal::LimitsOutcome> {
-        self.inner.limits(request)
-    }
-    fn space(
-        &self,
-        volume: Option<&nurt_contracts::fs::AbsPath>,
-    ) -> Result<Vec<nurt_contracts::journal::VolumeSpace>> {
-        self.inner.space(volume)
-    }
-    fn sweep(&self) -> Result<nurt_contracts::journal::SweepReport> {
-        self.inner.sweep()
-    }
-}
-
-/// An entry of the account at `seconds` after the epoch.
-fn entry_at(id: u64, seconds: i64) -> nurt_contracts::journal::OperationRecord {
-    let hash = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
-    nurt_contracts::journal::OperationRecord {
-        id,
-        time: nurt_contracts::value::Instant::from_unix_nanos(seconds * 1_000_000_000),
-        kind: "write".to_owned(),
-        action: None,
-        summary: "a write".to_owned(),
-        state: nurt_contracts::record::OperationState::Available,
-        files: 0,
-        bytes: nurt_contracts::value::Size::from_bytes(0),
-        irreversible: Vec::new(),
-        bulk: false,
-        session: None,
-        undo_of: Vec::new(),
-        redo_of: None,
-        undo_scope: None,
-        ast_hash: hash.to_owned(),
-        manifest_sha256: hash.to_owned(),
-        chain: None,
-        pinned: false,
-        items: None,
-    }
-}
-
 /// `find` that the account may not run on `/denied`.
 struct DeniedFind;
 
@@ -300,10 +179,6 @@ fn programs() -> Programs {
             program(find_stage(), vec![remove_stage()]),
         )
         .with("undo 7", program(undo_stage(7), Vec::new()))
-        .with(
-            "undo 1000000007",
-            program(undo_stage(1_000_000_007), Vec::new()),
-        )
         .with("two pipelines", two_pipelines())
         .with("deny", program(deny_stage(), Vec::new()))
         .with("needs-root", program(root_stage(), Vec::new()))
@@ -570,7 +445,7 @@ fn elevated_exec_refuses_a_process_that_is_not_the_administrator() {
     let setup = setup(TestHost::linux(), false, None, "");
     let request =
         Request::program("find /data").with_options(options(Some(Privilege::Elevated), None));
-    let response = setup.engine.elevated_exec(&request);
+    let response = setup.engine.elevated_exec(&request, None);
     assert_eq!(error_of(&response).code(), ErrorCode::Privilege);
 }
 
@@ -579,7 +454,7 @@ fn elevated_exec_runs_in_the_process_and_marks_the_report() {
     let setup = setup(TestHost::linux(), true, None, "");
     let request =
         Request::program("find /data").with_options(options(Some(Privilege::Elevated), None));
-    let response = setup.engine.elevated_exec(&request);
+    let response = setup.engine.elevated_exec(&request, None);
     assert_eq!(response.report.status, ReportStatus::Ok);
     assert!(response.report.elevated);
     assert_eq!(response.report.backend.as_deref(), Some("self"));
@@ -644,20 +519,6 @@ fn a_preview_of_undo_keeps_the_inverse_programs() {
     let _ = call(&setup, "undo 7", preview);
     let kept = std::fs::read_to_string(setup.state.join("inverse-operations.jsonl")).unwrap();
     assert!(!kept.contains("\"undone\":true"), "{kept}");
-}
-
-#[test]
-fn system_journal_directory_follows_the_host() {
-    let linux = setup(TestHost::linux(), true, None, "");
-    assert_eq!(
-        linux.engine.system_state_dir(),
-        PathBuf::from("/var/lib/nurt")
-    );
-    let macos = setup(TestHost::macos(), true, None, "");
-    assert_eq!(
-        macos.engine.system_state_dir(),
-        PathBuf::from("/Library/Application Support/Nurt")
-    );
 }
 
 #[test]
@@ -779,10 +640,17 @@ mod fake_programs {
         assert!(response.report.elevated);
         assert_eq!(response.report.backend.as_deref(), Some("sudo"));
         assert_eq!(fake.argv(), "-n -- /opt/nurt/bin/nurt elevated-exec");
-        let request = fake.request();
-        assert!(request.get("program").is_none(), "{request}");
-        assert!(request.get("ast").is_some(), "{request}");
+        let envelope = fake.request();
+        let request = &envelope["request"];
+        assert!(request.get("program").is_none(), "{envelope}");
+        assert!(request.get("ast").is_some(), "{envelope}");
         assert_eq!(request["options"]["privilege"], json!("elevated"));
+        assert_eq!(envelope["nurt_elevated"], json!("nurt-elevated/1"));
+        // The account has a state directory, so the elevated process is told
+        // whose journal to write and which backend started it.
+        let owner = &envelope["owner"];
+        assert_eq!(owner["backend"], json!("sudo"));
+        assert!(owner["state_dir"].as_str().unwrap().ends_with("state"));
     }
 
     #[test]
@@ -796,7 +664,12 @@ mod fake_programs {
             fake.argv(),
             "-n -u deploy -- /opt/nurt/bin/nurt elevated-exec"
         );
-        assert_eq!(fake.request()["options"]["as_user"], json!("deploy"));
+        let envelope = fake.request();
+        assert_eq!(envelope["request"]["options"]["as_user"], json!("deploy"));
+        assert!(
+            envelope.get("owner").is_none(),
+            "an account that is switched to keeps its own journal"
+        );
     }
 
     #[test]
@@ -859,200 +732,10 @@ mod fake_programs {
             response.report.elevation_reason.as_deref(),
             Some("permission_denied")
         );
-        assert_eq!(fake.request()["options"]["privilege"], json!("elevated"));
-    }
-
-    #[test]
-    fn elevated_entries_are_remembered_and_undone_through_the_backend() {
-        let fake = Fake::answering("sudo", &canned(Some(7)));
-        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
-        let response = call(
-            &setup,
-            "find /data",
-            options(Some(Privilege::Elevated), None),
-        );
-        assert_eq!(response.report.op, Some(1_000_000_007));
-        let history = setup
-            .engine
-            .history(&nurt_contracts::journal::HistoryQuery::default())
-            .unwrap();
-        assert!(
-            history.iter().any(|record| record.id == 1_000_000_007),
-            "{history:?}"
-        );
-        let references = setup.engine.elevated_references();
-        assert_eq!(references.len(), 1);
-        assert_eq!(references[0].op, 7);
-        assert_eq!(references[0].backend, "sudo");
-        assert_eq!(references[0].journal, "/var/lib/nurt");
-        assert!(setup.state.join("elevated-operations.jsonl").is_file());
-
-        let own = call(&setup, "undo 7", options(None, None));
-        assert!(
-            !own.report.elevated,
-            "the number 7 is an entry of the account"
-        );
-        let undone = call(&setup, "undo 1000000007", options(None, None));
-        assert!(undone.report.elevated);
         assert_eq!(
-            undone.report.elevation_reason.as_deref(),
-            Some("system_journal_entry")
+            fake.request()["request"]["options"]["privilege"],
+            json!("elevated")
         );
-        assert_eq!(fake.request()["options"]["privilege"], json!("elevated"));
-    }
-
-    fn script_response(main: u64, others: &[u64]) -> Response {
-        let mut response = canned(Some(main));
-        for op in others {
-            let mut report = Report::new(ReportStatus::Ok, "write");
-            report.op = Some(*op);
-            response.reports.push(report);
-        }
-        response
-    }
-
-    #[test]
-    fn every_pipeline_of_an_elevated_script_gets_its_own_entry_number() {
-        let fake = Fake::answering("sudo", &script_response(5, &[4, 5]));
-        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
-        let response = call(
-            &setup,
-            "find /data",
-            options(Some(Privilege::Elevated), None),
-        );
-        let base = 1_000_000_000;
-        assert_eq!(response.report.op, Some(base + 5));
-        let ops: Vec<Option<u64>> = response.reports.iter().map(|r| r.op).collect();
-        assert_eq!(ops, [Some(base + 4), Some(base + 5)]);
-        let history = setup
-            .engine
-            .history(&nurt_contracts::journal::HistoryQuery::default())
-            .unwrap();
-        let ids: Vec<u64> = history.iter().map(|record| record.id).collect();
-        assert!(
-            ids.contains(&(base + 4)) && ids.contains(&(base + 5)),
-            "{ids:?}"
-        );
-        assert_eq!(setup.engine.elevated_references().len(), 2);
-    }
-
-    #[test]
-    fn history_pages_over_elevated_and_account_entries_without_repeats_or_gaps() {
-        let fake = Fake::answering("sudo", &script_response(5, &[2, 3, 4]));
-        let setup = setup_with(
-            TestHost::linux(),
-            false,
-            Some(fake.dir.path()),
-            "",
-            |inner| {
-                // Two entries far in the future and two far in the past
-                // surround the elevated entries, which carry the time now.
-                Arc::new(Seeded {
-                    inner,
-                    records: vec![
-                        entry_at(1, 1),
-                        entry_at(2, 2),
-                        entry_at(3, 4_000_000_000),
-                        entry_at(4, 4_000_000_001),
-                    ],
-                })
-            },
-        );
-        let _ = call(
-            &setup,
-            "find /data",
-            options(Some(Privilege::Elevated), None),
-        );
-        let base = 1_000_000_000;
-        let mut seen: Vec<u64> = Vec::new();
-        let mut before = None;
-        for _ in 0..10 {
-            let page = setup
-                .engine
-                .history(&nurt_contracts::journal::HistoryQuery {
-                    limit: Some(2),
-                    before,
-                    ..nurt_contracts::journal::HistoryQuery::default()
-                })
-                .unwrap();
-            let Some(last) = page.last() else { break };
-            before = Some(nurt_contracts::journal::OpId(last.id));
-            seen.extend(page.iter().map(|record| record.id));
-        }
-        assert_eq!(
-            seen,
-            [4, 3, base + 5, base + 4, base + 3, base + 2, 2, 1],
-            "pages cut by time and number"
-        );
-    }
-
-    #[test]
-    fn the_state_filter_applies_to_elevated_entries() {
-        let fake = Fake::answering("sudo", &canned(Some(7)));
-        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
-        let _ = call(
-            &setup,
-            "find /data",
-            options(Some(Privilege::Elevated), None),
-        );
-        let query = |state| nurt_contracts::journal::HistoryQuery {
-            state: Some(state),
-            ..nurt_contracts::journal::HistoryQuery::default()
-        };
-        let state = nurt_contracts::record::OperationState::Undone;
-        assert!(setup.engine.history(&query(state)).unwrap().is_empty());
-        let _ = call(&setup, "undo 1000000007", options(None, None));
-        let undone = setup.engine.history(&query(state)).unwrap();
-        assert_eq!(undone.len(), 1);
-        let available = nurt_contracts::record::OperationState::Available;
-        assert!(
-            setup
-                .engine
-                .history(&query(available))
-                .unwrap()
-                .iter()
-                .all(|record| record.id != 1_000_000_007)
-        );
-    }
-
-    #[test]
-    fn a_reference_that_cannot_be_kept_fails_the_report_with_the_system_number() {
-        let fake = Fake::answering("sudo", &canned(Some(7)));
-        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
-        let file = setup.state.join("elevated-operations.jsonl");
-        std::fs::create_dir_all(&file).unwrap();
-        let response = call(
-            &setup,
-            "find /data",
-            options(Some(Privilege::Elevated), None),
-        );
-        let error = response.report.error.as_ref().expect("an error");
-        assert_eq!(error.code(), ErrorCode::JournalPartial);
-        assert_eq!(error.details.get("system_entries"), Some(&json!([7])));
-        assert!(!error.next_steps.is_empty());
-        assert_eq!(response.report.op, Some(7), "no number is invented");
-    }
-
-    #[test]
-    fn an_undone_elevated_entry_is_shown_as_undone() {
-        let fake = Fake::answering("sudo", &canned(Some(7)));
-        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
-        let _ = call(
-            &setup,
-            "find /data",
-            options(Some(Privilege::Elevated), None),
-        );
-        let undone = call(&setup, "undo 1000000007", options(None, None));
-        assert!(undone.report.elevated);
-        let history = setup
-            .engine
-            .history(&nurt_contracts::journal::HistoryQuery::default())
-            .unwrap();
-        let entry = history
-            .iter()
-            .find(|record| record.id == 1_000_000_007)
-            .unwrap();
-        assert_eq!(entry.state, nurt_contracts::record::OperationState::Undone);
     }
 
     #[test]

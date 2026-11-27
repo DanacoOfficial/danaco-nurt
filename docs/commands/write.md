@@ -60,7 +60,7 @@ With `validate: reject` such an error rolls the whole write back with
 kept; `off` skips the check. Bytes, sizes and registry values are not
 checked, and without the documents and code groups nothing is checked.
 
-**Privilege.** Files that the account may not change (`/etc/hosts`, files of other accounts) are written with `privilege: elevated`. The entry goes to the system journal with the owner, group, mode and access control of the previous content, and `undo` restores them through the same backend.
+**Privilege.** Files that the account may not change (`/etc/hosts`, files of other accounts) are written with `privilege: elevated`. The entry is in the journal of the account with the owner, group, mode and access control of the previous content, the account has access to the copy, and `undo` restores them through the same backend.
 
 ```nurt
 write "/etc/hosts" "127.0.0.1 localhost\n" mode: append privilege: elevated

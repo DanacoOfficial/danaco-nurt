@@ -1266,6 +1266,17 @@ pub trait PipelineRunner: Send + Sync {
     ) -> Result<StageOutput<'a>>;
 }
 
+/// Marks a run that has the rights of the administrator, given through the
+/// extensions of the context: the journal entry of such a run names the
+/// backend in its `action` (`elevated:<backend>`), so that `undo` and `redo`
+/// of the entry know that they need the same rights.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ElevatedRun {
+    /// Backend that started the elevated process (`self`, `sudo`, `doas`,
+    /// `run0`).
+    pub backend: String,
+}
+
 /// Shared objects registered by type, for facilities without a dedicated
 /// accessor on [`ExecCtx`] (for example a shared thread pool or a read
 /// cache).

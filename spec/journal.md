@@ -295,42 +295,52 @@ through the conflict check.
 
 ### 8.1 Elevated entries
 
-An operation that runs with `privilege: elevated` (or `as_user`) is executed by
-a separate process with the identity of the administrator, which writes the
-entry with the rules of sections 3 to 7: previous content, owner, group, mode,
-access control list, extended attributes and the security context are kept.
+An operation that runs with `privilege: elevated` is executed by a separate
+process with the identity of the administrator. Its entries are in the journal
+of the account that asked for it, like every other entry, and the account has
+access to their copies. There is one journal and one counter: an elevated
+entry takes the next number of the account, and `history`, `journal.status`,
+`undo`, `redo` and `pin` treat it like any other entry. The entry names the
+backend in its `action` (`elevated:<backend>`), and the report of the
+operation states `elevated: true` and the `backend`.
 
-| System | System journal |
-|---|---|
-| Linux | `/var/lib/nurt` |
-| macOS | `/Library/Application Support/Nurt` |
-| Windows | `%ProgramData%\Nurt` |
+The elevated process writes the entry, with the previous content, owner,
+group, mode, access control list, extended attributes and the security context
+of every target (sections 3 to 7), with the rights of the account, not of the
+administrator: on Linux it can switch the file system user and group of the
+calling thread (`fsuid`, `fsgid`) to those of the account for every call that
+concerns the state directory or a journal directory of the account, so the
+kernel checks each component of the path, a link included, with the
+permissions of the account, and every file and directory is created owned by
+the account. On macOS and the other Unix systems, which have no `fsuid`, the
+process opens the journal directory without following links (it must be a
+directory owned by the account), creates every file with `openat(O_CREAT |
+O_EXCL | O_NOFOLLOW)` and every directory with `mkdirat` relative to that
+descriptor, and gives each new entry to the account with `fchown` (`fchownat`
+with `AT_SYMLINK_NOFOLLOW` for a link) and `fchmod` before anything is
+written; on Windows the backend `self` runs as the same account and needs
+none of this. In every case the process never follows a link with more rights than the account has,
+and it never leaves a file owned by the administrator below the state
+directory. A copy of a target into the journal is read with the rights of the
+administrator and written with those of the account, block by block; a hard
+link, a clone or a rename of a target into the journal is not used (the journal
+copies instead). The account sends the user, the group and the state directory
+in the request (`nurt-elevated/1`); the elevated process refuses a state
+directory that is not an existing directory owned by that user, and a user that
+differs from the one the backend recorded (`SUDO_UID`). The request of an
+operation with `as_user` carries no owner: the entry is in the journal of that
+account.
 
-The directory is the state directory of the administrator; the journal of the
-administrator lives in it as the journal of an account lives in the state
-directory of the account. The account that asked for the operation keeps a
-reference to the entry in the file `elevated-operations.jsonl` of its state
-directory: the number of the entry, the backend, `as_user`, the kind of the
-operation, the time and the directory of the system journal. A line is one JSON
-object.
-
-The account sees the entry with the number 1 000 000 000 plus the number of
-the system entry (`ELEVATED_OP_BASE`); the numbers of the account stay below
-it, so the two journals never collide. `history` and `journal.status` of the
-account list such entries (`kind` of the operation, a summary that names the
-backend). `undo` with a number above 1 000 000 000 runs `undo` of the system
-entry through the same backends, with the same access rule, and reports
-`elevation_reason: system_journal_entry`; without a backend it ends with
-`E_PRIVILEGE` and `next_steps`. A process that is itself the administrator
-(backend `self`) uses the system journal as its own journal.
-
-`history` merges the elevated and the account entries by time, newest first,
-and applies `limit` afterwards. An elevated entry that was undone through the
-backend shows the state `undone`, and `journal.status` does not count it as
-available. `details` of a number above 1 000 000 000 ends with `E_UNSUPPORTED`
-and a next step; `redo` and `pin` of such an entry, and `undo` without a number,
-do not reach it in 0.1.1. A script that runs through a backend gives every
-pipeline its own number in `reports`.
+`undo` and `redo` of an entry that an elevated operation wrote restore the
+targets with the rights of the administrator, through the same backend with the
+same access rule, and report `elevation_reason: elevated_entry`; without a
+backend they end with `E_PRIVILEGE` and `next_steps`. `undo` and `redo` without
+a number first find the entry they would restore, as the journal does (the
+newest available entry that is not an undo, or the newest available undo, of
+the session); when an elevated operation wrote that entry, they end with
+`E_PRIVILEGE` and the next step `undo N privilege: elevated` (`redo N …` for
+`redo`), with the number of the entry. `undo to:` runs with the rights of the
+account.
 
 An `enable` or `disable` is undone only when the recorded start type is
 `disabled` or `automatic` (release 0.1.1). A service whose recorded start type

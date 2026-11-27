@@ -15,6 +15,10 @@
 #![allow(unsafe_code, reason = "file system calls of the operating system")]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
+#[cfg(unix)]
+pub mod account;
+#[cfg(unix)]
+mod account_secure;
 #[cfg(feature = "archive")]
 pub mod archive;
 #[cfg(feature = "mutation-audit")]

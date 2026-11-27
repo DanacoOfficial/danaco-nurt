@@ -287,6 +287,13 @@ pub const SYSTEM_PROGRAM_DIRS: [&str; 5] =
 /// Value of `PATH` of an elevated process and of a backend.
 pub const FIXED_PATH: &str = "/usr/sbin:/usr/bin:/sbin:/bin";
 
+/// User and group of the calling process (effective), on systems that have
+/// them.
+#[must_use]
+pub fn effective_ids() -> Option<(u32, u32)> {
+    imp::effective_ids()
+}
+
 /// Finds the program of `backend`: in the directories of `path` when it is
 /// given, else in the system directories and last in the `PATH` of the
 /// process.
@@ -437,6 +444,13 @@ mod imp {
         rustix::process::geteuid().is_root()
     }
 
+    pub(super) fn effective_ids() -> Option<(u32, u32)> {
+        Some((
+            rustix::process::geteuid().as_raw(),
+            rustix::process::getegid().as_raw(),
+        ))
+    }
+
     pub(super) fn set_account_variables() {
         let Ok(Some(user)) = nix::unistd::User::from_uid(nix::unistd::geteuid()) else {
             return;
@@ -463,6 +477,10 @@ mod imp {
     use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
     pub(super) fn set_account_variables() {}
+
+    pub(super) fn effective_ids() -> Option<(u32, u32)> {
+        None
+    }
 
     pub(super) fn is_administrator() -> bool {
         let mut token: HANDLE = ptr::null_mut();

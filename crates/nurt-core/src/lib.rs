@@ -21,7 +21,6 @@ pub mod config;
 pub mod continuation;
 pub mod cursor;
 mod elevated;
-mod elevated_journal;
 pub mod elevation;
 pub mod engine;
 pub mod error;
@@ -41,7 +40,9 @@ pub mod state;
 pub mod system;
 mod system_services;
 
-pub use elevation::ElevatedReference;
+pub use elevation::{
+    AccountJournal, ElevatedEnvelope, ElevatedOwner, parse_envelope, verify_owner,
+};
 pub use engine::{CheckReport, Engine, EngineConfig, EngineInfo, ExecHandle, Formats};
 pub use error::EngineError;
 pub use events::{DeliveredEvent, EventBody, EventListener, Lifecycle};

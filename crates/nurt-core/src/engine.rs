@@ -70,7 +70,7 @@ use crate::config::{ConfigLoader, ConfigSources, LoadedConfig};
 use crate::continuation::{ContinuationStore, NotKept, Registration, SessionKey};
 use crate::cursor::{CursorStore, ProgramRef};
 use crate::elevated::Early;
-use crate::elevation::{Mark, ReferenceLog, Setup};
+use crate::elevation::{Mark, Setup};
 use crate::error::{EngineError, envelope_error, unavailable};
 use crate::events::{EventListener, Sequencer};
 use crate::extensions;
@@ -133,6 +133,7 @@ pub struct EngineConfig {
     fs: Option<Arc<dyn Fs>>,
     journal: Option<Arc<dyn JournalStore>>,
     system_journal: bool,
+    account: Option<crate::elevation::AccountJournal>,
     process_components: bool,
     system_services: bool,
     registry: Option<Arc<RegistryProvider>>,
@@ -169,6 +170,7 @@ impl EngineConfig {
             fs: None,
             journal: None,
             system_journal: false,
+            account: None,
             process_components: false,
             system_services: false,
             registry: None,
@@ -296,6 +298,20 @@ impl EngineConfig {
     pub fn with_state_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.state_dir = Some(dir.into());
         self.use_state_dir = true;
+        self
+    }
+
+    /// The journal of an account that this process, running as the
+    /// administrator, writes for it: the entries and the copies are created
+    /// with the user and the group of the account below its state directory
+    /// (Linux), while the targets are changed with the rights of the
+    /// process. The engine has no other state directory.
+    #[must_use]
+    pub fn with_account_journal(mut self, account: crate::elevation::AccountJournal) -> Self {
+        self.account = Some(account);
+        self.system_journal = true;
+        self.use_state_dir = false;
+        self.state_dir = None;
         self
     }
 
@@ -481,7 +497,6 @@ pub(crate) struct Inner {
     pub(crate) requests: AtomicU64,
     pub(crate) results: AtomicU64,
     pub(crate) elevation: Setup,
-    pub(crate) references: Option<ReferenceLog>,
     pub(crate) inverses: Option<InverseLog>,
 }
 
@@ -522,6 +537,7 @@ impl FileStamp {
 }
 
 /// Request after the envelope rules, with every option set.
+#[derive(Clone)]
 pub(crate) struct Prepared {
     pub(crate) config: Arc<LoadedConfig>,
     pub(crate) options: RequestOptions,
@@ -638,33 +654,27 @@ impl Engine {
         let windows_registry = config.registry.or_else(system_registry);
         let journal = match config.journal {
             Some(journal) => Some(journal),
-            None if config.system_journal => state
-                .as_ref()
-                .map(|state| {
+            None if config.system_journal => {
+                let root = config
+                    .account
+                    .as_ref()
+                    .map(|account| account.state_dir.clone())
+                    .or_else(|| state.as_ref().map(|state| state.root().to_path_buf()));
+                root.map(|root| {
                     crate::journal_setup::open_journal(
                         loader.layers(),
                         &loaded,
                         false,
                         Arc::clone(&config.clock),
-                        state.root(),
+                        &root,
                         windows_registry.clone(),
+                        config.account.as_ref(),
                     )
                 })
-                .transpose()?,
+                .transpose()?
+            }
             None => None,
         };
-        let journal = match (journal, state.as_ref()) {
-            (Some(journal), Some(state)) => {
-                Some(Arc::new(crate::elevated_journal::ElevatedJournal::new(
-                    journal,
-                    ReferenceLog::in_state(state.root()),
-                )) as Arc<dyn JournalStore>)
-            }
-            (journal, _) => journal,
-        };
-        let references = state
-            .as_ref()
-            .map(|state| ReferenceLog::in_state(state.root()));
         let inverses = state
             .as_ref()
             .map(|state| InverseLog::in_state(state.root()));
@@ -731,7 +741,6 @@ impl Engine {
             console: Mutex::new(None),
             requests: AtomicU64::new(0),
             results: AtomicU64::new(0),
-            references,
             inverses,
             elevation: config.elevation,
         };
@@ -1143,15 +1152,19 @@ impl Engine {
                 return self.finish(report, &prepared, None, started);
             }
         };
-        if prepared.elevation.is_none()
-            && let Some(reference) = self.elevated_entry_of(&compiled.bound)
-        {
-            return self.undo_elevated(request, &prepared, &reference, cancel, events);
-        }
         if let Some(response) =
             self.undo_by_inverse(request, &prepared, &compiled.bound, cancel, events.clone())
         {
             return response;
+        }
+        if prepared.elevation.is_none() && self.is_elevated_entry(&compiled.bound) {
+            return self.undo_elevated(request, &prepared, cancel, events);
+        }
+        if prepared.elevation.is_none()
+            && let Some(target) =
+                self.bare_elevated_target(&compiled.bound, prepared.session.as_ref())
+        {
+            return self.refuse_bare(request, &prepared, target);
         }
         let kind = ProgramKind::of(&compiled.bound);
         if request.options.script != Some(true) && effect_pipelines(&compiled.bound) > 1 {
@@ -1358,6 +1371,11 @@ impl Engine {
             .with_timeout(prepared.timeout);
         if let Some(access) = &self.inner.registry_access {
             env = env.with_extension(Arc::clone(access));
+        }
+        if let Some(mark) = &prepared.elevation {
+            env = env.with_extension(Arc::new(nurt_contracts::stage::ElevatedRun {
+                backend: mark.backend.as_str().to_owned(),
+            }));
         }
         if let Some(events) = events {
             env = env.with_events(events);
@@ -1696,6 +1714,13 @@ impl Engine {
         extensions.insert::<ReadCache>(Arc::clone(&self.inner.read_cache));
         if let Some(registry) = &self.inner.registry_access {
             extensions.insert::<dyn RegistryAccess>(Arc::clone(registry));
+        }
+        if let Some(mark) = &prepared.elevation {
+            extensions.insert::<nurt_contracts::stage::ElevatedRun>(Arc::new(
+                nurt_contracts::stage::ElevatedRun {
+                    backend: mark.backend.as_str().to_owned(),
+                },
+            ));
         }
         let mut builder =
             ExecCtx::builder(Arc::clone(&self.inner.clock), Arc::clone(&self.inner.host))
