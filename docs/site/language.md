@@ -119,3 +119,24 @@ Nurt accepts the habits of other shells and forms with small errors. A correctio
 ## Errors
 
 An error has a stable code such as `E_UNKNOWN_PARAM`, a message and, where known, the stage, the position and a replacement program. [Error codes](../../spec/errors.md) lists the codes.
+
+## Choosing a construct
+
+| The task | Write | Journal and failure |
+|---|---|---|
+| one change | a pipeline with one changing stage at its end | one entry |
+| several changes that stand or fall together | `steps { … }` | one entry, all or nothing |
+| a change that depends on the state found | `when … otherwise …` | one entry with the chosen branch |
+| the same change for many records | `each … as name { … }` | one entry; `atomic: false` keeps the completed iterations |
+| poll for a state, or repeat until a limit | `repeat until:` or `while`, with `limit` | one entry; the limit ends with `E_LIMIT` in `repeat` |
+| a change used several times in a file | `define name(…) { … }` | part of the entry of the caller |
+| a file that takes values | `params { … }`, then `nurt run file.nurt name: value` | checked before any effect |
+
+A single pipeline that has more than one changing stage is `E_ONE_EFFECT`; the correction proposes the same pipelines inside `steps` as the first candidate. The mode `script: true` stays for scripts that want a separate journal entry for every pipeline.
+
+## Where the other features are described
+
+- `sql` changes a database without `write: true`, accepts `BEGIN`, `COMMIT`, `ROLLBACK`, `ATTACH`, `VACUUM` and `VACUUM INTO`, and journals every database file it changes: see the [command](../commands/sql.md).
+- `create` makes named pipes (`type: fifo`) and device nodes (`type: device`): see the [guide for Linux and macOS](../guides/unix.md).
+- Accounts, groups, mounts, kernel parameters, firewall, network, clock, power and disks, and elevated work with `privilege` and `as_user`: see the [administration guide](../guides/administration.md).
+- The habits of bash and PowerShell and their form in Nurt: see the guides for [bash](../guides/bash-migration.md) and [PowerShell](../guides/powershell-migration.md).
