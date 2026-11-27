@@ -1051,8 +1051,7 @@ fn used_programs(files: &[ProductionFile], site: &Site) -> Option<Vec<String>> {
 #[test]
 fn static_admin_calls_name_approved_programs() {
     let root = workspace_root();
-    let call =
-        Regex::new(r#"Call\s*::\s*(?:new|owned)\s*\(\s*"([^"]+)""#).expect("pattern is valid");
+    let call = Regex::new(r#"Call\s*::\s*(?:new|owned)\s*\(\s*""#).expect("pattern is valid");
     let admin = Regex::new(r"^crates/nurt-sys/src/admin/").expect("pattern is valid");
     let mut findings = Vec::new();
     let mut named = BTreeSet::new();
@@ -1060,10 +1059,12 @@ fn static_admin_calls_name_approved_programs() {
         .iter()
         .filter(|file| admin.is_match(&file.rel))
     {
-        for found in call.captures_iter(&file.scanned.code) {
-            let program = found[1].to_owned();
+        for found in call.find_iter(&file.scanned.code) {
+            let Some(program) = file.scanned.literals.get(&(found.end() - 1)).cloned() else {
+                continue;
+            };
             if !ADMIN_PROGRAMS.contains(&program.as_str()) {
-                let line = line_of(&file.scanned.code, found.get(0).map_or(0, |m| m.start()));
+                let line = line_of(&file.scanned.code, found.start());
                 findings.push(format!(
                     "{}:{line}: `{program}` is not an approved program",
                     file.rel
@@ -1149,13 +1150,25 @@ fn producer() -> String {
     format!("{name} Official | {name} Holding Group Sp. z o.o. All rights reserved.")
 }
 
-/// Line of the producer header, permitted to name the producer.
+/// Line of the producer header or footer, permitted to name the producer.
+///
+/// The three lines at the start of a file are always permitted; the fixed
+/// header fields and the three lines of the footer are permitted at any
+/// position.
 fn is_header_line(index: usize, line: &str) -> bool {
     let contact = ["support@", "dan", "aco-group.pl"].concat();
-    index < HEADER_LINES
-        && (line.contains("Copyright (c) ")
-            || line.contains("Use is subject to license terms")
-            || line.contains(&contact))
+    let block = [
+        "// Copyright (c) ",
+        "// Use is subject to license terms",
+        "// Author: ",
+        "// License: see the LICENSE file",
+        "// Support: support@",
+    ];
+    block.iter().any(|prefix| line.starts_with(prefix))
+        || (index < HEADER_LINES
+            && (line.contains("Copyright (c) ")
+                || line.contains("Use is subject to license terms")
+                || line.contains(&contact)))
 }
 
 /// The line names the producer other than in the product name and in the

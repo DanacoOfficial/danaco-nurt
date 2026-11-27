@@ -12,160 +12,20 @@
 #![cfg(target_os = "linux")]
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::sync::Arc;
-
-use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::fs::WriteHandle;
-use nurt_contracts::journal::{
-    Applied, ExemptWrite, ExternalChange, Mutation, MutationTx, OpHandle, OpId, Preserved,
-    RollbackReason, RollbackReport, TargetIndex, TargetSpec,
-};
-use nurt_contracts::record::Change;
-use nurt_contracts::report::IrreversibleEntry;
-use nurt_contracts::services::{
-    ProcessHost, ProgramInput, ProgramOutcome, ProgramSpec, ServiceChild, ServiceSpawnSpec,
-};
-use nurt_contracts::stage::{
-    ArgValue, BoundArgs, CancelToken, EffectStage, ExecCtx, StageData, StageInput,
-};
-use nurt_contracts::value::Value;
 use nurt_sys::admin::clock::ClockCommand;
 use nurt_sys::admin::firewall::FirewallChange;
 use nurt_sys::admin::inverse::{Undo, derive};
-use nurt_sys::admin::network::RouteChange;
-use nurt_testkit::ctx::TestContext;
+use nurt_sys::admin::network::{DnsSet, RouteChange};
+
+mod admin_support;
+
+use admin_support::{args, context, run, shell, text, word};
+use nurt_contracts::report::IrreversibleEntry;
+use nurt_contracts::value::Value;
+use std::process::Command;
 
 const TABLE: &str = "nurt_test_fw";
 const LINK: &str = "nurt_test0";
-
-struct StdProcess;
-
-impl ProcessHost for StdProcess {
-    fn run_program(&self, spec: &ProgramSpec, _cancel: &CancelToken) -> Result<ProgramOutcome> {
-        let mut child = Command::new(&spec.program)
-            .args(&spec.args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|error| Error::new(ErrorCode::ProgramNotFound, error.to_string()))?;
-        if let ProgramInput::Bytes(bytes) = &spec.stdin {
-            child
-                .stdin
-                .take()
-                .expect("stdin")
-                .write_all(bytes)
-                .expect("write");
-        }
-        let output = child.wait_with_output().expect("output");
-        Ok(ProgramOutcome {
-            exit_code: output.status.code(),
-            stdout: output.stdout,
-            stderr: output.stderr,
-            ..ProgramOutcome::default()
-        })
-    }
-
-    fn resolve_program(&self, program: &str, _cwd: &Path) -> Result<PathBuf> {
-        which::which(program)
-            .map_err(|error| Error::new(ErrorCode::ProgramNotFound, error.to_string()))
-    }
-
-    fn spawn_service(&self, _spec: &ServiceSpawnSpec) -> Result<Box<dyn ServiceChild>> {
-        Err(Error::new(ErrorCode::Spawn, "not available"))
-    }
-}
-
-#[derive(Default)]
-struct Tx {
-    markers: Vec<IrreversibleEntry>,
-}
-
-fn unavailable<T>() -> Result<T> {
-    Err(Error::new(ErrorCode::StageFailed, "not used"))
-}
-
-impl MutationTx for Tx {
-    fn op(&self) -> Option<OpId> {
-        None
-    }
-    fn preserve(&mut self, _t: &[TargetSpec]) -> Result<Vec<Preserved>> {
-        unavailable()
-    }
-    fn stage(&mut self, _t: TargetIndex) -> Result<Box<dyn WriteHandle>> {
-        unavailable()
-    }
-    fn apply(&mut self, _t: TargetIndex, _m: Mutation) -> Result<Applied> {
-        unavailable()
-    }
-    fn observe_external(&mut self, _c: &[ExternalChange]) -> Result<Vec<Applied>> {
-        unavailable()
-    }
-    fn mark_irreversible(&mut self, marker: IrreversibleEntry) {
-        self.markers.push(marker);
-    }
-    fn record_exempt(&mut self, _w: ExemptWrite) {}
-    fn commit(self: Box<Self>) -> Result<OpHandle> {
-        unavailable()
-    }
-    fn rollback(self: Box<Self>, _r: RollbackReason) -> Result<RollbackReport> {
-        unavailable()
-    }
-}
-
-fn context() -> ExecCtx {
-    TestContext::new()
-        .with_process_host(Arc::new(StdProcess))
-        .ctx()
-}
-
-fn args(command: &str, values: &[(&str, Value)]) -> BoundArgs {
-    values
-        .iter()
-        .fold(BoundArgs::new(command), |args, (name, value)| {
-            args.with(*name, ArgValue::Value(value.clone()), false)
-        })
-}
-
-fn text(value: &str) -> Value {
-    Value::Text(value.to_owned())
-}
-
-fn word(value: &str) -> Value {
-    Value::Enum(value.to_owned())
-}
-
-fn shell(program: &str, arguments: &[&str]) -> String {
-    let output = Command::new(program)
-        .args(arguments)
-        .output()
-        .expect("program starts");
-    String::from_utf8_lossy(&output.stdout).into_owned()
-}
-
-/// Changes reported by a stage.
-struct Done {
-    changes: Vec<Change>,
-}
-
-fn run(stage: &dyn EffectStage, request: &BoundArgs, ctx: &ExecCtx) -> Done {
-    let input = StageInput {
-        data: StageData::None,
-        header: None,
-        order: None,
-        render: None,
-    };
-    let plan = stage.plan(request, input, ctx).expect("plan");
-    let mut tx = Tx::default();
-    let outcome = stage.apply(request, plan, &mut tx, ctx).expect("apply");
-    assert!(!tx.markers.is_empty() || outcome.changes.is_empty());
-    Done {
-        changes: outcome.changes,
-    }
-}
 
 struct Table;
 
@@ -350,4 +210,56 @@ fn time_zone_and_network_time_are_changed_and_restored() {
         &ctx,
     );
     assert_eq!(Clock::read().ntp, !original.ntp);
+}
+
+/// Restores `/etc/resolv.conf` and removes the interface used by the DNS test.
+struct Resolver {
+    file: Option<Vec<u8>>,
+}
+
+impl Drop for Resolver {
+    fn drop(&mut self) {
+        if let Some(content) = &self.file {
+            let _ = std::fs::write("/etc/resolv.conf", content);
+        }
+        let _ = Command::new("ip").args(["link", "delete", LINK]).output();
+    }
+}
+
+#[test]
+#[ignore = "needs root, iproute2 and a resolver (systemd-resolved or a plain resolv.conf) on the disposable Linux machine"]
+fn name_servers_are_set_and_the_previous_state_is_recorded() {
+    let plain =
+        std::fs::symlink_metadata("/etc/resolv.conf").is_ok_and(|meta| meta.file_type().is_file());
+    let _cleanup = Resolver {
+        file: plain.then(|| std::fs::read("/etc/resolv.conf").expect("resolv.conf")),
+    };
+    assert!(
+        Command::new("ip")
+            .args(["link", "add", LINK, "type", "dummy"])
+            .status()
+            .expect("ip")
+            .success()
+    );
+    let ctx = context();
+    let request = args(
+        "network.dns_set",
+        &[
+            ("servers", Value::List(vec![text("192.0.2.53")])),
+            ("interface", text(LINK)),
+        ],
+    );
+    let changed = run(&DnsSet, &request, &ctx);
+    assert_eq!(changed.changes.len(), 1);
+    let Some(Undo::Programs(programs)) = derive("network.dns_set", &changed.changes, &[]) else {
+        panic!("the name servers have an inverse");
+    };
+    assert_eq!(programs.len(), 1);
+    assert!(programs[0].starts_with("network.dns_set"));
+    let seen = if plain {
+        std::fs::read_to_string("/etc/resolv.conf").expect("resolv.conf")
+    } else {
+        shell("resolvectl", &["dns", LINK])
+    };
+    assert!(seen.contains("192.0.2.53"), "{seen}");
 }
