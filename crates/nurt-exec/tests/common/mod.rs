@@ -46,12 +46,12 @@ pub(crate) fn descriptor(command: &str, source: bool, input: InputKinds) -> Stag
 
 pub(crate) fn entry(path: &str, size: i64) -> Record {
     Record::new(RecordKind::Entry)
-        .with("path", Value::Path(path.to_owned()))
+        .with("path", Value::Path(nurt_testkit::paths::abs(path)))
         .with("size", Value::Int(size))
 }
 
 pub(crate) fn finding(path: &str) -> Record {
-    Record::new(RecordKind::Finding).with("path", Value::Path(path.to_owned()))
+    Record::new(RecordKind::Finding).with("path", Value::Path(nurt_testkit::paths::abs(path)))
 }
 
 pub(crate) fn path_of(record: &Record) -> String {
@@ -255,7 +255,7 @@ impl EffectStage for FileEffect {
         let ops = targets
             .into_iter()
             .map(|(path, etag)| {
-                let content = format!("written {}", path.as_path().display()).into_bytes();
+                let content = format!("written {path}").into_bytes();
                 match self.action {
                     Action::Write => FileOp::write(path, content),
                     Action::Remove => FileOp::remove(path),

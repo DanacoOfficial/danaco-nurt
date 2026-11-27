@@ -67,7 +67,10 @@ fn sized_entries(world: &World, count: u64) -> Vec<Record> {
     (0..count)
         .map(|n| {
             Record::new(RecordKind::Entry)
-                .with("path", Value::Path(format!("/srv/app/f{n}.go")))
+                .with(
+                    "path",
+                    Value::Path(nurt_testkit::paths::abs(&format!("/srv/app/f{n}.go"))),
+                )
                 .with(
                     "size",
                     Value::Size(nurt_contracts::value::Size::from_bytes(n * MEGABYTE / 10)),
@@ -118,7 +121,12 @@ fn computes_a_named_result_once() {
 fn temporary_files(world: &World) -> Vec<Record> {
     ["a.tmp", "b.tmp", "c.tmp"]
         .into_iter()
-        .map(|name| Record::new(RecordKind::Entry).with("path", Value::Path(world.file(name))))
+        .map(|name| {
+            Record::new(RecordKind::Entry).with(
+                "path",
+                Value::Path(nurt_testkit::paths::abs(&world.file(name))),
+            )
+        })
         .collect()
 }
 

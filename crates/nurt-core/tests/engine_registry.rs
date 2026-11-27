@@ -57,7 +57,7 @@ impl ReadStage for Probe {
     ) -> Result<StageOutput<'a>> {
         let present = ctx.extensions().get::<dyn RegistryAccess>().is_some();
         let record = Record::new(RecordKind::Entry)
-            .with("path", Value::Path("/data/a.log".to_owned()))
+            .with("path", Value::Path(nurt_testkit::paths::abs("/data/a.log")))
             .with("registry", Value::Bool(present));
         Ok(StageOutput::records(RecordStream::from_records(vec![
             record,

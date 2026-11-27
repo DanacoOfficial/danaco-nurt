@@ -59,7 +59,7 @@ fn descriptor(command: &str, source: bool, input: InputKinds) -> StageDescriptor
 
 fn entry(path: &str, size: i64) -> Record {
     Record::new(RecordKind::Entry)
-        .with("path", Value::Path(path.to_owned()))
+        .with("path", Value::Path(nurt_testkit::paths::abs(path)))
         .with("size", Value::Int(size))
 }
 
@@ -646,7 +646,8 @@ fn writes_many_targets_in_one_transaction() {
     let steps: Vec<ExecStep> = operation.timings.iter().map(|timing| timing.step).collect();
     assert_eq!(steps, [ExecStep::Plan, ExecStep::Apply]);
     for file in &files {
-        assert_eq!(world.content(file), format!("written {file}").into_bytes());
+        let written = format!("written {}", nurt_testkit::paths::abs(file));
+        assert_eq!(world.content(file), written.into_bytes());
     }
 }
 
@@ -778,7 +779,8 @@ fn passing_verification_keeps_the_effect() {
     );
     assert!(outcome.is_ok(), "{:?}", outcome.error);
     assert_eq!(outcome.status, ReportStatus::Ok);
-    assert_eq!(world.content(&file), format!("written {file}").into_bytes());
+    let written = format!("written {}", nurt_testkit::paths::abs(&file));
+    assert_eq!(world.content(&file), written.into_bytes());
     let steps: Vec<ExecStep> = outcome
         .last()
         .unwrap()

@@ -69,7 +69,7 @@ impl ReadStage for Find {
         let fs = ctx.require_fs()?;
         let mut records = Vec::new();
         for (path, _) in FILES {
-            let abs = AbsPath::new(path)?;
+            let abs = AbsPath::for_test(path);
             let size = fs
                 .metadata(&abs, nurt_contracts::fs::Follow::NoFollow)
                 .ok()
@@ -77,7 +77,7 @@ impl ReadStage for Find {
             if let Some(size) = size {
                 records.push(
                     Record::new(RecordKind::Entry)
-                        .with("path", Value::Path(path.to_owned()))
+                        .with("path", Value::Path(abs.to_language_string()))
                         .with("size", Value::Int(size)),
                 );
             }
@@ -210,7 +210,7 @@ pub(crate) const PROGRAM_HASH: &str =
 pub(crate) fn find_stage() -> serde_json::Value {
     json!({
         "t": "stage", "name": "find", "effect": "read", "phase": "source",
-        "args": [{"name": "path", "value": {"t": "path", "v": "/data"}}]
+        "args": [{"name": "path", "value": {"t": "path", "v": nurt_testkit::paths::abs("/data")}}]
     })
 }
 

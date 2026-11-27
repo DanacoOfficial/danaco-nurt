@@ -74,7 +74,10 @@ fn applies_a_mixed_stream_in_one_transaction() {
     assert_eq!(world.journal.committed().len(), 1);
     for file in ["a.txt", "b.txt", "c.txt", "d.txt"] {
         let path = format!("/data/{file}");
-        assert_eq!(world.content(&path), format!("written {path}").into_bytes());
+        assert_eq!(
+            world.content(&path),
+            format!("written {}", nurt_testkit::paths::abs(&path)).into_bytes()
+        );
     }
     let operation = outcome.last().unwrap();
     let effect = operation.effect.as_ref().unwrap();
@@ -265,10 +268,10 @@ fn joins_the_outputs_of_a_read_stage_by_kind() {
     assert_eq!(
         seen,
         [
-            ("/data/a".to_owned(), Some("entry")),
-            ("/data/c".to_owned(), Some("entry")),
-            ("/data/b".to_owned(), Some("finding")),
-            ("/data/d".to_owned(), Some("finding")),
+            (nurt_testkit::paths::abs("/data/a"), Some("entry")),
+            (nurt_testkit::paths::abs("/data/c"), Some("entry")),
+            (nurt_testkit::paths::abs("/data/b"), Some("finding")),
+            (nurt_testkit::paths::abs("/data/d"), Some("finding")),
         ]
     );
 }

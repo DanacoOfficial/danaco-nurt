@@ -50,7 +50,7 @@ fn bound_find() -> BoundDocument {
         "program": {"statements": [{
             "t": "pipeline",
             "head": {"t": "stage", "name": "find", "effect": "read", "phase": "source", "args": [
-                {"name": "path", "value": {"t": "path", "v": "/srv"}}
+                {"name": "path", "value": {"t": "path", "v": nurt_testkit::paths::abs("/srv")}}
             ]},
             "stages": []
         }]}
@@ -521,7 +521,7 @@ fn check_plans_the_bound_program() {
     let report = h.engine.check(&Request::program(FIND)).unwrap();
     assert_eq!(report.bound, bound_find());
     assert_eq!(report.summary.effect, EffectKind::Read);
-    assert_eq!(report.summary.paths, vec!["/srv".to_owned()]);
+    assert_eq!(report.summary.paths, vec![nurt_testkit::paths::abs("/srv")]);
     let from_tree = h.engine.check(&Request::ast(ast())).unwrap();
     assert_eq!(from_tree.bound, report.bound);
     assert_eq!(from_tree.summary, report.summary);

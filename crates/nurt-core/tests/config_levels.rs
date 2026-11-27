@@ -67,7 +67,8 @@ impl Setup {
 
     fn trust(&self) -> String {
         format!(
-            "[scope]\ntrusted_projects = [\"{}\"]\n",
+            // A literal TOML string keeps a Windows path as written.
+            "[scope]\ntrusted_projects = ['{}']\n",
             self.project.display()
         )
     }
