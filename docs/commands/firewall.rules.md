@@ -1,6 +1,6 @@
 ---
 command: firewall.rules
-group: admin
+group: administration
 summary: List the rules of the firewall with their action, protocol, port, source, direction and zone.
 since: 0.1.1
 ---

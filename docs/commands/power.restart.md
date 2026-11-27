@@ -1,6 +1,6 @@
 ---
 command: power.restart
-group: admin
+group: administration
 summary: Restart the system now or at a given time.
 since: 0.1.1
 ---

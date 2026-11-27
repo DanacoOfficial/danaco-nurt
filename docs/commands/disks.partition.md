@@ -1,6 +1,6 @@
 ---
 command: disks.partition
-group: admin
+group: administration
 summary: Create, delete or resize a partition.
 since: 0.1.1
 ---

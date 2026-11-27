@@ -3,7 +3,7 @@
 # https://github.com/DanacoOfficial | support@danaco-group.pl
 
 format = "nurt-catalog/1"
-group = "admin"
+group = "administration"
 summary = "System services, the registry provider, CIM, the firewall, routes, DNS and the clock."
 
 [[command]]

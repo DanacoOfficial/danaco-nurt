@@ -1,6 +1,6 @@
 ---
 command: unmount
-group: admin
+group: administration
 summary: Unmount a mount point.
 since: 0.1.1
 ---

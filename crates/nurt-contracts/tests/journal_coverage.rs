@@ -32,7 +32,7 @@ const GROUPS: &[&str] = &[
     "git",
     "archive",
     "system",
-    "admin",
+    "administration",
     "package",
     "network",
     "schedule",

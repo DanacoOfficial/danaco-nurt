@@ -1,6 +1,6 @@
 ---
 command: windows.cim
-group: admin
+group: administration
 summary: Query CIM instances through WMI on Windows, or call a method of the selected instances with invoke.
 since: 0.1.0
 ---
@@ -122,7 +122,7 @@ windows.cim "Win32_Service" where: "Name = 'Spooler'" invoke: "StopService" priv
 Start a process through the static method of the class.
 
 ```nurt example
-windows.cim "Win32_Process" invoke: "Create" arguments: {CommandLine: "notepad.exe"} privilege: elevated
+windows.cim "Win32_Process" invoke: "Create" arguments: {"CommandLine": "notepad.exe"} privilege: elevated
 ```
 
 ## Errors

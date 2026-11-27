@@ -69,7 +69,7 @@ const GROUPS: [&str; 14] = [
     "git",
     "archive",
     "system",
-    "admin",
+    "administration",
     "package",
     "network",
     "schedule",

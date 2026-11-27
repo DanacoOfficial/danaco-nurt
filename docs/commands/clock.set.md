@@ -1,6 +1,6 @@
 ---
 command: clock.set
-group: admin
+group: administration
 summary: Set the date and time of the clock.
 since: 0.1.1
 ---

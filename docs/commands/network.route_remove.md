@@ -1,6 +1,6 @@
 ---
 command: network.route_remove
-group: admin
+group: administration
 summary: Remove the routes that match a destination, next hop, interface and metric.
 since: 0.1.1
 ---

@@ -1,6 +1,6 @@
 ---
 command: network.route_add
-group: admin
+group: administration
 summary: Add a route to the routing table.
 since: 0.1.1
 ---

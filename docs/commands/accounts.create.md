@@ -1,6 +1,6 @@
 ---
 command: accounts.create
-group: admin
+group: administration
 summary: Create a user account.
 since: 0.1.1
 ---

@@ -1,6 +1,6 @@
 ---
 command: firewall.allow
-group: admin
+group: administration
 summary: Allow traffic on a port.
 since: 0.1.1
 ---

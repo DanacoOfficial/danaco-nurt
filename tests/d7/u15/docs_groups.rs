@@ -17,7 +17,12 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 const GROUPS: [&str; 6] = [
-    "system", "admin", "package", "network", "schedule", "program",
+    "system",
+    "administration",
+    "package",
+    "network",
+    "schedule",
+    "program",
 ];
 
 const COMMANDS_DOCUMENTED_ELSEWHERE: [&str; 2] = ["suspend", "resume"];

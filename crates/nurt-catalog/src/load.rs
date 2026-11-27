@@ -42,7 +42,7 @@ const EMBEDDED_FILES: &[(&str, &str)] = &[
     embedded_catalog_file!("archive.toml"),
     embedded_catalog_file!("network.toml"),
     embedded_catalog_file!("system.toml"),
-    embedded_catalog_file!("admin.toml"),
+    embedded_catalog_file!("administration.toml"),
     embedded_catalog_file!("schedule.toml"),
     embedded_catalog_file!("program.toml"),
     embedded_catalog_file!("journal.toml"),

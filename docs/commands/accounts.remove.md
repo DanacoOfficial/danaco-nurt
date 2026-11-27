@@ -1,6 +1,6 @@
 ---
 command: accounts.remove
-group: admin
+group: administration
 summary: Remove a user account.
 since: 0.1.1
 ---

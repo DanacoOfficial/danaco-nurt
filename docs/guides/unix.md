@@ -47,3 +47,27 @@ Linux file systems distinguish names that differ only in case. The default volum
 ```nurt
 create "/srv/app/current" type: link target: "/srv/app/release-12"
 ```
+
+## Named pipes and device files
+
+`create` with `type: fifo` makes a named pipe, and `type: device` makes a device node. Both are available on Linux and macOS; on Windows they fail with `E_OS_ONLY`, and the message of `fifo` names the `\\.\pipe\` namespace of Windows named pipes. `mode` is octal text (default `"0666"`, reduced by the umask). A device node also takes `kind: char` or `kind: block`, `major` and `minor`, and it needs `privilege: elevated`; without the rights the call fails with `E_PRIVILEGE`.
+
+```nurt
+create "/srv/app/events.fifo" type: fifo mode: "0660"
+create "/dev/app0" type: device kind: char major: 1 minor: 3 privilege: elevated
+```
+
+Both are journaled as created files, so `undo` removes them. `info` and `list` report `type: fifo` and `type: device`; a device node also has `major` and `minor`. The parameters `kind`, `major`, `minor` and `mode` conflict with other types (`E_PARAM_CONFLICT`), a device without `kind`, `major` or `minor` is `E_MISSING_PARAM`, and a number outside 0..4294967295 or a mode that is not octal is `E_INVALID_VALUE`.
+
+## Conditions and several changes
+
+A script that adapts to the system uses `when` and `exists`, and writes the changes of one task with `steps`, so that a failure in a later step restores the earlier ones. The constructs are described in [language](../site/language.md); the commands that administer accounts, mounts, kernel parameters, the firewall, the network, the clock and power are in [administration](administration.md).
+
+```nurt
+when exists "/etc/nginx/nginx.conf" {
+    steps {
+        replace /worker_processes \d+;/ "worker_processes 4;" in: "/etc/nginx/nginx.conf" expect: 1 privilege: elevated
+        services name: "nginx" |> restart privilege: elevated
+    }
+}
+```

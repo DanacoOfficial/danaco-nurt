@@ -1030,7 +1030,7 @@ fn launchd_rejects_labels_that_are_not_labels() {
 #[test]
 fn launchd_stage_spec_external_marks_launchctl_x() {
     let path = format!(
-        "{}/../../catalog/admin.toml",
+        "{}/../../catalog/administration.toml",
         std::env::var("CARGO_MANIFEST_DIR")
             .as_deref()
             .unwrap_or(env!("CARGO_MANIFEST_DIR"))

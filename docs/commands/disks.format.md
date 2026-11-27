@@ -1,6 +1,6 @@
 ---
 command: disks.format
-group: admin
+group: administration
 summary: Create a file system on a device.
 since: 0.1.1
 ---

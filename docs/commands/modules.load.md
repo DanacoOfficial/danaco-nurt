@@ -1,6 +1,6 @@
 ---
 command: modules.load
-group: admin
+group: administration
 summary: Load a kernel module.
 since: 0.1.1
 ---

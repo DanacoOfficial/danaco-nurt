@@ -1,6 +1,6 @@
 ---
 command: services
-group: admin
+group: administration
 summary: List system or user services with their state and start type.
 since: 0.1.0
 ---
@@ -120,5 +120,5 @@ matched 230  shown 50  more: next
 ## Related
 
 `start`, `restart`, `enable` and `disable` act on the records of `services`;
-`stop` stops them. `logs unit:` shows the log of a service. The `admin` group
+`stop` stops them. `logs unit:` shows the log of a service. The `administration` group
 page lists the other commands of the group.

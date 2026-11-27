@@ -1,6 +1,6 @@
 ---
 command: power.cancel
-group: admin
+group: administration
 summary: Cancel a scheduled restart or shutdown.
 since: 0.1.1
 ---
