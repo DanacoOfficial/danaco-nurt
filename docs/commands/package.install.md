@@ -28,9 +28,7 @@ The command needs the privilege of the manager. apt, dnf, pacman and zypper need
 
 A non-zero exit code of the manager ends the command with `E_STAGE_FAILED` and the end of its error output. The effect is reported as executed in that case, because the manager may have changed packages before it failed.
 
-## Privilege
-
-apt, dnf, pacman and zypper need the administrator. Write `privilege: elevated` on the stage to run the command through an elevation backend; without it the command fails with `E_PRIVILEGE`.
+**Privilege.** apt, dnf, pacman and zypper need the administrator. Write `privilege: elevated` on the stage to run the command through an elevation backend; without it the command fails with `E_PRIVILEGE`.
 
 ```nurt
 package.install ["jq"] privilege: elevated

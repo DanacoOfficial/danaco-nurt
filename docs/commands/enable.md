@@ -31,9 +31,7 @@ service the operation is marked irreversible with `service_changed` before
 the manager is asked to act. Services are processed in input order; an error
 stops the processing of the remaining services.
 
-## Privilege
-
-System units need the administrator: write `privilege: elevated` on the stage. `undo` of the entry disables the services again, when their start type before was `disabled`.
+**Privilege.** System units need the administrator: write `privilege: elevated` on the stage. `undo` of the entry disables the services again, when their start type before was `disabled`.
 
 ```nurt
 services name: "cron" |> enable privilege: elevated

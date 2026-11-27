@@ -31,9 +31,7 @@ commands, selected by the record kind of the input.
 On Windows `terminate`, `interrupt` and `hangup` request the end of the
 console program group; `kill` ends the job object.
 
-## Privilege
-
-System units need the administrator: write `privilege: elevated` on the stage. `undo` of the entry starts the services that the command stopped; stopping a process or a job is irreversible.
+**Privilege.** System units need the administrator: write `privilege: elevated` on the stage. `undo` of the entry starts the services that the command stopped; stopping a process or a job is irreversible.
 
 ```nurt
 services name: "nginx" |> stop privilege: elevated

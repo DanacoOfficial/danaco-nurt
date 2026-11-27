@@ -23,7 +23,12 @@ use crate::elevation::{
     ElevatedReference, Mark, REASON_AUTO, REASON_REFERENCE, as_user_unsupported, backends_of,
     disabled_error, refused_error, system_of, system_state_dir,
 };
-use crate::engine::{Engine, Prepared, failed_report, input_kind, request_config, respond_with};
+use crate::engine::{Engine, Prepared, failed_report, input_kind, respond_with};
+use crate::frontend::Compiled;
+
+/// Result of the compilation of a request, made once by [`Engine::route`] and
+/// reused by the run in this process.
+pub(crate) type Early = Result<Compiled, Error>;
 
 /// Time allowed to a backend beyond the time limit of the request.
 const BACKEND_GRACE: Duration = Duration::from_secs(30);
@@ -36,11 +41,22 @@ impl Engine {
         cancel: &CancelToken,
         events: Option<Arc<dyn EventSink>>,
     ) -> Response {
+        self.route_early(request, cancel, events, None)
+    }
+
+    fn route_early(
+        &self,
+        request: &Request,
+        cancel: &CancelToken,
+        events: Option<Arc<dyn EventSink>>,
+        early: Option<Early>,
+    ) -> Response {
         let Ok(prepared) = self.prepare(request) else {
-            return self.execute_local(request, cancel, events, None);
+            return self.execute_local(request, cancel, events, None, None);
         };
-        if let Some(forced) = self.with_stage_call(request, &prepared) {
-            return self.route(&forced, cancel, events);
+        let early = early.or_else(|| self.compile_early(request, &prepared));
+        if let Some(forced) = self.with_stage_call(request, &prepared, early.as_ref()) {
+            return self.route_early(&forced, cancel, events, early);
         }
         let privilege = prepared.options.effective_privilege();
         let pages = matches!(
@@ -48,17 +64,24 @@ impl Engine {
             Ok(RequestInput::Cursor(_) | RequestInput::Accept(_))
         );
         if privilege == Privilege::Account || pages {
-            return self.execute_local(request, cancel, events, None);
+            return self.execute_local(request, cancel, events, None, early);
         }
         if !prepared.config.config().privilege.allowed {
             return refusal(request, &prepared, disabled_error());
         }
         if privilege == Privilege::Auto {
-            let first = self.execute_local(request, cancel, events.clone(), None);
+            let first = self.execute_local(request, cancel, events.clone(), None, early.clone());
             if !denied(&first.report) {
                 return first;
             }
-            return match self.run_elevated(request, &prepared, Some(REASON_AUTO), cancel, events) {
+            return match self.run_elevated(
+                request,
+                &prepared,
+                Some(REASON_AUTO),
+                cancel,
+                events,
+                early,
+            ) {
                 Ok(response) => response,
                 Err(error) => {
                     let cause = first.report.error.clone();
@@ -67,9 +90,21 @@ impl Engine {
                 }
             };
         }
-        match self.run_elevated(request, &prepared, None, cancel, events) {
+        match self.run_elevated(request, &prepared, None, cancel, events, early) {
             Ok(response) => response,
             Err(error) => refusal(request, &prepared, error),
+        }
+    }
+
+    /// Compiles the program of a request once; `None` for a request that
+    /// reads a page or accepts a candidate.
+    fn compile_early(&self, request: &Request, prepared: &Prepared) -> Option<Early> {
+        match request.input() {
+            Ok(RequestInput::Program { text, variant }) => {
+                Some(self.compile(text, variant, prepared))
+            }
+            Ok(RequestInput::Ast(document)) => Some(self.bind(document, prepared)),
+            _ => None,
         }
     }
 
@@ -98,7 +133,7 @@ impl Engine {
             as_user,
             reason: None,
         };
-        self.execute_local(request, &CancelToken::new(), None, Some(mark))
+        self.execute_local(request, &CancelToken::new(), None, Some(mark), None)
     }
 
     /// The references that this account keeps to entries of the system
@@ -136,6 +171,7 @@ impl Engine {
         reason: Option<&'static str>,
         cancel: &CancelToken,
         events: Option<Arc<dyn EventSink>>,
+        early: Option<Early>,
     ) -> Result<Response, Error> {
         let system = system_of(self.inner.host.info().os);
         let as_user = prepared.options.as_user.clone();
@@ -156,7 +192,7 @@ impl Engine {
                         as_user: None,
                         reason,
                     };
-                    return Ok(self.execute_local(request, cancel, events, Some(mark)));
+                    return Ok(self.execute_local(request, cancel, events, Some(mark), early));
                 } else {
                     attempts.push((backend, Refusal::NotAdministrator));
                 }
@@ -165,7 +201,7 @@ impl Engine {
             if payload.is_none() {
                 match self.elevated_payload(request, prepared) {
                     Some(built) => payload = Some(built),
-                    None => return Ok(self.execute_local(request, cancel, events, None)),
+                    None => return Ok(self.execute_local(request, cancel, events, None, early)),
                 }
             }
             let Some((bytes, corrections, ran)) = &payload else {
@@ -285,15 +321,9 @@ impl Engine {
         &self,
         request: &Request,
         prepared: &Prepared,
+        early: Option<&Early>,
     ) -> Option<Request> {
-        let config = request_config(prepared);
-        let compiled = match request.input().ok()? {
-            RequestInput::Program { text, variant } => {
-                self.inner.frontend.compile(text, variant, &config).ok()?
-            }
-            RequestInput::Ast(document) => self.bind(document, prepared).ok()?,
-            _ => return None,
-        };
+        let compiled = early?.as_ref().ok()?;
         let (privilege, as_user) = stage_call(&compiled.bound);
         let mut options = prepared.options.clone();
         if let Some(privilege) = privilege {
@@ -335,7 +365,14 @@ impl Engine {
             timeout: prepared.timeout,
             elevation: None,
         };
-        match self.run_elevated(request, &forced, Some(REASON_REFERENCE), cancel, events) {
+        match self.run_elevated(
+            request,
+            &forced,
+            Some(REASON_REFERENCE),
+            cancel,
+            events,
+            None,
+        ) {
             Ok(response) => response,
             Err(error) => refusal(request, prepared, error),
         }

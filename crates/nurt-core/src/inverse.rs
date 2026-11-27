@@ -288,8 +288,13 @@ impl Engine {
         let mut last = None;
         for program in &entry.programs {
             let inner = Request::program(program.clone()).with_options(request.options.clone());
-            let response =
-                self.execute_local(&inner, cancel, events.clone(), prepared.elevation.clone());
+            let response = self.execute_local(
+                &inner,
+                cancel,
+                events.clone(),
+                prepared.elevation.clone(),
+                None,
+            );
             if response.report.status != ReportStatus::Ok
                 && response.report.status != ReportStatus::Planned
             {

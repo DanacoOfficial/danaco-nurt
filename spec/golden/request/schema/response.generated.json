@@ -79,6 +79,13 @@
             "null"
           ]
         },
+        "elevation_reason": {
+          "description": "Why the operation was elevated without being asked to: `permission_denied`\nwhen `privilege: auto` repeated the stage after a denial, or\n`system_journal_entry` when `undo` reached an elevated entry.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "ran": {
           "description": "Canonical text of the program that ran; present only when corrections\nwere applied.",
           "type": [

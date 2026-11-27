@@ -172,9 +172,7 @@ continues in the background. The command emits no `exec.started` or
 `exec.finished`: these events enclose the whole program and come from the
 engine.
 
-## Privilege
-
-`privilege: elevated` runs the program with the rights of the administrator, `as_user: "NAME"` as another account; `sudo`, `doas` and `run0` are not written in the argument list (a list that starts with `sudo` is corrected into the same `run` with `privilege: elevated`). The files that the program changes are reported, but they are not preserved: the entry is irreversible, and the report says so before the change.
+**Privilege.** `privilege: elevated` runs the program with the rights of the administrator, `as_user: "NAME"` as another account; `sudo`, `doas` and `run0` are not written in the argument list (a list that starts with `sudo` is corrected into the same `run` with `privilege: elevated`). The files that the program changes are reported, but they are not preserved: the entry is irreversible, and the report says so before the change.
 
 ```nurt
 run ["systemctl", "daemon-reload"] cwd: "/" privilege: elevated

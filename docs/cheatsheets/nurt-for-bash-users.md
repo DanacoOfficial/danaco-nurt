@@ -98,4 +98,4 @@ The paths are those of a Linux host, and the call parameter `base` is `/home/use
 |---|---|---|---|
 | B22 | `mkdir /home/user/out && cp /home/user/a.txt /home/user/out` | `create "/home/user/out" type: directory parents: false` | error with fix: two changing commands are not run in one program; the fix is one call per change, this is the first |
 | B25 | `rm -rf "$BUILD"/*` | `find "/home/user/app/build" glob: "*" depth: 1 \|> remove` | error without fix: there are no variables in text; write the directory |
-| B28 | `sudo systemctl restart nginx` | `services name: "nginx" \|> restart privilege: elevated` | corrected; `sudo -u NAME` gives `as_user: "NAME"`; `sudo -i` and `su` are `E_AMBIGUOUS` |
+| B28 | `sudo systemctl restart nginx` | `services name: "nginx" \|> restart privilege: elevated` | corrected automatically: the program runs with the call parameter privilege: elevated; sudo -u NAME gives as_user |

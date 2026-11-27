@@ -31,9 +31,7 @@ is asked to act, so the effect is reported even when the wait fails. Services
 are processed in input order; an error stops the processing of the remaining
 services.
 
-## Privilege
-
-System units need the administrator: write `privilege: elevated` on the stage. A restart has no inverse and is reported as irreversible.
+**Privilege.** System units need the administrator: write `privilege: elevated` on the stage. A restart has no inverse and is reported as irreversible.
 
 ```nurt
 services name: "nginx" |> restart privilege: elevated

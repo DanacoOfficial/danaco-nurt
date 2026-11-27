@@ -12,6 +12,7 @@
 
 use std::collections::HashSet;
 
+use nurt_contracts::bound::STAGE_CALL_PARAMETERS;
 use nurt_contracts::spec::{ParamSpec, ParamType, ScalarType, StageSpec};
 
 use crate::catalog::Catalog;
@@ -554,6 +555,7 @@ impl Binder<'_> {
             let param = match &arg.name {
                 Some(name) => match spec.param(name) {
                     Some(param) => Some(param),
+                    None if STAGE_CALL_PARAMETERS.contains(&name.as_str()) => continue,
                     None => {
                         self.unknown_named(spec, name);
                         continue;

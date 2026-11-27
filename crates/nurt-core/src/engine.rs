@@ -64,6 +64,7 @@ use serde_json::{Value as Json, json};
 use crate::candidates::CandidateStore;
 use crate::config::{ConfigLoader, ConfigSources, LoadedConfig};
 use crate::cursor::{CursorStore, ProgramRef};
+use crate::elevated::Early;
 use crate::elevation::{Mark, ReferenceLog, Setup};
 use crate::error::{EngineError, envelope_error, unavailable};
 use crate::events::{EventListener, Sequencer};
@@ -1080,6 +1081,7 @@ impl Engine {
         cancel: &CancelToken,
         events: Option<Arc<dyn EventSink>>,
         mark: Option<Mark>,
+        early: Option<Early>,
     ) -> Response {
         let started = self.inner.clock.monotonic();
         let prepared = match self.prepare(request) {
@@ -1095,8 +1097,12 @@ impl Engine {
         let compiled = match request.input() {
             Ok(RequestInput::Cursor(cursor)) => return self.read_page(cursor, &prepared),
             Ok(RequestInput::Accept(reference)) => self.accept(reference, &prepared),
-            Ok(RequestInput::Program { text, variant }) => self.compile(text, variant, &prepared),
-            Ok(RequestInput::Ast(document)) => self.bind(document, &prepared),
+            Ok(RequestInput::Program { text, variant }) => {
+                early.unwrap_or_else(|| self.compile(text, variant, &prepared))
+            }
+            Ok(RequestInput::Ast(document)) => {
+                early.unwrap_or_else(|| self.bind(document, &prepared))
+            }
             Ok(_) => Err(Error::new(ErrorCode::Arg, "unsupported request input")),
             Err(error) => Err(envelope_error(&error, request)),
         };
@@ -1319,7 +1325,7 @@ impl Engine {
         respond_with(&report, &prepared.options)
     }
 
-    fn compile(
+    pub(crate) fn compile(
         &self,
         text: &str,
         variant: Option<SyntaxVariant>,
