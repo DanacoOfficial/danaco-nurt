@@ -961,3 +961,133 @@ fn a_function_does_not_see_the_exit_code_of_its_caller() {
     );
     assert!(world.read("out").is_none());
 }
+
+#[test]
+fn nested_atomic_false_loops_keep_the_outer_savepoint() {
+    let world = world();
+    for name in ["a", "b"] {
+        world.put(&format!("src/{name}.log"), name);
+        world.put(&format!("in/{name}.txt"), name);
+    }
+    let before = world.snapshot();
+    let response = world.run(&format!(
+        "each (find \"{src}\" glob: \"*.log\") as a atomic: false {{\n    write \"{mark}\" a.name mode: overwrite\n    each (find \"{inner}\" glob: \"*.txt\") as b atomic: false {{\n        copy b.path into: \"{dst}\"\n    }}\n    copy \"{missing}\" into: \"{dst}\"\n}}\n",
+        src = world.at("src"),
+        mark = world.at("mark"),
+        inner = world.at("in"),
+        dst = world.at("dst"),
+        missing = world.at("missing"),
+    ));
+    assert_ne!(response.report.status, ReportStatus::Ok);
+    assert_eq!(
+        world.snapshot(),
+        before,
+        "the failed outer iteration is wholly restored"
+    );
+}
+
+#[test]
+fn a_rolled_back_move_is_restored_once_and_the_loop_keeps_the_earlier_iterations() {
+    let world = world();
+    for name in ["a", "b", "c"] {
+        world.put(&format!("src/{name}.log"), name);
+    }
+    world.put("dst/c.log", "old");
+    let response = world.run(&format!(
+        "each (find \"{src}\" glob: \"*.log\" sort: path) as f atomic: false {{\n    move f.path into: \"{dst}\" on_conflict: error\n}}\n",
+        src = world.at("src"),
+        dst = world.at("dst"),
+    ));
+    assert_eq!(
+        response.report.status,
+        ReportStatus::Partial,
+        "{:?}",
+        response.report.error
+    );
+    assert_eq!(world.read("dst/a.log").as_deref(), Some("a"));
+    assert_eq!(world.read("dst/b.log").as_deref(), Some("b"));
+    assert_eq!(world.read("src/c.log").as_deref(), Some("c"));
+    assert_eq!(world.read("dst/c.log").as_deref(), Some("old"));
+    assert_ok(&world.run("undo"));
+    assert_eq!(world.read("src/a.log").as_deref(), Some("a"));
+    assert_eq!(world.read("src/b.log").as_deref(), Some("b"));
+    assert!(world.read("dst/a.log").is_none());
+}
+
+#[test]
+fn a_loop_that_is_not_atomic_followed_by_a_failing_step_is_restored_whole() {
+    let world = world();
+    for name in ["a", "b"] {
+        world.put(&format!("src/{name}.log"), name);
+    }
+    let before = world.snapshot();
+    let response = world.run(&format!(
+        "steps {{\n    each (find \"{src}\" glob: \"*.log\") as f atomic: false {{\n        move f.path into: \"{dst}\"\n    }}\n    copy \"{missing}\" into: \"{dst}\"\n}}\n",
+        src = world.at("src"),
+        dst = world.at("dst"),
+        missing = world.at("missing"),
+    ));
+    assert_eq!(
+        response.report.status,
+        ReportStatus::RolledBack,
+        "{:?}",
+        response.report.error
+    );
+    assert_eq!(world.snapshot(), before);
+}
+
+#[test]
+fn a_field_of_the_loop_record_that_is_not_bool_is_refused_before_any_effect() {
+    let world = world();
+    world.put("src/a.log", "a");
+    let response = world.run(&format!(
+        "steps {{\n    write \"{out}\" \"x\" mode: overwrite\n    each (find \"{src}\") as f {{\n        when f.size {{\n            remove f.path\n        }}\n    }}\n}}\n",
+        out = world.at("out"),
+        src = world.at("src"),
+    ));
+    assert_eq!(code(&response), Some(ErrorCode::Type));
+    assert!(world.read("out").is_none());
+}
+
+#[test]
+fn an_effect_picked_by_a_value_that_is_not_a_literal_is_refused_in_a_condition() {
+    let world = world();
+    let response = world.run(
+        "params {\n    m: text = \"post\"\n}\nwhen ((http.request \"https://example.invalid/\" method: @m) |> first 1).status == 200 {\n    find \"/\"\n}\n",
+    );
+    assert_eq!(
+        code(&response),
+        Some(ErrorCode::Type),
+        "{:?}",
+        response.report.error
+    );
+}
+
+#[test]
+fn parallel_treats_a_path_and_its_descendant_as_overlapping_between_other_names() {
+    let world = world();
+    for name in ["1", "2", "3"] {
+        world.put(&format!("src/{name}.log"), name);
+    }
+    world.put("t/a/old", "o");
+    world.put("t/a.log", "l");
+    let response = world.run(&format!(
+        "each (find \"{src}\" glob: \"*.log\" sort: path) as f parallel: 3 {{\n    when f.name == \"1.log\" {{\n        remove \"{a}\"\n    }}\n    when f.name == \"2.log\" {{\n        write \"{log}\" \"n\" mode: overwrite\n    }}\n    when f.name == \"3.log\" {{\n        write \"{x}\" \"n\" mode: overwrite\n    }}\n}}\n",
+        src = world.at("src"),
+        a = world.at("t/a"),
+        log = world.at("t/a.log"),
+        x = world.at("t/a/x"),
+    ));
+    let note = response
+        .report
+        .parts
+        .iter()
+        .find(|part| part.kind == "loop")
+        .and_then(|part| part.note.clone())
+        .unwrap_or_default();
+    assert!(
+        note.contains("overlap"),
+        "{note}\n{:?}",
+        response.report.error
+    );
+}
