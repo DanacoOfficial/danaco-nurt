@@ -235,7 +235,7 @@ fn journal_fs(
     account: Option<&crate::elevation::AccountJournal>,
     _state_root: &Path,
 ) -> Arc<dyn FsWrite> {
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     if let Some(account) = account
         && let Ok(state_dir) = AbsPath::new(account.state_dir.clone())
     {

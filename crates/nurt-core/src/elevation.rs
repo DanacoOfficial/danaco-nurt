@@ -316,7 +316,7 @@ pub struct ElevatedEnvelope {
 ///
 /// Returns the reason in words.
 pub fn verify_owner(owner: &ElevatedOwner, backend_uid: Option<u32>) -> Result<(), String> {
-    if !cfg!(target_os = "linux") {
+    if !cfg!(unix) {
         return Err(
             "the journal of the account cannot be written by an elevated process on this system"
                 .to_owned(),
@@ -433,7 +433,7 @@ mod tests {
         assert!(!error.next_steps.is_empty());
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     #[test]
     fn an_owner_must_own_its_state_directory_and_match_the_backend() {
         let dir = tempfile::tempdir().unwrap();
