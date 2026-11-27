@@ -47,6 +47,10 @@ const SPACE_PROBE: usize = 64 << 20;
 /// Least decrease of free space accepted after writing [`SPACE_PROBE`]; the
 /// margin covers concurrent writers on a shared volume.
 const SPACE_TOLERANCE: u64 = 48 << 20;
+/// Readings of the free space taken after one probe before the next probe is written.
+const SPACE_POLLS: usize = 32;
+/// Pause between two readings of the free space.
+const SPACE_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
 /// Length of the sparse copy test file: above 2 GiB, the largest transfer
 /// of one `copy_file_range` call.
 const SPARSE_LENGTH: u64 = (2 << 30) + 4097;
@@ -1418,12 +1422,18 @@ fn free_space_shrinks_after_written_and_flushed_data() {
             .collect();
         file.write_all(&data).expect("probe data");
         file.sync_all().expect("probe flush");
-        let after = fixture.fs.space(&volume.id).expect("space after");
-        let decrease = before.available.saturating_sub(after.available);
-        decreases.push(decrease);
-        if decrease >= SPACE_TOLERANCE {
-            return;
+        // A file system that accounts space when a transaction group is
+        // written (ZFS) reports the decrease some seconds after the flush.
+        let mut decrease = 0;
+        for _ in 0..SPACE_POLLS {
+            let after = fixture.fs.space(&volume.id).expect("space after");
+            decrease = before.available.saturating_sub(after.available);
+            if decrease >= SPACE_TOLERANCE {
+                return;
+            }
+            std::thread::sleep(SPACE_POLL_INTERVAL);
         }
+        decreases.push(decrease);
     }
     panic!("free space did not shrink by {SPACE_TOLERANCE} bytes: {decreases:?}");
 }
