@@ -65,6 +65,8 @@ public sealed class SchemaConformanceTests
             Session = "s1",
             Language = "pl",
             Script = true,
+            Privilege = Privilege.Auto,
+            AsUser = "deploy",
         };
 
         JsonElement envelope = EnvelopeOf(Request.FromProgram("count", NotationVariant.C), options);
@@ -83,6 +85,24 @@ public sealed class SchemaConformanceTests
     }
 
     [TestMethod]
+    public void EnvelopeWithParametersUsesTheMemberOfTheRequestSchema()
+    {
+        JsonElement schema = Schema(RequestSchema);
+        var parameters = new Dictionary<string, JsonElement>
+        {
+            ["count"] = JsonDocument.Parse("3").RootElement,
+            ["name"] = JsonDocument.Parse("\"a\"").RootElement,
+        };
+
+        JsonElement envelope = EnvelopeOf(Request.FromProgram("count", NotationVariant.C).WithParameters(parameters), null);
+
+        CollectionAssert.Contains(PropertyNames(schema), "params");
+        Assert.AreEqual(3, envelope.GetProperty("params").GetProperty("count").GetInt32());
+        Assert.AreEqual("a", envelope.GetProperty("params").GetProperty("name").GetString());
+        Assert.IsFalse(EnvelopeOf(Request.FromProgram("count", NotationVariant.C), null).TryGetProperty("params", out _));
+    }
+
+    [TestMethod]
     public void EnumeratedOptionsUseTheValuesOfTheSchema()
     {
         JsonElement schema = Schema(RequestSchema);
@@ -98,6 +118,9 @@ public sealed class SchemaConformanceTests
         CollectionAssert.AreEquivalent(
             EnumValues(declared.GetProperty("diff")),
             Enum.GetValues<DiffMode>().Select(value => SentOption(new RunOptions { Diff = value }, "diff")).ToList());
+        CollectionAssert.AreEquivalent(
+            EnumValues(declared.GetProperty("privilege")),
+            Enum.GetValues<Privilege>().Select(value => SentOption(new RunOptions { Privilege = value }, "privilege")).ToList());
         CollectionAssert.AreEquivalent(
             EnumValues(schema.GetProperty("properties").GetProperty("variant")),
             Enum.GetValues<NotationVariant>().Select(value => EnvelopeOf(Request.FromProgram("count", value), null).GetProperty("variant").GetString()).ToList());
