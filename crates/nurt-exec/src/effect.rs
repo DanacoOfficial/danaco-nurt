@@ -195,11 +195,11 @@ pub(crate) fn rollback_failed(failed: &[TargetPath]) -> Error {
     .with_stage(ExecStep::Apply)
 }
 
-/// Text form of a target: the path of a file system entry, the JSON form of
-/// a provider key.
+/// Text form of a target: the path of a file system entry in the language
+/// form (the form of the paths of changes), the JSON form of a provider key.
 pub(crate) fn target_text(path: &TargetPath) -> String {
     match path {
-        TargetPath::Fs(path) => path.as_path().to_string_lossy().into_owned(),
+        TargetPath::Fs(path) => path.to_language_string(),
         TargetPath::Provider(key) => serde_json::to_string(key).unwrap_or_default(),
     }
 }
@@ -266,7 +266,7 @@ mod tests {
     fn outcome(path: &str, action: TargetAction, kind: FileKind) -> TargetOutcome {
         TargetOutcome {
             index: TargetIndex(0),
-            path: TargetPath::Fs(AbsPath::new(path).unwrap()),
+            path: TargetPath::Fs(AbsPath::for_test(path)),
             action,
             mode: PreserveMode::Copy,
             bytes_held: 0,
@@ -299,12 +299,12 @@ mod tests {
             outcome("/a", TargetAction::Replace, FileKind::Directory),
             outcome("/b", TargetAction::Modify, FileKind::File),
         ]);
-        let mut flagged = Change::new("/c", ChangeAction::Modify);
+        let mut flagged = Change::new(nurt_testkit::paths::abs("/c"), ChangeAction::Modify);
         flagged.flags = Some(vec![OVERWROTE_EXISTING.to_owned()]);
         let facts = change_facts(
             vec![
-                Change::new("/a", ChangeAction::Modify),
-                Change::new("/b", ChangeAction::Modify),
+                Change::new(nurt_testkit::paths::abs("/a"), ChangeAction::Modify),
+                Change::new(nurt_testkit::paths::abs("/b"), ChangeAction::Modify),
                 flagged,
             ],
             Some(&handle),
@@ -319,14 +319,14 @@ mod tests {
 
     #[test]
     fn notes_give_the_kind_and_the_content_of_a_directory_without_a_journal_target() {
-        let mut tree = Change::new("/tree", ChangeAction::Delete);
+        let mut tree = Change::new(nurt_testkit::paths::abs("/tree"), ChangeAction::Delete);
         tree.flags = Some(
             ["recursive".to_owned()]
                 .into_iter()
                 .chain(nurt_contracts::report::tree_flags(4, 2))
                 .collect(),
         );
-        let plain = Change::new("/plain", ChangeAction::Delete);
+        let plain = Change::new(nurt_testkit::paths::abs("/plain"), ChangeAction::Delete);
         let facts = change_facts(vec![tree.clone(), plain], None);
         assert_eq!(facts[0].entry, Some(FileKind::Directory));
         assert_eq!(facts[0].inside, Some((4, 2)));
@@ -387,7 +387,10 @@ mod tests {
     fn rollback_error_lists_targets() {
         let error = rollback_failed(&[TargetPath::Fs(AbsPath::for_test("/x"))]);
         assert_eq!(error.code(), ErrorCode::RollbackFailed);
-        assert_eq!(error.details["failed"], json!(["/x"]));
+        assert_eq!(
+            error.details["failed"],
+            json!([nurt_testkit::paths::abs("/x")])
+        );
         assert_eq!(error.stage(), Some(ExecStep::Apply));
     }
 }
