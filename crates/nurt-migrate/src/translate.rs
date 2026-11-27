@@ -18,7 +18,7 @@ use nurt_contracts::ast::AstDocument;
 use nurt_contracts::error::{Error, ErrorCode};
 use nurt_contracts::report::Correction;
 use nurt_contracts::spec::Os;
-use nurt_correct::bash::{self, Assumption, BashTable, Mode, TranslateContext};
+use nurt_correct::bash::{self, Assumption, BashTable, FunctionSignature, Mode, TranslateContext};
 use nurt_correct::policy::{InvariantInput, check_invariants, is_effecting};
 use nurt_correct::powershell::{self, PowerShellTable};
 use nurt_correct::record::Log;
@@ -70,6 +70,8 @@ pub struct TranslateRequest<'a> {
     pub statement: &'a str,
     /// Variables bound by earlier statements, in script order.
     pub lets: &'a [LetBinding],
+    /// Functions defined by earlier statements, in script order.
+    pub functions: &'a [FunctionSignature],
 }
 
 /// Translation engine used by the migration.
@@ -121,6 +123,7 @@ pub trait Translator {
 ///     language: ScriptLanguage::Bash,
 ///     statement: "mkdir -p /srv/out",
 ///     lets: &[],
+///     functions: &[],
 /// };
 /// let translation = translator.translate(&request)?;
 /// assert_eq!(translator.print(&translation.tree), "create \"/srv/out\" type: directory");
@@ -287,6 +290,7 @@ impl Translator for TableTranslator {
         let context = TranslateContext {
             base: None,
             lets: &names,
+            functions: request.functions,
             mode: Mode::Script,
         };
         let outcome = match request.language {
@@ -375,6 +379,7 @@ mod tests {
             language,
             statement,
             lets,
+            functions: &[],
         }
     }
 
