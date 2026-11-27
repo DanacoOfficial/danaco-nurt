@@ -76,6 +76,9 @@ their own version numbers, described in the specification.
     repository;
   - the change report of a command that writes through the journal names the
     kind of every changed entry on Windows as well.
+  - a cancelled `sql` change stops also when the cancellation comes between
+    two statements of its transaction; before, such a cancellation was lost and
+    a statement without end kept running.
 
 ### Changed
 

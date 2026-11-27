@@ -98,12 +98,16 @@ fn execute(request: &SqlRequest, ctx: &ExecCtx, rows: &mut Vec<Record>) -> Resul
 
 /// Interrupts the running statement when the execution is cancelled or its
 /// deadline passes.
+///
+/// An interrupt of SQLite reaches only the statements that run at that
+/// moment, so a cancellation between two statements of the transaction
+/// would be lost; the watcher repeats it until the transaction ends.
 fn watch(ctx: &ExecCtx, interrupt: &InterruptHandle, finished: &AtomicBool) {
     while !finished.load(Ordering::Acquire) {
         let cancelled = ctx.cancel().wait_timeout(WATCH_INTERVAL).is_some();
         if cancelled || ctx.checkpoint().is_err() {
             interrupt.interrupt();
-            return;
+            thread::park_timeout(WATCH_INTERVAL);
         }
     }
 }

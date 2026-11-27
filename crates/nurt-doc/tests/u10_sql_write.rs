@@ -301,6 +301,27 @@ fn cancellation_interrupts_long_change() {
 }
 
 #[test]
+fn cancellation_before_the_first_statement_interrupts_the_change() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = database(dir.path(), "app.db", "create table t(x);");
+    let cancel = CancelToken::new();
+    cancel.cancel(CancelReason::Requested);
+    let context = context(CtxOptions {
+        cancel,
+        ..CtxOptions::default()
+    });
+    let call = args(
+        &db,
+        "insert into t with recursive c(x) as (select 1 union all select x + 1 from c) select x from c",
+        Vec::new(),
+        true,
+    );
+    let error = failure(write(&call, &context, &mut RecordingTx::new()));
+    assert_eq!(error.code(), ErrorCode::Cancelled);
+    assert_eq!(count(&db, "select count(*) from t"), 0);
+}
+
+#[test]
 fn returning_more_rows_than_the_limit_fails_and_rolls_back() {
     let dir = tempfile::tempdir().unwrap();
     let db = database(dir.path(), "app.db", USERS);
