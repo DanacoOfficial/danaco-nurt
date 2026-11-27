@@ -57,6 +57,17 @@ class RequestResponseTest {
     }
 
     @Test
+    void parametersAndPrivilegeUseTheirWireNames() {
+        Request request = Request.program("run p")
+                .params(Map.of("count", 3L))
+                .privilege(Request.Privilege.AUTO)
+                .asUser("deploy");
+        assertEquals(Json.parse("{\"nurt\":\"1.0\",\"program\":\"run p\",\"params\":{\"count\":3},"
+                + "\"options\":{\"privilege\":\"auto\",\"as_user\":\"deploy\"}}"), request.toMap());
+        assertFalse(Request.program("x").toMap().containsKey("params"));
+    }
+
+    @Test
     void wholeSecondsAreWrittenInSeconds() {
         Map<String, Object> options = Json.object(Request.program("x").timeout(Duration.ofMinutes(2)).toMap().get("options"));
         assertEquals("120s", options.get("timeout"));

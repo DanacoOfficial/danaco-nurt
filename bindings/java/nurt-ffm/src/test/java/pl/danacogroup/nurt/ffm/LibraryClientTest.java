@@ -210,7 +210,7 @@ class LibraryClientTest {
         nurt.close();
         nurt.close();
         NurtCallException error = assertThrows(NurtCallException.class, nurt::info);
-        assertEquals(NurtCallException.Kind.DISCONNECTED, error.kind());
+        assertEquals(NurtCallException.Kind.INVALID_ARGUMENT, error.kind());
     }
 
     @Test

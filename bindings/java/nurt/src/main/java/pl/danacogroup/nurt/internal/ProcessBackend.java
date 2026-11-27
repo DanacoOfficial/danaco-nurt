@@ -171,7 +171,7 @@ public final class ProcessBackend implements Backend {
 
     private synchronized Connection connection() {
         if (closed) {
-            throw new NurtCallException(NurtCallException.Kind.DISCONNECTED, "client is closed");
+            throw new NurtCallException(NurtCallException.Kind.INVALID_ARGUMENT, "client is closed");
         }
         if (connection != null && connection.isOpen()) {
             return connection;

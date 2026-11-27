@@ -298,7 +298,7 @@ class ProcessClientTest {
         client.close();
         client.close();
         NurtCallException error = assertThrows(NurtCallException.class, () -> client.run(Request.program("x")));
-        assertEquals(NurtCallException.Kind.DISCONNECTED, error.kind());
+        assertEquals(NurtCallException.Kind.INVALID_ARGUMENT, error.kind());
     }
 
     @Test
