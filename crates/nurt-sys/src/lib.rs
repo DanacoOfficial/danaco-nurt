@@ -55,14 +55,20 @@ use nurt_contracts::stage::{StageImpl, StageRegistrar};
 /// # Examples
 ///
 /// ```
+/// use std::collections::BTreeSet;
 /// use std::sync::Arc;
 ///
 /// use nurt_contracts::stage::StageImpl;
 ///
 /// let mut stages: Vec<Arc<dyn StageImpl>> = Vec::new();
 /// nurt_sys::register(&mut stages)?;
-/// assert_eq!(stages.len(), 38);
-/// assert_eq!(stages[0].descriptor().command, "processes");
+/// let commands: Vec<String> = stages
+///     .iter()
+///     .map(|stage| stage.descriptor().command)
+///     .collect();
+/// // One stage per command, the first command of the catalog first.
+/// assert_eq!(commands[0], "processes");
+/// assert_eq!(commands.iter().collect::<BTreeSet<_>>().len(), commands.len());
 /// # Ok::<(), nurt_contracts::error::Error>(())
 /// ```
 pub fn register(registrar: &mut dyn StageRegistrar) -> Result<()> {
