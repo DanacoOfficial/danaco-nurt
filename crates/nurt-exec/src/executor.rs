@@ -198,6 +198,9 @@ struct RunState {
     /// Number of iterations completed before a failure of a loop that is not
     /// atomic.
     completed: Option<u64>,
+    /// Failure of an iteration of a loop that is not atomic: the iterations
+    /// before it stay in the entry, the loop ends and the entry reports it.
+    deferred: Option<Error>,
     /// Handle of the last entry committed by an iteration of a loop that is
     /// not atomic.
     handle: Option<nurt_contracts::journal::OpHandle>,
@@ -211,28 +214,68 @@ struct Execution<'e> {
     preview: bool,
     preserve_budget: Duration,
     /// Transaction of the running control construct, shared by its parts.
-    shared: Mutex<Option<Box<dyn MutationTx + 'e>>>,
+    shared: Arc<Mutex<Option<Box<dyn MutationTx + 'e>>>>,
     /// Functions defined so far.
-    functions: Mutex<HashMap<String, FunctionDef<'e>>>,
+    functions: Arc<Mutex<HashMap<String, FunctionDef<'e>>>>,
     /// What the parts of the running construct have produced.
     state: Mutex<RunState>,
 }
 
 impl<'e> Execution<'e> {
     fn prepare(plan: &'e Plan, env: &'e ExecEnv) -> Result<Self> {
-        let timeout = env.resolved_timeout()?;
-        let limits = env.limits();
         let binding = Arc::new(match env.seed {
             Some(seed) => ExprBinding::with_seed(seed),
             None => ExprBinding::new(),
         });
-        let preserve_budget = Duration::from_millis(env.config.run.preimage_budget.as_millis());
         for (name, expr) in &env.params {
             let value = binding
                 .evaluate(expr, None, env.clock.as_ref())
                 .map_err(|error| at_step(error, ExecStep::Plan))?;
             binding.define(name.clone(), value);
         }
+        Self::build(
+            plan,
+            env,
+            binding,
+            env.preview(),
+            Arc::new(Mutex::new(None)),
+            Arc::new(Mutex::new(HashMap::new())),
+        )
+    }
+
+    /// An execution for another thread of the same construct: the names of
+    /// this one, its own state and the same transaction and functions. With
+    /// `preview` it plans every effect and shares no transaction.
+    fn fork(&self, preview: bool) -> Result<Self> {
+        let binding = Arc::new(self.binding.forked());
+        let shared = if preview {
+            Arc::new(Mutex::new(None))
+        } else {
+            Arc::clone(&self.shared)
+        };
+        let fork = Self::build(
+            self.plan,
+            self.env,
+            binding,
+            preview || self.preview,
+            shared,
+            Arc::clone(&self.functions),
+        )?;
+        fork.with_state_path(self);
+        Ok(fork)
+    }
+
+    fn build(
+        plan: &'e Plan,
+        env: &'e ExecEnv,
+        binding: Arc<ExprBinding>,
+        preview: bool,
+        shared: Arc<Mutex<Option<Box<dyn MutationTx + 'e>>>>,
+        functions: Arc<Mutex<HashMap<String, FunctionDef<'e>>>>,
+    ) -> Result<Self> {
+        let timeout = env.resolved_timeout()?;
+        let limits = env.limits();
+        let preserve_budget = Duration::from_millis(env.config.run.preimage_budget.as_millis());
         let runner = SubpipelineRunner::new(Arc::clone(&env.registry), Arc::clone(&binding))
             .with_program(&plan.catalog_rev, &plan.corr_rev, plan.corrections.clone())
             .with_preserve_budget(preserve_budget);
@@ -266,10 +309,10 @@ impl<'e> Execution<'e> {
             env,
             ctx: builder.build(),
             binding,
-            preview: env.preview(),
+            preview,
             preserve_budget,
-            shared: Mutex::new(None),
-            functions: Mutex::new(HashMap::new()),
+            shared,
+            functions,
             state: Mutex::new(RunState::default()),
         })
     }

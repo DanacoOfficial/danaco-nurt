@@ -227,7 +227,6 @@ impl Binder<'_> {
     ) -> Result<Vec<BoundStatement>, BindError> {
         let lets = self.lets.len();
         let vars = self.vars.len();
-        let corrector = self.corrector.take();
         for name in variables {
             self.vars.push((*name).to_owned());
             self.lets.push(((*name).to_owned(), Flow::any()));
@@ -247,7 +246,6 @@ impl Binder<'_> {
         }
         self.loops -= usize::from(in_loop);
         self.nesting -= 1;
-        self.corrector = corrector;
         self.lets.truncate(lets);
         self.vars.truncate(vars);
         match failure {

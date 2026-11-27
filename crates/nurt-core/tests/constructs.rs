@@ -541,6 +541,19 @@ fn atomic_false_keeps_the_completed_iterations_and_names_the_failed_one() {
     let error = response.report.error.as_ref().unwrap();
     assert_eq!(error.details.get("iteration"), Some(&json!(3)));
     assert!(response.report.op.is_some());
+    assert_eq!(
+        response
+            .report
+            .parts
+            .iter()
+            .filter_map(|part| part.op)
+            .count(),
+        0,
+        "the kept iterations are in the one entry of the loop"
+    );
+    assert_ok(&world.run("undo"));
+    assert!(world.read("dst/a.log").is_none() && world.read("dst/b.log").is_none());
+    assert_eq!(world.read("dst/c.log").as_deref(), Some("old"));
 }
 
 #[test]
@@ -706,4 +719,78 @@ fn constructs_nest_each_in_steps_in_when() {
     assert!(response.report.op.is_some());
     assert_ok(&world.run("undo"));
     assert_eq!(world.snapshot(), before);
+}
+
+#[test]
+fn parallel_runs_disjoint_iterations_together_in_one_entry() {
+    let world = world();
+    for number in 1..=6 {
+        world.put(&format!("src/f{number}.log"), &number.to_string());
+    }
+    world.put("dst/keep", "k");
+    let before = world.snapshot();
+    let response = world.run(&format!(
+        "each (find \"{src}\" glob: \"*.log\") as f parallel: 3 {{\n    copy f.path into: \"{dst}\"\n}}\n",
+        src = world.at("src"),
+        dst = world.at("dst"),
+    ));
+    assert_ok(&response);
+    for number in 1..=6 {
+        assert_eq!(
+            world.read(&format!("dst/f{number}.log")),
+            Some(number.to_string())
+        );
+    }
+    let note = response
+        .report
+        .parts
+        .iter()
+        .find(|part| part.kind == "loop")
+        .and_then(|part| part.note.clone())
+        .unwrap_or_default();
+    assert!(note.contains("at a time"), "{note}");
+    assert_ok(&world.run("undo"));
+    assert_eq!(world.snapshot(), before);
+}
+
+#[test]
+fn parallel_falls_back_to_order_when_the_targets_overlap_and_says_so() {
+    let world = world();
+    for name in ["a", "b"] {
+        world.put(&format!("src/{name}.log"), name);
+    }
+    let response = world.run(&format!(
+        "each (find \"{src}\" glob: \"*.log\") as f parallel: 2 {{\n    write \"{out}\" f.name mode: append\n}}\n",
+        src = world.at("src"),
+        out = world.at("out"),
+    ));
+    assert_ok(&response);
+    assert_eq!(world.read("out").as_deref(), Some("a.logb.log"));
+    let note = response
+        .report
+        .parts
+        .iter()
+        .find(|part| part.kind == "loop")
+        .and_then(|part| part.note.clone())
+        .unwrap_or_default();
+    assert!(note.contains("overlap"), "{note}");
+}
+
+#[test]
+fn a_misspelt_command_inside_a_block_is_corrected_like_at_top_level() {
+    let world = world();
+    world.put("a.txt", "x");
+    let reading = world.run(&format!("steps {{\n    lsit \"{}\"\n}}\n", world.at("")));
+    assert_ok(&reading);
+    assert!(
+        !reading.report.corrections.is_empty(),
+        "{:?}",
+        reading.report
+    );
+    let changing = world.run(&format!(
+        "steps {{\n    remvoe \"{}\"\n}}\n",
+        world.at("a.txt")
+    ));
+    assert_eq!(code(&changing), Some(ErrorCode::Ambiguous));
+    assert!(world.read("a.txt").is_some());
 }

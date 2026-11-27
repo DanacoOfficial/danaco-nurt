@@ -78,6 +78,14 @@ impl ExprBinding {
         }
     }
 
+    /// A binding for another thread: the same names, its own random source.
+    #[must_use]
+    pub fn forked(&self) -> Self {
+        let fork = Self::new();
+        *fork.names.write().unwrap_or_else(PoisonError::into_inner) = self.names();
+        fork
+    }
+
     /// Named results defined so far, by name without `@`.
     #[must_use]
     pub fn names(&self) -> Arc<Fields> {

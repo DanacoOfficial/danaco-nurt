@@ -12,12 +12,14 @@
 //! construct that only reads opens no transaction. In a preview every part
 //! is planned and nothing is applied.
 
-use std::sync::PoisonError;
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use nurt_contracts::bound::{BoundCall, BoundExpr, BoundLimit, BoundParam, BoundStatement};
 use nurt_contracts::error::{Error, ErrorCode, Result};
-use nurt_contracts::journal::{BeginRequest, OpHandle, OpKind, RollbackReason, SessionId};
+use nurt_contracts::journal::{
+    BeginRequest, MutationTx, OpHandle, OpKind, RollbackReason, SessionId,
+};
 use nurt_contracts::report::{IrreversibleEntry, ReportPart, ReportStatus};
 use nurt_contracts::stage::{ExecStep, StageInput};
 use nurt_contracts::value::{Fields, Record, RecordKind, Value};
@@ -30,6 +32,9 @@ use super::{Execution, FunctionDef, RunState};
 use crate::effect::target_text;
 use crate::flow::{at_step, internal};
 use crate::outcome::{ConstructOutcome, EffectReport, OperationOutcome, Outcome, ResultData};
+
+/// State and outcome of one iteration that ran on its own thread.
+type Finished = (RunState, Result<()>);
 
 /// What a block asks of the loop around it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +56,7 @@ struct Settled {
     not_restored: Vec<String>,
     state: RunState,
     opened: bool,
+    deferred: Option<Error>,
 }
 
 impl<'e> Execution<'e> {
@@ -64,17 +70,13 @@ impl<'e> Execution<'e> {
             ConstructShape::Params { .. } => return,
             _ => {}
         }
-        // The iterations of a loop that is not atomic are entries of their own.
-        let own_entries = matches!(
-            plan.shape,
-            ConstructShape::Each { atomic: false, .. }
-                | ConstructShape::Repeat { atomic: false, .. }
-                | ConstructShape::While { atomic: false, .. }
+        let operation = self.entry(
+            plan.name(),
+            &plan.program,
+            plan.changes(),
+            plan.index,
+            || self.run_construct(plan).map(drop),
         );
-        let changes = plan.changes() && !own_entries;
-        let operation = self.entry(plan.name(), &plan.program, changes, plan.index, || {
-            self.run_construct(plan).map(drop)
-        });
         outcome.push(operation);
     }
 
@@ -229,6 +231,7 @@ impl<'e> Execution<'e> {
             }
         }
         let mut finished = self.take_state();
+        let deferred = finished.deferred.take();
         let mut parts = std::mem::take(&mut finished.parts);
         let mut kept = outer;
         kept.last_value = finished.last_value.clone();
@@ -247,6 +250,7 @@ impl<'e> Execution<'e> {
                 not_restored,
                 state: finished,
                 opened,
+                deferred,
             },
         );
         operation
@@ -267,6 +271,7 @@ impl<'e> Execution<'e> {
             not_restored,
             state,
             opened,
+            deferred,
         } = settled;
         let RunState {
             changes,
@@ -297,6 +302,17 @@ impl<'e> Execution<'e> {
         }
         if self.preview {
             operation.status = ReportStatus::Planned;
+        }
+        if failure.is_none()
+            && let Some(error) = deferred
+        {
+            let kept = handle_op(&operation.effect);
+            operation.status = if kept && completed.is_some_and(|done| done > 0) {
+                ReportStatus::Partial
+            } else {
+                ReportStatus::Failed
+            };
+            operation.error = Some(error);
         }
         if let Some(error) = failure {
             match rolled {
@@ -383,23 +399,23 @@ impl<'e> Execution<'e> {
             ConstructShape::Each {
                 source,
                 name,
+                parallel,
                 atomic,
                 body,
-                ..
-            } => self.run_each(plan, source, name, *atomic, body),
+            } => self.run_each(source, name, *parallel, *atomic, body),
             ConstructShape::Repeat {
                 until,
                 every_ms,
                 limit,
                 atomic,
                 body,
-            } => self.run_repeat(plan, until, *every_ms, *limit, *atomic, body),
+            } => self.run_repeat(until, *every_ms, *limit, *atomic, body),
             ConstructShape::While {
                 cond,
                 limit,
                 atomic,
                 body,
-            } => self.run_while(plan, cond, *limit, *atomic, body),
+            } => self.run_while(cond, *limit, *atomic, body),
             ConstructShape::Steps { body } => {
                 self.enter_path("steps");
                 let control = self.run_block(body);
@@ -456,13 +472,33 @@ impl<'e> Execution<'e> {
 
     fn run_each(
         &self,
-        plan: &'e ConstructPlan,
         source: &BoundExpr,
         name: &str,
+        parallel: Option<u32>,
         atomic: bool,
         body: &'e [PlanStatement],
     ) -> Result<Control> {
         let items = self.evaluate_sequence(source)?;
+        let mut note = None;
+        if let Some(workers) = parallel.filter(|workers| *workers > 1 && atomic) {
+            match self.try_parallel(name, &items, workers, body)? {
+                Some(count) => {
+                    let mut part = ReportPart::done(self.at("each"), "loop");
+                    part.iterations = Some(count);
+                    part.note = Some(format!("ran up to {workers} iterations at a time"));
+                    self.push_part(part);
+                    return Ok(Control::Next);
+                }
+                None => {
+                    note = Some(
+                        "parallel: the targets of the iterations overlap or are unknown, ran in order"
+                            .to_owned(),
+                    );
+                }
+            }
+        } else if parallel.is_some_and(|workers| workers > 1) {
+            note = Some("parallel: atomic: false runs in order".to_owned());
+        }
         let mut count: u64 = 0;
         for item in items {
             self.checkpoint()?;
@@ -470,7 +506,7 @@ impl<'e> Execution<'e> {
             let outer = self.binding.names();
             self.binding.define(name.to_owned(), item);
             self.enter_path(format!("each.iteration[{count}]"));
-            let control = self.iteration(plan, atomic, count, body);
+            let control = self.iteration(atomic, count, body);
             self.leave_path();
             self.binding.restore_names(outer);
             if control? == Control::Break {
@@ -479,8 +515,110 @@ impl<'e> Execution<'e> {
         }
         let mut part = ReportPart::done(self.at("each"), "loop");
         part.iterations = Some(count);
+        part.note = note;
         self.push_part(part);
         Ok(Control::Next)
+    }
+
+    /// Runs the iterations of an `each` concurrently, at most `workers` at a
+    /// time, when their targets are disjoint; `None` when they are not or
+    /// cannot be known, and the caller runs them in order. The targets are
+    /// found before the start by planning every iteration without applying
+    /// it. The effects of all iterations are applied in the one transaction
+    /// of the loop.
+    fn try_parallel(
+        &self,
+        name: &str,
+        items: &[Value],
+        workers: u32,
+        body: &'e [PlanStatement],
+    ) -> Result<Option<u64>> {
+        if self.preview || items.len() < 2 || contains_jump(body) {
+            return Ok(None);
+        }
+        let mut claimed: Vec<(String, usize)> = Vec::new();
+        for (index, item) in items.iter().enumerate() {
+            let probe = self.fork(true)?;
+            probe.binding.define(name.to_owned(), item.clone());
+            if probe.run_block(body).is_err() {
+                return Ok(None);
+            }
+            let state = probe.take_state();
+            if !state.irreversible.is_empty() || state.exit_code.is_some() {
+                return Ok(None);
+            }
+            for change in &state.changes {
+                claimed.push((change.change.path.to_string(), index));
+            }
+        }
+        if overlapping(&mut claimed) {
+            return Ok(None);
+        }
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let failed = std::sync::atomic::AtomicBool::new(false);
+        let results: Mutex<Vec<Option<Finished>>> =
+            Mutex::new((0..items.len()).map(|_| None).collect());
+        let width = usize::try_from(workers).unwrap_or(1).min(items.len());
+        let started: Result<()> = std::thread::scope(|scope| {
+            let mut handles = Vec::new();
+            for _ in 0..width {
+                let worker = || -> Result<()> {
+                    loop {
+                        let index = next.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        if index >= items.len() || failed.load(std::sync::atomic::Ordering::SeqCst)
+                        {
+                            return Ok(());
+                        }
+                        let fork = self.fork(false)?;
+                        fork.binding.define(name.to_owned(), items[index].clone());
+                        fork.enter_path(format!("each.iteration[{}]", index + 1));
+                        let outcome = fork
+                            .checkpoint()
+                            .and_then(|()| fork.run_block(body).map(drop));
+                        if outcome.is_err() {
+                            failed.store(true, std::sync::atomic::Ordering::SeqCst);
+                        }
+                        let state = fork.take_state();
+                        results.lock().unwrap_or_else(PoisonError::into_inner)[index] =
+                            Some((state, outcome));
+                    }
+                };
+                handles.push(scope.spawn(worker));
+            }
+            let mut first = Ok(());
+            for handle in handles {
+                match handle.join() {
+                    Ok(Err(error)) if first.is_ok() => first = Err(error),
+                    Err(_) if first.is_ok() => first = Err(internal("an iteration panicked")),
+                    _ => {}
+                }
+            }
+            first
+        });
+        let mut count = 0;
+        let mut failure = started.err();
+        for slot in results.into_inner().unwrap_or_else(PoisonError::into_inner) {
+            let Some((state, outcome)) = slot else {
+                continue;
+            };
+            count += 1;
+            self.with_state(|mine| {
+                mine.parts.extend(state.parts);
+                mine.changes.extend(state.changes);
+                mine.notable.extend(state.notable);
+                mine.irreversible.extend(state.irreversible);
+                mine.last = state.last;
+            });
+            if let Err(error) = outcome
+                && failure.is_none()
+            {
+                failure = Some(error.with_detail("iteration", json!(count)));
+            }
+        }
+        match failure {
+            Some(error) => Err(error),
+            None => Ok(Some(count)),
+        }
     }
 
     fn checkpoint(&self) -> Result<()> {
@@ -489,71 +627,50 @@ impl<'e> Execution<'e> {
             .map_err(|error| at_step(error, ExecStep::Read))
     }
 
-    /// Runs the body of one iteration. An iteration of a loop that is not
-    /// atomic is an entry of its own, so a failure keeps the iterations that
-    /// were completed before it.
-    fn iteration(
-        &self,
-        plan: &'e ConstructPlan,
-        atomic: bool,
-        number: u64,
-        body: &'e [PlanStatement],
-    ) -> Result<Control> {
-        let separate = !atomic
-            && plan.changes()
-            && !self.preview
-            && self
-                .shared
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .is_none();
-        if !separate {
+    /// Runs the body of one iteration. In a loop with `atomic: false` the
+    /// iteration sets a savepoint of the transaction of the loop: when it
+    /// fails, only its own changes are restored, the loop ends, and the
+    /// iterations completed before stay in the one entry, which reports the
+    /// failure.
+    fn iteration(&self, atomic: bool, number: u64, body: &'e [PlanStatement]) -> Result<Control> {
+        let kept = !atomic && !self.preview && self.with_tx(|tx| tx.savepoint()).is_some();
+        if !kept {
             return self.run_block(body);
         }
-        let mut control = Control::Next;
-        let inner = self.entry(plan.name(), &plan.program, true, plan.index, || {
-            control = self.run_block(body)?;
-            Ok(())
-        });
-        let mut part = ReportPart::done(self.at("each"), "iteration");
-        part.op = inner
-            .effect
-            .as_ref()
-            .and_then(|effect| effect.handle.as_ref())
-            .and_then(|handle| handle.op)
-            .map(|op| op.0);
-        part.targets = inner
-            .effect
-            .as_ref()
-            .map(|effect| u64::try_from(effect.changes.len()).unwrap_or(u64::MAX));
-        self.with_state(|state| {
-            if let Some(effect) = &inner.effect {
-                state.changes.extend(effect.changes.clone());
-                state.irreversible.extend(effect.irreversible.clone());
-                if effect.handle.is_some() {
-                    state.handle.clone_from(&effect.handle);
-                }
+        match self.run_block(body) {
+            Ok(control) => {
+                self.with_tx(|tx| tx.release_savepoint());
+                self.with_state(|state| state.completed = Some(number));
+                Ok(control)
             }
-            state.notable.extend(inner.notable.clone());
-            state.last = inner.result.clone();
-        });
-        if let Some(construct) = inner.construct {
-            self.with_state(|state| state.parts.extend(construct.parts));
+            Err(error) => {
+                if let Some(Err(failure)) = self.with_tx(|tx| tx.rollback_to_savepoint()) {
+                    return Err(failure.with_cause(error));
+                }
+                let mut part = ReportPart::done(self.at(""), "iteration");
+                part.ok = false;
+                part.rolled_back = true;
+                part.error = Some(error.code().as_str().to_owned());
+                self.push_part(part);
+                self.with_state(|state| {
+                    state.completed = Some(number - 1);
+                    state.deferred = Some(error.with_detail("iteration", json!(number)));
+                });
+                Ok(Control::Break)
+            }
         }
-        let failed = inner.error;
-        if let Some(error) = &failed {
-            part.ok = false;
-            part.error = Some(error.code().as_str().to_owned());
-            part.rolled_back = true;
-            self.with_state(|state| state.completed = Some(number - 1));
-        } else {
-            self.with_state(|state| state.completed = Some(number));
-        }
-        self.push_part(part);
-        match failed {
-            Some(error) => Err(error.with_detail("iteration", json!(number))),
-            None => Ok(control),
-        }
+    }
+
+    /// Runs `change` on the transaction of the construct, when there is one.
+    fn with_tx<T>(&self, change: impl FnOnce(&mut dyn MutationTx) -> T) -> Option<T> {
+        let mut shared = self.shared.lock().unwrap_or_else(PoisonError::into_inner);
+        shared.as_mut().map(|tx| change(tx.as_mut()))
+    }
+
+    /// Copies the place of the construct of `parent` into this fork.
+    pub(super) fn with_state_path(&self, parent: &Self) {
+        let path = parent.with_state(|state| state.path.clone());
+        self.with_state(|state| state.path = path);
     }
 
     fn loop_limits(&self, limit: Option<BoundLimit>) -> (u64, Duration) {
@@ -570,7 +687,6 @@ impl<'e> Execution<'e> {
 
     fn run_repeat(
         &self,
-        plan: &'e ConstructPlan,
         until: &BoundExpr,
         every_ms: Option<u64>,
         limit: Option<BoundLimit>,
@@ -587,7 +703,7 @@ impl<'e> Execution<'e> {
             }
             count += 1;
             self.enter_path(format!("repeat.iteration[{count}]"));
-            let control = self.iteration(plan, atomic, count, body);
+            let control = self.iteration(atomic, count, body);
             self.leave_path();
             if control? == Control::Break {
                 break;
@@ -610,7 +726,6 @@ impl<'e> Execution<'e> {
 
     fn run_while(
         &self,
-        plan: &'e ConstructPlan,
         cond: &BoundExpr,
         limit: Option<BoundLimit>,
         atomic: bool,
@@ -628,7 +743,7 @@ impl<'e> Execution<'e> {
             }
             count += 1;
             self.enter_path(format!("while.iteration[{count}]"));
-            let control = self.iteration(plan, atomic, count, body);
+            let control = self.iteration(atomic, count, body);
             self.leave_path();
             if control? == Control::Break {
                 break;
@@ -948,6 +1063,45 @@ impl<'e> Execution<'e> {
             Err(error) => Err(Error::new(ErrorCode::Io, format!("{path}: {error}"))),
         }
     }
+}
+
+/// Whether a block holds `break` or `continue` at any depth: the order of the
+/// iterations then matters.
+fn contains_jump(body: &[PlanStatement]) -> bool {
+    body.iter().any(|statement| match statement {
+        PlanStatement::Construct(construct) => {
+            matches!(
+                construct.shape,
+                ConstructShape::Break | ConstructShape::Continue
+            ) || construct.blocks().into_iter().any(contains_jump)
+        }
+        _ => false,
+    })
+}
+
+/// Whether two iterations claim the same target or one a target inside
+/// another; `claimed` is sorted by path.
+fn overlapping(claimed: &mut [(String, usize)]) -> bool {
+    claimed.sort();
+    claimed.windows(2).any(|pair| {
+        let [(first, left), (second, right)] = pair else {
+            return false;
+        };
+        left != right
+            && (first == second
+                || second
+                    .strip_prefix(first.as_str())
+                    .is_some_and(|rest| rest.starts_with('/')))
+    })
+}
+
+/// Whether the effect of an operation holds a committed journal entry.
+fn handle_op(effect: &Option<EffectReport>) -> bool {
+    effect
+        .as_ref()
+        .and_then(|effect| effect.handle.as_ref())
+        .and_then(|handle| handle.op)
+        .is_some()
 }
 
 /// Value of a reading pipeline inside an expression: the only field of the

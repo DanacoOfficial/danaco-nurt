@@ -271,6 +271,8 @@ pub(crate) struct Tx<'a> {
     unsynced: Unsynced,
     /// Whether `preserve` is allowed after the first change.
     incremental: bool,
+    /// Number of targets declared when the savepoint was set.
+    savepoint: Option<usize>,
 }
 
 /// Changes of a transaction whose flush is deferred to one flush of all of
@@ -508,6 +510,7 @@ impl<'a> Tx<'a> {
             inline_admission: Vec::new(),
             unsynced: Unsynced::default(),
             incremental: false,
+            savepoint: None,
         }
     }
 
@@ -535,6 +538,17 @@ impl<'a> Tx<'a> {
     fn fail(&mut self, error: Error) -> Error {
         if self.phase == Phase::Halted {
             return error;
+        }
+        if let Some(mark) = self.savepoint {
+            return match self.restore_from(mark) {
+                Ok(failed) if failed.is_empty() => error,
+                Ok(failed) => {
+                    self.savepoint = None;
+                    self.phase = Phase::Failed;
+                    rollback_failed(&failed, error)
+                }
+                Err(_) => self.halt(),
+            };
         }
         let outcome = self.restore_all(UndoneCause::RolledBack);
         self.phase = Phase::Failed;
@@ -2630,6 +2644,28 @@ impl Tx<'_> {
 
 /// Restoration of targets (step 7).
 impl Tx<'_> {
+    /// Restores the targets from position `mark` on, in reverse order, and
+    /// returns those that could not be restored.
+    fn restore_from(&mut self, mark: usize) -> std::result::Result<Vec<TargetPath>, Fault> {
+        let mut failed = Vec::new();
+        for position in (mark.min(self.targets.len())..self.targets.len()).rev() {
+            let target = &self.targets[position];
+            let dest_changed = target.dest.as_ref().is_some_and(|d| d.moved || d.created);
+            if !target.changed && !dest_changed {
+                continue;
+            }
+            match self
+                .restore(position)
+                .and_then(|()| self.flush_restored(position))
+            {
+                Ok(()) => {}
+                Err(_) => failed.push(self.targets[position].spec.path.clone()),
+            }
+            self.targets[position].changed = false;
+        }
+        Ok(failed)
+    }
+
     fn restore_all(&mut self, cause: UndoneCause) -> std::result::Result<RollbackReport, Fault> {
         let ctx = self.ctx;
         let fs = ctx.fs.as_ref();
@@ -3222,6 +3258,31 @@ impl MutationTx for Tx<'_> {
 
     fn allow_incremental(&mut self) {
         self.incremental = true;
+    }
+
+    fn savepoint(&mut self) {
+        self.savepoint = Some(self.targets.len());
+    }
+
+    fn release_savepoint(&mut self) {
+        self.savepoint = None;
+    }
+
+    fn rollback_to_savepoint(&mut self) -> Result<()> {
+        let Some(mark) = self.savepoint.take() else {
+            return Ok(());
+        };
+        match self.restore_from(mark) {
+            Ok(failed) if failed.is_empty() => Ok(()),
+            Ok(failed) => {
+                self.phase = Phase::Failed;
+                Err(rollback_failed(
+                    &failed,
+                    Error::new(ErrorCode::RolledBack, "an iteration was rolled back"),
+                ))
+            }
+            Err(_) => Err(self.halt()),
+        }
     }
 
     fn preserve(&mut self, targets: &[TargetSpec]) -> Result<Vec<Preserved>> {
