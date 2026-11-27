@@ -3,7 +3,7 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //
 // Module:           crates/nurt-sys/tests/d7_static.rs
-// Responsibility:   Static checks of the system, administration, network, schedule and program.
+// Responsibility:   Static checks of the system, administration, network, schedule and program crates.
 // Dependencies:     regex
 // Author:           Danaco Official
 // Version:          0.1.1, 2026-11-27
@@ -1476,6 +1476,266 @@ fn portability_license_headers_present() {
         "source files start with the producer header:\n{}",
         findings.join("\n")
     );
+}
+
+/// Directories whose files are test data and carry no header.
+const DATA_DIRECTORIES: [&str; 9] = [
+    "golden",
+    "fixtures",
+    "corpus",
+    "testdata",
+    "data",
+    "snapshots",
+    "conformance",
+    "third_party",
+    "node_modules",
+];
+
+/// Comment marks of the descriptive comment that follows a header, longest
+/// first.
+const DESCRIPTION_MARKS: [&str; 4] = ["//!", "///", "#", ";"];
+
+/// Text of a comment line without its mark; `None` for other lines.
+fn comment_text(line: &str) -> Option<&str> {
+    let line = line.trim();
+    for mark in ["//!", "///", "//", "#", ";", "<!--", "/*", "*"] {
+        if let Some(rest) = line.strip_prefix(mark) {
+            let rest = rest.trim();
+            let rest = rest.strip_suffix("-->").unwrap_or(rest);
+            let rest = rest.strip_suffix("*/").unwrap_or(rest);
+            return Some(rest.trim());
+        }
+    }
+    None
+}
+
+/// Responsibility field of the header with the index of its line.
+fn header_responsibility(text: &str) -> Option<(usize, String)> {
+    text.lines()
+        .take(HEADER_LINES)
+        .enumerate()
+        .find_map(|(index, line)| {
+            let field = comment_text(line)?.strip_prefix("Responsibility:")?;
+            Some((index, field.trim().to_owned()))
+        })
+}
+
+/// Lines, without their marks, of the first descriptive comment paragraph
+/// that follows the header.
+///
+/// In Rust sources it is the first paragraph of the inner documentation or,
+/// failing that, of the first item documentation; in other files it is the
+/// first comment paragraph after the header block.
+fn description_paragraph(text: &str, responsibility_line: usize) -> Vec<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let rust = lines
+        .get(responsibility_line)
+        .is_some_and(|l| l.trim_start().starts_with("//"));
+    let start = if rust {
+        ["//!", "///"].iter().find_map(|mark| {
+            lines
+                .iter()
+                .position(|l| l.trim_start().starts_with(mark))
+                .map(|index| (index, *mark))
+        })
+    } else {
+        let mark = lines[responsibility_line]
+            .trim_start()
+            .chars()
+            .next()
+            .map(String::from)
+            .unwrap_or_default();
+        let mark = DESCRIPTION_MARKS.iter().find(|m| **m == mark);
+        mark.and_then(|mark| {
+            let after_header = (responsibility_line + 1..lines.len()).find(|&i| {
+                comment_text(lines[i]).is_none_or(|t| {
+                    !["Dependencies:", "Author:", "Version:", "License:"]
+                        .iter()
+                        .any(|field| t.starts_with(field))
+                })
+            })?;
+            (after_header..lines.len())
+                .find(|&i| {
+                    lines[i].trim_start().starts_with(*mark)
+                        && comment_text(lines[i]).is_some_and(|t| !t.is_empty())
+                })
+                .map(|index| (index, *mark))
+        })
+    };
+    let Some((first, mark)) = start else {
+        return Vec::new();
+    };
+    lines[first..]
+        .iter()
+        .map_while(|l| {
+            let l = l.trim_start();
+            let rest = l.strip_prefix(mark)?.trim();
+            (!rest.is_empty() && !rest.contains("Copyright (c)")).then(|| rest.to_owned())
+        })
+        .collect()
+}
+
+/// Finding for a Responsibility field that stops where the sentence of the
+/// description continues in the next line.
+///
+/// Such a field is the first line of a wrapped paragraph without its closing
+/// punctuation, followed by a full stop.
+fn truncated_responsibility(text: &str) -> Option<String> {
+    let (index, field) = header_responsibility(text)?;
+    let paragraph = description_paragraph(text, index);
+    if paragraph.len() < 2 {
+        return None;
+    }
+    let first = paragraph[0].as_str();
+    if first.ends_with(['.', ':', '!', '?']) {
+        return None;
+    }
+    let cut = format!("{}.", first.trim_end_matches([',', ';']));
+    (field == cut).then_some(field)
+}
+
+/// Finding for an executable file without an extension that lacks the
+/// producer header.
+fn shebang_without_header(rel: &str, text: &str, copyright: &Regex) -> Option<String> {
+    let name = rel.rsplit('/').next().unwrap_or(rel);
+    if name.contains('.') || !text.starts_with("#!") {
+        return None;
+    }
+    let has_header = text
+        .lines()
+        .take(HEADER_LINES)
+        .any(|l| copyright.is_match(l));
+    (!has_header).then(|| format!("{rel}: executable file without the producer header"))
+}
+
+/// Text files of the workspace outside build output and test data, with
+/// their paths relative to the workspace root.
+fn repository_text_files(root: &Path) -> Vec<(String, String)> {
+    files_under(root)
+        .into_iter()
+        .map(|path| relative(root, &path))
+        .filter(|rel| !rel.split('/').any(|part| DATA_DIRECTORIES.contains(&part)))
+        .filter_map(|rel| read_text(&root.join(&rel)).map(|text| (rel, text)))
+        .collect()
+}
+
+#[test]
+fn headers_responsibility_is_not_truncated() {
+    let root = workspace_root();
+    let findings: Vec<String> = repository_text_files(&root)
+        .iter()
+        .filter_map(|(rel, text)| {
+            truncated_responsibility(text).map(|field| format!("{rel}: {field}"))
+        })
+        .collect();
+    assert!(
+        findings.is_empty(),
+        "the Responsibility field of a header is a whole sentence:\n{}",
+        findings.join("\n")
+    );
+}
+
+#[test]
+fn headers_present_in_executable_files_without_extension() {
+    let root = workspace_root();
+    let copyright = Regex::new(&format!(
+        r"Copyright \(c\) \d{{4}} {}",
+        regex::escape(&producer())
+    ))
+    .expect("copyright pattern is valid");
+    let allow = hygiene_allow_list(&root);
+    let findings: Vec<String> = repository_text_files(&root)
+        .iter()
+        .filter(|(rel, _)| !is_allowed(&allow, "producer-header", rel))
+        .filter_map(|(rel, text)| shebang_without_header(rel, text, &copyright))
+        .collect();
+    assert!(
+        findings.is_empty(),
+        "executable files without an extension start with the producer header:\n{}",
+        findings.join("\n")
+    );
+}
+
+#[test]
+fn truncated_responsibility_is_detected_in_every_comment_syntax() {
+    let rust = concat!(
+        "// Module:           a\n",
+        "// Responsibility:   Whole-stream decompression and the names of.\n",
+        "// Dependencies:     none\n",
+        "\n",
+        "//! Whole-stream decompression and the names of\n",
+        "//! decompressed files.\n",
+    );
+    assert!(truncated_responsibility(rust).is_some());
+    let by_comma = rust
+        .replace("names of.", "names.")
+        .replace("names of\n", "names,\n");
+    assert!(truncated_responsibility(&by_comma).is_some());
+    let item = concat!(
+        "// Responsibility:   Offsets of line starts in a text, for converting byte offsets to lines and.\n",
+        "\n",
+        "use a::b;\n",
+        "\n",
+        "/// Offsets of line starts in a text, for converting byte offsets to lines and\n",
+        "/// columns.\n",
+    );
+    assert!(truncated_responsibility(item).is_some());
+    let script = concat!(
+        "#!/bin/sh\n",
+        "# Module:           a.sh\n",
+        "# Responsibility:   Installs the packages of a directory and checks the.\n",
+        "# Dependencies:     none\n",
+        "# Author:           a\n",
+        "# Version:          0.1.1, 2026-11-27\n",
+        "# License:          none\n",
+        "\n",
+        "# Installs the packages of a directory and checks the\n",
+        "# result.\n",
+    );
+    assert!(truncated_responsibility(script).is_some());
+}
+
+#[test]
+fn whole_responsibility_sentences_are_accepted() {
+    let shortened = concat!(
+        "// Responsibility:   Whole-stream decompression.\n",
+        "\n",
+        "//! Whole-stream decompression and the names of\n",
+        "//! decompressed files.\n",
+    );
+    assert!(truncated_responsibility(shortened).is_none());
+    let colon = concat!(
+        "// Responsibility:   Behaviour of the program.\n",
+        "\n",
+        "//! Behaviour of the program:\n",
+        "//! positions and revisions.\n",
+    );
+    assert!(truncated_responsibility(colon).is_none());
+    let single = concat!(
+        "// Responsibility:   One line only.\n",
+        "\n",
+        "//! One line only.\n",
+    );
+    assert!(truncated_responsibility(single).is_none());
+    assert!(truncated_responsibility("no header\n").is_none());
+}
+
+#[test]
+fn executable_files_without_extension_require_the_header() {
+    let copyright = Regex::new(&format!(
+        r"Copyright \(c\) \d{{4}} {}",
+        regex::escape(&producer())
+    ))
+    .expect("copyright pattern is valid");
+    let bare = "#!/bin/sh\nexec true\n";
+    let headed = format!(
+        "#!/bin/sh\n# Copyright (c) 2026 {}\nexec true\n",
+        producer()
+    );
+    assert!(shebang_without_header("tools/run", bare, &copyright).is_some());
+    assert!(shebang_without_header("tools/run", &headed, &copyright).is_none());
+    assert!(shebang_without_header("tools/run.sh", bare, &copyright).is_none());
+    assert!(shebang_without_header("tools/run", "plain text\n", &copyright).is_none());
 }
 
 /// Configuration, error and catalog sources that define keys and codes.
