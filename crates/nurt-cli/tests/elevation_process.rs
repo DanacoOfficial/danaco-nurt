@@ -96,6 +96,7 @@ fn response(output: &Output) -> Response {
     response
 }
 
+#[cfg(unix)]
 fn request_for(program: &str, privilege: &str) -> String {
     serde_json::json!({
         "nurt": "1.0",
