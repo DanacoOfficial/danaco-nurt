@@ -1925,3 +1925,167 @@ group = "verify"
 changes = "Nothing; the command only reads."
 preserve = []
 coverage = "no_effect"
+
+# Administration commands of accounts, groups, mounts, kernel, power and disks.
+
+[[row]]
+command = "accounts.create"
+group = "admin"
+changes = "State of a user account of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The account database is changed by the system programs; the previous state is recorded as the states of the report and undone by accounts.remove."
+
+[[row]]
+command = "accounts.modify"
+group = "admin"
+changes = "State of a user account of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The account database is changed by the system programs; the recorded values are restored by accounts.modify."
+
+[[row]]
+command = "accounts.remove"
+group = "admin"
+changes = "State of a user account and its home directory."
+preserve = ["external", "clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["external_effect", "previous_content_not_kept"]
+exception = "The account is recreated by accounts.create from the recorded values; the home directory is removed through the journal and restored by undo."
+
+[[row]]
+command = "accounts.password"
+group = "admin"
+changes = "Password of a user account."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The previous password is not recorded and cannot be restored."
+
+[[row]]
+command = "groups.create"
+group = "admin"
+changes = "State of a group of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The group database is changed by the system programs; the previous state is recorded and undone by groups.remove."
+
+[[row]]
+command = "groups.remove"
+group = "admin"
+changes = "State of a group of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The group is recreated by groups.create and groups.add_member from the recorded members."
+
+[[row]]
+command = "groups.add_member"
+group = "admin"
+changes = "Members of a group of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The group database is changed by the system programs; undone by groups.remove_member."
+
+[[row]]
+command = "groups.remove_member"
+group = "admin"
+changes = "Members of a group of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The group database is changed by the system programs; undone by groups.add_member."
+
+[[row]]
+command = "mount"
+group = "admin"
+changes = "Mount table of the system and, with persistent, /etc/fstab."
+preserve = ["external", "clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["external_effect", "previous_content_not_kept"]
+exception = "The mount is undone by unmount; the edit of /etc/fstab goes through the journal and is restored by undo."
+
+[[row]]
+command = "unmount"
+group = "admin"
+changes = "Mount table of the system and, with persistent, /etc/fstab."
+preserve = ["external", "clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["external_effect", "previous_content_not_kept"]
+exception = "The mount is restored by mount from the recorded device, type and options; the edit of /etc/fstab goes through the journal."
+
+[[row]]
+command = "sysctl.set"
+group = "admin"
+changes = "Kernel parameter and, with persistent, /etc/sysctl.d/90-nurt.conf."
+preserve = ["external", "clone", "copy", "none"]
+coverage = "partial"
+irreversible = ["external_effect", "previous_content_not_kept"]
+exception = "The value is restored by sysctl.set from the recorded value; the edit of the file goes through the journal."
+
+[[row]]
+command = "modules.load"
+group = "admin"
+changes = "Kernel modules loaded in the running system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The kernel is changed by modprobe; undone by modules.unload."
+
+[[row]]
+command = "modules.unload"
+group = "admin"
+changes = "Kernel modules loaded in the running system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The kernel is changed by modprobe; undone by modules.load."
+
+[[row]]
+command = "power.restart"
+group = "admin"
+changes = "Power state of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "A scheduled restart is undone by power.cancel; an immediate restart cannot be undone."
+
+[[row]]
+command = "power.shutdown"
+group = "admin"
+changes = "Power state of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "A scheduled shutdown is undone by power.cancel; an immediate shutdown cannot be undone."
+
+[[row]]
+command = "power.cancel"
+group = "admin"
+changes = "Scheduled restart or shutdown of the system."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "A cancelled schedule is not restored."
+
+[[row]]
+command = "disks.partition"
+group = "admin"
+changes = "Partition table of a disk."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The data of a changed partition is not preserved; the preview lists the data that is lost."
+
+[[row]]
+command = "disks.format"
+group = "admin"
+changes = "File system of a device."
+preserve = ["external"]
+coverage = "none"
+irreversible = ["external_effect"]
+exception = "The data of the device is not preserved; the preview lists the data that is lost."
