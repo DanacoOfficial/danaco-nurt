@@ -322,13 +322,37 @@ impl ReferenceLog {
 
     /// Appends one reference.
     pub(crate) fn append(&self, reference: &ElevatedReference) -> std::io::Result<()> {
+        self.append_all(std::slice::from_ref(reference))
+    }
+
+    /// Appends the references with one write and makes them durable. When
+    /// the file does not end with a line break (a torn last line of an
+    /// earlier failed write), the new text starts on a new line, so the
+    /// damaged line never swallows a good one.
+    pub(crate) fn append_all(&self, references: &[ElevatedReference]) -> std::io::Result<()> {
+        use std::io::{Read, Seek, SeekFrom};
+
         let mut file = OpenOptions::new()
             .create(true)
+            .read(true)
             .append(true)
             .open(&self.path)?;
-        let mut line = serde_json::to_string(reference)?;
-        line.push('\n');
-        file.write_all(line.as_bytes())
+        let mut text = String::new();
+        let length = file.metadata()?.len();
+        if length > 0 {
+            file.seek(SeekFrom::Start(length - 1))?;
+            let mut last = [0_u8; 1];
+            file.read_exact(&mut last)?;
+            if last[0] != b'\n' {
+                text.push('\n');
+            }
+        }
+        for reference in references {
+            text.push_str(&serde_json::to_string(reference)?);
+            text.push('\n');
+        }
+        file.write_all(text.as_bytes())?;
+        file.sync_data()
     }
 
     /// Every reference, oldest first; a missing file is an empty log and a
@@ -346,14 +370,18 @@ impl ReferenceLog {
 
     /// The newest line of every entry, oldest entry first.
     pub(crate) fn latest(&self) -> Vec<ElevatedReference> {
-        let mut found: Vec<ElevatedReference> = Vec::new();
+        let mut order: Vec<u64> = Vec::new();
+        let mut newest: std::collections::HashMap<u64, ElevatedReference> =
+            std::collections::HashMap::new();
         for reference in self.all() {
-            match found.iter_mut().find(|known| known.op == reference.op) {
-                Some(known) => *known = reference,
-                None => found.push(reference),
+            if newest.insert(reference.op, reference.clone()).is_none() {
+                order.push(reference.op);
             }
         }
-        found
+        order
+            .into_iter()
+            .filter_map(|op| newest.remove(&op))
+            .collect()
     }
 
     /// The newest reference to entry `op`.
@@ -464,6 +492,39 @@ mod tests {
         assert_eq!(log.find(3).unwrap().backend, "run0");
         assert_eq!(log.find(4).unwrap().backend, "doas");
         assert!(log.find(9).is_none());
+    }
+
+    fn sample(op: u64) -> ElevatedReference {
+        ElevatedReference {
+            op,
+            backend: "sudo".to_owned(),
+            as_user: None,
+            kind: "write".to_owned(),
+            time_ms: 1,
+            journal: "/var/lib/nurt".to_owned(),
+            undone: false,
+        }
+    }
+
+    #[test]
+    fn a_torn_last_line_does_not_swallow_the_next_reference() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = ReferenceLog::in_state(dir.path());
+        log.append(&sample(1)).unwrap();
+        let path = dir.path().join(REFERENCE_FILE);
+        let mut torn = std::fs::read_to_string(&path).unwrap();
+        torn.push_str("{\"op\":2,\"backe");
+        std::fs::write(&path, torn).unwrap();
+        log.append_all(&[sample(3), sample(4)]).unwrap();
+        let ops: Vec<u64> = log.all().iter().map(|reference| reference.op).collect();
+        assert_eq!(ops, [1, 3, 4]);
+    }
+
+    #[test]
+    fn a_failed_write_is_reported_to_the_caller() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = ReferenceLog::in_state(&dir.path().join("missing"));
+        assert!(log.append(&sample(1)).is_err());
     }
 
     #[test]

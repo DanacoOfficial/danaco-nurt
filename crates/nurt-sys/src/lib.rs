@@ -52,7 +52,7 @@ use nurt_contracts::stage::{StageImpl, StageRegistrar};
 ///
 /// let mut stages: Vec<Arc<dyn StageImpl>> = Vec::new();
 /// nurt_sys::register(&mut stages)?;
-/// assert_eq!(stages.len(), 19);
+/// assert_eq!(stages.len(), 20);
 /// assert_eq!(stages[0].descriptor().command, "processes");
 /// # Ok::<(), nurt_contracts::error::Error>(())
 /// ```

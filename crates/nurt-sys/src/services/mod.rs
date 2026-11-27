@@ -563,7 +563,7 @@ impl ServiceControl for SystemServiceControl {
 ///     .iter()
 ///     .map(|stage| stage.descriptor().command)
 ///     .collect();
-/// assert_eq!(commands, ["services", "start", "restart", "enable", "disable"]);
+/// assert_eq!(commands, ["services", "start", "stop", "restart", "enable", "disable"]);
 /// ```
 #[must_use]
 pub fn stages() -> Vec<Arc<dyn StageImpl>> {

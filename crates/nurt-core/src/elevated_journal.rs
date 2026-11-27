@@ -91,24 +91,78 @@ impl JournalStore for ElevatedJournal {
         if query.path.is_some() || query.deleted_only {
             return self.inner.history(query);
         }
-        let mut unlimited = query.clone();
-        unlimited.limit = None;
-        let mut records = self.inner.history(&unlimited)?;
-        let mut extra: Vec<OperationRecord> = self
-            .log
-            .latest()
-            .iter()
-            .map(Self::record)
-            .filter(|record| query.id.is_none_or(|id| id.0 == record.id))
-            .filter(|record| query.before.is_none_or(|before| record.id < before.0))
-            .filter(|record| query.since.is_none_or(|since| record.id > since.0))
-            .collect();
-        extra.append(&mut records);
-        extra.sort_by_key(|record| std::cmp::Reverse(record.time.as_unix_nanos()));
-        if let Some(limit) = query.limit {
-            extra.truncate(limit as usize);
+        let elevated: Vec<OperationRecord> = self.log.latest().iter().map(Self::record).collect();
+        if let Some(id) = query.id {
+            if id.0 >= ELEVATED_OP_BASE {
+                return Ok(elevated
+                    .into_iter()
+                    .filter(|record| record.id == id.0)
+                    .filter(|record| query.state.is_none_or(|state| record.state == state))
+                    .collect());
+            }
+            return self.inner.history(query);
         }
-        Ok(extra)
+        // Pages are cut by the key (time, number), which is the order of the
+        // list, so that a cursor given by an entry of either journal is
+        // consistent.
+        let key = |record: &OperationRecord| (record.time.as_unix_nanos(), record.id);
+        let cursor = |id: Option<OpId>| -> Result<Option<(i64, u64)>> {
+            let Some(id) = id else {
+                return Ok(None);
+            };
+            if let Some(record) = elevated.iter().find(|record| record.id == id.0) {
+                return Ok(Some(key(record)));
+            }
+            let found = self.inner.history(&HistoryQuery {
+                id: Some(id),
+                ..HistoryQuery::default()
+            })?;
+            Ok(found.first().map(key))
+        };
+        let before = cursor(query.before)?;
+        let since = cursor(query.since)?;
+        let passes = |record: &OperationRecord| {
+            let at = key(record);
+            before.is_none_or(|limit| at < limit)
+                && since.is_none_or(|limit| at > limit)
+                && query.state.is_none_or(|state| record.state == state)
+        };
+        let wanted = query.limit.map(|limit| limit as usize);
+        let mut merged: Vec<OperationRecord> = elevated.into_iter().filter(passes).collect();
+        // Entries of the account come newest first; read them in pages until
+        // `limit` of them pass the filters or the journal ends.
+        let page = wanted.map_or(500, |limit| limit.max(50));
+        let mut collected: Vec<OperationRecord> = Vec::new();
+        let mut cursor_id: Option<OpId> = None;
+        loop {
+            let chunk = self.inner.history(&HistoryQuery {
+                id: None,
+                limit: Some(u32::try_from(page).unwrap_or(u32::MAX)),
+                state: query.state,
+                before: cursor_id,
+                since: None,
+                path: None,
+                deleted_only: false,
+            })?;
+            let Some(last) = chunk.last().map(|record| OpId(record.id)) else {
+                break;
+            };
+            let full = chunk.len() >= page;
+            let oldest_key = chunk.last().map(key);
+            collected.extend(chunk.into_iter().filter(passes));
+            let enough = wanted.is_some_and(|limit| collected.len() >= limit);
+            let behind_since = since.is_some_and(|limit| oldest_key.is_some_and(|at| at <= limit));
+            if enough || !full || behind_since {
+                break;
+            }
+            cursor_id = Some(last);
+        }
+        merged.append(&mut collected);
+        merged.sort_by_key(|record| std::cmp::Reverse(key(record)));
+        if let Some(limit) = wanted {
+            merged.truncate(limit);
+        }
+        Ok(merged)
     }
 
     fn details(&self, op: OpId) -> Result<OperationDetails> {
@@ -118,7 +172,7 @@ impl JournalStore for ElevatedJournal {
                 "details of an elevated entry are kept in the system journal",
             )
             .with_next_step(format!(
-                "run `details {}` with `privilege: elevated`",
+                "run `history id: {} details: true privilege: elevated`",
                 op.0 - ELEVATED_OP_BASE
             )));
         }
@@ -166,5 +220,26 @@ impl JournalStore for ElevatedJournal {
 
     fn sweep(&self) -> Result<SweepReport> {
         self.inner.sweep()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_hint_for_details_is_a_call_of_history() {
+        let reference = ElevatedReference {
+            op: 3,
+            backend: "sudo".to_owned(),
+            as_user: None,
+            kind: "write".to_owned(),
+            time_ms: 1,
+            journal: "/var/lib/nurt".to_owned(),
+            undone: false,
+        };
+        let record = ElevatedJournal::record(&reference);
+        assert_eq!(record.id, ELEVATED_OP_BASE + 3);
+        assert_eq!(record.state, OperationState::Available);
     }
 }

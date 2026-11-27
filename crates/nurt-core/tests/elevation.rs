@@ -31,9 +31,9 @@ use nurt_core::{Engine, EngineConfig};
 use nurt_testkit::clock::VirtualClock;
 use nurt_testkit::host::TestHost;
 use nurt_testkit::journal::RecordingJournal;
-use nurt_testkit::vfs::VirtualFs;
+use nurt_testkit::vfs::{VirtualFs, test_path};
 use serde_json::json;
-use support::{Find, Programs, Remove, find_stage, program};
+use support::{FILES, Find, Programs, Remove, find_stage, program, remove_stage};
 
 /// Front end of the support module that also corrects text, so that the
 /// engine can send a syntax tree to a backend.
@@ -96,6 +96,127 @@ impl Frontend for Elevating {
             );
         }
         self.0.compile(text, variant, config)
+    }
+}
+
+/// Journal of the account that lists the given entries, newest first, and
+/// delegates everything else.
+struct Seeded {
+    inner: Arc<RecordingJournal>,
+    records: Vec<nurt_contracts::journal::OperationRecord>,
+}
+
+impl nurt_contracts::journal::JournalStore for Seeded {
+    fn recover(&self) -> Result<nurt_contracts::journal::RecoveryReport> {
+        self.inner.recover()
+    }
+    fn begin(
+        &self,
+        request: nurt_contracts::journal::BeginRequest,
+    ) -> Box<dyn nurt_contracts::journal::MutationTx + '_> {
+        self.inner.begin(request)
+    }
+    fn rollback_committed(
+        &self,
+        op: nurt_contracts::journal::OpId,
+        reason: nurt_contracts::journal::RollbackReason,
+    ) -> Result<nurt_contracts::journal::UndoOutcome> {
+        self.inner.rollback_committed(op, reason)
+    }
+    fn history(
+        &self,
+        query: &nurt_contracts::journal::HistoryQuery,
+    ) -> Result<Vec<nurt_contracts::journal::OperationRecord>> {
+        let mut found: Vec<_> = self
+            .records
+            .iter()
+            .filter(|record| query.id.is_none_or(|id| id.0 == record.id))
+            .filter(|record| query.before.is_none_or(|before| record.id < before.0))
+            .filter(|record| query.state.is_none_or(|state| record.state == state))
+            .cloned()
+            .collect();
+        found.sort_by_key(|record| std::cmp::Reverse(record.id));
+        if let Some(limit) = query.limit {
+            found.truncate(limit as usize);
+        }
+        Ok(found)
+    }
+    fn details(
+        &self,
+        op: nurt_contracts::journal::OpId,
+    ) -> Result<nurt_contracts::journal::OperationDetails> {
+        self.inner.details(op)
+    }
+    fn undo(
+        &self,
+        request: &nurt_contracts::journal::UndoRequest,
+    ) -> Result<nurt_contracts::journal::UndoOutcome> {
+        self.inner.undo(request)
+    }
+    fn redo(
+        &self,
+        request: &nurt_contracts::journal::RedoRequest,
+    ) -> Result<nurt_contracts::journal::UndoOutcome> {
+        self.inner.redo(request)
+    }
+    fn pin(
+        &self,
+        request: &nurt_contracts::journal::PinRequest,
+    ) -> Result<nurt_contracts::journal::PinOutcome> {
+        self.inner.pin(request)
+    }
+    fn purge(
+        &self,
+        request: &nurt_contracts::journal::PurgeRequest,
+    ) -> Result<nurt_contracts::journal::PurgeOutcome> {
+        self.inner.purge(request)
+    }
+    fn status(
+        &self,
+        volume: Option<&nurt_contracts::fs::AbsPath>,
+    ) -> Result<Vec<nurt_contracts::journal::JournalState>> {
+        self.inner.status(volume)
+    }
+    fn limits(
+        &self,
+        request: &nurt_contracts::journal::LimitsRequest,
+    ) -> Result<nurt_contracts::journal::LimitsOutcome> {
+        self.inner.limits(request)
+    }
+    fn space(
+        &self,
+        volume: Option<&nurt_contracts::fs::AbsPath>,
+    ) -> Result<Vec<nurt_contracts::journal::VolumeSpace>> {
+        self.inner.space(volume)
+    }
+    fn sweep(&self) -> Result<nurt_contracts::journal::SweepReport> {
+        self.inner.sweep()
+    }
+}
+
+/// An entry of the account at `seconds` after the epoch.
+fn entry_at(id: u64, seconds: i64) -> nurt_contracts::journal::OperationRecord {
+    let hash = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+    nurt_contracts::journal::OperationRecord {
+        id,
+        time: nurt_contracts::value::Instant::from_unix_nanos(seconds * 1_000_000_000),
+        kind: "write".to_owned(),
+        action: None,
+        summary: "a write".to_owned(),
+        state: nurt_contracts::record::OperationState::Available,
+        files: 0,
+        bytes: nurt_contracts::value::Size::from_bytes(0),
+        irreversible: Vec::new(),
+        bulk: false,
+        session: None,
+        undo_of: Vec::new(),
+        redo_of: None,
+        undo_scope: None,
+        ast_hash: hash.to_owned(),
+        manifest_sha256: hash.to_owned(),
+        chain: None,
+        pinned: false,
+        items: None,
     }
 }
 
@@ -174,6 +295,10 @@ fn undo_stage(id: i64) -> serde_json::Value {
 fn programs() -> Programs {
     Programs::default()
         .with("find /data", program(find_stage(), Vec::new()))
+        .with(
+            "find /data |> remove",
+            program(find_stage(), vec![remove_stage()]),
+        )
         .with("undo 7", program(undo_stage(7), Vec::new()))
         .with(
             "undo 1000000007",
@@ -204,10 +329,28 @@ fn setup(
     search_path: Option<&Path>,
     overrides: &str,
 ) -> Setup {
+    setup_with(host, administrator, search_path, overrides, |journal| {
+        journal
+    })
+}
+
+/// Like [`setup`], with the journal of the account passed through `wrap`.
+fn setup_with(
+    host: TestHost,
+    administrator: bool,
+    search_path: Option<&Path>,
+    overrides: &str,
+    wrap: impl FnOnce(Arc<RecordingJournal>) -> Arc<dyn nurt_contracts::journal::JournalStore>,
+) -> Setup {
     let temp = tempfile::tempdir().unwrap();
     let state = temp.path().join("state");
     let clock = Arc::new(VirtualClock::new());
     let vfs = Arc::new(VirtualFs::new(clock.clone()));
+    vfs.create_dir_all(&test_path("/data").unwrap()).unwrap();
+    for (path, size) in FILES {
+        let content = vec![b'x'; usize::try_from(size).unwrap()];
+        vfs.write_file(&test_path(path).unwrap(), &content).unwrap();
+    }
     let journal = Arc::new(RecordingJournal::keeping(vfs.clone()));
     let mut config = EngineConfig::new(clock, Arc::new(host))
         .with_sources(
@@ -215,7 +358,7 @@ fn setup(
         )
         .with_state_dir(&state)
         .with_fs(vfs)
-        .with_journal(journal)
+        .with_journal(wrap(journal))
         .with_frontend(Arc::new(Elevating(programs())))
         .with_stage(Arc::new(DeniedFind))
         .with_stage(Arc::new(Remove))
@@ -791,6 +934,103 @@ mod fake_programs {
             "{ids:?}"
         );
         assert_eq!(setup.engine.elevated_references().len(), 2);
+    }
+
+    #[test]
+    fn history_pages_over_elevated_and_account_entries_without_repeats_or_gaps() {
+        let fake = Fake::answering("sudo", &script_response(5, &[2, 3, 4]));
+        let setup = setup_with(
+            TestHost::linux(),
+            false,
+            Some(fake.dir.path()),
+            "",
+            |inner| {
+                // Two entries far in the future and two far in the past
+                // surround the elevated entries, which carry the time now.
+                Arc::new(Seeded {
+                    inner,
+                    records: vec![
+                        entry_at(1, 1),
+                        entry_at(2, 2),
+                        entry_at(3, 4_000_000_000),
+                        entry_at(4, 4_000_000_001),
+                    ],
+                })
+            },
+        );
+        let _ = call(
+            &setup,
+            "find /data",
+            options(Some(Privilege::Elevated), None),
+        );
+        let base = 1_000_000_000;
+        let mut seen: Vec<u64> = Vec::new();
+        let mut before = None;
+        for _ in 0..10 {
+            let page = setup
+                .engine
+                .history(&nurt_contracts::journal::HistoryQuery {
+                    limit: Some(2),
+                    before,
+                    ..nurt_contracts::journal::HistoryQuery::default()
+                })
+                .unwrap();
+            let Some(last) = page.last() else { break };
+            before = Some(nurt_contracts::journal::OpId(last.id));
+            seen.extend(page.iter().map(|record| record.id));
+        }
+        assert_eq!(
+            seen,
+            [4, 3, base + 5, base + 4, base + 3, base + 2, 2, 1],
+            "pages cut by time and number"
+        );
+    }
+
+    #[test]
+    fn the_state_filter_applies_to_elevated_entries() {
+        let fake = Fake::answering("sudo", &canned(Some(7)));
+        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
+        let _ = call(
+            &setup,
+            "find /data",
+            options(Some(Privilege::Elevated), None),
+        );
+        let query = |state| nurt_contracts::journal::HistoryQuery {
+            state: Some(state),
+            ..nurt_contracts::journal::HistoryQuery::default()
+        };
+        let state = nurt_contracts::record::OperationState::Undone;
+        assert!(setup.engine.history(&query(state)).unwrap().is_empty());
+        let _ = call(&setup, "undo 1000000007", options(None, None));
+        let undone = setup.engine.history(&query(state)).unwrap();
+        assert_eq!(undone.len(), 1);
+        let available = nurt_contracts::record::OperationState::Available;
+        assert!(
+            setup
+                .engine
+                .history(&query(available))
+                .unwrap()
+                .iter()
+                .all(|record| record.id != 1_000_000_007)
+        );
+    }
+
+    #[test]
+    fn a_reference_that_cannot_be_kept_fails_the_report_with_the_system_number() {
+        let fake = Fake::answering("sudo", &canned(Some(7)));
+        let setup = setup(TestHost::linux(), false, Some(fake.dir.path()), "");
+        let file = setup.state.join("elevated-operations.jsonl");
+        std::fs::create_dir_all(&file).unwrap();
+        let response = call(
+            &setup,
+            "find /data",
+            options(Some(Privilege::Elevated), None),
+        );
+        let error = response.report.error.as_ref().expect("an error");
+        assert_eq!(error.code(), ErrorCode::JournalPartial);
+        assert_eq!(error.details.get("system_entries"), Some(&json!([7])));
+        assert!(!error.next_steps.is_empty());
+        assert_eq!(response.report.op, Some(7), "no number is invented");
     }
 
     #[test]

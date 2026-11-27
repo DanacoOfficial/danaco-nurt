@@ -223,41 +223,18 @@ impl Engine {
                 limit,
             ) {
                 Ok(output) => match serde_json::from_slice::<Response>(&output) {
-                    Ok(mut response) => {
+                    Ok(response) => {
                         let mark = Mark {
                             backend,
                             as_user: as_user.clone(),
                             reason,
                         };
-                        mark.apply(&mut response.report);
-                        for report in &mut response.reports {
-                            mark.apply(report);
-                        }
-                        if response.report.corrections.is_empty() && !corrections.is_empty() {
-                            response.report.corrections.clone_from(corrections);
-                            response.report.ran.clone_from(ran);
-                        }
-                        let mut remembered: Vec<u64> = Vec::new();
-                        let all = std::iter::once(&response.report).chain(response.reports.iter());
-                        for report in all {
-                            if let Some(op) = report.op
-                                && !remembered.contains(&op)
-                            {
-                                self.remember(report, &mark);
-                                remembered.push(op);
-                            }
-                        }
-                        for report in
-                            std::iter::once(&mut response.report).chain(response.reports.iter_mut())
-                        {
-                            if let Some(op) = report.op {
-                                report.op = Some(ELEVATED_OP_BASE + op);
-                            }
-                        }
-                        if response.reports.is_empty() {
-                            response = respond_with(&response.report, &prepared.options);
-                        }
-                        return Ok(response);
+                        return Ok(self.finish_elevated(
+                            response,
+                            &mark,
+                            (corrections, ran),
+                            &prepared.options,
+                        ));
                     }
                     Err(error) => attempts.push((
                         backend,
@@ -268,6 +245,71 @@ impl Engine {
             }
         }
         Err(refused_error(&attempts, as_user.as_deref()))
+    }
+
+    /// Marks the reports of an elevated response, restores the corrections
+    /// of the program that were made before it was sent and keeps the
+    /// references.
+    fn finish_elevated(
+        &self,
+        mut response: Response,
+        mark: &Mark,
+        corrected: (&[Correction], &Option<String>),
+        options: &nurt_contracts::envelope::RequestOptions,
+    ) -> Response {
+        mark.apply(&mut response.report);
+        for report in &mut response.reports {
+            mark.apply(report);
+        }
+        if response.report.corrections.is_empty() && !corrected.0.is_empty() {
+            response.report.corrections = corrected.0.to_vec();
+            response.report.ran.clone_from(corrected.1);
+        }
+        self.keep_references(&mut response, mark);
+        if response.reports.is_empty() {
+            response = respond_with(&response.report, options);
+        }
+        response
+    }
+
+    /// Stores a reference for every entry of the system journal that the
+    /// response names and gives the entries their numbers in the account; when
+    /// a reference cannot be stored the report fails and keeps the system
+    /// numbers.
+    fn keep_references(&self, response: &mut Response, mark: &Mark) {
+        let mut references: Vec<ElevatedReference> = Vec::new();
+        let all = response
+            .reports
+            .iter()
+            .chain(std::iter::once(&response.report));
+        for report in all {
+            if let Some(op) = report.op
+                && !references.iter().any(|known| known.op == op)
+                && let Some(reference) = self.reference_of(report, mark)
+            {
+                references.push(reference);
+            }
+        }
+        let stored = match &self.inner.references {
+            Some(log) if !references.is_empty() => log.append_all(&references),
+            _ => Ok(()),
+        };
+        match stored {
+            Ok(()) => {
+                for report in
+                    std::iter::once(&mut response.report).chain(response.reports.iter_mut())
+                {
+                    if let Some(op) = report.op {
+                        report.op = Some(ELEVATED_OP_BASE + op);
+                    }
+                }
+            }
+            Err(failure) => {
+                let numbers: Vec<u64> = references.iter().map(|known| known.op).collect();
+                response.report.status = ReportStatus::Partial;
+                response.report.error = Some(reference_not_kept(&numbers, &failure));
+            }
+        }
     }
 
     /// The request that the elevated process reads: the syntax tree of the
@@ -309,14 +351,13 @@ impl Engine {
 
     /// Keeps the reference to the entry of the system journal that an
     /// elevated operation wrote.
-    fn remember(&self, report: &Report, mark: &Mark) {
-        let (Some(op), Some(log)) = (report.op, &self.inner.references) else {
-            return;
-        };
+    fn reference_of(&self, report: &Report, mark: &Mark) -> Option<ElevatedReference> {
+        let op = report.op?;
+        self.inner.references.as_ref()?;
         if report.status == ReportStatus::Planned {
-            return;
+            return None;
         }
-        let reference = ElevatedReference {
+        Some(ElevatedReference {
             op,
             backend: mark.backend.as_str().to_owned(),
             as_user: mark.as_user.clone(),
@@ -327,8 +368,7 @@ impl Engine {
                 Some(user) => format!("account:{user}"),
                 None => self.system_state_dir().to_string_lossy().into_owned(),
             },
-        };
-        let _ = log.append(&reference);
+        })
     }
 
     /// The reference that an `undo` of the program names, when the entry is
@@ -404,13 +444,17 @@ impl Engine {
             None,
         ) {
             Ok(response) => {
+                let mut response = response;
                 if response.report.status == ReportStatus::Ok
                     && !prepared.options.preview()
                     && let Some(log) = &self.inner.references
                 {
                     let mut done = reference.clone();
                     done.undone = true;
-                    let _ = log.append(&done);
+                    if let Err(failure) = log.append(&done) {
+                        response.report.status = ReportStatus::Partial;
+                        response.report.error = Some(reference_not_kept(&[reference.op], &failure));
+                    }
                 }
                 response
             }
@@ -469,6 +513,23 @@ fn denied(response: &Response) -> bool {
         && report.error.as_ref().is_some_and(|error| {
             matches!(error.code(), ErrorCode::Permission | ErrorCode::Privilege)
         })
+}
+
+/// `E_JOURNAL_PARTIAL`: the operation ran in the system journal but the account
+/// could not keep the reference.
+fn reference_not_kept(numbers: &[u64], failure: &std::io::Error) -> Error {
+    let listed = numbers
+        .iter()
+        .map(u64::to_string)
+        .collect::<Vec<_>>()
+        .join(", ");
+    Error::new(
+        ErrorCode::JournalPartial,
+        format!("the entries {listed} of the system journal were written, but the account could not keep their references: {failure}"),
+    )
+    .with_detail("system_entries", serde_json::json!(numbers))
+    .with_effect_applied(true)
+    .with_next_step("free space or fix the permissions of the state directory, then undo with `undo N privilege: elevated` using the system number")
 }
 
 /// Response that reports `error` for a request that could not be elevated.
