@@ -26,7 +26,7 @@
 #[allow(dead_code, reason = "each test file uses a subset of the fixtures")]
 mod u10_support;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use nurt_contracts::error::ErrorCode;
 use nurt_contracts::journal::{ExternalChangeKind, TargetPath};
@@ -50,11 +50,21 @@ fn declared_paths(tx: &RecordingTx) -> Vec<String> {
         .collect()
 }
 
+/// The form in which the journal names `path`: resolved on Unix and absolute
+/// on Windows, where `canonicalize` would add the `\\?\` prefix and expand
+/// short names.
+fn resolved(path: &Path) -> std::io::Result<PathBuf> {
+    if cfg!(windows) {
+        std::path::absolute(path)
+    } else {
+        std::fs::canonicalize(path)
+    }
+}
+
 fn declares(tx: &RecordingTx, file: &Path) -> bool {
-    let wanted = std::fs::canonicalize(file)
+    let wanted = resolved(file)
         .or_else(|_| {
-            std::fs::canonicalize(file.parent().unwrap())
-                .map(|dir| dir.join(file.file_name().unwrap()))
+            resolved(file.parent().unwrap()).map(|dir| dir.join(file.file_name().unwrap()))
         })
         .unwrap();
     declared_paths(tx)
