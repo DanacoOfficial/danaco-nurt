@@ -2197,9 +2197,12 @@ fn a_created_node_is_removed_only_while_it_is_the_same_entry() {
     .unwrap();
     let stat = rustix::fs::statat(&dir, "pipe", rustix::fs::AtFlags::SYMLINK_NOFOLLOW).unwrap();
     let identity = (stat.st_dev, stat.st_ino);
-    // The entry is replaced by another file, as an attacker could do.
-    std::fs::remove_file(node.as_path()).unwrap();
-    std::fs::write(node.as_path(), b"theirs").unwrap();
+    // The entry is replaced by another file, as an attacker could do. The other
+    // file is created while the first one still exists and is renamed over it,
+    // because a file created after the removal can reuse the inode number.
+    let other = fixture.path("other");
+    std::fs::write(other.as_path(), b"theirs").unwrap();
+    std::fs::rename(other.as_path(), node.as_path()).unwrap();
     remove_created(&dir, std::ffi::OsStr::new("pipe"), identity);
     assert_eq!(std::fs::read(node.as_path()).unwrap(), b"theirs");
     let stat = rustix::fs::statat(&dir, "pipe", rustix::fs::AtFlags::SYMLINK_NOFOLLOW).unwrap();
