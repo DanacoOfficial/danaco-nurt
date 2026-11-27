@@ -1935,11 +1935,11 @@ changes = "Nothing; the command only reads."
 preserve = []
 coverage = "no_effect"
 
-# Group admin: firewall, network and clock commands.
+# Group administration: firewall, network and clock commands.
 
 [[row]]
 command = "firewall.rules"
-group = "admin"
+group = "administration"
 changes = "Nothing; the command only reads."
 preserve = []
 coverage = "no_effect"
