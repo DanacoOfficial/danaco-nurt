@@ -64,10 +64,12 @@ use serde_json::{Value as Json, json};
 use crate::candidates::CandidateStore;
 use crate::config::{ConfigLoader, ConfigSources, LoadedConfig};
 use crate::cursor::{CursorStore, ProgramRef};
+use crate::elevation::{Mark, ReferenceLog, Setup};
 use crate::error::{EngineError, envelope_error, unavailable};
 use crate::events::{EventListener, Sequencer};
 use crate::extensions;
 use crate::frontend::{Compiled, Corrected, Frontend, UnavailableFrontend};
+use crate::inverse::InverseLog;
 use crate::readcache::ReadCache;
 use crate::registry::{ProcessComponents, registry_with};
 use crate::session::{SessionId, Sessions};
@@ -131,6 +133,7 @@ pub struct EngineConfig {
     session: Option<String>,
     state_dir: Option<PathBuf>,
     use_state_dir: bool,
+    elevation: Setup,
 }
 
 impl fmt::Debug for EngineConfig {
@@ -166,6 +169,7 @@ impl EngineConfig {
             session: None,
             state_dir: None,
             use_state_dir: true,
+            elevation: Setup::default(),
         }
     }
 
@@ -282,6 +286,30 @@ impl EngineConfig {
     pub fn with_state_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.state_dir = Some(dir.into());
         self.use_state_dir = true;
+        self
+    }
+
+    /// Executable that the elevation backends start with the subcommand
+    /// `elevated-exec`, instead of the running executable.
+    #[must_use]
+    pub fn with_elevation_executable(mut self, executable: impl Into<PathBuf>) -> Self {
+        self.elevation.executable = Some(executable.into());
+        self
+    }
+
+    /// Search path of the programs of the elevation backends (`sudo`,
+    /// `doas`, `run0`), instead of the path of the process.
+    #[must_use]
+    pub fn with_elevation_search_path(mut self, path: impl Into<std::ffi::OsString>) -> Self {
+        self.elevation.search_path = Some(path.into());
+        self
+    }
+
+    /// States whether the process has the identity of the administrator,
+    /// instead of asking the operating system.
+    #[must_use]
+    pub fn with_administrator(mut self, administrator: bool) -> Self {
+        self.elevation.administrator = Some(administrator);
         self
     }
 
@@ -419,27 +447,30 @@ impl ExecHandle {
     }
 }
 
-struct Inner {
-    clock: Arc<dyn Clock>,
-    host: Arc<dyn Host>,
-    fs: Option<Arc<dyn Fs>>,
-    journal: Option<Arc<dyn JournalStore>>,
-    registry_access: Option<Arc<dyn RegistryAccess>>,
-    frontend: Arc<dyn Frontend>,
-    services: Arc<Services>,
-    registry: Arc<Registry>,
-    catalog_rev: String,
-    loader: ConfigLoader,
-    default_config: Arc<LoadedConfig>,
-    projects: Mutex<HashMap<Option<PathBuf>, CachedConfig>>,
-    state: Option<StateDir>,
-    sessions: Sessions,
-    candidates: CandidateStore,
-    cursors: CursorStore,
-    read_cache: Arc<ReadCache>,
-    default_session: Option<SessionId>,
-    requests: AtomicU64,
-    results: AtomicU64,
+pub(crate) struct Inner {
+    pub(crate) clock: Arc<dyn Clock>,
+    pub(crate) host: Arc<dyn Host>,
+    pub(crate) fs: Option<Arc<dyn Fs>>,
+    pub(crate) journal: Option<Arc<dyn JournalStore>>,
+    pub(crate) registry_access: Option<Arc<dyn RegistryAccess>>,
+    pub(crate) frontend: Arc<dyn Frontend>,
+    pub(crate) services: Arc<Services>,
+    pub(crate) registry: Arc<Registry>,
+    pub(crate) catalog_rev: String,
+    pub(crate) loader: ConfigLoader,
+    pub(crate) default_config: Arc<LoadedConfig>,
+    pub(crate) projects: Mutex<HashMap<Option<PathBuf>, CachedConfig>>,
+    pub(crate) state: Option<StateDir>,
+    pub(crate) sessions: Sessions,
+    pub(crate) candidates: CandidateStore,
+    pub(crate) cursors: CursorStore,
+    pub(crate) read_cache: Arc<ReadCache>,
+    pub(crate) default_session: Option<SessionId>,
+    pub(crate) requests: AtomicU64,
+    pub(crate) results: AtomicU64,
+    pub(crate) elevation: Setup,
+    pub(crate) references: Option<ReferenceLog>,
+    pub(crate) inverses: Option<InverseLog>,
 }
 
 /// The registry of the system on Windows; elsewhere there is none.
@@ -455,7 +486,7 @@ fn system_registry() -> Option<Arc<RegistryProvider>> {
 }
 
 /// Configuration of one project with the state of its file at load time.
-struct CachedConfig {
+pub(crate) struct CachedConfig {
     stamp: Option<FileStamp>,
     loaded: Arc<LoadedConfig>,
 }
@@ -479,11 +510,12 @@ impl FileStamp {
 }
 
 /// Request after the envelope rules, with every option set.
-struct Prepared {
-    config: Arc<LoadedConfig>,
-    options: RequestOptions,
-    session: Option<SessionId>,
-    timeout: Duration,
+pub(crate) struct Prepared {
+    pub(crate) config: Arc<LoadedConfig>,
+    pub(crate) options: RequestOptions,
+    pub(crate) session: Option<SessionId>,
+    pub(crate) timeout: Duration,
+    pub(crate) elevation: Option<Mark>,
 }
 
 /// The engine of Danaco Nurt.
@@ -515,7 +547,7 @@ struct Prepared {
 /// ```
 #[derive(Clone)]
 pub struct Engine {
-    inner: Arc<Inner>,
+    pub(crate) inner: Arc<Inner>,
 }
 
 impl fmt::Debug for Engine {
@@ -607,6 +639,12 @@ impl Engine {
                 .transpose()?,
             None => None,
         };
+        let references = state
+            .as_ref()
+            .map(|state| ReferenceLog::in_state(state.root()));
+        let inverses = state
+            .as_ref()
+            .map(|state| InverseLog::in_state(state.root()));
         let default_session = config
             .session
             .map(SessionId::new)
@@ -665,6 +703,9 @@ impl Engine {
             default_session,
             requests: AtomicU64::new(0),
             results: AtomicU64::new(0),
+            references,
+            inverses,
+            elevation: config.elevation,
         };
         Ok(Self {
             inner: Arc::new(inner),
@@ -1027,9 +1068,25 @@ impl Engine {
         cancel: &CancelToken,
         events: Option<Arc<dyn EventSink>>,
     ) -> Response {
+        self.route(request, cancel, events)
+    }
+
+    /// Runs a request in this process with the rights of the account, or
+    /// with those of the administrator when `mark` says the process already
+    /// has them.
+    pub(crate) fn execute_local(
+        &self,
+        request: &Request,
+        cancel: &CancelToken,
+        events: Option<Arc<dyn EventSink>>,
+        mark: Option<Mark>,
+    ) -> Response {
         let started = self.inner.clock.monotonic();
         let prepared = match self.prepare(request) {
-            Ok(prepared) => prepared,
+            Ok(mut prepared) => {
+                prepared.elevation = mark;
+                prepared
+            }
             Err(error) => {
                 let report = failed_report(REQUEST_KIND, error);
                 return respond_with(&report, &request.options);
@@ -1051,6 +1108,16 @@ impl Engine {
                 return self.finish(report, &prepared, None, started);
             }
         };
+        if prepared.elevation.is_none()
+            && let Some(reference) = self.elevated_entry_of(&compiled.bound)
+        {
+            return self.undo_elevated(request, &prepared, &reference, cancel, events);
+        }
+        if let Some(response) =
+            self.undo_by_inverse(request, &prepared, &compiled.bound, cancel, events.clone())
+        {
+            return response;
+        }
         let kind = ProgramKind::of(&compiled.bound);
         if request.options.script != Some(true) && effect_pipelines(&compiled.bound) > 1 {
             let error = Error::new(
@@ -1185,6 +1252,12 @@ impl Engine {
         program: Option<&ProgramRef>,
         started: Duration,
     ) -> Response {
+        if let Some(mark) = &prepared.elevation {
+            mark.apply(&mut report);
+        }
+        if !prepared.options.preview() {
+            self.keep_inverse(&mut report);
+        }
         if prepared.options.verbosity == Some(Verbosity::Detailed) {
             let elapsed = self.inner.clock.monotonic().saturating_sub(started);
             report.timing.get_or_insert_with(|| Timing {
@@ -1261,7 +1334,11 @@ impl Engine {
             })
     }
 
-    fn bind(&self, document: &AstDocument, prepared: &Prepared) -> Result<Compiled, Error> {
+    pub(crate) fn bind(
+        &self,
+        document: &AstDocument,
+        prepared: &Prepared,
+    ) -> Result<Compiled, Error> {
         self.inner
             .frontend
             .bind(document, &request_config(prepared))
@@ -1294,7 +1371,7 @@ impl Engine {
         }
     }
 
-    fn prepare(&self, request: &Request) -> Result<Prepared, Error> {
+    pub(crate) fn prepare(&self, request: &Request) -> Result<Prepared, Error> {
         request
             .validate()
             .map_err(|error| envelope_error(&error, request))?;
@@ -1316,6 +1393,7 @@ impl Engine {
             options,
             session,
             timeout,
+            elevation: None,
         })
     }
 
@@ -1403,7 +1481,7 @@ impl Engine {
             .unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn now(&self) -> WallTime {
+    pub(crate) fn now(&self) -> WallTime {
         self.inner.clock.now()
     }
 
@@ -1419,7 +1497,7 @@ impl Engine {
 ///
 /// The call parameter `base` of the request replaces `scope.base` of the
 /// configuration, so relative paths of the program resolve against it.
-fn request_config(prepared: &Prepared) -> Cow<'_, Config> {
+pub(crate) fn request_config(prepared: &Prepared) -> Cow<'_, Config> {
     let config = prepared.config.config();
     match prepared.options.base.as_deref() {
         Some(base) if config.scope.base.as_deref() != Some(base) => {
@@ -1458,6 +1536,8 @@ fn effective_options(
         session: session.map(|id| id.as_str().to_owned()),
         language: Some(options.language.unwrap_or_else(|| language_of(config))),
         script: Some(options.script()),
+        privilege: Some(options.privilege.unwrap_or(config.privilege.default)),
+        as_user: options.as_user.clone(),
     }
 }
 
@@ -1468,7 +1548,7 @@ fn language_of(config: &Config) -> Language {
     }
 }
 
-fn input_kind(request: &Request) -> &'static str {
+pub(crate) fn input_kind(request: &Request) -> &'static str {
     if request.cursor.is_some() && request.program.is_none() && request.ast.is_none() {
         PAGE_KIND
     } else if request.accept.is_some() && request.program.is_none() && request.ast.is_none() {
@@ -1855,7 +1935,7 @@ fn failure(
 /// Response with the result rendered for the options of the request; the
 /// messages and notes of the report are put into the requested language
 /// first.
-fn respond_with(report: &Report, options: &RequestOptions) -> Response {
+pub(crate) fn respond_with(report: &Report, options: &RequestOptions) -> Response {
     match options.language {
         Some(language @ Language::Pl) => {
             let mut localized = report.clone();
@@ -1872,7 +1952,7 @@ fn localized(mut error: Error, language: Language) -> Error {
     error
 }
 
-fn failed_report(kind: &str, error: Error) -> Report {
+pub(crate) fn failed_report(kind: &str, error: Error) -> Report {
     let mut report = Report::new(ReportStatus::Failed, kind);
     report.error = Some(error);
     report

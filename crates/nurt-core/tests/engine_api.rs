@@ -315,6 +315,8 @@ fn defaults_follow_the_envelope_and_the_configuration() {
         session: None,
         language: Some(Language::Pl),
         script: Some(false),
+        privilege: Some(nurt_contracts::envelope::Privilege::Account),
+        as_user: None,
     };
     assert_eq!(ctx.options(), &expected);
 }
