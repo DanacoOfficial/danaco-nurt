@@ -1253,6 +1253,13 @@ mod system {
             .unwrap();
         assert_eq!(state.groups, ["nurt-test-grp"]);
         assert_eq!(state.comment, "Nurt test");
+        real(&bound(
+            "accounts.password",
+            &[
+                ("name", text("nurt-test-acct")),
+                ("value", text("Nurt-test-1")),
+            ],
+        ));
         let modified = real(&bound(
             "accounts.modify",
             &[
@@ -1361,6 +1368,7 @@ mod system {
         if ProcessSys
             .run(&Call::new("modprobe", ["-n", "dummy"]))
             .is_ok_and(|o| o.ok())
+            && !super::super::kernel::is_loaded(&ProcessSys, "dummy").unwrap()
         {
             let _cleanup = Cleanup(vec![Call::new("modprobe", ["-r", "dummy"])]);
             let loaded = real(&bound("modules.load", &[("name", text("dummy"))]));
@@ -1416,6 +1424,13 @@ mod system {
         ));
         let part = format!("{device}p1");
         shell("partprobe", &[&device]);
+        shell("udevadm", &["settle"]);
+        for _ in 0..50 {
+            if std::path::Path::new(&part).exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
         let formatted = real(&bound(
             "disks.format",
             &[
@@ -1424,7 +1439,11 @@ mod system {
                 ("label", text("nurt-test")),
             ],
         ));
-        assert_eq!(shell("lsblk", &["-n", "-o", "FSTYPE", &part]), "ext4");
+        shell("udevadm", &["settle"]);
+        assert_eq!(
+            shell("blkid", &["-p", "-o", "value", "-s", "TYPE", &part]),
+            "ext4"
+        );
         assert!(matches!(
             derive("disks.format", &formatted),
             Inverse::Irreversible(_)

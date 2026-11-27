@@ -15,7 +15,7 @@
 //! they are `#[ignore]` and run by hand on the disposable Linux machine of
 //! the pool: `cargo nextest run -p nurt-sys --test admin_root --run-ignored
 //! only` as root. Every test removes what it created (the table
-//! `nurt_test_fw`, the interface `nurt_test0`) and restores the time zone
+//! `nurt_test_fw`, the interfaces `nurt_test0` and `nurt_test1`) and restores the time zone
 //! and the state of network time.
 #![cfg(target_os = "linux")]
 // Test code asserts with unwrap, expect and panic.
@@ -35,6 +35,8 @@ use std::process::Command;
 
 const TABLE: &str = "nurt_test_fw";
 const LINK: &str = "nurt_test0";
+/// Own interface of the DNS test: the tests run in parallel and must not share a name.
+const DNS_LINK: &str = "nurt_test1";
 
 struct Table;
 
@@ -231,7 +233,9 @@ impl Drop for Resolver {
         if let Some(content) = &self.file {
             let _ = std::fs::write("/etc/resolv.conf", content);
         }
-        let _ = Command::new("ip").args(["link", "delete", LINK]).output();
+        let _ = Command::new("ip")
+            .args(["link", "delete", DNS_LINK])
+            .output();
     }
 }
 
@@ -245,7 +249,7 @@ fn name_servers_are_set_and_the_previous_state_is_recorded() {
     };
     assert!(
         Command::new("ip")
-            .args(["link", "add", LINK, "type", "dummy"])
+            .args(["link", "add", DNS_LINK, "type", "dummy"])
             .status()
             .expect("ip")
             .success()
@@ -255,7 +259,7 @@ fn name_servers_are_set_and_the_previous_state_is_recorded() {
         "network.dns_set",
         &[
             ("servers", Value::List(vec![text("192.0.2.53")])),
-            ("interface", text(LINK)),
+            ("interface", text(DNS_LINK)),
         ],
     );
     let changed = run(&DnsSet, &request, &ctx);
@@ -268,7 +272,7 @@ fn name_servers_are_set_and_the_previous_state_is_recorded() {
     let seen = if plain {
         std::fs::read_to_string("/etc/resolv.conf").expect("resolv.conf")
     } else {
-        shell("resolvectl", &["dns", LINK])
+        shell("resolvectl", &["dns", DNS_LINK])
     };
     assert!(seen.contains("192.0.2.53"), "{seen}");
 }
