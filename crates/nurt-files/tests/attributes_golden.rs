@@ -36,7 +36,9 @@ fn stage() -> Arc<dyn StageImpl> {
 
 /// File system of the examples: a script, a text file and a small site.
 fn home() -> TestContext {
-    let test = TestContext::new();
+    // The goldens describe the permission bits of a Unix host, which a test
+    // on Windows keeps by naming the host.
+    let test = TestContext::with_host(nurt_testkit::host::TestHost::linux());
     for path in [
         "/home/user/run.sh",
         "/home/user/notes.txt",

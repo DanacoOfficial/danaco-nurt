@@ -135,7 +135,10 @@ fn example_1_renames_an_entry_to_a_new_name() {
     assert_eq!(names(&test, "/home/user"), ["final.md"]);
     let changes = effect.changes.clone().unwrap();
     assert_eq!(changes[0].action, ChangeAction::Rename);
-    assert_eq!(changes[0].path.as_str(), "/home/user/final.md");
+    assert_eq!(
+        changes[0].path.as_str(),
+        nurt_testkit::paths::abs("/home/user/final.md")
+    );
     assert_eq!(
         changes[0]
             .from

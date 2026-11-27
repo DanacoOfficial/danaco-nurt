@@ -88,7 +88,8 @@ fn paths_of(records: &[Record]) -> Vec<String> {
 
 #[test]
 fn a_host_without_a_registry_rejects_registry_paths() {
-    let test = TestContext::new();
+    // A Linux host has no registry; the native host of a test on Windows has.
+    let test = TestContext::with_host(nurt_testkit::host::TestHost::linux());
     let ctx = test.ctx();
     let read = Read::default();
     let stages: [(&dyn ReadStage, &str); 4] = [

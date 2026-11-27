@@ -888,7 +888,8 @@ mod tests {
 
     #[test]
     fn files_carry_content_fields_and_identity() {
-        let test = TestContext::new();
+        // Owner and group are the numeric identifiers of a Unix host.
+        let test = TestContext::with_host(TestHost::linux());
         let path = abs("/data/notes.txt");
         test.fs().write_file(&path, b"one\r\ntwo\r\n").unwrap();
         let entry = entries(&test.ctx(), &args(&["/data/notes.txt"]))

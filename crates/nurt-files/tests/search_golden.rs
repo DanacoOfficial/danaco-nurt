@@ -31,9 +31,7 @@ fn project() -> (TestContext, ExecCtx) {
     let test = TestContext::new();
     for (path, content) in FILES {
         let path = test_path(path).unwrap();
-        test.fs()
-            .create_dir_all(&test_path(&parent(&path)).unwrap())
-            .unwrap();
+        test.fs().create_dir_all(&path.parent().unwrap()).unwrap();
         test.fs().write_file(&path, content.as_bytes()).unwrap();
     }
     let options = RequestOptions {
@@ -42,13 +40,6 @@ fn project() -> (TestContext, ExecCtx) {
     };
     let ctx = test.builder().options(Arc::new(options)).build();
     (test, ctx)
-}
-
-fn parent(path: &nurt_contracts::fs::AbsPath) -> String {
-    path.as_path()
-        .parent()
-        .map(|parent| parent.to_string_lossy().replace('\\', "/"))
-        .unwrap_or_default()
 }
 
 fn search(ctx: &ExecCtx, values: Vec<(&str, Value)>) -> Result<Vec<Record>> {

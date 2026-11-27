@@ -343,7 +343,12 @@ mod tests {
                 .as_ref()
                 .expect("a rename names the previous path");
             assert_ne!(from.as_str(), change.path.as_str());
-            assert!(change.path.as_str().starts_with("/out"));
+            assert!(
+                change
+                    .path
+                    .as_str()
+                    .starts_with(&nurt_testkit::paths::abs("/out"))
+            );
         }
     }
 

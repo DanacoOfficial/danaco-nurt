@@ -95,7 +95,7 @@ fn last_line_of_a_compressed_log() {
             .decompressed_from
             .as_ref()
             .map(|from| from.as_str().to_owned()),
-        Some("/var/log/app.log.gz".to_owned())
+        Some(nurt_testkit::paths::abs("/var/log/app.log.gz"))
     );
 }
 

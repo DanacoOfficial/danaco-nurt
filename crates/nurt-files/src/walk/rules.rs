@@ -276,7 +276,7 @@ mod tests {
     const DECOMPOSED: &str = "cafe\u{301}.txt";
 
     fn frame(root: &str, source: &str, rules: &str) -> Frame {
-        let source = AbsPath::new(source).expect("absolute source");
+        let source = AbsPath::for_test(source);
         Frame {
             parent: None,
             ignore: build_rules(Path::new(root), &source, rules.as_bytes()),

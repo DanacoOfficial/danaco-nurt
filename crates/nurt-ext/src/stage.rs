@@ -426,7 +426,13 @@ write = ["/project"]
 
     fn extension() -> InstalledExt {
         InstalledExt {
-            manifest: Manifest::parse(MANIFEST).unwrap(),
+            // The granted directory is `/project` with the root of
+            // `nurt_testkit::paths`.
+            manifest: Manifest::parse(&MANIFEST.replace(
+                "\"/project\"",
+                &format!("\"{}\"", nurt_testkit::paths::abs("/project")),
+            ))
+            .unwrap(),
             dir: "/ext/acme".into(),
         }
     }
