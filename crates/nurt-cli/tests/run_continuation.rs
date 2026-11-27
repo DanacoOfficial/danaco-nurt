@@ -643,7 +643,7 @@ fn a_new_repl_still_sees_the_operations_made_before_it() {
     let file = home.path().join("made.txt");
     let made = nurt(
         home.path(),
-        &format!(r#"write "{}" "hello""#, file.display()),
+        &format!(r#"write "{}" "hello" mode: create"#, file.display()),
     );
     assert_eq!(report(&made)["status"], "ok", "{made}");
     assert!(file.exists());

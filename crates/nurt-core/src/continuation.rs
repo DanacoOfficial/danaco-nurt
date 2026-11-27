@@ -2000,10 +2000,19 @@ mod lock_tests {
                     };
                     (0..4)
                         .flat_map(|_| {
-                            store
-                                .read(&NextQuery::default(), None, Some(&runner), &config, at())
-                                .unwrap()
-                                .records
+                            loop {
+                                match store.read(
+                                    &NextQuery::default(),
+                                    None,
+                                    Some(&runner),
+                                    &config,
+                                    at(),
+                                ) {
+                                    Ok(part) => break part.records,
+                                    Err(error) if error.code == ErrorCode::ContinuationExpired => {}
+                                    Err(error) => panic!("{error:?}"),
+                                }
+                            }
                         })
                         .map(|record| match record.get("n") {
                             Some(Value::Int(n)) => *n,
