@@ -1863,8 +1863,26 @@ impl Default for LoopConfig {
 #[non_exhaustive]
 pub struct FunctionConfig {
     /// Key `function.max_depth`: deepest nesting of calls of functions;
-    /// deeper recursion ends with `E_LIMIT`. Default `64`.
+    /// deeper recursion ends with `E_LIMIT`. From 1 to
+    /// [`FUNCTION_DEPTH_LIMIT`]; default `64`.
+    #[serde(deserialize_with = "function_depth")]
+    #[schemars(range(min = 1, max = 1024))]
     pub max_depth: u32,
+}
+
+/// Largest value of `function.max_depth`: calls of functions nest on the stack
+/// of the executor, and a larger depth could overflow it before `E_LIMIT`.
+pub const FUNCTION_DEPTH_LIMIT: u32 = 1024;
+
+fn function_depth<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u32, D::Error> {
+    let depth = u32::deserialize(deserializer)?;
+    if (1..=FUNCTION_DEPTH_LIMIT).contains(&depth) {
+        Ok(depth)
+    } else {
+        Err(serde::de::Error::custom(format!(
+            "function.max_depth is from 1 to {FUNCTION_DEPTH_LIMIT}, found {depth}"
+        )))
+    }
 }
 
 impl Default for FunctionConfig {

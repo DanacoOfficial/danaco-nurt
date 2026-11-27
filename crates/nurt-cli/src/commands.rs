@@ -155,6 +155,18 @@ fn script(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Result
     run_request(&request, flags.format, io, source)
 }
 
+/// Whether `--help` or `-h` stands as an option of its own: not as the value of
+/// a parameter written `name: --help`.
+fn asks_for_help(words: &[String]) -> bool {
+    words.iter().enumerate().any(|(index, word)| {
+        (word == "--help" || word == "-h")
+            && !index
+                .checked_sub(1)
+                .and_then(|before| words.get(before))
+                .is_some_and(|before| before.ends_with(':'))
+    })
+}
+
 /// Runs a program file with the values of its parameters:
 /// `nurt run cleanup.nurt dir: "/srv/app" days: 7 dry`. Without `params` in
 /// the file the program takes no values. `--help` after the file prints the
@@ -166,7 +178,7 @@ fn run_file(args: &[String], io: &mut Io<'_>, source: &dyn EngineSource) -> Resu
     };
     let text = read_text(path, io)?;
     let text = without_shebang(&text).to_owned();
-    if rest.iter().any(|word| word == "--help" || word == "-h") {
+    if asks_for_help(rest) {
         let context = Context::open(io.terminal, source)?;
         let document = context.engine.parse(&text, flags.variant)?;
         let declaration = crate::params::declaration(&context.engine, &document, flags.variant)?;
@@ -698,5 +710,22 @@ mod tests {
         assert!(exec_request(&flags, &["find".to_owned()]).is_err());
         assert!(exec_request(&flags, &[]).is_ok());
         assert!(exec_request(&Flags::default(), &[]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod help_option_tests {
+    use super::asks_for_help;
+
+    fn words(items: &[&str]) -> Vec<String> {
+        items.iter().map(|item| (*item).to_owned()).collect()
+    }
+
+    #[test]
+    fn help_is_an_option_not_a_value() {
+        assert!(asks_for_help(&words(&["--help"])));
+        assert!(asks_for_help(&words(&["dir:", "/x", "-h"])));
+        assert!(!asks_for_help(&words(&["msg:", "--help"])));
+        assert!(!asks_for_help(&words(&["dir:", "/x"])));
     }
 }

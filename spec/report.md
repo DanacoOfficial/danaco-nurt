@@ -91,7 +91,7 @@ lists the parts in order in `parts`, each with:
 When a part fails the whole construct is rolled back: the status is
 `rolled_back`, `error.details.restored` lists what was restored and
 `error.details.not_rolled_back` lists the parts the catalog marks irreversible.
-With `preview: true` the status is `planned`, `changes` lists the effects of
+`parallel: N` of `each` runs iterations at the same time only when their targets are disjoint, found by planning every iteration before the start; otherwise the iterations run in order and the `loop` part says so in `note`. With `preview: true` a `repeat` or a `while` plans one iteration (the number of iterations is known only by running, `note` says so) and an `each` plans every iteration; the status is `planned`, `changes` lists the effects of
 every part and nothing is changed. A loop with `atomic: false` keeps the
 iterations completed before a failure, each in its own entry (`op` of the
 part); the report names the failed iteration.

@@ -29,6 +29,11 @@ their own version numbers, described in the specification.
   `when`, `each`, `repeat`, `while`, `break`, `continue`, `steps`, `define`
   and `params` and the pipeline head `call`. Documents of version 1.0 are read
   unchanged. The grammar is in `spec/grammar.md`.
+- Changes of the API of `nurt-syntax`: `lex::Checkpoint` is no longer `Copy`
+  (it keeps the open blocks of the lexer); `MutationTx` gains the methods
+  `allow_incremental`, `savepoint`, `release_savepoint` and
+  `rollback_to_savepoint`, with defaults that keep the old behaviour; `Request`
+  gains the member `params`; `Report` gains `parts` and `parts_total`.
 - `MutationTx::allow_incremental`: a transaction of the journal may preserve
   further targets after its first change, so that a construct is one entry.
 
