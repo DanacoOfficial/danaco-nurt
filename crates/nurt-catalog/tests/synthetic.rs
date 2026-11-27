@@ -447,7 +447,7 @@ fn summary_result_lists_groups_with_counts() {
     let registry = Registry::load_embedded().unwrap();
     let result = registry.catalog_json(&CatalogQuery::Summary).unwrap();
     assert_eq!(result["format"], CATALOG_RESULT_FORMAT);
-    assert_eq!(result["total"], 148);
+    assert_eq!(result["total"], 158);
     assert_eq!(result["groups"][0]["name"], "core");
     assert_eq!(result["groups"][0]["commands"], 33);
     assert_eq!(result["groups"][0]["origin"], "core");

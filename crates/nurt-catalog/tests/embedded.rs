@@ -27,10 +27,10 @@ fn catalog_dir() -> std::path::PathBuf {
 }
 
 #[test]
-fn embedded_catalog_has_148_commands_in_15_groups() {
+fn embedded_catalog_has_158_commands_in_15_groups() {
     let registry = Registry::load_embedded().unwrap();
-    assert_eq!(registry.len(), 148);
-    assert_eq!(registry.index().total, 148);
+    assert_eq!(registry.len(), 158);
+    assert_eq!(registry.index().total, 158);
     assert_eq!(registry.groups().count(), 15);
     assert!(!registry.is_empty());
 }
@@ -199,7 +199,7 @@ fn require_command_and_group_report_unknown_names() {
 fn debug_output_counts_commands() {
     let registry = Registry::load_embedded().unwrap();
     let text = format!("{registry:?}");
-    assert!(text.contains("commands: 148"), "{text}");
+    assert!(text.contains("commands: 158"), "{text}");
 }
 
 #[test]

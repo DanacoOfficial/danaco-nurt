@@ -885,3 +885,137 @@ systems = ["windows"]
 tests = [
   { crate = "nurt-service", test = "it_windows_user_mode_task_scheduler" },
 ]
+
+# firewall, network and clock (adm-b)
+
+[[case]]
+command = "firewall.rules"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "rules_lists_records_with_the_fields_of_the_rule"
+
+[[case]]
+command = "firewall.allow"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "allow_adds_a_rule_with_its_key_as_comment"
+
+[[case]]
+command = "firewall.deny"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "ufw_adds_and_deletes_with_force"
+
+[[case]]
+command = "firewall.remove"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "remove_deletes_by_handle_and_records_the_removed_rule"
+
+[[case]]
+command = "network.route_add"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "adding_a_route_records_the_state_and_runs_ip"
+
+[[case]]
+command = "network.route_remove"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "removing_a_route_records_what_was_removed"
+
+[[case]]
+command = "network.dns_set"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "resolved_change_records_the_previous_state"
+
+[[case]]
+command = "clock.timezone_set"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "timezone_change_is_recorded_and_applied"
+
+[[case]]
+command = "clock.set"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "setting_the_time_has_no_previous_value"
+
+[[case]]
+command = "clock.ntp"
+level = "native"
+systems = ["linux", "windows", "macos"]
+crate = "nurt-sys"
+test = "ntp_state_is_read_per_system"
+
+[[case]]
+command = "firewall.allow"
+level = "native"
+systems = ["macos"]
+crate = "nurt-sys"
+test = "pf_loads_the_whole_anchor_through_standard_input"
+
+[[case]]
+command = "firewall.allow"
+level = "native"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "windows_rules_are_created_and_removed_by_label"
+
+[[case]]
+command = "firewall.allow"
+level = "system"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "nftables_rules_are_added_and_removed"
+requires = "root and nftables"
+
+[[case]]
+command = "network.route_add"
+level = "system"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "routes_are_added_and_removed_on_a_dummy_interface"
+requires = "root and iproute2"
+
+[[case]]
+command = "clock.timezone_set"
+level = "system"
+systems = ["linux"]
+crate = "nurt-sys"
+test = "time_zone_and_network_time_are_changed_and_restored"
+requires = "root and systemd"
+
+[[case]]
+command = "windows.cim"
+level = "native"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "invoke_collects_typed_arguments"
+
+[[case]]
+command = "windows.cim"
+level = "system"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "it_cim_invoke_create_process_returns_zero"
+requires = "Windows Management Instrumentation"
+
+[[case]]
+command = "windows.cim"
+level = "system"
+systems = ["windows"]
+crate = "nurt-sys"
+test = "it_cim_invoke_interrogate_service_on_instances"
+requires = "Windows Management Instrumentation"
+

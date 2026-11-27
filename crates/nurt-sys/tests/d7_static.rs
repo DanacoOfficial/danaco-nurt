@@ -80,6 +80,10 @@ enum Allowed {
     PackageManagers,
     /// The program named by the caller; literal program names are rejected.
     DescribedProgram,
+    /// The programs named by the literals of `Call::new` and `Call::owned`
+    /// in the administration module, all in the listed set; the site itself
+    /// runs the program of the call.
+    NamedByCall(&'static [&'static str]),
 }
 
 /// Source file permitted to start programs through the process host.
@@ -99,8 +103,40 @@ struct Site {
 /// Commands that manage services.
 const SERVICE_COMMANDS: &[&str] = &["services", "start", "restart", "enable", "disable"];
 
+/// Programs of the firewall, network and clock commands.
+const ADMIN_PROGRAMS: &[&str] = &[
+    "nft",
+    "firewall-cmd",
+    "ufw",
+    "pfctl",
+    "ip",
+    "route",
+    "netstat",
+    "resolvectl",
+    "networksetup",
+    "timedatectl",
+    "systemsetup",
+    "tzutil",
+    "date",
+    "powershell",
+];
+
+/// Commands that change the firewall, the routes, the DNS and the clock.
+const ADMIN_COMMANDS: &[&str] = &[
+    "firewall.rules",
+    "firewall.allow",
+    "firewall.deny",
+    "firewall.remove",
+    "network.route_add",
+    "network.route_remove",
+    "network.dns_set",
+    "clock.timezone_set",
+    "clock.set",
+    "clock.ntp",
+];
+
 /// Sites permitted to start programs.
-const SITES: [Site; 4] = [
+const SITES: [Site; 5] = [
     Site {
         path: "crates/nurt-sys/src/services/macos.rs",
         allowed: Allowed::Only(&["launchctl"]),
@@ -123,6 +159,12 @@ const SITES: [Site; 4] = [
         path: "crates/nurt-programs/src/help.rs",
         allowed: Allowed::DescribedProgram,
         commands: &["program.describe"],
+        approved: true,
+    },
+    Site {
+        path: "crates/nurt-sys/src/admin/tool.rs",
+        allowed: Allowed::NamedByCall(ADMIN_PROGRAMS),
+        commands: ADMIN_COMMANDS,
         approved: true,
     },
 ];
@@ -825,6 +867,20 @@ fn program_findings(site: &Site, rel: &str, exec: &ExecSite) -> Option<String> {
         (Allowed::DescribedProgram, ProgramName::Literal(name)) => Some(format!(
             "{location}: only the described program is run, found `{name}`"
         )),
+        (Allowed::NamedByCall(names), ProgramName::Literal(name))
+            if !names.contains(&program_file_name(name)) =>
+        {
+            Some(format!(
+                "{location}: program `{name}` is not permitted here"
+            ))
+        }
+        (Allowed::NamedByCall(_), ProgramName::Dynamic(expr))
+            if !expr.trim_start().starts_with("call.program") =>
+        {
+            Some(format!(
+                "{location}: the program must be the program of the call, found `{expr}`"
+            ))
+        }
         _ => None,
     }
 }
@@ -946,7 +1002,7 @@ fn declaration_findings(
     let declared = external_programs(command);
     let mut findings = Vec::new();
     match site.allowed {
-        Allowed::Only(_) => {
+        Allowed::Only(_) | Allowed::NamedByCall(_) => {
             if kind != Some("system_program") {
                 findings.push(format!(
                     "{name}: external kind `system_program` is not declared"
@@ -993,6 +1049,42 @@ fn used_programs(files: &[ProductionFile], site: &Site) -> Option<Vec<String>> {
 }
 
 #[test]
+fn static_admin_calls_name_approved_programs() {
+    let root = workspace_root();
+    let call =
+        Regex::new(r#"Call\s*::\s*(?:new|owned)\s*\(\s*"([^"]+)""#).expect("pattern is valid");
+    let admin = Regex::new(r"^crates/nurt-sys/src/admin/").expect("pattern is valid");
+    let mut findings = Vec::new();
+    let mut named = BTreeSet::new();
+    for file in production_files(&root)
+        .iter()
+        .filter(|file| admin.is_match(&file.rel))
+    {
+        for found in call.captures_iter(&file.scanned.code) {
+            let program = found[1].to_owned();
+            if !ADMIN_PROGRAMS.contains(&program.as_str()) {
+                let line = line_of(&file.scanned.code, found.get(0).map_or(0, |m| m.start()));
+                findings.push(format!(
+                    "{}:{line}: `{program}` is not an approved program",
+                    file.rel
+                ));
+            }
+            named.insert(program);
+        }
+    }
+    for program in ADMIN_PROGRAMS {
+        if !named.contains(*program) && *program != "powershell" {
+            findings.push(format!("approved program `{program}` is not used"));
+        }
+    }
+    assert!(
+        findings.is_empty(),
+        "the administration module starts only approved programs:\n{}",
+        findings.join("\n")
+    );
+}
+
+#[test]
 fn static_external_calls_have_stage_spec_external() {
     let root = workspace_root();
     let commands = domain_commands(&root);
@@ -1012,7 +1104,7 @@ fn static_external_calls_have_stage_spec_external() {
     let approved: BTreeSet<&str> = SITES
         .iter()
         .filter_map(|s| match s.allowed {
-            Allowed::Only(names) => Some(names),
+            Allowed::Only(names) | Allowed::NamedByCall(names) => Some(names),
             _ => None,
         })
         .flatten()
@@ -1480,7 +1572,7 @@ fn delegated_runs_require_specs_from_the_site_builder() {
 const SYSTEMS: [&str; 3] = ["linux", "windows", "macos"];
 
 /// Number of commands in the catalog groups of [`GROUPS`].
-const COMMAND_COUNT: usize = 36;
+const COMMAND_COUNT: usize = 46;
 
 /// Levels of a matrix case: a test on synthetic data or doubles, a test on
 /// the running system, a comparison with a system program, and the
@@ -1637,7 +1729,7 @@ fn coverage_findings(name: &str, command: &toml::Table, cases: &[&toml::Table]) 
 }
 
 #[test]
-fn matrix_covers_all_36_commands() {
+fn matrix_covers_all_46_commands() {
     let root = workspace_root();
     let commands = domain_commands(&root);
     assert_eq!(

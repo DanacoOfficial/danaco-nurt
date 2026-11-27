@@ -19,7 +19,7 @@ use nurt_contracts::spec::{
 };
 
 /// Number of commands in the whole catalog.
-const EXPECTED_TOTAL: u32 = 148;
+const EXPECTED_TOTAL: u32 = 158;
 
 /// Number of mutually exclusive conditions of `assert`.
 const ASSERT_CONDITIONS: usize = 8;
