@@ -11,8 +11,6 @@
 //! file system calls of the operating system directly; unsafe code is limited
 //! to those calls and every block documents its safety conditions.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![allow(unsafe_code, reason = "file system calls of the operating system")]
 #![deny(clippy::undocumented_unsafe_blocks)]

@@ -5,8 +5,6 @@
 //! candidates, execution handles, events, the execution context and the
 //! queries that do not run programs.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests stop at the first unexpected value by unwrapping or panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -391,7 +389,6 @@ fn request_options_override_the_defaults() {
     assert_eq!(ctx.options().language, Some(Language::Pl));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn ambiguous_programs_offer_candidates_until_they_expire() {
     let h = harness();
@@ -485,7 +482,6 @@ fn cancelled_request_reports_cancellation_and_events() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn started_requests_complete_without_cancellation() {
     let h = harness();
@@ -543,7 +539,6 @@ fn check_plans_the_bound_program() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn syntax_trees_are_bound_and_run() {
     let h = harness();

@@ -407,7 +407,6 @@ mod tests {
         children
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn uses_mount_point_when_writable() {
         let fs = TestFs::new();
@@ -420,7 +419,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn uses_highest_writable_ancestor_on_the_same_volume() {
         let (fs, volume) = home();
@@ -430,7 +428,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn tries_every_given_path_in_order() {
         let (fs, volume) = home();
@@ -446,7 +443,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn skips_ancestors_of_another_subvolume_or_mount() {
         let fs = TestFs::new();
@@ -471,7 +467,6 @@ mod tests {
         assert!(fs.calls().is_empty());
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn ignores_missing_ancestors_and_links() {
         let (fs, volume) = home();
@@ -482,7 +477,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn refuses_link_planted_under_the_journal_name() {
         let (fs, volume) = home();
@@ -493,7 +487,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn passes_on_errors_other_than_unusable_anchor() {
         let (fs, volume) = home();
@@ -515,7 +508,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn creates_private_hidden_directory_with_markers_and_format_files() {
         let (fs, volume) = home();
@@ -549,7 +541,6 @@ mod tests {
         assert_eq!(sorted_children(&fs, root), JOURNAL_ENTRIES);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn adds_spotlight_and_icloud_markers_on_macos() {
         let (fs, volume) = home();
@@ -570,7 +561,6 @@ mod tests {
         assert_eq!(fs.read(&format!("{root}/.nosync")), Some(Vec::new()));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn completes_existing_directory_without_rewriting_files() {
         let (fs, volume) = home();
@@ -588,7 +578,6 @@ mod tests {
         assert!(fs.is_hidden("/home/user/.nurt-journal"));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn rejects_journal_directory_of_another_account() {
         let (fs, volume) = home();
@@ -600,7 +589,6 @@ mod tests {
         assert_eq!(error.kind, FsErrorKind::PermissionDenied);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn leaves_no_temporary_file_when_a_write_fails() {
         let (fs, volume) = home();
@@ -616,7 +604,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn concurrent_creation_yields_one_directory_without_errors() {
         let (fs, volume) = home();

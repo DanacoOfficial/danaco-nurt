@@ -353,7 +353,6 @@ mod tests {
         PathFilter::new(Path::new("/r"), &owned(paths), &owned(exclude)).unwrap()
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn relative_paths_are_normalized_against_the_root() {
         let root = Path::new("/r");
@@ -364,7 +363,6 @@ mod tests {
         assert_eq!(relative_path(root, "/r/x").unwrap(), "x");
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn paths_outside_the_root_are_rejected() {
         let root = Path::new("/r");

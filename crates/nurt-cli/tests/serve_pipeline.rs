@@ -4,8 +4,6 @@
 //! Pipelines `find |> filter |> count` and `find |> remove` through the
 //! protocol server, on an engine over a virtual file system.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -191,7 +189,6 @@ fn world() -> World {
     e2e::world().unwrap()
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn counts_the_entries_that_pass_the_filter() {
     let messages = serve(world(), &[(COUNT_LARGE, false)]);
@@ -201,7 +198,6 @@ fn counts_the_entries_that_pass_the_filter() {
     assert_eq!(deletions(report), 0);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn preview_plans_the_removal_and_keeps_the_files() {
     let world = world();
@@ -222,7 +218,6 @@ fn preview_plans_the_removal_and_keeps_the_files() {
     }
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn removal_deletes_the_found_entries_and_reports_the_changes() {
     let world = world();

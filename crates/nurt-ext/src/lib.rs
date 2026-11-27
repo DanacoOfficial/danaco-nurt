@@ -46,8 +46,6 @@
 //! # Ok::<(), nurt_contracts::error::Error>(())
 //! ```
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "native"), forbid(unsafe_code))]
 

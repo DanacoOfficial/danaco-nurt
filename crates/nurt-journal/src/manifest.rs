@@ -1474,7 +1474,6 @@ pub(crate) mod tests {
         assert!(decoded.target(TargetIndex(0), TargetRole::Source).is_none());
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn manifest_digest_matches_the_recorded_vector() {
         let mut manifest = sample();
@@ -1764,7 +1763,6 @@ pub(crate) mod tests {
         ));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn state_and_item_files_round_trip_through_atomic_writes() {
         let fixture = Fixture::new();

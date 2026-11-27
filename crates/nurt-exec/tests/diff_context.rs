@@ -4,8 +4,6 @@
 //! Context lines of the hunks of an effect: the executor limits them to the
 //! request option `diff_context`, falling back to its default.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -127,7 +125,6 @@ fn context_lines(hunk: &Hunk) -> (usize, usize) {
     (before, after)
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn applied_hunks_keep_the_requested_context() {
     let world = World::new();
@@ -141,7 +138,6 @@ fn applied_hunks_keep_the_requested_context() {
     assert_eq!((hunk.new_start, hunk.new_len), (5, 5));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn planned_hunks_of_a_preview_keep_the_requested_context() {
     let world = World::new();
@@ -155,7 +151,6 @@ fn planned_hunks_of_a_preview_keep_the_requested_context() {
     assert_eq!(world.begins(), 0);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn context_defaults_to_the_contract_value() {
     let world = World::new();
@@ -164,7 +159,6 @@ fn context_defaults_to_the_contract_value() {
     assert_eq!(context_lines(&hunk), (keep, keep));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn zero_context_leaves_only_the_changed_lines() {
     let world = World::new();
@@ -176,7 +170,6 @@ fn zero_context_leaves_only_the_changed_lines() {
     assert_eq!(hunk.lines, ["-old", "+new"].map(String::from));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn context_is_not_added_when_the_stage_gave_less() {
     let world = World::new();

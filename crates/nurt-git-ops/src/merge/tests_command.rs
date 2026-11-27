@@ -228,7 +228,6 @@ fn diverged() -> Repo {
     Repo::new(&[("a.txt", "a main\n")], &[("b.txt", "b\n")])
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn fast_forward_moves_branch_working_tree_and_logs() {
     let repo = Repo::new(&[], &[("b.txt", "b\n")]);
@@ -271,7 +270,6 @@ fn merging_an_ancestor_is_up_to_date() {
     assert!(result.commit.is_none());
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn clean_merge_creates_commit_with_both_parents() {
     let repo = diverged();
@@ -324,7 +322,6 @@ fn detached_head_merge_names_head_as_destination() {
     assert_eq!(result.effect(repo.root()).detached, Some(true));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn conflict_leaves_markers_stages_and_state_files() {
     let repo = conflicting();
@@ -358,7 +355,6 @@ fn conflict_leaves_markers_stages_and_state_files() {
     assert_eq!(effect.conflicts.map(|list| list.len()), Some(1));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn favored_side_resolves_conflicting_hunks() {
     let repo = conflicting();
@@ -369,7 +365,6 @@ fn favored_side_resolves_conflicting_hunks() {
     assert_eq!(repo.read("f.txt"), "1\ntopic\n3\n");
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn no_commit_stops_clean_merge_before_the_commit() {
     let repo = diverged();
@@ -431,7 +426,6 @@ fn continue_refuses_unresolved_conflicts() {
     assert_eq!(error.data().problem.as_deref(), Some("unmerged_paths"));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn abort_restores_the_state_before_the_merge() {
     let repo = conflicting();
@@ -448,7 +442,6 @@ fn abort_restores_the_state_before_the_merge() {
     assert_eq!(repo.branch(), repo.main);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn abort_keeps_local_change_of_path_the_merge_did_not_touch() {
     let repo = conflicting();
@@ -530,7 +523,6 @@ fn staged_change_blocks_three_way_merge() {
     assert_eq!(error.data().sample, vec!["s.txt".to_owned()]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn unrelated_histories_are_merged_only_when_allowed() {
     let repo = diverged();
@@ -635,7 +627,6 @@ fn stage_merges_and_reports_the_effect() {
     assert_eq!(repo.read("b.txt"), "b\n");
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn stage_reports_conflicts_as_applied_error() {
     let repo = conflicting();

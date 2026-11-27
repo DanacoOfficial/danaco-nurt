@@ -319,7 +319,6 @@ fn subjects(repo: &Repo, tip: ObjectId) -> Vec<String> {
         .collect()
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn linear_rebase_replays_commits_onto_the_new_base() {
     let repo = three_commits(false);
@@ -447,7 +446,6 @@ fn second(repo: &Repo) -> (ObjectId, String) {
     (id, id.to_hex_with_len(7).to_string())
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn conflict_stops_with_a_detached_head_and_conflict_stages() {
     let repo = three_commits(true);
@@ -544,7 +542,6 @@ fn conflict_writes_the_state_directory_of_git() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn continue_commits_the_resolution_and_finishes() {
     let repo = three_commits(true);
@@ -605,7 +602,6 @@ fn continue_refuses_unresolved_conflicts_and_unstaged_changes() {
     assert!(repo.has_git("rebase-merge"));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn skip_drops_the_stopped_commit() {
     let repo = three_commits(true);
@@ -630,7 +626,6 @@ fn skip_drops_the_stopped_commit() {
     assert_eq!(repo.state(), before);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn abort_returns_to_the_original_branch() {
     let repo = three_commits(true);
@@ -823,7 +818,6 @@ fn detached_head_is_rebased_without_a_branch() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn branch_behind_the_new_base_fast_forwards() {
     let repo = Repo::diverged(&[("a.txt", "a main\n")], &[]);
@@ -895,7 +889,6 @@ fn run_stage(repo: &Repo, extra: &[(&str, &str)]) -> Result<Vec<Record>> {
     }
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn stage_rebases_and_reports_the_effect() {
     let repo = three_commits(false);
@@ -905,7 +898,6 @@ fn stage_rebases_and_reports_the_effect() {
     assert_eq!(repo.read("a.txt"), "a main\n");
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn stage_reports_a_stop_as_an_applied_error_and_continues() {
     let repo = three_commits(true);

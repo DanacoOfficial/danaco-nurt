@@ -4,8 +4,6 @@
 //! Execution of pipelines over streams of mixed record kinds, early stop of
 //! sources and the records read before a failed stage.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -50,7 +48,6 @@ fn writers() -> Vec<Arc<dyn nurt_contracts::stage::StageImpl>> {
     ]
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn applies_a_mixed_stream_in_one_transaction() {
     let world = World::new();
@@ -94,7 +91,6 @@ fn applies_a_mixed_stream_in_one_transaction() {
     assert_eq!(operation.result.records.len(), 2);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn preserves_the_targets_of_every_group_before_the_first_change() {
     let world = World::new();
@@ -133,7 +129,6 @@ fn preserves_the_targets_of_every_group_before_the_first_change() {
     assert!(last_preserve < first_apply, "{calls:?}");
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn rolls_back_the_groups_already_applied_when_a_later_group_fails() {
     let world = World::new();
@@ -194,7 +189,6 @@ fn rejects_a_kind_without_implementation_before_changing_anything() {
     assert_eq!(world.content("/data/a.txt"), ORIGINAL);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn previews_a_mixed_stream_without_a_transaction() {
     let world = World::new();

@@ -293,7 +293,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn facts_come_from_the_journal_targets() {
         let handle = handle(vec![
@@ -318,7 +317,6 @@ mod tests {
         assert!(facts[2].replaced_existing);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn notes_give_the_kind_and_the_content_of_a_directory_without_a_journal_target() {
         let mut tree = Change::new("/tree", ChangeAction::Delete);
@@ -385,7 +383,6 @@ mod tests {
         assert_eq!(document.catalog_rev, "cat");
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn rollback_error_lists_targets() {
         let error = rollback_failed(&[TargetPath::Fs(AbsPath::for_test("/x"))]);

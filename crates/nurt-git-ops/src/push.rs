@@ -2207,7 +2207,6 @@ mod tests {
         vec![(name.to_owned(), status, reason.map(str::to_owned))]
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn pushes_a_new_branch_moves_the_tracking_ref_and_undoes_both() {
         let remote = Fixture::bare();
@@ -2232,7 +2231,6 @@ mod tests {
         assert_eq!(local.ref_value("refs/remotes/origin/main"), None);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn fast_forwards_and_reports_up_to_date() {
         let remote = Fixture::bare();
@@ -2256,7 +2254,6 @@ mod tests {
         assert!(tx.targets().is_empty());
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn writes_tracking_refs_and_upstream_to_the_common_directory_of_a_linked_worktree() {
         let remote = Fixture::bare();
@@ -2296,7 +2293,6 @@ mod tests {
         assert!(config.contains("[branch \"main\"]"));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn rejects_fetch_first_and_non_fast_forward() {
         let remote = Fixture::bare();
@@ -2333,7 +2329,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn forces_updates_with_yes_and_with_a_valid_lease() {
         let remote = Fixture::bare();
@@ -2366,7 +2361,6 @@ mod tests {
         assert_eq!(outcome.state(), GitEffectState::Completed);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn rejects_a_stale_lease() {
         let remote = Fixture::bare();
@@ -2400,7 +2394,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn deletes_a_remote_branch_and_its_tracking_ref() {
         let remote = Fixture::bare();
@@ -2437,7 +2430,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn pushes_tags_and_rejects_a_moved_tag() {
         let remote = Fixture::bare();
@@ -2469,7 +2461,6 @@ mod tests {
         assert_eq!(remote.ref_value("refs/heads/main"), Some(next));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn sets_the_upstream_and_restores_the_configuration_on_undo() {
         let remote = Fixture::bare();
@@ -2499,7 +2490,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_the_checked_out_branch_of_a_non_bare_remote() {
         let remote = Fixture::new();
@@ -2554,7 +2544,6 @@ mod tests {
         assert_eq!(remote.ref_value("refs/heads/main"), Some(tip));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn resolves_refspecs_and_reports_bad_input() {
         let remote = Fixture::bare();
@@ -2594,7 +2583,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_unknown_remotes_and_unsupported_transports() {
         let remote = Fixture::bare();
@@ -2756,7 +2744,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn an_explicit_lease_applies_to_the_pushed_branch_only() {
         let remote = Fixture::bare();
@@ -2796,7 +2783,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn the_stage_gives_the_accepted_host_key_to_the_ssh_settings() {
         use nurt_contracts::stage::ArgValue;

@@ -165,7 +165,6 @@ mod tests {
         assert_eq!(env.available(), 2);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn an_unknown_volume_is_not_found() {
         let env = Env::new();

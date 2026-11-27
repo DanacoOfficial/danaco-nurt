@@ -7,8 +7,6 @@
 //! certificate store, DNS resolution and network diagnostics. Unsafe code is
 //! limited to operating system interfaces for ICMP and network interfaces.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 #![deny(clippy::undocumented_unsafe_blocks)]

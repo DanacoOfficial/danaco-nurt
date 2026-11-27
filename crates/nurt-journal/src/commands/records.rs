@@ -389,7 +389,6 @@ mod tests {
         fs
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn restored_tree_reports_its_kind_content_and_size() {
         let fs = tree_fs();
@@ -406,7 +405,6 @@ mod tests {
         assert_eq!(item.size_after, Some(Size::from_bytes(7)));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn restored_directory_without_a_file_system_is_still_marked_as_a_directory() {
         let create = restored("/d/tree", TargetAction::Create, FileKind::Directory);
@@ -415,7 +413,6 @@ mod tests {
         assert_eq!(item.size_after, Some(Size::from_bytes(4096)));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn restored_file_has_no_directory_notes() {
         let fs = tree_fs();
@@ -423,7 +420,6 @@ mod tests {
         assert_eq!(change(&create, Some(&fs)).flags, None);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn tree_count_gives_up_when_a_directory_is_missing() {
         let fs = tree_fs();
@@ -435,7 +431,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reversals_swap_the_states_and_reverse_the_actions() {
         let mut released = detail("/d/c.txt", TargetAction::Modify);
@@ -468,7 +463,6 @@ mod tests {
         assert_eq!(reversals(&details, Some(&only)).len(), 1);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn undo_outcome_lists_sources_skipped_and_forced_entries() {
         let result = UndoOutcome {
@@ -563,7 +557,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     #[allow(clippy::cognitive_complexity)] // one scenario with many checks
     fn restored_items_are_reported_with_their_actions_sizes_and_hashes() {
@@ -576,7 +569,6 @@ mod tests {
         assert_eq!(modified.to, None);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn restored_items_are_reported_with_the_paths_of_a_creation_a_rename_and_a_delete() {
         let created = change(&outcome_of("/d/ñüé", TargetAction::CreateTree), None);
@@ -606,7 +598,6 @@ mod tests {
         assert_eq!(removed.hash_after, None);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reversing_an_entry_reverses_each_action() {
         let expected = [
@@ -631,7 +622,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn items_already_undone_or_not_selected_are_not_reversed() {
         let mut undone = detail("/d/a.txt", TargetAction::Modify);
@@ -671,7 +661,6 @@ mod tests {
         assert_eq!(full.irreversible.len(), 1);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn every_kind_of_difference_is_named_for_the_language() {
         let named = |kind: ConflictKind| {

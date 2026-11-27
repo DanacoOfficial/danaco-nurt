@@ -3632,7 +3632,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn replace_with_backup_transfers_windows_metadata() {
         let fs = MemFs::builder()

@@ -6,8 +6,6 @@
 //! `code.file_bytes_max`, listings with and without the file listing
 //! service, and concurrent writes of one index.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -72,7 +70,6 @@ fn symbol_names(index: &SymbolIndex) -> Vec<String> {
         .collect()
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn first_refresh_parses_every_listed_file() {
     let workspace = project();
@@ -98,7 +95,6 @@ fn first_refresh_parses_every_listed_file() {
     assert_eq!(index.root(), Path::new(ROOT));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn unchanged_files_are_reused_without_reading() {
     let workspace = project();
@@ -109,7 +105,6 @@ fn unchanged_files_are_reused_without_reading() {
     assert_eq!(stats.parsed, 0);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn changed_modification_time_refreshes_the_file() {
     let workspace = project();
@@ -124,7 +119,6 @@ fn changed_modification_time_refreshes_the_file() {
     assert!(!symbol_names(&index).contains(&"main".to_owned()));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn changed_size_refreshes_the_file() {
     let workspace = project();
@@ -151,7 +145,6 @@ fn changed_size_refreshes_the_file() {
     assert_eq!(after.symbols.len(), 2);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn files_no_longer_listed_are_removed() {
     let workspace = project();
@@ -169,7 +162,6 @@ fn files_no_longer_listed_are_removed() {
     assert_eq!(index.files().len(), 1);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn index_is_kept_in_the_state_directory_between_executions() {
     let workspace = project();
@@ -185,7 +177,6 @@ fn index_is_kept_in_the_state_directory_between_executions() {
     assert_eq!(stats.parsed, 0);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn unreadable_stored_index_is_rebuilt() {
     let workspace = project();
@@ -204,7 +195,6 @@ fn unreadable_stored_index_is_rebuilt() {
     assert_eq!(reopened.files().len(), 3);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn index_of_another_root_is_ignored() {
     let workspace = project();
@@ -217,7 +207,6 @@ fn index_of_another_root_is_ignored() {
     assert!(reopened.files().is_empty());
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn without_state_directory_the_index_lives_for_one_execution() {
     let workspace = project();
@@ -229,7 +218,6 @@ fn without_state_directory_the_index_lives_for_one_execution() {
     assert_eq!(stats.parsed, 3);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn listing_stops_at_index_max_files() {
     let workspace = project();
@@ -241,7 +229,6 @@ fn listing_stops_at_index_max_files() {
     assert_eq!(index.files().len(), 3);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn symbol_search_reports_a_truncated_index() {
     let workspace = project();
@@ -268,7 +255,6 @@ fn symbol_search_reports_a_truncated_index() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn files_larger_than_file_bytes_max_are_skipped() {
     let workspace = project();
@@ -285,7 +271,6 @@ fn files_larger_than_file_bytes_max_are_skipped() {
     assert!(error.to_string().contains("code.file_bytes_max"));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn content_hash_equals_the_file_system_digest() {
     let workspace = project();
@@ -304,7 +289,6 @@ fn content_hash_equals_the_file_system_digest() {
     assert_eq!(indexed.etag, source.etag.to_string());
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn parsing_on_several_threads_gives_the_same_index() {
     let workspace = project();
@@ -336,7 +320,6 @@ fn parsing_on_several_threads_gives_the_same_index() {
     assert_eq!(first.files().len(), 15);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn listing_service_receives_a_source_tree_request() {
     let workspace = project();
@@ -369,7 +352,6 @@ fn listing_service_receives_a_source_tree_request() {
     }
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn listing_without_service_skips_dependency_and_version_control_directories() {
     let workspace = Workspace::without_listing();
@@ -402,7 +384,6 @@ fn listing_without_service_skips_dependency_and_version_control_directories() {
     assert!(workspace.listing.requests().is_empty());
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn listing_applies_the_acceptance_function() {
     let workspace = project();

@@ -286,7 +286,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn composed_rule_ignores_decomposed_name() {
         let frame = frame("/work", "/work/.ignore", &format!("{COMPOSED}\n"));
@@ -294,7 +293,6 @@ mod tests {
         assert!(frame.is_ignored(&path, false, None));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn decomposed_rule_ignores_composed_name() {
         let frame = frame("/work", "/work/.ignore", &format!("{DECOMPOSED}\n"));
@@ -302,7 +300,6 @@ mod tests {
         assert!(frame.is_ignored(&path, false, None));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn decomposed_root_directory_matches_relative_rule() {
         let root = format!("/{DECOMPOSED}");
@@ -326,7 +323,6 @@ mod tests {
         assert!(frame.is_ignored(Path::new("/work/build"), true, None));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn unrelated_name_stays_visible() {
         let frame = frame("/work", "/work/.ignore", &format!("{COMPOSED}\n"));

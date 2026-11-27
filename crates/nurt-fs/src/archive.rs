@@ -986,7 +986,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn zip_members_are_listed_and_streamed() {
         for method in [
@@ -999,7 +998,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn tar_gz_members_are_listed_and_streamed() {
         let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
@@ -1008,7 +1006,6 @@ mod tests {
         check_list_and_read(&provider, "/a.tar.gz");
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn tar_zst_and_plain_tar_members_are_listed_and_streamed() {
         let plain = tar_bytes(MEMBERS);
@@ -1085,7 +1082,6 @@ mod tests {
         assert!(gz.entries(&p("/bad.tar.gz")).is_err());
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn decompression_beyond_the_limits_fails() {
         let zeros = vec![0_u8; 4 * 1024 * 1024];
@@ -1125,7 +1121,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn addresses_round_trip_through_provider_keys() {
         let parsed = address("archive:/srv/a.zip!/dir/file");
@@ -1149,7 +1144,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn tar_links_are_listed_as_links_and_cannot_be_opened() {
         let mut builder = tar::Builder::new(Vec::new());
@@ -1181,7 +1175,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn multi_byte_member_names_are_listed_and_read() {
         let name = "za\u{17c}\u{f3}\u{142}\u{107}/\u{1f600}.txt";

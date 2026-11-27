@@ -4,8 +4,6 @@
 //! Reading SQLite databases with `sql` and the checks that keep a read from
 //! changing files.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -165,7 +163,6 @@ fn numbers_rows_per_statement_of_several_statements() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn refuses_changing_statement_without_write_and_offers_fix() {
     let dir = tempfile::tempdir().unwrap();

@@ -245,7 +245,6 @@ mod tests {
         CredentialConfig::resolve(&config, url)
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn classifies_known_helpers_by_name_and_path() {
         assert_eq!(classify("store"), HelperKind::Store { file: None });
@@ -270,7 +269,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn classifies_other_helpers_as_programs() {
         assert_eq!(

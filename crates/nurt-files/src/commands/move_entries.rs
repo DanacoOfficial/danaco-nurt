@@ -323,7 +323,6 @@ mod tests {
         assert_journaled(&test);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn every_rename_change_gives_the_previous_path() {
         let test = TestContext::new();

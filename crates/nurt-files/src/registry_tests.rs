@@ -86,7 +86,6 @@ fn paths_of(records: &[Record]) -> Vec<String> {
         .collect()
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn a_host_without_a_registry_rejects_registry_paths() {
     let test = TestContext::new();

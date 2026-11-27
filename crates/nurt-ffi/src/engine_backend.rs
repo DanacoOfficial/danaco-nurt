@@ -635,7 +635,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn journal_queries_report_the_missing_journal_in_the_result() {
         let backend = listing();

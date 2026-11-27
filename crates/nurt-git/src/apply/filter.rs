@@ -215,7 +215,6 @@ mod tests {
             .0
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn smudge_completes_ident_marker_with_object_id() {
         let out = smudged("f.txt ident\n", b"$Id$\n");
@@ -226,7 +225,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn smudge_encodes_utf16_working_tree_encoding() {
         let out = smudged("f.txt working-tree-encoding=UTF-16LE\n", b"a\n");

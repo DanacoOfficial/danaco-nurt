@@ -97,7 +97,6 @@ fn upstream_id(up: &Fixture, name: &str) -> ObjectId {
         .detach()
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn full_clone_has_the_layout_of_git() {
     let up = upstream();

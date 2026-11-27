@@ -362,7 +362,6 @@ fn assert_fast_forward_files(scenario: &Scenario) {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn fast_forwards_in_one_transaction_that_undo_restores() {
     let scenario = Scenario::behind("");
@@ -403,7 +402,6 @@ fn fast_forwards_in_one_transaction_that_undo_restores() {
     assert_eq!(scenario.state(), before);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn creates_a_merge_commit_in_merge_mode() {
     let scenario = Scenario::new("");
@@ -430,7 +428,6 @@ fn creates_a_merge_commit_in_merge_mode() {
     assert_eq!(scenario.state(), before);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn creates_a_merge_commit_when_fast_forward_is_disabled() {
     let scenario = Scenario::behind("[pull]\n\tff = false\n");
@@ -440,7 +437,6 @@ fn creates_a_merge_commit_when_fast_forward_is_disabled() {
     assert_eq!(parents, [scenario.base, scenario.upstream]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn merges_with_an_explicit_mode_despite_fast_forward_only_configuration() {
     let scenario = Scenario::new("[pull]\n\tff = only\n");
@@ -452,7 +448,6 @@ fn merges_with_an_explicit_mode_despite_fast_forward_only_configuration() {
     assert_eq!(parents.len(), 2);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn declares_every_changed_file_of_a_merge_and_undo_restores_them() {
     let scenario = Scenario::new("[pull]\n\trebase = false\n");
@@ -505,7 +500,6 @@ fn refuses_diverged_histories_and_keeps_the_transfer() {
     assert_eq!(scenario.state(), before);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn stops_with_conflicts_after_writing_the_transfer() {
     let scenario = Scenario::build(
@@ -580,7 +574,6 @@ fn refuses_several_heads_in_a_merge() {
     assert!(error.effect_applied);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn rebases_through_the_rebase_engine_in_the_same_transaction() {
     let scenario = Scenario::new("[pull]\n\trebase = true\n");
@@ -607,7 +600,6 @@ fn rebases_through_the_rebase_engine_in_the_same_transaction() {
     assert_eq!(git.head_before, Some(scenario.local.to_string()));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn limits_the_rebase_to_commits_after_the_fork_point() {
     let mut fixture = Fixture::new();
@@ -629,7 +621,6 @@ fn limits_the_rebase_to_commits_after_the_fork_point() {
     assert_eq!(request.reflog_action, "pull --rebase");
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn keeps_the_transfer_when_the_rebase_engine_refuses() {
     let scenario = Scenario::new("[pull]\n\trebase = true\n");
@@ -653,7 +644,6 @@ fn refuses_a_rebase_without_an_engine_after_the_transfer() {
     assert!(scenario.git_path("FETCH_HEAD").exists());
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn fast_forwards_a_rebase_without_an_engine() {
     let scenario = Scenario::behind("[pull]\n\trebase = true\n");
@@ -773,7 +763,6 @@ fn explains_why_nothing_can_be_merged() {
     assert_eq!(problem(&detached, &[]).as_deref(), Some("detached_head"));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn passes_the_explicit_branch_and_host_key_to_the_transfer() {
     let scenario = Scenario::new("[pull]\n\trebase = false\n");
@@ -845,7 +834,6 @@ fn reports_a_failed_transfer_without_writing() {
     assert_eq!(scenario.state(), before);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn previews_the_remote_and_the_mode() {
     let scenario = Scenario::new("[pull]\n\trebase = true\n");

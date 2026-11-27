@@ -3,8 +3,6 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Named parameters, the authorizer and the row count of changes of `sql`.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -116,7 +114,6 @@ fn writes_with_a_map_and_reports_rows_changed() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn fix_for_a_read_that_changes_repeats_the_map() {
     let dir = tempfile::tempdir().unwrap();

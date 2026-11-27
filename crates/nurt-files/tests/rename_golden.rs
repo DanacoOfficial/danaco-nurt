@@ -3,8 +3,6 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Examples of `docs/commands/rename.md`, run on the virtual file system.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -122,7 +120,6 @@ fn counter(effect: &Effect, name: &str) -> Option<u64> {
 }
 
 /// `rename path: "/home/user/draft.md" to: "final.md"`
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn example_1_renames_an_entry_to_a_new_name() {
     let test = TestContext::new();

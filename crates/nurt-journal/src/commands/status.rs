@@ -183,7 +183,6 @@ mod tests {
     use super::super::testing::{Env, call, read};
     use super::*;
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_the_journal_volume_with_its_limits() {
         let env = Env::new();
@@ -206,7 +205,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn a_volume_without_entries_reports_an_empty_journal() {
         let env = Env::new();

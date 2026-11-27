@@ -366,7 +366,6 @@ mod tests {
         (fs, registry)
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn stores_records_atomically_and_reads_them_back() {
         let (fs, registry) = setup();
@@ -401,7 +400,6 @@ mod tests {
         assert_eq!(children, ["volumes.json", "volumes.json.lock"]);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn keeps_previous_registry_when_writing_fails() {
         let (fs, registry) = setup();
@@ -420,7 +418,6 @@ mod tests {
         assert_eq!(children, ["volumes.json", "volumes.json.lock"]);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn treats_unreadable_registry_as_empty() {
         let (fs, registry) = setup();
@@ -436,7 +433,6 @@ mod tests {
         assert_eq!(registry.load(&fs).unwrap_err().kind, FsErrorKind::Io);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn finds_current_journal_directory() {
         let (fs, registry) = setup();
@@ -452,7 +448,6 @@ mod tests {
         assert_eq!(registry.lookup(&fs, &other).unwrap(), Lookup::Unknown);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn detects_other_volume_under_the_same_mount_point() {
         let (fs, registry) = setup();
@@ -468,7 +463,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn detects_missing_journal_directory() {
         let (fs, registry) = setup();
@@ -509,7 +503,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn compares_device_numbers_without_uuid() {
         let (fs, registry) = setup();
@@ -529,7 +522,6 @@ mod tests {
         ));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn concurrent_writers_keep_every_record() {
         let (fs, registry) = setup();
@@ -553,7 +545,6 @@ mod tests {
         assert_eq!(registry.load(&*fs).unwrap().len(), 6);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn reports_lock_and_directory_failures() {
         let (fs, registry) = setup();
@@ -641,7 +632,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn locates_state_directory_per_system() {
         let config = StateConfig::default();
@@ -675,7 +665,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn state_directory_setting_takes_precedence() {
         let host = TestHost::new(Os::Linux, &[("XDG_STATE_HOME", "/var/state")]);

@@ -5,8 +5,6 @@
 //! recording journal; `assert`, `verify` and `count` are the record stages
 //! of the crate.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -577,7 +575,6 @@ fn failed_check_before_the_effect_changes_nothing() {
     assert_eq!(world.content(&file), ORIGINAL);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn preview_stops_after_the_plan_of_the_effect() {
     let world = World::new();
@@ -610,7 +607,6 @@ fn preview_stops_after_the_plan_of_the_effect() {
     assert_eq!(world.content(&files[0]), ORIGINAL);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn writes_many_targets_in_one_transaction() {
     let world = World::new();
@@ -654,7 +650,6 @@ fn writes_many_targets_in_one_transaction() {
     }
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn stale_target_rolls_back_the_whole_operation() {
     let world = World::new();
@@ -735,7 +730,6 @@ fn running_job_defers_the_stages_after_the_effect() {
     assert_eq!(deferred.count, Some(1));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn failed_verification_rolls_the_operation_back() {
     let world = World::new();
@@ -766,7 +760,6 @@ fn failed_verification_rolls_the_operation_back() {
     assert_eq!(world.journal.transactions()[0].state, TxState::RolledBack);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn passing_verification_keeps_the_effect() {
     let world = World::new();
@@ -796,7 +789,6 @@ fn passing_verification_keeps_the_effect() {
     assert_eq!(steps, [ExecStep::Plan, ExecStep::Apply, ExecStep::Verify]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn verification_runs_a_program_as_an_operation_of_its_own() {
     let world = World::new();
@@ -826,7 +818,6 @@ fn verification_runs_a_program_as_an_operation_of_its_own() {
     assert!(transactions.iter().all(|tx| tx.state == TxState::Committed));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn failed_rollback_lists_the_targets() {
     let world = World::new();
@@ -907,7 +898,6 @@ fn cancelled_execution_runs_no_stage() {
     assert_eq!(calls.load(Ordering::SeqCst), 0);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn cancellation_after_the_plan_stops_before_the_apply_step() {
     let world = World::new();
@@ -936,7 +926,6 @@ fn cancellation_after_the_plan_stops_before_the_apply_step() {
     assert_eq!(world.content(&file), ORIGINAL);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn time_limit_elapsed_during_the_plan_stops_before_the_apply_step() {
     let world = World::new();
@@ -1092,7 +1081,6 @@ fn unknown_named_result_fails_the_operation() {
     assert_eq!(error_of(&outcome).code(), ErrorCode::UnknownName);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn script_runs_each_operation_as_a_transaction_of_its_own() {
     let world = World::new();
@@ -1182,7 +1170,6 @@ fn events_are_delivered_in_sequence_from_start_to_finish() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn record_of_a_foreign_kind_is_a_type_error() {
     let world = World::new();

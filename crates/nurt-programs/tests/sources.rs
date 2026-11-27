@@ -5,8 +5,6 @@
 //! below a test root: RPM SQLite, NDB and Berkeley DB databases, dpkg
 //! status files, the pacman database, desktop entries and manual pages.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -302,7 +300,6 @@ fn dpkg_reads_status_status_directory_and_file_lists() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn dpkg_package_summary_reaches_the_card_of_its_command() {
     let fixture = dpkg_fixture();
@@ -938,7 +935,6 @@ fn index_of_healthy_providers_is_complete() {
     assert!(index.is_complete());
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn relative_xdg_directories_are_ignored() {
     let env = HostEnv::new(Os::Linux)

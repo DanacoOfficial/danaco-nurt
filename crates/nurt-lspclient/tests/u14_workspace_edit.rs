@@ -3,8 +3,6 @@
 // https://github.com/DanacoOfficial | support@danaco-group.pl
 //! Tests of the conversion of `WorkspaceEdit` answers to workspace changes.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -42,7 +40,6 @@ fn only(path: &'static str, text: &'static str) -> impl Fn(&Path) -> Option<Stri
     move |asked: &Path| (asked == Path::new(path)).then(|| text.to_owned())
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn utf16_offsets_become_character_columns() {
     let edit =
@@ -54,7 +51,6 @@ fn utf16_offsets_become_character_columns() {
     assert_eq!(edits[0].range.path, PathBuf::from("/w/a.ts"));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn utf8_and_utf32_offsets_are_converted_by_their_unit() {
     let utf8 =
@@ -67,7 +63,6 @@ fn utf8_and_utf32_offsets_are_converted_by_their_unit() {
     assert_eq!(texts(&change.changes)[0].range.start, at(1, 9));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn changes_map_is_ordered_by_path_and_position() {
     let edit = json!({"changes": {
@@ -92,7 +87,6 @@ fn changes_map_is_ordered_by_path_and_position() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn unreadable_document_keeps_the_protocol_offsets() {
     let edit = json!({"changes": {"file:///w/a.py": [{"range": range(4, 2, 5), "newText": "y"}]}});
@@ -100,7 +94,6 @@ fn unreadable_document_keeps_the_protocol_offsets() {
     assert_eq!(texts(&change.changes)[0].range.start, at(5, 3));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn document_changes_keep_the_order_of_the_server() {
     let edit = json!({"documentChanges": [
@@ -150,7 +143,6 @@ fn document_changes_keep_the_order_of_the_server() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn text_document_edits_with_annotations_are_converted() {
     let edit = json!({
@@ -167,7 +159,6 @@ fn text_document_edits_with_annotations_are_converted() {
     assert_eq!(edits[0].range.end, at(1, 4));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn offsets_past_the_line_or_the_text_are_clamped() {
     let text = "ab\r\ncd\n";
@@ -211,7 +202,6 @@ fn malformed_answer_fails() {
     assert_eq!(error.kind, SemanticErrorKind::Failed);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn text_with_carriage_returns_and_no_line_feed_is_split_at_the_carriage_returns() {
     let edit =
@@ -223,7 +213,6 @@ fn text_with_carriage_returns_and_no_line_feed_is_split_at_the_carriage_returns(
     assert_eq!(first.range.end, at(3, 3));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn line_feeds_keep_priority_over_carriage_returns() {
     let edit =

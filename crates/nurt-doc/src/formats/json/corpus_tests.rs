@@ -110,7 +110,6 @@ fn reads_every_valid_and_rejects_every_invalid_json_test_suite_case() {
     assert!(failures.is_empty(), "{}", report(&failures, suite.len()));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn edits_every_corpus_document_inside_the_target_span() {
     let root = data_root();

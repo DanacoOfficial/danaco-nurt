@@ -5,8 +5,6 @@
 //! the virtual file system, with the listing double and a scripted
 //! semantic provider.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // Tests report failures by panicking.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -113,7 +111,6 @@ fn notes_of(ctx: &ExecCtx, code: Notable) -> Vec<String> {
         .collect()
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn exact_name_finds_one_definition() {
     let workspace = project();
@@ -135,7 +132,6 @@ fn exact_name_finds_one_definition() {
     assert_eq!(symbol.references, None);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn prefix_match_ranks_the_exact_name_first_and_skips_dependencies() {
     let workspace = project();
@@ -172,7 +168,6 @@ fn prefix_match_ranks_the_exact_name_first_and_skips_dependencies() {
     assert!(paths.contains(&"bin/tool".to_owned()));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn data_files_are_searched_only_when_their_language_is_named() {
     let workspace = project();
@@ -192,7 +187,6 @@ fn data_files_are_searched_only_when_their_language_is_named() {
     assert_eq!(json[0].kind, RecordKind::Field);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn test_files_are_excluded_by_the_tests_preset() {
     let workspace = project();
@@ -204,7 +198,6 @@ fn test_files_are_excluded_by_the_tests_preset() {
     assert!(symbols(&ctx, &excluded).is_empty());
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn glob_restricts_the_searched_files() {
     let workspace = project();
@@ -224,7 +217,6 @@ fn glob_restricts_the_searched_files() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn exclusions_reach_the_listing_service() {
     let workspace = project();
@@ -242,7 +234,6 @@ fn exclusions_reach_the_listing_service() {
     assert_eq!(requests[0].exclude, ["web"]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn kind_and_language_filter_the_symbols() {
     let workspace = project();
@@ -255,7 +246,6 @@ fn kind_and_language_filter_the_symbols() {
     assert_eq!(names(&golang), names(&go));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn exported_only_keeps_public_symbols() {
     let workspace = project();
@@ -287,7 +277,6 @@ fn exported_only_keeps_public_symbols() {
     assert!(python.is_empty());
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn name_list_and_regex_select_several_names() {
     let workspace = project();
@@ -314,7 +303,6 @@ fn name_list_and_regex_select_several_names() {
     assert_eq!(regex, ["parseHeader", "parseUrl"]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn fuzzy_match_is_the_default() {
     let workspace = project();
@@ -324,7 +312,6 @@ fn fuzzy_match_is_the_default() {
     assert_eq!(names(&words), ["ParseRequest"]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn references_are_counted_across_files_of_the_language() {
     let workspace = project();
@@ -343,7 +330,6 @@ fn references_are_counted_across_files_of_the_language() {
     assert!(signature.contains("parse_config(path)"), "{signature}");
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn single_file_is_searched_without_listing() {
     let workspace = project();
@@ -363,7 +349,6 @@ fn single_file_is_searched_without_listing() {
     assert_eq!(names(&relative_path), ["parse", "parse_inner", "Parser"]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn file_of_an_unknown_language_is_rejected() {
     let workspace = project();
@@ -447,7 +432,6 @@ fn server_answers() -> Arc<ScriptedSemantic> {
     })
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn auto_source_asks_the_server_first() {
     let workspace = project();
@@ -499,7 +483,6 @@ fn server_references_are_counted_by_the_server() {
     assert_eq!(found[0].signature.as_deref(), Some("parse()"));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn unavailable_server_falls_back_to_syntax_with_a_note() {
     let workspace = project();
@@ -519,7 +502,6 @@ fn unavailable_server_falls_back_to_syntax_with_a_note() {
     assert!(notes[0].contains("no server for the language"), "{notes:?}");
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn missing_provider_falls_back_to_syntax_with_a_note() {
     let workspace = project();
@@ -552,7 +534,6 @@ fn lsp_source_requires_a_server() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn syntax_source_and_unnamed_searches_do_not_ask_the_server() {
     let workspace = project();
@@ -594,7 +575,6 @@ fn outline_args(pairs: &[(&str, Value)]) -> nurt_contracts::stage::BoundArgs {
     args("code.outline", pairs)
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn outline_lists_symbols_in_source_order_with_signatures() {
     let workspace = project();
@@ -619,7 +599,6 @@ fn outline_lists_symbols_in_source_order_with_signatures() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn outline_depth_limits_nesting() {
     let workspace = project();
@@ -636,7 +615,6 @@ fn outline_depth_limits_nesting() {
     assert_eq!(names(&found), ["Shape", "parse_config", "_private_helper"]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn outline_of_a_language_without_grammar_asks_the_server() {
     let workspace = project();
@@ -668,7 +646,6 @@ fn outline_of_a_language_without_grammar_asks_the_server() {
     assert_eq!(provider.documents(), [path.clone(), path]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn outline_without_grammar_or_server_is_rejected() {
     let workspace = project();

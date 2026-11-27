@@ -1829,7 +1829,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn stage_remove_with_checkpoint_keeps_the_content_and_checks_expected_state() {
         let fixture = Fixture::new(&[("a.txt", "a\n")]);

@@ -10,8 +10,6 @@
 //! code service for indented Python text stands for syntax analysis. Every
 //! test works on a project of three Python files in a temporary directory.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 // The fixtures and the shared test doubles fail the test on a setup error
 // by unwrapping or panicking; clippy exempts only `#[test]` functions.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -629,7 +627,6 @@ fn definition_args(project: &Project, file: &str, extra: &[(&str, Value)]) -> Bo
     args("code.definition", &pairs)
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn definition_answers_from_the_server() {
     let project = Project::new();
@@ -667,7 +664,6 @@ fn definition_answers_from_the_server() {
     assert!(fallback_details(&ctx).is_empty());
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn definition_falls_back_to_syntax_with_the_cause_when_the_server_is_unavailable() {
     let project = Project::new();
@@ -1022,7 +1018,6 @@ fn role_list(project: &Project, found: &[Reference]) -> Vec<(String, u64, u64, R
         .collect()
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn references_from_syntax_analysis_carry_roles_in_path_order() {
     let project = Project::new();
@@ -1155,7 +1150,6 @@ fn references_with_file_scope_stay_in_the_target_file() {
     assert_eq!(error.code(), ErrorCode::InvalidValue);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn references_from_the_server_are_classified_and_deduplicated() {
     let project = Project::new();
@@ -1586,7 +1580,6 @@ fn call_texts(project: &Project, found: &[Reference]) -> Vec<(String, u64, Strin
         .collect()
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn call_hierarchy_from_syntax_lists_callers_with_multiplicity() {
     let project = Project::new();
@@ -1629,7 +1622,6 @@ fn call_hierarchy_from_syntax_lists_callers_with_multiplicity() {
     assert!(found.iter().all(|item| item.source == SymbolSource::Syntax));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn call_hierarchy_from_syntax_lists_callees_of_the_body() {
     let project = Project::new();
@@ -1658,7 +1650,6 @@ fn call_hierarchy_from_syntax_lists_callees_of_the_body() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn call_hierarchy_from_the_server_keeps_direction_and_call_count() {
     let project = Project::new();
@@ -1896,7 +1887,6 @@ fn diagnostics_from_the_server_are_filtered_ordered_and_deduplicated() {
     assert_eq!(found[0].language.as_deref(), Some("python"));
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn diagnostics_of_a_directory_fall_back_to_syntax_with_one_note_per_cause() {
     let project = Project::new();
@@ -1919,7 +1909,6 @@ fn diagnostics_of_a_directory_fall_back_to_syntax_with_one_note_per_cause() {
     assert_eq!(fallback_details(&ctx).len(), 1);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn diagnostics_with_changed_check_only_changed_files() {
     let project = Project::new();

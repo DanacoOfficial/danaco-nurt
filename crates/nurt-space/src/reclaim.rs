@@ -741,7 +741,6 @@ mod tests {
         assert_eq!(parallelism(true, VolumeState::Emergency, cores(12)), 12);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn release_entry_moves_to_reclaim_area_removes_and_writes_tombstone() {
         let volume = TestVolume::new(10_000);

@@ -3570,7 +3570,6 @@ mod tests {
         assert!(env.pending(0).is_empty());
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn failed_flush_before_the_commit_rolls_the_bulk_operation_back() {
         let env = Env::new();
@@ -3705,7 +3704,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn changed_account_after_replacement_reverts_to_a_copy() {
         let env = Env::new();
@@ -3770,7 +3768,6 @@ mod tests {
         assert_eq!(env.read(&path), b"new");
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn file_with_several_links_is_written_in_place() {
         let env = Env::new();
@@ -3847,7 +3844,6 @@ mod tests {
         assert_eq!(env.read(&path), b"head body");
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn deletion_moves_a_file_or_a_whole_tree_with_one_rename() {
         let env = Env::new();
@@ -3897,7 +3893,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn deleting_a_file_with_other_names_holds_no_bytes() {
         let env = Env::new();
@@ -4143,7 +4138,6 @@ mod tests {
         assert_eq!(preserved[0].irreversible, Some(Irreversible::SpecialFile));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn operation_on_two_volumes_has_one_number_and_commits_after_all_changes() {
         let env = Env::new();
@@ -4183,7 +4177,6 @@ mod tests {
         assert!(manifests_final < first_commit);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn overlay_lower_layer_is_preserved_by_copy() {
         let env = Env::new();
@@ -4487,7 +4480,6 @@ mod tests {
         assert!(env.pending(0).is_empty());
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn overwrite_keeps_the_mode_and_gives_the_new_content_the_time_of_the_write() {
         let env = Env::new();
@@ -4852,7 +4844,6 @@ mod tests {
         .unwrap_err();
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn protocol_steps_happen_in_order() {
         let env = Env::new();
@@ -5053,7 +5044,6 @@ mod tests {
         assert!(env.manifest(0, 1).expires.is_some());
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn marker_exists_from_before_the_entry_until_after_the_terminal_state() {
         let env = Env::new();
@@ -5339,7 +5329,6 @@ mod tests {
         )
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn every_change_is_durable_before_the_committed_state() {
         let overwrites = [
@@ -5418,7 +5407,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn restored_targets_are_durable_before_the_rollback_ends() {
         let env = Env::new();

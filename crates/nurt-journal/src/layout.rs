@@ -1020,7 +1020,6 @@ mod tests {
         assert_eq!(highest_number(&fs, &journal), Ok(None));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn listings_return_sorted_entry_numbers_and_ignore_foreign_names() {
         let fs = journal_fs();
@@ -1044,7 +1043,6 @@ mod tests {
         assert_eq!(pending_entries(&fs, &journal), Ok(vec![OpId(5)]));
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn highest_number_covers_every_directory_of_the_journal() {
         let fs = journal_fs();

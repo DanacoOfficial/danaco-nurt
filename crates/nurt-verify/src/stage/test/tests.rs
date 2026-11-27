@@ -476,7 +476,6 @@ fn run_with_a_command_and_a_named_framework_runs_the_command_unchanged() {
     assert_eq!(command_of(&preview), ["gotestsum", "--"]);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn run_prefers_the_program_installed_in_the_project() {
     let project = tempfile::tempdir().unwrap();

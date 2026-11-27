@@ -340,7 +340,6 @@ mod tests {
         gix_object::compute_hash(repo.gix().object_hash(), gix_object::Kind::Blob, data).unwrap()
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn absolute_paths_outside_the_working_tree_are_rejected() {
         let root = Path::new("/srv/repo");

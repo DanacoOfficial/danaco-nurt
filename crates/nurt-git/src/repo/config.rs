@@ -471,7 +471,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn tilde_in_path_values_is_expanded_with_the_context_home() {
         let local = parse("[core]\n\texcludesFile = ~/.ignore\n");

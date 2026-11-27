@@ -8,8 +8,6 @@
 //! formatting of unchanged content, queries documents with `jq` filters and
 //! runs SQL statements on SQLite databases.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 

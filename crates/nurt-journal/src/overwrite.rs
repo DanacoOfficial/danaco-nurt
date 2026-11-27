@@ -335,7 +335,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn hard_link_is_durable_before_the_target_changes() {
         let fixture = Fixture::new();

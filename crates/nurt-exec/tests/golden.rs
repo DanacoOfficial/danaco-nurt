@@ -5,8 +5,6 @@
 //! document is planned with the catalog and executed on a virtual file
 //! system with mock sources and effects next to the record stages.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -124,7 +122,6 @@ fn temporary_files(world: &World) -> Vec<Record> {
         .collect()
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn removes_the_listed_files_in_one_operation() {
     let world = World::new();
@@ -144,7 +141,6 @@ fn removes_the_listed_files_in_one_operation() {
     assert!(effect.applied && effect.bulk);
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn previews_the_removal_without_changing_files() {
     let world = World::new();

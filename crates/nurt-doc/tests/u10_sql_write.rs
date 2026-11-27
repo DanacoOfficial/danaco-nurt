@@ -5,8 +5,6 @@
 //! journal: preservation of the database and its journal files, one
 //! transaction, rollback after errors and undo to the previous bytes.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(windows, allow(dead_code, unused_imports))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -164,7 +162,6 @@ fn undo_restores_database_bytes() {
     );
 }
 
-#[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
 #[test]
 fn undo_restores_wal_side_files() {
     let dir = tempfile::tempdir().unwrap();

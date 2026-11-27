@@ -1012,7 +1012,6 @@ mod tests {
         assert_eq!(meta(&test, "/data/a.txt").mode, 0o644);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn current_input_entries_are_changed() {
         let test = TestContext::new();
@@ -1032,7 +1031,6 @@ mod tests {
         assert_eq!(meta(&test, "/data/a.txt").mode, 0o744);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn recursive_changes_reach_entries_below_and_skip_links() {
         let test = TestContext::new();
@@ -1059,7 +1057,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn recursive_on_a_file_changes_the_file_only() {
         let test = TestContext::new();
@@ -1073,7 +1070,6 @@ mod tests {
         assert_eq!(meta(&test, "/data/a.txt").mode, 0o600);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn an_entry_reached_twice_is_one_target() {
         let test = TestContext::new();
@@ -1481,7 +1477,6 @@ mod tests {
         assert_eq!(after.acl, before.acl);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn links_change_the_entry_they_resolve_to() {
         let test = TestContext::new();

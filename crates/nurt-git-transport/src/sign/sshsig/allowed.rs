@@ -357,7 +357,6 @@ mod tests {
         assert_eq!(find(&content, Some(AT), 0), None);
     }
 
-    #[cfg(unix)] // the test writes POSIX absolute paths, which Windows reads as relative
     #[test]
     fn treats_missing_files_as_empty_and_unreadable_ones_as_errors() {
         let dir = tempfile::tempdir().expect("tempdir");

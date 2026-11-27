@@ -8,8 +8,6 @@
 //! and change attributes, compare and patch files, compute hashes and convert
 //! encodings, and the commands of archives, compression and notebooks.
 
-// Tests that write POSIX paths run on Unix only; their helpers are unused on Windows.
-#![cfg_attr(all(test, windows), allow(dead_code, unused_imports))]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
